@@ -2491,3 +2491,29 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Keep auxiliary room bottoms near the ground while expanding most room volume upward.
 - [x] Update editor guidance and generator regressions for collision-aware overlap and enlarged wide caverns.
 - [x] Pass the 133-test fast suite, all nine generator regressions, and a 96-draft route/cavern compatibility matrix.
+
+## Revision 257 automatic-generator legacy cleanup
+
+- [x] Advance the automatic generator schema to version 19 and runtime revision to 257.
+- [x] Physically remove retired route and cavern builders rather than leaving unreachable dispatch branches.
+- [x] Rename the surviving traversal builder to `buildStandardTraversal` and collapse it to current Standard/Mostly-horizontal behavior.
+- [x] Remove optional-branch route planning, shaft construction, reward-destination, preview, and validation plumbing.
+- [x] Remove retired `branchStep`/`shaftBridge` platform roles and branch-only reward contexts from data catalogs.
+- [x] Replace branch-era reward reroll rebuilding with reward-entity-only regeneration that preserves terrain and encounters exactly.
+- [x] Remove the now-unused encounter re-anchoring helper.
+- [x] Rename stale branch/longform metrics and treasure-score fields while retaining old-input normalization where needed.
+- [x] Remove branch controls, legends, status text, and transition colouring from the Level Editor.
+- [x] Prune branch-only assertions and repeated legacy-validation fixtures from generator tests.
+- [x] Retain one focused migration test for old saved implementation IDs.
+- [x] Add regressions proving retired functions, catalog roles, reward contexts, and editor controls remain absent.
+
+## Revision 258 current-schema-only generator cleanup
+
+- [x] Remove the retired implementation-ID migration table.
+- [x] Reject unsupported explicit generator implementation IDs with a clear stage-specific error.
+- [x] Keep omitted implementation stages defaulting to the current registry choice.
+- [x] Remove the `branchChestScore` normalization fallback.
+- [x] Remove route-node and route-edge `branchId` normalization.
+- [x] Remove the Level Editor `automaticGeneration`, nested generation-run, prefix-owner, and `generationBranchId` fallbacks.
+- [x] Require current generator identity and matching route implementation when normalizing generator metadata.
+- [x] Replace migration tests with strict-rejection and source-absence regressions.

@@ -6,7 +6,6 @@
       "entityType": "treasureChest",
       "category": "treasure",
       "contexts": [
-        "branchDestination",
         "secondaryPerch"
       ],
       "weight": 1,
@@ -49,7 +48,6 @@
       "entityType": "randomWrenchPickup",
       "category": "powerUp",
       "contexts": [
-        "branchBonus",
         "beforeLargeEncounter"
       ],
       "weight": 0.72,

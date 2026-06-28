@@ -3,15 +3,11 @@ import {
     generateCavePerimeterPlacements
 } from "./cave-window-decoration.js";
 
-export const AUTOMATIC_LEVEL_GENERATOR_VERSION = 18;
+export const AUTOMATIC_LEVEL_GENERATOR_VERSION = 20;
 export const AUTOMATIC_LEVEL_GENERATOR_ID = "automatic-level-generator-9";
 
 const GENERATED_PLAYER_BODY_WIDTH = 34;
-const GENERATED_PLAYER_BODY_HEIGHT = 104;
 const GENERATED_STATIC_HEADROOM = 112;
-const BRANCH_SHAFT_SIDE_CLEARANCE = 8;
-const BRANCH_SHAFT_WIDTH = 116;
-const BRANCH_STAIR_LATERAL_OFFSET = 20;
 
 export const LEVEL_GENERATOR_STAGE_ORDER = Object.freeze([
     "route",
@@ -53,40 +49,6 @@ export const LEVEL_GENERATOR_REGISTRIES = Object.freeze({
     ])
 });
 
-const LEGACY_GENERATOR_IMPLEMENTATION_ALIASES = Object.freeze({
-    route: Object.freeze({
-        "spatial-lane-route-v3": "the-path74-route-v4",
-        "macro-room-route-v2": "the-path74-route-v4",
-        "progression-route-v1": "mostly-horizontal-route-v1"
-    }),
-    cavern: Object.freeze({
-        "contour-cavern-v3": "the-path74-contour-cavern-v4",
-        "room-and-tunnel-cavern-v2": "the-path74-contour-cavern-v4",
-        "ellipse-cavern-v1": "the-path74-contour-cavern-v4",
-        "route-preview-only": "the-path74-contour-cavern-v4"
-    }),
-    traversal: Object.freeze({
-        "longform-organic-traversal-v5": "layered-safety-network-traversal-v6",
-        "organic-layered-traversal-v4": "layered-safety-network-traversal-v6",
-        "layered-recovery-traversal-v3": "layered-safety-network-traversal-v6",
-        "spaced-platform-traversal-v2": "layered-safety-network-traversal-v6",
-        "forgiving-traversal-v1": "layered-safety-network-traversal-v6",
-        "not-generated-yet": "layered-safety-network-traversal-v6"
-    }),
-    endpoints: Object.freeze({
-        "safe-endpoints-v1": "grounded-chamber-endpoints-v2",
-        "abstract-right-exit-v1": "grounded-chamber-endpoints-v2"
-    }),
-    validation: Object.freeze({
-        "folded-cavern-validation-v3": "the-path74-cavern-validation-v4",
-        "room-and-tunnel-validation-v2": "the-path74-cavern-validation-v4",
-        "playable-reward-cavern-validation-v1": "the-path74-cavern-validation-v4",
-        "playable-encounter-cavern-validation-v1": "the-path74-cavern-validation-v4",
-        "playable-empty-cavern-validation-v1": "the-path74-cavern-validation-v4",
-        "route-graph-validation-v1": "the-path74-cavern-validation-v4"
-    })
-});
-
 const INTERNAL_GENERATOR_IMPLEMENTATIONS = Object.freeze({
     encounters: Object.freeze(new Set(["not-generated-yet"])),
     rewards: Object.freeze(new Set(["not-generated-yet"])),
@@ -107,7 +69,7 @@ export const DEFAULT_GENERATOR_STAGE_REVISIONS = Object.freeze({
 
 export const STAGE_SPECIFIC_REGENERATION_OPTIONS = Object.freeze([
     Object.freeze({ id: "encounters", label: "Encounters only", dependentStages: Object.freeze(["encounters", "validation"]) }),
-    Object.freeze({ id: "rewards", label: "Rewards + branch detours", dependentStages: Object.freeze(["rewards", "traversal", "cavern", "endpoints", "validation"]) }),
+    Object.freeze({ id: "rewards", label: "Rewards", dependentStages: Object.freeze(["rewards", "validation"]) }),
     Object.freeze({ id: "validation", label: "Validation only", dependentStages: Object.freeze(["validation"]) })
 ]);
 
@@ -122,7 +84,6 @@ export const DEFAULT_GENERATOR_SETTINGS = Object.freeze({
     length: "standard",
     verticality: 0.45,
     winding: 0.35,
-    branching: 0.35,
     difficulty: 0.35,
     safety: 0.72,
     enemyDensity: 0.42,
@@ -190,7 +151,7 @@ const DEFAULT_THEME = Object.freeze({
     rewards: Object.freeze({
         endpointExclusionDistance: 760,
         minimumRewardSpacing: 480,
-        branchChestScore: 100,
+        treasureChestScore: 100,
         maximumContextualPowerUps: 3,
         thoughtChance: 0.34,
         maximumThoughts: 1,
@@ -295,7 +256,7 @@ export function normalizeGeneratorTheme(value) {
         rewards: {
             endpointExclusionDistance: clampNumber(rewardsSource.endpointExclusionDistance, 420, 1400, DEFAULT_THEME.rewards.endpointExclusionDistance),
             minimumRewardSpacing: clampNumber(rewardsSource.minimumRewardSpacing, 240, 1000, DEFAULT_THEME.rewards.minimumRewardSpacing),
-            branchChestScore: Math.round(clampNumber(rewardsSource.branchChestScore, 25, 1000, DEFAULT_THEME.rewards.branchChestScore)),
+            treasureChestScore: Math.round(clampNumber(rewardsSource.treasureChestScore, 25, 1000, DEFAULT_THEME.rewards.treasureChestScore)),
             maximumContextualPowerUps: Math.round(clampNumber(rewardsSource.maximumContextualPowerUps, 0, 8, DEFAULT_THEME.rewards.maximumContextualPowerUps)),
             thoughtChance: clamp01(rewardsSource.thoughtChance ?? DEFAULT_THEME.rewards.thoughtChance),
             maximumThoughts: Math.round(clampNumber(rewardsSource.maximumThoughts, 0, 3, DEFAULT_THEME.rewards.maximumThoughts)),
@@ -329,7 +290,6 @@ export function normalizeGeneratorSettings(value, fallback = DEFAULT_GENERATOR_S
         length: LEVEL_LENGTH_PRESETS[requestedLength] ? requestedLength : DEFAULT_GENERATOR_SETTINGS.length,
         verticality: clamp01(source.verticality ?? base.verticality),
         winding: clamp01(source.winding ?? base.winding),
-        branching: clamp01(source.branching ?? base.branching),
         difficulty: clamp01(source.difficulty ?? base.difficulty),
         safety: clamp01(source.safety ?? base.safety),
         enemyDensity: clamp01(source.enemyDensity ?? base.enemyDensity),
@@ -344,13 +304,16 @@ export function normalizeGeneratorImplementations(value) {
     const normalized = {};
     for (const stage of LEVEL_GENERATOR_STAGE_ORDER) {
         const registry = LEVEL_GENERATOR_REGISTRIES[stage] || [];
-        const requested = String(source[stage] || "");
-        const migrated = LEGACY_GENERATOR_IMPLEMENTATION_ALIASES[stage]?.[requested] || requested;
-        normalized[stage] = registry.some((entry) => entry.id === migrated)
-            ? migrated
-            : INTERNAL_GENERATOR_IMPLEMENTATIONS[stage]?.has(migrated)
-                ? migrated
-                : (registry[0]?.id || "");
+        const requested = String(source[stage] || "").trim();
+        if (!requested) {
+            normalized[stage] = registry[0]?.id || "";
+            continue;
+        }
+        if (registry.some((entry) => entry.id === requested) || INTERNAL_GENERATOR_IMPLEMENTATIONS[stage]?.has(requested)) {
+            normalized[stage] = requested;
+            continue;
+        }
+        throw new Error(`Unsupported ${stage} generator implementation “${requested}”.`);
     }
     return normalized;
 }
@@ -381,14 +344,10 @@ function generationOwnershipStage(record) {
     return String(record?.generationStage || record?.manualizedFromGeneration?.stage || "");
 }
 
-function generationOwnershipRunId(record) {
-    return String(record?.generationRunId || record?.generation?.runId || record?.manualizedFromGeneration?.runId || "");
-}
 
 function hasGenerationStageProvenance(record, stage) {
     if (!record || generationOwnershipStage(record) !== stage) return false;
     return record.generatedBy === AUTOMATIC_LEVEL_GENERATOR_ID
-        || String(record.generatedBy || "").startsWith("automatic-level-generator")
         || Boolean(record.manualizedFromGeneration);
 }
 
@@ -761,98 +720,50 @@ function normalizeEnemyCatalogDefinitions(value) {
 }
 
 
-function routeBranchDescriptors(route) {
-    const nodes = Array.isArray(route?.nodes) ? route.nodes : [];
-    const edges = Array.isArray(route?.edges) ? route.edges : [];
-    const grouped = groupBy(nodes.filter((node) => !node.mandatory && node.branchId), (node) => node.branchId);
-    return [...grouped.entries()].map(([branchId, branchNodes]) => {
-        const sortedNodes = [...branchNodes].sort((a, b) => Number(a.progress) - Number(b.progress));
-        const branchEdges = edges.filter((edge) => edge.branchId === branchId);
-        const rewardNode = [...sortedNodes].reverse().find((node) => node.kind === "optionalReward") || sortedNodes.at(-1);
-        return {
-            branchId,
-            nodes: sortedNodes,
-            edges: branchEdges,
-            rewardNodeId: rewardNode?.id || "",
-            rewardX: rewardNode ? Number(rewardNode.x) || 0 : 0,
-            rewardY: rewardNode ? Number(rewardNode.y) || 0 : 0,
-            progress: rewardNode ? Number(rewardNode.progress) || 0 : 0,
-            depth: sortedNodes.length,
-            verticalExcursion: sortedNodes.length
-                ? Math.max(...sortedNodes.map((node) => Number(node.y) || 0)) - Math.min(...sortedNodes.map((node) => Number(node.y) || 0))
-                : 0
-        };
-    }).filter((branch) => branch.rewardNodeId && branch.edges.length >= 2)
-        .sort((a, b) => a.progress - b.progress || a.branchId.localeCompare(b.branchId));
-}
 
-function planBasicRewards({ route, theme, settings, rng, runId, implementationId }) {
-    const allBranches = routeBranchDescriptors(route);
-    const routeNodes = Array.isArray(route?.nodes) ? route.nodes : [];
-    const entranceX = Number(routeNodes.find((node) => node.id === route?.startNodeId)?.x) || 0;
-    const exitX = Number(routeNodes.find((node) => node.id === route?.exitNodeId)?.x) || 0;
-    const branches = allBranches.filter((branch) =>
-        Math.min(Math.abs(branch.rewardX - entranceX), Math.abs(branch.rewardX - exitX)) >= theme.rewards.endpointExclusionDistance
-    );
-    if (implementationId !== "basic-rewards-v1" || settings.rewardDensity <= 0.001 || !branches.length) {
-        return {
-            version: 1,
-            generatorId: implementationId,
-            runId,
-            selectedBranchIds: [],
-            rankedBranchIds: [],
-            targetBranchCount: 0,
-            availableBranchIds: branches.map((branch) => branch.branchId),
-            contextualRewardTarget: 0,
-            allowThoughts: false
-        };
-    }
-    let target = Math.round(branches.length * settings.rewardDensity);
-    if (settings.rewardDensity >= 0.24 && target === 0) target = 1;
-    target = Math.min(branches.length, target);
-    const ranked = rng.shuffle(branches).map((branch) => ({
-        branch,
-        score: branch.depth * 2.4
-            + Math.min(2, branch.verticalExcursion / Math.max(1, theme.route.verticalStep))
-            + (branch.progress > 1.5 ? 1 : 0)
-            + rng.range(0, 1.5)
-    })).sort((a, b) => b.score - a.score || a.branch.branchId.localeCompare(b.branch.branchId));
-    const mainNodes = (route?.nodes || []).filter((node) => node.mandatory).length;
-    const contextualRewardTarget = Math.min(
-        theme.rewards.maximumContextualPowerUps,
-        Math.max(0, Math.floor(settings.rewardDensity * (1 + mainNodes / 5.5)))
-    );
+function planBasicRewards({ route, theme, settings, runId, implementationId }) {
+    const mainNodeCount = (route?.nodes || []).filter((node) => node.mandatory !== false).length;
+    const perchCapacity = settings.length === "grand" ? 4 : settings.length === "extended" ? 3 : settings.length === "standard" ? 2 : 1;
+    let treasureTarget = implementationId === "basic-rewards-v1"
+        ? Math.round(perchCapacity * settings.rewardDensity)
+        : 0;
+    if (settings.rewardDensity >= 0.24 && treasureTarget === 0) treasureTarget = 1;
+    treasureTarget = Math.min(perchCapacity, treasureTarget);
+    const contextualRewardTarget = implementationId === "basic-rewards-v1"
+        ? Math.min(
+            theme.rewards.maximumContextualPowerUps,
+            Math.max(0, Math.floor(settings.rewardDensity * (1 + mainNodeCount / 5.5)))
+        )
+        : 0;
     return {
-        version: 1,
+        version: 2,
         generatorId: implementationId,
         runId,
-        selectedBranchIds: ranked.slice(0, target).map((entry) => entry.branch.branchId).sort(),
-        rankedBranchIds: ranked.map((entry) => entry.branch.branchId),
-        targetBranchCount: target,
-        availableBranchIds: branches.map((branch) => branch.branchId),
+        treasureTarget,
         contextualRewardTarget,
-        allowThoughts: Boolean(settings.allowThoughts && theme.rewards.maximumThoughts > 0 && theme.rewards.thoughts.length)
+        allowThoughts: Boolean(
+            implementationId === "basic-rewards-v1"
+            && settings.allowThoughts
+            && theme.rewards.maximumThoughts > 0
+            && theme.rewards.thoughts.length
+        )
     };
 }
 
 function emptyRewardPopulation(runId, implementationId = "not-generated-yet", plan = null) {
     return {
-        version: 1,
+        version: 2,
         generatorId: String(implementationId || "not-generated-yet"),
         runId: String(runId || ""),
-        selectedBranchIds: normalizeStringArray(plan?.selectedBranchIds),
-        rankedBranchIds: normalizeStringArray(plan?.rankedBranchIds),
-        targetBranchCount: Math.max(0, Math.floor(Number(plan?.targetBranchCount) || 0)),
-        availableBranchIds: normalizeStringArray(plan?.availableBranchIds),
+        treasureTarget: Math.max(0, Math.floor(Number(plan?.treasureTarget) || 0)),
         contextualRewardTarget: Math.max(0, Math.floor(Number(plan?.contextualRewardTarget) || 0)),
-        perchChestTarget: Math.max(0, Math.floor(Number(plan?.perchChestTarget) || 0)),
         selectedPerchSupportIds: normalizeStringArray(plan?.selectedPerchSupportIds),
         rewards: [],
         entities: []
     };
 }
 
-function instantiateGeneratedCatalogEntity({ id, type, definition, x, y, runId, role, support, branchId, routeNodeId, context, overrides = {} }) {
+function instantiateGeneratedCatalogEntity({ id, type, definition, x, y, runId, role, support, routeNodeId, context, overrides = {} }) {
     const visualStates = {};
     const stateLabels = {};
     for (const [stateId, stateDefinition] of Object.entries(definition.states || {})) {
@@ -877,7 +788,6 @@ function instantiateGeneratedCatalogEntity({ id, type, definition, x, y, runId, 
         generationStage: "rewards",
         generationRole: role,
         generationSupportId: support.id,
-        generationBranchId: branchId || undefined,
         routeNodeId: routeNodeId || support.routeNodeId || undefined,
         generationContext: context,
         generatorId: "basic-rewards-v1",
@@ -926,14 +836,14 @@ function buildBasicRewards({
     const occupiedSupportIds = new Set();
     const occupiedPositions = [];
     const selectedPerchSupportIds = [];
-    const perchChestTarget = Math.max(0, Math.floor(Number(rewardPlan?.perchChestTarget) || 0));
+    const perchChestTarget = Math.max(0, Math.floor(Number(rewardPlan?.treasureTarget) || 0));
     const endpointXs = [
         finiteNumber(endpoints?.entrance?.x, supportById.get(traversal.startSupportId)?.centerX || 0),
         finiteNumber(endpoints?.exit?.x, supportById.get(traversal.exitSupportId)?.centerX || 0)
     ];
     const maximumRouteProgress = Math.max(1, ...(route?.nodes || []).filter((node) => node.mandatory).map((node) => Number(node.progress) || 0));
 
-    const addReward = ({ type, support, context, branchId = "", routeNodeId = "", x = support.centerX, overrides = {} }) => {
+    const addReward = ({ type, support, context, routeNodeId = "", x = support.centerX, overrides = {} }) => {
         const metadata = metadataByType.get(type);
         const definition = entityCatalog.get(type);
         if (!metadata || !definition || !support) return null;
@@ -963,7 +873,6 @@ function buildBasicRewards({
             runId,
             role: metadata.category,
             support,
-            branchId,
             routeNodeId,
             context,
             overrides
@@ -977,7 +886,6 @@ function buildBasicRewards({
             context,
             supportId: support.id,
             routeNodeId: routeNodeId || support.routeNodeId || "",
-            branchId: branchId || "",
             x: entity.x,
             y: entity.y
         });
@@ -985,20 +893,6 @@ function buildBasicRewards({
         occupiedPositions.push({ x: entity.x, y: entity.y });
         return entity;
     };
-
-    for (const branchId of rewardPlan.selectedBranchIds) {
-        const branchNodes = (route?.nodes || []).filter((node) => node.branchId === branchId).sort((a, b) => Number(a.progress) - Number(b.progress));
-        const rewardNode = [...branchNodes].reverse().find((node) => node.kind === "optionalReward") || branchNodes.at(-1);
-        const support = supports.find((candidate) => candidate.branchId === branchId && candidate.routeNodeId === rewardNode?.id);
-        addReward({
-            type: "treasureChest",
-            support,
-            context: "branchDestination",
-            branchId,
-            routeNodeId: rewardNode?.id,
-            overrides: { scoreValue: theme.rewards.branchChestScore }
-        });
-    }
 
     if (perchChestTarget > 0) {
         const perchCandidates = rng.shuffle(supports.filter((support) =>
@@ -1014,7 +908,7 @@ function buildBasicRewards({
                 support,
                 context: "secondaryPerch",
                 routeNodeId: support.routeNodeId,
-                overrides: { scoreValue: theme.rewards.branchChestScore }
+                overrides: { scoreValue: theme.rewards.treasureChestScore }
             });
             if (entity) selectedPerchSupportIds.push(support.id);
         }
@@ -1107,13 +1001,11 @@ function buildBasicRewards({
     }
 
     return {
-        version: 1,
+        version: 2,
         generatorId: "basic-rewards-v1",
         runId,
-        selectedBranchIds: [...rewardPlan.selectedBranchIds],
-        availableBranchIds: [...rewardPlan.availableBranchIds],
+        treasureTarget: perchChestTarget,
         contextualRewardTarget: rewardPlan.contextualRewardTarget,
-        perchChestTarget,
         selectedPerchSupportIds,
         rewards,
         entities
@@ -1358,19 +1250,16 @@ export function validateGeneratedCavernPresentation(value = {}) {
         }
     }
 
-    const v2 = ["the-path74-contour-cavern-v4", "wide-upper-contour-cavern-v1"].includes(cavern.generatorId);
     const wideUpperCavern = cavern.generatorId === "wide-upper-contour-cavern-v1";
-    if (v2) {
-        const tolerance = 42;
-        if (metrics.minimumPlatformWallClearance < theme.cavern.platformWallClearanceX - 1) {
-            errors.push(`A traversal platform has only ${roundCoordinate(metrics.minimumPlatformWallClearance)} units of horizontal cave-wall clearance.`);
-        }
-        if (metrics.minimumPlatformCeilingClearance < theme.cavern.platformCeilingClearance - tolerance) {
-            errors.push(`A traversal platform has only ${roundCoordinate(metrics.minimumPlatformCeilingClearance)} units of ceiling clearance.`);
-        }
-        if (metrics.minimumPlatformFloorClearance < theme.cavern.platformFloorClearance - tolerance) {
-            errors.push(`A traversal platform has only ${roundCoordinate(metrics.minimumPlatformFloorClearance)} units of floor clearance.`);
-        }
+    const tolerance = 42;
+    if (metrics.minimumPlatformWallClearance < theme.cavern.platformWallClearanceX - 1) {
+        errors.push(`A traversal platform has only ${roundCoordinate(metrics.minimumPlatformWallClearance)} units of horizontal cave-wall clearance.`);
+    }
+    if (metrics.minimumPlatformCeilingClearance < theme.cavern.platformCeilingClearance - tolerance) {
+        errors.push(`A traversal platform has only ${roundCoordinate(metrics.minimumPlatformCeilingClearance)} units of ceiling clearance.`);
+    }
+    if (metrics.minimumPlatformFloorClearance < theme.cavern.platformFloorClearance - tolerance) {
+        errors.push(`A traversal platform has only ${roundCoordinate(metrics.minimumPlatformFloorClearance)} units of floor clearance.`);
     }
 
     const bounds = cavern.bounds || {};
@@ -1384,7 +1273,7 @@ export function validateGeneratedCavernPresentation(value = {}) {
             metrics.minimumEndpointSideClearance = Math.min(metrics.minimumEndpointSideClearance, sideClearance);
         }
     }
-    if (v2 && metrics.minimumEndpointSideClearance < theme.cavern.endpointSideClearance - 20) {
+    if (metrics.minimumEndpointSideClearance < theme.cavern.endpointSideClearance - 20) {
         errors.push(`An endpoint door is only ${roundCoordinate(metrics.minimumEndpointSideClearance)} units from the dark cave boundary.`);
     }
     if (metrics.maximumDoorFloorError > 2) errors.push(`An endpoint doorway floats ${roundCoordinate(metrics.maximumDoorFloorError)} units above or below its support.`);
@@ -1398,8 +1287,8 @@ export function validateGeneratedCavernPresentation(value = {}) {
             errors.push(`Macro room “${room.id}” exceeds the ${maximumRoomWidthScreens}×${maximumRoomHeightScreens}-screen design ceiling.`);
         }
     }
-    if (v2 && !metrics.macroRoomCount) errors.push("The room-and-tunnel cavern contains no macro room.");
-    if (v2 && metrics.largestRoomWidthScreens <= 1 && metrics.largestRoomHeightScreens <= 1) errors.push("The room-and-tunnel cavern never opens beyond a single screen.");
+    if (!metrics.macroRoomCount) errors.push("The room-and-tunnel cavern contains no macro room.");
+    if (metrics.largestRoomWidthScreens <= 1 && metrics.largestRoomHeightScreens <= 1) errors.push("The room-and-tunnel cavern never opens beyond a single screen.");
 
     for (const key of ["minimumPlatformCeilingClearance", "minimumPlatformFloorClearance", "minimumPlatformWallClearance", "minimumEndpointSideClearance"]) {
         if (!Number.isFinite(metrics[key])) metrics[key] = 0;
@@ -1467,33 +1356,18 @@ export function generateAutomaticLevelDraft(options = {}) {
                 route: routeGeneration.route,
                 theme,
                 settings: routeGeneration.settings,
-                rng: rewardsRng,
                 runId: routeGeneration.runId,
                 implementationId: implementations.rewards
             });
-            const usePerchTreasure = implementations.traversal === "layered-safety-network-traversal-v6";
-            const traversal = buildForgivingTraversal({
+            const traversal = buildStandardTraversal({
                 route: routeGeneration.route,
                 theme,
                 settings: routeGeneration.settings,
                 implementations,
                 assetCatalog,
                 rng: traversalRng,
-                runId: routeGeneration.runId,
-                selectedBranchIds: usePerchTreasure
-                    ? []
-                    : rewardPlan.targetBranchCount > 0
-                        ? (rewardPlan.rankedBranchIds || rewardPlan.selectedBranchIds)
-                        : [],
-                branchTargetCount: usePerchTreasure
-                    ? 0
-                    : rewardPlan.targetBranchCount ?? rewardPlan.selectedBranchIds.length
+                runId: routeGeneration.runId
             });
-            const effectiveRewardPlan = {
-                ...rewardPlan,
-                selectedBranchIds: [...traversal.materializedBranchIds],
-                perchChestTarget: usePerchTreasure ? rewardPlan.targetBranchCount : 0
-            };
             const endpoints = buildSafeEndpoints({
                 route: routeGeneration.route,
                 traversal,
@@ -1560,13 +1434,13 @@ export function generateAutomaticLevelDraft(options = {}) {
                     encounters,
                     theme,
                     settings: routeGeneration.settings,
-                    rewardPlan: effectiveRewardPlan,
+                    rewardPlan,
                     rewardGenerationCatalog,
                     entityCatalog,
                     rng: rewardsRng,
                     runId: routeGeneration.runId
                 })
-                : emptyRewardPopulation(routeGeneration.runId, implementations.rewards, effectiveRewardPlan);
+                : emptyRewardPopulation(routeGeneration.runId, implementations.rewards, rewardPlan);
             const rewardValidation = validateGeneratedRewards({
                 rewards,
                 entities: rewards.entities,
@@ -1595,30 +1469,18 @@ export function generateAutomaticLevelDraft(options = {}) {
         }
         // Inspect a meaningful pool rather than accepting the first buildable graph.
         // Additional attempts are only needed when geometry candidates are scarce.
-        const rewardCandidateReady = implementations.rewards !== "basic-rewards-v1"
-            || completeCandidates.some((candidate) =>
-                candidate.traversal.requestedBranchCount === 0
-                || candidate.traversal.materializedBranchIds.length > 0
-            );
-        if (geometryCandidatesTried >= 12 && completeCandidates.length >= 6 && rewardCandidateReady) break;
+        if (geometryCandidatesTried >= 12 && completeCandidates.length >= 6) break;
     }
 
     if (!completeCandidates.length) {
         const detail = geometryRejected.slice(0, 4).map((item) => `Attempt ${item.attempt}: ${item.reason}`).join(" ");
         throw new Error(`No collision-safe cavern candidate was found after ${geometryCandidatesTried} route attempts.${detail ? ` ${detail}` : ""}`);
     }
-    const branchCoverage = (candidate) => {
-        const requested = Math.max(0, Number(candidate.traversal.requestedBranchCount) || 0);
-        const materialized = candidate.traversal.materializedBranchIds.length;
-        return requested > 0 ? materialized / requested : 1;
-    };
     completeCandidates.sort((a, b) =>
-        branchCoverage(b) - branchCoverage(a) ||
-        b.traversal.materializedBranchIds.length - a.traversal.materializedBranchIds.length ||
-        b.validation.qualityScore - a.validation.qualityScore ||
-        a.validation.warnings.length - b.validation.warnings.length ||
-        b.routeGeneration.route.validation.qualityScore - a.routeGeneration.route.validation.qualityScore ||
-        a.routeGeneration.attempt - b.routeGeneration.attempt
+        b.validation.qualityScore - a.validation.qualityScore
+        || a.validation.warnings.length - b.validation.warnings.length
+        || b.routeGeneration.route.validation.qualityScore - a.routeGeneration.route.validation.qualityScore
+        || a.routeGeneration.attempt - b.routeGeneration.attempt
     );
     const selected = completeCandidates[0];
     const { routeGeneration, traversal, endpoints, cavern, world, encounters, rewards, validation } = selected;
@@ -1701,7 +1563,7 @@ export function generateAutomaticLevelDraft(options = {}) {
                 spentBudget: encounters.spentBudget
             },
             rewards: {
-                materializedBranchCount: rewards.selectedBranchIds.length,
+                selectedPerchCount: rewards.selectedPerchSupportIds.length,
                 rewardCount: rewards.entities.length,
                 chestCount: rewards.entities.filter((entity) => entity.type === "treasureChest").length,
                 powerUpCount: rewards.entities.filter((entity) => ["speedShotPickup", "shieldPickup", "randomWrenchPickup"].includes(entity.type)).length,
@@ -2218,8 +2080,6 @@ export function validateGeneratedRewards(value = {}) {
     const traversal = value.traversal || {};
     const endpoints = value.endpoints || {};
     const cavern = value.cavern || {};
-    const route = value.route || {};
-    const encounters = value.encounters || {};
     const endpointEntities = Array.isArray(value.endpointEntities) ? value.endpointEntities : [];
     const encounterEntities = Array.isArray(value.encounterEntities) ? value.encounterEntities : [];
     const theme = normalizeGeneratorTheme(value.theme);
@@ -2228,8 +2088,6 @@ export function validateGeneratedRewards(value = {}) {
     const entityCatalog = normalizeInteractiveEntityCatalog(value.entityCatalog);
     const metadataByType = new Map(rewardGenerationCatalog.rewards.map((entry) => [entry.entityType, entry]));
     const supports = new Map((traversal.supports || []).map((support) => [support.id, support]));
-    const routeNodes = new Map((route.nodes || []).map((node) => [node.id, node]));
-    const selectedBranches = new Set(normalizeStringArray(rewards.selectedBranchIds));
     const selectedPerches = new Set(normalizeStringArray(rewards.selectedPerchSupportIds));
     const errors = [];
     const warnings = [];
@@ -2239,8 +2097,6 @@ export function validateGeneratedRewards(value = {}) {
         powerUpCount: 0,
         utilityCount: 0,
         thoughtCount: 0,
-        materializedBranchCount: selectedBranches.size,
-        rewardedBranchCount: 0,
         selectedPerchCount: selectedPerches.size,
         rewardedPerchCount: 0,
         minimumRewardSpacing: Infinity,
@@ -2254,7 +2110,6 @@ export function validateGeneratedRewards(value = {}) {
     const recordByEntityId = new Map(rewardRecords.map((record) => [record.entityId, record]));
     const entranceX = supports.get(traversal.startSupportId)?.centerX || 0;
     const exitX = supports.get(traversal.exitSupportId)?.centerX || 0;
-    const byBranch = groupBy(entities.filter((entity) => entity.generationBranchId), (entity) => entity.generationBranchId);
 
     for (let first = 0; first < entities.length; first += 1) {
         const entity = entities[first];
@@ -2291,18 +2146,10 @@ export function validateGeneratedRewards(value = {}) {
         if (metadata.category === "treasure") {
             metrics.chestCount += 1;
             if (entity.type !== "treasureChest") errors.push(`Treasure reward “${entity.id}” is not a treasure chest.`);
-            const perchTreasure = entity.generationContext === "secondaryPerch";
-            if (perchTreasure) {
-                if (!selectedPerches.has(support.id)) errors.push(`Treasure chest “${entity.id}” is not attached to a selected upper reward perch.`);
-                if (!support.secondaryPlatform || !support.rewardPerch) errors.push(`Treasure chest “${entity.id}” is not seated on an authored secondary reward perch.`);
-                if (entity.generationBranchId) errors.push(`Perch treasure “${entity.id}” should not claim optional-branch ownership.`);
-                metrics.rewardedPerchCount += 1;
-            } else {
-                if (!entity.generationBranchId || !selectedBranches.has(entity.generationBranchId)) errors.push(`Treasure chest “${entity.id}” is not attached to a selected optional branch.`);
-                if (!support.branchId || support.branchId !== entity.generationBranchId) errors.push(`Treasure chest “${entity.id}” is not seated on its branch support.`);
-                const node = routeNodes.get(entity.routeNodeId);
-                if (node?.kind !== "optionalReward") errors.push(`Treasure chest “${entity.id}” is not placed at an optional reward destination.`);
-            }
+            if (entity.generationContext !== "secondaryPerch") errors.push(`Treasure chest “${entity.id}” is not marked as an upper-perch reward.`);
+            if (!selectedPerches.has(support.id)) errors.push(`Treasure chest “${entity.id}” is not attached to a selected upper reward perch.`);
+            if (!support.secondaryPlatform || !support.rewardPerch) errors.push(`Treasure chest “${entity.id}” is not seated on an authored secondary reward perch.`);
+            metrics.rewardedPerchCount += 1;
             if (Math.abs(entity.y - support.surfaceY) > 2) errors.push(`Treasure chest “${entity.id}” is not seated on its support surface.`);
             if (!(Number(entity.scoreValue) > 0)) errors.push(`Treasure chest “${entity.id}” has no positive Score reward.`);
         } else if (metadata.category === "powerUp") {
@@ -2331,36 +2178,18 @@ export function validateGeneratedRewards(value = {}) {
         }
     }
 
-    for (const branchId of selectedBranches) {
-        const branchEntities = byBranch.get(branchId) || [];
-        const chests = branchEntities.filter((entity) => entity.type === "treasureChest");
-        if (chests.length !== 1) errors.push(`Materialized branch “${branchId}” must contain exactly one treasure chest.`);
-        else metrics.rewardedBranchCount += 1;
-        const branchSupports = (traversal.supports || []).filter((support) => support.branchId === branchId);
-        const branchTransitions = (traversal.transitions || []).filter((transition) => transition.branchId === branchId);
-        if (!branchSupports.length || branchTransitions.length < 2) errors.push(`Materialized branch “${branchId}” has no complete traversal geometry.`);
-        if (branchTransitions.some((transition) => !transition.valid)) errors.push(`Materialized branch “${branchId}” contains an invalid transition.`);
-    }
-    for (const branchId of normalizeStringArray(traversal.materializedBranchIds)) {
-        if (!selectedBranches.has(branchId)) errors.push(`Traversal materialized unselected branch “${branchId}”.`);
-    }
-    for (const branchId of selectedBranches) {
-        if (!normalizeStringArray(traversal.materializedBranchIds).includes(branchId)) errors.push(`Selected reward branch “${branchId}” was not materialized by traversal.`);
-    }
-    if (settings.rewardDensity <= 0.001 && (entities.length || selectedBranches.size || selectedPerches.size)) errors.push("Zero reward density must produce no rewards, optional branches, or reward perches.");
+    if (settings.rewardDensity <= 0.001 && (entities.length || selectedPerches.size)) errors.push("Zero reward density must produce no rewards or selected reward perches.");
     if (metrics.thoughtCount > theme.rewards.maximumThoughts) errors.push("Generated narrative thoughts exceed the theme maximum.");
     if (endpointEntities.some((entity) => !hasGenerationStageProvenance(entity, "endpoints"))) errors.push("Beginning and end doors must remain owned by the Endpoint Placer or be explicit manual replacements for it.");
     if (endpointEntities.some((entity) => entity?.manualizedFromGeneration)) warnings.push("One or more generated endpoint doors were converted to manual ownership.");
     if (!Number.isFinite(metrics.minimumRewardSpacing)) metrics.minimumRewardSpacing = 0;
     if (!Number.isFinite(metrics.minimumRewardEndpointDistance)) metrics.minimumRewardEndpointDistance = 0;
     if (entities.length > 1 && metrics.minimumRewardSpacing > 0 && metrics.minimumRewardSpacing < theme.rewards.minimumRewardSpacing - 0.01) errors.push("Generated rewards are packed more tightly than the configured readable spacing.");
-    if (selectedBranches.size && metrics.rewardedBranchCount !== selectedBranches.size) errors.push("Not every materialized optional branch has a meaningful treasure destination.");
     if (selectedPerches.size && metrics.rewardedPerchCount !== selectedPerches.size) errors.push("Not every selected upper reward perch has a meaningful treasure destination.");
-    if (settings.rewardDensity > 0.22 && (rewards.availableBranchIds || []).length && !selectedBranches.size && !selectedPerches.size) warnings.push("Reward density requested treasure, but neither a branch nor an upper reward perch was selected.");
-    if (settings.rewardDensity > 0.6 && entities.length < selectedBranches.size + selectedPerches.size + 1) warnings.push("High reward density produced few contextual rewards beyond treasure placements.");
+    if (settings.rewardDensity > 0.22 && rewards.treasureTarget > 0 && !selectedPerches.size) warnings.push("Reward density requested treasure, but no upper reward perch was available.");
+    if (settings.rewardDensity > 0.6 && entities.length < selectedPerches.size + 1) warnings.push("High reward density produced few contextual rewards beyond treasure placements.");
 
     let qualityScore = 100 - errors.length * 45 - warnings.length * 2;
-    qualityScore -= Math.max(0, selectedBranches.size - metrics.rewardedBranchCount) * 18;
     qualityScore -= Math.max(0, selectedPerches.size - metrics.rewardedPerchCount) * 18;
     qualityScore = clamp(Math.round(qualityScore * 10) / 10, 0, 100);
     return { valid: errors.length === 0, qualityScore, errors, warnings, metrics };
@@ -2386,29 +2215,6 @@ function combineGeneratorValidations(emptyCavernValidation, encounterValidation,
             ...(rewardValidation.metrics || {})
         }
     };
-}
-
-export function reanchorGeneratedEncounterStage(existingGeneration, nextGeneration, records = []) {
-    const oldSupports = new Map((existingGeneration?.traversal?.supports || []).map((support) => [support.id, support]));
-    const newSupports = new Map((nextGeneration?.traversal?.supports || []).map((support) => [support.id, support]));
-    const entities = (Array.isArray(records) ? records : []).map((record) => JSON.parse(JSON.stringify(record)));
-    for (const entity of entities) {
-        const supportId = entity.generationSupportId || entity.manualizedFromGeneration?.supportId;
-        const oldSupport = oldSupports.get(supportId);
-        const newSupport = newSupports.get(supportId);
-        if (!oldSupport || !newSupport) throw new Error(`Existing encounter object “${entity.id}” lost support “${supportId}” during the reward reroll.`);
-        entity.x = finiteNumber(entity.x, 0) + finiteNumber(newSupport.centerX, 0) - finiteNumber(oldSupport.centerX, 0);
-        entity.y = finiteNumber(entity.y, 0) + finiteNumber(newSupport.surfaceY, 0) - finiteNumber(oldSupport.surfaceY, 0);
-    }
-    const encounters = JSON.parse(JSON.stringify(existingGeneration?.encounters || { encounters: [] }));
-    for (const encounter of encounters.encounters || []) {
-        const oldSupport = oldSupports.get(encounter.supportId);
-        const newSupport = newSupports.get(encounter.supportId);
-        if (!oldSupport || !newSupport) throw new Error(`Existing encounter “${encounter.id}” lost support “${encounter.supportId}” during the reward reroll.`);
-        encounter.x = finiteNumber(encounter.x, 0) + finiteNumber(newSupport.centerX, 0) - finiteNumber(oldSupport.centerX, 0);
-        encounter.y = finiteNumber(encounter.y, 0) + finiteNumber(newSupport.surfaceY, 0) - finiteNumber(oldSupport.surfaceY, 0);
-    }
-    return { encounters, entities };
 }
 
 export function validateAutomaticLevelDraftSnapshot(value = {}) {
@@ -2530,7 +2336,6 @@ export function buildAutomaticLevelValidationOverlay(generationValue) {
             x2: finiteNumber(to.centerX, 0),
             y2: finiteNumber(to.surfaceY, 0),
             mandatory: Boolean(transition.mandatory),
-            branchId: transition.branchId ? String(transition.branchId) : undefined,
             valid: transition.valid !== false,
             gap: finiteNumber(transition.gap, 0),
             rise: finiteNumber(transition.rise, 0),
@@ -2556,7 +2361,6 @@ export function buildAutomaticLevelValidationOverlay(generationValue) {
             walkableWidth: finiteNumber(support.walkableWidth, 0),
             mandatory: Boolean(support.mandatory),
             role: String(support.role || "support"),
-            branchId: support.branchId ? String(support.branchId) : undefined
         })),
         transitions,
         calmZones: endpointSupports.map((support, index) => ({
@@ -2565,17 +2369,6 @@ export function buildAutomaticLevelValidationOverlay(generationValue) {
             y: finiteNumber(support.surfaceY, 0),
             radius: calmDistance,
             role: index === 0 ? "entrance" : "exit"
-        })),
-        branchShafts: (generation.traversal?.branchShafts || []).map((shaft) => ({
-            branchId: String(shaft.branchId || ""),
-            leftX: finiteNumber(shaft.leftX, 0),
-            rightX: finiteNumber(shaft.rightX, 0),
-            topY: finiteNumber(shaft.topY, Math.min(
-                finiteNumber(supportById.get(shaft.nearSupportId)?.surfaceY, 0),
-                finiteNumber(supportById.get(shaft.farSupportId)?.surfaceY, 0)
-            )),
-            bottomY: finiteNumber(shaft.bottomY, finiteNumber(supportById.get(shaft.firstBranchSupportId)?.surfaceY, 0)),
-            valid: finiteNumber(shaft.width, 0) >= BRANCH_SHAFT_WIDTH
         })),
         encounters: (generation.encounters?.encounters || []).map((encounter) => ({
             id: String(encounter.id || ""),
@@ -2591,7 +2384,6 @@ export function buildAutomaticLevelValidationOverlay(generationValue) {
             y: finiteNumber(reward.y, 0),
             supportId: String(reward.supportId || reward.generationSupportId || ""),
             category: String(reward.category || reward.context || "reward"),
-            branchId: reward.branchId ? String(reward.branchId) : undefined
         })),
         worldBounds: generation.cavern?.bounds ? JSON.parse(JSON.stringify(generation.cavern.bounds)) : null,
         validation: normalizeGenerationValidation(generation.validation)
@@ -2641,13 +2433,8 @@ export function validatePlayableEmptyCavern(value = {}) {
         transitionCount: transitions.length,
         mandatoryTransitionCount: transitions.filter((transition) => transition.mandatory).length,
         invalidMandatoryTransitions: 0,
-        invalidOptionalTransitions: 0,
+        invalidNonMandatoryTransitions: 0,
         minimumTransitionGap: Infinity,
-        minimumBranchSurfaceClearance: Infinity,
-        branchShaftCount: 0,
-        minimumBranchShaftWidth: Infinity,
-        minimumBranchEntryOpening: Infinity,
-        minimumBranchStepWalkableWidth: Infinity,
         blockedSupportPairs: 0,
         oneWayPlatformOverlapCount: 0,
         placementSupportMismatchCount: 0,
@@ -2669,7 +2456,7 @@ export function validatePlayableEmptyCavern(value = {}) {
         longStaticPlatformCount: supports.filter((support) => !support.moving && support.atlasId === "at_atlas_004").length,
         mainStaticPlatformCount: supports.filter((support) => support.mandatory && !support.moving && support.role !== "doorSupport").length,
         averageMainStaticPlatformWidth: 0,
-        longMainPlatformShare: 0,
+        longPlatformShare: 0,
         secondaryPlatformCount: supports.filter((support) => support.secondaryPlatform).length,
         secondaryRewardPerchCount: supports.filter((support) => support.rewardPerch).length,
         recoveryRequiredGapCount: 0,
@@ -2744,18 +2531,14 @@ export function validatePlayableEmptyCavern(value = {}) {
         }
         if (!transition.valid) {
             if (transition.mandatory) metrics.invalidMandatoryTransitions += 1;
-            else metrics.invalidOptionalTransitions += 1;
-            errors.push(`${transition.mandatory ? "Mandatory" : "Optional"} transition “${transition.id}” exceeds the forgiving movement envelope (gap ${transition.gap}, rise ${transition.rise}, drop ${transition.drop}, exposed landing ${transition.exposedLandingWidth ?? 0}).`);
+            else metrics.invalidNonMandatoryTransitions += 1;
+            errors.push(`${transition.mandatory ? "Mandatory" : "Optional"} transition “${transition.id}” exceeds the movement envelope (gap ${transition.gap}, rise ${transition.rise}, drop ${transition.drop}, exposed landing ${transition.exposedLandingWidth ?? 0}).`);
         }
     }
 
     if (!Number.isFinite(metrics.minimumTransitionGap)) metrics.minimumTransitionGap = 0;
 
-    if (["layered-safety-network-traversal-v6", "longform-organic-traversal-v5", "organic-layered-traversal-v4", "layered-recovery-traversal-v3", "spaced-platform-traversal-v2"].includes(traversal.generatorId)) {
-        const layeredSafetyNetwork = traversal.generatorId === "layered-safety-network-traversal-v6";
-        const longformOrganic = layeredSafetyNetwork || traversal.generatorId === "longform-organic-traversal-v5";
-        const organicLayered = longformOrganic || traversal.generatorId === "organic-layered-traversal-v4";
-        const layeredRecovery = organicLayered || traversal.generatorId === "layered-recovery-traversal-v3";
+    
         const routeNodeById = new Map((route?.nodes || []).map((node) => [node.id, node]));
         const routeEdges = (route?.edges || []).filter((edge) => edge.mandatory !== false);
         for (const edge of routeEdges) {
@@ -2774,17 +2557,15 @@ export function validatePlayableEmptyCavern(value = {}) {
                 const placement = movingSupport ? placementById.get(movingSupport.placementId) : null;
                 const fromNode = routeNodeById.get(edge.from);
                 const toNode = routeNodeById.get(edge.to);
-                const expectedOffsetY = organicLayered
-                    ? finiteNumber(bySupportId.get(edge.to ? `support_${edge.to}` : "")?.surfaceY, finiteNumber(toNode?.y, 0))
-                        - finiteNumber(bySupportId.get(edge.from ? `support_${edge.from}` : "")?.surfaceY, finiteNumber(fromNode?.y, 0))
-                    : finiteNumber(toNode?.y, 0) - finiteNumber(fromNode?.y, 0);
-                if (layeredRecovery) {
+                const expectedOffsetY = finiteNumber(bySupportId.get(edge.to ? `support_${edge.to}` : "")?.surfaceY, finiteNumber(toNode?.y, 0))
+                    - finiteNumber(bySupportId.get(edge.from ? `support_${edge.from}` : "")?.surfaceY, finiteNumber(fromNode?.y, 0));
+                
                     const movingAsset = movingSupport ? catalogByAsset.get(`${movingSupport.atlasId}:${movingSupport.assetId}`) : null;
                     if (!movingAsset?.roles.includes("movingPlatform")) {
                         metrics.movingThinAssetViolationCount += 1;
                         errors.push(`Vertical route edge “${edge.id}” does not use the reserved thin moving-platform style.`);
                     }
-                }
+                
                 if (!placement?.movement || placement.movement.pattern !== "shuttle") {
                     errors.push(`Vertical route edge “${edge.id}” is missing its automatic shuttle movement.`);
                 } else {
@@ -2813,7 +2594,7 @@ export function validatePlayableEmptyCavern(value = {}) {
                 for (const support of edgeSupports) {
                     metrics.maximumHorizontalRouteOffset = Math.max(metrics.maximumHorizontalRouteOffset, Math.abs(finiteNumber(support.routeOffsetY, 0)));
                 }
-                if (organicLayered && jumpTransitions.length) {
+                if (jumpTransitions.length) {
                     const orderedSupports = [bySupportId.get(jumpTransitions[0].fromSupportId), ...jumpTransitions.map((transition) => bySupportId.get(transition.toSupportId))].filter(Boolean);
                     for (const support of orderedSupports) {
                         metrics.maximumHorizontalRouteOffset = Math.max(metrics.maximumHorizontalRouteOffset, Math.abs(finiteNumber(support.routeOffsetY, 0)));
@@ -2823,7 +2604,7 @@ export function validatePlayableEmptyCavern(value = {}) {
                         const delta = finiteNumber(orderedSupports[index].surfaceY, 0) - finiteNumber(orderedSupports[index - 1].surfaceY, 0);
                         const heightDelta = Math.abs(delta);
                         metrics.minimumOrganicHeightDelta = Math.min(metrics.minimumOrganicHeightDelta, heightDelta);
-                        if ((longformOrganic || orderedSupports.length >= 3) && heightDelta < 32) {
+                        if (heightDelta < 32) {
                             metrics.organicSameHeightAdjacentCount += 1;
                             errors.push(`Horizontal route edge “${edge.id}” places consecutive upper platforms on effectively the same height.`);
                         }
@@ -2842,11 +2623,11 @@ export function validatePlayableEmptyCavern(value = {}) {
         const mainStaticSupports = supports.filter((support) => support.mandatory && !support.moving && support.role !== "doorSupport");
         if (mainStaticSupports.length) {
             metrics.averageMainStaticPlatformWidth = roundCoordinate(mainStaticSupports.reduce((sum, support) => sum + finiteNumber(support.walkableWidth, support.width), 0) / mainStaticSupports.length);
-            const longformSpanSupports = mainStaticSupports.filter((support) => support.routeEdgeId);
-            const longformSharePopulation = longformSpanSupports.length ? longformSpanSupports : mainStaticSupports;
-            metrics.longMainPlatformShare = Math.round(longformSharePopulation.filter((support) => support.atlasId === "at_atlas_004" || finiteNumber(support.walkableWidth, 0) >= 520).length / longformSharePopulation.length * 10000) / 10000;
+            const spanSupports = mainStaticSupports.filter((support) => support.routeEdgeId);
+            const sharePopulation = spanSupports.length ? spanSupports : mainStaticSupports;
+            metrics.longPlatformShare = Math.round(sharePopulation.filter((support) => support.atlasId === "at_atlas_004" || finiteNumber(support.walkableWidth, 0) >= 520).length / sharePopulation.length * 10000) / 10000;
         }
-        if (layeredRecovery) {
+        
             const recoveryLanes = Array.isArray(traversal.recoveryLanes) ? traversal.recoveryLanes : [];
             metrics.recoveryLaneCount = recoveryLanes.length;
             for (const lane of recoveryLanes) {
@@ -2866,14 +2647,9 @@ export function validatePlayableEmptyCavern(value = {}) {
                         metrics.unprotectedUpperGapCount += 1;
                         errors.push(`Recovery lane “${lane.id}” leaves upper jump gap ${roundCoordinate(finiteNumber(upperGap.centerX, 0))} without a landing below it.`);
                     }
-                    if (longformOrganic && !layeredSafetyNetwork) {
-                        const recoverySupportId = String(upperGap.recoverySupportId || "");
-                        const returnTransition = transitions.find((transition) => transition.recoverySupportId === recoverySupportId && transition.spacingStyle === "recoveryBacktrack" && transition.valid);
-                        if (returnTransition) metrics.recoveryBacktrackReachableCount += 1;
-                        else errors.push(`Recovery support “${recoverySupportId || "unknown"}” does not provide a safe backtracking return to the main route.`);
-                    }
+                    
                 }
-                if (layeredSafetyNetwork && lane.layeredNetwork) {
+                if (lane.layeredNetwork) {
                     metrics.layeredNetworkLaneCount += 1;
                     const laneReturnLift = bySupportId.get(String(lane.returnLiftId || ""));
                     if (laneReturnLift?.moving && laneReturnLift.recoveryReturnLift) metrics.recoveryBacktrackReachableCount += 1;
@@ -2893,34 +2669,31 @@ export function validatePlayableEmptyCavern(value = {}) {
                     }
                     if (finiteNumber(lowerGap.width, 0) < 34) errors.push(`Recovery lane “${lane.id}” contains an indistinct lower-floor gap.`);
                     if (finiteNumber(lowerGap.width, 0) > theme.traversal.mandatoryGap + 8) errors.push(`Recovery lane “${lane.id}” contains an unsafe lower-floor gap.`);
-                    if (layeredSafetyNetwork) {
-                        const rescue = bySupportId.get(String(lowerGap.recoverySupportId || ""));
-                        const returnLift = bySupportId.get(String(lowerGap.returnLiftId || ""));
-                        if (rescue?.tertiaryRecovery && returnLift?.moving && returnLift.recoveryReturnLift) {
-                            metrics.protectedLowerGapCount += 1;
-                        } else {
-                            metrics.unprotectedLowerGapCount += 1;
-                            errors.push(`Layered recovery lane “${lane.id}” leaves a lower-route gap without tertiary recovery and a return lift.`);
-                        }
+                    const rescue = bySupportId.get(String(lowerGap.recoverySupportId || ""));
+                    const returnLift = bySupportId.get(String(lowerGap.returnLiftId || ""));
+                    if (rescue?.tertiaryRecovery && returnLift?.moving && returnLift.recoveryReturnLift) {
+                        metrics.protectedLowerGapCount += 1;
+                    } else {
+                        metrics.unprotectedLowerGapCount += 1;
+                        errors.push(`Layered recovery lane “${lane.id}” leaves a lower-route gap without tertiary recovery and a return lift.`);
                     }
                 }
             }
             if (!recoveryLanes.length && settings.safety >= 0.5) warnings.push("The layered traversal produced no staggered recovery floor.");
-            if (longformOrganic && metrics.recoveryRequiredGapCount !== metrics.horizontalJumpGapCount) errors.push("Not every upper-route jump gap has a dedicated recovery platform below it.");
-            if (longformOrganic && !layeredSafetyNetwork && metrics.recoveryBacktrackReachableCount !== metrics.recoveryRequiredGapCount) errors.push("One or more recovery platforms cannot return the player to the main route.");
-            if (layeredSafetyNetwork && metrics.layeredNetworkLaneCount !== recoveryLanes.length) errors.push("A recovery lane was not materialized as a complete upper/lower safety network.");
-            if (layeredSafetyNetwork && metrics.recoveryBacktrackReachableCount !== metrics.layeredNetworkLaneCount) errors.push("One or more lower recovery routes cannot return the player to the upper route.");
-            if (layeredSafetyNetwork && metrics.protectedLowerGapCount !== metrics.recoveryLaneGapCount) errors.push("One or more lower-route gaps lack tertiary recovery.");
-            if (longformOrganic && metrics.secondaryPlatformCount !== metrics.secondaryRewardPerchCount) errors.push("A generated secondary platform is not marked as a reward perch.");
+            if (metrics.recoveryRequiredGapCount !== metrics.horizontalJumpGapCount) errors.push("Not every upper-route jump gap has a dedicated recovery platform below it.");
+            if (metrics.layeredNetworkLaneCount !== recoveryLanes.length) errors.push("A recovery lane was not materialized as a complete upper/lower safety network.");
+            if (metrics.recoveryBacktrackReachableCount !== metrics.layeredNetworkLaneCount) errors.push("One or more lower recovery routes cannot return the player to the upper route.");
+            if (metrics.protectedLowerGapCount !== metrics.recoveryLaneGapCount) errors.push("One or more lower-route gaps lack tertiary recovery.");
+            if (metrics.secondaryPlatformCount !== metrics.secondaryRewardPerchCount) errors.push("A generated secondary platform is not marked as a reward perch.");
             if (metrics.movingThinAssetViolationCount > 0) errors.push("One or more vertical lifts use ordinary static-platform artwork.");
-        }
+        
         if (!Number.isFinite(metrics.minimumHorizontalJumpGap)) metrics.minimumHorizontalJumpGap = 0;
         if (!Number.isFinite(metrics.minimumOrganicHeightDelta)) metrics.minimumOrganicHeightDelta = 0;
         if (metrics.staticVerticalIntermediateCount > 0) errors.push("ThePath74 vertical traversal still contains static staircase supports.");
-        if (metrics.horizontalJumpGapCount > 0 && metrics.maximumHorizontalRouteOffset < (organicLayered ? 72 : layeredRecovery ? 48 : 18)) warnings.push("Horizontal platform sequences remained unusually close to the abstract route height.");
-        if (organicLayered && metrics.organicSameHeightAdjacentCount > 0) errors.push("The organic upper route still contains a same-height platform row.");
-        if (longformOrganic && metrics.mainStaticPlatformCount >= 3 && metrics.longMainPlatformShare < 0.4) errors.push("The longform traversal did not use long platforms for enough of the main route.");
-    } else if (!Number.isFinite(metrics.minimumHorizontalJumpGap)) {
+        if (metrics.horizontalJumpGapCount > 0 && metrics.maximumHorizontalRouteOffset < 72) warnings.push("Horizontal platform sequences remained unusually close to the abstract route height.");
+        if (metrics.organicSameHeightAdjacentCount > 0) errors.push("The organic upper route still contains a same-height platform row.");
+        if (metrics.mainStaticPlatformCount >= 3 && metrics.longPlatformShare < 0.4) errors.push("The Standard traversal did not use long platforms for enough of the main route.");
+     else if (!Number.isFinite(metrics.minimumHorizontalJumpGap)) {
         metrics.minimumHorizontalJumpGap = 0;
     }
 
@@ -2984,76 +2757,9 @@ export function validatePlayableEmptyCavern(value = {}) {
                 metrics.blockedSupportPairs += 1;
                 errors.push(`Supports “${upper.id}” and “${lower.id}” form a blocked vertical sandwich with only ${roundCoordinate(bodyClearance)} units of clear space.`);
             }
-            const branchSupport = first.branchId ? first : second.branchId ? second : null;
-            const mandatorySupport = first.mandatory ? first : second.mandatory ? second : null;
-            const crossesBranchBoundary = branchSupport && mandatorySupport;
-            if (crossesBranchBoundary) {
-                const surfaceClearance = branchSupport.surfaceY - mandatorySupport.surfaceY;
-                metrics.minimumBranchSurfaceClearance = Math.min(metrics.minimumBranchSurfaceClearance, surfaceClearance);
-                const mandatoryBodyBottom = mandatorySupport.surfaceY
-                    + mandatorySupport.height * (1 - mandatorySupport.surfaceYRatio);
-                const corridorClearance = branchSupport.surfaceY - mandatoryBodyBottom;
-                if (surfaceClearance <= 0) {
-                    errors.push(`Optional support “${branchSupport.id}” crosses above the mandatory traversal corridor near “${mandatorySupport.id}”.`);
-                } else if (corridorClearance < 92) {
-                    errors.push(`Optional support “${branchSupport.id}” leaves only ${roundCoordinate(corridorClearance)} units below mandatory support “${mandatorySupport.id}”.`);
-                }
-            }
         }
     }
-    if (!Number.isFinite(metrics.minimumBranchSurfaceClearance)) metrics.minimumBranchSurfaceClearance = 0;
     if (!Number.isFinite(metrics.minimumStaticHeadroom)) metrics.minimumStaticHeadroom = 0;
-
-    const branchShafts = Array.isArray(traversal.branchShafts) ? traversal.branchShafts : [];
-    const materializedBranchIds = normalizeStringArray(traversal.materializedBranchIds);
-    metrics.branchShaftCount = branchShafts.length;
-    for (const branchId of materializedBranchIds) {
-        const shaft = branchShafts.find((candidate) => candidate.branchId === branchId);
-        if (!shaft) {
-            errors.push(`Materialized branch “${branchId}” has no collision-safe entry shaft.`);
-            continue;
-        }
-        const nearSupport = bySupportId.get(shaft.nearSupportId);
-        const farSupport = bySupportId.get(shaft.farSupportId);
-        const firstSupport = bySupportId.get(shaft.firstBranchSupportId);
-        if (!nearSupport?.mandatory || !farSupport?.mandatory || !firstSupport || firstSupport.branchId !== branchId) {
-            errors.push(`Branch shaft “${branchId}” does not connect two mandatory supports to its first optional foothold.`);
-            continue;
-        }
-        const shaftWidth = finiteNumber(shaft.width, finiteNumber(shaft.rightX) - finiteNumber(shaft.leftX));
-        metrics.minimumBranchShaftWidth = Math.min(metrics.minimumBranchShaftWidth, shaftWidth);
-        if (shaftWidth < BRANCH_SHAFT_WIDTH - 0.5) errors.push(`Branch shaft “${branchId}” is only ${roundCoordinate(shaftWidth)} units wide.`);
-        const firstLeft = firstSupport.centerX - firstSupport.width * 0.5;
-        const firstRight = firstSupport.centerX + firstSupport.width * 0.5;
-        if (firstLeft < shaft.leftX - 0.5 || firstRight > shaft.rightX + 0.5) {
-            errors.push(`First foothold “${firstSupport.id}” does not fit inside branch shaft “${branchId}”.`);
-        }
-        const entryOpening = Math.max(firstLeft - shaft.leftX, shaft.rightX - firstRight);
-        metrics.minimumBranchEntryOpening = Math.min(metrics.minimumBranchEntryOpening, entryOpening);
-        if (entryOpening < GENERATED_PLAYER_BODY_WIDTH + 8 - 0.5) {
-            errors.push(`Branch shaft “${branchId}” leaves only ${roundCoordinate(entryOpening)} units beside its first foothold.`);
-        }
-        const branchSupports = supports
-            .filter((support) => support.branchId === branchId)
-            .sort((left, right) => String(left.routeNodeId || "").localeCompare(String(right.routeNodeId || "")));
-        const shaftSteps = branchSupports.slice(0, 2);
-        if (shaftSteps.length < 2 || shaftSteps.some((support) => support.role !== "branchStep")) {
-            errors.push(`Branch “${branchId}” must begin with two narrow, alternating shaft footholds.`);
-        }
-        for (const support of shaftSteps) {
-            metrics.minimumBranchStepWalkableWidth = Math.min(metrics.minimumBranchStepWalkableWidth, support.walkableWidth || 0);
-            if ((support.walkableWidth || 0) < GENERATED_PLAYER_BODY_WIDTH + 12) {
-                errors.push(`Branch foothold “${support.id}” is too narrow for Ignatius to stand and turn safely.`);
-            }
-        }
-        const lowerLandings = branchSupports.slice(2);
-        if (!lowerLandings.length || lowerLandings.some((support) => (support.walkableWidth || 0) < 150)) {
-            errors.push(`Branch “${branchId}” does not open into broad lower return landings.`);
-        }
-    }
-    if (!Number.isFinite(metrics.minimumBranchShaftWidth)) metrics.minimumBranchShaftWidth = 0;
-    if (!Number.isFinite(metrics.minimumBranchEntryOpening)) metrics.minimumBranchEntryOpening = 0;
-    if (!Number.isFinite(metrics.minimumBranchStepWalkableWidth)) metrics.minimumBranchStepWalkableWidth = 0;
 
     const mandatoryPath = Array.isArray(traversal.mandatorySupportPath) ? traversal.mandatorySupportPath : [];
     if (mandatoryPath.length < 2) errors.push("Traversal has no mandatory support path.");
@@ -3110,7 +2816,6 @@ export function validatePlayableEmptyCavern(value = {}) {
     }
 
     if (metrics.maxMandatoryGap > theme.traversal.mandatoryGap * 0.94) warnings.push("At least one mandatory jump approaches the configured conservative gap limit.");
-    if (metrics.minimumBranchSurfaceClearance > 0 && metrics.minimumBranchSurfaceClearance < 300) warnings.push("An optional branch passes fairly close to the mandatory traversal corridor.");
     if (metrics.recoveryPlatformCount === 0 && settings.safety > 0.8) warnings.push("High safety was requested, but no transition needed a distinct recovery platform.");
 
     let qualityScore = routeValidation.qualityScore * 0.42 + 58;
@@ -3121,30 +2826,18 @@ export function validatePlayableEmptyCavern(value = {}) {
     return { valid: errors.length === 0, qualityScore, errors, warnings, metrics };
 }
 
-function buildForgivingTraversal({
+function buildStandardTraversal({
     route,
     theme,
     settings,
     implementations,
     assetCatalog,
     rng,
-    runId,
-    selectedBranchIds = [],
-    branchTargetCount = null
+    runId
 }) {
     const nodes = Array.isArray(route?.nodes) ? route.nodes : [];
     const edges = Array.isArray(route?.edges) ? route.edges : [];
     const nodeById = new Map(nodes.map((node) => [node.id, node]));
-    const requestedBranchIds = normalizeStringArray(selectedBranchIds);
-    const desiredBranchCount = Math.max(0, Math.min(
-        requestedBranchIds.length,
-        Number.isFinite(Number(branchTargetCount))
-            ? Math.floor(Number(branchTargetCount))
-            : requestedBranchIds.length
-    ));
-    const materializedBranches = new Set();
-    const branchRejections = [];
-    const branchShafts = [];
     const recoveryLanes = [];
     const supports = [];
     const placements = [];
@@ -3153,12 +2846,7 @@ function buildForgivingTraversal({
     const edgeSupportIds = new Map();
     const mandatoryEdgeChains = new Map();
     let order = 1000;
-    const useLayeredSafetyNetworkTraversal = implementations.traversal === "layered-safety-network-traversal-v6";
     const useRunAndGunRoute = implementations.route === "mostly-horizontal-route-v1";
-    const useLongformOrganicTraversal = useLayeredSafetyNetworkTraversal || implementations.traversal === "longform-organic-traversal-v5";
-    const useOrganicLayeredTraversal = useLongformOrganicTraversal || implementations.traversal === "organic-layered-traversal-v4";
-    const useLayeredRecoveryTraversal = useOrganicLayeredTraversal || implementations.traversal === "layered-recovery-traversal-v3";
-    const useSpacedPlatformTraversal = useLayeredRecoveryTraversal || implementations.traversal === "spaced-platform-traversal-v2";
     let movingVerticalEdgeCount = 0;
 
     const addSupport = (spec) => {
@@ -3196,7 +2884,6 @@ function buildForgivingTraversal({
             mandatory: Boolean(spec.mandatory),
             routeNodeId: spec.routeNodeId || undefined,
             routeEdgeId: spec.routeEdgeId || undefined,
-            branchId: spec.branchId || undefined,
             centerX,
             surfaceY: roundCoordinate(spec.surfaceY),
             width,
@@ -3271,55 +2958,23 @@ function buildForgivingTraversal({
         if (toNode.kind !== "entrance" && toNode.kind !== "exit") verticalLandingNodeIds.add(toNode.id);
     }
 
-    const supportRoleForNode = (node) => node.kind === "entrance" || node.kind === "exit"
-        ? "doorSupport"
-        : node.mandatory
-            ? (useRunAndGunRoute
-                ? "runAndGunGround"
-                : verticalLandingNodeIds.has(node.id)
-                    ? "landingPlatform"
-                    : node.kind === "chamber" || node.kind === "recovery"
-                        ? "routeFloor"
-                        : useSpacedPlatformTraversal
-                            ? "landingPlatform"
-                            : "routeFloor")
-            : node.kind === "optionalReward"
-                ? "landingPlatform"
-                : "branchStep";
+    const supportRoleForNode = (node) => {
+        if (node.kind === "entrance" || node.kind === "exit") return "doorSupport";
+        if (useRunAndGunRoute) return "runAndGunGround";
+        if (verticalLandingNodeIds.has(node.id)) return "landingPlatform";
+        return node.kind === "chamber" || node.kind === "recovery" ? "routeFloor" : "landingPlatform";
+    };
 
     const supportTargetWidthForNode = (node, role) => {
         if (role === "doorSupport") return theme.traversal.endpointWidth;
-        if (node.kind === "optionalReward") return theme.traversal.intermediateWidth * 0.88;
-        if (!node.mandatory) return 64;
         if (useRunAndGunRoute) {
             if (node.kind === "chamber" || node.kind === "recovery") return theme.traversal.chamberWidth * 1.45;
             if (verticalLandingNodeIds.has(node.id)) return theme.traversal.intermediateWidth * 1.45;
             return theme.traversal.traversalWidth * 1.65;
         }
-        if (useLongformOrganicTraversal) {
-            if (node.kind === "chamber" || node.kind === "recovery") return theme.traversal.chamberWidth * 0.8;
-            if (verticalLandingNodeIds.has(node.id)) return theme.traversal.intermediateWidth * 1.12;
-            return theme.traversal.intermediateWidth * 1.24;
-        }
-        if (useSpacedPlatformTraversal) {
-            if (useOrganicLayeredTraversal) {
-                if (node.kind === "chamber" || node.kind === "recovery") return theme.traversal.chamberWidth * 0.76;
-                if (verticalLandingNodeIds.has(node.id)) return theme.traversal.intermediateWidth * 0.96;
-                return theme.traversal.intermediateWidth * 0.92;
-            }
-            if (verticalLandingNodeIds.has(node.id)) {
-                return node.kind === "chamber" || node.kind === "recovery"
-                    ? theme.traversal.chamberWidth * 0.78
-                    : theme.traversal.intermediateWidth * (useLayeredRecoveryTraversal ? 1.06 : 0.82);
-            }
-            return node.kind === "chamber" || node.kind === "recovery"
-                ? theme.traversal.chamberWidth
-                : theme.traversal.intermediateWidth * (useLayeredRecoveryTraversal ? 1.08 : 0.82);
-        }
-        if (role === "landingPlatform") return theme.traversal.intermediateWidth * 1.08;
-        return node.kind === "chamber" || node.kind === "recovery"
-            ? theme.traversal.chamberWidth
-            : theme.traversal.traversalWidth;
+        if (node.kind === "chamber" || node.kind === "recovery") return theme.traversal.chamberWidth * 0.8;
+        if (verticalLandingNodeIds.has(node.id)) return theme.traversal.intermediateWidth * 1.12;
+        return theme.traversal.intermediateWidth * 1.24;
     };
 
     for (const node of nodes.filter((candidate) => candidate.mandatory)) {
@@ -3330,11 +2985,7 @@ function buildForgivingTraversal({
             targetWidth: supportTargetWidthForNode(node, role),
             maximumWidth: role === "doorSupport" || (useRunAndGunRoute && role === "runAndGunGround")
                 ? Infinity
-                : supportTargetWidthForNode(node, role) * (useRunAndGunRoute
-                    ? (node.kind === "chamber" || node.kind === "recovery" ? 1.32 : 1.28)
-                    : node.kind === "chamber" || node.kind === "recovery"
-                        ? (useLongformOrganicTraversal ? 1.22 : 1.12)
-                        : useLongformOrganicTraversal ? 1.24 : useSpacedPlatformTraversal ? 1.08 : 1.18),
+                : supportTargetWidthForNode(node, role) * (node.kind === "chamber" || node.kind === "recovery" ? 1.22 : 1.24),
             centerX: node.x,
             surfaceY: node.y,
             mandatory: true,
@@ -3346,7 +2997,7 @@ function buildForgivingTraversal({
         nodeSupport.set(node.id, support);
     }
 
-    if (useOrganicLayeredTraversal) {
+    
         const orderedMandatoryNodes = nodes
             .filter((node) => node.mandatory !== false)
             .sort((left, right) => finiteNumber(left.progress, 0) - finiteNumber(right.progress, 0));
@@ -3363,7 +3014,7 @@ function buildForgivingTraversal({
             let offset = rng.range(minimumMagnitude, maximumMagnitude) * (rng.chance(0.5) ? -1 : 1);
             if (incomingHorizontal && previousSupport) {
                 const previousOffset = finiteNumber(previousSupport.routeOffsetY, previousSupport.surfaceY - finiteNumber(previousNode.y, previousSupport.surfaceY));
-                const minimumDifference = useRunAndGunRoute ? 8 : useLongformOrganicTraversal ? 36 : 28;
+                const minimumDifference = useRunAndGunRoute ? 8 : 36;
                 if (Math.abs(offset - previousOffset) < minimumDifference) {
                     const flipped = -Math.sign(offset || 1) * Math.max(minimumMagnitude, Math.abs(offset));
                     offset = Math.abs(flipped - previousOffset) >= minimumDifference
@@ -3376,10 +3027,10 @@ function buildForgivingTraversal({
             support.routeOffsetY = roundCoordinate(support.surfaceY - node.y);
             support.platformHeightStyle = "organicAnchor";
         }
-    }
+    
 
 
-    if (useLongformOrganicTraversal && !useRunAndGunRoute) {
+    if (!useRunAndGunRoute) {
         for (const edge of edges.filter((candidate) => candidate.mandatory !== false
             && (candidate.intendedDirection === "left" || candidate.intendedDirection === "right"))) {
             const fromNode = nodeById.get(edge.from);
@@ -3400,73 +3051,32 @@ function buildForgivingTraversal({
         }
     }
 
-    const requestedBranchEntryNodeIds = new Set(edges
-        .filter((edge) => edge.mandatory === false && requestedBranchIds.includes(edge.branchId))
-        .filter((edge) => nodeById.get(edge.from)?.mandatory !== false && nodeById.get(edge.to)?.mandatory === false)
-        .map((edge) => edge.from));
-    const shaftRequestedEdgeIds = new Set(edges
-        .filter((edge) => edge.mandatory !== false && requestedBranchEntryNodeIds.has(edge.from))
-        .map((edge) => edge.id));
     const transitions = [];
 
-    const distributedHorizontalGaps = (totalFree, gapCount, minimumGap, maximumGap) => {
-        if (gapCount <= 0 || totalFree < minimumGap * gapCount - 0.01 || totalFree > maximumGap * gapCount + 0.01) return null;
-        const gaps = Array.from({ length: gapCount }, () => totalFree / gapCount);
-        for (let index = 0; index < gapCount - 1; index += 1) {
-            const roomBelow = gaps[index] - minimumGap;
-            const roomAbove = maximumGap - gaps[index];
-            const nextRoomBelow = gaps[index + 1] - minimumGap;
-            const nextRoomAbove = maximumGap - gaps[index + 1];
-            const shiftLimit = Math.min(22, roomBelow, roomAbove, nextRoomBelow, nextRoomAbove);
-            if (shiftLimit <= 0.5) continue;
-            const shift = rng.range(-shiftLimit, shiftLimit);
-            gaps[index] += shift;
-            gaps[index + 1] -= shift;
-        }
-        return gaps.map(roundCoordinate);
-    };
-
-    const buildSpacedHorizontalEdge = (edge) => {
+    const buildOrganicHorizontalEdge = (edge) => {
         const startSupport = nodeSupport.get(edge.from);
         const endSupport = nodeSupport.get(edge.to);
         if (!startSupport || !endSupport) return null;
-        let distanceX = Math.abs(endSupport.centerX - startSupport.centerX);
+        const distanceX = Math.abs(endSupport.centerX - startSupport.centerX);
         const direction = Math.sign(endSupport.centerX - startSupport.centerX) || 1;
-        const reserveBranchShaft = useLongformOrganicTraversal && shaftRequestedEdgeIds.has(edge.id);
-        if (reserveBranchShaft) {
-            const requiredDistance = startSupport.width * 0.5 + endSupport.width * 0.5 + BRANCH_SHAFT_WIDTH;
-            if (distanceX < requiredDistance) {
-                moveSupportCenter(endSupport, startSupport.centerX + direction * requiredDistance);
-                endSupport.routeOffsetX = roundCoordinate(endSupport.centerX - finiteNumber(nodeById.get(edge.to)?.x, endSupport.centerX));
-                distanceX = requiredDistance;
-            }
-        }
-        const shortLongformEdge = useLongformOrganicTraversal && distanceX < 520;
-        const minimumGap = roundCoordinate(shortLongformEdge
+        const shortEdge = distanceX < 520;
+        const minimumGap = roundCoordinate(shortEdge
             ? 34 + settings.safety * 6
-            : (useOrganicLayeredTraversal ? 70 : useLayeredRecoveryTraversal ? 64 : 44)
-                + settings.safety * (useOrganicLayeredTraversal ? 12 : useLayeredRecoveryTraversal ? 14 : 12));
+            : 70
+                + settings.safety * 12);
         const maximumGap = roundCoordinate(Math.min(
-            theme.traversal.mandatoryGap * (useOrganicLayeredTraversal ? 0.84 : useLayeredRecoveryTraversal ? 0.84 : 0.58),
-            useOrganicLayeredTraversal ? 126 : useLayeredRecoveryTraversal ? 126 : 88
+            theme.traversal.mandatoryGap * 0.84,
+            126
         ));
         const standardTargetWidth = theme.traversal.intermediateWidth * rng.range(
-            useOrganicLayeredTraversal ? 0.86 : useLayeredRecoveryTraversal ? 0.68 : 0.72,
-            useOrganicLayeredTraversal ? 1.22 : useLayeredRecoveryTraversal ? 0.98 : 0.88
+            0.86,
+            1.22
         );
-        const useLongAuthoredPlatform = useLongformOrganicTraversal
-            ? distanceX >= 520
-            : useLayeredRecoveryTraversal
-                && distanceX >= (useOrganicLayeredTraversal ? 960 : 1500)
-                && rng.chance(clamp(
-                    (useOrganicLayeredTraversal ? 0.48 : 0.24) + (distanceX - (useOrganicLayeredTraversal ? 960 : 1500)) / (useOrganicLayeredTraversal ? 5200 : 7000),
-                    useOrganicLayeredTraversal ? 0.48 : 0.24,
-                    useOrganicLayeredTraversal ? 0.74 : 0.48
-                ));
+        const useLongAuthoredPlatform = distanceX >= 520;
         const targetWidth = useLongAuthoredPlatform
             ? Math.min(
-                distanceX * rng.range(useLongformOrganicTraversal ? 0.38 : useOrganicLayeredTraversal ? 0.24 : 0.18, useLongformOrganicTraversal ? 0.62 : useOrganicLayeredTraversal ? 0.42 : 0.28),
-                rng.range(useLongformOrganicTraversal ? 720 : useOrganicLayeredTraversal ? 560 : 420, useLongformOrganicTraversal ? 1480 : useOrganicLayeredTraversal ? 1040 : 720)
+                distanceX * rng.range(0.38, 0.62),
+                rng.range(720, 1480)
             )
             : standardTargetWidth;
         let selectedIntermediateAssets = null;
@@ -3474,13 +3084,13 @@ function buildForgivingTraversal({
         let selectedSurfaces = null;
 
         const buildVariedSurfaces = (count) => {
-            if (!useLayeredRecoveryTraversal || count <= 0) return [];
-            const riseLimit = theme.traversal.mandatoryRise * (useOrganicLayeredTraversal ? 0.96 : 0.92);
-            const dropLimit = Math.min(theme.traversal.mandatoryDrop * (useOrganicLayeredTraversal ? 0.78 : 0.72), useOrganicLayeredTraversal ? 208 : 194);
-            const minimumHeightStep = useLongformOrganicTraversal ? 36 : useOrganicLayeredTraversal ? 36 : 0;
+            if (count <= 0) return [];
+            const riseLimit = theme.traversal.mandatoryRise * 0.96;
+            const dropLimit = Math.min(theme.traversal.mandatoryDrop * 0.78, 208);
+            const minimumHeightStep = 36;
             let best = null;
             let bestScore = -Infinity;
-            const attemptCount = useOrganicLayeredTraversal ? 240 : 56;
+            const attemptCount = 240;
             for (let attempt = 0; attempt < attemptCount; attempt += 1) {
                 const surfaces = [];
                 let previous = startSupport.surfaceY;
@@ -3490,15 +3100,15 @@ function buildForgivingTraversal({
                     const t = index / (count + 1);
                     const baseline = lerp(startSupport.surfaceY, endSupport.surfaceY, t);
                     const remaining = count + 1 - index;
-                    if (rng.chance(useOrganicLayeredTraversal ? 0.46 : 0.72)) sign *= -1;
+                    if (rng.chance(0.46)) sign *= -1;
                     const desiredAmplitude = rng.range(
-                        useOrganicLayeredTraversal ? 46 : 58,
-                        Math.min(useOrganicLayeredTraversal ? 164 : 148, theme.traversal.mandatoryDrop * (useOrganicLayeredTraversal ? 0.68 : 0.62))
+                        46,
+                        Math.min(164, theme.traversal.mandatoryDrop * (0.68))
                     );
-                    const desired = (useOrganicLayeredTraversal ? previous : baseline)
+                    const desired = previous
                         + sign * desiredAmplitude
-                        + rng.range(useOrganicLayeredTraversal ? -18 : -24, useOrganicLayeredTraversal ? 18 : 24);
-                    const routeEnvelope = useLongformOrganicTraversal ? 224 : useOrganicLayeredTraversal ? 188 : Infinity;
+                        + rng.range(-18, 18);
+                    const routeEnvelope = 224;
                     const minimum = Math.max(
                         previous - riseLimit,
                         endSupport.surfaceY - remaining * dropLimit,
@@ -3514,7 +3124,7 @@ function buildForgivingTraversal({
                         break;
                     }
                     let surface = clamp(desired, minimum, maximum);
-                    if (useOrganicLayeredTraversal && Math.abs(surface - previous) < minimumHeightStep) {
+                    if (Math.abs(surface - previous) < minimumHeightStep) {
                         const alternatives = [previous - minimumHeightStep, previous + minimumHeightStep]
                             .filter((value) => value >= minimum && value <= maximum)
                             .sort((left, right) => Math.abs(right - baseline) - Math.abs(left - baseline));
@@ -3534,7 +3144,7 @@ function buildForgivingTraversal({
                     const drop = Math.max(0, complete[index] - complete[index - 1]);
                     const heightDelta = Math.abs(complete[index] - complete[index - 1]);
                     if (rise > theme.traversal.mandatoryRise || drop > theme.traversal.mandatoryDrop) valid = false;
-                    if (useOrganicLayeredTraversal && heightDelta < minimumHeightStep) valid = false;
+                    if (heightDelta < minimumHeightStep) valid = false;
                 }
                 if (!valid) continue;
                 const offsets = surfaces.map((surface, index) => Math.abs(surface - lerp(
@@ -3543,7 +3153,7 @@ function buildForgivingTraversal({
                     (index + 1) / (count + 1)
                 )));
                 const verticalRange = Math.max(...complete) - Math.min(...complete);
-                if (useOrganicLayeredTraversal && verticalRange < (count >= 2 ? 76 : 42)) continue;
+                if (verticalRange < (count >= 2 ? 76 : 42)) continue;
                 let verticalDirectionChanges = 0;
                 let previousSign = 0;
                 for (let index = 1; index < complete.length; index += 1) {
@@ -3551,10 +3161,10 @@ function buildForgivingTraversal({
                     if (currentSign && previousSign && currentSign !== previousSign) verticalDirectionChanges += 1;
                     if (currentSign) previousSign = currentSign;
                 }
-                const score = verticalRange * (useOrganicLayeredTraversal ? 2.1 : 1.5)
+                const score = verticalRange * (2.1)
                     + offsets.reduce((sum, value) => sum + value, 0)
-                    + verticalDirectionChanges * (useOrganicLayeredTraversal ? 48 : 34)
-                    + (useOrganicLayeredTraversal ? rng.range(0, 18) : 0);
+                    + verticalDirectionChanges * (48)
+                    + rng.range(0, 18);
                 if (score > bestScore) {
                     bestScore = score;
                     best = surfaces;
@@ -3563,25 +3173,7 @@ function buildForgivingTraversal({
             return best;
         };
 
-        const minimumIntermediateCount = useLongformOrganicTraversal
-            ? 0
-            : useOrganicLayeredTraversal && distanceX >= 650 ? 1 : 0;
-        const preferredCount = clamp(
-            Math.round((distanceX - startSupport.width * 0.5 - endSupport.width * 0.5) / Math.max(180, targetWidth + (minimumGap + maximumGap) * 0.5)) - 1,
-            minimumIntermediateCount,
-            14
-        );
-        const countCandidates = useLongformOrganicTraversal
-            ? Array.from({ length: 11 }, (_entry, index) => index).filter((count) => count >= minimumIntermediateCount)
-            : [];
-        if (!useLongformOrganicTraversal) {
-            for (let offset = 0; offset <= 14; offset += 1) {
-                for (const count of [preferredCount - offset, preferredCount + offset]) {
-                    if (count < minimumIntermediateCount || count > 14 || countCandidates.includes(count)) continue;
-                    countCandidates.push(count);
-                }
-            }
-        }
+        const countCandidates = Array.from({ length: 11 }, (_entry, index) => index);
 
         for (const count of countCandidates) {
             const gapCount = count + 1;
@@ -3591,20 +3183,13 @@ function buildForgivingTraversal({
                 : Infinity;
             if (count > 0 && maximumIntermediateWidth < 92) continue;
             const desiredOrdinaryGap = clamp(72 + settings.safety * 8 + rng.range(-8, 12), minimumGap, maximumGap - 4);
-            const desiredGapTotal = reserveBranchShaft
-                ? BRANCH_SHAFT_WIDTH + desiredOrdinaryGap * Math.max(0, gapCount - 1)
-                : desiredOrdinaryGap * gapCount;
+            const desiredGapTotal = desiredOrdinaryGap * gapCount;
             const desiredIntermediateWidth = count > 0
                 ? (distanceX - endpointHalfWidth - desiredGapTotal) / count
                 : 0;
             if (count > 0 && desiredIntermediateWidth < 92) continue;
             const selections = Array.from({ length: count }, (_entry, index) => {
-                const widthVariation = useOrganicLayeredTraversal && !useLongformOrganicTraversal
-                    ? rng.range(index % 2 ? 0.74 : 0.88, index % 2 ? 1.06 : 1.18)
-                    : 1;
-                const requestedWidth = useLongformOrganicTraversal
-                    ? Math.min(maximumIntermediateWidth, desiredIntermediateWidth * rng.range(0.96, 1.04))
-                    : Math.min(targetWidth * widthVariation, maximumIntermediateWidth);
+                const requestedWidth = Math.min(maximumIntermediateWidth, desiredIntermediateWidth * rng.range(0.96, 1.04));
                 return selectGenerationAsset(
                     assetCatalog,
                     "landingPlatform",
@@ -3636,41 +3221,26 @@ function buildForgivingTraversal({
                     theme.traversal.mandatoryGap - widthEntries[index].right - widthEntries[index + 1].left - 2
                 )
             ));
-            const shaftCandidates = reserveBranchShaft
-                ? maximumPhysicalGaps
-                    .map((maximum, index) => ({ maximum, index }))
-                    .filter((entry) => entry.maximum >= BRANCH_SHAFT_WIDTH - 0.01)
-                    .sort((left, right) => right.maximum - left.maximum || left.index - right.index)
-                : [{ index: -1 }];
-            for (const shaftCandidate of shaftCandidates) {
-                const proposed = Array.from({ length: gapCount }, () => minimumGap);
-                if (reserveBranchShaft) proposed[shaftCandidate.index] = BRANCH_SHAFT_WIDTH;
-                let remaining = totalFree - proposed.reduce((sum, value) => sum + value, 0);
-                const maximumTotal = maximumPhysicalGaps.reduce((sum, value) => sum + value, 0);
-                if (remaining < -0.01 || totalFree > maximumTotal + 0.05) continue;
+            const proposed = Array.from({ length: gapCount }, () => minimumGap);
+            let remaining = totalFree - proposed.reduce((sum, value) => sum + value, 0);
+            const maximumTotal = maximumPhysicalGaps.reduce((sum, value) => sum + value, 0);
+            if (remaining >= -0.01 && totalFree <= maximumTotal + 0.05) {
                 const allocationOrder = rng.shuffle(proposed.map((_value, index) => index));
-                if (reserveBranchShaft) {
-                    allocationOrder.splice(allocationOrder.indexOf(shaftCandidate.index), 1);
-                    allocationOrder.push(shaftCandidate.index);
-                }
                 while (remaining > 0.01) {
                     let allocated = false;
                     for (const index of allocationOrder) {
                         if (remaining <= 0.01) break;
                         const capacity = Math.max(0, maximumPhysicalGaps[index] - proposed[index]);
                         if (capacity <= 0.01) continue;
-                        const fairShare = remaining / Math.max(1, allocationOrder.filter((candidateIndex) => maximumPhysicalGaps[candidateIndex] - proposed[candidateIndex] > 0.01).length);
-                        const amount = Math.min(capacity, Math.max(0.01, fairShare), remaining);
+                        const openCount = allocationOrder.filter((candidateIndex) => maximumPhysicalGaps[candidateIndex] - proposed[candidateIndex] > 0.01).length;
+                        const amount = Math.min(capacity, Math.max(0.01, remaining / Math.max(1, openCount)), remaining);
                         proposed[index] += amount;
                         remaining -= amount;
                         allocated = true;
                     }
                     if (!allocated) break;
                 }
-                if (remaining <= 0.05) {
-                    gaps = proposed.map(roundCoordinate);
-                    break;
-                }
+                if (remaining <= 0.05) gaps = proposed.map(roundCoordinate);
             }
             if (!gaps) continue;
             const walkableGapsValid = gaps.every((gap, index) => (
@@ -3678,8 +3248,8 @@ function buildForgivingTraversal({
             ) <= theme.traversal.mandatoryGap - 0.5);
             if (!walkableGapsValid) continue;
             const surfaces = buildVariedSurfaces(count);
-            if (useOrganicLayeredTraversal && count > 0 && !surfaces) continue;
-            if (useLongformOrganicTraversal && count === 0 && Math.abs(endSupport.surfaceY - startSupport.surfaceY) < 32) continue;
+            if (count > 0 && !surfaces) continue;
+            if (count === 0 && Math.abs(endSupport.surfaceY - startSupport.surfaceY) < 32) continue;
             selectedIntermediateAssets = selections;
             selectedGaps = gaps;
             selectedSurfaces = surfaces;
@@ -3709,8 +3279,8 @@ function buildForgivingTraversal({
                 routeEdgeId: edge.id
             });
             support.routeOffsetY = roundCoordinate(support.surfaceY - routeSurfaceY);
-            support.platformSpacingStyle = useOrganicLayeredTraversal ? "organicUpperRoute" : useLayeredRecoveryTraversal ? "staggeredUpperRoute" : "openJumpSequence";
-            if (useOrganicLayeredTraversal) support.platformHeightStyle = "organicStep";
+            support.platformSpacingStyle = "organicUpperRoute";
+            support.platformHeightStyle = "organicStep";
             intermediate.push(support);
         }
 
@@ -3726,8 +3296,8 @@ function buildForgivingTraversal({
         for (let index = 1; index < chain.length; index += 1) {
             const transition = classifyTraversalTransition(chain[index - 1], chain[index], edge, theme);
             transition.routeEdgeDirection = edge.intendedDirection;
-            transition.spacingStyle = useOrganicLayeredTraversal ? "organicUpperRoute" : useLayeredRecoveryTraversal ? "staggeredUpperRoute" : "openJumpSequence";
-            if (useLongformOrganicTraversal && Math.abs(chain[index].surfaceY - chain[index - 1].surfaceY) < 32) {
+            transition.spacingStyle = "organicUpperRoute";
+            if (Math.abs(chain[index].surfaceY - chain[index - 1].surfaceY) < 32) {
                 throw new Error(`Horizontal edge “${edge.id}” places adjacent platforms too close to the same height.`);
             }
             if (!transition.valid) throw new Error(`Horizontal edge “${edge.id}” failed its spaced jump sequence between ${chain[index - 1].id} and ${chain[index].id}: gap ${transition.gap}, rise ${transition.rise}, drop ${transition.drop}, exposed ${transition.exposedLandingWidth}.`);
@@ -3845,11 +3415,11 @@ function buildForgivingTraversal({
         if (!startSupport || !endSupport) throw new Error(`Vertical edge “${edge.id}” is missing a landing support.`);
         const selection = selectGenerationAsset(
             assetCatalog,
-            useLayeredRecoveryTraversal ? "movingPlatform" : "landingPlatform",
-            theme.traversal.intermediateWidth * (useLayeredRecoveryTraversal ? 0.86 : 0.78),
+            "movingPlatform",
+            theme.traversal.intermediateWidth * 0.86,
             rng,
             false,
-            theme.traversal.intermediateWidth * (useLayeredRecoveryTraversal ? 1.02 : 0.98)
+            theme.traversal.intermediateWidth * 1.02
         );
         if (!selection) throw new Error(`Vertical edge “${edge.id}” cannot find a moving-platform asset.`);
         const side = movingVerticalEdgeCount % 2 === 0 ? 1 : -1;
@@ -3857,7 +3427,7 @@ function buildForgivingTraversal({
         const support = addSupport({
             id: `support_${edge.id}_moving`,
             role: "landingPlatform",
-            targetWidth: theme.traversal.intermediateWidth * (useLayeredRecoveryTraversal ? 0.86 : 0.78),
+            targetWidth: theme.traversal.intermediateWidth * 0.86,
             selection,
             centerX: startSupport.centerX,
             surfaceY: startSupport.surfaceY,
@@ -3875,7 +3445,7 @@ function buildForgivingTraversal({
         support.movementEndSupportId = endSupport.id;
         support.movementDistance = roundCoordinate(endSupport.surfaceY - startSupport.surfaceY);
         support.platformSpacingStyle = "movingShaft";
-        support.movingVisualStyle = useLayeredRecoveryTraversal ? "thinOnly" : "legacyLanding";
+        support.movingVisualStyle = "thinOnly";
 
         const placement = placements.find((candidate) => candidate.id === support.placementId);
         if (!placement) throw new Error(`Vertical edge “${edge.id}” lost its moving-platform placement.`);
@@ -3920,257 +3490,27 @@ function buildForgivingTraversal({
         return chain;
     };
 
-    const processEdge = (edge, disableShaftReservation = false) => {
-        if (useSpacedPlatformTraversal && edge.mandatory !== false) {
-            if (edge.intendedDirection === "climb" || edge.intendedDirection === "descend") {
-                return buildMovingVerticalEdge(edge);
-            }
-            if ((edge.intendedDirection === "left" || edge.intendedDirection === "right") && !disableShaftReservation) {
-                if (useRunAndGunRoute) {
-                    const groundChain = buildRunAndGunHorizontalEdge(edge);
-                    if (groundChain) return groundChain;
-                    throw new Error(`Horizontal route edge “${edge.id}” could not realize a continuous overlapping run-and-gun ground path.`);
-                }
-                const spacedChain = buildSpacedHorizontalEdge(edge);
-                if (spacedChain) return spacedChain;
-                if (useLongformOrganicTraversal) throw new Error(`Horizontal route edge “${edge.id}” could not realize the required longform jump sequence (distance ${roundCoordinate(Math.abs((nodeSupport.get(edge.to)?.centerX || 0) - (nodeSupport.get(edge.from)?.centerX || 0)))}, widths ${roundCoordinate(nodeSupport.get(edge.from)?.width || 0)}/${roundCoordinate(nodeSupport.get(edge.to)?.width || 0)}, surfaces ${roundCoordinate(nodeSupport.get(edge.from)?.surfaceY || 0)}/${roundCoordinate(nodeSupport.get(edge.to)?.surfaceY || 0)}).`);
-                const startSupport = nodeSupport.get(edge.from);
-                const endSupport = nodeSupport.get(edge.to);
-                const shortTransition = startSupport && endSupport
-                    ? classifyTraversalTransition(startSupport, endSupport, edge, theme)
-                    : null;
-                if (shortTransition?.valid) {
-                    shortTransition.routeEdgeDirection = edge.intendedDirection;
-                    shortTransition.spacingStyle = "shortAnchorPair";
-                    edgeSupportIds.set(edge.id, []);
-                    transitions.push(shortTransition);
-                    const shortChain = [startSupport, endSupport];
-                    mandatoryEdgeChains.set(edge.id, shortChain);
-                    return shortChain;
-                }
-            }
+    const processEdge = (edge) => {
+        if (edge.intendedDirection === "climb" || edge.intendedDirection === "descend") {
+            return buildMovingVerticalEdge(edge);
         }
-        const startSupport = nodeSupport.get(edge.from);
-        const endSupport = nodeSupport.get(edge.to);
-        if (!startSupport || !endSupport) throw new Error(`Route edge “${edge.id}” is missing one of its supports.`);
-        const mandatory = edge.mandatory !== false;
-        const distanceX = Math.abs(endSupport.centerX - startSupport.centerX);
-        const distanceY = Math.abs(endSupport.surfaceY - startSupport.surfaceY);
-        const direction = Math.sign(endSupport.centerX - startSupport.centerX) || 1;
-        const widthScale = mandatory ? (0.96 + settings.safety * 0.12) : 0.58;
-        const reserveBranchShaft = mandatory && shaftRequestedEdgeIds.has(edge.id) && !disableShaftReservation;
-        const intermediateWidth = theme.traversal.intermediateWidth * widthScale;
-        const candidateIntermediateWidth = reserveBranchShaft
-            ? 206
-            : intermediateWidth;
-        const reservedShaftWidth = reserveBranchShaft ? BRANCH_SHAFT_WIDTH : 0;
-        const intermediateRole = reserveBranchShaft
-            ? "shaftBridge"
-            : mandatory
-                ? "landingPlatform"
-                : "branchStep";
-        const minimumGap = mandatory ? 12 : 4;
-        const preferredMaximumGap = mandatory
-            ? theme.traversal.mandatoryGap
-            : theme.traversal.mandatoryGap * 1.18;
-        const edgeSurfaceAt = (t) => lerp(startSupport.surfaceY, endSupport.surfaceY, t);
-        let intermediateCount = -1;
-        let selectedIntermediateAssets = [];
-        let selectedGaps = [];
-
-        const directTransition = classifyTraversalTransition(startSupport, endSupport, edge, theme);
-        if (directTransition.valid && !reserveBranchShaft) {
-            edgeSupportIds.set(edge.id, []);
-            transitions.push(directTransition);
-            const directChain = [startSupport, endSupport];
-            if (mandatory) mandatoryEdgeChains.set(edge.id, directChain);
-            return directChain;
-        }
-
-        for (let count = 0; count <= 10; count += 1) {
-            const maximumIntermediateWidth = count > 0
-                ? (distanceX - startSupport.width * 0.5 - endSupport.width * 0.5 - minimumGap * (count + 1)) / count
-                : Infinity;
-            const selections = Array.from({ length: count }, () =>
-                selectGenerationAsset(
-                    assetCatalog,
-                    intermediateRole,
-                    Math.min(candidateIntermediateWidth, maximumIntermediateWidth),
-                    rng,
-                    false,
-                    maximumIntermediateWidth
-                )
-            );
-            if (selections.some((selection) => !selection)) continue;
-            const occupiedWidth = startSupport.width * 0.5
-                + endSupport.width * 0.5
-                + selections.reduce((sum, selection) => sum + selection.width, 0);
-            const gapCount = count + 1;
-            const totalFree = distanceX - occupiedWidth;
-            const candidateWalkableInsets = [
-                { left: startSupport.walkableLeftInset, right: startSupport.walkableRightInset },
-                ...selections.map((selection) => {
-                    const conservativeInset = selection.width * Math.max(
-                        selection.asset.walkableLeftInsetRatio,
-                        selection.asset.walkableRightInsetRatio
-                    );
-                    return { left: conservativeInset, right: conservativeInset };
-                }),
-                { left: endSupport.walkableLeftInset, right: endSupport.walkableRightInset }
-            ];
-            let candidateGaps = [];
-            if (reserveBranchShaft) {
-                const maximumPhysicalGaps = Array.from({ length: gapCount }, (_, index) =>
-                    Math.max(minimumGap, preferredMaximumGap
-                        - candidateWalkableInsets[index].right
-                        - candidateWalkableInsets[index + 1].left)
-                );
-                const shaftIndex = maximumPhysicalGaps
-                    .map((maximum, index) => ({ maximum, index }))
-                    .filter((entry) => entry.maximum >= reservedShaftWidth - 0.01)
-                    .sort((a, b) => b.maximum - a.maximum || a.index - b.index)[0]?.index;
-                if (!Number.isInteger(shaftIndex)) continue;
-                candidateGaps = Array.from({ length: gapCount }, () => minimumGap);
-                candidateGaps[shaftIndex] = reservedShaftWidth;
-                let remaining = totalFree - candidateGaps.reduce((sum, gap) => sum + gap, 0);
-                if (remaining < -0.01) continue;
-                const allocationOrder = [
-                    ...candidateGaps.map((_, index) => index).filter((index) => index !== shaftIndex),
-                    shaftIndex
-                ];
-                for (const index of allocationOrder) {
-                    if (remaining <= 0.01) break;
-                    const capacity = Math.max(0, maximumPhysicalGaps[index] - candidateGaps[index]);
-                    const amount = Math.min(capacity, remaining);
-                    candidateGaps[index] += amount;
-                    remaining -= amount;
-                }
-                if (remaining > 0.05) continue;
-            } else {
-                const candidateGap = totalFree / gapCount;
-                const overlappingOptionalPair = !mandatory && count === 0 && candidateGap < minimumGap;
-                if ((!overlappingOptionalPair && candidateGap < minimumGap) || candidateGap > preferredMaximumGap) continue;
-                let candidateWalkableGapValid = true;
-                for (let index = 1; index < candidateWalkableInsets.length; index += 1) {
-                    const walkableGap = Math.max(0, candidateGap)
-                        + candidateWalkableInsets[index - 1].right
-                        + candidateWalkableInsets[index].left;
-                    if (walkableGap > preferredMaximumGap + 0.5) candidateWalkableGapValid = false;
-                }
-                if (!candidateWalkableGapValid) continue;
-                candidateGaps = Array.from({ length: gapCount }, () => candidateGap);
+        if (edge.intendedDirection === "left" || edge.intendedDirection === "right") {
+            if (useRunAndGunRoute) {
+                const groundChain = buildRunAndGunHorizontalEdge(edge);
+                if (groundChain) return groundChain;
+                throw new Error(`Horizontal route edge “${edge.id}” could not realize a continuous run-and-gun ground path.`);
             }
-            const candidateSurfaces = [startSupport.surfaceY];
-            for (let index = 1; index <= count; index += 1) candidateSurfaces.push(edgeSurfaceAt(index / (count + 1)));
-            candidateSurfaces.push(endSupport.surfaceY);
-            let candidateVerticalValid = true;
-            for (let index = 1; index < candidateSurfaces.length; index += 1) {
-                const stepRise = Math.max(0, candidateSurfaces[index - 1] - candidateSurfaces[index]);
-                const stepDrop = Math.max(0, candidateSurfaces[index] - candidateSurfaces[index - 1]);
-                const riseLimit = theme.traversal.mandatoryRise * (mandatory ? 1 : 1.18);
-                const dropLimit = theme.traversal.mandatoryDrop * (mandatory ? 1 : 1.2);
-                const returnLimit = theme.traversal.mandatoryRise * 1.18;
-                if (stepRise > riseLimit || stepDrop > dropLimit) candidateVerticalValid = false;
-                if (!mandatory && (stepRise > returnLimit || stepDrop > returnLimit)) candidateVerticalValid = false;
-            }
-            if (!candidateVerticalValid) continue;
-            intermediateCount = count;
-            selectedIntermediateAssets = selections;
-            selectedGaps = candidateGaps;
-            break;
+            const spacedChain = buildOrganicHorizontalEdge(edge);
+            if (spacedChain) return spacedChain;
+            throw new Error(`Horizontal route edge “${edge.id}” could not realize the required organic jump sequence (distance ${roundCoordinate(Math.abs((nodeSupport.get(edge.to)?.centerX || 0) - (nodeSupport.get(edge.from)?.centerX || 0)))}, widths ${roundCoordinate(nodeSupport.get(edge.from)?.width || 0)}/${roundCoordinate(nodeSupport.get(edge.to)?.width || 0)}, surfaces ${roundCoordinate(nodeSupport.get(edge.from)?.surfaceY || 0)}/${roundCoordinate(nodeSupport.get(edge.to)?.surfaceY || 0)}).`);
         }
-
-        if (intermediateCount < 0) {
-            if (reserveBranchShaft) return processEdge(edge, true);
-            const climbing = endSupport.surfaceY < startSupport.surfaceY;
-            const verticalLimit = climbing
-                ? theme.traversal.mandatoryRise * 0.9
-                : theme.traversal.mandatoryDrop * 0.72;
-            const transitionCount = Math.max(
-                2,
-                Math.ceil(distanceY / Math.max(40, verticalLimit)),
-                Math.ceil(distanceX / Math.max(180, theme.traversal.intermediateWidth * 0.72))
-            );
-            const stairCount = transitionCount - 1;
-            if (distanceY < 42 || stairCount > 18) {
-                throw new Error(`Route edge “${edge.id}” cannot fit collision-safe platforms across ${roundCoordinate(distanceX)} horizontal and ${roundCoordinate(distanceY)} vertical units.`);
-            }
-            const stairSelections = Array.from({ length: stairCount }, () =>
-                selectGenerationAsset(assetCatalog, mandatory ? "landingPlatform" : "branchStep", theme.traversal.intermediateWidth * 0.82, rng, false, Infinity)
-            );
-            if (stairSelections.some((selection) => !selection)) {
-                throw new Error(`Route edge “${edge.id}” cannot find staircase platform assets.`);
-            }
-            const stairSupports = [];
-            const horizontalStep = (endSupport.centerX - startSupport.centerX) / transitionCount;
-            const useShaftZigzag = Math.abs(horizontalStep) < 64;
-            const shaftZigzagAmplitude = useShaftZigzag ? 118 : 0;
-            for (let index = 1; index <= stairCount; index += 1) {
-                const t = index / transitionCount;
-                const shaftOffset = useShaftZigzag ? (index % 2 === 0 ? -shaftZigzagAmplitude : shaftZigzagAmplitude) : 0;
-                const centerX = lerp(startSupport.centerX, endSupport.centerX, t) + shaftOffset;
-                stairSupports.push(addSupport({
-                    id: `support_${edge.id}_stair_${String(index).padStart(2, "0")}`,
-                    role: mandatory ? "landingPlatform" : "branchStep",
-                    targetWidth: theme.traversal.intermediateWidth * 0.82,
-                    selection: stairSelections[index - 1],
-                    centerX,
-                    surfaceY: edgeSurfaceAt(t),
-                    mandatory,
-                    routeEdgeId: edge.id,
-                    branchId: edge.branchId
-                }));
-            }
-            const stairChain = [startSupport, ...stairSupports, endSupport];
-            const stairTransitions = [];
-            for (let index = 1; index < stairChain.length; index += 1) {
-                const transition = classifyTraversalTransition(stairChain[index - 1], stairChain[index], edge, theme);
-                if (!transition.valid) {
-                    throw new Error(`Route edge “${edge.id}” staircase failed between ${stairChain[index - 1].id} and ${stairChain[index].id}: gap ${transition.gap}, rise ${transition.rise}, drop ${transition.drop}, exposed landing ${transition.exposedLandingWidth}.`);
-                }
-                stairTransitions.push(transition);
-            }
-            edgeSupportIds.set(edge.id, stairSupports.map((support) => support.id));
-            transitions.push(...stairTransitions);
-            if (mandatory) mandatoryEdgeChains.set(edge.id, stairChain);
-            return stairChain;
-        }
-
-        const intermediate = [];
-        for (let index = 1; index <= intermediateCount; index += 1) {
-            const t = index / (intermediateCount + 1);
-            intermediate.push(addSupport({
-                id: `support_${edge.id}_${String(index).padStart(2, "0")}`,
-                role: intermediateRole,
-                targetWidth: intermediateWidth,
-                selection: selectedIntermediateAssets[index - 1],
-                centerX: lerp(startSupport.centerX, endSupport.centerX, t),
-                surfaceY: edgeSurfaceAt(t),
-                mandatory,
-                routeEdgeId: edge.id,
-                branchId: edge.branchId
-            }));
-        }
-
-        let cursor = startSupport.centerX + direction * startSupport.width * 0.5;
-        for (const support of intermediate) {
-            cursor += direction * (selectedGaps[intermediate.indexOf(support)] + support.width * 0.5);
-            moveSupportCenter(support, cursor);
-            cursor += direction * support.width * 0.5;
-        }
-        const chain = [startSupport, ...intermediate, endSupport];
-        edgeSupportIds.set(edge.id, intermediate.map((support) => support.id));
-        for (let index = 1; index < chain.length; index += 1) {
-            transitions.push(classifyTraversalTransition(chain[index - 1], chain[index], edge, theme));
-        }
-        if (mandatory) mandatoryEdgeChains.set(edge.id, chain);
-        return chain;
+        throw new Error(`Mandatory route edge “${edge.id}” has unsupported direction “${edge.intendedDirection}”.`);
     };
 
-    for (const edge of edges.filter((candidate) => candidate.mandatory !== false)) processEdge(edge);
+    for (const edge of edges) processEdge(edge);
 
     const secondaryPlatforms = [];
-    if (useLongformOrganicTraversal) {
+    
         const secondaryLimit = settings.length === "grand" ? 5 : settings.length === "extended" ? 4 : settings.length === "standard" ? 3 : 2;
         const candidates = rng.shuffle(supports.filter((support) => support.mandatory
             && !support.moving
@@ -4183,33 +3523,26 @@ function buildForgivingTraversal({
             const selection = selectGenerationAsset(assetCatalog, "landingPlatform", targetWidth, rng, false, Math.min(500, parent.walkableWidth * 0.58));
             if (!selection) continue;
             const surfaceY = roundCoordinate(parent.surfaceY - rng.range(
-                useLayeredSafetyNetworkTraversal ? 82 : 76,
-                useLayeredSafetyNetworkTraversal ? 108 : 104
+                82,
+                108
             ));
             let centerX = null;
             for (const side of rng.shuffle([-1, 1])) {
                 const overhang = rng.range(52, 76);
-                const candidateCenterX = useLayeredSafetyNetworkTraversal
-                    ? (side < 0
-                        ? parent.walkableLeftX - overhang - selection.width * 0.5
-                        : parent.walkableRightX + overhang + selection.width * 0.5)
-                    : (side < 0
-                        ? parent.walkableLeftX + selection.width * 0.5 - overhang
-                        : parent.walkableRightX - selection.width * 0.5 + overhang);
+                const candidateCenterX = side < 0
+                    ? parent.walkableLeftX - overhang - selection.width * 0.5
+                    : parent.walkableRightX + overhang + selection.width * 0.5;
                 const conflicts = supports.some((support) => {
                     if (support.id === parent.id) return false;
                     const overlap = Math.min(candidateCenterX + selection.width * 0.5, support.centerX + support.width * 0.5)
                         - Math.max(candidateCenterX - selection.width * 0.5, support.centerX - support.width * 0.5);
-                    if (useLayeredSafetyNetworkTraversal) {
-                        if (overlap <= 24) return false;
-                        const candidateBottom = surfaceY + selection.height * (1 - selection.asset.surfaceYRatio);
-                        const supportBottom = support.surfaceY + support.height * (1 - support.surfaceYRatio);
-                        const clearance = surfaceY <= support.surfaceY
-                            ? support.surfaceY - candidateBottom
-                            : surfaceY - supportBottom;
-                        return clearance < GENERATED_STATIC_HEADROOM;
-                    }
-                    return overlap > 48 && Math.abs(surfaceY - support.surfaceY) < 92;
+                    if (overlap <= 24) return false;
+                    const candidateBottom = surfaceY + selection.height * (1 - selection.asset.surfaceYRatio);
+                    const supportBottom = support.surfaceY + support.height * (1 - support.surfaceYRatio);
+                    const clearance = surfaceY <= support.surfaceY
+                        ? support.surfaceY - candidateBottom
+                        : surfaceY - supportBottom;
+                    return clearance < GENERATED_STATIC_HEADROOM;
                 });
                 if (!conflicts) {
                     centerX = roundCoordinate(candidateCenterX);
@@ -4231,7 +3564,7 @@ function buildForgivingTraversal({
             support.secondaryPlatform = true;
             support.rewardPerch = true;
             support.parentSupportId = parent.id;
-            support.platformSpacingStyle = useLayeredSafetyNetworkTraversal ? "detachedSecondaryRewardPerch" : "secondaryRewardPerch";
+            support.platformSpacingStyle = "detachedSecondaryRewardPerch";
             const placement = placements.find((candidate) => candidate.id === support.placementId);
             if (placement) {
                 placement.generationRole = "secondaryPlatform";
@@ -4249,283 +3582,14 @@ function buildForgivingTraversal({
             }
             for (const transition of [up, down]) {
                 transition.mandatory = false;
-                transition.spacingStyle = useLayeredSafetyNetworkTraversal ? "detachedSecondaryRewardPerch" : "secondaryRewardPerch";
+                transition.spacingStyle = "detachedSecondaryRewardPerch";
                 transition.secondaryPlatformId = support.id;
                 transition.parentSupportId = parent.id;
             }
             transitions.push(up, down);
             secondaryPlatforms.push(support);
         }
-    }
-
-    const physicalGapBetween = (left, right, direction) => direction > 0
-        ? right.centerX - right.width * 0.5 - (left.centerX + left.width * 0.5)
-        : left.centerX - left.width * 0.5 - (right.centerX + right.width * 0.5);
-
-    const walkableInsetToward = (support, direction, trailing) => {
-        if (direction > 0) return trailing ? support.walkableRightInset : support.walkableLeftInset;
-        return trailing ? support.walkableLeftInset : support.walkableRightInset;
-    };
-
-    const redistributeMandatoryEdgeForShaft = (edge, chain, firstBranchWidth) => {
-        if (!edge || !Array.isArray(chain) || chain.length < 2) return null;
-        const direction = Math.sign(chain.at(-1).centerX - chain[0].centerX) || 1;
-        const currentGaps = [];
-        const maximumGaps = [];
-        for (let index = 1; index < chain.length; index += 1) {
-            const previous = chain[index - 1];
-            const current = chain[index];
-            currentGaps.push(physicalGapBetween(previous, current, direction));
-            maximumGaps.push(Math.max(12,
-                theme.traversal.mandatoryGap
-                - walkableInsetToward(previous, direction, true)
-                - walkableInsetToward(current, direction, false)
-            ));
-        }
-        const totalFree = currentGaps.reduce((sum, gap) => sum + gap, 0);
-        const shaftGap = Math.max(
-            BRANCH_SHAFT_WIDTH,
-            firstBranchWidth + GENERATED_PLAYER_BODY_WIDTH + BRANCH_SHAFT_SIDE_CLEARANCE
-        );
-        const existingShaftIndex = currentGaps.findIndex((gap) => gap >= shaftGap - 0.5);
-        if (existingShaftIndex >= 0) {
-            const previous = chain[existingShaftIndex];
-            const current = chain[existingShaftIndex + 1];
-            const near = direction > 0
-                ? previous.centerX + previous.width * 0.5
-                : previous.centerX - previous.width * 0.5;
-            const far = direction > 0
-                ? current.centerX - current.width * 0.5
-                : current.centerX + current.width * 0.5;
-            return {
-                x: roundCoordinate((near + far) * 0.5),
-                direction,
-                previousSupport: previous,
-                nextSupport: current,
-                edge,
-                chain,
-                savedCenters: chain.slice(1, -1).map((support) => support.centerX),
-                transitionSnapshot: transitions.filter((transition) => transition.routeEdgeId === edge.id).map((transition) => JSON.parse(JSON.stringify(transition)))
-            };
-        }
-        const candidates = currentGaps
-            .map((gap, index) => ({ index, gap, maximum: maximumGaps[index] }))
-            .filter((entry) => entry.maximum >= shaftGap - 0.01)
-            .sort((a, b) => b.gap - a.gap || b.maximum - a.maximum || a.index - b.index);
-        for (const candidate of candidates) {
-            const gaps = Array.from({ length: currentGaps.length }, () => 12);
-            gaps[candidate.index] = Math.max(gaps[candidate.index], shaftGap);
-            let remaining = totalFree - gaps.reduce((sum, gap) => sum + gap, 0);
-            if (remaining < -0.01) continue;
-            const allocationOrder = [
-                ...gaps.map((_, index) => index).filter((index) => index !== candidate.index),
-                candidate.index
-            ];
-            for (const index of allocationOrder) {
-                if (remaining <= 0.01) break;
-                const capacity = Math.max(0, maximumGaps[index] - gaps[index]);
-                const amount = Math.min(capacity, remaining);
-                gaps[index] += amount;
-                remaining -= amount;
-            }
-            if (remaining > 0.05) continue;
-
-            const savedCenters = chain.slice(1, -1).map((support) => support.centerX);
-            let cursor = chain[0].centerX + direction * chain[0].width * 0.5;
-            for (let index = 1; index < chain.length - 1; index += 1) {
-                const support = chain[index];
-                cursor += direction * (gaps[index - 1] + support.width * 0.5);
-                moveSupportCenter(support, cursor);
-                cursor += direction * support.width * 0.5;
-            }
-            const rebuilt = [];
-            for (let index = 1; index < chain.length; index += 1) {
-                const transition = classifyTraversalTransition(chain[index - 1], chain[index], edge, theme);
-                if (!transition.valid) {
-                    savedCenters.forEach((center, savedIndex) => moveSupportCenter(chain[savedIndex + 1], center));
-                    rebuilt.length = 0;
-                    break;
-                }
-                rebuilt.push(transition);
-            }
-            if (!rebuilt.length) continue;
-            for (let index = transitions.length - 1; index >= 0; index -= 1) {
-                if (transitions[index].routeEdgeId === edge.id) transitions.splice(index, 1);
-            }
-            transitions.push(...rebuilt);
-            const previous = chain[candidate.index];
-            const current = chain[candidate.index + 1];
-            const near = direction > 0
-                ? previous.centerX + previous.width * 0.5
-                : previous.centerX - previous.width * 0.5;
-            const far = direction > 0
-                ? current.centerX - current.width * 0.5
-                : current.centerX + current.width * 0.5;
-            return {
-                x: roundCoordinate((near + far) * 0.5),
-                direction,
-                previousSupport: previous,
-                nextSupport: current,
-                edge,
-                chain,
-                savedCenters,
-                transitionSnapshot: rebuilt
-            };
-        }
-        return null;
-    };
-
-    const branchSupportCollidesWithMandatoryCorridor = (branchSupports) => {
-        const mandatorySupports = supports.filter((support) => support.mandatory);
-        for (const branchSupport of branchSupports) {
-            const left = branchSupport.centerX - branchSupport.width * 0.5;
-            const right = branchSupport.centerX + branchSupport.width * 0.5;
-            for (const mandatorySupport of mandatorySupports) {
-                const mandatoryLeft = mandatorySupport.centerX - mandatorySupport.width * 0.5;
-                const mandatoryRight = mandatorySupport.centerX + mandatorySupport.width * 0.5;
-                if (right <= mandatoryLeft || left >= mandatoryRight) continue;
-                const mandatoryBottom = mandatorySupport.surfaceY
-                    + mandatorySupport.height * (1 - mandatorySupport.surfaceYRatio);
-                if (branchSupport.surfaceY - mandatoryBottom < 92) return true;
-            }
-        }
-        return false;
-    };
-
-    for (const branchId of requestedBranchIds) {
-        if (materializedBranches.size >= desiredBranchCount) break;
-        const branchNodes = nodes
-            .filter((node) => node.branchId === branchId && node.mandatory === false)
-            .sort((left, right) => Number(left.progress) - Number(right.progress));
-        const entryEdge = edges.find((edge) => edge.branchId === branchId
-            && edge.mandatory === false
-            && nodeById.get(edge.from)?.mandatory !== false
-            && nodeById.get(edge.to)?.mandatory === false);
-        if (!entryEdge || !branchNodes.length) {
-            branchRejections.push({ branchId, reason: "Branch reservation is missing its entry edge or authored nodes." });
-            continue;
-        }
-        const outgoingMainEdge = edges.find((edge) => edge.mandatory !== false && edge.from === entryEdge.from);
-        const mainChain = mandatoryEdgeChains.get(outgoingMainEdge?.id);
-        const firstSelection = selectGenerationAsset(assetCatalog, "branchStep", 70, rng, false);
-        if (!outgoingMainEdge || !mainChain || !firstSelection) {
-            branchRejections.push({ branchId, reason: "Branch entry has no usable outgoing main chain or stair asset." });
-            continue;
-        }
-
-        const supportCountBefore = supports.length;
-        const placementCountBefore = placements.length;
-        const transitionCountBefore = transitions.length;
-        const chainCentersBefore = mainChain.slice(1, -1).map((support) => support.centerX);
-        const oldMainTransitions = transitions
-            .filter((transition) => transition.routeEdgeId === outgoingMainEdge.id)
-            .map((transition) => JSON.parse(JSON.stringify(transition)));
-        const shaft = redistributeMandatoryEdgeForShaft(outgoingMainEdge, mainChain, firstSelection.width);
-        if (!shaft) {
-            branchRejections.push({ branchId, reason: "The outgoing mandatory chain cannot reserve a collision-safe stairwell gap." });
-            continue;
-        }
-
-        const createdNodeIds = [];
-        const createdEdgeIds = [];
-        try {
-            const startSupport = nodeSupport.get(entryEdge.from);
-            const returnStep = theme.traversal.mandatoryRise * 0.92;
-            const branchEntrySurfaceY = shaft.previousSupport.surfaceY + returnStep;
-            const branchSupports = [];
-            for (let index = 0; index < branchNodes.length; index += 1) {
-                const node = branchNodes[index];
-                const isRewardLanding = node.kind === "optionalReward";
-                const isShaftStep = index < 2 && !isRewardLanding;
-                const role = isShaftStep ? "branchStep" : "landingPlatform";
-                const selection = isShaftStep ? firstSelection : null;
-                const centerX = isShaftStep
-                    ? shaft.x + (index === 0 ? BRANCH_STAIR_LATERAL_OFFSET : -(BRANCH_STAIR_LATERAL_OFFSET + 4)) * shaft.direction
-                    : shaft.x + shaft.direction * (165 + (index - 2) * 190);
-                const surfaceY = branchEntrySurfaceY + returnStep * index;
-                const targetWidth = isShaftStep
-                    ? 70
-                    : isRewardLanding
-                        ? theme.traversal.intermediateWidth * 0.9
-                        : 206;
-                const support = addSupport({
-                    id: `support_${node.id}`,
-                    role,
-                    targetWidth,
-                    selection,
-                    centerX,
-                    surfaceY,
-                    mandatory: false,
-                    routeNodeId: node.id,
-                    branchId
-                });
-                nodeSupport.set(node.id, support);
-                createdNodeIds.push(node.id);
-                branchSupports.push(support);
-            }
-            const firstBranchSupport = branchSupports[0];
-            const entryTransition = classifyTraversalTransition(shaft.previousSupport, firstBranchSupport, entryEdge, theme);
-            if (!entryTransition.valid) {
-                throw new Error(`Branch “${branchId}” cannot enter the reserved stairwell safely.`);
-            }
-            transitions.push(entryTransition);
-            edgeSupportIds.set(entryEdge.id, []);
-            createdEdgeIds.push(entryEdge.id);
-            const branchEdges = edges.filter((edge) => edge.branchId === branchId
-                && edge.mandatory === false
-                && nodeById.get(edge.from)?.mandatory === false
-                && nodeById.get(edge.to)?.mandatory === false);
-            for (const edge of branchEdges) {
-                processEdge(edge);
-                createdEdgeIds.push(edge.id);
-            }
-            const branchTransitions = transitions.filter((transition) => transition.branchId === branchId);
-            if (!branchTransitions.length || branchTransitions.some((transition) => !transition.valid)) {
-                throw new Error(`Branch “${branchId}” did not produce a complete bidirectional traversal.`);
-            }
-            if (branchSupportCollidesWithMandatoryCorridor(
-                supports.filter((support) => support.branchId === branchId)
-            )) {
-                throw new Error(`Branch “${branchId}” intrudes into the mandatory collision corridor.`);
-            }
-            const shaftLeft = Math.min(
-                shaft.previousSupport.centerX + shaft.direction * shaft.previousSupport.width * 0.5,
-                shaft.nextSupport.centerX - shaft.direction * shaft.nextSupport.width * 0.5
-            );
-            const shaftRight = Math.max(
-                shaft.previousSupport.centerX + shaft.direction * shaft.previousSupport.width * 0.5,
-                shaft.nextSupport.centerX - shaft.direction * shaft.nextSupport.width * 0.5
-            );
-            branchShafts.push({
-                branchId,
-                routeEdgeId: outgoingMainEdge.id,
-                entrySupportId: startSupport.id,
-                nearSupportId: shaft.previousSupport.id,
-                farSupportId: shaft.nextSupport.id,
-                centerX: shaft.x,
-                leftX: roundCoordinate(shaftLeft),
-                rightX: roundCoordinate(shaftRight),
-                width: roundCoordinate(shaftRight - shaftLeft),
-                firstBranchSupportId: firstBranchSupport.id
-            });
-            materializedBranches.add(branchId);
-        } catch (error) {
-            branchRejections.push({ branchId, reason: String(error?.message || error) });
-            for (let index = branchShafts.length - 1; index >= 0; index -= 1) {
-                if (branchShafts[index].branchId === branchId) branchShafts.splice(index, 1);
-            }
-            supports.splice(supportCountBefore);
-            placements.splice(placementCountBefore);
-            transitions.splice(transitionCountBefore);
-            for (let index = transitions.length - 1; index >= 0; index -= 1) {
-                if (transitions[index].routeEdgeId === outgoingMainEdge.id) transitions.splice(index, 1);
-            }
-            transitions.push(...oldMainTransitions);
-            chainCentersBefore.forEach((center, index) => moveSupportCenter(mainChain[index + 1], center));
-            for (const nodeId of createdNodeIds) nodeSupport.delete(nodeId);
-            for (const edgeId of createdEdgeIds) edgeSupportIds.delete(edgeId);
-        }
-    }
+    
 
     const mainNodes = nodes.filter((node) => node.mandatory).sort((a, b) => Number(a.progress) - Number(b.progress));
     const mandatorySupportPath = [];
@@ -4702,7 +3766,7 @@ function buildForgivingTraversal({
         return support;
     };
 
-    if (useLayeredSafetyNetworkTraversal) {
+    
         const horizontalEdgeCandidates = edges.filter((edge) => edge.mandatory !== false
             && (edge.intendedDirection === "left" || edge.intendedDirection === "right"))
             .map((edge) => ({ edge, chain: mandatoryEdgeChains.get(edge.id) || [] }))
@@ -5025,350 +4089,10 @@ function buildForgivingTraversal({
                 tertiarySupportIds: lowerGaps.map((gap) => gap.recoverySupportId)
             });
         }
-    } else if (useLongformOrganicTraversal) {
-        const horizontalEdgeCandidates = edges.filter((edge) => edge.mandatory !== false
-            && (edge.intendedDirection === "left" || edge.intendedDirection === "right"))
-            .map((edge) => ({ edge, chain: mandatoryEdgeChains.get(edge.id) || [] }))
-            .filter((entry) => entry.chain.length >= 2);
-        for (const { edge, chain } of horizontalEdgeCandidates) {
-            const ordered = [...chain].sort((left, right) => left.centerX - right.centerX);
-            const upperGaps = [];
-            const laneSupports = [];
-            for (let index = 1; index < ordered.length; index += 1) {
-                const left = ordered[index - 1];
-                const right = ordered[index];
-                const gapLeft = finiteNumber(left.walkableRightX, left.centerX + left.width * 0.5);
-                const gapRight = finiteNumber(right.walkableLeftX, right.centerX - right.width * 0.5);
-                if (gapRight - gapLeft < 28) continue;
-                const gap = {
-                    leftX: roundCoordinate(gapLeft),
-                    rightX: roundCoordinate(gapRight),
-                    centerX: roundCoordinate((gapLeft + gapRight) * 0.5),
-                    width: roundCoordinate(gapRight - gapLeft),
-                    leftSupportId: left.id,
-                    rightSupportId: right.id
-                };
-                const lowerMain = left.surfaceY >= right.surfaceY ? left : right;
-                const branchShaft = branchShafts.find((shaft) => shaft.routeEdgeId === edge.id
-                    && new Set([shaft.nearSupportId, shaft.farSupportId]).has(left.id)
-                    && new Set([shaft.nearSupportId, shaft.farSupportId]).has(right.id));
-                if (branchShaft) {
-                    const support = supports.find((candidate) => candidate.id === branchShaft.firstBranchSupportId);
-                    if (!support) throw new Error(`Branch shaft on “${edge.id}” is missing its recovery foothold.`);
-                    support.gapRecovery = true;
-                    support.platformSpacingStyle = "branchShaftGapRecovery";
-                    support.recoveryLaneId = `recovery_lane_${edge.id}`;
-                    support.protectsUpperGapIndex = upperGaps.length;
-                    support.protectsUpperGapCenterX = gap.centerX;
-                    support.recoveryReturnSupportId = branchShaft.nearSupportId;
-                    gap.recoverySupportId = support.id;
-                    upperGaps.push(gap);
-                    laneSupports.push(support);
-                    existing.push(support);
-                    const returnSupport = supports.find((candidate) => candidate.id === branchShaft.nearSupportId);
-                    if (!returnSupport) throw new Error(`Branch shaft on “${edge.id}” is missing its return landing.`);
-                    const returnTransition = classifyTraversalTransition(support, returnSupport, edge, theme);
-                    if (!returnTransition.valid) throw new Error(`Branch shaft recovery under “${edge.id}” cannot return the player to the main route.`);
-                    returnTransition.mandatory = false;
-                    returnTransition.spacingStyle = "recoveryBacktrack";
-                    returnTransition.recoverySupportId = support.id;
-                    returnTransition.recoveryReturnSupportId = returnSupport.id;
-                    transitions.push(returnTransition);
-                    continue;
-                }
-                const targetWidth = Math.max(gap.width + 250, theme.traversal.intermediateWidth * 1.45);
-                const maximumWidth = Math.min(760, Math.max(targetWidth + 120, gap.width + 360));
-                const selection = selectGenerationAsset(assetCatalog, "recoveryPlatform", targetWidth, rng, false, maximumWidth);
-                if (!selection) throw new Error(`Horizontal gap on “${edge.id}” cannot find a recovery platform.`);
-                let recoverySpec = null;
-                const lowerIsLeft = lowerMain.centerX < gap.centerX;
-                const desiredOverlap = 108;
-                const anchoredCenterX = lowerIsLeft
-                    ? lowerMain.walkableRightX - desiredOverlap + selection.width * 0.5
-                    : lowerMain.walkableLeftX + desiredOverlap - selection.width * 0.5;
-                for (const offset of [94, 102, 108, 112]) {
-                    const surfaceY = roundCoordinate(lowerMain.surfaceY + offset);
-                    for (const nudge of [0, lowerIsLeft ? 18 : -18, lowerIsLeft ? -18 : 18]) {
-                        const centerX = roundCoordinate(anchoredCenterX + nudge);
-                        const recoveryLeft = centerX - selection.width * 0.5;
-                        const recoveryRight = centerX + selection.width * 0.5;
-                        const overlapWithLower = Math.min(recoveryRight, lowerMain.walkableRightX)
-                            - Math.max(recoveryLeft, lowerMain.walkableLeftX);
-                        const exposedReturnWidth = lowerIsLeft
-                            ? Math.max(0, recoveryLeft - lowerMain.walkableLeftX)
-                            : Math.max(0, lowerMain.walkableRightX - recoveryRight);
-                        const coversGap = recoveryLeft <= gap.centerX && recoveryRight >= gap.centerX;
-                        const conflicts = supports.some((support) => {
-                            if (support.id === left.id || support.id === right.id || support.role === "recoveryPlatform") return false;
-                            const overlap = Math.min(recoveryRight, support.centerX + support.width * 0.5)
-                                - Math.max(recoveryLeft, support.centerX - support.width * 0.5);
-                            return overlap > 64 && Math.abs(surfaceY - support.surfaceY) < 82;
-                        });
-                        if (overlapWithLower >= 88 && exposedReturnWidth >= 48 && coversGap && !conflicts) {
-                            recoverySpec = { centerX, surfaceY };
-                            break;
-                        }
-                    }
-                    if (recoverySpec) break;
-                }
-                if (!recoverySpec) throw new Error(`Horizontal gap on “${edge.id}” cannot place a safe backtracking recovery platform.`);
-                const support = addSupport({
-                    id: `support_${edge.id}_recovery_${String(index).padStart(2, "0")}`,
-                    role: "recoveryPlatform",
-                    targetWidth,
-                    selection,
-                    centerX: recoverySpec.centerX,
-                    surfaceY: recoverySpec.surfaceY,
-                    mandatory: false,
-                    routeEdgeId: edge.id
-                });
-                support.platformSpacingStyle = "guaranteedGapRecovery";
-                support.recoveryLaneId = `recovery_lane_${edge.id}`;
-                support.protectsUpperGapIndex = upperGaps.length;
-                support.protectsUpperGapCenterX = gap.centerX;
-                support.recoveryReturnSupportId = lowerMain.id;
-                gap.recoverySupportId = support.id;
-                upperGaps.push(gap);
-                laneSupports.push(support);
-                existing.push(support);
+    
 
-                for (const source of [left, right]) {
-                    const fall = classifyTraversalTransition(source, support, edge, theme);
-                    if (!fall.valid) continue;
-                    fall.mandatory = false;
-                    fall.spacingStyle = "fallRecovery";
-                    fall.recoverySupportId = support.id;
-                    transitions.push(fall);
-                }
-                const returnTransition = classifyTraversalTransition(support, lowerMain, edge, theme);
-                if (!returnTransition.valid) throw new Error(`Recovery platform under “${edge.id}” cannot return the player to the lower main landing.`);
-                returnTransition.mandatory = false;
-                returnTransition.spacingStyle = "recoveryBacktrack";
-                returnTransition.recoverySupportId = support.id;
-                returnTransition.recoveryReturnSupportId = lowerMain.id;
-                transitions.push(returnTransition);
-            }
-            if (!upperGaps.length) continue;
-            laneSupports.sort((left, right) => left.centerX - right.centerX);
-            const lowerGaps = [];
-            for (let index = 1; index < laneSupports.length; index += 1) {
-                const left = laneSupports[index - 1];
-                const right = laneSupports[index];
-                const gapLeft = finiteNumber(left.walkableRightX, left.centerX + left.width * 0.5);
-                const gapRight = finiteNumber(right.walkableLeftX, right.centerX - right.width * 0.5);
-                const width = gapRight - gapLeft;
-                if (width < 34 || width > theme.traversal.mandatoryGap + 8) continue;
-                const overlapsUpperGap = upperGaps.some((upperGap) => Math.min(gapRight, upperGap.rightX) - Math.max(gapLeft, upperGap.leftX) > 1);
-                if (overlapsUpperGap) continue;
-                lowerGaps.push({
-                    leftX: roundCoordinate(gapLeft),
-                    rightX: roundCoordinate(gapRight),
-                    centerX: roundCoordinate((gapLeft + gapRight) * 0.5),
-                    width: roundCoordinate(width)
-                });
-            }
-            recoveryLanes.push({
-                id: `recovery_lane_${edge.id}`,
-                routeEdgeId: edge.id,
-                supportIds: laneSupports.map((support) => support.id),
-                upperGaps,
-                lowerGaps,
-                staggered: true,
-                guaranteedPerGap: true
-            });
-        }
-    } else if (useLayeredRecoveryTraversal) {
-        const recoveryLaneLimit = settings.length === "grand" ? 3 : settings.length === "extended" ? 2 : 1;
-        const horizontalEdgeCandidates = edges.filter((edge) => edge.mandatory !== false
-            && (edge.intendedDirection === "left" || edge.intendedDirection === "right"))
-            .map((edge) => {
-                const chain = mandatoryEdgeChains.get(edge.id) || [];
-                const span = chain.length
-                    ? Math.max(...chain.map((support) => support.centerX + support.width * 0.5))
-                        - Math.min(...chain.map((support) => support.centerX - support.width * 0.5))
-                    : 0;
-                return { edge, span, chainLength: chain.length };
-            })
-            .filter((entry) => entry.span >= 560 && entry.chainLength >= 3)
-            .sort((left, right) => right.span - left.span || String(left.edge.id).localeCompare(String(right.edge.id)));
-        for (const candidate of horizontalEdgeCandidates) {
-            if (recoveryLanes.length >= recoveryLaneLimit) break;
-            const edge = candidate.edge;
-            const chain = mandatoryEdgeChains.get(edge.id);
-            if (!Array.isArray(chain) || chain.length < 3) continue;
-            const ordered = [...chain].sort((left, right) => left.centerX - right.centerX);
-            const upperGaps = [];
-            for (let index = 1; index < ordered.length; index += 1) {
-                const left = ordered[index - 1];
-                const right = ordered[index];
-                const gapLeft = finiteNumber(left.walkableRightX, left.centerX + left.width * 0.5);
-                const gapRight = finiteNumber(right.walkableLeftX, right.centerX - right.width * 0.5);
-                if (gapRight - gapLeft < 28) continue;
-                upperGaps.push({
-                    leftX: roundCoordinate(gapLeft),
-                    rightX: roundCoordinate(gapRight),
-                    centerX: roundCoordinate((gapLeft + gapRight) * 0.5),
-                    width: roundCoordinate(gapRight - gapLeft)
-                });
-            }
-            if (!upperGaps.length) continue;
+    
 
-            const edgeLeft = Math.min(...ordered.map((support) => finiteNumber(support.walkableLeftX, support.centerX - support.width * 0.5)));
-            const edgeRight = Math.max(...ordered.map((support) => finiteNumber(support.walkableRightX, support.centerX + support.width * 0.5)));
-            const chainIds = new Set(chain.map((support) => support.id));
-            const baseSurfaceY = Math.max(...chain.map((support) => support.surfaceY));
-            let recoverySurfaceY = null;
-            for (const offset of [188, 220, 252, 286, 322]) {
-                const candidateY = baseSurfaceY + offset;
-                const conflicts = supports.some((support) => {
-                    if (chainIds.has(support.id) || support.role === "recoveryPlatform") return false;
-                    const overlap = Math.min(edgeRight, support.centerX + support.width * 0.5)
-                        - Math.max(edgeLeft, support.centerX - support.width * 0.5);
-                    return overlap > 72 && Math.abs(support.surfaceY - candidateY) < 145;
-                });
-                if (!conflicts) {
-                    recoverySurfaceY = roundCoordinate(candidateY);
-                    break;
-                }
-            }
-            if (!Number.isFinite(recoverySurfaceY)) continue;
-
-            const laneSupports = [];
-            for (let index = 0; index < upperGaps.length; index += 1) {
-                const gap = upperGaps[index];
-                const leftBoundary = index === 0
-                    ? edgeLeft
-                    : (upperGaps[index - 1].centerX + gap.centerX) * 0.5;
-                const rightBoundary = index === upperGaps.length - 1
-                    ? edgeRight
-                    : (gap.centerX + upperGaps[index + 1].centerX) * 0.5;
-                const cellWidth = Math.max(0, rightBoundary - leftBoundary);
-                const desiredLowerGap = roundCoordinate(rng.range(68, 102));
-                const maximumWidth = Math.max(118, cellWidth - desiredLowerGap);
-                const targetWidth = Math.min(
-                    maximumWidth,
-                    Math.max(
-                        gap.width + 128,
-                        cellWidth * rng.range(useOrganicLayeredTraversal ? 0.76 : 0.58, useOrganicLayeredTraversal ? 0.88 : 0.72),
-                        theme.traversal.intermediateWidth * rng.range(1.0, useOrganicLayeredTraversal ? 2.8 : 1.5)
-                    )
-                );
-                const selection = selectGenerationAsset(
-                    assetCatalog,
-                    "recoveryPlatform",
-                    targetWidth,
-                    rng,
-                    false,
-                    maximumWidth
-                );
-                if (!selection) continue;
-                const support = addSupport({
-                    id: `support_${edge.id}_recovery_${String(index + 1).padStart(2, "0")}`,
-                    role: "recoveryPlatform",
-                    targetWidth,
-                    selection,
-                    centerX: gap.centerX,
-                    surfaceY: recoverySurfaceY,
-                    mandatory: false,
-                    routeEdgeId: edge.id
-                });
-                support.platformSpacingStyle = "staggeredRecoveryLane";
-                support.recoveryLaneId = `recovery_lane_${edge.id}`;
-                support.protectsUpperGapIndex = index;
-                laneSupports.push(support);
-                existing.push(support);
-            }
-            if (!laneSupports.length) continue;
-
-            laneSupports.sort((left, right) => left.centerX - right.centerX);
-            const lowerGaps = [];
-            for (let index = 1; index < laneSupports.length; index += 1) {
-                const left = laneSupports[index - 1];
-                const right = laneSupports[index];
-                const gapLeft = finiteNumber(left.walkableRightX, left.centerX + left.width * 0.5);
-                const gapRight = finiteNumber(right.walkableLeftX, right.centerX - right.width * 0.5);
-                if (gapRight - gapLeft < 34) continue;
-                lowerGaps.push({
-                    leftX: roundCoordinate(gapLeft),
-                    rightX: roundCoordinate(gapRight),
-                    centerX: roundCoordinate((gapLeft + gapRight) * 0.5),
-                    width: roundCoordinate(gapRight - gapLeft)
-                });
-            }
-            recoveryLanes.push({
-                id: `recovery_lane_${edge.id}`,
-                routeEdgeId: edge.id,
-                surfaceY: recoverySurfaceY,
-                supportIds: laneSupports.map((support) => support.id),
-                upperGaps,
-                lowerGaps,
-                staggered: true
-            });
-        }
-    } else {
-        const recoveryLimit = useSpacedPlatformTraversal
-            ? (settings.length === "grand" ? 4 : settings.length === "extended" ? 3 : settings.length === "standard" ? 2 : 1)
-            : Infinity;
-        let generatedRecoveryCount = 0;
-        for (const transition of [...transitions]) {
-            if (!transition.mandatory || settings.safety < 0.5 || transition.movingPlatformTransfer) continue;
-            if (generatedRecoveryCount >= recoveryLimit) break;
-            const from = supports.find((support) => support.id === transition.fromSupportId);
-            const to = supports.find((support) => support.id === transition.toSupportId);
-            if (!from || !to) continue;
-            const deservesRecovery = useSpacedPlatformTraversal
-                ? transition.gap > 122 || transition.drop > 180
-                : transition.gap > 82 || transition.drop > 150;
-            const recoveryChance = useSpacedPlatformTraversal
-                ? 0.08 + settings.safety * 0.18
-                : 0.35 + settings.safety * 0.45;
-            if (!deservesRecovery || !rng.chance(recoveryChance)) continue;
-            const centerX = (from.centerX + to.centerX) * 0.5;
-            const surfaceY = Math.max(from.surfaceY, to.surfaceY) + (useSpacedPlatformTraversal ? 190 : 165);
-            if (existing.some((support) => Math.abs(support.centerX - centerX) < 170 && Math.abs(support.surfaceY - surfaceY) < 115)) continue;
-            const support = addSupport({
-                id: `support_recovery_${String(supports.length + 1).padStart(3, "0")}`,
-                role: "recoveryPlatform",
-                targetWidth: theme.traversal.intermediateWidth * 0.88,
-                centerX,
-                surfaceY,
-                mandatory: false,
-                routeEdgeId: transition.routeEdgeId
-            });
-            existing.push(support);
-            generatedRecoveryCount += 1;
-        }
-    }
-
-    if (!useSpacedPlatformTraversal) {
-        const desiredMovingCount = settings.length === "grand" ? 3 : settings.length === "extended" ? 2 : settings.length === "standard" ? 1 : 0;
-        const movingCandidates = rng.shuffle(supports.filter((support) => support.role === "landingPlatform" && support.mandatory && support.routeEdgeId));
-        for (let index = 0; index < Math.min(desiredMovingCount, movingCandidates.length); index += 1) {
-            const support = movingCandidates[index];
-            const placement = placements.find((candidate) => candidate.id === support.placementId);
-            if (!placement) continue;
-            placement.movement = {
-                version: 1,
-                pattern: "shuttle",
-                activation: "automatic",
-                endOffsetX: roundCoordinate(rng.range(-28, 28)),
-                endOffsetY: roundCoordinate((index % 2 === 0 ? -1 : 1) * rng.range(72, 118)),
-                speed: roundCoordinate(rng.range(76, 104)),
-                initialDelay: roundCoordinate(rng.range(0, 0.75)),
-                triggerDelay: 0,
-                startPause: roundCoordinate(rng.range(0.65, 1.1)),
-                endPause: roundCoordinate(rng.range(0.65, 1.1)),
-                fadeDuration: 0.2,
-                hiddenDuration: 1.25
-            };
-            placement.generationRole = "movingLandingPlatform";
-            support.moving = true;
-        }
-    }
-
-    const materializedOptionalEdges = edges.filter((edge) => edge.mandatory === false
-        && materializedBranches.has(edge.branchId)
-        && nodeById.get(edge.to)?.mandatory === false);
     return {
         version: 1,
         generatorId: implementations.traversal,
@@ -5377,20 +4101,8 @@ function buildForgivingTraversal({
         supports,
         transitions,
         mandatorySupportPath: mandatorySupportPath.filter(Boolean),
-        requestedBranchIds,
-        requestedBranchCount: desiredBranchCount,
-        branchRejections,
-        branchShafts,
         recoveryLanes,
         secondaryPlatformIds: secondaryPlatforms.map((support) => support.id),
-        materializedBranchIds: [...materializedBranches].sort(),
-        materializedOptionalRouteNodeIds: nodes.filter((node) => !node.mandatory && materializedBranches.has(node.branchId)).map((node) => node.id),
-        materializedOptionalRouteEdgeIds: materializedOptionalEdges.map((edge) => edge.id),
-        previewOnlyMergeEdgeIds: edges.filter((edge) => edge.mandatory === false
-            && materializedBranches.has(edge.branchId)
-            && nodeById.get(edge.to)?.mandatory !== false).map((edge) => edge.id),
-        reservedOptionalRouteNodeIds: nodes.filter((node) => !node.mandatory && !materializedBranches.has(node.branchId)).map((node) => node.id),
-        reservedOptionalRouteEdgeIds: edges.filter((edge) => edge.mandatory === false && !materializedBranches.has(edge.branchId)).map((edge) => edge.id),
         placements
     };
 }
@@ -5428,7 +4140,6 @@ function classifyTraversalTransition(from, to, edge, theme) {
     return {
         id: `transition_${edge.id}_${from.id}_${to.id}`,
         routeEdgeId: edge.id,
-        branchId: edge.branchId || undefined,
         fromSupportId: from.id,
         toSupportId: to.id,
         mandatory,
@@ -5450,7 +4161,7 @@ function selectGenerationAsset(catalog, role, targetWidth, rng, doorSupport = fa
         .filter((asset) => asset.roles.includes(role))
         .filter((asset) => !requiredCollisionMode || asset.collisionMode === requiredCollisionMode)
         .map((asset) => {
-            const minimumRequestedWidth = role === "branchStep" ? 48 : 64;
+            const minimumRequestedWidth = 64;
             const requested = Math.max(minimumRequestedWidth, Number(targetWidth) || asset.nativeWidth);
             const scale = clamp(requested / asset.nativeWidth, asset.scaleMin, asset.scaleMax);
             const width = asset.nativeWidth * scale;
@@ -5482,15 +4193,9 @@ function buildSafeEndpoints({ route, traversal, theme, implementations, rng, run
         const width = theme.endpoints.doorWidth;
         const height = theme.endpoints.doorHeight;
         const floorAnchorYFactor = 0.908745247148289;
-        const legacySide = role === "entrance" ? -1 : 1;
-        const inwardSide = role === "entrance" ? 1 : -1;
-        const side = implementations.endpoints === "grounded-chamber-endpoints-v2" ? inwardSide : legacySide;
-        const requestedOffset = support.width * (implementations.endpoints === "grounded-chamber-endpoints-v2" ? 0.13 : 0.24);
         const minimumX = support.walkableLeftX + width * 0.5 + 48;
         const maximumX = support.walkableRightX - width * 0.5 - 48;
-        const x = implementations.endpoints === "grounded-chamber-endpoints-v2"
-            ? role === "entrance" ? minimumX : maximumX
-            : clamp(support.centerX + side * requestedOffset, minimumX, maximumX);
+        const x = role === "entrance" ? minimumX : maximumX;
         const y = support.surfaceY;
         const type = role === "entrance" ? "wizard_entry_door" : "wizard_exit_door";
         const entity = {
@@ -5985,11 +4690,8 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
     smoothCavernProfile(profile, "top", 2);
     smoothCavernProfile(profile, "bottom", 2);
 
-    const contourResult = ["the-path74-contour-cavern-v4", "wide-upper-contour-cavern-v1"].includes(generatorId) ? traceCavernOccupancyContour(stamps, theme) : null;
-    const rawPoints = contourResult?.points || [
-        ...profile.map((sample) => ({ x: sample.x, y: roundCoordinate(sample.top) })),
-        ...[...profile].reverse().map((sample) => ({ x: sample.x, y: roundCoordinate(sample.bottom) }))
-    ];
+    const contourResult = traceCavernOccupancyContour(stamps, theme);
+    const rawPoints = contourResult.points;
     const pointMode = "smooth";
     const points = rawPoints.map((point, index) => ({
         id: `generated_cave_${String(index + 1).padStart(3, "0")}`,
@@ -6035,78 +4737,6 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
     };
 }
 
-function buildEllipseCavern({ route, traversal, theme, seed, runId, generatorId }) {
-    const nodeIds = new Set((route.nodes || []).map((node) => node.id));
-    const stamps = traversal.supports.map((support) => {
-        const endpoint = support.id === traversal.startSupportId || support.id === traversal.exitSupportId;
-        const chamber = endpoint || Boolean(support.routeNodeId && nodeIds.has(support.routeNodeId));
-        return {
-            id: `cavern_stamp_${support.id}`,
-            x: support.centerX,
-            y: support.surfaceY - theme.cavern.floorOffsetY,
-            rx: endpoint ? theme.cavern.chamberRadiusX + 85 : chamber ? theme.cavern.chamberRadiusX : theme.cavern.corridorRadiusX,
-            ry: endpoint ? theme.cavern.chamberRadiusY + 55 : chamber ? theme.cavern.chamberRadiusY : theme.cavern.corridorRadiusY,
-            sourceSupportId: support.id
-        };
-    });
-    if (!stamps.length) throw new Error("Cavern builder received no traversal supports.");
-    const minX = Math.min(...stamps.map((stamp) => stamp.x - stamp.rx * 0.93));
-    const maxX = Math.max(...stamps.map((stamp) => stamp.x + stamp.rx * 0.93));
-    const span = maxX - minX;
-    const step = Math.max(theme.cavern.sampleStep, span / 26);
-    const samplePositions = [minX, maxX, ...stamps.map((stamp) => stamp.x)];
-    for (let x = minX; x < maxX + step * 0.25; x += step) samplePositions.push(Math.min(maxX, x));
-    const uniqueSamplePositions = [...new Set(samplePositions.map((x) => roundCoordinate(x)))].sort((a, b) => a - b);
-    const profile = [];
-    for (const sampleX of uniqueSamplePositions) {
-        let top = Infinity;
-        let bottom = -Infinity;
-        for (const stamp of stamps) {
-            const dx = (sampleX - stamp.x) / stamp.rx;
-            if (Math.abs(dx) >= 1) continue;
-            const halfHeight = stamp.ry * Math.sqrt(Math.max(0, 1 - dx * dx));
-            top = Math.min(top, stamp.y - halfHeight);
-            bottom = Math.max(bottom, stamp.y + halfHeight);
-        }
-        if (Number.isFinite(top) && Number.isFinite(bottom)) profile.push({ x: roundCoordinate(sampleX), top, bottom });
-    }
-    smoothCavernProfile(profile, "top", 2);
-    smoothCavernProfile(profile, "bottom", 2);
-    const points = [
-        ...profile.map((sample, index) => ({ id: `generated_cave_top_${String(index + 1).padStart(3, "0")}`, x: sample.x, y: roundCoordinate(sample.top), mode: "smooth" })),
-        ...[...profile].reverse().map((sample, index) => ({ id: `generated_cave_bottom_${String(index + 1).padStart(3, "0")}`, x: sample.x, y: roundCoordinate(sample.bottom), mode: "smooth" }))
-    ];
-    const xs = points.map((point) => point.x);
-    const ys = points.map((point) => point.y);
-    const bounds = {
-        x: Math.min(...xs),
-        y: Math.min(...ys),
-        w: Math.max(...xs) - Math.min(...xs),
-        h: Math.max(...ys) - Math.min(...ys)
-    };
-    return {
-        version: 1,
-        generatorId,
-        runId,
-        stamps: stamps.map((stamp) => ({ ...stamp, x: roundCoordinate(stamp.x), y: roundCoordinate(stamp.y), rx: roundCoordinate(stamp.rx), ry: roundCoordinate(stamp.ry) })),
-        profile: profile.map((sample) => ({ x: roundCoordinate(sample.x), top: roundCoordinate(sample.top), bottom: roundCoordinate(sample.bottom) })),
-        bounds: Object.fromEntries(Object.entries(bounds).map(([key, value]) => [key, roundCoordinate(value)])),
-        caveWindow: {
-            version: 1,
-            enabled: true,
-            feather: 140,
-            parallax: 1.1,
-            decoration: {
-                seed: hashGeneratorSeed(`${seed}:cavern:${runId}`) % 1000000,
-                spacing: 210,
-                scale: 2,
-                brightness: 0.4,
-                saturation: 0.62
-            },
-            points
-        }
-    };
-}
 
 function smoothCavernProfile(profile, key, passes) {
     const openingEdge = key === "top" ? Math.min : Math.max;
@@ -6151,8 +4781,6 @@ export function validateRouteGraph(graph, context = {}) {
         nodeCount: nodes.length,
         edgeCount: edges.length,
         mainNodeCount: 0,
-        optionalNodeCount: 0,
-        branchCount: 0,
         minNodeDistance: Infinity,
         edgeCrossings: 0,
         backtrackEdges: 0,
@@ -6190,10 +4818,7 @@ export function validateRouteGraph(graph, context = {}) {
     if (!exit || exit.kind !== "exit") errors.push("The route does not identify a valid exit node.");
 
     const mainNodes = nodes.filter((node) => node.mandatory).sort((a, b) => Number(a.progress) - Number(b.progress));
-    const optionalNodes = nodes.filter((node) => !node.mandatory);
     metrics.mainNodeCount = mainNodes.length;
-    metrics.optionalNodeCount = optionalNodes.length;
-    metrics.branchCount = new Set(optionalNodes.map((node) => node.branchId).filter(Boolean)).size;
     if (mainNodes[0]?.id !== graph?.startNodeId) errors.push("The mandatory route does not begin at the entrance.");
     if (mainNodes.at(-1)?.id !== graph?.exitNodeId) errors.push("The mandatory route does not end at the exit.");
 
@@ -6357,20 +4982,6 @@ export function validateRouteGraph(graph, context = {}) {
         if (metrics.horizontalTravel < metrics.verticalTravel * 5) errors.push("The mostly horizontal route contains too much vertical travel.");
     }
 
-    const branches = groupBy(optionalNodes, (node) => node.branchId || "");
-    for (const [branchId, branchNodes] of branches) {
-        if (!branchId) continue;
-        const sorted = [...branchNodes].sort((a, b) => Number(a.progress) - Number(b.progress));
-        const first = sorted[0];
-        const last = sorted.at(-1);
-        const entryEdge = edges.find((edge) => edge.to === first.id && byId.get(edge.from)?.mandatory);
-        const mergeEdge = edges.find((edge) => edge.from === last.id && byId.get(edge.to)?.mandatory);
-        if (!entryEdge || !mergeEdge) errors.push(`Optional branch “${branchId}” does not cleanly leave and rejoin the mandatory route.`);
-        if (entryEdge && mergeEdge && Number(byId.get(mergeEdge.to)?.progress) <= Number(byId.get(entryEdge.from)?.progress)) {
-            errors.push(`Optional branch “${branchId}” merges before it begins.`);
-        }
-    }
-
     for (const room of graph?.macro?.rooms || []) {
         metrics.largestRoomWidthScreens = Math.max(metrics.largestRoomWidthScreens, finiteNumber(room?.widthScreens, 0));
         metrics.largestRoomHeightScreens = Math.max(metrics.largestRoomHeightScreens, finiteNumber(room?.heightScreens, 0));
@@ -6388,8 +4999,6 @@ export function validateRouteGraph(graph, context = {}) {
             ? (Math.max(...macroAnchorValues) - Math.min(...macroAnchorValues)) * finiteNumber(graph?.macro?.halfSpan, theme.route.macroVerticalSpan * 0.55)
             : theme.route.verticalStep * (0.55 + settings.verticality * 4.2);
     qualityScore -= Math.min(18, Math.abs(metrics.verticalSpan - targetSpan) / Math.max(100, targetSpan) * 22);
-    const targetBranches = desiredBranchCount(mainNodes.length, settings.branching);
-    qualityScore -= Math.abs(metrics.branchCount - targetBranches) * 6;
     const lengthSpacingScale = settings.length === "compact" ? 1.22 : settings.length === "standard" ? 0.96 : settings.length === "extended" ? 1.02 : 1.15;
     const targetSpacing = thePath74Route
         ? finiteNumber(graph?.macro?.targetAverageNodeSpacing, metrics.averageMainSpacing)
@@ -6445,7 +5054,14 @@ export function routeGraphBounds(route, padding = 180) {
 
 export function normalizeLevelGeneration(value) {
     if (!value || typeof value !== "object" || !value.route) return null;
+    if (String(value.generatorId || "") !== AUTOMATIC_LEVEL_GENERATOR_ID) {
+        throw new Error(`Unsupported automatic level generator record “${String(value.generatorId || "missing generator ID")}”.`);
+    }
+    const implementations = normalizeGeneratorImplementations(value.implementations);
     const route = value.route && typeof value.route === "object" ? value.route : {};
+    if (String(route.generatorId || "") !== implementations.route) {
+        throw new Error(`Generated route implementation “${String(route.generatorId || "missing route ID")}” does not match the current record.`);
+    }
     const nodes = Array.isArray(route.nodes) ? route.nodes.map((node, index) => ({
         id: String(node?.id || `route_node_${index}`),
         kind: String(node?.kind || "chamber"),
@@ -6453,7 +5069,6 @@ export function normalizeLevelGeneration(value) {
         y: finiteNumber(node?.y, 0),
         progress: finiteNumber(node?.progress, index),
         mandatory: Boolean(node?.mandatory),
-        branchId: node?.branchId ? String(node.branchId) : undefined,
         label: node?.label ? String(node.label) : undefined,
         macroPatternId: node?.macroPatternId ? String(node.macroPatternId) : undefined,
         spatialLane: Number.isFinite(Number(node?.spatialLane)) ? Number(node.spatialLane) : undefined,
@@ -6471,25 +5086,24 @@ export function normalizeLevelGeneration(value) {
             from: String(edge.from),
             to: String(edge.to),
             mandatory: Boolean(edge.mandatory),
-            branchId: edge.branchId ? String(edge.branchId) : undefined,
             intendedDirection: edge.intendedDirection ? String(edge.intendedDirection) : undefined
         })) : [];
     return {
         version: Math.max(1, Math.floor(Number(value.version) || AUTOMATIC_LEVEL_GENERATOR_VERSION)),
-        generatorId: String(value.generatorId || AUTOMATIC_LEVEL_GENERATOR_ID),
+        generatorId: AUTOMATIC_LEVEL_GENERATOR_ID,
         runId: String(value.runId || route.runId || ""),
         themeId: String(value.themeId || DEFAULT_THEME.themeId),
         seed: String(value.seed ?? "0"),
         attempt: Math.max(1, Math.floor(Number(value.attempt) || 1)),
         attemptsTried: Math.max(1, Math.floor(Number(value.attemptsTried) || 1)),
         stageRevisions: normalizeGeneratorStageRevisions(value.stageRevisions),
-        implementations: normalizeGeneratorImplementations(value.implementations),
+        implementations,
         settings: normalizeGeneratorSettings(value.settings),
         resolvedEnemyIds: normalizeStringArray(value.resolvedEnemyIds),
         route: {
             version: Math.max(1, Math.floor(Number(route.version) || 1)),
             runId: String(route.runId || value.runId || ""),
-            generatorId: String(route.generatorId || "progression-route-v1"),
+            generatorId: implementations.route,
             startNodeId: String(route.startNodeId || nodes.find((node) => node.kind === "entrance")?.id || ""),
             exitNodeId: String(route.exitNodeId || nodes.find((node) => node.kind === "exit")?.id || ""),
             macro: route.macro && typeof route.macro === "object" ? JSON.parse(JSON.stringify(route.macro)) : undefined,
@@ -6511,73 +5125,10 @@ export function normalizeLevelGeneration(value) {
     };
 }
 
-const MACRO_ROUTE_PATTERN_LABELS = Object.freeze({
-    "compact-arc": "Compact vertical arc",
-    rolling: "Folded rolling route",
-    "z-down": "Descending switchback",
-    "z-up": "Ascending switchback",
-    "l-down": "Descending hook",
-    "l-up": "Ascending hook",
-    valley: "Folded valley",
-    terraces: "Stacked terraces"
-});
 
-function chooseMacroPattern(settings, rng) {
-    if (settings.length === "compact" && clamp01(settings.verticality) < 0.2 && clamp01(settings.winding) < 0.2) return "compact-arc";
-    const verticality = clamp01(settings.verticality);
-    const winding = clamp01(settings.winding);
-    const values = [
-        { value: "rolling", weight: Math.max(0.06, 0.32 - verticality * 0.12) },
-        { value: "z-down", weight: 0.16 + verticality * 0.2 + winding * 0.12 },
-        { value: "z-up", weight: 0.16 + verticality * 0.2 + winding * 0.12 },
-        { value: "l-down", weight: 0.1 + verticality * 0.12 },
-        { value: "l-up", weight: 0.1 + verticality * 0.12 },
-        { value: "valley", weight: 0.14 + verticality * 0.12 + winding * 0.08 },
-        { value: "terraces", weight: 0.18 + verticality * 0.18 + winding * 0.1 }
-    ];
-    return weightedRandomChoice(values, rng)?.value || "terraces";
-}
 
-function spatialPatternControlPoints(patternId) {
-    if (patternId === "compact-arc") return [[0, -0.92], [1.05, -0.92], [2.2, 0.92], [3.2, 0.92], [4.35, -0.88], [5.45, -0.88], [6.35, 0.08], [7.2, 0.08]];
-    if (patternId === "z-down") return [[0, -0.92], [3.7, -0.92], [2.2, -0.05], [0.85, -0.05], [2.45, 0.92], [5.3, 0.92], [6.05, 0.34], [7.2, 0.34]];
-    if (patternId === "z-up") return [[0, 0.92], [3.7, 0.92], [2.2, 0.05], [0.85, 0.05], [2.45, -0.92], [5.3, -0.92], [6.05, -0.34], [7.2, -0.34]];
-    if (patternId === "l-down") return [[0, -0.82], [3.9, -0.82], [2.15, 0.72], [5.45, 0.72], [6.05, 0.14], [7.2, 0.14]];
-    if (patternId === "l-up") return [[0, 0.82], [3.9, 0.82], [2.15, -0.72], [5.45, -0.72], [6.05, -0.14], [7.2, -0.14]];
-    if (patternId === "valley") return [[0, -0.68], [3.05, 0.86], [1.25, 0.86], [4.25, -0.58], [7.2, -0.58]];
-    if (patternId === "terraces") return [[0, -0.92], [3.05, -0.92], [1.45, 0], [4.35, 0], [2.65, 0.92], [5.35, 0.92], [6.0, 0.34], [7.2, 0.34]];
-    return [[0, -0.12], [2.7, -0.72], [1.25, 0.18], [4.55, 0.68], [3.25, 0.08], [7.2, 0.08]];
-}
 
-function spatialAnchorsForPattern(patternId, spacing, halfSpan) {
-    const controls = spatialPatternControlPoints(patternId);
-    const lengths = [];
-    let total = 0;
-    for (let index = 1; index < controls.length; index += 1) {
-        const [ax, ay] = controls[index - 1];
-        const [bx, by] = controls[index];
-        total += Math.hypot((bx - ax) * spacing, (by - ay) * halfSpan);
-        lengths.push(total);
-    }
-    return controls.map(([gx, gy], index) => ({
-        progress: index === 0 ? 0 : lengths[index - 1] / Math.max(1, total),
-        gx,
-        gy
-    }));
-}
 
-function sampleSpatialAnchors(anchors, progress) {
-    const p = clamp01(progress);
-    for (let index = 1; index < anchors.length; index += 1) {
-        const left = anchors[index - 1];
-        const right = anchors[index];
-        if (p > right.progress) continue;
-        const t = clamp01((p - left.progress) / Math.max(0.0001, right.progress - left.progress));
-        return { gx: lerp(left.gx, right.gx, t), gy: lerp(left.gy, right.gy, t) };
-    }
-    const last = anchors.at(-1) || { gx: 0, gy: 0 };
-    return { gx: last.gx, gy: last.gy };
-}
 
 function desiredMacroRoomCount(length) {
     if (length === "compact") return 1;
@@ -6908,7 +5459,6 @@ function buildThePath74RouteCandidate({ theme, settings, rng, attempt }) {
             intendedDirection
         });
     }
-    appendOptionalBranches({ nodes, edges, mainNodes, theme, settings, rng });
     const spacings = mainNodes.slice(1).map((node, index) => distance(mainNodes[index], node));
     const worldCellPath = gridPlan.path.map((cell, pathIndex) => ({
         pathIndex,
@@ -7001,7 +5551,6 @@ function buildMostlyHorizontalRouteCandidate({ theme, settings, rng, attempt }) 
             intendedDirection: Math.abs(dx) >= Math.abs(dy) ? "right" : (dy < 0 ? "climb" : "descend")
         });
     }
-    appendOptionalBranches({ nodes, edges, mainNodes, theme, settings, rng });
     const spacings = mainNodes.slice(1).map((node, index) => distance(mainNodes[index], node));
     const worldCellPath = gridPlan.path.map((cell, pathIndex) => ({
         pathIndex,
@@ -7040,427 +5589,13 @@ function buildMostlyHorizontalRouteCandidate({ theme, settings, rng, attempt }) 
     };
 }
 
-function buildMacroRoutePlan({ theme, settings, rng }) {
-    const mainCount = LEVEL_LENGTH_PRESETS[settings.length]?.mainNodes || LEVEL_LENGTH_PRESETS.standard.mainNodes;
-    const patternId = chooseMacroPattern(settings, rng);
-    const lengthScale = settings.length === "compact" ? 0.78 : settings.length === "extended" ? 1.36 : settings.length === "grand" ? 1.72 : 1;
-    const horizontalScale = settings.length === "compact" ? 1 : settings.length === "standard" ? 1.16 : settings.length === "extended" ? 1.55 : 2;
-    const halfSpan = theme.route.macroVerticalSpan * (0.48 + clamp01(settings.verticality) * 0.52) * lengthScale;
-    const spatialAnchors = spatialAnchorsForPattern(patternId, theme.route.nodeSpacing, halfSpan).map((anchor) => ({ ...anchor, gx: anchor.gx * horizontalScale }));
-    const targetRoomCount = desiredMacroRoomCount(settings.length);
-    const candidateIndices = Array.from({ length: Math.max(0, mainCount - 4) }, (_, index) => index + 2);
-    const turnIndices = spatialAnchors.slice(1, -1)
-        .map((anchor) => Math.round(anchor.progress * (mainCount - 1)))
-        .filter((index) => index >= 2 && index <= mainCount - 3);
-    const preferred = [...new Set([
-        ...turnIndices,
-        Math.round((mainCount - 1) * 0.26),
-        Math.round((mainCount - 1) * 0.53),
-        Math.round((mainCount - 1) * 0.78),
-        ...rng.shuffle(candidateIndices)
-    ])].filter((index) => index >= 2 && index <= mainCount - 3);
-    const roomIndices = [];
-    for (const index of preferred) {
-        if (roomIndices.length >= targetRoomCount) break;
-        if (roomIndices.some((other) => Math.abs(other - index) < 2)) continue;
-        roomIndices.push(index);
-    }
-    roomIndices.sort((a, b) => a - b);
-    const rooms = roomIndices.map((nodeIndex, roomIndex) => {
-        const rareLargeRoom = settings.length === "grand" && roomIndex === Math.floor(roomIndices.length / 2) && rng.chance(0.34);
-        const widthScreens = rareLargeRoom
-            ? rng.range(3.15, 4)
-            : rng.range(1.25, settings.length === "compact" ? 1.85 : 2.45);
-        const heightScreens = rareLargeRoom
-            ? rng.range(2.25, 3)
-            : rng.range(1.15, 2.05);
-        return {
-            id: `macro_room_${String(roomIndex + 1).padStart(2, "0")}`,
-            nodeIndex,
-            widthScreens: roundCoordinate(Math.min(4, widthScreens * theme.route.roomScale)),
-            heightScreens: roundCoordinate(Math.min(3, heightScreens * theme.route.roomScale)),
-            rareLargeRoom
-        };
-    });
-    return {
-        version: 2,
-        patternId,
-        patternLabel: MACRO_ROUTE_PATTERN_LABELS[patternId] || patternId,
-        anchors: spatialAnchors.map(({ progress, gy }) => ({ progress, value: gy })),
-        spatialAnchors: spatialAnchors.map((anchor) => ({
-            progress: roundCoordinate(anchor.progress),
-            gx: roundCoordinate(anchor.gx),
-            gy: roundCoordinate(anchor.gy)
-        })),
-        halfSpan: roundCoordinate(halfSpan),
-        targetAspectRatio: settings.length === "compact" ? 6.8 : settings.length === "grand" ? 3.6 : settings.length === "extended" ? 3.5 : 3.35,
-        horizontalScale: roundCoordinate(horizontalScale),
-        rooms
-    };
-}
 
-function spatialNodeProgresses(anchors, count) {
-    const progressValues = [...new Set((anchors || []).map((anchor) => clamp01(anchor.progress)))].sort((a, b) => a - b);
-    if (!progressValues.length || progressValues[0] > 0) progressValues.unshift(0);
-    if (progressValues.at(-1) < 1) progressValues.push(1);
-    while (progressValues.length < count) {
-        let largestIndex = 0;
-        let largestSpan = -1;
-        for (let index = 1; index < progressValues.length; index += 1) {
-            const span = progressValues[index] - progressValues[index - 1];
-            if (span > largestSpan) {
-                largestSpan = span;
-                largestIndex = index;
-            }
-        }
-        progressValues.splice(largestIndex, 0, (progressValues[largestIndex - 1] + progressValues[largestIndex]) * 0.5);
-    }
-    while (progressValues.length > count && progressValues.length > 2) {
-        let removeIndex = 1;
-        let smallestCost = Infinity;
-        for (let index = 1; index < progressValues.length - 1; index += 1) {
-            const isAnchor = (anchors || []).some((anchor) => Math.abs(anchor.progress - progressValues[index]) < 0.000001);
-            if (isAnchor) continue;
-            const cost = progressValues[index + 1] - progressValues[index - 1];
-            if (cost < smallestCost) {
-                smallestCost = cost;
-                removeIndex = index;
-            }
-        }
-        progressValues.splice(removeIndex, 1);
-    }
-    return progressValues;
-}
 
-function macroRouteGridPosition(macroPlan, progress) {
-    return sampleSpatialAnchors(macroPlan?.spatialAnchors || spatialAnchorsForPattern(macroPlan?.patternId || "terraces", 1, 1), progress);
-}
 
-function buildMacroRoomRouteCandidate({ theme, settings, rng, attempt, macroPlan }) {
-    const mainCount = LEVEL_LENGTH_PRESETS[settings.length]?.mainNodes || LEVEL_LENGTH_PRESETS.standard.mainNodes;
-    const spacing = theme.route.nodeSpacing;
-    const startX = theme.route.startX;
-    const baselineY = theme.route.baselineY;
-    const halfSpan = macroPlan?.halfSpan || theme.route.macroVerticalSpan * 0.72;
-    const roomByNode = new Map((macroPlan?.rooms || []).map((room) => [room.nodeIndex, room]));
-    const nodeProgresses = spatialNodeProgresses(macroPlan?.spatialAnchors || [], mainCount);
-    const sampled = nodeProgresses.map((progress) => macroRouteGridPosition(macroPlan, progress));
-    const exitGridX = sampled.at(-1)?.gx || 7.2;
-    const mainNodes = [];
-    for (let index = 0; index < mainCount; index += 1) {
-        const progress = index / Math.max(1, mainCount - 1);
-        const grid = sampled[index];
-        const endpoint = index === 0 || index === mainCount - 1;
-        const jitterX = endpoint ? 0 : rng.range(-1, 1) * spacing * settings.winding * 0.045;
-        const jitterY = endpoint ? 0 : rng.range(-0.055, 0.055) * theme.route.verticalStep * settings.winding;
-        const x = endpoint
-            ? startX + grid.gx * spacing
-            : clamp(startX + grid.gx * spacing + jitterX, startX + spacing * 0.36, startX + (exitGridX - 0.28) * spacing);
-        const y = baselineY + grid.gy * halfSpan + jitterY;
-        const room = roomByNode.get(index);
-        const kind = index === 0
-            ? "entrance"
-            : index === mainCount - 1
-                ? "exit"
-                : room
-                    ? "chamber"
-                    : (index % 4 === 0 && settings.safety > 0.58 ? "recovery" : "traversal");
-        mainNodes.push({
-            id: `route_main_${String(index).padStart(3, "0")}`,
-            kind,
-            x: roundCoordinate(x),
-            y: roundCoordinate(y),
-            progress: index,
-            mandatory: true,
-            label: index === 0 ? "Entrance" : index === mainCount - 1 ? "Exit" : room ? `Room ${room.id.split("_").at(-1)}` : `Main ${index}`,
-            macroPatternId: macroPlan?.patternId || "terraces",
-            spatialLane: Math.round(grid.gy * 2) / 2,
-            macroRoomId: room?.id,
-            roomWidthScreens: room?.widthScreens,
-            roomHeightScreens: room?.heightScreens,
-            rareLargeRoom: room?.rareLargeRoom || undefined
-        });
-    }
 
-    const nodes = [...mainNodes];
-    const edges = [];
-    for (let index = 0; index < mainNodes.length - 1; index += 1) {
-        const from = mainNodes[index];
-        const to = mainNodes[index + 1];
-        const deltaX = to.x - from.x;
-        const deltaY = to.y - from.y;
-        edges.push({
-            id: `route_main_edge_${String(index).padStart(3, "0")}`,
-            from: from.id,
-            to: to.id,
-            mandatory: true,
-            intendedDirection: Math.abs(deltaY) > Math.abs(deltaX) * 0.65 ? (deltaY > 0 ? "descend" : "climb") : (deltaX < 0 ? "left" : "right")
-        });
-    }
 
-    appendOptionalBranches({ nodes, edges, mainNodes, theme, settings, rng });
-    return {
-        version: 3,
-        attempt,
-        startNodeId: mainNodes[0].id,
-        exitNodeId: mainNodes.at(-1).id,
-        macro: JSON.parse(JSON.stringify(macroPlan || {})),
-        nodes,
-        edges
-    };
-}
 
-function appendOptionalBranches({ nodes, edges, mainNodes, theme, settings, rng }) {
-    const mainCount = mainNodes.length;
-    const spacing = theme.route.nodeSpacing;
-    const verticalStep = theme.route.verticalStep;
-    const baselineY = theme.route.baselineY;
-    const ys = mainNodes.map((node) => node.y);
-    const minY = Math.min(...ys) - verticalStep * 2.8;
-    const maxY = Math.max(...ys) + verticalStep * 3.6;
-    const branchCount = desiredBranchCount(mainCount, settings.branching);
-    const allStarts = Array.from({ length: Math.max(0, mainCount - 4) }, (_, index) => index + 1);
-    const shaftFriendlyStarts = allStarts.filter((index) => {
-        const node = mainNodes[index];
-        const next = mainNodes[index + 1];
-        return node?.kind === "traversal"
-            && next?.kind === "traversal"
-            && Math.abs(next.y - node.y) <= theme.traversal.mandatoryRise * 1.45;
-    });
-    const starts = [
-        ...rng.shuffle(shaftFriendlyStarts),
-        ...rng.shuffle(allStarts.filter((index) => !shaftFriendlyStarts.includes(index)))
-    ];
-    const occupiedIntervals = [];
-    let builtBranches = 0;
-    for (const startIndex of starts) {
-        if (builtBranches >= branchCount) break;
-        const maxSpan = Math.min(4, mainCount - 1 - startIndex);
-        if (maxSpan < 2) continue;
-        const span = rng.int(2, maxSpan);
-        const mergeIndex = startIndex + span;
-        if (mergeIndex >= mainCount) continue;
-        if (occupiedIntervals.some(([a, b]) => startIndex <= b + 1 && mergeIndex >= a - 1)) continue;
-        const startNode = mainNodes[startIndex];
-        const mergeNode = mainNodes[mergeIndex];
-        const branchId = `branch_${String(builtBranches + 1).padStart(2, "0")}`;
-        const branchNodeCount = 5;
-        const offset = verticalStep * (1.82 + settings.verticality * 0.52 + settings.branching * 0.18);
-        const branchNodes = [];
-        for (let branchIndex = 0; branchIndex < branchNodeCount; branchIndex += 1) {
-            const t = (branchIndex + 1) / (branchNodeCount + 1);
-            const arc = Math.sin(Math.PI * t);
-            let x = lerp(startNode.x, mergeNode.x, t) + rng.range(-0.14, 0.14) * spacing * settings.winding;
-            x = Math.min(mainNodes.at(-1).x - spacing * 0.18, x);
-            const mandatoryRouteY = lerp(startNode.y, mergeNode.y, t);
-            const y = clamp(mandatoryRouteY + offset * arc + rng.range(-0.12, 0.12) * verticalStep, minY, maxY);
-            const node = {
-                id: `route_${branchId}_${String(branchIndex + 1).padStart(2, "0")}`,
-                kind: branchIndex === branchNodeCount - 1 ? "optionalReward" : "optionalTraversal",
-                x: roundCoordinate(x),
-                y: roundCoordinate(y),
-                progress: startIndex + t * span,
-                mandatory: false,
-                branchId,
-                label: `Optional ${builtBranches + 1}.${branchIndex + 1}`
-            };
-            nudgeNodeAway(node, nodes, verticalStep * 0.82, 1, baselineY, Math.max(Math.abs(minY - baselineY), Math.abs(maxY - baselineY)));
-            nodes.push(node);
-            branchNodes.push(node);
-        }
-        const branchChain = [startNode, ...branchNodes, mergeNode];
-        for (let index = 0; index < branchChain.length - 1; index += 1) {
-            edges.push({
-                id: `route_${branchId}_edge_${String(index).padStart(2, "0")}`,
-                from: branchChain[index].id,
-                to: branchChain[index + 1].id,
-                mandatory: false,
-                branchId
-            });
-        }
-        occupiedIntervals.push([startIndex, mergeIndex]);
-        builtBranches += 1;
-    }
-}
 
-function buildLegacyProgressionRouteCandidate({ theme, settings, rng, attempt }) {
-    const mainCount = LEVEL_LENGTH_PRESETS[settings.length]?.mainNodes || LEVEL_LENGTH_PRESETS.standard.mainNodes;
-    const spacing = theme.route.nodeSpacing;
-    const verticalStep = theme.route.verticalStep;
-    const startX = theme.route.startX;
-    const baselineY = theme.route.baselineY;
-    const maxLevel = Math.max(1, Math.round(1 + settings.verticality * 3));
-    const maxVertical = verticalStep * maxLevel;
-    const mainNodes = [];
-    let level = 0;
-    let flatRun = 0;
-    let previousX = startX;
-    for (let index = 0; index < mainCount; index += 1) {
-        const progress = index / Math.max(1, mainCount - 1);
-        let x;
-        if (index === 0) x = startX;
-        else if (index === mainCount - 1) x = startX + spacing * (mainCount - 1);
-        else {
-            const nominal = startX + spacing * index;
-            const jitter = rng.range(-1, 1) * spacing * settings.winding * 0.06;
-            x = Math.max(previousX + spacing * 0.84, nominal + jitter);
-        }
-
-        if (index > 0 && index < mainCount - 1) {
-            const moveChance = 0.12 + settings.verticality * 0.67;
-            let delta = 0;
-            if (rng.chance(moveChance) || (flatRun >= 2 && settings.verticality > 0.35)) {
-                const upwardBias = level >= maxLevel ? -1 : level <= -maxLevel ? 1 : 0;
-                delta = upwardBias || (rng.chance(0.5) ? -1 : 1);
-                if (Math.abs(level + delta) > maxLevel) delta = 0;
-            }
-            if (delta === 0) flatRun += 1;
-            else flatRun = 0;
-            level += delta;
-        }
-        const wobble = index === 0 || index === mainCount - 1 ? 0 : rng.range(-0.12, 0.12) * verticalStep * settings.winding;
-        const y = baselineY + level * verticalStep + wobble;
-        const kind = index === 0
-            ? "entrance"
-            : index === mainCount - 1
-                ? "exit"
-                : (index % 4 === 0 ? (settings.safety > 0.58 ? "recovery" : "chamber") : (index % 3 === 0 ? "chamber" : "traversal"));
-        mainNodes.push({
-            id: `route_main_${String(index).padStart(3, "0")}`,
-            kind,
-            x: roundCoordinate(x),
-            y: roundCoordinate(clamp(y, baselineY - maxVertical, baselineY + maxVertical)),
-            progress: index,
-            mandatory: true,
-            label: index === 0 ? "Entrance" : index === mainCount - 1 ? "Exit" : `Main ${index}`
-        });
-        previousX = x;
-    }
-
-    const nodes = [...mainNodes];
-    const edges = [];
-    for (let index = 0; index < mainNodes.length - 1; index += 1) {
-        edges.push({
-            id: `route_main_edge_${String(index).padStart(3, "0")}`,
-            from: mainNodes[index].id,
-            to: mainNodes[index + 1].id,
-            mandatory: true
-        });
-    }
-
-    const branchCount = desiredBranchCount(mainCount, settings.branching);
-    const starts = rng.shuffle(Array.from({ length: Math.max(0, mainCount - 4) }, (_, index) => index + 1));
-    const occupiedIntervals = [];
-    let builtBranches = 0;
-    for (const startIndex of starts) {
-        if (builtBranches >= branchCount) break;
-        const maxSpan = Math.min(4, mainCount - 1 - startIndex);
-        if (maxSpan < 2) continue;
-        const span = rng.int(2, maxSpan);
-        const mergeIndex = startIndex + span;
-        if (mergeIndex >= mainCount) continue;
-        if (occupiedIntervals.some(([a, b]) => startIndex <= b + 1 && mergeIndex >= a - 1)) continue;
-        const startNode = mainNodes[startIndex];
-        const mergeNode = mainNodes[mergeIndex];
-        const branchId = `branch_${String(builtBranches + 1).padStart(2, "0")}`;
-        // Materialized treasure detours use three authored steps: one narrow shaft
-        // landing in a reserved main-route gap, one clearance step, and one reward
-        // destination. Unselected branches retain the same graph shape as preview data.
-        const branchNodeCount = 5;
-        const midpointY = (startNode.y + mergeNode.y) * 0.5;
-        const upperRoom = midpointY - (baselineY - maxVertical);
-        const lowerRoom = (baselineY + maxVertical) - midpointY;
-        const interiorMainNodes = mainNodes.slice(startIndex + 1, mergeIndex);
-        const averageInteriorDeviation = interiorMainNodes.length
-            ? average(interiorMainNodes.map((node) => {
-                const t = (Number(node.progress) - startIndex) / span;
-                return node.y - lerp(startNode.y, mergeNode.y, t);
-            }))
-            : 0;
-        // Solid atlas platforms make upper parallel routes behave like low ceilings.
-        // Generator 3 therefore reserves optional reward detours below the mandatory
-        // spine, where they remain readable and can double as forgiving recovery paths.
-        // Preserve the intermediate calculations as diagnostics for future one-way assets.
-        void averageInteriorDeviation;
-        void upperRoom;
-        void lowerRoom;
-        const side = 1;
-        // Optional routes should feel distinct without becoming decorative, unreachable
-        // balconies. Keep the arc within the same conservative movement envelope that
-        // the traversal builder will later enforce between authored collision shapes.
-        const offset = verticalStep * (1.82 + settings.verticality * 0.52 + settings.branching * 0.18);
-        const branchNodes = [];
-        for (let branchIndex = 0; branchIndex < branchNodeCount; branchIndex += 1) {
-            const t = (branchIndex + 1) / (branchNodeCount + 1);
-            const arc = Math.sin(Math.PI * t);
-            let x = lerp(startNode.x, mergeNode.x, t);
-            x += rng.range(-0.14, 0.14) * spacing * settings.winding;
-            x = Math.min(mainNodes.at(-1).x - spacing * 0.18, x);
-            const branchProgress = startIndex + t * span;
-            const lowerMainIndex = Math.max(0, Math.min(mainNodes.length - 1, Math.floor(branchProgress)));
-            const upperMainIndex = Math.max(0, Math.min(mainNodes.length - 1, Math.ceil(branchProgress)));
-            const localProgress = branchProgress - lowerMainIndex;
-            const mandatoryRouteY = lerp(
-                mainNodes[lowerMainIndex].y,
-                mainNodes[upperMainIndex].y,
-                localProgress
-            );
-            let y = mandatoryRouteY + side * offset * arc;
-            y += rng.range(-0.12, 0.12) * verticalStep;
-            y = clamp(y, baselineY - maxVertical - verticalStep * 0.9, baselineY + maxVertical + verticalStep * 3.2);
-            const node = {
-                id: `route_${branchId}_${String(branchIndex + 1).padStart(2, "0")}`,
-                kind: branchIndex === branchNodeCount - 1 ? "optionalReward" : "optionalTraversal",
-                x: roundCoordinate(x),
-                y: roundCoordinate(y),
-                progress: startIndex + t * span,
-                mandatory: false,
-                branchId,
-                label: `Optional ${builtBranches + 1}.${branchIndex + 1}`
-            };
-            nudgeNodeAway(node, nodes, verticalStep * 0.82, side, baselineY, maxVertical + verticalStep * 3.4);
-            nodes.push(node);
-            branchNodes.push(node);
-        }
-        const branchChain = [startNode, ...branchNodes, mergeNode];
-        for (let index = 0; index < branchChain.length - 1; index += 1) {
-            edges.push({
-                id: `route_${branchId}_edge_${String(index).padStart(2, "0")}`,
-                from: branchChain[index].id,
-                to: branchChain[index + 1].id,
-                mandatory: false,
-                branchId
-            });
-        }
-        occupiedIntervals.push([startIndex, mergeIndex]);
-        builtBranches += 1;
-    }
-
-    return {
-        version: 1,
-        attempt,
-        startNodeId: mainNodes[0].id,
-        exitNodeId: mainNodes.at(-1).id,
-        nodes,
-        edges
-    };
-}
-
-function desiredBranchCount(mainNodeCount, branching) {
-    const maximum = Math.max(0, Math.floor((mainNodeCount - 3) / 3));
-    return Math.min(maximum, Math.max(0, Math.round(clamp01(branching) * (1 + mainNodeCount / 6))));
-}
-
-function nudgeNodeAway(node, otherNodes, minimumDistance, side, baselineY, maxVertical) {
-    let tries = 0;
-    while (tries < 8) {
-        const closest = Math.min(...otherNodes.map((other) => distance(node, other)));
-        if (closest >= minimumDistance) return;
-        node.y = roundCoordinate(clamp(node.y + side * minimumDistance * 0.42, baselineY - maxVertical, baselineY + maxVertical));
-        node.x = roundCoordinate(node.x + minimumDistance * 0.12);
-        tries += 1;
-    }
-}
 
 function graphReachable(startId, adjacency) {
     const visited = new Set();

@@ -135,9 +135,7 @@
       "atlasId": "at_atlas_001",
       "assetId": "ledge_small_flat",
       "roles": [
-        "branchStep",
-        "recoveryPlatform",
-        "shaftBridge"
+        "recoveryPlatform"
       ],
       "weight": 7,
       "nativeWidth": 156,

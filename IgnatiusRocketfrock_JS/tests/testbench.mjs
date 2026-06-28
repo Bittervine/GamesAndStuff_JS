@@ -77,6 +77,7 @@ import {
 import {
     AUTOMATIC_LEVEL_GENERATOR_ID,
     LEVEL_GENERATOR_REGISTRIES,
+    LEVEL_GENERATOR_STAGE_ORDER,
     automaticLevelDraftBounds,
     buildAutomaticLevelValidationOverlay,
     createNamedRandomStream,
@@ -92,7 +93,6 @@ import {
     normalizeGeneratorTheme,
     normalizeLevelGeneration,
     parseEnemySelection,
-    reanchorGeneratedEncounterStage,
     routeGraphBounds,
     validateGeneratedEncounters,
     validateAutomaticLevelDraftSnapshot,
@@ -3897,7 +3897,6 @@ function testAutomaticLevelGeneratorPerimeterAndSpatialCulling() {
                 settings: {
                     ...theme.defaults,
                     length,
-                    branching: 0.85,
                     enemyDensity: 0.62,
                     rewardDensity: 0.7
                 },
@@ -4092,7 +4091,6 @@ function testAutomaticLevelGeneratorMacroRoomsGroundedDoorsAndPerimeterContract(
                     length,
                     verticality: 0.86,
                     winding: 0.78,
-                    branching: 0.7,
                     enemyDensity: 0.5,
                     rewardDensity: 0.65
                 },
@@ -4180,7 +4178,7 @@ function testAutomaticLevelGeneratorMacroRoomsGroundedDoorsAndPerimeterContract(
             assert.ok(draft.generation.validation.metrics.tertiaryRecoveryCount >= draft.generation.validation.metrics.recoveryLaneGapCount, "tertiary platforms should catch misses from the lower route");
             assert.equal(draft.generation.validation.metrics.unprotectedUpperGapCount, 0, "no upper jump gap may expose the player to an unrecoverable fall");
             assert.ok(draft.generation.validation.metrics.minimumStaticHeadroom >= 111.5, "overlapping static routes should leave enough headroom for Ignatius");
-            assert.ok(draft.generation.validation.metrics.longMainPlatformShare >= 0.4, "longform traversal should use long platforms for a substantial share of the main route");
+            assert.ok(draft.generation.validation.metrics.longPlatformShare >= 0.4, "Standard traversal should use long platforms for a substantial share of the main route");
             if (length !== "compact") assert.ok(draft.generation.validation.metrics.secondaryPlatformCount >= 1, "non-compact caverns should include at least one detached upper reward perch when long platforms are available");
             assert.equal(draft.generation.validation.metrics.recoveryGapOverlapViolationCount, 0, "lower recovery-route gaps must be staggered away from upper-route gaps");
             assert.equal(draft.generation.validation.metrics.movingThinAssetViolationCount, 0, "every vertical shuttle should use the reserved thin moving-platform style");
@@ -4195,7 +4193,7 @@ function testAutomaticLevelGeneratorMacroRoomsGroundedDoorsAndPerimeterContract(
             const route = generateAutomaticLevelRoute({
                 theme,
                 seed: `macro-shape-${theme.themeId}-${seed}`,
-                settings: { ...theme.defaults, length: "grand", verticality: 0.9, winding: 0.9, branching: 0.65 },
+                settings: { ...theme.defaults, length: "grand", verticality: 0.9, winding: 0.9, },
                 availableEnemyIds
             });
             patternIds.add(route.route.macro?.patternId);
@@ -4274,7 +4272,6 @@ function testLongPlatformAtlas004ManifestAndGeneration() {
         settings: {
             ...theme.defaults,
             length: "extended",
-            branching: 0.45,
             rewardDensity: 0.35,
             enemyDensity: 0.15
         },
@@ -4295,6 +4292,11 @@ function testAutomaticLevelGeneratorRouteFoundation() {
     assert.equal(iceTheme.themeId, "ice-cavern", "Ice Cavern should remain a data-driven generator theme");
     assert.deepEqual(iceTheme.colorMap.atlasIds, ["at_atlas_001", "at_atlas_002", "at_atlas_003", "at_atlas_004"], "Ice Cavern should recolour only environment atlases");
     assert.ok(!iceTheme.colorMap.atlasIds.includes("it_atlas_001"), "Ice Cavern must not recolour doors, chests, mailboxes, or power-up icons");
+    assert.equal("branching" in earthTheme.defaults, false, "current generator settings should not retain the retired optional-branch control");
+    const rawPlatformCatalog = JSON.parse(readFileSync(new URL("../assets/level-generator-platforms.json", import.meta.url), "utf8"));
+    assert.ok((rawPlatformCatalog.assets || []).every((asset) => !(asset.roles || []).some((role) => role === "branchStep" || role === "shaftBridge")), "the platform catalog should not retain retired branch-only roles");
+    const rawRewardCatalog = JSON.parse(readFileSync(new URL("../assets/level-generator-rewards.json", import.meta.url), "utf8"));
+    assert.ok(Object.values(rawRewardCatalog.rewards || {}).every((reward) => !(reward.contexts || []).some((context) => context === "branchDestination" || context === "branchBonus")), "the reward catalog should not retain retired branch-only contexts");
     assert.deepEqual(LEVEL_GENERATOR_REGISTRIES.route, [
         { id: "the-path74-route-v4", label: "Standard" },
         { id: "mostly-horizontal-route-v1", label: "Mostly horizontal" }
@@ -4307,18 +4309,32 @@ function testAutomaticLevelGeneratorRouteFoundation() {
         assert.equal(LEVEL_GENERATOR_REGISTRIES[stage].length, 1, `${stage} should expose only its current compatible implementation`);
         assert.equal(LEVEL_GENERATOR_REGISTRIES[stage][0].label, "Standard", `${stage} should use a simple Standard label`);
     }
-    const migratedLegacy = normalizeGeneratorImplementations({
-        route: "progression-route-v1",
-        cavern: "ellipse-cavern-v1",
-        traversal: "spaced-platform-traversal-v2",
-        endpoints: "safe-endpoints-v1",
-        validation: "playable-empty-cavern-validation-v1"
-    });
-    assert.equal(migratedLegacy.route, "mostly-horizontal-route-v1", "old progression-route records should migrate to the new compatible horizontal planner");
-    assert.equal(migratedLegacy.cavern, "the-path74-contour-cavern-v4", "old cavern IDs should migrate to the current standard contour builder");
-    assert.equal(migratedLegacy.traversal, "layered-safety-network-traversal-v6", "old traversal IDs should migrate to the current standard traversal");
-    assert.equal(migratedLegacy.endpoints, "grounded-chamber-endpoints-v2", "old endpoint IDs should migrate to grounded standard endpoints");
-    assert.equal(migratedLegacy.validation, "the-path74-cavern-validation-v4", "old validation IDs should migrate to the current standard validator");
+    assert.throws(() => normalizeGeneratorImplementations({ route: "progression-route-v1" }), /Unsupported route generator implementation/, "retired generator IDs should fail clearly instead of being migrated");
+    const currentImplementations = normalizeGeneratorImplementations({});
+    assert.deepEqual(currentImplementations, Object.fromEntries(
+        LEVEL_GENERATOR_STAGE_ORDER.map((stage) => [stage, LEVEL_GENERATOR_REGISTRIES[stage][0].id])
+    ), "omitted implementation choices should still resolve to the current defaults");
+    assert.throws(() => normalizeLevelGeneration({
+        generatorId: AUTOMATIC_LEVEL_GENERATOR_ID,
+        implementations: { ...currentImplementations, route: "progression-route-v1" },
+        route: { generatorId: "progression-route-v1", nodes: [], edges: [] }
+    }), /Unsupported route generator implementation/, "saved generation metadata using a retired route should be rejected rather than migrated");
+    const generatorSource = readFileSync(new URL("../src/shared/level-generator-data.js", import.meta.url), "utf8");
+    for (const retiredFunction of [
+        "buildMacroRoutePlan",
+        "buildMacroRoomRouteCandidate",
+        "buildLegacyProgressionRouteCandidate",
+        "buildEllipseCavern",
+        "appendOptionalBranches",
+        "routeBranchDescriptors",
+        "reanchorGeneratedEncounterStage"
+    ]) {
+        assert.doesNotMatch(generatorSource, new RegExp(`function\\s+${retiredFunction}\\b`), `${retiredFunction} should be physically removed rather than hidden behind the current registry`);
+    }
+    assert.doesNotMatch(generatorSource, /implementations\.traversal\s*===\s*["'](?:longform-organic|organic-layered|layered-recovery|spaced-platform|forgiving-traversal)/, "the current traversal builder should not retain executable legacy-version branches");
+    assert.doesNotMatch(generatorSource, /LEGACY_GENERATOR_IMPLEMENTATION_ALIASES|branchChestScore|branchId:\s*(?:node|edge)/, "generator source should not retain old-ID aliases or old generated-record field fallbacks");
+    const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    assert.doesNotMatch(editorSource, /source\.automaticGeneration|generationBranchId|startsWith\(["']automatic-level-generator/, "the Level Editor should not retain automatic-generator import aliases or broad ownership matching");
 
     const firstStream = createNamedRandomStream("seed-17", "route", 3);
     const secondStream = createNamedRandomStream("seed-17", "route", 3);
@@ -4338,7 +4354,6 @@ function testAutomaticLevelGeneratorRouteFoundation() {
         length: "extended",
         verticality: 0.66,
         winding: 0.58,
-        branching: 1,
         allowedEnemies: "1-999,!2"
     };
     const firstRun = generateAutomaticLevelRoute({ theme: earthTheme, seed: "rocketfrock-route", settings, availableEnemyIds: enemyIds });
@@ -4349,7 +4364,6 @@ function testAutomaticLevelGeneratorRouteFoundation() {
     assert.equal(firstRun.generatorId, AUTOMATIC_LEVEL_GENERATOR_ID, "generation provenance should identify the current automatic generator");
     assert.equal(firstRun.validation.valid, true, "the selected route should pass validation");
     assert.ok(firstRun.validation.qualityScore >= 80, `the selected route should clear the visual-quality floor, got ${firstRun.validation.qualityScore}`);
-    assert.ok(firstRun.validation.metrics.branchCount >= 3, "maximum branching on an extended route should create several optional branches");
     assert.ok(firstRun.attemptsTried >= 8 && firstRun.attempt >= 1, "the generator should evaluate deterministic candidates and record the selected attempt");
     assert.deepEqual(firstRun.resolvedEnemyIds, ["enemy_001", "enemy_003", "enemy_005"], "generation provenance should store the resolved enemy filter");
 
@@ -4373,10 +4387,10 @@ function testAutomaticLevelGeneratorRouteFoundation() {
     assert.equal(normalized.route.nodes.length, firstRun.route.nodes.length, "route nodes should survive level normalization");
 
     const stressSettings = [
-        { length: "compact", verticality: 0, winding: 0, branching: 0 },
-        { length: "standard", verticality: 1, winding: 0.25, branching: 0.4 },
-        { length: "extended", verticality: 0.55, winding: 1, branching: 0.7 },
-        { length: "grand", verticality: 0.8, winding: 0.8, branching: 1 }
+        { length: "compact", verticality: 0, winding: 0, },
+        { length: "standard", verticality: 1, winding: 0.25, },
+        { length: "extended", verticality: 0.55, winding: 1, },
+        { length: "grand", verticality: 0.8, winding: 0.8, }
     ];
     for (const theme of [earthTheme, iceTheme]) {
         for (const overrides of stressSettings) {
@@ -4429,7 +4443,6 @@ function testAutomaticLevelGeneratorVariantCompatibility() {
                             length,
                             verticality: 0.72,
                             winding: 0.55,
-                            branching: 0.45,
                             enemyDensity: 0,
                             rewardDensity: 0
                         },
@@ -4527,8 +4540,8 @@ function testAutomaticLevelGeneratorPlayableEmptyCavern() {
         theme: earthTheme,
         assetCatalog,
         seed: "playable-cavern-contract",
-        settings: { ...earthTheme.defaults, length: "extended", verticality: 0.72, winding: 0.65, branching: 0.8, safety: 1 },
-        implementations: { ...earthTheme.implementations, encounters: "not-generated-yet", rewards: "not-generated-yet", validation: "playable-empty-cavern-validation-v1" },
+        settings: { ...earthTheme.defaults, length: "extended", verticality: 0.72, winding: 0.65, safety: 1 },
+        implementations: { ...earthTheme.implementations, encounters: "not-generated-yet", rewards: "not-generated-yet", validation: "the-path74-cavern-validation-v4" },
         availableEnemyIds: enemyIds,
         destinationLevel: "level_002"
     };
@@ -4546,9 +4559,8 @@ function testAutomaticLevelGeneratorPlayableEmptyCavern() {
     assert.equal(first.generation.traversal.mandatorySupportPath[0], first.generation.traversal.startSupportId, "the support path should begin beneath the entrance");
     assert.equal(first.generation.traversal.mandatorySupportPath.at(-1), first.generation.traversal.exitSupportId, "the support path should finish beneath the exit");
     assert.ok(first.generation.traversal.transitions.filter((transition) => transition.mandatory).every((transition) => transition.valid), "every mandatory transition should fit the conservative movement envelope");
-    assert.ok(first.generation.traversal.supports.every((support) => !support.branchId), "Generator 1 should materialize no optional-branch supports");
+    assert.ok(first.generation.traversal.supports.every((support) => !support.branchId), "current generation should not emit retired branch-owned supports");
     assert.ok(first.generation.traversal.supports.filter((support) => !["recoveryPlatform", "secondaryPlatform"].includes(support.role)).every((support) => support.mandatory), "all supports outside recovery floors and optional secondary perches should belong to the mandatory spine");
-    assert.equal(first.generation.traversal.reservedOptionalRouteNodeIds.length, first.generation.route.nodes.filter((node) => !node.mandatory).length, "optional route nodes should remain explicit reservations for the later reward slice");
     assert.ok(first.generation.traversal.supports.every((support) => !support.mandatory || support.walkableWidth >= 180), "every mandatory support should expose a generous authored walkable top");
     assert.ok(first.generation.traversal.transitions.every((transition) => transition.gap <= earthTheme.traversal.mandatoryGap + 0.01), "transition gaps should be measured between authored walkable edges");
     assert.ok(first.generation.diagnostics.geometryCandidatesTried >= 6 && first.generation.diagnostics.validGeometryCandidates >= 1, "Generator 1 should inspect several deterministic geometry candidates rather than accept the first buildable draft");
@@ -4573,10 +4585,10 @@ function testAutomaticLevelGeneratorPlayableEmptyCavern() {
     assert.ok(normalized.cavern && normalized.traversal && normalized.endpoints, "Generator 1 geometry metadata should survive level normalization");
 
     const stressSettings = [
-        { length: "compact", verticality: 0, winding: 0, branching: 0, safety: 1 },
-        { length: "standard", verticality: 1, winding: 0.25, branching: 0.4, safety: 0.9 },
-        { length: "extended", verticality: 0.55, winding: 1, branching: 0.7, safety: 0.75 },
-        { length: "grand", verticality: 1, winding: 1, branching: 1, safety: 0.5 }
+        { length: "compact", verticality: 0, winding: 0, safety: 1 },
+        { length: "standard", verticality: 1, winding: 0.25, safety: 0.9 },
+        { length: "extended", verticality: 0.55, winding: 1, safety: 0.75 },
+        { length: "grand", verticality: 1, winding: 1, safety: 0.5 }
     ];
     for (const theme of [earthTheme, iceTheme]) {
         for (const overrides of stressSettings) {
@@ -4586,7 +4598,7 @@ function testAutomaticLevelGeneratorPlayableEmptyCavern() {
                     assetCatalog,
                     seed: `${theme.themeId}-${overrides.length}-cavern-${seed}`,
                     settings: { ...theme.defaults, ...overrides },
-                    implementations: { ...theme.implementations, encounters: "not-generated-yet", rewards: "not-generated-yet", validation: "playable-empty-cavern-validation-v1" },
+                    implementations: { ...theme.implementations, encounters: "not-generated-yet", rewards: "not-generated-yet", validation: "the-path74-cavern-validation-v4" },
                     availableEnemyIds: enemyIds
                 });
                 const validation = draft.generation.validation;
@@ -4604,7 +4616,7 @@ function testAutomaticLevelGeneratorPlayableEmptyCavern() {
     assert.ok(editorHtml.includes("generateAutomaticLevelDraft") && editorHtml.includes("level-generator-platforms.json"), "Level Editor should load the generation catalog and create complete cavern drafts");
     assert.ok(editorHtml.includes("replacedLevelShell") && editorHtml.includes("previous level shell were preserved"), "generated-shell replacement should remain reversible without consuming manual content");
     assert.ok(editorHtml.includes("Playable rewarded cavern valid"), "Level Editor should report combined route, traversal, endpoint, encounter, reward, cave, and world validation");
-    assert.ok(editorHtml.includes("materialized of") && editorHtml.includes("optional branch"), "the editor should distinguish reserved branches from materialized treasure detours");
+    assert.ok(editorHtml.includes("upper-perch chest") && !editorHtml.includes("materialized of") && !editorHtml.includes("optional branch"), "the editor should report current upper-perch rewards without retired branch terminology");
 }
 
 function testAutomaticLevelGeneratorEncounters() {
@@ -4624,7 +4636,7 @@ function testAutomaticLevelGeneratorEncounters() {
         enemyCatalog,
         seed: "encounter-organic-1",
         settings: { ...earthTheme.defaults, length: "standard", enemyDensity: 0.58, difficulty: 0.48 },
-        implementations: { ...earthTheme.implementations, rewards: "not-generated-yet", validation: "playable-encounter-cavern-validation-v1" },
+        implementations: { ...earthTheme.implementations, rewards: "not-generated-yet", validation: "the-path74-cavern-validation-v4" },
         availableEnemyIds: enemyIds,
         destinationLevel: "level_002"
     };
@@ -4692,7 +4704,7 @@ function testAutomaticLevelGeneratorEncounters() {
                     enemyCatalog,
                     seed: `${theme.themeId}-${overrides.length}-encounters-${seed}`,
                     settings: { ...theme.defaults, ...overrides },
-                    implementations: { ...theme.implementations, rewards: "not-generated-yet", validation: "playable-encounter-cavern-validation-v1" },
+                    implementations: { ...theme.implementations, rewards: "not-generated-yet", validation: "the-path74-cavern-validation-v4" },
                     availableEnemyIds: enemyIds
                 });
                 const validation = draft.generation.validation;
@@ -4726,12 +4738,10 @@ function testAutomaticLevelGeneratorRewards() {
     const entityCatalog = JSON.parse(readFileSync(new URL("../assets/it_entities_001.json", import.meta.url), "utf8"));
     const enemyIds = Object.keys(enemyCatalog.enemies);
     assert.ok(LEVEL_GENERATOR_REGISTRIES.rewards.some((entry) => entry.id === "basic-rewards-v1"), "the reward populator should be registered by stable ID");
-    assert.ok(rewardGenerationCatalog.rewards.some((entry) => entry.entityType === "treasureChest" && entry.contexts.includes("branchDestination") && entry.contexts.includes("secondaryPerch")), "treasure generation metadata should support both legacy branch destinations and current upper reward perches");
+    assert.ok(rewardGenerationCatalog.rewards.some((entry) => entry.entityType === "treasureChest" && entry.contexts.includes("secondaryPerch")), "treasure generation metadata should support current upper reward perches");
     assert.ok(entityCatalog.entities.thoughtTrigger, "the interactive entity catalog should define the invisible one-shot thought trigger");
     const movingPlatformAsset = assetCatalog.assets.find((entry) => entry.assetId === "rubble_long");
     assert.deepEqual(movingPlatformAsset?.roles, ["movingPlatform"], "the thin rubble platform should be reserved exclusively for moving-platform use");
-    assert.ok(assetCatalog.assets.some((entry) => entry.roles.includes("shaftBridge")), "the platform catalog should retain a collision-open shaft bridge role for treasure-detour entrances");
-    assert.ok(assetCatalog.assets.some((entry) => entry.assetId === "ledge_small_flat" && entry.roles.includes("branchStep") && entry.roles.includes("shaftBridge")), "the small flat ledge should provide both branch foothold and shaft-bridge roles");
 
     const options = {
         theme: earthTheme,
@@ -4741,25 +4751,22 @@ function testAutomaticLevelGeneratorRewards() {
         enemyCatalog,
         entityCatalog,
         seed: "reward-smoke",
-        settings: { ...earthTheme.defaults, length: "extended", branching: 0.82, rewardDensity: 0.72, enemyDensity: 0.58, difficulty: 0.52, allowThoughts: false },
+        settings: { ...earthTheme.defaults, length: "extended", rewardDensity: 0.72, enemyDensity: 0.58, difficulty: 0.52, allowThoughts: false },
         availableEnemyIds: enemyIds,
         destinationLevel: "level_002"
     };
     const first = generateAutomaticLevelDraft(options);
     const repeated = generateAutomaticLevelDraft(options);
-    assert.deepEqual(repeated, first, "the rewards stream should reproduce branch selection and every reward exactly");
+    assert.deepEqual(repeated, first, "the rewards stream should reproduce upper-perch selection and every reward exactly");
     assert.ok(first.generation.runId.startsWith("alg9_"), "Generator 9 runs should use an explicit alg9 provenance prefix");
     assert.equal(first.generation.validation.valid, true, `the complete rewarded cavern should validate: ${first.generation.validation.errors.join(" ")}`);
     const rewardEntities = first.entities.filter((entity) => entity.generationStage === "rewards");
     const encounterEntities = first.entities.filter((entity) => entity.generationStage === "encounters");
     const endpointEntities = first.entities.filter((entity) => entity.generationStage === "endpoints");
-    const selectedBranches = first.generation.rewards.selectedBranchIds;
     const selectedPerches = first.generation.rewards.selectedPerchSupportIds;
     const chests = rewardEntities.filter((entity) => entity.type === "treasureChest");
-    assert.equal(selectedBranches.length, 0, "the layered safety-network traversal should leave old branch detours as legacy geometry");
     assert.ok(selectedPerches.length >= 1, "a high reward-density extended cavern should select at least one detached upper reward perch");
     assert.equal(chests.length, selectedPerches.length, "each selected upper reward perch should contain exactly one treasure chest");
-    assert.deepEqual(first.generation.traversal.materializedBranchIds, [], "current layered traversal should not materialize the legacy optional branch shafts");
     for (const supportId of selectedPerches) {
         const support = first.generation.traversal.supports.find((candidate) => candidate.id === supportId);
         assert.ok(support?.secondaryPlatform && support?.rewardPerch, "selected treasure supports should be detached secondary reward perches");
@@ -4788,7 +4795,6 @@ function testAutomaticLevelGeneratorRewards() {
         entityCatalog
     });
     assert.equal(independent.valid, true, `standalone reward validation should accept the selected draft: ${independent.errors.join(" ")}`);
-    assert.equal(independent.metrics.rewardedBranchCount, selectedBranches.length, "standalone validation should account for every legacy branch destination");
     assert.equal(independent.metrics.rewardedPerchCount, selectedPerches.length, "standalone validation should account for every selected upper reward perch");
     assert.equal(independent.metrics.endpointCrowdingCount, 0, "reward placement should preserve entrance and exit calm space");
     assert.equal(independent.metrics.rewardEnemyOverlapCount, 0, "rewards should not overlap generated enemies");
@@ -4799,7 +4805,6 @@ function testAutomaticLevelGeneratorRewards() {
         settings: { ...options.settings, rewardDensity: 0, allowThoughts: true }
     });
     assert.equal(zeroRewards.entities.filter((entity) => entity.generationStage === "rewards").length, 0, "zero reward density should produce no pickups, chests, or thoughts");
-    assert.equal(zeroRewards.generation.traversal.materializedBranchIds.length, 0, "zero reward density should keep optional branches as reservations only");
     assert.equal(zeroRewards.generation.rewards.selectedPerchSupportIds.length, 0, "zero reward density should select no upper treasure perches");
 
     const thoughtTheme = normalizeGeneratorTheme({ ...earthRaw, rewards: { ...earthRaw.rewards, thoughtChance: 1 } });
@@ -4809,7 +4814,7 @@ function testAutomaticLevelGeneratorRewards() {
             ...options,
             theme: thoughtTheme,
             seed: `thought-${seed}`,
-            settings: { ...thoughtTheme.defaults, length: "extended", branching: 0.7, rewardDensity: 0.58, enemyDensity: 0.35, allowThoughts: true }
+            settings: { ...thoughtTheme.defaults, length: "extended", rewardDensity: 0.58, enemyDensity: 0.35, allowThoughts: true }
         });
         if (candidate.entities.some((entity) => entity.type === "thoughtTrigger")) thoughtDraft = candidate;
     }
@@ -4819,10 +4824,10 @@ function testAutomaticLevelGeneratorRewards() {
     assert.equal(thoughtDraft.entities.filter((entity) => entity.type === "thoughtTrigger").length, 1, "theme limits should keep generated narrative additions restrained");
 
     const stressSettings = [
-        { length: "compact", branching: 0, rewardDensity: 0.2, enemyDensity: 0.2 },
-        { length: "standard", branching: 0.45, rewardDensity: 0.45, enemyDensity: 0.5 },
-        { length: "extended", branching: 0.8, rewardDensity: 0.75, enemyDensity: 0.75 },
-        { length: "grand", branching: 1, rewardDensity: 1, enemyDensity: 1 }
+        { length: "compact", rewardDensity: 0.2, enemyDensity: 0.2 },
+        { length: "standard", rewardDensity: 0.45, enemyDensity: 0.5 },
+        { length: "extended", rewardDensity: 0.75, enemyDensity: 0.75 },
+        { length: "grand", rewardDensity: 1, enemyDensity: 1 }
     ];
     for (const theme of [earthTheme, iceTheme]) {
         for (const overrides of stressSettings) {
@@ -4843,14 +4848,14 @@ function testAutomaticLevelGeneratorRewards() {
                 assert.equal(validation.metrics.inaccessibleRewardCount, 0, `${theme.themeId} seed ${seed} should keep every reward on safe authored walkable space`);
                 assert.equal(validation.metrics.endpointCrowdingCount, 0, `${theme.themeId} seed ${seed} should keep rewards away from both doors`);
                 assert.equal(validation.metrics.rewardEnemyOverlapCount, 0, `${theme.themeId} seed ${seed} should avoid reward-enemy overlap`);
-                assert.equal(validation.metrics.invalidOptionalTransitions, 0, `${theme.themeId} seed ${seed} should make selected branch detours traversable in both directions`);
+                assert.equal(validation.metrics.invalidNonMandatoryTransitions, 0, `${theme.themeId} seed ${seed} should keep recovery and upper-perch transitions traversable in both directions`);
             }
         }
     }
 
     const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     assert.ok(editorHtml.includes("level-generator-rewards.json") && editorHtml.includes('id="generator-allow-thoughts"'), "Level Editor should load reward metadata and expose explicit narrative opt-in");
-    assert.ok(editorHtml.includes("materialized of") && editorHtml.includes("previewOnlyMergeEdgeIds"), "route preview should distinguish real treasure paths from abstract merge hints");
+    assert.ok(!editorHtml.includes("generator-branching") && !editorHtml.includes("previewOnlyMergeEdgeIds"), "the editor should not retain retired optional-branch controls or preview plumbing");
 }
 
 
@@ -4880,7 +4885,7 @@ function testAutomaticLevelGeneratorEditorRefinement() {
         enemyCatalog,
         entityCatalog,
         seed: "refine-0",
-        settings: { ...earthTheme.defaults, length: "extended", branching: 1, rewardDensity: 0.28, enemyDensity: 0.68, difficulty: 0.58 },
+        settings: { ...earthTheme.defaults, length: "extended", rewardDensity: 0.28, enemyDensity: 0.68, difficulty: 0.58 },
         availableEnemyIds: enemyIds,
         destinationLevel: "level_002"
     };
@@ -4923,19 +4928,21 @@ function testAutomaticLevelGeneratorEditorRefinement() {
         });
         assert.equal(JSON.stringify(candidate.generation.route), baselineRoute, `reward revision ${revision} must preserve the accepted route`);
         assert.equal(candidate.generation.validation.valid, true, `reward revision ${revision} should remain a valid complete draft`);
-        const rewardFingerprint = JSON.stringify({ rewards: candidate.generation.rewards, traversal: candidate.generation.traversal.materializedBranchIds });
-        const baselineFingerprint = JSON.stringify({ rewards: baseline.generation.rewards, traversal: baseline.generation.traversal.materializedBranchIds });
+        const rewardFingerprint = JSON.stringify(candidate.generation.rewards);
+        const baselineFingerprint = JSON.stringify(baseline.generation.rewards);
         if (rewardFingerprint !== baselineFingerprint) rewardVariant = candidate;
     }
-    assert.ok(rewardVariant, "independent reward revisions should produce a different valid reward or detour arrangement within a bounded search");
-    const originalEncounterEntities = baseline.entities.filter((entity) => entity.generationStage === "encounters");
-    const reanchored = reanchorGeneratedEncounterStage(baseline.generation, rewardVariant.generation, originalEncounterEntities);
-    assert.equal(reanchored.entities.length, originalEncounterEntities.length, "reward rerolls should preserve the complete existing encounter population");
-    assert.equal(reanchored.encounters.encounters.length, baseline.generation.encounters.encounters.length, "reward rerolls should preserve encounter group records");
-    for (const entity of reanchored.entities) {
-        const support = rewardVariant.generation.traversal.supports.find((entry) => entry.id === entity.generationSupportId);
-        assert.ok(support, `reanchored enemy ${entity.id} should retain a support that exists in the reward-rerolled traversal`);
-    }
+    assert.ok(rewardVariant, "independent reward revisions should produce a different valid reward arrangement within a bounded search");
+    assert.equal(JSON.stringify(rewardVariant.generation.traversal), JSON.stringify(baseline.generation.traversal), "reward rerolls should preserve traversal metadata exactly");
+    assert.equal(JSON.stringify(rewardVariant.generation.endpoints), JSON.stringify(baseline.generation.endpoints), "reward rerolls should preserve endpoint metadata exactly");
+    assert.equal(JSON.stringify(rewardVariant.generation.cavern), JSON.stringify(baseline.generation.cavern), "reward rerolls should preserve cavern metadata exactly");
+    assert.equal(JSON.stringify(rewardVariant.generation.encounters), JSON.stringify(baseline.generation.encounters), "reward rerolls should preserve encounter groups exactly");
+    assert.equal(JSON.stringify(rewardVariant.placements), JSON.stringify(baseline.placements), "reward rerolls should preserve all generated terrain placements exactly");
+    assert.equal(
+        JSON.stringify(rewardVariant.entities.filter((entity) => entity.generationStage === "encounters")),
+        JSON.stringify(baseline.entities.filter((entity) => entity.generationStage === "encounters")),
+        "reward rerolls should preserve encounter entities exactly without re-anchoring"
+    );
 
     const validationArgs = {
         generation: baseline.generation,
@@ -5002,7 +5009,8 @@ function testAutomaticLevelGeneratorEditorRefinement() {
     assert.ok(editorHtml.includes('id="generator-regenerate-stage"') && editorHtml.includes('id="generator-regenerate"'), "the Level Editor should expose explicit stage-specific regeneration controls");
     assert.ok(editorHtml.includes('id="generator-lock-selected"') && editorHtml.includes('id="generator-manualize-selected"'), "the Level Editor should expose generated-object locking and manual ownership conversion");
     assert.ok(editorHtml.includes('id="generator-show-validation"') && editorHtml.includes("drawAutomaticValidationOverlay"), "the Level Editor should expose the richer validation visualization");
-    assert.ok(editorHtml.includes("generationValidationRecord(record, generation.runId)"), "reward rerolls should replace active-run manualized records atomically instead of duplicating them");
+    assert.ok(editorHtml.includes('stageRegenerationBlockedByManualRecords(["rewards"])') && editorHtml.includes('automaticGeneratedRecord(record) && generationRecordStage(record) === "rewards"'), "reward rerolls should block manualized rewards and replace only active generated reward entities");
+    assert.ok(editorHtml.includes("Route, terrain, endpoints, and encounters were preserved exactly"), "reward rerolls should no longer carry branch-era traversal rebuilding or encounter re-anchoring");
     assert.ok(editorHtml.includes("generatedRecordLocked") && editorHtml.includes("manualizedFromGeneration"), "editor mutation guards and ownership receipts should remain explicit in source");
 }
 
@@ -8992,7 +9000,7 @@ const tests = [
     ["automatic level generator variant compatibility", testAutomaticLevelGeneratorVariantCompatibility],
     ["automatic level generator playable empty cavern", testAutomaticLevelGeneratorPlayableEmptyCavern],
     ["automatic level generator encounters", testAutomaticLevelGeneratorEncounters],
-    ["automatic level generator rewards and branch detours", testAutomaticLevelGeneratorRewards],
+    ["automatic level generator rewards", testAutomaticLevelGeneratorRewards],
     ["automatic level generator editor refinement", testAutomaticLevelGeneratorEditorRefinement],
     ["automatic perimeter population and spatial culling", testAutomaticLevelGeneratorPerimeterAndSpatialCulling],
     ["macro rooms, grounded doors, and guaranteed perimeter", testAutomaticLevelGeneratorMacroRoomsGroundedDoorsAndPerimeterContract],

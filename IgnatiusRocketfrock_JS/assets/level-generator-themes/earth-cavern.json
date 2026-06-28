@@ -6,7 +6,6 @@
     "length": "standard",
     "verticality": 0.42,
     "winding": 0.32,
-    "branching": 0.34,
     "difficulty": 0.34,
     "safety": 0.74,
     "enemyDensity": 0.42,
@@ -91,7 +90,7 @@
   "rewards": {
     "endpointExclusionDistance": 760,
     "minimumRewardSpacing": 480,
-    "branchChestScore": 100,
+    "treasureChestScore": 100,
     "maximumContextualPowerUps": 3,
     "thoughtChance": 0.34,
     "maximumThoughts": 1,
