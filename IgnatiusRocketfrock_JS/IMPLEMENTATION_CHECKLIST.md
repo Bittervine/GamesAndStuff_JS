@@ -2334,3 +2334,114 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Regenerate the authored `level_001` cave foreground under the formation-only perimeter rule.
 - [x] Add validation metrics and regressions for recovery lanes, staggered gaps, upper-gap coverage, thin moving-platform style, and formation-only foreground assets.
 - [ ] Continue playtesting recovery-lane density and vertical separation in the real runtime before changing the conservative jump envelope.
+
+## Revision 246 Atlas 004 long platforms
+
+- [x] Add `assets/at_atlas_004.json` with frames for all sixteen uploaded platform islands.
+- [x] Give every platform a closed blockable collision polygon.
+- [x] Place the upper blockable surface through the middle of the visible walkway rather than on the alpha fringe.
+- [x] Register every Atlas 004 platform in generation catalog version 2.
+- [x] Expose the family to static landing, route-floor, bridge, and recovery-floor roles without changing the exclusive thin moving-platform style.
+- [x] Let broad horizontal route edges request longer authored landing assets while preserving validated jump gaps.
+- [x] Add Atlas 004 to Earth and Ice environment colour-map allowlists.
+- [x] Add regression coverage for manifest completeness, collision-surface placement, catalog roles, generated selection, and moving-platform exclusivity.
+- [x] Keep the PNG separate from the no-PNG revision archive.
+
+
+## Revision 247 organic upper traversal
+
+- [x] Register `organic-layered-traversal-v4` and make it the Earth and Ice default.
+- [x] Retain `layered-recovery-traversal-v3`, `spaced-platform-traversal-v2`, and `forgiving-traversal-v1` as legacy implementations.
+- [x] Keep ThePath74 as a loose guide rather than a platform centreline.
+- [x] Search horizontal platform profiles with visible height changes between every neighbouring landing in chains of three or more.
+- [x] Reject generated same-height platform rows and insufficient vertical range.
+- [x] Bound organic departures around the abstract route while retaining conservative jump, rise, drop, and landing validation.
+- [x] Use Atlas 004 long static platforms more readily on broad horizontal legs.
+- [x] Preserve `rubble_long` as the exclusive thin moving-platform family.
+- [x] Measure vertical-shuttle travel between realized support surfaces after route-anchor offsets.
+- [x] Record organic-height and long-platform metrics in generation validation.
+
+## Revision 248 aggregate test-runner investigation
+
+- [x] Reproduce the reported aggregate-suite behavior outside the foreground command timeout.
+- [x] Confirm that the Node test process exits normally with status 0 and does not remain alive on an asynchronous handle.
+- [x] Profile every test with high-resolution elapsed time and resident-memory measurements.
+- [x] Identify the generator regressions as the source of approximately 74 of 76 seconds of aggregate runtime.
+- [x] Print `RUN` before each aggregate test so long CPU-bound cases do not appear frozen.
+- [x] Report total test count and elapsed time for every suite invocation.
+- [x] Add `npm run test:profile` for per-test timings, slow-test reporting, and peak RSS.
+- [x] Add `npm run test:generator` and `npm run test:fast` for isolated fresh-process diagnostics.
+- [x] Keep `npm test` as the authoritative complete 141-test release gate.
+- [x] Complete the aggregate suite in 76.33 seconds with exit code 0.
+
+## Revision 249 longform organic platforms and fail-safe gaps
+
+- [x] Register `longform-organic-traversal-v5` and make it the Earth and Ice default while retaining v4 as legacy.
+- [x] Treat ThePath74 as a loose spatial guide rather than a platform centreline.
+- [x] Search horizontal support counts from fewest to most so broad authored platforms are preferred.
+- [x] Derive requested platform widths from the available span after reserving all jump gaps.
+- [x] Use Atlas 004 long platforms for a substantial share of horizontal route-span supports.
+- [x] Reject adjacent upper platforms whose surface heights differ by less than the organic threshold.
+- [x] Keep every upper gap inside the conservative collision-edge movement envelope.
+- [x] Create one recovery support for every upper jump gap.
+- [x] Require each recovery support to cover the fall centre and expose a valid backtracking return to the lower main landing.
+- [x] Let a reward-branch shaft foothold fulfil the recovery contract for its own upper gap.
+- [x] Keep lower recovery gaps staggered away from all upper fall lines.
+- [x] Generate optional secondary platforms above suitable long main platforms.
+- [x] Mark secondary platforms as bidirectionally reachable reward perches.
+- [x] Include secondary reward perches in contextual reward support candidates.
+- [x] Keep `rubble_long` exclusive to automatic moving lifts.
+- [x] Preserve exactly one moving lift and no static staircase on every mandatory vertical edge.
+- [x] Advance run provenance to the `alg9_` prefix.
+- [x] Add validation metrics for long-platform share, average width, secondary perches, recovery coverage, return reachability, and unprotected gaps.
+
+## Revision 250 layered safety-network traversal
+
+- [x] Register `layered-safety-network-traversal-v6` and make it the Earth/Ice default while retaining v5 and earlier traversal IDs as legacy implementations.
+- [x] Keep ThePath74 as a loose guide rather than a collision line.
+- [x] Preserve long Atlas 004 upper-route platforms and mandatory visible height changes between adjacent jump targets.
+- [x] Build a connected, sloping lower recovery route beneath every horizontal upper-route gap.
+- [x] Add one thin automatic return lift from each lower recovery route to the upper route.
+- [x] Stagger lower-route gaps away from upper-route gaps.
+- [x] Place a wider tertiary recovery platform beneath every lower-route gap.
+- [x] Add a thin automatic return lift from each tertiary platform to the lower route.
+- [x] Reserve complete lower-route, tertiary, and moving-lift envelopes in the cavern contour.
+- [x] Require at least 112 world units of static headroom wherever platform bodies overlap horizontally.
+- [x] Place the entry door at the far-left usable edge of the starting platform.
+- [x] Keep detached secondary platforms as reward perches and allow the Rewards stage to place treasure there.
+- [x] Preserve legacy optional branch treasure for legacy traversal implementations.
+- [x] Extend validation and headless tests for layered-lane completeness, lower-gap protection, return lifts, headroom, reward perches, and entrance placement.
+
+
+## Revision 251 minimap, perimeter orientation, and overlap blending
+
+- [x] Replace the two upper-right HUD buttons with one clickable minimap panel.
+- [x] Share one CSS width variable between the top-left meter panel and upper-right minimap.
+- [x] Use `ResizeObserver` to keep the minimap's rendered width and height exactly matched to the meter panel.
+- [x] Draw cave outline, collision surfaces, camera viewport, player, and exit marker into the minimap at a throttled rate.
+- [x] Open the existing pause menu when the minimap is clicked or tapped.
+- [x] Retain Escape navigation and automatic fullscreen policy without a permanent fullscreen HUD button.
+- [x] Derive cave-formation rotation from the inward perimeter normal and the authored stalactite/stalagmite tip direction.
+- [x] Snap preliminary tip angles within 45 degrees of straight down or straight up to the corresponding vertical direction.
+- [x] Share the corrected orientation between Level Editor perimeter population and automatic generator decoration.
+- [x] Add `src/presentation/overlap-blend-cache.js` for consecutive overlapping static atlas groups.
+- [x] Bake overlap groups once into off-screen bitmaps rather than compositing them every frame.
+- [x] Blend incoming assets across the central 50 percent of the overlap around its midpoint.
+- [x] Reuse overlap composites in both runtime and Level Editor drawing.
+- [x] Preserve individual placement/collision records and exclude moving, entity-bound, actor-front, and cave-foreground visuals.
+- [x] Add regression coverage for minimap wiring/sizing, formation rotation, overlap grouping, and central-half blending constants.
+
+## Revision 252 perimeter, minimap, endpoint, and Atlas 004 corrections
+
+- [x] Replace the 45-degree vertical perimeter snap with a nearest-cardinal 20-degree snap.
+- [x] Preserve the unsnapped inward perpendicular angle outside the cardinal tolerance.
+- [x] Keep stalactite and stalagmite authored tip-direction compensation.
+- [x] Keep minimap height exactly matched to the top-left meter panel.
+- [x] Derive minimap width from padded level-bounds aspect ratio instead of the HUD width variable.
+- [x] Re-evaluate minimap size after window, HUD, and level-bounds changes.
+- [x] Reuse the entrance door-support asset and scale for the exit support.
+- [x] Force the entrance support to authored orientation and the exit support to mirrored orientation.
+- [x] Place grounded entrance and exit doors at corresponding far-left and far-right usable positions.
+- [x] Retain closed blockable collision only on `earth_long_platform_r1_a`.
+- [x] Convert the other fifteen Atlas 004 objects to one horizontal `walkable` edge each.
+- [x] Extend headless regressions for 20-degree snapping, aspect-fit minimap sizing, mirrored endpoints, and mixed Atlas 004 collision.

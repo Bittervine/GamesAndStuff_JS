@@ -6,7 +6,8 @@
       "entityType": "treasureChest",
       "category": "treasure",
       "contexts": [
-        "branchDestination"
+        "branchDestination",
+        "secondaryPerch"
       ],
       "weight": 1,
       "minimumSupportWidth": 185,

@@ -23,6 +23,7 @@
             --menu-accent-strong: #e1d1ff;
             --menu-muted: #cdbfdc;
             --menu-line: rgba(229, 211, 255, 0.24);
+            --hud-panel-width: min(430px, calc(50vw - 24px));
         }
 
         * {
@@ -216,7 +217,7 @@
             top: 16px;
             display: grid;
             gap: 10px;
-            width: min(430px, calc(100vw - 32px));
+            width: var(--hud-panel-width);
             pointer-events: none;
             text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9);
         }
@@ -463,36 +464,52 @@
 
         #game-menu-controls {
             position: fixed;
-            top: 14px;
-            right: 14px;
+            top: 16px;
+            right: 16px;
             z-index: 90;
-            display: flex;
-            gap: 7px;
-            padding: 6px;
-            border: 1px solid rgba(201, 167, 255, 0.42);
+            width: auto;
+            min-width: 48px;
+            min-height: 1px;
+            overflow: hidden;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: var(--panel);
+            box-shadow: 0 20px 70px rgba(0, 0, 0, 0.22);
+            backdrop-filter: blur(10px);
+            box-sizing: border-box;
+            transition: border-color 120ms ease, filter 120ms ease, opacity 120ms ease;
+        }
+
+        #open-game-menu {
+            display: block;
+            width: 100%;
+            height: 100%;
+            min-height: 1px;
+            overflow: hidden;
+            border: 0;
             border-radius: 15px;
-            background: rgba(18, 15, 24, 0.82);
-            box-shadow: 0 12px 34px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(242, 237, 248, 0.08);
-            backdrop-filter: blur(9px);
+            padding: 0;
+            background: rgba(7, 7, 13, 0.72);
+            box-shadow: none;
+            cursor: pointer;
         }
 
-        .game-menu-button {
-            min-width: 92px;
-            min-height: 36px;
-            border-color: rgba(201, 167, 255, 0.42);
-            border-radius: 10px;
-            color: var(--ink);
-            background: linear-gradient(180deg, rgba(114, 85, 160, 0.44), rgba(38, 30, 52, 0.9));
-            box-shadow: inset 0 1px 0 rgba(242, 237, 248, 0.12), 0 5px 14px rgba(0, 0, 0, 0.26);
-            letter-spacing: 0.055em;
-            font-size: 11px;
-            font-weight: 850;
+        #open-game-menu:hover,
+        #open-game-menu:focus-visible,
+        #open-game-menu[aria-pressed="true"] {
+            background: rgba(12, 10, 19, 0.88);
         }
 
-        .game-menu-button:hover,
-        .game-menu-button[aria-pressed="true"] {
-            border-color: rgba(225, 209, 255, 0.82);
-            background: linear-gradient(180deg, rgba(139, 104, 194, 0.62), rgba(53, 40, 73, 0.94));
+        #open-game-menu:focus-visible {
+            outline: 2px solid rgba(201, 167, 255, 0.9);
+            outline-offset: -3px;
+        }
+
+        #minimap-canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            image-rendering: auto;
         }
 
         #game-menu-dialog {
@@ -597,7 +614,6 @@
         .game-menu-action:hover,
         .game-menu-action:focus-visible,
         .game-menu-back:focus-visible,
-        .game-menu-button:focus-visible,
         .settings-choice-grid button:focus-visible,
         .settings-toggle:focus-within,
         .settings-group input[type="range"]:focus-visible {
@@ -707,11 +723,12 @@
             opacity: 0.45;
         }
 
-        body.title-screen-active #hud {
+        body.title-screen-active #hud,
+        body.title-screen-active #game-menu-controls {
             opacity: 0;
+            pointer-events: none;
         }
 
-        body.electron #fullscreen-toggle,
         body.electron #tool-links {
             display: none !important;
         }
@@ -724,15 +741,6 @@
             #game-menu-controls {
                 top: 8px;
                 right: 8px;
-                gap: 4px;
-                padding: 4px;
-            }
-
-            .game-menu-button {
-                min-width: 76px;
-                min-height: 32px;
-                padding: 6px 8px;
-                font-size: 10px;
             }
 
             .game-menu-card {
@@ -796,9 +804,10 @@
         <canvas id="stage" aria-label="Ignatius Rocketfrock Phase 1 Physics Arena"></canvas>
     </div>
 
-    <div id="game-menu-controls" aria-label="Game controls">
-        <button id="fullscreen-toggle" class="game-menu-button" type="button" aria-pressed="false">FULLSCREEN</button>
-        <button id="open-game-menu" class="game-menu-button" type="button" aria-haspopup="dialog" aria-pressed="false">MENU</button>
+    <div id="game-menu-controls" aria-label="Level minimap and game menu">
+        <button id="open-game-menu" type="button" aria-label="Open game menu" aria-haspopup="dialog" aria-pressed="false">
+            <canvas id="minimap-canvas" width="430" height="148" aria-hidden="true"></canvas>
+        </button>
     </div>
 
     <dialog id="game-menu-dialog" data-ignore-game-pointer aria-labelledby="game-menu-title" aria-modal="true">

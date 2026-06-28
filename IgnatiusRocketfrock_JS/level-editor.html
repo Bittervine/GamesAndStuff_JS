@@ -552,7 +552,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 245</small></h1>
+        <h1>Level Editor <small>rev 246</small></h1>
         <p>Place atlas assets, entry/exit doors, mailboxes, enemies, and triggers, then export a level JSON. The wizard entry door is the effective start of the level.</p>
 
         <div class="box">
@@ -604,7 +604,7 @@
 
         <div class="box" data-panel-key="automatic-level-generator">
             <h2>Automatic Level Generator</h2>
-            <p class="small">Generator 7 uses the locked ThePath74 route: protected cardinal segments on an unbounded cell grid, with horizontal walks of 1–7 cells, vertical walks of 1–4 cells, a forced-right final approach, and a one-cell diagonal safety margin against older route sections. It adds two to four ellipse rooms with 2–4-cell semi-axes, then realizes horizontal legs as strongly staggered upper jump platforms plus level recovery lanes whose gaps are offset from the upper gaps. Every mandatory climb and drop uses the reserved thin automatic vertical-platform style instead of a static staircase. The occupancy contour wraps the finished traversal and grounded endpoint chambers; automatic cave foreground uses only stalactites and stalagmites and must still leave doors, platforms, recovery lanes, and lift shafts readable.</p>
+            <p class="small">Generator 9 uses the locked ThePath74 route: protected cardinal segments on an unbounded cell grid, with horizontal walks of 1–7 cells, vertical walks of 1–4 cells, a forced-right final approach, and a one-cell diagonal safety margin against older route sections. It adds two to four ellipse rooms with 2–4-cell semi-axes, then treats that route only as a loose spatial guide. Horizontal legs are packed with as few broad Atlas 004 landings as the available span permits; every neighbouring landing changes height, every jump gap owns a lower recovery platform with a validated backtracking return, and long main landings may receive smaller upper reward perches. Every mandatory climb and drop uses the reserved thin automatic vertical-platform style instead of a static staircase. The occupancy contour wraps the finished traversal and grounded endpoint chambers; automatic cave foreground uses only stalactites and stalagmites and must still leave doors, platforms, recovery geometry, secondary perches, and lift shafts readable.</p>
             <label>Theme<select id="generator-theme"></select></label>
             <div class="row">
                 <label>Seed<input id="generator-seed" value="rocketfrock"></label>
@@ -1066,6 +1066,10 @@ import {
     sampleRuntimeCharacterPose
 } from "./src/presentation/character-runtime.js";
 import {
+    buildOverlapBlendGroups,
+    createOverlapBlendSurface
+} from "./src/presentation/overlap-blend-cache.js";
+import {
     bakeEnemyNavigationGraph,
     enemyNavigationProfileKey,
     normalizeEnemyNavigationProfile
@@ -1402,6 +1406,7 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
         placementDrawCache: null,
         placementBoundsCache: new WeakMap(),
         editorForegroundSpriteCache: new Map(),
+        editorOverlapBlendCache: null,
         caveGeometryWarningText: "",
         generatorThemes: new Map(),
         generatorAssetCatalog: normalizeGenerationAssetCatalog(null),
@@ -2019,6 +2024,7 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
             state.atlasImage = record.renderImage || record.image;
         }
         state.editorForegroundSpriteCache.clear();
+        state.editorOverlapBlendCache = null;
         renderAtlasSelect();
         return record;
     }
@@ -2433,6 +2439,7 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
         }
         state.colorMapCacheKey = cacheKey;
         state.editorForegroundSpriteCache.clear();
+        state.editorOverlapBlendCache = null;
         const active = atlasRecord();
         state.atlasImage = active?.renderImage || active?.image || null;
         updateColorMapPreview();
@@ -3395,6 +3402,7 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
             const dy = point.y - state.drag.start.y;
             selected.record.x = snapped(state.drag.original.x + dx);
             selected.record.y = snapped(state.drag.original.y + dy);
+            state.editorOverlapBlendCache = null;
             syncInspector(false);
             draw();
         }
@@ -3426,7 +3434,7 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
         if (els.showGrid.checked) drawGrid(rect);
         drawWorldBounds();
         const placementGroups = sortedPlacementGroups();
-        for (const placement of placementGroups.main) drawPlacement(placement, viewportBounds);
+        drawMainPlacementLayer(placementGroups.main, viewportBounds);
         for (const entity of state.level.entities) drawEntity(entity);
         for (const placement of placementGroups.caveForeground) drawPlacement(placement, viewportBounds);
         drawNavigationGraph();
@@ -3611,6 +3619,7 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
 
     function invalidateEditorPlacementCaches({ sprites = false } = {}) {
         state.placementDrawCache = null;
+        state.editorOverlapBlendCache = null;
         if (sprites) state.editorForegroundSpriteCache.clear();
     }
 
@@ -3718,7 +3727,89 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
         return surface;
     }
 
-    function drawPlacement(placement, viewportBounds = null) {
+    function editorOverlapBlendSignature(placements) {
+        return `${state.colorMapCacheKey}|${placements.map((placement) => [
+            placement.id,
+            placement.kind,
+            placement.atlasId,
+            placement.assetId,
+            finiteEditorNumber(placement.x, 0),
+            finiteEditorNumber(placement.y, 0),
+            finiteEditorNumber(placement.w, 0),
+            finiteEditorNumber(placement.h, 0),
+            normalizeRotationRadians(placement.rotation, placement.angle),
+            placement.mirrorX ? 1 : 0,
+            placement.mirrorY ? 1 : 0,
+            placement.layer,
+            finiteEditorNumber(placement.order, 0),
+            placement.dynamicPosition ? 1 : 0,
+            placement.movingPlatformId || "",
+            placement.entityId || "",
+            placement.blendOverlaps === false ? 0 : 1
+        ].join(":")).join("|")}`;
+    }
+
+    function editorOverlapBlendGroups(placements) {
+        const signature = editorOverlapBlendSignature(placements);
+        if (state.editorOverlapBlendCache?.signature === signature) {
+            return state.editorOverlapBlendCache;
+        }
+        const entries = placements.map((placement, index) => ({
+            visual: placement,
+            index,
+            sortedIndex: index,
+            bounds: placementWorldBounds(placement)
+        }));
+        const groups = [];
+        const memberToGroup = new Map();
+        for (const definition of buildOverlapBlendGroups(entries)) {
+            const baked = createOverlapBlendSurface({
+                ownerDocument: document,
+                group: definition,
+                environmentAtlases: state.atlases
+            });
+            if (!baked) continue;
+            const group = {
+                id: definition.id,
+                bounds: baked.bounds,
+                canvas: baked.canvas,
+                members: baked.members
+            };
+            groups.push(group);
+            for (const placement of group.members) memberToGroup.set(placement, group);
+        }
+        state.editorOverlapBlendCache = { signature, groups, memberToGroup };
+        return state.editorOverlapBlendCache;
+    }
+
+    function drawEditorOverlapBlendGroup(group, viewportBounds) {
+        if (!group?.canvas || (viewportBounds && !boundsIntersect(group.bounds, viewportBounds))) return false;
+        const topLeft = worldToScreen(group.bounds.minX, group.bounds.minY);
+        const width = (group.bounds.maxX - group.bounds.minX) * state.camera.zoom;
+        const height = (group.bounds.maxY - group.bounds.minY) * state.camera.zoom;
+        ctx.drawImage(group.canvas, topLeft.x, topLeft.y, width, height);
+        return true;
+    }
+
+    function drawMainPlacementLayer(placements, viewportBounds) {
+        const overlapCache = editorOverlapBlendGroups(placements);
+        const drawnGroups = new Set();
+        for (const placement of placements) {
+            const group = overlapCache.memberToGroup.get(placement);
+            if (!group) {
+                drawPlacement(placement, viewportBounds);
+                continue;
+            }
+            if (drawnGroups.has(group)) continue;
+            drawnGroups.add(group);
+            if (!drawEditorOverlapBlendGroup(group, viewportBounds)) continue;
+            for (const member of group.members) {
+                drawPlacement(member, viewportBounds, { skipArtwork: true });
+            }
+        }
+    }
+
+    function drawPlacement(placement, viewportBounds = null, { skipArtwork = false } = {}) {
         if (!generatedCavePlacementVisible(placement)) return false;
         if (viewportBounds && !boundsIntersect(placementWorldBounds(placement), viewportBounds)) return false;
         if (placement.kind === "cutoutMask") {
@@ -3737,22 +3828,24 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
         const atlasImage = caveForeground && frame
             ? getEditorForegroundSprite(atlasId, placement.assetId, frame, placement)
             : imageForAtlas(atlasId);
-        ctx.save();
-        ctx.globalAlpha *= Number.isFinite(Number(placement.alpha)) ? Number(placement.alpha) : 1;
-        ctx.translate(center.x, center.y);
-        ctx.rotate(rotation);
-        ctx.scale(placement.mirrorX ? -1 : 1, placement.mirrorY ? -1 : 1);
-        if (atlasImage && frame) {
-            if (caveForeground) {
-                ctx.drawImage(atlasImage, -w * 0.5, -h * 0.5, w, h);
+        if (!skipArtwork) {
+            ctx.save();
+            ctx.globalAlpha *= Number.isFinite(Number(placement.alpha)) ? Number(placement.alpha) : 1;
+            ctx.translate(center.x, center.y);
+            ctx.rotate(rotation);
+            ctx.scale(placement.mirrorX ? -1 : 1, placement.mirrorY ? -1 : 1);
+            if (atlasImage && frame) {
+                if (caveForeground) {
+                    ctx.drawImage(atlasImage, -w * 0.5, -h * 0.5, w, h);
+                } else {
+                    ctx.drawImage(atlasImage, frame.x, frame.y, frame.w, frame.h, -w * 0.5, -h * 0.5, w, h);
+                }
             } else {
-                ctx.drawImage(atlasImage, frame.x, frame.y, frame.w, frame.h, -w * 0.5, -h * 0.5, w, h);
+                ctx.fillStyle = "rgba(86,230,255,0.12)";
+                ctx.fillRect(-w * 0.5, -h * 0.5, w, h);
             }
-        } else {
-            ctx.fillStyle = "rgba(86,230,255,0.12)";
-            ctx.fillRect(-w * 0.5, -h * 0.5, w, h);
+            ctx.restore();
         }
-        ctx.restore();
         const generated = isGeneratedCaveForeground(placement);
         const showDetails = !generated || state.selectedId === placement.id;
         if (showDetails && els.showAssetGuides.checked) drawPlacementGuides(placement);

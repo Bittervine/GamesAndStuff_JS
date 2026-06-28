@@ -24,6 +24,13 @@ import {
     visualWorldBounds
 } from "../src/presentation/world-visual-cache.js";
 import {
+    buildOverlapBlendGroups,
+    overlapBlendVisualEligible,
+    overlapIntersectionBounds,
+    OVERLAP_BLEND_CENTRAL_END,
+    OVERLAP_BLEND_CENTRAL_START
+} from "../src/presentation/overlap-blend-cache.js";
+import {
     queryWorldCollisionPolygons,
     queryWorldSegments,
     queryWorldSolids,
@@ -115,6 +122,7 @@ import {
     caveDecorationStep,
     CAVE_FOREGROUND_LAYER,
     CAVE_PERIMETER_GENERATOR,
+    formationRotationForInward,
     generateCavePerimeterPlacements
 } from "../src/shared/cave-window-decoration.js";
 import {
@@ -340,7 +348,10 @@ function testSourceOrganization() {
 
     const packageMetadata = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
     assert.equal(packageMetadata.type, "module", "package metadata should declare ES modules explicitly");
-    assert.equal(packageMetadata.scripts?.test, "node tests/testbench.mjs", "package metadata should expose the aggregate test command");
+    assert.equal(packageMetadata.scripts?.test, "node tests/testbench.mjs --progress", "package metadata should expose the aggregate test command with visible progress");
+    assert.equal(packageMetadata.scripts?.["test:fast"], "node tests/testbench.mjs --progress --group=fast", "package metadata should expose the fast non-generator test group");
+    assert.equal(packageMetadata.scripts?.["test:generator"], "node tests/testbench.mjs --progress --group=generator", "package metadata should expose the isolated generator test group");
+    assert.equal(packageMetadata.scripts?.["test:profile"], "node tests/testbench.mjs --progress --profile", "package metadata should expose per-test timing diagnostics");
 
     const architecture = readFileSync(new URL("../ARCHITECTURE.md", import.meta.url), "utf8");
     assert.ok(architecture.includes("PORTABLE CORE"), "architecture map should classify portable core modules");
@@ -4044,7 +4055,7 @@ function testAutomaticLevelGeneratorMacroRoomsGroundedDoorsAndPerimeterContract(
         const theme = normalizeGeneratorTheme(rawTheme);
         assert.equal(theme.implementations.route, "the-path74-route-v4", "current cavern themes should use the protected ThePath74 route planner");
         assert.equal(theme.implementations.cavern, "the-path74-contour-cavern-v4", "current cavern themes should add 2–4 ellipse rooms before tracing the occupancy contour");
-        assert.equal(theme.implementations.traversal, "layered-recovery-traversal-v3", "current cavern themes should realize ThePath74 with staggered upper jumps, recovery floors, and thin moving lifts");
+        assert.equal(theme.implementations.traversal, "layered-safety-network-traversal-v6", "current cavern themes should realize ThePath74 as an upper route, a sloping lower recovery route, tertiary rescue platforms, and thin return lifts");
         assert.equal(theme.implementations.validation, "the-path74-cavern-validation-v4", "current cavern themes should enforce ThePath74 geometry metrics");
         assert.equal(theme.implementations.endpoints, "grounded-chamber-endpoints-v2", "current cavern themes should seat endpoints in grounded chambers");
         assert.equal(theme.decoration.populatePerimeter, true, "current cavern themes should request populated cave walls");
@@ -4129,6 +4140,22 @@ function testAutomaticLevelGeneratorMacroRoomsGroundedDoorsAndPerimeterContract(
                 const support = supportById.get(endpoint.supportId);
                 assert.ok(door && support && Math.abs(door.y - support.surfaceY) < 0.01, "generated portal entity anchors should equal the authored walkable support surface");
             }
+            const entranceSupport = supportById.get(draft.generation.endpoints.entrance.supportId);
+            const exitSupport = supportById.get(draft.generation.endpoints.exit.supportId);
+            const entranceDoor = draft.entities.find((entity) => entity.id === draft.generation.endpoints.entrance.entityId);
+            const exitDoor = draft.entities.find((entity) => entity.id === draft.generation.endpoints.exit.entityId);
+            assert.ok(entranceSupport && entranceDoor && entranceDoor.x <= entranceSupport.centerX - entranceSupport.walkableWidth * 0.22, "the entry door should sit at the far-left side of its starting platform");
+            assert.ok(exitSupport && exitDoor && exitDoor.x >= exitSupport.centerX + exitSupport.walkableWidth * 0.22, "the exit door should sit at the mirrored far-right side of its platform");
+            assert.equal(exitSupport.assetId, entranceSupport.assetId, "the exit should reuse the entrance support asset");
+            assert.equal(exitSupport.width, entranceSupport.width, "the mirrored endpoint platforms should use the same scale");
+            assert.equal(entranceSupport.mirrorX, false, "the entrance support should keep the authored orientation");
+            assert.equal(exitSupport.mirrorX, true, "the exit support should mirror the entrance platform");
+            approx(
+                entranceDoor.x - entranceSupport.centerX,
+                -(exitDoor.x - exitSupport.centerX),
+                0.01,
+                "entry and exit doors should occupy corresponding mirrored positions"
+            );
             const mandatoryVerticalEdges = draft.generation.route.edges.filter((edge) => edge.mandatory !== false && (edge.intendedDirection === "climb" || edge.intendedDirection === "descend"));
             const verticalMovingPlacements = draft.placements.filter((placement) => placement.generationRole === "verticalMovingPlatform");
             assert.equal(verticalMovingPlacements.length, mandatoryVerticalEdges.length, `${theme.themeId} ${length} should use exactly one moving platform for every mandatory vertical edge`);
@@ -4136,10 +4163,24 @@ function testAutomaticLevelGeneratorMacroRoomsGroundedDoorsAndPerimeterContract(
             assert.equal(draft.generation.validation.metrics.staticVerticalIntermediateCount, 0, "vertical climbs and drops must not contain static stair platforms");
             assert.ok(draft.generation.validation.metrics.horizontalJumpGapCount >= 1, "horizontal route legs should contain explicit jump gaps");
             assert.ok(draft.generation.validation.metrics.minimumHorizontalJumpGap >= 34, "horizontal platform gaps should remain visibly open");
-            assert.ok(draft.generation.validation.metrics.maximumHorizontalRouteOffset >= 48, "upper-route platforms should vary substantially above and below the abstract route line");
-            assert.ok(draft.generation.validation.metrics.recoveryLaneCount >= 1, "generated traversal should include at least one broad lower recovery lane");
-            assert.ok(draft.generation.validation.metrics.recoveryLaneGapCount >= 1, "the recovery floor should contain deliberate gaps instead of becoming an effortless continuous floor");
-            assert.equal(draft.generation.validation.metrics.recoveryGapOverlapViolationCount, 0, "lower recovery-floor gaps must be staggered away from upper-route gaps");
+            assert.ok(draft.generation.validation.metrics.maximumHorizontalRouteOffset >= 72, "upper-route platforms should vary substantially above and below the abstract route line");
+            assert.equal(draft.generation.validation.metrics.organicSameHeightAdjacentCount, 0, "organic upper traversal must never place a row of consecutive same-height platforms");
+            assert.ok(draft.generation.validation.metrics.minimumOrganicHeightDelta >= 32, "consecutive platforms in a multi-platform horizontal sequence should have a visible height difference");
+            assert.ok(draft.generation.validation.metrics.longStaticPlatformCount >= 1, "organic traversal should leverage Atlas 004 long static platforms where useful");
+            assert.ok(draft.generation.validation.metrics.recoveryLaneCount >= 1, "generated traversal should include recovery geometry below horizontal jump sequences");
+            assert.equal(draft.generation.validation.metrics.recoveryRequiredGapCount, draft.generation.validation.metrics.horizontalJumpGapCount, "every upper jump gap should be registered for dedicated recovery");
+            assert.equal(draft.generation.validation.metrics.recoveryUpperGapCoverageCount, draft.generation.validation.metrics.horizontalJumpGapCount, "every upper jump gap should have a platform below it");
+            assert.equal(draft.generation.validation.metrics.layeredNetworkLaneCount, draft.generation.validation.metrics.recoveryLaneCount, "every horizontal recovery lane should form a complete upper/lower safety network");
+            assert.equal(draft.generation.validation.metrics.recoveryBacktrackReachableCount, draft.generation.validation.metrics.layeredNetworkLaneCount, "every lower route should include a working return lift to the upper route");
+            assert.ok(draft.generation.validation.metrics.lowerRouteSupportCount >= draft.generation.validation.metrics.horizontalJumpGapCount, "the lower path should provide broad route coverage beneath upper jump gaps");
+            assert.equal(draft.generation.validation.metrics.protectedLowerGapCount, draft.generation.validation.metrics.recoveryLaneGapCount, "every lower-route gap should have tertiary recovery");
+            assert.equal(draft.generation.validation.metrics.unprotectedLowerGapCount, 0, "no lower-route gap may expose the player to an unrecoverable fall");
+            assert.ok(draft.generation.validation.metrics.tertiaryRecoveryCount >= draft.generation.validation.metrics.recoveryLaneGapCount, "tertiary platforms should catch misses from the lower route");
+            assert.equal(draft.generation.validation.metrics.unprotectedUpperGapCount, 0, "no upper jump gap may expose the player to an unrecoverable fall");
+            assert.ok(draft.generation.validation.metrics.minimumStaticHeadroom >= 111.5, "overlapping static routes should leave enough headroom for Ignatius");
+            assert.ok(draft.generation.validation.metrics.longMainPlatformShare >= 0.4, "longform traversal should use long platforms for a substantial share of the main route");
+            if (length !== "compact") assert.ok(draft.generation.validation.metrics.secondaryPlatformCount >= 1, "non-compact caverns should include at least one detached upper reward perch when long platforms are available");
+            assert.equal(draft.generation.validation.metrics.recoveryGapOverlapViolationCount, 0, "lower recovery-route gaps must be staggered away from upper-route gaps");
             assert.equal(draft.generation.validation.metrics.movingThinAssetViolationCount, 0, "every vertical shuttle should use the reserved thin moving-platform style");
             assert.ok(verticalMovingPlacements.every((placement) => placement.assetId === "rubble_long"), "vertical shuttles should use the thin rubble-long visual family exclusively");
             const mandatoryY = draft.generation.route.nodes.filter((node) => node.mandatory).map((node) => node.y);
@@ -4170,15 +4211,89 @@ function testAutomaticLevelGeneratorMacroRoomsGroundedDoorsAndPerimeterContract(
     assert.ok(editorHtml.includes("ThePath74") && editorHtml.includes("ellipse rooms") && editorHtml.includes("occupancy contour"), "Level Editor should explain ThePath74, its ellipse rooms, and the arbitrary contour envelope");
 }
 
+
+
+function testLongPlatformAtlas004ManifestAndGeneration() {
+    const atlas = JSON.parse(readFileSync(new URL("../assets/at_atlas_004.json", import.meta.url), "utf8"));
+    assert.equal(atlas.atlasId, "at_atlas_004", "the new long-platform manifest should use the requested atlas ID");
+    assert.equal(Object.keys(atlas.frames || {}).length, 16, "Atlas 004 should expose all sixteen authored platform islands");
+    assert.equal(Object.keys(atlas.objects || {}).length, 16, "every Atlas 004 frame should have collision metadata");
+
+    for (const [assetId, object] of Object.entries(atlas.objects || {})) {
+        const frame = atlas.frames?.[object.frame];
+        assert.ok(frame, `${assetId} should reference an Atlas 004 frame`);
+        assert.equal(object.type, "platform", `${assetId} should be catalogued as a platform`);
+        const thickUpperPlatform = assetId === "earth_long_platform_r1_a";
+        if (thickUpperPlatform) {
+            assert.ok(Array.isArray(object.nodes) && object.nodes.length >= 5, `${assetId} should retain its closed collision area`);
+            assert.ok(Array.isArray(object.lines) && object.lines.length === object.nodes.length, `${assetId} should close its collision polygon`);
+            assert.ok(object.lines.every((line) => line.kind === "blockable"), `${assetId} should retain blockable silhouette collision`);
+        } else {
+            assert.equal(object.nodes.length, 2, `${assetId} should use only the authored standing-line endpoints`);
+            assert.equal(object.lines.length, 1, `${assetId} should expose one one-way standing surface`);
+            assert.equal(object.lines[0].kind, "walkable", `${assetId} should be jump-through from below`);
+        }
+        const nodes = new Map(object.nodes.map((node) => [node.id, node]));
+        const top = object.lines[0];
+        const from = nodes.get(top.from);
+        const to = nodes.get(top.to);
+        assert.equal(from.y, to.y, `${assetId} should have a horizontal upper collision surface`);
+        assert.ok(from.y >= 12 && from.y <= frame.h * 0.34, `${assetId} upper collision should sit inside the rendered walkway rather than on the alpha fringe`);
+    }
+
+    const rawEarthTheme = JSON.parse(readFileSync(new URL("../assets/level-generator-themes/earth-cavern.json", import.meta.url), "utf8"));
+    const rawIceTheme = JSON.parse(readFileSync(new URL("../assets/level-generator-themes/ice-cavern.json", import.meta.url), "utf8"));
+    assert.ok(rawEarthTheme.colorMap.atlasIds.includes("at_atlas_004"), "Earth generation should allow Atlas 004 colour treatment");
+    assert.ok(rawIceTheme.colorMap.atlasIds.includes("at_atlas_004"), "Ice generation should allow Atlas 004 colour treatment");
+
+    const theme = normalizeGeneratorTheme(rawEarthTheme);
+    const assetCatalog = normalizeGenerationAssetCatalog(JSON.parse(readFileSync(new URL("../assets/level-generator-platforms.json", import.meta.url), "utf8")));
+    const atlasAssets = assetCatalog.assets.filter((entry) => entry.atlasId === "at_atlas_004");
+    assert.equal(atlasAssets.length, 16, "the platform generation catalog should register every Atlas 004 platform");
+    assert.ok(atlasAssets.some((entry) => entry.nativeWidth >= 1400 && entry.roles.includes("landingPlatform")), "very long Atlas 004 platforms should be eligible for horizontal traversal");
+    assert.ok(atlasAssets.every((entry) => entry.roles.includes("recoveryPlatform")), "all Atlas 004 platforms should be available to layered recovery floors");
+
+    const enemyGenerationCatalog = normalizeEnemyGenerationCatalog(JSON.parse(readFileSync(new URL("../assets/level-generator-enemies.json", import.meta.url), "utf8")));
+    const rewardGenerationCatalog = normalizeRewardGenerationCatalog(JSON.parse(readFileSync(new URL("../assets/level-generator-rewards.json", import.meta.url), "utf8")));
+    const enemyCatalog = JSON.parse(readFileSync(new URL("../assets/ct_enemies_001.json", import.meta.url), "utf8"));
+    const entityCatalog = JSON.parse(readFileSync(new URL("../assets/it_entities_001.json", import.meta.url), "utf8"));
+    const draft = generateAutomaticLevelDraft({
+        theme,
+        assetCatalog,
+        enemyGenerationCatalog,
+        rewardGenerationCatalog,
+        enemyCatalog,
+        entityCatalog,
+        seed: "atlas004-seed-4",
+        settings: {
+            ...theme.defaults,
+            length: "extended",
+            branching: 0.45,
+            rewardDensity: 0.35,
+            enemyDensity: 0.15
+        },
+        availableEnemyIds: Object.keys(enemyCatalog.enemies),
+        destinationLevel: "level_002"
+    });
+    assert.equal(draft.generation.validation.valid, true, "the Atlas 004 integration smoke cavern should validate");
+    const longSupports = draft.generation.traversal.supports.filter((support) => support.atlasId === "at_atlas_004");
+    assert.ok(longSupports.length > 0, "automatic traversal should actually select Atlas 004 platforms");
+    assert.ok(Math.max(...longSupports.map((support) => support.width)) >= 450, "automatic traversal should leverage Atlas 004 for substantially longer platforms");
+    assert.ok(draft.placements.filter((placement) => placement.generationRole === "verticalMovingPlatform").every((placement) => placement.atlasId !== "at_atlas_004"), "Atlas 004 should not replace the reserved thin moving-platform style");
+}
+
 function testAutomaticLevelGeneratorRouteFoundation() {
     const earthTheme = normalizeGeneratorTheme(JSON.parse(readFileSync(new URL("../assets/level-generator-themes/earth-cavern.json", import.meta.url), "utf8")));
     const iceTheme = normalizeGeneratorTheme(JSON.parse(readFileSync(new URL("../assets/level-generator-themes/ice-cavern.json", import.meta.url), "utf8")));
     assert.equal(earthTheme.themeId, "earth-cavern", "Earth Cavern should remain a data-driven generator theme");
     assert.equal(iceTheme.themeId, "ice-cavern", "Ice Cavern should remain a data-driven generator theme");
-    assert.deepEqual(iceTheme.colorMap.atlasIds, ["at_atlas_001", "at_atlas_002", "at_atlas_003"], "Ice Cavern should recolour only environment atlases");
+    assert.deepEqual(iceTheme.colorMap.atlasIds, ["at_atlas_001", "at_atlas_002", "at_atlas_003", "at_atlas_004"], "Ice Cavern should recolour only environment atlases");
     assert.ok(!iceTheme.colorMap.atlasIds.includes("it_atlas_001"), "Ice Cavern must not recolour doors, chests, mailboxes, or power-up icons");
     assert.ok(LEVEL_GENERATOR_REGISTRIES.route.some((entry) => entry.id === "the-path74-route-v4"), "ThePath74 should be registered by stable ID");
-    assert.ok(LEVEL_GENERATOR_REGISTRIES.traversal.some((entry) => entry.id === "layered-recovery-traversal-v3"), "the layered recovery traversal should be registered by stable ID");
+    assert.ok(LEVEL_GENERATOR_REGISTRIES.traversal.some((entry) => entry.id === "layered-safety-network-traversal-v6"), "the layered safety-network traversal should be registered by stable ID");
+    assert.ok(LEVEL_GENERATOR_REGISTRIES.traversal.some((entry) => entry.id === "longform-organic-traversal-v5"), "the previous longform organic traversal should remain registered as a legacy ID");
+    assert.ok(LEVEL_GENERATOR_REGISTRIES.traversal.some((entry) => entry.id === "organic-layered-traversal-v4"), "the previous organic layered traversal should remain registered as a legacy ID");
+    assert.ok(LEVEL_GENERATOR_REGISTRIES.traversal.some((entry) => entry.id === "layered-recovery-traversal-v3"), "the previous layered recovery traversal should remain registered as a legacy ID");
     assert.ok(LEVEL_GENERATOR_REGISTRIES.traversal.some((entry) => entry.id === "spaced-platform-traversal-v2"), "the previous spaced-platform traversal should remain registered as a legacy ID");
     assert.ok(LEVEL_GENERATOR_REGISTRIES.route.some((entry) => entry.id === "progression-route-v1"), "the legacy route implementation should remain registered by stable ID");
 
@@ -4297,7 +4412,7 @@ function testAutomaticLevelGeneratorPlayableEmptyCavern() {
     assert.equal(first.generation.traversal.mandatorySupportPath.at(-1), first.generation.traversal.exitSupportId, "the support path should finish beneath the exit");
     assert.ok(first.generation.traversal.transitions.filter((transition) => transition.mandatory).every((transition) => transition.valid), "every mandatory transition should fit the conservative movement envelope");
     assert.ok(first.generation.traversal.supports.every((support) => !support.branchId), "Generator 1 should materialize no optional-branch supports");
-    assert.ok(first.generation.traversal.supports.filter((support) => support.role !== "recoveryPlatform").every((support) => support.mandatory), "all non-recovery supports should belong to the mandatory spine");
+    assert.ok(first.generation.traversal.supports.filter((support) => !["recoveryPlatform", "secondaryPlatform"].includes(support.role)).every((support) => support.mandatory), "all supports outside recovery floors and optional secondary perches should belong to the mandatory spine");
     assert.equal(first.generation.traversal.reservedOptionalRouteNodeIds.length, first.generation.route.nodes.filter((node) => !node.mandatory).length, "optional route nodes should remain explicit reservations for the later reward slice");
     assert.ok(first.generation.traversal.supports.every((support) => !support.mandatory || support.walkableWidth >= 180), "every mandatory support should expose a generous authored walkable top");
     assert.ok(first.generation.traversal.transitions.every((transition) => transition.gap <= earthTheme.traversal.mandatoryGap + 0.01), "transition gaps should be measured between authored walkable edges");
@@ -4354,7 +4469,7 @@ function testAutomaticLevelGeneratorPlayableEmptyCavern() {
     assert.ok(editorHtml.includes("generateAutomaticLevelDraft") && editorHtml.includes("level-generator-platforms.json"), "Level Editor should load the generation catalog and create complete cavern drafts");
     assert.ok(editorHtml.includes("replacedLevelShell") && editorHtml.includes("previous level shell were preserved"), "generated-shell replacement should remain reversible without consuming manual content");
     assert.ok(editorHtml.includes("Playable rewarded cavern valid"), "Level Editor should report combined route, traversal, endpoint, encounter, reward, cave, and world validation");
-    assert.ok(editorHtml.includes("Materialized treasure detour") && editorHtml.includes("Generator 7"), "the editor should distinguish reserved branches from materialized treasure detours");
+    assert.ok(editorHtml.includes("Materialized treasure detour") && editorHtml.includes("Generator 9"), "the editor should distinguish reserved branches from materialized treasure detours");
 }
 
 function testAutomaticLevelGeneratorEncounters() {
@@ -4372,7 +4487,7 @@ function testAutomaticLevelGeneratorEncounters() {
         assetCatalog,
         enemyGenerationCatalog,
         enemyCatalog,
-        seed: "encounter-test-1",
+        seed: "encounter-organic-1",
         settings: { ...earthTheme.defaults, length: "standard", enemyDensity: 0.58, difficulty: 0.48 },
         implementations: { ...earthTheme.implementations, rewards: "not-generated-yet", validation: "playable-encounter-cavern-validation-v1" },
         availableEnemyIds: enemyIds,
@@ -4476,7 +4591,7 @@ function testAutomaticLevelGeneratorRewards() {
     const entityCatalog = JSON.parse(readFileSync(new URL("../assets/it_entities_001.json", import.meta.url), "utf8"));
     const enemyIds = Object.keys(enemyCatalog.enemies);
     assert.ok(LEVEL_GENERATOR_REGISTRIES.rewards.some((entry) => entry.id === "basic-rewards-v1"), "the reward populator should be registered by stable ID");
-    assert.ok(rewardGenerationCatalog.rewards.some((entry) => entry.entityType === "treasureChest" && entry.contexts.includes("branchDestination")), "branch treasure should be described by versioned generation metadata");
+    assert.ok(rewardGenerationCatalog.rewards.some((entry) => entry.entityType === "treasureChest" && entry.contexts.includes("branchDestination") && entry.contexts.includes("secondaryPerch")), "treasure generation metadata should support both legacy branch destinations and current upper reward perches");
     assert.ok(entityCatalog.entities.thoughtTrigger, "the interactive entity catalog should define the invisible one-shot thought trigger");
     const movingPlatformAsset = assetCatalog.assets.find((entry) => entry.assetId === "rubble_long");
     assert.deepEqual(movingPlatformAsset?.roles, ["movingPlatform"], "the thin rubble platform should be reserved exclusively for moving-platform use");
@@ -4498,38 +4613,25 @@ function testAutomaticLevelGeneratorRewards() {
     const first = generateAutomaticLevelDraft(options);
     const repeated = generateAutomaticLevelDraft(options);
     assert.deepEqual(repeated, first, "the rewards stream should reproduce branch selection and every reward exactly");
-    assert.ok(first.generation.runId.startsWith("alg7_"), "Generator 7 runs should use an explicit alg7 provenance prefix");
+    assert.ok(first.generation.runId.startsWith("alg9_"), "Generator 9 runs should use an explicit alg9 provenance prefix");
     assert.equal(first.generation.validation.valid, true, `the complete rewarded cavern should validate: ${first.generation.validation.errors.join(" ")}`);
     const rewardEntities = first.entities.filter((entity) => entity.generationStage === "rewards");
     const encounterEntities = first.entities.filter((entity) => entity.generationStage === "encounters");
     const endpointEntities = first.entities.filter((entity) => entity.generationStage === "endpoints");
     const selectedBranches = first.generation.rewards.selectedBranchIds;
+    const selectedPerches = first.generation.rewards.selectedPerchSupportIds;
     const chests = rewardEntities.filter((entity) => entity.type === "treasureChest");
-    assert.ok(selectedBranches.length >= 1, "a high reward-density extended cavern should materialize at least one optional treasure detour");
-    assert.equal(chests.length, selectedBranches.length, "each materialized optional detour should end in exactly one treasure chest");
-    assert.deepEqual(first.generation.traversal.materializedBranchIds, selectedBranches, "traversal should materialize only the branches selected by the independent rewards stream");
-    assert.ok(first.generation.traversal.previewOnlyMergeEdgeIds.length >= selectedBranches.length, "the abstract branch merge should remain a preview-only planning hint rather than a collision ceiling");
-    assert.equal(first.generation.traversal.branchShafts.length, selectedBranches.length, "every materialized reward branch should own one explicit collision-safe entry shaft");
-    for (const branchId of selectedBranches) {
-        const branchTransitions = first.generation.traversal.transitions.filter((transition) => transition.branchId === branchId);
-        assert.ok(branchTransitions.length >= 2 && branchTransitions.every((transition) => transition.valid && transition.bidirectional), "treasure detours should be collision-safe in both directions so Ignatius can return to the mandatory route");
-        const shaft = first.generation.traversal.branchShafts.find((entry) => entry.branchId === branchId);
-        assert.ok(shaft && shaft.width >= 116, "each materialized branch should reserve a full-width collision-open shaft between mandatory supports");
-        const branchSupports = first.generation.traversal.supports
-            .filter((support) => support.branchId === branchId)
-            .sort((left, right) => String(left.routeNodeId || "").localeCompare(String(right.routeNodeId || "")));
-        assert.ok(branchSupports.length >= 3, "each selected branch should include shaft footholds plus a broad lower landing");
-        assert.ok(branchSupports.slice(0, 2).every((support) => support.role === "branchStep" && support.walkableWidth >= 46), "the branch shaft should begin with two narrow but turn-safe authored footholds");
-        assert.ok(branchSupports.slice(2).every((support) => support.walkableWidth >= 150), "the lower reward alcove should use broad walkable supports rather than a chain of precarious pixels");
-        const firstSupport = branchSupports.find((support) => support.id === shaft.firstBranchSupportId);
-        assert.ok(firstSupport, "the branch shaft should explicitly identify its first reachable foothold");
-        const firstLeft = firstSupport.centerX - firstSupport.width * 0.5;
-        const firstRight = firstSupport.centerX + firstSupport.width * 0.5;
-        assert.ok(firstLeft >= shaft.leftX - 0.5 && firstRight <= shaft.rightX + 0.5, "the first branch foothold should fit completely inside its reserved shaft");
-        assert.ok(Math.max(firstLeft - shaft.leftX, shaft.rightX - firstRight) >= 42, "the first foothold should leave enough open side space for Ignatius to drop into the shaft");
-        const chest = chests.find((entity) => entity.generationBranchId === branchId);
-        assert.ok(chest && chest.scoreValue > 0, "each selected branch should have a positive-Score treasure destination");
-        assert.equal(first.generation.route.nodes.find((node) => node.id === chest.routeNodeId)?.kind, "optionalReward", "branch treasure should sit at the authored optional reward node");
+    assert.equal(selectedBranches.length, 0, "the layered safety-network traversal should leave old branch detours as legacy geometry");
+    assert.ok(selectedPerches.length >= 1, "a high reward-density extended cavern should select at least one detached upper reward perch");
+    assert.equal(chests.length, selectedPerches.length, "each selected upper reward perch should contain exactly one treasure chest");
+    assert.deepEqual(first.generation.traversal.materializedBranchIds, [], "current layered traversal should not materialize the legacy optional branch shafts");
+    for (const supportId of selectedPerches) {
+        const support = first.generation.traversal.supports.find((candidate) => candidate.id === supportId);
+        assert.ok(support?.secondaryPlatform && support?.rewardPerch, "selected treasure supports should be detached secondary reward perches");
+        const perchTransitions = first.generation.traversal.transitions.filter((transition) => transition.secondaryPlatformId === supportId);
+        assert.ok(perchTransitions.length >= 2 && perchTransitions.every((transition) => transition.valid), "upper reward perches should remain safely reachable and returnable");
+        const chest = chests.find((entity) => entity.generationSupportId === supportId);
+        assert.ok(chest && chest.generationContext === "secondaryPerch" && chest.scoreValue > 0, "each selected perch should hold a positive-Score treasure chest");
     }
     const contextualTypes = rewardEntities.filter((entity) => entity.type !== "treasureChest" && entity.type !== "thoughtTrigger").map((entity) => entity.type);
     assert.equal(new Set(contextualTypes).size, contextualTypes.length, "contextual support rewards should remain restrained rather than repeating the same pickup type");
@@ -4551,7 +4653,8 @@ function testAutomaticLevelGeneratorRewards() {
         entityCatalog
     });
     assert.equal(independent.valid, true, `standalone reward validation should accept the selected draft: ${independent.errors.join(" ")}`);
-    assert.equal(independent.metrics.rewardedBranchCount, selectedBranches.length, "standalone validation should account for every meaningful branch destination");
+    assert.equal(independent.metrics.rewardedBranchCount, selectedBranches.length, "standalone validation should account for every legacy branch destination");
+    assert.equal(independent.metrics.rewardedPerchCount, selectedPerches.length, "standalone validation should account for every selected upper reward perch");
     assert.equal(independent.metrics.endpointCrowdingCount, 0, "reward placement should preserve entrance and exit calm space");
     assert.equal(independent.metrics.rewardEnemyOverlapCount, 0, "rewards should not overlap generated enemies");
 
@@ -4562,6 +4665,7 @@ function testAutomaticLevelGeneratorRewards() {
     });
     assert.equal(zeroRewards.entities.filter((entity) => entity.generationStage === "rewards").length, 0, "zero reward density should produce no pickups, chests, or thoughts");
     assert.equal(zeroRewards.generation.traversal.materializedBranchIds.length, 0, "zero reward density should keep optional branches as reservations only");
+    assert.equal(zeroRewards.generation.rewards.selectedPerchSupportIds.length, 0, "zero reward density should select no upper treasure perches");
 
     const thoughtTheme = normalizeGeneratorTheme({ ...earthRaw, rewards: { ...earthRaw.rewards, thoughtChance: 1 } });
     let thoughtDraft = null;
@@ -4930,6 +5034,7 @@ function testCaveWindowSplineAuthoring() {
     assert.ok(levelEditorHtml.includes('id="cave-show-black-boundary"') && levelEditorHtml.includes("Full black distance px"), "Level Editor should expose the derived full-black outset and its world-space distance");
     assert.ok(levelEditorHtml.includes("editorViewportWorldBounds") && levelEditorHtml.includes("placementWorldBounds"), "Level Editor should cull off-screen placements before drawing them");
     assert.ok(levelEditorHtml.includes("editorForegroundSpriteCache") && levelEditorHtml.includes("createForegroundSpriteCanvas"), "Level Editor should cache darkened and faded foreground sprite variants");
+    assert.ok(levelEditorHtml.includes("buildOverlapBlendGroups") && levelEditorHtml.includes("createOverlapBlendSurface") && levelEditorHtml.includes("drawMainPlacementLayer"), "Level Editor should preview cached seamless overlap composites without deleting individual placements");
     assert.ok(levelEditorHtml.includes("scheduleJsonUpdate") && !levelEditorHtml.includes("drawSelection();\n        updateJson();"), "Level Editor should not stringify the full level on every drag-frame redraw");
 
     const decoration = normalizeCaveDecoration({ seed: 77, spacing: 150, scale: 2, brightness: 0.3, saturation: 0.5 });
@@ -4956,6 +5061,30 @@ function testCaveWindowSplineAuthoring() {
     assert.deepEqual(new Set(generatedDecor.map((placement) => placement.caveCategory)), new Set(["ceiling", "wall", "floor"]), "perimeter orientation should still cover ceiling, wall, and floor directions");
     assert.ok(generatedDecor.every((placement) => ["floor_rock", "ceiling_rock"].includes(placement.assetId)), "perimeter population should use only stalagmite- and stalactite-tagged formations");
     assert.equal(generatedDecor.some((placement) => placement.assetId === "wall_rock" || placement.assetId === "pillar_rock"), false, "generic wall, pillar, ceiling, and floor artwork must not enter the foreground perimeter catalog");
+    assert.equal(formationRotationForInward({ tags: ["stalactite"] }, { x: 0, y: 1 }), 0, "an authored downward stalactite should remain unrotated when its tip must point straight down");
+    assert.ok(Math.abs(formationRotationForInward({ tags: ["stalagmite"] }, { x: 0, y: 1 }) - Math.PI) < 0.000001, "an authored upward stalagmite should flip when its tip must point straight down");
+    const angledUpNormal = { x: 0.4, y: -0.9 };
+    approx(
+        formationRotationForInward({ tags: ["stalagmite"] }, angledUpNormal),
+        Math.atan2(angledUpNormal.y, angledUpNormal.x) + Math.PI * 0.5,
+        0.000001,
+        "a normal more than 20 degrees from straight up should retain its perpendicular direction"
+    );
+    const nineteenDegrees = 19 * Math.PI / 180;
+    const twentyOneDegrees = 21 * Math.PI / 180;
+    approx(
+        formationRotationForInward({ tags: ["stalactite"] }, { x: Math.cos(nineteenDegrees), y: Math.sin(nineteenDegrees) }),
+        -Math.PI * 0.5,
+        0.000001,
+        "a formation within 20 degrees of right should snap to the cardinal direction"
+    );
+    approx(
+        formationRotationForInward({ tags: ["stalactite"] }, { x: Math.cos(twentyOneDegrees), y: Math.sin(twentyOneDegrees) }),
+        twentyOneDegrees - Math.PI * 0.5,
+        0.000001,
+        "a formation outside the 20-degree cardinal cone should remain perpendicular to the perimeter"
+    );
+    assert.ok(Math.abs(formationRotationForInward({ tags: ["stalactite"] }, { x: 1, y: 0 }) + Math.PI * 0.5) < 0.000001, "side-wall stalactites should rotate their tips perpendicular and inward");
     const categoryCounts = generatedDecor.reduce((counts, placement) => {
         counts[placement.caveCategory] = (counts[placement.caveCategory] || 0) + 1;
         return counts;
@@ -5140,6 +5269,20 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     assert.equal(cache.actorFront.length, 1, "static world cache should partition actor-front scenery once");
     assert.equal(cache.caveForeground.length, 1, "static world cache should partition cave foreground scenery once");
 
+    const overlappingVisuals = [
+        { id: "platform_a", kind: "atlasSprite", atlasId: "at_atlas_004", assetId: "a", x: 0, y: 0, w: 220, h: 80, layer: "terrain", order: 1 },
+        { id: "platform_b", kind: "atlasSprite", atlasId: "at_atlas_004", assetId: "b", x: 180, y: 0, w: 220, h: 80, layer: "terrain", order: 2 },
+        { id: "separate", kind: "atlasSprite", atlasId: "at_atlas_004", assetId: "c", x: 500, y: 0, w: 180, h: 80, layer: "terrain", order: 3 }
+    ];
+    const overlapCache = buildWorldVisualCache(overlappingVisuals);
+    const blendGroups = buildOverlapBlendGroups(overlapCache.main);
+    assert.equal(blendGroups.length, 1, "consecutive overlapping static terrain assets should become one cached blend group");
+    assert.equal(blendGroups[0].members.length, 2, "the separated platform should remain outside the overlap blend group");
+    assert.equal(overlapBlendVisualEligible({ ...overlappingVisuals[0], dynamicPosition: true }), false, "moving visuals must not be baked into a static overlap bitmap");
+    assert.deepEqual(overlapIntersectionBounds(overlapCache.main[0].bounds, overlapCache.main[1].bounds), { minX: 180, minY: 0, maxX: 220, maxY: 80, width: 40, height: 80 }, "overlap blending should measure the exact shared world region");
+    assert.equal(OVERLAP_BLEND_CENTRAL_START, 0.25, "the blend should begin at the first quarter of the overlap");
+    assert.equal(OVERLAP_BLEND_CENTRAL_END, 0.75, "the blend should finish at the third quarter of the overlap");
+
     const view = { x: 0, y: 0, w: 800, h: 600, zoom: 1, virtualW: 800, virtualH: 600 };
     const viewportBounds = expandedViewportWorldBounds(view, null, 0);
     assert.deepEqual(viewportBounds, { minX: 0, minY: 0, maxX: 800, maxY: 600 }, "viewport culling bounds should match virtual world coordinates");
@@ -5173,6 +5316,9 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
     assert.ok(rendererSource.includes("buildWorldVisualCache") && rendererSource.includes("visualIntersectsViewport"), "Canvas renderer should cache layer organization and cull static scenery before drawing");
     assert.ok(rendererSource.includes("foregroundSpriteCache") && rendererSource.includes("getForegroundSpriteCanvas"), "dark foreground variants should be cached instead of filtered on every draw");
+    assert.ok(rendererSource.includes("ensureOverlapBlendCache") && rendererSource.includes("drawOverlapBlendGroup"), "overlapping static atlas assets should be composited once into reusable off-screen bitmaps");
+    const overlapBlendSource = readFileSync(new URL("../src/presentation/overlap-blend-cache.js", import.meta.url), "utf8");
+    assert.ok(overlapBlendSource.includes("destination-in") && overlapBlendSource.includes("OVERLAP_BLEND_CENTRAL_START") && overlapBlendSource.includes("OVERLAP_BLEND_CENTRAL_END"), "the cached composite should crossfade through the central 50 percent of each overlap");
     assert.equal(rendererSource.includes("ctx.filter = `brightness(${brightness})"), false, "the main render context should not apply an expensive filter per foreground placement");
     assert.ok(maskSource.includes("previousRenderKey") && maskSource.includes("DEFAULT_CAVE_MASK_RENDER_SCALE"), "cave mask should reuse stationary frames and render its blur at reduced resolution");
     assert.ok(rendererSource.includes("dynamicBoundsVisible") && rendererSource.includes("projectileRenderBounds"), "targets, enemies, effects, and projectile trails should have conservative dynamic culling");
@@ -8398,8 +8544,11 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.match(gameHtml, /id="music-volume"[^>]*value="0\.1"/, "the music slider should visibly default to 10 percent");
     assert.match(gameHtml, /data-difficulty="easy"/, "the settings dialog should expose difficulty choices");
     assert.match(gameHtml, /data-rendering-quality="high"/, "the settings dialog should expose particle quality choices");
-    assert.match(gameHtml, /id="fullscreen-toggle"/, "a direct fullscreen toggle should remain available outside the menu");
-    assert.match(gameHtml, /body\.electron #fullscreen-toggle,\s*body\.electron #tool-links\s*\{[^}]*display:\s*none !important/s, "Electron mode should hide the browser fullscreen/exit button and debug tool links");
+    assert.doesNotMatch(gameHtml, /id="fullscreen-toggle"/, "the upper-right HUD should no longer contain a fullscreen button");
+    assert.match(gameHtml, /id="game-menu-controls"[\s\S]*id="open-game-menu"[\s\S]*id="minimap-canvas"/, "the upper-right panel should be a clickable minimap that opens the menu");
+    assert.match(gameHtml, /--hud-panel-width:[^;]+;[\s\S]*#hud\s*\{[^}]*width:\s*var\(--hud-panel-width\)/s, "the left HUD should retain its stable meter-panel width");
+    assert.match(gameHtml, /#game-menu-controls\s*\{[^}]*width:\s*auto[^}]*min-width:\s*48px/s, "the minimap panel should allow its width to follow the level aspect ratio");
+    assert.match(gameHtml, /body\.electron #tool-links\s*\{[^}]*display:\s*none !important/s, "Electron mode should still hide browser debug tool links");
     assert.match(gameHtml, /id="auto-fullscreen"[^>]*type="checkbox"/, "settings should expose automatic fullscreen as a checkbox rather than an immediate action");
     assert.match(gameHtml, /Automatically switch to fullscreen/, "the automatic fullscreen preference should use the requested wording");
     assert.doesNotMatch(gameHtml, /id="settings-fullscreen-toggle"/, "settings must not contain the obsolete live fullscreen button");
@@ -8437,7 +8586,11 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.match(bootstrapSource, /musicDirector\.setMuted\(muted\)/, "music should be silenced by the same pause policy");
     assert.match(bootstrapSource, /autoFullscreenRow\.hidden = Boolean\(electronWindowBridge\)/, "the browser-only fullscreen policy should be hidden in Electron");
     assert.match(bootstrapSource, /toolLinks\.hidden = isElectron/, "Electron mode should hide browser/debug tool links at startup");
-    assert.match(bootstrapSource, /fullscreenToggleButton\.hidden = isElectron/, "Electron mode should hide the top-right fullscreen/exit button at startup");
+    assert.match(bootstrapSource, /function setupMinimap\(\)/, "the browser bootstrap should size and initialize the minimap panel");
+    assert.match(bootstrapSource, /new ResizeObserver\(syncSize\)/, "the minimap should track the exact rendered height of the top-left meter panel");
+    assert.match(bootstrapSource, /function resizeMinimapToLevel\(bounds = minimapBounds\(\)\)/, "the minimap should derive its horizontal size from the current level bounds");
+    assert.match(bootstrapSource, /panelHeight - inset \* 2[\s\S]*drawableHeight \* worldWidth \/ worldHeight/, "the minimap width should tightly preserve the level aspect ratio at the shared panel height");
+    assert.match(bootstrapSource, /function drawMinimap\(force = false\)/, "the browser bootstrap should render the current level and player into the minimap");
     assert.match(bootstrapSource, /gameMenuExitTitleButton\.textContent = "Exit to Title"/, "the menu should expose an in-game Exit to Title action");
     assert.doesNotMatch(bootstrapSource, /window\.location\.href = "index\.html"/, "game menu actions should not navigate to the browser landing page");
     assert.match(bootstrapSource, /electronWindowBridge\.quit/, "Electron-only exit should call the narrow preload bridge");
@@ -8662,6 +8815,7 @@ const tests = [
     ["thought bubble tail and responsive typography", testThoughtBubbleTailAndResponsiveTypography],
     ["Puppet Guide debug overlay", testPuppetGuideDebugOverlay],
     ["selective level colour map", testSelectiveLevelColorMap],
+    ["Atlas 004 long platforms and collision manifest", testLongPlatformAtlas004ManifestAndGeneration],
     ["automatic level generator route foundation", testAutomaticLevelGeneratorRouteFoundation],
     ["automatic level generator playable empty cavern", testAutomaticLevelGeneratorPlayableEmptyCavern],
     ["automatic level generator encounters", testAutomaticLevelGeneratorEncounters],
@@ -8788,9 +8942,67 @@ const tests = [
     ["manual reset", testReset]
 ];
 
-for (const [name, fn] of tests) {
-    await fn();
-    console.log(`PASS ${name}`);
+function testbenchArgumentValue(argumentName) {
+    const prefix = `--${argumentName}=`;
+    const match = process.argv.slice(2).find((argument) => argument.startsWith(prefix));
+    return match ? match.slice(prefix.length) : "";
 }
 
-console.log("PASS IgnatiusRocketfrock headless tests");
+function testbenchNameInGroup(name, group) {
+    if (!group || group === "all") return true;
+    const normalizedName = name.toLowerCase();
+    if (group === "generator") {
+        return normalizedName.includes("automatic level generator")
+            || normalizedName.includes("automatic perimeter population")
+            || normalizedName.includes("macro rooms, grounded doors")
+            || normalizedName.includes("atlas 004 long platforms");
+    }
+    if (group === "fast") return !testbenchNameInGroup(name, "generator");
+    throw new Error(`Unknown test group: ${group}`);
+}
+
+const cliFilter = testbenchArgumentValue("filter").replaceAll("-", " ");
+const requestedTestFilter = String(process.env.TEST_FILTER || cliFilter).trim().toLowerCase();
+const requestedTestGroup = String(process.env.TEST_GROUP || testbenchArgumentValue("group") || "all").trim().toLowerCase();
+const profileTests = process.argv.includes("--profile") || process.env.TEST_PROFILE === "1";
+const showProgress = process.argv.includes("--progress") || profileTests || process.env.TEST_PROGRESS === "1";
+const slowTestThresholdMs = Math.max(0, Number(process.env.TEST_SLOW_MS) || 1000);
+const suiteStartedAt = process.hrtime.bigint();
+const profileRows = [];
+let executedTestCount = 0;
+let peakRssBytes = process.memoryUsage().rss;
+
+for (const [name, fn] of tests) {
+    if (requestedTestFilter && !name.toLowerCase().includes(requestedTestFilter)) continue;
+    if (!testbenchNameInGroup(name, requestedTestGroup)) continue;
+    if (showProgress) console.log(`RUN  ${name}`);
+    const testStartedAt = process.hrtime.bigint();
+    await fn();
+    const elapsedMs = Number(process.hrtime.bigint() - testStartedAt) / 1e6;
+    const memory = process.memoryUsage();
+    peakRssBytes = Math.max(peakRssBytes, memory.rss);
+    executedTestCount += 1;
+    profileRows.push({ name, elapsedMs, rssBytes: memory.rss });
+    console.log(profileTests
+        ? `PASS ${name} (${elapsedMs.toFixed(1)} ms, RSS ${(memory.rss / 1048576).toFixed(1)} MiB)`
+        : `PASS ${name}`);
+}
+
+const suiteElapsedMs = Number(process.hrtime.bigint() - suiteStartedAt) / 1e6;
+if (profileTests) {
+    const slowRows = profileRows
+        .filter((row) => row.elapsedMs >= slowTestThresholdMs)
+        .sort((left, right) => right.elapsedMs - left.elapsedMs);
+    console.log(`SLOW TESTS >= ${slowTestThresholdMs.toFixed(0)} ms`);
+    if (!slowRows.length) console.log("(none)");
+    for (const row of slowRows) {
+        console.log(`${row.elapsedMs.toFixed(1)} ms\tRSS ${(row.rssBytes / 1048576).toFixed(1)} MiB\t${row.name}`);
+    }
+    console.log(`PEAK RSS ${(peakRssBytes / 1048576).toFixed(1)} MiB`);
+}
+
+const selectionLabel = [
+    requestedTestGroup !== "all" ? `group=${requestedTestGroup}` : "",
+    requestedTestFilter ? `filter=${requestedTestFilter}` : ""
+].filter(Boolean).join(", ");
+console.log(`PASS IgnatiusRocketfrock ${selectionLabel ? `selected (${selectionLabel})` : "headless"} tests (${executedTestCount} tests, ${(suiteElapsedMs / 1000).toFixed(2)} s)`);

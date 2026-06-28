@@ -132,13 +132,33 @@ function normalizedAngle(angle) {
     return result;
 }
 
-function rotationForCategory(category, tangent) {
-    if (category === "wall") {
-        const downTangent = tangent.y < 0 ? { x: -tangent.x, y: -tangent.y } : tangent;
-        return normalizedAngle(Math.atan2(-downTangent.x, downTangent.y));
+function angularDistance(a, b) {
+    return Math.abs(normalizedAngle(a - b));
+}
+
+/**
+ * Points a formation's tip into the cave. Authored stalactites point down in
+ * their source frame and authored stalagmites point up. The preliminary
+ * perpendicular direction normally remains untouched; it snaps to the nearest
+ * cardinal direction only when it lies within 20° of that direction.
+ */
+export function formationRotationForInward(entry, inward) {
+    const tags = new Set(Array.isArray(entry?.tags) ? entry.tags.map(String) : []);
+    const baseTipAngle = tags.has("stalactite") ? Math.PI * 0.5 : -Math.PI * 0.5;
+    let desiredTipAngle = Math.atan2(finiteNumber(inward?.y, 0), finiteNumber(inward?.x, 1));
+    const snapTolerance = Math.PI / 9;
+    const cardinalAngles = [0, Math.PI * 0.5, Math.PI, -Math.PI * 0.5];
+    let nearestCardinal = cardinalAngles[0];
+    let nearestDistance = angularDistance(desiredTipAngle, nearestCardinal);
+    for (const cardinalAngle of cardinalAngles.slice(1)) {
+        const distance = angularDistance(desiredTipAngle, cardinalAngle);
+        if (distance < nearestDistance) {
+            nearestCardinal = cardinalAngle;
+            nearestDistance = distance;
+        }
     }
-    const rightTangent = tangent.x < 0 ? { x: -tangent.x, y: -tangent.y } : tangent;
-    return normalizedAngle(Math.atan2(rightTangent.y, rightTangent.x));
+    if (nearestDistance <= snapTolerance) desiredTipAngle = nearestCardinal;
+    return normalizedAngle(desiredTipAngle - baseTipAngle);
 }
 
 
@@ -325,7 +345,7 @@ export function generateCavePerimeterPlacements({
         const safetyReach = normalDepth * 0.18;
         const outwardLayerCount = Math.max(0, Math.ceil((featherDistance + safetyReach - primaryOutwardReach) / radialStep));
 
-        const rotation = rotationForCategory(category, sample.tangent);
+        const rotation = formationRotationForInward(candidate, inward);
         const primaryCenterX = sample.x + inward.x * inwardShift;
         const primaryCenterY = sample.y + inward.y * inwardShift;
         // Shift the complete radial stack as one object. Every row must respect the

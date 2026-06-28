@@ -2641,3 +2641,77 @@ Mandatory vertical climbs and drops still use exactly one automatic vertical shu
 Cave foreground population is also narrowed. Automatic perimeter catalogs now admit only assets tagged `stalactite` or `stalagmite`. Ceiling directions use stalactites, floor directions use stalagmites, and vertical wall directions rotate either formation family. Generic wall, ceiling, floor, pillar, alcove, rock, and rubble assets are excluded from perimeter population. The authored perimeter in `level_001` is regenerated under the same rule.
 
 Validation records recovery-lane count, lower-lane gap count, upper-gap coverage, upper/lower gap overlap violations, and moving-platform style violations in addition to the revision-244 metrics. Current themes are invalid when a recovery gap lies under an upper gap, an upper jump gap lacks a landing below it, or a mandatory lift uses an ordinary static-platform visual family.
+
+## Revision 246 Atlas 004 long-platform integration
+
+Revision 246 adds `at_atlas_004` as the dedicated long earth-platform atlas. Its sixteen visual islands are individually framed and carry closed blockable collision polygons. The upper blockable segment is deliberately placed through the middle of the rendered walkway, following the collision convention of `at_atlas_001` rather than tracing loose alpha pixels along the top fringe.
+
+All sixteen platforms are registered in `assets/level-generator-platforms.json`. Their authored widths range from compact long ledges to very broad recovery-floor spans. Layered horizontal traversal may request a longer landing asset on sufficiently broad route edges while preserving the existing collision-edge jump-gap, vertical-variation, recovery-lane, and thin-moving-platform contracts. The selection remains conservative so large art does not collapse a jump sequence into touching platforms.
+
+Earth and Ice colour-map atlas allowlists include `at_atlas_004`. Generated levels add the atlas reference through their ordinary placement-derived atlas list; manually authored levels remain unchanged until one of the new assets is placed.
+
+The PNG remains a separately supplied project asset so revision ZIP downloads can continue excluding PNG files.
+
+
+## Revision 247 organic upper-route platform realization
+
+Revision 247 replaces the current default Traversal implementation with `organic-layered-traversal-v4`. ThePath74 remains a loose macroscopic guide, not a platform centreline. Horizontal legs are now realized as irregular authored landing sequences whose heights deliberately wander above and below the guide while every local gap, rise, drop, and exposed landing remains inside the conservative movement envelope.
+
+A horizontal sequence containing three or more supports may not place any consecutive pair at effectively the same surface height. The generator searches for a profile with a visible height change between every neighbouring landing and rejects profiles that do not create a useful total vertical range. Non-endpoint route anchors receive only small height offsets, while intermediate landings may depart substantially farther from the guide. This prevents long red-line rows without turning the route into an unreadable sawtooth.
+
+Atlas 004 is used more aggressively when a broad authored landing is preferable to several short adjacent platforms. Long static platforms remain ordinary jump targets and recovery-floor pieces; the thin `rubble_long` family remains exclusive to vertical lifts. Recovery lanes retain their staggered-gap contract, and every mandatory climb or descent still uses one automatic vertical shuttle with no static staircase.
+
+Validation now records the minimum adjacent organic height change, same-height adjacency violations, vertical direction changes, long static Atlas 004 usage, and maximum departure from the abstract route. A current-theme draft is invalid when a multi-platform horizontal chain forms a level row or lacks meaningful vertical variation.
+
+## Revision 248 aggregate test-runner investigation
+
+Revision 248 investigates the previously reported aggregate headless-test "stall". The Node process was not deadlocked and did not retain a timer, worker, or other event-loop handle. A detached run of the unchanged revision-247 suite completed normally with exit code 0 in 75.96 seconds. Profiling showed that six generator-heavy regressions consumed almost the entire runtime: route foundation, playable empty cavern, encounters, rewards, macro-room/perimeter validation, and perimeter spatial culling. The remaining non-generator tests completed in under two seconds. The apparent stall was the foreground command runner reaching its own wait limit while the CPU-bound generator tests continued normally in the child process.
+
+The aggregate runner now prints `RUN` before starting each test and reports total test count and elapsed suite time at completion, so a long generator case no longer looks silent. `npm run test:profile` adds per-test elapsed time, resident-memory readings, a configurable slow-test summary, and peak RSS. `npm run test:generator` and `npm run test:fast` run the heavy generator group and the remaining tests in separate fresh Node processes when a shorter diagnostic cycle is useful. `npm test` remains the authoritative aggregate run.
+
+The revised aggregate suite completed 141 tests in 76.33 seconds with exit code 0. The isolated generator group completed eight tests in 74.44 seconds with a 282.3 MiB peak RSS, while the 133-test fast group completed in 1.94 seconds. No gameplay or generator behavior changed in this revision.
+
+## Revision 249 longform platforms, secondary perches, and guaranteed gap recovery
+
+Revision 249 replaces the default upper-route realization with `longform-organic-traversal-v5`. ThePath74 remains the cavern's macroscopic guide, but it no longer dictates a dense chain of short collision surfaces. Horizontal spans are packed from the lowest practical platform count upward, using the Atlas 004 long-platform family whenever the available distance can support one broad authored landing. Short turn anchors and endpoint supports remain valid where the route geometry genuinely cannot fit a long platform.
+
+Every neighbouring upper landing must change height by a clearly visible amount. The traversal search rejects same-level pairs, near-level pairs, gaps wider than the conservative movement envelope, and profiles that cling too closely to the abstract route. The resulting main route is a loose sequence of long, irregular ledges rather than a yellow line translated directly into collision.
+
+Every horizontal jump gap now owns recovery geometry below it. The recovery platform covers the fall line, overlaps the lower adjacent main platform enough to permit deliberate backtracking, and carries an explicit validated return transition. Reward-branch entry footholds may fulfil this recovery role when they occupy the reserved shaft under the gap. Lower recovery geometry may still contain gaps, but those gaps must not overlap the upper fall lines.
+
+Long main platforms may reserve smaller secondary platforms above them. These optional perches are marked as reward-capable supports and enter the normal contextual reward candidate pool, making them suitable for treasure, pickups, or later encounter landmarks without placing them on the mandatory route. Mandatory climbs and drops continue to use one thin `rubble_long` automatic lift and no static staircase.
+
+Generator provenance advances to Automatic Level Generator 9. Validation records average main-platform width, the share of long route-span platforms, secondary reward-perch count, required recovery-gap count, recovery coverage, backtracking reachability, and any unprotected gap or same-height violation.
+
+## Revision 250 layered safety-network traversal
+
+Revision 250 replaces the default `longform-organic-traversal-v5` realization with `layered-safety-network-traversal-v6`. ThePath74 remains only the macroscopic guide. The visible traversal is now planned as a hierarchy of playable routes that uses the full cavern volume rather than a single chain suspended through empty space.
+
+The upper route remains the preferred progression route. It uses long Atlas 004 platforms wherever the cavern permits, changes height at every ordinary jump gap, and retains the organic vertical displacement introduced in revisions 247–249. Static overlapping platforms must leave at least 112 world units of clear body space so Ignatius cannot be trapped in a visually plausible but physically unusable sandwich.
+
+Every horizontal upper-route gap now belongs to a broader lower recovery route. The lower route slopes through the cavern in progression order, catches failed jumps, and connects its local supports with ordinary traversable gaps rather than isolated catch platforms. Each lower route owns a thin automatic return lift that lets the player backtrack to the upper route. Lower-route gaps are staggered away from upper-route gaps. Every lower-route gap has a wider tertiary recovery platform below it plus a thin return lift, so one failed jump never sends Ignatius directly into the lethal black boundary.
+
+Broad upper-route platforms may receive detached secondary reward perches. Current v6 treasure placement prefers those perches instead of materializing the older collision-heavy optional branch shafts. The branch system remains available to the legacy v5 implementation. The entry door is placed at the far-left usable edge of the starting platform, matching the authored composition of `level_001`.
+
+Validation now counts complete layered lanes, lower-route supports, return lifts, protected lower gaps, tertiary recovery platforms, and minimum static headroom. A v6 cavern is invalid when an upper gap lacks lower coverage, a lower gap lacks tertiary coverage, a lower route has no return lift, or overlapping static platforms leave insufficient room for Ignatius.
+
+
+## Revision 251 equal-sized minimap, perimeter tip orientation, and seamless overlap composites
+
+Revision 251 completes three presentation and editor refinements:
+
+1. Replace the upper-right FULLSCREEN and MENU controls with a clickable level minimap. Keep it exactly the same rendered width and height as the top-left meter panel, draw the cave, supports, camera, player, and exit, and open the existing pause menu when clicked. Preserve automatic fullscreen and Escape-menu behavior without a permanent fullscreen HUD button.
+2. Correct automatic perimeter population so every stalactite or stalagmite points its tip inward. Start from the inward perpendicular to the sampled perimeter. Snap to straight down when that angle lies within 45 degrees of down, snap to straight up when it lies within 45 degrees of up, and otherwise keep the perpendicular angle. Account for the authored base direction of stalactite versus stalagmite source frames.
+3. Add cached overlap blending for static atlas visuals. Detect consecutive same-layer overlap groups, bake them into off-screen bitmaps, and crossfade each incoming member over the central 50 percent of the overlap around its midpoint. Runtime and Level Editor reuse the cached composite while preserving the original placement, collision, ordering, and editing records. Exclude moving, entity-bound, actor-front, and cave-foreground visuals.
+
+The next platform-generation pass may deliberately overlap compatible platform assets to author widths between the available Atlas 004 frames, relying on the cached composite for the visible seam while collision remains ordinary authored blockable geometry.
+
+## Revision 252 narrow cardinal snapping, fitted minimap, mirrored exit platform, and one-way thin platforms
+
+Revision 252 refines the perimeter orientation rule introduced in revision 251. A stalactite or stalagmite first points inward perpendicular to the sampled cave perimeter. It snaps only when that preliminary tip angle is within 20 degrees of the nearest cardinal direction, including left and right as well as up and down. Angles outside those narrow cones remain perpendicular to the actual curve.
+
+The minimap now shares only the top-left meter panel's height. Its width is calculated from the padded level bounds so the full level fits without surplus horizontal panel space. The size is recomputed when the meter panel changes and when a newly loaded level changes the minimap aspect ratio.
+
+Automatic endpoint generation now treats the two large mossy door platforms as a mirrored composition. The exit support reuses the entrance support asset and scale, mirrors it horizontally, and places the exit door at the corresponding far-right usable location. The entrance remains at the far-left usable location.
+
+`assets/at_atlas_004.json` advances to manifest version 5. The thick top-row platform retains its closed yellow blockable silhouette. Every thinner platform now has only one green walkable line across its inset standing surface, allowing Ignatius to jump upward through it from below.

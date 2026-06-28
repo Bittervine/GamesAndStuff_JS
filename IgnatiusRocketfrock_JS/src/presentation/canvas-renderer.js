@@ -44,6 +44,10 @@ import {
     visualWorldBounds
 } from "./world-visual-cache.js";
 import {
+    buildOverlapBlendGroups,
+    createOverlapBlendSurface
+} from "./overlap-blend-cache.js";
+import {
     animationPoseToRuntimeTransforms,
     applyRuntimeProjectileHandoffVisibility,
     buildRuntimeCharacterDrawCommands,
@@ -362,6 +366,13 @@ class RocketfrockRenderer {
         this.caveWindowMaskCanvas = null;
         this.caveWindowMaskKey = "";
         this.worldVisualCache = buildWorldVisualCache([]);
+        this.overlapBlendCache = {
+            source: null,
+            sourceLength: 0,
+            colorMapKey: "",
+            groups: [],
+            memberToGroup: new Map()
+        };
         this.foregroundSpriteCache = new Map();
         this.powerUpTintCache = new Map();
         this.frameForegroundOffset = { x: 0, y: 0 };
@@ -455,8 +466,50 @@ class RocketfrockRenderer {
         const visuals = Array.isArray(state?.world?.visuals) ? state.world.visuals : [];
         if (this.worldVisualCache.source !== visuals || this.worldVisualCache.sourceLength !== visuals.length) {
             this.worldVisualCache = buildWorldVisualCache(visuals);
+            this.overlapBlendCache.source = null;
         }
         return this.worldVisualCache;
+    }
+
+    ensureOverlapBlendCache(state) {
+        const worldCache = this.getWorldVisualCache(state);
+        if (
+            this.overlapBlendCache.source === worldCache.source &&
+            this.overlapBlendCache.sourceLength === worldCache.sourceLength &&
+            this.overlapBlendCache.colorMapKey === this.environmentColorMapKey
+        ) {
+            return this.overlapBlendCache;
+        }
+
+        const ownerDocument = this.canvas?.ownerDocument || (typeof document !== "undefined" ? document : null);
+        const groups = [];
+        const memberToGroup = new Map();
+        for (const definition of buildOverlapBlendGroups(worldCache.main)) {
+            const baked = createOverlapBlendSurface({
+                ownerDocument,
+                group: definition,
+                environmentAtlases: this.environmentAtlases
+            });
+            if (!baked) continue;
+            const group = {
+                id: definition.id,
+                layer: definition.layer,
+                bounds: baked.bounds,
+                canvas: baked.canvas,
+                members: baked.members
+            };
+            groups.push(group);
+            for (const visual of group.members) memberToGroup.set(visual, group);
+        }
+
+        this.overlapBlendCache = {
+            source: worldCache.source,
+            sourceLength: worldCache.sourceLength,
+            colorMapKey: this.environmentColorMapKey,
+            groups,
+            memberToGroup
+        };
+        return this.overlapBlendCache;
     }
 
     syncCaveWindow(caveWindow) {
@@ -488,6 +541,7 @@ class RocketfrockRenderer {
         }
         this.environmentColorMapKey = "";
         this.foregroundSpriteCache.clear();
+        this.overlapBlendCache.source = null;
         this.syncEnvironmentColorMap(this.environmentColorMap);
         return loaded.size > 0;
     }
@@ -505,6 +559,7 @@ class RocketfrockRenderer {
         this.environmentColorMap = colorMap;
         this.environmentColorMapKey = cacheKey;
         this.foregroundSpriteCache.clear();
+        this.overlapBlendCache.source = null;
         for (const atlas of this.environmentAtlases.values()) {
             if (!atlas?.image) {
                 continue;
@@ -924,7 +979,17 @@ class RocketfrockRenderer {
                 const atlas = this.environmentAtlases.get(atlasId);
                 return Boolean(atlas && !atlas.missing && atlas.image);
             });
+        const overlapCache = actorFrontOnly ? null : this.ensureOverlapBlendCache(state);
+        const drawnBlendGroups = new Set();
         for (const { visual, bounds } of entries) {
+            const blendGroup = overlapCache?.memberToGroup?.get(visual);
+            if (blendGroup) {
+                if (!drawnBlendGroups.has(blendGroup)) {
+                    drawnBlendGroups.add(blendGroup);
+                    if (this.drawOverlapBlendGroup(blendGroup, view)) drewAny = true;
+                }
+                continue;
+            }
             if (visual.kind === "atlasSprite") {
                 if (this.drawAtlasSpriteVisual(visual, view, state, bounds)) {
                     drewAny = true;
@@ -936,6 +1001,20 @@ class RocketfrockRenderer {
             }
         }
         return { drewAny, hasRenderableVisuals };
+    }
+
+    drawOverlapBlendGroup(group, view) {
+        this.frameVisualCounters.considered += group?.members?.length || 1;
+        if (!group?.canvas || !visualIntersectsViewport(group.bounds, view, null, VISUAL_CULL_MARGIN_PX)) {
+            this.frameVisualCounters.culled += group?.members?.length || 1;
+            return false;
+        }
+        const topLeft = this.worldToScreen(view, group.bounds.minX, group.bounds.minY);
+        const width = (group.bounds.maxX - group.bounds.minX) * view.zoom;
+        const height = (group.bounds.maxY - group.bounds.minY) * view.zoom;
+        this.ctx.drawImage(group.canvas, topLeft.x, topLeft.y, width, height);
+        this.frameVisualCounters.drawn += 1;
+        return true;
     }
 
     drawCaveForegroundVisuals(state, view) {

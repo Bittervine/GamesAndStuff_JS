@@ -1,7 +1,7 @@
 {
-  "version": 1,
-  "catalogId": "cavern-platform-generation-v1",
-  "description": "Explicit platform-generation roles for the first automatic cavern builder. Surface ratios describe the authored collision-bearing top relative to the frame height.",
+  "version": 2,
+  "catalogId": "cavern-platform-generation-v2",
+  "description": "Explicit platform-generation roles, including the Atlas 004 long earth-platform family. Surface ratios describe the authored collision-bearing top through the middle of the visible walkway.",
   "assets": [
     {
       "atlasId": "at_atlas_001",
@@ -164,6 +164,303 @@
       "mirror": true,
       "walkableLeftInsetRatio": 0.071942,
       "walkableRightInsetRatio": 0.05036
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r1_a",
+      "roles": [
+        "bridge",
+        "recoveryPlatform",
+        "landingPlatform",
+        "routeFloor"
+      ],
+      "weight": 7,
+      "nativeWidth": 1897,
+      "nativeHeight": 101,
+      "surfaceYRatio": 0.227723,
+      "scaleMin": 0.55,
+      "scaleMax": 1.05,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.003163,
+      "walkableRightInsetRatio": 0.00738
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r2_a",
+      "roles": [
+        "bridge",
+        "recoveryPlatform",
+        "landingPlatform",
+        "routeFloor"
+      ],
+      "weight": 7,
+      "nativeWidth": 1724,
+      "nativeHeight": 66,
+      "surfaceYRatio": 0.242424,
+      "scaleMin": 0.55,
+      "scaleMax": 1.05,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.0029,
+      "walkableRightInsetRatio": 0.006381
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r2_b",
+      "roles": [
+        "recoveryPlatform",
+        "bridge"
+      ],
+      "weight": 6,
+      "nativeWidth": 198,
+      "nativeHeight": 60,
+      "surfaceYRatio": 0.233333,
+      "scaleMin": 0.78,
+      "scaleMax": 1.32,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.025253,
+      "walkableRightInsetRatio": 0.035354
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r3_a",
+      "roles": [
+        "bridge",
+        "recoveryPlatform",
+        "landingPlatform",
+        "routeFloor"
+      ],
+      "weight": 7,
+      "nativeWidth": 1493,
+      "nativeHeight": 66,
+      "surfaceYRatio": 0.242424,
+      "scaleMin": 0.55,
+      "scaleMax": 1.05,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.003349,
+      "walkableRightInsetRatio": 0.007368
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r3_b",
+      "roles": [
+        "routeFloor",
+        "landingPlatform",
+        "recoveryPlatform",
+        "bridge"
+      ],
+      "weight": 7,
+      "nativeWidth": 365,
+      "nativeHeight": 61,
+      "surfaceYRatio": 0.245902,
+      "scaleMin": 0.72,
+      "scaleMax": 1.28,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.013699,
+      "walkableRightInsetRatio": 0.016438
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r4_a",
+      "roles": [
+        "bridge",
+        "recoveryPlatform",
+        "landingPlatform",
+        "routeFloor"
+      ],
+      "weight": 8,
+      "nativeWidth": 1305,
+      "nativeHeight": 65,
+      "surfaceYRatio": 0.230769,
+      "scaleMin": 0.62,
+      "scaleMax": 1.12,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.004598,
+      "walkableRightInsetRatio": 0.005364
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r4_b",
+      "roles": [
+        "recoveryPlatform",
+        "bridge"
+      ],
+      "weight": 6,
+      "nativeWidth": 222,
+      "nativeHeight": 59,
+      "surfaceYRatio": 0.237288,
+      "scaleMin": 0.78,
+      "scaleMax": 1.32,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.022523,
+      "walkableRightInsetRatio": 0.031532
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r4_c",
+      "roles": [
+        "recoveryPlatform",
+        "bridge"
+      ],
+      "weight": 6,
+      "nativeWidth": 220,
+      "nativeHeight": 60,
+      "surfaceYRatio": 0.233333,
+      "scaleMin": 0.78,
+      "scaleMax": 1.32,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.027273,
+      "walkableRightInsetRatio": 0.027273
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r5_a",
+      "roles": [
+        "bridge",
+        "recoveryPlatform",
+        "landingPlatform",
+        "routeFloor"
+      ],
+      "weight": 8,
+      "nativeWidth": 1119,
+      "nativeHeight": 69,
+      "surfaceYRatio": 0.231884,
+      "scaleMin": 0.62,
+      "scaleMax": 1.12,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.004468,
+      "walkableRightInsetRatio": 0.012511
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r5_b",
+      "roles": [
+        "bridge",
+        "recoveryPlatform",
+        "landingPlatform",
+        "routeFloor"
+      ],
+      "weight": 8,
+      "nativeWidth": 521,
+      "nativeHeight": 61,
+      "surfaceYRatio": 0.245902,
+      "scaleMin": 0.68,
+      "scaleMax": 1.22,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.009597,
+      "walkableRightInsetRatio": 0.011516
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r6_a",
+      "roles": [
+        "bridge",
+        "recoveryPlatform",
+        "landingPlatform",
+        "routeFloor"
+      ],
+      "weight": 8,
+      "nativeWidth": 947,
+      "nativeHeight": 66,
+      "surfaceYRatio": 0.242424,
+      "scaleMin": 0.62,
+      "scaleMax": 1.12,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.00528,
+      "walkableRightInsetRatio": 0.013728
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r6_b",
+      "roles": [
+        "routeFloor",
+        "landingPlatform",
+        "recoveryPlatform",
+        "bridge"
+      ],
+      "weight": 7,
+      "nativeWidth": 448,
+      "nativeHeight": 62,
+      "surfaceYRatio": 0.241935,
+      "scaleMin": 0.72,
+      "scaleMax": 1.28,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.011161,
+      "walkableRightInsetRatio": 0.013393
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r6_c",
+      "roles": [
+        "landingPlatform",
+        "recoveryPlatform",
+        "bridge"
+      ],
+      "weight": 6,
+      "nativeWidth": 284,
+      "nativeHeight": 60,
+      "surfaceYRatio": 0.233333,
+      "scaleMin": 0.78,
+      "scaleMax": 1.32,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.021127,
+      "walkableRightInsetRatio": 0.021127
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r7_a",
+      "roles": [
+        "bridge",
+        "recoveryPlatform",
+        "landingPlatform",
+        "routeFloor"
+      ],
+      "weight": 8,
+      "nativeWidth": 741,
+      "nativeHeight": 62,
+      "surfaceYRatio": 0.241935,
+      "scaleMin": 0.68,
+      "scaleMax": 1.22,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.008097,
+      "walkableRightInsetRatio": 0.013495
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r7_b",
+      "roles": [
+        "bridge",
+        "recoveryPlatform",
+        "landingPlatform",
+        "routeFloor"
+      ],
+      "weight": 8,
+      "nativeWidth": 594,
+      "nativeHeight": 60,
+      "surfaceYRatio": 0.233333,
+      "scaleMin": 0.68,
+      "scaleMax": 1.22,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.008418,
+      "walkableRightInsetRatio": 0.015152
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r7_c",
+      "roles": [
+        "routeFloor",
+        "landingPlatform",
+        "recoveryPlatform",
+        "bridge"
+      ],
+      "weight": 7,
+      "nativeWidth": 468,
+      "nativeHeight": 59,
+      "surfaceYRatio": 0.237288,
+      "scaleMin": 0.72,
+      "scaleMax": 1.28,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.010684,
+      "walkableRightInsetRatio": 0.014957
     }
   ]
 }

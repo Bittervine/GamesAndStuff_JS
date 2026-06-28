@@ -135,7 +135,7 @@ Revision 135 removed the last documented core-to-presentation dependency. Colour
 | `src/shared/story-reading.js` | SHARED DATA / MATH | Shared character-count reading speed, start delay, and duration helpers for letters and thought bubbles. |
 | `src/shared/cave-window-decoration.js` | SHARED DATA / MATH | Deterministic arc-length sampling and tagged atlas-asset selection for explicit non-colliding `caveForeground` placement records. |
 | `src/browser/browser-input.js` | BROWSER ADAPTER | Keyboard, gamepad, mouse, and touch state converted into `InputFrame`. |
-| `src/browser/game-bootstrap.js` | BROWSER ADAPTER | Asset and level loading, fixed-step loop, menu/settings coordination, fullscreen control, top-left DOM HUD binding, connection of input/simulation/renderer, optional haptic projection, and hydration of plain character combat profiles from loaded character projects. |
+| `src/browser/game-bootstrap.js` | BROWSER ADAPTER | Asset and level loading, fixed-step loop, menu/settings coordination, fullscreen policy, top-left HUD and upper-right minimap binding, connection of input/simulation/renderer, optional haptic projection, and hydration of plain character combat profiles from loaded character projects. |
 | `src/browser/gamepad-haptics.js` | BROWSER ADAPTER | Optional active-controller vibration driven from portable simulation events and current boost state. It owns no gameplay decisions and silently degrades when haptics are unavailable. |
 | `src/browser/game-settings-store.js` | BROWSER ADAPTER | Safe local-storage load/save for normalized game-facing settings. |
 | `src/browser/electron-window-bridge.js` | BROWSER ADAPTER | Detection and normalization of the optional sandboxed Electron preload API for quit/fullscreen operations. |
@@ -147,6 +147,7 @@ Revision 135 removed the last documented core-to-presentation dependency. Colour
 | `src/presentation/character-runtime.js` | PRESENTATION ONLY | Browser-side character project loading, rig normalization, animation selection, projectile-release transform compilation, and ordered draw commands. |
 | `src/presentation/level-color-map-cache.js` | PRESENTATION ONLY | Offscreen Canvas generation and image-pixel application for cached environment-atlas recolouring. |
 | `src/presentation/world-visual-cache.js` | PRESENTATION ONLY | Cached static-layer partitioning/sort keys, conservative rotated world bounds, parallax-aware viewport bounds, and Canvas draw rejection helpers. |
+| `src/presentation/overlap-blend-cache.js` | PRESENTATION ONLY | Detection of consecutive overlapping static atlas visuals and one-time off-screen bitmap composition with a central-half transparency crossfade. Runtime and Level Editor reuse the cached bitmap through ordinary `drawImage`; collision records remain separate and unchanged. |
 | `src/tools/character-editor/*` | EDITOR ONLY | Reusable Puppet Forge project, animation, atlas, dirty-state, view, and dopesheet operations. |
 | `tests/testbench.mjs` | TEST ONLY | Headless simulation tests, data tests, source-boundary checks, and browser-entry integration checks. |
 
@@ -690,3 +691,77 @@ Each suitable horizontal edge may also own one `recoveryLane` record. The lane i
 Moving-platform visual identity is data-driven. `assets/level-generator-platforms.json` reserves `rubble_long` exclusively for the `movingPlatform` role. Mandatory vertical edges select that role but retain ordinary landing-support traversal semantics, automatic shuttle movement, and complete travel-shaft cave stamps. Static branch bridges use a separate catalog role and cannot accidentally acquire the thin moving-platform visual.
 
 `src/shared/cave-window-decoration.js` now builds perimeter catalogs only from entries tagged `stalactite` or `stalagmite`. Floor normals select stalagmites, ceiling normals select stalactites, and side-wall normals may rotate either family. The generated foreground remains inert presentation data with the same protection, radial stacking, ownership, and fade contracts; only the admitted visual vocabulary changed.
+
+## Revision 246 Atlas 004 platform-manifest architecture
+
+`assets/at_atlas_004.json` is a normal environment-atlas manifest with sixteen platform objects. Each object owns a padded frame and ordinary platform metadata. The thick upper platform, `earth_long_platform_r1_a`, retains a closed sequence of `blockable` edges because its visible rock mass is intended to obstruct movement from every side. The fifteen thinner platforms expose only one inset horizontal `walkable` line, making them one-way platforms that Ignatius can jump through from below while using the existing line-collision contract without renderer or simulation special cases.
+
+`assets/level-generator-platforms.json` version 2 registers the Atlas 004 family for static landing, bridge, route-floor, and recovery-floor selection. It does not grant the family the `movingPlatform` role; `rubble_long` remains the exclusive thin shuttle visual. `layered-recovery-traversal-v3` may increase the requested width of a horizontal intermediate support only on broad edges and within the existing maximum-width fit loop, so collision-edge gaps and transition validation remain authoritative.
+
+Atlas loading remains placement-driven at runtime and sequentially discoverable in the Level Editor. Theme colour-map allowlists include Atlas 004 so Earth and Ice recolouring treats it consistently with the existing environment atlases.
+
+
+## Revision 247 organic layered traversal
+
+`organic-layered-traversal-v4` is the current Earth and Ice traversal implementation. It inherits the broad lower recovery lane and thin vertical-shuttle contracts from `layered-recovery-traversal-v3`, but replaces the upper platform profile with a constrained organic search.
+
+For each horizontal macro edge, the builder chooses a small set of authored static landing assets, including Atlas 004 long platforms when a broad single landing reduces visual repetition. It then searches surface heights inside the local jump envelope. Every adjacent landing in a chain of three or more must differ visibly in Y, the complete chain must occupy a useful vertical range, and the resulting transitions must still pass the shared collision-edge gap, rise, drop, and exposed-landing checks. The abstract route is used only as a bounded envelope and provenance guide.
+
+Ordinary mandatory route anchors may receive a small deterministic Y offset before edge realization. Intermediate supports may deviate farther, but remain bounded around the macro guide. Vertical moving-platform travel is measured between the realized support surfaces rather than the unadjusted route-node coordinates.
+
+The validator exposes `minimumOrganicHeightDelta`, `organicSameHeightAdjacentCount`, `organicHeightDirectionChangeCount`, `longStaticPlatformCount`, and `maximumHorizontalRouteOffset`. Current-theme generation rejects any multi-platform horizontal chain with same-height neighbours or insufficient total vertical range. `layered-recovery-traversal-v3`, `spaced-platform-traversal-v2`, and `forgiving-traversal-v1` remain registered for legacy records.
+
+## Revision 248 headless test-runner diagnostics
+
+`tests/testbench.mjs` remains the dependency-free aggregate headless runner. It now accepts `--progress`, `--profile`, `--filter=<text>`, and `--group=<all|fast|generator>`. Progress mode prints the test name before execution so CPU-heavy generator regressions remain visibly active. Profile mode uses `process.hrtime.bigint()` and `process.memoryUsage()` only in the test layer; these diagnostics do not enter portable gameplay, browser startup, or presentation modules.
+
+`npm test` executes all tests in one Node process and remains the release gate. `npm run test:fast` excludes the generator-heavy group, `npm run test:generator` isolates that group in a fresh process, and `npm run test:profile` reports slow tests and peak resident memory. Grouping is test-harness metadata based on stable test names and does not alter production code or test assertions.
+
+The revision-247 timeout report was a command-wrapper timeout rather than a Node deadlock. The aggregate process exits normally after the generator regressions finish; no explicit `process.exit()` or leaked asynchronous handle is required to terminate it.
+
+## Revision 249 longform organic traversal architecture
+
+`longform-organic-traversal-v5` is the current Earth and Ice traversal implementation. It keeps ThePath74 and its ellipse rooms in the Route stage, then interprets each horizontal route edge as a packing problem rather than a request for evenly spaced stepping stones.
+
+For each horizontal edge, Traversal Realization considers the fewest intermediate supports first. It budgets explicit physical gaps, authored walkable insets, and any reward-branch shaft reservation before selecting platform assets. The target width is derived from the remaining span after gap budgets, which naturally favours Atlas 004's longest fitting platform instead of choosing a short platform and repeating it. The final physical gap allocation is capped below the movement limit after collision-manifest insets are included.
+
+Surface heights are searched independently from X placement. Every adjacent main landing must differ vertically by at least the organic threshold while remaining within rise, drop, exposed-landing, and route-envelope constraints. The abstract route Y is therefore guidance, not a collision centreline.
+
+Recovery is a per-gap contract. Every accepted upper jump gap receives a support below its fall centre and an explicit `recoveryBacktrack` transition to the lower neighbouring main landing. The recovery support is positioned to expose enough floor for a short backtrack before the return jump. A materialized reward-branch foothold can serve as the recovery support for its reserved shaft, avoiding two platforms occupying the same fall line. Validation compares mandatory upper-gap count, registered recovery-gap count, geometric coverage, and valid return-transition count exactly.
+
+Secondary reward perches are optional child supports of broad Atlas 004 main platforms. They sit above and partly overhang the parent so that the transition has a readable exposed landing. They are non-mandatory, bidirectionally reachable, tagged `rewardPerch`, and are eligible for contextual reward placement. The cavern occupancy pass includes main supports, complete lift shafts, recovery supports, branch geometry, and secondary perches before tracing the final contour.
+
+Vertical route edges remain structurally separate: one thin `rubble_long` shuttle spans the complete realized surface difference, while static long-platform assets are never used as lift visuals.
+
+## Revision 250 layered safety-network traversal architecture
+
+`layered-safety-network-traversal-v6` is an engine-neutral traversal-realization policy in `src/shared/level-generator-data.js`. It consumes the accepted ThePath74 route graph and emits ordinary platform placements, support records, traversal transitions, moving-platform records, and validation metadata. The route graph is not rewritten and remains a loose spatial/provenance guide.
+
+The implementation produces three explicit strata:
+
+1. **Upper route:** long static route platforms with mandatory height changes between neighbouring jump targets.
+2. **Lower recovery route:** a sloping, connected route beneath every upper horizontal gap, with one thin automatic lift back to the upper route.
+3. **Tertiary recovery:** wider catch platforms below lower-route gaps, each paired with a thin return lift to the lower route.
+
+All three strata are ordinary generated supports. Moving recovery lifts use the existing `rubble_long`-only moving-platform contract and normal shuttle movement data. Static overlap validation measures the lower surface against the rendered body bottom of the upper platform and requires 112 world units of headroom. Cavern occupancy includes all lower routes, tertiary platforms, and complete moving-lift travel envelopes before the contour is traced.
+
+Secondary upper platforms are tagged `secondaryPlatform` and `rewardPerch`. Under v6, the Rewards stage may select those supports for treasure chests through the `secondaryPerch` context. The older branch-destination contract remains valid for legacy traversal implementations. Endpoint placement uses the left usable edge for the entrance and the inward usable edge for the exit.
+
+
+## Revision 251 minimap, inward-pointing formations, and cached overlap blending
+
+The upper-right browser HUD is now a minimap rather than a pair of textual controls. `game.html` gives the top-left meters and top-right minimap one shared width variable, while `src/browser/game-bootstrap.js` uses `ResizeObserver` to match the minimap's rendered outer dimensions to the meter panel exactly. The minimap is presentation-only: it projects the cave outline, collision supports, camera viewport, player, and exit marker from existing state. Clicking the minimap invokes the existing pause-menu path, and fullscreen remains governed by the persisted automatic policy, keyboard handling, and Electron bridge rather than a permanent HUD button.
+
+Automatic cave-perimeter orientation is owned by `src/shared/cave-window-decoration.js`. A sampled inward normal is the preliminary tip direction. Normals within 45 degrees of straight down or straight up snap to that vertical direction; all other normals remain perpendicular to the perimeter. Rotation is derived from the authored source orientation of the chosen formation, so stalactite and stalagmite tips point into the play area and their broad bases remain outside it. This rule applies equally to editor population and automatic generator decoration because both call the same shared function.
+
+`src/presentation/overlap-blend-cache.js` adds a presentation-only seam cache for consecutive, same-layer, static atlas visuals that overlap in world space. Each eligible group is baked once into an off-screen bitmap after atlas colour mapping. When a new member overlaps the existing composite, its alpha rises from zero to one across the central 50 percent of the overlap, centred on the overlap midpoint. Runtime and Level Editor draw the resulting bitmap once and retain separate placement and collision data for selection, editing, physics, and navigation. Moving platforms, entity-bound visuals, actor-front art, and cave foreground art are excluded from static blending.
+
+## Revision 252 perimeter angles, aspect-fit minimap, mirrored endpoints, and Atlas 004 one-way collision
+
+`src/shared/cave-window-decoration.js` continues to derive each formation tip from the inward sampled perimeter normal, but cardinal snapping is now deliberately narrow and symmetric. The preliminary perpendicular angle is compared with right, down, left, and up; it snaps only when the nearest cardinal lies within 20 degrees. All other angles remain perpendicular to the local perimeter. The authored downward stalactite and upward stalagmite source orientations are still compensated before the placement rotation is serialized.
+
+The upper-right minimap keeps the exact rendered height of the top-left meter panel. `src/browser/game-bootstrap.js` computes its width from the padded level-bounds aspect ratio, so the panel contains no unnecessary horizontal letterboxing. A `ResizeObserver` follows meter-panel height changes, while normal minimap draws also re-evaluate the level aspect ratio after level transitions. The clickable menu behavior and throttled drawing remain unchanged.
+
+Current generated endpoint supports form a mirrored pair. Traversal still selects an ordinary catalogued `doorSupport`, but the exit reuses the entrance asset and scale, forces the entrance to authored orientation, and forces the exit to `mirrorX`. Grounded endpoint placement uses the far-left usable point for the entrance and the geometrically corresponding far-right usable point for the exit. Door anchors remain exactly on the support standing surfaces.
+
+Atlas 004 keeps ordinary manifest-driven collision. Only `earth_long_platform_r1_a` has a closed blockable silhouette; all thinner Atlas 004 objects have two standing-line nodes and one `walkable` edge. No runtime exception identifies Atlas 004 by name.

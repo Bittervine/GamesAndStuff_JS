@@ -65,6 +65,10 @@ const loadingBarFill = document.getElementById("loading-bar-fill");
 const loadingDetail = document.getElementById("loading-detail");
 const titleScreen = document.getElementById("title-screen");
 const titleStartButton = document.getElementById("title-start-button");
+const metersPanel = document.getElementById("meters");
+const minimapPanel = document.getElementById("game-menu-controls");
+const minimapCanvas = document.getElementById("minimap-canvas");
+const minimapContext = minimapCanvas?.getContext?.("2d") || null;
 const openGameMenuButton = document.getElementById("open-game-menu");
 const fullscreenToggleButton = document.getElementById("fullscreen-toggle");
 const gameMenuDialog = document.getElementById("game-menu-dialog");
@@ -88,7 +92,7 @@ const renderingQualityButtons = [...document.querySelectorAll("[data-rendering-q
 const autoFullscreenRow = document.getElementById("auto-fullscreen-row");
 const autoFullscreenInput = document.getElementById("auto-fullscreen");
 
-const GAME_REVISION = "245";
+const GAME_REVISION = "252";
 
 let displayedLoadingProgress = 0;
 let activeCaveWindow = normalizeCaveWindow(null);
@@ -107,6 +111,9 @@ let stopElectronFullscreenListener = null;
 let titleScreenActive = true;
 let gameHasStarted = false;
 let suppressPostTitleStartInputUntil = 0;
+let minimapResizeObserver = null;
+let minimapLastDrawAt = -Infinity;
+let minimapLastSizeKey = "";
 gameState.debug.revision = GAME_REVISION;
 addEvent(gameState, `BUILD_REVISION_${GAME_REVISION}`);
 const input = new RocketfrockInput(window);
@@ -148,6 +155,7 @@ setupTuningControls();
 setupTuningJsonControls();
 setupPanelToggleButtons();
 setupTitleScreen();
+setupMinimap();
 setupGameMenuAndSettings();
 setLoadingProgress(1, "Ready");
 showTitleScreen();
@@ -476,6 +484,196 @@ function syncTitleScreenUi() {
         gameMenuExitTitleButton.hidden = titleScreenActive;
     }
     syncGameAudioState();
+}
+
+function setupMinimap() {
+    if (!metersPanel || !minimapPanel || !minimapCanvas || !minimapContext) {
+        return;
+    }
+    const syncSize = () => {
+        resizeMinimapToLevel();
+        drawMinimap(true);
+    };
+    if (typeof ResizeObserver === "function") {
+        minimapResizeObserver = new ResizeObserver(syncSize);
+        minimapResizeObserver.observe(metersPanel);
+    }
+    window.addEventListener("resize", syncSize, { passive: true });
+    window.addEventListener("beforeunload", () => minimapResizeObserver?.disconnect?.(), { once: true });
+    syncSize();
+}
+
+function minimapBounds() {
+    const world = gameState.world || {};
+    const bounds = world.bounds || {};
+    let minX = Number(bounds.x);
+    let minY = Number(bounds.y);
+    let maxX = minX + Number(bounds.w);
+    let maxY = minY + Number(bounds.h);
+    const points = activeCaveWindow?.enabled && Array.isArray(activeCaveWindow.points)
+        ? activeCaveWindow.points
+        : [];
+    if (points.length >= 3) {
+        minX = Math.min(...points.map((point) => Number(point.x) || 0));
+        minY = Math.min(...points.map((point) => Number(point.y) || 0));
+        maxX = Math.max(...points.map((point) => Number(point.x) || 0));
+        maxY = Math.max(...points.map((point) => Number(point.y) || 0));
+    }
+    if (![minX, minY, maxX, maxY].every(Number.isFinite) || maxX <= minX || maxY <= minY) {
+        minX = (Number(gameState.player?.x) || 0) - 800;
+        minY = (Number(gameState.player?.y) || 0) - 500;
+        maxX = minX + 1600;
+        maxY = minY + 1000;
+    }
+    const padX = Math.max(80, (maxX - minX) * 0.035);
+    const padY = Math.max(80, (maxY - minY) * 0.05);
+    return {
+        minX: minX - padX,
+        minY: minY - padY,
+        maxX: maxX + padX,
+        maxY: maxY + padY
+    };
+}
+
+
+function resizeMinimapToLevel(bounds = minimapBounds()) {
+    if (!metersPanel || !minimapPanel || !minimapCanvas) return false;
+    const meterRect = metersPanel.getBoundingClientRect();
+    if (!(meterRect.height > 0)) return false;
+    const worldWidth = Math.max(1, bounds.maxX - bounds.minX);
+    const worldHeight = Math.max(1, bounds.maxY - bounds.minY);
+    const inset = 8;
+    const panelHeight = Math.max(1, Math.round(meterRect.height * 10) / 10);
+    const drawableHeight = Math.max(1, panelHeight - inset * 2);
+    const panelWidth = Math.max(48, Math.ceil(inset * 2 + drawableHeight * worldWidth / worldHeight));
+    minimapPanel.style.width = `${panelWidth}px`;
+    minimapPanel.style.height = `${panelHeight}px`;
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const backingWidth = Math.max(1, Math.round(panelWidth * dpr));
+    const backingHeight = Math.max(1, Math.round(panelHeight * dpr));
+    const sizeKey = `${backingWidth}x${backingHeight}`;
+    if (sizeKey === minimapLastSizeKey) return false;
+    minimapCanvas.width = backingWidth;
+    minimapCanvas.height = backingHeight;
+    minimapLastSizeKey = sizeKey;
+    minimapLastDrawAt = -Infinity;
+    return true;
+}
+
+function drawMinimap(force = false) {
+    const bounds = minimapBounds();
+    if (resizeMinimapToLevel(bounds)) force = true;
+    if (!minimapCanvas || !minimapContext || minimapCanvas.width <= 1 || minimapCanvas.height <= 1) return;
+    const now = performance.now();
+    if (!force && now - minimapLastDrawAt < 90) return;
+    minimapLastDrawAt = now;
+
+    const ctx = minimapContext;
+    const width = minimapCanvas.width;
+    const height = minimapCanvas.height;
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const cssWidth = width / dpr;
+    const cssHeight = height / dpr;
+    const worldWidth = Math.max(1, bounds.maxX - bounds.minX);
+    const worldHeight = Math.max(1, bounds.maxY - bounds.minY);
+    const inset = 8;
+    const scale = Math.min(
+        Math.max(0.0001, (cssWidth - inset * 2) / worldWidth),
+        Math.max(0.0001, (cssHeight - inset * 2) / worldHeight)
+    );
+    const offsetX = (cssWidth - worldWidth * scale) * 0.5 - bounds.minX * scale;
+    const offsetY = (cssHeight - worldHeight * scale) * 0.5 - bounds.minY * scale;
+    const point = (x, y) => ({ x: offsetX + x * scale, y: offsetY + y * scale });
+
+    ctx.save();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssWidth, cssHeight);
+    const background = ctx.createLinearGradient(0, 0, 0, cssHeight);
+    background.addColorStop(0, "rgba(15,12,22,0.98)");
+    background.addColorStop(1, "rgba(5,5,10,0.98)");
+    ctx.fillStyle = background;
+    ctx.fillRect(0, 0, cssWidth, cssHeight);
+
+    const cavePoints = activeCaveWindow?.enabled && Array.isArray(activeCaveWindow.points)
+        ? activeCaveWindow.points
+        : [];
+    if (cavePoints.length >= 3) {
+        ctx.beginPath();
+        const first = point(cavePoints[0].x, cavePoints[0].y);
+        ctx.moveTo(first.x, first.y);
+        for (let index = 1; index < cavePoints.length; index += 1) {
+            const next = point(cavePoints[index].x, cavePoints[index].y);
+            ctx.lineTo(next.x, next.y);
+        }
+        ctx.closePath();
+        ctx.fillStyle = "rgba(63,51,81,0.56)";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(201,167,255,0.72)";
+        ctx.lineWidth = 1.1;
+        ctx.stroke();
+    }
+
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "rgba(214,188,121,0.76)";
+    ctx.lineWidth = Math.max(1, Math.min(3, scale * 18));
+    for (const segment of gameState.world?.segments || []) {
+        if (segment?.kind && segment.kind !== "blockable") continue;
+        const a = point(Number(segment.x1) || 0, Number(segment.y1) || 0);
+        const b = point(Number(segment.x2) || 0, Number(segment.y2) || 0);
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+    }
+    ctx.fillStyle = "rgba(214,188,121,0.28)";
+    for (const solid of gameState.world?.solids || []) {
+        const topLeft = point(Number(solid.x) || 0, Number(solid.y) || 0);
+        ctx.fillRect(
+            topLeft.x,
+            topLeft.y,
+            Math.max(1, (Number(solid.w) || 0) * scale),
+            Math.max(1, (Number(solid.h) || 0) * scale)
+        );
+    }
+
+    const viewport = renderer?.getViewportMetrics?.();
+    if (viewport) {
+        const virtualW = Number(viewport.virtualW) || 0;
+        const virtualH = Number(viewport.virtualH) || 0;
+        const cameraLeft = (Number(gameState.camera?.x) || 0) - virtualW * 0.5;
+        const cameraTop = (Number(gameState.camera?.y) || 0) - virtualH * 0.56;
+        const cameraPoint = point(cameraLeft, cameraTop);
+        ctx.strokeStyle = "rgba(115,211,124,0.58)";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(cameraPoint.x, cameraPoint.y, virtualW * scale, virtualH * scale);
+    }
+
+    for (const visual of gameState.world?.visuals || []) {
+        if (visual?.entityType !== "wizard_exit_door" && visual?.entityType !== "magicPortal") continue;
+        const centerX = (Number(visual.x) || 0) + (Number(visual.w) || 0) * 0.5;
+        const centerY = (Number(visual.y) || 0) + (Number(visual.h) || 0) * 0.5;
+        const exitPoint = point(centerX, centerY);
+        ctx.fillStyle = "rgba(255,112,211,0.95)";
+        ctx.beginPath();
+        ctx.arc(exitPoint.x, exitPoint.y, 3.1, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    const playerPoint = point(Number(gameState.player?.x) || 0, Number(gameState.player?.y) || 0);
+    ctx.fillStyle = "#73d37c";
+    ctx.strokeStyle = "rgba(0,0,0,0.8)";
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.arc(playerPoint.x, playerPoint.y, 4.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = "rgba(242,237,248,0.75)";
+    ctx.font = "10px ui-sans-serif, system-ui, sans-serif";
+    ctx.textAlign = "right";
+    ctx.textBaseline = "bottom";
+    ctx.fillText("CLICK FOR MENU", cssWidth - 8, cssHeight - 6);
+    ctx.restore();
 }
 
 function setupGameMenuAndSettings() {
@@ -1237,6 +1435,7 @@ function displayedLevelNumber(levelId) {
 }
 
 function updateHud() {
+    drawMinimap();
     const levelNumber = displayedLevelNumber(gameState.world?.levelId);
     const levelTitle = String(gameState.story?.levelTitle || "Untitled Cave").trim() || "Untitled Cave";
     if (levelTitleText) {

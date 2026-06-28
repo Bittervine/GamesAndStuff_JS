@@ -264,7 +264,7 @@ export function createInitialGameState(overrides = {}) {
     const state = {
         meta: {
             schemaVersion: 1,
-            build: "245-layered-recovery-formation-perimeter",
+            build: "248-test-runner-diagnostics",
             note: "Gameplay state only. Browser, canvas, image and renderer resources are deliberately outside gameState."
         },
         clock: {

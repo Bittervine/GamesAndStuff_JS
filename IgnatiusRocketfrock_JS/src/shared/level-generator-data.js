@@ -3,13 +3,15 @@ import {
     generateCavePerimeterPlacements
 } from "./cave-window-decoration.js";
 
-export const AUTOMATIC_LEVEL_GENERATOR_VERSION = 11;
-export const AUTOMATIC_LEVEL_GENERATOR_ID = "automatic-level-generator-7";
+export const AUTOMATIC_LEVEL_GENERATOR_VERSION = 15;
+export const AUTOMATIC_LEVEL_GENERATOR_ID = "automatic-level-generator-9";
 
 const GENERATED_PLAYER_BODY_WIDTH = 34;
+const GENERATED_PLAYER_BODY_HEIGHT = 104;
+const GENERATED_STATIC_HEADROOM = 112;
 const BRANCH_SHAFT_SIDE_CLEARANCE = 8;
 const BRANCH_SHAFT_WIDTH = 116;
-const BRANCH_STAIR_LATERAL_OFFSET = 23;
+const BRANCH_STAIR_LATERAL_OFFSET = 20;
 
 export const LEVEL_GENERATOR_STAGE_ORDER = Object.freeze([
     "route",
@@ -37,7 +39,10 @@ export const LEVEL_GENERATOR_REGISTRIES = Object.freeze({
         Object.freeze({ id: "route-preview-only", label: "Route preview only (legacy)" })
     ]),
     traversal: Object.freeze([
-        Object.freeze({ id: "layered-recovery-traversal-v3", label: "Staggered upper route and recovery floor v3" }),
+        Object.freeze({ id: "layered-safety-network-traversal-v6", label: "Layered upper/lower routes with tertiary recovery v6" }),
+        Object.freeze({ id: "longform-organic-traversal-v5", label: "Long organic platforms, guaranteed recovery, and reward perches v5 (legacy)" }),
+        Object.freeze({ id: "organic-layered-traversal-v4", label: "Organic upper route and staggered recovery floor v4 (legacy)" }),
+        Object.freeze({ id: "layered-recovery-traversal-v3", label: "Staggered upper route and recovery floor v3 (legacy)" }),
         Object.freeze({ id: "spaced-platform-traversal-v2", label: "Spaced platforms and moving shafts v2 (legacy)" }),
         Object.freeze({ id: "forgiving-traversal-v1", label: "Forgiving traversal v1 (legacy)" }),
         Object.freeze({ id: "not-generated-yet", label: "Not generated (legacy)" })
@@ -193,7 +198,7 @@ const DEFAULT_THEME = Object.freeze({
     implementations: Object.freeze({
         route: "the-path74-route-v4",
         cavern: "the-path74-contour-cavern-v4",
-        traversal: "layered-recovery-traversal-v3",
+        traversal: "layered-safety-network-traversal-v6",
         endpoints: "grounded-chamber-endpoints-v2",
         encounters: "difficulty-budgeted-encounters-v1",
         rewards: "basic-rewards-v1",
@@ -552,7 +557,7 @@ function buildAutomaticLevelRouteResult(context, selected) {
         routeRevision: stageRevisions.route,
         attempt: selected.attempt
     });
-    const runId = `alg7_${hashGeneratorSeed(identity).toString(16).padStart(8, "0")}`;
+    const runId = `alg9_${hashGeneratorSeed(identity).toString(16).padStart(8, "0")}`;
     const graph = {
         ...selected.graph,
         runId,
@@ -598,7 +603,7 @@ export function normalizeGenerationAssetCatalog(value) {
     const assets = Array.isArray(source.assets) ? source.assets : [];
     return {
         version: Math.max(1, Math.floor(Number(source.version) || 1)),
-        catalogId: cleanId(source.catalogId || "cavern-platform-generation-v1", "cavern-platform-generation-v1"),
+        catalogId: cleanId(source.catalogId || "cavern-platform-generation-v2", "cavern-platform-generation-v2"),
         assets: assets
             .filter((entry) => entry && entry.atlasId && entry.assetId)
             .map((entry) => ({
@@ -824,6 +829,8 @@ function emptyRewardPopulation(runId, implementationId = "not-generated-yet", pl
         targetBranchCount: Math.max(0, Math.floor(Number(plan?.targetBranchCount) || 0)),
         availableBranchIds: normalizeStringArray(plan?.availableBranchIds),
         contextualRewardTarget: Math.max(0, Math.floor(Number(plan?.contextualRewardTarget) || 0)),
+        perchChestTarget: Math.max(0, Math.floor(Number(plan?.perchChestTarget) || 0)),
+        selectedPerchSupportIds: normalizeStringArray(plan?.selectedPerchSupportIds),
         rewards: [],
         entities: []
     };
@@ -902,6 +909,8 @@ function buildBasicRewards({
     const rewards = [];
     const occupiedSupportIds = new Set();
     const occupiedPositions = [];
+    const selectedPerchSupportIds = [];
+    const perchChestTarget = Math.max(0, Math.floor(Number(rewardPlan?.perchChestTarget) || 0));
     const endpointXs = [
         finiteNumber(endpoints?.entrance?.x, supportById.get(traversal.startSupportId)?.centerX || 0),
         finiteNumber(endpoints?.exit?.x, supportById.get(traversal.exitSupportId)?.centerX || 0)
@@ -975,10 +984,29 @@ function buildBasicRewards({
         });
     }
 
+    if (perchChestTarget > 0) {
+        const perchCandidates = rng.shuffle(supports.filter((support) =>
+            support.secondaryPlatform
+            && support.rewardPerch
+            && !occupiedSupportIds.has(support.id)
+        )).sort((left, right) => supportProgress(left, routeNodeById, routeEdgeById)
+            - supportProgress(right, routeNodeById, routeEdgeById));
+        for (const support of perchCandidates) {
+            if (selectedPerchSupportIds.length >= perchChestTarget) break;
+            const entity = addReward({
+                type: "treasureChest",
+                support,
+                context: "secondaryPerch",
+                routeNodeId: support.routeNodeId,
+                overrides: { scoreValue: theme.rewards.branchChestScore }
+            });
+            if (entity) selectedPerchSupportIds.push(support.id);
+        }
+    }
+
     const mainSupportCandidates = supports.filter((support) =>
-        support.mandatory
-        && ["routeFloor", "landingPlatform"].includes(support.role)
-        && support.routeNodeId
+        ((support.mandatory && ["routeFloor", "landingPlatform"].includes(support.role) && support.routeNodeId)
+            || (support.secondaryPlatform && support.rewardPerch))
     ).map((support) => ({
         support,
         progress: supportProgress(support, routeNodeById, routeEdgeById)
@@ -1069,6 +1097,8 @@ function buildBasicRewards({
         selectedBranchIds: [...rewardPlan.selectedBranchIds],
         availableBranchIds: [...rewardPlan.availableBranchIds],
         contextualRewardTarget: rewardPlan.contextualRewardTarget,
+        perchChestTarget,
+        selectedPerchSupportIds,
         rewards,
         entities
     };
@@ -1361,7 +1391,7 @@ export function generateAutomaticLevelDraft(options = {}) {
     const theme = normalizeGeneratorTheme(options.theme);
     const implementations = normalizeGeneratorImplementations(options.implementations || theme.implementations);
     if (!["the-path74-contour-cavern-v4", "contour-cavern-v3", "room-and-tunnel-cavern-v2", "ellipse-cavern-v1"].includes(implementations.cavern)) throw new Error(`Unsupported cavern builder “${implementations.cavern}”.`);
-    if (!["layered-recovery-traversal-v3", "spaced-platform-traversal-v2", "forgiving-traversal-v1"].includes(implementations.traversal)) throw new Error(`Unsupported traversal builder “${implementations.traversal}”.`);
+    if (!["layered-safety-network-traversal-v6", "longform-organic-traversal-v5", "organic-layered-traversal-v4", "layered-recovery-traversal-v3", "spaced-platform-traversal-v2", "forgiving-traversal-v1"].includes(implementations.traversal)) throw new Error(`Unsupported traversal builder “${implementations.traversal}”.`);
     if (!["grounded-chamber-endpoints-v2", "safe-endpoints-v1"].includes(implementations.endpoints)) throw new Error(`Unsupported endpoint placer “${implementations.endpoints}”.`);
     if (!["difficulty-budgeted-encounters-v1", "not-generated-yet"].includes(implementations.encounters)) throw new Error(`Unsupported encounter populator “${implementations.encounters}”.`);
     if (!["basic-rewards-v1", "not-generated-yet"].includes(implementations.rewards)) throw new Error(`Unsupported reward populator “${implementations.rewards}”.`);
@@ -1374,8 +1404,8 @@ export function generateAutomaticLevelDraft(options = {}) {
         "routeFloor",
         "landingPlatform",
         "doorSupport",
-        ...(implementations.traversal === "layered-recovery-traversal-v3" ? ["movingPlatform", "recoveryPlatform"] : []),
-        ...(implementations.rewards === "basic-rewards-v1" ? ["branchStep", "shaftBridge"] : [])
+        ...(["layered-safety-network-traversal-v6", "longform-organic-traversal-v5", "organic-layered-traversal-v4", "layered-recovery-traversal-v3"].includes(implementations.traversal) ? ["movingPlatform", "recoveryPlatform"] : []),
+        ...(implementations.rewards === "basic-rewards-v1" && implementations.traversal !== "layered-safety-network-traversal-v6" ? ["branchStep", "shaftBridge"] : [])
     ]) {
         if (!assetCatalog.assets.some((entry) => entry.roles.includes(requiredRole))) {
             throw new Error(`The generation platform catalog has no “${requiredRole}” asset.`);
@@ -1419,6 +1449,7 @@ export function generateAutomaticLevelDraft(options = {}) {
                 runId: routeGeneration.runId,
                 implementationId: implementations.rewards
             });
+            const usePerchTreasure = implementations.traversal === "layered-safety-network-traversal-v6";
             const traversal = buildForgivingTraversal({
                 route: routeGeneration.route,
                 theme,
@@ -1427,14 +1458,19 @@ export function generateAutomaticLevelDraft(options = {}) {
                 assetCatalog,
                 rng: traversalRng,
                 runId: routeGeneration.runId,
-                selectedBranchIds: rewardPlan.targetBranchCount > 0
-                    ? (rewardPlan.rankedBranchIds || rewardPlan.selectedBranchIds)
-                    : [],
-                branchTargetCount: rewardPlan.targetBranchCount ?? rewardPlan.selectedBranchIds.length
+                selectedBranchIds: usePerchTreasure
+                    ? []
+                    : rewardPlan.targetBranchCount > 0
+                        ? (rewardPlan.rankedBranchIds || rewardPlan.selectedBranchIds)
+                        : [],
+                branchTargetCount: usePerchTreasure
+                    ? 0
+                    : rewardPlan.targetBranchCount ?? rewardPlan.selectedBranchIds.length
             });
             const effectiveRewardPlan = {
                 ...rewardPlan,
-                selectedBranchIds: [...traversal.materializedBranchIds]
+                selectedBranchIds: [...traversal.materializedBranchIds],
+                perchChestTarget: usePerchTreasure ? rewardPlan.targetBranchCount : 0
             };
             const endpoints = buildSafeEndpoints({
                 route: routeGeneration.route,
@@ -1721,6 +1757,7 @@ function buildDifficultyBudgetedEncounters({
     const metadataById = new Map((enemyGenerationCatalog?.enemies || []).map((entry) => [entry.enemyId, entry]));
     const allowed = normalizeStringArray(resolvedEnemyIds).filter((enemyId) => metadataById.has(enemyId) && enemyCatalog.has(enemyId));
     const routeNodes = new Map((route?.nodes || []).map((node) => [node.id, node]));
+    const routeEdgesById = new Map((route?.edges || []).map((edge) => [edge.id, edge]));
     const maxProgress = Math.max(1, ...[...routeNodes.values()].map((node) => finiteNumber(node.progress, 0)));
     const endpointX = [
         finiteNumber(endpoints?.entrance?.x, traversal?.supports?.find((support) => support.id === traversal?.startSupportId)?.centerX || 0),
@@ -1731,7 +1768,8 @@ function buildDifficultyBudgetedEncounters({
     const spacing = theme.encounters.minimumEncounterSpacing * (0.9 + settings.safety * 0.18);
     const encounterSupports = (traversal?.supports || []).filter((support) => (
         support?.mandatory
-        && support.routeNodeId
+        && !support.moving
+        && (support.routeNodeId || support.routeEdgeId)
         && ["routeFloor", "landingPlatform", "recoveryPlatform"].includes(support.role)
     ));
     const budget = settings.enemyDensity <= 0.001 ? 0 : Math.max(1, Math.round(
@@ -1758,7 +1796,13 @@ function buildDifficultyBudgetedEncounters({
 
     const candidates = rng.shuffle(encounterSupports).map((support) => {
         const node = routeNodes.get(support.routeNodeId);
-        const progress = clamp01(finiteNumber(node?.progress, 0) / maxProgress);
+        const routeEdge = routeEdgesById.get(support.routeEdgeId);
+        const fromNode = routeNodes.get(routeEdge?.from);
+        const toNode = routeNodes.get(routeEdge?.to);
+        const progressValue = node
+            ? finiteNumber(node.progress, 0)
+            : (finiteNumber(fromNode?.progress, 0) + finiteNumber(toNode?.progress, 0)) * 0.5;
+        const progress = clamp01(progressValue / maxProgress);
         const vertical = cavernVerticalRangeAt(cavern, support.centerX, support.surfaceY);
         const headroom = vertical ? support.surfaceY - vertical.top : 0;
         const endpointDistance = Math.min(...endpointX.map((x) => Math.abs(support.centerX - x)));
@@ -2173,6 +2217,7 @@ export function validateGeneratedRewards(value = {}) {
     const supports = new Map((traversal.supports || []).map((support) => [support.id, support]));
     const routeNodes = new Map((route.nodes || []).map((node) => [node.id, node]));
     const selectedBranches = new Set(normalizeStringArray(rewards.selectedBranchIds));
+    const selectedPerches = new Set(normalizeStringArray(rewards.selectedPerchSupportIds));
     const errors = [];
     const warnings = [];
     const metrics = {
@@ -2183,6 +2228,8 @@ export function validateGeneratedRewards(value = {}) {
         thoughtCount: 0,
         materializedBranchCount: selectedBranches.size,
         rewardedBranchCount: 0,
+        selectedPerchCount: selectedPerches.size,
+        rewardedPerchCount: 0,
         minimumRewardSpacing: Infinity,
         minimumRewardEndpointDistance: Infinity,
         inaccessibleRewardCount: 0,
@@ -2231,10 +2278,18 @@ export function validateGeneratedRewards(value = {}) {
         if (metadata.category === "treasure") {
             metrics.chestCount += 1;
             if (entity.type !== "treasureChest") errors.push(`Treasure reward “${entity.id}” is not a treasure chest.`);
-            if (!entity.generationBranchId || !selectedBranches.has(entity.generationBranchId)) errors.push(`Treasure chest “${entity.id}” is not attached to a selected optional branch.`);
-            if (!support.branchId || support.branchId !== entity.generationBranchId) errors.push(`Treasure chest “${entity.id}” is not seated on its branch support.`);
-            const node = routeNodes.get(entity.routeNodeId);
-            if (node?.kind !== "optionalReward") errors.push(`Treasure chest “${entity.id}” is not placed at an optional reward destination.`);
+            const perchTreasure = entity.generationContext === "secondaryPerch";
+            if (perchTreasure) {
+                if (!selectedPerches.has(support.id)) errors.push(`Treasure chest “${entity.id}” is not attached to a selected upper reward perch.`);
+                if (!support.secondaryPlatform || !support.rewardPerch) errors.push(`Treasure chest “${entity.id}” is not seated on an authored secondary reward perch.`);
+                if (entity.generationBranchId) errors.push(`Perch treasure “${entity.id}” should not claim optional-branch ownership.`);
+                metrics.rewardedPerchCount += 1;
+            } else {
+                if (!entity.generationBranchId || !selectedBranches.has(entity.generationBranchId)) errors.push(`Treasure chest “${entity.id}” is not attached to a selected optional branch.`);
+                if (!support.branchId || support.branchId !== entity.generationBranchId) errors.push(`Treasure chest “${entity.id}” is not seated on its branch support.`);
+                const node = routeNodes.get(entity.routeNodeId);
+                if (node?.kind !== "optionalReward") errors.push(`Treasure chest “${entity.id}” is not placed at an optional reward destination.`);
+            }
             if (Math.abs(entity.y - support.surfaceY) > 2) errors.push(`Treasure chest “${entity.id}” is not seated on its support surface.`);
             if (!(Number(entity.scoreValue) > 0)) errors.push(`Treasure chest “${entity.id}” has no positive Score reward.`);
         } else if (metadata.category === "powerUp") {
@@ -2279,7 +2334,7 @@ export function validateGeneratedRewards(value = {}) {
     for (const branchId of selectedBranches) {
         if (!normalizeStringArray(traversal.materializedBranchIds).includes(branchId)) errors.push(`Selected reward branch “${branchId}” was not materialized by traversal.`);
     }
-    if (settings.rewardDensity <= 0.001 && (entities.length || selectedBranches.size)) errors.push("Zero reward density must produce no rewards and no materialized optional branches.");
+    if (settings.rewardDensity <= 0.001 && (entities.length || selectedBranches.size || selectedPerches.size)) errors.push("Zero reward density must produce no rewards, optional branches, or reward perches.");
     if (metrics.thoughtCount > theme.rewards.maximumThoughts) errors.push("Generated narrative thoughts exceed the theme maximum.");
     if (endpointEntities.some((entity) => !hasGenerationStageProvenance(entity, "endpoints"))) errors.push("Beginning and end doors must remain owned by the Endpoint Placer or be explicit manual replacements for it.");
     if (endpointEntities.some((entity) => entity?.manualizedFromGeneration)) warnings.push("One or more generated endpoint doors were converted to manual ownership.");
@@ -2287,11 +2342,13 @@ export function validateGeneratedRewards(value = {}) {
     if (!Number.isFinite(metrics.minimumRewardEndpointDistance)) metrics.minimumRewardEndpointDistance = 0;
     if (entities.length > 1 && metrics.minimumRewardSpacing > 0 && metrics.minimumRewardSpacing < theme.rewards.minimumRewardSpacing - 0.01) errors.push("Generated rewards are packed more tightly than the configured readable spacing.");
     if (selectedBranches.size && metrics.rewardedBranchCount !== selectedBranches.size) errors.push("Not every materialized optional branch has a meaningful treasure destination.");
-    if (settings.rewardDensity > 0.22 && (rewards.availableBranchIds || []).length && !selectedBranches.size) warnings.push("Reward density requested a branch reward, but no branch was selected.");
-    if (settings.rewardDensity > 0.6 && entities.length < selectedBranches.size + 1) warnings.push("High reward density produced few contextual rewards beyond branch treasure.");
+    if (selectedPerches.size && metrics.rewardedPerchCount !== selectedPerches.size) errors.push("Not every selected upper reward perch has a meaningful treasure destination.");
+    if (settings.rewardDensity > 0.22 && (rewards.availableBranchIds || []).length && !selectedBranches.size && !selectedPerches.size) warnings.push("Reward density requested treasure, but neither a branch nor an upper reward perch was selected.");
+    if (settings.rewardDensity > 0.6 && entities.length < selectedBranches.size + selectedPerches.size + 1) warnings.push("High reward density produced few contextual rewards beyond treasure placements.");
 
     let qualityScore = 100 - errors.length * 45 - warnings.length * 2;
     qualityScore -= Math.max(0, selectedBranches.size - metrics.rewardedBranchCount) * 18;
+    qualityScore -= Math.max(0, selectedPerches.size - metrics.rewardedPerchCount) * 18;
     qualityScore = clamp(Math.round(qualityScore * 10) / 10, 0, 100);
     return { valid: errors.length === 0, qualityScore, errors, warnings, metrics };
 }
@@ -2592,6 +2649,25 @@ export function validatePlayableEmptyCavern(value = {}) {
         horizontalJumpGapCount: 0,
         minimumHorizontalJumpGap: Infinity,
         maximumHorizontalRouteOffset: 0,
+        minimumOrganicHeightDelta: Infinity,
+        organicSameHeightAdjacentCount: 0,
+        organicHeightDirectionChangeCount: 0,
+        longStaticPlatformCount: supports.filter((support) => !support.moving && support.atlasId === "at_atlas_004").length,
+        mainStaticPlatformCount: supports.filter((support) => support.mandatory && !support.moving && support.role !== "doorSupport").length,
+        averageMainStaticPlatformWidth: 0,
+        longMainPlatformShare: 0,
+        secondaryPlatformCount: supports.filter((support) => support.secondaryPlatform).length,
+        secondaryRewardPerchCount: supports.filter((support) => support.rewardPerch).length,
+        recoveryRequiredGapCount: 0,
+        recoveryBacktrackReachableCount: 0,
+        recoveryReturnLiftCount: supports.filter((support) => support.recoveryReturnLift).length,
+        lowerRouteSupportCount: supports.filter((support) => support.lowerRoute).length,
+        tertiaryRecoveryCount: supports.filter((support) => support.tertiaryRecovery).length,
+        layeredNetworkLaneCount: 0,
+        protectedLowerGapCount: 0,
+        unprotectedLowerGapCount: 0,
+        minimumStaticHeadroom: Infinity,
+        unprotectedUpperGapCount: 0,
         maxMandatoryGap: 0,
         maxMandatoryRise: 0,
         maxMandatoryDrop: 0,
@@ -2661,8 +2737,11 @@ export function validatePlayableEmptyCavern(value = {}) {
 
     if (!Number.isFinite(metrics.minimumTransitionGap)) metrics.minimumTransitionGap = 0;
 
-    if (["layered-recovery-traversal-v3", "spaced-platform-traversal-v2"].includes(traversal.generatorId)) {
-        const layeredRecovery = traversal.generatorId === "layered-recovery-traversal-v3";
+    if (["layered-safety-network-traversal-v6", "longform-organic-traversal-v5", "organic-layered-traversal-v4", "layered-recovery-traversal-v3", "spaced-platform-traversal-v2"].includes(traversal.generatorId)) {
+        const layeredSafetyNetwork = traversal.generatorId === "layered-safety-network-traversal-v6";
+        const longformOrganic = layeredSafetyNetwork || traversal.generatorId === "longform-organic-traversal-v5";
+        const organicLayered = longformOrganic || traversal.generatorId === "organic-layered-traversal-v4";
+        const layeredRecovery = organicLayered || traversal.generatorId === "layered-recovery-traversal-v3";
         const routeNodeById = new Map((route?.nodes || []).map((node) => [node.id, node]));
         const routeEdges = (route?.edges || []).filter((edge) => edge.mandatory !== false);
         for (const edge of routeEdges) {
@@ -2681,7 +2760,10 @@ export function validatePlayableEmptyCavern(value = {}) {
                 const placement = movingSupport ? placementById.get(movingSupport.placementId) : null;
                 const fromNode = routeNodeById.get(edge.from);
                 const toNode = routeNodeById.get(edge.to);
-                const expectedOffsetY = finiteNumber(toNode?.y, 0) - finiteNumber(fromNode?.y, 0);
+                const expectedOffsetY = organicLayered
+                    ? finiteNumber(bySupportId.get(edge.to ? `support_${edge.to}` : "")?.surfaceY, finiteNumber(toNode?.y, 0))
+                        - finiteNumber(bySupportId.get(edge.from ? `support_${edge.from}` : "")?.surfaceY, finiteNumber(fromNode?.y, 0))
+                    : finiteNumber(toNode?.y, 0) - finiteNumber(fromNode?.y, 0);
                 if (layeredRecovery) {
                     const movingAsset = movingSupport ? catalogByAsset.get(`${movingSupport.atlasId}:${movingSupport.assetId}`) : null;
                     if (!movingAsset?.roles.includes("movingPlatform")) {
@@ -2705,7 +2787,7 @@ export function validatePlayableEmptyCavern(value = {}) {
                 const fromNode = routeNodeById.get(edge.from);
                 const toNode = routeNodeById.get(edge.to);
                 const endpointPair = fromNode?.kind === "entrance" || fromNode?.kind === "exit" || toNode?.kind === "entrance" || toNode?.kind === "exit";
-                const jumpTransitions = edgeTransitions.filter((transition) => ["openJumpSequence", "staggeredUpperRoute"].includes(transition.spacingStyle));
+                const jumpTransitions = edgeTransitions.filter((transition) => ["openJumpSequence", "staggeredUpperRoute", "organicUpperRoute"].includes(transition.spacingStyle));
                 for (const transition of jumpTransitions) {
                     metrics.horizontalJumpGapCount += 1;
                     metrics.minimumHorizontalJumpGap = Math.min(metrics.minimumHorizontalJumpGap, finiteNumber(transition.gap, 0));
@@ -2717,7 +2799,38 @@ export function validatePlayableEmptyCavern(value = {}) {
                 for (const support of edgeSupports) {
                     metrics.maximumHorizontalRouteOffset = Math.max(metrics.maximumHorizontalRouteOffset, Math.abs(finiteNumber(support.routeOffsetY, 0)));
                 }
+                if (organicLayered && jumpTransitions.length) {
+                    const orderedSupports = [bySupportId.get(jumpTransitions[0].fromSupportId), ...jumpTransitions.map((transition) => bySupportId.get(transition.toSupportId))].filter(Boolean);
+                    for (const support of orderedSupports) {
+                        metrics.maximumHorizontalRouteOffset = Math.max(metrics.maximumHorizontalRouteOffset, Math.abs(finiteNumber(support.routeOffsetY, 0)));
+                    }
+                    let previousVerticalSign = 0;
+                    for (let index = 1; index < orderedSupports.length; index += 1) {
+                        const delta = finiteNumber(orderedSupports[index].surfaceY, 0) - finiteNumber(orderedSupports[index - 1].surfaceY, 0);
+                        const heightDelta = Math.abs(delta);
+                        metrics.minimumOrganicHeightDelta = Math.min(metrics.minimumOrganicHeightDelta, heightDelta);
+                        if ((longformOrganic || orderedSupports.length >= 3) && heightDelta < 32) {
+                            metrics.organicSameHeightAdjacentCount += 1;
+                            errors.push(`Horizontal route edge “${edge.id}” places consecutive upper platforms on effectively the same height.`);
+                        }
+                        const verticalSign = Math.sign(delta);
+                        if (verticalSign && previousVerticalSign && verticalSign !== previousVerticalSign) metrics.organicHeightDirectionChangeCount += 1;
+                        if (verticalSign) previousVerticalSign = verticalSign;
+                    }
+                    if (orderedSupports.length >= 3) {
+                        const surfaces = orderedSupports.map((support) => finiteNumber(support.surfaceY, 0));
+                        const heightRange = Math.max(...surfaces) - Math.min(...surfaces);
+                        if (heightRange < 58) errors.push(`Horizontal route edge “${edge.id}” does not vary enough vertically to read as organic traversal.`);
+                    }
+                }
             }
+        }
+        const mainStaticSupports = supports.filter((support) => support.mandatory && !support.moving && support.role !== "doorSupport");
+        if (mainStaticSupports.length) {
+            metrics.averageMainStaticPlatformWidth = roundCoordinate(mainStaticSupports.reduce((sum, support) => sum + finiteNumber(support.walkableWidth, support.width), 0) / mainStaticSupports.length);
+            const longformSpanSupports = mainStaticSupports.filter((support) => support.routeEdgeId);
+            const longformSharePopulation = longformSpanSupports.length ? longformSpanSupports : mainStaticSupports;
+            metrics.longMainPlatformShare = Math.round(longformSharePopulation.filter((support) => support.atlasId === "at_atlas_004" || finiteNumber(support.walkableWidth, 0) >= 520).length / longformSharePopulation.length * 10000) / 10000;
         }
         if (layeredRecovery) {
             const recoveryLanes = Array.isArray(traversal.recoveryLanes) ? traversal.recoveryLanes : [];
@@ -2728,13 +2841,29 @@ export function validatePlayableEmptyCavern(value = {}) {
                 const lowerGaps = Array.isArray(lane.lowerGaps) ? lane.lowerGaps : [];
                 metrics.recoveryLaneGapCount += lowerGaps.length;
                 for (const upperGap of upperGaps) {
+                    metrics.recoveryRequiredGapCount += 1;
                     const covered = laneSupports.some((support) => {
                         const left = finiteNumber(support.walkableLeftX, support.centerX - support.width * 0.5);
                         const right = finiteNumber(support.walkableRightX, support.centerX + support.width * 0.5);
                         return left <= finiteNumber(upperGap.centerX, 0) && right >= finiteNumber(upperGap.centerX, 0);
                     });
                     if (covered) metrics.recoveryUpperGapCoverageCount += 1;
-                    else errors.push(`Recovery lane “${lane.id}” leaves upper jump gap ${roundCoordinate(finiteNumber(upperGap.centerX, 0))} without a landing below it.`);
+                    else {
+                        metrics.unprotectedUpperGapCount += 1;
+                        errors.push(`Recovery lane “${lane.id}” leaves upper jump gap ${roundCoordinate(finiteNumber(upperGap.centerX, 0))} without a landing below it.`);
+                    }
+                    if (longformOrganic && !layeredSafetyNetwork) {
+                        const recoverySupportId = String(upperGap.recoverySupportId || "");
+                        const returnTransition = transitions.find((transition) => transition.recoverySupportId === recoverySupportId && transition.spacingStyle === "recoveryBacktrack" && transition.valid);
+                        if (returnTransition) metrics.recoveryBacktrackReachableCount += 1;
+                        else errors.push(`Recovery support “${recoverySupportId || "unknown"}” does not provide a safe backtracking return to the main route.`);
+                    }
+                }
+                if (layeredSafetyNetwork && lane.layeredNetwork) {
+                    metrics.layeredNetworkLaneCount += 1;
+                    const laneReturnLift = bySupportId.get(String(lane.returnLiftId || ""));
+                    if (laneReturnLift?.moving && laneReturnLift.recoveryReturnLift) metrics.recoveryBacktrackReachableCount += 1;
+                    else errors.push(`Layered recovery lane “${lane.id}” has no functioning backtracking return lift.`);
                 }
                 for (const lowerGap of lowerGaps) {
                     const overlap = upperGaps.some((upperGap) => Math.min(
@@ -2750,14 +2879,33 @@ export function validatePlayableEmptyCavern(value = {}) {
                     }
                     if (finiteNumber(lowerGap.width, 0) < 34) errors.push(`Recovery lane “${lane.id}” contains an indistinct lower-floor gap.`);
                     if (finiteNumber(lowerGap.width, 0) > theme.traversal.mandatoryGap + 8) errors.push(`Recovery lane “${lane.id}” contains an unsafe lower-floor gap.`);
+                    if (layeredSafetyNetwork) {
+                        const rescue = bySupportId.get(String(lowerGap.recoverySupportId || ""));
+                        const returnLift = bySupportId.get(String(lowerGap.returnLiftId || ""));
+                        if (rescue?.tertiaryRecovery && returnLift?.moving && returnLift.recoveryReturnLift) {
+                            metrics.protectedLowerGapCount += 1;
+                        } else {
+                            metrics.unprotectedLowerGapCount += 1;
+                            errors.push(`Layered recovery lane “${lane.id}” leaves a lower-route gap without tertiary recovery and a return lift.`);
+                        }
+                    }
                 }
             }
             if (!recoveryLanes.length && settings.safety >= 0.5) warnings.push("The layered traversal produced no staggered recovery floor.");
+            if (longformOrganic && metrics.recoveryRequiredGapCount !== metrics.horizontalJumpGapCount) errors.push("Not every upper-route jump gap has a dedicated recovery platform below it.");
+            if (longformOrganic && !layeredSafetyNetwork && metrics.recoveryBacktrackReachableCount !== metrics.recoveryRequiredGapCount) errors.push("One or more recovery platforms cannot return the player to the main route.");
+            if (layeredSafetyNetwork && metrics.layeredNetworkLaneCount !== recoveryLanes.length) errors.push("A recovery lane was not materialized as a complete upper/lower safety network.");
+            if (layeredSafetyNetwork && metrics.recoveryBacktrackReachableCount !== metrics.layeredNetworkLaneCount) errors.push("One or more lower recovery routes cannot return the player to the upper route.");
+            if (layeredSafetyNetwork && metrics.protectedLowerGapCount !== metrics.recoveryLaneGapCount) errors.push("One or more lower-route gaps lack tertiary recovery.");
+            if (longformOrganic && metrics.secondaryPlatformCount !== metrics.secondaryRewardPerchCount) errors.push("A generated secondary platform is not marked as a reward perch.");
             if (metrics.movingThinAssetViolationCount > 0) errors.push("One or more vertical lifts use ordinary static-platform artwork.");
         }
         if (!Number.isFinite(metrics.minimumHorizontalJumpGap)) metrics.minimumHorizontalJumpGap = 0;
+        if (!Number.isFinite(metrics.minimumOrganicHeightDelta)) metrics.minimumOrganicHeightDelta = 0;
         if (metrics.staticVerticalIntermediateCount > 0) errors.push("ThePath74 vertical traversal still contains static staircase supports.");
-        if (metrics.horizontalJumpGapCount > 0 && metrics.maximumHorizontalRouteOffset < (layeredRecovery ? 48 : 18)) warnings.push("Horizontal platform sequences remained unusually close to the abstract route height.");
+        if (metrics.horizontalJumpGapCount > 0 && metrics.maximumHorizontalRouteOffset < (organicLayered ? 72 : layeredRecovery ? 48 : 18)) warnings.push("Horizontal platform sequences remained unusually close to the abstract route height.");
+        if (organicLayered && metrics.organicSameHeightAdjacentCount > 0) errors.push("The organic upper route still contains a same-height platform row.");
+        if (longformOrganic && metrics.mainStaticPlatformCount >= 3 && metrics.longMainPlatformShare < 0.4) errors.push("The longform traversal did not use long platforms for enough of the main route.");
     } else if (!Number.isFinite(metrics.minimumHorizontalJumpGap)) {
         metrics.minimumHorizontalJumpGap = 0;
     }
@@ -2769,11 +2917,12 @@ export function validatePlayableEmptyCavern(value = {}) {
     }
     const mandatoryPathIndex = new Map((Array.isArray(traversal.mandatorySupportPath) ? traversal.mandatorySupportPath : [])
         .map((supportId, index) => [supportId, index]));
+    const enforceLayeredStaticHeadroom = traversal.generatorId === "layered-safety-network-traversal-v6";
     for (let firstIndex = 0; firstIndex < supports.length; firstIndex += 1) {
         const first = supports[firstIndex];
         for (let secondIndex = firstIndex + 1; secondIndex < supports.length; secondIndex += 1) {
             const second = supports[secondIndex];
-            if (connectedSupportPairs.has(`${first.id}|${second.id}`)) continue;
+            const connectedPair = connectedSupportPairs.has(`${first.id}|${second.id}`);
             const overlap = Math.min(
                 first.centerX + first.width * 0.5,
                 second.centerX + second.width * 0.5
@@ -2787,13 +2936,21 @@ export function validatePlayableEmptyCavern(value = {}) {
             const upperBottom = upper.surfaceY + upper.height * (1 - upper.surfaceYRatio);
             const bodyClearance = lower.surfaceY - upperBottom;
             const includesRecoveryPlatform = first.role === "recoveryPlatform" || second.role === "recoveryPlatform";
+            const includesMovingPlatform = Boolean(first.moving || second.moving);
+            if (enforceLayeredStaticHeadroom && !includesMovingPlatform) {
+                metrics.minimumStaticHeadroom = Math.min(metrics.minimumStaticHeadroom, bodyClearance);
+                if (bodyClearance < GENERATED_STATIC_HEADROOM - 0.5) {
+                    metrics.blockedSupportPairs += 1;
+                    errors.push(`Supports “${upper.id}” and “${lower.id}” leave only ${roundCoordinate(bodyClearance)} units of static headroom; Ignatius needs at least ${GENERATED_STATIC_HEADROOM}.`);
+                }
+            }
+            if (connectedPair) continue;
             const firstPathIndex = mandatoryPathIndex.get(first.id);
             const secondPathIndex = mandatoryPathIndex.get(second.id);
             const localPathNeighbours = Number.isInteger(firstPathIndex)
                 && Number.isInteger(secondPathIndex)
                 && Math.abs(firstPathIndex - secondPathIndex) <= 2;
             const requiredBodyClearance = localPathNeighbours ? 72 : 96;
-            const includesMovingPlatform = Boolean(first.moving || second.moving);
             if (!includesRecoveryPlatform && !includesMovingPlatform && first.mandatory && second.mandatory && bodyClearance < requiredBodyClearance) {
                 metrics.blockedSupportPairs += 1;
                 errors.push(`Supports “${upper.id}” and “${lower.id}” form a blocked vertical sandwich with only ${roundCoordinate(bodyClearance)} units of clear space.`);
@@ -2816,6 +2973,7 @@ export function validatePlayableEmptyCavern(value = {}) {
         }
     }
     if (!Number.isFinite(metrics.minimumBranchSurfaceClearance)) metrics.minimumBranchSurfaceClearance = 0;
+    if (!Number.isFinite(metrics.minimumStaticHeadroom)) metrics.minimumStaticHeadroom = 0;
 
     const branchShafts = Array.isArray(traversal.branchShafts) ? traversal.branchShafts : [];
     const materializedBranchIds = normalizeStringArray(traversal.materializedBranchIds);
@@ -2961,19 +3119,29 @@ function buildForgivingTraversal({
     const recoveryLanes = [];
     const supports = [];
     const placements = [];
+    let entranceDoorSupportSelection = null;
     const nodeSupport = new Map();
     const edgeSupportIds = new Map();
     const mandatoryEdgeChains = new Map();
     let order = 1000;
-    const useLayeredRecoveryTraversal = implementations.traversal === "layered-recovery-traversal-v3";
+    const useLayeredSafetyNetworkTraversal = implementations.traversal === "layered-safety-network-traversal-v6";
+    const useLongformOrganicTraversal = useLayeredSafetyNetworkTraversal || implementations.traversal === "longform-organic-traversal-v5";
+    const useOrganicLayeredTraversal = useLongformOrganicTraversal || implementations.traversal === "organic-layered-traversal-v4";
+    const useLayeredRecoveryTraversal = useOrganicLayeredTraversal || implementations.traversal === "layered-recovery-traversal-v3";
     const useSpacedPlatformTraversal = useLayeredRecoveryTraversal || implementations.traversal === "spaced-platform-traversal-v2";
     let movingVerticalEdgeCount = 0;
 
     const addSupport = (spec) => {
-        const selection = spec.selection || selectGenerationAsset(assetCatalog, spec.role, spec.targetWidth, rng, spec.role === "doorSupport", spec.maximumWidth);
+        let selection = spec.selection || selectGenerationAsset(assetCatalog, spec.role, spec.targetWidth, rng, spec.role === "doorSupport", spec.maximumWidth);
         if (!selection) throw new Error(`No generation asset can satisfy role “${spec.role}”.`);
+        if (spec.role === "doorSupport" && spec.endpointRole === "entrance") {
+            entranceDoorSupportSelection = selection;
+        } else if (spec.role === "doorSupport" && spec.endpointRole === "exit" && entranceDoorSupportSelection) {
+            selection = entranceDoorSupportSelection;
+        }
         const id = spec.id;
-        const mirrorX = selection.asset.mirror && rng.chance(0.42);
+        const randomizedMirrorX = selection.asset.mirror && rng.chance(0.42);
+        const mirrorX = typeof spec.mirrorX === "boolean" ? spec.mirrorX : randomizedMirrorX;
         const width = roundCoordinate(selection.width);
         const leftInsetRatio = mirrorX
             ? selection.asset.walkableRightInsetRatio
@@ -3078,25 +3246,35 @@ function buildForgivingTraversal({
                 ? "landingPlatform"
                 : "branchStep";
 
-    const supportTargetWidthForNode = (node, role) => role === "doorSupport"
-        ? theme.traversal.endpointWidth
-        : node.kind === "optionalReward"
-            ? theme.traversal.intermediateWidth * 0.88
-            : !node.mandatory
-                ? 64
-                : useSpacedPlatformTraversal
-                    ? (verticalLandingNodeIds.has(node.id)
-                        ? (node.kind === "chamber" || node.kind === "recovery"
-                            ? theme.traversal.chamberWidth * 0.78
-                            : theme.traversal.intermediateWidth * (useLayeredRecoveryTraversal ? 1.06 : 0.82))
-                        : node.kind === "chamber" || node.kind === "recovery"
-                            ? theme.traversal.chamberWidth
-                            : theme.traversal.intermediateWidth * (useLayeredRecoveryTraversal ? 1.08 : 0.82))
-                    : role === "landingPlatform"
-                        ? theme.traversal.intermediateWidth * 1.08
-                        : node.kind === "chamber" || node.kind === "recovery"
-                            ? theme.traversal.chamberWidth
-                            : theme.traversal.traversalWidth;
+    const supportTargetWidthForNode = (node, role) => {
+        if (role === "doorSupport") return theme.traversal.endpointWidth;
+        if (node.kind === "optionalReward") return theme.traversal.intermediateWidth * 0.88;
+        if (!node.mandatory) return 64;
+        if (useLongformOrganicTraversal) {
+            if (node.kind === "chamber" || node.kind === "recovery") return theme.traversal.chamberWidth * 0.8;
+            if (verticalLandingNodeIds.has(node.id)) return theme.traversal.intermediateWidth * 1.12;
+            return theme.traversal.intermediateWidth * 1.24;
+        }
+        if (useSpacedPlatformTraversal) {
+            if (useOrganicLayeredTraversal) {
+                if (node.kind === "chamber" || node.kind === "recovery") return theme.traversal.chamberWidth * 0.76;
+                if (verticalLandingNodeIds.has(node.id)) return theme.traversal.intermediateWidth * 0.96;
+                return theme.traversal.intermediateWidth * 0.92;
+            }
+            if (verticalLandingNodeIds.has(node.id)) {
+                return node.kind === "chamber" || node.kind === "recovery"
+                    ? theme.traversal.chamberWidth * 0.78
+                    : theme.traversal.intermediateWidth * (useLayeredRecoveryTraversal ? 1.06 : 0.82);
+            }
+            return node.kind === "chamber" || node.kind === "recovery"
+                ? theme.traversal.chamberWidth
+                : theme.traversal.intermediateWidth * (useLayeredRecoveryTraversal ? 1.08 : 0.82);
+        }
+        if (role === "landingPlatform") return theme.traversal.intermediateWidth * 1.08;
+        return node.kind === "chamber" || node.kind === "recovery"
+            ? theme.traversal.chamberWidth
+            : theme.traversal.traversalWidth;
+    };
 
     for (const node of nodes.filter((candidate) => candidate.mandatory)) {
         const role = supportRoleForNode(node);
@@ -3106,13 +3284,69 @@ function buildForgivingTraversal({
             targetWidth: supportTargetWidthForNode(node, role),
             maximumWidth: role === "doorSupport"
                 ? Infinity
-                : supportTargetWidthForNode(node, role) * (node.kind === "chamber" || node.kind === "recovery" ? 1.12 : useSpacedPlatformTraversal ? 1.08 : 1.18),
+                : supportTargetWidthForNode(node, role) * (node.kind === "chamber" || node.kind === "recovery" ? (useLongformOrganicTraversal ? 1.22 : 1.12) : useLongformOrganicTraversal ? 1.24 : useSpacedPlatformTraversal ? 1.08 : 1.18),
             centerX: node.x,
             surfaceY: node.y,
             mandatory: true,
-            routeNodeId: node.id
+            routeNodeId: node.id,
+            endpointRole: role === "doorSupport" ? node.kind : undefined,
+            mirrorX: role === "doorSupport" ? node.kind === "exit" : undefined
         });
         nodeSupport.set(node.id, support);
+    }
+
+    if (useOrganicLayeredTraversal) {
+        const orderedMandatoryNodes = nodes
+            .filter((node) => node.mandatory !== false)
+            .sort((left, right) => finiteNumber(left.progress, 0) - finiteNumber(right.progress, 0));
+        for (let index = 1; index < orderedMandatoryNodes.length - 1; index += 1) {
+            const node = orderedMandatoryNodes[index];
+            const support = nodeSupport.get(node.id);
+            if (!support) continue;
+            const previousNode = orderedMandatoryNodes[index - 1];
+            const previousSupport = nodeSupport.get(previousNode.id);
+            const incomingEdge = edges.find((edge) => edge.mandatory !== false && edge.from === previousNode.id && edge.to === node.id);
+            const incomingHorizontal = incomingEdge?.intendedDirection === "left" || incomingEdge?.intendedDirection === "right";
+            const minimumMagnitude = node.kind === "chamber" || node.kind === "recovery" ? 18 : 28;
+            const maximumMagnitude = node.kind === "chamber" || node.kind === "recovery" ? 44 : 56;
+            let offset = rng.range(minimumMagnitude, maximumMagnitude) * (rng.chance(0.5) ? -1 : 1);
+            if (incomingHorizontal && previousSupport) {
+                const previousOffset = finiteNumber(previousSupport.routeOffsetY, previousSupport.surfaceY - finiteNumber(previousNode.y, previousSupport.surfaceY));
+                const minimumDifference = useLongformOrganicTraversal ? 36 : 28;
+                if (Math.abs(offset - previousOffset) < minimumDifference) {
+                    const flipped = -Math.sign(offset || 1) * Math.max(minimumMagnitude, Math.abs(offset));
+                    offset = Math.abs(flipped - previousOffset) >= minimumDifference
+                        ? flipped
+                        : previousOffset + (previousOffset >= 0 ? -minimumDifference : minimumDifference);
+                }
+            }
+            offset = clamp(offset, -56, 56);
+            moveSupportSurface(support, node.y + offset);
+            support.routeOffsetY = roundCoordinate(support.surfaceY - node.y);
+            support.platformHeightStyle = "organicAnchor";
+        }
+    }
+
+
+    if (useLongformOrganicTraversal) {
+        for (const edge of edges.filter((candidate) => candidate.mandatory !== false
+            && (candidate.intendedDirection === "left" || candidate.intendedDirection === "right"))) {
+            const fromNode = nodeById.get(edge.from);
+            const toNode = nodeById.get(edge.to);
+            const fromSupport = nodeSupport.get(edge.from);
+            const toSupport = nodeSupport.get(edge.to);
+            if (!fromNode || !toNode || !fromSupport || !toSupport) continue;
+            const endpointPair = fromNode.kind === "entrance" || fromNode.kind === "exit" || toNode.kind === "entrance" || toNode.kind === "exit";
+            if (!endpointPair) continue;
+            const direction = Math.sign(toSupport.centerX - fromSupport.centerX) || 1;
+            const desiredDistance = fromSupport.width * 0.5 + toSupport.width * 0.5 + 430;
+            const currentDistance = Math.abs(toSupport.centerX - fromSupport.centerX);
+            if (currentDistance >= desiredDistance) continue;
+            const movable = fromNode.kind === "entrance" || fromNode.kind === "exit" ? toSupport : fromSupport;
+            const movableDirection = movable === toSupport ? direction : -direction;
+            moveSupportCenter(movable, movable.centerX + movableDirection * (desiredDistance - currentDistance));
+            movable.routeOffsetX = roundCoordinate(movable.centerX - finiteNumber(nodeById.get(movable.routeNodeId)?.x, movable.centerX));
+        }
     }
 
     const requestedBranchEntryNodeIds = new Set(edges
@@ -3145,40 +3379,195 @@ function buildForgivingTraversal({
         const startSupport = nodeSupport.get(edge.from);
         const endSupport = nodeSupport.get(edge.to);
         if (!startSupport || !endSupport) return null;
-        const distanceX = Math.abs(endSupport.centerX - startSupport.centerX);
+        let distanceX = Math.abs(endSupport.centerX - startSupport.centerX);
         const direction = Math.sign(endSupport.centerX - startSupport.centerX) || 1;
-        const minimumGap = roundCoordinate((useLayeredRecoveryTraversal ? 64 : 44) + settings.safety * (useLayeredRecoveryTraversal ? 14 : 12));
+        const reserveBranchShaft = useLongformOrganicTraversal && shaftRequestedEdgeIds.has(edge.id);
+        if (reserveBranchShaft) {
+            const requiredDistance = startSupport.width * 0.5 + endSupport.width * 0.5 + BRANCH_SHAFT_WIDTH;
+            if (distanceX < requiredDistance) {
+                moveSupportCenter(endSupport, startSupport.centerX + direction * requiredDistance);
+                endSupport.routeOffsetX = roundCoordinate(endSupport.centerX - finiteNumber(nodeById.get(edge.to)?.x, endSupport.centerX));
+                distanceX = requiredDistance;
+            }
+        }
+        const shortLongformEdge = useLongformOrganicTraversal && distanceX < 520;
+        const minimumGap = roundCoordinate(shortLongformEdge
+            ? 34 + settings.safety * 6
+            : (useOrganicLayeredTraversal ? 70 : useLayeredRecoveryTraversal ? 64 : 44)
+                + settings.safety * (useOrganicLayeredTraversal ? 12 : useLayeredRecoveryTraversal ? 14 : 12));
         const maximumGap = roundCoordinate(Math.min(
-            theme.traversal.mandatoryGap * (useLayeredRecoveryTraversal ? 0.84 : 0.58),
-            useLayeredRecoveryTraversal ? 126 : 88
+            theme.traversal.mandatoryGap * (useOrganicLayeredTraversal ? 0.84 : useLayeredRecoveryTraversal ? 0.84 : 0.58),
+            useOrganicLayeredTraversal ? 126 : useLayeredRecoveryTraversal ? 126 : 88
         ));
-        const targetWidth = theme.traversal.intermediateWidth * rng.range(
-            useLayeredRecoveryTraversal ? 0.68 : 0.72,
-            useLayeredRecoveryTraversal ? 0.98 : 0.88
+        const standardTargetWidth = theme.traversal.intermediateWidth * rng.range(
+            useOrganicLayeredTraversal ? 0.86 : useLayeredRecoveryTraversal ? 0.68 : 0.72,
+            useOrganicLayeredTraversal ? 1.22 : useLayeredRecoveryTraversal ? 0.98 : 0.88
         );
+        const useLongAuthoredPlatform = useLongformOrganicTraversal
+            ? distanceX >= 520
+            : useLayeredRecoveryTraversal
+                && distanceX >= (useOrganicLayeredTraversal ? 960 : 1500)
+                && rng.chance(clamp(
+                    (useOrganicLayeredTraversal ? 0.48 : 0.24) + (distanceX - (useOrganicLayeredTraversal ? 960 : 1500)) / (useOrganicLayeredTraversal ? 5200 : 7000),
+                    useOrganicLayeredTraversal ? 0.48 : 0.24,
+                    useOrganicLayeredTraversal ? 0.74 : 0.48
+                ));
+        const targetWidth = useLongAuthoredPlatform
+            ? Math.min(
+                distanceX * rng.range(useLongformOrganicTraversal ? 0.38 : useOrganicLayeredTraversal ? 0.24 : 0.18, useLongformOrganicTraversal ? 0.62 : useOrganicLayeredTraversal ? 0.42 : 0.28),
+                rng.range(useLongformOrganicTraversal ? 720 : useOrganicLayeredTraversal ? 560 : 420, useLongformOrganicTraversal ? 1480 : useOrganicLayeredTraversal ? 1040 : 720)
+            )
+            : standardTargetWidth;
         let selectedIntermediateAssets = null;
         let selectedGaps = null;
+        let selectedSurfaces = null;
 
-        for (let count = 0; count <= 14; count += 1) {
+        const buildVariedSurfaces = (count) => {
+            if (!useLayeredRecoveryTraversal || count <= 0) return [];
+            const riseLimit = theme.traversal.mandatoryRise * (useOrganicLayeredTraversal ? 0.96 : 0.92);
+            const dropLimit = Math.min(theme.traversal.mandatoryDrop * (useOrganicLayeredTraversal ? 0.78 : 0.72), useOrganicLayeredTraversal ? 208 : 194);
+            const minimumHeightStep = useLongformOrganicTraversal ? 36 : useOrganicLayeredTraversal ? 36 : 0;
+            let best = null;
+            let bestScore = -Infinity;
+            const attemptCount = useOrganicLayeredTraversal ? 240 : 56;
+            for (let attempt = 0; attempt < attemptCount; attempt += 1) {
+                const surfaces = [];
+                let previous = startSupport.surfaceY;
+                let sign = rng.chance(0.5) ? -1 : 1;
+                let valid = true;
+                for (let index = 1; index <= count; index += 1) {
+                    const t = index / (count + 1);
+                    const baseline = lerp(startSupport.surfaceY, endSupport.surfaceY, t);
+                    const remaining = count + 1 - index;
+                    if (rng.chance(useOrganicLayeredTraversal ? 0.46 : 0.72)) sign *= -1;
+                    const desiredAmplitude = rng.range(
+                        useOrganicLayeredTraversal ? 46 : 58,
+                        Math.min(useOrganicLayeredTraversal ? 164 : 148, theme.traversal.mandatoryDrop * (useOrganicLayeredTraversal ? 0.68 : 0.62))
+                    );
+                    const desired = (useOrganicLayeredTraversal ? previous : baseline)
+                        + sign * desiredAmplitude
+                        + rng.range(useOrganicLayeredTraversal ? -18 : -24, useOrganicLayeredTraversal ? 18 : 24);
+                    const routeEnvelope = useLongformOrganicTraversal ? 224 : useOrganicLayeredTraversal ? 188 : Infinity;
+                    const minimum = Math.max(
+                        previous - riseLimit,
+                        endSupport.surfaceY - remaining * dropLimit,
+                        baseline - routeEnvelope
+                    );
+                    const maximum = Math.min(
+                        previous + dropLimit,
+                        endSupport.surfaceY + remaining * riseLimit,
+                        baseline + routeEnvelope
+                    );
+                    if (minimum > maximum) {
+                        valid = false;
+                        break;
+                    }
+                    let surface = clamp(desired, minimum, maximum);
+                    if (useOrganicLayeredTraversal && Math.abs(surface - previous) < minimumHeightStep) {
+                        const alternatives = [previous - minimumHeightStep, previous + minimumHeightStep]
+                            .filter((value) => value >= minimum && value <= maximum)
+                            .sort((left, right) => Math.abs(right - baseline) - Math.abs(left - baseline));
+                        if (!alternatives.length) {
+                            valid = false;
+                            break;
+                        }
+                        surface = alternatives[0];
+                    }
+                    surfaces.push(roundCoordinate(surface));
+                    previous = surface;
+                }
+                if (!valid) continue;
+                const complete = [startSupport.surfaceY, ...surfaces, endSupport.surfaceY];
+                for (let index = 1; index < complete.length; index += 1) {
+                    const rise = Math.max(0, complete[index - 1] - complete[index]);
+                    const drop = Math.max(0, complete[index] - complete[index - 1]);
+                    const heightDelta = Math.abs(complete[index] - complete[index - 1]);
+                    if (rise > theme.traversal.mandatoryRise || drop > theme.traversal.mandatoryDrop) valid = false;
+                    if (useOrganicLayeredTraversal && heightDelta < minimumHeightStep) valid = false;
+                }
+                if (!valid) continue;
+                const offsets = surfaces.map((surface, index) => Math.abs(surface - lerp(
+                    startSupport.surfaceY,
+                    endSupport.surfaceY,
+                    (index + 1) / (count + 1)
+                )));
+                const verticalRange = Math.max(...complete) - Math.min(...complete);
+                if (useOrganicLayeredTraversal && verticalRange < (count >= 2 ? 76 : 42)) continue;
+                let verticalDirectionChanges = 0;
+                let previousSign = 0;
+                for (let index = 1; index < complete.length; index += 1) {
+                    const currentSign = Math.sign(complete[index] - complete[index - 1]);
+                    if (currentSign && previousSign && currentSign !== previousSign) verticalDirectionChanges += 1;
+                    if (currentSign) previousSign = currentSign;
+                }
+                const score = verticalRange * (useOrganicLayeredTraversal ? 2.1 : 1.5)
+                    + offsets.reduce((sum, value) => sum + value, 0)
+                    + verticalDirectionChanges * (useOrganicLayeredTraversal ? 48 : 34)
+                    + (useOrganicLayeredTraversal ? rng.range(0, 18) : 0);
+                if (score > bestScore) {
+                    bestScore = score;
+                    best = surfaces;
+                }
+            }
+            return best;
+        };
+
+        const minimumIntermediateCount = useLongformOrganicTraversal
+            ? 0
+            : useOrganicLayeredTraversal && distanceX >= 650 ? 1 : 0;
+        const preferredCount = clamp(
+            Math.round((distanceX - startSupport.width * 0.5 - endSupport.width * 0.5) / Math.max(180, targetWidth + (minimumGap + maximumGap) * 0.5)) - 1,
+            minimumIntermediateCount,
+            14
+        );
+        const countCandidates = useLongformOrganicTraversal
+            ? Array.from({ length: 11 }, (_entry, index) => index).filter((count) => count >= minimumIntermediateCount)
+            : [];
+        if (!useLongformOrganicTraversal) {
+            for (let offset = 0; offset <= 14; offset += 1) {
+                for (const count of [preferredCount - offset, preferredCount + offset]) {
+                    if (count < minimumIntermediateCount || count > 14 || countCandidates.includes(count)) continue;
+                    countCandidates.push(count);
+                }
+            }
+        }
+
+        for (const count of countCandidates) {
+            const gapCount = count + 1;
+            const endpointHalfWidth = startSupport.width * 0.5 + endSupport.width * 0.5;
             const maximumIntermediateWidth = count > 0
-                ? (distanceX - startSupport.width * 0.5 - endSupport.width * 0.5 - minimumGap * (count + 1)) / count
+                ? (distanceX - endpointHalfWidth - minimumGap * gapCount) / count
                 : Infinity;
             if (count > 0 && maximumIntermediateWidth < 92) continue;
-            const selections = Array.from({ length: count }, () => selectGenerationAsset(
-                assetCatalog,
-                "landingPlatform",
-                Math.min(targetWidth, maximumIntermediateWidth),
-                rng,
-                false,
-                maximumIntermediateWidth
-            ));
+            const desiredOrdinaryGap = clamp(72 + settings.safety * 8 + rng.range(-8, 12), minimumGap, maximumGap - 4);
+            const desiredGapTotal = reserveBranchShaft
+                ? BRANCH_SHAFT_WIDTH + desiredOrdinaryGap * Math.max(0, gapCount - 1)
+                : desiredOrdinaryGap * gapCount;
+            const desiredIntermediateWidth = count > 0
+                ? (distanceX - endpointHalfWidth - desiredGapTotal) / count
+                : 0;
+            if (count > 0 && desiredIntermediateWidth < 92) continue;
+            const selections = Array.from({ length: count }, (_entry, index) => {
+                const widthVariation = useOrganicLayeredTraversal && !useLongformOrganicTraversal
+                    ? rng.range(index % 2 ? 0.74 : 0.88, index % 2 ? 1.06 : 1.18)
+                    : 1;
+                const requestedWidth = useLongformOrganicTraversal
+                    ? Math.min(maximumIntermediateWidth, desiredIntermediateWidth * rng.range(0.96, 1.04))
+                    : Math.min(targetWidth * widthVariation, maximumIntermediateWidth);
+                return selectGenerationAsset(
+                    assetCatalog,
+                    "landingPlatform",
+                    requestedWidth,
+                    rng,
+                    false,
+                    maximumIntermediateWidth
+                );
+            });
             if (selections.some((selection) => !selection)) continue;
             const occupiedWidth = startSupport.width * 0.5
                 + endSupport.width * 0.5
                 + selections.reduce((sum, selection) => sum + selection.width, 0);
             const totalFree = distanceX - occupiedWidth;
-            const gaps = distributedHorizontalGaps(totalFree, count + 1, minimumGap, maximumGap);
-            if (!gaps) continue;
             const widthEntries = [
                 { width: startSupport.width, left: startSupport.walkableLeftInset, right: startSupport.walkableRightInset },
                 ...selections.map((selection) => ({
@@ -3188,84 +3577,65 @@ function buildForgivingTraversal({
                 })),
                 { width: endSupport.width, left: endSupport.walkableLeftInset, right: endSupport.walkableRightInset }
             ];
+            let gaps = null;
+            const maximumPhysicalGaps = Array.from({ length: gapCount }, (_entry, index) => Math.max(
+                minimumGap,
+                Math.min(
+                    maximumGap,
+                    theme.traversal.mandatoryGap - widthEntries[index].right - widthEntries[index + 1].left - 2
+                )
+            ));
+            const shaftCandidates = reserveBranchShaft
+                ? maximumPhysicalGaps
+                    .map((maximum, index) => ({ maximum, index }))
+                    .filter((entry) => entry.maximum >= BRANCH_SHAFT_WIDTH - 0.01)
+                    .sort((left, right) => right.maximum - left.maximum || left.index - right.index)
+                : [{ index: -1 }];
+            for (const shaftCandidate of shaftCandidates) {
+                const proposed = Array.from({ length: gapCount }, () => minimumGap);
+                if (reserveBranchShaft) proposed[shaftCandidate.index] = BRANCH_SHAFT_WIDTH;
+                let remaining = totalFree - proposed.reduce((sum, value) => sum + value, 0);
+                const maximumTotal = maximumPhysicalGaps.reduce((sum, value) => sum + value, 0);
+                if (remaining < -0.01 || totalFree > maximumTotal + 0.05) continue;
+                const allocationOrder = rng.shuffle(proposed.map((_value, index) => index));
+                if (reserveBranchShaft) {
+                    allocationOrder.splice(allocationOrder.indexOf(shaftCandidate.index), 1);
+                    allocationOrder.push(shaftCandidate.index);
+                }
+                while (remaining > 0.01) {
+                    let allocated = false;
+                    for (const index of allocationOrder) {
+                        if (remaining <= 0.01) break;
+                        const capacity = Math.max(0, maximumPhysicalGaps[index] - proposed[index]);
+                        if (capacity <= 0.01) continue;
+                        const fairShare = remaining / Math.max(1, allocationOrder.filter((candidateIndex) => maximumPhysicalGaps[candidateIndex] - proposed[candidateIndex] > 0.01).length);
+                        const amount = Math.min(capacity, Math.max(0.01, fairShare), remaining);
+                        proposed[index] += amount;
+                        remaining -= amount;
+                        allocated = true;
+                    }
+                    if (!allocated) break;
+                }
+                if (remaining <= 0.05) {
+                    gaps = proposed.map(roundCoordinate);
+                    break;
+                }
+            }
+            if (!gaps) continue;
             const walkableGapsValid = gaps.every((gap, index) => (
                 gap + widthEntries[index].right + widthEntries[index + 1].left
-            ) <= theme.traversal.mandatoryGap * 0.96);
+            ) <= theme.traversal.mandatoryGap - 0.5);
             if (!walkableGapsValid) continue;
+            const surfaces = buildVariedSurfaces(count);
+            if (useOrganicLayeredTraversal && count > 0 && !surfaces) continue;
+            if (useLongformOrganicTraversal && count === 0 && Math.abs(endSupport.surfaceY - startSupport.surfaceY) < 32) continue;
             selectedIntermediateAssets = selections;
             selectedGaps = gaps;
+            selectedSurfaces = surfaces;
             break;
         }
 
         if (!selectedIntermediateAssets || !selectedGaps) return null;
-
-        const variedSurfaces = (() => {
-            const count = selectedIntermediateAssets.length;
-            if (!useLayeredRecoveryTraversal || count <= 0) return null;
-            const riseLimit = theme.traversal.mandatoryRise * 0.92;
-            const dropLimit = Math.min(theme.traversal.mandatoryDrop * 0.72, 194);
-            let best = null;
-            let bestScore = -Infinity;
-            for (let attempt = 0; attempt < 56; attempt += 1) {
-                const surfaces = [];
-                let previous = startSupport.surfaceY;
-                let sign = rng.chance(0.5) ? -1 : 1;
-                let valid = true;
-                for (let index = 1; index <= count; index += 1) {
-                    const t = index / (count + 1);
-                    const baseline = lerp(startSupport.surfaceY, endSupport.surfaceY, t);
-                    const remaining = count + 1 - index;
-                    if (rng.chance(0.72)) sign *= -1;
-                    const desiredAmplitude = rng.range(58, Math.min(148, theme.traversal.mandatoryDrop * 0.62));
-                    const desired = baseline + sign * desiredAmplitude + rng.range(-24, 24);
-                    const minimum = Math.max(
-                        previous - riseLimit,
-                        endSupport.surfaceY - remaining * dropLimit
-                    );
-                    const maximum = Math.min(
-                        previous + dropLimit,
-                        endSupport.surfaceY + remaining * riseLimit
-                    );
-                    if (minimum > maximum) {
-                        valid = false;
-                        break;
-                    }
-                    const surface = clamp(desired, minimum, maximum);
-                    surfaces.push(roundCoordinate(surface));
-                    previous = surface;
-                }
-                if (!valid) continue;
-                const complete = [startSupport.surfaceY, ...surfaces, endSupport.surfaceY];
-                for (let index = 1; index < complete.length; index += 1) {
-                    const rise = Math.max(0, complete[index - 1] - complete[index]);
-                    const drop = Math.max(0, complete[index] - complete[index - 1]);
-                    if (rise > theme.traversal.mandatoryRise || drop > theme.traversal.mandatoryDrop) valid = false;
-                }
-                if (!valid) continue;
-                const offsets = surfaces.map((surface, index) => Math.abs(surface - lerp(
-                    startSupport.surfaceY,
-                    endSupport.surfaceY,
-                    (index + 1) / (count + 1)
-                )));
-                const verticalRange = Math.max(...complete) - Math.min(...complete);
-                let verticalDirectionChanges = 0;
-                let previousSign = 0;
-                for (let index = 1; index < complete.length; index += 1) {
-                    const currentSign = Math.sign(complete[index] - complete[index - 1]);
-                    if (currentSign && previousSign && currentSign !== previousSign) verticalDirectionChanges += 1;
-                    if (currentSign) previousSign = currentSign;
-                }
-                const score = verticalRange * 1.5
-                    + offsets.reduce((sum, value) => sum + value, 0)
-                    + verticalDirectionChanges * 34;
-                if (score > bestScore) {
-                    bestScore = score;
-                    best = surfaces;
-                }
-            }
-            return best;
-        })();
-
         const intermediate = [];
         const amplitude = Math.min(68, theme.traversal.mandatoryRise * 0.58) * rng.range(0.72, 1);
         const arcDirection = rng.chance(0.5) ? -1 : 1;
@@ -3273,8 +3643,10 @@ function buildForgivingTraversal({
             const t = index / (selectedIntermediateAssets.length + 1);
             const primaryWave = Math.sin(Math.PI * t) * amplitude * arcDirection;
             const secondaryWave = Math.sin(Math.PI * 2 * t) * amplitude * rng.range(-0.18, 0.18);
-            const routeSurfaceY = lerp(startSupport.surfaceY, endSupport.surfaceY, t);
-            const surfaceY = variedSurfaces?.[index - 1] ?? routeSurfaceY + primaryWave + secondaryWave;
+            const abstractStartY = finiteNumber(nodeById.get(edge.from)?.y, startSupport.surfaceY);
+            const abstractEndY = finiteNumber(nodeById.get(edge.to)?.y, endSupport.surfaceY);
+            const routeSurfaceY = lerp(abstractStartY, abstractEndY, t);
+            const surfaceY = selectedSurfaces?.[index - 1] ?? routeSurfaceY + primaryWave + secondaryWave;
             const support = addSupport({
                 id: `support_${edge.id}_spaced_${String(index).padStart(2, "0")}`,
                 role: "landingPlatform",
@@ -3286,7 +3658,8 @@ function buildForgivingTraversal({
                 routeEdgeId: edge.id
             });
             support.routeOffsetY = roundCoordinate(support.surfaceY - routeSurfaceY);
-            support.platformSpacingStyle = useLayeredRecoveryTraversal ? "staggeredUpperRoute" : "openJumpSequence";
+            support.platformSpacingStyle = useOrganicLayeredTraversal ? "organicUpperRoute" : useLayeredRecoveryTraversal ? "staggeredUpperRoute" : "openJumpSequence";
+            if (useOrganicLayeredTraversal) support.platformHeightStyle = "organicStep";
             intermediate.push(support);
         }
 
@@ -3302,7 +3675,10 @@ function buildForgivingTraversal({
         for (let index = 1; index < chain.length; index += 1) {
             const transition = classifyTraversalTransition(chain[index - 1], chain[index], edge, theme);
             transition.routeEdgeDirection = edge.intendedDirection;
-            transition.spacingStyle = useLayeredRecoveryTraversal ? "staggeredUpperRoute" : "openJumpSequence";
+            transition.spacingStyle = useOrganicLayeredTraversal ? "organicUpperRoute" : useLayeredRecoveryTraversal ? "staggeredUpperRoute" : "openJumpSequence";
+            if (useLongformOrganicTraversal && Math.abs(chain[index].surfaceY - chain[index - 1].surfaceY) < 32) {
+                throw new Error(`Horizontal edge “${edge.id}” places adjacent platforms too close to the same height.`);
+            }
             if (!transition.valid) throw new Error(`Horizontal edge “${edge.id}” failed its spaced jump sequence between ${chain[index - 1].id} and ${chain[index].id}: gap ${transition.gap}, rise ${transition.rise}, drop ${transition.drop}, exposed ${transition.exposedLandingWidth}.`);
             edgeTransitions.push(transition);
         }
@@ -3401,6 +3777,7 @@ function buildForgivingTraversal({
             if ((edge.intendedDirection === "left" || edge.intendedDirection === "right") && !disableShaftReservation) {
                 const spacedChain = buildSpacedHorizontalEdge(edge);
                 if (spacedChain) return spacedChain;
+                if (useLongformOrganicTraversal) throw new Error(`Horizontal route edge “${edge.id}” could not realize the required longform jump sequence (distance ${roundCoordinate(Math.abs((nodeSupport.get(edge.to)?.centerX || 0) - (nodeSupport.get(edge.from)?.centerX || 0)))}, widths ${roundCoordinate(nodeSupport.get(edge.from)?.width || 0)}/${roundCoordinate(nodeSupport.get(edge.to)?.width || 0)}, surfaces ${roundCoordinate(nodeSupport.get(edge.from)?.surfaceY || 0)}/${roundCoordinate(nodeSupport.get(edge.to)?.surfaceY || 0)}).`);
                 const startSupport = nodeSupport.get(edge.from);
                 const endSupport = nodeSupport.get(edge.to);
                 const shortTransition = startSupport && endSupport
@@ -3636,6 +4013,95 @@ function buildForgivingTraversal({
 
     for (const edge of edges.filter((candidate) => candidate.mandatory !== false)) processEdge(edge);
 
+    const secondaryPlatforms = [];
+    if (useLongformOrganicTraversal) {
+        const secondaryLimit = settings.length === "grand" ? 5 : settings.length === "extended" ? 4 : settings.length === "standard" ? 3 : 2;
+        const candidates = rng.shuffle(supports.filter((support) => support.mandatory
+            && !support.moving
+            && support.role !== "doorSupport"
+            && support.atlasId === "at_atlas_004"
+            && support.walkableWidth >= 360));
+        for (const parent of candidates) {
+            if (secondaryPlatforms.length >= secondaryLimit) break;
+            const targetWidth = clamp(parent.walkableWidth * rng.range(0.3, 0.48), 220, 460);
+            const selection = selectGenerationAsset(assetCatalog, "landingPlatform", targetWidth, rng, false, Math.min(500, parent.walkableWidth * 0.58));
+            if (!selection) continue;
+            const surfaceY = roundCoordinate(parent.surfaceY - rng.range(
+                useLayeredSafetyNetworkTraversal ? 82 : 76,
+                useLayeredSafetyNetworkTraversal ? 108 : 104
+            ));
+            let centerX = null;
+            for (const side of rng.shuffle([-1, 1])) {
+                const overhang = rng.range(52, 76);
+                const candidateCenterX = useLayeredSafetyNetworkTraversal
+                    ? (side < 0
+                        ? parent.walkableLeftX - overhang - selection.width * 0.5
+                        : parent.walkableRightX + overhang + selection.width * 0.5)
+                    : (side < 0
+                        ? parent.walkableLeftX + selection.width * 0.5 - overhang
+                        : parent.walkableRightX - selection.width * 0.5 + overhang);
+                const conflicts = supports.some((support) => {
+                    if (support.id === parent.id) return false;
+                    const overlap = Math.min(candidateCenterX + selection.width * 0.5, support.centerX + support.width * 0.5)
+                        - Math.max(candidateCenterX - selection.width * 0.5, support.centerX - support.width * 0.5);
+                    if (useLayeredSafetyNetworkTraversal) {
+                        if (overlap <= 24) return false;
+                        const candidateBottom = surfaceY + selection.height * (1 - selection.asset.surfaceYRatio);
+                        const supportBottom = support.surfaceY + support.height * (1 - support.surfaceYRatio);
+                        const clearance = surfaceY <= support.surfaceY
+                            ? support.surfaceY - candidateBottom
+                            : surfaceY - supportBottom;
+                        return clearance < GENERATED_STATIC_HEADROOM;
+                    }
+                    return overlap > 48 && Math.abs(surfaceY - support.surfaceY) < 92;
+                });
+                if (!conflicts) {
+                    centerX = roundCoordinate(candidateCenterX);
+                    break;
+                }
+            }
+            if (!Number.isFinite(centerX)) continue;
+            const support = addSupport({
+                id: `support_secondary_${String(secondaryPlatforms.length + 1).padStart(2, "0")}_${parent.id}`,
+                role: "landingPlatform",
+                targetWidth,
+                selection,
+                centerX,
+                surfaceY,
+                mandatory: false,
+                routeEdgeId: parent.routeEdgeId
+            });
+            support.role = "secondaryPlatform";
+            support.secondaryPlatform = true;
+            support.rewardPerch = true;
+            support.parentSupportId = parent.id;
+            support.platformSpacingStyle = useLayeredSafetyNetworkTraversal ? "detachedSecondaryRewardPerch" : "secondaryRewardPerch";
+            const placement = placements.find((candidate) => candidate.id === support.placementId);
+            if (placement) {
+                placement.generationRole = "secondaryPlatform";
+                placement.parentSupportId = parent.id;
+                placement.rewardPerch = true;
+            }
+            const up = classifyTraversalTransition(parent, support, { id: `secondary_${parent.id}`, mandatory: false }, theme);
+            const down = classifyTraversalTransition(support, parent, { id: `secondary_${parent.id}`, mandatory: false }, theme);
+            if (!up.valid || !down.valid
+                || up.gap > theme.traversal.mandatoryGap
+                || down.gap > theme.traversal.mandatoryGap) {
+                supports.splice(supports.indexOf(support), 1);
+                if (placement) placements.splice(placements.indexOf(placement), 1);
+                continue;
+            }
+            for (const transition of [up, down]) {
+                transition.mandatory = false;
+                transition.spacingStyle = useLayeredSafetyNetworkTraversal ? "detachedSecondaryRewardPerch" : "secondaryRewardPerch";
+                transition.secondaryPlatformId = support.id;
+                transition.parentSupportId = parent.id;
+            }
+            transitions.push(up, down);
+            secondaryPlatforms.push(support);
+        }
+    }
+
     const physicalGapBetween = (left, right, direction) => direction > 0
         ? right.centerX - right.width * 0.5 - (left.centerX + left.width * 0.5)
         : left.centerX - left.width * 0.5 - (right.centerX + right.width * 0.5);
@@ -3665,6 +4131,27 @@ function buildForgivingTraversal({
             BRANCH_SHAFT_WIDTH,
             firstBranchWidth + GENERATED_PLAYER_BODY_WIDTH + BRANCH_SHAFT_SIDE_CLEARANCE
         );
+        const existingShaftIndex = currentGaps.findIndex((gap) => gap >= shaftGap - 0.5);
+        if (existingShaftIndex >= 0) {
+            const previous = chain[existingShaftIndex];
+            const current = chain[existingShaftIndex + 1];
+            const near = direction > 0
+                ? previous.centerX + previous.width * 0.5
+                : previous.centerX - previous.width * 0.5;
+            const far = direction > 0
+                ? current.centerX - current.width * 0.5
+                : current.centerX + current.width * 0.5;
+            return {
+                x: roundCoordinate((near + far) * 0.5),
+                direction,
+                previousSupport: previous,
+                nextSupport: current,
+                edge,
+                chain,
+                savedCenters: chain.slice(1, -1).map((support) => support.centerX),
+                transitionSnapshot: transitions.filter((transition) => transition.routeEdgeId === edge.id).map((transition) => JSON.parse(JSON.stringify(transition)))
+            };
+        }
         const candidates = currentGaps
             .map((gap, index) => ({ index, gap, maximum: maximumGaps[index] }))
             .filter((entry) => entry.maximum >= shaftGap - 0.01)
@@ -3787,7 +4274,8 @@ function buildForgivingTraversal({
         const createdEdgeIds = [];
         try {
             const startSupport = nodeSupport.get(entryEdge.from);
-            const returnStep = theme.traversal.mandatoryRise * 0.95;
+            const returnStep = theme.traversal.mandatoryRise * 0.92;
+            const branchEntrySurfaceY = shaft.previousSupport.surfaceY + returnStep;
             const branchSupports = [];
             for (let index = 0; index < branchNodes.length; index += 1) {
                 const node = branchNodes[index];
@@ -3796,9 +4284,9 @@ function buildForgivingTraversal({
                 const role = isShaftStep ? "branchStep" : "landingPlatform";
                 const selection = isShaftStep ? firstSelection : null;
                 const centerX = isShaftStep
-                    ? shaft.x + (index === 0 ? 1 : -1) * shaft.direction * BRANCH_STAIR_LATERAL_OFFSET
+                    ? shaft.x + (index === 0 ? BRANCH_STAIR_LATERAL_OFFSET : -(BRANCH_STAIR_LATERAL_OFFSET + 4)) * shaft.direction
                     : shaft.x + shaft.direction * (165 + (index - 2) * 190);
-                const surfaceY = startSupport.surfaceY + returnStep * (index + 1);
+                const surfaceY = branchEntrySurfaceY + returnStep * index;
                 const targetWidth = isShaftStep
                     ? 70
                     : isRewardLanding
@@ -3895,7 +4383,648 @@ function buildForgivingTraversal({
     }
 
     const existing = [...supports];
-    if (useLayeredRecoveryTraversal) {
+
+    const safeStaticSurfaceBelow = (centerX, width, preferredSurfaceY, ignoredIds = []) => {
+        const ignored = new Set(ignoredIds);
+        let surfaceY = preferredSurfaceY;
+        for (const other of supports) {
+            if (ignored.has(other.id) || other.moving) continue;
+            const overlap = Math.min(centerX + width * 0.5, other.centerX + other.width * 0.5)
+                - Math.max(centerX - width * 0.5, other.centerX - other.width * 0.5);
+            if (overlap <= 24) continue;
+            const otherBottom = other.surfaceY + other.height * (1 - other.surfaceYRatio);
+            surfaceY = Math.max(surfaceY, otherBottom + GENERATED_STATIC_HEADROOM + 2);
+        }
+        return roundCoordinate(surfaceY);
+    };
+
+    const addRecoveryNetworkLift = ({ id, edge, lowerSupport, upperSupport, spacingStyle }) => {
+        if (!lowerSupport || !upperSupport) return null;
+        const selection = selectGenerationAsset(
+            assetCatalog,
+            "movingPlatform",
+            theme.traversal.intermediateWidth * 0.82,
+            rng,
+            false,
+            theme.traversal.intermediateWidth * 1.02
+        );
+        if (!selection) return null;
+        const support = addSupport({
+            id,
+            role: "landingPlatform",
+            targetWidth: theme.traversal.intermediateWidth * 0.82,
+            selection,
+            centerX: lowerSupport.centerX,
+            surfaceY: lowerSupport.surfaceY,
+            mandatory: false,
+            routeEdgeId: edge.id
+        });
+        const candidateCenters = [];
+        for (const reference of [lowerSupport, upperSupport]) {
+            candidateCenters.push(
+                reference.walkableLeftX - rng.range(42, 64) - support.width * 0.5 + support.walkableRightInset,
+                reference.walkableRightX + rng.range(42, 64) + support.width * 0.5 - support.walkableLeftInset
+            );
+        }
+        candidateCenters.push(
+            (lowerSupport.walkableLeftX + upperSupport.walkableLeftX) * 0.5 - support.width * 0.5,
+            (lowerSupport.walkableRightX + upperSupport.walkableRightX) * 0.5 + support.width * 0.5
+        );
+        const scanLeft = Math.min(lowerSupport.walkableLeftX, upperSupport.walkableLeftX) - support.width - theme.traversal.mandatoryGap;
+        const scanRight = Math.max(lowerSupport.walkableRightX, upperSupport.walkableRightX) + support.width + theme.traversal.mandatoryGap;
+        for (let x = scanLeft; x <= scanRight; x += 36) candidateCenters.push(x);
+        candidateCenters.sort((a, b) => {
+            const aDistance = Math.min(Math.abs(a - lowerSupport.centerX), Math.abs(a - upperSupport.centerX));
+            const bDistance = Math.min(Math.abs(b - lowerSupport.centerX), Math.abs(b - upperSupport.centerX));
+            return aDistance - bDistance;
+        });
+        let chosen = null;
+        for (const centerX of candidateCenters) {
+            moveSupportCenter(support, centerX);
+            const platformAtUpper = {
+                ...support,
+                surfaceY: upperSupport.surfaceY
+            };
+            const board = classifyTraversalTransition(lowerSupport, support, { ...edge, mandatory: false }, theme);
+            const exit = classifyTraversalTransition(platformAtUpper, upperSupport, { ...edge, mandatory: false }, theme);
+            const shaftTop = Math.min(lowerSupport.surfaceY, upperSupport.surfaceY);
+            const shaftBottom = Math.max(lowerSupport.surfaceY, upperSupport.surfaceY);
+            const shaftLeft = support.centerX - support.width * 0.5;
+            const shaftRight = support.centerX + support.width * 0.5;
+            const blocked = supports.some((other) => {
+                if ([support.id, lowerSupport.id, upperSupport.id].includes(other.id) || other.moving) return false;
+                const overlap = Math.min(shaftRight, other.centerX + other.width * 0.5)
+                    - Math.max(shaftLeft, other.centerX - other.width * 0.5);
+                if (overlap <= 26) return false;
+                return other.surfaceY > shaftTop + 22 && other.surfaceY < shaftBottom - 22;
+            });
+            if (board.valid && exit.valid && board.gap <= theme.traversal.mandatoryGap && exit.gap <= theme.traversal.mandatoryGap && !blocked) {
+                chosen = { board, exit, endCenterX: support.centerX };
+                break;
+            }
+        }
+        if (!chosen) {
+            const startCandidates = [
+                lowerSupport.walkableLeftX - 52 - support.width * 0.5 + support.walkableRightInset,
+                lowerSupport.walkableRightX + 52 + support.width * 0.5 - support.walkableLeftInset,
+                lowerSupport.centerX
+            ];
+            const endCandidates = [
+                upperSupport.walkableLeftX - 52 - support.width * 0.5 + support.walkableRightInset,
+                upperSupport.walkableRightX + 52 + support.width * 0.5 - support.walkableLeftInset,
+                upperSupport.centerX
+            ];
+            outer:
+            for (const startCenterX of startCandidates) {
+                moveSupportCenter(support, startCenterX);
+                for (const endCenterX of endCandidates) {
+                    const deltaX = endCenterX - startCenterX;
+                    if (Math.abs(deltaX) > 1400) continue;
+                    const platformAtUpper = {
+                        ...support,
+                        centerX: endCenterX,
+                        surfaceY: upperSupport.surfaceY,
+                        walkableLeftX: support.walkableLeftX + deltaX,
+                        walkableRightX: support.walkableRightX + deltaX
+                    };
+                    const board = classifyTraversalTransition(lowerSupport, support, { ...edge, mandatory: false }, theme);
+                    const exit = classifyTraversalTransition(platformAtUpper, upperSupport, { ...edge, mandatory: false }, theme);
+                    if (!board.valid || !exit.valid
+                        || board.gap > theme.traversal.mandatoryGap
+                        || exit.gap > theme.traversal.mandatoryGap) continue;
+                    chosen = { board, exit, endCenterX };
+                    break outer;
+                }
+            }
+        }
+        if (!chosen) {
+            const placement = placements.find((candidate) => candidate.id === support.placementId);
+            supports.splice(supports.indexOf(support), 1);
+            if (placement) placements.splice(placements.indexOf(placement), 1);
+            return null;
+        }
+        support.role = "recoveryPlatform";
+        support.moving = true;
+        support.movementAxis = "vertical";
+        support.movementStartSupportId = lowerSupport.id;
+        support.movementEndSupportId = upperSupport.id;
+        support.movementDistance = roundCoordinate(Math.hypot(
+            chosen.endCenterX - support.centerX,
+            upperSupport.surfaceY - lowerSupport.surfaceY
+        ));
+        support.platformSpacingStyle = spacingStyle;
+        support.movingVisualStyle = "thinOnly";
+        support.recoveryReturnLift = true;
+        const placement = placements.find((candidate) => candidate.id === support.placementId);
+        placement.movement = {
+            version: 1,
+            pattern: "shuttle",
+            activation: "automatic",
+            endOffsetX: roundCoordinate(chosen.endCenterX - support.centerX),
+            endOffsetY: roundCoordinate(upperSupport.surfaceY - lowerSupport.surfaceY),
+            speed: roundCoordinate(clamp(Math.abs(upperSupport.surfaceY - lowerSupport.surfaceY) * 0.34, 126, 215)),
+            initialDelay: roundCoordinate(rng.range(0, 0.5)),
+            triggerDelay: 0,
+            startPause: roundCoordinate(rng.range(0.55, 0.9)),
+            endPause: roundCoordinate(rng.range(0.55, 0.9)),
+            fadeDuration: 0.2,
+            hiddenDuration: 1.25
+        };
+        placement.generationRole = "recoveryReturnLift";
+        placement.recoveryReturnLift = true;
+        for (const [transition, endpoint] of [[chosen.board, "lower"], [chosen.exit, "upper"]]) {
+            transition.mandatory = false;
+            transition.movingPlatformTransfer = true;
+            transition.movingPlatformId = support.id;
+            transition.platformEndpoint = endpoint;
+            transition.spacingStyle = spacingStyle;
+            transition.recoverySupportId = lowerSupport.id;
+            transition.recoveryReturnSupportId = upperSupport.id;
+            transitions.push(transition);
+        }
+        existing.push(support);
+        return support;
+    };
+
+    if (useLayeredSafetyNetworkTraversal) {
+        const horizontalEdgeCandidates = edges.filter((edge) => edge.mandatory !== false
+            && (edge.intendedDirection === "left" || edge.intendedDirection === "right"))
+            .map((edge) => ({ edge, chain: mandatoryEdgeChains.get(edge.id) || [] }))
+            .filter((entry) => entry.chain.length >= 2);
+        for (const { edge, chain } of horizontalEdgeCandidates) {
+            const ordered = [...chain].sort((left, right) => left.centerX - right.centerX);
+            const upperGaps = [];
+            for (let index = 1; index < ordered.length; index += 1) {
+                const left = ordered[index - 1];
+                const right = ordered[index];
+                const gapLeft = finiteNumber(left.walkableRightX, left.centerX + left.width * 0.5);
+                const gapRight = finiteNumber(right.walkableLeftX, right.centerX - right.width * 0.5);
+                if (gapRight - gapLeft < 28) continue;
+                upperGaps.push({
+                    leftX: roundCoordinate(gapLeft),
+                    rightX: roundCoordinate(gapRight),
+                    centerX: roundCoordinate((gapLeft + gapRight) * 0.5),
+                    width: roundCoordinate(gapRight - gapLeft),
+                    leftSupportId: left.id,
+                    rightSupportId: right.id
+                });
+            }
+            if (!upperGaps.length) continue;
+
+            const direction = Math.sign(nodeSupport.get(edge.to).centerX - nodeSupport.get(edge.from).centerX) || 1;
+            const progressionGaps = direction > 0 ? upperGaps : [...upperGaps].reverse();
+            const deepestUpperBottom = Math.max(...ordered.map((support) =>
+                support.surfaceY + support.height * (1 - support.surfaceYRatio)
+            ));
+            const deepestUpperSurface = Math.max(...ordered.map((support) => support.surfaceY));
+            const lowerRouteBaseY = roundCoordinate(Math.max(
+                deepestUpperBottom + GENERATED_STATIC_HEADROOM,
+                deepestUpperSurface + 188
+            ));
+            const laneSupports = [];
+            const laneSpecs = [];
+            const slopeStep = rng.range(30, 38);
+            for (let index = 0; index < upperGaps.length; index += 1) {
+                const gap = upperGaps[index];
+                const previousCenter = index > 0 ? upperGaps[index - 1].centerX : ordered[0].walkableLeftX;
+                const nextCenter = index < upperGaps.length - 1 ? upperGaps[index + 1].centerX : ordered.at(-1).walkableRightX;
+                const leftBoundary = index === 0 ? ordered[0].walkableLeftX : (previousCenter + gap.centerX) * 0.5;
+                const rightBoundary = index === upperGaps.length - 1 ? ordered.at(-1).walkableRightX : (gap.centerX + nextCenter) * 0.5;
+                const cellWidth = Math.max(260, rightBoundary - leftBoundary);
+                const maximumWidth = Math.max(180, cellWidth - 48);
+                const targetWidth = Math.min(
+                    maximumWidth,
+                    clamp(
+                        Math.max(gap.width + 170, cellWidth - rng.range(62, 86)),
+                        180,
+                        980
+                    )
+                );
+                const selection = selectGenerationAsset(assetCatalog, "recoveryPlatform", targetWidth, rng, false, maximumWidth);
+                if (!selection) throw new Error(`Layered recovery on “${edge.id}” cannot find a lower-path platform.`);
+                let centerX = roundCoordinate((leftBoundary + rightBoundary) * 0.5);
+                const selectedLeft = centerX - selection.width * 0.5 + selection.width * selection.asset.walkableLeftInsetRatio;
+                const selectedRight = centerX + selection.width * 0.5 - selection.width * selection.asset.walkableRightInsetRatio;
+                if (selectedLeft > gap.centerX) centerX -= selectedLeft - gap.centerX + 18;
+                if (selectedRight < gap.centerX) centerX += gap.centerX - selectedRight + 18;
+                laneSpecs.push({
+                    index,
+                    gap,
+                    targetWidth,
+                    selection,
+                    centerX,
+                    progressionIndex: progressionGaps.indexOf(gap)
+                });
+            }
+
+            let sharedLowerBaseY = lowerRouteBaseY;
+            for (const spec of laneSpecs) {
+                for (const other of supports) {
+                    if (other.moving) continue;
+                    const overlap = Math.min(spec.centerX + spec.selection.width * 0.5, other.centerX + other.width * 0.5)
+                        - Math.max(spec.centerX - spec.selection.width * 0.5, other.centerX - other.width * 0.5);
+                    if (overlap <= 24) continue;
+                    const otherBottom = other.surfaceY + other.height * (1 - other.surfaceYRatio);
+                    sharedLowerBaseY = Math.max(
+                        sharedLowerBaseY,
+                        otherBottom + GENERATED_STATIC_HEADROOM + 2 - spec.progressionIndex * slopeStep
+                    );
+                }
+            }
+            sharedLowerBaseY = roundCoordinate(sharedLowerBaseY);
+
+            for (const spec of laneSpecs) {
+                const { index, gap, targetWidth, selection, centerX, progressionIndex } = spec;
+                const leftUpper = supports.find((support) => support.id === gap.leftSupportId);
+                const rightUpper = supports.find((support) => support.id === gap.rightSupportId);
+                const localUpper = [leftUpper, rightUpper].filter(Boolean);
+                const surfaceY = roundCoordinate(sharedLowerBaseY + progressionIndex * slopeStep);
+                const support = addSupport({
+                    id: `support_${edge.id}_lower_${String(index + 1).padStart(2, "0")}`,
+                    role: "recoveryPlatform",
+                    targetWidth,
+                    selection,
+                    centerX,
+                    surfaceY,
+                    mandatory: false,
+                    routeEdgeId: edge.id
+                });
+                support.platformSpacingStyle = "layeredLowerRoute";
+                support.recoveryLaneId = `recovery_lane_${edge.id}`;
+                support.lowerRoute = true;
+                support.protectsUpperGapIndex = index;
+                support.protectsUpperGapCenterX = gap.centerX;
+                gap.recoverySupportId = support.id;
+                laneSupports.push(support);
+                existing.push(support);
+
+                for (const source of localUpper) {
+                    const fall = classifyTraversalTransition(source, support, { ...edge, mandatory: false }, theme);
+                    if (!fall.valid || fall.gap > theme.traversal.mandatoryGap) continue;
+                    fall.mandatory = false;
+                    fall.spacingStyle = "fallToLowerRoute";
+                    fall.recoverySupportId = support.id;
+                    transitions.push(fall);
+                }
+            }
+
+            laneSupports.sort((left, right) => left.centerX - right.centerX);
+            const completeLaneSupports = [];
+            for (let pairIndex = 1; pairIndex < laneSupports.length; pairIndex += 1) {
+                const left = laneSupports[pairIndex - 1];
+                const right = laneSupports[pairIndex];
+                if (!completeLaneSupports.length) completeLaneSupports.push(left);
+                const direct = classifyTraversalTransition(left, right, { ...edge, mandatory: false }, theme);
+                if (direct.valid && direct.gap <= theme.traversal.mandatoryGap) {
+                    direct.mandatory = false;
+                    direct.spacingStyle = "layeredLowerRoute";
+                    transitions.push(direct);
+                    completeLaneSupports.push(right);
+                    continue;
+                }
+
+                const distanceX = Math.abs(right.centerX - left.centerX);
+                const endpointHalfWidth = left.width * 0.5 + right.width * 0.5;
+                let bridgePlan = null;
+                for (let count = 1; count <= 10; count += 1) {
+                    const maximumWidth = (distanceX - endpointHalfWidth - 42 * (count + 1)) / count;
+                    if (maximumWidth < 92) continue;
+                    const selections = Array.from({ length: count }, () =>
+                        selectGenerationAsset(
+                            assetCatalog,
+                            "recoveryPlatform",
+                            Math.min(420, maximumWidth),
+                            rng,
+                            false,
+                            maximumWidth
+                        )
+                    );
+                    if (selections.some((selection) => !selection)) continue;
+                    const occupied = endpointHalfWidth + selections.reduce((sum, selection) => sum + selection.width, 0);
+                    const physicalGap = (distanceX - occupied) / (count + 1);
+                    if (physicalGap < 34 || physicalGap > theme.traversal.mandatoryGap - 4) continue;
+                    bridgePlan = { selections, physicalGap };
+                    break;
+                }
+                if (!bridgePlan) {
+                    throw new Error(`Layered lower route on “${edge.id}” cannot bridge ${left.id} to ${right.id}.`);
+                }
+                const bridges = [];
+                let cursor = left.centerX + left.width * 0.5;
+                for (let bridgeIndex = 0; bridgeIndex < bridgePlan.selections.length; bridgeIndex += 1) {
+                    const selection = bridgePlan.selections[bridgeIndex];
+                    cursor += bridgePlan.physicalGap + selection.width * 0.5;
+                    const t = (bridgeIndex + 1) / (bridgePlan.selections.length + 1);
+                    const bridge = addSupport({
+                        id: `support_${edge.id}_lower_bridge_${String(pairIndex).padStart(2, "0")}_${String(bridgeIndex + 1).padStart(2, "0")}`,
+                        role: "recoveryPlatform",
+                        targetWidth: selection.width,
+                        selection,
+                        centerX: cursor,
+                        surfaceY: lerp(left.surfaceY, right.surfaceY, t),
+                        mandatory: false,
+                        routeEdgeId: edge.id
+                    });
+                    bridge.platformSpacingStyle = "layeredLowerRoute";
+                    bridge.recoveryLaneId = `recovery_lane_${edge.id}`;
+                    bridge.lowerRoute = true;
+                    bridges.push(bridge);
+                    laneSupports.push(bridge);
+                    existing.push(bridge);
+                    cursor += selection.width * 0.5;
+                }
+                const bridgeChain = [left, ...bridges, right];
+                for (let transitionIndex = 1; transitionIndex < bridgeChain.length; transitionIndex += 1) {
+                    const transition = classifyTraversalTransition(bridgeChain[transitionIndex - 1], bridgeChain[transitionIndex], { ...edge, mandatory: false }, theme);
+                    if (!transition.valid || transition.gap > theme.traversal.mandatoryGap) throw new Error(`Layered lower route bridge on “${edge.id}” is not traversable.`);
+                    transition.mandatory = false;
+                    transition.spacingStyle = "layeredLowerRoute";
+                    transitions.push(transition);
+                }
+                completeLaneSupports.push(...bridges, right);
+            }
+            if (laneSupports.length === 1) completeLaneSupports.push(laneSupports[0]);
+            laneSupports.length = 0;
+            laneSupports.push(...completeLaneSupports.sort((left, right) => left.centerX - right.centerX));
+
+            const lowerGaps = [];
+            for (let index = 1; index < laneSupports.length; index += 1) {
+                const left = laneSupports[index - 1];
+                const right = laneSupports[index];
+
+                const gapLeft = finiteNumber(left.walkableRightX, left.centerX + left.width * 0.5);
+                const gapRight = finiteNumber(right.walkableLeftX, right.centerX - right.width * 0.5);
+                const width = gapRight - gapLeft;
+                if (width < 34) continue;
+                const lowerGap = {
+                    leftX: roundCoordinate(gapLeft),
+                    rightX: roundCoordinate(gapRight),
+                    centerX: roundCoordinate((gapLeft + gapRight) * 0.5),
+                    width: roundCoordinate(width),
+                    leftSupportId: left.id,
+                    rightSupportId: right.id
+                };
+                const targetWidth = clamp(Math.max(width + 260, 380), 380, 760);
+                const selection = selectGenerationAsset(assetCatalog, "recoveryPlatform", targetWidth, rng, false, 820);
+                if (!selection) throw new Error(`Lower gap on “${edge.id}” cannot find a tertiary recovery platform.`);
+                const localBottom = Math.max(
+                    left.surfaceY + left.height * (1 - left.surfaceYRatio),
+                    right.surfaceY + right.height * (1 - right.surfaceYRatio)
+                );
+                const tertiarySurfaceY = safeStaticSurfaceBelow(
+                    lowerGap.centerX,
+                    selection.width,
+                    Math.max(
+                        localBottom + GENERATED_STATIC_HEADROOM + 2,
+                        Math.max(left.surfaceY, right.surfaceY) + 190
+                    ),
+                    [left.id, right.id]
+                );
+                const rescue = addSupport({
+                    id: `support_${edge.id}_tertiary_${String(index).padStart(2, "0")}`,
+                    role: "recoveryPlatform",
+                    targetWidth,
+                    selection,
+                    centerX: lowerGap.centerX,
+                    surfaceY: tertiarySurfaceY,
+                    mandatory: false,
+                    routeEdgeId: edge.id
+                });
+                rescue.platformSpacingStyle = "tertiaryGapRecovery";
+                rescue.tertiaryRecovery = true;
+                rescue.recoveryLaneId = `recovery_lane_${edge.id}`;
+                rescue.protectsLowerGapIndex = lowerGaps.length;
+                lowerGap.recoverySupportId = rescue.id;
+                existing.push(rescue);
+                for (const source of [left, right]) {
+                    const fall = classifyTraversalTransition(source, rescue, { ...edge, mandatory: false }, theme);
+                    if (!fall.valid || fall.gap > theme.traversal.mandatoryGap) continue;
+                    fall.mandatory = false;
+                    fall.spacingStyle = "fallToTertiaryRecovery";
+                    fall.recoverySupportId = rescue.id;
+                    transitions.push(fall);
+                }
+                let lift = null;
+                let lowerReturn = null;
+                for (const candidateReturn of [left, right].sort((a, b) => b.surfaceY - a.surfaceY)) {
+                    lift = addRecoveryNetworkLift({
+                        id: `support_${edge.id}_tertiary_return_${String(index).padStart(2, "0")}`,
+                        edge,
+                        lowerSupport: rescue,
+                        upperSupport: candidateReturn,
+                        spacingStyle: "tertiaryRecoveryReturnLift"
+                    });
+                    if (lift) {
+                        lowerReturn = candidateReturn;
+                        break;
+                    }
+                }
+                if (!lift || !lowerReturn) throw new Error(`Tertiary recovery under “${edge.id}” cannot place a return lift.`);
+                lowerGap.returnLiftId = lift.id;
+                lowerGap.returnSupportId = lowerReturn.id;
+                lowerGaps.push(lowerGap);
+            }
+
+            const progressionLane = direction > 0 ? laneSupports : [...laneSupports].reverse();
+            const progressionUpper = direction > 0 ? ordered : [...ordered].reverse();
+            let returnLift = null;
+            let returnLower = null;
+            let returnUpper = null;
+            const returnPairs = [];
+            for (const lowerCandidate of [progressionLane[0], progressionLane.at(-1), ...progressionLane]) {
+                for (const upperCandidate of [progressionUpper[0], progressionUpper.at(-1), ...progressionUpper]) {
+                    if (!lowerCandidate || !upperCandidate) continue;
+                    returnPairs.push({ lowerCandidate, upperCandidate });
+                }
+            }
+            returnPairs.sort((a, b) =>
+                Math.abs(a.lowerCandidate.centerX - a.upperCandidate.centerX)
+                    - Math.abs(b.lowerCandidate.centerX - b.upperCandidate.centerX)
+            );
+            for (const pair of returnPairs) {
+                returnLift = addRecoveryNetworkLift({
+                    id: `support_${edge.id}_lower_return`,
+                    edge,
+                    lowerSupport: pair.lowerCandidate,
+                    upperSupport: pair.upperCandidate,
+                    spacingStyle: "lowerRouteBacktrackLift"
+                });
+                if (returnLift) {
+                    returnLower = pair.lowerCandidate;
+                    returnUpper = pair.upperCandidate;
+                    break;
+                }
+            }
+            if (!returnLift || !returnLower || !returnUpper) throw new Error(`Layered lower route on “${edge.id}” cannot place its backtracking return lift.`);
+
+            recoveryLanes.push({
+                id: `recovery_lane_${edge.id}`,
+                routeEdgeId: edge.id,
+                surfaceY: roundCoordinate(laneSupports.reduce((sum, support) => sum + support.surfaceY, 0) / laneSupports.length),
+                supportIds: laneSupports.map((support) => support.id),
+                upperGaps,
+                lowerGaps,
+                staggered: true,
+                guaranteedPerGap: true,
+                layeredNetwork: true,
+                returnLiftId: returnLift.id,
+                returnSupportId: returnUpper.id,
+                tertiarySupportIds: lowerGaps.map((gap) => gap.recoverySupportId)
+            });
+        }
+    } else if (useLongformOrganicTraversal) {
+        const horizontalEdgeCandidates = edges.filter((edge) => edge.mandatory !== false
+            && (edge.intendedDirection === "left" || edge.intendedDirection === "right"))
+            .map((edge) => ({ edge, chain: mandatoryEdgeChains.get(edge.id) || [] }))
+            .filter((entry) => entry.chain.length >= 2);
+        for (const { edge, chain } of horizontalEdgeCandidates) {
+            const ordered = [...chain].sort((left, right) => left.centerX - right.centerX);
+            const upperGaps = [];
+            const laneSupports = [];
+            for (let index = 1; index < ordered.length; index += 1) {
+                const left = ordered[index - 1];
+                const right = ordered[index];
+                const gapLeft = finiteNumber(left.walkableRightX, left.centerX + left.width * 0.5);
+                const gapRight = finiteNumber(right.walkableLeftX, right.centerX - right.width * 0.5);
+                if (gapRight - gapLeft < 28) continue;
+                const gap = {
+                    leftX: roundCoordinate(gapLeft),
+                    rightX: roundCoordinate(gapRight),
+                    centerX: roundCoordinate((gapLeft + gapRight) * 0.5),
+                    width: roundCoordinate(gapRight - gapLeft),
+                    leftSupportId: left.id,
+                    rightSupportId: right.id
+                };
+                const lowerMain = left.surfaceY >= right.surfaceY ? left : right;
+                const branchShaft = branchShafts.find((shaft) => shaft.routeEdgeId === edge.id
+                    && new Set([shaft.nearSupportId, shaft.farSupportId]).has(left.id)
+                    && new Set([shaft.nearSupportId, shaft.farSupportId]).has(right.id));
+                if (branchShaft) {
+                    const support = supports.find((candidate) => candidate.id === branchShaft.firstBranchSupportId);
+                    if (!support) throw new Error(`Branch shaft on “${edge.id}” is missing its recovery foothold.`);
+                    support.gapRecovery = true;
+                    support.platformSpacingStyle = "branchShaftGapRecovery";
+                    support.recoveryLaneId = `recovery_lane_${edge.id}`;
+                    support.protectsUpperGapIndex = upperGaps.length;
+                    support.protectsUpperGapCenterX = gap.centerX;
+                    support.recoveryReturnSupportId = branchShaft.nearSupportId;
+                    gap.recoverySupportId = support.id;
+                    upperGaps.push(gap);
+                    laneSupports.push(support);
+                    existing.push(support);
+                    const returnSupport = supports.find((candidate) => candidate.id === branchShaft.nearSupportId);
+                    if (!returnSupport) throw new Error(`Branch shaft on “${edge.id}” is missing its return landing.`);
+                    const returnTransition = classifyTraversalTransition(support, returnSupport, edge, theme);
+                    if (!returnTransition.valid) throw new Error(`Branch shaft recovery under “${edge.id}” cannot return the player to the main route.`);
+                    returnTransition.mandatory = false;
+                    returnTransition.spacingStyle = "recoveryBacktrack";
+                    returnTransition.recoverySupportId = support.id;
+                    returnTransition.recoveryReturnSupportId = returnSupport.id;
+                    transitions.push(returnTransition);
+                    continue;
+                }
+                const targetWidth = Math.max(gap.width + 250, theme.traversal.intermediateWidth * 1.45);
+                const maximumWidth = Math.min(760, Math.max(targetWidth + 120, gap.width + 360));
+                const selection = selectGenerationAsset(assetCatalog, "recoveryPlatform", targetWidth, rng, false, maximumWidth);
+                if (!selection) throw new Error(`Horizontal gap on “${edge.id}” cannot find a recovery platform.`);
+                let recoverySpec = null;
+                const lowerIsLeft = lowerMain.centerX < gap.centerX;
+                const desiredOverlap = 108;
+                const anchoredCenterX = lowerIsLeft
+                    ? lowerMain.walkableRightX - desiredOverlap + selection.width * 0.5
+                    : lowerMain.walkableLeftX + desiredOverlap - selection.width * 0.5;
+                for (const offset of [94, 102, 108, 112]) {
+                    const surfaceY = roundCoordinate(lowerMain.surfaceY + offset);
+                    for (const nudge of [0, lowerIsLeft ? 18 : -18, lowerIsLeft ? -18 : 18]) {
+                        const centerX = roundCoordinate(anchoredCenterX + nudge);
+                        const recoveryLeft = centerX - selection.width * 0.5;
+                        const recoveryRight = centerX + selection.width * 0.5;
+                        const overlapWithLower = Math.min(recoveryRight, lowerMain.walkableRightX)
+                            - Math.max(recoveryLeft, lowerMain.walkableLeftX);
+                        const exposedReturnWidth = lowerIsLeft
+                            ? Math.max(0, recoveryLeft - lowerMain.walkableLeftX)
+                            : Math.max(0, lowerMain.walkableRightX - recoveryRight);
+                        const coversGap = recoveryLeft <= gap.centerX && recoveryRight >= gap.centerX;
+                        const conflicts = supports.some((support) => {
+                            if (support.id === left.id || support.id === right.id || support.role === "recoveryPlatform") return false;
+                            const overlap = Math.min(recoveryRight, support.centerX + support.width * 0.5)
+                                - Math.max(recoveryLeft, support.centerX - support.width * 0.5);
+                            return overlap > 64 && Math.abs(surfaceY - support.surfaceY) < 82;
+                        });
+                        if (overlapWithLower >= 88 && exposedReturnWidth >= 48 && coversGap && !conflicts) {
+                            recoverySpec = { centerX, surfaceY };
+                            break;
+                        }
+                    }
+                    if (recoverySpec) break;
+                }
+                if (!recoverySpec) throw new Error(`Horizontal gap on “${edge.id}” cannot place a safe backtracking recovery platform.`);
+                const support = addSupport({
+                    id: `support_${edge.id}_recovery_${String(index).padStart(2, "0")}`,
+                    role: "recoveryPlatform",
+                    targetWidth,
+                    selection,
+                    centerX: recoverySpec.centerX,
+                    surfaceY: recoverySpec.surfaceY,
+                    mandatory: false,
+                    routeEdgeId: edge.id
+                });
+                support.platformSpacingStyle = "guaranteedGapRecovery";
+                support.recoveryLaneId = `recovery_lane_${edge.id}`;
+                support.protectsUpperGapIndex = upperGaps.length;
+                support.protectsUpperGapCenterX = gap.centerX;
+                support.recoveryReturnSupportId = lowerMain.id;
+                gap.recoverySupportId = support.id;
+                upperGaps.push(gap);
+                laneSupports.push(support);
+                existing.push(support);
+
+                for (const source of [left, right]) {
+                    const fall = classifyTraversalTransition(source, support, edge, theme);
+                    if (!fall.valid) continue;
+                    fall.mandatory = false;
+                    fall.spacingStyle = "fallRecovery";
+                    fall.recoverySupportId = support.id;
+                    transitions.push(fall);
+                }
+                const returnTransition = classifyTraversalTransition(support, lowerMain, edge, theme);
+                if (!returnTransition.valid) throw new Error(`Recovery platform under “${edge.id}” cannot return the player to the lower main landing.`);
+                returnTransition.mandatory = false;
+                returnTransition.spacingStyle = "recoveryBacktrack";
+                returnTransition.recoverySupportId = support.id;
+                returnTransition.recoveryReturnSupportId = lowerMain.id;
+                transitions.push(returnTransition);
+            }
+            if (!upperGaps.length) continue;
+            laneSupports.sort((left, right) => left.centerX - right.centerX);
+            const lowerGaps = [];
+            for (let index = 1; index < laneSupports.length; index += 1) {
+                const left = laneSupports[index - 1];
+                const right = laneSupports[index];
+                const gapLeft = finiteNumber(left.walkableRightX, left.centerX + left.width * 0.5);
+                const gapRight = finiteNumber(right.walkableLeftX, right.centerX - right.width * 0.5);
+                const width = gapRight - gapLeft;
+                if (width < 34 || width > theme.traversal.mandatoryGap + 8) continue;
+                const overlapsUpperGap = upperGaps.some((upperGap) => Math.min(gapRight, upperGap.rightX) - Math.max(gapLeft, upperGap.leftX) > 1);
+                if (overlapsUpperGap) continue;
+                lowerGaps.push({
+                    leftX: roundCoordinate(gapLeft),
+                    rightX: roundCoordinate(gapRight),
+                    centerX: roundCoordinate((gapLeft + gapRight) * 0.5),
+                    width: roundCoordinate(width)
+                });
+            }
+            recoveryLanes.push({
+                id: `recovery_lane_${edge.id}`,
+                routeEdgeId: edge.id,
+                supportIds: laneSupports.map((support) => support.id),
+                upperGaps,
+                lowerGaps,
+                staggered: true,
+                guaranteedPerGap: true
+            });
+        }
+    } else if (useLayeredRecoveryTraversal) {
         const recoveryLaneLimit = settings.length === "grand" ? 3 : settings.length === "extended" ? 2 : 1;
         const horizontalEdgeCandidates = edges.filter((edge) => edge.mandatory !== false
             && (edge.intendedDirection === "left" || edge.intendedDirection === "right"))
@@ -3965,7 +5094,11 @@ function buildForgivingTraversal({
                 const maximumWidth = Math.max(118, cellWidth - desiredLowerGap);
                 const targetWidth = Math.min(
                     maximumWidth,
-                    Math.max(gap.width + 128, theme.traversal.intermediateWidth * rng.range(1.0, 1.5))
+                    Math.max(
+                        gap.width + 128,
+                        cellWidth * rng.range(useOrganicLayeredTraversal ? 0.76 : 0.58, useOrganicLayeredTraversal ? 0.88 : 0.72),
+                        theme.traversal.intermediateWidth * rng.range(1.0, useOrganicLayeredTraversal ? 2.8 : 1.5)
+                    )
                 );
                 const selection = selectGenerationAsset(
                     assetCatalog,
@@ -4096,6 +5229,7 @@ function buildForgivingTraversal({
         branchRejections,
         branchShafts,
         recoveryLanes,
+        secondaryPlatformIds: secondaryPlatforms.map((support) => support.id),
         materializedBranchIds: [...materializedBranches].sort(),
         materializedOptionalRouteNodeIds: nodes.filter((node) => !node.mandatory && materializedBranches.has(node.branchId)).map((node) => node.id),
         materializedOptionalRouteEdgeIds: materializedOptionalEdges.map((edge) => edge.id),
@@ -4197,7 +5331,9 @@ function buildSafeEndpoints({ route, traversal, theme, implementations, rng, run
         const requestedOffset = support.width * (implementations.endpoints === "grounded-chamber-endpoints-v2" ? 0.13 : 0.24);
         const minimumX = support.walkableLeftX + width * 0.5 + 48;
         const maximumX = support.walkableRightX - width * 0.5 - 48;
-        const x = clamp(support.centerX + side * requestedOffset, minimumX, maximumX);
+        const x = implementations.endpoints === "grounded-chamber-endpoints-v2"
+            ? role === "entrance" ? minimumX : maximumX
+            : clamp(support.centerX + side * requestedOffset, minimumX, maximumX);
         const y = support.surfaceY;
         const type = role === "entrance" ? "wizard_entry_door" : "wizard_exit_door";
         const entity = {

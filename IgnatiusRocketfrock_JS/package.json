@@ -3,6 +3,9 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "test": "node tests/testbench.mjs"
+        "test": "node tests/testbench.mjs --progress",
+        "test:fast": "node tests/testbench.mjs --progress --group=fast",
+        "test:generator": "node tests/testbench.mjs --progress --group=generator",
+        "test:profile": "node tests/testbench.mjs --progress --profile"
     }
 }
