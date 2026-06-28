@@ -367,6 +367,129 @@
             padding-bottom: 8px;
         }
 
+        .generator-primary {
+            border-color: rgba(86,230,255,0.55);
+            background: rgba(86,230,255,0.14);
+        }
+
+        .generator-primary:hover {
+            background: rgba(86,230,255,0.22);
+        }
+
+        .generator-range {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 42px;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .generator-range output {
+            text-align: right;
+            color: var(--ink);
+            font: 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        }
+
+        .generator-status,
+        .generator-validation,
+        .generator-enemies {
+            border: 1px solid var(--line);
+            border-radius: 9px;
+            padding: 8px;
+            background: rgba(0,0,0,0.18);
+            white-space: pre-line;
+        }
+
+        .generator-validation.ok {
+            border-color: rgba(88,255,158,0.42);
+            color: #a9ffd0;
+        }
+
+        .generator-validation.error {
+            border-color: rgba(255,79,97,0.52);
+            color: #ffbbc3;
+        }
+
+        .generator-advanced {
+            margin: 8px 0;
+            border: 1px solid var(--line);
+            border-radius: 9px;
+            padding: 8px;
+            background: rgba(0,0,0,0.12);
+        }
+
+        .generator-advanced summary {
+            cursor: pointer;
+            color: var(--accent);
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .route-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 7px 0;
+            color: var(--muted);
+            font-size: 11px;
+        }
+
+        .route-legend span::before {
+            content: "";
+            display: inline-block;
+            width: 18px;
+            height: 3px;
+            margin-right: 5px;
+            vertical-align: middle;
+            border-radius: 999px;
+            background: var(--cyan);
+        }
+
+        .route-legend .optional::before {
+            background: var(--yellow);
+        }
+
+        .generator-stage-tools,
+        .generator-ownership-tools {
+            margin-top: 8px;
+            border: 1px solid var(--line);
+            border-radius: 9px;
+            padding: 8px;
+            background: rgba(0,0,0,0.12);
+        }
+
+        .generator-stage-tools select {
+            min-width: 0;
+        }
+
+        .generator-ownership-status {
+            margin: 0 0 7px;
+            white-space: pre-line;
+        }
+
+        .generator-ownership-status.locked {
+            color: #ffe59a;
+        }
+
+        .generator-ownership-status.manual {
+            color: #a9ffd0;
+        }
+
+        .generator-validation-legend span::before {
+            height: 4px;
+        }
+
+        .generator-validation-legend .walkable::before {
+            background: #58ff9e;
+        }
+
+        .generator-validation-legend .calm::before {
+            background: #8ea7ff;
+        }
+
+        .generator-validation-legend .invalid::before {
+            background: #ff4f61;
+        }
+
         @media (max-width: 1050px) {
             html, body {
                 overflow: auto;
@@ -429,7 +552,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 151</small></h1>
+        <h1>Level Editor <small>rev 238</small></h1>
         <p>Place atlas assets, entry/exit doors, mailboxes, enemies, and triggers, then export a level JSON. The wizard entry door is the effective start of the level.</p>
 
         <div class="box">
@@ -477,6 +600,80 @@
                 <label>World width<input id="world-w" type="number"></label>
                 <label>World height<input id="world-h" type="number"></label>
             </div>
+        </div>
+
+        <div class="box" data-panel-key="automatic-level-generator">
+            <h2>Automatic Level Generator</h2>
+            <p class="small">Generator 4 builds on Generator 3’s playable cavern, encounter, and reward pipeline, then adds controlled editing. Encounters and rewards can be rerolled through independent stage revisions, generated objects can be locked against accidental editing or converted to manual ownership, and the validation overlay exposes the collision assumptions behind the draft.</p>
+            <label>Theme<select id="generator-theme"></select></label>
+            <div class="row">
+                <label>Seed<input id="generator-seed" value="rocketfrock"></label>
+                <button id="generator-randomize-seed" type="button">Randomize seed</button>
+            </div>
+            <label>Approximate length<select id="generator-length">
+                <option value="compact">Compact</option>
+                <option value="standard">Standard</option>
+                <option value="extended">Extended</option>
+                <option value="grand">Grand</option>
+            </select></label>
+            <label>Verticality<div class="generator-range"><input id="generator-verticality" type="range" min="0" max="100" step="1"><output id="generator-verticality-value">0</output></div></label>
+            <label>Winding / backtracking<div class="generator-range"><input id="generator-winding" type="range" min="0" max="100" step="1"><output id="generator-winding-value">0</output></div></label>
+            <label>Optional branching<div class="generator-range"><input id="generator-branching" type="range" min="0" max="100" step="1"><output id="generator-branching-value">0</output></div></label>
+            <div class="row">
+                <label>Difficulty<div class="generator-range"><input id="generator-difficulty" type="range" min="0" max="100" step="1"><output id="generator-difficulty-value">0</output></div></label>
+                <label>Safety<div class="generator-range"><input id="generator-safety" type="range" min="0" max="100" step="1"><output id="generator-safety-value">0</output></div></label>
+            </div>
+            <div class="row">
+                <label>Enemy density<div class="generator-range"><input id="generator-enemy-density" type="range" min="0" max="100" step="1"><output id="generator-enemy-density-value">0</output></div></label>
+                <label>Reward density<div class="generator-range"><input id="generator-reward-density" type="range" min="0" max="100" step="1"><output id="generator-reward-density-value">0</output></div></label>
+            </div>
+            <div class="inline"><input id="generator-allow-thoughts" type="checkbox"><span class="small">Allow generated location thoughts</span></div>
+            <label>Allowed enemies<input id="generator-enemy-filter" value="1-999" placeholder="1-999,!2,!4"></label>
+            <p id="generator-enemy-preview" class="small generator-enemies">Enemy catalog not loaded yet.</p>
+            <details class="generator-advanced">
+                <summary>Advanced implementations</summary>
+                <label>Route<select id="generator-impl-route" data-generator-stage="route"></select></label>
+                <label>Cavern<select id="generator-impl-cavern" data-generator-stage="cavern"></select></label>
+                <label>Traversal<select id="generator-impl-traversal" data-generator-stage="traversal"></select></label>
+                <label>Endpoints<select id="generator-impl-endpoints" data-generator-stage="endpoints"></select></label>
+                <label>Encounters<select id="generator-impl-encounters" data-generator-stage="encounters"></select></label>
+                <label>Rewards<select id="generator-impl-rewards" data-generator-stage="rewards"></select></label>
+                <label>Decoration<select id="generator-impl-decoration" data-generator-stage="decoration"></select></label>
+                <label>Validation<select id="generator-impl-validation" data-generator-stage="validation"></select></label>
+            </details>
+            <button id="generator-generate" class="generator-primary" type="button">Generate cavern + encounters + rewards</button>
+            <div class="generator-stage-tools">
+                <label>Regenerate stage<select id="generator-regenerate-stage">
+                    <option value="encounters">Encounters only</option>
+                    <option value="rewards">Rewards + branch detours</option>
+                    <option value="validation">Validation only</option>
+                </select></label>
+                <button id="generator-regenerate" type="button">Regenerate selected stage</button>
+                <p class="small">Encounter rerolls preserve route, platforms, endpoints, and rewards. Reward rerolls preserve the route and re-anchor the existing encounters if the selected detours alter supports. Validation only reports the current generated records.</p>
+            </div>
+            <div class="generator-ownership-tools">
+                <p id="generator-ownership-status" class="small generator-ownership-status">Select a generated placement or entity to manage its editor ownership.</p>
+                <div class="row">
+                    <button id="generator-lock-selected" type="button" disabled>Lock selected</button>
+                    <button id="generator-unlock-selected" type="button" disabled>Unlock selected</button>
+                </div>
+                <button id="generator-manualize-selected" type="button" disabled>Convert selected to manual ownership</button>
+                <p class="small">Locking prevents direct editor changes but regeneration still replaces generated ownership. Manual conversion permanently detaches the object from generator clear and regeneration operations.</p>
+            </div>
+            <div class="row">
+                <button id="generator-fit-route" type="button">Fit generated cavern</button>
+                <button id="generator-clear" type="button">Clear generated</button>
+            </div>
+            <div class="row">
+                <button id="generator-undo" type="button" disabled>Undo generation</button>
+                <button id="generator-redo" type="button" disabled>Redo generation</button>
+            </div>
+            <div class="inline"><input id="generator-show-route" type="checkbox" checked><span class="small">Show route overlay</span></div>
+            <div class="inline"><input id="generator-show-validation" type="checkbox"><span class="small">Show validation overlay</span></div>
+            <div class="route-legend"><span>Mandatory route</span><span class="optional">Reserved branch</span><span>Materialized treasure detour</span></div>
+            <div class="route-legend generator-validation-legend"><span class="walkable">Walkable collision span</span><span class="calm">Endpoint calm zone</span><span class="invalid">Invalid transition</span></div>
+            <p id="generator-status" class="small generator-status">No generated cavern.</p>
+            <p id="generator-validation" class="small generator-validation">Generate a cavern to see route, traversal, endpoint, encounter, reward, and envelope diagnostics.</p>
         </div>
 
 
@@ -817,6 +1014,29 @@ import {
 } from "./src/shared/level-color-map-data.js";
 import { createColorMappedCanvas } from "./src/presentation/level-color-map-cache.js";
 import {
+    AUTOMATIC_LEVEL_GENERATOR_ID,
+    LEVEL_GENERATOR_REGISTRIES,
+    LEVEL_GENERATOR_STAGE_ORDER,
+    automaticLevelDraftBounds,
+    buildAutomaticLevelValidationOverlay,
+    generateAutomaticLevelDraft,
+    incrementGeneratorStageRevision,
+    normalizeGenerationAssetCatalog,
+    normalizeEnemyGenerationCatalog,
+    normalizeRewardGenerationCatalog,
+    normalizeGeneratorImplementations,
+    normalizeGeneratorSettings,
+    normalizeGeneratorStageRevisions,
+    normalizeGeneratorTheme,
+    normalizeLevelGeneration,
+    parseEnemySelection,
+    reanchorGeneratedEncounterStage,
+    routeGraphBounds,
+    validateAutomaticLevelDraftSnapshot,
+    validateGeneratedEncounters,
+    validateGeneratedRewards
+} from "./src/shared/level-generator-data.js";
+import {
     caveWindowCenter,
     createForegroundSpriteCanvas,
     foregroundTreatmentCacheKey,
@@ -1005,6 +1225,35 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
         levelSelect: document.getElementById("level-select"),
         worldW: document.getElementById("world-w"),
         worldH: document.getElementById("world-h"),
+        generatorTheme: document.getElementById("generator-theme"),
+        generatorSeed: document.getElementById("generator-seed"),
+        generatorRandomizeSeed: document.getElementById("generator-randomize-seed"),
+        generatorLength: document.getElementById("generator-length"),
+        generatorVerticality: document.getElementById("generator-verticality"),
+        generatorWinding: document.getElementById("generator-winding"),
+        generatorBranching: document.getElementById("generator-branching"),
+        generatorDifficulty: document.getElementById("generator-difficulty"),
+        generatorSafety: document.getElementById("generator-safety"),
+        generatorEnemyDensity: document.getElementById("generator-enemy-density"),
+        generatorRewardDensity: document.getElementById("generator-reward-density"),
+        generatorAllowThoughts: document.getElementById("generator-allow-thoughts"),
+        generatorEnemyFilter: document.getElementById("generator-enemy-filter"),
+        generatorEnemyPreview: document.getElementById("generator-enemy-preview"),
+        generatorGenerate: document.getElementById("generator-generate"),
+        generatorRegenerateStage: document.getElementById("generator-regenerate-stage"),
+        generatorRegenerate: document.getElementById("generator-regenerate"),
+        generatorOwnershipStatus: document.getElementById("generator-ownership-status"),
+        generatorLockSelected: document.getElementById("generator-lock-selected"),
+        generatorUnlockSelected: document.getElementById("generator-unlock-selected"),
+        generatorManualizeSelected: document.getElementById("generator-manualize-selected"),
+        generatorFitRoute: document.getElementById("generator-fit-route"),
+        generatorClear: document.getElementById("generator-clear"),
+        generatorUndo: document.getElementById("generator-undo"),
+        generatorRedo: document.getElementById("generator-redo"),
+        generatorShowRoute: document.getElementById("generator-show-route"),
+        generatorShowValidation: document.getElementById("generator-show-validation"),
+        generatorStatus: document.getElementById("generator-status"),
+        generatorValidation: document.getElementById("generator-validation"),
         caveEnabled: document.getElementById("cave-enabled"),
         caveParallax: document.getElementById("cave-parallax"),
         caveFeather: document.getElementById("cave-feather"),
@@ -1153,7 +1402,13 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
         placementDrawCache: null,
         placementBoundsCache: new WeakMap(),
         editorForegroundSpriteCache: new Map(),
-        caveGeometryWarningText: ""
+        caveGeometryWarningText: "",
+        generatorThemes: new Map(),
+        generatorAssetCatalog: normalizeGenerationAssetCatalog(null),
+        generatorEnemyCatalog: normalizeEnemyGenerationCatalog(null),
+        generatorRewardCatalog: normalizeRewardGenerationCatalog(null),
+        generatorLoadedRunId: "",
+        generatorHistory: { undo: [], redo: [] }
     };
     let colorMapRefreshTimer = null;
     let jsonUpdateTimer = null;
@@ -1846,7 +2101,8 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
             navigationGraphs: source.navigationGraphs && typeof source.navigationGraphs === "object"
                 ? cloneData(source.navigationGraphs)
                 : { version: 1, profiles: [] },
-            navigationBlockers: Array.isArray(source.navigationBlockers) ? cloneData(source.navigationBlockers) : []
+            navigationBlockers: Array.isArray(source.navigationBlockers) ? cloneData(source.navigationBlockers) : [],
+            generation: normalizeLevelGeneration(source.generation || source.automaticGeneration) || undefined
         };
 
         normalized.world.bounds.x = Number(normalized.world.bounds.x) || fallback.world.bounds.x;
@@ -1909,6 +2165,17 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
                     foregroundFadeStart: foreground ? Math.max(0, Math.min(0.95, finiteEditorNumber(placement.foregroundFadeStart, 0.05))) : undefined,
                     foregroundFadeEnd: foreground ? Math.max(0.01, Math.min(1, finiteEditorNumber(placement.foregroundFadeEnd, 0.92))) : undefined,
                     generatedBy: placement.generatedBy || undefined,
+                    generationRunId: placement.generationRunId || placement.generation?.runId || undefined,
+                    generationStage: placement.generationStage || undefined,
+                    generationRole: placement.generationRole || undefined,
+                    generationSupportId: placement.generationSupportId || undefined,
+                    generationBranchId: placement.generationBranchId || undefined,
+                    routeNodeId: placement.routeNodeId || undefined,
+                    generatorId: placement.generatorId || undefined,
+                    editorLocked: Boolean(placement.editorLocked),
+                    manualizedFromGeneration: placement.manualizedFromGeneration && typeof placement.manualizedFromGeneration === "object"
+                        ? cloneData(placement.manualizedFromGeneration)
+                        : undefined,
                     caveCategory: placement.caveCategory || undefined,
                     alpha: Number.isFinite(Number(placement.alpha)) ? Number(placement.alpha) : undefined,
                     movement: foreground ? undefined : (normalizeMovingPlatform(placement.movement) || undefined),
@@ -2035,6 +2302,8 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
     async function loadLevelFromUrl(url) {
         const level = normalizeLevelDefaults(await loadJsonUrl(url));
         state.level = level;
+        state.generatorHistory = { undo: [], redo: [] };
+        state.generatorLoadedRunId = "";
         state.selectedCavePointId = "";
         state.selectedId = state.level.entities[0]?.id || state.level.placements[0]?.id || "";
         await ensureAtlasesForLevel(level);
@@ -2103,7 +2372,7 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
         if (record.colorMapCacheKey === cacheKey && record.renderImage) {
             return false;
         }
-        record.renderImage = createColorMappedCanvas(record.image, colorMap);
+        record.renderImage = createColorMappedCanvas(record.image, colorMap, undefined, record.atlasId);
         record.colorMapCacheKey = cacheKey;
         return true;
     }
@@ -2704,6 +2973,7 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
             }
             await Promise.all(projectLoads);
             updateEntityPalette();
+            refreshGeneratorEnemyPreview();
             return state.enemyCatalog.size;
         } catch (error) {
             setStatus(`Enemy catalog could not load: ${error.message || error}`, false);
@@ -2803,10 +3073,12 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
     function renderPlacementList() {
         const rows = [];
         for (const placement of state.level.placements) {
-            rows.push({ id: placement.id, label: placement.id, kind: placement.kind === "cutoutMask" ? "cutout mask" : `${placement.atlasId || DEFAULT_ATLAS_ID}:${placement.assetId}` });
+            const ownership = generatedRecordLocked(placement) ? " 🔒" : manualizedGenerationRecord(placement) ? " manual" : automaticGeneratedRecord(placement) ? " generated" : "";
+            rows.push({ id: placement.id, label: placement.id, kind: `${placement.kind === "cutoutMask" ? "cutout mask" : `${placement.atlasId || DEFAULT_ATLAS_ID}:${placement.assetId}`}${ownership}` });
         }
         for (const entity of state.level.entities) {
-            rows.push({ id: entity.id, label: entity.id, kind: entity.type });
+            const ownership = generatedRecordLocked(entity) ? " 🔒" : manualizedGenerationRecord(entity) ? " manual" : automaticGeneratedRecord(entity) ? " generated" : "";
+            rows.push({ id: entity.id, label: entity.id, kind: `${entity.type}${ownership}` });
         }
         els.placementList.innerHTML = "";
         for (const rowData of rows) {
@@ -2939,9 +3211,13 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
             syncInspector();
             return null;
         }
+        const source = selected.record;
+        if (generatedRecordLocked(source)) {
+            setStatus(`${source.id} is locked. Unlock it before copying.`, false);
+            return null;
+        }
         const grid = Math.max(1, Number(els.snap.value) || 16);
         const offset = Math.max(8, Math.min(32, grid));
-        const source = selected.record;
         const copy = duplicateLevelPlacement(source, {
             id: nextId(source.assetId || "asset"),
             dx: offset,
@@ -2956,10 +3232,16 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
     }
 
     function deleteSelected() {
+        const selected = selectedRecord();
+        if (selected && generatedRecordLocked(selected.record)) {
+            setStatus(`${selected.record.id} is locked. Unlock it before deleting.`, false);
+            return false;
+        }
         state.level.placements = state.level.placements.filter((item) => item.id !== state.selectedId);
         state.level.entities = state.level.entities.filter((item) => item.id !== state.selectedId);
         state.selectedId = state.level.entities[0]?.id || state.level.placements[0]?.id || "";
         persistUi();
+        return true;
     }
 
     function objectRect(record, kind) {
@@ -3000,6 +3282,12 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
         }
         const movingHandle = movingPlatformEndHandleHit(point);
         if (movingHandle) {
+            if (generatedRecordLocked(movingHandle.placement)) {
+                state.selectedId = movingHandle.placement.id;
+                syncInspector();
+                setStatus(`${movingHandle.placement.id} is locked.`, false);
+                return;
+            }
             state.drag = {
                 kind: "movingPlatformEnd",
                 id: movingHandle.placement.id,
@@ -3012,6 +3300,12 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
         state.selectedId = hit.id;
         const selected = selectedRecord();
         if (!selected) return;
+        if (generatedRecordLocked(selected.record)) {
+            syncInspector();
+            draw();
+            setStatus(`${selected.record.id} is locked. Unlock it before moving.`, false);
+            return;
+        }
         state.drag = { kind: "move", id: hit.id, start: point, original: { ...selected.record } };
         syncInspector();
         draw();
@@ -3095,6 +3389,8 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
         drawCaveWindowOverlay(rect);
         drawCaveGeometryWarnings(caveGeometryWarnings);
         refreshCaveGeometryWarningUi(caveGeometryWarnings);
+        drawAutomaticRouteOverlay();
+        drawAutomaticValidationOverlay();
         drawSelection();
         scheduleJsonUpdate();
     }
@@ -3793,9 +4089,9 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
         if (selected.kind === "asset" && !generatedCavePlacementVisible(selected.record)) return;
         if (selected.kind === "asset") drawMovingPlatformGuide(selected.record);
         ctx.save();
-        ctx.strokeStyle = COLORS.selected;
-        ctx.lineWidth = 2;
-        ctx.setLineDash([8, 5]);
+        ctx.strokeStyle = generatedRecordLocked(selected.record) ? "rgba(255,225,94,0.98)" : COLORS.selected;
+        ctx.lineWidth = generatedRecordLocked(selected.record) ? 3 : 2;
+        ctx.setLineDash(generatedRecordLocked(selected.record) ? [4, 4] : [8, 5]);
         if (selected.kind === "asset") {
             const centerWorld = placementCenter(selected.record);
             const center = worldToScreen(centerWorld.x, centerWorld.y);
@@ -3826,17 +4122,18 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
     function syncInspector(syncFields = true) {
         const selected = selectedRecord();
         if (els.copyAsset) {
-            els.copyAsset.disabled = !selected || selected.kind !== "asset";
+            els.copyAsset.disabled = !selected || selected.kind !== "asset" || generatedRecordLocked(selected.record);
         }
         if (!selected) {
             els.selectionSummary.textContent = "Nothing selected.";
             els.movingPlatformRow.style.display = "none";
             els.signalSettingsRow.style.display = "none";
             els.keyholeSettingsRow.style.display = "none";
+            refreshGeneratorOwnershipUi();
             return;
         }
         const rec = selected.record;
-        els.selectionSummary.textContent = `${selected.kind}: ${rec.id || state.selectedId}`;
+        els.selectionSummary.textContent = `${selected.kind}: ${rec.id || state.selectedId}${generatedRecordLocked(rec) ? " · locked" : manualizedGenerationRecord(rec) ? " · manualized generator record" : automaticGeneratedRecord(rec) ? ` · generated ${generationRecordStage(rec) || "record"}` : ""}`;
         if (syncFields) {
             els.inspectId.value = rec.id || state.selectedId;
             els.inspectKind.value = selected.kind === "cutoutMask" ? "cutoutMask" : selected.kind;
@@ -3942,6 +4239,7 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
         if (movingPlatformAvailable) refreshMovingPlatformControlVisibility();
         els.entityTypeRow.style.display = selected.kind === "entity" ? "grid" : "none";
         els.entityStateRow.style.display = selected.kind === "entity" && Object.keys(rec.visualStates || {}).length ? "grid" : "none";
+        refreshGeneratorOwnershipUi();
         renderPlacementList();
     }
 
@@ -3949,6 +4247,11 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
         const selected = selectedRecord();
         if (!selected) return;
         const rec = selected.record;
+        if (generatedRecordLocked(rec)) {
+            setStatus(`${rec.id} is locked. Unlock it before editing.`, false);
+            syncInspector();
+            return;
+        }
         const newId = els.inspectId.value.trim() || rec.id || state.selectedId;
         if (newId !== rec.id && idExists(newId)) {
             setStatus("That ID is already used.", false);
@@ -4002,8 +4305,10 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
                 delete rec.foregroundOutwardY;
                 delete rec.foregroundFadeStart;
                 delete rec.foregroundFadeEnd;
-                delete rec.generatedBy;
-                delete rec.caveCategory;
+                if (rec.generatedBy === CAVE_PERIMETER_GENERATOR) {
+                    delete rec.generatedBy;
+                    delete rec.caveCategory;
+                }
             }
         } else if (selected.kind === "cutoutMask") {
             rec.kind = "cutoutMask";
@@ -4119,13 +4424,1070 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
         return state.level.placements.some((item) => item.id === id) || state.level.entities.some((item) => item.id === id);
     }
 
+    function generatorRangeBindings() {
+        return [
+            [els.generatorVerticality, document.getElementById("generator-verticality-value")],
+            [els.generatorWinding, document.getElementById("generator-winding-value")],
+            [els.generatorBranching, document.getElementById("generator-branching-value")],
+            [els.generatorDifficulty, document.getElementById("generator-difficulty-value")],
+            [els.generatorSafety, document.getElementById("generator-safety-value")],
+            [els.generatorEnemyDensity, document.getElementById("generator-enemy-density-value")],
+            [els.generatorRewardDensity, document.getElementById("generator-reward-density-value")]
+        ];
+    }
+
+    function refreshGeneratorRangeOutputs() {
+        for (const [input, output] of generatorRangeBindings()) {
+            if (input && output) output.value = `${Math.round(Number(input.value) || 0)}%`;
+        }
+    }
+
+    function setGeneratorSettingsControls(value) {
+        const settings = normalizeGeneratorSettings(value);
+        els.generatorLength.value = settings.length;
+        els.generatorVerticality.value = String(Math.round(settings.verticality * 100));
+        els.generatorWinding.value = String(Math.round(settings.winding * 100));
+        els.generatorBranching.value = String(Math.round(settings.branching * 100));
+        els.generatorDifficulty.value = String(Math.round(settings.difficulty * 100));
+        els.generatorSafety.value = String(Math.round(settings.safety * 100));
+        els.generatorEnemyDensity.value = String(Math.round(settings.enemyDensity * 100));
+        els.generatorRewardDensity.value = String(Math.round(settings.rewardDensity * 100));
+        els.generatorAllowThoughts.checked = Boolean(settings.allowThoughts);
+        els.generatorEnemyFilter.value = settings.allowedEnemies;
+        refreshGeneratorRangeOutputs();
+        refreshGeneratorEnemyPreview();
+    }
+
+    function readGeneratorSettingsControls() {
+        return normalizeGeneratorSettings({
+            length: els.generatorLength.value,
+            verticality: (Number(els.generatorVerticality.value) || 0) / 100,
+            winding: (Number(els.generatorWinding.value) || 0) / 100,
+            branching: (Number(els.generatorBranching.value) || 0) / 100,
+            difficulty: (Number(els.generatorDifficulty.value) || 0) / 100,
+            safety: (Number(els.generatorSafety.value) || 0) / 100,
+            enemyDensity: (Number(els.generatorEnemyDensity.value) || 0) / 100,
+            rewardDensity: (Number(els.generatorRewardDensity.value) || 0) / 100,
+            allowThoughts: els.generatorAllowThoughts.checked,
+            allowedEnemies: els.generatorEnemyFilter.value
+        });
+    }
+
+    function populateGeneratorImplementationControls(value = null) {
+        const selected = normalizeGeneratorImplementations(value || {});
+        for (const stage of LEVEL_GENERATOR_STAGE_ORDER) {
+            const select = document.querySelector(`select[data-generator-stage="${stage}"]`);
+            if (!select) continue;
+            select.innerHTML = "";
+            for (const entry of LEVEL_GENERATOR_REGISTRIES[stage] || []) {
+                const option = document.createElement("option");
+                option.value = entry.id;
+                option.textContent = entry.label;
+                select.appendChild(option);
+            }
+            select.value = selected[stage] || select.options[0]?.value || "";
+        }
+    }
+
+    function readGeneratorImplementationControls() {
+        const result = {};
+        for (const stage of LEVEL_GENERATOR_STAGE_ORDER) {
+            const select = document.querySelector(`select[data-generator-stage="${stage}"]`);
+            result[stage] = select?.value || "";
+        }
+        return normalizeGeneratorImplementations(result);
+    }
+
+    function currentGeneratorTheme() {
+        return state.generatorThemes.get(els.generatorTheme.value) || state.generatorThemes.values().next().value || normalizeGeneratorTheme(null);
+    }
+
+    function applyGeneratorThemeDefaults(themeId, { preserveSeed = true } = {}) {
+        const theme = state.generatorThemes.get(themeId) || currentGeneratorTheme();
+        if (!theme) return;
+        const seed = els.generatorSeed.value;
+        els.generatorTheme.value = theme.themeId;
+        setGeneratorSettingsControls(theme.defaults);
+        populateGeneratorImplementationControls(theme.implementations);
+        if (preserveSeed) els.generatorSeed.value = seed;
+        refreshAutomaticGeneratorUi();
+    }
+
+    async function loadAutomaticGeneratorAssetCatalog() {
+        try {
+            state.generatorAssetCatalog = normalizeGenerationAssetCatalog(await loadJsonUrl("assets/level-generator-platforms.json"));
+            if (!state.generatorAssetCatalog.assets.length) throw new Error("The catalog contains no usable platform assets.");
+            return state.generatorAssetCatalog.assets.length;
+        } catch (error) {
+            state.generatorAssetCatalog = normalizeGenerationAssetCatalog(null);
+            els.generatorValidation.className = "small generator-validation error";
+            els.generatorValidation.textContent = `Platform generation catalog could not load. ${error.message || error}`;
+            return 0;
+        }
+    }
+
+    async function loadAutomaticGeneratorEnemyCatalog() {
+        try {
+            state.generatorEnemyCatalog = normalizeEnemyGenerationCatalog(await loadJsonUrl("assets/level-generator-enemies.json"));
+            if (!state.generatorEnemyCatalog.enemies.length) throw new Error("The catalog contains no usable enemy metadata.");
+            return state.generatorEnemyCatalog.enemies.length;
+        } catch (error) {
+            state.generatorEnemyCatalog = normalizeEnemyGenerationCatalog(null);
+            els.generatorValidation.className = "small generator-validation error";
+            els.generatorValidation.textContent = `Enemy generation metadata could not load. ${error.message || error}`;
+            return 0;
+        }
+    }
+
+    async function loadAutomaticGeneratorRewardCatalog() {
+        try {
+            state.generatorRewardCatalog = normalizeRewardGenerationCatalog(await loadJsonUrl("assets/level-generator-rewards.json"));
+            if (!state.generatorRewardCatalog.rewards.length) throw new Error("The catalog contains no usable reward metadata.");
+            return state.generatorRewardCatalog.rewards.length;
+        } catch (error) {
+            state.generatorRewardCatalog = normalizeRewardGenerationCatalog(null);
+            els.generatorValidation.className = "small generator-validation error";
+            els.generatorValidation.textContent = `Reward generation metadata could not load. ${error.message || error}`;
+            return 0;
+        }
+    }
+
+    async function loadAutomaticGeneratorThemes() {
+        const urls = [
+            "assets/level-generator-themes/earth-cavern.json",
+            "assets/level-generator-themes/ice-cavern.json"
+        ];
+        state.generatorThemes.clear();
+        const failures = [];
+        for (const url of urls) {
+            try {
+                const theme = normalizeGeneratorTheme(await loadJsonUrl(url));
+                state.generatorThemes.set(theme.themeId, theme);
+            } catch (error) {
+                failures.push(`${url}: ${error.message || error}`);
+            }
+        }
+        if (!state.generatorThemes.size) {
+            const fallback = normalizeGeneratorTheme(null);
+            state.generatorThemes.set(fallback.themeId, fallback);
+        }
+        els.generatorTheme.innerHTML = "";
+        for (const theme of state.generatorThemes.values()) {
+            const option = document.createElement("option");
+            option.value = theme.themeId;
+            option.textContent = theme.label;
+            option.title = theme.description;
+            els.generatorTheme.appendChild(option);
+        }
+        populateGeneratorImplementationControls(currentGeneratorTheme().implementations);
+        applyGeneratorThemeDefaults(state.generatorThemes.keys().next().value, { preserveSeed: true });
+        if (failures.length) {
+            els.generatorValidation.className = "small generator-validation error";
+            els.generatorValidation.textContent = `Some generator themes could not load. ${failures.join(" ")}`;
+        }
+        return state.generatorThemes.size;
+    }
+
+    function refreshGeneratorEnemyPreview() {
+        if (!els.generatorEnemyPreview) return;
+        const result = parseEnemySelection(els.generatorEnemyFilter.value, [...state.enemyCatalog.keys()]);
+        if (!result.valid) {
+            els.generatorEnemyPreview.textContent = result.errors.join(" ");
+            els.generatorEnemyPreview.style.color = "#ffbbc3";
+            return;
+        }
+        const labels = result.resolvedIds.map((enemyId) => state.enemyCatalog.get(enemyId)?.label || enemyId);
+        els.generatorEnemyPreview.textContent = labels.length
+            ? `Resolved enemies (${labels.length}): ${labels.join(", ")}`
+            : "No existing catalog enemies match this expression.";
+        els.generatorEnemyPreview.style.color = "";
+    }
+
+    function loadGeneratorControlsFromLevel() {
+        const generation = normalizeLevelGeneration(state.level?.generation);
+        state.level.generation = generation || undefined;
+        state.generatorLoadedRunId = generation?.runId || "";
+        if (!generation) {
+            refreshAutomaticGeneratorUi();
+            return;
+        }
+        if (state.generatorThemes.has(generation.themeId)) els.generatorTheme.value = generation.themeId;
+        els.generatorSeed.value = generation.seed;
+        setGeneratorSettingsControls(generation.settings);
+        populateGeneratorImplementationControls(generation.implementations);
+        refreshAutomaticGeneratorUi();
+    }
+
+    function automaticGeneratedRecord(record) {
+        if (!record || typeof record !== "object") return false;
+        return record.generatedBy === AUTOMATIC_LEVEL_GENERATOR_ID
+            || String(record.generatedBy || "").startsWith("automatic-level-generator")
+            || Boolean(record.generationRunId)
+            || Boolean(record.generation?.runId);
+    }
+
+    function generationRecordStage(record) {
+        return String(record?.generationStage || record?.manualizedFromGeneration?.stage || "");
+    }
+
+    function generationRecordRunId(record) {
+        return String(record?.generationRunId || record?.generation?.runId || record?.manualizedFromGeneration?.runId || "");
+    }
+
+    function manualizedGenerationRecord(record, runId = state.level?.generation?.runId || "") {
+        if (!record?.manualizedFromGeneration) return false;
+        return !runId || generationRecordRunId(record) === runId;
+    }
+
+    function generationValidationRecord(record, runId = state.level?.generation?.runId || "") {
+        return automaticGeneratedRecord(record) || manualizedGenerationRecord(record, runId);
+    }
+
+    function generatedRecordLocked(record) {
+        return Boolean(record?.editorLocked && automaticGeneratedRecord(record));
+    }
+
+    function selectedGeneratedRecord() {
+        const selected = selectedRecord();
+        return selected && automaticGeneratedRecord(selected.record) ? selected : null;
+    }
+
+    function removeAutomaticGenerationProvenance(record) {
+        if (!record || typeof record !== "object") return;
+        const provenance = {
+            generatorId: String(record.generatorId || record.generatedBy || AUTOMATIC_LEVEL_GENERATOR_ID),
+            runId: generationRecordRunId(record),
+            stage: generationRecordStage(record),
+            role: String(record.generationRole || ""),
+            supportId: String(record.generationSupportId || ""),
+            branchId: String(record.generationBranchId || ""),
+            routeNodeId: String(record.routeNodeId || "")
+        };
+        record.manualizedFromGeneration = provenance;
+        delete record.generatedBy;
+        delete record.generationRunId;
+        delete record.generationStage;
+        delete record.generationRole;
+        delete record.generationEncounterId;
+        delete record.generationDifficultyCost;
+        delete record.generationContext;
+        delete record.generationBranchId;
+        delete record.generatorId;
+        delete record.editorLocked;
+    }
+
+    function setSelectedGeneratedLock(locked) {
+        const selected = selectedGeneratedRecord();
+        if (!selected) {
+            setStatus("Select an automatically generated placement or entity first.", false);
+            return;
+        }
+        selected.record.editorLocked = Boolean(locked);
+        persistUi();
+        syncInspector();
+        refreshAutomaticGeneratorUi();
+        draw();
+        setStatus(`${locked ? "Locked" : "Unlocked"} ${selected.record.id}.`);
+    }
+
+    function manualizeSelectedGeneratedRecord() {
+        const selected = selectedGeneratedRecord();
+        if (!selected) {
+            setStatus("Select an automatically generated placement or entity first.", false);
+            return;
+        }
+        const id = selected.record.id;
+        const stage = generationRecordStage(selected.record) || "unknown";
+        if (!window.confirm(`Convert ${id} from generated ${stage} content to manual ownership? It will survive Clear generated and future regeneration.`)) return;
+        removeAutomaticGenerationProvenance(selected.record);
+        state.generatorHistory = { undo: [], redo: [] };
+        persistUi();
+        syncInspector();
+        refreshAutomaticGeneratorUi();
+        draw();
+        setStatus(`Converted ${id} to manual ownership. Generation undo history was cleared because ownership changed.`);
+    }
+
+    function refreshGeneratorOwnershipUi() {
+        if (!els.generatorOwnershipStatus) return;
+        const selected = selectedRecord();
+        const record = selected?.record;
+        const generated = automaticGeneratedRecord(record);
+        const manualized = manualizedGenerationRecord(record);
+        const locked = generatedRecordLocked(record);
+        els.generatorOwnershipStatus.className = `small generator-ownership-status${locked ? " locked" : manualized ? " manual" : ""}`;
+        if (generated) {
+            els.generatorOwnershipStatus.textContent = `${record.id} · generated ${generationRecordStage(record) || "record"}${locked ? " · locked against direct editor changes" : " · editable"}`;
+        } else if (manualized) {
+            els.generatorOwnershipStatus.textContent = `${record.id} · manual ownership · formerly generated ${generationRecordStage(record) || "record"}`;
+        } else if (record) {
+            els.generatorOwnershipStatus.textContent = `${record.id} · manually authored`;
+        } else {
+            els.generatorOwnershipStatus.textContent = "Select a generated placement or entity to manage its editor ownership.";
+        }
+        els.generatorLockSelected.disabled = !generated || locked;
+        els.generatorUnlockSelected.disabled = !generated || !locked;
+        els.generatorManualizeSelected.disabled = !generated;
+    }
+
+    function captureAutomaticGenerationState() {
+        return {
+            generation: state.level?.generation ? cloneData(state.level.generation) : null,
+            colorMap: normalizeLevelColorMap(state.level?.colorMap),
+            world: state.level?.world ? cloneData(state.level.world) : null,
+            caveWindow: state.level?.caveWindow ? cloneData(state.level.caveWindow) : null,
+            atlasRefs: Array.isArray(state.level?.atlasRefs) ? state.level.atlasRefs.map(cloneData) : [],
+            navigationGraphs: state.level?.navigationGraphs ? cloneData(state.level.navigationGraphs) : { version: 2, profiles: [] },
+            placements: (state.level?.placements || []).filter((record) => generationValidationRecord(record)).map(cloneData),
+            entities: (state.level?.entities || []).filter((record) => generationValidationRecord(record)).map(cloneData)
+        };
+    }
+
+    function automaticGenerationStateKey(snapshot) {
+        return JSON.stringify(snapshot || null);
+    }
+
+    function applyAutomaticGenerationState(snapshot) {
+        const source = snapshot || { generation: null, colorMap: state.level.colorMap, placements: [], entities: [] };
+        const currentRunId = state.level?.generation?.runId || source?.generation?.runId || "";
+        state.level.placements = (state.level.placements || []).filter((record) => !generationValidationRecord(record, currentRunId));
+        state.level.entities = (state.level.entities || []).filter((record) => !generationValidationRecord(record, currentRunId));
+        state.level.placements.push(...(source.placements || []).map(cloneData));
+        state.level.entities.push(...(source.entities || []).map(cloneData));
+        if (source.generation) state.level.generation = normalizeLevelGeneration(source.generation);
+        else delete state.level.generation;
+        state.level.colorMap = normalizeLevelColorMap(source.colorMap);
+        if (source.world) state.level.world = cloneData(source.world);
+        if (source.caveWindow) state.level.caveWindow = normalizeCaveWindow(source.caveWindow);
+        if (Array.isArray(source.atlasRefs)) state.level.atlasRefs = source.atlasRefs.map(cloneData);
+        state.level.navigationGraphs = source.navigationGraphs ? cloneData(source.navigationGraphs) : { version: 2, profiles: [] };
+        state.generatorLoadedRunId = state.level.generation?.runId || "";
+        refreshColorMappedAtlases({ redraw: false });
+        loadGeneratorControlsFromLevel();
+        syncMetadataToUi();
+        persistUi();
+    }
+
+    function commitGeneratorTransaction(label, before, after) {
+        state.generatorHistory.undo.push({ label, before, after });
+        if (state.generatorHistory.undo.length > 20) state.generatorHistory.undo.shift();
+        state.generatorHistory.redo = [];
+        refreshAutomaticGeneratorUi();
+    }
+
+    function undoAutomaticGeneration() {
+        const transaction = state.generatorHistory.undo.at(-1);
+        if (!transaction) return;
+        const current = captureAutomaticGenerationState();
+        if (automaticGenerationStateKey(current) !== automaticGenerationStateKey(transaction.after)) {
+            setStatus("Generation undo was not applied because generated data or its theme colour map changed afterward.", false);
+            return;
+        }
+        state.generatorHistory.undo.pop();
+        state.generatorHistory.redo.push(transaction);
+        applyAutomaticGenerationState(transaction.before);
+        setStatus(`Undid: ${transaction.label}.`);
+    }
+
+    function redoAutomaticGeneration() {
+        const transaction = state.generatorHistory.redo.at(-1);
+        if (!transaction) return;
+        const current = captureAutomaticGenerationState();
+        if (automaticGenerationStateKey(current) !== automaticGenerationStateKey(transaction.before)) {
+            setStatus("Generation redo was not applied because generated data or its theme colour map changed afterward.", false);
+            return;
+        }
+        state.generatorHistory.redo.pop();
+        state.generatorHistory.undo.push(transaction);
+        applyAutomaticGenerationState(transaction.after);
+        setStatus(`Redid: ${transaction.label}.`);
+    }
+
+    function removeAutomaticGeneratedRecords() {
+        const beforePlacements = state.level.placements.length;
+        const beforeEntities = state.level.entities.length;
+        state.level.placements = state.level.placements.filter((record) => !automaticGeneratedRecord(record));
+        state.level.entities = state.level.entities.filter((record) => !automaticGeneratedRecord(record));
+        return (beforePlacements - state.level.placements.length) + (beforeEntities - state.level.entities.length);
+    }
+
+    function ensureGeneratedAtlasRefs(atlasIds) {
+        const existing = new Set((state.level.atlasRefs || []).map((ref) => ref.atlasId));
+        for (const atlasId of atlasIds || []) {
+            if (!atlasId || existing.has(atlasId)) continue;
+            state.level.atlasRefs.push({
+                atlasId,
+                manifest: atlasManifestUrl(atlasId),
+                image: atlasImageUrl(atlasId)
+            });
+            existing.add(atlasId);
+        }
+    }
+
+    function automaticGeneratorDraftOptions(generation, stageRevisions) {
+        const normalized = normalizeLevelGeneration(generation);
+        if (!normalized) throw new Error("Generate a complete cavern before regenerating an individual stage.");
+        const theme = state.generatorThemes.get(normalized.themeId) || currentGeneratorTheme();
+        if (!state.generatorAssetCatalog.assets.length) throw new Error("The platform generation catalog is unavailable.");
+        return {
+            theme,
+            assetCatalog: state.generatorAssetCatalog,
+            enemyGenerationCatalog: state.generatorEnemyCatalog,
+            rewardGenerationCatalog: state.generatorRewardCatalog,
+            enemyCatalog: Object.fromEntries(state.enemyCatalog),
+            entityCatalog: Object.fromEntries(state.entityCatalog),
+            seed: normalized.seed,
+            settings: normalized.settings,
+            implementations: normalized.implementations,
+            availableEnemyIds: [...state.enemyCatalog.keys()],
+            destinationLevel: defaultNextLevelId(state.level.levelId),
+            preferredRouteAttempt: normalized.attempt,
+            stageRevisions: normalizeGeneratorStageRevisions(stageRevisions)
+        };
+    }
+
+    function replaceGeneratorRunIdentity(value, fromRunId, toRunId) {
+        if (!fromRunId || !toRunId || fromRunId === toRunId) return cloneData(value);
+        const visit = (entry) => {
+            if (typeof entry === "string") return entry.includes(fromRunId) ? entry.split(fromRunId).join(toRunId) : entry;
+            if (Array.isArray(entry)) return entry.map(visit);
+            if (!entry || typeof entry !== "object") return entry;
+            const result = {};
+            for (const [key, child] of Object.entries(entry)) result[key] = visit(child);
+            return result;
+        };
+        return visit(value);
+    }
+
+    function canonicalGeneratorValue(value) {
+        const omitted = new Set([
+            "generatedBy", "generationRunId", "generatorId", "editorLocked", "manualizedFromGeneration",
+            "notes", "order", "runId", "version", "qualityScore", "warnings", "errors"
+        ]);
+        const visit = (entry) => {
+            if (Array.isArray(entry)) return entry.map(visit);
+            if (!entry || typeof entry !== "object") return entry;
+            const result = {};
+            for (const key of Object.keys(entry).sort()) {
+                if (omitted.has(key)) continue;
+                result[key] = visit(entry[key]);
+            }
+            if (!result.generationStage && generationRecordStage(entry)) result.generationStage = generationRecordStage(entry);
+            return result;
+        };
+        return visit(value);
+    }
+
+    function generatorRecordSetKey(records) {
+        return JSON.stringify((records || [])
+            .map((record) => canonicalGeneratorValue(record))
+            .sort((left, right) => String(left.id || "").localeCompare(String(right.id || ""))));
+    }
+
+    function currentGenerationValidationRecords(kind = "all") {
+        const runId = state.level?.generation?.runId || "";
+        const placements = (state.level?.placements || []).filter((record) => generationValidationRecord(record, runId));
+        const entities = (state.level?.entities || []).filter((record) => generationValidationRecord(record, runId));
+        if (kind === "placements") return placements;
+        if (kind === "entities") return entities;
+        return { placements, entities };
+    }
+
+    function stageRegenerationBlockedByManualRecords(stages) {
+        const stageSet = new Set(stages);
+        const { placements, entities } = currentGenerationValidationRecords();
+        return [...placements, ...entities].filter((record) => manualizedGenerationRecord(record) && stageSet.has(generationRecordStage(record)));
+    }
+
+    function validateAutomaticGenerationSnapshot(generation, placements, entities, world = state.level.world) {
+        const theme = state.generatorThemes.get(generation?.themeId) || currentGeneratorTheme();
+        return validateAutomaticLevelDraftSnapshot({
+            generation,
+            placements,
+            entities,
+            world,
+            theme,
+            assetCatalog: state.generatorAssetCatalog,
+            enemyGenerationCatalog: state.generatorEnemyCatalog,
+            rewardGenerationCatalog: state.generatorRewardCatalog,
+            enemyCatalog: Object.fromEntries(state.enemyCatalog),
+            entityCatalog: Object.fromEntries(state.entityCatalog)
+        });
+    }
+
+    function reanchorEncounterStage(existingGeneration, nextGeneration, records) {
+        return reanchorGeneratedEncounterStage(existingGeneration, nextGeneration, records);
+    }
+
+    function revalidateCurrentAutomaticGeneration() {
+        const generation = normalizeLevelGeneration(state.level?.generation);
+        if (!generation) throw new Error("There is no generated cavern to validate.");
+        const before = captureAutomaticGenerationState();
+        const { placements, entities } = currentGenerationValidationRecords();
+        const stageRevisions = incrementGeneratorStageRevision(generation.stageRevisions, "validation");
+        const validation = validateAutomaticGenerationSnapshot(generation, placements, entities, state.level.world);
+        generation.stageRevisions = stageRevisions;
+        generation.validation = validation;
+        generation.diagnostics = {
+            ...(generation.diagnostics || {}),
+            stageRegeneration: {
+                stage: "validation",
+                revision: stageRevisions.validation,
+                candidatesTried: 1,
+                valid: validation.valid
+            }
+        };
+        state.level.generation = generation;
+        const after = captureAutomaticGenerationState();
+        commitGeneratorTransaction("Revalidate generated cavern", before, after);
+        refreshAutomaticGeneratorUi();
+        persistUi();
+        draw();
+        setStatus(validation.valid
+            ? `Validation revision ${stageRevisions.validation} passed with quality ${validation.qualityScore}/100.`
+            : `Validation revision ${stageRevisions.validation} found ${validation.errors.length} problem${validation.errors.length === 1 ? "" : "s"}.`, validation.valid);
+    }
+
+    function regenerateEncounterStage() {
+        const generation = normalizeLevelGeneration(state.level?.generation);
+        if (!generation) throw new Error("There is no generated cavern to repopulate.");
+        const blockers = stageRegenerationBlockedByManualRecords(["encounters"]);
+        if (blockers.length) throw new Error(`Encounter regeneration is blocked by manualized encounter record${blockers.length === 1 ? "" : "s"}: ${blockers.map((record) => record.id).join(", ")}. Full generation can preserve them as ordinary manual content.`);
+        const current = currentGenerationValidationRecords();
+        const currentEncounterEntities = current.entities.filter((record) => generationRecordStage(record) === "encounters");
+        const currentEncounterKey = JSON.stringify({
+            encounters: canonicalGeneratorValue(generation.encounters),
+            entities: generatorRecordSetKey(currentEncounterEntities)
+        });
+        const currentNonEncounterEntities = current.entities.filter((record) => generationRecordStage(record) !== "encounters");
+        const currentStructureKey = JSON.stringify({
+            placements: generatorRecordSetKey(current.placements),
+            entities: generatorRecordSetKey(currentNonEncounterEntities),
+            caveWindow: canonicalGeneratorValue(state.level.caveWindow),
+            world: canonicalGeneratorValue(state.level.world)
+        });
+        const baseRevisions = normalizeGeneratorStageRevisions(generation.stageRevisions);
+        let accepted = null;
+        let lastError = null;
+        for (let offset = 1; offset <= 12; offset += 1) {
+            try {
+                const stageRevisions = incrementGeneratorStageRevision(baseRevisions, "encounters", offset);
+                let draft = generateAutomaticLevelDraft(automaticGeneratorDraftOptions(generation, stageRevisions));
+                draft = replaceGeneratorRunIdentity(draft, draft.generation.runId, generation.runId);
+                const draftNonEncounterEntities = draft.entities.filter((record) => generationRecordStage(record) !== "encounters");
+                const draftStructureKey = JSON.stringify({
+                    placements: generatorRecordSetKey(draft.placements),
+                    entities: generatorRecordSetKey(draftNonEncounterEntities),
+                    caveWindow: canonicalGeneratorValue(draft.caveWindow),
+                    world: canonicalGeneratorValue(draft.world)
+                });
+                if (draftStructureKey !== currentStructureKey) {
+                    throw new Error("The current generated shell differs from its deterministic source. Revalidate it, convert intentional edits to manual ownership, or run a full generation before rerolling encounters.");
+                }
+                const candidateGeneration = cloneData(generation);
+                candidateGeneration.version = draft.generation.version;
+                candidateGeneration.stageRevisions = stageRevisions;
+                candidateGeneration.encounters = cloneData(draft.generation.encounters);
+                candidateGeneration.diagnostics = {
+                    ...(candidateGeneration.diagnostics || {}),
+                    encounters: cloneData(draft.generation.diagnostics?.encounters || {}),
+                    stageRegeneration: { stage: "encounters", revision: stageRevisions.encounters, candidatesTried: offset }
+                };
+                const candidateEncounterEntities = draft.entities.filter((record) => generationRecordStage(record) === "encounters").map(cloneData);
+                const candidateEncounterKey = JSON.stringify({
+                    encounters: canonicalGeneratorValue(candidateGeneration.encounters),
+                    entities: generatorRecordSetKey(candidateEncounterEntities)
+                });
+                if (candidateEncounterKey === currentEncounterKey) throw new Error("That encounter revision reproduced the current population exactly.");
+                const candidateEntities = [
+                    ...currentNonEncounterEntities.map(cloneData),
+                    ...candidateEncounterEntities
+                ];
+                const validation = validateAutomaticGenerationSnapshot(candidateGeneration, current.placements, candidateEntities, state.level.world);
+                if (!validation.valid) throw new Error(validation.errors.join(" "));
+                candidateGeneration.validation = validation;
+                accepted = { generation: candidateGeneration, entities: candidateEntities, stageRevisions, candidatesTried: offset };
+                break;
+            } catch (error) {
+                lastError = error;
+            }
+        }
+        if (!accepted) throw new Error(`No valid encounter reroll was found after 12 independent stage revisions. ${lastError?.message || lastError || ""}`.trim());
+        const before = captureAutomaticGenerationState();
+        state.level.entities = state.level.entities.filter((record) => !(automaticGeneratedRecord(record) && generationRecordStage(record) === "encounters"));
+        state.level.entities.push(...accepted.entities.filter((record) => generationRecordStage(record) === "encounters").map(cloneData));
+        state.level.generation = accepted.generation;
+        const graphResult = buildPlacedHunterNavigationGraphs({ silent: true, refreshUi: false });
+        const after = captureAutomaticGenerationState();
+        commitGeneratorTransaction("Regenerate encounters only", before, after);
+        refreshAutomaticGeneratorUi();
+        persistUi();
+        draw();
+        const enemyCount = accepted.generation.validation?.metrics?.enemyCount || 0;
+        setStatus(`Regenerated encounters at stage revision ${accepted.stageRevisions.encounters} without changing route, terrain, endpoints, or rewards: ${enemyCount} enemies.${graphResult.built ? ` Rebuilt ${graphResult.profiles} hunter navigation graph${graphResult.profiles === 1 ? "" : "s"}.` : ""}`);
+    }
+
+    function regenerateRewardStage() {
+        const generation = normalizeLevelGeneration(state.level?.generation);
+        if (!generation) throw new Error("There is no generated cavern whose rewards can be rerolled.");
+        const blockers = stageRegenerationBlockedByManualRecords(["rewards", "traversal", "endpoints"]);
+        if (blockers.length) throw new Error(`Reward regeneration is blocked by manualized dependent record${blockers.length === 1 ? "" : "s"}: ${blockers.map((record) => record.id).join(", ")}. Full generation can preserve them as ordinary manual content.`);
+        const current = currentGenerationValidationRecords();
+        const currentEncounterEntities = current.entities.filter((record) => generationRecordStage(record) === "encounters");
+        const currentRewardKey = JSON.stringify({
+            traversal: canonicalGeneratorValue(generation.traversal),
+            rewards: canonicalGeneratorValue(generation.rewards),
+            placements: generatorRecordSetKey(current.placements),
+            entities: generatorRecordSetKey(current.entities.filter((record) => generationRecordStage(record) !== "encounters"))
+        });
+        const baseRevisions = normalizeGeneratorStageRevisions(generation.stageRevisions);
+        let accepted = null;
+        let lastError = null;
+        for (let offset = 1; offset <= 16; offset += 1) {
+            try {
+                const stageRevisions = incrementGeneratorStageRevision(baseRevisions, "rewards", offset);
+                let draft = generateAutomaticLevelDraft(automaticGeneratorDraftOptions(generation, stageRevisions));
+                draft = replaceGeneratorRunIdentity(draft, draft.generation.runId, generation.runId);
+                const anchored = reanchorEncounterStage(generation, draft.generation, currentEncounterEntities);
+                const candidateGeneration = cloneData(draft.generation);
+                candidateGeneration.replacedLevelShell = cloneData(generation.replacedLevelShell);
+                candidateGeneration.encounters = anchored.encounters;
+                candidateGeneration.stageRevisions = stageRevisions;
+                candidateGeneration.diagnostics = {
+                    ...(candidateGeneration.diagnostics || {}),
+                    encounters: cloneData(generation.diagnostics?.encounters || candidateGeneration.diagnostics?.encounters || {}),
+                    stageRegeneration: { stage: "rewards", revision: stageRevisions.rewards, candidatesTried: offset }
+                };
+                const endpointAndRewardEntities = draft.entities.filter((record) => generationRecordStage(record) !== "encounters");
+                const candidateRewardKey = JSON.stringify({
+                    traversal: canonicalGeneratorValue(candidateGeneration.traversal),
+                    rewards: canonicalGeneratorValue(candidateGeneration.rewards),
+                    placements: generatorRecordSetKey(draft.placements),
+                    entities: generatorRecordSetKey(endpointAndRewardEntities)
+                });
+                if (candidateRewardKey === currentRewardKey) throw new Error("That reward revision reproduced the current detours and rewards exactly.");
+                const candidateEntities = [...endpointAndRewardEntities.map(cloneData), ...anchored.entities.map(cloneData)];
+                const validation = validateAutomaticGenerationSnapshot(candidateGeneration, draft.placements, candidateEntities, draft.world);
+                if (!validation.valid) throw new Error(validation.errors.join(" "));
+                candidateGeneration.validation = validation;
+                accepted = {
+                    generation: candidateGeneration,
+                    placements: draft.placements,
+                    entities: candidateEntities,
+                    caveWindow: draft.caveWindow,
+                    world: draft.world,
+                    requiredAtlasIds: draft.requiredAtlasIds,
+                    stageRevisions,
+                    candidatesTried: offset
+                };
+                break;
+            } catch (error) {
+                lastError = error;
+            }
+        }
+        if (!accepted) throw new Error(`No reward-and-detour reroll could preserve the existing encounters after 16 independent stage revisions. ${lastError?.message || lastError || ""}`.trim());
+        const before = captureAutomaticGenerationState();
+        state.level.placements = state.level.placements.filter((record) => !generationValidationRecord(record, generation.runId));
+        state.level.entities = state.level.entities.filter((record) => !generationValidationRecord(record, generation.runId));
+        state.level.placements.push(...accepted.placements.map(cloneData));
+        state.level.entities.push(...accepted.entities.map(cloneData));
+        state.level.generation = accepted.generation;
+        state.level.caveWindow = normalizeCaveWindow(accepted.caveWindow);
+        state.level.world = cloneData(accepted.world);
+        ensureGeneratedAtlasRefs(accepted.requiredAtlasIds);
+        const graphResult = buildPlacedHunterNavigationGraphs({ silent: true, refreshUi: false });
+        const after = captureAutomaticGenerationState();
+        commitGeneratorTransaction("Regenerate rewards and branch detours", before, after);
+        syncMetadataToUi();
+        refreshAutomaticGeneratorUi();
+        persistUi();
+        draw();
+        const metrics = accepted.generation.validation?.metrics || {};
+        setStatus(`Regenerated rewards at stage revision ${accepted.stageRevisions.rewards}: ${metrics.materializedBranchCount || 0} treasure detours and ${metrics.rewardCount || 0} rewards. Existing encounters were preserved and re-anchored.${graphResult.built ? ` Rebuilt ${graphResult.profiles} hunter navigation graph${graphResult.profiles === 1 ? "" : "s"}.` : ""}`);
+    }
+
+    function regenerateAutomaticGeneratorStage() {
+        try {
+            const stage = els.generatorRegenerateStage?.value || "encounters";
+            if (stage === "validation") revalidateCurrentAutomaticGeneration();
+            else if (stage === "encounters") regenerateEncounterStage();
+            else if (stage === "rewards") regenerateRewardStage();
+            else throw new Error(`Unsupported stage regeneration “${stage}”.`);
+        } catch (error) {
+            els.generatorValidation.className = "small generator-validation error";
+            els.generatorValidation.textContent = error.message || String(error);
+            setStatus(`Could not regenerate the selected generator stage: ${error.message || error}`, false);
+        }
+    }
+
+    function generateAutomaticRoutePreview() {
+        try {
+            const existing = state.level.generation || state.level.placements.some(automaticGeneratedRecord) || state.level.entities.some(automaticGeneratedRecord);
+            if (existing && !window.confirm("Replace the existing automatically generated cavern/content? Manually authored objects will be preserved.")) return;
+            const manualLayoutCount = state.level.placements.filter((record) => !automaticGeneratedRecord(record)).length
+                + state.level.entities.filter((record) => !automaticGeneratedRecord(record)).length;
+            if (!existing && manualLayoutCount > 0 && !window.confirm("This level already contains manually authored objects. Generate a new cavern shell around them? The objects will be preserved, but they may overlap the generated route until you reposition them.")) return;
+            if (!state.generatorAssetCatalog.assets.length) throw new Error("The platform generation catalog is unavailable.");
+            const theme = currentGeneratorTheme();
+            const settings = readGeneratorSettingsControls();
+            const enemySelection = parseEnemySelection(settings.allowedEnemies, [...state.enemyCatalog.keys()]);
+            if (!enemySelection.valid) throw new Error(enemySelection.errors.join(" "));
+            const before = captureAutomaticGenerationState();
+            const previousShell = state.level.generation?.replacedLevelShell
+                ? cloneData(state.level.generation.replacedLevelShell)
+                : {
+                    world: cloneData(state.level.world),
+                    caveWindow: cloneData(state.level.caveWindow),
+                    atlasRefs: (state.level.atlasRefs || []).map(cloneData),
+                    navigationGraphs: cloneData(state.level.navigationGraphs || { version: 2, profiles: [] })
+                };
+            const draft = generateAutomaticLevelDraft({
+                theme,
+                assetCatalog: state.generatorAssetCatalog,
+                enemyGenerationCatalog: state.generatorEnemyCatalog,
+                rewardGenerationCatalog: state.generatorRewardCatalog,
+                enemyCatalog: Object.fromEntries(state.enemyCatalog),
+                entityCatalog: Object.fromEntries(state.entityCatalog),
+                seed: els.generatorSeed.value,
+                settings,
+                implementations: readGeneratorImplementationControls(),
+                availableEnemyIds: [...state.enemyCatalog.keys()],
+                destinationLevel: defaultNextLevelId(state.level.levelId)
+            });
+            removeAutomaticGeneratedRecords();
+            draft.generation.replacedLevelShell = previousShell;
+            state.level.generation = draft.generation;
+            state.level.placements.push(...draft.placements.map(cloneData));
+            state.level.entities.push(...draft.entities.map(cloneData));
+            state.level.caveWindow = normalizeCaveWindow(draft.caveWindow);
+            state.level.world = cloneData(draft.world);
+            ensureGeneratedAtlasRefs(draft.requiredAtlasIds);
+            state.level.colorMap = normalizeLevelColorMap(theme.colorMap);
+            const graphResult = buildPlacedHunterNavigationGraphs({ silent: true, refreshUi: false });
+            state.generatorLoadedRunId = draft.generation.runId;
+            const after = captureAutomaticGenerationState();
+            commitGeneratorTransaction("Generate playable cavern, encounters, and rewards", before, after);
+            refreshColorMappedAtlases({ redraw: false });
+            syncColorMapToUi();
+            syncMetadataToUi();
+            refreshAutomaticGeneratorUi();
+            persistUi();
+            fitGeneratedRoute();
+            const reservedBranches = draft.generation.route?.validation?.metrics?.branchCount || 0;
+            const enemyCount = draft.generation.encounters?.encounters?.reduce((sum, encounter) => sum + (encounter.groupSize || 0), 0) || 0;
+            const encounterCount = draft.generation.encounters?.encounters?.length || 0;
+            const rewardCount = draft.generation.rewards?.rewards?.length || 0;
+            const chestCount = draft.generation.rewards?.rewards?.filter((reward) => reward.entityType === "treasureChest").length || 0;
+            const materializedBranches = draft.generation.rewards?.selectedBranchIds?.length || 0;
+            const graphSummary = graphResult.built ? ` Rebuilt ${graphResult.profiles} hunter navigation graph${graphResult.profiles === 1 ? "" : "s"}.` : "";
+            setStatus(`Generated playable ${draft.generation.themeId} cavern ${draft.generation.runId} from seed “${draft.generation.seed}”: ${draft.placements.length} platforms, ${encounterCount} encounter${encounterCount === 1 ? "" : "s"} with ${enemyCount} enem${enemyCount === 1 ? "y" : "ies"}, ${rewardCount} reward${rewardCount === 1 ? "" : "s"} including ${chestCount} branch chest${chestCount === 1 ? "" : "s"}, ${materializedBranches} materialized of ${reservedBranches} optional branch${reservedBranches === 1 ? "" : "es"}, and 2 supported doors.${graphSummary}`);
+        } catch (error) {
+            els.generatorValidation.className = "small generator-validation error";
+            els.generatorValidation.textContent = error.message || String(error);
+            setStatus(`Could not generate playable cavern, encounters, and rewards: ${error.message || error}`, false);
+        }
+    }
+
+    function clearAutomaticGeneratedContent() {
+        const hasGenerated = Boolean(state.level.generation)
+            || state.level.placements.some(automaticGeneratedRecord)
+            || state.level.entities.some(automaticGeneratedRecord);
+        if (!hasGenerated) {
+            setStatus("There is no Automatic Level Generator content to clear.", false);
+            return;
+        }
+        const before = captureAutomaticGenerationState();
+        const baseline = state.level.generation?.replacedLevelShell ? cloneData(state.level.generation.replacedLevelShell) : null;
+        const removed = removeAutomaticGeneratedRecords();
+        delete state.level.generation;
+        if (baseline?.world) state.level.world = cloneData(baseline.world);
+        if (baseline?.caveWindow) state.level.caveWindow = normalizeCaveWindow(baseline.caveWindow);
+        if (Array.isArray(baseline?.atlasRefs)) state.level.atlasRefs = baseline.atlasRefs.map(cloneData);
+        if (baseline?.navigationGraphs) state.level.navigationGraphs = cloneData(baseline.navigationGraphs);
+        else state.level.navigationGraphs = { version: 2, profiles: [] };
+        state.generatorLoadedRunId = "";
+        const after = captureAutomaticGenerationState();
+        commitGeneratorTransaction("Clear automatic generated content", before, after);
+        syncMetadataToUi();
+        refreshAutomaticGeneratorUi();
+        persistUi();
+        setStatus(`Cleared the generated cavern${removed ? ` and ${removed} generated record${removed === 1 ? "" : "s"}` : ""}; manual content and the previous level shell were preserved.`);
+    }
+
+    function fitGeneratedRoute() {
+        const bounds = automaticLevelDraftBounds(state.level?.generation, 120);
+        if (!bounds || !fitEditorBounds(bounds, 1.18)) {
+            setStatus("There is no generated cavern to frame.", false);
+        }
+    }
+
+    function refreshAutomaticGeneratorUi() {
+        if (!els.generatorStatus) return;
+        const generation = normalizeLevelGeneration(state.level?.generation);
+        if (generation && generation.runId !== state.generatorLoadedRunId) {
+            loadGeneratorControlsFromLevel();
+            return;
+        }
+        const route = generation?.route;
+        const validation = generation?.validation || route?.validation;
+        if (!generation || !route) {
+            els.generatorStatus.textContent = "No generated cavern.";
+            els.generatorValidation.className = "small generator-validation";
+            els.generatorValidation.textContent = "Generate a cavern to see route, traversal, endpoint, encounter, reward, and envelope diagnostics.";
+            els.generatorFitRoute.disabled = true;
+            els.generatorClear.disabled = true;
+            els.generatorRegenerate.disabled = true;
+        } else {
+            const metrics = validation?.metrics || {};
+            const routeMetrics = route?.validation?.metrics || {};
+            els.generatorStatus.textContent = [
+                `${generation.runId} · ${generation.themeId} · seed “${generation.seed}”`,
+                `${routeMetrics.mainNodeCount || 0} mandatory route nodes; ${routeMetrics.branchCount || 0} reserved branch${routeMetrics.branchCount === 1 ? "" : "es"} with ${routeMetrics.optionalNodeCount || 0} optional route nodes`,
+                `${metrics.platformCount || 0} generated platforms, ${metrics.mandatoryTransitionCount || 0} mandatory transitions, ${metrics.materializedBranchCount || 0} treasure detour${metrics.materializedBranchCount === 1 ? "" : "s"}, 2 supported doors, ${metrics.cavePointCount || 0} cave controls`,
+                `${metrics.encounterCount || 0} encounter${metrics.encounterCount === 1 ? "" : "s"}, ${metrics.enemyCount || 0} enem${metrics.enemyCount === 1 ? "y" : "ies"}, ${metrics.bombingBatGroups || 0} bat group${metrics.bombingBatGroups === 1 ? "" : "s"}, ${metrics.hunterCount || 0} hunter${metrics.hunterCount === 1 ? "" : "s"}`,
+                `${metrics.rewardCount || 0} reward${metrics.rewardCount === 1 ? "" : "s"}: ${metrics.chestCount || 0} branch chest${metrics.chestCount === 1 ? "" : "s"}, ${metrics.powerUpCount || 0} power-up${metrics.powerUpCount === 1 ? "" : "s"}, ${metrics.utilityCount || 0} fuel cache${metrics.utilityCount === 1 ? "" : "s"}, ${metrics.thoughtCount || 0} location thought${metrics.thoughtCount === 1 ? "" : "s"}`,
+                `Stage revisions · encounters ${generation.stageRevisions?.encounters || 0} · rewards ${generation.stageRevisions?.rewards || 0} · validation ${generation.stageRevisions?.validation || 0}`,
+                `Selected deterministic attempt ${generation.attempt} of ${generation.attemptsTried}; inspected ${generation.diagnostics?.geometryCandidatesTried || 1} geometry candidate${generation.diagnostics?.geometryCandidatesTried === 1 ? "" : "s"}; quality ${validation?.qualityScore ?? 0}/100`
+            ].join("\n");
+            const warningText = (validation?.warnings || []).length ? ` Warnings: ${validation.warnings.join(" ")}` : "";
+            els.generatorValidation.className = `small generator-validation ${validation?.valid ? "ok" : "error"}`;
+            els.generatorValidation.textContent = validation?.valid
+                ? `Playable rewarded cavern valid. Traversal, authored walkable edges, supported endpoints, calm zones, enemy space, branch return paths, treasure destinations, contextual reward spacing, cave containment, and world bounds passed.${warningText}`
+                : `Generated cavern invalid: ${(validation?.errors || []).join(" ")}`;
+            els.generatorFitRoute.disabled = false;
+            els.generatorClear.disabled = false;
+            els.generatorRegenerate.disabled = false;
+        }
+        els.generatorUndo.disabled = state.generatorHistory.undo.length === 0;
+        els.generatorRedo.disabled = state.generatorHistory.redo.length === 0;
+        refreshGeneratorRangeOutputs();
+        refreshGeneratorEnemyPreview();
+        refreshGeneratorOwnershipUi();
+    }
+
+    function drawAutomaticRouteOverlay() {
+        if (!els.generatorShowRoute?.checked) return;
+        const generation = state.level?.generation;
+        const route = generation?.route;
+        if (!route || !Array.isArray(route.nodes) || !Array.isArray(route.edges)) return;
+        const nodes = new Map(route.nodes.map((node) => [node.id, node]));
+        const materializedBranches = new Set(generation.rewards?.selectedBranchIds || generation.traversal?.materializedBranchIds || []);
+        const previewOnlyMerges = new Set(generation.traversal?.previewOnlyMergeEdgeIds || []);
+        ctx.save();
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        for (const edge of route.edges) {
+            const a = nodes.get(edge.from);
+            const b = nodes.get(edge.to);
+            if (!a || !b) continue;
+            const start = worldToScreen(a.x, a.y);
+            const end = worldToScreen(b.x, b.y);
+            const mandatory = edge.mandatory !== false;
+            const materialized = !mandatory && materializedBranches.has(edge.branchId) && !previewOnlyMerges.has(edge.id);
+            const previewMerge = previewOnlyMerges.has(edge.id);
+            if (materialized) continue;
+            const color = mandatory
+                ? "rgba(86,230,255,0.88)"
+                : previewMerge
+                    ? "rgba(255,225,94,0.38)"
+                    : "rgba(255,225,94,0.78)";
+            ctx.strokeStyle = color;
+            ctx.lineWidth = mandatory ? 4 : 3;
+            ctx.setLineDash(mandatory ? [] : previewMerge ? [3, 9] : [9, 7]);
+            ctx.beginPath();
+            ctx.moveTo(start.x, start.y);
+            ctx.lineTo(end.x, end.y);
+            ctx.stroke();
+            drawRouteArrow(start, end, color);
+        }
+        const traversalSupports = new Map((generation.traversal?.supports || []).map((support) => [support.id, support]));
+        const branchColor = "rgba(255,174,65,0.98)";
+        ctx.setLineDash([]);
+        ctx.strokeStyle = branchColor;
+        ctx.lineWidth = 4;
+        for (const transition of generation.traversal?.transitions || []) {
+            if (!transition.branchId || !materializedBranches.has(transition.branchId)) continue;
+            const from = traversalSupports.get(transition.fromSupportId);
+            const to = traversalSupports.get(transition.toSupportId);
+            if (!from || !to) continue;
+            const start = worldToScreen(from.centerX, from.surfaceY);
+            const end = worldToScreen(to.centerX, to.surfaceY);
+            ctx.beginPath();
+            ctx.moveTo(start.x, start.y);
+            ctx.lineTo(end.x, end.y);
+            ctx.stroke();
+            drawRouteArrow(start, end, branchColor);
+        }
+        for (const support of generation.traversal?.supports || []) {
+            if (!support.branchId || !materializedBranches.has(support.branchId)) continue;
+            const point = worldToScreen(support.centerX, support.surfaceY);
+            ctx.fillStyle = branchColor;
+            ctx.strokeStyle = "rgba(10,8,16,0.94)";
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, support.role === "landingPlatform" ? 6.5 : 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            if (els.showLabels.checked) {
+                const label = support.routeNodeId || support.id;
+                drawLabel(label, support.centerX + 12 / state.camera.zoom, support.surfaceY - 10 / state.camera.zoom, branchColor);
+            }
+        }
+        ctx.setLineDash([]);
+        for (const node of route.nodes) {
+            if (!node.mandatory && materializedBranches.has(node.branchId)) continue;
+            const point = worldToScreen(node.x, node.y);
+            const radius = node.kind === "entrance" || node.kind === "exit" ? 10 : (node.mandatory ? 7 : 6);
+            const materialized = !node.mandatory && materializedBranches.has(node.branchId);
+            ctx.fillStyle = node.kind === "entrance"
+                ? "rgba(88,255,158,0.98)"
+                : node.kind === "exit"
+                    ? "rgba(255,112,214,0.98)"
+                    : node.mandatory
+                        ? "rgba(86,230,255,0.98)"
+                        : materialized
+                            ? "rgba(255,174,65,0.98)"
+                            : "rgba(255,225,94,0.78)";
+            ctx.strokeStyle = "rgba(10,8,16,0.94)";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            if (els.showLabels.checked) {
+                const label = node.kind === "entrance" ? "START" : node.kind === "exit" ? "EXIT" : (node.label || node.id);
+                drawLabel(label, node.x + 14 / state.camera.zoom, node.y - 12 / state.camera.zoom, ctx.fillStyle);
+            }
+        }
+        ctx.restore();
+    }
+
+    function drawAutomaticValidationOverlay() {
+        if (!els.generatorShowValidation?.checked) return;
+        const overlay = buildAutomaticLevelValidationOverlay(state.level?.generation);
+        if (!overlay) return;
+        ctx.save();
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+
+        for (const zone of overlay.calmZones || []) {
+            const center = worldToScreen(zone.x, zone.y);
+            const radius = Math.max(0, zone.radius * state.camera.zoom);
+            ctx.fillStyle = zone.role === "entrance" ? "rgba(110,145,255,0.07)" : "rgba(255,112,214,0.06)";
+            ctx.strokeStyle = zone.role === "entrance" ? "rgba(142,167,255,0.72)" : "rgba(255,142,224,0.68)";
+            ctx.lineWidth = 2;
+            ctx.setLineDash([8, 8]);
+            ctx.beginPath();
+            ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            if (els.showLabels.checked) drawLabel(`${zone.role} calm ${Math.round(zone.radius)}`, zone.x, zone.y - zone.radius, ctx.strokeStyle);
+        }
+
+        for (const shaft of overlay.branchShafts || []) {
+            const top = Math.min(shaft.topY, shaft.bottomY);
+            const bottom = Math.max(shaft.topY, shaft.bottomY);
+            const a = worldToScreen(shaft.leftX, top);
+            const b = worldToScreen(shaft.rightX, bottom);
+            ctx.fillStyle = shaft.valid ? "rgba(255,174,65,0.09)" : "rgba(255,79,97,0.16)";
+            ctx.strokeStyle = shaft.valid ? "rgba(255,174,65,0.74)" : "rgba(255,79,97,0.94)";
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
+            ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y);
+        }
+
+        ctx.setLineDash([]);
+        for (const support of overlay.supports || []) {
+            const a = worldToScreen(support.x1, support.y);
+            const b = worldToScreen(support.x2, support.y);
+            ctx.strokeStyle = support.branchId ? "rgba(255,174,65,0.95)" : support.mandatory ? "rgba(88,255,158,0.92)" : "rgba(255,225,94,0.78)";
+            ctx.lineWidth = support.role === "doorSupport" ? 7 : 5;
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.stroke();
+            ctx.fillStyle = ctx.strokeStyle;
+            ctx.beginPath();
+            ctx.arc((a.x + b.x) * 0.5, (a.y + b.y) * 0.5, 3.5, 0, Math.PI * 2);
+            ctx.fill();
+            if (els.showLabels.checked && state.camera.zoom >= 0.24) {
+                drawLabel(`${support.role} ${Math.round(support.walkableWidth)}`, support.centerX, support.y - 7 / state.camera.zoom, ctx.strokeStyle);
+            }
+        }
+
+        for (const transition of overlay.transitions || []) {
+            const a = worldToScreen(transition.x1, transition.y1);
+            const b = worldToScreen(transition.x2, transition.y2);
+            const color = transition.valid ? (transition.branchId ? "rgba(255,174,65,0.72)" : "rgba(88,255,158,0.64)") : "rgba(255,79,97,0.98)";
+            ctx.strokeStyle = color;
+            ctx.lineWidth = transition.valid ? 1.5 : 4;
+            ctx.setLineDash(transition.valid ? [4, 7] : []);
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            const arch = Math.min(90 * state.camera.zoom, Math.abs(b.x - a.x) * 0.18 + 14);
+            ctx.quadraticCurveTo((a.x + b.x) * 0.5, Math.min(a.y, b.y) - arch, b.x, b.y);
+            ctx.stroke();
+            if (els.showLabels.checked && (!transition.valid || state.camera.zoom >= 0.34)) {
+                const label = `gap ${Math.round(transition.gap)} · rise ${Math.round(transition.rise)} · drop ${Math.round(transition.drop)}`;
+                drawLabel(label, (transition.x1 + transition.x2) * 0.5, Math.min(transition.y1, transition.y2) - 36 / state.camera.zoom, color);
+            }
+        }
+
+        ctx.setLineDash([]);
+        for (const encounter of overlay.encounters || []) {
+            const point = worldToScreen(encounter.x, encounter.y);
+            ctx.strokeStyle = "rgba(201,167,255,0.9)";
+            ctx.fillStyle = "rgba(201,167,255,0.12)";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, Math.max(8, 18 + encounter.groupSize * 3), 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        }
+        for (const reward of overlay.rewards || []) {
+            const point = worldToScreen(reward.x, reward.y);
+            ctx.strokeStyle = "rgba(255,225,94,0.94)";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(point.x - 7, point.y);
+            ctx.lineTo(point.x + 7, point.y);
+            ctx.moveTo(point.x, point.y - 7);
+            ctx.lineTo(point.x, point.y + 7);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    function drawRouteArrow(start, end, color) {
+        const dx = end.x - start.x;
+        const dy = end.y - start.y;
+        const length = Math.hypot(dx, dy);
+        if (length < 30) return;
+        const ux = dx / length;
+        const uy = dy / length;
+        const x = start.x + dx * 0.62;
+        const y = start.y + dy * 0.62;
+        const size = 8;
+        ctx.save();
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(x + ux * size, y + uy * size);
+        ctx.lineTo(x - ux * size - uy * size * 0.7, y - uy * size + ux * size * 0.7);
+        ctx.lineTo(x - ux * size + uy * size * 0.7, y - uy * size - ux * size * 0.7);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+    }
+
     function readColorMapControls() {
         return normalizeLevelColorMap({
             enabled: els.colorMapEnabled.checked,
             sourceHue: els.colorMapSource.value,
             range: els.colorMapRange.value,
             feather: els.colorMapFeather.value,
-            rotation: els.colorMapRotation.value
+            rotation: els.colorMapRotation.value,
+            atlasIds: state.level?.colorMap?.atlasIds || []
         });
     }
 
@@ -4136,8 +5498,9 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
         els.colorMapTargetChip.style.background = `hsl(${targetHue} 78% 52%)`;
         els.colorMapSourceChip.title = `Source hue ${Math.round(colorMap.sourceHue)}°`;
         els.colorMapTargetChip.title = `Target hue ${Math.round(targetHue)}°`;
+        const atlasScope = colorMap.atlasIds.length ? `; ${colorMap.atlasIds.length} environment atlas${colorMap.atlasIds.length === 1 ? "" : "es"}` : "";
         els.colorMapStatus.textContent = colorMap.enabled && Math.abs(colorMap.rotation) > 0.0001
-            ? `${Math.round(colorMap.range)}° around ${Math.round(colorMap.sourceHue)}°, feather ${Math.round(colorMap.feather)}°, rotate ${Math.round(colorMap.rotation)}°`
+            ? `${Math.round(colorMap.range)}° around ${Math.round(colorMap.sourceHue)}°, feather ${Math.round(colorMap.feather)}°, rotate ${Math.round(colorMap.rotation)}°${atlasScope}`
             : "Original atlas colours";
     }
 
@@ -4196,6 +5559,7 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
         syncColorMapToUi();
         refreshCaveWindowUi();
         refreshNavigationGraphUi();
+        refreshAutomaticGeneratorUi();
     }
 
     function refreshLevelAtlasRefs() {
@@ -4514,10 +5878,36 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
     }
     els.quickEntity.addEventListener("change", updateEntityPalette);
 
+    els.generatorTheme.addEventListener("change", () => applyGeneratorThemeDefaults(els.generatorTheme.value, { preserveSeed: true }));
+    els.generatorRandomizeSeed.addEventListener("click", () => {
+        const values = new Uint32Array(2);
+        if (globalThis.crypto?.getRandomValues) globalThis.crypto.getRandomValues(values);
+        else {
+            values[0] = Date.now() >>> 0;
+            values[1] = Math.floor(Math.random() * 0xffffffff) >>> 0;
+        }
+        els.generatorSeed.value = `${values[0].toString(36)}-${values[1].toString(36)}`;
+    });
+    for (const [input] of generatorRangeBindings()) input?.addEventListener("input", refreshGeneratorRangeOutputs);
+    els.generatorEnemyFilter.addEventListener("input", refreshGeneratorEnemyPreview);
+    els.generatorGenerate.addEventListener("click", generateAutomaticRoutePreview);
+    els.generatorRegenerate.addEventListener("click", regenerateAutomaticGeneratorStage);
+    els.generatorLockSelected.addEventListener("click", () => setSelectedGeneratedLock(true));
+    els.generatorUnlockSelected.addEventListener("click", () => setSelectedGeneratedLock(false));
+    els.generatorManualizeSelected.addEventListener("click", manualizeSelectedGeneratedRecord);
+    els.generatorFitRoute.addEventListener("click", fitGeneratedRoute);
+    els.generatorClear.addEventListener("click", clearAutomaticGeneratedContent);
+    els.generatorUndo.addEventListener("click", undoAutomaticGeneration);
+    els.generatorRedo.addEventListener("click", redoAutomaticGeneration);
+    els.generatorShowRoute.addEventListener("change", draw);
+    els.generatorShowValidation.addEventListener("change", draw);
+
     els.assetSearch.addEventListener("input", renderAssetList);
     els.assetAtlas?.addEventListener("change", () => setActiveAtlas(els.assetAtlas.value));
     document.getElementById("new-level").addEventListener("click", () => {
         state.level = makeEmptyLevel();
+        state.generatorLoadedRunId = "";
+        state.generatorHistory = { undo: [], redo: [] };
         state.selectedCavePointId = "";
         state.selectedId = state.level.entities[0]?.id || state.level.placements[0]?.id || "";
         refreshColorMappedAtlases({ redraw: false });
@@ -4615,6 +6005,8 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
         if (!file) return;
         try {
             state.level = normalizeLevelDefaults(JSON.parse(await file.text()));
+            state.generatorHistory = { undo: [], redo: [] };
+            state.generatorLoadedRunId = "";
             state.selectedCavePointId = "";
             await ensureAtlasesForLevel(state.level);
             normalizeLoadedLevelPlacements();
@@ -4660,6 +6052,8 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
             return;
         }
         state.level = normalizeLevelDefaults(JSON.parse(saved));
+        state.generatorHistory = { undo: [], redo: [] };
+        state.generatorLoadedRunId = "";
         state.selectedCavePointId = "";
         ensureAtlasesForLevel(state.level).finally(() => {
             normalizeLoadedLevelPlacements();
@@ -4684,6 +6078,10 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
         await loadAtlasLibrary();
         await loadEntityCatalog();
         await loadEnemyCatalog();
+        await loadAutomaticGeneratorAssetCatalog();
+        await loadAutomaticGeneratorEnemyCatalog();
+        await loadAutomaticGeneratorRewardCatalog();
+        await loadAutomaticGeneratorThemes();
         const levelCount = await scanAvailableLevels();
         if (levelCount > 0) {
             try {

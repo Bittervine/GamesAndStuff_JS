@@ -1,7 +1,7 @@
 {
   "meta": {
-    "version": 7,
-    "note": "Revision 227 refines treasure chests: compact open-loot presentation, pixel-aligned open states, and a Score-first collection flow."
+    "version": 8,
+    "note": "Revision 237 adds an invisible, one-shot location thought trigger for explicitly enabled generated narrative beats."
   },
   "catalogId": "it_entities_001",
   "atlasRefs": [
@@ -87,6 +87,35 @@
               "layer": "decorFront"
             }
           ]
+        }
+      }
+    },
+    "thoughtTrigger": {
+      "type": "thoughtTrigger",
+      "label": "Location thought trigger",
+      "icon": "💭",
+      "description": "Invisible one-shot region that pauses play and shows an Ignatius thought bubble when entered.",
+      "defaultState": "available",
+      "defaultSize": {
+        "w": 120,
+        "h": 160
+      },
+      "defaults": {
+        "interaction": "locationThought",
+        "triggerDistance": 96,
+        "verticalTolerance": 150,
+        "thoughtAtlasId": "it_atlas_001",
+        "thoughtAssetId": "thought_bubble_large",
+        "thoughtText": "This seems worth remembering."
+      },
+      "states": {
+        "available": {
+          "label": "Available",
+          "visuals": []
+        },
+        "consumed": {
+          "label": "Consumed",
+          "visuals": []
         }
       }
     },

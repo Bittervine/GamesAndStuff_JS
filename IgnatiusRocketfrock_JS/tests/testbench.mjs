@@ -54,11 +54,37 @@ import {
     setFullscreenState
 } from "../src/browser/electron-window-bridge.js";
 import {
+    colorMapAppliesToAtlas,
     colorMapCacheKey,
     normalizeLevelColorMap,
     remapRgb,
     selectiveHueWeight
 } from "../src/shared/level-color-map-data.js";
+import {
+    AUTOMATIC_LEVEL_GENERATOR_ID,
+    LEVEL_GENERATOR_REGISTRIES,
+    automaticLevelDraftBounds,
+    buildAutomaticLevelValidationOverlay,
+    createNamedRandomStream,
+    generateAutomaticLevelDraft,
+    generateAutomaticLevelRoute,
+    generatorStageStreamName,
+    incrementGeneratorStageRevision,
+    normalizeGenerationAssetCatalog,
+    normalizeEnemyGenerationCatalog,
+    normalizeRewardGenerationCatalog,
+    normalizeGeneratorStageRevisions,
+    normalizeGeneratorTheme,
+    normalizeLevelGeneration,
+    parseEnemySelection,
+    reanchorGeneratedEncounterStage,
+    routeGraphBounds,
+    validateGeneratedEncounters,
+    validateAutomaticLevelDraftSnapshot,
+    validateGeneratedRewards,
+    validatePlayableEmptyCavern,
+    validateRouteGraph
+} from "../src/shared/level-generator-data.js";
 import {
     caveSplineSegmentControls,
     caveWindowBounds,
@@ -3775,6 +3801,12 @@ function testSelectiveLevelColorMap() {
     assert.deepEqual(remapRgb(0, 0, 255, colorMap), [0, 0, 255], "blue outside the selected range should remain blue");
     assert.deepEqual(remapRgb(128, 128, 128, colorMap), [128, 128, 128], "neutral greys should remain unchanged");
 
+    const scopedColorMap = normalizeLevelColorMap({ ...colorMap, atlasIds: ["at_atlas_003", "at_atlas_001", "at_atlas_001"] });
+    assert.deepEqual(scopedColorMap.atlasIds, ["at_atlas_001", "at_atlas_003"], "colour-map atlas allowlists should normalize, deduplicate, and sort");
+    assert.equal(colorMapAppliesToAtlas(scopedColorMap, "at_atlas_001"), true, "allowlisted environment atlases should be recoloured");
+    assert.equal(colorMapAppliesToAtlas(scopedColorMap, "it_atlas_001"), false, "interactive-item atlases should remain authored when omitted from the allowlist");
+    assert.equal(colorMapCacheKey(scopedColorMap), "1:0:30:15:120:at_atlas_001,at_atlas_003", "atlas scope should participate in the colour cache key");
+
     const levelEditorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     assert.ok(levelEditorHtml.includes('id="color-map-enabled"'), "level editor should expose the level colour-map panel");
     assert.ok(levelEditorHtml.includes("createColorMappedCanvas"), "level editor should build cached recoloured atlases");
@@ -3785,6 +3817,600 @@ function testSelectiveLevelColorMap() {
     assert.ok(gameSource.includes("renderer.syncEnvironmentColorMap(gameState.world.colorMap)"), "runtime should build the colour cache during level startup");
     assert.ok(!rendererSource.includes("this.syncEnvironmentColorMap(state.world?.colorMap)"), "normal render frames should not rebuild or rescan colour caches");
 }
+
+function testAutomaticLevelGeneratorRouteFoundation() {
+    const earthTheme = normalizeGeneratorTheme(JSON.parse(readFileSync(new URL("../assets/level-generator-themes/earth-cavern.json", import.meta.url), "utf8")));
+    const iceTheme = normalizeGeneratorTheme(JSON.parse(readFileSync(new URL("../assets/level-generator-themes/ice-cavern.json", import.meta.url), "utf8")));
+    assert.equal(earthTheme.themeId, "earth-cavern", "Earth Cavern should remain a data-driven generator theme");
+    assert.equal(iceTheme.themeId, "ice-cavern", "Ice Cavern should remain a data-driven generator theme");
+    assert.deepEqual(iceTheme.colorMap.atlasIds, ["at_atlas_001", "at_atlas_002", "at_atlas_003"], "Ice Cavern should recolour only environment atlases");
+    assert.ok(!iceTheme.colorMap.atlasIds.includes("it_atlas_001"), "Ice Cavern must not recolour doors, chests, mailboxes, or power-up icons");
+    assert.ok(LEVEL_GENERATOR_REGISTRIES.route.some((entry) => entry.id === "progression-route-v1"), "the route implementation should be registered by stable ID");
+
+    const firstStream = createNamedRandomStream("seed-17", "route", 3);
+    const secondStream = createNamedRandomStream("seed-17", "route", 3);
+    const encounterStream = createNamedRandomStream("seed-17", "encounters", 3);
+    const firstValues = [firstStream.float(), firstStream.float(), firstStream.float()];
+    assert.deepEqual(firstValues, [secondStream.float(), secondStream.float(), secondStream.float()], "named random streams should reproduce exactly");
+    assert.notDeepEqual(firstValues, [encounterStream.float(), encounterStream.float(), encounterStream.float()], "different generator stages should use independent named streams");
+
+    const enemyIds = ["enemy_001", "enemy_002", "enemy_003", "enemy_005"];
+    const selection = parseEnemySelection("1-999,!2,!4", enemyIds);
+    assert.equal(selection.valid, true, "enemy range and exclusion syntax should parse");
+    assert.deepEqual(selection.resolvedIds, ["enemy_001", "enemy_003", "enemy_005"], "enemy selection should resolve only catalog entries and exclusions");
+    assert.equal(parseEnemySelection("5-2", enemyIds).valid, false, "backwards enemy ranges should be rejected visibly");
+
+    const settings = {
+        ...earthTheme.defaults,
+        length: "extended",
+        verticality: 0.66,
+        winding: 0.58,
+        branching: 1,
+        allowedEnemies: "1-999,!2"
+    };
+    const firstRun = generateAutomaticLevelRoute({ theme: earthTheme, seed: "rocketfrock-route", settings, availableEnemyIds: enemyIds });
+    const repeatedRun = generateAutomaticLevelRoute({ theme: earthTheme, seed: "rocketfrock-route", settings, availableEnemyIds: enemyIds });
+    assert.deepEqual(repeatedRun, firstRun, "the same seed, theme, settings, and generator version should reproduce the complete route draft");
+    const changedRun = generateAutomaticLevelRoute({ theme: earthTheme, seed: "rocketfrock-route-2", settings, availableEnemyIds: enemyIds });
+    assert.notDeepEqual(changedRun.route.nodes, firstRun.route.nodes, "changing the seed should change the route candidate");
+    assert.equal(firstRun.generatorId, AUTOMATIC_LEVEL_GENERATOR_ID, "generation provenance should identify the current automatic generator");
+    assert.equal(firstRun.validation.valid, true, "the selected route should pass validation");
+    assert.ok(firstRun.validation.qualityScore >= 80, `the selected route should clear the visual-quality floor, got ${firstRun.validation.qualityScore}`);
+    assert.ok(firstRun.validation.metrics.branchCount >= 3, "maximum branching on an extended route should create several optional branches");
+    assert.ok(firstRun.attemptsTried >= 8 && firstRun.attempt >= 1, "the generator should evaluate deterministic candidates and record the selected attempt");
+    assert.deepEqual(firstRun.resolvedEnemyIds, ["enemy_001", "enemy_003", "enemy_005"], "generation provenance should store the resolved enemy filter");
+
+    const route = firstRun.route;
+    const exit = route.nodes.find((node) => node.id === route.exitNodeId);
+    assert.equal(exit.kind, "exit", "the route should end at an explicit exit node");
+    assert.equal(exit.x, Math.max(...route.nodes.map((node) => node.x)), "the exit should be the rightmost route node");
+    const mandatory = route.nodes.filter((node) => node.mandatory).sort((a, b) => a.progress - b.progress);
+    assert.equal(mandatory[0].id, route.startNodeId, "the mandatory route should begin at the entrance");
+    assert.equal(mandatory.at(-1).id, route.exitNodeId, "the mandatory route should finish at the exit");
+    for (let index = 0; index < mandatory.length - 1; index += 1) {
+        assert.ok(route.edges.some((edge) => edge.mandatory && edge.from === mandatory[index].id && edge.to === mandatory[index + 1].id), "mandatory route nodes should form one explicit progression chain");
+    }
+    const validation = validateRouteGraph(route, { settings, theme: earthTheme });
+    assert.equal(validation.valid, true, `standalone route validation should accept the generated graph: ${validation.errors.join(" ")}`);
+    assert.equal(validation.metrics.edgeCrossings, 0, "selected route connections should not cross");
+    const bounds = routeGraphBounds(route, 200);
+    assert.ok(bounds.w > 1000 && bounds.h > 400, "route preview bounds should frame a useful editor view");
+    const normalized = normalizeLevelGeneration(firstRun);
+    assert.equal(normalized.runId, firstRun.runId, "level generation metadata should survive level normalization");
+    assert.equal(normalized.route.nodes.length, firstRun.route.nodes.length, "route nodes should survive level normalization");
+
+    const stressSettings = [
+        { length: "compact", verticality: 0, winding: 0, branching: 0 },
+        { length: "standard", verticality: 1, winding: 0.25, branching: 0.4 },
+        { length: "extended", verticality: 0.55, winding: 1, branching: 0.7 },
+        { length: "grand", verticality: 0.8, winding: 0.8, branching: 1 }
+    ];
+    for (const theme of [earthTheme, iceTheme]) {
+        for (const overrides of stressSettings) {
+            for (let seed = 0; seed < 20; seed += 1) {
+                const run = generateAutomaticLevelRoute({
+                    theme,
+                    seed: `${theme.themeId}-${seed}`,
+                    settings: { ...theme.defaults, ...overrides },
+                    availableEnemyIds: enemyIds
+                });
+                assert.equal(run.validation.valid, true, `${theme.themeId} seed ${seed} should produce a valid selected route`);
+                assert.equal(run.validation.metrics.edgeCrossings, 0, `${theme.themeId} seed ${seed} should avoid crossing route edges`);
+                assert.ok(run.validation.qualityScore >= 80, `${theme.themeId} seed ${seed} should clear the route quality floor`);
+            }
+        }
+    }
+
+    const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    assert.ok(editorHtml.includes('id="generator-generate"') && editorHtml.includes("Generate cavern + encounters + rewards"), "Level Editor should expose the complete generator panel");
+    assert.ok(editorHtml.includes("drawAutomaticRouteOverlay"), "Level Editor should draw the progression route and direction overlay");
+    assert.ok(editorHtml.includes("undoAutomaticGeneration") && editorHtml.includes("redoAutomaticGeneration"), "generation should be one guarded undoable operation");
+    assert.ok(editorHtml.includes("automaticGeneratedRecord") && editorHtml.includes("manual content and the previous level shell were preserved"), "clear-generated behavior should distinguish generated records from manual content");
+}
+
+function testAutomaticLevelGeneratorPlayableEmptyCavern() {
+    const earthTheme = normalizeGeneratorTheme(JSON.parse(readFileSync(new URL("../assets/level-generator-themes/earth-cavern.json", import.meta.url), "utf8")));
+    const iceTheme = normalizeGeneratorTheme(JSON.parse(readFileSync(new URL("../assets/level-generator-themes/ice-cavern.json", import.meta.url), "utf8")));
+    const assetCatalog = normalizeGenerationAssetCatalog(JSON.parse(readFileSync(new URL("../assets/level-generator-platforms.json", import.meta.url), "utf8")));
+    const enemyIds = ["enemy_001", "enemy_003", "enemy_005"];
+    assert.ok(assetCatalog.assets.some((asset) => asset.roles.includes("doorSupport")), "the generation catalog should explicitly identify safe door supports");
+    assert.ok(assetCatalog.assets.some((asset) => asset.roles.includes("landingPlatform")), "the generation catalog should explicitly identify traversal landings");
+    assert.ok(assetCatalog.assets.every((asset) => Number.isFinite(asset.walkableLeftInsetRatio) && Number.isFinite(asset.walkableRightInsetRatio)), "generation assets should record their authored walkable collision edges");
+    assert.equal(assetCatalog.assets.find((asset) => asset.assetId === "ledge_small_flat")?.roles.includes("landingPlatform"), false, "the narrow line ledge should not be used on the mandatory route");
+
+    const options = {
+        theme: earthTheme,
+        assetCatalog,
+        seed: "playable-cavern-contract",
+        settings: { ...earthTheme.defaults, length: "extended", verticality: 0.72, winding: 0.65, branching: 0.8, safety: 1 },
+        implementations: { ...earthTheme.implementations, encounters: "not-generated-yet", rewards: "not-generated-yet", validation: "playable-empty-cavern-validation-v1" },
+        availableEnemyIds: enemyIds,
+        destinationLevel: "level_002"
+    };
+    const first = generateAutomaticLevelDraft(options);
+    const repeated = generateAutomaticLevelDraft(options);
+    assert.deepEqual(repeated, first, "the same inputs should reproduce the complete playable cavern draft");
+    assert.equal(first.generation.validation.valid, true, "the complete empty cavern should pass validation");
+    assert.ok(first.generation.validation.qualityScore >= 90, "the generated cavern should clear the Generator 1 quality floor");
+    assert.equal(first.entities.filter((entity) => entity.type === "wizard_entry_door").length, 1, "the cavern should contain one entrance door");
+    assert.equal(first.entities.filter((entity) => entity.type === "wizard_exit_door").length, 1, "the cavern should contain one exit door");
+    assert.ok(first.caveWindow.enabled && first.caveWindow.points.length >= 12, "the cavern should contain a closed editable cave envelope");
+    assert.equal(first.placements.length, first.generation.traversal.supports.length, "every support should own one collision-bearing placement");
+    assert.ok(first.placements.every((placement) => placement.generatedBy === AUTOMATIC_LEVEL_GENERATOR_ID && placement.collisionFromManifest !== false), "all generated platforms should carry provenance and authored collision");
+    assert.ok(first.entities.every((entity) => entity.generatedBy === AUTOMATIC_LEVEL_GENERATOR_ID), "generated doors should carry provenance");
+    assert.equal(first.generation.traversal.mandatorySupportPath[0], first.generation.traversal.startSupportId, "the support path should begin beneath the entrance");
+    assert.equal(first.generation.traversal.mandatorySupportPath.at(-1), first.generation.traversal.exitSupportId, "the support path should finish beneath the exit");
+    assert.ok(first.generation.traversal.transitions.filter((transition) => transition.mandatory).every((transition) => transition.valid), "every mandatory transition should fit the conservative movement envelope");
+    assert.ok(first.generation.traversal.supports.every((support) => !support.branchId), "Generator 1 should materialize no optional-branch supports");
+    assert.ok(first.generation.traversal.supports.filter((support) => support.role !== "recoveryPlatform").every((support) => support.mandatory), "all non-recovery supports should belong to the mandatory spine");
+    assert.equal(first.generation.traversal.reservedOptionalRouteNodeIds.length, first.generation.route.nodes.filter((node) => !node.mandatory).length, "optional route nodes should remain explicit reservations for the later reward slice");
+    assert.ok(first.generation.traversal.supports.every((support) => !support.mandatory || support.walkableWidth >= 180), "every mandatory support should expose a generous authored walkable top");
+    assert.ok(first.generation.traversal.transitions.every((transition) => transition.gap <= earthTheme.traversal.mandatoryGap + 0.01), "transition gaps should be measured between authored walkable edges");
+    assert.ok(first.generation.diagnostics.geometryCandidatesTried >= 6 && first.generation.diagnostics.validGeometryCandidates >= 1, "Generator 1 should inspect several deterministic geometry candidates rather than accept the first buildable draft");
+
+    const independentValidation = validatePlayableEmptyCavern({
+        route: first.generation.route,
+        traversal: { ...first.generation.traversal, placements: first.placements },
+        endpoints: { ...first.generation.endpoints, entities: first.entities },
+        cavern: first.generation.cavern,
+        world: first.world,
+        assetCatalog,
+        settings: first.generation.settings,
+        theme: earthTheme
+    });
+    assert.equal(independentValidation.valid, true, `standalone cavern validation should accept the draft: ${independentValidation.errors.join(" ")}`);
+    const bounds = automaticLevelDraftBounds(first.generation, 160);
+    assert.ok(bounds.w > 1600 && bounds.h > 600, "fit bounds should frame the generated cavern rather than only its route graph");
+
+    const shell = { world: { bounds: { x: 1, y: 2, w: 3, h: 4 }, resetY: 99 }, caveWindow: { enabled: false, points: [] }, atlasRefs: [] };
+    const normalized = normalizeLevelGeneration({ ...first.generation, replacedLevelShell: shell });
+    assert.deepEqual(normalized.replacedLevelShell, shell, "normalization should preserve the exact pre-generation level shell for guarded clearing and undo");
+    assert.ok(normalized.cavern && normalized.traversal && normalized.endpoints, "Generator 1 geometry metadata should survive level normalization");
+
+    const stressSettings = [
+        { length: "compact", verticality: 0, winding: 0, branching: 0, safety: 1 },
+        { length: "standard", verticality: 1, winding: 0.25, branching: 0.4, safety: 0.9 },
+        { length: "extended", verticality: 0.55, winding: 1, branching: 0.7, safety: 0.75 },
+        { length: "grand", verticality: 1, winding: 1, branching: 1, safety: 0.5 }
+    ];
+    for (const theme of [earthTheme, iceTheme]) {
+        for (const overrides of stressSettings) {
+            for (let seed = 0; seed < 30; seed += 1) {
+                const draft = generateAutomaticLevelDraft({
+                    theme,
+                    assetCatalog,
+                    seed: `${theme.themeId}-${overrides.length}-cavern-${seed}`,
+                    settings: { ...theme.defaults, ...overrides },
+                    implementations: { ...theme.implementations, encounters: "not-generated-yet", rewards: "not-generated-yet", validation: "playable-empty-cavern-validation-v1" },
+                    availableEnemyIds: enemyIds
+                });
+                const validation = draft.generation.validation;
+                assert.equal(validation.valid, true, `${theme.themeId} ${overrides.length} seed ${seed} should produce a valid empty cavern`);
+                assert.equal(validation.metrics.invalidMandatoryTransitions, 0, `${theme.themeId} seed ${seed} should keep every mandatory transition inside the movement envelope`);
+                assert.ok(validation.qualityScore >= 90, `${theme.themeId} seed ${seed} should clear the complete-cavern quality floor`);
+                assert.ok(draft.world.bounds.w >= draft.generation.cavern.bounds.w && draft.world.bounds.h >= draft.generation.cavern.bounds.h, "world bounds should contain the generated cave envelope");
+                assert.ok(draft.generation.traversal.supports.every((support) => !support.mandatory || support.walkableWidth >= 180), `${theme.themeId} seed ${seed} should avoid narrow mandatory landings`);
+                assert.ok(draft.generation.traversal.transitions.every((transition) => transition.gap <= theme.traversal.mandatoryGap + 0.01), `${theme.themeId} seed ${seed} should measure gaps from authored collision edges`);
+            }
+        }
+    }
+
+    const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    assert.ok(editorHtml.includes("generateAutomaticLevelDraft") && editorHtml.includes("level-generator-platforms.json"), "Level Editor should load the generation catalog and create complete cavern drafts");
+    assert.ok(editorHtml.includes("replacedLevelShell") && editorHtml.includes("previous level shell were preserved"), "generated-shell replacement should remain reversible without consuming manual content");
+    assert.ok(editorHtml.includes("Playable rewarded cavern valid"), "Level Editor should report combined route, traversal, endpoint, encounter, reward, cave, and world validation");
+    assert.ok(editorHtml.includes("Materialized treasure detour") && editorHtml.includes("Generator 3"), "the editor should distinguish reserved branches from materialized treasure detours");
+}
+
+function testAutomaticLevelGeneratorEncounters() {
+    const earthTheme = normalizeGeneratorTheme(JSON.parse(readFileSync(new URL("../assets/level-generator-themes/earth-cavern.json", import.meta.url), "utf8")));
+    const iceTheme = normalizeGeneratorTheme(JSON.parse(readFileSync(new URL("../assets/level-generator-themes/ice-cavern.json", import.meta.url), "utf8")));
+    const assetCatalog = normalizeGenerationAssetCatalog(JSON.parse(readFileSync(new URL("../assets/level-generator-platforms.json", import.meta.url), "utf8")));
+    const enemyGenerationCatalog = normalizeEnemyGenerationCatalog(JSON.parse(readFileSync(new URL("../assets/level-generator-enemies.json", import.meta.url), "utf8")));
+    const enemyCatalog = JSON.parse(readFileSync(new URL("../assets/ct_enemies_001.json", import.meta.url), "utf8"));
+    const enemyIds = Object.keys(enemyCatalog.enemies);
+    assert.equal(enemyGenerationCatalog.enemies.length, enemyIds.length, "every current enemy should have explicit generation metadata");
+    assert.ok(LEVEL_GENERATOR_REGISTRIES.encounters.some((entry) => entry.id === "difficulty-budgeted-encounters-v1"), "the encounter populator should be registered by stable ID");
+
+    const options = {
+        theme: earthTheme,
+        assetCatalog,
+        enemyGenerationCatalog,
+        enemyCatalog,
+        seed: "encounter-test-0",
+        settings: { ...earthTheme.defaults, length: "standard", enemyDensity: 0.58, difficulty: 0.48 },
+        implementations: { ...earthTheme.implementations, rewards: "not-generated-yet", validation: "playable-encounter-cavern-validation-v1" },
+        availableEnemyIds: enemyIds,
+        destinationLevel: "level_002"
+    };
+    const first = generateAutomaticLevelDraft(options);
+    const repeated = generateAutomaticLevelDraft(options);
+    assert.deepEqual(repeated, first, "the same seed should reproduce cavern geometry and encounter composition exactly");
+    const enemies = first.entities.filter((entity) => entity.type === "characterEnemy");
+    assert.ok(enemies.length >= 3, "a medium-density Standard cavern should contain several enemies");
+    assert.ok(first.generation.encounters.encounters.length >= 2, "encounters should be paced as groups rather than one undifferentiated enemy list");
+    assert.ok(first.generation.encounters.spentBudget <= first.generation.encounters.budget, "encounters must remain inside the deterministic difficulty budget");
+    assert.ok(enemies.every((entity) => entity.generatedBy === AUTOMATIC_LEVEL_GENERATOR_ID && entity.generationStage === "encounters"), "every generated enemy should carry run and stage provenance");
+    assert.ok(first.generation.validation.metrics.minimumEndpointDistance >= first.generation.encounters.calmDistance, "all enemies should remain outside both endpoint calm zones");
+    assert.ok(first.generation.validation.metrics.hunterCount >= 1, "the representative draft should exercise hunter navigation rebuilding");
+    for (const encounter of first.generation.encounters.encounters.filter((record) => record.enemyId === "enemy_005")) {
+        assert.ok(encounter.groupSize === 2 || encounter.groupSize === 3, "Bombing Bats should always be generated in groups of two or three");
+        const group = enemies.filter((enemy) => enemy.generationEncounterId === encounter.id).sort((a, b) => a.x - b.x);
+        for (let index = 1; index < group.length; index += 1) {
+            const spacing = group[index].x - group[index - 1].x;
+            assert.ok(spacing >= 78 && spacing <= 112, `bat spacing should support weak splash play, got ${spacing}`);
+        }
+    }
+    const independent = validateGeneratedEncounters({
+        encounters: first.generation.encounters,
+        entities: enemies,
+        traversal: first.generation.traversal,
+        endpoints: first.generation.endpoints,
+        cavern: first.generation.cavern,
+        theme: earthTheme,
+        settings: first.generation.settings,
+        resolvedEnemyIds: first.generation.resolvedEnemyIds,
+        enemyGenerationCatalog,
+        enemyCatalog
+    });
+    assert.equal(independent.valid, true, `standalone encounter validation should accept the selected draft: ${independent.errors.join(" ")}`);
+
+    const batOnly = generateAutomaticLevelDraft({
+        ...options,
+        seed: "bat-groups-only",
+        settings: { ...options.settings, allowedEnemies: "5", enemyDensity: 0.9, difficulty: 0.7 }
+    });
+    const batEnemies = batOnly.entities.filter((entity) => entity.type === "characterEnemy");
+    assert.ok(batEnemies.length >= 2 && batEnemies.every((enemy) => enemy.enemyCatalogId === "enemy_005"), "enemy filtering should permit a bat-only generated cavern");
+    assert.ok(batOnly.generation.encounters.encounters.every((encounter) => encounter.groupSize === 2 || encounter.groupSize === 3), "every bat-only encounter should preserve the two-or-three grouping rule");
+
+    const empty = generateAutomaticLevelDraft({
+        ...options,
+        seed: "zero-density",
+        settings: { ...options.settings, enemyDensity: 0 }
+    });
+    assert.equal(empty.entities.filter((entity) => entity.type === "characterEnemy").length, 0, "zero enemy density should produce no enemies while retaining the playable cavern");
+
+    const stressSettings = [
+        { length: "compact", enemyDensity: 0.2, difficulty: 0, safety: 1, allowedEnemies: "1-999" },
+        { length: "standard", enemyDensity: 0.5, difficulty: 0.45, safety: 0.75, allowedEnemies: "1-999,!3" },
+        { length: "extended", enemyDensity: 0.78, difficulty: 0.75, safety: 0.5, allowedEnemies: "1-999" },
+        { length: "grand", enemyDensity: 1, difficulty: 1, safety: 0.2, allowedEnemies: "1-999" }
+    ];
+    for (const theme of [earthTheme, iceTheme]) {
+        for (const overrides of stressSettings) {
+            for (let seed = 0; seed < 20; seed += 1) {
+                const draft = generateAutomaticLevelDraft({
+                    theme,
+                    assetCatalog,
+                    enemyGenerationCatalog,
+                    enemyCatalog,
+                    seed: `${theme.themeId}-${overrides.length}-encounters-${seed}`,
+                    settings: { ...theme.defaults, ...overrides },
+                    implementations: { ...theme.implementations, rewards: "not-generated-yet", validation: "playable-encounter-cavern-validation-v1" },
+                    availableEnemyIds: enemyIds
+                });
+                const validation = draft.generation.validation;
+                assert.equal(validation.valid, true, `${theme.themeId} ${overrides.length} seed ${seed} should generate collision-safe encounters`);
+                assert.equal(validation.metrics.invalidSpawnCount, 0, `${theme.themeId} seed ${seed} should fit every enemy inside the cave`);
+                assert.ok(validation.metrics.minimumEndpointDistance >= draft.generation.encounters.calmDistance || validation.metrics.enemyCount === 0, `${theme.themeId} seed ${seed} should preserve calm endpoint zones`);
+                assert.ok(draft.generation.encounters.spentBudget <= draft.generation.encounters.budget + 0.01, `${theme.themeId} seed ${seed} should stay inside its encounter budget`);
+                const generatedBats = draft.generation.encounters.encounters.filter((encounter) => encounter.enemyId === "enemy_005");
+                assert.ok(generatedBats.every((encounter) => encounter.groupSize === 2 || encounter.groupSize === 3), `${theme.themeId} seed ${seed} should never place a solitary Bombing Bat`);
+            }
+        }
+    }
+
+    const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    const generatorSource = readFileSync(new URL("../src/shared/level-generator-data.js", import.meta.url), "utf8");
+    assert.ok(editorHtml.includes("level-generator-enemies.json") && editorHtml.includes('data-generator-stage="encounters"') && generatorSource.includes("difficulty-budgeted-encounters-v1"), "Level Editor should load the versioned enemy-generation catalog and selected encounter implementation");
+    assert.ok(editorHtml.includes("buildPlacedHunterNavigationGraphs({ silent: true"), "generation should refresh navigation graphs after placing hunter enemies");
+    assert.ok(editorHtml.includes("navigationGraphs") && editorHtml.includes("replacedLevelShell"), "generation undo and clear should preserve the previous navigation graph shell");
+}
+
+
+function testAutomaticLevelGeneratorRewards() {
+    const earthRaw = JSON.parse(readFileSync(new URL("../assets/level-generator-themes/earth-cavern.json", import.meta.url), "utf8"));
+    const iceRaw = JSON.parse(readFileSync(new URL("../assets/level-generator-themes/ice-cavern.json", import.meta.url), "utf8"));
+    const earthTheme = normalizeGeneratorTheme(earthRaw);
+    const iceTheme = normalizeGeneratorTheme(iceRaw);
+    const assetCatalog = normalizeGenerationAssetCatalog(JSON.parse(readFileSync(new URL("../assets/level-generator-platforms.json", import.meta.url), "utf8")));
+    const enemyGenerationCatalog = normalizeEnemyGenerationCatalog(JSON.parse(readFileSync(new URL("../assets/level-generator-enemies.json", import.meta.url), "utf8")));
+    const rewardGenerationCatalog = normalizeRewardGenerationCatalog(JSON.parse(readFileSync(new URL("../assets/level-generator-rewards.json", import.meta.url), "utf8")));
+    const enemyCatalog = JSON.parse(readFileSync(new URL("../assets/ct_enemies_001.json", import.meta.url), "utf8"));
+    const entityCatalog = JSON.parse(readFileSync(new URL("../assets/it_entities_001.json", import.meta.url), "utf8"));
+    const enemyIds = Object.keys(enemyCatalog.enemies);
+    assert.ok(LEVEL_GENERATOR_REGISTRIES.rewards.some((entry) => entry.id === "basic-rewards-v1"), "the reward populator should be registered by stable ID");
+    assert.ok(rewardGenerationCatalog.rewards.some((entry) => entry.entityType === "treasureChest" && entry.contexts.includes("branchDestination")), "branch treasure should be described by versioned generation metadata");
+    assert.ok(entityCatalog.entities.thoughtTrigger, "the interactive entity catalog should define the invisible one-shot thought trigger");
+    const shaftBridgeAsset = assetCatalog.assets.find((entry) => entry.assetId === "rubble_long");
+    assert.ok(shaftBridgeAsset?.roles.includes("shaftBridge"), "the platform catalog should expose a collision-open shaft bridge role for treasure-detour entrances");
+    assert.ok(assetCatalog.assets.some((entry) => entry.assetId === "ledge_small_flat" && entry.roles.includes("branchStep")), "the platform catalog should expose a narrow authored foothold role for branch shafts");
+
+    const options = {
+        theme: earthTheme,
+        assetCatalog,
+        enemyGenerationCatalog,
+        rewardGenerationCatalog,
+        enemyCatalog,
+        entityCatalog,
+        seed: "reward-smoke",
+        settings: { ...earthTheme.defaults, length: "extended", branching: 0.82, rewardDensity: 0.72, enemyDensity: 0.58, difficulty: 0.52, allowThoughts: false },
+        availableEnemyIds: enemyIds,
+        destinationLevel: "level_002"
+    };
+    const first = generateAutomaticLevelDraft(options);
+    const repeated = generateAutomaticLevelDraft(options);
+    assert.deepEqual(repeated, first, "the rewards stream should reproduce branch selection and every reward exactly");
+    assert.ok(first.generation.runId.startsWith("alg3_"), "Generator 3 runs should use an explicit alg3 provenance prefix");
+    assert.equal(first.generation.validation.valid, true, `the complete rewarded cavern should validate: ${first.generation.validation.errors.join(" ")}`);
+    const rewardEntities = first.entities.filter((entity) => entity.generationStage === "rewards");
+    const encounterEntities = first.entities.filter((entity) => entity.generationStage === "encounters");
+    const endpointEntities = first.entities.filter((entity) => entity.generationStage === "endpoints");
+    const selectedBranches = first.generation.rewards.selectedBranchIds;
+    const chests = rewardEntities.filter((entity) => entity.type === "treasureChest");
+    assert.ok(selectedBranches.length >= 1, "a high reward-density extended cavern should materialize at least one optional treasure detour");
+    assert.equal(chests.length, selectedBranches.length, "each materialized optional detour should end in exactly one treasure chest");
+    assert.deepEqual(first.generation.traversal.materializedBranchIds, selectedBranches, "traversal should materialize only the branches selected by the independent rewards stream");
+    assert.ok(first.generation.traversal.previewOnlyMergeEdgeIds.length >= selectedBranches.length, "the abstract branch merge should remain a preview-only planning hint rather than a collision ceiling");
+    assert.equal(first.generation.traversal.branchShafts.length, selectedBranches.length, "every materialized reward branch should own one explicit collision-safe entry shaft");
+    for (const branchId of selectedBranches) {
+        const branchTransitions = first.generation.traversal.transitions.filter((transition) => transition.branchId === branchId);
+        assert.ok(branchTransitions.length >= 2 && branchTransitions.every((transition) => transition.valid && transition.bidirectional), "treasure detours should be collision-safe in both directions so Ignatius can return to the mandatory route");
+        const shaft = first.generation.traversal.branchShafts.find((entry) => entry.branchId === branchId);
+        assert.ok(shaft && shaft.width >= 116, "each materialized branch should reserve a full-width collision-open shaft between mandatory supports");
+        const branchSupports = first.generation.traversal.supports
+            .filter((support) => support.branchId === branchId)
+            .sort((left, right) => String(left.routeNodeId || "").localeCompare(String(right.routeNodeId || "")));
+        assert.ok(branchSupports.length >= 3, "each selected branch should include shaft footholds plus a broad lower landing");
+        assert.ok(branchSupports.slice(0, 2).every((support) => support.role === "branchStep" && support.walkableWidth >= 46), "the branch shaft should begin with two narrow but turn-safe authored footholds");
+        assert.ok(branchSupports.slice(2).every((support) => support.walkableWidth >= 150), "the lower reward alcove should use broad walkable supports rather than a chain of precarious pixels");
+        const firstSupport = branchSupports.find((support) => support.id === shaft.firstBranchSupportId);
+        assert.ok(firstSupport, "the branch shaft should explicitly identify its first reachable foothold");
+        const firstLeft = firstSupport.centerX - firstSupport.width * 0.5;
+        const firstRight = firstSupport.centerX + firstSupport.width * 0.5;
+        assert.ok(firstLeft >= shaft.leftX - 0.5 && firstRight <= shaft.rightX + 0.5, "the first branch foothold should fit completely inside its reserved shaft");
+        assert.ok(Math.max(firstLeft - shaft.leftX, shaft.rightX - firstRight) >= 42, "the first foothold should leave enough open side space for Ignatius to drop into the shaft");
+        const chest = chests.find((entity) => entity.generationBranchId === branchId);
+        assert.ok(chest && chest.scoreValue > 0, "each selected branch should have a positive-Score treasure destination");
+        assert.equal(first.generation.route.nodes.find((node) => node.id === chest.routeNodeId)?.kind, "optionalReward", "branch treasure should sit at the authored optional reward node");
+    }
+    const contextualTypes = rewardEntities.filter((entity) => entity.type !== "treasureChest" && entity.type !== "thoughtTrigger").map((entity) => entity.type);
+    assert.equal(new Set(contextualTypes).size, contextualTypes.length, "contextual support rewards should remain restrained rather than repeating the same pickup type");
+    assert.equal(rewardEntities.some((entity) => entity.type === "thoughtTrigger"), false, "generated location thoughts should remain absent unless explicitly enabled");
+
+    const independent = validateGeneratedRewards({
+        rewards: first.generation.rewards,
+        entities: rewardEntities,
+        traversal: first.generation.traversal,
+        endpoints: first.generation.endpoints,
+        cavern: first.generation.cavern,
+        route: first.generation.route,
+        encounters: first.generation.encounters,
+        endpointEntities,
+        encounterEntities,
+        theme: earthTheme,
+        settings: first.generation.settings,
+        rewardGenerationCatalog,
+        entityCatalog
+    });
+    assert.equal(independent.valid, true, `standalone reward validation should accept the selected draft: ${independent.errors.join(" ")}`);
+    assert.equal(independent.metrics.rewardedBranchCount, selectedBranches.length, "standalone validation should account for every meaningful branch destination");
+    assert.equal(independent.metrics.endpointCrowdingCount, 0, "reward placement should preserve entrance and exit calm space");
+    assert.equal(independent.metrics.rewardEnemyOverlapCount, 0, "rewards should not overlap generated enemies");
+
+    const zeroRewards = generateAutomaticLevelDraft({
+        ...options,
+        seed: "zero-rewards",
+        settings: { ...options.settings, rewardDensity: 0, allowThoughts: true }
+    });
+    assert.equal(zeroRewards.entities.filter((entity) => entity.generationStage === "rewards").length, 0, "zero reward density should produce no pickups, chests, or thoughts");
+    assert.equal(zeroRewards.generation.traversal.materializedBranchIds.length, 0, "zero reward density should keep optional branches as reservations only");
+
+    const thoughtTheme = normalizeGeneratorTheme({ ...earthRaw, rewards: { ...earthRaw.rewards, thoughtChance: 1 } });
+    let thoughtDraft = null;
+    for (let seed = 0; seed < 20 && !thoughtDraft; seed += 1) {
+        const candidate = generateAutomaticLevelDraft({
+            ...options,
+            theme: thoughtTheme,
+            seed: `thought-${seed}`,
+            settings: { ...thoughtTheme.defaults, length: "extended", branching: 0.7, rewardDensity: 0.58, enemyDensity: 0.35, allowThoughts: true }
+        });
+        if (candidate.entities.some((entity) => entity.type === "thoughtTrigger")) thoughtDraft = candidate;
+    }
+    assert.ok(thoughtDraft, "an explicitly enabled 100-percent thought theme should find a quiet route support for one location thought");
+    const thought = thoughtDraft.entities.find((entity) => entity.type === "thoughtTrigger");
+    assert.ok(thought.thoughtText && thought.interaction === "locationThought", "generated thoughts should carry authored text and the one-shot runtime interaction");
+    assert.equal(thoughtDraft.entities.filter((entity) => entity.type === "thoughtTrigger").length, 1, "theme limits should keep generated narrative additions restrained");
+
+    const stressSettings = [
+        { length: "compact", branching: 0, rewardDensity: 0.2, enemyDensity: 0.2 },
+        { length: "standard", branching: 0.45, rewardDensity: 0.45, enemyDensity: 0.5 },
+        { length: "extended", branching: 0.8, rewardDensity: 0.75, enemyDensity: 0.75 },
+        { length: "grand", branching: 1, rewardDensity: 1, enemyDensity: 1 }
+    ];
+    for (const theme of [earthTheme, iceTheme]) {
+        for (const overrides of stressSettings) {
+            for (let seed = 0; seed < 10; seed += 1) {
+                const draft = generateAutomaticLevelDraft({
+                    theme,
+                    assetCatalog,
+                    enemyGenerationCatalog,
+                    rewardGenerationCatalog,
+                    enemyCatalog,
+                    entityCatalog,
+                    seed: `${theme.themeId}-${overrides.length}-rewards-${seed}`,
+                    settings: { ...theme.defaults, ...overrides, allowThoughts: seed % 3 === 0 },
+                    availableEnemyIds: enemyIds
+                });
+                const validation = draft.generation.validation;
+                assert.equal(validation.valid, true, `${theme.themeId} ${overrides.length} seed ${seed} should generate accessible, uncrowded rewards`);
+                assert.equal(validation.metrics.inaccessibleRewardCount, 0, `${theme.themeId} seed ${seed} should keep every reward on safe authored walkable space`);
+                assert.equal(validation.metrics.endpointCrowdingCount, 0, `${theme.themeId} seed ${seed} should keep rewards away from both doors`);
+                assert.equal(validation.metrics.rewardEnemyOverlapCount, 0, `${theme.themeId} seed ${seed} should avoid reward-enemy overlap`);
+                assert.equal(validation.metrics.invalidOptionalTransitions, 0, `${theme.themeId} seed ${seed} should make selected branch detours traversable in both directions`);
+            }
+        }
+    }
+
+    const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    assert.ok(editorHtml.includes("level-generator-rewards.json") && editorHtml.includes('id="generator-allow-thoughts"'), "Level Editor should load reward metadata and expose explicit narrative opt-in");
+    assert.ok(editorHtml.includes("Materialized treasure detour") && editorHtml.includes("previewOnlyMergeEdgeIds"), "route preview should distinguish real treasure paths from abstract merge hints");
+}
+
+
+function testAutomaticLevelGeneratorEditorRefinement() {
+    const earthTheme = normalizeGeneratorTheme(JSON.parse(readFileSync(new URL("../assets/level-generator-themes/earth-cavern.json", import.meta.url), "utf8")));
+    const assetCatalog = normalizeGenerationAssetCatalog(JSON.parse(readFileSync(new URL("../assets/level-generator-platforms.json", import.meta.url), "utf8")));
+    const enemyGenerationCatalog = normalizeEnemyGenerationCatalog(JSON.parse(readFileSync(new URL("../assets/level-generator-enemies.json", import.meta.url), "utf8")));
+    const rewardGenerationCatalog = normalizeRewardGenerationCatalog(JSON.parse(readFileSync(new URL("../assets/level-generator-rewards.json", import.meta.url), "utf8")));
+    const enemyCatalog = JSON.parse(readFileSync(new URL("../assets/ct_enemies_001.json", import.meta.url), "utf8"));
+    const entityCatalog = JSON.parse(readFileSync(new URL("../assets/it_entities_001.json", import.meta.url), "utf8"));
+    const enemyIds = Object.keys(enemyCatalog.enemies);
+    const defaultRevisions = normalizeGeneratorStageRevisions({ encounters: -8, rewards: 2.9, unknown: 17 });
+    assert.equal(defaultRevisions.encounters, 0, "negative stage revisions should normalize to zero");
+    assert.equal(defaultRevisions.rewards, 2, "stage revisions should be deterministic non-negative integers");
+    assert.equal(defaultRevisions.route, 0, "missing stage revisions should normalize to zero");
+    const encounterRevisions = incrementGeneratorStageRevision(defaultRevisions, "encounters");
+    assert.equal(encounterRevisions.encounters, 1, "stage-specific rerolls should increment only the requested named stream");
+    assert.equal(encounterRevisions.rewards, defaultRevisions.rewards, "encounter rerolls must not consume the rewards stream");
+    assert.equal(generatorStageStreamName("encounters", encounterRevisions), "encounters:revision-1", "nonzero revisions should create a stable independent stream name");
+    assert.equal(generatorStageStreamName("route", encounterRevisions), "route", "untouched stages should retain their original named stream");
+
+    const options = {
+        theme: earthTheme,
+        assetCatalog,
+        enemyGenerationCatalog,
+        rewardGenerationCatalog,
+        enemyCatalog,
+        entityCatalog,
+        seed: "refine-0",
+        settings: { ...earthTheme.defaults, length: "extended", branching: 1, rewardDensity: 0.28, enemyDensity: 0.68, difficulty: 0.58 },
+        availableEnemyIds: enemyIds,
+        destinationLevel: "level_002"
+    };
+    const baseline = generateAutomaticLevelDraft(options);
+    assert.equal(baseline.generation.validation.valid, true, "the editor-refinement fixture should begin with a valid complete cavern");
+    const baselineRoute = JSON.stringify(baseline.generation.route);
+    const baselineShell = JSON.stringify({
+        traversal: baseline.generation.traversal,
+        endpoints: baseline.generation.endpoints,
+        cavern: baseline.generation.cavern,
+        world: baseline.world,
+        rewards: baseline.generation.rewards,
+        placements: baseline.placements,
+        nonEncounterEntities: baseline.entities.filter((entity) => entity.generationStage !== "encounters")
+    });
+    const rerolledEncounters = generateAutomaticLevelDraft({
+        ...options,
+        stageRevisions: incrementGeneratorStageRevision(baseline.generation.stageRevisions, "encounters"),
+        preferredRouteAttempt: baseline.generation.attempt
+    });
+    assert.equal(rerolledEncounters.generation.validation.valid, true, "an encounter-only stage revision should still select a valid population");
+    assert.equal(JSON.stringify(rerolledEncounters.generation.route), baselineRoute, "an encounter reroll must preserve the accepted route exactly");
+    assert.equal(JSON.stringify({
+        traversal: rerolledEncounters.generation.traversal,
+        endpoints: rerolledEncounters.generation.endpoints,
+        cavern: rerolledEncounters.generation.cavern,
+        world: rerolledEncounters.world,
+        rewards: rerolledEncounters.generation.rewards,
+        placements: rerolledEncounters.placements,
+        nonEncounterEntities: rerolledEncounters.entities.filter((entity) => entity.generationStage !== "encounters")
+    }), baselineShell, "an encounter reroll must not perturb terrain, endpoints, rewards, or the cave shell");
+    assert.notEqual(JSON.stringify(rerolledEncounters.generation.encounters), JSON.stringify(baseline.generation.encounters), "the independent encounter stream should be able to produce a different population");
+
+    let rewardVariant = null;
+    for (let revision = 1; revision <= 12 && !rewardVariant; revision += 1) {
+        const candidate = generateAutomaticLevelDraft({
+            ...options,
+            stageRevisions: incrementGeneratorStageRevision(baseline.generation.stageRevisions, "rewards", revision),
+            preferredRouteAttempt: baseline.generation.attempt
+        });
+        assert.equal(JSON.stringify(candidate.generation.route), baselineRoute, `reward revision ${revision} must preserve the accepted route`);
+        assert.equal(candidate.generation.validation.valid, true, `reward revision ${revision} should remain a valid complete draft`);
+        const rewardFingerprint = JSON.stringify({ rewards: candidate.generation.rewards, traversal: candidate.generation.traversal.materializedBranchIds });
+        const baselineFingerprint = JSON.stringify({ rewards: baseline.generation.rewards, traversal: baseline.generation.traversal.materializedBranchIds });
+        if (rewardFingerprint !== baselineFingerprint) rewardVariant = candidate;
+    }
+    assert.ok(rewardVariant, "independent reward revisions should produce a different valid reward or detour arrangement within a bounded search");
+    const originalEncounterEntities = baseline.entities.filter((entity) => entity.generationStage === "encounters");
+    const reanchored = reanchorGeneratedEncounterStage(baseline.generation, rewardVariant.generation, originalEncounterEntities);
+    assert.equal(reanchored.entities.length, originalEncounterEntities.length, "reward rerolls should preserve the complete existing encounter population");
+    assert.equal(reanchored.encounters.encounters.length, baseline.generation.encounters.encounters.length, "reward rerolls should preserve encounter group records");
+    for (const entity of reanchored.entities) {
+        const support = rewardVariant.generation.traversal.supports.find((entry) => entry.id === entity.generationSupportId);
+        assert.ok(support, `reanchored enemy ${entity.id} should retain a support that exists in the reward-rerolled traversal`);
+    }
+
+    const validationArgs = {
+        generation: baseline.generation,
+        placements: baseline.placements,
+        entities: baseline.entities,
+        world: baseline.world,
+        theme: earthTheme,
+        assetCatalog,
+        enemyGenerationCatalog,
+        rewardGenerationCatalog,
+        enemyCatalog,
+        entityCatalog
+    };
+    const snapshotValidation = validateAutomaticLevelDraftSnapshot(validationArgs);
+    assert.equal(snapshotValidation.valid, true, `the current generated records should validate independently of generation: ${snapshotValidation.errors.join(" ")}`);
+    const movedPlacements = structuredClone(baseline.placements);
+    movedPlacements[0].x += 50;
+    const driftValidation = validateAutomaticLevelDraftSnapshot({ ...validationArgs, placements: movedPlacements });
+    assert.equal(driftValidation.valid, false, "validation-only reruns should catch a generated support moved out of sync with traversal metadata");
+    assert.ok(driftValidation.metrics.placementSupportMismatchCount > 0, "support drift should have an explicit diagnostic metric");
+    const manualizedPlacements = structuredClone(movedPlacements);
+    const manualizedPlacement = manualizedPlacements[0];
+    manualizedPlacement.manualizedFromGeneration = {
+        generatorId: manualizedPlacement.generatedBy,
+        runId: manualizedPlacement.generationRunId,
+        stage: manualizedPlacement.generationStage,
+        role: manualizedPlacement.generationRole,
+        supportId: manualizedPlacement.generationSupportId
+    };
+    delete manualizedPlacement.generatedBy;
+    delete manualizedPlacement.generationRunId;
+    delete manualizedPlacement.generationStage;
+    const manualizedPlacementValidation = validateAutomaticLevelDraftSnapshot({ ...validationArgs, placements: manualizedPlacements });
+    assert.equal(manualizedPlacementValidation.valid, true, "manualizing an intentionally moved support should transfer responsibility without masquerading as generator-owned drift");
+    assert.equal(manualizedPlacementValidation.metrics.manualizedPlacementMismatchCount, 1, "manualized support drift should remain visible as a dedicated review metric");
+    assert.ok(manualizedPlacementValidation.warnings.some((warning) => warning.includes("automatic jump guarantees no longer cover")), "manualized traversal edits should carry an explicit playtest warning");
+
+    const manualizedEntities = structuredClone(baseline.entities);
+    const manualizedEnemy = manualizedEntities.find((entity) => entity.generationStage === "encounters");
+    assert.ok(manualizedEnemy, "the fixture should contain an encounter entity that can be converted to manual ownership");
+    manualizedEnemy.manualizedFromGeneration = {
+        generatorId: manualizedEnemy.generatedBy,
+        runId: manualizedEnemy.generationRunId,
+        stage: manualizedEnemy.generationStage,
+        role: manualizedEnemy.generationRole,
+        supportId: manualizedEnemy.generationSupportId
+    };
+    delete manualizedEnemy.generatedBy;
+    delete manualizedEnemy.generationRunId;
+    delete manualizedEnemy.generationStage;
+    const manualizedValidation = validateAutomaticLevelDraftSnapshot({ ...validationArgs, entities: manualizedEntities });
+    assert.equal(manualizedValidation.valid, true, "manual ownership conversion should preserve validation through its provenance receipt");
+    assert.ok(manualizedValidation.warnings.some((warning) => warning.includes("manual replacement")), "manualized generated content should be reported explicitly rather than silently disappearing");
+
+    const overlay = buildAutomaticLevelValidationOverlay(baseline.generation);
+    assert.ok(overlay.supports.length > 0 && overlay.transitions.length > 0, "the validation overlay should expose authoritative walkable spans and traversal arcs");
+    assert.equal(overlay.calmZones.length, 2, "the validation overlay should expose both endpoint calm zones");
+    assert.equal(overlay.encounters.length, baseline.generation.encounters.encounters.length, "the validation overlay should expose every generated encounter anchor");
+    assert.equal(overlay.rewards.length, baseline.generation.rewards.rewards.length, "the validation overlay should expose every generated reward anchor");
+    const overlayNumbers = JSON.stringify(overlay).match(/-?\d+(?:\.\d+)?/g).map(Number);
+    assert.ok(overlayNumbers.every(Number.isFinite), "validation overlay geometry should contain only finite portable coordinates");
+
+    const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    assert.ok(editorHtml.includes('id="generator-regenerate-stage"') && editorHtml.includes('id="generator-regenerate"'), "the Level Editor should expose explicit stage-specific regeneration controls");
+    assert.ok(editorHtml.includes('id="generator-lock-selected"') && editorHtml.includes('id="generator-manualize-selected"'), "the Level Editor should expose generated-object locking and manual ownership conversion");
+    assert.ok(editorHtml.includes('id="generator-show-validation"') && editorHtml.includes("drawAutomaticValidationOverlay"), "the Level Editor should expose the richer validation visualization");
+    assert.ok(editorHtml.includes("generationValidationRecord(record, generation.runId)"), "reward rerolls should replace active-run manualized records atomically instead of duplicating them");
+    assert.ok(editorHtml.includes("generatedRecordLocked") && editorHtml.includes("manualizedFromGeneration"), "editor mutation guards and ownership receipts should remain explicit in source");
+}
+
 
 function testCaveWindowSplineAuthoring() {
     const normalized = normalizeCaveWindow({
@@ -5039,6 +5665,46 @@ function testMailboxLetterSequence() {
     stepMany(state, 5, () => createInputFrame({ moveRight: true }));
     assert.ok(state.player.vx > 0, "control should return after the mailbox sequence");
 }
+
+function testLocationThoughtTrigger() {
+    const catalog = JSON.parse(readFileSync(new URL("../assets/it_entities_001.json", import.meta.url), "utf8"));
+    const definition = catalog.entities.thoughtTrigger;
+    const state = createInitialGameState();
+    const level = {
+        levelId: "location_thought_test",
+        world: { bounds: { x: -200, y: -200, w: 1000, h: 900 }, resetY: 1000 },
+        playerStart: { x: 192, y: 500 },
+        atlasRefs: catalog.atlasRefs,
+        placements: [],
+        entities: [{
+            id: "thought_trigger_test",
+            type: "thoughtTrigger",
+            x: 220,
+            y: 500,
+            w: definition.defaultSize.w,
+            h: definition.defaultSize.h,
+            state: definition.defaultState,
+            visualStates: Object.fromEntries(Object.entries(definition.states).map(([id, entry]) => [id, entry.visuals])),
+            ...structuredClone(definition.defaults),
+            thoughtText: "A test thought with one chance to be thought."
+        }]
+    };
+    assert.equal(applyEditorLevelToWorld(state, level), true, "location-thought level should apply");
+    assert.equal(state.story.mailboxEvents.length, 1, "the shared story queue should include location thoughts without requiring a mailbox");
+    assert.equal(state.story.mailboxEvents[0].storyKind, "locationThought", "runtime should distinguish thought-only triggers from editor letters");
+    stepSimulation(state, createInputFrame({ moveRight: true }), FIXED_DT);
+    assert.equal(state.story.mailboxEvent.phase, "thought", "entering the trigger should open the thought bubble directly, without a letter phase");
+    assert.equal(state.story.mailboxEvent.letterText, "", "thought-only triggers should not synthesize hidden letter content");
+    assert.equal(state.world.entityStates.thought_trigger_test, "consumed", "the invisible trigger should be consumed immediately so it cannot fire twice");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "LOCATION_THOUGHT_TRIGGERED"), "thought trigger should emit its own runtime event");
+    stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    assert.equal(state.story.mailboxEvent, null, "the ordinary story skip input should close the location thought");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "LOCATION_THOUGHT_COMPLETE"), "thought completion should be observable independently of mailbox completion");
+    stepMany(state, 8, () => createInputFrame({ moveLeft: true }));
+    assert.equal(state.story.mailboxEvent, null, "crossing a consumed trigger again should not reopen the thought");
+    assert.equal(state.story.mailboxEvents[0].completed, true, "location thoughts should be one-shot story records");
+}
+
 
 function testPortalEntranceSequence() {
     const catalog = JSON.parse(readFileSync(new URL("../assets/it_entities_001.json", import.meta.url), "utf8"));
@@ -7635,6 +8301,11 @@ const tests = [
     ["thought bubble tail and responsive typography", testThoughtBubbleTailAndResponsiveTypography],
     ["Puppet Guide debug overlay", testPuppetGuideDebugOverlay],
     ["selective level colour map", testSelectiveLevelColorMap],
+    ["automatic level generator route foundation", testAutomaticLevelGeneratorRouteFoundation],
+    ["automatic level generator playable empty cavern", testAutomaticLevelGeneratorPlayableEmptyCavern],
+    ["automatic level generator encounters", testAutomaticLevelGeneratorEncounters],
+    ["automatic level generator rewards and branch detours", testAutomaticLevelGeneratorRewards],
+    ["automatic level generator editor refinement", testAutomaticLevelGeneratorEditorRefinement],
     ["closed cave-window spline authoring", testCaveWindowSplineAuthoring],
     ["cave full-black lethal boundary", testCaveFullBlackKillBoundary],
     ["moving-platform schema and Level Editor", testMovingPlatformSchemaAndEditor],
@@ -7658,6 +8329,7 @@ const tests = [
     ["Speed Shot, Shield, and wrench power-up arsenal", testRocketPowerUpArsenal],
     ["cached wrench rocket glow kernels", testCachedWrenchRocketGlowKernels],
     ["scripted mailbox letter", testMailboxLetterSequence],
+    ["one-shot location thought trigger", testLocationThoughtTrigger],
     ["scripted portal entrance", testPortalEntranceSequence],
     ["scripted portal exit", testPortalExitSequence],
     ["editor dropdown contrast", testEditorDropdownContrast],

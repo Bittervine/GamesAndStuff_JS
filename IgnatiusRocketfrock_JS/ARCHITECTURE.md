@@ -50,6 +50,7 @@ IgnatiusRocketfrock_JS/
 │   │   ├── cave-window-decoration.js
 │   │   ├── game-settings-data.js
 │   │   ├── level-color-map-data.js
+│   │   ├── level-generator-data.js
 │   │   ├── level-transform.js
 │   │   ├── moving-platform-data.js
 │   │   ├── music-data.js
@@ -67,6 +68,7 @@ IgnatiusRocketfrock_JS/
 ├── tests/
 │   └── testbench.mjs
 ├── assets/
+│   └── level-generator-themes/
 ├── devel/
 ├── package.json
 ├── AGENTS.md
@@ -125,6 +127,7 @@ Revision 135 removed the last documented core-to-presentation dependency. Colour
 | `src/shared/animation-data.js` | SHARED DATA / MATH | Animation schema normalization, sampling, interpolation, and pose blending. |
 | `src/shared/level-transform.js` | SHARED DATA / MATH | Mirroring, rotation, placement geometry, hit testing, and atlas-node conversion shared by runtime and editor. |
 | `src/shared/level-color-map-data.js` | SHARED DATA / MATH | Level colour-map normalization, cache keys, hue-selection mathematics, and RGB/HSL conversion without browser objects. |
+| `src/shared/level-generator-data.js` | SHARED DATA / MATH | Versioned generator settings, named deterministic random streams, implementation registries, enemy-filter parsing, abstract route candidate generation, validation, quality selection, provenance, and generated-state normalization. It creates no Canvas objects or playable cave geometry. |
 | `src/shared/game-settings-data.js` | SHARED DATA / MATH | Versioned game-facing settings defaults, preset normalization, incoming-damage scale, and visual particle-density scale without browser storage or DOM objects. |
 | `src/shared/cave-window-data.js` | SHARED DATA / MATH | Inert cave-window schema normalization, decoration settings, closed smooth/corner spline sampling, point-insertion lookup, and authoring bounds. It contains no collision or navigation generation. |
 | `src/shared/cave-kill-boundary-data.js` | SHARED DATA / MATH | Portable derivation of the player lethal loop from the same sampled cave full-black outset, plus camera-independent polygon/actor overlap tests. It creates no collision or navigation geometry. |
@@ -552,3 +555,66 @@ Input-device ownership belongs to `src/browser/browser-input.js`. Meaningful map
 
 The portable projectile state now stores `secondaryEnemySplashDamage` and `secondaryEnemySplashRadius` at launch time. Standard rockets and Speed Shot populate these values from tuning; wrench projectiles store zero. Impact handling applies the splash only to enemy hitboxes, excludes the direct enemy, and emits `STANDARD_ROCKET_SECONDARY_SPLASH_APPLIED`. Presentation does not own or reconstruct this damage rule.
 
+## Revision 234 generator-route architecture
+
+Automatic Level Generator 0 is a shared-data foundation plus an editor projection. Portable generator contracts live in `src/shared/level-generator-data.js`; theme choices live in `assets/level-generator-themes/*.json`; and `level-editor.html` supplies controls, history guarding, status text, and the route overlay. The simulation and runtime renderer do not import the generator and do not interpret the abstract graph as collision or navigation.
+
+Randomness is divided into stable named stage streams. Adding or regenerating a later stage must not perturb the route stream or unrelated stages. Route generation evaluates a deterministic candidate set and selects by validation and quality rather than accepting the first graph. Provenance records generator ID/version, seed, selected attempt, implementation IDs, normalized settings, resolved enemy IDs, diagnostics, and a run ID.
+
+Generated ownership is explicit. `level.generation` stores the abstract route and current run metadata, while any future materialized placement or entity must carry the matching generated ownership marker. Editor undo/redo for generation restores only generator-owned state and the generator-applied theme colour map; it must refuse to overwrite generator state that has since been changed. Clear generated must never remove manual content.
+
+Ice theme recolouring demonstrates the presentation boundary: shared colour-map data may restrict treatment through `atlasIds`, the presentation cache receives the atlas ID, and Canvas recolouring occurs only for allowlisted environment atlases. Interactive and story atlases remain authored presentation.
+
+Generator 1 may consume the route, but it must materialize ordinary existing cave-window, placement, entity, collision, and world-bound records. The route graph remains provenance and diagnostics, not a second runtime physics format.
+
+## Revision 235 playable-cavern architecture
+
+Automatic Level Generator 1 consumes the accepted abstract route and emits only ordinary existing level records. `src/shared/level-generator-data.js` builds deterministic cavern, traversal, endpoint, and world records. `level-editor.html` applies those records through the same placement, entity, cave-window, colour-map, and world-bound fields used by manual authoring. Runtime physics remains unaware of generator algorithms and sees ordinary atlas collision.
+
+The cavern is a connected sampled envelope formed from overlapping route chambers and corridor capsules, then projected into the existing closed cave-window spline contract. Sample positions include generated support centers so a visually valid support cannot drift outside the opening between sparse route nodes. The derived world bounds and reset height surround the complete envelope rather than the abstract graph alone.
+
+Traversal geometry is collision aware. `assets/level-generator-platforms.json` is the versioned allowlist and role catalog for generated supports. Each entry declares native dimensions, valid generation roles, scaling, surface height, door suitability, mirroring, and left/right walkable-edge insets measured from authored atlas collision. The planner measures gaps from those walkable edges, not from transparent frame rectangles or decorative overhangs. `floor_long_terrace` remains bridge-only because its top collision is split, and `ledge_small_flat` remains recovery-only because its true landing width is too narrow for a mandatory destination.
+
+The mandatory spine is the only collision-bearing route materialized in Generator 1. Optional branch nodes and edges remain under `level.generation.route` and are copied into traversal reservation IDs for overlay and later-stage planning. This prevents purposeless branch platforms from becoming low ceilings or obstructing the guaranteed path before rewards and encounters give those detours a reason to exist.
+
+A generation run evaluates multiple deterministic complete geometry candidates, validates cave containment, endpoint support, world bounds, authored walkable widths, transition gaps, rises, drops, and support interference, then selects the strongest valid result. Generation ownership covers placements, endpoint entities, cave data, world data, and the theme colour map. Guarded generation undo, redo, clear, and regeneration restore only the previous generator-owned shell and preserve manual records.
+
+
+## Revision 236 encounter-generation architecture
+
+Automatic Level Generator 2 adds a deterministic population stage without teaching runtime simulation about procedural generation. `assets/level-generator-enemies.json` is the versioned generation catalog. It maps existing enemy IDs to placement class, group range, difficulty cost, selection weight, difficulty and progression ranges, walkable-width needs, edge and landing clearances, headroom, patrol room, group spacing, flying spawn height, and navigation requirements. The shared generator consumes this data together with the ordinary enemy catalog; display names and DOM labels are never treated as behavior metadata.
+
+Encounter generation uses its own named random stream, so adding or tuning population does not perturb the accepted route or cavern geometry for the same seed. A normalized difficulty budget combines route size, enemy density, difficulty, and safety. Candidate encounter anchors come from collision-bearing mandatory supports. The endpoint calm distance is at least the theme value and at least the largest selected awareness range plus the configured spawn-safety buffer.
+
+Ground enemies are placed only when the authored walkable collision interval can supply the catalogued edge clearance, protected incoming landing strip, patrol room, and headroom. Ranged hunter enemies retain ordinary entity behavior and trigger a rebuild of the existing baked hunter navigation graphs after the generated entities are applied. The generator does not invent a parallel navigation format. Flying bombers are emitted only as compact groups of two or three, with catalogued vertical airspace and separation chosen to make the standard rocket's one-damage secondary splash tactically relevant without overlapping enemy hitboxes.
+
+Generated population records carry the same run ownership and stage provenance as the cavern shell. Generation undo, redo, clear, and replacement snapshots include the navigation graphs that the population stage rebuilt, preserving pre-existing manually authored navigation data. Encounter diagnostics record budget, spent cost, counts by placement class, bat groups, hunter count, calm distance, and warnings.
+
+The combined validator checks the complete playable cavern plus population. It rejects endpoint calm-zone violations, terrain-embedded or unsupported enemies, insufficient walkable room, unsafe incoming landings, flying groups outside their allowed size or airspace, excessive group overlap, and missing generated hunter navigation support. In revision 236, optional route branches remained reservations and Generator 2 populated only the mandatory cavern.
+
+
+## Revision 237 reward-generation architecture
+
+Automatic Level Generator 3 adds rewards without coupling reward choices back into route or encounter randomness. `assets/level-generator-rewards.json` is the versioned reward-generation catalog. It describes branch treasure, contextual power-ups, utility pickups, and optional narrative triggers through stable IDs, placement contexts, progression ranges, spacing, edge clearances, and per-draft limits. Branch selection uses the dedicated rewards random stream. Traversal consumes only the selected branch IDs and remains the sole owner of physical branch geometry, so reward tuning cannot silently redraw the accepted mandatory route.
+
+A selected optional reservation becomes a lower returnable detour rather than an upper parallel shelf. The outgoing mandatory edge uses a catalogued `shaftBridge` assembly that leaves a real 116-unit collision opening. Two alternating `branchStep` footholds descend through that opening, after which broad lower supports form the reward alcove. The first foothold must fit entirely inside the shaft and leave at least one player-width side opening. The abstract merge edge remains a muted preview-only hint because materializing it as a solid platform would create an accidental ceiling over the main route. Branch transitions are recorded as ordinary traversal transitions and must validate bidirectionally.
+
+Every materialized branch receives exactly one generated treasure chest at its authored optional-reward destination. Contextual support rewards are selected sparingly, do not repeat within one draft, stay away from endpoint chambers, and avoid generated enemies. Entrance and exit doors remain Endpoint Placer-owned rather than becoming generic reward props. Generated rewards carry run ownership, generation stage, route support, and branch provenance so clear, regeneration, undo, and redo affect only generator-owned records.
+
+Location thoughts are opt-in. The ordinary interactive entity catalog now includes an invisible one-shot `thoughtTrigger` using the existing portable story-event path. Themes default to thoughts disabled; the Level Editor must explicitly enable them, and the reward planner may place at most one on a quiet suitable support.
+
+The Generator 3 validator combines route, cavern, traversal, endpoint, encounter, and reward checks. It rejects missing branch shafts, shafts narrower than Ignatius, footholds without turn room, lower alcoves without broad walkable surfaces, invalid return transitions, inaccessible rewards, missing branch treasure, endpoint crowding, reward-enemy overlap, and unrequested narrative additions. The Level Editor overlay draws the real materialized support path in orange while retaining unmaterialized reservations and abstract merge hints as planning information.
+
+
+
+## Revision 238 generator editor-refinement architecture
+
+Generator stage revisions are portable provenance, not editor-local counters. `level.generation.stageRevisions` contains a normalized non-negative integer for every registered stage. `generatorStageStreamName` preserves the original stream name at revision zero and derives a stable revision-qualified stream only for the selected stage. Stage-specific generation pins `preferredRouteAttempt`, preventing later-stage work from changing candidate selection.
+
+Encounter rerolls use a strict isolation fingerprint covering traversal, endpoints, cavern, world, rewards, placements, and non-encounter entities. The editor accepts only a changed encounter fingerprint whose reconstructed complete snapshot validates. Reward rerolls are allowed to rebuild reward-dependent branch traversal. `reanchorGeneratedEncounterStage` translates existing encounter entities and encounter records by the delta between old and new supports with the same stable support ID. The editor then validates the mixed snapshot before replacing any records. Active-run generated and manualized records are replaced atomically to prevent duplicate IDs.
+
+Editor locking is an authoring guard, represented by `editorLocked`; it is not simulation state and does not pin a record across regeneration. Direct mutation paths must consult the lock. Manualization removes active `generatedBy`, run, and stage ownership and writes `manualizedFromGeneration` with the former generator, run, stage, role, support, branch, and route provenance. Shared validation recognizes this receipt as an intentional replacement and emits a warning rather than a missing-record error. Regeneration of a dependent stage must stop when such a replacement exists instead of silently consuming manual work.
+
+`validateAutomaticLevelDraftSnapshot` is the authoritative reconstruction boundary for edited generated content. It combines current placements and entities with normalized generation metadata and reruns traversal, endpoint, encounter, and reward validation. Traversal validation compares each generated placement against its support metadata, including position, dimensions, atlas, and asset. `buildAutomaticLevelValidationOverlay` converts validation-relevant data into renderer-neutral primitives for walkable spans, transitions, calm zones, shafts, encounters, rewards, and bounds. The Level Editor draws those primitives, but the shared module owns their meaning.
+
+The runtime remains generator-unaware. Locks, manualization receipts, stage counters, and overlays exist for authoring, provenance, validation, and deterministic reproduction. Generated output continues to be ordinary portable level records consumed by the existing simulation and renderer.

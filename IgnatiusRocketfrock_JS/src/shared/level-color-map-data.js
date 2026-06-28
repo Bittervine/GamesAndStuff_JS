@@ -3,7 +3,8 @@ export const DEFAULT_LEVEL_COLOR_MAP = Object.freeze({
     sourceHue: 200,
     range: 80,
     feather: 24,
-    rotation: 0
+    rotation: 0,
+    atlasIds: Object.freeze([])
 });
 
 export function normalizeHueDegrees(value) {
@@ -18,24 +19,38 @@ export function normalizeLevelColorMap(value) {
         sourceHue: normalizeHueDegrees(source.sourceHue ?? source.hue ?? DEFAULT_LEVEL_COLOR_MAP.sourceHue),
         range: clamp(Number(source.range ?? source.width ?? DEFAULT_LEVEL_COLOR_MAP.range) || 0, 0, 360),
         feather: clamp(Number(source.feather ?? DEFAULT_LEVEL_COLOR_MAP.feather) || 0, 0, 180),
-        rotation: clamp(Number(source.rotation ?? source.hueRotation ?? DEFAULT_LEVEL_COLOR_MAP.rotation) || 0, -360, 360)
+        rotation: clamp(Number(source.rotation ?? source.hueRotation ?? DEFAULT_LEVEL_COLOR_MAP.rotation) || 0, -360, 360),
+        atlasIds: normalizeAtlasIds(source.atlasIds ?? source.atlasAllowlist ?? DEFAULT_LEVEL_COLOR_MAP.atlasIds)
     };
 }
 
 export function colorMapCacheKey(value) {
     const map = normalizeLevelColorMap(value);
-    return [
+    const base = [
         map.enabled ? 1 : 0,
         roundForKey(map.sourceHue),
         roundForKey(map.range),
         roundForKey(map.feather),
         roundForKey(map.rotation)
     ].join(":");
+    return map.atlasIds.length ? `${base}:${map.atlasIds.join(",")}` : base;
 }
 
 export function isEffectiveLevelColorMap(value) {
     const map = normalizeLevelColorMap(value);
     return map.enabled && Math.abs(map.rotation) > 0.0001 && map.range + map.feather * 2 > 0;
+}
+
+
+export function colorMapAppliesToAtlas(value, atlasId) {
+    const map = normalizeLevelColorMap(value);
+    if (!isEffectiveLevelColorMap(map)) {
+        return false;
+    }
+    if (!map.atlasIds.length) {
+        return true;
+    }
+    return map.atlasIds.includes(String(atlasId || ""));
 }
 
 export function circularHueDistance(a, b) {
@@ -144,4 +159,11 @@ function clampByte(value) {
 
 function roundForKey(value) {
     return Math.round((Number(value) || 0) * 1000) / 1000;
+}
+
+function normalizeAtlasIds(value) {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+    return [...new Set(value.map((entry) => String(entry || "").trim()).filter(Boolean))].sort();
 }

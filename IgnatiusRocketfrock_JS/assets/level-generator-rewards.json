@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "catalogId": "cavern-reward-generation-v1",
+  "rewards": {
+    "treasureChest": {
+      "entityType": "treasureChest",
+      "category": "treasure",
+      "contexts": [
+        "branchDestination"
+      ],
+      "weight": 1,
+      "minimumSupportWidth": 185,
+      "edgeClearance": 42,
+      "verticalOffset": 0,
+      "minimumProgress": 0.12,
+      "maximumProgress": 0.92
+    },
+    "speedShotPickup": {
+      "entityType": "speedShotPickup",
+      "category": "powerUp",
+      "contexts": [
+        "beforeBatEncounter",
+        "beforeRangedEncounter",
+        "beforeLargeEncounter"
+      ],
+      "weight": 1.2,
+      "minimumSupportWidth": 220,
+      "edgeClearance": 64,
+      "verticalOffset": 86,
+      "minimumProgress": 0.18,
+      "maximumProgress": 0.86
+    },
+    "shieldPickup": {
+      "entityType": "shieldPickup",
+      "category": "powerUp",
+      "contexts": [
+        "beforeLargeEncounter",
+        "beforeDenseEncounter"
+      ],
+      "weight": 1,
+      "minimumSupportWidth": 220,
+      "edgeClearance": 64,
+      "verticalOffset": 86,
+      "minimumProgress": 0.22,
+      "maximumProgress": 0.88
+    },
+    "randomWrenchPickup": {
+      "entityType": "randomWrenchPickup",
+      "category": "powerUp",
+      "contexts": [
+        "branchBonus",
+        "beforeLargeEncounter"
+      ],
+      "weight": 0.72,
+      "minimumSupportWidth": 240,
+      "edgeClearance": 70,
+      "verticalOffset": 86,
+      "minimumProgress": 0.24,
+      "maximumProgress": 0.9
+    },
+    "fuel": {
+      "entityType": "fuel",
+      "category": "utility",
+      "contexts": [
+        "beforeDemandingMovement"
+      ],
+      "weight": 0.9,
+      "minimumSupportWidth": 220,
+      "edgeClearance": 62,
+      "verticalOffset": 70,
+      "minimumProgress": 0.18,
+      "maximumProgress": 0.9
+    },
+    "thoughtTrigger": {
+      "entityType": "thoughtTrigger",
+      "category": "narrative",
+      "contexts": [
+        "quietRoute"
+      ],
+      "weight": 1,
+      "minimumSupportWidth": 260,
+      "edgeClearance": 96,
+      "verticalOffset": 0,
+      "minimumProgress": 0.25,
+      "maximumProgress": 0.78
+    }
+  }
+}

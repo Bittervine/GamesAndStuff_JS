@@ -1,4 +1,5 @@
 import {
+    colorMapAppliesToAtlas,
     isEffectiveLevelColorMap,
     normalizeLevelColorMap,
     remapRgb
@@ -25,9 +26,9 @@ export function applyLevelColorMapToImageData(imageData, value) {
     return imageData;
 }
 
-export function createColorMappedCanvas(image, value, canvasFactory = defaultCanvasFactory) {
+export function createColorMappedCanvas(image, value, canvasFactory = defaultCanvasFactory, atlasId = "") {
     const map = normalizeLevelColorMap(value);
-    if (!image || !isEffectiveLevelColorMap(map)) {
+    if (!image || !isEffectiveLevelColorMap(map) || !colorMapAppliesToAtlas(map, atlasId)) {
         return image || null;
     }
     const width = Math.max(1, Number(image.naturalWidth || image.videoWidth || image.width) || 1);

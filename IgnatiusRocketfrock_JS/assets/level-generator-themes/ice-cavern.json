@@ -1,0 +1,91 @@
+{
+  "themeId": "ice-cavern",
+  "label": "Ice Cavern",
+  "description": "A colder, taller route profile with selective blue recolouring limited to environment atlases.",
+  "defaults": {
+    "length": "standard",
+    "verticality": 0.58,
+    "winding": 0.38,
+    "branching": 0.3,
+    "difficulty": 0.4,
+    "safety": 0.76,
+    "enemyDensity": 0.36,
+    "rewardDensity": 0.4,
+    "allowedEnemies": "1-999",
+    "allowThoughts": false
+  },
+  "route": {
+    "nodeSpacing": 920,
+    "verticalStep": 205,
+    "startX": 320,
+    "baselineY": 640,
+    "candidateAttempts": 36
+  },
+  "colorMap": {
+    "enabled": true,
+    "sourceHue": 28,
+    "range": 112,
+    "feather": 30,
+    "rotation": 172,
+    "atlasIds": [
+      "at_atlas_001",
+      "at_atlas_002",
+      "at_atlas_003"
+    ]
+  },
+  "implementations": {
+    "route": "progression-route-v1",
+    "cavern": "ellipse-cavern-v1",
+    "traversal": "forgiving-traversal-v1",
+    "endpoints": "safe-endpoints-v1",
+    "encounters": "difficulty-budgeted-encounters-v1",
+    "rewards": "basic-rewards-v1",
+    "decoration": "not-generated-yet",
+    "validation": "playable-reward-cavern-validation-v1"
+  },
+  "cavern": {
+    "chamberRadiusX": 405,
+    "chamberRadiusY": 370,
+    "corridorRadiusX": 245,
+    "corridorRadiusY": 305,
+    "floorOffsetY": 145,
+    "sampleStep": 140,
+    "worldMargin": 170
+  },
+  "traversal": {
+    "maxHopX": 380,
+    "maxHopRise": 112,
+    "mandatoryGap": 150,
+    "mandatoryRise": 112,
+    "mandatoryDrop": 270,
+    "endpointWidth": 720,
+    "chamberWidth": 420,
+    "traversalWidth": 340,
+    "intermediateWidth": 250
+  },
+  "endpoints": {
+    "doorWidth": 125,
+    "doorHeight": 164,
+    "calmDistance": 300
+  },
+  "encounters": {
+    "calmDistance": 1020,
+    "minimumEncounterSpacing": 740,
+    "landingBuffer": 140,
+    "spawnSafetyBuffer": 150,
+    "maximumEncounterShare": 0.68
+  },
+  "rewards": {
+    "endpointExclusionDistance": 800,
+    "minimumRewardSpacing": 520,
+    "branchChestScore": 125,
+    "maximumContextualPowerUps": 3,
+    "thoughtChance": 0.38,
+    "maximumThoughts": 1,
+    "thoughts": [
+      "A frozen cavern. At last, somewhere my tea can become a building material.",
+      "The icicles appear to be pointing at me. Rude, but informative.",
+      "I should have packed the ceremonial woollen hat."
+    ]
+  }
+}

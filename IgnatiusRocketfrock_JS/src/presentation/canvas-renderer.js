@@ -506,7 +506,7 @@ class RocketfrockRenderer {
             if (!atlas?.image) {
                 continue;
             }
-            atlas.renderImage = createColorMappedCanvas(atlas.image, colorMap);
+            atlas.renderImage = createColorMappedCanvas(atlas.image, colorMap, undefined, atlas.id);
             atlas.colorMapCacheKey = cacheKey;
         }
         return true;

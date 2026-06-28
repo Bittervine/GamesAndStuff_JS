@@ -219,6 +219,8 @@ export function attachNestedStateAliases(state) {
   aliasStateProperty(player, 'ship', state, 'ship');
   aliasStateProperty(player, 'fuel', state, 'fuel');
   aliasStateProperty(player, 'maxFuel', state, 'maxFuel');
+  aliasStateProperty(player, 'shields', state, 'shields');
+  aliasStateProperty(player, 'rapidFireTimer', state, 'rapidFireTimer');
   aliasStateProperty(player, 'score', state, 'score');
   aliasStateProperty(player, 'speed', state, 'speed');
   aliasStateProperty(player, 'crashed', state, 'crashed');
@@ -349,6 +351,33 @@ export function getProjectileItems(state) {
   return getProjectileState(state).items || [];
 }
 
+export function getPickupState(state) {
+  const nested = state?.game?.pickups || (state?.pickups && !Array.isArray(state.pickups) ? state.pickups : null);
+  if (nested) {
+    return nested;
+  }
+
+  const fallbackState = state || {};
+  return {
+    get nextId() {
+      return fallbackState.nextPickupId ?? 1;
+    },
+    set nextId(value) {
+      fallbackState.nextPickupId = value;
+    },
+    get items() {
+      return fallbackState.pickups || [];
+    },
+    set items(value) {
+      fallbackState.pickups = value;
+    }
+  };
+}
+
+export function getPickupItems(state) {
+  return getPickupState(state).items || [];
+}
+
 export function getWorldState(state) {
   const nested = state?.game?.world || state?.world;
   if (nested) {
@@ -476,6 +505,8 @@ export function createGameState(seed) {
     time: 0,
     fuel: 100,
     maxFuel: 100,
+    shields: config.playerStartShields,
+    rapidFireTimer: 0,
     speed: 0,
     score: 0,
     gamepadRespawnHeld: false,
@@ -507,6 +538,8 @@ export function resetGameState(state) {
   state.mothershipSquads.length = 0;
   state.crashed = false;
   state.fuel = state.maxFuel;
+  state.shields = config.playerStartShields;
+  state.rapidFireTimer = 0;
   state.speed = 0;
   state.time = 0;
   state.gamepadRespawnHeld = false;

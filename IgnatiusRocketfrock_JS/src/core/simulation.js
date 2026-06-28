@@ -259,7 +259,7 @@ export function createInitialGameState(overrides = {}) {
     const state = {
         meta: {
             schemaVersion: 1,
-            build: "233-standard-rocket-secondary-splash",
+            build: "238-automatic-level-generator-editor-refinement",
             note: "Gameplay state only. Browser, canvas, image and renderer resources are deliberately outside gameState."
         },
         clock: {
@@ -1352,10 +1352,13 @@ function updatePortalExit(state, dt) {
 }
 
 function mailboxStoryEntities(entities) {
-    return (entities || []).filter((entity) =>
-        (entity.type === "mailbox" || entity.kind === "mailbox") &&
-        (entity.interaction === "editorLetter" || entity.mailboxRole === "editorLetter")
-    );
+    return (entities || []).filter((entity) => {
+        const mailbox = (entity.type === "mailbox" || entity.kind === "mailbox")
+            && (entity.interaction === "editorLetter" || entity.mailboxRole === "editorLetter");
+        const locationThought = (entity.type === "thoughtTrigger" || entity.kind === "thoughtTrigger")
+            && entity.interaction === "locationThought";
+        return mailbox || locationThought;
+    });
 }
 
 function normalizeMailboxThoughtText(mailbox) {
@@ -1369,14 +1372,20 @@ function normalizeMailboxThoughtText(mailbox) {
 }
 
 function mailboxStoryRecord(state, mailbox) {
-    const initialState = mailbox.state || "letterAvailable";
-    const letterText = mailbox.letterText || "Dear Ignatius,\n\nPlease proceed boldly!\n\nSincerely,\nYour humble editor,\nWilfred of Bittervine";
+    const locationThought = (mailbox.type === "thoughtTrigger" || mailbox.kind === "thoughtTrigger")
+        && mailbox.interaction === "locationThought";
+    const initialState = mailbox.state || (locationThought ? "available" : "letterAvailable");
+    const consumedState = locationThought ? "consumed" : "empty";
+    const letterText = locationThought ? "" : (mailbox.letterText || "Dear Ignatius,\n\nPlease proceed boldly!\n\nSincerely,\nYour humble editor,\nWilfred of Bittervine");
     const thoughtText = normalizeMailboxThoughtText(mailbox);
+    const completed = initialState === consumedState;
     return {
         active: false,
-        completed: initialState === "empty",
+        completed,
+        storyKind: locationThought ? "locationThought" : "mailbox",
+        consumedState,
         mailboxId: mailbox.id,
-        phase: initialState === "empty" ? "complete" : "armed",
+        phase: completed ? "complete" : "armed",
         phaseTime: 0,
         triggerDistance: Math.max(8, Number(mailbox.triggerDistance) || 72),
         verticalTolerance: Math.max(24, Number(mailbox.verticalTolerance) || Math.max(state.player.height * 0.75, Number(mailbox.h) || 80)),
@@ -1406,23 +1415,30 @@ function configureMailboxStory(state, entities) {
 function startMailboxStory(state, story) {
     story.active = true;
     story.completed = false;
-    story.phase = "letter";
+    story.phase = story.storyKind === "locationThought" ? "thought" : "letter";
     story.phaseTime = 0;
     story.startedAt = state.clock.time;
     state.story.mailboxEvent = story;
-    setWorldEntityState(state, story.mailboxId, "empty");
+    setWorldEntityState(state, story.mailboxId, story.consumedState || "empty");
     state.player.vx = 0;
     state.player.vy = 0;
     state.player.ax = 0;
     state.player.ay = 0;
-    addEvent(state, "MAILBOX_LETTER_OPENED", { mailboxId: story.mailboxId });
+    if (story.storyKind === "locationThought") {
+        addEvent(state, "LOCATION_THOUGHT_TRIGGERED", { triggerId: story.mailboxId });
+    } else {
+        addEvent(state, "MAILBOX_LETTER_OPENED", { mailboxId: story.mailboxId });
+    }
 }
 
 function advanceMailboxStory(state, story, phase, reason) {
     story.phase = phase;
     story.phaseTime = 0;
     if (phase === "thought") {
-        addEvent(state, "MAILBOX_THOUGHT_SHOWN", { mailboxId: story.mailboxId, reason });
+        const eventType = story.storyKind === "locationThought" ? "LOCATION_THOUGHT_SHOWN" : "MAILBOX_THOUGHT_SHOWN";
+        addEvent(state, eventType, story.storyKind === "locationThought"
+            ? { triggerId: story.mailboxId, reason }
+            : { mailboxId: story.mailboxId, reason });
     } else if (phase === "complete") {
         story.active = false;
         story.completed = true;
@@ -1430,7 +1446,10 @@ function advanceMailboxStory(state, story, phase, reason) {
         state.player.vx = 0;
         state.player.vy = 0;
         state.story.mailboxEvent = null;
-        addEvent(state, "MAILBOX_EVENT_COMPLETE", { mailboxId: story.mailboxId, reason });
+        const eventType = story.storyKind === "locationThought" ? "LOCATION_THOUGHT_COMPLETE" : "MAILBOX_EVENT_COMPLETE";
+        addEvent(state, eventType, story.storyKind === "locationThought"
+            ? { triggerId: story.mailboxId, reason }
+            : { mailboxId: story.mailboxId, reason });
     }
 }
 

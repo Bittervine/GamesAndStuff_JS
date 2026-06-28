@@ -1993,55 +1993,55 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 
 ## Automatic Level Generator 0: infrastructure and route preview
 
-- [ ] Add data-driven Earth Cavern and Ice Cavern theme preset JSON.
-- [ ] Add environment-atlas allowlisting to colour-map data so Ice does not recolour doors, chests, mailboxes, or power-up icons.
-- [ ] Add registries for route, cavern, traversal, endpoints, encounters, rewards, decoration, and validation implementations.
-- [ ] Add a dedicated Automatic Level Generator panel with theme, seed, size, verticality, winding, branching, difficulty, safety, density, and enemy-filter controls.
-- [ ] Add advanced generator-implementation dropdowns populated from the registries.
-- [ ] Add deterministic named random streams for each generation stage.
-- [ ] Add enemy-selection range/exclusion parsing and resolved-enemy preview.
-- [ ] Generate and display a progression-ordered abstract route beginning right and ending right at a right-side exit.
-- [ ] Support optional branches and merges while retaining one identifiable mandatory route.
-- [ ] Add generation-run provenance and a visible route overlay.
-- [ ] Make a generation run one undoable operation and support clearing generated content without deleting manual content.
+- [x] Add data-driven Earth Cavern and Ice Cavern theme preset JSON.
+- [x] Add environment-atlas allowlisting to colour-map data so Ice does not recolour doors, chests, mailboxes, or power-up icons.
+- [x] Add registries for route, cavern, traversal, endpoints, encounters, rewards, decoration, and validation implementations.
+- [x] Add a dedicated Automatic Level Generator panel with theme, seed, size, verticality, winding, branching, difficulty, safety, density, and enemy-filter controls.
+- [x] Add advanced generator-implementation dropdowns populated from the registries.
+- [x] Add deterministic named random streams for each generation stage.
+- [x] Add enemy-selection range/exclusion parsing and resolved-enemy preview.
+- [x] Generate and display a progression-ordered abstract route beginning right and ending right at a right-side exit.
+- [x] Support optional branches and merges while retaining one identifiable mandatory route.
+- [x] Add generation-run provenance and a visible route overlay.
+- [x] Make a generation run one undoable operation and support clearing generated content without deleting manual content.
 
 ## Automatic Level Generator 1: playable empty cavern
 
-- [ ] Add an overlapping-ellipse/capsule occupancy-mask cavern envelope builder.
-- [ ] Trace, simplify, smooth, and convert the connected envelope into existing cave-window data.
-- [ ] Add generation-role metadata/catalog data for floors, landings, recovery platforms, walls, ceilings, bridges, decoration, and `doorSupport`.
-- [ ] Add a forgiving traversal builder using conservative measured Ignatius movement envelopes.
-- [ ] Build wide landings, generous headroom, selected double-jump/hover transitions, and recovery platforms.
-- [ ] Reserve safe entrance and exit chambers on the left and right.
-- [ ] Place doors only on whitelisted visually substantial `doorSupport` assets or validated support assemblies.
-- [ ] Derive world bounds and reset boundary from generated envelope and traversal.
-- [ ] Validate every mandatory transition, endpoint support, spawn, landing, and world-bound condition.
+- [x] Add an overlapping-ellipse/capsule occupancy-mask cavern envelope builder.
+- [x] Trace, simplify, smooth, and convert the connected envelope into existing cave-window data.
+- [x] Add generation-role metadata/catalog data for floors, landings, recovery platforms, walls, ceilings, bridges, decoration, and `doorSupport`.
+- [x] Add a forgiving traversal builder using conservative measured Ignatius movement envelopes.
+- [x] Build wide landings, generous headroom, selected double-jump/hover transitions, and recovery platforms.
+- [x] Reserve safe entrance and exit chambers on the left and right.
+- [x] Place doors only on whitelisted visually substantial `doorSupport` assets or validated support assemblies.
+- [x] Derive world bounds and reset boundary from generated envelope and traversal.
+- [x] Validate every mandatory transition, endpoint support, spawn, landing, and world-bound condition.
 
 ## Automatic Level Generator 2: encounters
 
-- [ ] Add enemy-generation metadata for placement class, group range, difficulty cost, clearance, patrol room, and other hints.
-- [ ] Add difficulty-budgeted, locomotion-aware encounter placement with calm entrance/exit zones.
-- [ ] Place Bombing Bats in groups of two or three.
-- [ ] Build or refresh navigation data required by generated hunter enemies.
-- [ ] Validate that ground, ranged, and flying enemies have appropriate space and cannot create unavoidable spawn damage.
-- [ ] Require the weak standard-rocket splash milestone before considering clustered bats balanced enough for routine generation.
+- [x] Add enemy-generation metadata for placement class, group range, difficulty cost, clearance, patrol room, and other hints.
+- [x] Add difficulty-budgeted, locomotion-aware encounter placement with calm entrance/exit zones.
+- [x] Place Bombing Bats in groups of two or three.
+- [x] Build or refresh navigation data required by generated hunter enemies.
+- [x] Validate that ground, ranged, and flying enemies have appropriate space and cannot create unavoidable spawn damage.
+- [x] Require the weak standard-rocket splash milestone before considering clustered bats balanced enough for routine generation.
 
 ## Automatic Level Generator 3: rewards and props
 
-- [ ] Require completed Score/treasure behavior before chest generation.
-- [ ] Prefer treasure at optional branch destinations and meaningful detours.
-- [ ] Place contextual, restrained power-ups rather than uniform random pickups.
-- [ ] Add optional location-triggered thought placement through explicit theme/settings rules.
-- [ ] Keep beginning/end doors under Endpoint Placer ownership rather than treating them as generic props.
-- [ ] Validate reward accessibility and avoid overcrowding endpoint chambers.
+- [x] Require completed Score/treasure behavior before chest generation.
+- [x] Prefer treasure at optional branch destinations and meaningful detours.
+- [x] Place contextual, restrained power-ups rather than uniform random pickups.
+- [x] Add optional location-triggered thought placement through explicit theme/settings rules.
+- [x] Keep beginning/end doors under Endpoint Placer ownership rather than treating them as generic props.
+- [x] Validate reward accessibility and avoid overcrowding endpoint chambers.
 
 ## Automatic Level Generator 4: richer world features and editing refinement
 
 - [ ] Add water basins only after rectangular water behavior is stable.
 - [ ] Add boss-arena landmarks only after boss support is stable.
-- [ ] Add stage-specific regeneration without perturbing unrelated named random streams.
-- [ ] Add locking and converting generated objects to manual ownership.
-- [ ] Improve route diagnostics and validation visualization.
+- [x] Add stage-specific regeneration without perturbing unrelated named random streams.
+- [x] Add locking and converting generated objects to manual ownership.
+- [x] Improve route diagnostics and validation visualization.
 - [ ] Later evaluate moving platforms, signal mechanisms, required rocket sections, reactive-world solutions, and additional route/cavern/traversal implementations.
 
 ## Content production and renderer decision
@@ -2119,3 +2119,94 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Add deterministic diagnostics and regression coverage for direct, nearby, distant, Speed Shot, and wrench cases.
 - [x] Mark the pre-generator prerequisite list complete.
 
+## Revision 234 Automatic Level Generator 0 route foundation
+
+- [x] Add versioned Earth Cavern and Ice Cavern theme presets.
+- [x] Scope Ice recolouring to environment atlases and leave interactive/story artwork untouched.
+- [x] Add deterministic named random streams and stage implementation registries.
+- [x] Add a Level Editor generator panel with ordinary and advanced controls.
+- [x] Parse enemy ranges and exclusions and show the resolved catalog selection.
+- [x] Generate several deterministic candidates per seed, reject invalid candidates, and retain the strongest route.
+- [x] Guarantee one mandatory start-to-exit route with optional branches that rejoin it.
+- [x] Draw route ownership, direction, branch structure, start, and exit in the editor overlay.
+- [x] Preserve generation provenance and support guarded one-step generation undo/redo.
+- [x] Clear generated records without deleting manually authored level content.
+- [x] Add deterministic, stress-matrix, crossing, provenance, theme, and editor-contract regressions.
+- [x] Validate 12,000 generated theme/size/shape combinations and inspect representative route renders before handoff.
+
+## Revision 235 Automatic Level Generator 1 playable empty cavern
+
+- [x] Convert the selected abstract route into one connected cave-window envelope using deterministic overlapping chamber and corridor samples.
+- [x] Materialize ordinary collision-bearing atlas placements for the guaranteed mandatory spine.
+- [x] Preserve optional branch nodes and edges as explicit preview reservations instead of pretending unpopulated detours are already useful gameplay.
+- [x] Add a versioned platform-generation catalog with explicit roles, native dimensions, scale ranges, surface heights, door-support rules, mirroring, and authored walkable-edge insets.
+- [x] Measure generated jumps between authored collision-bearing walkable edges rather than transparent frame bounds.
+- [x] Keep mandatory gaps, rises, and drops inside conservative traversal limits and add recovery ledges without allowing them to obstruct the spine.
+- [x] Place entrance and exit doors on wide validated supports inside calm endpoint chambers.
+- [x] Derive cave bounds, world bounds, reset height, ownership markers, and reversible replacement of the previous generated shell.
+- [x] Evaluate several deterministic route-and-geometry candidates for each seed and retain the strongest complete valid cavern.
+- [x] Add regressions for deterministic drafts, ownership, platform metadata, walkable widths, endpoint support, cave containment, transition limits, and editor contracts.
+- [x] Stress-test 800 theme, length, shape, and seed combinations without a validation failure.
+- [x] Headlessly traverse 24 representative generated levels through the real atlas collision, completing 867 mandatory transitions, including 190 transitions that used Ignatius's second-jump rocket kick.
+- [x] Render and inspect representative Earth and Ice cavern overviews before handoff.
+- [x] Run persistent-state entrance-to-exit pilots across all eight rendered levels, preserving momentum, fuel use, recharge delay, and prior landing position between transitions.
+
+## Revision 236 Automatic Level Generator 2 encounters
+
+- [x] Add `assets/level-generator-enemies.json` as a versioned behavior and placement metadata catalog for every currently supported generated enemy.
+- [x] Keep encounter randomness on its own named deterministic stream so population changes do not perturb route or cavern selection.
+- [x] Compute a difficulty budget from route scale, enemy density, difficulty, and safety, while preserving a genuinely empty zero-density result.
+- [x] Guarantee entrance and exit calm zones at least as large as the maximum selected enemy awareness range plus a safety buffer.
+- [x] Place ground enemies only on mandatory supports with sufficient authored walkable collision width, edge clearance, protected incoming landing space, headroom, and patrol room.
+- [x] Generate Bombing Bats only in compact groups of two or three with non-overlapping hitboxes and sufficient flying airspace.
+- [x] Rebuild existing hunter navigation graphs after generated Fireball or Musket Goblins are applied, and include those graphs in generation replacement, undo, redo, and clear snapshots.
+- [x] Add combined cavern-and-encounter validation for calm zones, terrain embedding, support, spacing, group size, airspace, and hunter navigation requirements.
+- [x] Preserve generator run ownership and stage provenance on every generated enemy and report budget, spend, class counts, bat groups, hunters, calm distance, and warnings.
+- [x] Add deterministic, filtering, zero-density, bat-only, ownership, navigation-preservation, and 160-case built-in stress regressions.
+- [x] Run an additional 800-case encounter stress matrix without an accepted-draft validation failure.
+- [x] Hydrate representative drafts through real atlas collision, bake hunter navigation, and verify every tested hunter has a navigation support.
+- [x] Simulate Ignatius stationary at the entrance for 360 fixed steps in four populated representative caverns with zero alerts and zero player damage.
+- [x] Render and visually inspect eight populated Earth and Ice caverns across Compact through Grand before handoff.
+
+## Revision 237 Automatic Level Generator 3 rewards and props
+
+- [x] Add `assets/level-generator-rewards.json` as a versioned catalog for branch treasure, contextual power-ups, utility pickups, narrative triggers, spacing, progression ranges, and per-draft limits.
+- [x] Keep branch and reward selection on the independent rewards random stream so tuning rewards does not perturb route, cavern, or encounter streams.
+- [x] Prefer reward-rich candidates that materialize eligible branches instead of accepting a marginally higher-scoring branchless draft.
+- [x] Materialize selected branches as lower returnable detours rather than upper shelves that create accidental ceilings.
+- [x] Reserve a collision-open 116-unit shaft with a catalogued `shaftBridge` support assembly.
+- [x] Begin each shaft with two alternating `branchStep` footholds that leave player-width entry space and enough walkable width to stand and turn.
+- [x] Use broad lower supports for the reward alcove and keep the abstract merge edge preview-only.
+- [x] Place exactly one positive-Score treasure chest at every materialized branch destination.
+- [x] Place progression-aware contextual pickups sparingly, prevent repeated pickup types in one draft, and avoid endpoint and enemy crowding.
+- [x] Add the opt-in invisible one-shot `thoughtTrigger` entity and keep generated location thoughts disabled by default.
+- [x] Preserve Endpoint Placer ownership for entrance and exit doors and preserve generation run, stage, route, support, and branch provenance on reward records.
+- [x] Extend generation clear, replacement, undo, and redo to affect only generator-owned reward and narrative records.
+- [x] Draw actual materialized branch traversal separately from reservations and preview-only merge hints in the Level Editor overlay.
+- [x] Add combined validation for branch shafts, foothold and alcove widths, bidirectional transitions, branch treasure, accessibility, endpoint calm space, enemy overlap, and thought opt-in.
+- [x] Add deterministic, zero-density, thought opt-in, ownership, branch geometry, reward accessibility, and 80-case built-in stress regressions.
+- [x] Run an additional 800-case reward stress matrix with 963 materialized detours, zero accepted-draft validation failures, and a minimum quality score of 93.5.
+- [x] Verify all 11 representative branch entries through real atlas collision and sweep 110 branch transition directions without an invalid landing.
+- [x] Render and visually inspect eight rewarded Earth and Ice caverns across Compact through Grand before handoff.
+
+
+
+## Revision 238 Automatic Level Generator 4 editor refinement
+
+- [x] Add normalized per-stage revision counters and derive independent revision-specific named random streams without changing the base seed.
+- [x] Preserve the accepted route attempt during encounter and reward rerolls.
+- [x] Regenerate encounters without changing terrain, cave envelope, endpoints, rewards, or non-encounter entities.
+- [x] Regenerate rewards and materialized detours while preserving and support-reanchoring the existing encounter population.
+- [x] Skip identical deterministic candidates so a successful reroll represents an actual stage change.
+- [x] Validate every combined reroll before applying it and rebuild existing hunter navigation after accepted population-affecting changes.
+- [x] Add generated-object locking that blocks drag, delete, copy, and inspector mutation.
+- [x] Add conversion to manual ownership with a compact provenance receipt understood by validation.
+- [x] Prevent stage regeneration from silently replacing manualized dependent records.
+- [x] Add validation-only reruns that detect support geometry drifting out of sync with traversal metadata.
+- [x] Add editor overlays for walkable spans, mandatory and optional transitions, branch shafts, calm zones, encounter anchors, reward anchors, and invalid records.
+- [x] Preserve lock and manualization state through guarded generator undo and redo.
+- [x] Add deterministic refinement regressions covering stage isolation, reward re-anchoring, support drift, manual replacements, finite overlay geometry, and editor controls.
+- [x] Stress 200 complete caverns across both themes and every length: 199 changed encounter alternatives, one genuinely constrained population, 110 changed reward alternatives, 310 combined validation checks, 40 deliberate drift detections, and zero failures.
+- [x] Render and inspect paired before/after rerolls, clean/invalid validation overlays, locking, and manual ownership before handoff.
+- [ ] Keep water basins deferred until rectangular water volumes have a stable generated-level contract.
+- [ ] Keep boss landmarks deferred until boss runtime and arena validation contracts exist.

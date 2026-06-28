@@ -1,0 +1,168 @@
+{
+  "version": 1,
+  "catalogId": "cavern-platform-generation-v1",
+  "description": "Explicit platform-generation roles for the first automatic cavern builder. Surface ratios describe the authored collision-bearing top relative to the frame height.",
+  "assets": [
+    {
+      "atlasId": "at_atlas_001",
+      "assetId": "floor_long_terrace",
+      "roles": [
+        "bridge"
+      ],
+      "weight": 8,
+      "nativeWidth": 744,
+      "nativeHeight": 162,
+      "surfaceYRatio": 0.1,
+      "scaleMin": 0.72,
+      "scaleMax": 1.08,
+      "minimumDoorWidth": 620,
+      "minimumVisibleDepth": 118,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.013441,
+      "walkableRightInsetRatio": 0.639785
+    },
+    {
+      "atlasId": "at_atlas_001",
+      "assetId": "floor_big_moss",
+      "roles": [
+        "routeFloor",
+        "doorSupport",
+        "recoveryPlatform"
+      ],
+      "weight": 5,
+      "nativeWidth": 290,
+      "nativeHeight": 142,
+      "surfaceYRatio": 0.105,
+      "scaleMin": 1.55,
+      "scaleMax": 2.35,
+      "minimumDoorWidth": 540,
+      "minimumVisibleDepth": 190,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.041379,
+      "walkableRightInsetRatio": 0.037931
+    },
+    {
+      "atlasId": "at_atlas_001",
+      "assetId": "floor_mossy_low",
+      "roles": [
+        "routeFloor",
+        "landingPlatform",
+        "recoveryPlatform"
+      ],
+      "weight": 7,
+      "nativeWidth": 342,
+      "nativeHeight": 88,
+      "surfaceYRatio": 0.145,
+      "scaleMin": 0.82,
+      "scaleMax": 1.35,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.026316,
+      "walkableRightInsetRatio": 0.108187
+    },
+    {
+      "atlasId": "at_atlas_001",
+      "assetId": "floor_cold_platform",
+      "roles": [
+        "routeFloor",
+        "landingPlatform",
+        "recoveryPlatform"
+      ],
+      "weight": 6,
+      "nativeWidth": 336,
+      "nativeHeight": 85,
+      "surfaceYRatio": 0.15,
+      "scaleMin": 0.82,
+      "scaleMax": 1.34,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.020833,
+      "walkableRightInsetRatio": 0.017857
+    },
+    {
+      "atlasId": "at_atlas_001",
+      "assetId": "ledge_flat_long_a",
+      "roles": [
+        "landingPlatform",
+        "bridge",
+        "recoveryPlatform"
+      ],
+      "weight": 9,
+      "nativeWidth": 290,
+      "nativeHeight": 88,
+      "surfaceYRatio": 0.18,
+      "scaleMin": 0.78,
+      "scaleMax": 1.28,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.027586,
+      "walkableRightInsetRatio": 0.058621
+    },
+    {
+      "atlasId": "at_atlas_001",
+      "assetId": "ledge_flat_long_b",
+      "roles": [
+        "landingPlatform",
+        "bridge",
+        "recoveryPlatform"
+      ],
+      "weight": 9,
+      "nativeWidth": 335,
+      "nativeHeight": 89,
+      "surfaceYRatio": 0.17,
+      "scaleMin": 0.72,
+      "scaleMax": 1.2,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.053731,
+      "walkableRightInsetRatio": 0.047761
+    },
+    {
+      "atlasId": "at_atlas_001",
+      "assetId": "ledge_flat_mid",
+      "roles": [
+        "landingPlatform",
+        "bridge",
+        "recoveryPlatform"
+      ],
+      "weight": 8,
+      "nativeWidth": 264,
+      "nativeHeight": 94,
+      "surfaceYRatio": 0.145,
+      "scaleMin": 0.82,
+      "scaleMax": 1.35,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.049242,
+      "walkableRightInsetRatio": 0.049242
+    },
+    {
+      "atlasId": "at_atlas_001",
+      "assetId": "ledge_small_flat",
+      "roles": [
+        "branchStep",
+        "recoveryPlatform"
+      ],
+      "weight": 7,
+      "nativeWidth": 156,
+      "nativeHeight": 59,
+      "surfaceYRatio": 0.44,
+      "scaleMin": 0.35,
+      "scaleMax": 1.45,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.141026,
+      "walkableRightInsetRatio": 0.134615
+    },
+    {
+      "atlasId": "at_atlas_001",
+      "assetId": "rubble_long",
+      "roles": [
+        "shaftBridge"
+      ],
+      "weight": 8,
+      "nativeWidth": 278,
+      "nativeHeight": 41,
+      "surfaceYRatio": 0.5,
+      "scaleMin": 0.74,
+      "scaleMax": 1.05,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.071942,
+      "walkableRightInsetRatio": 0.05036
+    }
+  ]
+}
