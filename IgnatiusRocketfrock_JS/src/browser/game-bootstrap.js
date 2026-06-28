@@ -88,7 +88,7 @@ const renderingQualityButtons = [...document.querySelectorAll("[data-rendering-q
 const autoFullscreenRow = document.getElementById("auto-fullscreen-row");
 const autoFullscreenInput = document.getElementById("auto-fullscreen");
 
-const GAME_REVISION = "229";
+const GAME_REVISION = "241";
 
 let displayedLoadingProgress = 0;
 let activeCaveWindow = normalizeCaveWindow(null);
@@ -1309,7 +1309,7 @@ function updateDebugText() {
         ? `render avg:${performanceStats.averageFrameMs.toFixed(2)}ms last:${performanceStats.frameMs.toFixed(2)}ms observed:${performanceStats.observedFps.toFixed(0)}fps world:${performanceStats.worldMs.toFixed(2)} actors:${performanceStats.actorsMs.toFixed(2)} foreground:${performanceStats.foregroundMs.toFixed(2)} mask:${performanceStats.maskMs.toFixed(2)} overlay:${performanceStats.overlayMs.toFixed(2)}`
         : "render diagnostics pending";
     const visualPerformanceText = Number.isFinite(performanceStats.visualsConsidered)
-        ? `visuals considered:${performanceStats.visualsConsidered} drawn:${performanceStats.visualsDrawn} culled:${performanceStats.visualsCulled} dynamic considered:${performanceStats.dynamicConsidered} drawn:${performanceStats.dynamicDrawn} culled:${performanceStats.dynamicCulled} foreground-cache hit:${performanceStats.foregroundCacheHits} miss:${performanceStats.foregroundCacheMisses} mask-cache:${performanceStats.maskReused ? "hit" : "miss"}`
+        ? `visuals considered:${performanceStats.visualsConsidered} drawn:${performanceStats.visualsDrawn} culled:${performanceStats.visualsCulled} spatial:${performanceStats.visualsSpatialCulled || 0} dynamic considered:${performanceStats.dynamicConsidered} drawn:${performanceStats.dynamicDrawn} culled:${performanceStats.dynamicCulled} foreground-cache hit:${performanceStats.foregroundCacheHits} miss:${performanceStats.foregroundCacheMisses} mask-cache:${performanceStats.maskReused ? "hit" : "miss"}`
         : "visual diagnostics pending";
 
     debugEl.textContent = [

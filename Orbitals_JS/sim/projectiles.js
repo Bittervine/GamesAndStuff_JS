@@ -3,6 +3,7 @@ import { config } from '../orbitals_config.js';
 import { WORLD_UP as worldUp } from './math.js';
 import {
   getEnemyItems,
+  getPlayerState,
   getProjectileState,
   getProjectileItems,
   getWorldPlanets
@@ -277,6 +278,9 @@ export function spawnProjectileBurst(state, ship, fireDirection) {
     lifetime: config.shipProjectileLifetime,
     planetCollisionGrace: 0.14,
     radius: config.shipProjectileSize,
+    owner: 'player',
+    damage: config.shipProjectileDamage,
+    visualKind: 'player',
     side: 0,
     spawnFrame: state.frameIndex,
     targetEnemyId: null,
@@ -289,6 +293,65 @@ export function spawnProjectileBurst(state, ship, fireDirection) {
   projectile.homingAcquisitionComplete = true;
   projectiles.items.push(projectile);
   projectiles.nextId += 1;
+}
+
+export function spawnEnemyProjectile(state, enemy, target) {
+  if (!config.enemyFireEnabled || !enemy || !target) {
+    return null;
+  }
+
+  const projectiles = getProjectileState(state);
+  const inheritedVelocity = enemy.velocity ? enemy.velocity.clone() : new THREE.Vector3();
+  const origin = tempVecA.copy(enemy.position);
+  const muzzleDirection = enemy.forward && enemy.forward.lengthSq() > 1e-8
+    ? tempVecB.copy(enemy.forward).normalize()
+    : tempVecB.copy(target.position).sub(enemy.position).normalize();
+  if (muzzleDirection.lengthSq() <= 1e-8) {
+    muzzleDirection.set(0, 0, 1);
+  }
+  origin.addScaledVector(muzzleDirection, Math.max(enemy.radius || 0, config.enemyProjectileMuzzleOffset));
+
+  const baseSpeed = config.enemyProjectileSpeed + (enemy.speed || 0) * config.enemyProjectileShipVelocityScale;
+  const targetVelocity = target.velocity || tempVecC.set(0, 0, 0);
+  const targetOffset = tempVecD.copy(target.position).sub(origin);
+  const leadTime = THREE.MathUtils.clamp(
+    targetOffset.length() / Math.max(baseSpeed, 1e-8),
+    0,
+    config.enemyProjectileLeadTimeMax
+  );
+  const direction = tempVecE.copy(target.position)
+    .addScaledVector(targetVelocity, leadTime)
+    .sub(origin);
+  if (direction.lengthSq() <= 1e-8) {
+    direction.copy(muzzleDirection);
+  }
+  direction.normalize();
+
+  const projectile = {
+    id: projectiles.nextId,
+    position: origin.clone(),
+    previousPosition: origin.clone(),
+    velocity: inheritedVelocity.clone().addScaledVector(direction, baseSpeed),
+    inheritedVelocity,
+    launchDirection: direction.clone(),
+    guidanceDirection: null,
+    speed: baseSpeed,
+    age: 0,
+    lifetime: config.enemyProjectileLifetime,
+    planetCollisionGrace: 0.08,
+    radius: config.enemyProjectileRadius,
+    owner: 'enemy',
+    ownerEnemyId: enemy.id,
+    damage: config.enemyProjectileDamage,
+    visualKind: 'enemy',
+    spawnFrame: state.frameIndex,
+    targetEnemyId: null,
+    homingAcquisitionComplete: true,
+    homingDisabled: true
+  };
+  projectiles.items.push(projectile);
+  projectiles.nextId += 1;
+  return projectile;
 }
 
 export function computeShipFireDirection(ship, camera, aimX, aimY, viewportWidth, viewportHeight) {
@@ -308,27 +371,39 @@ export function computeShipFireDirection(ship, camera, aimX, aimY, viewportWidth
 
 export function updateProjectiles(state, dt, options = {}) {
   const applyEnemyDamage = options.applyEnemyDamage || (() => {});
+  const handlePlayerProjectileHit = options.handlePlayerProjectileHit || (() => false);
   const enemies = getEnemyItems(state);
   const projectiles = getProjectileItems(state);
   const planets = getWorldPlanets(state);
+  const player = getPlayerState(state);
   for (let i = projectiles.length - 1; i >= 0; i -= 1) {
     const projectile = projectiles[i];
+    if (!projectile) {
+      projectiles.splice(i, 1);
+      continue;
+    }
     if (projectile.spawnFrame === state.frameIndex) {
       continue;
     }
     projectile.age += dt;
     projectile.previousPosition.copy(projectile.position);
 
-    const previousTargetId = projectile.targetEnemyId;
-    const homingTarget = findProjectileHomingTarget(state, projectile);
-    if (homingTarget) {
-      steerProjectileTowardsTarget(projectile, homingTarget, dt);
-    } else {
-      if (previousTargetId != null) {
-        projectile.targetEnemyId = null;
-        projectile.homingDisabled = true;
+    if (projectile.owner === 'enemy') {
+      if (projectile.guidanceDirection) {
+        applyProjectileGuidanceVelocity(projectile);
       }
-      applyProjectileGuidanceVelocity(projectile);
+    } else {
+      const previousTargetId = projectile.targetEnemyId;
+      const homingTarget = findProjectileHomingTarget(state, projectile);
+      if (homingTarget) {
+        steerProjectileTowardsTarget(projectile, homingTarget, dt);
+      } else {
+        if (previousTargetId != null) {
+          projectile.targetEnemyId = null;
+          projectile.homingDisabled = true;
+        }
+        applyProjectileGuidanceVelocity(projectile);
+      }
     }
     projectile.position.addScaledVector(projectile.velocity, dt);
 
@@ -342,7 +417,14 @@ export function updateProjectiles(state, dt, options = {}) {
       }
     }
 
-    if (!dead && enemies.length > 0) {
+    if (!dead && projectile.owner === 'enemy' && player.ship && !player.crashed) {
+      const hitRadius = config.enemyProjectilePlayerHitRadius + projectile.radius;
+      if (segmentIntersectsSphere(projectile.previousPosition, projectile.position, player.ship.position, hitRadius)) {
+        dead = handlePlayerProjectileHit(state, projectile, projectile.position.clone());
+      }
+    }
+
+    if (!dead && projectile.owner !== 'enemy' && enemies.length > 0) {
       for (let j = enemies.length - 1; j >= 0; j -= 1) {
         const enemy = enemies[j];
         if (!enemy || enemy.health <= 0) {
@@ -350,7 +432,7 @@ export function updateProjectiles(state, dt, options = {}) {
         }
         const hitRadius = enemy.radius + projectile.radius;
         if (projectile.position.distanceTo(enemy.position) <= hitRadius) {
-          applyEnemyDamage(state, enemy, config.shipProjectileDamage, 'projectile');
+          applyEnemyDamage(state, enemy, projectile.damage ?? config.shipProjectileDamage, 'projectile');
           dead = true;
           break;
         }

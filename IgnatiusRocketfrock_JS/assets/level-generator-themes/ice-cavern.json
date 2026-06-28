@@ -17,9 +17,11 @@
   "route": {
     "nodeSpacing": 920,
     "verticalStep": 205,
-    "startX": 320,
-    "baselineY": 640,
-    "candidateAttempts": 36
+    "startX": 640,
+    "baselineY": 940,
+    "candidateAttempts": 44,
+    "macroVerticalSpan": 1380,
+    "roomScale": 1.04
   },
   "colorMap": {
     "enabled": true,
@@ -34,23 +36,33 @@
     ]
   },
   "implementations": {
-    "route": "progression-route-v1",
-    "cavern": "ellipse-cavern-v1",
+    "route": "macro-room-route-v2",
+    "cavern": "room-and-tunnel-cavern-v2",
     "traversal": "forgiving-traversal-v1",
-    "endpoints": "safe-endpoints-v1",
+    "endpoints": "grounded-chamber-endpoints-v2",
     "encounters": "difficulty-budgeted-encounters-v1",
     "rewards": "basic-rewards-v1",
-    "decoration": "not-generated-yet",
-    "validation": "playable-reward-cavern-validation-v1"
+    "decoration": "perimeter-decoration-v1",
+    "validation": "room-and-tunnel-validation-v2"
   },
   "cavern": {
-    "chamberRadiusX": 405,
-    "chamberRadiusY": 370,
-    "corridorRadiusX": 245,
-    "corridorRadiusY": 305,
-    "floorOffsetY": 145,
+    "chamberRadiusX": 760,
+    "chamberRadiusY": 610,
+    "corridorRadiusX": 520,
+    "corridorRadiusY": 500,
+    "floorOffsetY": 105,
     "sampleStep": 140,
-    "worldMargin": 170
+    "worldMargin": 240,
+    "endpointRadiusX": 960,
+    "endpointRadiusY": 710,
+    "roomRadiusXMin": 900,
+    "roomRadiusXMax": 2560,
+    "roomRadiusYMin": 560,
+    "roomRadiusYMax": 1080,
+    "platformWallClearanceX": 280,
+    "platformFloorClearance": 280,
+    "platformCeilingClearance": 380,
+    "endpointSideClearance": 570
   },
   "traversal": {
     "maxHopX": 380,
@@ -87,5 +99,13 @@
       "The icicles appear to be pointing at me. Rude, but informative.",
       "I should have packed the ceremonial woollen hat."
     ]
+  },
+  "decoration": {
+    "populatePerimeter": true,
+    "protectGameplay": true,
+    "supportPaddingX": 54,
+    "supportPaddingY": 82,
+    "endpointPadding": 210,
+    "rewardPadding": 72
   }
 }

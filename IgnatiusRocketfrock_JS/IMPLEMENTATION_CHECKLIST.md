@@ -2210,3 +2210,55 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Render and inspect paired before/after rerolls, clean/invalid validation overlays, locking, and manual ownership before handoff.
 - [ ] Keep water basins deferred until rectangular water volumes have a stable generated-level contract.
 - [ ] Keep boss landmarks deferred until boss runtime and arena validation contracts exist.
+
+## Revision 239 generated perimeter readability and spatial culling
+
+- [x] Invoke deterministic Populate perimeter automatically for generated caverns unless the selected theme suppresses decoration.
+- [x] Preserve cave-foreground records as inert ordinary placements with automatic-generator run and decoration-stage ownership.
+- [x] Add theme-normalized support, endpoint, and reward protection padding for perimeter decoration.
+- [x] Validate and shift the complete radial decoration stack rather than only its inward sprite.
+- [x] Guarantee zero generated-foreground overlap with padded entrance, exit, and reward regions.
+- [x] Prevent ordinary decoration stacks from overlapping padded traversal supports.
+- [x] Limit rare occlusion accents to at most eight-percent protected-support coverage and omit stacks that cannot be made safe.
+- [x] Recognize automatic-generator-owned foreground in Level Editor visibility, counting, clear, and guide paths.
+- [x] Partition cached static world visuals into stable X buckets while preserving painter order.
+- [x] Query camera-local main, actor-front, and parallax-adjusted cave-foreground candidates before exact viewport culling.
+- [x] Keep dynamic-position visuals outside static bins and recalculate their current bounds on every query.
+- [x] Add spatial-cull counts to renderer diagnostics and the browser debug panel.
+- [x] Add a WeakMap-backed X-bucket broadphase for static solids, collision segments, and collision polygons.
+- [x] Keep moving-platform, reactive, and explicitly dynamic collision records live and preserve source-order collision precedence.
+- [x] Add regression coverage for theme suppression, endpoint protection, support coverage, visual order, dynamic candidates, and collision broadphase behavior.
+- [x] Stress 160 generated caverns across both themes and all four lengths with zero failures, zero endpoint overlaps, and zero supports above ten-percent foreground coverage.
+- [x] Measure a representative Grand cavern: 93.7-percent foreground and 92.1-percent other-static spatial rejection before exact culling; 851 collision segments reduced to 71.1 average local candidates.
+- [x] Render and inspect authentic 1280-by-720 camera crops for Earth and Ice Standard and Grand caverns, including entrance, middle, and exit views.
+- [x] Keep WebGL2 deferred until representative profiling shows local drawing or composition, rather than global scanning, is the remaining bottleneck.
+
+## Revision 240 macro rooms, grounded endpoints, and guaranteed walls
+
+- [x] Add deterministic ascending/descending Z, ascending/descending L, valley, stepped-terrace, and rolling macro route plans.
+- [x] Record the accepted macro pattern, anchors, vertical span, and room reservations in normalized generation provenance.
+- [x] Reserve one through four macro rooms by level length, commonly larger than one screen and capped at four by three screens.
+- [x] Increase current-theme macro vertical spans so high-verticality Standard through Grand routes produce meaningful climbs and descents rather than near-horizontal chains.
+- [x] Build the cave opening from explicit tunnel, chamber, endpoint-chamber, and macro-room stamps around traversal supports.
+- [x] Guarantee platform wall, ceiling, and floor clearance across the complete authored support width.
+- [x] Place entrance and exit doors inward on wide door supports, with exact floor anchoring and substantial distance from the dark boundary.
+- [x] Require a non-empty perimeter-decoration catalog for final Level Editor generation whenever the theme requests populated walls.
+- [x] Validate non-empty perimeter output, strict endpoint/reward exclusion, maximum support coverage, cave clearances, endpoint side clearance, door floor error, and room dimensions.
+- [x] Re-run presentation validation when validating an edited generated snapshot whose perimeter stage was active.
+- [x] Strengthen the manual Populate perimeter protection regions to match current generated-cavern readability rules.
+- [x] Correct encounter endpoint-distance metrics so calm-zone diagnostics report their intended value.
+- [x] Reduce cave-profile sample density while retaining support centres, macro-room shoulders, endpoint shoulders, and a bounded global grid.
+- [x] Add regression coverage for v2 theme defaults, missing required perimeter catalogs, grounded doors, wall clearances, room bounds, Z/L pattern distribution, and Level Editor enforcement.
+- [x] Stress 320 complete caverns across both themes and all four lengths with zero failures, 181–512 perimeter placements, at most 5.02-percent platform coverage, and all seven macro patterns represented.
+- [x] Render and inspect authentic-atlas overviews plus entrance and exit camera crops for six Z, L, valley, and terrace caverns before handoff.
+
+
+## Revision 241 grounded portal anchors, vertical route rhythm, and moving supports
+
+- [x] Fix generated entrance and exit entity Y coordinates so the runtime/editor floor anchor equals the support collision surface.
+- [x] Update both standalone and presentation validation to compare the portal anchor directly with `support.surfaceY`.
+- [x] Replace the previous shallow macro Y modulation with explicit Z, L, valley, terrace, and rolling vertical phases.
+- [x] Preserve conservative mandatory rise/drop limits while increasing whole-level vertical span.
+- [x] Add deterministic automatic shuttle platforms: one in Standard, two in Extended, and three in Grand when suitable intermediate supports exist.
+- [x] Add regression assertions for exact portal anchoring, moving-platform counts, and substantial Grand-route vertical span.
+- [x] Run the complete regression suite after the correction.

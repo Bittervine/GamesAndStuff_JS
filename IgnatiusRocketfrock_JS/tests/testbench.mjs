@@ -19,9 +19,16 @@ import {
 import {
     buildWorldVisualCache,
     expandedViewportWorldBounds,
+    queryWorldVisualEntries,
     visualIntersectsViewport,
     visualWorldBounds
 } from "../src/presentation/world-visual-cache.js";
+import {
+    queryWorldCollisionPolygons,
+    queryWorldSegments,
+    queryWorldSolids,
+    worldCollisionIndexDiagnostics
+} from "../src/core/world-collision-index.js";
 import { actorBodyRect, characterEnemyMeleeAttackRect, enemyProjectileHitbox } from "../src/shared/actor-geometry.js";
 import { GAMEPAD_ACTIVITY_TIMEOUT_SECONDS, RocketfrockInput } from "../src/browser/browser-input.js";
 import { GamepadHaptics, GAMEPAD_HAPTIC_PATTERNS } from "../src/browser/gamepad-haptics.js";
@@ -273,6 +280,7 @@ function testSourceOrganization() {
         "../package.json",
         "../src/core/simulation.js",
         "../src/core/enemy-navigation.js",
+        "../src/core/world-collision-index.js",
         "../src/browser/browser-input.js",
         "../src/browser/game-bootstrap.js",
         "../src/browser/game-settings-store.js",
@@ -3818,6 +3826,296 @@ function testSelectiveLevelColorMap() {
     assert.ok(!rendererSource.includes("this.syncEnvironmentColorMap(state.world?.colorMap)"), "normal render frames should not rebuild or rescan colour caches");
 }
 
+function loadGeneratorDecorationCatalog() {
+    const entries = [];
+    for (let index = 1; index <= 20; index += 1) {
+        const atlasId = `at_atlas_${String(index).padStart(3, "0")}`;
+        const url = new URL(`../assets/${atlasId}.json`, import.meta.url);
+        if (!existsSync(url)) continue;
+        const manifest = JSON.parse(readFileSync(url, "utf8"));
+        for (const [assetId, object] of Object.entries(manifest.objects || {})) {
+            const frame = manifest.frames?.[object?.frame || assetId];
+            if (!frame) continue;
+            entries.push({
+                atlasId,
+                assetId,
+                frame,
+                tags: object?.tags || [],
+                defaultScale: object?.defaultScale || 1
+            });
+        }
+    }
+    return buildCaveDecorationCatalog(entries);
+}
+
+function boundsOverlapArea(left, right) {
+    const width = Math.max(0, Math.min(left.maxX, right.maxX) - Math.max(left.minX, right.minX));
+    const height = Math.max(0, Math.min(left.maxY, right.maxY) - Math.max(left.minY, right.minY));
+    return width * height;
+}
+
+function testAutomaticLevelGeneratorPerimeterAndSpatialCulling() {
+    const rawEarthTheme = JSON.parse(readFileSync(new URL("../assets/level-generator-themes/earth-cavern.json", import.meta.url), "utf8"));
+    const rawIceTheme = JSON.parse(readFileSync(new URL("../assets/level-generator-themes/ice-cavern.json", import.meta.url), "utf8"));
+    const assetCatalog = normalizeGenerationAssetCatalog(JSON.parse(readFileSync(new URL("../assets/level-generator-platforms.json", import.meta.url), "utf8")));
+    const enemyGenerationCatalog = normalizeEnemyGenerationCatalog(JSON.parse(readFileSync(new URL("../assets/level-generator-enemies.json", import.meta.url), "utf8")));
+    const rewardGenerationCatalog = normalizeRewardGenerationCatalog(JSON.parse(readFileSync(new URL("../assets/level-generator-rewards.json", import.meta.url), "utf8")));
+    const enemyCatalog = JSON.parse(readFileSync(new URL("../assets/ct_enemies_001.json", import.meta.url), "utf8"));
+    const entityCatalog = JSON.parse(readFileSync(new URL("../assets/it_entities_001.json", import.meta.url), "utf8"));
+    const decorationCatalog = loadGeneratorDecorationCatalog();
+    assert.ok(decorationCatalog.floor.length && decorationCatalog.ceiling.length && decorationCatalog.wall.length, "the runtime atlas manifests should provide every perimeter decoration family");
+
+    let supportCount = 0;
+    let heavilyCoveredSupportCount = 0;
+    let maximumSupportCoverage = 0;
+    let generatedForegroundCount = 0;
+    for (const [themeRaw, label] of [[rawEarthTheme, "earth"], [rawIceTheme, "ice"]]) {
+        const theme = normalizeGeneratorTheme(themeRaw);
+        for (const length of ["standard", "grand"]) {
+            const draft = generateAutomaticLevelDraft({
+                theme,
+                assetCatalog,
+                enemyGenerationCatalog,
+                rewardGenerationCatalog,
+                enemyCatalog,
+                entityCatalog,
+                decorationCatalog,
+                availableEnemyIds: Object.keys(enemyCatalog.enemies),
+                seed: `perimeter-${label}-${length}`,
+                settings: {
+                    ...theme.defaults,
+                    length,
+                    branching: 0.85,
+                    enemyDensity: 0.62,
+                    rewardDensity: 0.7
+                },
+                destinationLevel: "level_002"
+            });
+            assert.equal(draft.generation.validation.valid, true, `${label} ${length} decorated cavern should preserve complete generator validation`);
+            const foreground = draft.placements.filter((placement) => placement.layer === CAVE_FOREGROUND_LAYER);
+            generatedForegroundCount += foreground.length;
+            assert.ok(foreground.length > 0, `${label} ${length} should populate its perimeter by default`);
+            assert.ok(foreground.every((placement) =>
+                placement.generatedBy === AUTOMATIC_LEVEL_GENERATOR_ID &&
+                placement.generationStage === "decoration" &&
+                placement.decorationGenerator === CAVE_PERIMETER_GENERATOR &&
+                placement.collisionFromManifest === false
+            ), "automatic perimeter records should remain inert and carry complete ownership provenance");
+            const foregroundBounds = foreground.map(visualWorldBounds);
+
+            for (const entity of draft.entities.filter((record) => record.generationStage === "endpoints")) {
+                const padding = theme.decoration.endpointPadding;
+                const protectedBounds = {
+                    minX: entity.x - entity.w * 0.5 - padding,
+                    minY: entity.y - entity.h - padding,
+                    maxX: entity.x + entity.w * 0.5 + padding,
+                    maxY: entity.y + padding
+                };
+                assert.equal(foregroundBounds.some((bounds) => boundsOverlapArea(bounds, protectedBounds) > 0.0001), false, "entry and exit doors should remain completely clear of generated foreground art");
+            }
+
+            for (const placement of draft.placements.filter((record) => record.collisionFromManifest !== false)) {
+                const supportBounds = visualWorldBounds(placement);
+                const supportArea = Math.max(1, (supportBounds.maxX - supportBounds.minX) * (supportBounds.maxY - supportBounds.minY));
+                const coverage = foregroundBounds.reduce((sum, bounds) => sum + boundsOverlapArea(bounds, supportBounds), 0) / supportArea;
+                supportCount += 1;
+                maximumSupportCoverage = Math.max(maximumSupportCoverage, coverage);
+                if (coverage > 0.1) heavilyCoveredSupportCount += 1;
+            }
+        }
+    }
+    assert.ok(generatedForegroundCount > 500, "representative generated caverns should exercise a substantial perimeter workload");
+    assert.equal(heavilyCoveredSupportCount, 0, "ordinary generated perimeter art should not substantially hide traversal platforms");
+    assert.ok(maximumSupportCoverage < 0.1, `the worst representative support coverage should stay below ten percent, got ${maximumSupportCoverage}`);
+    assert.ok(supportCount > 100, "visibility checks should cover a broad set of generated supports");
+
+    const suppressedTheme = normalizeGeneratorTheme({
+        ...rawEarthTheme,
+        decoration: { ...(rawEarthTheme.decoration || {}), populatePerimeter: false }
+    });
+    const suppressed = generateAutomaticLevelDraft({
+        theme: suppressedTheme,
+        assetCatalog,
+        decorationCatalog,
+        seed: "perimeter-suppressed",
+        settings: { ...suppressedTheme.defaults, length: "compact" },
+        implementations: { ...suppressedTheme.implementations, encounters: "not-generated-yet", rewards: "not-generated-yet" },
+        availableEnemyIds: [],
+        destinationLevel: "level_002"
+    });
+    assert.equal(suppressed.placements.some((placement) => placement.layer === CAVE_FOREGROUND_LAYER), false, "a theme should be able to suppress automatic perimeter population explicitly");
+    assert.equal(suppressed.generation.decoration.suppressedReason, "theme-suppressed", "suppressed themes should record why the perimeter stage was skipped");
+
+    const manyVisuals = Array.from({ length: 12000 }, (_, index) => ({
+        id: `visual_${index}`,
+        kind: "atlasSprite",
+        atlasId: "at_atlas_002",
+        assetId: "rock",
+        x: index * 180,
+        y: 120 + (index % 4) * 40,
+        w: 120,
+        h: 100,
+        layer: index % 7 === 0 ? "caveForeground" : "terrain",
+        order: index
+    }));
+    manyVisuals.push({
+        id: "dynamic_nearby",
+        kind: "atlasSprite",
+        atlasId: "at_atlas_002",
+        assetId: "rock",
+        x: 540120,
+        y: 180,
+        w: 100,
+        h: 100,
+        layer: "terrain",
+        order: 20000,
+        dynamicPosition: true
+    });
+    const visualCache = buildWorldVisualCache(manyVisuals);
+    const visualQuery = queryWorldVisualEntries(
+        visualCache,
+        "main",
+        { x: 540000, y: 0, w: 900, h: 600, virtualW: 900, virtualH: 600, zoom: 1 },
+        null,
+        0
+    );
+    assert.ok(visualQuery.entries.length < 20, `spatial visual culling should inspect only a local handful, got ${visualQuery.entries.length}`);
+    assert.ok(visualQuery.spatialCulled > 9000, "the renderer broadphase should reject almost the whole distant level before per-sprite work");
+    assert.ok(visualQuery.entries.some((entry) => entry.visual.id === "dynamic_nearby"), "dynamic visuals should remain queryable even though they are not stored in static bins");
+    assert.deepEqual(visualQuery.entries.map((entry) => entry.visual.order), visualQuery.entries.map((entry) => entry.visual.order).toSorted((a, b) => a - b), "spatial queries should preserve painter order");
+
+    const world = {
+        solids: Array.from({ length: 9000 }, (_, index) => ({ id: `solid_${index}`, x: index * 220, y: 100, w: 100, h: 80 })),
+        segments: Array.from({ length: 9000 }, (_, index) => ({ id: `segment_${index}`, x1: index * 220, y1: 200, x2: index * 220 + 120, y2: 200, kind: "walkable" })),
+        collisionPolygons: Array.from({ length: 3000 }, (_, index) => ({ id: `polygon_${index}`, kind: "blockable", points: [
+            { x: index * 660, y: 300 },
+            { x: index * 660 + 100, y: 300 },
+            { x: index * 660 + 100, y: 380 },
+            { x: index * 660, y: 380 }
+        ] }))
+    };
+    world.solids.push({ id: "moving_nearby", x: 440100, y: 100, w: 100, h: 80, movingPlatformId: "moving_1" });
+    const collisionBounds = { minX: 440000, minY: 0, maxX: 441000, maxY: 600 };
+    const collisionDiagnostics = worldCollisionIndexDiagnostics(world, collisionBounds);
+    assert.ok(collisionDiagnostics.candidates.solids < 20 && collisionDiagnostics.candidates.segments < 20 && collisionDiagnostics.candidates.polygons < 10, "collision broadphase should make local simulation cost independent of total level width");
+    assert.ok(queryWorldSolids(world, collisionBounds).some((solid) => solid.id === "moving_nearby"), "moving collision bodies should remain live outside the static index");
+    assert.ok(queryWorldSegments(world, collisionBounds).length > 0 && queryWorldCollisionPolygons(world, collisionBounds).length > 0, "local collision queries should retain nearby static geometry");
+
+    const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
+    const simulationSource = readFileSync(new URL("../src/core/simulation.js", import.meta.url), "utf8");
+    assert.ok(rendererSource.includes("queryWorldVisualEntries") && rendererSource.includes("visualsSpatialCulled"), "runtime rendering should use and expose the static visual broadphase");
+    assert.ok(simulationSource.includes("queryWorldSegments") && simulationSource.includes("queryWorldCollisionPolygons"), "portable simulation should use local collision queries in its hot paths");
+}
+
+
+function testAutomaticLevelGeneratorMacroRoomsGroundedDoorsAndPerimeterContract() {
+    const rawEarthTheme = JSON.parse(readFileSync(new URL("../assets/level-generator-themes/earth-cavern.json", import.meta.url), "utf8"));
+    const rawIceTheme = JSON.parse(readFileSync(new URL("../assets/level-generator-themes/ice-cavern.json", import.meta.url), "utf8"));
+    const assetCatalog = normalizeGenerationAssetCatalog(JSON.parse(readFileSync(new URL("../assets/level-generator-platforms.json", import.meta.url), "utf8")));
+    const enemyGenerationCatalog = normalizeEnemyGenerationCatalog(JSON.parse(readFileSync(new URL("../assets/level-generator-enemies.json", import.meta.url), "utf8")));
+    const rewardGenerationCatalog = normalizeRewardGenerationCatalog(JSON.parse(readFileSync(new URL("../assets/level-generator-rewards.json", import.meta.url), "utf8")));
+    const enemyCatalog = JSON.parse(readFileSync(new URL("../assets/ct_enemies_001.json", import.meta.url), "utf8"));
+    const entityCatalog = JSON.parse(readFileSync(new URL("../assets/it_entities_001.json", import.meta.url), "utf8"));
+    const decorationCatalog = loadGeneratorDecorationCatalog();
+    const availableEnemyIds = Object.keys(enemyCatalog.enemies);
+    const patternIds = new Set();
+    let sawLargeGrandRoom = false;
+
+    for (const rawTheme of [rawEarthTheme, rawIceTheme]) {
+        const theme = normalizeGeneratorTheme(rawTheme);
+        assert.equal(theme.implementations.route, "macro-room-route-v2", "current cavern themes should use the macro route planner");
+        assert.equal(theme.implementations.cavern, "room-and-tunnel-cavern-v2", "current cavern themes should build room-and-tunnel envelopes");
+        assert.equal(theme.implementations.endpoints, "grounded-chamber-endpoints-v2", "current cavern themes should seat endpoints in grounded chambers");
+        assert.equal(theme.decoration.populatePerimeter, true, "current cavern themes should request populated cave walls");
+
+        assert.throws(() => generateAutomaticLevelDraft({
+            theme,
+            assetCatalog,
+            enemyGenerationCatalog,
+            rewardGenerationCatalog,
+            enemyCatalog,
+            entityCatalog,
+            requirePopulatedPerimeter: true,
+            availableEnemyIds,
+            seed: `missing-perimeter-${theme.themeId}`,
+            settings: { ...theme.defaults, length: "compact" },
+            destinationLevel: "level_002"
+        }), /requires a populated cave perimeter/, "a final generated cavern must not silently omit requested perimeter artwork");
+
+        for (const length of ["compact", "standard", "extended", "grand"]) {
+            const draft = generateAutomaticLevelDraft({
+                theme,
+                assetCatalog,
+                enemyGenerationCatalog,
+                rewardGenerationCatalog,
+                enemyCatalog,
+                entityCatalog,
+                decorationCatalog,
+                requirePopulatedPerimeter: true,
+                availableEnemyIds,
+                seed: `macro-contract-${theme.themeId}-${length}`,
+                settings: {
+                    ...theme.defaults,
+                    length,
+                    verticality: 0.86,
+                    winding: 0.78,
+                    branching: 0.7,
+                    enemyDensity: 0.5,
+                    rewardDensity: 0.65
+                },
+                destinationLevel: "level_002"
+            });
+            const presentation = draft.generation.validation.metrics.presentation;
+            patternIds.add(draft.generation.cavern.macroPatternId);
+            assert.ok(draft.generation.cavern.rooms.length >= 1, `${theme.themeId} ${length} should contain at least one macro room`);
+            assert.ok(presentation.largestRoomWidthScreens > 1 || presentation.largestRoomHeightScreens > 1, "generated caverns should open beyond a single screen");
+            assert.ok(presentation.largestRoomWidthScreens <= 4.001 && presentation.largestRoomHeightScreens <= 3.001, "macro rooms should respect the 4×3-screen design ceiling");
+            assert.ok(draft.generation.decoration.enabled && draft.generation.decoration.placementCount > 0, "final generated caverns should contain perimeter foreground art");
+            assert.equal(presentation.strictForegroundOverlapCount, 0, "perimeter art must not cover doors or rewards");
+            assert.ok(presentation.maximumSupportForegroundCoverage <= 0.1, "perimeter art must leave traversal platforms readable");
+            assert.ok(presentation.minimumPlatformWallClearance >= theme.cavern.platformWallClearanceX - 1, "platforms should remain horizontally inside the cave opening");
+            assert.ok(presentation.minimumPlatformCeilingClearance >= theme.cavern.platformCeilingClearance - 42, "platforms should retain substantial ceiling clearance");
+            assert.ok(presentation.minimumPlatformFloorClearance >= theme.cavern.platformFloorClearance - 42, "platforms should retain substantial floor clearance");
+            assert.ok(presentation.minimumEndpointSideClearance >= theme.cavern.endpointSideClearance - 20, "doors should sit well inside lit endpoint chambers");
+            assert.ok(presentation.maximumDoorFloorError <= 2, "doors should sit exactly on their support surface");
+            const supportById = new Map(draft.generation.traversal.supports.map((support) => [support.id, support]));
+            for (const endpoint of [draft.generation.endpoints.entrance, draft.generation.endpoints.exit]) {
+                const door = draft.entities.find((entity) => entity.id === endpoint.entityId);
+                const support = supportById.get(endpoint.supportId);
+                assert.ok(door && support && Math.abs(door.y - support.surfaceY) < 0.01, "generated portal entity anchors should equal the authored walkable support surface");
+            }
+            const movingCount = draft.placements.filter((placement) => placement.movement?.pattern === "shuttle").length;
+            const expectedMoving = length === "grand" ? 3 : length === "extended" ? 2 : length === "standard" ? 1 : 0;
+            assert.ok(movingCount >= expectedMoving, `${theme.themeId} ${length} should include the planned moving-platform rhythm`);
+            const mandatoryY = draft.generation.route.nodes.filter((node) => node.mandatory).map((node) => node.y);
+            const mandatoryVerticalSpan = Math.max(...mandatoryY) - Math.min(...mandatoryY);
+            if (length === "grand") assert.ok(mandatoryVerticalSpan >= 520, "Grand macro routes should require substantial vertical travel");
+            if (length === "grand" && presentation.largestRoomWidthScreens >= 3 && presentation.largestRoomHeightScreens >= 2.2) sawLargeGrandRoom = true;
+        }
+
+        for (let seed = 0; seed < 36; seed += 1) {
+            const route = generateAutomaticLevelRoute({
+                theme,
+                seed: `macro-shape-${theme.themeId}-${seed}`,
+                settings: { ...theme.defaults, length: "grand", verticality: 0.9, winding: 0.9, branching: 0.65 },
+                availableEnemyIds
+            });
+            patternIds.add(route.route.macro?.patternId);
+            const room = route.route.macro?.rooms?.find((candidate) => candidate.widthScreens >= 3 && candidate.heightScreens >= 2.2);
+            if (room) sawLargeGrandRoom = true;
+        }
+    }
+
+    assert.ok([...patternIds].some((id) => String(id).startsWith("z-")), "macro planning should produce Z-shaped caverns across a seed sweep");
+    assert.ok([...patternIds].some((id) => String(id).startsWith("l-")), "macro planning should produce L-shaped caverns across a seed sweep");
+    assert.ok(patternIds.has("valley") || patternIds.has("terraces"), "macro planning should also produce non-letter-shaped room-and-tunnel rhythms");
+    assert.equal(sawLargeGrandRoom, true, "Grand caverns should occasionally reserve a room near the upper 4×3-screen scale");
+
+    const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    assert.ok(editorHtml.includes("requirePopulatedPerimeter: true"), "Level Editor generation should require the requested perimeter stage to succeed");
+    assert.ok(editorHtml.includes("Generator 5 plans the cavern as a sequence of tunnels and large rooms"), "Level Editor should explain the macro room-and-tunnel planner");
+}
+
 function testAutomaticLevelGeneratorRouteFoundation() {
     const earthTheme = normalizeGeneratorTheme(JSON.parse(readFileSync(new URL("../assets/level-generator-themes/earth-cavern.json", import.meta.url), "utf8")));
     const iceTheme = normalizeGeneratorTheme(JSON.parse(readFileSync(new URL("../assets/level-generator-themes/ice-cavern.json", import.meta.url), "utf8")));
@@ -3999,7 +4297,7 @@ function testAutomaticLevelGeneratorPlayableEmptyCavern() {
     assert.ok(editorHtml.includes("generateAutomaticLevelDraft") && editorHtml.includes("level-generator-platforms.json"), "Level Editor should load the generation catalog and create complete cavern drafts");
     assert.ok(editorHtml.includes("replacedLevelShell") && editorHtml.includes("previous level shell were preserved"), "generated-shell replacement should remain reversible without consuming manual content");
     assert.ok(editorHtml.includes("Playable rewarded cavern valid"), "Level Editor should report combined route, traversal, endpoint, encounter, reward, cave, and world validation");
-    assert.ok(editorHtml.includes("Materialized treasure detour") && editorHtml.includes("Generator 3"), "the editor should distinguish reserved branches from materialized treasure detours");
+    assert.ok(editorHtml.includes("Materialized treasure detour") && editorHtml.includes("Generator 5"), "the editor should distinguish reserved branches from materialized treasure detours");
 }
 
 function testAutomaticLevelGeneratorEncounters() {
@@ -4622,7 +4920,7 @@ function testCaveWindowSplineAuthoring() {
     const primaryRows = generatedDecor.filter((placement) => placement.caveLayerIndex === 0);
     assert.ok(primaryRows.length > 0, "perimeter generation should retain a primary row along the authored opening");
     for (const placement of primaryRows) {
-        assert.ok(placement.caveInsideFraction >= 0.5 && placement.caveInsideFraction <= 0.75, "primary perimeter assets should extend between 50% and 75% inside the authored opening");
+        assert.ok(placement.caveInsideFraction >= decoration.inwardFractionMin && placement.caveInsideFraction <= 0.68, "primary perimeter assets should usually take a modest bite inside the opening, with only rare controlled accents reaching farther");
     }
     const roundedInsideFractions = new Set(primaryRows.map((placement) => placement.caveInsideFraction.toFixed(4)));
     assert.ok(roundedInsideFractions.size > 1, "primary perimeter inward depth should vary deterministically from asset to asset");
@@ -4640,9 +4938,9 @@ function testCaveWindowSplineAuthoring() {
     const caveCenter = caveWindowCenter(decoratedCave);
     assert.deepEqual(caveCenter, { x: 300, y: 200 }, "foreground treatment should derive a stable cave-centre fallback for older placements");
     const floorVisual = generatedDecor.find((placement) => placement.caveCategory === "floor" && placement.caveLayerIndex === 0);
-    assert.ok(floorVisual.y + floorVisual.h * 0.5 < 400, "floor perimeter assets should overlap inward past the authored perimeter rather than sit outside it");
+    assert.ok(floorVisual.y < 400, "floor perimeter assets should retain a readable overlap past the authored perimeter without requiring their centre to cover gameplay");
     const ceilingVisual = generatedDecor.find((placement) => placement.caveCategory === "ceiling" && placement.caveLayerIndex === 0);
-    assert.ok(ceilingVisual.y + ceilingVisual.h * 0.5 > 0, "ceiling perimeter assets should overlap inward past the authored perimeter rather than sit outside it");
+    assert.ok(ceilingVisual.y + ceilingVisual.h > 0, "ceiling perimeter assets should retain a readable overlap past the authored perimeter without requiring their centre to cover gameplay");
     const floorLocalOutward = foregroundLocalOutwardVector(floorVisual, caveCenter);
     assert.ok(floorLocalOutward && floorLocalOutward.y > 0.9, "floor decorations should fade toward their local outward edge after rotation and mirroring");
     const treatment = normalizeForegroundTreatment(floorVisual, caveCenter);
@@ -8306,6 +8604,8 @@ const tests = [
     ["automatic level generator encounters", testAutomaticLevelGeneratorEncounters],
     ["automatic level generator rewards and branch detours", testAutomaticLevelGeneratorRewards],
     ["automatic level generator editor refinement", testAutomaticLevelGeneratorEditorRefinement],
+    ["automatic perimeter population and spatial culling", testAutomaticLevelGeneratorPerimeterAndSpatialCulling],
+    ["macro rooms, grounded doors, and guaranteed perimeter", testAutomaticLevelGeneratorMacroRoomsGroundedDoorsAndPerimeterContract],
     ["closed cave-window spline authoring", testCaveWindowSplineAuthoring],
     ["cave full-black lethal boundary", testCaveFullBlackKillBoundary],
     ["moving-platform schema and Level Editor", testMovingPlatformSchemaAndEditor],

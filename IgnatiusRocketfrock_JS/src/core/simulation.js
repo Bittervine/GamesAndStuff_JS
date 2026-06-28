@@ -35,6 +35,11 @@ import {
     renderingParticleScale
 } from "../shared/game-settings-data.js";
 import {
+    queryWorldCollisionPolygons,
+    queryWorldSegments,
+    queryWorldSolids
+} from "./world-collision-index.js";
+import {
     buildEnemyNavigationEdges,
     ENEMY_DROP_SOURCE_CLEARANCE_HEIGHT_FACTOR,
     buildEnemyNavigationSupports,
@@ -259,7 +264,7 @@ export function createInitialGameState(overrides = {}) {
     const state = {
         meta: {
             schemaVersion: 1,
-            build: "238-automatic-level-generator-editor-refinement",
+            build: "241-grounded-portals-vertical-routes",
             note: "Gameplay state only. Browser, canvas, image and renderer resources are deliberately outside gameState."
         },
         clock: {
@@ -609,7 +614,13 @@ export function snapPlayerStartToNearbyGround(state, maxDistance = null) {
     const samples = [startX, startX - playerWidth * 0.42, startX + playerWidth * 0.42];
     let best = null;
 
-    for (const segment of state.world.segments || []) {
+    const supportQueryBounds = {
+        minX: Math.min(...samples) - 2,
+        minY: startY - limit - 2,
+        maxX: Math.max(...samples) + 2,
+        maxY: startY + limit + 2
+    };
+    for (const segment of queryWorldSegments(state.world, supportQueryBounds)) {
         if (segment.kind !== "walkable" && segment.kind !== "blockable") {
             continue;
         }
@@ -1040,7 +1051,13 @@ function snapEntityBaselineToNearbyGround(state, entity, maxDistance = null) {
     const y = Number(entity.y);
     const samples = [x, x - width * 0.32, x + width * 0.32];
     let best = null;
-    for (const segment of state.world.segments || []) {
+    const supportQueryBounds = {
+        minX: Math.min(...samples) - 2,
+        minY: y - limit - 2,
+        maxX: Math.max(...samples) + 2,
+        maxY: y + limit + 2
+    };
+    for (const segment of queryWorldSegments(state.world, supportQueryBounds)) {
         if (segment.kind !== "walkable" && segment.kind !== "blockable") continue;
         if (Math.abs(Number(segment.x2) - Number(segment.x1)) < 0.001) continue;
         for (let sampleIndex = 0; sampleIndex < samples.length; sampleIndex += 1) {
@@ -3125,7 +3142,13 @@ function findCharacterEnemyGroundSupport(state, x, referenceY, maxStepUp, maxDro
         }
     };
 
-    for (const segment of state.world?.segments || []) {
+    const supportQueryBounds = {
+        minX: Math.min(...samples) - 2,
+        minY: referenceY - Math.max(0, maxStepUp) - 2,
+        maxX: Math.max(...samples) + 2,
+        maxY: referenceY + Math.max(0, maxDrop) + 2
+    };
+    for (const segment of queryWorldSegments(state.world, supportQueryBounds)) {
         if (segment.kind !== "walkable" && segment.kind !== "blockable") {
             continue;
         }
@@ -3144,7 +3167,7 @@ function findCharacterEnemyGroundSupport(state, x, referenceY, maxStepUp, maxDro
         }
     }
 
-    for (const solid of state.world?.solids || []) {
+    for (const solid of queryWorldSolids(state.world, supportQueryBounds)) {
         for (let sampleIndex = 0; sampleIndex < samples.length; sampleIndex += 1) {
             const sampleX = samples[sampleIndex];
             if (sampleX < solid.x - 0.001 || sampleX > solid.x + solid.w + 0.001) {
@@ -3200,7 +3223,7 @@ function characterEnemyBodyBlockedAt(state, enemy, x, groundY, options = {}) {
         h: Math.max(1, enemy.height - headClearance - footClearance)
     };
 
-    for (const solid of state.world?.solids || []) {
+    for (const solid of queryWorldSolids(state.world, rect)) {
         if (options.ignoreObstacleId && solid.id === options.ignoreObstacleId) {
             continue;
         }
@@ -3208,7 +3231,7 @@ function characterEnemyBodyBlockedAt(state, enemy, x, groundY, options = {}) {
             return true;
         }
     }
-    for (const polygon of state.world?.collisionPolygons || []) {
+    for (const polygon of queryWorldCollisionPolygons(state.world, rect)) {
         if (options.ignoreObstacleId && polygon.id === options.ignoreObstacleId) {
             continue;
         }
@@ -3216,7 +3239,7 @@ function characterEnemyBodyBlockedAt(state, enemy, x, groundY, options = {}) {
             return true;
         }
     }
-    for (const segment of state.world?.segments || []) {
+    for (const segment of queryWorldSegments(state.world, rect)) {
         if (options.ignoreSupportId && (segment.id === options.ignoreSupportId || options.ignoreSupportId.startsWith(`${segment.id}_nav_`))) {
             continue;
         }
@@ -3252,12 +3275,18 @@ function characterEnemyAttackBlockedByTerrain(state, enemy) {
         y: player.y - player.height * 0.5
     };
 
-    for (const solid of state.world?.solids || []) {
+    const terrainQueryBounds = {
+        minX: Math.min(start.x, end.x),
+        minY: Math.min(start.y, end.y),
+        maxX: Math.max(start.x, end.x),
+        maxY: Math.max(start.y, end.y)
+    };
+    for (const solid of queryWorldSolids(state.world, terrainQueryBounds)) {
         if (segmentRectIntersection(start, end, solid)) {
             return true;
         }
     }
-    for (const segment of state.world?.segments || []) {
+    for (const segment of queryWorldSegments(state.world, terrainQueryBounds)) {
         if (!isAreaBlockingSegmentKind(segment.kind) && segment.kind !== "walkable") {
             continue;
         }
@@ -3265,7 +3294,7 @@ function characterEnemyAttackBlockedByTerrain(state, enemy) {
             return true;
         }
     }
-    for (const polygon of state.world?.collisionPolygons || []) {
+    for (const polygon of queryWorldCollisionPolygons(state.world, terrainQueryBounds)) {
         if (!isAreaBlockingSegmentKind(polygon.kind)) {
             continue;
         }
@@ -3743,12 +3772,18 @@ function characterEnemyAttackBlockedFromPoint(state, enemy, originX, originY) {
         y: player.y - player.height * 0.5
     };
 
-    for (const solid of state.world?.solids || []) {
+    const terrainQueryBounds = {
+        minX: Math.min(start.x, end.x),
+        minY: Math.min(start.y, end.y),
+        maxX: Math.max(start.x, end.x),
+        maxY: Math.max(start.y, end.y)
+    };
+    for (const solid of queryWorldSolids(state.world, terrainQueryBounds)) {
         if (segmentRectIntersection(start, end, solid)) {
             return true;
         }
     }
-    for (const segment of state.world?.segments || []) {
+    for (const segment of queryWorldSegments(state.world, terrainQueryBounds)) {
         if (!isAreaBlockingSegmentKind(segment.kind) && segment.kind !== "walkable") {
             continue;
         }
@@ -3756,7 +3791,7 @@ function characterEnemyAttackBlockedFromPoint(state, enemy, originX, originY) {
             return true;
         }
     }
-    for (const polygon of state.world?.collisionPolygons || []) {
+    for (const polygon of queryWorldCollisionPolygons(state.world, terrainQueryBounds)) {
         if (!isAreaBlockingSegmentKind(polygon.kind)) {
             continue;
         }
@@ -7324,6 +7359,13 @@ function findProjectileTerrainImpact(state, projectile, previousX, previousY) {
     const radius = Math.max(0, projectile.radius || 0);
     let best = null;
 
+    const terrainQueryBounds = {
+        minX: Math.min(start.x, end.x) - radius,
+        minY: Math.min(start.y, end.y) - radius,
+        maxX: Math.max(start.x, end.x) + radius,
+        maxY: Math.max(start.y, end.y) + radius
+    };
+
     function record(hit) {
         if (!hit) return;
         if (!best || hit.t < best.t) {
@@ -7331,7 +7373,7 @@ function findProjectileTerrainImpact(state, projectile, previousX, previousY) {
         }
     }
 
-    for (const solid of state.world.solids || []) {
+    for (const solid of queryWorldSolids(state.world, terrainQueryBounds)) {
         if (solid.reactiveObjectId) continue;
         const hit = sweptCircleRectImpact(start, end, radius, solid);
         if (hit) {
@@ -7345,7 +7387,7 @@ function findProjectileTerrainImpact(state, projectile, previousX, previousY) {
         }
     }
 
-    for (const segment of state.world.segments || []) {
+    for (const segment of queryWorldSegments(state.world, terrainQueryBounds)) {
         if (!isSolidSegmentKind(segment.kind)) {
             continue;
         }
@@ -7361,7 +7403,7 @@ function findProjectileTerrainImpact(state, projectile, previousX, previousY) {
         }
     }
 
-    for (const polygon of state.world.collisionPolygons || []) {
+    for (const polygon of queryWorldCollisionPolygons(state.world, terrainQueryBounds)) {
         if (!isAreaBlockingSegmentKind(polygon.kind)) {
             continue;
         }
@@ -7643,6 +7685,12 @@ function findActorHorizontalSweepCollision(state, actor, previousX, nextX, optio
         actor.y - actor.height * 0.16
     ];
     const skin = 3;
+    const collisionQueryBounds = {
+        minX: Math.min(previousLeft, currentLeft) - skin,
+        minY: top - skin,
+        maxX: Math.max(previousRight, currentRight) + skin,
+        maxY: bottom + skin
+    };
     let best = null;
     const consider = (contactX, detail) => {
         if (!Number.isFinite(contactX)) {
@@ -7665,7 +7713,7 @@ function findActorHorizontalSweepCollision(state, actor, previousX, nextX, optio
         }
     };
 
-    for (const solid of state.world?.solids || []) {
+    for (const solid of queryWorldSolids(state.world, collisionQueryBounds)) {
         if (collisionIdIgnored(solid.id, options) || bottom <= solid.y + 0.05 || top >= solid.y + solid.h - 0.05) {
             continue;
         }
@@ -7676,7 +7724,7 @@ function findActorHorizontalSweepCollision(state, actor, previousX, nextX, optio
         });
     }
 
-    for (const segment of state.world?.segments || []) {
+    for (const segment of queryWorldSegments(state.world, collisionQueryBounds)) {
         if (collisionIdIgnored(segment.id, options) || segment.kind === "walkable") {
             continue;
         }
@@ -7695,7 +7743,7 @@ function findActorHorizontalSweepCollision(state, actor, previousX, nextX, optio
         }
     }
 
-    for (const polygon of state.world?.collisionPolygons || []) {
+    for (const polygon of queryWorldCollisionPolygons(state.world, collisionQueryBounds)) {
         if (collisionIdIgnored(polygon.id, options) || !isAreaBlockingSegmentKind(polygon.kind)) {
             continue;
         }
@@ -7725,6 +7773,12 @@ function findActorVerticalSweepCollision(state, actor, previousY, nextY, options
     const previousTop = previousY - actor.height;
     const currentTop = nextY - actor.height;
     const skin = 3;
+    const collisionQueryBounds = {
+        minX: Math.min(...samples) - skin,
+        minY: Math.min(previousTop, currentTop, previousY, nextY) - skin,
+        maxX: Math.max(...samples) + skin,
+        maxY: Math.max(previousTop, currentTop, previousY, nextY) + skin
+    };
     let best = null;
     const consider = (surfaceY, detail, ceiling = false) => {
         if (!Number.isFinite(surfaceY)) {
@@ -7747,7 +7801,7 @@ function findActorVerticalSweepCollision(state, actor, previousY, nextY, options
         }
     };
 
-    for (const solid of state.world?.solids || []) {
+    for (const solid of queryWorldSolids(state.world, collisionQueryBounds)) {
         if (collisionIdIgnored(solid.id, options)) {
             continue;
         }
@@ -7761,7 +7815,7 @@ function findActorVerticalSweepCollision(state, actor, previousY, nextY, options
         }
     }
 
-    for (const segment of state.world?.segments || []) {
+    for (const segment of queryWorldSegments(state.world, collisionQueryBounds)) {
         if (collisionIdIgnored(segment.id, options) || !isSolidSegmentKind(segment.kind) || Math.abs(segment.x2 - segment.x1) < 0.001) {
             continue;
         }
@@ -7778,7 +7832,7 @@ function findActorVerticalSweepCollision(state, actor, previousY, nextY, options
         }
     }
 
-    for (const polygon of state.world?.collisionPolygons || []) {
+    for (const polygon of queryWorldCollisionPolygons(state.world, collisionQueryBounds)) {
         if (collisionIdIgnored(polygon.id, options) || !isAreaBlockingSegmentKind(polygon.kind)) {
             continue;
         }
@@ -7915,7 +7969,7 @@ function resolvePlayerPenetrations(state, wasOnGround) {
 function playerPenetrationBlockers(state, rect) {
     const blockers = [];
 
-    for (const solid of state.world.solids || []) {
+    for (const solid of queryWorldSolids(state.world, rect)) {
         if (!rectsOverlap(rect, solid)) {
             continue;
         }
@@ -7926,7 +7980,7 @@ function playerPenetrationBlockers(state, rect) {
         });
     }
 
-    for (const polygon of state.world.collisionPolygons || []) {
+    for (const polygon of queryWorldCollisionPolygons(state.world, rect)) {
         if (!isAreaBlockingSegmentKind(polygon.kind) || !polygonOverlapsRect(polygon, rect)) {
             continue;
         }
@@ -8010,17 +8064,17 @@ function playerBlockingBodiesAtRect(state, rect, direction) {
         bodies.push(detail);
     };
 
-    for (const solid of state.world.solids || []) {
+    for (const solid of queryWorldSolids(state.world, rect)) {
         if (rectsOverlap(rect, solid)) {
             add(collisionBodyDetail(solid, "solid"));
         }
     }
-    for (const polygon of state.world.collisionPolygons || []) {
+    for (const polygon of queryWorldCollisionPolygons(state.world, rect)) {
         if (isAreaBlockingSegmentKind(polygon.kind) && polygonOverlapsRect(polygon, rect)) {
             add(collisionBodyDetail(polygon, "polygon"));
         }
     }
-    for (const segment of state.world.segments || []) {
+    for (const segment of queryWorldSegments(state.world, rect)) {
         if (!isSolidSegmentKind(segment.kind)) {
             continue;
         }
@@ -8403,9 +8457,15 @@ function resolveSegmentYCollisions(state, previousY, dy, wasOnGround) {
         p.x + p.width * 0.42
     ];
     const skin = 3;
+    const collisionQueryBounds = {
+        minX: Math.min(...samples) - skin,
+        minY: Math.min(previousY - p.height, p.y - p.height, previousY, p.y) - skin,
+        maxX: Math.max(...samples) + skin,
+        maxY: Math.max(previousY - p.height, p.y - p.height, previousY, p.y) + skin
+    };
     let best = null;
 
-    for (const segment of state.world.segments) {
+    for (const segment of queryWorldSegments(state.world, collisionQueryBounds)) {
         if (!isSolidSegmentKind(segment.kind)) {
             continue;
         }
@@ -8468,9 +8528,15 @@ function resolveSegmentXCollisions(state, previousX, dx) {
         p.y - p.height * 0.16
     ];
     const skin = 3;
+    const collisionQueryBounds = {
+        minX: Math.min(previousLeft, currentLeft) - skin,
+        minY: Math.min(...ySamples) - skin,
+        maxX: Math.max(previousRight, currentRight) + skin,
+        maxY: Math.max(...ySamples) + skin
+    };
     let best = null;
 
-    for (const segment of state.world.segments) {
+    for (const segment of queryWorldSegments(state.world, collisionQueryBounds)) {
         if (segment.kind === "walkable") {
             continue;
         }
@@ -8528,9 +8594,15 @@ function resolvePolygonYCollisions(state, previousY, dy, wasOnGround) {
     const previousTop = previousY - p.height;
     const currentTop = p.y - p.height;
     const skin = 3;
+    const collisionQueryBounds = {
+        minX: Math.min(...samples) - skin,
+        minY: Math.min(previousTop, currentTop, previousY, p.y) - skin,
+        maxX: Math.max(...samples) + skin,
+        maxY: Math.max(previousTop, currentTop, previousY, p.y) + skin
+    };
     let best = null;
 
-    for (const polygon of state.world.collisionPolygons) {
+    for (const polygon of queryWorldCollisionPolygons(state.world, collisionQueryBounds)) {
         if (!isAreaBlockingSegmentKind(polygon.kind)) {
             continue;
         }
@@ -8587,9 +8659,15 @@ function resolvePolygonXCollisions(state, previousX, dx) {
         p.y - p.height * 0.16
     ];
     const skin = 3;
+    const collisionQueryBounds = {
+        minX: Math.min(previousLeft, currentLeft) - skin,
+        minY: Math.min(...ySamples) - skin,
+        maxX: Math.max(previousRight, currentRight) + skin,
+        maxY: Math.max(...ySamples) + skin
+    };
     let best = null;
 
-    for (const polygon of state.world.collisionPolygons) {
+    for (const polygon of queryWorldCollisionPolygons(state.world, collisionQueryBounds)) {
         if (!isAreaBlockingSegmentKind(polygon.kind)) {
             continue;
         }
@@ -8795,12 +8873,12 @@ function polygonTouchesRect(polygon, rect) {
 
 function findPlayerSurfaceHazard(state) {
     const rect = expandedRect(getPlayerRect(state), 0.25);
-    for (const solid of state.world?.solids || []) {
+    for (const solid of queryWorldSolids(state.world, rect)) {
         if ((solid.kind === "damaging" || solid.kind === "killable") && rectsOverlap(rect, solid)) {
             return { id: solid.id || "solidHazard", kind: solid.kind };
         }
     }
-    for (const segment of state.world?.segments || []) {
+    for (const segment of queryWorldSegments(state.world, rect)) {
         if (segment.kind !== "damaging" && segment.kind !== "killable") {
             continue;
         }
@@ -8808,7 +8886,7 @@ function findPlayerSurfaceHazard(state) {
             return { id: segment.id || "segmentHazard", kind: segment.kind };
         }
     }
-    for (const polygon of state.world?.collisionPolygons || []) {
+    for (const polygon of queryWorldCollisionPolygons(state.world, rect)) {
         if ((polygon.kind === "damaging" || polygon.kind === "killable") && polygonTouchesRect(polygon, rect)) {
             return { id: polygon.id || "polygonHazard", kind: polygon.kind };
         }

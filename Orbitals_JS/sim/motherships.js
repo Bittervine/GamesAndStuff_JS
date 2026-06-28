@@ -204,7 +204,7 @@ function createEnemyWave(state, squad, options = {}, services = {}) {
       ? squad.familyFiles
       : getEnemyFamilyFiles(squad.family);
   const enemyKind = options.enemyKind || 'regular';
-  const enemyVisualScale = options.visualScale ?? 1;
+  const enemyVisualScale = options.visualScale ?? config.enemyVisualScale;
   const enemyRadius = options.radius ?? ENEMY_HIT_RADIUS;
 
   for (let i = 0; i < enemyCount; i += 1) {
@@ -229,6 +229,7 @@ function createEnemyWave(state, squad, options = {}, services = {}) {
     enemy.radius = enemyRadius;
     enemy.visualScale = enemyVisualScale;
     enemy.health = enemyKind === 'mothership' ? config.mothershipHitPoints : config.enemyHitPoints;
+    enemy.fireCooldown = config.enemyFireInitialCooldownMin + rng() * (config.enemyFireInitialCooldownMax - config.enemyFireInitialCooldownMin);
     enemy.boundPlanet = planet;
     enemy.flightMode = 'bound';
     enemy.captureTimer = config.shipCaptureBlendTime;
@@ -338,7 +339,7 @@ export function spawnFighterSquadFromMothership(state, mothershipSquad, mothersh
     basis,
     familyFiles: squad.familyFiles,
     enemyKind: 'fighter',
-    visualScale: 1,
+    visualScale: config.enemyVisualScale,
     rng
   }, services);
   const fighter = state.enemies[state.enemies.length - 1];

@@ -78,8 +78,10 @@ import {
   updateEnemyExplosions
 } from './sim/effects.js';
 import { updateProjectiles } from './sim/projectiles.js';
+import { updatePickups } from './sim/pickups.js';
 import {
   crashPlayerShip,
+  crashPlayerShipIntoSun,
   respawnShip,
   updateShipState as updatePlayerShipState
 } from './sim/player.js';
@@ -133,6 +135,49 @@ function handleShipCollision(state, first, second, impactPosition, impactSpeed) 
       z: impactPosition.z
     } : null
   });
+  return true;
+}
+
+function handlePlayerProjectileHit(state, projectile, impactPosition) {
+  const player = getPlayerState(state);
+  const ship = player.ship;
+  if (!ship || player.crashed) {
+    return false;
+  }
+
+  if ((player.shields || 0) > 0) {
+    player.shields = Math.max(0, (player.shields || 0) - 1);
+    spawnEnemyExplosion(state, impactPosition || ship.position, 'shield');
+    pushEvent(state, 'player-shield-hit', {
+      projectileId: projectile.id,
+      ownerEnemyId: projectile.ownerEnemyId ?? -1,
+      shields: player.shields,
+      position: impactPosition ? {
+        x: impactPosition.x,
+        y: impactPosition.y,
+        z: impactPosition.z
+      } : null
+    });
+    return true;
+  }
+
+  const world = getWorldState(state);
+  const planet = world.nearestPlanet || world.planets[0] || null;
+  pushEvent(state, 'player-hit', {
+    projectileId: projectile.id,
+    ownerEnemyId: projectile.ownerEnemyId ?? -1,
+    position: impactPosition ? {
+      x: impactPosition.x,
+      y: impactPosition.y,
+      z: impactPosition.z
+    } : null
+  });
+  if (planet) {
+    const crashNormal = ship.position.clone().sub(planet.position).normalize();
+    crashPlayerShip(state, planet, crashNormal, impactPosition || ship.position, { spawnEnemyExplosion });
+  } else {
+    crashPlayerShipIntoSun(state, impactPosition || ship.position, { spawnEnemyExplosion });
+  }
   return true;
 }
 
@@ -198,7 +243,10 @@ export function createOrbitalsSim(seed) {
       updateShipShipCollisions(currentState, { handleShipCollision });
     },
     updateProjectiles: (currentState, deltaTime) => {
-      updateProjectiles(currentState, deltaTime, { applyEnemyDamage });
+      updateProjectiles(currentState, deltaTime, { applyEnemyDamage, handlePlayerProjectileHit });
+    },
+    updatePickups: (currentState, deltaTime) => {
+      updatePickups(currentState, deltaTime);
     },
     updateEffects: updateEnemyExplosions,
     updateFuelMotes

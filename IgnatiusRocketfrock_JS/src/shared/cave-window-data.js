@@ -6,7 +6,10 @@ const DEFAULT_DECORATION = Object.freeze({
     spacing: 250,
     scale: 2,
     brightness: 0.36,
-    saturation: 0.62
+    saturation: 0.62,
+    inwardFractionMin: 0.18,
+    inwardFractionMax: 0.38,
+    occlusionAccentChance: 0.02
 });
 
 export const DEFAULT_CAVE_WINDOW = Object.freeze({
@@ -41,13 +44,20 @@ function uniquePointId(requested, index, usedIds) {
 
 export function normalizeCaveDecoration(rawDecoration) {
     const source = rawDecoration && typeof rawDecoration === "object" ? rawDecoration : {};
-    return {
+    const result = {
         seed: Math.trunc(finiteNumber(source.seed, DEFAULT_DECORATION.seed)),
         spacing: Math.max(80, Math.min(1200, finiteNumber(source.spacing, DEFAULT_DECORATION.spacing))),
         scale: Math.max(0.5, Math.min(5, finiteNumber(source.scale, DEFAULT_DECORATION.scale))),
         brightness: Math.max(0.08, Math.min(1, finiteNumber(source.brightness, DEFAULT_DECORATION.brightness))),
-        saturation: Math.max(0, Math.min(1.5, finiteNumber(source.saturation, DEFAULT_DECORATION.saturation)))
+        saturation: Math.max(0, Math.min(1.5, finiteNumber(source.saturation, DEFAULT_DECORATION.saturation))),
+        inwardFractionMin: Math.max(0.05, Math.min(0.7, finiteNumber(source.inwardFractionMin, DEFAULT_DECORATION.inwardFractionMin))),
+        inwardFractionMax: Math.max(0.05, Math.min(0.8, finiteNumber(source.inwardFractionMax, DEFAULT_DECORATION.inwardFractionMax))),
+        occlusionAccentChance: Math.max(0, Math.min(0.2, finiteNumber(source.occlusionAccentChance, DEFAULT_DECORATION.occlusionAccentChance)))
     };
+    if (result.inwardFractionMax < result.inwardFractionMin) {
+        result.inwardFractionMax = result.inwardFractionMin;
+    }
+    return result;
 }
 
 export function normalizeCaveWindow(rawWindow) {

@@ -156,19 +156,104 @@ export function caveDecorationStep(category, tangentSpan, requestedSpacing) {
     return clamp(Math.min(spacing * categoryFactor, coverage), 40, spacing);
 }
 
-function uniqueGeneratedId(index) {
-    return `cave_fg_auto_${String(index + 1).padStart(3, "0")}`;
+function uniqueGeneratedId(index, prefix = "cave_fg_auto") {
+    return `${String(prefix || "cave_fg_auto")}_${String(index + 1).padStart(3, "0")}`;
+}
+
+function normalizedProtectionRegion(region, index) {
+    const x = finiteNumber(region?.x, NaN);
+    const y = finiteNumber(region?.y, NaN);
+    const w = finiteNumber(region?.w, NaN);
+    const h = finiteNumber(region?.h, NaN);
+    if (![x, y, w, h].every(Number.isFinite) || w <= 0 || h <= 0) return null;
+    return {
+        id: String(region?.id || `protected_${index + 1}`),
+        x,
+        y,
+        w,
+        h,
+        strict: Boolean(region?.strict),
+        allowAccent: region?.allowAccent !== false,
+        normalOverlapRatio: clamp(finiteNumber(region?.normalOverlapRatio, 0.015), 0, 0.2),
+        accentOverlapRatio: clamp(finiteNumber(region?.accentOverlapRatio, 0.16), 0, 0.45)
+    };
+}
+
+function rotatedBounds(centerX, centerY, width, height, rotation) {
+    const cosine = Math.abs(Math.cos(rotation));
+    const sine = Math.abs(Math.sin(rotation));
+    const extentX = cosine * width * 0.5 + sine * height * 0.5;
+    const extentY = sine * width * 0.5 + cosine * height * 0.5;
+    return {
+        minX: centerX - extentX,
+        minY: centerY - extentY,
+        maxX: centerX + extentX,
+        maxY: centerY + extentY
+    };
+}
+
+function overlapRatio(bounds, region) {
+    const overlapW = Math.max(0, Math.min(bounds.maxX, region.x + region.w) - Math.max(bounds.minX, region.x));
+    const overlapH = Math.max(0, Math.min(bounds.maxY, region.y + region.h) - Math.max(bounds.minY, region.y));
+    if (overlapW <= 0 || overlapH <= 0) return 0;
+    return (overlapW * overlapH) / Math.max(1, region.w * region.h);
+}
+
+function placementRespectsProtection({ centerX, centerY, width, height, rotation, protectedRegions, accent }) {
+    const bounds = rotatedBounds(centerX, centerY, width, height, rotation);
+    for (const region of protectedRegions) {
+        const permitted = region.strict
+            ? 0
+            : (accent && region.allowAccent ? region.accentOverlapRatio : region.normalOverlapRatio);
+        if (overlapRatio(bounds, region) > permitted + 0.000001) return false;
+    }
+    return true;
+}
+
+function protectionShiftForPlacement({
+    centerX,
+    centerY,
+    width,
+    height,
+    rotation,
+    outward,
+    normalDepth,
+    protectedRegions,
+    accent
+}) {
+    if (!protectedRegions.length) return 0;
+    const maximumShift = Math.max(720, normalDepth * 4.2);
+    const step = Math.max(10, Math.min(24, normalDepth * 0.06));
+    for (let shift = 0; shift <= maximumShift + 0.001; shift += step) {
+        if (placementRespectsProtection({
+            centerX: centerX + outward.x * shift,
+            centerY: centerY + outward.y * shift,
+            width,
+            height,
+            rotation,
+            protectedRegions,
+            accent
+        })) return shift;
+    }
+    return null;
 }
 
 export function generateCavePerimeterPlacements({
     caveWindow,
     catalog,
     decoration,
-    firstOrder = 30000
+    firstOrder = 30000,
+    protectedRegions = [],
+    ownership = null,
+    idPrefix = "cave_fg_auto"
 }) {
     const points = Array.isArray(caveWindow?.points) ? caveWindow.points : [];
     if (points.length < 3) return [];
     const settings = normalizeCaveDecoration(decoration || caveWindow?.decoration);
+    const protection = (Array.isArray(protectedRegions) ? protectedRegions : [])
+        .map(normalizedProtectionRegion)
+        .filter(Boolean);
+    const ownershipFields = ownership && typeof ownership === "object" ? { ...ownership } : {};
     const sampled = sampleClosedCaveSpline(points, 40);
     const arc = buildArcSegments(sampled);
     if (arc.totalLength < 1) return [];
@@ -177,6 +262,7 @@ export function generateCavePerimeterPlacements({
     const records = [];
     let cursor = 0;
     let index = 0;
+    let lastAccentIndex = -100;
     const maximumPlacements = Math.max(32, Math.ceil(arc.totalLength / 36));
 
     while (cursor < arc.totalLength && index < maximumPlacements) {
@@ -223,11 +309,18 @@ export function generateCavePerimeterPlacements({
 
         const normalDepth = category === "wall" ? w : h;
         const outward = { x: -inward.x, y: -inward.y };
-        // Vary the readable bite into the cave from one formation to the next.
-        // A centred sprite has 50% of its normal depth inside the perimeter;
-        // shifting its centre inward by up to 25% produces a deterministic
-        // 50-75% inside range without changing the authored seed contract.
-        const insideFraction = 0.5 + randomUnit(settings.seed, index, 3) * 0.25;
+        // Most formations now keep only a modest readable bite inside the cave.
+        // Rare accents may intrude farther, but protection regions push almost all
+        // artwork away from doors, supports, rewards, and other authored anchors.
+        const accent = (category === "floor" || category === "ceiling") &&
+            index - lastAccentIndex >= 6 &&
+            randomUnit(settings.seed, index, 9) < settings.occlusionAccentChance;
+        if (accent) lastAccentIndex = index;
+        const safeFraction = settings.inwardFractionMin +
+            randomUnit(settings.seed, index, 3) * (settings.inwardFractionMax - settings.inwardFractionMin);
+        const insideFraction = accent
+            ? Math.max(safeFraction, 0.52 + randomUnit(settings.seed, index, 10) * 0.16)
+            : safeFraction;
         const inwardShift = normalDepth * (insideFraction - 0.5);
         // Radial rows overlap by sixty percent. This is deliberately denser than
         // a simple half-depth tiling because curvature and sprite rotation can
@@ -237,10 +330,62 @@ export function generateCavePerimeterPlacements({
         const safetyReach = normalDepth * 0.18;
         const outwardLayerCount = Math.max(0, Math.ceil((featherDistance + safetyReach - primaryOutwardReach) / radialStep));
 
+        const rotation = rotationForCategory(category, sample.tangent);
+        const primaryCenterX = sample.x + inward.x * inwardShift;
+        const primaryCenterY = sample.y + inward.y * inwardShift;
+        // Shift the complete radial stack as one object. Every row must respect the
+        // gameplay protection mask, including the broad outer rows that hand over to
+        // full black. If a stack cannot be moved clear, omit that decorative stack;
+        // the cave mask still closes the perimeter without hiding an important room.
+        let protectionShift = 0;
+        let protectedStackValid = true;
         for (let layerIndex = 0; layerIndex <= outwardLayerCount; layerIndex += 1) {
             const radialOffset = layerIndex * radialStep;
-            const centerX = sample.x + inward.x * inwardShift + outward.x * radialOffset;
-            const centerY = sample.y + inward.y * inwardShift + outward.y * radialOffset;
+            const requiredShift = protectionShiftForPlacement({
+                centerX: primaryCenterX + outward.x * radialOffset,
+                centerY: primaryCenterY + outward.y * radialOffset,
+                width: w,
+                height: h,
+                rotation,
+                outward,
+                normalDepth,
+                protectedRegions: protection,
+                accent
+            });
+            if (requiredShift === null) {
+                protectedStackValid = false;
+                break;
+            }
+            protectionShift = Math.max(protectionShift, requiredShift);
+        }
+        if (protectedStackValid) {
+            for (let layerIndex = 0; layerIndex <= outwardLayerCount; layerIndex += 1) {
+                const radialOffset = layerIndex * radialStep;
+                if (!placementRespectsProtection({
+                    centerX: primaryCenterX + outward.x * (radialOffset + protectionShift),
+                    centerY: primaryCenterY + outward.y * (radialOffset + protectionShift),
+                    width: w,
+                    height: h,
+                    rotation,
+                    protectedRegions: protection,
+                    accent
+                })) {
+                    protectedStackValid = false;
+                    break;
+                }
+            }
+        }
+        if (!protectedStackValid) {
+            cursor += step;
+            index += 1;
+            continue;
+        }
+        for (let layerIndex = 0; layerIndex <= outwardLayerCount; layerIndex += 1) {
+            const radialOffset = layerIndex * radialStep;
+            const baseCenterX = primaryCenterX + outward.x * radialOffset;
+            const baseCenterY = primaryCenterY + outward.y * radialOffset;
+            const centerX = baseCenterX + outward.x * protectionShift;
+            const centerY = baseCenterY + outward.y * protectionShift;
             records.push({
                 arcIndex: index,
                 layerIndex,
@@ -254,7 +399,7 @@ export function generateCavePerimeterPlacements({
                     h,
                     mirrorX: randomUnit(settings.seed, index, 4 + layerIndex) > 0.5,
                     mirrorY: false,
-                    rotation: rotationForCategory(category, sample.tangent),
+                    rotation,
                     layer: CAVE_FOREGROUND_LAYER,
                     collisionFromManifest: false,
                     foregroundBrightness: settings.brightness,
@@ -267,9 +412,13 @@ export function generateCavePerimeterPlacements({
                     caveCategory: category,
                     caveArcIndex: index,
                     caveLayerIndex: layerIndex,
-                    caveRadialOffset: radialOffset,
+                    caveRadialOffset: radialOffset - inwardShift + protectionShift,
                     caveNormalDepth: normalDepth,
                     caveInsideFraction: insideFraction,
+                    caveProtectionShift: protectionShift,
+                    caveOcclusionAccent: accent,
+                    decorationGenerator: CAVE_PERIMETER_GENERATOR,
+                    ...ownershipFields,
                     notes: layerIndex === 0
                         ? `Automatically generated inert cave-${category} foreground decoration.`
                         : `Automatically generated inert cave-${category} outer coverage layer ${layerIndex}.`
@@ -285,7 +434,7 @@ export function generateCavePerimeterPlacements({
     records.sort((a, b) => a.layerIndex - b.layerIndex || a.arcIndex - b.arcIndex);
     return records.map((record, placementIndex) => ({
         ...record.placement,
-        id: uniqueGeneratedId(placementIndex),
+        id: uniqueGeneratedId(placementIndex, idPrefix),
         order: firstOrder + placementIndex
     }));
 }

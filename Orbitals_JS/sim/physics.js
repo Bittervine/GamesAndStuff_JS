@@ -625,7 +625,10 @@ export function updateFlightState(state, dt, controls, options = {}) {
 
   if (fireActive && ship.fireCooldown <= 0) {
     spawnProjectileBurst(state, ship, vectorLikeTo(tempVecE, controls.fireDirection, ship.forward).normalize().clone());
-    ship.fireCooldown = config.shipFireCooldown;
+    const rapidFireScale = isPlayerState && (state.rapidFireTimer || 0) > 0
+      ? config.pickupRapidFireCooldownScale
+      : 1;
+    ship.fireCooldown = config.shipFireCooldown * rapidFireScale;
   }
 
   const updatedNearest = pickNearestPlanet(state.planets, ship.position);

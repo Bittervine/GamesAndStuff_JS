@@ -8,6 +8,11 @@ import * as THREE from '../lib/three.module.js';
 import { config } from '../orbitals_config.js';
 import { pushEvent } from './events.js';
 import { spawnEnemyExplosion } from './effects.js';
+import { maybeDropPickupFromEnemy } from './pickups.js';
+import {
+  segmentIntersectsSphere,
+  spawnEnemyProjectile
+} from './projectiles.js';
 import {
   getEncounterAnchorPosition,
   getEncounterById,
@@ -261,6 +266,7 @@ export function destroyEnemy(state, enemy, cause = 'projectile', impactPosition 
   spawnEnemyExplosion(state, impactPosition || enemy.position, cause);
   if (cause === 'projectile') {
     state.score = (state.score || 0) + 100;
+    maybeDropPickupFromEnemy(state, enemy, cause, impactPosition || enemy.position);
   }
   return true;
 }
@@ -1110,6 +1116,62 @@ function accumulateEnemyOrbitProgress(squad, targetPlanet, enemy) {
   squad.orbitLastAngle = currentAngle;
 }
 
+function enemyHasFireLineOfSight(state, enemy, target) {
+  const margin = Math.max(0, config.enemyFireLineOfSightPlanetMargin);
+  for (const planet of state.planets) {
+    if (segmentIntersectsSphere(enemy.position, target.position, planet.position, planet.radius + margin)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function updateEnemyFire(state, enemy, dt) {
+  enemy.fireCooldown = Math.max(0, (enemy.fireCooldown || 0) - dt);
+  if (!config.enemyFireEnabled || enemy.kind === 'mothership' || enemy.fireCooldown > 0 || !state.ship || state.crashed) {
+    return;
+  }
+
+  const toPlayer = tempVecA.copy(state.ship.position).sub(enemy.position);
+  const distance = toPlayer.length();
+  if (distance < config.enemyFireMinDistance || distance > config.enemyFireRange) {
+    return;
+  }
+
+  const playerMetrics = measureEnemyInPlayerFrame(state, enemy);
+  if (!playerMetrics
+    || playerMetrics.forward < config.enemyFirePlayerForwardMin
+    || playerMetrics.angleDeg > config.enemyFirePlayerViewAngleDeg) {
+    return;
+  }
+
+  const direction = toPlayer.multiplyScalar(1 / Math.max(distance, 1e-8));
+  const forward = enemy.forward && enemy.forward.lengthSq() > 1e-8
+    ? tempVecB.copy(enemy.forward).normalize()
+    : tempVecB.copy(direction);
+  if (THREE.MathUtils.radToDeg(forward.angleTo(direction)) > config.enemyFireAngleDeg) {
+    return;
+  }
+  if (!enemyHasFireLineOfSight(state, enemy, state.ship)) {
+    return;
+  }
+
+  const projectile = spawnEnemyProjectile(state, enemy, state.ship);
+  if (!projectile) {
+    return;
+  }
+
+  const cooldownMin = Math.max(0, config.enemyFireCooldownMin);
+  const cooldownMax = Math.max(cooldownMin, config.enemyFireCooldownMax);
+  enemy.fireCooldown = cooldownMin + state.rng() * (cooldownMax - cooldownMin);
+  pushEvent(state, 'enemy-fire', {
+    enemyId: enemy.id,
+    squadId: enemy.squadId,
+    projectileId: projectile.id,
+    distanceToPlayer: distance
+  });
+}
+
 export function computeEnemyTravelDistance(state, targetPlanet, enemy, squad) {
   let travelDistance = enemy.position.distanceTo(targetPlanet.position);
   if (squad.mode === 'depart' || enemy.kind === 'mothership') {
@@ -1556,6 +1618,8 @@ function updateEnemyShip(state, enemy, squad, dt, time, neighborHash = null) {
     destroyEnemy(state, enemy, 'crash');
     return;
   }
+
+  updateEnemyFire(state, enemy, dt);
 
   const targetAltitude = enemy.position.distanceTo(targetPlanet.position) - targetPlanet.radius;
   if (shouldEnemyStayBound(state, enemy, squad, targetPlanet, targetAltitude)) {

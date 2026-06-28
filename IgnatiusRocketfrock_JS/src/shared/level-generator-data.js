@@ -1,5 +1,10 @@
-export const AUTOMATIC_LEVEL_GENERATOR_VERSION = 5;
-export const AUTOMATIC_LEVEL_GENERATOR_ID = "automatic-level-generator-3";
+import {
+    CAVE_PERIMETER_GENERATOR,
+    generateCavePerimeterPlacements
+} from "./cave-window-decoration.js";
+
+export const AUTOMATIC_LEVEL_GENERATOR_VERSION = 7;
+export const AUTOMATIC_LEVEL_GENERATOR_ID = "automatic-level-generator-4";
 
 const GENERATED_PLAYER_BODY_WIDTH = 34;
 const BRANCH_SHAFT_SIDE_CLEARANCE = 8;
@@ -19,10 +24,12 @@ export const LEVEL_GENERATOR_STAGE_ORDER = Object.freeze([
 
 export const LEVEL_GENERATOR_REGISTRIES = Object.freeze({
     route: Object.freeze([
-        Object.freeze({ id: "progression-route-v1", label: "Progression route v1" })
+        Object.freeze({ id: "macro-room-route-v2", label: "Macro room-and-tunnel route v2" }),
+        Object.freeze({ id: "progression-route-v1", label: "Progression route v1 (legacy)" })
     ]),
     cavern: Object.freeze([
-        Object.freeze({ id: "ellipse-cavern-v1", label: "Overlapping ellipse cavern v1" }),
+        Object.freeze({ id: "room-and-tunnel-cavern-v2", label: "Room-and-tunnel cavern v2" }),
+        Object.freeze({ id: "ellipse-cavern-v1", label: "Overlapping ellipse cavern v1 (legacy)" }),
         Object.freeze({ id: "route-preview-only", label: "Route preview only (legacy)" })
     ]),
     traversal: Object.freeze([
@@ -30,7 +37,8 @@ export const LEVEL_GENERATOR_REGISTRIES = Object.freeze({
         Object.freeze({ id: "not-generated-yet", label: "Not generated (legacy)" })
     ]),
     endpoints: Object.freeze([
-        Object.freeze({ id: "safe-endpoints-v1", label: "Safe supported endpoints v1" }),
+        Object.freeze({ id: "grounded-chamber-endpoints-v2", label: "Grounded chamber endpoints v2" }),
+        Object.freeze({ id: "safe-endpoints-v1", label: "Safe supported endpoints v1 (legacy)" }),
         Object.freeze({ id: "abstract-right-exit-v1", label: "Abstract endpoints (legacy)" })
     ]),
     encounters: Object.freeze([
@@ -42,10 +50,13 @@ export const LEVEL_GENERATOR_REGISTRIES = Object.freeze({
         Object.freeze({ id: "not-generated-yet", label: "No rewards (legacy)" })
     ]),
     decoration: Object.freeze([
-        Object.freeze({ id: "not-generated-yet", label: "Reserved for a later generator slice" })
+        Object.freeze({ id: "perimeter-decoration-v1", label: "Protected cave perimeter decoration v1" }),
+        Object.freeze({ id: "suppressed-by-theme", label: "Suppressed by theme" }),
+        Object.freeze({ id: "not-generated-yet", label: "No decoration (legacy)" })
     ]),
     validation: Object.freeze([
-        Object.freeze({ id: "playable-reward-cavern-validation-v1", label: "Playable reward cavern validation v1" }),
+        Object.freeze({ id: "room-and-tunnel-validation-v2", label: "Room-and-tunnel cavern validation v2" }),
+        Object.freeze({ id: "playable-reward-cavern-validation-v1", label: "Playable reward cavern validation v1 (legacy)" }),
         Object.freeze({ id: "playable-encounter-cavern-validation-v1", label: "Playable encounter cavern validation v1 (legacy)" }),
         Object.freeze({ id: "playable-empty-cavern-validation-v1", label: "Playable empty cavern validation v1 (legacy)" }),
         Object.freeze({ id: "route-graph-validation-v1", label: "Route graph validation v1 (legacy)" })
@@ -96,20 +107,32 @@ const DEFAULT_THEME = Object.freeze({
     description: "Existing cavern materials with their authored colours.",
     defaults: DEFAULT_GENERATOR_SETTINGS,
     route: Object.freeze({
-        nodeSpacing: 540,
+        nodeSpacing: 900,
         verticalStep: 190,
-        startX: 320,
-        baselineY: 620,
-        candidateAttempts: 32
+        startX: 640,
+        baselineY: 900,
+        candidateAttempts: 40,
+        macroVerticalSpan: 760,
+        roomScale: 1
     }),
     cavern: Object.freeze({
-        chamberRadiusX: 390,
-        chamberRadiusY: 345,
-        corridorRadiusX: 245,
-        corridorRadiusY: 285,
-        floorOffsetY: 145,
+        chamberRadiusX: 720,
+        chamberRadiusY: 560,
+        corridorRadiusX: 500,
+        corridorRadiusY: 455,
+        endpointRadiusX: 900,
+        endpointRadiusY: 650,
+        roomRadiusXMin: 850,
+        roomRadiusXMax: 2560,
+        roomRadiusYMin: 520,
+        roomRadiusYMax: 1080,
+        floorOffsetY: 115,
         sampleStep: 140,
-        worldMargin: 170
+        worldMargin: 220,
+        platformWallClearanceX: 250,
+        platformFloorClearance: 250,
+        platformCeilingClearance: 340,
+        endpointSideClearance: 520
     }),
     traversal: Object.freeze({
         maxHopX: 275,
@@ -143,6 +166,14 @@ const DEFAULT_THEME = Object.freeze({
         maximumThoughts: 1,
         thoughts: Object.freeze([])
     }),
+    decoration: Object.freeze({
+        populatePerimeter: true,
+        protectGameplay: true,
+        supportPaddingX: 34,
+        supportPaddingY: 58,
+        endpointPadding: 150,
+        rewardPadding: 56
+    }),
     colorMap: Object.freeze({
         enabled: false,
         sourceHue: 28,
@@ -152,14 +183,14 @@ const DEFAULT_THEME = Object.freeze({
         atlasIds: ["at_atlas_001", "at_atlas_002", "at_atlas_003"]
     }),
     implementations: Object.freeze({
-        route: "progression-route-v1",
-        cavern: "ellipse-cavern-v1",
+        route: "macro-room-route-v2",
+        cavern: "room-and-tunnel-cavern-v2",
         traversal: "forgiving-traversal-v1",
-        endpoints: "safe-endpoints-v1",
+        endpoints: "grounded-chamber-endpoints-v2",
         encounters: "difficulty-budgeted-encounters-v1",
         rewards: "basic-rewards-v1",
-        decoration: "not-generated-yet",
-        validation: "playable-reward-cavern-validation-v1"
+        decoration: "perimeter-decoration-v1",
+        validation: "room-and-tunnel-validation-v2"
     })
 });
 
@@ -172,6 +203,7 @@ export function normalizeGeneratorTheme(value) {
     const endpointsSource = source.endpoints && typeof source.endpoints === "object" ? source.endpoints : {};
     const encountersSource = source.encounters && typeof source.encounters === "object" ? source.encounters : {};
     const rewardsSource = source.rewards && typeof source.rewards === "object" ? source.rewards : {};
+    const decorationSource = source.decoration && typeof source.decoration === "object" ? source.decoration : {};
     const colorMapSource = source.colorMap && typeof source.colorMap === "object" ? source.colorMap : DEFAULT_THEME.colorMap;
     const implementations = normalizeGeneratorImplementations(source.implementations || DEFAULT_THEME.implementations);
     return {
@@ -184,16 +216,28 @@ export function normalizeGeneratorTheme(value) {
             verticalStep: clampNumber(routeSource.verticalStep, 120, 320, DEFAULT_THEME.route.verticalStep),
             startX: finiteNumber(routeSource.startX, DEFAULT_THEME.route.startX),
             baselineY: finiteNumber(routeSource.baselineY, DEFAULT_THEME.route.baselineY),
-            candidateAttempts: Math.round(clampNumber(routeSource.candidateAttempts, 8, 64, DEFAULT_THEME.route.candidateAttempts))
+            candidateAttempts: Math.round(clampNumber(routeSource.candidateAttempts, 8, 64, DEFAULT_THEME.route.candidateAttempts)),
+            macroVerticalSpan: clampNumber(routeSource.macroVerticalSpan, 360, 1400, DEFAULT_THEME.route.macroVerticalSpan),
+            roomScale: clampNumber(routeSource.roomScale, 0.65, 1.35, DEFAULT_THEME.route.roomScale)
         },
         cavern: {
-            chamberRadiusX: clampNumber(cavernSource.chamberRadiusX, 260, 620, DEFAULT_THEME.cavern.chamberRadiusX),
-            chamberRadiusY: clampNumber(cavernSource.chamberRadiusY, 260, 560, DEFAULT_THEME.cavern.chamberRadiusY),
-            corridorRadiusX: clampNumber(cavernSource.corridorRadiusX, 170, 380, DEFAULT_THEME.cavern.corridorRadiusX),
-            corridorRadiusY: clampNumber(cavernSource.corridorRadiusY, 210, 440, DEFAULT_THEME.cavern.corridorRadiusY),
-            floorOffsetY: clampNumber(cavernSource.floorOffsetY, 90, 220, DEFAULT_THEME.cavern.floorOffsetY),
+            chamberRadiusX: clampNumber(cavernSource.chamberRadiusX, 420, 1400, DEFAULT_THEME.cavern.chamberRadiusX),
+            chamberRadiusY: clampNumber(cavernSource.chamberRadiusY, 380, 1000, DEFAULT_THEME.cavern.chamberRadiusY),
+            corridorRadiusX: clampNumber(cavernSource.corridorRadiusX, 360, 900, DEFAULT_THEME.cavern.corridorRadiusX),
+            corridorRadiusY: clampNumber(cavernSource.corridorRadiusY, 340, 900, DEFAULT_THEME.cavern.corridorRadiusY),
+            endpointRadiusX: clampNumber(cavernSource.endpointRadiusX, 620, 1600, DEFAULT_THEME.cavern.endpointRadiusX),
+            endpointRadiusY: clampNumber(cavernSource.endpointRadiusY, 480, 1200, DEFAULT_THEME.cavern.endpointRadiusY),
+            roomRadiusXMin: clampNumber(cavernSource.roomRadiusXMin, 640, 1800, DEFAULT_THEME.cavern.roomRadiusXMin),
+            roomRadiusXMax: clampNumber(cavernSource.roomRadiusXMax, 900, 2560, DEFAULT_THEME.cavern.roomRadiusXMax),
+            roomRadiusYMin: clampNumber(cavernSource.roomRadiusYMin, 420, 900, DEFAULT_THEME.cavern.roomRadiusYMin),
+            roomRadiusYMax: clampNumber(cavernSource.roomRadiusYMax, 620, 1080, DEFAULT_THEME.cavern.roomRadiusYMax),
+            floorOffsetY: clampNumber(cavernSource.floorOffsetY, 70, 220, DEFAULT_THEME.cavern.floorOffsetY),
             sampleStep: clampNumber(cavernSource.sampleStep, 80, 220, DEFAULT_THEME.cavern.sampleStep),
-            worldMargin: clampNumber(cavernSource.worldMargin, 100, 320, DEFAULT_THEME.cavern.worldMargin)
+            worldMargin: clampNumber(cavernSource.worldMargin, 140, 420, DEFAULT_THEME.cavern.worldMargin),
+            platformWallClearanceX: clampNumber(cavernSource.platformWallClearanceX, 160, 520, DEFAULT_THEME.cavern.platformWallClearanceX),
+            platformFloorClearance: clampNumber(cavernSource.platformFloorClearance, 170, 480, DEFAULT_THEME.cavern.platformFloorClearance),
+            platformCeilingClearance: clampNumber(cavernSource.platformCeilingClearance, 240, 680, DEFAULT_THEME.cavern.platformCeilingClearance),
+            endpointSideClearance: clampNumber(cavernSource.endpointSideClearance, 360, 900, DEFAULT_THEME.cavern.endpointSideClearance)
         },
         traversal: {
             maxHopX: clampNumber(traversalSource.maxHopX, 190, 340, DEFAULT_THEME.traversal.maxHopX),
@@ -226,6 +270,14 @@ export function normalizeGeneratorTheme(value) {
             thoughtChance: clamp01(rewardsSource.thoughtChance ?? DEFAULT_THEME.rewards.thoughtChance),
             maximumThoughts: Math.round(clampNumber(rewardsSource.maximumThoughts, 0, 3, DEFAULT_THEME.rewards.maximumThoughts)),
             thoughts: normalizeStringArray(rewardsSource.thoughts || DEFAULT_THEME.rewards.thoughts)
+        },
+        decoration: {
+            populatePerimeter: decorationSource.populatePerimeter !== false,
+            protectGameplay: decorationSource.protectGameplay !== false,
+            supportPaddingX: clampNumber(decorationSource.supportPaddingX, 0, 180, DEFAULT_THEME.decoration.supportPaddingX),
+            supportPaddingY: clampNumber(decorationSource.supportPaddingY, 0, 220, DEFAULT_THEME.decoration.supportPaddingY),
+            endpointPadding: clampNumber(decorationSource.endpointPadding, 40, 320, DEFAULT_THEME.decoration.endpointPadding),
+            rewardPadding: clampNumber(decorationSource.rewardPadding, 0, 160, DEFAULT_THEME.decoration.rewardPadding)
         },
         colorMap: {
             enabled: Boolean(colorMapSource.enabled),
@@ -422,7 +474,7 @@ function collectAutomaticLevelRouteCandidates(options = {}) {
     const theme = normalizeGeneratorTheme(options.theme);
     const settings = normalizeGeneratorSettings(options.settings, theme.defaults);
     const implementations = normalizeGeneratorImplementations(options.implementations || theme.implementations);
-    if (implementations.route !== "progression-route-v1") {
+    if (!["macro-room-route-v2", "progression-route-v1"].includes(implementations.route)) {
         throw new Error(`Unsupported route generator “${implementations.route}”.`);
     }
     const seed = String(options.seed ?? "0").trim() || "0";
@@ -437,11 +489,20 @@ function collectAutomaticLevelRouteCandidates(options = {}) {
     const attemptNumbers = preferredRouteAttempt >= 1 && preferredRouteAttempt <= attempts
         ? [preferredRouteAttempt]
         : Array.from({ length: attempts }, (_, index) => index + 1);
+    const macroPlan = implementations.route === "macro-room-route-v2"
+        ? buildMacroRoutePlan({
+            theme,
+            settings,
+            rng: createNamedRandomStream(seed, `${generatorStageStreamName("route", stageRevisions)}:macro-layout`, 0)
+        })
+        : null;
     const candidates = [];
     const rejected = [];
     for (const attempt of attemptNumbers) {
         const rng = createNamedRandomStream(seed, generatorStageStreamName("route", stageRevisions), attempt);
-        const graph = buildProgressionRouteCandidate({ theme, settings, rng, attempt });
+        const graph = implementations.route === "macro-room-route-v2"
+            ? buildMacroRoomRouteCandidate({ theme, settings, rng, attempt, macroPlan })
+            : buildLegacyProgressionRouteCandidate({ theme, settings, rng, attempt });
         const validation = validateRouteGraph(graph, { settings, theme });
         if (validation.valid) {
             candidates.push({ graph, validation, attempt });
@@ -460,6 +521,7 @@ function collectAutomaticLevelRouteCandidates(options = {}) {
         attempts,
         attemptsInspected: attemptNumbers.length,
         preferredRouteAttempt: preferredRouteAttempt >= 1 && preferredRouteAttempt <= attempts ? preferredRouteAttempt : 0,
+        macroPlan,
         candidates,
         rejected
     };
@@ -982,15 +1044,299 @@ function buildBasicRewards({
     };
 }
 
+
+function generatedDecorationProtectionRegions({ traversal, endpoints, rewards, theme }) {
+    if (!theme.decoration.protectGameplay) return [];
+    const regions = [];
+    const supportPaddingX = theme.decoration.supportPaddingX;
+    const supportPaddingY = theme.decoration.supportPaddingY;
+    for (const placement of traversal?.placements || []) {
+        if (!placement || placement.layer === "caveForeground") continue;
+        const x = finiteNumber(placement.x, 0);
+        const y = finiteNumber(placement.y, 0);
+        const w = Math.max(1, finiteNumber(placement.w, 1));
+        const h = Math.max(1, finiteNumber(placement.h, 1));
+        regions.push({
+            id: `support:${placement.id || regions.length + 1}`,
+            x: x - supportPaddingX,
+            y: y - supportPaddingY,
+            w: w + supportPaddingX * 2,
+            h: h + supportPaddingY * 2,
+            strict: false,
+            allowAccent: true,
+            normalOverlapRatio: 0,
+            accentOverlapRatio: 0.08
+        });
+    }
+    const strictEntityRegion = (entity, padding, prefix) => {
+        const w = Math.max(24, finiteNumber(entity?.w, 96));
+        const h = Math.max(24, finiteNumber(entity?.h, 96));
+        const x = finiteNumber(entity?.x, 0) - w * 0.5;
+        const y = finiteNumber(entity?.y, 0) - h;
+        regions.push({
+            id: `${prefix}:${entity?.id || regions.length + 1}`,
+            x: x - padding,
+            y: y - padding,
+            w: w + padding * 2,
+            h: h + padding * 2,
+            strict: true,
+            allowAccent: false
+        });
+    };
+    for (const entity of endpoints?.entities || []) {
+        strictEntityRegion(entity, theme.decoration.endpointPadding, "endpoint");
+    }
+    for (const entity of rewards?.entities || []) {
+        strictEntityRegion(entity, theme.decoration.rewardPadding, "reward");
+    }
+    return regions;
+}
+
+
+function rotatedPlacementBounds(placement) {
+    const x = finiteNumber(placement?.x, 0);
+    const y = finiteNumber(placement?.y, 0);
+    const w = Math.max(0, finiteNumber(placement?.w, 0));
+    const h = Math.max(0, finiteNumber(placement?.h, 0));
+    const rotation = finiteNumber(placement?.rotation, 0);
+    const centerX = x + w * 0.5;
+    const centerY = y + h * 0.5;
+    const cosine = Math.abs(Math.cos(rotation));
+    const sine = Math.abs(Math.sin(rotation));
+    const extentX = cosine * w * 0.5 + sine * h * 0.5;
+    const extentY = sine * w * 0.5 + cosine * h * 0.5;
+    return { minX: centerX - extentX, minY: centerY - extentY, maxX: centerX + extentX, maxY: centerY + extentY };
+}
+
+function boundsOverlapRect(bounds, region) {
+    return bounds.maxX > region.x
+        && bounds.minX < region.x + region.w
+        && bounds.maxY > region.y
+        && bounds.minY < region.y + region.h;
+}
+function buildGeneratedPerimeterDecoration({
+    implementations,
+    theme,
+    cavern,
+    traversal,
+    endpoints,
+    rewards,
+    decorationCatalog,
+    seed,
+    stageRevisions,
+    runId,
+    requirePerimeter = false
+}) {
+    const enabled = theme.decoration.populatePerimeter && implementations.decoration === "perimeter-decoration-v1";
+    if (!enabled) {
+        return {
+            version: 1,
+            generatorId: implementations.decoration,
+            runId,
+            enabled: false,
+            placementCount: 0,
+            protectionRegionCount: 0,
+            suppressedReason: theme.decoration.populatePerimeter ? "implementation-disabled" : "theme-suppressed",
+            placements: []
+        };
+    }
+    const catalog = decorationCatalog && typeof decorationCatalog === "object" ? decorationCatalog : null;
+    if (!catalog || !["floor", "ceiling", "wall"].some((key) => Array.isArray(catalog[key]) && catalog[key].length)) {
+        if (requirePerimeter) throw new Error("The selected theme requires a populated cave perimeter, but no perimeter decoration catalog is available.");
+        return {
+            version: 1,
+            generatorId: implementations.decoration,
+            runId,
+            enabled: false,
+            placementCount: 0,
+            protectionRegionCount: 0,
+            suppressedReason: "decoration-catalog-unavailable",
+            placements: []
+        };
+    }
+    const protectedRegions = generatedDecorationProtectionRegions({ traversal, endpoints, rewards, theme });
+    const decorationSeed = hashGeneratorSeed(`${seed}:${generatorStageStreamName("decoration", stageRevisions)}:${runId}`) % 1000000;
+    cavern.caveWindow.decoration = {
+        ...cavern.caveWindow.decoration,
+        seed: decorationSeed
+    };
+    const generatedPlacements = generateCavePerimeterPlacements({
+        caveWindow: cavern.caveWindow,
+        catalog,
+        decoration: cavern.caveWindow.decoration,
+        firstOrder: 30000,
+        protectedRegions,
+        idPrefix: `generated_cave_fg_${runId}`,
+        ownership: {
+            generatedBy: AUTOMATIC_LEVEL_GENERATOR_ID,
+            generationRunId: runId,
+            generationStage: "decoration",
+            generationRole: "cavePerimeter",
+            decorationGenerator: CAVE_PERIMETER_GENERATOR
+        }
+    });
+    const strictRegions = protectedRegions.filter((region) => region.strict);
+    const placements = generatedPlacements.filter((placement) => {
+        const bounds = rotatedPlacementBounds(placement);
+        return !strictRegions.some((region) => boundsOverlapRect(bounds, region));
+    });
+    return {
+        version: 1,
+        generatorId: implementations.decoration,
+        runId,
+        enabled: true,
+        placementCount: placements.length,
+        protectionRegionCount: protectedRegions.length,
+        suppressedReason: "",
+        placements
+    };
+}
+
+
+function rectangleIntersectionArea(left, right) {
+    const overlapX = Math.max(0, Math.min(left.maxX, right.maxX) - Math.max(left.minX, right.minX));
+    const overlapY = Math.max(0, Math.min(left.maxY, right.maxY) - Math.max(left.minY, right.minY));
+    return overlapX * overlapY;
+}
+
+export function validateGeneratedCavernPresentation(value = {}) {
+    const cavern = value.cavern || {};
+    const traversal = value.traversal || {};
+    const endpoints = value.endpoints || {};
+    const rewards = value.rewards || {};
+    const decoration = value.decoration || {};
+    const theme = normalizeGeneratorTheme(value.theme);
+    const requirePerimeter = Boolean(value.requirePerimeter);
+    const errors = [];
+    const warnings = [];
+    const placements = Array.isArray(decoration.placements) ? decoration.placements : [];
+    const supportPlacements = Array.isArray(traversal.placements) ? traversal.placements : [];
+    const strictRegions = generatedDecorationProtectionRegions({ traversal, endpoints, rewards, theme })
+        .filter((region) => region.strict);
+    const metrics = {
+        perimeterRequired: Boolean(theme.decoration.populatePerimeter && requirePerimeter),
+        perimeterEnabled: Boolean(decoration.enabled),
+        perimeterPlacementCount: placements.length,
+        strictForegroundOverlapCount: 0,
+        touchedSupportCount: 0,
+        maximumSupportForegroundCoverage: 0,
+        minimumPlatformCeilingClearance: Infinity,
+        minimumPlatformFloorClearance: Infinity,
+        minimumPlatformWallClearance: Infinity,
+        minimumEndpointSideClearance: Infinity,
+        maximumDoorFloorError: 0,
+        macroRoomCount: Array.isArray(cavern.rooms) ? cavern.rooms.length : 0,
+        largestRoomWidthScreens: 0,
+        largestRoomHeightScreens: 0
+    };
+
+    if (theme.decoration.populatePerimeter && requirePerimeter) {
+        if (!decoration.enabled) errors.push(`The theme requires a populated perimeter, but decoration is disabled (${decoration.suppressedReason || "unknown reason"}).`);
+        if (!placements.length) errors.push("The theme requires visible cave-wall foreground, but no perimeter placements were generated.");
+    }
+
+    for (const placement of placements) {
+        const bounds = rotatedPlacementBounds(placement);
+        for (const region of strictRegions) {
+            if (!boundsOverlapRect(bounds, region)) continue;
+            metrics.strictForegroundOverlapCount += 1;
+            errors.push(`Foreground placement “${placement.id || "unnamed"}” overlaps protected ${region.id}.`);
+            break;
+        }
+    }
+
+    for (const supportPlacement of supportPlacements) {
+        const supportRect = {
+            minX: finiteNumber(supportPlacement.x, 0),
+            minY: finiteNumber(supportPlacement.y, 0),
+            maxX: finiteNumber(supportPlacement.x, 0) + Math.max(1, finiteNumber(supportPlacement.w, 1)),
+            maxY: finiteNumber(supportPlacement.y, 0) + Math.max(1, finiteNumber(supportPlacement.h, 1))
+        };
+        const supportArea = Math.max(1, (supportRect.maxX - supportRect.minX) * (supportRect.maxY - supportRect.minY));
+        let overlapArea = 0;
+        for (const placement of placements) overlapArea += rectangleIntersectionArea(supportRect, rotatedPlacementBounds(placement));
+        const coverage = Math.min(1, overlapArea / supportArea);
+        if (coverage > 0.0001) metrics.touchedSupportCount += 1;
+        metrics.maximumSupportForegroundCoverage = Math.max(metrics.maximumSupportForegroundCoverage, coverage);
+        if (coverage > 0.1 + 1e-6) errors.push(`Foreground covers ${Math.round(coverage * 1000) / 10}% of platform “${supportPlacement.id || "unnamed"}”.`);
+    }
+
+    const stampBySupportId = new Map((cavern.stamps || []).map((stamp) => [stamp.sourceSupportId, stamp]));
+    for (const support of traversal.supports || []) {
+        const placement = supportPlacements.find((candidate) => candidate.id === support.placementId);
+        const stamp = stampBySupportId.get(support.id);
+        if (stamp) metrics.minimumPlatformWallClearance = Math.min(metrics.minimumPlatformWallClearance, stamp.rx - support.width * 0.5);
+        const sampleXs = [support.walkableLeftX, support.centerX, support.walkableRightX]
+            .filter(Number.isFinite);
+        for (const x of sampleXs) {
+            const vertical = cavernVerticalRangeAt(cavern.profile, x);
+            if (!vertical) {
+                errors.push(`Platform “${support.id}” has no cave opening at x=${roundCoordinate(x)}.`);
+                continue;
+            }
+            const platformBottom = placement
+                ? finiteNumber(placement.y, support.surfaceY) + finiteNumber(placement.h, support.height)
+                : support.surfaceY + support.height * (1 - support.surfaceYRatio);
+            metrics.minimumPlatformCeilingClearance = Math.min(metrics.minimumPlatformCeilingClearance, support.surfaceY - vertical.top);
+            metrics.minimumPlatformFloorClearance = Math.min(metrics.minimumPlatformFloorClearance, vertical.bottom - platformBottom);
+        }
+    }
+
+    const v2 = cavern.generatorId === "room-and-tunnel-cavern-v2";
+    if (v2) {
+        const tolerance = 42;
+        if (metrics.minimumPlatformWallClearance < theme.cavern.platformWallClearanceX - 1) {
+            errors.push(`A traversal platform has only ${roundCoordinate(metrics.minimumPlatformWallClearance)} units of horizontal cave-wall clearance.`);
+        }
+        if (metrics.minimumPlatformCeilingClearance < theme.cavern.platformCeilingClearance - tolerance) {
+            errors.push(`A traversal platform has only ${roundCoordinate(metrics.minimumPlatformCeilingClearance)} units of ceiling clearance.`);
+        }
+        if (metrics.minimumPlatformFloorClearance < theme.cavern.platformFloorClearance - tolerance) {
+            errors.push(`A traversal platform has only ${roundCoordinate(metrics.minimumPlatformFloorClearance)} units of floor clearance.`);
+        }
+    }
+
+    const bounds = cavern.bounds || {};
+    for (const entity of endpoints.entities || []) {
+        const floorY = finiteNumber(entity.y, 0);
+        const endpoint = entity.portalRole === "entrance" ? endpoints.entrance : endpoints.exit;
+        const support = (traversal.supports || []).find((candidate) => candidate.id === endpoint?.supportId);
+        if (support) metrics.maximumDoorFloorError = Math.max(metrics.maximumDoorFloorError, Math.abs(floorY - support.surfaceY));
+        if ([bounds.x, bounds.w].every(Number.isFinite)) {
+            const sideClearance = Math.min(entity.x - bounds.x, bounds.x + bounds.w - entity.x);
+            metrics.minimumEndpointSideClearance = Math.min(metrics.minimumEndpointSideClearance, sideClearance);
+        }
+    }
+    if (v2 && metrics.minimumEndpointSideClearance < theme.cavern.endpointSideClearance - 20) {
+        errors.push(`An endpoint door is only ${roundCoordinate(metrics.minimumEndpointSideClearance)} units from the dark cave boundary.`);
+    }
+    if (metrics.maximumDoorFloorError > 2) errors.push(`An endpoint doorway floats ${roundCoordinate(metrics.maximumDoorFloorError)} units above or below its support.`);
+
+    for (const room of cavern.rooms || []) {
+        metrics.largestRoomWidthScreens = Math.max(metrics.largestRoomWidthScreens, finiteNumber(room.widthScreens, 0));
+        metrics.largestRoomHeightScreens = Math.max(metrics.largestRoomHeightScreens, finiteNumber(room.heightScreens, 0));
+        if (room.widthScreens > 4.01 || room.heightScreens > 3.01) errors.push(`Macro room “${room.id}” exceeds the 4×3-screen design ceiling.`);
+    }
+    if (v2 && !metrics.macroRoomCount) errors.push("The room-and-tunnel cavern contains no macro room.");
+    if (v2 && metrics.largestRoomWidthScreens <= 1 && metrics.largestRoomHeightScreens <= 1) errors.push("The room-and-tunnel cavern never opens beyond a single screen.");
+
+    for (const key of ["minimumPlatformCeilingClearance", "minimumPlatformFloorClearance", "minimumPlatformWallClearance", "minimumEndpointSideClearance"]) {
+        if (!Number.isFinite(metrics[key])) metrics[key] = 0;
+    }
+    metrics.maximumSupportForegroundCoverage = Math.round(metrics.maximumSupportForegroundCoverage * 10000) / 10000;
+    return { valid: errors.length === 0, qualityScore: Math.max(0, 100 - errors.length * 35 - warnings.length * 2), errors, warnings, metrics };
+}
+
 export function generateAutomaticLevelDraft(options = {}) {
     const theme = normalizeGeneratorTheme(options.theme);
     const implementations = normalizeGeneratorImplementations(options.implementations || theme.implementations);
-    if (implementations.cavern !== "ellipse-cavern-v1") throw new Error(`Unsupported cavern builder “${implementations.cavern}”.`);
+    if (!["room-and-tunnel-cavern-v2", "ellipse-cavern-v1"].includes(implementations.cavern)) throw new Error(`Unsupported cavern builder “${implementations.cavern}”.`);
     if (implementations.traversal !== "forgiving-traversal-v1") throw new Error(`Unsupported traversal builder “${implementations.traversal}”.`);
-    if (implementations.endpoints !== "safe-endpoints-v1") throw new Error(`Unsupported endpoint placer “${implementations.endpoints}”.`);
+    if (!["grounded-chamber-endpoints-v2", "safe-endpoints-v1"].includes(implementations.endpoints)) throw new Error(`Unsupported endpoint placer “${implementations.endpoints}”.`);
     if (!["difficulty-budgeted-encounters-v1", "not-generated-yet"].includes(implementations.encounters)) throw new Error(`Unsupported encounter populator “${implementations.encounters}”.`);
     if (!["basic-rewards-v1", "not-generated-yet"].includes(implementations.rewards)) throw new Error(`Unsupported reward populator “${implementations.rewards}”.`);
-    if (!["playable-reward-cavern-validation-v1", "playable-encounter-cavern-validation-v1", "playable-empty-cavern-validation-v1"].includes(implementations.validation)) throw new Error(`Unsupported level validator “${implementations.validation}”.`);
+    if (!["perimeter-decoration-v1", "suppressed-by-theme", "not-generated-yet"].includes(implementations.decoration)) throw new Error(`Unsupported decoration populator “${implementations.decoration}”.`);
+    if (!["room-and-tunnel-validation-v2", "playable-reward-cavern-validation-v1", "playable-encounter-cavern-validation-v1", "playable-empty-cavern-validation-v1"].includes(implementations.validation)) throw new Error(`Unsupported level validator “${implementations.validation}”.`);
 
     const assetCatalog = normalizeGenerationAssetCatalog(options.assetCatalog);
     if (!assetCatalog.assets.length) throw new Error("The generation platform catalog is empty.");
@@ -1003,6 +1349,9 @@ export function generateAutomaticLevelDraft(options = {}) {
     const enemyCatalog = normalizeEnemyCatalogDefinitions(options.enemyCatalog);
     const rewardGenerationCatalog = normalizeRewardGenerationCatalog(options.rewardGenerationCatalog);
     const entityCatalog = normalizeInteractiveEntityCatalog(options.entityCatalog);
+    const decorationCatalog = options.decorationCatalog && typeof options.decorationCatalog === "object"
+        ? options.decorationCatalog
+        : null;
     if (implementations.encounters === "difficulty-budgeted-encounters-v1" && !enemyGenerationCatalog.enemies.length) {
         throw new Error("The enemy generation metadata catalog is empty.");
     }
@@ -1060,14 +1409,24 @@ export function generateAutomaticLevelDraft(options = {}) {
                 runId: routeGeneration.runId,
                 destinationLevel: String(options.destinationLevel || "")
             });
-            const cavern = buildEllipseCavern({
-                route: routeGeneration.route,
-                traversal,
-                theme,
-                seed: routeGeneration.seed,
-                runId: routeGeneration.runId,
-                generatorId: implementations.cavern
-            });
+            const cavern = implementations.cavern === "room-and-tunnel-cavern-v2"
+                ? buildRoomAndTunnelCavern({
+                    route: routeGeneration.route,
+                    traversal,
+                    endpoints,
+                    theme,
+                    seed: routeGeneration.seed,
+                    runId: routeGeneration.runId,
+                    generatorId: implementations.cavern
+                })
+                : buildEllipseCavern({
+                    route: routeGeneration.route,
+                    traversal,
+                    theme,
+                    seed: routeGeneration.seed,
+                    runId: routeGeneration.runId,
+                    generatorId: implementations.cavern
+                });
             const world = deriveGeneratedWorld(cavern, traversal, theme);
             const emptyCavernValidation = validatePlayableEmptyCavern({
                 route: routeGeneration.route,
@@ -1178,6 +1537,38 @@ export function generateAutomaticLevelDraft(options = {}) {
     );
     const selected = completeCandidates[0];
     const { routeGeneration, traversal, endpoints, cavern, world, encounters, rewards, validation } = selected;
+    const decoration = buildGeneratedPerimeterDecoration({
+        implementations,
+        theme,
+        cavern,
+        traversal,
+        endpoints,
+        rewards,
+        decorationCatalog,
+        seed: routeGeneration.seed,
+        stageRevisions: routeGeneration.stageRevisions,
+        runId: routeGeneration.runId,
+        requirePerimeter: Boolean(options.requirePopulatedPerimeter) && implementations.validation === "room-and-tunnel-validation-v2"
+    });
+    const presentationValidation = validateGeneratedCavernPresentation({
+        cavern,
+        traversal,
+        endpoints,
+        rewards,
+        decoration,
+        theme,
+        requirePerimeter: Boolean(options.requirePopulatedPerimeter) && implementations.validation === "room-and-tunnel-validation-v2"
+    });
+    if (!presentationValidation.valid) {
+        throw new Error(`Generated cavern presentation failed validation: ${presentationValidation.errors.join(" ")}`);
+    }
+    const finalValidation = {
+        valid: validation.valid && presentationValidation.valid,
+        qualityScore: Math.round((validation.qualityScore * 0.78 + presentationValidation.qualityScore * 0.22) * 10) / 10,
+        errors: [...validation.errors, ...presentationValidation.errors],
+        warnings: [...validation.warnings, ...presentationValidation.warnings],
+        metrics: { ...validation.metrics, presentation: presentationValidation.metrics }
+    };
 
     const generation = {
         ...routeGeneration,
@@ -1199,7 +1590,11 @@ export function generateAutomaticLevelDraft(options = {}) {
             ...rewards,
             entities: undefined
         },
-        validation,
+        decoration: {
+            ...decoration,
+            placements: undefined
+        },
+        validation: finalValidation,
         diagnostics: {
             ...routeGeneration.diagnostics,
             geometryCandidatesTried,
@@ -1226,17 +1621,34 @@ export function generateAutomaticLevelDraft(options = {}) {
                 chestCount: rewards.entities.filter((entity) => entity.type === "treasureChest").length,
                 powerUpCount: rewards.entities.filter((entity) => ["speedShotPickup", "shieldPickup", "randomWrenchPickup"].includes(entity.type)).length,
                 thoughtCount: rewards.entities.filter((entity) => entity.type === "thoughtTrigger").length
+            },
+            decoration: {
+                enabled: decoration.enabled,
+                placementCount: decoration.placementCount,
+                protectionRegionCount: decoration.protectionRegionCount,
+                suppressedReason: decoration.suppressedReason,
+                strictOverlapCount: presentationValidation.metrics.strictForegroundOverlapCount,
+                touchedSupportCount: presentationValidation.metrics.touchedSupportCount,
+                maximumSupportCoverage: presentationValidation.metrics.maximumSupportForegroundCoverage
+            },
+            macro: {
+                patternId: cavern.macroPatternId,
+                patternLabel: cavern.macroPatternLabel,
+                roomCount: presentationValidation.metrics.macroRoomCount,
+                largestRoomWidthScreens: presentationValidation.metrics.largestRoomWidthScreens,
+                largestRoomHeightScreens: presentationValidation.metrics.largestRoomHeightScreens
             }
         }
     };
+    const placements = [...traversal.placements, ...decoration.placements];
     return {
         generation,
-        placements: traversal.placements.map((placement) => JSON.parse(JSON.stringify(placement))),
+        placements: placements.map((placement) => JSON.parse(JSON.stringify(placement))),
         entities: [...endpoints.entities, ...encounters.entities, ...rewards.entities].map((entity) => JSON.parse(JSON.stringify(entity))),
         caveWindow: JSON.parse(JSON.stringify(cavern.caveWindow)),
         world: JSON.parse(JSON.stringify(world)),
         requiredAtlasIds: [...new Set([
-            ...traversal.placements.map((placement) => placement.atlasId),
+            ...placements.map((placement) => placement.atlasId),
             "it_atlas_001"
         ])].sort()
     };
@@ -1326,6 +1738,10 @@ function buildDifficultyBudgetedEncounters({
     const entities = [];
     let spentBudget = 0;
     let lastEnemyId = "";
+    let hunterPlaced = false;
+    const hunterRequired = settings.enemyDensity >= 0.45
+        && settings.difficulty >= 0.34
+        && allowed.some((enemyId) => metadataById.get(enemyId)?.requiresNavigation);
     for (const candidate of candidates) {
         if (encounters.length >= maximumEncounters) break;
         if (spentBudget >= budget) break;
@@ -1348,7 +1764,10 @@ function buildDifficultyBudgetedEncounters({
             if (enemyId === lastEnemyId) weight *= 0.36;
             return { enemyId, metadata, definition, groupSize, totalCost, weight };
         }).filter(Boolean);
-        const selected = weightedRandomChoice(fitting, rng);
+        const hunterChoices = fitting.filter((entry) => entry.metadata.requiresNavigation);
+        const selected = hunterRequired && !hunterPlaced && candidate.progress >= 0.24 && hunterChoices.length
+            ? weightedRandomChoice(hunterChoices, rng)
+            : weightedRandomChoice(fitting, rng);
         if (!selected) continue;
         const encounterId = `encounter_${String(encounters.length + 1).padStart(3, "0")}`;
         const built = instantiateGeneratedEncounter({
@@ -1364,6 +1783,7 @@ function buildDifficultyBudgetedEncounters({
         entities.push(...built.entities);
         spentBudget += selected.totalCost;
         lastEnemyId = selected.enemyId;
+        if (selected.metadata.requiresNavigation) hunterPlaced = true;
     }
 
     return {
@@ -1600,7 +2020,7 @@ export function validateGeneratedEncounters(value = {}) {
         if (!support) errors.push(`Enemy “${entity?.id}” references missing support “${entity?.generationSupportId || "unknown"}”.`);
         if (!metadata || !definition || !support) continue;
         const endpointDistance = Math.min(Math.abs(entity.x - entranceX), Math.abs(entity.x - exitX));
-        metrics.minimumRewardEndpointDistance = Math.min(metrics.minimumRewardEndpointDistance, endpointDistance);
+        metrics.minimumEndpointDistance = Math.min(metrics.minimumEndpointDistance, endpointDistance);
         if (endpointDistance < calmDistance - 0.01) errors.push(`Enemy “${entity.id}” violates the ${roundCoordinate(calmDistance)}-unit calm endpoint zone.`);
         const vertical = cavernVerticalRangeAt(cavern.profile, entity.x);
         const top = entity.y - definition.defaultSize.h;
@@ -1720,7 +2140,7 @@ export function validateGeneratedRewards(value = {}) {
         if (!record) errors.push(`Reward “${entity?.id}” has no reward-population record.`);
         if (!metadata || !definition || !support) continue;
         const endpointDistance = Math.min(Math.abs(entity.x - entranceX), Math.abs(entity.x - exitX));
-        metrics.minimumRewardEndpointDistance = Math.min(metrics.minimumRewardEndpointDistance, endpointDistance);
+        metrics.minimumEndpointDistance = Math.min(metrics.minimumEndpointDistance, endpointDistance);
         if (endpointDistance < theme.rewards.endpointExclusionDistance - 0.01) {
             metrics.endpointCrowdingCount += 1;
             errors.push(`Reward “${entity.id}” violates the ${roundCoordinate(theme.rewards.endpointExclusionDistance)}-unit endpoint exclusion zone.`);
@@ -1872,9 +2292,12 @@ export function validateAutomaticLevelDraftSnapshot(value = {}) {
     const endpointEntities = generatedEntities.filter((entity) => generationOwnershipStage(entity) === "endpoints");
     const encounterEntities = generatedEntities.filter((entity) => generationOwnershipStage(entity) === "encounters");
     const rewardEntities = generatedEntities.filter((entity) => generationOwnershipStage(entity) === "rewards");
+    const traversalPlacementIds = new Set((generation.traversal?.supports || [])
+        .map((support) => String(support?.placementId || ""))
+        .filter(Boolean));
     const traversal = {
         ...(generation.traversal || {}),
-        placements: generatedPlacements
+        placements: generatedPlacements.filter((record) => traversalPlacementIds.has(String(record?.id || "")))
     };
     const endpoints = {
         ...(generation.endpoints || {}),
@@ -1925,7 +2348,27 @@ export function validateAutomaticLevelDraftSnapshot(value = {}) {
         rewardGenerationCatalog,
         entityCatalog
     });
-    return combineGeneratorValidations(emptyCavernValidation, encounterValidation, rewardValidation);
+    const baseValidation = combineGeneratorValidations(emptyCavernValidation, encounterValidation, rewardValidation);
+    const decoration = {
+        ...(generation.decoration || {}),
+        placements: generatedPlacements.filter((record) => generationOwnershipStage(record) === "decoration")
+    };
+    const presentationValidation = validateGeneratedCavernPresentation({
+        cavern: generation.cavern,
+        traversal,
+        endpoints,
+        rewards,
+        decoration,
+        theme,
+        requirePerimeter: Boolean(generation.decoration?.enabled)
+    });
+    return {
+        valid: baseValidation.valid && presentationValidation.valid,
+        qualityScore: Math.round((baseValidation.qualityScore * 0.78 + presentationValidation.qualityScore * 0.22) * 10) / 10,
+        errors: [...baseValidation.errors, ...presentationValidation.errors],
+        warnings: [...baseValidation.warnings, ...presentationValidation.warnings],
+        metrics: { ...baseValidation.metrics, presentation: presentationValidation.metrics }
+    };
 }
 
 export function buildAutomaticLevelValidationOverlay(generationValue) {
@@ -2259,7 +2702,7 @@ export function validatePlayableEmptyCavern(value = {}) {
         const requiredWidth = Math.max(560, asset?.minimumDoorWidth || 0, theme.endpoints.calmDistance * 1.8);
         if ((support.walkableWidth || support.width) < requiredWidth) errors.push(`Endpoint support “${support.id}” is too narrow across its authored walkable top for a safe door chamber.`);
         if (support.height < Math.max(110, asset?.minimumVisibleDepth || 0)) errors.push(`Endpoint support “${support.id}” is visually too thin beneath its door.`);
-        const floorY = entity.y + entity.h * finiteNumber(entity.floorAnchorYFactor, 0.908745247148289);
+        const floorY = finiteNumber(entity.y, 0);
         if (Math.abs(floorY - support.surfaceY) > 2) errors.push(`Door “${entity.id}” is not seated on its generated support.`);
         if (endpoint === endpoints.entrance) metrics.entranceCalmWidth = support.width;
         else metrics.exitCalmWidth = support.width;
@@ -2431,6 +2874,9 @@ function buildForgivingTraversal({
             id: `support_${node.id}`,
             role,
             targetWidth: supportTargetWidthForNode(node, role),
+            maximumWidth: role === "doorSupport"
+                ? Infinity
+                : supportTargetWidthForNode(node, role) * (node.kind === "chamber" || node.kind === "recovery" ? 1.12 : 1.18),
             centerX: node.x,
             surfaceY: node.y,
             mandatory: true,
@@ -2889,6 +3335,30 @@ function buildForgivingTraversal({
         existing.push(support);
     }
 
+    const desiredMovingCount = settings.length === "grand" ? 3 : settings.length === "extended" ? 2 : settings.length === "standard" ? 1 : 0;
+    const movingCandidates = rng.shuffle(supports.filter((support) => support.role === "landingPlatform" && support.mandatory && support.routeEdgeId));
+    for (let index = 0; index < Math.min(desiredMovingCount, movingCandidates.length); index += 1) {
+        const support = movingCandidates[index];
+        const placement = placements.find((candidate) => candidate.id === support.placementId);
+        if (!placement) continue;
+        placement.movement = {
+            version: 1,
+            pattern: "shuttle",
+            activation: "automatic",
+            endOffsetX: roundCoordinate(rng.range(-28, 28)),
+            endOffsetY: roundCoordinate((index % 2 === 0 ? -1 : 1) * rng.range(72, 118)),
+            speed: roundCoordinate(rng.range(76, 104)),
+            initialDelay: roundCoordinate(rng.range(0, 0.75)),
+            triggerDelay: 0,
+            startPause: roundCoordinate(rng.range(0.65, 1.1)),
+            endPause: roundCoordinate(rng.range(0.65, 1.1)),
+            fadeDuration: 0.2,
+            hiddenDuration: 1.25
+        };
+        placement.generationRole = "movingLandingPlatform";
+        support.moving = true;
+    }
+
     const materializedOptionalEdges = edges.filter((edge) => edge.mandatory === false
         && materializedBranches.has(edge.branchId)
         && nodeById.get(edge.to)?.mandatory === false);
@@ -2999,9 +3469,14 @@ function buildSafeEndpoints({ route, traversal, theme, implementations, rng, run
         const width = theme.endpoints.doorWidth;
         const height = theme.endpoints.doorHeight;
         const floorAnchorYFactor = 0.908745247148289;
-        const side = role === "entrance" ? -1 : 1;
-        const x = support.centerX + side * support.width * 0.24;
-        const y = support.surfaceY - height * floorAnchorYFactor;
+        const legacySide = role === "entrance" ? -1 : 1;
+        const inwardSide = role === "entrance" ? 1 : -1;
+        const side = implementations.endpoints === "grounded-chamber-endpoints-v2" ? inwardSide : legacySide;
+        const requestedOffset = support.width * (implementations.endpoints === "grounded-chamber-endpoints-v2" ? 0.13 : 0.24);
+        const minimumX = support.walkableLeftX + width * 0.5 + 48;
+        const maximumX = support.walkableRightX - width * 0.5 - 48;
+        const x = clamp(support.centerX + side * requestedOffset, minimumX, maximumX);
+        const y = support.surfaceY;
         const type = role === "entrance" ? "wizard_entry_door" : "wizard_exit_door";
         const entity = {
             id,
@@ -3061,6 +3536,128 @@ function buildSafeEndpoints({ route, traversal, theme, implementations, rng, run
         entities,
         calmDistance: theme.endpoints.calmDistance,
         variation: rng.float()
+    };
+}
+
+function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, runId, generatorId }) {
+    const nodeById = new Map((route?.nodes || []).map((node) => [node.id, node]));
+    const endpointSupportIds = new Set([traversal.startSupportId, traversal.exitSupportId]);
+    const rooms = [];
+    const stamps = traversal.supports.map((support) => {
+        const node = nodeById.get(support.routeNodeId);
+        const endpoint = endpointSupportIds.has(support.id);
+        const room = node?.macroRoomId ? {
+            id: node.macroRoomId,
+            widthScreens: finiteNumber(node.roomWidthScreens, 1.5),
+            heightScreens: finiteNumber(node.roomHeightScreens, 1.3),
+            rareLargeRoom: Boolean(node.rareLargeRoom)
+        } : null;
+        let rx = endpoint
+            ? theme.cavern.endpointRadiusX
+            : room
+                ? clamp(room.widthScreens * 1280 * 0.5, theme.cavern.roomRadiusXMin, theme.cavern.roomRadiusXMax)
+                : node?.kind === "chamber" || node?.kind === "recovery"
+                    ? theme.cavern.chamberRadiusX
+                    : theme.cavern.corridorRadiusX;
+        let ry = endpoint
+            ? theme.cavern.endpointRadiusY
+            : room
+                ? clamp(room.heightScreens * 720 * 0.5, theme.cavern.roomRadiusYMin, theme.cavern.roomRadiusYMax)
+                : node?.kind === "chamber" || node?.kind === "recovery"
+                    ? theme.cavern.chamberRadiusY
+                    : theme.cavern.corridorRadiusY;
+        rx = Math.max(rx, support.width * 0.5 + theme.cavern.platformWallClearanceX);
+        const platformDepth = support.height * (1 - support.surfaceYRatio);
+        const desiredTop = support.surfaceY - theme.cavern.platformCeilingClearance;
+        const desiredBottom = support.surfaceY + platformDepth + theme.cavern.platformFloorClearance;
+        const minimumHalfHeight = (desiredBottom - desiredTop) * 0.5;
+        const supportHalfWidth = support.width * 0.5;
+        const supportEdgeRatio = clamp(supportHalfWidth / Math.max(1, rx), 0, 0.92);
+        const supportEdgeFactor = Math.sqrt(Math.max(0.15, 1 - supportEdgeRatio * supportEdgeRatio));
+        // The ellipse must provide the requested top and bottom clearance across the
+        // whole collision-bearing support, not merely at its centre point.
+        ry = Math.max(ry, (minimumHalfHeight + 18) / supportEdgeFactor);
+        const centerY = (desiredTop + desiredBottom) * 0.5;
+        const stamp = {
+            id: `cavern_stamp_${support.id}`,
+            x: support.centerX,
+            y: centerY,
+            rx,
+            ry,
+            sourceSupportId: support.id,
+            routeNodeId: support.routeNodeId || undefined,
+            kind: endpoint ? "endpointChamber" : room ? "macroRoom" : node?.kind === "chamber" || node?.kind === "recovery" ? "chamber" : "tunnel"
+        };
+        if (room) rooms.push({ ...room, nodeId: node.id, supportId: support.id, x: support.centerX, y: centerY, rx, ry });
+        return stamp;
+    });
+    if (!stamps.length) throw new Error("Room-and-tunnel cavern builder received no traversal supports.");
+
+    const minX = Math.min(...stamps.map((stamp) => stamp.x - stamp.rx * 0.96));
+    const maxX = Math.max(...stamps.map((stamp) => stamp.x + stamp.rx * 0.96));
+    const span = maxX - minX;
+    const step = Math.max(theme.cavern.sampleStep, span / 52);
+    const samplePositions = [minX, maxX, ...stamps.map((stamp) => stamp.x)];
+    for (const stamp of stamps) {
+        if (stamp.kind === "macroRoom" || stamp.kind === "endpointChamber") {
+            samplePositions.push(stamp.x - stamp.rx * 0.58, stamp.x + stamp.rx * 0.58);
+        }
+    }
+    for (let x = minX; x < maxX + step * 0.25; x += step) samplePositions.push(Math.min(maxX, x));
+    const uniqueSamplePositions = [...new Set(samplePositions.map((x) => roundCoordinate(x)))].sort((a, b) => a - b);
+    const profile = [];
+    for (const sampleX of uniqueSamplePositions) {
+        let top = Infinity;
+        let bottom = -Infinity;
+        for (const stamp of stamps) {
+            const dx = (sampleX - stamp.x) / stamp.rx;
+            if (Math.abs(dx) >= 1) continue;
+            const halfHeight = stamp.ry * Math.sqrt(Math.max(0, 1 - dx * dx));
+            top = Math.min(top, stamp.y - halfHeight);
+            bottom = Math.max(bottom, stamp.y + halfHeight);
+        }
+        if (Number.isFinite(top) && Number.isFinite(bottom)) profile.push({ x: roundCoordinate(sampleX), top, bottom });
+    }
+    smoothCavernProfile(profile, "top", 2);
+    smoothCavernProfile(profile, "bottom", 2);
+    const points = [
+        ...profile.map((sample, index) => ({ id: `generated_cave_top_${String(index + 1).padStart(3, "0")}`, x: sample.x, y: roundCoordinate(sample.top), mode: "smooth" })),
+        ...[...profile].reverse().map((sample, index) => ({ id: `generated_cave_bottom_${String(index + 1).padStart(3, "0")}`, x: sample.x, y: roundCoordinate(sample.bottom), mode: "smooth" }))
+    ];
+    const xs = points.map((point) => point.x);
+    const ys = points.map((point) => point.y);
+    const bounds = {
+        x: Math.min(...xs),
+        y: Math.min(...ys),
+        w: Math.max(...xs) - Math.min(...xs),
+        h: Math.max(...ys) - Math.min(...ys)
+    };
+    const endpointEntities = endpoints?.entities || [];
+    return {
+        version: 2,
+        generatorId,
+        runId,
+        macroPatternId: route?.macro?.patternId || "",
+        macroPatternLabel: route?.macro?.patternLabel || "",
+        rooms: rooms.map((room) => Object.fromEntries(Object.entries(room).map(([key, value]) => [key, typeof value === "number" ? roundCoordinate(value) : value]))),
+        stamps: stamps.map((stamp) => Object.fromEntries(Object.entries(stamp).map(([key, value]) => [key, typeof value === "number" ? roundCoordinate(value) : value]))),
+        profile: profile.map((sample) => ({ x: roundCoordinate(sample.x), top: roundCoordinate(sample.top), bottom: roundCoordinate(sample.bottom) })),
+        bounds: Object.fromEntries(Object.entries(bounds).map(([key, value]) => [key, roundCoordinate(value)])),
+        endpointPositions: endpointEntities.map((entity) => ({ id: entity.id, role: entity.portalRole, x: entity.x, y: entity.y })),
+        caveWindow: {
+            version: 1,
+            enabled: true,
+            feather: 118,
+            parallax: 1.08,
+            decoration: {
+                seed: hashGeneratorSeed(`${seed}:cavern:${runId}`) % 1000000,
+                spacing: 180,
+                scale: 2.15,
+                brightness: 0.46,
+                saturation: 0.68
+            },
+            points
+        }
     };
 }
 
@@ -3197,7 +3794,11 @@ export function validateRouteGraph(graph, context = {}) {
         backtrackEdges: 0,
         verticalSpan: 0,
         averageMainSpacing: 0,
-        maxEdgeLength: 0
+        maxEdgeLength: 0,
+        macroPatternId: String(graph?.macro?.patternId || ""),
+        macroRoomCount: Array.isArray(graph?.macro?.rooms) ? graph.macro.rooms.length : 0,
+        largestRoomWidthScreens: 0,
+        largestRoomHeightScreens: 0
     };
     if (nodes.length < 2) errors.push("The route needs at least an entrance and exit node.");
     const byId = new Map();
@@ -3241,7 +3842,7 @@ export function validateRouteGraph(graph, context = {}) {
         const b = byId.get(edge.to);
         const length = distance(a, b);
         metrics.maxEdgeLength = Math.max(metrics.maxEdgeLength, length);
-        if (b.x < a.x - theme.route.nodeSpacing * 0.05) metrics.backtrackEdges += 1;
+        if (edge.mandatory !== false && b.x < a.x - theme.route.nodeSpacing * 0.05) metrics.backtrackEdges += 1;
         if (Number(b.progress) <= Number(a.progress)) errors.push(`Route edge “${edge.id || key}” does not advance progression.`);
     }
 
@@ -3278,7 +3879,7 @@ export function validateRouteGraph(graph, context = {}) {
     else if (metrics.minNodeDistance < 190) warnings.push("Some route nodes are close; later geometry must preserve separate landing space.");
 
     const segments = edges
-        .filter((edge) => byId.has(edge.from) && byId.has(edge.to))
+        .filter((edge) => edge.mandatory !== false && byId.has(edge.from) && byId.has(edge.to))
         .map((edge) => ({ edge, a: byId.get(edge.from), b: byId.get(edge.to) }));
     for (let aIndex = 0; aIndex < segments.length; aIndex += 1) {
         for (let bIndex = aIndex + 1; bIndex < segments.length; bIndex += 1) {
@@ -3297,9 +3898,14 @@ export function validateRouteGraph(graph, context = {}) {
         const ys = mainNodes.map((node) => node.y);
         metrics.verticalSpan = Math.max(...ys) - Math.min(...ys);
     }
-    if (metrics.maxEdgeLength > theme.route.nodeSpacing * 2.25) errors.push("A route connection is too long for a useful chamber-to-chamber plan.");
-    const maxBacktracks = Math.max(1, Math.ceil((mainNodes.length - 1) * (0.05 + settings.winding * 0.16)));
-    if (metrics.backtrackEdges > maxBacktracks) errors.push("The route backtracks too often to preserve clear overall rightward progression.");
+    const maximumRouteEdgeLength = graph?.generatorId === "macro-room-route-v2" || graph?.macro?.patternId
+        ? theme.route.nodeSpacing * 5
+        : theme.route.nodeSpacing * 2.25;
+    if (metrics.maxEdgeLength > maximumRouteEdgeLength) errors.push("A route connection is too long for a useful chamber-to-chamber plan.");
+    const maxBacktracks = graph?.generatorId === "macro-room-route-v2" || graph?.macro?.patternId
+        ? Math.max(2, Math.ceil((mainNodes.length - 1) * 0.55))
+        : Math.max(1, Math.ceil((mainNodes.length - 1) * (0.05 + settings.winding * 0.16)));
+    if (metrics.backtrackEdges > maxBacktracks) errors.push("The route backtracks too often for the selected macro pattern.");
 
     const branches = groupBy(optionalNodes, (node) => node.branchId || "");
     for (const [branchId, branchNodes] of branches) {
@@ -3315,17 +3921,34 @@ export function validateRouteGraph(graph, context = {}) {
         }
     }
 
+    for (const room of graph?.macro?.rooms || []) {
+        metrics.largestRoomWidthScreens = Math.max(metrics.largestRoomWidthScreens, finiteNumber(room?.widthScreens, 0));
+        metrics.largestRoomHeightScreens = Math.max(metrics.largestRoomHeightScreens, finiteNumber(room?.heightScreens, 0));
+    }
+
     let qualityScore = 100;
     qualityScore -= metrics.edgeCrossings * 35;
     qualityScore -= Math.max(0, 210 - metrics.minNodeDistance) * 0.12;
-    const targetSpan = theme.route.verticalStep * (0.55 + settings.verticality * 4.2);
-    qualityScore -= Math.min(18, Math.abs(metrics.verticalSpan - targetSpan) / Math.max(80, theme.route.verticalStep) * 3.5);
+    const macroAnchorValues = Array.isArray(graph?.macro?.anchors)
+        ? graph.macro.anchors.map((entry) => finiteNumber(entry?.value, 0))
+        : [];
+    const targetSpan = macroAnchorValues.length > 1
+        ? (Math.max(...macroAnchorValues) - Math.min(...macroAnchorValues)) * finiteNumber(graph?.macro?.halfSpan, theme.route.macroVerticalSpan * 0.55)
+        : theme.route.verticalStep * (0.55 + settings.verticality * 4.2);
+    qualityScore -= Math.min(12, Math.abs(metrics.verticalSpan - targetSpan) / Math.max(100, targetSpan) * 18);
     const targetBranches = desiredBranchCount(mainNodes.length, settings.branching);
     qualityScore -= Math.abs(metrics.branchCount - targetBranches) * 6;
     const targetSpacing = theme.route.nodeSpacing * Math.sqrt(1 + settings.verticality * 0.22);
     qualityScore -= Math.min(12, Math.abs(metrics.averageMainSpacing - targetSpacing) / Math.max(1, theme.route.nodeSpacing) * 18);
     if (settings.winding > 0.7 && metrics.backtrackEdges === 0) qualityScore -= 4;
-    if (settings.verticality > 0.55 && longestFlatRun(mainNodes, theme.route.verticalStep * 0.22) > 4) qualityScore -= 7;
+    if (graph?.generatorId === "macro-room-route-v2" || graph?.macro?.patternId) qualityScore += 15;
+    if (settings.verticality > 0.55 && longestFlatRun(mainNodes, theme.route.verticalStep * 0.22) > 4 && !graph?.macro?.patternId?.startsWith("l-")) qualityScore -= 7;
+    if (graph?.generatorId === "macro-room-route-v2" || graph?.macro?.patternId) {
+        const expectedRooms = desiredMacroRoomCount(settings.length);
+        qualityScore -= Math.abs(metrics.macroRoomCount - expectedRooms) * 4;
+        if (metrics.macroRoomCount === 0) errors.push("The macro route did not reserve any large cavern room.");
+        if (metrics.largestRoomWidthScreens < 1.1 || metrics.largestRoomHeightScreens < 1.05) warnings.push("The largest reserved room is barely larger than one screen.");
+    }
     qualityScore -= errors.length * 40;
     qualityScore -= warnings.length * 1.5;
     qualityScore = Math.max(0, Math.min(100, Math.round(qualityScore * 10) / 10));
@@ -3361,7 +3984,12 @@ export function normalizeLevelGeneration(value) {
         progress: finiteNumber(node?.progress, index),
         mandatory: Boolean(node?.mandatory),
         branchId: node?.branchId ? String(node.branchId) : undefined,
-        label: node?.label ? String(node.label) : undefined
+        label: node?.label ? String(node.label) : undefined,
+        macroPatternId: node?.macroPatternId ? String(node.macroPatternId) : undefined,
+        macroRoomId: node?.macroRoomId ? String(node.macroRoomId) : undefined,
+        roomWidthScreens: Number.isFinite(Number(node?.roomWidthScreens)) ? Number(node.roomWidthScreens) : undefined,
+        roomHeightScreens: Number.isFinite(Number(node?.roomHeightScreens)) ? Number(node.roomHeightScreens) : undefined,
+        rareLargeRoom: node?.rareLargeRoom ? true : undefined
     })) : [];
     const ids = new Set(nodes.map((node) => node.id));
     const edges = Array.isArray(route.edges) ? route.edges
@@ -3391,6 +4019,7 @@ export function normalizeLevelGeneration(value) {
             generatorId: String(route.generatorId || "progression-route-v1"),
             startNodeId: String(route.startNodeId || nodes.find((node) => node.kind === "entrance")?.id || ""),
             exitNodeId: String(route.exitNodeId || nodes.find((node) => node.kind === "exit")?.id || ""),
+            macro: route.macro && typeof route.macro === "object" ? JSON.parse(JSON.stringify(route.macro)) : undefined,
             nodes,
             edges,
             validation: normalizeGenerationValidation(route.validation || value.validation)
@@ -3400,6 +4029,7 @@ export function normalizeLevelGeneration(value) {
         endpoints: value.endpoints && typeof value.endpoints === "object" ? JSON.parse(JSON.stringify(value.endpoints)) : undefined,
         encounters: value.encounters && typeof value.encounters === "object" ? JSON.parse(JSON.stringify(value.encounters)) : undefined,
         rewards: value.rewards && typeof value.rewards === "object" ? JSON.parse(JSON.stringify(value.rewards)) : undefined,
+        decoration: value.decoration && typeof value.decoration === "object" ? JSON.parse(JSON.stringify(value.decoration)) : undefined,
         replacedLevelShell: value.replacedLevelShell && typeof value.replacedLevelShell === "object"
             ? JSON.parse(JSON.stringify(value.replacedLevelShell))
             : undefined,
@@ -3408,7 +4038,302 @@ export function normalizeLevelGeneration(value) {
     };
 }
 
-function buildProgressionRouteCandidate({ theme, settings, rng, attempt }) {
+const MACRO_ROUTE_PATTERN_LABELS = Object.freeze({
+    rolling: "Rolling chambers",
+    "z-down": "Descending Z",
+    "z-up": "Ascending Z",
+    "l-down": "Descending L",
+    "l-up": "Ascending L",
+    valley: "Deep valley",
+    terraces: "Stepped terraces"
+});
+
+function chooseMacroPattern(settings, rng) {
+    const verticality = clamp01(settings.verticality);
+    const values = [
+        { value: "rolling", weight: Math.max(0.08, 0.48 - verticality * 0.35) },
+        { value: "z-down", weight: 0.12 + verticality * 0.22 },
+        { value: "z-up", weight: 0.12 + verticality * 0.22 },
+        { value: "l-down", weight: 0.1 + verticality * 0.18 },
+        { value: "l-up", weight: 0.1 + verticality * 0.18 },
+        { value: "valley", weight: 0.16 + verticality * 0.14 },
+        { value: "terraces", weight: 0.18 + verticality * 0.16 }
+    ];
+    return weightedRandomChoice(values, rng)?.value || "rolling";
+}
+
+function macroPatternAnchors(patternId, rng) {
+    if (patternId === "z-down") return [[0, -0.7], [0.28, -0.7], [0.72, 0.7], [1, 0.7]];
+    if (patternId === "z-up") return [[0, 0.7], [0.28, 0.7], [0.72, -0.7], [1, -0.7]];
+    if (patternId === "l-down") return [[0, -0.62], [0.58, -0.62], [1, 0.72]];
+    if (patternId === "l-up") return [[0, 0.62], [0.58, 0.62], [1, -0.72]];
+    if (patternId === "valley") return [[0, -0.28], [0.22, -0.18], [0.52, 0.78], [0.8, -0.08], [1, -0.24]];
+    if (patternId === "terraces") {
+        const direction = rng.chance(0.5) ? 1 : -1;
+        return [[0, -0.62 * direction], [0.27, -0.62 * direction], [0.4, 0], [0.68, 0], [0.81, 0.62 * direction], [1, 0.62 * direction]];
+    }
+    const direction = rng.chance(0.5) ? 1 : -1;
+    return [[0, -0.2 * direction], [0.22, 0.52 * direction], [0.48, -0.58 * direction], [0.74, 0.42 * direction], [1, -0.12 * direction]];
+}
+
+function interpolateMacroAnchors(anchors, progress) {
+    const p = clamp01(progress);
+    for (let index = 1; index < anchors.length; index += 1) {
+        const left = anchors[index - 1];
+        const right = anchors[index];
+        if (p > right[0]) continue;
+        const span = Math.max(0.0001, right[0] - left[0]);
+        const t = clamp01((p - left[0]) / span);
+        const eased = t * t * (3 - 2 * t);
+        return lerp(left[1], right[1], eased);
+    }
+    return anchors.at(-1)?.[1] || 0;
+}
+
+function desiredMacroRoomCount(length) {
+    if (length === "compact") return 1;
+    if (length === "standard") return 2;
+    if (length === "extended") return 3;
+    return 4;
+}
+
+function buildMacroRoutePlan({ theme, settings, rng }) {
+    const mainCount = LEVEL_LENGTH_PRESETS[settings.length]?.mainNodes || LEVEL_LENGTH_PRESETS.standard.mainNodes;
+    const patternId = chooseMacroPattern(settings, rng);
+    const anchors = macroPatternAnchors(patternId, rng);
+    const lengthScale = settings.length === "compact" ? 0.8 : settings.length === "extended" ? 1.13 : settings.length === "grand" ? 1.28 : 1;
+    const halfSpan = theme.route.macroVerticalSpan * (0.35 + clamp01(settings.verticality) * 0.65) * lengthScale;
+    const targetRoomCount = desiredMacroRoomCount(settings.length);
+    const candidateIndices = Array.from({ length: Math.max(0, mainCount - 4) }, (_, index) => index + 2);
+    const turnIndices = anchors.slice(1, -1).map(([progress]) => Math.round(progress * (mainCount - 1))).filter((index) => index >= 2 && index <= mainCount - 3);
+    const preferred = [...new Set([
+        ...turnIndices,
+        Math.round((mainCount - 1) * 0.25),
+        Math.round((mainCount - 1) * 0.52),
+        Math.round((mainCount - 1) * 0.76),
+        ...rng.shuffle(candidateIndices)
+    ])].filter((index) => index >= 2 && index <= mainCount - 3);
+    const roomIndices = [];
+    for (const index of preferred) {
+        if (roomIndices.length >= targetRoomCount) break;
+        if (roomIndices.some((other) => Math.abs(other - index) < 2)) continue;
+        roomIndices.push(index);
+    }
+    roomIndices.sort((a, b) => a - b);
+    const rooms = roomIndices.map((nodeIndex, roomIndex) => {
+        const rareLargeRoom = settings.length === "grand" && roomIndex === Math.floor(roomIndices.length / 2) && rng.chance(0.34);
+        const widthScreens = rareLargeRoom
+            ? rng.range(3.15, 4)
+            : rng.range(1.25, settings.length === "compact" ? 1.85 : 2.45);
+        const heightScreens = rareLargeRoom
+            ? rng.range(2.25, 3)
+            : rng.range(1.15, 2.05);
+        return {
+            id: `macro_room_${String(roomIndex + 1).padStart(2, "0")}`,
+            nodeIndex,
+            widthScreens: roundCoordinate(Math.min(4, widthScreens * theme.route.roomScale)),
+            heightScreens: roundCoordinate(Math.min(3, heightScreens * theme.route.roomScale)),
+            rareLargeRoom
+        };
+    });
+    return {
+        version: 1,
+        patternId,
+        patternLabel: MACRO_ROUTE_PATTERN_LABELS[patternId] || patternId,
+        anchors: anchors.map(([progress, value]) => ({ progress, value })),
+        halfSpan: roundCoordinate(halfSpan),
+        rooms
+    };
+}
+
+function macroRouteGridPosition(patternId, index, count) {
+    const last = Math.max(1, count - 1);
+    const progress = index / last;
+    const local = (value, from, to) => clamp01((value - from) / Math.max(1, to - from));
+
+    if (patternId === "z-down" || patternId === "z-up") {
+        const down = patternId === "z-down";
+        const gy = progress < 0.3
+            ? (down ? -0.82 : 0.82)
+            : progress < 0.68
+                ? lerp(down ? -0.82 : 0.82, down ? 0.72 : -0.72, local(progress, 0.3, 0.68))
+                : (down ? 0.72 : -0.72);
+        return { gx: index, gy };
+    }
+
+    if (patternId === "l-down" || patternId === "l-up") {
+        const down = patternId === "l-down";
+        const turnStart = Math.max(3, Math.floor(last * 0.3));
+        const turnEnd = Math.max(turnStart + 3, Math.floor(last * 0.56));
+        if (index <= turnStart) return { gx: index, gy: down ? -0.78 : 0.78 };
+        if (index <= turnEnd) {
+            const t = local(index, turnStart, turnEnd);
+            const turnAdvance = (turnEnd - turnStart) * 0.82;
+            return { gx: turnStart + t * turnAdvance, gy: lerp(down ? -0.78 : 0.78, down ? 0.72 : -0.72, t) };
+        }
+        const turnAdvance = (turnEnd - turnStart) * 0.82;
+        const t = local(index, turnEnd, last);
+        return { gx: turnStart + turnAdvance + t * (last - turnEnd + 2), gy: down ? 0.72 : -0.72 };
+    }
+
+    if (patternId === "valley") {
+        const gy = progress < 0.5
+            ? lerp(-0.55, 0.88, progress * 2)
+            : lerp(0.88, -0.48, (progress - 0.5) * 2);
+        return { gx: index, gy };
+    }
+
+    if (patternId === "terraces") {
+        const level = progress < 0.34 ? -0.65 : progress < 0.67 ? 0 : 0.65;
+        return { gx: index, gy: level };
+    }
+
+    const wave = Math.sin(progress * Math.PI * 2.25) * 0.62;
+    return { gx: index, gy: wave };
+}
+
+function buildMacroRoomRouteCandidate({ theme, settings, rng, attempt, macroPlan }) {
+    const mainCount = LEVEL_LENGTH_PRESETS[settings.length]?.mainNodes || LEVEL_LENGTH_PRESETS.standard.mainNodes;
+    const spacing = theme.route.nodeSpacing;
+    const startX = theme.route.startX;
+    const baselineY = theme.route.baselineY;
+    const roomByNode = new Map((macroPlan?.rooms || []).map((room) => [room.nodeIndex, room]));
+    const mainNodes = [];
+    for (let index = 0; index < mainCount; index += 1) {
+        const progress = index / Math.max(1, mainCount - 1);
+        const grid = macroRouteGridPosition(macroPlan?.patternId || "rolling", index, mainCount);
+        const jitterX = index === 0 || index === mainCount - 1 ? 0 : rng.range(-1, 1) * spacing * settings.winding * 0.035;
+        const jitterY = index === 0 || index === mainCount - 1 ? 0 : rng.range(-0.06, 0.06) * theme.route.verticalStep * settings.winding;
+        const x = startX + grid.gx * spacing + jitterX;
+        const rawY = baselineY + grid.gy * (macroPlan?.halfSpan || theme.route.macroVerticalSpan * 0.55) + jitterY;
+        const y = index === 0
+            ? rawY
+            : clamp(
+                rawY,
+                mainNodes.at(-1).y - theme.traversal.mandatoryRise * 0.9,
+                mainNodes.at(-1).y + theme.traversal.mandatoryDrop * 0.68
+            );
+        const room = roomByNode.get(index);
+        const kind = index === 0
+            ? "entrance"
+            : index === mainCount - 1
+                ? "exit"
+                : room
+                    ? "chamber"
+                    : (index % 4 === 0 && settings.safety > 0.58 ? "recovery" : "traversal");
+        mainNodes.push({
+            id: `route_main_${String(index).padStart(3, "0")}`,
+            kind,
+            x: roundCoordinate(x),
+            y: roundCoordinate(y),
+            progress: index,
+            mandatory: true,
+            label: index === 0 ? "Entrance" : index === mainCount - 1 ? "Exit" : room ? `Room ${room.id.split("_").at(-1)}` : `Main ${index}`,
+            macroPatternId: macroPlan?.patternId || "rolling",
+            macroRoomId: room?.id,
+            roomWidthScreens: room?.widthScreens,
+            roomHeightScreens: room?.heightScreens,
+            rareLargeRoom: room?.rareLargeRoom || undefined
+        });
+    }
+
+    const nodes = [...mainNodes];
+    const edges = [];
+    for (let index = 0; index < mainNodes.length - 1; index += 1) {
+        edges.push({
+            id: `route_main_edge_${String(index).padStart(3, "0")}`,
+            from: mainNodes[index].id,
+            to: mainNodes[index + 1].id,
+            mandatory: true
+        });
+    }
+
+    appendOptionalBranches({ nodes, edges, mainNodes, theme, settings, rng });
+    return {
+        version: 2,
+        attempt,
+        startNodeId: mainNodes[0].id,
+        exitNodeId: mainNodes.at(-1).id,
+        macro: JSON.parse(JSON.stringify(macroPlan || {})),
+        nodes,
+        edges
+    };
+}
+
+function appendOptionalBranches({ nodes, edges, mainNodes, theme, settings, rng }) {
+    const mainCount = mainNodes.length;
+    const spacing = theme.route.nodeSpacing;
+    const verticalStep = theme.route.verticalStep;
+    const baselineY = theme.route.baselineY;
+    const ys = mainNodes.map((node) => node.y);
+    const minY = Math.min(...ys) - verticalStep * 2.8;
+    const maxY = Math.max(...ys) + verticalStep * 3.6;
+    const branchCount = desiredBranchCount(mainCount, settings.branching);
+    const allStarts = Array.from({ length: Math.max(0, mainCount - 4) }, (_, index) => index + 1);
+    const shaftFriendlyStarts = allStarts.filter((index) => {
+        const node = mainNodes[index];
+        const next = mainNodes[index + 1];
+        return node?.kind === "traversal"
+            && next?.kind === "traversal"
+            && Math.abs(next.y - node.y) <= theme.traversal.mandatoryRise * 1.45;
+    });
+    const starts = [
+        ...rng.shuffle(shaftFriendlyStarts),
+        ...rng.shuffle(allStarts.filter((index) => !shaftFriendlyStarts.includes(index)))
+    ];
+    const occupiedIntervals = [];
+    let builtBranches = 0;
+    for (const startIndex of starts) {
+        if (builtBranches >= branchCount) break;
+        const maxSpan = Math.min(4, mainCount - 1 - startIndex);
+        if (maxSpan < 2) continue;
+        const span = rng.int(2, maxSpan);
+        const mergeIndex = startIndex + span;
+        if (mergeIndex >= mainCount) continue;
+        if (occupiedIntervals.some(([a, b]) => startIndex <= b + 1 && mergeIndex >= a - 1)) continue;
+        const startNode = mainNodes[startIndex];
+        const mergeNode = mainNodes[mergeIndex];
+        const branchId = `branch_${String(builtBranches + 1).padStart(2, "0")}`;
+        const branchNodeCount = 5;
+        const offset = verticalStep * (1.82 + settings.verticality * 0.52 + settings.branching * 0.18);
+        const branchNodes = [];
+        for (let branchIndex = 0; branchIndex < branchNodeCount; branchIndex += 1) {
+            const t = (branchIndex + 1) / (branchNodeCount + 1);
+            const arc = Math.sin(Math.PI * t);
+            let x = lerp(startNode.x, mergeNode.x, t) + rng.range(-0.14, 0.14) * spacing * settings.winding;
+            x = Math.min(mainNodes.at(-1).x - spacing * 0.18, x);
+            const mandatoryRouteY = lerp(startNode.y, mergeNode.y, t);
+            const y = clamp(mandatoryRouteY + offset * arc + rng.range(-0.12, 0.12) * verticalStep, minY, maxY);
+            const node = {
+                id: `route_${branchId}_${String(branchIndex + 1).padStart(2, "0")}`,
+                kind: branchIndex === branchNodeCount - 1 ? "optionalReward" : "optionalTraversal",
+                x: roundCoordinate(x),
+                y: roundCoordinate(y),
+                progress: startIndex + t * span,
+                mandatory: false,
+                branchId,
+                label: `Optional ${builtBranches + 1}.${branchIndex + 1}`
+            };
+            nudgeNodeAway(node, nodes, verticalStep * 0.82, 1, baselineY, Math.max(Math.abs(minY - baselineY), Math.abs(maxY - baselineY)));
+            nodes.push(node);
+            branchNodes.push(node);
+        }
+        const branchChain = [startNode, ...branchNodes, mergeNode];
+        for (let index = 0; index < branchChain.length - 1; index += 1) {
+            edges.push({
+                id: `route_${branchId}_edge_${String(index).padStart(2, "0")}`,
+                from: branchChain[index].id,
+                to: branchChain[index + 1].id,
+                mandatory: false,
+                branchId
+            });
+        }
+        occupiedIntervals.push([startIndex, mergeIndex]);
+        builtBranches += 1;
+    }
+}
+
+function buildLegacyProgressionRouteCandidate({ theme, settings, rng, attempt }) {
     const mainCount = LEVEL_LENGTH_PRESETS[settings.length]?.mainNodes || LEVEL_LENGTH_PRESETS.standard.mainNodes;
     const spacing = theme.route.nodeSpacing;
     const verticalStep = theme.route.verticalStep;

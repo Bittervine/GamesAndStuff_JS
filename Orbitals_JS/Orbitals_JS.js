@@ -1455,6 +1455,7 @@ function updateFuelMote(mote, dt, time) {
 
 function createProjectileVisual(projectile) {
   const material = projectileMaterial.clone();
+  material.color.set(projectile.owner === 'enemy' ? 0xff5364 : 0x57a8ff);
   material.opacity = 0;
   const mesh = new THREE.Mesh(projectileGeometry, material);
   mesh.frustumCulled = false;
@@ -1462,6 +1463,60 @@ function createProjectileVisual(projectile) {
   mesh.scale.setScalar(0);
   mesh.material.userData.fadeInDuration = 0.05;
   return mesh;
+}
+
+function getPickupColor(pickup) {
+  if (pickup.kind === 'shield') {
+    return 0x4de8ff;
+  }
+  if (pickup.kind === 'rapidFire') {
+    return 0xffd24a;
+  }
+  return 0x7cff9b;
+}
+
+function createPickupVisual(pickup) {
+  const color = getPickupColor(pickup);
+  const root = new THREE.Group();
+  const core = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(1, 1),
+    new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.95,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      toneMapped: false
+    })
+  );
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: engineSparkTexture,
+    color,
+    transparent: true,
+    opacity: 0.8,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    depthTest: true,
+    toneMapped: false
+  }));
+  root.add(core);
+  root.add(halo);
+  root.frustumCulled = false;
+  root.renderOrder = 39;
+  root.userData = { core, halo };
+  return root;
+}
+
+function disposePickupVisual(visual) {
+  visual.traverse((object) => {
+    if (object.geometry) {
+      object.geometry.dispose();
+    }
+    if (object.material) {
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      materials.forEach((material) => material.dispose());
+    }
+  });
 }
 
 function createEnemyExplosionVisual(effect) {
@@ -1556,7 +1611,8 @@ function updateProjectileVisuals() {
     const lifeT = clamp01(1 - projectile.age / projectile.lifetime);
     const sizeT = clamp01(projectile.age / 0.2);
     const diameter = projectile.radius * 2;
-    visual.scale.setScalar(THREE.MathUtils.lerp(0.0, diameter, sizeT) * THREE.MathUtils.lerp(0.65, 1.15, lifeT));
+    const ownerScale = projectile.owner === 'enemy' ? 1.45 : 1;
+    visual.scale.setScalar(THREE.MathUtils.lerp(0.0, diameter * ownerScale, sizeT) * THREE.MathUtils.lerp(0.65, 1.15, lifeT));
     const fadeInDuration = visual.material?.userData?.fadeInDuration ?? 0.3;
     const fadeInT = clamp01(projectile.age / fadeInDuration);
     visual.material.opacity = fadeInT * 0.95 * lifeT;
@@ -1572,6 +1628,39 @@ function updateProjectileVisuals() {
     }
     world.remove(visual);
     projectileViews.delete(id);
+  }
+}
+
+function updatePickupVisuals() {
+  const seen = new Set();
+  for (const pickup of state.pickups) {
+    let visual = pickupViews.get(pickup.id);
+    if (!visual) {
+      visual = createPickupVisual(pickup);
+      pickupViews.set(pickup.id, visual);
+      world.add(visual);
+    }
+
+    const lifeT = clamp01(1 - pickup.age / pickup.lifetime);
+    const pulse = 1 + Math.sin((state.time + pickup.id) * 7.5) * 0.12;
+    const radius = pickup.radius || config.pickupRadius;
+    visual.position.copy(pickup.position);
+    visual.rotation.y += 0.035;
+    visual.rotation.x += 0.018;
+    visual.userData.core.scale.setScalar(radius * pulse);
+    visual.userData.core.material.opacity = 0.95 * lifeT;
+    visual.userData.halo.scale.set(radius * 5.2 * pulse, radius * 5.2 * pulse, 1);
+    visual.userData.halo.material.opacity = 0.55 * lifeT;
+    seen.add(pickup.id);
+  }
+
+  for (const [id, visual] of pickupViews.entries()) {
+    if (seen.has(id)) {
+      continue;
+    }
+    disposePickupVisual(visual);
+    world.remove(visual);
+    pickupViews.delete(id);
   }
 }
 
@@ -2058,6 +2147,8 @@ function updateHud() {
   const alt = state.nearestAltitude;
   const score = state.score || 0;
   const fuel = state.fuel || 0;
+  const shields = state.shields || 0;
+  const rapidFire = state.rapidFireTimer || 0;
   const speed = state.speed || 0;
   const planetIndex = nearest ? (state.planets.indexOf(nearest) + 1) : 0;
   const shipMode = state.ship ? (state.ship.flightMode || (state.ship.boundPlanet ? 'bound' : 'free')) : 'none';
@@ -2066,9 +2157,10 @@ function updateHud() {
   const mode = state.crashed
     ? 'CRASHED'
     : (uiState.pointerLocked ? 'Mouse captured' : (uiState.gamepadConnected ? 'Gamepad ready' : 'Keyboard ready'));
+  const rapidText = rapidFire > 0 ? ` | Rapid: ${rapidFire.toFixed(1)}s` : '';
   statusLine.textContent = nearest
-    ? `Score: ${score} | Fuel: ${fuel.toFixed(1)} | Speed: ${speed.toFixed(1)} | Planet: ${planetIndex} | Altitude: ${alt.toFixed(1)} | State: ${state.crashed ? 'CRASHED' : shipMode}`
-    : `Score: ${score} | Fuel: ${fuel.toFixed(1)} | Speed: ${speed.toFixed(1)} | Planet: 0 | Altitude: ${alt.toFixed(1)} | State: ${state.crashed ? 'CRASHED' : shipMode}`;
+    ? `Score: ${score} | Fuel: ${fuel.toFixed(1)} | Shield: ${shields}${rapidText} | Speed: ${speed.toFixed(1)} | Planet: ${planetIndex} | Altitude: ${alt.toFixed(1)} | State: ${state.crashed ? 'CRASHED' : shipMode}`
+    : `Score: ${score} | Fuel: ${fuel.toFixed(1)} | Shield: ${shields}${rapidText} | Speed: ${speed.toFixed(1)} | Planet: 0 | Altitude: ${alt.toFixed(1)} | State: ${state.crashed ? 'CRASHED' : shipMode}`;
   statsLine.textContent = state.crashed
     ? (() => {
         const remaining = Math.max(0, config.crashRespawnDelay - (state.crashTimer || 0));
@@ -2796,6 +2888,7 @@ function render() {
       updatePlanets(dt, clock.elapsedTime);
       updateFuelMotes(dt, clock.elapsedTime);
       updateProjectileVisuals();
+      updatePickupVisuals();
       updateEnemyVisuals();
       updateEncounterEntityViews();
       updateEnemyExplosionVisuals();

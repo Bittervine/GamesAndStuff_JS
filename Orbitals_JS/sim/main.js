@@ -16,6 +16,7 @@ export function stepGame(state, dt, controls, systems) {
   systems.updateMotherships(state, dt, state.time);
   systems.updateShipCollisions(state);
   systems.updateProjectiles(state, dt);
+  systems.updatePickups(state, dt);
   systems.updateEffects(state, dt);
   systems.updateFuelMotes(state, dt, state.time);
 

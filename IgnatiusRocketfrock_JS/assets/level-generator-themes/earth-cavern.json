@@ -17,9 +17,11 @@
   "route": {
     "nodeSpacing": 900,
     "verticalStep": 190,
-    "startX": 320,
-    "baselineY": 620,
-    "candidateAttempts": 32
+    "startX": 640,
+    "baselineY": 900,
+    "candidateAttempts": 40,
+    "macroVerticalSpan": 1250,
+    "roomScale": 1.0
   },
   "colorMap": {
     "enabled": false,
@@ -34,23 +36,33 @@
     ]
   },
   "implementations": {
-    "route": "progression-route-v1",
-    "cavern": "ellipse-cavern-v1",
+    "route": "macro-room-route-v2",
+    "cavern": "room-and-tunnel-cavern-v2",
     "traversal": "forgiving-traversal-v1",
-    "endpoints": "safe-endpoints-v1",
+    "endpoints": "grounded-chamber-endpoints-v2",
     "encounters": "difficulty-budgeted-encounters-v1",
     "rewards": "basic-rewards-v1",
-    "decoration": "not-generated-yet",
-    "validation": "playable-reward-cavern-validation-v1"
+    "decoration": "perimeter-decoration-v1",
+    "validation": "room-and-tunnel-validation-v2"
   },
   "cavern": {
-    "chamberRadiusX": 390,
-    "chamberRadiusY": 345,
-    "corridorRadiusX": 245,
-    "corridorRadiusY": 285,
-    "floorOffsetY": 145,
+    "chamberRadiusX": 720,
+    "chamberRadiusY": 560,
+    "corridorRadiusX": 500,
+    "corridorRadiusY": 455,
+    "floorOffsetY": 115,
     "sampleStep": 140,
-    "worldMargin": 170
+    "worldMargin": 220,
+    "endpointRadiusX": 900,
+    "endpointRadiusY": 650,
+    "roomRadiusXMin": 850,
+    "roomRadiusXMax": 2560,
+    "roomRadiusYMin": 520,
+    "roomRadiusYMax": 1080,
+    "platformWallClearanceX": 250,
+    "platformFloorClearance": 250,
+    "platformCeilingClearance": 340,
+    "endpointSideClearance": 520
   },
   "traversal": {
     "maxHopX": 380,
@@ -87,5 +99,13 @@
       "I suspect the cave has been extended without planning permission.",
       "A sensible wizard would turn back here. Fortunately, Wilfred hired me."
     ]
+  },
+  "decoration": {
+    "populatePerimeter": true,
+    "protectGameplay": true,
+    "supportPaddingX": 54,
+    "supportPaddingY": 82,
+    "endpointPadding": 210,
+    "rewardPadding": 72
   }
 }

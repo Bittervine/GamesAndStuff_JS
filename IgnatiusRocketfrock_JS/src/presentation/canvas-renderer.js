@@ -39,6 +39,7 @@ import {
 } from "./foreground-sprite-treatment.js";
 import {
     buildWorldVisualCache,
+    queryWorldVisualEntries,
     visualIntersectsViewport,
     visualWorldBounds
 } from "./world-visual-cache.js";
@@ -378,6 +379,7 @@ class RocketfrockRenderer {
             visualsConsidered: 0,
             visualsDrawn: 0,
             visualsCulled: 0,
+            visualsSpatialCulled: 0,
             foregroundCacheHits: 0,
             foregroundCacheMisses: 0,
             dynamicConsidered: 0,
@@ -435,6 +437,7 @@ class RocketfrockRenderer {
             considered: 0,
             drawn: 0,
             culled: 0,
+            spatialCulled: 0,
             foregroundCacheHits: 0,
             foregroundCacheMisses: 0,
             dynamicConsidered: 0,
@@ -702,7 +705,8 @@ class RocketfrockRenderer {
             observedFps: this.lastObservedFrameDt > 0 ? 1 / this.lastObservedFrameDt : 0,
             visualsConsidered: this.frameVisualCounters.considered,
             visualsDrawn: this.frameVisualCounters.drawn,
-            visualsCulled: this.frameVisualCounters.culled,
+            visualsCulled: this.frameVisualCounters.culled + this.frameVisualCounters.spatialCulled,
+            visualsSpatialCulled: this.frameVisualCounters.spatialCulled,
             foregroundCacheHits: this.frameVisualCounters.foregroundCacheHits,
             foregroundCacheMisses: this.frameVisualCounters.foregroundCacheMisses,
             dynamicConsidered: this.frameVisualCounters.dynamicConsidered,
@@ -909,22 +913,24 @@ class RocketfrockRenderer {
 
     drawOrderedWorldVisuals(state, view, actorFrontOnly = false) {
         const cache = this.getWorldVisualCache(state);
-        const entries = actorFrontOnly ? cache.actorFront : cache.main;
+        const partitionName = actorFrontOnly ? "actorFront" : "main";
+        const query = queryWorldVisualEntries(cache, partitionName, view, null, VISUAL_CULL_MARGIN_PX);
+        const entries = query.entries;
+        this.frameVisualCounters.spatialCulled += query.spatialCulled;
         let drewAny = false;
-        let hasRenderableVisuals = false;
-        for (const entry of entries) {
-            const { visual, bounds } = entry;
-            const currentBounds = visual.dynamicPosition ? visualWorldBounds(visual) : bounds;
+        const partition = query.partition;
+        const hasRenderableVisuals = Boolean(partition?.hasCutout) || [...(partition?.atlasIds || [])]
+            .some((atlasId) => {
+                const atlas = this.environmentAtlases.get(atlasId);
+                return Boolean(atlas && !atlas.missing && atlas.image);
+            });
+        for (const { visual, bounds } of entries) {
             if (visual.kind === "atlasSprite") {
-                if (this.atlasVisualAvailable(visual)) {
-                    hasRenderableVisuals = true;
-                }
-                if (this.drawAtlasSpriteVisual(visual, view, state, currentBounds)) {
+                if (this.drawAtlasSpriteVisual(visual, view, state, bounds)) {
                     drewAny = true;
                 }
             } else if (visual.kind === "cutoutMask") {
-                hasRenderableVisuals = true;
-                if (this.drawCutoutMaskVisual(visual, view, currentBounds)) {
+                if (this.drawCutoutMaskVisual(visual, view, bounds)) {
                     drewAny = true;
                 }
             }
@@ -933,9 +939,17 @@ class RocketfrockRenderer {
     }
 
     drawCaveForegroundVisuals(state, view) {
-        const entries = this.getWorldVisualCache(state).caveForeground;
+        const cache = this.getWorldVisualCache(state);
+        const query = queryWorldVisualEntries(
+            cache,
+            "caveForeground",
+            view,
+            this.frameForegroundOffset,
+            VISUAL_CULL_MARGIN_PX
+        );
+        this.frameVisualCounters.spatialCulled += query.spatialCulled;
         let drewAny = false;
-        for (const { visual, bounds } of entries) {
+        for (const { visual, bounds } of query.entries) {
             if (visual.kind === "atlasSprite" && this.drawAtlasSpriteVisual(visual, view, state, bounds)) {
                 drewAny = true;
             }

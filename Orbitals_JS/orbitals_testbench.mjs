@@ -20,10 +20,15 @@ const {
 const {
   computeShipFireDirection,
   findProjectileHomingTarget,
+  spawnEnemyProjectile,
   spawnProjectileBurst,
   steerProjectileTowardsTarget,
   updateProjectiles
 } = await import('./sim/projectiles.js');
+const {
+  spawnPickup,
+  updatePickups
+} = await import('./sim/pickups.js');
 const {
   createEnemyState,
   createGameState,
@@ -33,6 +38,7 @@ const {
   getEnemyItems,
   getEnemyState,
   getPlayerState,
+  getPickupState,
   getProjectileItems,
   getProjectileState,
   getWorldState,
@@ -52,6 +58,7 @@ const NEUTRAL_CONTROLS = {
 const SHALLOW_DIVE_PITCH_INPUT = 0.5;
 
 config.startWithInitialInvasion = false;
+config.enemyFireEnabled = false;
 
 
 const LEGACY_SIM_NUMERIC_CONSTANTS = new Set();
@@ -149,8 +156,9 @@ async function runLowRiskSimulationModuleSmokeTest() {
     ['./sim/math.js', ['parseSeed', 'mulberry32', 'clamp01', 'smoothstep', 'easeExp', 'buildBasisFromNormal']],
     ['./sim/events.js', ['pushEvent', 'formatCombatLog']],
     ['./sim/world.js', ['createPlanetConfig', 'createFuelMote', 'pickRandomPlanetIndex', 'updateFuelMotes', 'updatePlanets']],
-    ['./sim/state.js', ['createGameState', 'resetGameState', 'attachNestedStateAliases', 'getEncounterState', 'getEventLog', 'getEventsState', 'getEnemyState', 'getEnemyItems', 'getPlayerState', 'getProjectileState', 'getProjectileItems', 'getWorldState', 'getWorldPlanets']],
-    ['./sim/projectiles.js', ['segmentIntersectsSphere', 'findProjectileHomingTarget', 'steerProjectileTowardsTarget', 'spawnProjectileBurst', 'computeShipFireDirection', 'updateProjectiles']],
+    ['./sim/state.js', ['createGameState', 'resetGameState', 'attachNestedStateAliases', 'getEncounterState', 'getEventLog', 'getEventsState', 'getEnemyState', 'getEnemyItems', 'getPlayerState', 'getPickupState', 'getPickupItems', 'getProjectileState', 'getProjectileItems', 'getWorldState', 'getWorldPlanets']],
+    ['./sim/projectiles.js', ['segmentIntersectsSphere', 'findProjectileHomingTarget', 'steerProjectileTowardsTarget', 'spawnProjectileBurst', 'spawnEnemyProjectile', 'computeShipFireDirection', 'updateProjectiles']],
+    ['./sim/pickups.js', ['createPickupState', 'spawnPickup', 'maybeDropPickupFromEnemy', 'updatePickups']],
     ['./sim/effects.js', ['createEnemyExplosionState', 'spawnEnemyExplosion', 'updateEnemyExplosions']],
     ['./sim/spatial_hash.js', ['createSpatialHash', 'querySpatialHash']]
   ]);
@@ -202,6 +210,8 @@ function runNestedStateAliasTest() {
   assert.strictEqual(getPlayerState(state), state.game.player, 'expected player accessor to return nested player state during transition');
   assert.strictEqual(getProjectileState(state), state.game.projectiles, 'expected projectile-state accessor to return nested projectile state during transition');
   assert.strictEqual(getProjectileItems(state), state.projectiles, 'expected projectile accessor to return top-level projectiles during transition');
+  assert.strictEqual(getPickupState(state), state.game.pickups, 'expected pickup-state accessor to return nested pickup state during transition');
+  assert.strictEqual(getPickupState(state).items, state.pickups, 'expected pickup-state items to alias top-level pickups');
   assert.strictEqual(getEventsState(state), state.game.events, 'expected events-state accessor to return nested event state during transition');
   assert.strictEqual(getEventLog(state), state.eventLog, 'expected event-log accessor to return top-level event log during transition');
 
@@ -211,6 +221,8 @@ function runNestedStateAliasTest() {
   assert.strictEqual(state.speed, 24, 'expected player accessor speed writes to update top-level speed');
   getProjectileState(state).nextId = 13;
   assert.strictEqual(state.nextProjectileId, 13, 'expected projectile-state id writes to update top-level projectile id');
+  getPickupState(state).nextId = 19;
+  assert.strictEqual(state.nextPickupId, 19, 'expected pickup-state id writes to update top-level pickup id');
   getEventLog(state).push({ type: 'alias-probe' });
   assert.strictEqual(state.eventLog.length, 1, 'expected event-log accessor writes to update top-level event log');
   getEncounterState(state).director.nextEncounterId = 17;
@@ -707,6 +719,106 @@ function assertEnemyDidNotCrashOrDisappearUnexpectedly(state, enemyId) {
   const death = state.eventLog.find((event) => event.type === 'enemy-death' && event.enemyId === enemyId);
   assert.ok(!death, `expected enemy ${enemyId} to survive the scenario, died cause=${death?.cause}`);
   assert.ok(state.enemies.some((enemy) => enemy.id === enemyId && enemy.health > 0), `expected enemy ${enemyId} to remain alive`);
+}
+
+function createEnemyFireVisibilityScenario() {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+  const { state } = sim;
+  state.mothershipSpawnTimer = Infinity;
+  stepSim(sim, 120, NEUTRAL_CONTROLS);
+  const planet = state.ship.boundPlanet;
+  const planetIndex = state.planets.indexOf(planet);
+  const encounter = sim.createEncounter({
+    type: 'planetInvasion',
+    status: 'active',
+    anchorKind: 'planet',
+    anchorPlanetIndex: planetIndex,
+    objectiveKind: 'clearEnemies',
+    spawnedEnemyIds: [],
+    totalReleased: 0
+  });
+  const squad = {
+    id: state.nextEnemySquadId,
+    kind: 'fighter',
+    family: 'Standard',
+    familyFiles: [],
+    targetPlanetIndex: planetIndex,
+    nextPlanetIndex: planetIndex,
+    departPlanetIndex: -1,
+    departVector: new THREE.Vector3(1, 0, 0),
+    mode: 'swarm',
+    modeTimer: 999,
+    orbitPhase: 0,
+    orbitDirection: 1,
+    orbitProgress: 0,
+    orbitLastAngle: 0,
+    swarmDuration: 999,
+    departDuration: 999,
+    parentMothershipId: 9001,
+    fighterSettleTimer: 999,
+    fighterPatrolAltitudeFactor: config.fighterPatrolAltitudeFactor,
+    encounterId: encounter.id
+  };
+  state.nextEnemySquadId += 1;
+  state.enemySquads.push(squad);
+  state.enemySquad = squad;
+  const enemy = createTestFighter(state, squad, encounter, planet, {
+    speed: 0,
+    speedScale: 1,
+    turnScale: 1,
+    upScale: 1
+  });
+  return { sim, state, planet, enemy };
+}
+
+function placeFireTestEnemy(state, planet, enemy, forwardDistance) {
+  placeEnemyRelativeToPlayerOnPlanet(state, planet, enemy, {
+    forwardDistance,
+    rightDistance: config.enemyFirePlayerForwardMin,
+    upDistance: 0
+  });
+  enemy.forward.copy(state.ship.position).sub(enemy.position);
+  if (enemy.forward.lengthSq() > 1e-8) {
+    enemy.forward.normalize();
+  } else {
+    enemy.forward.copy(state.ship.forward).multiplyScalar(-1);
+  }
+  enemy.velocity.set(0, 0, 0);
+  enemy.speed = 0;
+  enemy.fireCooldown = 0;
+}
+
+function runEnemyFireVisibleAheadOnlyTest() {
+  const previousEnemyFireEnabled = config.enemyFireEnabled;
+  config.enemyFireEnabled = true;
+  const { sim, state, planet, enemy } = createEnemyFireVisibilityScenario();
+  try {
+    state.eventLog.length = 0;
+    placeFireTestEnemy(state, planet, enemy, config.enemyFireRange * 0.35);
+    let metrics = measureEnemyInPlayerFrame(state.ship, enemy);
+    assert.ok(metrics.forward > config.enemyFirePlayerForwardMin, 'expected fire test enemy to start ahead of the player');
+    sim.step(0, NEUTRAL_CONTROLS);
+    assert.ok(
+      state.eventLog.some((event) => event.type === 'enemy-fire' && event.enemyId === enemy.id),
+      'expected enemy ahead of the player to fire'
+    );
+
+    state.eventLog.length = 0;
+    state.projectiles.length = 0;
+    placeFireTestEnemy(state, planet, enemy, -config.enemyFireRange * 0.35);
+    metrics = measureEnemyInPlayerFrame(state.ship, enemy);
+    assert.ok(metrics.forward < 0, 'expected fire test enemy to move behind the player');
+    sim.step(0, NEUTRAL_CONTROLS);
+    assert.ok(
+      !state.eventLog.some((event) => event.type === 'enemy-fire' && event.enemyId === enemy.id),
+      'expected enemy behind the player not to fire'
+    );
+  } finally {
+    config.enemyFireEnabled = previousEnemyFireEnabled;
+  }
+
+  console.log('PASS enemy-fire-visible-ahead-only');
 }
 
 function runStableAltitudeTest() {
@@ -2808,6 +2920,98 @@ function runProjectileHomingNoRetargetTest() {
   console.log('PASS projectile-homing-no-retarget');
 }
 
+function runPickupCollectionTest() {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+  const { state } = sim;
+  state.pickups.length = 0;
+  state.eventLog.length = 0;
+  state.shields = 0;
+
+  const position = state.ship.position.clone().addScaledVector(state.ship.up, config.pickupCollectRadius * 0.5);
+  spawnPickup(state, position, {
+    kind: 'shield',
+    velocity: new THREE.Vector3()
+  });
+
+  assert.strictEqual(state.pickups.length, 1, 'expected the pickup to spawn');
+  updatePickups(state, 1 / 60);
+  assert.strictEqual(state.pickups.length, 0, 'expected the pickup to collect');
+  assert.strictEqual(state.shields, 1, 'expected shield pickup to add one shield');
+  assert.ok(
+    state.eventLog.some((event) => event.type === 'pickup-collect' && event.kind === 'shield'),
+    'expected pickup collection to be logged'
+  );
+
+  console.log('PASS pickup-collection');
+}
+
+function spawnPointBlankEnemyProjectile(state) {
+  const enemy = createEnemyState();
+  enemy.id = 9001;
+  enemy.kind = 'fighter';
+  enemy.position.copy(state.ship.position).addScaledVector(state.ship.forward, -config.enemyFireMinDistance);
+  enemy.previousPosition.copy(enemy.position);
+  enemy.forward.copy(state.ship.position).sub(enemy.position).normalize();
+  enemy.up.copy(state.ship.up);
+  enemy.velocity.copy(state.ship.velocity);
+  enemy.radius = config.enemyHitRadius;
+
+  const previousEnemyFireEnabled = config.enemyFireEnabled;
+  config.enemyFireEnabled = true;
+  const projectile = spawnEnemyProjectile(state, enemy, state.ship);
+  config.enemyFireEnabled = previousEnemyFireEnabled;
+  assert.ok(projectile, 'expected enemy projectile to spawn');
+  projectile.spawnFrame = -1;
+  projectile.position.copy(state.ship.position);
+  projectile.previousPosition.copy(state.ship.position);
+  projectile.velocity.set(0, 0, 0);
+  return projectile;
+}
+
+function runEnemyProjectileShieldHitTest() {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+  const { state } = sim;
+  state.projectiles.length = 0;
+  state.eventLog.length = 0;
+  state.shields = 1;
+
+  spawnPointBlankEnemyProjectile(state);
+  sim.step(0, NEUTRAL_CONTROLS);
+
+  assert.strictEqual(state.shields, 0, 'expected shield to absorb the enemy projectile');
+  assert.strictEqual(state.crashed, false, 'expected shielded hit not to crash the player');
+  assert.strictEqual(state.projectiles.length, 0, 'expected enemy projectile to be consumed by the shield hit');
+  assert.ok(
+    state.eventLog.some((event) => event.type === 'player-shield-hit'),
+    'expected shield hit event to be logged'
+  );
+
+  console.log('PASS enemy-projectile-shield-hit');
+}
+
+function runEnemyProjectilePlayerCrashTest() {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+  const { state } = sim;
+  state.projectiles.length = 0;
+  state.eventLog.length = 0;
+  state.shields = 0;
+
+  spawnPointBlankEnemyProjectile(state);
+  sim.step(0, NEUTRAL_CONTROLS);
+
+  assert.strictEqual(state.crashed, true, 'expected unshielded enemy projectile to crash the player');
+  assert.strictEqual(state.projectiles.length, 0, 'expected enemy projectile to be consumed by the crash');
+  assert.ok(
+    state.eventLog.some((event) => event.type === 'player-hit'),
+    'expected player hit event to be logged'
+  );
+
+  console.log('PASS enemy-projectile-player-crash');
+}
+
 function setupEnemyCrashScenario(sim, collisionKind) {
   const { state } = sim;
   state.enemies.length = 0;
@@ -3035,12 +3239,20 @@ function runPresentationProjectionHelperTest() {
   console.log(`PASS presentation-projection-helper: altitude=${altitude.toFixed(3)}`);
 }
 
+function assertPresentationReadable(endEvent, label) {
+  assert.ok(
+    endEvent.maxDistanceToPlayer <= config.encounterReadableMaxDistance,
+    `expected ${label} to stay close enough to read: max=${endEvent.maxDistanceToPlayer?.toFixed?.(3)} limit=${config.encounterReadableMaxDistance}`
+  );
+}
+
 function runBehindCatchupPresentationTest() {
   const setup = createSingleFighterPresentationScenario('behindCatchup');
   const shootableFrames = countShootableFramesDuring(setup.sim, setup.enemy.id, 2200);
   const endEvent = getPresentationEndEvent(setup.state, setup.enemy.id);
   assert.ok(endEvent, 'expected behind-catchup presentation to end');
   assert.strictEqual(endEvent.result, 'success', `expected behind-catchup success: ${JSON.stringify(endEvent)}`);
+  assertPresentationReadable(endEvent, 'behind-catchup');
   assert.ok(
     Math.max(shootableFrames, endEvent.shootableFrames) >= config.encounterShootableRequiredFrames,
     `expected behind-catchup shootable frames: external=${shootableFrames} event=${endEvent.shootableFrames}`
@@ -3055,6 +3267,7 @@ function runBehindCatchupPresentationWithGentleTurnTest() {
   const shootableFrames = countShootableFramesDuring(setup.sim, setup.enemy.id, 2400, controls);
   const endEvent = getPresentationEndEvent(setup.state, setup.enemy.id);
   assert.ok(endEvent, 'expected behind-catchup gentle-turn presentation to end');
+  assertPresentationReadable(endEvent, 'behind-catchup gentle-turn');
   assert.ok(
     Math.max(shootableFrames, endEvent.shootableFrames) >= Math.floor(config.encounterShootableRequiredFrames * 0.5),
     `expected gentle-turn shootable frames: external=${shootableFrames} event=${endEvent.shootableFrames}`
@@ -3063,12 +3276,44 @@ function runBehindCatchupPresentationWithGentleTurnTest() {
   console.log(`PASS behind-catchup-gentle-turn: shootable=${Math.max(shootableFrames, endEvent.shootableFrames)}`);
 }
 
+function runBehindCatchupOvertakeLaneTest() {
+  const setup = createSingleFighterPresentationScenario('behindCatchup');
+  let sawBehind = false;
+  let sawAheadReadable = false;
+  let maxReadableUp = 0;
+  for (let i = 0; i < 1800; i += 1) {
+    setup.sim.step(1 / 60, NEUTRAL_CONTROLS);
+    const enemy = setup.state.enemies.find((candidate) => candidate.id === setup.enemy.id);
+    if (!enemy) {
+      break;
+    }
+    const metrics = measureEnemyInPlayerFrame(setup.state.ship, enemy);
+    sawBehind ||= metrics.forward < -config.encounterShootableMinDistance;
+    if (metrics.forward > config.encounterShootableMinDistance && metrics.distance <= config.encounterReadableMaxDistance) {
+      sawAheadReadable = true;
+      maxReadableUp = Math.max(maxReadableUp, Math.abs(metrics.up));
+    }
+  }
+  const endEvent = getPresentationEndEvent(setup.state, setup.enemy.id);
+  assert.ok(endEvent, 'expected behind-catchup overtake presentation to end');
+  assert.strictEqual(endEvent.result, 'success', `expected overtake presentation success: ${JSON.stringify(endEvent)}`);
+  assert.ok(sawBehind, 'expected overtake pass to start behind the player');
+  assert.ok(sawAheadReadable, 'expected overtake pass to cross into readable forward view');
+  assert.ok(
+    maxReadableUp <= config.encounterBehindOvertakeMaxReadableUpOffset,
+    `expected overtake pass not to arrive as a high drop: maxUp=${maxReadableUp.toFixed(3)} limit=${config.encounterBehindOvertakeMaxReadableUpOffset}`
+  );
+  assertEnemyDidNotCrashOrDisappearUnexpectedly(setup.state, setup.enemy.id);
+  console.log(`PASS behind-catchup-overtake-lane: maxUp=${maxReadableUp.toFixed(3)}`);
+}
+
 function runSideCrossPresentationTest() {
   const setup = createSingleFighterPresentationScenario('sideCross');
   const shootableFrames = countShootableFramesDuring(setup.sim, setup.enemy.id, 2600);
   const endEvent = getPresentationEndEvent(setup.state, setup.enemy.id);
   assert.ok(endEvent, 'expected side-cross presentation to end');
   assert.strictEqual(endEvent.result, 'success', `expected side-cross success: ${JSON.stringify(endEvent)}`);
+  assertPresentationReadable(endEvent, 'side-cross');
   assert.ok(endEvent.shootableFrames >= config.encounterSideCrossRequiredFrames || shootableFrames >= config.encounterSideCrossRequiredFrames, `expected useful side-cross shootable frames: external=${shootableFrames} event=${endEvent.shootableFrames}`);
   assertEnemyDidNotCrashOrDisappearUnexpectedly(setup.state, setup.enemy.id);
   console.log(`PASS side-cross-presentation: shootable=${Math.max(shootableFrames, endEvent.shootableFrames)}`);
@@ -3080,6 +3325,7 @@ function runSideCrossPresentationWithGentleTurnTest() {
   const shootableFrames = countShootableFramesDuring(setup.sim, setup.enemy.id, 2800, controls);
   const endEvent = getPresentationEndEvent(setup.state, setup.enemy.id);
   assert.ok(endEvent, 'expected side-cross gentle-turn presentation to end');
+  assertPresentationReadable(endEvent, 'side-cross gentle-turn');
   assert.ok(Math.max(shootableFrames, endEvent.shootableFrames) >= Math.floor(config.encounterSideCrossRequiredFrames * 0.5), `expected gentle side-cross shootable frames: external=${shootableFrames} event=${endEvent.shootableFrames}`);
   assertEnemyDidNotCrashOrDisappearUnexpectedly(setup.state, setup.enemy.id);
   console.log(`PASS side-cross-gentle-turn: shootable=${Math.max(shootableFrames, endEvent.shootableFrames)}`);
@@ -3091,6 +3337,7 @@ function runHeadOnBreakawayPresentationTest() {
   const endEvent = getPresentationEndEvent(setup.state, setup.enemy.id);
   assert.ok(endEvent, 'expected head-on presentation to end');
   assert.strictEqual(endEvent.result, 'success', `expected head-on breakaway success: ${JSON.stringify(endEvent)}`);
+  assertPresentationReadable(endEvent, 'head-on breakaway');
   assert.ok(Math.max(shootableFrames, endEvent.shootableFrames) >= config.encounterHeadOnRequiredFrames, `expected head-on shootable frames: external=${shootableFrames} event=${endEvent.shootableFrames}`);
   assertEnemyDidNotCrashOrDisappearUnexpectedly(setup.state, setup.enemy.id);
   console.log(`PASS head-on-breakaway-presentation: shootable=${Math.max(shootableFrames, endEvent.shootableFrames)}`);
@@ -4513,6 +4760,10 @@ runProjectileHomingLimitTest();
 runProjectileHomingReferenceFrameTest();
 runProjectileHomingCorrectionCorridorTest();
 runProjectileHomingNoRetargetTest();
+runPickupCollectionTest();
+runEnemyProjectileShieldHitTest();
+runEnemyProjectilePlayerCrashTest();
+runEnemyFireVisibleAheadOnlyTest();
 runEnemyCrashExplosionTest('planet');
 runEnemyCrashExplosionTest('sun');
 runPlanetOrbitTest();
@@ -4522,6 +4773,7 @@ runPresentationMetricHelperTest();
 runPresentationProjectionHelperTest();
 runBehindCatchupPresentationTest();
 runBehindCatchupPresentationWithGentleTurnTest();
+runBehindCatchupOvertakeLaneTest();
 runSideCrossPresentationTest();
 runSideCrossPresentationWithGentleTurnTest();
 runHeadOnBreakawayPresentationTest();

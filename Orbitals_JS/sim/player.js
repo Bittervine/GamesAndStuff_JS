@@ -7,6 +7,7 @@ import {
   updateFlightState
 } from './physics.js';
 import {
+  getPickupItems,
   getPlayerState,
   getProjectileItems,
   getWorldPlanets
@@ -19,13 +20,17 @@ export function respawnShip(state) {
   const player = getPlayerState(state);
   const planets = getWorldPlanets(state);
   const projectiles = getProjectileItems(state);
+  const pickups = getPickupItems(state);
   const ship = player.ship;
   if (!ship || planets.length === 0) {
     return null;
   }
   player.crashed = false;
   player.fuel = player.maxFuel;
+  player.shields = config.playerStartShields;
+  player.rapidFireTimer = 0;
   projectiles.length = 0;
+  pickups.length = 0;
   const planet = planets[player.respawnPlanetIndex % planets.length];
   const normal = planet.position.lengthSq() > 1e-6 ? planet.position.clone().normalize() : new THREE.Vector3(0, 1, 0);
   const tangent = Math.abs(normal.dot(worldUp)) > 0.85
@@ -78,6 +83,7 @@ export function crashPlayerShip(state, planet, crashNormal, impactPosition = nul
   player.crashTimer = 0;
   player.crashRespawnReady = false;
   player.speed = 0;
+  player.rapidFireTimer = 0;
   ship.speed = 0;
   ship.boostTimer = 0;
   ship.fireCooldown = 0;
@@ -108,6 +114,7 @@ export function crashPlayerShipIntoSun(state, impactPosition = null, options = {
   player.crashTimer = 0;
   player.crashRespawnReady = false;
   player.speed = 0;
+  player.rapidFireTimer = 0;
   ship.speed = 0;
   ship.boostTimer = 0;
   ship.fireCooldown = 0;

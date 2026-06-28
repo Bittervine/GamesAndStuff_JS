@@ -1,6 +1,7 @@
 import { normalizeRotationRadians, placementCenter } from "../shared/level-transform.js";
 
 const DEFAULT_CULL_MARGIN_PX = 96;
+const DEFAULT_SPATIAL_BIN_SIZE = 768;
 
 function finiteNumber(value, fallback = 0) {
     const number = Number(value);
@@ -78,7 +79,41 @@ export function visualIntersectsViewport(visualOrBounds, view, parallaxOffset = 
     return boundsIntersect(bounds, expandedViewportWorldBounds(view, parallaxOffset, marginPixels));
 }
 
-export function buildWorldVisualCache(visuals = []) {
+function buildSpatialPartition(entries, binSize = DEFAULT_SPATIAL_BIN_SIZE) {
+    const safeBinSize = Math.max(128, finiteNumber(binSize, DEFAULT_SPATIAL_BIN_SIZE));
+    const bins = new Map();
+    const dynamicEntries = [];
+    const atlasIds = new Set();
+    let hasCutout = false;
+
+    for (let sortedIndex = 0; sortedIndex < entries.length; sortedIndex += 1) {
+        const entry = entries[sortedIndex];
+        entry.sortedIndex = sortedIndex;
+        if (entry.visual?.kind === "cutoutMask") hasCutout = true;
+        if (entry.visual?.kind === "atlasSprite" && entry.visual?.atlasId) atlasIds.add(entry.visual.atlasId);
+        if (entry.visual?.dynamicPosition) {
+            dynamicEntries.push(entry);
+            continue;
+        }
+        const minBin = Math.floor(entry.bounds.minX / safeBinSize);
+        const maxBin = Math.floor(entry.bounds.maxX / safeBinSize);
+        for (let bin = minBin; bin <= maxBin; bin += 1) {
+            if (!bins.has(bin)) bins.set(bin, []);
+            bins.get(bin).push(entry);
+        }
+    }
+
+    return {
+        entries,
+        bins,
+        dynamicEntries,
+        binSize: safeBinSize,
+        hasCutout,
+        atlasIds
+    };
+}
+
+export function buildWorldVisualCache(visuals = [], options = {}) {
     const source = Array.isArray(visuals) ? visuals : [];
     const entries = source.map((visual, index) => ({
         visual,
@@ -88,11 +123,68 @@ export function buildWorldVisualCache(visuals = []) {
     }));
     entries.sort((a, b) => a.sortKey - b.sortKey || a.index - b.index);
 
+    const main = entries.filter(({ visual }) => visual?.layer !== "actorFront" && visual?.layer !== "caveForeground");
+    const actorFront = entries.filter(({ visual }) => visual?.layer === "actorFront");
+    const caveForeground = entries.filter(({ visual }) => visual?.layer === "caveForeground");
+    const binSize = options.binSize || DEFAULT_SPATIAL_BIN_SIZE;
+
     return {
         source,
         sourceLength: source.length,
-        main: entries.filter(({ visual }) => visual?.layer !== "actorFront" && visual?.layer !== "caveForeground"),
-        actorFront: entries.filter(({ visual }) => visual?.layer === "actorFront"),
-        caveForeground: entries.filter(({ visual }) => visual?.layer === "caveForeground")
+        main,
+        actorFront,
+        caveForeground,
+        spatial: {
+            main: buildSpatialPartition(main, binSize),
+            actorFront: buildSpatialPartition(actorFront, binSize),
+            caveForeground: buildSpatialPartition(caveForeground, binSize)
+        }
+    };
+}
+
+export function queryWorldVisualEntries(
+    cache,
+    partitionName,
+    view,
+    parallaxOffset = null,
+    marginPixels = DEFAULT_CULL_MARGIN_PX
+) {
+    const partition = cache?.spatial?.[partitionName];
+    const fallbackEntries = Array.isArray(cache?.[partitionName]) ? cache[partitionName] : [];
+    if (!partition) {
+        return {
+            entries: fallbackEntries,
+            total: fallbackEntries.length,
+            spatialCulled: 0,
+            partition: null
+        };
+    }
+
+    const viewportBounds = expandedViewportWorldBounds(view, parallaxOffset, marginPixels);
+    const minBin = Math.floor(viewportBounds.minX / partition.binSize);
+    const maxBin = Math.floor(viewportBounds.maxX / partition.binSize);
+    const seen = new Set();
+    const candidates = [];
+    for (let bin = minBin; bin <= maxBin; bin += 1) {
+        for (const entry of partition.bins.get(bin) || []) {
+            if (seen.has(entry)) continue;
+            seen.add(entry);
+            if (boundsIntersect(entry.bounds, viewportBounds)) candidates.push(entry);
+        }
+    }
+    for (const entry of partition.dynamicEntries) {
+        if (seen.has(entry)) continue;
+        seen.add(entry);
+        const currentBounds = visualWorldBounds(entry.visual);
+        if (boundsIntersect(currentBounds, viewportBounds)) {
+            candidates.push({ ...entry, bounds: currentBounds });
+        }
+    }
+    candidates.sort((a, b) => a.sortedIndex - b.sortedIndex);
+    return {
+        entries: candidates,
+        total: partition.entries.length,
+        spatialCulled: Math.max(0, partition.entries.length - candidates.length),
+        partition
     };
 }
