@@ -91,8 +91,9 @@ const renderingQualityValue = document.getElementById("rendering-quality-value")
 const renderingQualityButtons = [...document.querySelectorAll("[data-rendering-quality]")];
 const autoFullscreenRow = document.getElementById("auto-fullscreen-row");
 const autoFullscreenInput = document.getElementById("auto-fullscreen");
+const showMinimapInput = document.getElementById("show-minimap");
 
-const GAME_REVISION = "258";
+const GAME_REVISION = "259";
 
 let displayedLoadingProgress = 0;
 let activeCaveWindow = normalizeCaveWindow(null);
@@ -545,7 +546,8 @@ function resizeMinimapToLevel(bounds = minimapBounds()) {
     const inset = 8;
     const panelHeight = Math.max(1, Math.round(meterRect.height * 10) / 10);
     const drawableHeight = Math.max(1, panelHeight - inset * 2);
-    const panelWidth = Math.max(48, Math.ceil(inset * 2 + drawableHeight * worldWidth / worldHeight));
+    const aspectWidth = Math.ceil(inset * 2 + drawableHeight * worldWidth / worldHeight);
+    const panelWidth = Math.max(48, Math.min(Math.round(meterRect.width), aspectWidth));
     minimapPanel.style.width = `${panelWidth}px`;
     minimapPanel.style.height = `${panelHeight}px`;
     const dpr = Math.max(1, window.devicePixelRatio || 1);
@@ -561,6 +563,7 @@ function resizeMinimapToLevel(bounds = minimapBounds()) {
 }
 
 function drawMinimap(force = false) {
+    if (minimapPanel?.hidden) return;
     const bounds = minimapBounds();
     if (resizeMinimapToLevel(bounds)) force = true;
     if (!minimapCanvas || !minimapContext || minimapCanvas.width <= 1 || minimapCanvas.height <= 1) return;
@@ -610,6 +613,22 @@ function drawMinimap(force = false) {
         ctx.fill();
         ctx.strokeStyle = "rgba(201,167,255,0.72)";
         ctx.lineWidth = 1.1;
+        ctx.stroke();
+    }
+
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "rgba(216,190,126,0.78)";
+    ctx.lineWidth = Math.max(1, Math.min(2.4, scale * 14));
+    for (const segment of gameState.world?.segments || []) {
+        if (segment?.kind !== "walkable" && segment?.kind !== "blockable") continue;
+        const dx = (Number(segment.x2) || 0) - (Number(segment.x1) || 0);
+        const dy = (Number(segment.y2) || 0) - (Number(segment.y1) || 0);
+        if (Math.abs(dx) < 8 || Math.abs(dy) > Math.abs(dx) * 0.45) continue;
+        const a = point(Number(segment.x1) || 0, Number(segment.y1) || 0);
+        const b = point(Number(segment.x2) || 0, Number(segment.y2) || 0);
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
         ctx.stroke();
     }
 
@@ -739,6 +758,9 @@ function setupGameMenuAndSettings() {
     autoFullscreenInput?.addEventListener("change", () => {
         updatePersistentGameSettings({ autoFullscreen: autoFullscreenInput.checked });
         void applyAutoFullscreenPolicy();
+    });
+    showMinimapInput?.addEventListener("change", () => {
+        updatePersistentGameSettings({ showMinimap: showMinimapInput.checked });
     });
     for (const button of difficultyButtons) {
         button.addEventListener("click", () => updatePersistentGameSettings({
@@ -1128,6 +1150,12 @@ function syncGameSettingsUi() {
     if (sfxVolumeInput) sfxVolumeInput.value = String(settings.sfxVolume);
     if (musicVolumeInput) musicVolumeInput.value = String(settings.musicVolume);
     if (autoFullscreenInput) autoFullscreenInput.checked = Boolean(settings.autoFullscreen);
+    if (showMinimapInput) showMinimapInput.checked = Boolean(settings.showMinimap);
+    if (minimapPanel) minimapPanel.hidden = !settings.showMinimap;
+    if (settings.showMinimap) {
+        resizeMinimapToLevel();
+        drawMinimap(true);
+    }
     if (autoFullscreenRow) autoFullscreenRow.hidden = Boolean(electronWindowBridge);
     if (sfxVolumeValue) sfxVolumeValue.textContent = `${Math.round(settings.sfxVolume * 100)}%`;
     if (musicVolumeValue) musicVolumeValue.textContent = `${Math.round(settings.musicVolume * 100)}%`;

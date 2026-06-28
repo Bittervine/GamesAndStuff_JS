@@ -11,12 +11,13 @@ export const GAME_RENDERING_QUALITY_PRESETS = Object.freeze([
 ]);
 
 export const DEFAULT_GAME_SETTINGS = Object.freeze({
-    version: 3,
+    version: 4,
     sfxVolume: 0.8,
     musicVolume: 0.1,
     difficulty: "normal",
     renderingQuality: "medium",
-    autoFullscreen: true
+    autoFullscreen: true,
+    showMinimap: true
 });
 
 function clamp01(value, fallback) {
@@ -48,7 +49,8 @@ export function normalizeGameSettings(value = {}) {
             GAME_RENDERING_QUALITY_PRESETS,
             DEFAULT_GAME_SETTINGS.renderingQuality
         ),
-        autoFullscreen: normalizedBoolean(source.autoFullscreen, DEFAULT_GAME_SETTINGS.autoFullscreen)
+        autoFullscreen: normalizedBoolean(source.autoFullscreen, DEFAULT_GAME_SETTINGS.autoFullscreen),
+        showMinimap: normalizedBoolean(source.showMinimap, DEFAULT_GAME_SETTINGS.showMinimap)
     };
 }
 

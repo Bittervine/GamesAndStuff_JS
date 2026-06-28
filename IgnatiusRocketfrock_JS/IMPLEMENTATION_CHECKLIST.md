@@ -2517,3 +2517,19 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Remove the Level Editor `automaticGeneration`, nested generation-run, prefix-owner, and `generationBranchId` fallbacks.
 - [x] Require current generator identity and matching route implementation when normalizing generator metadata.
 - [x] Replace migration tests with strict-rejection and source-absence regressions.
+
+## Revision 259 minimap, content density, platform seams, and small-step traversal
+
+- [x] Restore horizontal walkable and blockable platform surfaces to the minimap.
+- [x] Cap minimap width at the rendered width of the top-left meter panel.
+- [x] Add a persisted Settings checkbox that hides and restores the minimap.
+- [x] Keep Escape-menu access available while the minimap is hidden.
+- [x] Reject visual overlap involving generated one-way green-line platforms.
+- [x] Reject static blockable-platform overlap when their walking surfaces differ in height.
+- [x] Keep equal-height blockable overlap legal for continuous run-and-gun floors.
+- [x] Add more broad, shallow upward room stamps to the Wide cavern variant.
+- [x] Add reachable second-tier upper combat and reward perches where continuous ground leaves few exposed side edges.
+- [x] Allow encounter generation to use upper combat perches.
+- [x] Guarantee genuine power-up pickups at nontrivial reward density.
+- [x] Let grounded Ignatius and grounded walking enemies step over rises below one eighth of actor height.
+- [x] Keep taller ledges blocking and covered by movement regressions.

@@ -172,7 +172,7 @@
         </table>
 
         <h2>Minimap</h2>
-        <p>The upper-right panel mirrors the size of the health-and-fuel panel. It shows the cave outline, authored collision surfaces, the current camera window, Ignatius, and the exit marker. Click or tap anywhere on the minimap to open the pause menu.</p>
+        <p>The upper-right panel matches the height of the health-and-fuel panel and never grows wider than it. It shows the cave outline, horizontal platform surfaces, the current camera window, Ignatius, and the exit marker. Click or tap anywhere on the minimap to open the pause menu. The minimap can be hidden in Settings; <code>Escape</code> still opens the menu.</p>
 
         <h2>Rocketfrock</h2>
         <ul>
@@ -223,7 +223,7 @@
 
         <h2>Menu</h2>
         <ul>
-            <li><strong>Settings</strong> adjusts effects volume, music volume, difficulty, rendering quality, and browser fullscreen policy.</li>
+            <li><strong>Settings</strong> adjusts effects volume, music volume, difficulty, rendering quality, minimap visibility, and browser fullscreen policy.</li>
             <li><strong>Restart level</strong> restarts the current level and resumes play.</li>
             <li><strong>Exit to Title</strong> appears while the game is running and returns to the title card.</li>
             <li><strong>Exit to desktop</strong> appears only in the Electron build.</li>
@@ -235,6 +235,7 @@
             <li>Music volume controls the synthesized level music.</li>
             <li>Difficulty currently changes only incoming damage to Ignatius.</li>
             <li>Rendering quality changes visual particle density without changing gameplay timing or collision.</li>
+            <li>Show minimap controls whether the upper-right minimap is visible.</li>
         </ul>
     </main>
 </body>

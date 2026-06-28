@@ -3125,7 +3125,7 @@ function setCharacterEnemyGroundSupportIdentity(state, enemy, support) {
     enemy.ridingPlatformId = movingPlatformForCollisionId(state, enemy.supportId)?.id || null;
 }
 
-function findCharacterEnemyGroundSupport(state, x, referenceY, maxStepUp, maxDrop, width = 1) {
+function findCharacterEnemyGroundSupport(state, x, referenceY, maxStepUp, maxDrop, width = 1, options = {}) {
     const samples = [x, x - Math.max(0, width) * 0.24, x + Math.max(0, width) * 0.24];
     let best = null;
     const consider = (y, id, kind, sampleIndex, slope = 0) => {
@@ -3136,7 +3136,9 @@ function findCharacterEnemyGroundSupport(state, x, referenceY, maxStepUp, maxDro
         if (delta < -Math.max(0, maxStepUp) || delta > Math.max(0, maxDrop)) {
             return;
         }
-        const score = sampleIndex * 100000 + Math.abs(delta);
+        const score = options.preferHighest && delta <= 0
+            ? delta + sampleIndex * 0.0001
+            : sampleIndex * 100000 + Math.abs(delta);
         if (!best || score < best.score) {
             best = { y, delta, id, kind, slope: finiteNumberOr(slope, 0), score };
         }
@@ -3604,6 +3606,49 @@ function updateCharacterEnemyAwareness(state, enemy, dt) {
     return enemy.alerted;
 }
 
+function findCharacterEnemyWalkingSupport(state, enemy, candidateX, direction) {
+    const authoredStepHeight = Math.max(0, Number(enemy.maxStepHeight) || 0);
+    const automaticStepHeight = Math.max(authoredStepHeight, enemy.height / 8);
+    const directSupport = findCharacterEnemyGroundSupport(
+        state,
+        candidateX,
+        enemy.y,
+        authoredStepHeight,
+        enemy.maxDropDistance,
+        enemy.width
+    );
+    const steppedSupport = findCharacterEnemyGroundSupport(
+        state,
+        candidateX,
+        enemy.y,
+        automaticStepHeight,
+        enemy.maxDropDistance,
+        enemy.width,
+        { preferHighest: true }
+    );
+    const directClear = Boolean(directSupport) && !characterEnemyBodyBlockedAt(state, enemy, candidateX, directSupport.y, {
+        groundSlope: directSupport.slope
+    });
+    const steppedClear = Boolean(steppedSupport) && !characterEnemyBodyBlockedAt(state, enemy, candidateX, steppedSupport.y, {
+        groundSlope: steppedSupport.slope,
+        ignoreSupportId: steppedSupport.id
+    });
+
+    // Preserve ordinary slope and moving-platform support selection. Only switch
+    // to the automatic step candidate when it is a distinct, genuinely higher
+    // surface inside one eighth of the actor's height.
+    if (steppedSupport
+        && directSupport
+        && steppedSupport.id !== directSupport.id
+        && Math.abs(steppedSupport.slope) < 0.08
+        && Math.abs(directSupport.slope) < 0.08
+        && steppedSupport.y < directSupport.y - 0.05
+        && steppedClear) return steppedSupport;
+    if (directClear) return directSupport;
+    if (steppedClear) return steppedSupport;
+    return null;
+}
+
 function moveCharacterEnemyToward(state, enemy, targetX, speed, dt, stopDistance = 0) {
     const dx = targetX - enemy.x;
     const distance = Math.abs(dx);
@@ -3621,17 +3666,8 @@ function moveCharacterEnemyToward(state, enemy, targetX, speed, dt, stopDistance
         return 0;
     }
 
-    const support = findCharacterEnemyGroundSupport(
-        state,
-        candidateX,
-        enemy.y,
-        enemy.maxStepHeight,
-        enemy.maxDropDistance,
-        enemy.width
-    );
-    if (!support || characterEnemyBodyBlockedAt(state, enemy, candidateX, support.y, { groundSlope: support.slope })) {
-        return 0;
-    }
+    const support = findCharacterEnemyWalkingSupport(state, enemy, candidateX, direction);
+    if (!support) return 0;
 
     const moved = Math.abs(candidateX - enemy.x);
     enemy.facing = direction;
@@ -5056,15 +5092,19 @@ function updateCharacterEnemyPatrolRange(state, enemy, dt, minX, maxX, phase = "
     const candidateX = clamp(unclampedX, minX, maxX);
     const reachedBoundary = Math.abs(candidateX - unclampedX) > 0.0001 ||
         candidateX <= minX + 0.001 || candidateX >= maxX - 0.001;
+    const automaticStepHeight = Math.max(0, enemy.height / 8);
     const support = findCharacterEnemyGroundSupport(
         state,
         candidateX,
         enemy.y,
-        enemy.maxStepHeight,
+        Math.max(Number(enemy.maxStepHeight) || 0, automaticStepHeight),
         enemy.maxDropDistance,
         enemy.width
     );
-    if (!support || characterEnemyBodyBlockedAt(state, enemy, candidateX, support.y, { groundSlope: support.slope })) {
+    if (!support || characterEnemyBodyBlockedAt(state, enemy, candidateX, support.y, {
+        groundSlope: support.slope,
+        ignoreSupportId: support.id
+    })) {
         pauseAndTurnCharacterEnemy(enemy);
         return;
     }
@@ -5895,15 +5935,8 @@ function updateCharacterEnemies(state, dt) {
         const candidateX = clamp(unclampedX, enemy.patrolMinX, enemy.patrolMaxX);
         const reachedBoundary = Math.abs(candidateX - unclampedX) > 0.0001 ||
             candidateX <= enemy.patrolMinX + 0.001 || candidateX >= enemy.patrolMaxX - 0.001;
-        const support = findCharacterEnemyGroundSupport(
-            state,
-            candidateX,
-            enemy.y,
-            enemy.maxStepHeight,
-            enemy.maxDropDistance,
-            enemy.width
-        );
-        if (!support || characterEnemyBodyBlockedAt(state, enemy, candidateX, support.y, { groundSlope: support.slope })) {
+        const support = findCharacterEnemyWalkingSupport(state, enemy, candidateX, direction);
+        if (!support) {
             pauseAndTurnCharacterEnemy(enemy);
             syncCharacterEnemyTarget(state, enemy);
             continue;
@@ -7849,6 +7882,35 @@ function findActorVerticalSweepCollision(state, actor, previousY, nextY, options
     return best;
 }
 
+function tryActorStepUp(state, actor, previousX, nextX, maxStepHeight, options = {}) {
+    const originalX = actor.x;
+    const originalY = actor.y;
+    const maximum = Math.max(0, Math.floor(Number(maxStepHeight) || 0));
+    if (maximum < 1) return null;
+
+    const direction = Math.sign(nextX - previousX) || 1;
+    const probeX = nextX + direction * Math.min(6, Math.max(2, actor.width * 0.15));
+    for (let step = 1; step <= maximum; step += 1) {
+        actor.x = previousX;
+        actor.y = originalY - step;
+        const horizontalCollision = findActorHorizontalSweepCollision(state, actor, previousX, probeX, options);
+        if (horizontalCollision) continue;
+
+        actor.x = probeX;
+        const landing = findActorVerticalSweepCollision(state, actor, originalY - step, originalY + 1, options);
+        if (!landing || landing.ceiling) continue;
+        if (landing.y >= originalY - 0.05 || landing.y < originalY - maximum - 0.5) continue;
+
+        actor.x = originalX;
+        actor.y = originalY;
+        return { x: probeX, y: landing.y, height: originalY - landing.y, id: landing.id, kind: landing.kind, source: landing.source };
+    }
+
+    actor.x = originalX;
+    actor.y = originalY;
+    return null;
+}
+
 function moveAndCollideX(state, dx) {
     const p = state.player;
     if (dx === 0) {
@@ -7857,10 +7919,26 @@ function moveAndCollideX(state, dx) {
     const previousX = p.x;
     const nextX = previousX + dx;
     const collision = findActorHorizontalSweepCollision(state, p, previousX, nextX);
-    p.x = collision ? collision.x : nextX;
     if (!collision) {
+        p.x = nextX;
         return;
     }
+    if (p.onGround && p.vy >= 0) {
+        const stepped = tryActorStepUp(state, p, previousX, nextX, p.height / 8);
+        if (stepped) {
+            p.x = stepped.x;
+            landPlayerOn(state, stepped.y, true, stepped.id, stepped.kind);
+            state.collisions.lastResolution = {
+                axis: "step",
+                height: round(stepped.height),
+                id: stepped.id,
+                kind: stepped.kind,
+                source: stepped.source
+            };
+            return;
+        }
+    }
+    p.x = collision.x;
     p.vx = 0;
     if (collision.side === "right") {
         state.collisions.playerTouching.right = true;

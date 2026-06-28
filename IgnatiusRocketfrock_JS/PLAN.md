@@ -2757,3 +2757,13 @@ Reward-stage regeneration is now genuinely stage-local. It replaces only generat
 Revision 258 makes the automatic generator current-schema-only. Retired implementation IDs are no longer translated to Standard or Mostly-horizontal choices. Explicit unknown IDs now fail with a clear stage-specific error, while omitted stages still receive current defaults. The remaining compatibility-only generated-record fields and editor import aliases are removed, including old branch ownership, old reward-score naming, nested run provenance, and the former `automaticGeneration` metadata key.
 
 This deliberately does not remove unrelated compatibility handling for hand-authored level entities, character data, settings, or other systems. The cleanup is scoped to automatic-level-generator records and implementation choices.
+
+## Revision 259 minimap control, populated upper halls, safe platform seams, and small-step walking
+
+Revision 259 restores horizontal platform surfaces to the minimap while keeping the panel compact. Its height still follows the top-left meter panel, but its width is capped at that panel's width even for extremely wide levels. The textual click hint remains absent. A persisted **Show minimap** checkbox in Settings can hide the panel without changing Escape-menu behavior.
+
+Generated platform compositions now validate their visual seams against collision semantics. One-way green-line platforms never overlap another platform body. Solid blockable panels may overlap only when their walkable surfaces are level; a raised or lowered solid panel must be horizontally separated so the step reads honestly. The Mostly-horizontal ground and Standard lower route therefore remain dependable running surfaces rather than disguised fall-through gaps or blended height changes.
+
+The Wide, upward-expanding cavern uses more broad shallow room stamps and may build a second reachable tier inward from a first detached perch. This makes continuous ground halls capable of carrying several upper combat and reward positions instead of leaving the entire ceiling volume empty. Encounter placement recognizes combat perches, treasure placement recognizes reward perches, and nontrivial reward density guarantees genuine power-up pickups.
+
+Grounded movement gains a conservative automatic step-up. Ignatius and grounded walking enemies may climb a rise below one eighth of their own collision height without entering a jump state. Taller ledges still block ordinary walking and continue to require jump or navigation behavior.

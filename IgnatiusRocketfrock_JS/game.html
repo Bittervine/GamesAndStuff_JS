@@ -462,6 +462,10 @@
         }
 
 
+        #game-menu-controls[hidden] {
+            display: none;
+        }
+
         #game-menu-controls {
             position: fixed;
             top: 16px;
@@ -585,7 +589,8 @@
             grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
-        #auto-fullscreen-row {
+        #auto-fullscreen-row,
+        #show-minimap-row {
             grid-column: 1 / -1;
         }
 
@@ -751,7 +756,8 @@
                 grid-template-columns: 1fr;
             }
 
-            #auto-fullscreen-row {
+            #auto-fullscreen-row,
+            #show-minimap-row {
                 grid-column: auto;
             }
 
@@ -875,6 +881,13 @@
                         <span class="settings-toggle-title">Automatically switch to fullscreen</span>
                     </span>
                     <input id="auto-fullscreen" type="checkbox" checked>
+                </label>
+
+                <label id="show-minimap-row" class="settings-toggle" for="show-minimap">
+                    <span class="settings-toggle-copy">
+                        <span class="settings-toggle-title">Show minimap</span>
+                    </span>
+                    <input id="show-minimap" type="checkbox" checked>
                 </label>
             </section>
         </div>

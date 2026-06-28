@@ -2626,6 +2626,58 @@ function testCharacterEnemyPatrolBehavior() {
     assert.equal(guard.animationSlot, "idle", "stand-guard behaviour should remain in idle animation");
 }
 
+function testGroundEnemyAutomaticSmallStep() {
+    const createEnemyStepState = (stepHeight) => {
+        const state = createInitialGameState();
+        assert.equal(applyEditorLevelToWorld(state, {
+            levelId: `enemy_small_step_${stepHeight}`,
+            playerStart: { x: -1000, y: 600 },
+            entities: [{
+                id: "step_enemy",
+                type: "characterEnemy",
+                characterId: "ct_char_enemy_001",
+                x: 100,
+                y: 600,
+                w: 72,
+                h: 150,
+                facing: 1,
+                strategy: "simple_patrol",
+                patrolDistance: 400,
+                walkSpeed: 60,
+                idleDuration: 0,
+                turnPause: 0,
+                maxStepHeight: 0,
+                maxDropDistance: 100,
+                awarenessRange: 10,
+                renderScale: 0.8,
+                targetAnchor: { x: 0.5, y: 0.4 }
+            }]
+        }), true, "enemy small-step fixture should apply");
+        state.world.solids = [
+            { id: "enemy_step_floor", kind: "floor", x: -1000, y: 600, w: 2000, h: 200 },
+            { id: "enemy_small_step", kind: "solid", x: 150, y: 600 - stepHeight, w: 400, h: 200 + stepHeight }
+        ];
+        state.world.segments = [];
+        state.world.collisionPolygons = [];
+        state.story.portalIntro = null;
+        state.story.portalExit = null;
+        state.story.mailboxEvent = null;
+        return state;
+    };
+
+    const climbable = createEnemyStepState(18);
+    stepMany(climbable, 100);
+    const climbingEnemy = climbable.enemies.find((enemy) => enemy.id === "step_enemy");
+    assert.ok(climbingEnemy.x > 150, "a grounded monster should walk over a step below one eighth of its height");
+    assert.equal(climbingEnemy.y, 582, "the grounded monster should follow the raised support without a jump state");
+
+    const tooTall = createEnemyStepState(20);
+    stepMany(tooTall, 100);
+    const blockedEnemy = tooTall.enemies.find((enemy) => enemy.id === "step_enemy");
+    assert.equal(blockedEnemy.y, 600, "a monster should not climb a step above one eighth of its height");
+    assert.equal(blockedEnemy.facing, -1, "a simple patrol monster should turn around at a genuinely blocking step");
+}
+
 function testCharacterEnemyAggressiveChaseAndCombo() {
     const state = createInitialGameState({
         tuning: {
@@ -4134,6 +4186,7 @@ function testAutomaticLevelGeneratorMacroRoomsGroundedDoorsAndPerimeterContract(
             assert.ok(presentation.minimumPlatformFloorClearance >= theme.cavern.platformFloorClearance - 42, "platforms should retain substantial floor clearance");
             assert.ok(presentation.minimumEndpointSideClearance >= theme.cavern.endpointSideClearance - 20, "doors should sit well inside lit endpoint chambers");
             assert.ok(presentation.maximumDoorFloorError <= 2, "doors should sit exactly on their support surface");
+            assert.equal(draft.generation.validation.metrics.misalignedPlatformOverlapCount, 0, "generated static panels should never overlap visually at different walking heights");
             const supportById = new Map(draft.generation.traversal.supports.map((support) => [support.id, support]));
             for (const endpoint of [draft.generation.endpoints.entrance, draft.generation.endpoints.exit]) {
                 const door = draft.entities.find((entity) => entity.id === endpoint.entityId);
@@ -4478,7 +4531,9 @@ function testAutomaticLevelGeneratorVariantCompatibility() {
                         assert.ok(groundSupports.every((support) => support.atlasId === "at_atlas_004" && support.assetId === "earth_long_platform_r1_a" && support.collisionMode === "blockable"), `${key} should use only overlap-safe solid ground platforms`);
                         const groundTransitions = draft.generation.traversal.transitions.filter((transition) => transition.spacingStyle === "runAndGunGround");
                         assert.ok(groundTransitions.length >= 4 && groundTransitions.every((transition) => transition.gap === 0), `${key} should overlap neighbouring solid platforms instead of placing same-height platforms edge to edge`);
+                        assert.ok(groundTransitions.every((transition) => transition.rise === 0 && transition.drop === 0), `${key} should overlap solid ground panels only when their walking surfaces are level`);
                         assert.equal(traversalMetrics.oneWayPlatformOverlapCount, 0, `${key} should never overlap a thin green one-way platform with another generated platform`);
+                        assert.equal(traversalMetrics.misalignedPlatformOverlapCount, 0, `${key} should overlap solid panels only when their walking surfaces align`);
                         const oneWaySupports = draft.generation.traversal.supports.filter((support) => support.collisionMode === "oneWay");
                         for (const oneWay of oneWaySupports) {
                             const oneWayTop = oneWay.surfaceY - oneWay.height * oneWay.surfaceYRatio;
@@ -4507,7 +4562,9 @@ function testAutomaticLevelGeneratorVariantCompatibility() {
                 assert.ok(wide.generation.cavern.rooms.filter((room) => room.auxiliary).length >= 2, `${theme.themeId} ${length} ${routeId} wide caverns should include auxiliary upward room stamps`);
                 assert.ok(averageRoomWidth(wide) > averageRoomWidth(standard), `${theme.themeId} ${length} ${routeId} wide caverns should have broader rooms`);
                 assert.ok(averageRoomHeight(wide) < averageRoomHeight(standard), `${theme.themeId} ${length} ${routeId} wide caverns should have shallower rooms`);
-                assert.ok(wide.generation.validation.metrics.secondaryPlatformCount >= 1, `${theme.themeId} ${length} ${routeId} wide caverns should retain raised combat or reward platforms inside the enlarged rooms`);
+                const minimumWidePerches = length === "compact" ? 2 : 3;
+                assert.ok(wide.generation.validation.metrics.secondaryPlatformCount >= minimumWidePerches, `${theme.themeId} ${length} ${routeId} wide caverns should retain several raised combat or reward platforms inside the enlarged rooms`);
+                assert.equal(wide.generation.validation.metrics.secondaryPlatformCount, wide.generation.validation.metrics.secondaryRewardPerchCount + wide.generation.validation.metrics.secondaryCombatPerchCount, `${theme.themeId} ${length} ${routeId} every raised platform should have a clear combat or reward purpose`);
                 assert.ok(wide.generation.validation.metrics.presentation.minimumPlatformFloorClearance >= theme.cavern.platformFloorClearance - 42, `${theme.themeId} ${length} ${routeId} wide caverns should preserve a stable near-ground lower boundary`);
                 for (const room of wide.generation.cavern.rooms) {
                     const routeRoom = wide.generation.route.macro.rooms.find((candidate) => candidate.id === room.id);
@@ -4777,6 +4834,7 @@ function testAutomaticLevelGeneratorRewards() {
     }
     const contextualTypes = rewardEntities.filter((entity) => entity.type !== "treasureChest" && entity.type !== "thoughtTrigger").map((entity) => entity.type);
     assert.equal(new Set(contextualTypes).size, contextualTypes.length, "contextual support rewards should remain restrained rather than repeating the same pickup type");
+    assert.ok(contextualTypes.some((type) => ["speedShotPickup", "shieldPickup", "randomWrenchPickup"].includes(type)), "rewarded generated levels should contain at least one genuine power-up pickup");
     assert.equal(rewardEntities.some((entity) => entity.type === "thoughtTrigger"), false, "generated location thoughts should remain absent unless explicitly enabled");
 
     const independent = validateGeneratedRewards({
@@ -4798,6 +4856,18 @@ function testAutomaticLevelGeneratorRewards() {
     assert.equal(independent.metrics.rewardedPerchCount, selectedPerches.length, "standalone validation should account for every selected upper reward perch");
     assert.equal(independent.metrics.endpointCrowdingCount, 0, "reward placement should preserve entrance and exit calm space");
     assert.equal(independent.metrics.rewardEnemyOverlapCount, 0, "rewards should not overlap generated enemies");
+
+    const wideContent = generateAutomaticLevelDraft({
+        ...options,
+        seed: "wide-upper-content-smoke",
+        implementations: { ...earthTheme.implementations, cavern: "wide-upper-contour-cavern-v1" }
+    });
+    const wideSupportById = new Map(wideContent.generation.traversal.supports.map((support) => [support.id, support]));
+    const wideSecondarySupports = [...wideSupportById.values()].filter((support) => support.secondaryPlatform);
+    assert.ok(wideSecondarySupports.length >= 3, "a rewarded Wide cavern should populate its open upper volume with several reachable platforms");
+    assert.ok(wideContent.entities.some((entity) => entity.generationStage === "encounters" && wideSupportById.get(entity.generationSupportId)?.combatPerch), "Wide caverns should use at least one upper combat perch for monsters");
+    assert.ok(wideContent.entities.some((entity) => entity.generationStage === "rewards" && wideSupportById.get(entity.generationSupportId)?.rewardPerch), "Wide caverns should use at least one upper reward perch for treasure or pickups");
+    assert.ok(wideContent.entities.some((entity) => entity.generationStage === "rewards" && ["speedShotPickup", "shieldPickup", "randomWrenchPickup"].includes(entity.type)), "Wide rewarded caverns should retain a genuine power-up pickup");
 
     const zeroRewards = generateAutomaticLevelDraft({
         ...options,
@@ -7552,6 +7622,37 @@ function testWallCollision() {
 }
 
 
+function testAutomaticSmallStepTraversal() {
+    const createStepState = (stepHeight) => {
+        const state = createInitialGameState();
+        state.world.solids = [
+            { id: "step_floor", kind: "floor", x: -1000, y: 600, w: 2000, h: 200 },
+            { id: "small_step", kind: "solid", x: 250, y: 600 - stepHeight, w: 400, h: 200 + stepHeight }
+        ];
+        state.world.segments = [];
+        state.world.collisionPolygons = [];
+        state.player.x = 100;
+        state.player.y = 600;
+        state.player.vx = 0;
+        state.player.vy = 0;
+        state.player.onGround = true;
+        state.player.wasOnGround = true;
+        state.player.supportId = "step_floor";
+        return state;
+    };
+
+    const climbable = createStepState(12);
+    stepMany(climbable, 50, () => createInputFrame({ moveRight: true }));
+    assert.ok(climbable.player.x > 300, "Ignatius should walk across a step below one eighth of his height without jumping");
+    assert.equal(climbable.player.y, 588, "automatic step-up should seat Ignatius on the raised surface");
+    assert.equal(climbable.player.supportId, "small_step", "automatic step-up should adopt the raised support");
+
+    const tooTall = createStepState(14);
+    stepMany(tooTall, 50, () => createInputFrame({ moveRight: true }));
+    assert.ok(tooTall.player.x <= 233.1, "a step above one eighth of Ignatius's height should still block ordinary walking");
+    assert.equal(tooTall.player.y, 600, "a too-tall step should not teleport Ignatius upward");
+}
+
 function testClosedAtlasLoopCreatesCollisionArea() {
     const state = createInitialGameState();
     state.world.visuals = [{
@@ -8651,6 +8752,7 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.equal(DEFAULT_GAME_SETTINGS.difficulty, "normal", "normal damage should remain the default");
     assert.equal(DEFAULT_GAME_SETTINGS.renderingQuality, "medium", "medium particle quality should remain the default");
     assert.equal(DEFAULT_GAME_SETTINGS.autoFullscreen, true, "browser play should default to automatic fullscreen transitions");
+    assert.equal(DEFAULT_GAME_SETTINGS.showMinimap, true, "the minimap should be visible by default");
     assert.equal(GAME_DIFFICULTY_PRESETS.length, 3, "the initial settings UI should expose three damage presets");
     assert.equal(GAME_RENDERING_QUALITY_PRESETS.length, 3, "the initial settings UI should expose three particle presets");
     assert.equal(difficultyDamageScale("easy"), 0.75, "easy should reduce incoming damage");
@@ -8663,14 +8765,17 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
         musicVolume: -3,
         difficulty: "unknown",
         renderingQuality: "HIGH",
-        autoFullscreen: false
+        autoFullscreen: false,
+        showMinimap: false
     });
     assert.equal(normalized.sfxVolume, 1, "effects volume should clamp to one");
     assert.equal(normalized.musicVolume, 0, "music volume should clamp to zero");
     assert.equal(normalized.difficulty, "normal", "unknown difficulties should fall back safely");
     assert.equal(normalized.renderingQuality, "high", "quality ids should normalize case-insensitively");
     assert.equal(normalized.autoFullscreen, false, "the automatic fullscreen preference should normalize as a boolean");
+    assert.equal(normalized.showMinimap, false, "the minimap visibility preference should normalize as a boolean");
     assert.equal(normalizeGameSettings({}).autoFullscreen, true, "older stored settings should migrate to the safe default");
+    assert.equal(normalizeGameSettings({}).showMinimap, true, "settings without a minimap preference should default to visible");
 
     const values = new Map();
     const storage = {
@@ -8681,11 +8786,12 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
             values.set(key, String(value));
         }
     };
-    const saved = saveStoredGameSettings({ musicVolume: 0.33, difficulty: "hard", autoFullscreen: false }, storage);
+    const saved = saveStoredGameSettings({ musicVolume: 0.33, difficulty: "hard", autoFullscreen: false, showMinimap: false }, storage);
     assert.equal(values.has(GAME_SETTINGS_STORAGE_KEY), true, "settings should use a stable namespaced storage key");
     assert.equal(saved.musicVolume, 0.33, "saved settings should retain authored volume");
     assert.equal(loadStoredGameSettings(storage).difficulty, "hard", "stored difficulty should round-trip");
     assert.equal(loadStoredGameSettings(storage).autoFullscreen, false, "the fullscreen policy should round-trip through storage");
+    assert.equal(loadStoredGameSettings(storage).showMinimap, false, "the minimap preference should round-trip through storage");
 
     const legacyValues = new Map([[GAME_SETTINGS_STORAGE_KEY, JSON.stringify({
         version: 2,
@@ -8713,6 +8819,8 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     const electronMainSource = readFileSync(new URL("../electron/main.cjs", import.meta.url), "utf8");
     const electronBuildSource = readFileSync(new URL("../electron/build-package.cjs", import.meta.url), "utf8");
     assert.match(gameHtml, /id="game-menu-dialog"/, "the game should contain a modal pause menu");
+    assert.match(gameHtml, /id="show-minimap"[^>]*type="checkbox"/, "settings should expose a checkbox for minimap visibility");
+    assert.match(gameHtml, /#game-menu-controls\[hidden\]\s*\{[^}]*display:\s*none/s, "hidden minimaps should leave no HUD footprint");
     assert.match(gameHtml, /id="game-menu-exit-desktop"[^>]*hidden/, "desktop exit should start hidden in ordinary browsers");
     assert.match(gameHtml, /id="title-screen"[^>]*hidden/, "the game should contain an initially hidden title overlay shown after loading");
     assert.match(gameHtml, /id="title-card-art"[^>]*src="assets\/title_card\.png"/, "the in-game title screen should use the title card art");
@@ -8769,6 +8877,10 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.match(bootstrapSource, /function resizeMinimapToLevel\(bounds = minimapBounds\(\)\)/, "the minimap should derive its horizontal size from the current level bounds");
     assert.match(bootstrapSource, /panelHeight - inset \* 2[\s\S]*drawableHeight \* worldWidth \/ worldHeight/, "the minimap width should tightly preserve the level aspect ratio at the shared panel height");
     assert.match(bootstrapSource, /function drawMinimap\(force = false\)/, "the browser bootstrap should render the current level and player into the minimap");
+    assert.match(bootstrapSource, /Math\.min\(Math\.round\(meterRect\.width\), aspectWidth\)/, "the minimap width should never exceed the top-left meter panel");
+    assert.match(bootstrapSource, /rgba\(216,190,126,0\.78\)/, "the minimap should restore a readable platform-surface colour");
+    assert.match(bootstrapSource, /segment\?\.kind !== "walkable"[\s\S]*Math\.abs\(dy\) > Math\.abs\(dx\) \* 0\.45/, "the minimap should draw only useful horizontal walkable and blockable platform surfaces");
+    assert.match(bootstrapSource, /showMinimapInput\?\.addEventListener\("change"[\s\S]*minimapPanel\.hidden = !settings\.showMinimap/, "the settings checkbox should persistently hide and restore the minimap");
     assert.doesNotMatch(bootstrapSource, /CLICK FOR MENU/, "the minimap should no longer render the click-for-menu caption");
     assert.doesNotMatch(bootstrapSource, /rgba\(214,188,121,0\.76\)/, "the minimap should no longer draw internal yellow world-geometry guides");
     assert.match(bootstrapSource, /gameMenuExitTitleButton\.textContent = "Exit to Title"/, "the menu should expose an in-game Exit to Title action");
@@ -9064,6 +9176,7 @@ const tests = [
     ["hunter reachable firing fallback", testHunterFindsReachableFiringFallbackBeforeGlare],
     ["hunter enemy stranded fallback", testHunterEnemyStrandedFallback],
     ["simulation-owned character enemy patrol", testCharacterEnemyPatrolBehavior],
+    ["ground enemies walk up small steps", testGroundEnemyAutomaticSmallStep],
     ["character enemy aggressive chase and combo", testCharacterEnemyAggressiveChaseAndCombo],
     ["rebalanced enemy health and standard rocket hit counts", testRebalancedEnemyHealthAndRocketHits],
     ["character enemy rocket combat", testCharacterEnemyRocketCombat],
@@ -9110,6 +9223,7 @@ const tests = [
     ["single jump press is not reused across catch-up substeps", testSingleJumpPressIsNotReusedAcrossCatchupSubsteps],
     ["air boost requires release after ground jump", testAirBoostRequiresReleaseAfterGroundJump],
     ["wall collision", testWallCollision],
+    ["automatic small-step traversal", testAutomaticSmallStepTraversal],
     ["closed atlas loop creates collision area", testClosedAtlasLoopCreatesCollisionArea],
     ["collision area rejects shallow corner entry", testCollisionAreaRejectsShallowCornerEntry],
     ["collision area pushes embedded player to nearest side", testCollisionAreaPushesEmbeddedPlayerToNearestSide],

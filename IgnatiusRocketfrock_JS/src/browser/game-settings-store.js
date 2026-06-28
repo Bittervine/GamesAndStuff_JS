@@ -8,7 +8,7 @@ function migrateStoredGameSettings(value) {
     if (version < 3 && Number(source.musicVolume) === 0.6) {
         return {
             ...source,
-            version: 3,
+            version: 4,
             musicVolume: DEFAULT_GAME_SETTINGS.musicVolume
         };
     }
