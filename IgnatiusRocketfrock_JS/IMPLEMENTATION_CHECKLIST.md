@@ -2533,3 +2533,11 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Guarantee genuine power-up pickups at nontrivial reward density.
 - [x] Let grounded Ignatius and grounded walking enemies step over rises below one eighth of actor height.
 - [x] Keep taller ledges blocking and covered by movement regressions.
+
+## Revision 260 cleaner minimap overlay and denser horizontal upper lanes
+
+- [x] Remove the minimap's opaque rectangular background patch so the overlay blends into gameplay cleanly.
+- [x] Keep the minimap frame clickable while making its shell transparent.
+- [x] Increase Mostly horizontal upper-platform density to roughly one quarter of the route span.
+- [x] Bias the extra raised platforms toward combat perches so monsters occupy the upper lane more often.
+- [x] Add regression coverage for transparent minimap rendering and horizontal upper-platform coverage.

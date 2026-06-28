@@ -475,11 +475,11 @@
             min-width: 48px;
             min-height: 1px;
             overflow: hidden;
-            border: 1px solid var(--line);
+            border: 1px solid rgba(201, 167, 255, 0.34);
             border-radius: 16px;
-            background: var(--panel);
-            box-shadow: 0 20px 70px rgba(0, 0, 0, 0.22);
-            backdrop-filter: blur(10px);
+            background: transparent;
+            box-shadow: none;
+            backdrop-filter: none;
             box-sizing: border-box;
             transition: border-color 120ms ease, filter 120ms ease, opacity 120ms ease;
         }
@@ -493,7 +493,7 @@
             border: 0;
             border-radius: 15px;
             padding: 0;
-            background: rgba(7, 7, 13, 0.72);
+            background: transparent;
             box-shadow: none;
             cursor: pointer;
         }
@@ -501,7 +501,7 @@
         #open-game-menu:hover,
         #open-game-menu:focus-visible,
         #open-game-menu[aria-pressed="true"] {
-            background: rgba(12, 10, 19, 0.88);
+            filter: brightness(1.06);
         }
 
         #open-game-menu:focus-visible {

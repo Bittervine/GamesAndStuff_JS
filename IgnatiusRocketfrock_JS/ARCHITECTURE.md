@@ -815,3 +815,9 @@ The browser minimap remains presentation-only in `src/browser/game-bootstrap.js`
 Traversal realization records platform collision mode on every generated support. Validation rejects any body overlap involving a `oneWay` support and rejects different-height overlap between static blockable supports. Equal-surface blockable overlaps remain legal for continuous ground compositions. Wide caverns may add reachable second-tier secondary supports from first-tier perches; each support remains an ordinary placement with explicit bidirectional transitions and either `combatPerch` or `rewardPerch` purpose. Encounter and reward stages consume those existing supports without mutating terrain.
 
 Small-step traversal stays in portable simulation. The player horizontal sweep and grounded enemy support selection may resolve a higher floor only below the actor-relative one-eighth-height threshold. The resolution adopts the raised support directly and does not synthesize a jump, while larger ledges retain normal collision blocking.
+
+## Revision 260 transparent minimap shell and denser horizontal upper-platform coverage
+
+The minimap overlay in `src/browser/game-bootstrap.js` remains a lightweight Canvas rendering of cave outline, authored walkable surfaces, camera box, exit, and player. Revision 260 removes the explicit background fill and relies on a transparent panel shell in `game.html`, so only the actual minimap content appears over gameplay.
+
+In `src/shared/level-generator-data.js`, horizontal run-and-gun drafts now treat upper content density as a coverage target rather than just a small fixed perch count. Secondary-platform generation continues until it satisfies both count and approximate span coverage goals, and it biases those extra placements toward combat perches so the mostly-horizontal variant produces a sustained upper monster lane.

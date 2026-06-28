@@ -4534,6 +4534,7 @@ function testAutomaticLevelGeneratorVariantCompatibility() {
                         assert.ok(groundTransitions.every((transition) => transition.rise === 0 && transition.drop === 0), `${key} should overlap solid ground panels only when their walking surfaces are level`);
                         assert.equal(traversalMetrics.oneWayPlatformOverlapCount, 0, `${key} should never overlap a thin green one-way platform with another generated platform`);
                         assert.equal(traversalMetrics.misalignedPlatformOverlapCount, 0, `${key} should overlap solid panels only when their walking surfaces align`);
+                        assert.ok(traversalMetrics.secondaryPlatformCount >= 1, `${key} should keep at least one raised upper platform available for combat or rewards`);
                         const oneWaySupports = draft.generation.traversal.supports.filter((support) => support.collisionMode === "oneWay");
                         for (const oneWay of oneWaySupports) {
                             const oneWayTop = oneWay.surfaceY - oneWay.height * oneWay.surfaceYRatio;

@@ -93,7 +93,7 @@ const autoFullscreenRow = document.getElementById("auto-fullscreen-row");
 const autoFullscreenInput = document.getElementById("auto-fullscreen");
 const showMinimapInput = document.getElementById("show-minimap");
 
-const GAME_REVISION = "259";
+const GAME_REVISION = "260";
 
 let displayedLoadingProgress = 0;
 let activeCaveWindow = normalizeCaveWindow(null);
@@ -591,11 +591,6 @@ function drawMinimap(force = false) {
     ctx.save();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, cssWidth, cssHeight);
-    const background = ctx.createLinearGradient(0, 0, 0, cssHeight);
-    background.addColorStop(0, "rgba(15,12,22,0.98)");
-    background.addColorStop(1, "rgba(5,5,10,0.98)");
-    ctx.fillStyle = background;
-    ctx.fillRect(0, 0, cssWidth, cssHeight);
 
     const cavePoints = activeCaveWindow?.enabled && Array.isArray(activeCaveWindow.points)
         ? activeCaveWindow.points

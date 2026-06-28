@@ -3,7 +3,7 @@ import {
     generateCavePerimeterPlacements
 } from "./cave-window-decoration.js";
 
-export const AUTOMATIC_LEVEL_GENERATOR_VERSION = 21;
+export const AUTOMATIC_LEVEL_GENERATOR_VERSION = 22;
 export const AUTOMATIC_LEVEL_GENERATOR_ID = "automatic-level-generator-9";
 
 const GENERATED_PLAYER_BODY_WIDTH = 34;
@@ -2516,6 +2516,7 @@ export function validatePlayableEmptyCavern(value = {}) {
         secondaryPlatformCount: supports.filter((support) => support.secondaryPlatform).length,
         secondaryRewardPerchCount: supports.filter((support) => support.rewardPerch).length,
         secondaryCombatPerchCount: supports.filter((support) => support.combatPerch).length,
+        secondaryPlatformCoverageRatio: 0,
         recoveryRequiredGapCount: 0,
         recoveryBacktrackReachableCount: 0,
         recoveryReturnLiftCount: supports.filter((support) => support.recoveryReturnLift).length,
@@ -2684,6 +2685,38 @@ export function validatePlayableEmptyCavern(value = {}) {
             const sharePopulation = spanSupports.length ? spanSupports : mainStaticSupports;
             metrics.longPlatformShare = Math.round(sharePopulation.filter((support) => support.atlasId === "at_atlas_004" || finiteNumber(support.walkableWidth, 0) >= 520).length / sharePopulation.length * 10000) / 10000;
         }
+        const secondaryPlatforms = supports.filter((support) => support.secondaryPlatform);
+        const runAndGunGroundParents = supports.filter((support) => support.role === "runAndGunGround");
+        if (runAndGunGroundParents.length) {
+            const coveredParents = new Set(secondaryPlatforms.map((support) => String(support.parentSupportId || "")).filter(Boolean));
+            metrics.secondaryPlatformCoverageRatio = Math.round(coveredParents.size / runAndGunGroundParents.length * 10000) / 10000;
+        } else {
+            const secondarySpans = secondaryPlatforms
+                .map((support) => ({
+                    left: finiteNumber(support.walkableLeftX, support.centerX - support.width * 0.5),
+                    right: finiteNumber(support.walkableRightX, support.centerX + support.width * 0.5)
+                }))
+                .filter((span) => span.right > span.left)
+                .sort((left, right) => left.left - right.left);
+            let secondaryCoverage = 0;
+            let activeSpan = null;
+            for (const span of secondarySpans) {
+                if (!activeSpan) {
+                    activeSpan = { ...span };
+                    continue;
+                }
+                if (span.left <= activeSpan.right) {
+                    activeSpan.right = Math.max(activeSpan.right, span.right);
+                } else {
+                    secondaryCoverage += activeSpan.right - activeSpan.left;
+                    activeSpan = { ...span };
+                }
+            }
+            if (activeSpan) secondaryCoverage += activeSpan.right - activeSpan.left;
+            const routeBoundsForCoverage = routeGraphBounds(route, 0);
+            const routeSpanForCoverage = Math.max(1, finiteNumber(routeBoundsForCoverage?.w, 0));
+            metrics.secondaryPlatformCoverageRatio = Math.round(secondaryCoverage / routeSpanForCoverage * 10000) / 10000;
+        }
         
             const recoveryLanes = Array.isArray(traversal.recoveryLanes) ? traversal.recoveryLanes : [];
             metrics.recoveryLaneCount = recoveryLanes.length;
@@ -2807,9 +2840,11 @@ export function validatePlayableEmptyCavern(value = {}) {
             );
             if (enforceLayeredStaticHeadroom && !includesMovingPlatform && !connectedContinuousGround) {
                 metrics.minimumStaticHeadroom = Math.min(metrics.minimumStaticHeadroom, bodyClearance);
-                if (bodyClearance < GENERATED_STATIC_HEADROOM - 0.5) {
+                const secondaryRunAndGunPair = (upper.secondaryPlatform && lower.role === "runAndGunGround") || (lower.secondaryPlatform && upper.role === "runAndGunGround");
+                const requiredStaticHeadroom = secondaryRunAndGunPair ? 72 : GENERATED_STATIC_HEADROOM;
+                if (bodyClearance < requiredStaticHeadroom - 0.5) {
                     metrics.blockedSupportPairs += 1;
-                    errors.push(`Supports “${upper.id}” and “${lower.id}” leave only ${roundCoordinate(bodyClearance)} units of static headroom; Ignatius needs at least ${GENERATED_STATIC_HEADROOM}.`);
+                    errors.push(`Supports “${upper.id}” and “${lower.id}” leave only ${roundCoordinate(bodyClearance)} units of static headroom; Ignatius needs at least ${requiredStaticHeadroom}.`);
                 }
             }
             const oneWayRunAndGunPair = first.role === "runAndGunGround" && second.role === "runAndGunGround";
@@ -3584,19 +3619,27 @@ function buildStandardTraversal({
 
     const secondaryPlatforms = [];
     const wideUpperCavern = implementations.cavern === "wide-upper-contour-cavern-v1";
-    const baseSecondaryLimit = settings.length === "grand" ? 8 : settings.length === "extended" ? 6 : settings.length === "standard" ? 5 : 3;
+    const baseSecondaryLimit = useRunAndGunRoute
+        ? (settings.length === "grand" ? 13 : settings.length === "extended" ? 10 : settings.length === "standard" ? 8 : 5)
+        : (settings.length === "grand" ? 8 : settings.length === "extended" ? 6 : settings.length === "standard" ? 5 : 3);
     const secondaryLimit = baseSecondaryLimit + (wideUpperCavern ? 2 : 0);
     const secondaryParents = supports.filter((support) => support.mandatory
         && !support.moving
         && support.role !== "doorSupport"
         && support.atlasId === "at_atlas_004"
-        && support.walkableWidth >= 360);
-    const candidates = rng.shuffle(wideUpperCavern
-        ? [...secondaryParents, ...secondaryParents]
-        : secondaryParents);
+        && support.walkableWidth >= (useRunAndGunRoute ? 300 : 360));
+    const desiredCoveredParents = useRunAndGunRoute
+        ? Math.max(2, Math.ceil(secondaryParents.length * 0.25))
+        : 0;
+    const candidateRepeats = useRunAndGunRoute ? (wideUpperCavern ? 4 : 3) : (wideUpperCavern ? 2 : 1);
+    const candidates = [];
+    for (let repeat = 0; repeat < candidateRepeats; repeat += 1) {
+        candidates.push(...rng.shuffle([...secondaryParents]));
+    }
+    const coveredSecondaryParentIds = new Set();
     for (const parent of candidates) {
-            if (secondaryPlatforms.length >= secondaryLimit) break;
-            const combatPerch = secondaryPlatforms.length % 2 === 1;
+            if (secondaryPlatforms.length >= secondaryLimit && coveredSecondaryParentIds.size >= desiredCoveredParents) break;
+            const combatPerch = useRunAndGunRoute ? secondaryPlatforms.length % 3 !== 0 : secondaryPlatforms.length % 2 === 1;
             const targetWidth = combatPerch
                 ? clamp(parent.walkableWidth * rng.range(0.46, 0.64), 410, 580)
                 : clamp(parent.walkableWidth * rng.range(0.3, 0.48), 220, 460);
@@ -3625,7 +3668,7 @@ function buildStandardTraversal({
                     const clearance = surfaceY <= support.surfaceY
                         ? support.surfaceY - candidateBottom
                         : surfaceY - supportBottom;
-                    return clearance < GENERATED_STATIC_HEADROOM;
+                    return clearance < ((support.role === "runAndGunGround" || support.secondaryPlatform) && useRunAndGunRoute ? 72 : GENERATED_STATIC_HEADROOM);
                 });
                 if (!conflicts) {
                     centerX = roundCoordinate(candidateCenterX);
@@ -3674,6 +3717,8 @@ function buildStandardTraversal({
             }
             transitions.push(up, down);
             secondaryPlatforms.push(support);
+            coveredSecondaryParentIds.add(parent.id);
+            coveredSecondaryParentIds.add(parent.id);
         }
 
     // Wide halls may have a continuous ground floor with very few exposed side
@@ -3682,10 +3727,10 @@ function buildStandardTraversal({
     if (wideUpperCavern && secondaryPlatforms.length < secondaryLimit) {
         const firstTier = rng.shuffle([...secondaryPlatforms]);
         for (const parent of firstTier) {
-            if (secondaryPlatforms.length >= secondaryLimit) break;
+            if (secondaryPlatforms.length >= secondaryLimit && coveredSecondaryParentIds.size >= desiredCoveredParents) break;
             const groundParent = supports.find((support) => support.id === parent.parentSupportId);
             if (!groundParent) continue;
-            const combatPerch = secondaryPlatforms.length % 2 === 1;
+            const combatPerch = useRunAndGunRoute ? secondaryPlatforms.length % 3 !== 0 : secondaryPlatforms.length % 2 === 1;
             const targetWidth = combatPerch
                 ? clamp(parent.walkableWidth * rng.range(0.9, 1.2), 400, 560)
                 : clamp(parent.walkableWidth * rng.range(0.72, 1.05), 240, 430);
@@ -3708,7 +3753,7 @@ function buildStandardTraversal({
                 const clearance = surfaceY <= support.surfaceY
                     ? support.surfaceY - candidateBottom
                     : surfaceY - supportBottom;
-                return clearance < GENERATED_STATIC_HEADROOM;
+                return clearance < ((support.role === "runAndGunGround" || support.secondaryPlatform) && useRunAndGunRoute ? 72 : GENERATED_STATIC_HEADROOM);
             });
             if (conflicts) continue;
             const support = addSupport({

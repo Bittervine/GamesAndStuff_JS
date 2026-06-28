@@ -2767,3 +2767,9 @@ Generated platform compositions now validate their visual seams against collisio
 The Wide, upward-expanding cavern uses more broad shallow room stamps and may build a second reachable tier inward from a first detached perch. This makes continuous ground halls capable of carrying several upper combat and reward positions instead of leaving the entire ceiling volume empty. Encounter placement recognizes combat perches, treasure placement recognizes reward perches, and nontrivial reward density guarantees genuine power-up pickups.
 
 Grounded movement gains a conservative automatic step-up. Ignatius and grounded walking enemies may climb a rise below one eighth of their own collision height without entering a jump state. Taller ledges still block ordinary walking and continue to require jump or navigation behavior.
+
+## Revision 260 minimap blend fix and denser mostly-horizontal upper combat lane
+
+Revision 260 removes the visible dark rectangle behind the minimap. The minimap remains clickable and bordered, but both the panel shell and the canvas drawing are now transparent outside the cave silhouette itself, so the overlay no longer stamps a mismatched background region over the game view.
+
+The Mostly horizontal generator also gets a denser upper lane. Instead of only a few detached perches, it now keeps adding raised platforms until their combined walkable span covers roughly a quarter of the route width, with a combat-biased perch mix so the upper lane more often carries monsters.
