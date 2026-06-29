@@ -1,14 +1,14 @@
 export const POWER_UP_EFFECT_IDS = Object.freeze({
     SPEED_SHOT: "speedShot",
     SHIELD: "shield",
-    // Compatibility alias for revision-211/212 data and saved snapshots.
-    ROCKET_OVERDRIVE: "speedShot",
     WRENCH_TRIPLE: "wrenchTriple",
     WRENCH_DART: "wrenchDart",
     WRENCH_TWIN: "wrenchTwin",
     WRENCH_BIGBOMB: "wrenchBigbomb",
     WRENCH_BOOMERANG: "wrenchBoomerang"
 });
+
+const RETIRED_ROCKET_OVERDRIVE_ID = "rocketOverdrive";
 
 export const POWER_UP_GROUP_IDS = Object.freeze({
     WRENCH: "wrench"
@@ -193,8 +193,7 @@ function normalizeStacking(value) {
 }
 
 function canonicalEffectId(effectId) {
-    const id = String(effectId || "").trim();
-    return id === "rocketOverdrive" ? POWER_UP_EFFECT_IDS.SPEED_SHOT : id;
+    return String(effectId || "").trim();
 }
 
 function normalizeAngles(value, fallback) {
@@ -306,9 +305,12 @@ export function normalizePowerUpEffectDefinition(rawDefinition, fallbackId = "")
 export function normalizePowerUpPickup(rawPickup) {
     const source = rawPickup && typeof rawPickup === "object" ? rawPickup : {};
     const requestedId = canonicalEffectId(source.effectId || POWER_UP_EFFECT_IDS.SPEED_SHOT);
+    if (requestedId === RETIRED_ROCKET_OVERDRIVE_ID) return null;
     const builtin = powerUpEffectDefinition(requestedId);
-    const authoredEffect = source.effect || {
-        ...(builtin || {}),
+    const hasAuthoredEffect = source.effect && typeof source.effect === "object";
+    if (!builtin && !hasAuthoredEffect) return null;
+    const authoredEffect = hasAuthoredEffect ? source.effect : {
+        ...builtin,
         id: requestedId || builtin?.id,
         durationSeconds: source.durationSeconds ?? builtin?.durationSeconds,
         permanent: source.permanent ?? builtin?.permanent,
@@ -333,6 +335,8 @@ export function normalizePowerUpPickup(rawPickup) {
 
 export function normalizeActivePowerUpEffect(rawEffect) {
     const source = rawEffect && typeof rawEffect === "object" ? rawEffect : {};
+    const requestedId = canonicalEffectId(source.id || source.definition?.id);
+    if (requestedId === RETIRED_ROCKET_OVERDRIVE_ID) return null;
     const definition = normalizePowerUpEffectDefinition(source.definition, source.id);
     if (!definition) return null;
     return {
@@ -350,8 +354,7 @@ export function normalizeActivePowerUpEffect(rawEffect) {
 
 export function activePowerUpEffect(state, effectId) {
     const canonicalId = canonicalEffectId(effectId);
-    const raw = state?.statusEffects?.active?.[canonicalId] ||
-        (canonicalId === POWER_UP_EFFECT_IDS.SPEED_SHOT ? state?.statusEffects?.active?.rocketOverdrive : null);
+    const raw = state?.statusEffects?.active?.[canonicalId];
     if (!raw) return null;
     const normalized = normalizeActivePowerUpEffect(raw);
     if (!normalized) return null;

@@ -2770,3 +2770,25 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Synchronize catalog defaults, level-1 examples, tests, and the game manual.
 - [x] Fix the stale Level Editor revision label and stale current architecture timing/Twin descriptions discovered during the change, then record them in the plan.
 - [x] Codify the rule that discovered bugs/deprecations are noted in the plan and manual-covered changes update the manual.
+
+
+## Revision 281 current-schema-only saved-level cleanup
+
+- [x] Remove runtime and Level Editor migration for root-level player starts, `magicPortal`, and plain `exit` records.
+- [x] Remove revision-075 mailbox `thoughts` array import handling; retain only `thoughtText`, and strip unsupported retired fields during editor import.
+- [x] Remove enemy `behavior`, `chaseSpeed`, and `awarenessVerticalRange` compatibility paths.
+- [x] Remove Rocket Overdrive effect, pickup, and active-state aliases; retain only Speed Shot.
+- [x] Remove top/bottom cavern-profile generation, serialization, and containment fallback.
+- [x] Remove the legacy raw `jumpVelocity` tuning migration.
+- [x] Delete the lingering obsolete cave-decoration `spacing` property from `level_001`.
+- [x] Synchronize game/editor revision labels to 281 and add current-schema regressions.
+- [x] Pass the 148-test fast suite, all 9 generator tests, and the complete 157-test headless suite.
+
+
+## Revision 282 shorter post-death camera hold
+
+- [x] Reduce `playerDeathAfterglowSeconds` from 3 seconds to 2 seconds.
+- [x] Keep cover, burst, targeting suppression, and ordinary respawn behavior unchanged.
+- [x] Add an explicit regression assertion for the new default.
+- [x] Update the Game Manual, architecture notes, plan, and packaged revision labels to 282.
+- [x] Pass the complete 157-test headless suite and verify the release archive excludes PNG and XCF files.

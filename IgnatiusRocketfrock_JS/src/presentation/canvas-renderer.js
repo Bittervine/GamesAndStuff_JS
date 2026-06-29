@@ -1757,7 +1757,7 @@ class RocketfrockRenderer {
         ctx.textAlign = "center";
         ctx.textBaseline = "bottom";
         ctx.fillStyle = "rgba(144, 239, 255, 0.96)";
-        ctx.fillText(`${enemy.strategy || "legacy"}:${enemy.aiState || enemy.movementPhase || "idle"}`, origin.x, origin.y - enemy.height * view.zoom - 8 * view.zoom);
+        ctx.fillText(`${enemy.strategy || "unknown"}:${enemy.aiState || enemy.movementPhase || "idle"}`, origin.x, origin.y - enemy.height * view.zoom - 8 * view.zoom);
         if (route.length || Number.isFinite(Number(enemy.routeTargetX))) {
             ctx.strokeStyle = "rgba(89, 225, 255, 0.82)";
             ctx.lineWidth = Math.max(1, 1.5 * view.zoom);

@@ -2915,3 +2915,17 @@ The **Max spacing px** setting is removed. Once automatic decoration was require
 Speed Shot and all five wrench modes now last 30 seconds. Shield now lasts 10 seconds. The change is applied consistently to shared effect definitions, entity-catalog defaults, the level-1 examples, tests, and player documentation. Existing refresh, exclusivity, clear-on-death, HUD-priority, and sixty-second pickup-respawn behavior is unchanged.
 
 Housekeeping bugs found during this revision: the Level Editor heading still displayed revision 268, and the current architecture summary still described the old 8/15/5-second power-up timings plus the pre-rebalance Green Twin damage. The editor label is corrected to revision 280 and the architecture summary now matches the authoritative shared data. Going forward, every discovered bug, stale behavior, or deprecated path must be noted in this plan, and manual-covered behavior must be updated in `GameManual.html` in the same revision.
+
+
+## Revision 281 current-schema-only saved-level cleanup
+
+The compatibility debt recorded across earlier revisions is removed instead of being carried forward indefinitely. Runtime and the Level Editor no longer migrate root-level `playerStart`, `wizardStart`, or `start` records, `magicPortal`/plain `exit` entities, revision-075 `thoughts` arrays, enemy `behavior`/`chaseSpeed`/`awarenessVerticalRange` fields, or the retired Rocket Overdrive pickup/effect identity. Current records must use doorway-owned starts, `thoughtText`, `strategy`, `runSpeed`, and `speedShot`.
+
+The automatic cavern generator no longer computes or serializes the old top/bottom `profile`, and cavern containment no longer has a profile fallback. The arbitrary closed polygon is now the sole cavern geometry representation. State initialization also drops the old raw `jumpVelocity` tuning migration and derives that internal value only from `ordinaryJumpHeight` and gravity.
+
+A stale-data bug was found during the audit: `assets/level_001.json` still contained `caveWindow.decoration.spacing` even though revision 279 removed the field from normalization and editor authoring. The property is now deleted from the active level. Regression coverage verifies that production runtime and power-up code contain no retired migration aliases, the editor strips unsupported retired records and fields instead of preserving them, generated caverns contain no profile record, the obsolete spacing control remains absent, and revision labels are synchronized at 281. The fast suite passes 148 tests, the isolated generator suite passes all 9 tests, and the complete headless suite passes all 157 tests. No Game Manual change is required because current gameplay, controls, durations, damage, and editor controls are unchanged; only unsupported historical data formats were removed.
+
+
+## Revision 282 shorter post-death camera hold
+
+The camera now remains on Ignatius's death site for two seconds after the spark burst instead of three seconds. Cover and burst animation durations are unchanged, and every lethal route continues through the same portable death lifecycle and ordinary respawn path. The Game Manual now states the two-second hold explicitly. The complete 157-test headless suite passes. No deprecated feature or unrelated gameplay behavior was encountered during this change.

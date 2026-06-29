@@ -185,7 +185,7 @@ export const DEFAULT_TUNING = Object.freeze({
     playerCrushClosingDistanceEpsilon: 0.0001,
     playerDeathCoverSeconds: 0.42,
     playerDeathBurstSeconds: 0.72,
-    playerDeathAfterglowSeconds: 3,
+    playerDeathAfterglowSeconds: 2,
     playerDeathCoverParticleCount: 102,
     playerDeathBurstParticleCount: 72,
     hazardContactDamage: 20,
@@ -276,13 +276,6 @@ export function createInitialGameState(overrides = {}) {
     const tuning = deepClone(DEFAULT_TUNING);
     if (overrides.tuning) {
         Object.assign(tuning, overrides.tuning);
-    }
-    const tuningOverrides = overrides.tuning && typeof overrides.tuning === "object" ? overrides.tuning : {};
-    if (Object.prototype.hasOwnProperty.call(tuningOverrides, "jumpVelocity")
-        && !Object.prototype.hasOwnProperty.call(tuningOverrides, "ordinaryJumpHeight")) {
-        const legacyVelocity = Math.abs(Number(tuning.jumpVelocity) || 0);
-        const gravity = Math.max(1, Number(tuning.gravity) || DEFAULT_TUNING.gravity);
-        tuning.ordinaryJumpHeight = Math.max(1, legacyVelocity * legacyVelocity / (2 * gravity));
     }
     tuning.ordinaryJumpHeight = Math.max(1, Number(tuning.ordinaryJumpHeight) || DEFAULT_TUNING.ordinaryJumpHeight);
     tuning.jumpVelocity = ordinaryJumpVelocity(tuning.gravity, tuning.ordinaryJumpHeight);
@@ -1024,20 +1017,11 @@ function setReactiveObjectState(state, object, nextState) {
 }
 
 function isWizardEntryDoor(entity) {
-    return Boolean(entity) && (
-        entity.type === "wizard_entry_door" ||
-        entity.kind === "wizard_entry_door" ||
-        ((entity.type === "magicPortal" || entity.kind === "magicPortal") &&
-            (entity.portalRole === "entrance" || entity.introRole === "entrance" || entity.startSequence === true))
-    );
+    return Boolean(entity) && (entity.type === "wizard_entry_door" || entity.kind === "wizard_entry_door");
 }
 
 function isWizardExitDoor(entity) {
-    return Boolean(entity) && (
-        entity.type === "wizard_exit_door" ||
-        entity.kind === "wizard_exit_door" ||
-        ((entity.type === "magicPortal" || entity.kind === "magicPortal") && entity.portalRole === "exit")
-    );
+    return Boolean(entity) && (entity.type === "wizard_exit_door" || entity.kind === "wizard_exit_door");
 }
 
 function isWizardDoor(entity) {
@@ -1423,13 +1407,8 @@ function mailboxStoryEntities(entities) {
 }
 
 function normalizeMailboxThoughtText(mailbox) {
-    const directThought = String(mailbox?.thoughtText || "").trim();
-    if (directThought) return directThought;
-    if (Array.isArray(mailbox?.thoughts)) {
-        const legacyThoughts = mailbox.thoughts.map((entry) => String(entry || "").trim()).filter(Boolean);
-        if (legacyThoughts.length) return legacyThoughts.join(" ");
-    }
-    return "How kind of him! I hope I can make him proud. This cave doesn’t look quite like it did in the brochures, but I’m sure it will be fine.";
+    const thoughtText = String(mailbox?.thoughtText || "").trim();
+    return thoughtText || "How kind of him! I hope I can make him proud. This cave doesn’t look quite like it did in the brochures, but I’m sure it will be fine.";
 }
 
 function mailboxStoryRecord(state, mailbox) {
@@ -2403,17 +2382,14 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
     const anchorX = clamp(Number(anchor?.x ?? 0.5), 0, 1);
     const anchorY = clamp(Number(anchor?.y ?? 0.42), 0, 1);
     const facing = Number(entity.facing) < 0 ? -1 : 1;
-    const legacyBehavior = String(entity.behavior || "guard") === "patrol" ? "patrol" : "guard";
     const requestedStrategy = String(entity.strategy || "").trim().toLowerCase();
     const strategy = requestedStrategy === "hunter"
         ? "hunter"
         : requestedStrategy === "bomber"
             ? "bomber"
-            : requestedStrategy === "sentry"
-            ? "sentry"
             : requestedStrategy === "simple_patrol"
                 ? "simple_patrol"
-                : (legacyBehavior === "patrol" ? "simple_patrol" : "sentry");
+                : "sentry";
     const locomotion = String(entity.locomotion || "").trim().toLowerCase() === "flying"
         ? "flying"
         : "ground";
@@ -2474,7 +2450,7 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         airSourceObstacleId: null,
         airTargetSupportId: null,
         walkSpeed: Math.max(0, finiteNumberOr(entity.walkSpeed, 56)),
-        runSpeed: Math.max(0, finiteNumberOr(entity.runSpeed, finiteNumberOr(entity.chaseSpeed, state.tuning.enemyDefaultRunSpeed))),
+        runSpeed: Math.max(0, finiteNumberOr(entity.runSpeed, state.tuning.enemyDefaultRunSpeed)),
         runAcceleration: Math.max(1, finiteNumberOr(entity.runAcceleration, state.tuning.groundAcceleration)),
         jumpHeight: Math.max(0, finiteNumberOr(entity.jumpHeight, state.tuning.enemyDefaultJumpHeight)),
         jumpGravity: Math.max(1, finiteNumberOr(entity.jumpGravity, state.tuning.enemyDefaultJumpGravity)),
@@ -2604,13 +2580,12 @@ export function applyEditorLevelToWorld(state, editorLevel) {
     const placements = Array.isArray(source.placements) ? source.placements : [];
     const entities = Array.isArray(source.entities) ? source.entities : [];
     const entryDoorSource = wizardEntryDoorEntity(entities);
-    const legacyPlayerStart = source.playerStart || source.wizardStart || source.start || null;
     const playerStart = entryDoorSource
         ? {
             x: Number(entryDoorSource.x) + doorWalkDirection(entryDoorSource, 1) * Math.max(48, Number(entryDoorSource.emergeDistance) || Math.max(120, Number(entryDoorSource.w) || 150)),
             y: Number(entryDoorSource.y) || 360
         }
-        : legacyPlayerStart;
+        : null;
 
     const visuals = [];
     for (const placement of placements) {
@@ -2801,7 +2776,6 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         return Boolean(entity.pickupKind) || Boolean(entity.effectId) || Array.isArray(entity.randomEffectIds) || [
             "fuel",
             "fuelPickup",
-            "rocketOverdrivePickup",
             "speedShotPickup",
             "shieldPickup",
             "randomWrenchPickup",
@@ -2824,7 +2798,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             ? randomPowerUpEffectId(state, entity.id || `random_powerup_${index + 1}`, randomEffectIds, randomRollCount)
             : null;
         const authoredEffectId = selectedRandomEffectId || entity.effectId ||
-            (type === "rocketOverdrivePickup" || type === "speedShotPickup"
+            (type === "speedShotPickup"
                 ? POWER_UP_EFFECT_IDS.SPEED_SHOT
                 : (type === "shieldPickup" ? POWER_UP_EFFECT_IDS.SHIELD : null));
         const powerUp = authoredEffectId
@@ -3833,10 +3807,7 @@ function launchCharacterEnemyProjectile(state, enemy) {
 }
 
 function characterEnemyRunSpeed(enemy, tuning = DEFAULT_TUNING) {
-    return Math.max(0, finiteNumberOr(
-        enemy?.runSpeed,
-        finiteNumberOr(enemy?.chaseSpeed, tuning?.enemyDefaultRunSpeed)
-    ));
+    return Math.max(0, finiteNumberOr(enemy?.runSpeed, tuning?.enemyDefaultRunSpeed));
 }
 
 function characterEnemyCanNoticePlayer(state, enemy) {
@@ -6416,7 +6387,7 @@ function updatePlayerDeath(state, dt) {
         });
     } else if (player.deathPhase === "burst" && player.deathPhaseTimer <= 0) {
         player.deathPhase = "afterglow";
-        player.deathPhaseTimer = Math.max(FIXED_DT, Number(state.tuning.playerDeathAfterglowSeconds) || 3);
+        player.deathPhaseTimer = Math.max(FIXED_DT, Number(state.tuning.playerDeathAfterglowSeconds) || 2);
         addEvent(state, "PLAYER_DEATH_AFTERGLOW", {
             sourceId: player.deathSourceId || "unknown",
             x: round(player.x),

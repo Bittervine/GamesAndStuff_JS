@@ -548,7 +548,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 280</small></h1>
+        <h1>Level Editor <small>rev 282</small></h1>
         <p>Place atlas assets, entry/exit doors, mailboxes, enemies, and triggers, then export a level JSON. The wizard entry door is the effective start of the level.</p>
 
         <div class="box">
@@ -1174,6 +1174,8 @@ import {
     const ATLAS_AUTOLOAD_LIMIT = 20;
     const LEVEL_AUTOLOAD_LIMIT = 20;
     const SPECIAL_ATLAS_IDS = ["it_atlas_001"];
+    const RETIRED_LEVEL_ENTITY_TYPES = new Set(["magicPortal", "exit", "rocketOverdrivePickup"]);
+    const RETIRED_POWER_UP_EFFECT_ID = "rocketOverdrive";
     const ENTITY_CATALOG_URL = "assets/it_entities_001.json";
     const ENEMY_CATALOG_URL = "assets/ct_enemies_001.json";
     const WIZARD_EDITOR_WIDTH = 36;
@@ -1449,15 +1451,7 @@ import {
     }
 
     function formatMailboxThoughtText(record) {
-        const directThought = String(record?.thoughtText || "").trim();
-        if (directThought) return directThought;
-        if (Array.isArray(record?.thoughts)) {
-            return record.thoughts
-                .map((entry) => String(entry || "").trim())
-                .filter(Boolean)
-                .join(" ");
-        }
-        return "";
+        return String(record?.thoughtText || "").trim();
     }
 
     function makeEmptyLevel() {
@@ -1751,7 +1745,7 @@ import {
         }
         for (const entity of state.level.entities || []) {
             const type = String(entity?.type || entity?.kind || "");
-            const endpoint = type === "wizard_entry_door" || type === "wizard_exit_door" || type === "magicPortal";
+            const endpoint = type === "wizard_entry_door" || type === "wizard_exit_door";
             const important = endpoint || ["treasureChest", "speedShotPickup", "shieldPickup", "randomWrenchPickup", "fuel"].includes(type);
             if (!important) continue;
             const padding = endpoint ? 210 : 72;
@@ -1857,10 +1851,7 @@ import {
 
     function characterEnemyStrategy(record) {
         const requested = String(record?.strategy || "").trim().toLowerCase();
-        if (["simple_patrol", "hunter", "sentry"].includes(requested)) {
-            return requested;
-        }
-        return String(record?.behavior || "guard") === "patrol" ? "simple_patrol" : "sentry";
+        return ["simple_patrol", "hunter", "sentry", "bomber"].includes(requested) ? requested : "sentry";
     }
 
     function isReactiveObject(record) {
@@ -2282,11 +2273,14 @@ import {
         }
 
         normalized.entities = normalized.entities
-            .filter((entity) => entity && typeof entity === "object")
+            .filter((entity) => {
+                if (!entity || typeof entity !== "object") return false;
+                const entityType = String(entity.type || entity.kind || "");
+                const effectId = String(entity.effectId || entity.effect?.id || "");
+                return !RETIRED_LEVEL_ENTITY_TYPES.has(entityType) && effectId !== RETIRED_POWER_UP_EFFECT_ID;
+            })
             .map((entity, index) => {
-                let normalizedType = entity.type || entity.kind || "trigger";
-                if (normalizedType === "magicPortal") normalizedType = entity.portalRole === "exit" ? "wizard_exit_door" : "wizard_entry_door";
-                if (normalizedType === "exit") normalizedType = "wizard_exit_door";
+                const normalizedType = entity.type || entity.kind || "trigger";
                 const normalizedEntity = {
                     ...cloneData(entity),
                     id: entity.id || `${normalizedType}_${String(index + 1).padStart(3, "0")}`,
@@ -2297,15 +2291,16 @@ import {
                     h: Math.max(1, Number(entity.h) || 80),
                     notes: entity.notes || ""
                 };
+                delete normalizedEntity.thoughts;
+                delete normalizedEntity.behavior;
+                delete normalizedEntity.chaseSpeed;
+                delete normalizedEntity.awarenessVerticalRange;
                 if (entity.radius !== undefined) normalizedEntity.radius = Number(entity.radius) || 14;
                 if (entity.amount !== undefined) normalizedEntity.amount = Number(entity.amount) || 40;
                 if (isCharacterEnemy(normalizedEntity)) {
                     normalizedEntity.type = "characterEnemy";
                     normalizedEntity.strategy = characterEnemyStrategy(entity);
-                    normalizedEntity.runSpeed = Math.max(0, finiteEditorNumber(entity.runSpeed ?? entity.chaseSpeed, 150));
-                    delete normalizedEntity.behavior;
-                    delete normalizedEntity.chaseSpeed;
-                    delete normalizedEntity.awarenessVerticalRange;
+                    normalizedEntity.runSpeed = Math.max(0, finiteEditorNumber(entity.runSpeed, 150));
                 }
                 for (const visual of entityVisuals(normalizedEntity)) {
                     if (visual.atlasId) referencedAtlases.add(visual.atlasId);
@@ -2319,19 +2314,6 @@ import {
             }
         }
         normalized.atlasRefs.sort((a, b) => a.atlasId.localeCompare(b.atlasId));
-
-        const legacyStart = source.playerStart || source.wizardStart || source.start;
-        if (legacyStart && !normalized.entities.some((entity) => entity.type === "wizard_entry_door")) {
-            const definition = catalogDefinition("wizard_entry_door");
-            if (definition) {
-                const emergeDistance = Number(definition.defaults?.emergeDistance) || 180;
-                const entry = instantiateCatalogEntity("wizard_entry_door", {
-                    x: Number(legacyStart.x) - emergeDistance,
-                    y: Number(legacyStart.y)
-                });
-                if (entry) normalized.entities.push(entry);
-            }
-        }
 
         return normalized;
     }
@@ -2655,7 +2637,7 @@ import {
         return normalizeEnemyNavigationProfile({
             bodyWidth: width,
             bodyHeight: height,
-            runSpeed: Math.max(1, finiteEditorNumber(entity.runSpeed ?? entity.chaseSpeed, 160)),
+            runSpeed: Math.max(1, finiteEditorNumber(entity.runSpeed, 160)),
             groundAcceleration: Math.max(1, finiteEditorNumber(entity.runAcceleration, 950)),
             jumpHeight: Math.max(0, finiteEditorNumber(entity.jumpHeight, 120)),
             gravity: Math.max(1, finiteEditorNumber(entity.jumpGravity, 1200)),
@@ -4402,7 +4384,7 @@ import {
             els.inspectEnemyFacing.value = Number(rec.facing) < 0 ? "-1" : "1";
             els.inspectEnemyPatrolDistance.value = Math.max(0, finiteEditorNumber(rec.patrolDistance, 0));
             els.inspectEnemyWalkSpeed.value = Math.max(0, finiteEditorNumber(rec.walkSpeed, 56));
-            els.inspectEnemyRunSpeed.value = Math.max(0, finiteEditorNumber(rec.runSpeed ?? rec.chaseSpeed, 150));
+            els.inspectEnemyRunSpeed.value = Math.max(0, finiteEditorNumber(rec.runSpeed, 150));
             els.inspectEnemyAwarenessRange.value = Math.max(0, finiteEditorNumber(rec.awarenessRange, 300));
             els.inspectEnemyViewHalfAngle.value = Math.max(0, Math.min(180, finiteEditorNumber(rec.awarenessViewHalfAngle, 60)));
             els.inspectEnemyJumpHeight.value = Math.max(0, finiteEditorNumber(rec.jumpHeight, 118));
@@ -4548,7 +4530,6 @@ import {
                 rec.letterTitle = els.inspectMailboxTitle.value.trim() || "A Letter from Your Humble Editor";
                 rec.letterText = els.inspectMailboxLetter.value;
                 rec.thoughtText = els.inspectMailboxThought.value.trim();
-                delete rec.thoughts;
                 rec.letterAtlasId = rec.letterAtlasId || "it_atlas_001";
                 rec.letterAssetId = rec.letterAssetId || "letter_scroll";
                 rec.thoughtAtlasId = rec.thoughtAtlasId || "it_atlas_001";
@@ -4597,9 +4578,6 @@ import {
                 rec.patrolDistance = Math.max(0, Number(els.inspectEnemyPatrolDistance.value) || 0);
                 rec.walkSpeed = Math.max(0, Number(els.inspectEnemyWalkSpeed.value) || 0);
                 rec.runSpeed = Math.max(0, Number(els.inspectEnemyRunSpeed.value) || 0);
-                delete rec.behavior;
-                delete rec.chaseSpeed;
-                delete rec.awarenessVerticalRange;
                 rec.awarenessRange = Math.max(0, Number(els.inspectEnemyAwarenessRange.value) || 0);
                 rec.awarenessViewHalfAngle = Math.max(0, Math.min(180, Number(els.inspectEnemyViewHalfAngle.value) || 0));
                 rec.jumpHeight = Math.max(0, Number(els.inspectEnemyJumpHeight.value) || 0);

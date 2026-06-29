@@ -2333,30 +2333,15 @@ function cavernPolygonVerticalRanges(points, x) {
     return ranges;
 }
 
-function cavernVerticalRangeAt(cavernOrProfile, x, preferredY = NaN) {
-    const cavern = cavernOrProfile && !Array.isArray(cavernOrProfile) ? cavernOrProfile : null;
-    if (["the-path74-contour-cavern-v4", "wide-upper-contour-cavern-v1"].includes(cavern?.generatorId)) {
-        const ranges = cavernPolygonVerticalRanges(cavern?.caveWindow?.points, x);
-        if (!ranges.length) return null;
-        if (Number.isFinite(preferredY)) {
-            const containing = ranges.find((range) => preferredY >= range.top - 0.001 && preferredY <= range.bottom + 0.001);
-            if (containing) return containing;
-            return [...ranges].sort((a, b) => Math.min(Math.abs(preferredY - a.top), Math.abs(preferredY - a.bottom)) - Math.min(Math.abs(preferredY - b.top), Math.abs(preferredY - b.bottom)))[0];
-        }
-        return [...ranges].sort((a, b) => (b.bottom - b.top) - (a.bottom - a.top))[0];
+function cavernVerticalRangeAt(cavern, x, preferredY = NaN) {
+    const ranges = cavernPolygonVerticalRanges(cavern?.caveWindow?.points, x);
+    if (!ranges.length) return null;
+    if (Number.isFinite(preferredY)) {
+        const containing = ranges.find((range) => preferredY >= range.top - 0.001 && preferredY <= range.bottom + 0.001);
+        if (containing) return containing;
+        return [...ranges].sort((a, b) => Math.min(Math.abs(preferredY - a.top), Math.abs(preferredY - a.bottom)) - Math.min(Math.abs(preferredY - b.top), Math.abs(preferredY - b.bottom)))[0];
     }
-    const samples = Array.isArray(cavernOrProfile) ? cavernOrProfile : cavern?.profile;
-    if (!Array.isArray(samples) || !samples.length) return null;
-    if (x <= samples[0].x) return { top: samples[0].top, bottom: samples[0].bottom };
-    if (x >= samples.at(-1).x) return { top: samples.at(-1).top, bottom: samples.at(-1).bottom };
-    for (let index = 1; index < samples.length; index += 1) {
-        const right = samples[index];
-        if (x > right.x) continue;
-        const left = samples[index - 1];
-        const t = (x - left.x) / Math.max(1e-6, right.x - left.x);
-        return { top: lerp(left.top, right.top, t), bottom: lerp(left.bottom, right.bottom, t) };
-    }
-    return null;
+    return [...ranges].sort((a, b) => (b.bottom - b.top) - (a.bottom - a.top))[0];
 }
 
 
@@ -5586,32 +5571,6 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
 
     if (!stamps.length) throw new Error("Room-and-tunnel cavern builder received no traversal supports.");
 
-    const minX = Math.min(...stamps.map((stamp) => stamp.x - stamp.rx * 0.96));
-    const maxX = Math.max(...stamps.map((stamp) => stamp.x + stamp.rx * 0.96));
-    const span = maxX - minX;
-    const step = Math.max(theme.cavern.sampleStep, span / 52);
-    const samplePositions = [minX, maxX, ...stamps.map((stamp) => stamp.x)];
-    for (const stamp of stamps) {
-        if (["macroRoom", "thePathRoom", "endpointChamber"].includes(stamp.kind)) samplePositions.push(stamp.x - stamp.rx * 0.58, stamp.x + stamp.rx * 0.58);
-    }
-    for (let x = minX; x < maxX + step * 0.25; x += step) samplePositions.push(Math.min(maxX, x));
-    const uniqueSamplePositions = [...new Set(samplePositions.map((x) => roundCoordinate(x)))].sort((a, b) => a - b);
-    const profile = [];
-    for (const sampleX of uniqueSamplePositions) {
-        let top = Infinity;
-        let bottom = -Infinity;
-        for (const stamp of stamps) {
-            const dx = (sampleX - stamp.x) / stamp.rx;
-            if (Math.abs(dx) >= 1) continue;
-            const halfHeight = stamp.ry * Math.sqrt(Math.max(0, 1 - dx * dx));
-            top = Math.min(top, stamp.y - halfHeight);
-            bottom = Math.max(bottom, stamp.y + halfHeight);
-        }
-        if (Number.isFinite(top) && Number.isFinite(bottom)) profile.push({ x: roundCoordinate(sampleX), top, bottom });
-    }
-    smoothCavernProfile(profile, "top", 2);
-    smoothCavernProfile(profile, "bottom", 2);
-
     const contourResult = traceCavernOccupancyContour(stamps, theme);
     const rawPoints = contourResult.points;
     const pointMode = "smooth";
@@ -5638,7 +5597,6 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
         macroPatternLabel: route?.macro?.patternLabel || "",
         rooms: rooms.map((room) => Object.fromEntries(Object.entries(room).map(([key, value]) => [key, typeof value === "number" ? roundCoordinate(value) : value]))),
         stamps: stamps.map((stamp) => Object.fromEntries(Object.entries(stamp).map(([key, value]) => [key, typeof value === "number" ? roundCoordinate(value) : value]))),
-        profile: profile.map((sample) => ({ x: roundCoordinate(sample.x), top: roundCoordinate(sample.top), bottom: roundCoordinate(sample.bottom) })),
         contour: contourResult?.metadata,
         bounds: Object.fromEntries(Object.entries(bounds).map(([key, value]) => [key, roundCoordinate(value)])),
         endpointPositions: endpointEntities.map((entity) => ({ id: entity.id, role: entity.portalRole, x: entity.x, y: entity.y })),
@@ -5663,19 +5621,6 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
     };
 }
 
-
-function smoothCavernProfile(profile, key, passes) {
-    const openingEdge = key === "top" ? Math.min : Math.max;
-    for (let pass = 0; pass < passes; pass += 1) {
-        const values = profile.map((sample) => sample[key]);
-        for (let index = 1; index < profile.length - 1; index += 1) {
-            const smoothed = values[index - 1] * 0.24 + values[index] * 0.52 + values[index + 1] * 0.24;
-            // Smoothing may widen the cave opening, but must never shave away the
-            // ellipse union that was built around traversal supports.
-            profile[index][key] = openingEdge(values[index], smoothed);
-        }
-    }
-}
 
 function deriveGeneratedWorld(cavern, traversal, theme) {
     const bounds = cavern.bounds;
@@ -5978,6 +5923,13 @@ export function routeGraphBounds(route, padding = 180) {
     return { x: minX - amount, y: minY - amount, w: maxX - minX + amount * 2, h: maxY - minY + amount * 2 };
 }
 
+function normalizeGeneratedCavernRecord(value) {
+    if (!value || typeof value !== "object") return undefined;
+    const cavern = JSON.parse(JSON.stringify(value));
+    delete cavern.profile;
+    return cavern;
+}
+
 export function normalizeLevelGeneration(value) {
     if (!value || typeof value !== "object" || !value.route) return null;
     if (String(value.generatorId || "") !== AUTOMATIC_LEVEL_GENERATOR_ID) {
@@ -6037,7 +5989,7 @@ export function normalizeLevelGeneration(value) {
             edges,
             validation: normalizeGenerationValidation(route.validation || value.validation)
         },
-        cavern: value.cavern && typeof value.cavern === "object" ? JSON.parse(JSON.stringify(value.cavern)) : undefined,
+        cavern: normalizeGeneratedCavernRecord(value.cavern),
         traversal: value.traversal && typeof value.traversal === "object" ? JSON.parse(JSON.stringify(value.traversal)) : undefined,
         endpoints: value.endpoints && typeof value.endpoints === "object" ? JSON.parse(JSON.stringify(value.endpoints)) : undefined,
         encounters: value.encounters && typeof value.encounters === "object" ? JSON.parse(JSON.stringify(value.encounters)) : undefined,

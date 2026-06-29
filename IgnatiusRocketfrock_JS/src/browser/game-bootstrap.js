@@ -96,7 +96,7 @@ const autoFullscreenRow = document.getElementById("auto-fullscreen-row");
 const autoFullscreenInput = document.getElementById("auto-fullscreen");
 const showMinimapInput = document.getElementById("show-minimap");
 
-const GAME_REVISION = "280";
+const GAME_REVISION = "282";
 
 let displayedLoadingProgress = 0;
 let activeCaveWindow = normalizeCaveWindow(null);
@@ -703,7 +703,7 @@ function drawMinimap(force = false) {
     }
 
     for (const visual of gameState.world?.visuals || []) {
-        if (visual?.entityType !== "wizard_exit_door" && visual?.entityType !== "magicPortal") continue;
+        if (visual?.entityType !== "wizard_exit_door") continue;
         const centerX = (Number(visual.x) || 0) + (Number(visual.w) || 0) * 0.5;
         const centerY = (Number(visual.y) || 0) + (Number(visual.h) || 0) * 0.5;
         const exitPoint = point(centerX, centerY);

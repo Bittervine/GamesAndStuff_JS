@@ -170,6 +170,7 @@ import {
     WRENCH_POWER_UP_EFFECT_IDS,
     activePowerUpEffect,
     activeWrenchPowerUpEffect,
+    normalizeActivePowerUpEffect,
     normalizePowerUpPickup,
     powerUpEffectDefinition,
     prioritizedActivePowerUpEffect,
@@ -286,13 +287,60 @@ import {
     serializeGameState,
     restoreGameState,
     resetPlayer,
-    applyEditorLevelToWorld,
+    applyEditorLevelToWorld as applyEditorLevelToWorldCurrent,
     applyCharacterCombatProfiles,
     applyAtlasManifestsToWorld,
     defaultNextLevelId,
     setWorldEntityState,
     damagePlayer
 } from "../src/core/simulation.js";
+
+function applyEditorLevelToWorld(state, editorLevel) {
+    const wrapper = editorLevel?.level && typeof editorLevel.level === "object" ? editorLevel : null;
+    const source = wrapper ? wrapper.level : editorLevel;
+    const testStart = source?.testPlayerStart;
+    const entities = Array.isArray(source?.entities) ? source.entities : [];
+    if (!testStart || entities.some((entity) => entity?.type === "wizard_entry_door" || entity?.kind === "wizard_entry_door")) {
+        return applyEditorLevelToWorldCurrent(state, editorLevel);
+    }
+
+    const { testPlayerStart: _discardedTestStart, ...currentSource } = source;
+    const testDoorId = "__test_entry_door__";
+    currentSource.entities = [
+        ...entities,
+        {
+            id: testDoorId,
+            type: "wizard_entry_door",
+            x: Number(testStart.x) - 180,
+            y: Number(testStart.y),
+            w: 150,
+            h: 190,
+            emergeDistance: 180,
+            walkDirection: 1
+        }
+    ];
+    const currentLevel = wrapper ? { ...wrapper, level: currentSource } : currentSource;
+    const applied = applyEditorLevelToWorldCurrent(state, currentLevel);
+    if (!applied) return false;
+
+    state.world.entities = (state.world.entities || []).filter((entity) => entity.id !== testDoorId);
+    if (state.world.entityStates) delete state.world.entityStates[testDoorId];
+    state.story.portalIntro = null;
+    state.player.visible = true;
+    state.player.renderScale = 1;
+    state.player.x = Number(testStart.x) || 0;
+    state.player.y = Number(testStart.y) || 0;
+    state.player.spawnX = state.player.x;
+    state.player.spawnY = state.player.y;
+    state.player.vx = 0;
+    state.player.vy = 0;
+    state.player.onGround = false;
+    state.player.wasOnGround = false;
+    state.camera.x = state.player.x;
+    state.camera.y = state.player.y - 170;
+    state.debug.lastEvents = state.debug.lastEvents.filter((event) => event.portalId !== testDoorId);
+    return true;
+}
 
 function testSourceOrganization() {
     const expectedFiles = [
@@ -442,6 +490,22 @@ function testSourceOrganization() {
     assert.ok(gameBootstrap.includes("setLoadingProgress") && gameBootstrap.includes("ensureEnvironmentAtlases"), "startup and level transitions should report controlled atlas-loading progress");
     const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
     assert.ok(rendererSource.includes("Promise.all(projectJobs)") && rendererSource.includes("async ensureEnvironmentAtlases"), "renderer startup should load independent character and atlas projects concurrently and support later level atlases");
+    const levelEditorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    const powerUpSource = readFileSync(new URL("../src/shared/power-up-data.js", import.meta.url), "utf8");
+    const generatorSource = readFileSync(new URL("../src/shared/level-generator-data.js", import.meta.url), "utf8");
+    const simulationSource = coreSources[0];
+    for (const retiredToken of ["magicPortal", "wizardStart", "chaseSpeed", "awarenessVerticalRange"]) {
+        assert.equal(simulationSource.includes(retiredToken), false, `portable simulation should not retain retired level token ${retiredToken}`);
+    }
+    assert.equal(levelEditorSource.includes('if (normalizedType === "magicPortal")'), false, "Level Editor should not translate retired portal entities");
+    assert.equal(levelEditorSource.includes("entity.runSpeed ?? entity.chaseSpeed"), false, "Level Editor should not translate retired enemy speed fields");
+    assert.equal(levelEditorSource.includes("Array.isArray(record?.thoughts)"), false, "Level Editor should not translate retired mailbox thought arrays");
+    assert.ok(levelEditorSource.includes("RETIRED_LEVEL_ENTITY_TYPES") && levelEditorSource.includes("delete normalizedEntity.chaseSpeed"), "Level Editor should strip unsupported retired entity records and fields during import");
+    assert.equal(powerUpSource.includes('id === "rocketOverdrive" ? POWER_UP_EFFECT_IDS.SPEED_SHOT'), false, "shared power-up data should not translate the retired Rocket Overdrive identity");
+    assert.ok(powerUpSource.includes("RETIRED_ROCKET_OVERDRIVE_ID") && powerUpSource.includes("return null"), "shared power-up data should explicitly reject retired Rocket Overdrive records");
+    assert.equal(generatorSource.includes("smoothCavernProfile") || /\bprofile:\s*profile\.map/.test(generatorSource), false, "current cavern generation should not emit the retired top/bottom profile record");
+    assert.ok(generatorSource.includes("delete cavern.profile"), "generation normalization should strip retired cavern profiles from imported records");
+    assert.equal(simulationSource.includes('hasOwnProperty.call(tuningOverrides, "jumpVelocity")'), false, "state initialization should not migrate the retired jumpVelocity tuning override");
     const characterRuntime = readFileSync(new URL("../src/presentation/character-runtime.js", import.meta.url), "utf8");
     assert.ok(!characterRuntime.includes("rigPartOverrides") && !characterRuntime.includes("rigPivotOverrides") && !characterRuntime.includes("applyRuntimeCharacterRigOverrides"), "runtime character loading should not contain character-level rig replacement support");
     for (const characterFile of ["ct_char_wizard_1.json", "ct_char_enemy_001.json", "ct_char_enemy_002.json", "ct_char_enemy_003.json"]) {
@@ -624,7 +688,7 @@ async function testGenericRuntimeCharacterProject() {
     const state = createInitialGameState();
     const level = {
         levelId: "runtime_character_test",
-        playerStart: { x: 0, y: 600 },
+        testPlayerStart: { x: 0, y: 600 },
         entities: [{
             id: "skeleton_runtime_001",
             type: "characterEnemy",
@@ -787,7 +851,7 @@ async function testBatFrameSwapProjectsAndFlight() {
     const state = createInitialGameState();
     applyEditorLevelToWorld(state, {
         levelId: "bat_flight_test",
-        playerStart: { x: 100, y: 600 },
+        testPlayerStart: { x: 100, y: 600 },
         bounds: { x: 0, y: 0, w: 1400, h: 800 },
         entities: [{
             id: "bat_candidate_test",
@@ -842,7 +906,7 @@ function testFlyingBomberDropsProjectile() {
     const state = createInitialGameState();
     applyEditorLevelToWorld(state, {
         levelId: "bomber_test",
-        playerStart: { x: 500, y: 620 },
+        testPlayerStart: { x: 500, y: 620 },
         bounds: { x: 0, y: 0, w: 1200, h: 800 },
         entities: [{
             id: "bomber",
@@ -908,7 +972,7 @@ function testFlyingBomberUsesCurvedApproach() {
     const state = createInitialGameState();
     applyEditorLevelToWorld(state, {
         levelId: "bomber_curved_approach_test",
-        playerStart: { x: 620, y: 700 },
+        testPlayerStart: { x: 620, y: 700 },
         bounds: { x: 0, y: 0, w: 1400, h: 900 },
         entities: [{
             id: "curved_bomber",
@@ -960,7 +1024,7 @@ function testFlyingBomberNoticesWizardBelowAndAhead() {
     const state = createInitialGameState();
     applyEditorLevelToWorld(state, {
         levelId: "bomber_vertical_awareness_test",
-        playerStart: { x: 540, y: 650 },
+        testPlayerStart: { x: 540, y: 650 },
         bounds: { x: 0, y: 0, w: 1200, h: 800 },
         entities: [{
             id: "bomber",
@@ -995,7 +1059,7 @@ function testFlyingBomberCanLeavePerchPlatform() {
     const state = createInitialGameState();
     applyEditorLevelToWorld(state, {
         levelId: "bomber_perch_takeoff_test",
-        playerStart: { x: 500, y: 620 },
+        testPlayerStart: { x: 500, y: 620 },
         bounds: { x: 0, y: 0, w: 1200, h: 800 },
         entities: [{
             id: "perched_bomber",
@@ -1043,7 +1107,7 @@ function createAutomaticEnemySpawnTestState({
     applyEditorLevelToWorld(state, {
         levelId: "automatic_enemy_spawn_test",
         world: { bounds: { x: -5000, y: -500, w: 10000, h: 1500 }, resetY: 1300 },
-        playerStart: { x: 0, y: 600 },
+        testPlayerStart: { x: 0, y: 600 },
         autoSpawnEnemies: { enabled: true, probabilityPercent, enemyPool },
         entities: [{ id: "exit", type: "wizard_exit_door", x: exitX, y: 600, w: 150, h: 220 }]
     });
@@ -1190,28 +1254,6 @@ function testEnemyCatalogAndLevelEditorIntegration() {
         assert.equal(goblin.jumpHeight, 200, `${goblin.id} should use the baked 200 px jump profile`);
         assert.equal(goblin.awarenessViewHalfAngle, 60, `${goblin.id} should use the authored ±60 degree awareness cone`);
     }
-
-    const legacyState = createInitialGameState();
-    applyEditorLevelToWorld(legacyState, {
-        levelId: "legacy_enemy_alias_test",
-        playerStart: { x: 0, y: 100 },
-        entities: [{
-            id: "legacy_patroller",
-            type: "characterEnemy",
-            characterId: "ct_char_enemy_001",
-            x: 50,
-            y: 100,
-            behavior: "patrol",
-            chaseSpeed: 177,
-            awarenessVerticalRange: 12
-        }]
-    });
-    const migratedEnemy = legacyState.enemies.find((enemy) => enemy.id === "legacy_patroller");
-    assert.equal(migratedEnemy.strategy, "simple_patrol", "legacy behavior should still migrate to the canonical strategy");
-    assert.equal(migratedEnemy.runSpeed, 177, "legacy chaseSpeed should still migrate to canonical runSpeed");
-    assert.equal(migratedEnemy.behavior, undefined, "runtime state should not retain the legacy behavior alias");
-    assert.equal(migratedEnemy.chaseSpeed, undefined, "runtime state should not retain the legacy speed alias");
-    assert.equal(migratedEnemy.awarenessVerticalRange, undefined, "runtime state should discard the unused vertical-awareness field");
 
     const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
@@ -1402,7 +1444,7 @@ function testHunterEnemyJumpAndAttackPositioning() {
     const state = createInitialGameState();
     applyEditorLevelToWorld(state, {
         levelId: "hunter_jump_test",
-        playerStart: { x: 190, y: 500 },
+        testPlayerStart: { x: 190, y: 500 },
         entities: [{
             id: "hunter",
             type: "characterEnemy",
@@ -1459,7 +1501,7 @@ function testHunterUsesDeliberateDropTraversal() {
     const state = createInitialGameState();
     applyEditorLevelToWorld(state, {
         levelId: "hunter_drop_test",
-        playerStart: { x: 220, y: 560 },
+        testPlayerStart: { x: 220, y: 560 },
         entities: [{
             id: "drop_hunter",
             type: "characterEnemy",
@@ -1515,7 +1557,7 @@ function testHunterRangedAttackPositionSelection() {
     const state = createInitialGameState();
     applyEditorLevelToWorld(state, {
         levelId: "hunter_ranged_position_test",
-        playerStart: { x: 40, y: 600 },
+        testPlayerStart: { x: 40, y: 600 },
         entities: [{
             id: "ranged_hunter",
             type: "characterEnemy",
@@ -1899,7 +1941,7 @@ function testHunterFindsReachableFiringFallbackBeforeGlare() {
     const state = createInitialGameState();
     applyEditorLevelToWorld(state, {
         levelId: "hunter_firing_fallback_test",
-        playerStart: { x: 300, y: 400 },
+        testPlayerStart: { x: 300, y: 400 },
         entities: [{
             id: "fallback_hunter",
             type: "characterEnemy",
@@ -1984,7 +2026,7 @@ function testHunterJumpUsesObstacleClearRunUp() {
     const state = createInitialGameState();
     applyEditorLevelToWorld(state, {
         levelId: "hunter_run_up_test",
-        playerStart: { x: 280, y: 430 },
+        testPlayerStart: { x: 280, y: 430 },
         entities: [{
             id: "run_up_hunter",
             type: "characterEnemy",
@@ -2064,7 +2106,7 @@ function testHunterJumpBacksAwayForReverseRunUp() {
     const state = createInitialGameState();
     applyEditorLevelToWorld(state, {
         levelId: "hunter_reverse_run_up_test",
-        playerStart: { x: 280, y: 430 },
+        testPlayerStart: { x: 280, y: 430 },
         entities: [{
             id: "reverse_run_up_hunter",
             type: "characterEnemy",
@@ -2148,7 +2190,7 @@ function testHunterDropLandsOnOrdinaryCollisionGeometry() {
     const state = createInitialGameState();
     applyEditorLevelToWorld(state, {
         levelId: "hunter_shared_collision_drop_test",
-        playerStart: { x: 260, y: 620 },
+        testPlayerStart: { x: 260, y: 620 },
         entities: [{
             id: "collision_drop_hunter",
             type: "characterEnemy",
@@ -2224,7 +2266,7 @@ function testHunterWalkOffDropClearsSourcePillar() {
     const state = createInitialGameState();
     applyEditorLevelToWorld(state, {
         levelId: "hunter_offset_walk_off_drop_test",
-        playerStart: { x: 0, y: 620 },
+        testPlayerStart: { x: 0, y: 620 },
         entities: [{
             id: "offset_drop_hunter",
             type: "characterEnemy",
@@ -2398,7 +2440,7 @@ function testHunterAwarenessIsConsistentBehindOccluder() {
     const state = createInitialGameState();
     applyEditorLevelToWorld(state, {
         levelId: "hunter_awareness_occluder_test",
-        playerStart: { x: 0, y: 600 },
+        testPlayerStart: { x: 0, y: 600 },
         entities: [
             {
                 id: "near_hunter",
@@ -2465,7 +2507,7 @@ function testMonsterAwarenessUsesDistanceAndFacingCone() {
         const state = createInitialGameState();
         applyEditorLevelToWorld(state, {
             levelId: "monster_awareness_cone_test",
-            playerStart: { x: 0, y: 600 },
+            testPlayerStart: { x: 0, y: 600 },
             entities: [{
                 id: "watcher",
                 type: "characterEnemy",
@@ -2532,7 +2574,7 @@ function testHunterInvestigatesClosestReachableLastSeenPositionBeforeGlare() {
     const state = createInitialGameState();
     applyEditorLevelToWorld(state, {
         levelId: "hunter_last_seen_test",
-        playerStart: { x: 450, y: 300 },
+        testPlayerStart: { x: 450, y: 300 },
         entities: [{
             id: "last_seen_hunter",
             type: "characterEnemy",
@@ -2616,7 +2658,7 @@ function testZeroHealthStartsDeathLifecycleAndDisablesTargeting() {
     });
     applyEditorLevelToWorld(state, {
         levelId: "hunter_zero_health_target_test",
-        playerStart: { x: 0, y: 600 },
+        testPlayerStart: { x: 0, y: 600 },
         entities: [{
             id: "persistent_hunter",
             type: "characterEnemy",
@@ -2700,7 +2742,7 @@ function testHunterEnemyStrandedFallback() {
     const state = createInitialGameState();
     applyEditorLevelToWorld(state, {
         levelId: "hunter_stranded_test",
-        playerStart: { x: 430, y: 300 },
+        testPlayerStart: { x: 430, y: 300 },
         entities: [{
             id: "stranded_hunter",
             type: "characterEnemy",
@@ -2769,7 +2811,7 @@ function testCharacterEnemyPatrolBehavior() {
     const state = createInitialGameState();
     assert.equal(applyEditorLevelToWorld(state, {
         levelId: "enemy_patrol_test",
-        playerStart: { x: -300, y: 600 },
+        testPlayerStart: { x: -300, y: 600 },
         entities: [{
             id: "patrol_enemy",
             type: "characterEnemy",
@@ -2819,7 +2861,7 @@ function testCharacterEnemyPatrolBehavior() {
     const guardState = createInitialGameState();
     applyEditorLevelToWorld(guardState, {
         levelId: "enemy_guard_test",
-        playerStart: { x: -300, y: 600 },
+        testPlayerStart: { x: -300, y: 600 },
         entities: [{
             id: "guard_enemy",
             type: "characterEnemy",
@@ -2844,7 +2886,7 @@ function testGroundEnemyWalksUnderOneWayPlatform() {
     const state = createInitialGameState();
     assert.equal(applyEditorLevelToWorld(state, {
         levelId: "enemy_one_way_overhead_test",
-        playerStart: { x: -1000, y: 600 },
+        testPlayerStart: { x: -1000, y: 600 },
         entities: [{
             id: "one_way_runner",
             type: "characterEnemy",
@@ -2910,7 +2952,7 @@ function testGroundEnemyCannotDropThroughOneWayPlatform() {
     const state = createInitialGameState();
     assert.equal(applyEditorLevelToWorld(state, {
         levelId: "enemy_one_way_drop_guard_test",
-        playerStart: { x: 150, y: 600 },
+        testPlayerStart: { x: 150, y: 600 },
         entities: [{
             id: "drop_guard",
             type: "characterEnemy",
@@ -3012,7 +3054,7 @@ function testHunterDoesNotJumpLoopOnOneWayPlatform() {
     const state = createInitialGameState();
     assert.equal(applyEditorLevelToWorld(state, {
         levelId: "hunter_one_way_jump_loop_test",
-        playerStart: { x: 300, y: 650 },
+        testPlayerStart: { x: 300, y: 650 },
         entities: [{
             id: "loop_guard",
             type: "characterEnemy",
@@ -3173,7 +3215,7 @@ function testGroundEnemyAutomaticSmallStep() {
         const state = createInitialGameState();
         assert.equal(applyEditorLevelToWorld(state, {
             levelId: `enemy_small_step_${stepHeight}`,
-            playerStart: { x: -1000, y: 600 },
+            testPlayerStart: { x: -1000, y: 600 },
             entities: [{
                 id: "step_enemy",
                 type: "characterEnemy",
@@ -3228,7 +3270,7 @@ function testCharacterEnemyAggressiveChaseAndCombo() {
     });
     applyEditorLevelToWorld(state, {
         levelId: "enemy_aggression_test",
-        playerStart: { x: 10, y: 600 },
+        testPlayerStart: { x: 10, y: 600 },
         entities: [{
             id: "rush_guard",
             type: "characterEnemy",
@@ -3282,7 +3324,7 @@ function testCharacterEnemyAggressiveChaseAndCombo() {
     const chaseState = createInitialGameState();
     applyEditorLevelToWorld(chaseState, {
         levelId: "enemy_chase_speed_test",
-        playerStart: { x: -20, y: 600 },
+        testPlayerStart: { x: -20, y: 600 },
         entities: [{
             id: "chase_guard",
             type: "characterEnemy",
@@ -3359,7 +3401,7 @@ function testRebalancedEnemyHealthAndRocketHits() {
         const state = createInitialGameState();
         assert.equal(applyEditorLevelToWorld(state, {
             levelId: `balanced_health_${profile.id}`,
-            playerStart: { x: -200, y: 600 },
+            testPlayerStart: { x: -200, y: 600 },
             entities: [{
                 id: `target_${profile.id}`,
                 type: "characterEnemy",
@@ -3397,7 +3439,7 @@ function testRebalancedEnemyHealthAndRocketHits() {
     const fallbackState = createInitialGameState();
     assert.equal(applyEditorLevelToWorld(fallbackState, {
         levelId: "default_enemy_health_60",
-        playerStart: { x: 0, y: 600 },
+        testPlayerStart: { x: 0, y: 600 },
         entities: [{
             id: "new_monster_without_authored_health",
             type: "characterEnemy",
@@ -3422,7 +3464,7 @@ function testCharacterEnemyRocketCombat() {
     const state = createInitialGameState();
     assert.equal(applyEditorLevelToWorld(state, {
         levelId: "enemy_combat_test",
-        playerStart: { x: -200, y: 600 },
+        testPlayerStart: { x: -200, y: 600 },
         entities: [{
             id: "combat_guard",
             type: "characterEnemy",
@@ -3531,7 +3573,7 @@ function testAirborneEnemyDefersDeathUntilLanding() {
     const state = createInitialGameState();
     assert.equal(applyEditorLevelToWorld(state, {
         levelId: "airborne_death_deferred_until_landing",
-        playerStart: { x: -300, y: 400 },
+        testPlayerStart: { x: -300, y: 400 },
         entities: [{
             id: "jumping_guard",
             type: "characterEnemy",
@@ -3644,7 +3686,7 @@ function testCharacterEnemyMeleeAttack() {
     });
     assert.equal(applyEditorLevelToWorld(state, {
         levelId: "enemy_melee_test",
-        playerStart: { x: 0, y: 600 },
+        testPlayerStart: { x: 0, y: 600 },
         entities: [{
             id: "melee_guard",
             type: "characterEnemy",
@@ -3714,7 +3756,7 @@ function testEnemyMeleeBlockedByTerrain() {
     const state = createInitialGameState();
     applyEditorLevelToWorld(state, {
         levelId: "enemy_melee_cover_test",
-        playerStart: { x: -20, y: 600 },
+        testPlayerStart: { x: -20, y: 600 },
         entities: [{
             id: "blocked_melee_guard",
             type: "characterEnemy",
@@ -3761,7 +3803,7 @@ function testFireballGoblinProjectileAttack() {
     });
     applyEditorLevelToWorld(state, {
         levelId: "fireball_goblin_test",
-        playerStart: { x: 0, y: 600 },
+        testPlayerStart: { x: 0, y: 600 },
         entities: [{
             id: "fireball_goblin",
             type: "characterEnemy",
@@ -3849,7 +3891,7 @@ function testMusketGoblinProjectileAttack() {
     });
     applyEditorLevelToWorld(state, {
         levelId: "musket_goblin_test",
-        playerStart: { x: 0, y: 600 },
+        testPlayerStart: { x: 0, y: 600 },
         entities: [{
             id: "musket_goblin",
             type: "characterEnemy",
@@ -3932,6 +3974,7 @@ function testPlayerDeathSparkAnimationAtZeroHealth() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
+    assert.equal(state.tuning.playerDeathAfterglowSeconds, 2, "the default post-death camera hold should be two seconds");
 
     const result = damagePlayer(state, state.health.max, "zero_hp_test", { bypassInvulnerability: true });
     assert.equal(result.defeated, true, "lethal damage should report defeat");
@@ -4036,7 +4079,7 @@ function testTerrainInterceptsRocketBeforeEnemy() {
     const state = createInitialGameState();
     applyEditorLevelToWorld(state, {
         levelId: "enemy_cover_test",
-        playerStart: { x: -200, y: 600 },
+        testPlayerStart: { x: -200, y: 600 },
         entities: [{
             id: "covered_guard",
             type: "characterEnemy",
@@ -4091,7 +4134,7 @@ function testBreakableCrateReactiveObject() {
     assert.equal(applyEditorLevelToWorld(state, {
         levelId: "reactive_crate_test",
         world: { bounds: { x: -300, y: -200, w: 900, h: 700 }, resetY: 900 },
-        playerStart: { x: -200, y: 600 },
+        testPlayerStart: { x: -200, y: 600 },
         entities: [entity]
     }), true, "breakable crate level should apply");
     state.world.solids.push({ id: "wall_behind_crate", kind: "wall", x: 175, y: 0, w: 20, h: 130 });
@@ -4157,7 +4200,7 @@ function testDestructibleBarrierReactiveObject() {
     assert.equal(applyEditorLevelToWorld(state, {
         levelId: "reactive_barrier_test",
         world: { bounds: { x: -300, y: -200, w: 900, h: 700 }, resetY: 900 },
-        playerStart: { x: -200, y: 600 },
+        testPlayerStart: { x: -200, y: 600 },
         entities: [entity]
     }), true, "destructible barrier level should apply");
     state.world.solids.push({ id: "wall_behind_barrier", kind: "wall", x: 190, y: 0, w: 20, h: 260 });
@@ -5163,6 +5206,7 @@ function testAutomaticLevelGeneratorVariantCompatibility() {
                     assert.equal(draft.generation.validation.valid, true, `${key} should be a compatible, fully validated generator combination`);
                     assert.equal(draft.generation.route.generatorId, routeId, `${key} should preserve the selected route implementation`);
                     assert.equal(draft.generation.cavern.generatorId, cavernId, `${key} should preserve the selected cavern implementation`);
+                    assert.equal("profile" in draft.generation.cavern, false, `${key} should store only the arbitrary polygon cavern representation`);
                     assert.ok(draft.caveWindow.gradientNoise?.amplitude === 50 && draft.caveWindow.gradientNoise?.period === 50 && draft.caveWindow.feather === 200, `${key} should carry deterministic organic gradient-noise settings into the generated cave window`);
                     assert.equal(draft.caveWindow.decoration?.scale, 2, `${key} should use the two-times perimeter-asset scale default`);
                     assert.equal("spacing" in (draft.caveWindow.decoration || {}), false, `${key} should derive perimeter density from actual asset coverage instead of serializing obsolete spacing data`);
@@ -5339,9 +5383,14 @@ function testAutomaticLevelGeneratorPlayableEmptyCavern() {
     assert.ok(bounds.w > 1600 && bounds.h > 600, "fit bounds should frame the generated cavern rather than only its route graph");
 
     const shell = { world: { bounds: { x: 1, y: 2, w: 3, h: 4 }, resetY: 99 }, caveWindow: { enabled: false, points: [] }, atlasRefs: [] };
-    const normalized = normalizeLevelGeneration({ ...first.generation, replacedLevelShell: shell });
+    const normalized = normalizeLevelGeneration({
+        ...first.generation,
+        cavern: { ...first.generation.cavern, profile: [{ x: 0, top: 0, bottom: 100 }] },
+        replacedLevelShell: shell
+    });
     assert.deepEqual(normalized.replacedLevelShell, shell, "normalization should preserve the exact pre-generation level shell for guarded clearing and undo");
     assert.ok(normalized.cavern && normalized.traversal && normalized.endpoints, "Generator 1 geometry metadata should survive level normalization");
+    assert.equal("profile" in normalized.cavern, false, "normalization should strip retired top/bottom cavern profiles from imported generator records");
 
     const stressSettings = [
         { length: "compact", verticality: 0, winding: 0, safety: 1 },
@@ -6116,8 +6165,8 @@ function testCaveWindowSplineAuthoring() {
     assert.ok(levelEditorHtml.includes("buildOverlapBlendGroups") && levelEditorHtml.includes("createOverlapBlendSurface") && levelEditorHtml.includes("drawMainPlacementLayer"), "Level Editor should preview cached seamless overlap composites without deleting individual placements");
     assert.ok(levelEditorHtml.includes("scheduleJsonUpdate") && !levelEditorHtml.includes("drawSelection();\n        updateJson();"), "Level Editor should not stringify the full level on every drag-frame redraw");
 
-    const decoration = normalizeCaveDecoration({ seed: 77, spacing: 150, scale: 2, brightness: 0.3, saturation: 0.5 });
-    assert.equal("spacing" in decoration, false, "normalization should discard stale maximum-spacing values from older cave-window data");
+    const decoration = normalizeCaveDecoration({ seed: 77, scale: 2, brightness: 0.3, saturation: 0.5 });
+    assert.equal("spacing" in decoration, false, "normalized cave decoration should contain only current density-independent fields");
     const decorationCatalog = buildCaveDecorationCatalog([
         { atlasId: "at_atlas_002", assetId: "floor_rock", frame: { w: 90, h: 130 }, tags: ["stalagmite"] },
         { atlasId: "at_atlas_002", assetId: "ceiling_rock", frame: { w: 90, h: 150 }, tags: ["stalactite"] },
@@ -6289,7 +6338,7 @@ function testCaveFullBlackKillBoundary() {
     const level = {
         levelId: "kill_boundary_test",
         world: { bounds: { x: 0, y: 0, w: 1000, h: 800 }, resetY: 1400 },
-        playerStart: { x: 500, y: 600 },
+        testPlayerStart: { x: 500, y: 600 },
         caveWindow,
         placements: [],
         entities: []
@@ -6511,7 +6560,7 @@ function testEditorLevelTransformRuntime() {
     const level = {
         levelId: "transform_test",
         world: { bounds: { x: 0, y: 0, w: 800, h: 600 }, resetY: 900 },
-        playerStart: { x: 20, y: 100 },
+        testPlayerStart: { x: 20, y: 100 },
         atlasRefs: [{ atlasId: "test_atlas", manifest: "assets/test_atlas.json", image: "assets/test_atlas.png" }],
         colorMap: { enabled: true, sourceHue: 210, range: 70, feather: 20, rotation: 45 },
         placements: [{
@@ -6567,7 +6616,7 @@ function testPlayerStartSnapsToNearbyGround() {
     const nearbyLevel = {
         levelId: "nearby_ground_snap",
         world: { bounds: { x: -200, y: -200, w: 800, h: 800 }, resetY: 900 },
-        playerStart: { x: 100, y: 100 },
+        testPlayerStart: { x: 100, y: 100 },
         atlasRefs: [],
         placements: [{
             id: "platform_001",
@@ -6658,7 +6707,7 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     const level = {
         levelId: "interactive_items_test",
         world: { bounds: { x: 0, y: 0, w: 1000, h: 700 }, resetY: 900 },
-        playerStart: { x: 80, y: 500 },
+        testPlayerStart: { x: 80, y: 500 },
         atlasRefs: catalog.atlasRefs,
         placements: [],
         entities: [
@@ -6718,7 +6767,7 @@ function testScoreHudAndTreasureChestCollection() {
         levelId: "level_001",
         title: "The Introductory Cave of Training",
         world: { bounds: { x: -200, y: -200, w: 900, h: 1000 }, resetY: 1000 },
-        playerStart: { x: 120, y: 600 },
+        testPlayerStart: { x: 120, y: 600 },
         atlasRefs: [],
         placements: [],
         entities: [{
@@ -6808,8 +6857,17 @@ function testRocketPowerUpArsenal() {
     assert.equal(speedShot.rocket.launchCooldownMultiplier, 0.5, "Speed Shot should double allowed firing cadence");
     assert.equal(speedShot.rocket.launchFuelCostMultiplier, 0.5, "Speed Shot should halve projectile-rocket fuel cost");
     assert.equal(speedShot.hud.priority, 100, "Speed Shot should outrank wrench effects in the Power HUD");
-    const normalizedPickup = normalizePowerUpPickup({ effectId: "rocketOverdrive" });
-    assert.equal(normalizedPickup.effectId, POWER_UP_EFFECT_IDS.SPEED_SHOT, "legacy Rocket Overdrive data should normalize to Speed Shot");
+    assert.equal(normalizePowerUpPickup({ effectId: "rocketOverdrive" }), null, "retired Rocket Overdrive records should no longer load as Speed Shot");
+    assert.equal(normalizePowerUpPickup({
+        effectId: "rocketOverdrive",
+        effect: { ...speedShot, id: "rocketOverdrive" }
+    }), null, "a complete embedded definition should not revive the retired Rocket Overdrive identity");
+    assert.equal(normalizeActivePowerUpEffect({
+        id: "rocketOverdrive",
+        definition: { ...speedShot, id: "rocketOverdrive" },
+        remainingSeconds: 5
+    }), null, "saved active-effect snapshots should reject the retired Rocket Overdrive identity");
+    const normalizedPickup = normalizePowerUpPickup({ effectId: POWER_UP_EFFECT_IDS.SPEED_SHOT });
     assert.equal(normalizedPickup.iconFrame, "powerup_icon_lightning", "Speed Shot should use the reserved lightning emblem");
 
     const shield = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.SHIELD);
@@ -6845,7 +6903,7 @@ function testRocketPowerUpArsenal() {
     const level = {
         levelId: "power_up_test",
         world: { bounds: { x: -200, y: -200, w: 1600, h: 1000 }, resetY: 1400 },
-        playerStart: { x: 300, y: 600 },
+        testPlayerStart: { x: 300, y: 600 },
         atlasRefs: [{ atlasId: "it_atlas_001", manifest: "assets/it_atlas_001.json", image: "assets/it_atlas_001.png" }],
         placements: [],
         entities: [
@@ -7177,8 +7235,8 @@ function testRocketPowerUpArsenal() {
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 280<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(bootstrapSource, /const GAME_REVISION = "280";/, "the game debug revision should match the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 282<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "282";/, "the game debug revision should match the packaged revision");
     assert.ok(manualSource.includes("Shield</strong> lasts 10 seconds") && manualSource.includes("Speed Shot</strong> lasts 30 seconds") && manualSource.includes("Wrench power-ups last 30 seconds"), "the game manual should document the revised effect windows");
     const entityCatalog = JSON.parse(readFileSync(new URL("../assets/it_entities_001.json", import.meta.url), "utf8"));
     const catalogEntities = Object.values(entityCatalog.entities || {});
@@ -7298,7 +7356,7 @@ function testMailboxLetterSequence() {
     const level = {
         levelId: "mailbox_story_test",
         world: { bounds: { x: -200, y: -200, w: 1000, h: 900 }, resetY: 1000 },
-        playerStart: { x: 192, y: 500 },
+        testPlayerStart: { x: 192, y: 500 },
         atlasRefs: catalog.atlasRefs,
         placements: [],
         entities: [{
@@ -7357,7 +7415,7 @@ function testLocationThoughtTrigger() {
     const level = {
         levelId: "location_thought_test",
         world: { bounds: { x: -200, y: -200, w: 1000, h: 900 }, resetY: 1000 },
-        playerStart: { x: 192, y: 500 },
+        testPlayerStart: { x: 192, y: 500 },
         atlasRefs: catalog.atlasRefs,
         placements: [],
         entities: [{
@@ -7456,7 +7514,7 @@ function testPortalExitSequence() {
     const level = {
         levelId: "level_009",
         world: { bounds: { x: -200, y: -200, w: 1200, h: 900 }, resetY: 1000 },
-        playerStart: { x: 300, y: 520 },
+        testPlayerStart: { x: 300, y: 520 },
         atlasRefs: catalog.atlasRefs,
         placements: [],
         entities: [{
@@ -10083,7 +10141,7 @@ function testSynthesizedLevelMusicSystem() {
         title: "Music Test",
         music: { tuneId: "grieg_march_dwarfs" },
         world: { bounds: { x: 0, y: 0, w: 800, h: 600 }, resetY: 700 },
-        playerStart: { x: 100, y: 300 },
+        testPlayerStart: { x: 100, y: 300 },
         placements: [],
         entities: []
     }), true, "a level with music metadata should still apply normally");
