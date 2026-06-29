@@ -2547,7 +2547,7 @@ Revision 237 materializes only optional branches selected by the independent rew
 
 A selected branch becomes a lower returnable detour. The main route reserves a collision-open shaft through a catalogued `shaftBridge` assembly, two alternating narrow footholds descend through the opening, and broad lower supports form a reward alcove. The branch's abstract merge edge remains preview-only because a solid upper merge platform would behave as a low ceiling. Every materialized detour has bidirectional transition records, an explicit shaft record, and exactly one positive-Score treasure chest at the authored optional-reward destination.
 
-`assets/level-generator-rewards.json` records stable generation metadata for treasure, contextual power-ups, utility pickups, and optional narrative triggers. Contextual rewards are restrained, unique within one draft, progression-aware, kept away from endpoint calm zones, and checked against generated enemies. Entrance and exit doors remain Endpoint Placer-owned. Location thoughts are disabled by default and require explicit theme or Level Editor opt-in; when enabled, at most one invisible one-shot trigger may be placed on a quiet suitable support.
+`assets/level-generator-rewards.json` records stable generation metadata for treasure, contextual power-ups, utility pickups, and optional narrative triggers. Contextual rewards are restrained, progression-aware, kept away from endpoint calm zones, and checked against generated enemies. Power-up types avoid repeats until the available pool has been used, after which longer routes may repeat types to meet their route-scaled density target. Entrance and exit doors remain Endpoint Placer-owned. Location thoughts are disabled by default and require explicit theme or Level Editor opt-in; when enabled, at most one invisible one-shot trigger may be placed on a quiet suitable support.
 
 Validation now covers the complete route, cavern, traversal, endpoints, encounters, and rewards. It rejects missing or narrow branch shafts, footholds without standing and turning room, undersized lower landings, invalid return transitions, inaccessible rewards, missing branch treasure, endpoint crowding, reward-enemy overlap, and narrative additions that were not requested. The editor overlay draws actual materialized detours separately from unmaterialized reservations and preview-only merge hints.
 
@@ -2766,10 +2766,75 @@ Generated platform compositions now validate their visual seams against collisio
 
 The Wide, upward-expanding cavern uses more broad shallow room stamps and may build a second reachable tier inward from a first detached perch. This makes continuous ground halls capable of carrying several upper combat and reward positions instead of leaving the entire ceiling volume empty. Encounter placement recognizes combat perches, treasure placement recognizes reward perches, and nontrivial reward density guarantees genuine power-up pickups.
 
-Grounded movement gains a conservative automatic step-up. Ignatius and grounded walking enemies may climb a rise below one eighth of their own collision height without entering a jump state. Taller ledges still block ordinary walking and continue to require jump or navigation behavior.
+Grounded movement gains a conservative automatic step-up. Ignatius and grounded walking enemies may climb a rise up to one fifth of their own collision height without entering a jump state. Taller ledges still block ordinary walking and continue to require jump or navigation behavior.
 
 ## Revision 260 minimap blend fix and denser mostly-horizontal upper combat lane
 
 Revision 260 removes the visible dark rectangle behind the minimap. The minimap remains clickable and bordered, but both the panel shell and the canvas drawing are now transparent outside the cave silhouette itself, so the overlay no longer stamps a mismatched background region over the game view.
 
 The Mostly horizontal generator also gets a denser upper lane. Instead of only a few detached perches, it now keeps adding raised platforms until their combined walkable span covers roughly a quarter of the route width, with a combat-biased perch mix so the upper lane more often carries monsters.
+
+## Revision 261 mostly-horizontal visual audit and playability contracts
+
+Revision 261 follows a twelve-draft visual audit of Mostly-horizontal Earth caverns across Standard and Grand lengths and both cavern shapes. The audit found that revision 260 could technically create upper perches while still clustering them into one central patch, leaving long empty stretches. It also placed non-jumping Skeleton Guards on some raised platforms and allowed later geometry to encroach on vertical shuttle lanes.
+
+Mostly-horizontal traversal now builds a deliberately distributed one-way upper lane and rejects candidates until its combined walkable span reaches roughly one quarter of the route. Most of that lane is classified for combat, with a smaller reward share. Every raised platform has validated travel to and from its ground parent. Ground enemies on those platforms must use jumping hunter navigation; Skeleton Guards now meet that contract.
+
+Vertical shuttles in Mostly-horizontal drafts reserve their complete travel shaft, including lateral body clearance. Later platforms and generated enemies may not occupy that envelope. The camera also looks substantially farther downward as Ignatius accelerates into a fall, reducing blind drops while keeping the lead bounded.
+
+## Revision 262 local hunter recovery and higher upper combat lanes
+
+Revision 262 fixes the exact failure exposed by the `hunter:stranded_patrol` screenshot. The continuous Mostly-horizontal ground is assembled from overlapping blockable platform polygons. Navigation previously let each neighbouring polygon cut the other polygon's top support into fragments, so a hunter could believe it was stranded even while standing beside Ignatius on what visibly reads as one floor. Same-height overlapping solid tops now remain connected navigation supports. Hunter AI also has a local same-floor melee fallback: when Ignatius is visibly on the same physical ground, the enemy chases or attacks directly instead of waiting in stranded patrol for a graph route that is unnecessary.
+
+The Mostly-horizontal upper lane is raised substantially. Each combat or reward perch now sits on a second tier reached through an offset one-way access step. The access step keeps the perch reachable, while the final perch is high enough to preserve at least 170 world units between the ground surface and the rendered underside. That open volume gives homing rockets time to curve toward enemies instead of striking the platform before steering. The access ledge is shifted toward an edge so it does not refill the central firing lane beneath the enemy platform.
+
+## Revision 263 tighter launch-only rocket steering
+
+Revision 263 separates the rocket's launch turn from its normal flight steering. The first 0.32 seconds now use a 6.95 homing strength while the established 4.8 value remains authoritative after the launch window. The rocket starts curving immediately but retains a strongly upward initial velocity, rather than travelling straight upward until the timer expires.
+
+The value is fixed by gameplay geometry rather than visual preference. A headless test measures Ignatius's actual one-jump apex under fixed-step physics, places a walkable platform at exactly that height, and aims the rocket toward an effectively horizontal same-level target. At 6.95 the 15-unit rocket radius clears the platform by roughly two tenths of a world unit; at 6.9 it still clips the platform. This keeps the initial bend as tight as required without making all later homing more aggressive.
+
+## Revision 264 enemy spawn clearance from platform artwork
+
+Generated ground encounters now treat the enemy body as occupied space during placement. The encounter populator searches multiple deterministic positions across the assigned walkable support and accepts a group only when every member clears all unrelated platform rectangles, including a small visual breathing margin. Overlapping blockable pieces at the same floor height remain one legal continuous floor, but overhead platforms, raised ledges, access steps, and moving-platform shafts can no longer pass through an enemy body.
+
+Encounter validation repeats the same test independently and reports a dedicated platform-enemy intrusion metric, so later generator changes cannot quietly reintroduce enemies glued into scenery.
+
+## Revision 265 flying spawn clearance and readable run-and-gun seams
+
+Revision 265 closes the separate flying-enemy placement loophole. Bombing Bat groups now search several complete-group positions in both X and altitude, and every bat body must remain clear of all generated platforms and reserved moving-platform shafts while fitting inside the cavern opening. Encounter validation applies the same rule independently, so a bat can no longer begin in a platform and remain pinned in its perched state.
+
+Ground continuity is also made less ambiguous. Ignatius and grounded monsters may automatically traverse steps up to one fifth of their body height. For the Mostly horizontal floor, same-height blockable assets overlap much more deeply, with at least 72 world units of shared walkable span, so the seam reads and behaves as a continuous surface. Taller height changes remain explicit jumps or vertical-route changes.
+
+## Revision 266 thin-platform collision audit
+
+Revision 266 audits every environment atlas manifest against the established Atlas 004 collision rule. Thin floating platforms now expose only one green `walkable` standing line so Ignatius can jump upward through them, while substantial rock bodies, walls, ceilings, pillars, formations, barriers, and deep floor pieces retain yellow `blockable` collision.
+
+Atlas 001 converts `ledge_small_round`, `ledge_small_flat`, `rubble_skull`, `rubble_long`, and `object_034` to walkable-only lines. Atlas 002 converts the four shallow horizontal strips `floor_long_upper`, `floor_mid_left`, `floor_mid_right`, and `floor_lower_long`. Atlas 003 contains no thin horizontal platforms and remains fully blockable. Atlas 004 already follows the intended split: only its uppermost deep platform is blockable and the remaining fifteen are one-way.
+
+A headless manifest policy test checks all four atlases and rejects either extra blocking geometry on thin platforms or missing blockable collision on substantial assets. Because `level_001` places `rubble_skull`, its baked hunter navigation graph is regenerated against the revised one-way geometry.
+
+
+## Revision 267 responsive HUD corner panels
+
+The score-and-bars panel now keeps a 430-pixel natural layout and is uniformly scaled by the browser adapter whenever the viewport cannot contain it. While the minimap is visible, the fit calculation reserves both upper corners and a small gap; when the minimap is hidden, the left panel is allowed to expand back toward full size instead of remaining permanently constrained to half the screen. The same calculation protects against unusually short viewports, and the minimap continues to derive its final height and maximum width from the rendered meter panel.
+
+Clicking or tapping either upper panel now opens the pause menu. The score panel also supports Enter, Numpad Enter, and Space, advertises the dialog relationship through ARIA, and is ignored by gameplay pointer controls.
+
+
+## Revision 268 automatic enemy reinforcements
+
+- [x] Add Level Editor controls for enabling automatic enemy spawning, setting a 0-100 percent one-second chance, and authoring the same range/exclusion enemy pool used by the level generator.
+- [x] Persist normalized defaults in level JSON: disabled, 0 percent, pool `1-999`.
+- [x] Load the existing enemy-definition catalog for runtime spawning rather than duplicating enemy statistics.
+- [x] Roll deterministically once per second and spawn successful reinforcements 10-100 percent of a viewport width beyond the forward screen edge.
+- [x] Estimate forward direction from the player to the exit door, with a rightward fallback.
+- [x] Place ground enemies only on safe navigation supports and flying enemies in valid forward airspace.
+- [x] Start reinforcements alerted and engaged, with the player's current position recorded as last seen. Ground types use hunter pursuit; flying types keep their required flying attack strategy.
+- [x] Add headless coverage for defaults, shared pool grammar, editor integration, one-second cadence, rightward and leftward route direction, off-screen distance, pool selection, awareness, and zero-percent dormancy.
+
+## Revision 269 route-scaled power-ups and one-way enemy clearance
+
+Generated reward population now derives a power-up target from the cumulative pixel distance of the mandatory route. At the default reward density, the target is approximately one genuine power-up per 5,000 route pixels. The existing Reward density control still scales that target, zero density still produces no rewards, and the independent reward validator rejects a generated draft that does not meet its recorded target. Treasure chests and optional thoughts remain separate from this count.
+
+Grounded monster occupancy no longer treats green `walkable` lines as torso-height walls. One-way lines continue to support feet from above and remain valid navigation surfaces, but a monster walking beneath one may pass through it horizontally. Yellow `blockable`, damaging, and killable geometry still obstruct the complete enemy body.

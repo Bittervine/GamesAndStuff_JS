@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 4,
-        "note": "Atlas 002 cave/ruin assets. Cyan boxes identify alpha-isolated visual assets. Revision 063 traced a closed blockable silhouette for every object; nodes and lines are local to each frame."
+        "version": 5,
+        "note": "Atlas 002 cave/ruin assets. The four shallow horizontal floor strips use one-way walkable top lines; walls, ceilings, formations, rubble piles, corners, and other substantial forms retain blockable silhouettes."
     },
     "atlasId": "at_atlas_002",
     "image": "at_atlas_002.png",
@@ -5776,124 +5776,21 @@
             "nodes": [
                 {
                     "id": "n1",
-                    "x": 1002,
-                    "y": 46
-                },
-                {
-                    "id": "n2",
-                    "x": 709,
-                    "y": 44
-                },
-                {
-                    "id": "n3",
-                    "x": 670,
-                    "y": 4
-                },
-                {
-                    "id": "n4",
-                    "x": 545,
-                    "y": 46
-                },
-                {
-                    "id": "n5",
-                    "x": 407,
-                    "y": 9
-                },
-                {
-                    "id": "n6",
-                    "x": 308,
-                    "y": 40
-                },
-                {
-                    "id": "n7",
                     "x": 4,
                     "y": 37
                 },
                 {
-                    "id": "n8",
-                    "x": 36,
-                    "y": 105
-                },
-                {
-                    "id": "n9",
-                    "x": 607,
-                    "y": 86
-                },
-                {
-                    "id": "n10",
-                    "x": 983,
-                    "y": 100
+                    "id": "n2",
+                    "x": 1002,
+                    "y": 46
                 }
             ],
             "lines": [
                 {
-                    "id": "blockable_1",
-                    "kind": "blockable",
+                    "id": "walkable_1",
+                    "kind": "walkable",
                     "from": "n1",
                     "to": "n2",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_2",
-                    "kind": "blockable",
-                    "from": "n2",
-                    "to": "n3",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_3",
-                    "kind": "blockable",
-                    "from": "n3",
-                    "to": "n4",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_4",
-                    "kind": "blockable",
-                    "from": "n4",
-                    "to": "n5",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_5",
-                    "kind": "blockable",
-                    "from": "n5",
-                    "to": "n6",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_6",
-                    "kind": "blockable",
-                    "from": "n6",
-                    "to": "n7",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_7",
-                    "kind": "blockable",
-                    "from": "n7",
-                    "to": "n8",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_8",
-                    "kind": "blockable",
-                    "from": "n8",
-                    "to": "n9",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_9",
-                    "kind": "blockable",
-                    "from": "n9",
-                    "to": "n10",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_10",
-                    "kind": "blockable",
-                    "from": "n10",
-                    "to": "n1",
                     "tags": []
                 }
             ]
@@ -6060,148 +5957,21 @@
             "nodes": [
                 {
                     "id": "n1",
-                    "x": 505,
-                    "y": 26
-                },
-                {
-                    "id": "n2",
-                    "x": 416,
-                    "y": 4
-                },
-                {
-                    "id": "n3",
-                    "x": 336,
-                    "y": 26
-                },
-                {
-                    "id": "n4",
-                    "x": 102,
-                    "y": 6
-                },
-                {
-                    "id": "n5",
                     "x": 4,
                     "y": 22
                 },
                 {
-                    "id": "n6",
-                    "x": 28,
-                    "y": 77
-                },
-                {
-                    "id": "n7",
-                    "x": 64,
-                    "y": 80
-                },
-                {
-                    "id": "n8",
-                    "x": 88,
-                    "y": 69
-                },
-                {
-                    "id": "n9",
-                    "x": 383,
-                    "y": 78
-                },
-                {
-                    "id": "n10",
-                    "x": 401,
-                    "y": 67
-                },
-                {
-                    "id": "n11",
-                    "x": 469,
-                    "y": 79
-                },
-                {
-                    "id": "n12",
-                    "x": 491,
-                    "y": 65
+                    "id": "n2",
+                    "x": 505,
+                    "y": 26
                 }
             ],
             "lines": [
                 {
-                    "id": "blockable_1",
-                    "kind": "blockable",
+                    "id": "walkable_1",
+                    "kind": "walkable",
                     "from": "n1",
                     "to": "n2",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_2",
-                    "kind": "blockable",
-                    "from": "n2",
-                    "to": "n3",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_3",
-                    "kind": "blockable",
-                    "from": "n3",
-                    "to": "n4",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_4",
-                    "kind": "blockable",
-                    "from": "n4",
-                    "to": "n5",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_5",
-                    "kind": "blockable",
-                    "from": "n5",
-                    "to": "n6",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_6",
-                    "kind": "blockable",
-                    "from": "n6",
-                    "to": "n7",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_7",
-                    "kind": "blockable",
-                    "from": "n7",
-                    "to": "n8",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_8",
-                    "kind": "blockable",
-                    "from": "n8",
-                    "to": "n9",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_9",
-                    "kind": "blockable",
-                    "from": "n9",
-                    "to": "n10",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_10",
-                    "kind": "blockable",
-                    "from": "n10",
-                    "to": "n11",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_11",
-                    "kind": "blockable",
-                    "from": "n11",
-                    "to": "n12",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_12",
-                    "kind": "blockable",
-                    "from": "n12",
-                    "to": "n1",
                     "tags": []
                 }
             ]
@@ -6232,184 +6002,21 @@
             "nodes": [
                 {
                     "id": "n1",
-                    "x": 4,
-                    "y": 37
+                    "x": 6,
+                    "y": 17
                 },
                 {
                     "id": "n2",
-                    "x": 34,
-                    "y": 72
-                },
-                {
-                    "id": "n3",
-                    "x": 251,
-                    "y": 79
-                },
-                {
-                    "id": "n4",
-                    "x": 266,
-                    "y": 63
-                },
-                {
-                    "id": "n5",
-                    "x": 275,
-                    "y": 78
-                },
-                {
-                    "id": "n6",
-                    "x": 308,
-                    "y": 60
-                },
-                {
-                    "id": "n7",
-                    "x": 315,
-                    "y": 74
-                },
-                {
-                    "id": "n8",
                     "x": 336,
                     "y": 21
-                },
-                {
-                    "id": "n9",
-                    "x": 264,
-                    "y": 7
-                },
-                {
-                    "id": "n10",
-                    "x": 136,
-                    "y": 18
-                },
-                {
-                    "id": "n11",
-                    "x": 114,
-                    "y": 6
-                },
-                {
-                    "id": "n12",
-                    "x": 69,
-                    "y": 18
-                },
-                {
-                    "id": "n13",
-                    "x": 56,
-                    "y": 4
-                },
-                {
-                    "id": "n14",
-                    "x": 39,
-                    "y": 16
-                },
-                {
-                    "id": "n15",
-                    "x": 6,
-                    "y": 17
                 }
             ],
             "lines": [
                 {
-                    "id": "blockable_1",
-                    "kind": "blockable",
+                    "id": "walkable_1",
+                    "kind": "walkable",
                     "from": "n1",
                     "to": "n2",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_2",
-                    "kind": "blockable",
-                    "from": "n2",
-                    "to": "n3",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_3",
-                    "kind": "blockable",
-                    "from": "n3",
-                    "to": "n4",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_4",
-                    "kind": "blockable",
-                    "from": "n4",
-                    "to": "n5",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_5",
-                    "kind": "blockable",
-                    "from": "n5",
-                    "to": "n6",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_6",
-                    "kind": "blockable",
-                    "from": "n6",
-                    "to": "n7",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_7",
-                    "kind": "blockable",
-                    "from": "n7",
-                    "to": "n8",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_8",
-                    "kind": "blockable",
-                    "from": "n8",
-                    "to": "n9",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_9",
-                    "kind": "blockable",
-                    "from": "n9",
-                    "to": "n10",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_10",
-                    "kind": "blockable",
-                    "from": "n10",
-                    "to": "n11",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_11",
-                    "kind": "blockable",
-                    "from": "n11",
-                    "to": "n12",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_12",
-                    "kind": "blockable",
-                    "from": "n12",
-                    "to": "n13",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_13",
-                    "kind": "blockable",
-                    "from": "n13",
-                    "to": "n14",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_14",
-                    "kind": "blockable",
-                    "from": "n14",
-                    "to": "n15",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_15",
-                    "kind": "blockable",
-                    "from": "n15",
-                    "to": "n1",
                     "tags": []
                 }
             ]
@@ -6440,172 +6047,21 @@
             "nodes": [
                 {
                     "id": "n1",
-                    "x": 671,
-                    "y": 45
-                },
-                {
-                    "id": "n2",
-                    "x": 504,
-                    "y": 4
-                },
-                {
-                    "id": "n3",
-                    "x": 438,
-                    "y": 39
-                },
-                {
-                    "id": "n4",
-                    "x": 389,
-                    "y": 23
-                },
-                {
-                    "id": "n5",
-                    "x": 352,
-                    "y": 40
-                },
-                {
-                    "id": "n6",
-                    "x": 200,
-                    "y": 42
-                },
-                {
-                    "id": "n7",
-                    "x": 136,
-                    "y": 16
-                },
-                {
-                    "id": "n8",
-                    "x": 106,
-                    "y": 38
-                },
-                {
-                    "id": "n9",
                     "x": 38,
                     "y": 44
                 },
                 {
-                    "id": "n10",
-                    "x": 30,
-                    "y": 29
-                },
-                {
-                    "id": "n11",
-                    "x": 4,
-                    "y": 58
-                },
-                {
-                    "id": "n12",
-                    "x": 54,
-                    "y": 86
-                },
-                {
-                    "id": "n13",
-                    "x": 580,
-                    "y": 86
-                },
-                {
-                    "id": "n14",
-                    "x": 657,
-                    "y": 75
+                    "id": "n2",
+                    "x": 671,
+                    "y": 45
                 }
             ],
             "lines": [
                 {
-                    "id": "blockable_1",
-                    "kind": "blockable",
+                    "id": "walkable_1",
+                    "kind": "walkable",
                     "from": "n1",
                     "to": "n2",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_2",
-                    "kind": "blockable",
-                    "from": "n2",
-                    "to": "n3",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_3",
-                    "kind": "blockable",
-                    "from": "n3",
-                    "to": "n4",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_4",
-                    "kind": "blockable",
-                    "from": "n4",
-                    "to": "n5",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_5",
-                    "kind": "blockable",
-                    "from": "n5",
-                    "to": "n6",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_6",
-                    "kind": "blockable",
-                    "from": "n6",
-                    "to": "n7",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_7",
-                    "kind": "blockable",
-                    "from": "n7",
-                    "to": "n8",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_8",
-                    "kind": "blockable",
-                    "from": "n8",
-                    "to": "n9",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_9",
-                    "kind": "blockable",
-                    "from": "n9",
-                    "to": "n10",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_10",
-                    "kind": "blockable",
-                    "from": "n10",
-                    "to": "n11",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_11",
-                    "kind": "blockable",
-                    "from": "n11",
-                    "to": "n12",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_12",
-                    "kind": "blockable",
-                    "from": "n12",
-                    "to": "n13",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_13",
-                    "kind": "blockable",
-                    "from": "n13",
-                    "to": "n14",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_14",
-                    "kind": "blockable",
-                    "from": "n14",
-                    "to": "n1",
                     "tags": []
                 }
             ]

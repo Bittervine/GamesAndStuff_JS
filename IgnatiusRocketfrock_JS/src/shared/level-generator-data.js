@@ -2,12 +2,15 @@ import {
     CAVE_PERIMETER_GENERATOR,
     generateCavePerimeterPlacements
 } from "./cave-window-decoration.js";
+import { parseEnemySelection } from "./enemy-pool-data.js";
+export { parseEnemySelection } from "./enemy-pool-data.js";
 
-export const AUTOMATIC_LEVEL_GENERATOR_VERSION = 22;
+export const AUTOMATIC_LEVEL_GENERATOR_VERSION = 26;
 export const AUTOMATIC_LEVEL_GENERATOR_ID = "automatic-level-generator-9";
 
 const GENERATED_PLAYER_BODY_WIDTH = 34;
 const GENERATED_STATIC_HEADROOM = 112;
+export const GENERATED_POWER_UP_SPACING_PX = 5000;
 
 export const LEVEL_GENERATOR_STAGE_ORDER = Object.freeze([
     "route",
@@ -409,59 +412,6 @@ export function createNamedRandomStream(seed, streamName, attempt = 0) {
     });
 }
 
-export function parseEnemySelection(expression, availableEnemyIds = []) {
-    const source = String(expression ?? "").trim();
-    const available = [...new Set((availableEnemyIds || []).map((id) => String(id)).filter(Boolean))]
-        .map((id) => ({ id, number: enemyNumber(id) }))
-        .filter((entry) => Number.isInteger(entry.number) && entry.number >= 0)
-        .sort((a, b) => a.number - b.number || a.id.localeCompare(b.id));
-    const errors = [];
-    if (!source) {
-        return { valid: false, expression: source, resolvedIds: [], errors: ["Enter at least one enemy number or range."] };
-    }
-
-    const includeRanges = [];
-    const excludeRanges = [];
-    for (const rawToken of source.split(",")) {
-        const token = rawToken.trim();
-        if (!token) {
-            errors.push("Empty enemy-selection token.");
-            continue;
-        }
-        const excluded = token.startsWith("!");
-        const body = excluded ? token.slice(1).trim() : token;
-        const match = /^(\d+)(?:\s*-\s*(\d+))?$/.exec(body);
-        if (!match) {
-            errors.push(`Invalid enemy token “${token}”.`);
-            continue;
-        }
-        const start = Number(match[1]);
-        const end = match[2] === undefined ? start : Number(match[2]);
-        if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < 0) {
-            errors.push(`Enemy token “${token}” is outside the supported range.`);
-            continue;
-        }
-        if (start > end) {
-            errors.push(`Enemy range “${token}” runs backwards.`);
-            continue;
-        }
-        (excluded ? excludeRanges : includeRanges).push([start, end]);
-    }
-
-    if (!includeRanges.length && !errors.length) {
-        includeRanges.push([0, Number.MAX_SAFE_INTEGER]);
-    }
-    const resolvedIds = available
-        .filter((entry) => rangeListIncludes(includeRanges, entry.number) && !rangeListIncludes(excludeRanges, entry.number))
-        .map((entry) => entry.id);
-    return {
-        valid: errors.length === 0,
-        expression: source,
-        resolvedIds,
-        errors
-    };
-}
-
 function collectAutomaticLevelRouteCandidates(options = {}) {
     const theme = normalizeGeneratorTheme(options.theme);
     const settings = normalizeGeneratorSettings(options.settings, theme.defaults);
@@ -721,6 +671,29 @@ function normalizeEnemyCatalogDefinitions(value) {
 
 
 
+export function generatedPowerUpTargetForRoute(route, settings = {}) {
+    const rewardDensity = clamp01(settings.rewardDensity ?? DEFAULT_GENERATOR_SETTINGS.rewardDensity);
+    if (rewardDensity <= 0.001) return 0;
+    const mandatoryNodes = (route?.nodes || [])
+        .filter((node) => node?.mandatory !== false)
+        .sort((left, right) => finiteNumber(left?.progress, 0) - finiteNumber(right?.progress, 0));
+    let routeDistance = 0;
+    for (let index = 1; index < mandatoryNodes.length; index += 1) {
+        routeDistance += distance(mandatoryNodes[index - 1], mandatoryNodes[index]);
+    }
+    if (routeDistance <= 0 && mandatoryNodes.length > 1) {
+        const xs = mandatoryNodes.map((node) => finiteNumber(node?.x, 0));
+        routeDistance = Math.max(...xs) - Math.min(...xs);
+    }
+    const baselineTarget = Math.max(1, Math.round(routeDistance / GENERATED_POWER_UP_SPACING_PX));
+    const densityScale = clamp(
+        rewardDensity / Math.max(0.001, DEFAULT_GENERATOR_SETTINGS.rewardDensity),
+        0.25,
+        1.75
+    );
+    return Math.max(1, Math.round(baselineTarget * densityScale));
+}
+
 function planBasicRewards({ route, theme, settings, runId, implementationId }) {
     const mainNodeCount = (route?.nodes || []).filter((node) => node.mandatory !== false).length;
     const perchCapacity = settings.length === "grand" ? 4 : settings.length === "extended" ? 3 : settings.length === "standard" ? 2 : 1;
@@ -736,11 +709,14 @@ function planBasicRewards({ route, theme, settings, runId, implementationId }) {
         )
         : 0;
     return {
-        version: 2,
+        version: 3,
         generatorId: implementationId,
         runId,
         treasureTarget,
         contextualRewardTarget,
+        powerUpTarget: implementationId === "basic-rewards-v1"
+            ? generatedPowerUpTargetForRoute(route, settings)
+            : 0,
         allowThoughts: Boolean(
             implementationId === "basic-rewards-v1"
             && settings.allowThoughts
@@ -752,11 +728,12 @@ function planBasicRewards({ route, theme, settings, runId, implementationId }) {
 
 function emptyRewardPopulation(runId, implementationId = "not-generated-yet", plan = null) {
     return {
-        version: 2,
+        version: 3,
         generatorId: String(implementationId || "not-generated-yet"),
         runId: String(runId || ""),
         treasureTarget: Math.max(0, Math.floor(Number(plan?.treasureTarget) || 0)),
         contextualRewardTarget: Math.max(0, Math.floor(Number(plan?.contextualRewardTarget) || 0)),
+        powerUpTarget: Math.max(0, Math.floor(Number(plan?.powerUpTarget) || 0)),
         selectedPerchSupportIds: normalizeStringArray(plan?.selectedPerchSupportIds),
         rewards: [],
         entities: []
@@ -997,13 +974,13 @@ function buildBasicRewards({
         }
     }
 
-    const guaranteedPowerUpTarget = settings.rewardDensity < 0.2
-        ? 0
-        : (["extended", "grand"].includes(settings.length) && settings.rewardDensity >= 0.52 ? 2 : 1);
+    const guaranteedPowerUpTarget = Math.max(0, Math.floor(Number(rewardPlan?.powerUpTarget) || 0));
     let powerUpCount = rewards.filter((reward) => reward.category === "powerUp").length;
     if (powerUpCount < guaranteedPowerUpTarget) {
         const powerUpMetadata = (rewardGenerationCatalog?.rewards || [])
             .filter((metadata) => metadata.category === "powerUp" && entityCatalog.has(metadata.entityType));
+        // Keep the route-scaled guarantee owned entirely by the reward stream.
+        // Encounter-only rerolls must not shuffle unrelated reward positions.
         const fallbackSupports = rng.shuffle(mainSupportCandidates
             .map((candidate) => candidate.support)
             .filter((support) => !occupiedSupportIds.has(support.id)));
@@ -1055,11 +1032,12 @@ function buildBasicRewards({
     }
 
     return {
-        version: 2,
+        version: 3,
         generatorId: "basic-rewards-v1",
         runId,
         treasureTarget: perchChestTarget,
         contextualRewardTarget: rewardPlan.contextualRewardTarget,
+        powerUpTarget: guaranteedPowerUpTarget,
         selectedPerchSupportIds,
         rewards,
         entities
@@ -1621,6 +1599,7 @@ export function generateAutomaticLevelDraft(options = {}) {
                 rewardCount: rewards.entities.length,
                 chestCount: rewards.entities.filter((entity) => entity.type === "treasureChest").length,
                 powerUpCount: rewards.entities.filter((entity) => ["speedShotPickup", "shieldPickup", "randomWrenchPickup"].includes(entity.type)).length,
+                powerUpTarget: rewards.powerUpTarget,
                 thoughtCount: rewards.entities.filter((entity) => entity.type === "thoughtTrigger").length
             },
             decoration: {
@@ -1739,6 +1718,7 @@ function buildDifficultyBudgetedEncounters({
             support,
             progress,
             headroom,
+            cavern,
             endpointDistance,
             order: (support.combatPerch ? -0.75 : progress) + rng.range(-0.08, 0.08)
         };
@@ -1786,6 +1766,7 @@ function buildDifficultyBudgetedEncounters({
             candidate,
             selected,
             theme,
+            supports: traversal?.supports || [],
             rng,
             runId
         });
@@ -1854,12 +1835,12 @@ function weightedRandomChoice(values, rng) {
     return values.at(-1);
 }
 
-function instantiateGeneratedEncounter({ encounterId, candidate, selected, theme, rng, runId }) {
+function instantiateGeneratedEncounter({ encounterId, candidate, selected, theme, supports, rng, runId }) {
     const { support, progress, headroom } = candidate;
     const { enemyId, metadata, definition, groupSize, totalCost } = selected;
     const entities = metadata.placementClass === "flyingBomber"
-        ? instantiateFlyingEnemyGroup({ encounterId, support, headroom, enemyId, metadata, definition, groupSize, rng, runId })
-        : instantiateGroundEnemyGroup({ encounterId, support, enemyId, metadata, definition, groupSize, theme, rng, runId });
+        ? instantiateFlyingEnemyGroup({ encounterId, support, supports, cavern: candidate.cavern, headroom, enemyId, metadata, definition, groupSize, rng, runId })
+        : instantiateGroundEnemyGroup({ encounterId, support, supports, enemyId, metadata, definition, groupSize, theme, rng, runId });
     return {
         encounter: {
             id: encounterId,
@@ -1899,7 +1880,53 @@ function baseGeneratedEnemyEntity({ id, encounterId, support, enemyId, metadata,
     };
 }
 
-function instantiateGroundEnemyGroup({ encounterId, support, enemyId, metadata, definition, groupSize, theme, rng, runId }) {
+const GENERATED_ENEMY_PLATFORM_SIDE_CLEARANCE = 18;
+const GENERATED_ENEMY_PLATFORM_VERTICAL_CLEARANCE = 14;
+
+function generatedSupportVisualRect(support, horizontalPadding = 0, verticalPadding = 0) {
+    return {
+        left: finiteNumber(support?.centerX, 0) - finiteNumber(support?.width, 0) * 0.5 - horizontalPadding,
+        right: finiteNumber(support?.centerX, 0) + finiteNumber(support?.width, 0) * 0.5 + horizontalPadding,
+        top: finiteNumber(support?.surfaceY, 0) - finiteNumber(support?.height, 0) * finiteNumber(support?.surfaceYRatio, 0) - verticalPadding,
+        bottom: finiteNumber(support?.surfaceY, 0) + finiteNumber(support?.height, 0) * (1 - finiteNumber(support?.surfaceYRatio, 0)) + verticalPadding
+    };
+}
+
+function rectanglesOverlapWithArea(first, second, epsilon = 0.01) {
+    return Math.min(first.right, second.right) - Math.max(first.left, second.left) > epsilon
+        && Math.min(first.bottom, second.bottom) - Math.max(first.top, second.top) > epsilon;
+}
+
+function generatedGroundEnemyBodyRect(x, y, definition) {
+    return {
+        left: finiteNumber(x, 0) - finiteNumber(definition?.defaultSize?.w, 0) * 0.5,
+        right: finiteNumber(x, 0) + finiteNumber(definition?.defaultSize?.w, 0) * 0.5,
+        top: finiteNumber(y, 0) - finiteNumber(definition?.defaultSize?.h, 0),
+        // Keep the feet out of the test so overlapping same-height floor pieces
+        // remain a valid continuous surface.
+        bottom: finiteNumber(y, 0) - 3
+    };
+}
+
+function generatedGroundEnemyClearsPlatforms({ x, y, definition, assignedSupport, supports }) {
+    const body = generatedGroundEnemyBodyRect(x, y, definition);
+    for (const other of supports || []) {
+        if (!other || other.id === assignedSupport?.id) continue;
+        // Overlapping blockable pieces at the same standing height form one floor.
+        if (Math.abs(finiteNumber(other.surfaceY, 0) - finiteNumber(y, 0)) <= 2) continue;
+        const platform = generatedSupportVisualRect(
+            other,
+            GENERATED_ENEMY_PLATFORM_SIDE_CLEARANCE,
+            GENERATED_ENEMY_PLATFORM_VERTICAL_CLEARANCE
+        );
+        if (rectanglesOverlapWithArea(body, platform)) return false;
+        const shaft = other?.strictShaftClearance ? other.movementShaft : null;
+        if (shaft && rectanglesOverlapWithArea(body, shaft)) return false;
+    }
+    return true;
+}
+
+function instantiateGroundEnemyGroup({ encounterId, support, supports, enemyId, metadata, definition, groupSize, theme, rng, runId }) {
     const bodyWidth = definition.defaultSize.w;
     const landingBuffer = Math.max(metadata.landingBuffer, theme.encounters.landingBuffer);
     const left = support.walkableLeftX + metadata.edgeClearance + landingBuffer;
@@ -1907,11 +1934,46 @@ function instantiateGroundEnemyGroup({ encounterId, support, enemyId, metadata, 
     const available = Math.max(0, right - left);
     if (available < bodyWidth) return [];
     const spacing = groupSize > 1 ? Math.min(metadata.minGroupSpacing, Math.max(bodyWidth * 0.9, available / Math.max(1, groupSize - 1))) : 0;
-    const center = right - bodyWidth * 0.5 - rng.range(0, Math.max(0, Math.min(36, available - bodyWidth)));
+    const groupWidth = bodyWidth + spacing * Math.max(0, groupSize - 1);
+    const minimumCenter = left + groupWidth * 0.5;
+    const maximumCenter = right - groupWidth * 0.5;
+    if (maximumCenter < minimumCenter - 0.01) return [];
+
+    const preferredCenter = maximumCenter - rng.range(0, Math.max(0, Math.min(36, maximumCenter - minimumCenter)));
+    const centerCandidates = [preferredCenter];
+    const candidateSteps = 14;
+    for (let index = 0; index <= candidateSteps; index += 1) {
+        centerCandidates.push(minimumCenter + (maximumCenter - minimumCenter) * index / candidateSteps);
+    }
+    const uniqueCenters = [...new Set(centerCandidates.map((value) => roundCoordinate(value)))];
+    let selectedPositions = null;
+    for (const center of uniqueCenters) {
+        const positions = [];
+        let clear = true;
+        for (let index = 0; index < groupSize; index += 1) {
+            const offset = groupSize > 1 ? (index - (groupSize - 1) * 0.5) * spacing : 0;
+            const x = center + offset;
+            if (!generatedGroundEnemyClearsPlatforms({
+                x,
+                y: support.surfaceY,
+                definition,
+                assignedSupport: support,
+                supports
+            })) {
+                clear = false;
+                break;
+            }
+            positions.push(roundCoordinate(x));
+        }
+        if (clear) {
+            selectedPositions = positions;
+            break;
+        }
+    }
+    if (!selectedPositions) return [];
+
     const entities = [];
     for (let index = 0; index < groupSize; index += 1) {
-        const offset = groupSize > 1 ? (index - (groupSize - 1) * 0.5) * spacing : 0;
-        const x = clamp(center + offset, left + bodyWidth * 0.5, right - bodyWidth * 0.5);
         const entity = baseGeneratedEnemyEntity({
             id: `${encounterId}_${enemyId}_${String(index + 1).padStart(2, "0")}`,
             encounterId,
@@ -1922,7 +1984,7 @@ function instantiateGroundEnemyGroup({ encounterId, support, enemyId, metadata, 
             runId
         });
         const patrolCapacity = Math.max(0, support.walkableWidth - metadata.edgeClearance * 2 - bodyWidth);
-        entity.x = roundCoordinate(x);
+        entity.x = selectedPositions[index];
         entity.y = roundCoordinate(support.surfaceY);
         entity.facing = -1;
         entity.patrolDistance = roundCoordinate(Math.min(
@@ -1935,19 +1997,89 @@ function instantiateGroundEnemyGroup({ encounterId, support, enemyId, metadata, 
     return entities;
 }
 
-function instantiateFlyingEnemyGroup({ encounterId, support, headroom, enemyId, metadata, definition, groupSize, rng, runId }) {
+function generatedFlyingEnemyBodyRect(x, y, definition) {
+    return {
+        left: finiteNumber(x, 0) - finiteNumber(definition?.defaultSize?.w, 0) * 0.5,
+        right: finiteNumber(x, 0) + finiteNumber(definition?.defaultSize?.w, 0) * 0.5,
+        top: finiteNumber(y, 0) - finiteNumber(definition?.defaultSize?.h, 0),
+        bottom: finiteNumber(y, 0)
+    };
+}
+
+function generatedFlyingEnemyClearsPlatforms({ x, y, definition, supports }) {
+    const body = generatedFlyingEnemyBodyRect(x, y, definition);
+    for (const support of supports || []) {
+        if (!support) continue;
+        const platform = generatedSupportVisualRect(
+            support,
+            GENERATED_ENEMY_PLATFORM_SIDE_CLEARANCE,
+            GENERATED_ENEMY_PLATFORM_VERTICAL_CLEARANCE
+        );
+        if (rectanglesOverlapWithArea(body, platform)) return false;
+        const shaft = support?.strictShaftClearance ? support.movementShaft : null;
+        if (shaft && rectanglesOverlapWithArea(body, shaft)) return false;
+    }
+    return true;
+}
+
+function generatedFlyingEnemyFitsCavern({ x, y, definition, cavern }) {
+    const range = cavernVerticalRangeAt(cavern, x, y);
+    if (!range) return false;
+    const body = generatedFlyingEnemyBodyRect(x, y, definition);
+    return body.top >= range.top + 12 && body.bottom <= range.bottom - 12;
+}
+
+function instantiateFlyingEnemyGroup({ encounterId, support, supports, cavern, headroom, enemyId, metadata, definition, groupSize, rng, runId }) {
     const bodyHeight = definition.defaultSize.h;
     const bodyWidth = definition.defaultSize.w;
     const spacing = Math.max(metadata.minGroupSpacing, Math.min(104, bodyWidth * 1.45));
+    const maximumHeight = Math.min(metadata.spawnHeightMax, headroom - bodyHeight - 72);
     const desiredHeight = clamp(
         metadata.spawnHeightMin + (metadata.spawnHeightMax - metadata.spawnHeightMin) * rng.range(0.35, 0.8),
         metadata.spawnHeightMin,
-        Math.min(metadata.spawnHeightMax, headroom - bodyHeight - 72)
+        maximumHeight
     );
     if (!Number.isFinite(desiredHeight) || desiredHeight < metadata.spawnHeightMin - 0.01) return [];
+
+    const groupWidth = bodyWidth + spacing * Math.max(0, groupSize - 1);
+    const centerRoom = Math.max(0, support.walkableWidth - groupWidth - metadata.edgeClearance * 2);
+    const centerCandidates = [support.centerX];
+    for (const factor of rng.shuffle([-0.5, 0.5, -0.25, 0.25, -0.75, 0.75])) {
+        centerCandidates.push(support.centerX + factor * centerRoom);
+    }
+    const heightCandidates = [desiredHeight];
+    const heightRange = Math.max(0, maximumHeight - metadata.spawnHeightMin);
+    for (const factor of rng.shuffle([0, 1, 0.25, 0.5, 0.75])) {
+        heightCandidates.push(metadata.spawnHeightMin + heightRange * factor);
+    }
+
+    let selectedPositions = null;
+    for (const height of heightCandidates) {
+        for (const centerX of centerCandidates) {
+            const positions = [];
+            let clear = true;
+            for (let index = 0; index < groupSize; index += 1) {
+                const offset = (index - (groupSize - 1) * 0.5) * spacing;
+                const x = roundCoordinate(centerX + offset);
+                const y = roundCoordinate(support.surfaceY - height + (index % 2 ? 10 : -10));
+                if (!generatedFlyingEnemyClearsPlatforms({ x, y, definition, supports })
+                    || !generatedFlyingEnemyFitsCavern({ x, y, definition, cavern })) {
+                    clear = false;
+                    break;
+                }
+                positions.push({ x, y });
+            }
+            if (clear) {
+                selectedPositions = positions;
+                break;
+            }
+        }
+        if (selectedPositions) break;
+    }
+    if (!selectedPositions) return [];
+
     const entities = [];
     for (let index = 0; index < groupSize; index += 1) {
-        const offset = (index - (groupSize - 1) * 0.5) * spacing;
         const entity = baseGeneratedEnemyEntity({
             id: `${encounterId}_${enemyId}_${String(index + 1).padStart(2, "0")}`,
             encounterId,
@@ -1957,8 +2089,8 @@ function instantiateFlyingEnemyGroup({ encounterId, support, headroom, enemyId, 
             definition,
             runId
         });
-        entity.x = roundCoordinate(support.centerX + offset);
-        entity.y = roundCoordinate(support.surfaceY - desiredHeight + (index % 2 ? 10 : -10));
+        entity.x = selectedPositions[index].x;
+        entity.y = selectedPositions[index].y;
         entity.facing = index % 2 ? 1 : -1;
         entity.patrolDistance = roundCoordinate(Math.max(finiteNumber(entity.patrolDistance, 120), spacing * Math.max(1, groupSize - 1) + 80));
         entity.bomberInitialDelay = roundCoordinate(finiteNumber(entity.bomberInitialDelay, 0.5) + index * 0.22);
@@ -2043,7 +2175,11 @@ export function validateGeneratedEncounters(value = {}) {
         minimumEncounterSpacing: Infinity,
         budget: Math.max(0, finiteNumber(encounters.budget, 0)),
         spentBudget: Math.max(0, finiteNumber(encounters.spentBudget, 0)),
-        invalidSpawnCount: 0
+        invalidSpawnCount: 0,
+        platformEnemyIntrusionCount: 0,
+        movingShaftEnemyIntrusionCount: 0,
+        upperGroundEnemyCount: 0,
+        unreachableUpperGroundEnemyCount: 0
     };
     const entityIds = new Set();
     const byEncounter = groupBy(entities, (entity) => String(entity.generationEncounterId || ""));
@@ -2079,12 +2215,61 @@ export function validateGeneratedEncounters(value = {}) {
             if (entity.y >= support.surfaceY - 60) errors.push(`Flying enemy “${entity.id}” is too close to its route support.`);
         } else {
             metrics.groundEnemyCount += 1;
+            if (support.secondaryPlatform) {
+                metrics.upperGroundEnemyCount += 1;
+                const parentId = String(support.parentSupportId || "");
+                const hasReachableParentTransition = (traversal.transitions || []).some((transition) => (
+                    transition.valid
+                    && ((transition.fromSupportId === parentId && transition.toSupportId === support.id)
+                        || (transition.fromSupportId === support.id && transition.toSupportId === parentId))
+                ));
+                const mobileHunter = String(entity.strategy || "") === "hunter"
+                    && finiteNumber(entity.jumpHeight, 0) > 0
+                    && metadata.requiresNavigation;
+                if (!hasReachableParentTransition || !mobileHunter) {
+                    metrics.unreachableUpperGroundEnemyCount += 1;
+                    errors.push(`Ground enemy “${entity.id}” is stranded on upper support “${support.id}”.`);
+                }
+            }
             if (Math.abs(entity.y - support.surfaceY) > 2) errors.push(`Ground enemy “${entity.id}” is not seated on its assigned support.`);
             const halfWidth = definition.defaultSize.w * 0.5;
             const leftLimit = support.walkableLeftX + metadata.edgeClearance;
             const rightLimit = support.walkableRightX - metadata.edgeClearance;
             if (entity.x - halfWidth < leftLimit - 0.01 || entity.x + halfWidth > rightLimit + 0.01) errors.push(`Ground enemy “${entity.id}” does not have the required authored walkable-edge clearance.`);
             if (entity.x - halfWidth < support.walkableLeftX + Math.max(metadata.landingBuffer, theme.encounters.landingBuffer) - 0.01) errors.push(`Ground enemy “${entity.id}” intrudes into the protected incoming landing area.`);
+        }
+        const entityRect = {
+            left: entity.x - definition.defaultSize.w * 0.5,
+            right: entity.x + definition.defaultSize.w * 0.5,
+            top: entity.y - definition.defaultSize.h,
+            bottom: entity.y
+        };
+        const clearOfPlatforms = metadata.placementClass === "flyingBomber"
+            ? generatedFlyingEnemyClearsPlatforms({
+                x: entity.x,
+                y: entity.y,
+                definition,
+                supports: [...supports.values()]
+            })
+            : generatedGroundEnemyClearsPlatforms({
+                x: entity.x,
+                y: entity.y,
+                definition,
+                assignedSupport: support,
+                supports: [...supports.values()]
+            });
+        if (!clearOfPlatforms) {
+            metrics.platformEnemyIntrusionCount += 1;
+            errors.push(`Enemy “${entity.id}” is glued to or embedded in generated platform artwork.`);
+        }
+        for (const moving of supports.values()) {
+            const shaft = moving?.strictShaftClearance ? moving.movementShaft : null;
+            if (!shaft) continue;
+            if (Math.min(shaft.right, entityRect.right) - Math.max(shaft.left, entityRect.left) > 1
+                && Math.min(shaft.bottom, entityRect.bottom) - Math.max(shaft.top, entityRect.top) > 1) {
+                metrics.movingShaftEnemyIntrusionCount += 1;
+                errors.push(`Enemy “${entity.id}” occupies moving-platform shaft “${moving.id}”.`);
+            }
         }
         if (String(entity.strategy || "") === "hunter") metrics.hunterCount += 1;
     }
@@ -2150,6 +2335,7 @@ export function validateGeneratedRewards(value = {}) {
         rewardCount: entities.length,
         chestCount: 0,
         powerUpCount: 0,
+        powerUpTarget: Math.max(0, Math.floor(Number(rewards.powerUpTarget) || 0)),
         utilityCount: 0,
         thoughtCount: 0,
         selectedPerchCount: selectedPerches.size,
@@ -2234,6 +2420,7 @@ export function validateGeneratedRewards(value = {}) {
     }
 
     if (settings.rewardDensity <= 0.001 && (entities.length || selectedPerches.size)) errors.push("Zero reward density must produce no rewards or selected reward perches.");
+    if (metrics.powerUpCount < metrics.powerUpTarget) errors.push(`Generated rewards contain ${metrics.powerUpCount} power-ups but the route-scaled target is ${metrics.powerUpTarget}.`);
     if (metrics.thoughtCount > theme.rewards.maximumThoughts) errors.push("Generated narrative thoughts exceed the theme maximum.");
     if (endpointEntities.some((entity) => !hasGenerationStageProvenance(entity, "endpoints"))) errors.push("Beginning and end doors must remain owned by the Endpoint Placer or be explicit manual replacements for it.");
     if (endpointEntities.some((entity) => entity?.manualizedFromGeneration)) warnings.push("One or more generated endpoint doors were converted to manual ownership.");
@@ -2501,6 +2688,7 @@ export function validatePlayableEmptyCavern(value = {}) {
         recoveryGapOverlapViolationCount: 0,
         recoveryUpperGapCoverageCount: 0,
         movingThinAssetViolationCount: 0,
+        movingShaftIntrusionCount: 0,
         verticalMovingPlatformCount: 0,
         staticVerticalIntermediateCount: 0,
         horizontalJumpGapCount: 0,
@@ -2516,6 +2704,8 @@ export function validatePlayableEmptyCavern(value = {}) {
         secondaryPlatformCount: supports.filter((support) => support.secondaryPlatform).length,
         secondaryRewardPerchCount: supports.filter((support) => support.rewardPerch).length,
         secondaryCombatPerchCount: supports.filter((support) => support.combatPerch).length,
+        upperAccessPlatformCount: supports.filter((support) => support.upperAccessPlatform).length,
+        minimumUpperLaneRocketClearance: Infinity,
         secondaryPlatformCoverageRatio: 0,
         recoveryRequiredGapCount: 0,
         recoveryBacktrackReachableCount: 0,
@@ -2678,6 +2868,43 @@ export function validatePlayableEmptyCavern(value = {}) {
                 }
             }
         }
+        const secondarySpans = supports.filter((support) => support.secondaryPlatform)
+            .map((support) => ({ left: support.walkableLeftX, right: support.walkableRightX }))
+            .sort((left, right) => left.left - right.left);
+        let secondaryCoverageWidth = 0;
+        let activeSecondarySpan = null;
+        for (const span of secondarySpans) {
+            if (!activeSecondarySpan) activeSecondarySpan = { ...span };
+            else if (span.left <= activeSecondarySpan.right) activeSecondarySpan.right = Math.max(activeSecondarySpan.right, span.right);
+            else {
+                secondaryCoverageWidth += activeSecondarySpan.right - activeSecondarySpan.left;
+                activeSecondarySpan = { ...span };
+            }
+        }
+        if (activeSecondarySpan) secondaryCoverageWidth += activeSecondarySpan.right - activeSecondarySpan.left;
+        const routeBoundsForSecondaryCoverage = routeGraphBounds(route, 0);
+        metrics.secondaryPlatformCoverageRatio = roundCoordinate(secondaryCoverageWidth / Math.max(1, finiteNumber(routeBoundsForSecondaryCoverage?.w, 1)));
+        const mostlyHorizontalRoute = route?.generatorId === "mostly-horizontal-route-v1" || route?.macro?.patternId === "mostly-horizontal";
+        if (mostlyHorizontalRoute) {
+            for (const support of supports.filter((candidate) => candidate.secondaryPlatform)) {
+                const groundParent = bySupportId.get(String(support.groundParentSupportId || ""));
+                const accessSupport = bySupportId.get(String(support.accessSupportId || ""));
+                if (!groundParent || !accessSupport?.upperAccessPlatform) {
+                    errors.push(`Upper platform “${support.id}” is missing its reachable access step or ground parent.`);
+                    continue;
+                }
+                const undersideY = support.surfaceY + support.height * (1 - support.surfaceYRatio);
+                const rocketClearance = groundParent.surfaceY - undersideY;
+                metrics.minimumUpperLaneRocketClearance = Math.min(metrics.minimumUpperLaneRocketClearance, rocketClearance);
+                if (rocketClearance < 170) {
+                    errors.push(`Upper platform “${support.id}” leaves only ${roundCoordinate(rocketClearance)} units for rockets to turn beneath it.`);
+                }
+            }
+            if (metrics.upperAccessPlatformCount < metrics.secondaryPlatformCount) {
+                errors.push("The Mostly horizontal upper lane is missing one or more intermediate access platforms.");
+            }
+        }
+        if (!Number.isFinite(metrics.minimumUpperLaneRocketClearance)) metrics.minimumUpperLaneRocketClearance = 0;
         const mainStaticSupports = supports.filter((support) => support.mandatory && !support.moving && support.role !== "doorSupport");
         if (mainStaticSupports.length) {
             metrics.averageMainStaticPlatformWidth = roundCoordinate(mainStaticSupports.reduce((sum, support) => sum + finiteNumber(support.walkableWidth, support.width), 0) / mainStaticSupports.length);
@@ -2685,39 +2912,6 @@ export function validatePlayableEmptyCavern(value = {}) {
             const sharePopulation = spanSupports.length ? spanSupports : mainStaticSupports;
             metrics.longPlatformShare = Math.round(sharePopulation.filter((support) => support.atlasId === "at_atlas_004" || finiteNumber(support.walkableWidth, 0) >= 520).length / sharePopulation.length * 10000) / 10000;
         }
-        const secondaryPlatforms = supports.filter((support) => support.secondaryPlatform);
-        const runAndGunGroundParents = supports.filter((support) => support.role === "runAndGunGround");
-        if (runAndGunGroundParents.length) {
-            const coveredParents = new Set(secondaryPlatforms.map((support) => String(support.parentSupportId || "")).filter(Boolean));
-            metrics.secondaryPlatformCoverageRatio = Math.round(coveredParents.size / runAndGunGroundParents.length * 10000) / 10000;
-        } else {
-            const secondarySpans = secondaryPlatforms
-                .map((support) => ({
-                    left: finiteNumber(support.walkableLeftX, support.centerX - support.width * 0.5),
-                    right: finiteNumber(support.walkableRightX, support.centerX + support.width * 0.5)
-                }))
-                .filter((span) => span.right > span.left)
-                .sort((left, right) => left.left - right.left);
-            let secondaryCoverage = 0;
-            let activeSpan = null;
-            for (const span of secondarySpans) {
-                if (!activeSpan) {
-                    activeSpan = { ...span };
-                    continue;
-                }
-                if (span.left <= activeSpan.right) {
-                    activeSpan.right = Math.max(activeSpan.right, span.right);
-                } else {
-                    secondaryCoverage += activeSpan.right - activeSpan.left;
-                    activeSpan = { ...span };
-                }
-            }
-            if (activeSpan) secondaryCoverage += activeSpan.right - activeSpan.left;
-            const routeBoundsForCoverage = routeGraphBounds(route, 0);
-            const routeSpanForCoverage = Math.max(1, finiteNumber(routeBoundsForCoverage?.w, 0));
-            metrics.secondaryPlatformCoverageRatio = Math.round(secondaryCoverage / routeSpanForCoverage * 10000) / 10000;
-        }
-        
             const recoveryLanes = Array.isArray(traversal.recoveryLanes) ? traversal.recoveryLanes : [];
             metrics.recoveryLaneCount = recoveryLanes.length;
             for (const lane of recoveryLanes) {
@@ -2783,6 +2977,7 @@ export function validatePlayableEmptyCavern(value = {}) {
         if (metrics.horizontalJumpGapCount > 0 && metrics.maximumHorizontalRouteOffset < 72) warnings.push("Horizontal platform sequences remained unusually close to the abstract route height.");
         if (metrics.organicSameHeightAdjacentCount > 0) errors.push("The organic upper route still contains a same-height platform row.");
         if (metrics.mainStaticPlatformCount >= 3 && metrics.longPlatformShare < 0.4) errors.push("The Standard traversal did not use long platforms for enough of the main route.");
+        if (mostlyHorizontalRoute && metrics.secondaryPlatformCoverageRatio < 0.245) errors.push(`The Mostly horizontal upper lane covers only ${roundCoordinate(metrics.secondaryPlatformCoverageRatio * 100)}% of the route span.`);
      else if (!Number.isFinite(metrics.minimumHorizontalJumpGap)) {
         metrics.minimumHorizontalJumpGap = 0;
     }
@@ -2838,13 +3033,15 @@ export function validatePlayableEmptyCavern(value = {}) {
                 || (connectedPair && first.runAndGunGround && second.runAndGunGround)
                 || (first.continuousLowerGround && second.continuousLowerGround)
             );
-            if (enforceLayeredStaticHeadroom && !includesMovingPlatform && !connectedContinuousGround) {
+            if (enforceLayeredStaticHeadroom
+                && !includesMovingPlatform
+                && !connectedContinuousGround
+                && first.collisionMode !== "oneWay"
+                && second.collisionMode !== "oneWay") {
                 metrics.minimumStaticHeadroom = Math.min(metrics.minimumStaticHeadroom, bodyClearance);
-                const secondaryRunAndGunPair = (upper.secondaryPlatform && lower.role === "runAndGunGround") || (lower.secondaryPlatform && upper.role === "runAndGunGround");
-                const requiredStaticHeadroom = secondaryRunAndGunPair ? 72 : GENERATED_STATIC_HEADROOM;
-                if (bodyClearance < requiredStaticHeadroom - 0.5) {
+                if (bodyClearance < GENERATED_STATIC_HEADROOM - 0.5) {
                     metrics.blockedSupportPairs += 1;
-                    errors.push(`Supports “${upper.id}” and “${lower.id}” leave only ${roundCoordinate(bodyClearance)} units of static headroom; Ignatius needs at least ${requiredStaticHeadroom}.`);
+                    errors.push(`Supports “${upper.id}” and “${lower.id}” leave only ${roundCoordinate(bodyClearance)} units of static headroom; Ignatius needs at least ${GENERATED_STATIC_HEADROOM}.`);
                 }
             }
             const oneWayRunAndGunPair = first.role === "runAndGunGround" && second.role === "runAndGunGround";
@@ -2863,6 +3060,23 @@ export function validatePlayableEmptyCavern(value = {}) {
     }
     if (!Number.isFinite(metrics.minimumStaticHeadroom)) metrics.minimumStaticHeadroom = 0;
 
+    for (const moving of supports.filter((support) => support.moving && support.movementShaft && support.strictShaftClearance)) {
+        const shaft = moving.movementShaft;
+        for (const other of supports) {
+            if (other.id === moving.id || [moving.movementStartSupportId, moving.movementEndSupportId].includes(other.id) || other.moving) continue;
+            const otherRect = {
+                left: other.centerX - other.width * 0.5,
+                right: other.centerX + other.width * 0.5,
+                top: other.surfaceY - other.height * other.surfaceYRatio,
+                bottom: other.surfaceY + other.height * (1 - other.surfaceYRatio)
+            };
+            if (Math.min(shaft.right, otherRect.right) - Math.max(shaft.left, otherRect.left) > 1
+                && Math.min(shaft.bottom, otherRect.bottom) - Math.max(shaft.top, otherRect.top) > 1) {
+                metrics.movingShaftIntrusionCount += 1;
+                errors.push(`Moving-platform shaft “${moving.id}” is obstructed by support “${other.id}”.`);
+            }
+        }
+    }
     const mandatoryPath = Array.isArray(traversal.mandatorySupportPath) ? traversal.mandatorySupportPath : [];
     if (mandatoryPath.length < 2) errors.push("Traversal has no mandatory support path.");
     if (mandatoryPath[0] !== traversal.startSupportId) errors.push("The mandatory support path does not begin at the entrance support.");
@@ -2943,6 +3157,7 @@ function buildStandardTraversal({
     const recoveryLanes = [];
     const supports = [];
     const placements = [];
+    const movingShaftReservations = [];
     let entranceDoorSupportSelection = null;
     const nodeSupport = new Map();
     const edgeSupportIds = new Map();
@@ -3425,7 +3640,7 @@ function buildStandardTraversal({
         const startEdgeX = direction > 0 ? startSupport.walkableRightX : startSupport.walkableLeftX;
         const endEdgeX = direction > 0 ? endSupport.walkableLeftX : endSupport.walkableRightX;
         const span = Math.max(0, direction * (endEdgeX - startEdgeX));
-        const overlap = roundCoordinate(rng.range(30, 46));
+        const overlap = roundCoordinate(rng.range(112, 148));
         if (span <= overlap) {
             const transition = classifyTraversalTransition(startSupport, endSupport, edge, theme);
             if (!transition.valid) return null;
@@ -3485,7 +3700,7 @@ function buildStandardTraversal({
         const finalOverlap = direction > 0
             ? previousEdgeX - endSupport.walkableLeftX
             : endSupport.walkableRightX - previousEdgeX;
-        if (finalOverlap < 18 || !intermediate.length) {
+        if (finalOverlap < 72 || !intermediate.length) {
             for (const support of intermediate) {
                 const placement = placements.find((candidate) => candidate.id === support.placementId);
                 supports.splice(supports.indexOf(support), 1);
@@ -3530,7 +3745,7 @@ function buildStandardTraversal({
             theme.traversal.intermediateWidth * 1.02
         );
         if (!selection) throw new Error(`Vertical edge “${edge.id}” cannot find a moving-platform asset.`);
-        const side = movingVerticalEdgeCount % 2 === 0 ? 1 : -1;
+        const preferredSide = movingVerticalEdgeCount % 2 === 0 ? 1 : -1;
         movingVerticalEdgeCount += 1;
         const support = addSupport({
             id: `support_${edge.id}_moving`,
@@ -3542,11 +3757,67 @@ function buildStandardTraversal({
             mandatory: true,
             routeEdgeId: edge.id
         });
-        const boardingGap = roundCoordinate(rng.range(38, 62));
-        const centerX = side > 0
-            ? Math.min(startSupport.walkableRightX, endSupport.walkableRightX) + boardingGap + support.width * 0.5 - support.walkableLeftInset
-            : Math.max(startSupport.walkableLeftX, endSupport.walkableLeftX) - boardingGap - (support.width * 0.5 - support.walkableRightInset);
-        moveSupportCenter(support, centerX);
+        let chosenCenterX = null;
+        let chosenShaft = null;
+        if (!useRunAndGunRoute) {
+            const boardingGap = roundCoordinate(rng.range(38, 62));
+            const centerX = preferredSide > 0
+                ? Math.min(startSupport.walkableRightX, endSupport.walkableRightX) + boardingGap + support.width * 0.5 - support.walkableLeftInset
+                : Math.max(startSupport.walkableLeftX, endSupport.walkableLeftX) - boardingGap - (support.width * 0.5 - support.walkableRightInset);
+            moveSupportCenter(support, centerX);
+            chosenCenterX = support.centerX;
+        } else {
+            const shaftVerticalTop = Math.min(startSupport.surfaceY, endSupport.surfaceY) + 44;
+            const shaftVerticalBottom = Math.max(startSupport.surfaceY, endSupport.surfaceY) - 44;
+            const shaftSideClearance = GENERATED_PLAYER_BODY_WIDTH * 0.5 + 18;
+            const candidateCenters = [];
+            for (const side of [preferredSide, -preferredSide]) {
+                const anchor = side > 0
+                    ? Math.min(startSupport.walkableRightX, endSupport.walkableRightX) + support.width * 0.5 - support.walkableLeftInset
+                    : Math.max(startSupport.walkableLeftX, endSupport.walkableLeftX) - (support.width * 0.5 - support.walkableRightInset);
+                for (const gap of [38, 54, 72, 92, 116, 142, 170, 202, 238]) candidateCenters.push(anchor + side * gap);
+            }
+            for (const centerX of candidateCenters) {
+                moveSupportCenter(support, centerX);
+                const shaft = {
+                    left: support.centerX - support.width * 0.5 - shaftSideClearance,
+                    right: support.centerX + support.width * 0.5 + shaftSideClearance,
+                    top: shaftVerticalTop,
+                    bottom: shaftVerticalBottom,
+                    startSupportId: startSupport.id,
+                    endSupportId: endSupport.id
+                };
+                const blocked = supports.some((other) => {
+                    if ([support.id, startSupport.id, endSupport.id].includes(other.id) || other.moving) return false;
+                    const otherLeft = other.centerX - other.width * 0.5;
+                    const otherRight = other.centerX + other.width * 0.5;
+                    const otherTop = other.surfaceY - other.height * other.surfaceYRatio;
+                    const otherBottom = otherTop + other.height;
+                    return Math.min(shaft.right, otherRight) - Math.max(shaft.left, otherLeft) > 1
+                        && Math.min(shaft.bottom, otherBottom) - Math.max(shaft.top, otherTop) > 1;
+                });
+                if (!blocked) {
+                    chosenCenterX = support.centerX;
+                    chosenShaft = shaft;
+                    break;
+                }
+            }
+            if (!Number.isFinite(chosenCenterX) || !chosenShaft) {
+                const placement = placements.find((candidate) => candidate.id === support.placementId);
+                supports.splice(supports.indexOf(support), 1);
+                if (placement) placements.splice(placements.indexOf(placement), 1);
+                throw new Error(`Vertical edge “${edge.id}” cannot reserve a collision-safe moving-platform shaft.`);
+            }
+            moveSupportCenter(support, chosenCenterX);
+            support.movementShaft = {
+                left: roundCoordinate(chosenShaft.left),
+                right: roundCoordinate(chosenShaft.right),
+                top: roundCoordinate(chosenShaft.top),
+                bottom: roundCoordinate(chosenShaft.bottom)
+            };
+            support.strictShaftClearance = true;
+            movingShaftReservations.push({ ...support.movementShaft, supportId: support.id, startSupportId: startSupport.id, endSupportId: endSupport.id });
+        }
         support.moving = true;
         support.movementAxis = "vertical";
         support.movementStartSupportId = startSupport.id;
@@ -3573,6 +3844,7 @@ function buildStandardTraversal({
         };
         placement.generationRole = "verticalMovingPlatform";
         placement.routeEdgeDirection = edge.intendedDirection;
+        if (support.movementShaft) placement.movementShaft = { ...support.movementShaft };
 
         const platformAtEnd = {
             ...support,
@@ -3618,189 +3890,300 @@ function buildStandardTraversal({
     for (const edge of edges) processEdge(edge);
 
     const secondaryPlatforms = [];
+    const upperAccessPlatforms = [];
     const wideUpperCavern = implementations.cavern === "wide-upper-contour-cavern-v1";
-    const baseSecondaryLimit = useRunAndGunRoute
-        ? (settings.length === "grand" ? 13 : settings.length === "extended" ? 10 : settings.length === "standard" ? 8 : 5)
-        : (settings.length === "grand" ? 8 : settings.length === "extended" ? 6 : settings.length === "standard" ? 5 : 3);
-    const secondaryLimit = baseSecondaryLimit + (wideUpperCavern ? 2 : 0);
-    const secondaryParents = supports.filter((support) => support.mandatory
-        && !support.moving
-        && support.role !== "doorSupport"
-        && support.atlasId === "at_atlas_004"
-        && support.walkableWidth >= (useRunAndGunRoute ? 300 : 360));
-    const desiredCoveredParents = useRunAndGunRoute
-        ? Math.max(2, Math.ceil(secondaryParents.length * 0.25))
-        : 0;
-    const candidateRepeats = useRunAndGunRoute ? (wideUpperCavern ? 4 : 3) : (wideUpperCavern ? 2 : 1);
-    const candidates = [];
-    for (let repeat = 0; repeat < candidateRepeats; repeat += 1) {
-        candidates.push(...rng.shuffle([...secondaryParents]));
-    }
-    const coveredSecondaryParentIds = new Set();
-    for (const parent of candidates) {
-            if (secondaryPlatforms.length >= secondaryLimit && coveredSecondaryParentIds.size >= desiredCoveredParents) break;
-            const combatPerch = useRunAndGunRoute ? secondaryPlatforms.length % 3 !== 0 : secondaryPlatforms.length % 2 === 1;
+
+    const placementRectForSelection = (selection, centerX, surfaceY) => ({
+        left: centerX - selection.width * 0.5,
+        right: centerX + selection.width * 0.5,
+        top: surfaceY - selection.height * selection.asset.surfaceYRatio,
+        bottom: surfaceY + selection.height * (1 - selection.asset.surfaceYRatio)
+    });
+    const rectIntersects = (a, b, margin = 0) => (
+        Math.min(a.right - margin, b.right - margin) - Math.max(a.left + margin, b.left + margin) > 0
+        && Math.min(a.bottom - margin, b.bottom - margin) - Math.max(a.top + margin, b.top + margin) > 0
+    );
+    const secondaryPlacementConflicts = (selection, centerX, surfaceY, parent) => {
+        const candidate = placementRectForSelection(selection, centerX, surfaceY);
+        for (const shaft of movingShaftReservations) {
+            if (rectIntersects(candidate, shaft, 2)) return true;
+        }
+        for (const other of supports) {
+            if (other.id === parent.id) continue;
+            const otherRect = {
+                left: other.centerX - other.width * 0.5,
+                right: other.centerX + other.width * 0.5,
+                top: other.surfaceY - other.height * other.surfaceYRatio,
+                bottom: other.surfaceY + other.height * (1 - other.surfaceYRatio)
+            };
+            const overlapX = Math.min(candidate.right, otherRect.right) - Math.max(candidate.left, otherRect.left);
+            if (overlapX <= 24) continue;
+            if (rectIntersects(candidate, otherRect, selection.asset.collisionMode === "oneWay" ? 6 : 24)) return true;
+            if (!useRunAndGunRoute) {
+                const clearance = candidate.bottom <= otherRect.top
+                    ? otherRect.top - candidate.bottom
+                    : candidate.top - otherRect.bottom;
+                if (clearance < GENERATED_STATIC_HEADROOM) return true;
+            }
+        }
+        return false;
+    };
+    const addSecondaryPlatform = ({ parent, selection, centerX, surfaceY, combatPerch, tier = 1 }) => {
+        const support = addSupport({
+            id: `support_secondary_${String(secondaryPlatforms.length + 1).padStart(2, "0")}_${parent.id}`,
+            role: "landingPlatform",
+            targetWidth: selection.width,
+            selection,
+            centerX,
+            surfaceY,
+            mandatory: false,
+            routeNodeId: parent.routeNodeId,
+            routeEdgeId: parent.routeEdgeId
+        });
+        support.role = "secondaryPlatform";
+        support.secondaryPlatform = true;
+        support.combatPerch = combatPerch;
+        support.rewardPerch = !combatPerch;
+        support.parentSupportId = parent.id;
+        support.groundParentSupportId = parent.groundParentSupportId || parent.parentSupportId || parent.id;
+        support.accessSupportId = parent.upperAccessPlatform ? parent.id : undefined;
+        support.secondaryTier = tier;
+        support.platformSpacingStyle = combatPerch ? "detachedSecondaryCombatPerch" : "detachedSecondaryRewardPerch";
+        const placement = placements.find((candidate) => candidate.id === support.placementId);
+        if (placement) {
+            placement.generationRole = "secondaryPlatform";
+            placement.parentSupportId = parent.id;
+            placement.secondaryTier = tier;
+            placement.rewardPerch = support.rewardPerch;
+            placement.combatPerch = support.combatPerch;
+        }
+        const edgeId = tier === 1 ? `secondary_${parent.id}` : `secondary_tier_${tier}_${parent.id}`;
+        const up = classifyTraversalTransition(parent, support, { id: edgeId, mandatory: false }, theme);
+        const down = classifyTraversalTransition(support, parent, { id: edgeId, mandatory: false }, theme);
+        if (!up.valid || !down.valid || up.gap > theme.traversal.mandatoryGap || down.gap > theme.traversal.mandatoryGap) {
+            supports.splice(supports.indexOf(support), 1);
+            if (placement) placements.splice(placements.indexOf(placement), 1);
+            return null;
+        }
+        for (const transition of [up, down]) {
+            transition.mandatory = false;
+            transition.spacingStyle = support.platformSpacingStyle;
+            transition.secondaryPlatformId = support.id;
+            transition.parentSupportId = parent.id;
+            transition.secondaryTier = tier;
+        }
+        transitions.push(up, down);
+        secondaryPlatforms.push(support);
+        return support;
+    };
+    const removeOptionalSupport = (support) => {
+        if (!support) return;
+        const supportIndex = supports.indexOf(support);
+        if (supportIndex >= 0) supports.splice(supportIndex, 1);
+        const placement = placements.find((candidate) => candidate.id === support.placementId);
+        if (placement) placements.splice(placements.indexOf(placement), 1);
+        for (let index = transitions.length - 1; index >= 0; index -= 1) {
+            if (transitions[index].fromSupportId === support.id || transitions[index].toSupportId === support.id) {
+                transitions.splice(index, 1);
+            }
+        }
+        const accessIndex = upperAccessPlatforms.indexOf(support);
+        if (accessIndex >= 0) upperAccessPlatforms.splice(accessIndex, 1);
+    };
+    const addUpperAccessPlatform = ({ parent, selection, centerX, surfaceY }) => {
+        const support = addSupport({
+            id: `support_upper_access_${String(upperAccessPlatforms.length + 1).padStart(2, "0")}_${parent.id}`,
+            role: "landingPlatform",
+            targetWidth: selection.width,
+            selection,
+            centerX,
+            surfaceY,
+            mandatory: false,
+            routeNodeId: parent.routeNodeId,
+            routeEdgeId: parent.routeEdgeId
+        });
+        support.role = "upperAccessPlatform";
+        support.upperAccessPlatform = true;
+        support.parentSupportId = parent.id;
+        support.groundParentSupportId = parent.groundParentSupportId || parent.id;
+        support.platformSpacingStyle = "upperLaneAccessStep";
+        const placement = placements.find((candidate) => candidate.id === support.placementId);
+        if (placement) {
+            placement.generationRole = "upperAccessPlatform";
+            placement.parentSupportId = parent.id;
+            placement.groundParentSupportId = support.groundParentSupportId;
+        }
+        const edgeId = `upper_access_${parent.id}_${upperAccessPlatforms.length + 1}`;
+        const up = classifyTraversalTransition(parent, support, { id: edgeId, mandatory: false }, theme);
+        const down = classifyTraversalTransition(support, parent, { id: edgeId, mandatory: false }, theme);
+        if (!up.valid || !down.valid || up.gap > theme.traversal.mandatoryGap || down.gap > theme.traversal.mandatoryGap) {
+            removeOptionalSupport(support);
+            return null;
+        }
+        for (const transition of [up, down]) {
+            transition.mandatory = false;
+            transition.spacingStyle = "upperLaneAccessStep";
+            transition.upperAccessPlatformId = support.id;
+            transition.parentSupportId = parent.id;
+        }
+        transitions.push(up, down);
+        upperAccessPlatforms.push(support);
+        return support;
+    };
+
+    if (useRunAndGunRoute) {
+        const groundParents = supports
+            .filter((support) => support.role === "runAndGunGround" && !support.moving && support.walkableWidth >= 300)
+            .sort((left, right) => left.centerX - right.centerX);
+        const routeLeft = Math.min(...groundParents.map((support) => support.walkableLeftX));
+        const routeRight = Math.max(...groundParents.map((support) => support.walkableRightX));
+        const routeSpan = Math.max(1, routeRight - routeLeft);
+        const targetCoverage = routeSpan * 0.25;
+        const desiredCount = Math.max(
+            settings.length === "grand" ? 8 : settings.length === "extended" ? 6 : settings.length === "standard" ? 5 : 3,
+            Math.ceil(targetCoverage / 520)
+        );
+        const targetPositions = Array.from({ length: desiredCount }, (_, index) => (
+            routeLeft + routeSpan * ((index + 0.5) / desiredCount)
+        ));
+        const usedParents = new Set();
+        const upperSpans = [];
+        const coveredWidth = () => {
+            if (!upperSpans.length) return 0;
+            const spans = [...upperSpans].sort((a, b) => a.left - b.left);
+            let total = 0;
+            let active = { ...spans[0] };
+            for (const span of spans.slice(1)) {
+                if (span.left <= active.right) active.right = Math.max(active.right, span.right);
+                else {
+                    total += active.right - active.left;
+                    active = { ...span };
+                }
+            }
+            return total + active.right - active.left;
+        };
+        for (let pass = 0; pass < 3 && coveredWidth() < targetCoverage; pass += 1) {
+            for (const targetX of targetPositions) {
+                if (coveredWidth() >= targetCoverage) break;
+                const parentCandidates = groundParents
+                    .filter((parent) => !usedParents.has(parent.id) || pass > 0)
+                    .sort((left, right) => Math.abs(left.centerX - targetX) - Math.abs(right.centerX - targetX));
+                let placed = false;
+                for (const parent of parentCandidates.slice(0, 8)) {
+                    const combatPerch = secondaryPlatforms.length % 4 !== 3;
+                    const targetWidth = combatPerch
+                        ? clamp(parent.walkableWidth * rng.range(0.48, 0.66), 380, 620)
+                        : clamp(parent.walkableWidth * rng.range(0.34, 0.5), 260, 480);
+                    const maximumWidth = combatPerch ? 660 : 520;
+                    const selection = selectGenerationAsset(assetCatalog, "landingPlatform", targetWidth, rng, false, maximumWidth, { collisionMode: "oneWay" });
+                    if (!selection) continue;
+                    const accessSelection = selectGenerationAsset(
+                        assetCatalog,
+                        "landingPlatform",
+                        clamp(selection.width * 0.48, 250, 360),
+                        rng,
+                        false,
+                        420,
+                        { collisionMode: "oneWay" }
+                    );
+                    if (!accessSelection) continue;
+                    const accessRise = clamp(rng.range(100, 108), 96, theme.traversal.mandatoryRise - 4);
+                    const maximumUpperStepRise = theme.traversal.mandatoryRise * 1.18 - 3;
+                    const lowerVisualDepth = selection.height * (1 - selection.asset.surfaceYRatio);
+                    const desiredRocketClearance = wideUpperCavern ? 188 : 176;
+                    const upperStepRise = clamp(
+                        desiredRocketClearance + lowerVisualDepth - accessRise,
+                        104,
+                        maximumUpperStepRise
+                    );
+                    const accessSurfaceY = roundCoordinate(parent.surfaceY - accessRise);
+                    const surfaceY = roundCoordinate(accessSurfaceY - upperStepRise);
+                    const halfWalkable = Math.max(1, selection.width * 0.5 - selection.width * selection.asset.walkableLeftInsetRatio);
+                    const minimumCenter = parent.walkableLeftX + Math.min(halfWalkable, parent.walkableWidth * 0.45);
+                    const maximumCenter = parent.walkableRightX - Math.min(halfWalkable, parent.walkableWidth * 0.45);
+                    const centerX = roundCoordinate(clamp(targetX, Math.min(minimumCenter, maximumCenter), Math.max(minimumCenter, maximumCenter)));
+                    if (secondaryPlacementConflicts(selection, centerX, surfaceY, parent)) continue;
+
+                    let accessSupport = null;
+                    for (const side of rng.shuffle([-1, 1])) {
+                        const edgeOffset = Math.max(
+                            selection.width * 0.28,
+                            selection.width * 0.5 - accessSelection.width * 0.34
+                        );
+                        const accessCenterX = roundCoordinate(clamp(
+                            centerX + side * edgeOffset,
+                            parent.walkableLeftX + accessSelection.width * 0.34,
+                            parent.walkableRightX - accessSelection.width * 0.34
+                        ));
+                        if (secondaryPlacementConflicts(accessSelection, accessCenterX, accessSurfaceY, parent)) continue;
+                        accessSupport = addUpperAccessPlatform({
+                            parent,
+                            selection: accessSelection,
+                            centerX: accessCenterX,
+                            surfaceY: accessSurfaceY
+                        });
+                        if (accessSupport) break;
+                    }
+                    if (!accessSupport) continue;
+                    if (secondaryPlacementConflicts(selection, centerX, surfaceY, accessSupport)) {
+                        removeOptionalSupport(accessSupport);
+                        continue;
+                    }
+                    const support = addSecondaryPlatform({ parent: accessSupport, selection, centerX, surfaceY, combatPerch, tier: 2 });
+                    if (!support) {
+                        removeOptionalSupport(accessSupport);
+                        continue;
+                    }
+                    support.groundParentSupportId = parent.id;
+                    support.accessSupportId = accessSupport.id;
+                    const placement = placements.find((candidate) => candidate.id === support.placementId);
+                    if (placement) {
+                        placement.groundParentSupportId = parent.id;
+                        placement.accessSupportId = accessSupport.id;
+                    }
+                    upperSpans.push({ left: support.walkableLeftX, right: support.walkableRightX });
+                    usedParents.add(parent.id);
+                    placed = true;
+                    break;
+                }
+                if (!placed && pass === 2) continue;
+            }
+        }
+        if (coveredWidth() < targetCoverage - 1) {
+            throw new Error(`Mostly horizontal upper lane covers only ${roundCoordinate(coveredWidth() / routeSpan * 100)}% of the playable span; 25% is required.`);
+        }
+    } else {
+        const baseSecondaryLimit = settings.length === "grand" ? 8 : settings.length === "extended" ? 6 : settings.length === "standard" ? 5 : 3;
+        const secondaryLimit = baseSecondaryLimit + (wideUpperCavern ? 2 : 0);
+        const secondaryParents = supports.filter((support) => support.mandatory
+            && !support.moving
+            && support.role !== "doorSupport"
+            && support.atlasId === "at_atlas_004"
+            && support.walkableWidth >= 360);
+        const candidates = rng.shuffle(wideUpperCavern ? [...secondaryParents, ...secondaryParents] : secondaryParents);
+        for (const parent of candidates) {
+            if (secondaryPlatforms.length >= secondaryLimit) break;
+            const combatPerch = secondaryPlatforms.length % 2 === 1;
             const targetWidth = combatPerch
                 ? clamp(parent.walkableWidth * rng.range(0.46, 0.64), 410, 580)
                 : clamp(parent.walkableWidth * rng.range(0.3, 0.48), 220, 460);
-            const maximumWidth = combatPerch
-                ? Math.min(640, parent.walkableWidth * 0.72)
-                : Math.min(500, parent.walkableWidth * 0.58);
+            const maximumWidth = combatPerch ? Math.min(640, parent.walkableWidth * 0.72) : Math.min(500, parent.walkableWidth * 0.58);
             const selection = selectGenerationAsset(assetCatalog, "landingPlatform", targetWidth, rng, false, maximumWidth);
             if (!selection) continue;
-            const surfaceY = roundCoordinate(parent.surfaceY - rng.range(
-                wideUpperCavern ? 104 : 82,
-                wideUpperCavern ? 128 : 108
-            ));
+            const surfaceY = roundCoordinate(parent.surfaceY - rng.range(wideUpperCavern ? 104 : 82, wideUpperCavern ? 128 : 108));
             let centerX = null;
             for (const side of rng.shuffle([-1, 1])) {
                 const overhang = rng.range(52, 76);
                 const candidateCenterX = side < 0
                     ? parent.walkableLeftX - overhang - selection.width * 0.5
                     : parent.walkableRightX + overhang + selection.width * 0.5;
-                const conflicts = supports.some((support) => {
-                    if (support.id === parent.id) return false;
-                    const overlap = Math.min(candidateCenterX + selection.width * 0.5, support.centerX + support.width * 0.5)
-                        - Math.max(candidateCenterX - selection.width * 0.5, support.centerX - support.width * 0.5);
-                    if (overlap <= 24) return false;
-                    const candidateBottom = surfaceY + selection.height * (1 - selection.asset.surfaceYRatio);
-                    const supportBottom = support.surfaceY + support.height * (1 - support.surfaceYRatio);
-                    const clearance = surfaceY <= support.surfaceY
-                        ? support.surfaceY - candidateBottom
-                        : surfaceY - supportBottom;
-                    return clearance < ((support.role === "runAndGunGround" || support.secondaryPlatform) && useRunAndGunRoute ? 72 : GENERATED_STATIC_HEADROOM);
-                });
-                if (!conflicts) {
+                if (!secondaryPlacementConflicts(selection, candidateCenterX, surfaceY, parent)) {
                     centerX = roundCoordinate(candidateCenterX);
                     break;
                 }
             }
             if (!Number.isFinite(centerX)) continue;
-            const support = addSupport({
-                id: `support_secondary_${String(secondaryPlatforms.length + 1).padStart(2, "0")}_${parent.id}`,
-                role: "landingPlatform",
-                targetWidth,
-                selection,
-                centerX,
-                surfaceY,
-                mandatory: false,
-                routeNodeId: parent.routeNodeId,
-                routeEdgeId: parent.routeEdgeId
-            });
-            support.role = "secondaryPlatform";
-            support.secondaryPlatform = true;
-            support.combatPerch = combatPerch;
-            support.rewardPerch = !support.combatPerch;
-            support.parentSupportId = parent.id;
-            support.platformSpacingStyle = support.combatPerch ? "detachedSecondaryCombatPerch" : "detachedSecondaryRewardPerch";
-            const placement = placements.find((candidate) => candidate.id === support.placementId);
-            if (placement) {
-                placement.generationRole = "secondaryPlatform";
-                placement.parentSupportId = parent.id;
-                placement.rewardPerch = support.rewardPerch;
-                placement.combatPerch = support.combatPerch;
-            }
-            const up = classifyTraversalTransition(parent, support, { id: `secondary_${parent.id}`, mandatory: false }, theme);
-            const down = classifyTraversalTransition(support, parent, { id: `secondary_${parent.id}`, mandatory: false }, theme);
-            if (!up.valid || !down.valid
-                || up.gap > theme.traversal.mandatoryGap
-                || down.gap > theme.traversal.mandatoryGap) {
-                supports.splice(supports.indexOf(support), 1);
-                if (placement) placements.splice(placements.indexOf(placement), 1);
-                continue;
-            }
-            for (const transition of [up, down]) {
-                transition.mandatory = false;
-                transition.spacingStyle = support.combatPerch ? "detachedSecondaryCombatPerch" : "detachedSecondaryRewardPerch";
-                transition.secondaryPlatformId = support.id;
-                transition.parentSupportId = parent.id;
-            }
-            transitions.push(up, down);
-            secondaryPlatforms.push(support);
-            coveredSecondaryParentIds.add(parent.id);
-            coveredSecondaryParentIds.add(parent.id);
-        }
-
-    // Wide halls may have a continuous ground floor with very few exposed side
-    // edges. Build a second reachable tier inward from the first detached perch
-    // so those rooms still receive several useful upper combat/reward positions.
-    if (wideUpperCavern && secondaryPlatforms.length < secondaryLimit) {
-        const firstTier = rng.shuffle([...secondaryPlatforms]);
-        for (const parent of firstTier) {
-            if (secondaryPlatforms.length >= secondaryLimit && coveredSecondaryParentIds.size >= desiredCoveredParents) break;
-            const groundParent = supports.find((support) => support.id === parent.parentSupportId);
-            if (!groundParent) continue;
-            const combatPerch = useRunAndGunRoute ? secondaryPlatforms.length % 3 !== 0 : secondaryPlatforms.length % 2 === 1;
-            const targetWidth = combatPerch
-                ? clamp(parent.walkableWidth * rng.range(0.9, 1.2), 400, 560)
-                : clamp(parent.walkableWidth * rng.range(0.72, 1.05), 240, 430);
-            const maximumWidth = combatPerch ? 620 : 480;
-            const selection = selectGenerationAsset(assetCatalog, "landingPlatform", targetWidth, rng, false, maximumWidth);
-            if (!selection) continue;
-            const surfaceY = roundCoordinate(parent.surfaceY - rng.range(96, 126));
-            const directionTowardGround = Math.sign(groundParent.centerX - parent.centerX) || 1;
-            const gap = rng.range(48, 72);
-            const centerX = roundCoordinate(directionTowardGround > 0
-                ? parent.walkableRightX + gap + selection.width * 0.5
-                : parent.walkableLeftX - gap - selection.width * 0.5);
-            const conflicts = supports.some((support) => {
-                if (support.id === parent.id) return false;
-                const overlap = Math.min(centerX + selection.width * 0.5, support.centerX + support.width * 0.5)
-                    - Math.max(centerX - selection.width * 0.5, support.centerX - support.width * 0.5);
-                if (overlap <= 24) return false;
-                const candidateBottom = surfaceY + selection.height * (1 - selection.asset.surfaceYRatio);
-                const supportBottom = support.surfaceY + support.height * (1 - support.surfaceYRatio);
-                const clearance = surfaceY <= support.surfaceY
-                    ? support.surfaceY - candidateBottom
-                    : surfaceY - supportBottom;
-                return clearance < ((support.role === "runAndGunGround" || support.secondaryPlatform) && useRunAndGunRoute ? 72 : GENERATED_STATIC_HEADROOM);
-            });
-            if (conflicts) continue;
-            const support = addSupport({
-                id: `support_secondary_${String(secondaryPlatforms.length + 1).padStart(2, "0")}_${parent.id}`,
-                role: "landingPlatform",
-                targetWidth,
-                selection,
-                centerX,
-                surfaceY,
-                mandatory: false,
-                routeNodeId: parent.routeNodeId,
-                routeEdgeId: parent.routeEdgeId
-            });
-            support.role = "secondaryPlatform";
-            support.secondaryPlatform = true;
-            support.combatPerch = combatPerch;
-            support.rewardPerch = !combatPerch;
-            support.parentSupportId = parent.id;
-            support.secondaryTier = 2;
-            support.platformSpacingStyle = combatPerch ? "detachedSecondaryCombatPerch" : "detachedSecondaryRewardPerch";
-            const placement = placements.find((candidate) => candidate.id === support.placementId);
-            if (placement) {
-                placement.generationRole = "secondaryPlatform";
-                placement.parentSupportId = parent.id;
-                placement.secondaryTier = 2;
-                placement.rewardPerch = support.rewardPerch;
-                placement.combatPerch = support.combatPerch;
-            }
-            const edgeId = `secondary_tier_2_${parent.id}`;
-            const up = classifyTraversalTransition(parent, support, { id: edgeId, mandatory: false }, theme);
-            const down = classifyTraversalTransition(support, parent, { id: edgeId, mandatory: false }, theme);
-            if (!up.valid || !down.valid
-                || up.gap > theme.traversal.mandatoryGap
-                || down.gap > theme.traversal.mandatoryGap) {
-                supports.splice(supports.indexOf(support), 1);
-                if (placement) placements.splice(placements.indexOf(placement), 1);
-                continue;
-            }
-            for (const transition of [up, down]) {
-                transition.mandatory = false;
-                transition.spacingStyle = support.platformSpacingStyle;
-                transition.secondaryPlatformId = support.id;
-                transition.parentSupportId = parent.id;
-                transition.secondaryTier = 2;
-            }
-            transitions.push(up, down);
-            secondaryPlatforms.push(support);
+            addSecondaryPlatform({ parent, selection, centerX, surfaceY, combatPerch });
         }
     }
 
@@ -4316,6 +4699,7 @@ function buildStandardTraversal({
         mandatorySupportPath: mandatorySupportPath.filter(Boolean),
         recoveryLanes,
         secondaryPlatformIds: secondaryPlatforms.map((support) => support.id),
+        upperAccessPlatformIds: upperAccessPlatforms.map((support) => support.id),
         placements
     };
 }
@@ -4334,7 +4718,11 @@ function classifyTraversalTransition(from, to, edge, theme) {
     const riseLimit = mandatory ? theme.traversal.mandatoryRise : theme.traversal.mandatoryRise * 1.18;
     const dropLimit = mandatory ? theme.traversal.mandatoryDrop : theme.traversal.mandatoryDrop * 1.2;
     const requiredExposedLandingWidth = mandatory ? 56 : GENERATED_PLAYER_BODY_WIDTH + 8;
-    const verticalClearanceValid = Math.max(rise, drop) <= 48 || exposedLandingWidth >= requiredExposedLandingWidth;
+    const oneWayPassThrough = (to.collisionMode === "oneWay" && rise > 0)
+        || (from.collisionMode === "oneWay" && drop > 0);
+    const verticalClearanceValid = oneWayPassThrough
+        || Math.max(rise, drop) <= 48
+        || exposedLandingWidth >= requiredExposedLandingWidth;
     const returnLimit = theme.traversal.mandatoryRise * 1.18;
     const valid = gap <= gapLimit
         && rise <= riseLimit
@@ -5874,15 +6262,6 @@ function groupBy(values, keyFn) {
         result.get(key).push(value);
     }
     return result;
-}
-
-function rangeListIncludes(ranges, value) {
-    return ranges.some(([start, end]) => value >= start && value <= end);
-}
-
-function enemyNumber(id) {
-    const match = /(\d+)$/.exec(String(id));
-    return match ? Number(match[1]) : NaN;
 }
 
 function normalizeStringArray(value) {

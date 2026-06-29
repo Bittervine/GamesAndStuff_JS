@@ -548,7 +548,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 246</small></h1>
+        <h1>Level Editor <small>rev 268</small></h1>
         <p>Place atlas assets, entry/exit doors, mailboxes, enemies, and triggers, then export a level JSON. The wizard entry door is the effective start of the level.</p>
 
         <div class="box">
@@ -573,6 +573,15 @@
             <div class="inline"><input id="show-asset-guides" type="checkbox" checked><span class="small">Show manifest boxes and line features</span></div>
             <div class="inline"><input id="show-labels" type="checkbox" checked><span class="small">Show labels</span></div>
             <p class="small">Hold the right mouse button and drag anywhere on the canvas to pan, regardless of the active tool. Fit world uses the cyan technical bounds; Fit content frames authored objects; Fit cave frames the visual perimeter.</p>
+        </div>
+
+        <div class="box" data-panel-key="automatic-enemy-spawning">
+            <h2>Automatic enemy spawning</h2>
+            <div class="inline"><input id="auto-spawn-enemies-enabled" type="checkbox"><span class="small">Auto spawn enemies during play</span></div>
+            <label>Spawn probability each second (%)<input id="auto-spawn-enemies-probability" type="number" min="0" max="100" step="1" value="0"></label>
+            <label>Enemy pool<input id="auto-spawn-enemies-pool" value="1-999" placeholder="1-999,!2,!4"></label>
+            <p id="auto-spawn-enemies-preview" class="small">All available enemies are eligible by default.</p>
+            <p class="small">Once per second, the game rolls this percentage. A successful roll creates one already-alert enemy beyond the screen in the expected direction of the exit. The pool uses the same numbered ranges and <code>!</code> exclusions as the Automatic Level Generator.</p>
         </div>
 
         <div class="box">
@@ -600,7 +609,7 @@
 
         <div class="box" data-panel-key="automatic-level-generator">
             <h2>Automatic Level Generator</h2>
-            <p class="small">The Standard route creates a folded ThePath74 cavern with broad upper traversal, a nearly continuous lower recovery path, and occasional upper reward or combat perches. The Mostly horizontal route is a run-and-gun alternative: it advances steadily to the right, uses only occasional one- or two-cell height changes, and overlaps only solid blockable platforms whose walking surfaces are level. Thin green one-way platforms stay separate, and any raised solid step is separated horizontally instead of being blended into a false continuous floor. Both cavern variants build smooth occupancy contours from ellipse rooms around the finished traversal. The Standard cavern uses balanced rooms; the Wide, upward-expanding cavern adds more broad, shallow rooms plus reachable upper tiers for monsters, treasure, and pickups while the lower boundary stays near the ground path. Rewarded generated levels include genuine power-ups as well as contextual rewards. All other generator stages use one compatible Standard implementation. Automatic cave foreground remains presentation-only and must leave doors, platforms, rewards, and lift shafts readable.</p>
+            <p class="small">The Standard route creates a folded ThePath74 cavern with broad upper traversal, a nearly continuous lower recovery path, and occasional upper reward or combat perches. The Mostly horizontal route is a run-and-gun alternative: it advances steadily to the right, uses only occasional one- or two-cell height changes, and overlaps only solid blockable platforms whose walking surfaces are level. It reserves a distributed upper combat lane across roughly one quarter of the route. The actual combat platforms sit much higher above the ground to leave homing rockets room to turn, while offset one-way access steps keep every perch reachable without filling the firing space directly beneath it. Thin green one-way platforms stay separate, and any raised solid step is separated horizontally instead of being blended into a false continuous floor. Both cavern variants build smooth occupancy contours from ellipse rooms around the finished traversal. The Standard cavern uses balanced rooms; the Wide, upward-expanding cavern adds more broad, shallow rooms plus reachable upper tiers for monsters, treasure, and pickups while the lower boundary stays near the ground path. Rewarded generated levels include genuine power-ups as well as contextual rewards. All other generator stages use one compatible Standard implementation. Generated ground enemies on upper perches must have jumping hunter navigation, and Mostly-horizontal moving lifts reserve a collision-safe shaft that later platforms and enemies may not enter. Automatic cave foreground remains presentation-only and must leave doors, platforms, rewards, and lift shafts readable.</p>
             <label>Theme<select id="generator-theme"></select></label>
             <div class="row">
                 <label>Seed<input id="generator-seed" value="rocketfrock"></label>
@@ -1072,6 +1081,10 @@ import {
 } from "./src/shared/moving-platform-data.js";
 import { isSignalEmitterEntity, normalizeSignalChannel } from "./src/shared/signal-channel-data.js";
 import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
+import {
+    DEFAULT_AUTO_SPAWN_ENEMIES,
+    normalizeAutoSpawnEnemies
+} from "./src/shared/auto-spawn-enemy-data.js";
 
 (() => {
     "use strict";
@@ -1218,6 +1231,10 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
         levelSelect: document.getElementById("level-select"),
         worldW: document.getElementById("world-w"),
         worldH: document.getElementById("world-h"),
+        autoSpawnEnemiesEnabled: document.getElementById("auto-spawn-enemies-enabled"),
+        autoSpawnEnemiesProbability: document.getElementById("auto-spawn-enemies-probability"),
+        autoSpawnEnemiesPool: document.getElementById("auto-spawn-enemies-pool"),
+        autoSpawnEnemiesPreview: document.getElementById("auto-spawn-enemies-preview"),
         generatorTheme: document.getElementById("generator-theme"),
         generatorSeed: document.getElementById("generator-seed"),
         generatorRandomizeSeed: document.getElementById("generator-randomize-seed"),
@@ -1443,6 +1460,7 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
             atlasRefs: [],
             colorMap: normalizeLevelColorMap(DEFAULT_LEVEL_COLOR_MAP),
             music: normalizeLevelMusic(null),
+            autoSpawnEnemies: normalizeAutoSpawnEnemies(DEFAULT_AUTO_SPAWN_ENEMIES),
             caveWindow: normalizeCaveWindow(null),
             placements: [],
             entities: [],
@@ -2134,6 +2152,7 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
             atlasRefs: Array.isArray(source.atlasRefs) ? cloneData(source.atlasRefs) : [],
             colorMap: normalizeLevelColorMap(source.colorMap),
             music: normalizeLevelMusic(source.music),
+            autoSpawnEnemies: normalizeAutoSpawnEnemies(source.autoSpawnEnemies),
             caveWindow: normalizeCaveWindow(source.caveWindow || source.visuals?.caveWindow),
             placements: Array.isArray(source.placements) ? cloneData(source.placements) : [],
             entities: Array.isArray(source.entities) ? cloneData(source.entities) : [],
@@ -3013,6 +3032,7 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
             await Promise.all(projectLoads);
             updateEntityPalette();
             refreshGeneratorEnemyPreview();
+            refreshAutoSpawnEnemyPreview();
             return state.enemyCatalog.size;
         } catch (error) {
             setStatus(`Enemy catalog could not load: ${error.message || error}`, false);
@@ -4730,6 +4750,38 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
         els.generatorEnemyPreview.style.color = "";
     }
 
+    function refreshAutoSpawnEnemyPreview() {
+        if (!els.autoSpawnEnemiesPreview) return;
+        const result = parseEnemySelection(els.autoSpawnEnemiesPool.value, [...state.enemyCatalog.keys()]);
+        if (!result.valid) {
+            els.autoSpawnEnemiesPreview.textContent = result.errors.join(" ");
+            els.autoSpawnEnemiesPreview.style.color = "#ffbbc3";
+            return;
+        }
+        const labels = result.resolvedIds.map((enemyId) => state.enemyCatalog.get(enemyId)?.label || enemyId);
+        els.autoSpawnEnemiesPreview.textContent = labels.length
+            ? `Resolved enemies (${labels.length}): ${labels.join(", ")}`
+            : "No existing catalog enemies match this expression.";
+        els.autoSpawnEnemiesPreview.style.color = "";
+    }
+
+    function syncAutoSpawnEnemiesFromUi() {
+        state.level.autoSpawnEnemies = normalizeAutoSpawnEnemies({
+            enabled: els.autoSpawnEnemiesEnabled.checked,
+            probabilityPercent: els.autoSpawnEnemiesProbability.value,
+            enemyPool: els.autoSpawnEnemiesPool.value
+        });
+    }
+
+    function syncAutoSpawnEnemiesToUi() {
+        const config = normalizeAutoSpawnEnemies(state.level.autoSpawnEnemies);
+        state.level.autoSpawnEnemies = config;
+        els.autoSpawnEnemiesEnabled.checked = config.enabled;
+        els.autoSpawnEnemiesProbability.value = String(config.probabilityPercent);
+        els.autoSpawnEnemiesPool.value = config.enemyPool;
+        refreshAutoSpawnEnemyPreview();
+    }
+
     function loadGeneratorControlsFromLevel() {
         const generation = normalizeLevelGeneration(state.level?.generation);
         state.level.generation = generation || undefined;
@@ -5591,6 +5643,7 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
     function syncMetadataFromUi() {
         state.level.colorMap = readColorMapControls();
         syncCaveWindowFromUi();
+        syncAutoSpawnEnemiesFromUi();
         state.level.levelId = els.levelId.value.trim() || state.level.levelId;
         state.level.title = els.levelTitle.value.trim() || state.level.title;
         state.level.music = normalizeLevelMusic({ tuneId: els.levelMusic.value });
@@ -5605,6 +5658,7 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
         els.worldW.value = state.level.world.bounds.w;
         els.worldH.value = state.level.world.bounds.h;
         syncColorMapToUi();
+        syncAutoSpawnEnemiesToUi();
         refreshCaveWindowUi();
         refreshNavigationGraphUi();
         refreshAutomaticGeneratorUi();
@@ -5938,6 +5992,25 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
     });
     for (const [input] of generatorRangeBindings()) input?.addEventListener("input", refreshGeneratorRangeOutputs);
     els.generatorEnemyFilter.addEventListener("input", refreshGeneratorEnemyPreview);
+    els.autoSpawnEnemiesEnabled.addEventListener("change", () => {
+        syncAutoSpawnEnemiesFromUi();
+        updateJson();
+    });
+    els.autoSpawnEnemiesProbability.addEventListener("change", () => {
+        syncAutoSpawnEnemiesFromUi();
+        syncAutoSpawnEnemiesToUi();
+        updateJson();
+    });
+    els.autoSpawnEnemiesPool.addEventListener("input", () => {
+        syncAutoSpawnEnemiesFromUi();
+        refreshAutoSpawnEnemyPreview();
+        scheduleJsonUpdate();
+    });
+    els.autoSpawnEnemiesPool.addEventListener("change", () => {
+        syncAutoSpawnEnemiesFromUi();
+        refreshAutoSpawnEnemyPreview();
+        updateJson();
+    });
     els.generatorGenerate.addEventListener("click", generateAutomaticRoutePreview);
     els.generatorRegenerate.addEventListener("click", regenerateAutomaticGeneratorStage);
     els.generatorLockSelected.addEventListener("click", () => setSelectedGeneratedLock(true));

@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "catalogId": "cavern-enemy-generation-v1",
   "enemies": {
     "enemy_001": {
@@ -18,8 +18,8 @@
       "minGroupSpacing": 92,
       "preferredProgressMin": 0.12,
       "preferredProgressMax": 0.96,
-      "requiresNavigation": false,
-      "notes": "A single close-range guard placed beyond a protected landing strip."
+      "requiresNavigation": true,
+      "notes": "A jumping close-range hunter that can leave raised combat perches and pursue Ignatius."
     },
     "enemy_002": {
       "placementClass": "groundRanged",

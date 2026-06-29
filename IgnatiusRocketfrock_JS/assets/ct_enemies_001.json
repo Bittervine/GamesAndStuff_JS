@@ -1,8 +1,8 @@
 {
     "meta": {
-        "version": 30,
-        "note": "Revision 220 establishes 60 HP as the default for newly authored monsters and rebalances existing enemy durability.",
-        "revision": 220
+        "version": 31,
+        "note": "Revision 261 gives Skeleton Guards jumping hunter navigation so generated upper-platform encounters can pursue Ignatius.",
+        "revision": 261
     },
     "catalogId": "ct_enemies_001",
     "enemies": {
@@ -43,14 +43,18 @@
                 "awarenessHoldDuration": 1.2,
                 "attackLungeDistance": 20,
                 "attackLungeSpeed": 180,
-                "strategy": "simple_patrol",
+                "strategy": "hunter",
                 "runSpeed": 150,
-                "jumpHeight": 0,
+                "jumpHeight": 190,
                 "unreachableGlareDuration": 5,
                 "awarenessViewHalfAngle": 60,
                 "renderOffsetX": 0,
                 "renderOffsetY": 0,
-                "locomotion": "ground"
+                "locomotion": "ground",
+                "jumpGravity": 1250,
+                "maxFallDistance": 520,
+                "routeRepathInterval": 0.34,
+                "homeRetryInterval": 4
             },
             "description": ""
         },

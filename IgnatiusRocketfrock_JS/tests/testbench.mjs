@@ -38,6 +38,7 @@ import {
 } from "../src/core/world-collision-index.js";
 import { actorBodyRect, characterEnemyMeleeAttackRect, enemyProjectileHitbox } from "../src/shared/actor-geometry.js";
 import { GAMEPAD_ACTIVITY_TIMEOUT_SECONDS, RocketfrockInput } from "../src/browser/browser-input.js";
+import { calculateHudPanelScale } from "../src/browser/hud-panel-layout.js";
 import { GamepadHaptics, GAMEPAD_HAPTIC_PATTERNS } from "../src/browser/gamepad-haptics.js";
 import {
     DEFAULT_GAME_SETTINGS,
@@ -83,6 +84,8 @@ import {
     createNamedRandomStream,
     generateAutomaticLevelDraft,
     generateAutomaticLevelRoute,
+    generatedPowerUpTargetForRoute,
+    GENERATED_POWER_UP_SPACING_PX,
     generatorStageStreamName,
     incrementGeneratorStageRevision,
     normalizeGenerationAssetCatalog,
@@ -146,6 +149,11 @@ import {
     normalizeMovingPlatform
 } from "../src/shared/moving-platform-data.js";
 import { normalizeSignalChannel, normalizeSignalEmitter } from "../src/shared/signal-channel-data.js";
+import {
+    DEFAULT_AUTO_SPAWN_ENEMIES,
+    normalizeAutoSpawnEnemies,
+    resolveAutoSpawnEnemyIds
+} from "../src/shared/auto-spawn-enemy-data.js";
 import {
     POWER_UP_EFFECT_IDS,
     POWER_UP_GROUP_IDS,
@@ -292,6 +300,7 @@ function testSourceOrganization() {
         "../src/core/world-collision-index.js",
         "../src/browser/browser-input.js",
         "../src/browser/game-bootstrap.js",
+        "../src/browser/hud-panel-layout.js",
         "../src/browser/game-settings-store.js",
         "../src/browser/music-director.js",
         "../src/browser/electron-window-bridge.js",
@@ -363,6 +372,57 @@ function testSourceOrganization() {
     for (const source of coreSources) {
         assert.equal(/from\s+["'][^"']*(?:browser|presentation|tools)\//.test(source), false, "portable core should not import browser, presentation, or editor modules");
     }
+
+    assert.equal(calculateHudPanelScale({
+        viewportWidth: 900,
+        viewportHeight: 500,
+        panelWidth: 430,
+        panelHeight: 140,
+        leftInset: 16,
+        rightInset: 16,
+        topInset: 16,
+        bottomInset: 16,
+        panelGap: 8,
+        minimapVisible: true
+    }), 1, "two full-size HUD panels should fit exactly in a 900-pixel viewport");
+    const narrowVisibleScale = calculateHudPanelScale({
+        viewportWidth: 450,
+        viewportHeight: 500,
+        panelWidth: 430,
+        panelHeight: 140,
+        leftInset: 16,
+        rightInset: 16,
+        topInset: 16,
+        bottomInset: 16,
+        panelGap: 8,
+        minimapVisible: true
+    });
+    const narrowHiddenScale = calculateHudPanelScale({
+        viewportWidth: 450,
+        viewportHeight: 500,
+        panelWidth: 430,
+        panelHeight: 140,
+        leftInset: 16,
+        rightInset: 16,
+        topInset: 16,
+        bottomInset: 16,
+        panelGap: 8,
+        minimapVisible: false
+    });
+    assert.ok(narrowVisibleScale < 0.48 && narrowVisibleScale > 0.47, "visible left and right panels should share narrow viewport width without overlap");
+    assert.ok(narrowHiddenScale > 0.97 && narrowHiddenScale <= 1, "hiding the minimap should let the meter panel reclaim almost the full narrow viewport");
+    assert.equal(calculateHudPanelScale({
+        viewportWidth: 900,
+        viewportHeight: 102,
+        panelWidth: 430,
+        panelHeight: 140,
+        leftInset: 16,
+        rightInset: 16,
+        topInset: 16,
+        bottomInset: 16,
+        panelGap: 8,
+        minimapVisible: true
+    }), 0.5, "HUD scaling should also respect very short viewport heights");
 
     const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
     assert.ok(gameHtml.includes('./src/browser/game-bootstrap.js'), "game page should load the reorganized browser bootstrap");
@@ -962,13 +1022,102 @@ function testFlyingBomberCanLeavePerchPlatform() {
 }
 
 
+function createAutomaticEnemySpawnTestState({
+    exitX = 4000,
+    probabilityPercent = 100,
+    enemyPool = "1",
+    randomSeed = 123
+} = {}) {
+    const catalog = JSON.parse(readFileSync("./assets/ct_enemies_001.json", "utf8"));
+    const state = createInitialGameState({ enemyCatalog: catalog, randomSeed });
+    applyEditorLevelToWorld(state, {
+        levelId: "automatic_enemy_spawn_test",
+        world: { bounds: { x: -5000, y: -500, w: 10000, h: 1500 }, resetY: 1300 },
+        playerStart: { x: 0, y: 600 },
+        autoSpawnEnemies: { enabled: true, probabilityPercent, enemyPool },
+        entities: [{ id: "exit", type: "wizard_exit_door", x: exitX, y: 600, w: 150, h: 220 }]
+    });
+    state.world.solids = [{ id: "spawn_test_floor", kind: "floor", x: -4800, y: 600, w: 9600, h: 120 }];
+    state.world.segments = [];
+    state.world.collisionPolygons = [];
+    state.player.x = 0;
+    state.player.y = 600;
+    state.player.onGround = true;
+    state.camera.x = 0;
+    state.camera.y = 400;
+    state.camera.viewportWidth = 400;
+    state.camera.viewportHeight = 300;
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    return state;
+}
+
+function testAutomaticEnemySpawning() {
+    assert.deepEqual(normalizeAutoSpawnEnemies(null), DEFAULT_AUTO_SPAWN_ENEMIES, "automatic enemy spawning should default to disabled, zero percent, and enemies 001-999");
+    assert.deepEqual(
+        resolveAutoSpawnEnemyIds({ enabled: true, probabilityPercent: 25, enemyPool: "1-5,!2,!4" }, JSON.parse(readFileSync("./assets/ct_enemies_001.json", "utf8"))).resolvedIds,
+        ["enemy_001", "enemy_003", "enemy_005"],
+        "automatic spawning should share the level generator enemy-pool expression format"
+    );
+
+    const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    assert.ok(editorHtml.includes('id="auto-spawn-enemies-enabled"'), "Level Editor should expose the automatic enemy spawn switch");
+    assert.ok(editorHtml.includes('id="auto-spawn-enemies-probability"'), "Level Editor should expose the per-second percentage");
+    assert.ok(editorHtml.includes('id="auto-spawn-enemies-pool"'), "Level Editor should expose the generator-format enemy pool");
+    assert.ok(editorHtml.includes("refreshAutoSpawnEnemyPreview"), "Level Editor should preview the resolved enemy pool");
+    const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
+    const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
+    assert.ok(bootstrapSource.includes("enemyCharacterProjectUrls"), "browser startup should derive renderable character projects from the enemy catalog");
+    assert.ok(rendererSource.includes("options.enemyCharacterUrls"), "renderer startup should accept the catalog-derived enemy character list");
+
+    const authoredLevel = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
+    assert.deepEqual(authoredLevel.autoSpawnEnemies, DEFAULT_AUTO_SPAWN_ENEMIES, "authored levels should make the disabled defaults explicit");
+
+    const rightward = createAutomaticEnemySpawnTestState();
+    for (let step = 0; step < 122; step += 1) stepSimulation(rightward, createInputFrame(), FIXED_DT);
+    assert.equal(rightward.world.autoSpawnEnemies.rollCount, 2, "automatic enemy spawning should roll once per second");
+    assert.equal(rightward.world.autoSpawnEnemies.spawnCount, 2, "a 100 percent chance should produce one enemy on each successful one-second roll");
+    const firstRightSpawn = rightward.debug.lastEvents.find((event) => event.type === "AUTO_ENEMY_SPAWNED");
+    const firstRightEnemy = rightward.enemies.find((enemy) => enemy.id === firstRightSpawn?.enemyId);
+    assert.ok(firstRightSpawn, "successful automatic spawning should emit a diagnostic event");
+    assert.equal(firstRightSpawn.direction, 1, "an exit to the right should produce a forward right-side spawn");
+    assert.ok(firstRightSpawn.distanceBeyondScreen >= 40 && firstRightSpawn.distanceBeyondScreen <= 400, "spawn distance should be 10-100 percent of the 400-pixel viewport beyond the screen edge");
+    assert.equal(firstRightEnemy.enemyDefinitionId, "enemy_001", "the configured pool should select only eligible catalog enemies");
+    assert.equal(firstRightEnemy.strategy, "hunter", "spawned ground enemies should use hunter navigation");
+    assert.equal(firstRightEnemy.alerted, true, "spawned enemies should already have noticed the player");
+    assert.equal(firstRightEnemy.engaged, true, "spawned enemies should immediately pursue the player");
+    assert.equal(firstRightEnemy.lastSeenPlayerX, rightward.player.x, "spawned hunters should remember the player's current position");
+
+    const leftward = createAutomaticEnemySpawnTestState({ exitX: -4000, enemyPool: "2", randomSeed: 321 });
+    for (let step = 0; step < 62; step += 1) stepSimulation(leftward, createInputFrame(), FIXED_DT);
+    const leftSpawn = leftward.debug.lastEvents.find((event) => event.type === "AUTO_ENEMY_SPAWNED");
+    const leftEnemy = leftward.enemies.find((enemy) => enemy.id === leftSpawn?.enemyId);
+    assert.equal(leftSpawn?.direction, -1, "an exit to the left should produce a forward left-side spawn");
+    assert.equal(leftEnemy?.enemyDefinitionId, "enemy_002", "leftward spawning should still obey the configured pool");
+    assert.ok(leftSpawn.distanceBeyondScreen >= 40 && leftSpawn.distanceBeyondScreen <= 400, "leftward spawn distance should use the same off-screen band");
+
+    const flying = createAutomaticEnemySpawnTestState({ enemyPool: "5", randomSeed: 88 });
+    for (let step = 0; step < 62; step += 1) stepSimulation(flying, createInputFrame(), FIXED_DT);
+    const flyingEnemy = flying.enemies.find((enemy) => enemy.autoSpawned);
+    assert.equal(flyingEnemy?.enemyDefinitionId, "enemy_005", "flying catalog enemies should remain eligible for automatic spawning");
+    assert.equal(flyingEnemy?.strategy, "bomber", "flying reinforcements should retain the strategy required by their locomotion");
+    assert.equal(flyingEnemy?.alerted, true, "flying reinforcements should also begin aware of the player");
+    assert.equal(flyingEnemy?.engaged, true, "flying reinforcements should begin engaged rather than idling at their spawn point");
+
+    const disabled = createAutomaticEnemySpawnTestState({ probabilityPercent: 0 });
+    for (let step = 0; step < 122; step += 1) stepSimulation(disabled, createInputFrame(), FIXED_DT);
+    assert.equal(disabled.world.autoSpawnEnemies.rollCount, 0, "zero percent should keep the feature dormant");
+    assert.equal(disabled.enemies.length, 0, "zero percent should never create an enemy");
+}
+
 function testEnemyCatalogAndLevelEditorIntegration() {
     const catalog = JSON.parse(readFileSync("./assets/ct_enemies_001.json", "utf8"));
     const skeleton = catalog.enemies?.enemy_001;
     assert.ok(skeleton, "enemy catalog should register enemy_001");
     assert.equal(skeleton.characterId, "ct_char_enemy_001", "enemy_001 should reference its generic character project");
     assert.equal(skeleton.defaults.behavior, undefined, "enemy catalog should not duplicate strategy with legacy behavior");
-    assert.equal(skeleton.defaults.strategy, "simple_patrol", "Skeleton Guard should preserve the original simple-minded local strategy");
+    assert.equal(skeleton.defaults.strategy, "hunter", "Skeleton Guard should use jumping hunter navigation so raised encounters can pursue Ignatius");
     assert.equal(catalog.enemies.enemy_002.defaults.strategy, "hunter", "Fireball Goblin should use the hunter strategy");
     assert.equal(catalog.enemies.enemy_003.defaults.strategy, "hunter", "Musket Goblin should use the hunter strategy");
     assert.equal(skeleton.defaults.health, 90, "Skeleton Guard should default to 90 HP");
@@ -1012,6 +1161,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(skeleton.defaults.attackDamage > 0, "Skeleton Guard should have authored melee damage");
     assert.ok(skeleton.defaults.attackRange > 0, "Skeleton Guard should have authored melee reach");
     assert.ok(skeleton.defaults.runSpeed > skeleton.defaults.walkSpeed, "alert Skeleton Guard should run faster than it patrols");
+    assert.ok(skeleton.defaults.jumpHeight >= 180 && skeleton.defaults.maxFallDistance >= 500, "Skeleton Guard should be able to jump between generated combat platforms");
     assert.equal(skeleton.defaults.chaseSpeed, undefined, "enemy catalog should not duplicate runSpeed with legacy chaseSpeed");
     assert.equal(skeleton.defaults.awarenessVerticalRange, undefined, "unused vertical-awareness data should stay removed from the catalog");
     assert.ok(skeleton.defaults.attackCooldown < 0.25, "Skeleton Guard should chain rapid sword chops");
@@ -1143,6 +1293,46 @@ function testEnemyNavigationGraphAndJumpReachability() {
         edgeInset: 12
     });
     assert.equal(unreachable, null, "a platform above the authored jump height should be unreachable");
+}
+
+function testEnemyNavigationAcrossOverlappingSolidFloors() {
+    const world = {
+        segments: [
+            { id: "left_top", visualId: "left_visual", kind: "blockable", x1: 0, y1: 300, x2: 220, y2: 300 },
+            { id: "right_top", visualId: "right_visual", kind: "blockable", x1: 180, y1: 300, x2: 420, y2: 300 }
+        ],
+        solids: [],
+        collisionPolygons: [
+            {
+                id: "left_polygon",
+                visualId: "left_visual",
+                kind: "blockable",
+                points: [{ x: 0, y: 300 }, { x: 220, y: 300 }, { x: 220, y: 420 }, { x: 0, y: 420 }]
+            },
+            {
+                id: "right_polygon",
+                visualId: "right_visual",
+                kind: "blockable",
+                points: [{ x: 180, y: 300 }, { x: 420, y: 300 }, { x: 420, y: 420 }, { x: 180, y: 420 }]
+            }
+        ]
+    };
+    const profile = {
+        bodyWidth: 72,
+        bodyHeight: 148,
+        runSpeed: 180,
+        jumpHeight: 190,
+        gravity: 1250,
+        maxFallDistance: 520,
+        maxStepHeight: 18,
+        maxStepGap: 18
+    };
+    const supports = buildEnemyNavigationSupports(world, profile);
+    assert.ok(supports.some((support) => support.id === "left_top"), "the left overlapping solid floor should remain a complete navigation support");
+    assert.ok(supports.some((support) => support.id === "right_top"), "the right overlapping solid floor should remain a complete navigation support");
+    const route = planEnemyNavigationRoute(supports, "left_top", "right_top", profile);
+    assert.ok(route, "overlapping solid platforms at one walking height should form a connected enemy route");
+    assert.ok(route.edges.some((edge) => edge.type === "step"), "same-height overlapping floors should connect through a direct step edge");
 }
 
 function testBakedNavigationGraphDirectionalTransitions() {
@@ -2549,6 +2739,18 @@ function testHunterEnemyStrandedFallback() {
     assert.ok(Number.isFinite(enemy.temporaryPatrolMinX) && Number.isFinite(enemy.temporaryPatrolMaxX), "stranded hunter should receive a bounded temporary patrol region");
     assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_TARGET_UNREACHABLE"), "unreachable player should produce the glare transition event");
     assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_STRANDED"), "failed return route should produce the stranded fallback event");
+
+    const strandedX = enemy.x;
+    state.player.x = strandedX + 120;
+    state.player.y = 600;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    enemy.facing = 1;
+    enemy.attackCooldownTimer = 0;
+    stepMany(state, 20);
+    assert.notEqual(enemy.aiState, "stranded_patrol", "a stranded hunter should immediately re-engage when Ignatius appears on the same physical floor");
+    assert.ok(enemy.x > strandedX + 4 || enemy.combatState === "attacking", "local same-floor pursuit should move or attack instead of ignoring a nearby visible player");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_REENGAGED_LOCAL"), "local stranded recovery should emit an explicit diagnostic event");
 }
 
 function testCharacterEnemyPatrolBehavior() {
@@ -2626,6 +2828,47 @@ function testCharacterEnemyPatrolBehavior() {
     assert.equal(guard.animationSlot, "idle", "stand-guard behaviour should remain in idle animation");
 }
 
+function testGroundEnemyWalksUnderOneWayPlatform() {
+    const state = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(state, {
+        levelId: "enemy_one_way_overhead_test",
+        playerStart: { x: -1000, y: 600 },
+        entities: [{
+            id: "one_way_runner",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_001",
+            x: 100,
+            y: 600,
+            w: 72,
+            h: 150,
+            facing: 1,
+            strategy: "simple_patrol",
+            patrolDistance: 500,
+            walkSpeed: 90,
+            idleDuration: 0,
+            turnPause: 0,
+            maxStepHeight: 0,
+            maxDropDistance: 100,
+            awarenessRange: 10
+        }]
+    }), true, "one-way overhead enemy fixture should apply");
+    state.world.solids = [];
+    state.world.collisionPolygons = [];
+    state.world.segments = [
+        { id: "ground", kind: "walkable", x1: -100, y1: 600, x2: 800, y2: 600 },
+        { id: "overhead_one_way", kind: "walkable", x1: 140, y1: 500, x2: 520, y2: 500 }
+    ];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+
+    stepMany(state, 180);
+    const enemy = state.enemies.find((item) => item.id === "one_way_runner");
+    assert.ok(enemy.x > 300, `a grounded monster should walk beneath a green one-way line instead of treating it as a torso-height wall, got x=${enemy.x}`);
+    assert.equal(enemy.y, 600, "walking beneath a one-way platform should keep the monster on its current floor");
+}
+
+
 function testGroundEnemyAutomaticSmallStep() {
     const createEnemyStepState = (stepHeight) => {
         const state = createInitialGameState();
@@ -2665,16 +2908,16 @@ function testGroundEnemyAutomaticSmallStep() {
         return state;
     };
 
-    const climbable = createEnemyStepState(18);
+    const climbable = createEnemyStepState(29);
     stepMany(climbable, 100);
     const climbingEnemy = climbable.enemies.find((enemy) => enemy.id === "step_enemy");
-    assert.ok(climbingEnemy.x > 150, "a grounded monster should walk over a step below one eighth of its height");
-    assert.equal(climbingEnemy.y, 582, "the grounded monster should follow the raised support without a jump state");
+    assert.ok(climbingEnemy.x > 150, "a grounded monster should walk over a step below one fifth of its height");
+    assert.equal(climbingEnemy.y, 571, "the grounded monster should follow the raised support without a jump state");
 
-    const tooTall = createEnemyStepState(20);
+    const tooTall = createEnemyStepState(31);
     stepMany(tooTall, 100);
     const blockedEnemy = tooTall.enemies.find((enemy) => enemy.id === "step_enemy");
-    assert.equal(blockedEnemy.y, 600, "a monster should not climb a step above one eighth of its height");
+    assert.equal(blockedEnemy.y, 600, "a monster should not climb a step above one fifth of its height");
     assert.equal(blockedEnemy.facing, -1, "a simple patrol monster should turn around at a genuinely blocking step");
 }
 
@@ -4266,6 +4509,66 @@ function testAutomaticLevelGeneratorMacroRoomsGroundedDoorsAndPerimeterContract(
 
 
 
+function testThinPlatformAtlasCollisionPolicy() {
+    const thinByAtlas = new Map([
+        ["at_atlas_001", new Set([
+            "ledge_small_round",
+            "ledge_small_flat",
+            "rubble_skull",
+            "rubble_long",
+            "object_034"
+        ])],
+        ["at_atlas_002", new Set([
+            "floor_long_upper",
+            "floor_mid_left",
+            "floor_mid_right",
+            "floor_lower_long"
+        ])],
+        ["at_atlas_003", new Set()],
+        ["at_atlas_004", new Set([
+            "earth_long_platform_r2_a",
+            "earth_long_platform_r2_b",
+            "earth_long_platform_r3_a",
+            "earth_long_platform_r3_b",
+            "earth_long_platform_r4_a",
+            "earth_long_platform_r4_b",
+            "earth_long_platform_r4_c",
+            "earth_long_platform_r5_a",
+            "earth_long_platform_r5_b",
+            "earth_long_platform_r6_a",
+            "earth_long_platform_r6_b",
+            "earth_long_platform_r6_c",
+            "earth_long_platform_r7_a",
+            "earth_long_platform_r7_b",
+            "earth_long_platform_r7_c"
+        ])]
+    ]);
+
+    for (const [atlasId, thinAssets] of thinByAtlas) {
+        const atlas = JSON.parse(readFileSync(new URL(`../assets/${atlasId}.json`, import.meta.url), "utf8"));
+        for (const [assetId, object] of Object.entries(atlas.objects || {})) {
+            const lines = Array.isArray(object.lines) ? object.lines : [];
+            const nodes = Array.isArray(object.nodes) ? object.nodes : [];
+            if (thinAssets.has(assetId)) {
+                assert.equal(nodes.length, 2, `${atlasId}:${assetId} should keep only two standing-line endpoints`);
+                assert.equal(lines.length, 1, `${atlasId}:${assetId} should expose exactly one collision line`);
+                assert.equal(lines[0].kind, "walkable", `${atlasId}:${assetId} should be jump-through from below`);
+                const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+                const from = nodeMap.get(lines[0].from);
+                const to = nodeMap.get(lines[0].to);
+                const frame = atlas.frames?.[object.frame];
+                assert.ok(from && to && frame, `${atlasId}:${assetId} should reference valid line endpoints and a frame`);
+                assert.ok(from.x < to.x, `${atlasId}:${assetId} walkable line should run left to right`);
+                assert.ok(from.y <= frame.h * 0.7 && to.y <= frame.h * 0.7, `${atlasId}:${assetId} walkable line should remain on the visible upper surface`);
+            } else if (lines.length) {
+                assert.ok(lines.some((line) => line.kind === "blockable"), `${atlasId}:${assetId} is not a thin platform and should retain yellow blockable collision`);
+            }
+        }
+    }
+
+}
+
+
 function testLongPlatformAtlas004ManifestAndGeneration() {
     const atlas = JSON.parse(readFileSync(new URL("../assets/at_atlas_004.json", import.meta.url), "utf8"));
     assert.equal(atlas.atlasId, "at_atlas_004", "the new long-platform manifest should use the requested atlas ID");
@@ -4532,9 +4835,21 @@ function testAutomaticLevelGeneratorVariantCompatibility() {
                         const groundTransitions = draft.generation.traversal.transitions.filter((transition) => transition.spacingStyle === "runAndGunGround");
                         assert.ok(groundTransitions.length >= 4 && groundTransitions.every((transition) => transition.gap === 0), `${key} should overlap neighbouring solid platforms instead of placing same-height platforms edge to edge`);
                         assert.ok(groundTransitions.every((transition) => transition.rise === 0 && transition.drop === 0), `${key} should overlap solid ground panels only when their walking surfaces are level`);
+                        const supportById = new Map(draft.generation.traversal.supports.map((support) => [support.id, support]));
+                        for (const transition of groundTransitions) {
+                            const from = supportById.get(transition.fromSupportId);
+                            const to = supportById.get(transition.toSupportId);
+                            assert.ok(from && to, `${key} run-and-gun seams should reference existing supports`);
+                            const overlapWidth = Math.min(from.walkableRightX, to.walkableRightX) - Math.max(from.walkableLeftX, to.walkableLeftX);
+                            assert.ok(overlapWidth >= 72, `${key} run-and-gun seams should overlap deeply enough to form an obvious smooth floor, got ${overlapWidth}`);
+                        }
                         assert.equal(traversalMetrics.oneWayPlatformOverlapCount, 0, `${key} should never overlap a thin green one-way platform with another generated platform`);
                         assert.equal(traversalMetrics.misalignedPlatformOverlapCount, 0, `${key} should overlap solid panels only when their walking surfaces align`);
+                        assert.ok(traversalMetrics.secondaryPlatformCoverageRatio >= 0.245, `${key} should cover roughly one quarter of the route with distributed upper platforms`);
+                        assert.equal(traversalMetrics.movingShaftIntrusionCount, 0, `${key} should keep each automatic lift shaft clear of static platforms`);
                         assert.ok(traversalMetrics.secondaryPlatformCount >= 1, `${key} should keep at least one raised upper platform available for combat or rewards`);
+                        assert.ok(traversalMetrics.upperAccessPlatformCount >= traversalMetrics.secondaryPlatformCount, `${key} should give every high upper platform its own intermediate access step`);
+                        assert.ok(traversalMetrics.minimumUpperLaneRocketClearance >= 170, `${key} should leave enough open air beneath upper platforms for homing rockets to turn`);
                         const oneWaySupports = draft.generation.traversal.supports.filter((support) => support.collisionMode === "oneWay");
                         for (const oneWay of oneWaySupports) {
                             const oneWayTop = oneWay.surfaceY - oneWay.height * oneWay.surfaceYRatio;
@@ -4708,6 +5023,8 @@ function testAutomaticLevelGeneratorEncounters() {
     assert.ok(enemies.every((entity) => entity.generatedBy === AUTOMATIC_LEVEL_GENERATOR_ID && entity.generationStage === "encounters"), "every generated enemy should carry run and stage provenance");
     assert.ok(first.generation.validation.metrics.minimumEndpointDistance >= first.generation.encounters.calmDistance, "all enemies should remain outside both endpoint calm zones");
     assert.ok(first.generation.validation.metrics.hunterCount >= 1, "the representative draft should exercise hunter navigation rebuilding");
+    assert.equal(first.generation.validation.metrics.unreachableUpperGroundEnemyCount, 0, "ground enemies placed on upper perches should have a valid return route and jumping hunter mobility");
+    assert.equal(first.generation.validation.metrics.platformEnemyIntrusionCount, 0, "generated enemies should keep their full bodies clear of every platform");
     for (const encounter of first.generation.encounters.encounters.filter((record) => record.enemyId === "enemy_005")) {
         assert.ok(encounter.groupSize === 2 || encounter.groupSize === 3, "Bombing Bats should always be generated in groups of two or three");
         const group = enemies.filter((enemy) => enemy.generationEncounterId === encounter.id).sort((a, b) => a.x - b.x);
@@ -4730,6 +5047,64 @@ function testAutomaticLevelGeneratorEncounters() {
     });
     assert.equal(independent.valid, true, `standalone encounter validation should accept the selected draft: ${independent.errors.join(" ")}`);
 
+    const defaultHorizontalWide = generateAutomaticLevelDraft({
+        ...options,
+        seed: "rocketfrock",
+        settings: { ...earthTheme.defaults, length: "standard", enemyDensity: 0.72, difficulty: 0.58 },
+        implementations: {
+            ...earthTheme.implementations,
+            route: "mostly-horizontal-route-v1",
+            cavern: "wide-upper-contour-cavern-v1",
+            rewards: "not-generated-yet",
+            decoration: "suppressed-by-theme"
+        }
+    });
+    const defaultBats = defaultHorizontalWide.entities.filter((entity) => entity.enemyCatalogId === "enemy_005");
+    assert.ok(defaultBats.length >= 2, "the default Mostly horizontal + Wide seed should exercise a Bombing Bat group");
+    assert.equal(defaultHorizontalWide.generation.validation.metrics.platformEnemyIntrusionCount, 0, "the default Mostly horizontal + Wide seed should spawn every bat clear of platform artwork");
+    const defaultSupportById = new Map(defaultHorizontalWide.generation.traversal.supports.map((support) => [support.id, support]));
+    for (const transition of defaultHorizontalWide.generation.traversal.transitions.filter((record) => record.spacingStyle === "runAndGunGround")) {
+        const from = defaultSupportById.get(transition.fromSupportId);
+        const to = defaultSupportById.get(transition.toSupportId);
+        const overlapWidth = Math.min(from.walkableRightX, to.walkableRightX) - Math.max(from.walkableLeftX, to.walkableLeftX);
+        assert.ok(overlapWidth >= 72, `the default Mostly horizontal + Wide seed should use an unmistakable continuous seam, got ${overlapWidth}`);
+    }
+
+    const groundEnemy = enemies.find((entity) => {
+        const support = first.generation.traversal.supports.find((candidate) => candidate.id === entity.generationSupportId);
+        return support && !support.secondaryPlatform && entity.enemyCatalogId !== "enemy_005";
+    });
+    assert.ok(groundEnemy, "the encounter fixture should contain a ground enemy for platform-clearance validation");
+    const gluedTraversal = JSON.parse(JSON.stringify(first.generation.traversal));
+    gluedTraversal.supports.push({
+        id: "synthetic_enemy_glue_platform",
+        role: "landingPlatform",
+        mandatory: false,
+        centerX: groundEnemy.x,
+        surfaceY: groundEnemy.y - groundEnemy.h * 0.52,
+        width: groundEnemy.w * 1.8,
+        height: 70,
+        surfaceYRatio: 0.15,
+        walkableLeftX: groundEnemy.x - groundEnemy.w,
+        walkableRightX: groundEnemy.x + groundEnemy.w,
+        walkableWidth: groundEnemy.w * 2,
+        collisionMode: "oneWay"
+    });
+    const gluedValidation = validateGeneratedEncounters({
+        encounters: first.generation.encounters,
+        entities: enemies,
+        traversal: gluedTraversal,
+        endpoints: first.generation.endpoints,
+        cavern: first.generation.cavern,
+        theme: earthTheme,
+        settings: first.generation.settings,
+        resolvedEnemyIds: first.generation.resolvedEnemyIds,
+        enemyGenerationCatalog,
+        enemyCatalog
+    });
+    assert.equal(gluedValidation.valid, false, "encounter validation should reject an enemy whose body is embedded in another platform");
+    assert.ok(gluedValidation.metrics.platformEnemyIntrusionCount >= 1, "the platform-clearance validator should identify glued enemies explicitly");
+
     const batOnly = generateAutomaticLevelDraft({
         ...options,
         seed: "bat-groups-only",
@@ -4738,6 +5113,37 @@ function testAutomaticLevelGeneratorEncounters() {
     const batEnemies = batOnly.entities.filter((entity) => entity.type === "characterEnemy");
     assert.ok(batEnemies.length >= 2 && batEnemies.every((enemy) => enemy.enemyCatalogId === "enemy_005"), "enemy filtering should permit a bat-only generated cavern");
     assert.ok(batOnly.generation.encounters.encounters.every((encounter) => encounter.groupSize === 2 || encounter.groupSize === 3), "every bat-only encounter should preserve the two-or-three grouping rule");
+    assert.equal(batOnly.generation.validation.metrics.platformEnemyIntrusionCount, 0, "generated flying groups should keep their full bodies clear of platform artwork");
+    const batForGlueTest = batEnemies[0];
+    const flyingGlueTraversal = JSON.parse(JSON.stringify(batOnly.generation.traversal));
+    flyingGlueTraversal.supports.push({
+        id: "synthetic_flying_enemy_glue_platform",
+        role: "landingPlatform",
+        mandatory: false,
+        centerX: batForGlueTest.x,
+        surfaceY: batForGlueTest.y - batForGlueTest.h * 0.45,
+        width: batForGlueTest.w * 1.8,
+        height: 70,
+        surfaceYRatio: 0.15,
+        walkableLeftX: batForGlueTest.x - batForGlueTest.w,
+        walkableRightX: batForGlueTest.x + batForGlueTest.w,
+        walkableWidth: batForGlueTest.w * 2,
+        collisionMode: "oneWay"
+    });
+    const flyingGlueValidation = validateGeneratedEncounters({
+        encounters: batOnly.generation.encounters,
+        entities: batEnemies,
+        traversal: flyingGlueTraversal,
+        endpoints: batOnly.generation.endpoints,
+        cavern: batOnly.generation.cavern,
+        theme: earthTheme,
+        settings: batOnly.generation.settings,
+        resolvedEnemyIds: batOnly.generation.resolvedEnemyIds,
+        enemyGenerationCatalog,
+        enemyCatalog
+    });
+    assert.equal(flyingGlueValidation.valid, false, "encounter validation should reject a flying enemy embedded in a platform");
+    assert.ok(flyingGlueValidation.metrics.platformEnemyIntrusionCount >= 1, "the platform-clearance validator should identify glued flying enemies explicitly");
 
     const empty = generateAutomaticLevelDraft({
         ...options,
@@ -4768,8 +5174,11 @@ function testAutomaticLevelGeneratorEncounters() {
                 const validation = draft.generation.validation;
                 assert.equal(validation.valid, true, `${theme.themeId} ${overrides.length} seed ${seed} should generate collision-safe encounters`);
                 assert.equal(validation.metrics.invalidSpawnCount, 0, `${theme.themeId} seed ${seed} should fit every enemy inside the cave`);
+                assert.equal(validation.metrics.unreachableUpperGroundEnemyCount, 0, `${theme.themeId} seed ${seed} should not strand a ground enemy on an upper perch`);
+                assert.equal(validation.metrics.movingShaftEnemyIntrusionCount, 0, `${theme.themeId} seed ${seed} should keep enemies out of reserved moving-platform shafts`);
                 assert.ok(validation.metrics.minimumEndpointDistance >= draft.generation.encounters.calmDistance || validation.metrics.enemyCount === 0, `${theme.themeId} seed ${seed} should preserve calm endpoint zones`);
                 assert.ok(draft.generation.encounters.spentBudget <= draft.generation.encounters.budget + 0.01, `${theme.themeId} seed ${seed} should stay inside its encounter budget`);
+                assert.equal(validation.metrics.platformEnemyIntrusionCount, 0, `${theme.themeId} seed ${seed} should keep every generated enemy clear of unrelated platform artwork`);
                 const generatedBats = draft.generation.encounters.encounters.filter((encounter) => encounter.enemyId === "enemy_005");
                 assert.ok(generatedBats.every((encounter) => encounter.groupSize === 2 || encounter.groupSize === 3), `${theme.themeId} seed ${seed} should never place a solitary Bombing Bat`);
             }
@@ -4781,6 +5190,23 @@ function testAutomaticLevelGeneratorEncounters() {
     assert.ok(editorHtml.includes("level-generator-enemies.json") && editorHtml.includes("current compatible Standard implementations") && generatorSource.includes("difficulty-budgeted-encounters-v1"), "Level Editor should load the versioned enemy-generation catalog while keeping encounters on the current Standard implementation");
     assert.ok(editorHtml.includes("buildPlacedHunterNavigationGraphs({ silent: true"), "generation should refresh navigation graphs after placing hunter enemies");
     assert.ok(editorHtml.includes("navigationGraphs") && editorHtml.includes("replacedLevelShell"), "generation undo and clear should preserve the previous navigation graph shell");
+}
+
+
+function testGeneratedPowerUpSpacingTarget() {
+    const route = {
+        nodes: [
+            { id: "a", x: 0, y: 0, progress: 0, mandatory: true },
+            { id: "b", x: 3000, y: 4000, progress: 1, mandatory: true },
+            { id: "c", x: 6000, y: 8000, progress: 2, mandatory: true },
+            { id: "d", x: 9000, y: 12000, progress: 3, mandatory: true }
+        ]
+    };
+    assert.equal(GENERATED_POWER_UP_SPACING_PX, 5000, "generated power-up density should be based on one pickup per 5,000 route pixels");
+    assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 0.38 }), 3, "15,000 pixels of default-density route should target three power-ups");
+    assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 0 }), 0, "zero reward density should still disable generated power-ups completely");
+    assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 0.1 }), 1, "low nonzero reward density should retain a restrained pickup target");
+    assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 1 }), 5, "maximum reward density should raise but cap the route-scaled pickup target");
 }
 
 
@@ -4834,8 +5260,9 @@ function testAutomaticLevelGeneratorRewards() {
         assert.ok(chest && chest.generationContext === "secondaryPerch" && chest.scoreValue > 0, "each selected perch should hold a positive-Score treasure chest");
     }
     const contextualTypes = rewardEntities.filter((entity) => entity.type !== "treasureChest" && entity.type !== "thoughtTrigger").map((entity) => entity.type);
-    assert.equal(new Set(contextualTypes).size, contextualTypes.length, "contextual support rewards should remain restrained rather than repeating the same pickup type");
-    assert.ok(contextualTypes.some((type) => ["speedShotPickup", "shieldPickup", "randomWrenchPickup"].includes(type)), "rewarded generated levels should contain at least one genuine power-up pickup");
+    const generatedPowerUps = rewardEntities.filter((entity) => ["speedShotPickup", "shieldPickup", "randomWrenchPickup"].includes(entity.type));
+    assert.ok(generatedPowerUps.length >= first.generation.rewards.powerUpTarget, `rewarded generated levels should meet their route-scaled power-up target of ${first.generation.rewards.powerUpTarget}`);
+    assert.ok(contextualTypes.some((type) => ["speedShotPickup", "shieldPickup", "randomWrenchPickup"].includes(type)), "rewarded generated levels should contain genuine power-up pickups");
     assert.equal(rewardEntities.some((entity) => entity.type === "thoughtTrigger"), false, "generated location thoughts should remain absent unless explicitly enabled");
 
     const independent = validateGeneratedRewards({
@@ -6619,10 +7046,10 @@ function testCharacterAtlasEditorOperations() {
 
 function testNumberedEnemy001Assets() {
     const atlasCases = [
-        ["./assets/at_atlas_002.json", 1500, 1600, 43],
-        ["./assets/at_atlas_003.json", 1599, 1609, 21]
+        ["./assets/at_atlas_002.json", 1500, 1600, 43, new Set(["floor_long_upper", "floor_mid_left", "floor_mid_right", "floor_lower_long"])],
+        ["./assets/at_atlas_003.json", 1599, 1609, 21, new Set()]
     ];
-    for (const [filename, imageWidth, imageHeight, expectedCount] of atlasCases) {
+    for (const [filename, imageWidth, imageHeight, expectedCount, thinAssets] of atlasCases) {
         const atlas = JSON.parse(readFileSync(filename, "utf8"));
         assert.equal(Object.keys(atlas.frames).length, expectedCount, `${filename} should contain every detected visual island`);
         assert.equal(Object.keys(atlas.objects).length, expectedCount, `${filename} should have one object per frame`);
@@ -6632,8 +7059,14 @@ function testNumberedEnemy001Assets() {
             assert.ok(frame.x >= 0 && frame.y >= 0 && frame.w > 0 && frame.h > 0, `${filename} frame ${object.frame} should be valid`);
             assert.ok(frame.x + frame.w <= imageWidth && frame.y + frame.h <= imageHeight, `${filename} frame ${object.frame} should remain inside the PNG`);
             const nodeIds = new Set(object.nodes.map((node) => node.id));
-            assert.ok(object.lines.length >= 3, `${filename} object ${objectId} should have a closed blockable outline`);
-            assert.ok(object.lines.every((line) => line.kind === "blockable"), `${filename} object ${objectId} should use blockable collision lines`);
+            if (thinAssets.has(objectId)) {
+                assert.equal(object.nodes.length, 2, `${filename} thin object ${objectId} should have two standing-line endpoints`);
+                assert.equal(object.lines.length, 1, `${filename} thin object ${objectId} should have one walkable line`);
+                assert.equal(object.lines[0].kind, "walkable", `${filename} thin object ${objectId} should be jump-through from below`);
+            } else {
+                assert.ok(object.lines.length >= 3, `${filename} object ${objectId} should have a closed blockable outline`);
+                assert.ok(object.lines.every((line) => line.kind === "blockable"), `${filename} object ${objectId} should use blockable collision lines`);
+            }
             assert.ok(object.lines.every((line) => nodeIds.has(line.from) && nodeIds.has(line.to)), `${filename} object ${objectId} lines should reference valid nodes`);
             assert.ok(object.nodes.every((node) => node.x >= 0 && node.y >= 0 && node.x <= frame.w && node.y <= frame.h), `${filename} object ${objectId} nodes should remain local to the frame`);
         }
@@ -7278,9 +7711,9 @@ function testHomingRocketLaunch() {
     stepSimulation(state, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
     assert.equal(state.projectiles.length, 1, "weapon press should launch one test rocket");
     assert.equal(state.projectiles[0].targetId, target.id, "test rocket should target the homing dot");
-    assert.equal(state.projectiles[0].vx, 0, "test rocket should launch straight up before homing");
-    assert.ok(state.projectiles[0].vy < -400, "test rocket should launch upward before turning");
-    assert.ok(state.projectiles[0].upLaunchTimer > 0, "test rocket should have a straight-up launch timer");
+    assert.ok(state.projectiles[0].vx > 0 && state.projectiles[0].vx < 100, "test rocket should begin its tight initial curve while remaining mostly vertical");
+    assert.ok(state.projectiles[0].vy < -500, "test rocket should retain a strong upward launch component during the initial curve");
+    assert.ok(state.projectiles[0].upLaunchTimer > 0, "test rocket should retain a finite initial-turn steering window");
     assert.equal(state.projectiles[0].damage, 30, "a standard rocket should carry 30 damage");
     assert.ok(state.fuel.amount <= state.tuning.initialFuel - state.tuning.rocketLaunchCost, "rocket launch should spend fuel");
     stepMany(state, 95, () => createInputFrame());
@@ -7288,6 +7721,77 @@ function testHomingRocketLaunch() {
     const rocket = state.projectiles[0];
     const flightDistance = Math.hypot(target.x - rocket.x, target.y - rocket.y);
     assert.ok(flightDistance < startDistance - 430, `homing rocket should close distance to dot after its upward launch, start ${startDistance}, now ${flightDistance}`);
+}
+
+function measuredSingleUnboostedJumpHeight() {
+    const state = createInitialGameState();
+    settleOnGround(state);
+    const floorY = state.player.y;
+    stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    let apexY = state.player.y;
+    for (let frame = 0; frame < 120; frame += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        apexY = Math.min(apexY, state.player.y);
+        if (frame > 3 && state.player.vy >= 0) break;
+    }
+    return floorY - apexY;
+}
+
+function runJumpHeightPlatformRocket(initialHomingStrength) {
+    const state = createInitialGameState({ tuning: { rocketProjectileInitialHomingStrength: initialHomingStrength } });
+    settleOnGround(state);
+    const platformY = state.player.y - measuredSingleUnboostedJumpHeight();
+    const targetX = state.player.x + state.player.height * 96;
+    state.enemies = [];
+    state.targets = [{
+        id: "same_level_distant_enemy",
+        kind: "debugHomingDot",
+        x: targetX,
+        y: state.player.y - state.player.height * 0.5,
+        radius: 15,
+        state: "active"
+    }];
+    state.world.segments = [
+        ...(state.world.segments || []),
+        {
+            id: "jump_apex_platform",
+            kind: "walkable",
+            x1: state.player.x - 20000,
+            y1: platformY,
+            x2: targetX + 20000,
+            y2: platformY
+        }
+    ];
+
+    stepSimulation(state, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    const rocket = state.projectiles[0];
+    let minimumCenterY = rocket.y;
+    let maximumX = rocket.x;
+    for (let frame = 0; frame < 50; frame += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        minimumCenterY = Math.min(minimumCenterY, rocket.y);
+        maximumX = Math.max(maximumX, rocket.x);
+        if (rocket.state !== "launched") break;
+    }
+    return {
+        state,
+        rocket,
+        clearance: minimumCenterY - (platformY + rocket.radius),
+        maximumX
+    };
+}
+
+function testRocketInitialTurnClearsJumpHeightPlatform() {
+    const tuned = runJumpHeightPlatformRocket(DEFAULT_TUNING.rocketProjectileInitialHomingStrength);
+    assert.equal(tuned.rocket.state, "launched", "the tuned initial turn should remain in flight beneath a platform at the single-jump limit");
+    assert.notEqual(tuned.rocket.impactReason, "jump_apex_platform", "the tuned initial turn should not strike the barely jump-reachable platform overhead");
+    assert.ok(tuned.clearance >= 0 && tuned.clearance < 0.5, `the tuned rocket should only just clear the platform, clearance=${tuned.clearance}`);
+    assert.ok(tuned.maximumX > tuned.state.player.x + 300, "the rocket should complete meaningful sideways progress toward the same-level target");
+    assert.equal(tuned.rocket.upLaunchTimer, 0, "the stronger launch steering should expire after the initial turn");
+    assert.equal(tuned.rocket.homingStrength, DEFAULT_TUNING.rocketProjectileHomingStrength, "normal mid-flight homing should remain unchanged after the initial turn");
+
+    const slightlyWeaker = runJumpHeightPlatformRocket(6.9);
+    assert.equal(slightlyWeaker.rocket.impactReason, "jump_apex_platform", "a slightly weaker initial turn should still clip the jump-height platform, pinning the geometric threshold");
 }
 
 function testStandardRocketSecondarySplash() {
@@ -7612,6 +8116,26 @@ function testAirBoostRequiresReleaseAfterGroundJump() {
     assert.equal(state.equipment.rocket.attachedBoosting, true, "pressing jump again after release should start boost");
 }
 
+function testDownwardCameraLead() {
+    const state = createInitialGameState({ spawn: { x: 120, y: 240 } });
+    state.world.solids = [];
+    state.world.segments = [];
+    state.world.collisionPolygons = [];
+    state.world.resetY = 5000;
+    state.player.x = 120;
+    state.player.y = 240;
+    state.player.vx = 0;
+    state.player.vy = 720;
+    state.player.onGround = false;
+    state.player.wasOnGround = false;
+    state.camera.x = state.player.x;
+    state.camera.y = state.player.y - 170;
+    const before = state.camera.y;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.ok(state.camera.y > before + 20, "fast downward movement should pull the camera down early enough to reveal the landing area");
+    assert.ok(state.camera.y < state.player.y + 120, "downward look-ahead should remain bounded rather than abandoning Ignatius");
+}
+
 function testWallCollision() {
     const state = createInitialGameState();
     state.player.x = -245;
@@ -7642,15 +8166,15 @@ function testAutomaticSmallStepTraversal() {
         return state;
     };
 
-    const climbable = createStepState(12);
+    const climbable = createStepState(19);
     stepMany(climbable, 50, () => createInputFrame({ moveRight: true }));
-    assert.ok(climbable.player.x > 300, "Ignatius should walk across a step below one eighth of his height without jumping");
-    assert.equal(climbable.player.y, 588, "automatic step-up should seat Ignatius on the raised surface");
+    assert.ok(climbable.player.x > 300, "Ignatius should walk across a step below one fifth of his height without jumping");
+    assert.equal(climbable.player.y, 581, "automatic step-up should seat Ignatius on the raised surface");
     assert.equal(climbable.player.supportId, "small_step", "automatic step-up should adopt the raised support");
 
-    const tooTall = createStepState(14);
+    const tooTall = createStepState(21);
     stepMany(tooTall, 50, () => createInputFrame({ moveRight: true }));
-    assert.ok(tooTall.player.x <= 233.1, "a step above one eighth of Ignatius's height should still block ordinary walking");
+    assert.ok(tooTall.player.x <= 233.1, "a step above one fifth of Ignatius's height should still block ordinary walking");
     assert.equal(tooTall.player.y, 600, "a too-tall step should not teleport Ignatius upward");
 }
 
@@ -8833,8 +9357,9 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.match(gameHtml, /data-rendering-quality="high"/, "the settings dialog should expose particle quality choices");
     assert.doesNotMatch(gameHtml, /id="fullscreen-toggle"/, "the upper-right HUD should no longer contain a fullscreen button");
     assert.match(gameHtml, /id="game-menu-controls"[\s\S]*id="open-game-menu"[\s\S]*id="minimap-canvas"/, "the upper-right panel should be a clickable minimap that opens the menu");
-    assert.match(gameHtml, /--hud-panel-width:[^;]+;[\s\S]*#hud\s*\{[^}]*width:\s*var\(--hud-panel-width\)/s, "the left HUD should retain its stable meter-panel width");
-    assert.match(gameHtml, /#game-menu-controls\s*\{[^}]*width:\s*auto[^}]*min-width:\s*48px/s, "the minimap panel should allow its width to follow the level aspect ratio");
+    assert.match(gameHtml, /id="meters"[^>]*role="button"[^>]*aria-haspopup="dialog"[^>]*data-ignore-game-pointer/, "the top-left meter panel should also be an accessible menu trigger");
+    assert.match(gameHtml, /--hud-panel-natural-width:\s*430px;[\s\S]*--hud-panel-scale:\s*1;[\s\S]*#hud\s*\{[^}]*width:\s*var\(--hud-panel-natural-width\)[^}]*transform:\s*scale\(var\(--hud-panel-scale\)\)/s, "the left HUD should retain one natural size and use a shared viewport scale");
+    assert.match(gameHtml, /#game-menu-controls\s*\{[^}]*width:\s*auto[^}]*min-width:\s*1px/s, "the minimap panel should be allowed to shrink below the former hard minimum on tiny screens");
     assert.match(gameHtml, /body\.electron #tool-links\s*\{[^}]*display:\s*none !important/s, "Electron mode should still hide browser debug tool links");
     assert.match(gameHtml, /id="auto-fullscreen"[^>]*type="checkbox"/, "settings should expose automatic fullscreen as a checkbox rather than an immediate action");
     assert.match(gameHtml, /Automatically switch to fullscreen/, "the automatic fullscreen preference should use the requested wording");
@@ -8873,6 +9398,10 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.match(bootstrapSource, /musicDirector\.setMuted\(muted\)/, "music should be silenced by the same pause policy");
     assert.match(bootstrapSource, /autoFullscreenRow\.hidden = Boolean\(electronWindowBridge\)/, "the browser-only fullscreen policy should be hidden in Electron");
     assert.match(bootstrapSource, /toolLinks\.hidden = isElectron/, "Electron mode should hide browser/debug tool links at startup");
+    assert.match(bootstrapSource, /function syncHudPanelsToViewport\(\)/, "the browser bootstrap should scale both HUD corners against the current viewport");
+    assert.match(bootstrapSource, /calculateHudPanelScale\([\s\S]*minimapVisible:\s*Boolean\(minimapPanel && !minimapPanel\.hidden\)/, "HUD scaling should release the right-side reservation when the minimap is hidden");
+    assert.match(bootstrapSource, /metersPanel\?\.addEventListener\("click"[\s\S]*openGameMenu\(\)/, "clicking the top-left meter panel should open the game menu");
+    assert.match(bootstrapSource, /metersPanel\?\.addEventListener\("keydown"[\s\S]*event\.code !== "Enter"[\s\S]*event\.code !== "Space"[\s\S]*openGameMenu\(\)/, "the top-left meter panel should support keyboard menu activation");
     assert.match(bootstrapSource, /function setupMinimap\(\)/, "the browser bootstrap should size and initialize the minimap panel");
     assert.match(bootstrapSource, /new ResizeObserver\(syncSize\)/, "the minimap should track the exact rendered height of the top-left meter panel");
     assert.match(bootstrapSource, /function resizeMinimapToLevel\(bounds = minimapBounds\(\)\)/, "the minimap should derive its horizontal size from the current level bounds");
@@ -9081,7 +9610,9 @@ function testRenderingQualityScalesRocketParticles() {
 }
 
 function testRocketTurnsFiftyPercentSharper() {
-    assert.equal(DEFAULT_TUNING.rocketProjectileHomingStrength, 4.8, "rocket homing should be 50 percent sharper than the former 3.2 default");
+    assert.equal(DEFAULT_TUNING.rocketProjectileHomingStrength, 4.8, "normal rocket homing should remain 50 percent sharper than the former 3.2 default");
+    assert.equal(DEFAULT_TUNING.rocketProjectileInitialHomingStrength, 6.95, "only the launch-turn window should use the tighter geometric steering value");
+    assert.equal(DEFAULT_TUNING.rocketProjectileUpLaunchSeconds, 0.32, "the initial steering boost should remain limited to the existing launch window");
 }
 
 
@@ -9108,11 +9639,13 @@ const tests = [
     ["thought bubble tail and responsive typography", testThoughtBubbleTailAndResponsiveTypography],
     ["Puppet Guide debug overlay", testPuppetGuideDebugOverlay],
     ["selective level colour map", testSelectiveLevelColorMap],
+    ["thin platform atlas collision policy", testThinPlatformAtlasCollisionPolicy],
     ["Atlas 004 long platforms and collision manifest", testLongPlatformAtlas004ManifestAndGeneration],
     ["automatic level generator route foundation", testAutomaticLevelGeneratorRouteFoundation],
     ["automatic level generator variant compatibility", testAutomaticLevelGeneratorVariantCompatibility],
     ["automatic level generator playable empty cavern", testAutomaticLevelGeneratorPlayableEmptyCavern],
     ["automatic level generator encounters", testAutomaticLevelGeneratorEncounters],
+    ["generated reward power-up spacing", testGeneratedPowerUpSpacingTarget],
     ["automatic level generator rewards", testAutomaticLevelGeneratorRewards],
     ["automatic level generator editor refinement", testAutomaticLevelGeneratorEditorRefinement],
     ["automatic perimeter population and spatial culling", testAutomaticLevelGeneratorPerimeterAndSpatialCulling],
@@ -9152,8 +9685,10 @@ const tests = [
     ["flying bomber uses curved approach", testFlyingBomberUsesCurvedApproach],
     ["flying bomber leaves perch platform", testFlyingBomberCanLeavePerchPlatform],
     ["flying bomber notices wizard below and ahead", testFlyingBomberNoticesWizardBelowAndAhead],
+    ["automatic enemy spawning", testAutomaticEnemySpawning],
     ["enemy catalog and Level Editor integration", testEnemyCatalogAndLevelEditorIntegration],
     ["enemy navigation graph and jump reachability", testEnemyNavigationGraphAndJumpReachability],
+    ["enemy navigation across overlapping solid floors", testEnemyNavigationAcrossOverlappingSolidFloors],
     ["baked navigation graph directional transitions", testBakedNavigationGraphDirectionalTransitions],
     ["navigation maze detour route", testNavigationMazeDetourRoute],
     ["hunter enemy jump and attack positioning", testHunterEnemyJumpAndAttackPositioning],
@@ -9177,6 +9712,7 @@ const tests = [
     ["hunter reachable firing fallback", testHunterFindsReachableFiringFallbackBeforeGlare],
     ["hunter enemy stranded fallback", testHunterEnemyStrandedFallback],
     ["simulation-owned character enemy patrol", testCharacterEnemyPatrolBehavior],
+    ["ground enemies pass beneath one-way platforms", testGroundEnemyWalksUnderOneWayPlatform],
     ["ground enemies walk up small steps", testGroundEnemyAutomaticSmallStep],
     ["character enemy aggressive chase and combo", testCharacterEnemyAggressiveChaseAndCombo],
     ["rebalanced enemy health and standard rocket hit counts", testRebalancedEnemyHealthAndRocketHits],
@@ -9211,6 +9747,7 @@ const tests = [
     ["boost kick costs fuel and recharges on landing", testBoostKickCostsFuelAndRechargesOnLanding],
     ["rocket projectile renderer exists", testRocketProjectileRendererExists],
     ["homing rocket launch", testHomingRocketLaunch],
+    ["rocket initial turn clears jump-height platform", testRocketInitialTurnClearsJumpHeightPlatform],
     ["standard rocket one-HP secondary splash", testStandardRocketSecondarySplash],
     ["rocket target prioritizes facing direction", testRocketTargetPrefersClosestEnemyInFacingDirection],
     ["rocket trail tracks curved path and persists", testRocketTrailTracksCurvedPathAndPersistsAfterExplosion],
@@ -9223,6 +9760,7 @@ const tests = [
     ["Phase 1.015 tuning defaults, debug pose blending and fuel bulb flash", testPhase1013TuningDefaultsDebugPoseAndFuelBulbFlash],
     ["single jump press is not reused across catch-up substeps", testSingleJumpPressIsNotReusedAcrossCatchupSubsteps],
     ["air boost requires release after ground jump", testAirBoostRequiresReleaseAfterGroundJump],
+    ["downward camera lead", testDownwardCameraLead],
     ["wall collision", testWallCollision],
     ["automatic small-step traversal", testAutomaticSmallStepTraversal],
     ["closed atlas loop creates collision area", testClosedAtlasLoopCreatesCollisionArea],

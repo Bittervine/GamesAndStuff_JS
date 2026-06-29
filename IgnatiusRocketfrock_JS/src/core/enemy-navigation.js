@@ -328,6 +328,16 @@ function splitSupportAroundObstacles(support, obstacles, options) {
         if (obstacle.minY > groundY + 3) {
             continue;
         }
+        const sameHeightContinuationTolerance = Math.max(2, finite(options.maxStepHeight, 24));
+        const obstacleContinuesFloor = obstacle.maxY >= groundY - EPSILON
+            && Math.abs(obstacle.minY - groundY) <= sameHeightContinuationTolerance;
+        if (obstacleContinuesFloor) {
+            // Generated run-and-gun floors intentionally overlap solid platform
+            // polygons at the same walking height. Treat the neighbour's top as a
+            // continuation of the floor instead of cutting both navigation supports
+            // apart with each other's rock body.
+            continue;
+        }
         const clearanceUnderObstacle = groundY - obstacle.maxY;
         if (clearanceUnderObstacle >= bodyHeight * 0.88) {
             continue;

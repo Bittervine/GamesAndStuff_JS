@@ -31,6 +31,7 @@ IgnatiusRocketfrock_JS/
 │   │   ├── browser-input.js
 │   │   ├── electron-window-bridge.js
 │   │   ├── game-bootstrap.js
+│   │   ├── hud-panel-layout.js
 │   │   ├── gamepad-haptics.js
 │   │   ├── game-settings-store.js
 │   │   └── music-director.js
@@ -45,11 +46,13 @@ IgnatiusRocketfrock_JS/
 │   ├── shared/
 │   │   ├── actor-geometry.js
 │   │   ├── animation-data.js
+│   │   ├── auto-spawn-enemy-data.js
 │   │   ├── cave-kill-boundary-data.js
 │   │   ├── cave-window-data.js
 │   │   ├── cave-window-decoration.js
 │   │   ├── game-settings-data.js
 │   │   ├── level-color-map-data.js
+│   │   ├── enemy-pool-data.js
 │   │   ├── level-generator-data.js
 │   │   ├── level-transform.js
 │   │   ├── moving-platform-data.js
@@ -120,14 +123,16 @@ Revision 135 removed the last documented core-to-presentation dependency. Colour
 | Module | Classification | Responsibility |
 |---|---|---|
 | `src/core/enemy-navigation.js` | PORTABLE CORE | Deterministic support extraction, directed step/jump/drop edges, jump-feasibility calculation, and lowest-cost platform routing for character enemies. |
-| `src/core/simulation.js` | PORTABLE CORE | Authoritative fixed-step state, player physics, collisions, weapons, enemy strategy state machines, reactive objects, story state, level runtime conversion, serialization, and update order. |
+| `src/core/simulation.js` | PORTABLE CORE | Authoritative fixed-step state, player physics, collisions, weapons, enemy strategy state machines, optional one-second off-screen enemy spawning, reactive objects, story state, level runtime conversion, serialization, and update order. |
 | `src/shared/signal-channel-data.js` | SHARED DATA / MATH | Named-channel normalization and reusable lever/keyhole emitter normalization shared by editor and portable core. |
 | `src/shared/moving-platform-data.js` | SHARED DATA / MATH | Versioned moving-platform patterns, activations, safe defaults, and relative endpoint calculations. |
 | `src/shared/actor-geometry.js` | SHARED DATA / MATH | Shared baseline-anchored actor rectangles, enemy projectile hurtboxes, and melee reach rectangles used by simulation and debug presentation. |
 | `src/shared/animation-data.js` | SHARED DATA / MATH | Animation schema normalization, sampling, interpolation, and pose blending. |
 | `src/shared/level-transform.js` | SHARED DATA / MATH | Mirroring, rotation, placement geometry, hit testing, and atlas-node conversion shared by runtime and editor. |
 | `src/shared/level-color-map-data.js` | SHARED DATA / MATH | Level colour-map normalization, cache keys, hue-selection mathematics, and RGB/HSL conversion without browser objects. |
-| `src/shared/level-generator-data.js` | SHARED DATA / MATH | Versioned generator settings, named deterministic random streams, implementation registries, enemy-filter parsing, abstract route candidate generation, validation, quality selection, provenance, and generated-state normalization. It creates no Canvas objects or playable cave geometry. |
+| `src/shared/enemy-pool-data.js` | SHARED DATA / MATH | Shared numeric enemy-pool expression parsing for inclusive ranges and `!` exclusions, used by both automatic level generation and runtime auto-spawn authoring. |
+| `src/shared/auto-spawn-enemy-data.js` | SHARED DATA / MATH | Normalized level-owned auto-spawn settings, enemy-catalog normalization, pool resolution, and construction of plain catalog-backed enemy entity records. |
+| `src/shared/level-generator-data.js` | SHARED DATA / MATH | Versioned generator settings, named deterministic random streams, implementation registries, shared enemy-pool parsing, abstract route candidate generation, validation, quality selection, provenance, and generated-state normalization. It creates no Canvas objects or playable cave geometry. |
 | `src/shared/game-settings-data.js` | SHARED DATA / MATH | Versioned game-facing settings defaults, preset normalization, incoming-damage scale, and visual particle-density scale without browser storage or DOM objects. |
 | `src/shared/cave-window-data.js` | SHARED DATA / MATH | Inert cave-window schema normalization, decoration settings, closed smooth/corner spline sampling, point-insertion lookup, and authoring bounds. It contains no collision or navigation generation. |
 | `src/shared/cave-kill-boundary-data.js` | SHARED DATA / MATH | Portable derivation of the player lethal loop from the same sampled cave full-black outset, plus camera-independent polygon/actor overlap tests. It creates no collision or navigation geometry. |
@@ -135,7 +140,8 @@ Revision 135 removed the last documented core-to-presentation dependency. Colour
 | `src/shared/story-reading.js` | SHARED DATA / MATH | Shared character-count reading speed, start delay, and duration helpers for letters and thought bubbles. |
 | `src/shared/cave-window-decoration.js` | SHARED DATA / MATH | Deterministic arc-length sampling and tagged atlas-asset selection for explicit non-colliding `caveForeground` placement records. |
 | `src/browser/browser-input.js` | BROWSER ADAPTER | Keyboard, gamepad, mouse, and touch state converted into `InputFrame`. |
-| `src/browser/game-bootstrap.js` | BROWSER ADAPTER | Asset and level loading, fixed-step loop, menu/settings coordination, fullscreen policy, top-left HUD and upper-right minimap binding, connection of input/simulation/renderer, optional haptic projection, and hydration of plain character combat profiles from loaded character projects. |
+| `src/browser/game-bootstrap.js` | BROWSER ADAPTER | Asset, enemy-catalog, and level loading; fixed-step loop; menu/settings coordination; fullscreen policy; top-left HUD and upper-right minimap binding; viewport-size projection into portable camera state; connection of input/simulation/renderer; optional haptic projection; and hydration of plain character combat profiles from loaded character projects. |
+| `src/browser/hud-panel-layout.js` | BROWSER ADAPTER | Pure viewport-fit calculation for the natural-size meter panel and optional upper-right minimap. It owns no DOM, Canvas, game state, or portable simulation behavior. |
 | `src/browser/gamepad-haptics.js` | BROWSER ADAPTER | Optional active-controller vibration driven from portable simulation events and current boost state. It owns no gameplay decisions and silently degrades when haptics are unavailable. |
 | `src/browser/game-settings-store.js` | BROWSER ADAPTER | Safe local-storage load/save for normalized game-facing settings. |
 | `src/browser/electron-window-bridge.js` | BROWSER ADAPTER | Detection and normalization of the optional sandboxed Electron preload API for quit/fullscreen operations. |
@@ -814,10 +820,70 @@ The browser minimap remains presentation-only in `src/browser/game-bootstrap.js`
 
 Traversal realization records platform collision mode on every generated support. Validation rejects any body overlap involving a `oneWay` support and rejects different-height overlap between static blockable supports. Equal-surface blockable overlaps remain legal for continuous ground compositions. Wide caverns may add reachable second-tier secondary supports from first-tier perches; each support remains an ordinary placement with explicit bidirectional transitions and either `combatPerch` or `rewardPerch` purpose. Encounter and reward stages consume those existing supports without mutating terrain.
 
-Small-step traversal stays in portable simulation. The player horizontal sweep and grounded enemy support selection may resolve a higher floor only below the actor-relative one-eighth-height threshold. The resolution adopts the raised support directly and does not synthesize a jump, while larger ledges retain normal collision blocking.
+Small-step traversal stays in portable simulation. The player horizontal sweep and grounded enemy support selection may resolve a higher floor only up to the actor-relative one-fifth-height threshold. The resolution adopts the raised support directly and does not synthesize a jump, while larger ledges retain normal collision blocking.
 
 ## Revision 260 transparent minimap shell and denser horizontal upper-platform coverage
 
 The minimap overlay in `src/browser/game-bootstrap.js` remains a lightweight Canvas rendering of cave outline, authored walkable surfaces, camera box, exit, and player. Revision 260 removes the explicit background fill and relies on a transparent panel shell in `game.html`, so only the actual minimap content appears over gameplay.
 
 In `src/shared/level-generator-data.js`, horizontal run-and-gun drafts now treat upper content density as a coverage target rather than just a small fixed perch count. Secondary-platform generation continues until it satisfies both count and approximate span coverage goals, and it biases those extra placements toward combat perches so the mostly-horizontal variant produces a sustained upper monster lane.
+
+## Revision 261 audited upper lanes, mobile skeletons, and safe descents
+
+`buildStandardTraversal` now has a dedicated Mostly-horizontal upper-lane subpass. It samples evenly distributed targets along the completed blockable ground run, places separate Atlas 004 one-way platforms, validates jump-through transitions in both directions, and requires their union to cover approximately 25% of the route span. This is a traversal contract rather than an encounter-side decoration, so cavern occupancy and later stages see the final geometry.
+
+Generated upper ground encounters are accepted only when their support has a valid parent transition and the enemy uses jumping hunter navigation. `enemy_001` therefore now uses the hunter strategy with authored jump and fall parameters. Encounter validation reports stranded upper enemies explicitly.
+
+Mostly-horizontal mandatory vertical shuttles reserve a rectangular travel envelope after both endpoint supports are known. Secondary platforms and encounter entities reject that envelope, and final traversal/encounter validation independently verifies zero intrusion. Standard folded-route lift behavior is unchanged.
+
+`updateCameraHint` remains fixed-step simulation state, but falling now adds a bounded downward lead of up to 260 world units and blends faster while descending. Upward lead remains conservative, preserving the existing view above Ignatius during jumps.
+
+## Revision 262 overlapping-floor navigation and two-step upper lanes
+
+`src/core/enemy-navigation.js` now distinguishes an obstruction from a same-height floor continuation while splitting supports around blockable geometry. When an overlapping polygon begins at the same walkable height within the actor's step tolerance, it is treated as another floor piece rather than a blocker. This preserves enemy routes across the deliberately overlapping blockable platforms used by the Mostly-horizontal ground path.
+
+`src/core/simulation.js` adds a narrow local-ground fallback for melee hunters. If Ignatius is visible and both actors are supported at the same physical height, a hunter may chase and attack through ordinary collision movement even when the navigation graph cannot currently produce a route. This does not permit blind gap crossing; normal support and horizontal collision checks still stop the enemy at real ledges and walls.
+
+Mostly-horizontal upper content in `src/shared/level-generator-data.js` now has two layers per destination. An `upperAccessPlatform` sits within one optional jump of the ground parent. The actual `secondaryPlatform` sits another optional jump above that access step and retains its combat/reward classification. Validation requires every upper destination to reference both its ground parent and access support and enforces at least 170 world units of clear rocket-turning space between ground and the upper platform's rendered underside.
+
+## Revision 263 launch-only homing assist
+
+Rocket steering remains portable simulation behavior in `src/core/simulation.js`. Each homing projectile stores both its ordinary `homingStrength` and a launch-only `initialHomingStrength`. While the existing `upLaunchTimer` is positive, steering uses the larger launch value; once the timer reaches zero, the update path automatically returns to the projectile's ordinary homing strength. The timer no longer suppresses targeting, so the curve starts immediately while launch velocity remains predominantly upward.
+
+The regression in `tests/testbench.mjs` derives one-jump height through the same fixed-step simulation, creates a platform at that exact elevation, and uses the rocket radius in its clearance assertion. This makes the launch-turn value depend on actual player and projectile geometry instead of a duplicated hand-entered distance.
+
+## Revision 264 generated enemy terrain-clearance contract
+
+`src/shared/level-generator-data.js` now owns a deterministic ground-enemy spawn-clearance pass. It derives visual rectangles from generated support geometry, expands unrelated platforms by a small side and vertical margin, and samples candidate group centres across the assigned support. A ground encounter is emitted only when every body rectangle clears those obstacles and all reserved moving shafts. Same-height overlapping ground pieces are exempt because they form one continuous standing surface. The encounter validator recomputes this contract from serialized support and enemy data and records `platformEnemyIntrusionCount`.
+
+## Revision 265 flying encounter clearance and continuous-floor seams
+
+`src/shared/level-generator-data.js` now uses full feet-anchored body rectangles for both ground and flying generated enemies. Flying groups are accepted only when every member clears platform visual rectangles, strict moving-platform shafts, and the local cavern interval. The independent encounter validator repeats the platform-clearance check for all locomotion classes.
+
+`src/core/simulation.js` centralizes automatic step tolerance at 20 percent of actor height. The Mostly horizontal traversal continues to use only solid blockable Atlas 004 ground assets, but their generated walkable spans now overlap deeply enough to form an unmistakable continuous floor rather than a tiny collision lip.
+
+## Revision 266 thin environment-platform collision contract
+
+Environment atlas collision is classified by the visible depth of the authored asset, not merely by an object's broad `platform` metadata label. A thin floating platform owns exactly two standing endpoints and one `walkable` line, with no closed collision area or blockable side and underside edges. A substantial ledge, floor mass, wall, ceiling, pillar, rock formation, rubble obstacle, corner, or hazard retains at least one `blockable` edge and may retain a closed blockable silhouette.
+
+The current one-way set consists of five Atlas 001 shallow ledge or rubble assets, four Atlas 002 horizontal floor strips, and the fifteen already-established thin Atlas 004 platforms. Atlas 003 has no one-way entries. Runtime collision remains authoritative from each placement's atlas-manifest lines. Any baked navigation graph whose level uses a reclassified asset must be rebuilt from the resulting live world supports.
+
+
+## Revision 267 viewport-fitted dual menu panels
+
+`src/browser/hud-panel-layout.js` computes a single capped scale from the current viewport, panel natural size, safe edge insets, and whether the minimap is visible. `src/browser/game-bootstrap.js` applies that scale to the top-left HUD stack before sizing the aspect-fitted minimap from the meter panel's rendered rectangle. With the minimap visible, the calculation reserves space for two natural-width panels plus a gap; when it is hidden, the meter panel immediately reclaims the released width. Very short viewports also constrain the scale vertically.
+
+The top-left meter panel is now an accessible browser menu trigger alongside the upper-right minimap. Pointer activation is excluded from gameplay input, Enter/Space keyboard activation follows button semantics, and both surfaces project the same menu-expanded state without moving menu behavior into the simulation.
+
+
+## Revision 268 level-owned automatic enemy spawning
+
+Revision 268 adds a level-owned `autoSpawnEnemies` record with `enabled`, `probabilityPercent`, and `enemyPool`. `src/shared/enemy-pool-data.js` owns the exact numeric range/exclusion grammar shared with the automatic level generator. `src/shared/auto-spawn-enemy-data.js` owns schema defaults and conversion from the browser-loaded enemy catalog into plain entity data. The Level Editor only authors and previews those values.
+
+The browser adapter loads `assets/ct_enemies_001.json` and projects the renderer's current virtual viewport dimensions into camera state. The portable simulation owns the one-second clock, deterministic chance and selection rolls, route-direction estimate, off-screen placement, spawn safety checks, authoritative enemy creation, immediate awareness, and cleanup. Ground enemies enter hunter pursuit with the player's current position as their last-seen location. Flying catalog types retain the flying strategy required by their locomotion but begin already alerted and engaged toward the player. Spawn positions lie 10-100 percent of one current viewport width beyond the forward screen edge, preferring the horizontal direction of the exit door and falling back to the right.
+
+## Revision 269 route-distance reward density and one-way actor probes
+
+`src/shared/level-generator-data.js` records `powerUpTarget` in reward-plan and reward-population schema version 3. `generatedPowerUpTargetForRoute` sums the mandatory route in progression order and uses a 5,000-world-unit default spacing. Reward density scales the result around the authored default, with a bounded multiplier so the slider remains useful without exploding pickup counts. `buildBasicRewards` fills unoccupied, non-encounter supports until the target is reached, and `validateGeneratedRewards` treats a shortfall as invalid. The target and realized count are both exposed in generator diagnostics.
+
+In `src/core/simulation.js`, grounded enemy body occupancy distinguishes one-way support from area-blocking terrain. Green `walkable` segments participate in floor selection and downward landing, but are excluded from the rectangular torso obstruction probe used during horizontal ground movement. Blockable, damaging, and killable lines and polygons remain full-body obstacles. Airborne actor sweep logic already followed the same one-way rule, so this change aligns grounded movement with the established collision contract.

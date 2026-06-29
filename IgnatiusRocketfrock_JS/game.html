@@ -23,7 +23,9 @@
             --menu-accent-strong: #e1d1ff;
             --menu-muted: #cdbfdc;
             --menu-line: rgba(229, 211, 255, 0.24);
-            --hud-panel-width: min(430px, calc(50vw - 24px));
+            --hud-panel-natural-width: 430px;
+            --hud-panel-scale: 1;
+            --hud-edge: clamp(4px, 2vw, 16px);
         }
 
         * {
@@ -213,13 +215,15 @@
 
         #hud {
             position: fixed;
-            left: 16px;
-            top: 16px;
+            left: var(--hud-edge);
+            top: var(--hud-edge);
             display: grid;
             gap: 10px;
-            width: var(--hud-panel-width);
+            width: var(--hud-panel-natural-width);
             pointer-events: none;
             text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9);
+            transform: scale(var(--hud-panel-scale));
+            transform-origin: top left;
         }
 
         .panel {
@@ -259,6 +263,22 @@
         #meters {
             display: grid;
             gap: 7px;
+            pointer-events: auto;
+            cursor: pointer;
+            user-select: none;
+            transition: border-color 120ms ease, filter 120ms ease, opacity 120ms ease;
+        }
+
+        #meters:hover,
+        #meters:focus-visible,
+        #meters[aria-expanded="true"] {
+            border-color: rgba(201, 167, 255, 0.52);
+            filter: brightness(1.06);
+        }
+
+        #meters:focus-visible {
+            outline: 2px solid rgba(201, 167, 255, 0.9);
+            outline-offset: -3px;
         }
 
         #level-score-row {
@@ -468,11 +488,11 @@
 
         #game-menu-controls {
             position: fixed;
-            top: 16px;
-            right: 16px;
+            top: var(--hud-edge);
+            right: var(--hud-edge);
             z-index: 90;
             width: auto;
-            min-width: 48px;
+            min-width: 1px;
             min-height: 1px;
             overflow: hidden;
             border: 1px solid rgba(201, 167, 255, 0.34);
@@ -724,7 +744,8 @@
             accent-color: var(--menu-accent);
         }
 
-        body.game-menu-open #game-menu-controls {
+        body.game-menu-open #game-menu-controls,
+        body.game-menu-open #meters {
             opacity: 0.45;
         }
 
@@ -741,11 +762,6 @@
         @media (max-width: 860px) {
             #tuning {
                 display: none;
-            }
-
-            #game-menu-controls {
-                top: 8px;
-                right: 8px;
             }
 
             .game-menu-card {
@@ -894,7 +910,7 @@
     </dialog>
 
     <section id="hud">
-        <div id="meters" class="panel">
+        <div id="meters" class="panel" role="button" tabindex="0" aria-label="Open game menu" aria-haspopup="dialog" aria-controls="game-menu-dialog" aria-expanded="false" data-ignore-game-pointer>
             <div id="level-score-row" aria-label="Level and score">
                 <span id="level-title-text">Level 1: The Introductory Cave of Training</span>
                 <span id="score-text">Score: 0</span>

@@ -7,6 +7,7 @@ import {
     stepSimulation,
     applyAtlasManifestsToWorld,
     applyEditorLevelToWorld,
+    applyEnemyDefinitionCatalog,
     applyCharacterCombatProfiles,
     resetPlayer,
     cloneGameState,
@@ -31,6 +32,7 @@ import {
     readFullscreenState,
     setFullscreenState
 } from "./electron-window-bridge.js";
+import { calculateHudPanelScale } from "./hud-panel-layout.js";
 
 const canvas = document.getElementById("stage");
 const fuelText = document.getElementById("fuel-text");
@@ -65,6 +67,7 @@ const loadingBarFill = document.getElementById("loading-bar-fill");
 const loadingDetail = document.getElementById("loading-detail");
 const titleScreen = document.getElementById("title-screen");
 const titleStartButton = document.getElementById("title-start-button");
+const hudPanelGroup = document.getElementById("hud");
 const metersPanel = document.getElementById("meters");
 const minimapPanel = document.getElementById("game-menu-controls");
 const minimapCanvas = document.getElementById("minimap-canvas");
@@ -93,7 +96,7 @@ const autoFullscreenRow = document.getElementById("auto-fullscreen-row");
 const autoFullscreenInput = document.getElementById("auto-fullscreen");
 const showMinimapInput = document.getElementById("show-minimap");
 
-const GAME_REVISION = "260";
+const GAME_REVISION = "268";
 
 let displayedLoadingProgress = 0;
 let activeCaveWindow = normalizeCaveWindow(null);
@@ -115,12 +118,15 @@ let suppressPostTitleStartInputUntil = 0;
 let minimapResizeObserver = null;
 let minimapLastDrawAt = -Infinity;
 let minimapLastSizeKey = "";
+let hudPanelScale = 1;
+let enemyCharacterProjectUrls = [];
 gameState.debug.revision = GAME_REVISION;
 addEvent(gameState, `BUILD_REVISION_${GAME_REVISION}`);
 const input = new RocketfrockInput(window);
 const gamepadHaptics = new GamepadHaptics();
 gamepadHaptics.prime(gameState.debug.lastEvents);
 showLoadingScreen("Loading level data", 0.02);
+await loadEnemyDefinitionCatalog();
 const loadedBrowserCopy = maybeApplyBrowserCopyLevel();
 if (!loadedBrowserCopy) {
     await applyRequiredDefaultLevel();
@@ -129,6 +135,7 @@ setLoadingProgress(0.1, "Level data ready");
 try {
     renderer = await createRenderer(canvas, {
         environmentAtlasManifestUrls: gameState.world.atlasManifests,
+        enemyCharacterUrls: enemyCharacterProjectUrls,
         onProgress: ({ progress, label }) => {
             setLoadingProgress(0.1 + clamp01(progress) * 0.85, label);
         }
@@ -228,6 +235,28 @@ function syncLoadedCharacterCombatProfiles() {
         });
     }
     return applyCharacterCombatProfiles(gameState, profiles);
+}
+
+async function loadEnemyDefinitionCatalog() {
+    const url = "assets/ct_enemies_001.json";
+    try {
+        const response = await fetch(url, { cache: "no-store" });
+        if (!response.ok) throw new Error(`${response.status}`);
+        const catalog = await response.json();
+        enemyCharacterProjectUrls = [...new Set(Object.values(catalog.enemies || {})
+            .map((definition) => {
+                const configured = String(definition?.characterUrl || definition?.characterId || "").trim();
+                if (!configured) return "";
+                const withExtension = configured.endsWith(".json") ? configured : `${configured}.json`;
+                return withExtension.startsWith("assets/") ? withExtension : `assets/${withExtension}`;
+            })
+            .filter(Boolean))];
+        if (!applyEnemyDefinitionCatalog(gameState, catalog)) {
+            console.warn(`Enemy definition catalog ${url} contains no usable enemies.`);
+        }
+    } catch (error) {
+        console.warn(`Could not load automatic enemy-spawn catalog ${url}. Auto spawning will remain inactive.`, error);
+    }
 }
 
 function maybeApplyBrowserCopyLevel() {
@@ -488,10 +517,11 @@ function syncTitleScreenUi() {
 }
 
 function setupMinimap() {
-    if (!metersPanel || !minimapPanel || !minimapCanvas || !minimapContext) {
+    if (!hudPanelGroup || !metersPanel || !minimapPanel || !minimapCanvas || !minimapContext) {
         return;
     }
     const syncSize = () => {
+        syncHudPanelsToViewport();
         resizeMinimapToLevel();
         drawMinimap(true);
     };
@@ -500,8 +530,41 @@ function setupMinimap() {
         minimapResizeObserver.observe(metersPanel);
     }
     window.addEventListener("resize", syncSize, { passive: true });
-    window.addEventListener("beforeunload", () => minimapResizeObserver?.disconnect?.(), { once: true });
+    window.visualViewport?.addEventListener("resize", syncSize, { passive: true });
+    window.addEventListener("beforeunload", () => {
+        minimapResizeObserver?.disconnect?.();
+        window.visualViewport?.removeEventListener("resize", syncSize);
+    }, { once: true });
     syncSize();
+}
+
+function syncHudPanelsToViewport() {
+    if (!hudPanelGroup || !metersPanel) return false;
+    const viewportWidth = Math.max(1, document.documentElement.clientWidth || window.innerWidth || 1);
+    const viewportHeight = Math.max(1, document.documentElement.clientHeight || window.innerHeight || 1);
+    const hudStyle = getComputedStyle(hudPanelGroup);
+    const minimapStyle = minimapPanel ? getComputedStyle(minimapPanel) : null;
+    const leftInset = Math.max(0, Number.parseFloat(hudStyle.left) || 0);
+    const topInset = Math.max(0, Number.parseFloat(hudStyle.top) || 0);
+    const rightInset = Math.max(0, Number.parseFloat(minimapStyle?.right) || leftInset);
+    const panelGap = Math.max(4, Math.min(12, viewportWidth * 0.015));
+    const nextScale = calculateHudPanelScale({
+        viewportWidth,
+        viewportHeight,
+        panelWidth: metersPanel.offsetWidth,
+        panelHeight: metersPanel.offsetHeight,
+        leftInset,
+        rightInset: minimapPanel?.hidden ? leftInset : rightInset,
+        topInset,
+        bottomInset: topInset,
+        panelGap,
+        minimapVisible: Boolean(minimapPanel && !minimapPanel.hidden)
+    });
+    const changed = Math.abs(nextScale - hudPanelScale) > 0.0001;
+    hudPanelScale = nextScale;
+    document.documentElement.style.setProperty("--hud-panel-scale", nextScale.toFixed(5));
+    document.body.classList.toggle("minimap-hidden", Boolean(minimapPanel?.hidden));
+    return changed;
 }
 
 function minimapBounds() {
@@ -547,7 +610,7 @@ function resizeMinimapToLevel(bounds = minimapBounds()) {
     const panelHeight = Math.max(1, Math.round(meterRect.height * 10) / 10);
     const drawableHeight = Math.max(1, panelHeight - inset * 2);
     const aspectWidth = Math.ceil(inset * 2 + drawableHeight * worldWidth / worldHeight);
-    const panelWidth = Math.max(48, Math.min(Math.round(meterRect.width), aspectWidth));
+    const panelWidth = Math.max(1, Math.min(Math.round(meterRect.width), aspectWidth));
     minimapPanel.style.width = `${panelWidth}px`;
     minimapPanel.style.height = `${panelHeight}px`;
     const dpr = Math.max(1, window.devicePixelRatio || 1);
@@ -663,7 +726,7 @@ function drawMinimap(force = false) {
 }
 
 function setupGameMenuAndSettings() {
-    if (!gameMenuDialog || !openGameMenuButton) {
+    if (!gameMenuDialog || (!openGameMenuButton && !metersPanel)) {
         return;
     }
 
@@ -687,12 +750,23 @@ function setupGameMenuAndSettings() {
         autoFullscreenRow.hidden = Boolean(electronWindowBridge);
     }
 
-    openGameMenuButton.addEventListener("click", () => {
+    openGameMenuButton?.addEventListener("click", () => {
         if (isGameMenuOpen()) {
             closeGameMenu();
         } else {
             openGameMenu();
         }
+    });
+    metersPanel?.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openGameMenu();
+    });
+    metersPanel?.addEventListener("keydown", (event) => {
+        if (event.code !== "Enter" && event.code !== "NumpadEnter" && event.code !== "Space") return;
+        event.preventDefault();
+        event.stopPropagation();
+        openGameMenu();
     });
     fullscreenToggleButton?.addEventListener("click", () => {
         if (electronWindowBridge) {
@@ -962,6 +1036,7 @@ function openGameMenu() {
     setGameMenuView("menu");
     document.body.classList.add("game-menu-open");
     openGameMenuButton?.setAttribute("aria-pressed", "true");
+    metersPanel?.setAttribute("aria-expanded", "true");
     if (typeof gameMenuDialog.showModal === "function") {
         gameMenuDialog.showModal();
     } else {
@@ -1060,6 +1135,7 @@ async function restartCurrentLevel() {
 function restorePauseAfterMenu() {
     document.body.classList.remove("game-menu-open");
     openGameMenuButton?.setAttribute("aria-pressed", "false");
+    metersPanel?.setAttribute("aria-expanded", "false");
     setGamePaused(gameMenuPreviousPause, { clearInput: true });
 }
 
@@ -1147,6 +1223,7 @@ function syncGameSettingsUi() {
     if (autoFullscreenInput) autoFullscreenInput.checked = Boolean(settings.autoFullscreen);
     if (showMinimapInput) showMinimapInput.checked = Boolean(settings.showMinimap);
     if (minimapPanel) minimapPanel.hidden = !settings.showMinimap;
+    syncHudPanelsToViewport();
     if (settings.showMinimap) {
         resizeMinimapToLevel();
         drawMinimap(true);
@@ -1359,6 +1436,11 @@ function frame(now) {
         handleDebugInput(inputFrame);
     }
     syncGameAudioState();
+    const viewportMetrics = renderer.getViewportMetrics?.();
+    if (viewportMetrics) {
+        gameState.camera.viewportWidth = Math.max(1, Number(viewportMetrics.virtualW) || gameState.camera.viewportWidth || 1280);
+        gameState.camera.viewportHeight = Math.max(1, Number(viewportMetrics.virtualH) || gameState.camera.viewportHeight || 720);
+    }
 
     if (!gameState.debug.paused) {
         accumulator += realDt;
@@ -1518,7 +1600,7 @@ function updateDebugText() {
         `pos (${p.x.toFixed(1)}, ${p.y.toFixed(1)})  vel (${p.vx.toFixed(1)}, ${p.vy.toFixed(1)})`,
         `ground:${p.onGround}  facing:${p.facing > 0 ? "right" : "left"}  boost:${gameState.equipment.rocket.attachedBoosting}  crush:${p.crushCandidateTicks || 0}/${gameState.tuning.playerCrushConfirmTicks || 3}  death:${p.deathPhase || "none"}/${(p.deathPhaseTimer || 0).toFixed(2)}  hoverA:${gameState.equipment.rocket.boostAccelerationNow.toFixed(0)}  hoverLimit:${gameState.tuning.attachedBoostHoverFallSpeed.toFixed(0)}`,
         `fuel:${fuel.amount.toFixed(2)}  delay:${fuel.rechargeDelayTimer.toFixed(2)}  cap:${fuel.rechargeCap}  rechargeLatched:${fuel.rechargeLatched ? "yes" : "no"}  groundRecharge:${gameState.tuning.fuelRechargeRequiresGround !== false}  kick:${gameState.equipment.rocket.boostKickCharge.toFixed(2)}  smokeDown:${(gameState.tuning.attachedBoostSmokePuffDownSpeed ?? 170).toFixed(0)}  bulbFlash:${(gameState.equipment.rocket.fuelBulbFlashTimer ?? 0).toFixed(2)}`,
-        `rockets:${gameState.projectiles.length}  smoke:${gameState.effects?.smokePuffs?.length ?? 0}  collision:${gameState.world.collisionMode || "rectangles"} seg:${gameState.world.segments?.length ?? 0}  upLaunch:${gameState.tuning.rocketProjectileUpLaunchSeconds.toFixed(2)}  homing:${gameState.tuning.rocketProjectileHomingStrength.toFixed(2)}  target:${gameState.targets[0] ? `${gameState.targets[0].x.toFixed(0)},${gameState.targets[0].y.toFixed(0)}` : "none"}`,
+        `rockets:${gameState.projectiles.length}  smoke:${gameState.effects?.smokePuffs?.length ?? 0}  collision:${gameState.world.collisionMode || "rectangles"} seg:${gameState.world.segments?.length ?? 0}  initialTurn:${gameState.tuning.rocketProjectileUpLaunchSeconds.toFixed(2)}@${gameState.tuning.rocketProjectileInitialHomingStrength.toFixed(2)}  homing:${gameState.tuning.rocketProjectileHomingStrength.toFixed(2)}  target:${gameState.targets[0] ? `${gameState.targets[0].x.toFixed(0)},${gameState.targets[0].y.toFixed(0)}` : "none"}`,
         inputText + `  inputConsole:${input.isConsoleLoggingEnabled() ? "on" : "off"}  assetGuides:${gameState.debug.showAssetGuides ? "on" : "off"}  puppetGuide:${gameState.debug.showPuppetGuide ? "on" : "off"}`,
         `eventFilter:${gameState.debug.eventFilterText || "(none)"}`,
         "events:",
@@ -1568,8 +1650,9 @@ function setupTuningControls() {
         { key: "attachedBoostSmokePuffSideSpeed", label: "Attached smoke side spread", min: 0, max: 160, step: 4 },
         { key: "attachedBoostSmokePuffSpeedJitter", label: "Attached smoke speed jitter", min: 0, max: 180, step: 4 },
         { key: "attachedBoostDrainRate", label: "Boost drain", min: 10, max: 240, step: 2 },
-        { key: "rocketProjectileUpLaunchSeconds", label: "Rocket straight-up time", min: 0, max: 1.0, step: 0.01 },
-        { key: "rocketProjectileHomingStrength", label: "Homing", min: 0, max: 9, step: 0.1 },
+        { key: "rocketProjectileUpLaunchSeconds", label: "Rocket initial-turn time", min: 0, max: 1.0, step: 0.01 },
+        { key: "rocketProjectileInitialHomingStrength", label: "Initial homing", min: 0, max: 12, step: 0.01 },
+        { key: "rocketProjectileHomingStrength", label: "Normal homing", min: 0, max: 9, step: 0.1 },
         { key: "rocketProjectileSpeed", label: "Rocket speed", min: 180, max: 920, step: 10 },
         { key: "rocketProjectileDamage", label: "Rocket damage", min: 0, max: 200, step: 5 },
         { key: "hazardContactDamage", label: "Hazard contact damage", min: 0, max: 100, step: 1 },
@@ -1730,9 +1813,13 @@ window.__rocketfrockDev = {
         setGamePaused(false);
     },
     reset() {
-        gameState = createInitialGameState({ settings: gameState.settings });
+        gameState = createInitialGameState({
+            settings: gameState.settings,
+            enemyCatalog: gameState.enemyCatalog
+        });
         gameState.debug.revision = GAME_REVISION;
         gamepadHaptics.reset(gameState.debug.lastEvents);
+        syncLoadedCharacterCombatProfiles();
         applyLoadedAtlasCollisions();
         syncGameSettingsUi();
         syncGameAudioState();

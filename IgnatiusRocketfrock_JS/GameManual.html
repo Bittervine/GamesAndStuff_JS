@@ -167,12 +167,12 @@
                 <tr><td>Double-jump kick and hover</td><td>Press jump again in the air, then hold jump.</td><td>Drag upward again, then keep holding upward.</td></tr>
                 <tr><td>Launch rocket</td><td><code>Space</code>, <code>X</code>, <code>K</code>, or either <code>Ctrl</code></td><td>Quick double-tap the playfield.</td></tr>
                 <tr><td>Interact</td><td><code>Down</code>, <code>S</code>, <code>Enter</code>, or <code>Numpad Enter</code></td><td>Use keyboard input when near levers, keyholes, or story objects.</td></tr>
-                <tr><td>Menu</td><td><code>Escape</code></td><td>Click or tap the minimap in the upper right.</td></tr>
+                <tr><td>Menu</td><td><code>Escape</code></td><td>Click or tap the score-and-bars panel or the minimap.</td></tr>
             </tbody>
         </table>
 
         <h2>Minimap</h2>
-        <p>The upper-right panel matches the height of the health-and-fuel panel and never grows wider than it. It shows the cave outline, horizontal platform surfaces, the current camera window, Ignatius, and the exit marker. Click or tap anywhere on the minimap to open the pause menu. The minimap can be hidden in Settings; <code>Escape</code> still opens the menu.</p>
+        <p>The upper-left score-and-bars panel and the upper-right minimap scale down together whenever the screen is too small to contain them. If the minimap is hidden, the score panel can use the released space and remain larger. The minimap matches the rendered height of the score panel, never grows wider than it, and shows the cave outline, horizontal platform surfaces, the current camera window, Ignatius, and the exit marker. Click or tap either upper panel to open the pause menu. The minimap can be hidden in Settings; the score panel and <code>Escape</code> still open the menu.</p>
 
         <h2>Rocketfrock</h2>
         <ul>
@@ -186,6 +186,7 @@
         <h2>Power-ups</h2>
         <ul>
             <li>Collected power-ups disappear and return after 60 seconds, so it can be worthwhile to revisit an earlier part of a level.</li>
+            <li>Automatically generated levels aim for roughly one genuine power-up per 5,000 pixels of route travel at the default Reward density.</li>
             <li>The top-left Power bar shows the highest-priority active effect and its remaining duration. Shield is shown ahead of Speed Shot, which is shown ahead of wrench effects; all compatible effects remain active at the same time.</li>
             <li><strong>Shield</strong> lasts 5 seconds and blocks all ordinary incoming damage. The pickup glows blue, and Ignatius flashes blue while protected. The blue flash takes priority over the red critical-health flash.</li>
             <li><strong>Speed Shot</strong> lasts 8 seconds. It doubles the rocket firing rate and halves the fuel cost of each launch.</li>
@@ -236,6 +237,15 @@
             <li>Difficulty currently changes only incoming damage to Ignatius.</li>
             <li>Rendering quality changes visual particle density without changing gameplay timing or collision.</li>
             <li>Show minimap controls whether the upper-right minimap is visible.</li>
+        </ul>
+
+        <h2>Level authoring: automatic enemies</h2>
+        <p>The Level Editor can enable <strong>Auto spawn enemies</strong> for a level. The percentage is checked once each second. A successful check creates one eligible enemy outside the forward edge of the screen, between one tenth and one full screen width away, normally in the direction of the exit door.</p>
+        <ul>
+            <li>The feature is disabled by default with a 0% chance.</li>
+            <li>The default pool is <code>1-999</code>, meaning every enemy currently available in the catalog.</li>
+            <li>The pool uses the generator format: comma-separated numbers and ranges, with <code>!</code> exclusions. For example, <code>1-9,!2,!4</code>.</li>
+            <li>Ground reinforcements spawn on a safe support and immediately hunt the player's last-seen position. Flying reinforcements retain their flying attack behavior and also begin already aware of the player.</li>
         </ul>
     </main>
 </body>

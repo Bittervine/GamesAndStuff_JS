@@ -256,9 +256,15 @@ export async function createRenderer(canvas, options = {}) {
     const environmentCandidates = hasExplicitEnvironmentManifestUrls
         ? environmentManifestUrls.map((url) => ({ url }))
         : ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES;
+    const configuredEnemyCharacterUrls = Array.isArray(options.enemyCharacterUrls)
+        ? [...new Set(options.enemyCharacterUrls.map(String).filter(Boolean))]
+        : [];
+    const enemyCharacterUrls = configuredEnemyCharacterUrls.length
+        ? configuredEnemyCharacterUrls
+        : KNOWN_ENEMY_CHARACTER_URLS;
     const projectSpecs = [
         { key: "player", url: DEFAULT_CHARACTER_URL, required: true, weight: 2 },
-        ...KNOWN_ENEMY_CHARACTER_URLS.map((url, index) => ({
+        ...enemyCharacterUrls.map((url, index) => ({
             key: `enemy_${index + 1}`,
             url,
             required: false,

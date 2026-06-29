@@ -19,6 +19,12 @@ import {
 } from "../shared/signal-channel-data.js";
 import { normalizeLevelMusic } from "../shared/music-data.js";
 import {
+    enemyEntityFromDefinition,
+    normalizeAutoSpawnEnemies,
+    normalizeEnemyDefinitionCatalog,
+    resolveAutoSpawnEnemyIds
+} from "../shared/auto-spawn-enemy-data.js";
+import {
     POWER_UP_EFFECT_IDS,
     WRENCH_POWER_UP_EFFECT_IDS,
     activePowerUpEffect,
@@ -54,6 +60,7 @@ import {
 } from "./enemy-navigation.js";
 
 export const FIXED_DT = 1 / 60;
+const AUTOMATIC_STEP_HEIGHT_RATIO = 0.2;
 
 const MOVING_PLATFORM_NAVIGATION_CACHE = new WeakMap();
 
@@ -118,6 +125,7 @@ export const DEFAULT_TUNING = Object.freeze({
     rocketLaunchCooldown: 0.35,
     rocketProjectileSpeed: 520,
     rocketProjectileUpLaunchSeconds: 0.32,
+    rocketProjectileInitialHomingStrength: 6.95,
     rocketProjectileHomingStrength: 4.8,
     rocketProjectileLifetime: 4.6,
     rocketProjectileExplosionSeconds: 0.42,
@@ -278,12 +286,16 @@ export function createInitialGameState(overrides = {}) {
         },
         tuning,
         settings,
+        enemyCatalog: normalizeEnemyDefinitionCatalog(overrides.enemyCatalog),
+        characterCombatProfiles: {},
         world,
         camera: {
             x: spawn.x,
             y: spawn.y - 170,
             zoom: 1,
-            mode: "follow"
+            mode: "follow",
+            viewportWidth: 1280,
+            viewportHeight: 720
         },
         player: {
             id: "ignatius",
@@ -420,6 +432,12 @@ export function createInitialGameState(overrides = {}) {
 
     addEvent(state, "TEST_ARENA_CREATED", { solids: state.world.solids.length, segments: state.world.segments?.length ?? 0 });
     return state;
+}
+
+export function applyEnemyDefinitionCatalog(state, catalog) {
+    if (!state || typeof state !== "object") return false;
+    state.enemyCatalog = normalizeEnemyDefinitionCatalog(catalog);
+    return Object.keys(state.enemyCatalog.enemies).length > 0;
 }
 
 function createTestArena(tuning) {
@@ -2349,6 +2367,203 @@ function updateMovingPlatforms(state, dt) {
     }
 }
 
+
+function createCharacterEnemyRuntime(state, entity, index = 0) {
+    const x = Number(entity.x) || 0;
+    const y = Number(entity.y) || 0;
+    const width = Math.max(1, Number(entity.w) || Number(entity.width) || 72);
+    const height = Math.max(1, Number(entity.h) || Number(entity.height) || 150);
+    const anchor = entity.targetAnchor && typeof entity.targetAnchor === "object" ? entity.targetAnchor : null;
+    const anchorX = clamp(Number(anchor?.x ?? 0.5), 0, 1);
+    const anchorY = clamp(Number(anchor?.y ?? 0.42), 0, 1);
+    const facing = Number(entity.facing) < 0 ? -1 : 1;
+    const legacyBehavior = String(entity.behavior || "guard") === "patrol" ? "patrol" : "guard";
+    const requestedStrategy = String(entity.strategy || "").trim().toLowerCase();
+    const strategy = requestedStrategy === "hunter"
+        ? "hunter"
+        : requestedStrategy === "bomber"
+            ? "bomber"
+            : requestedStrategy === "sentry"
+            ? "sentry"
+            : requestedStrategy === "simple_patrol"
+                ? "simple_patrol"
+                : (legacyBehavior === "patrol" ? "simple_patrol" : "sentry");
+    const locomotion = String(entity.locomotion || "").trim().toLowerCase() === "flying"
+        ? "flying"
+        : "ground";
+    const isSimplePatrol = strategy === "simple_patrol";
+    const patrolDistance = Math.max(0, finiteNumberOr(entity.patrolDistance, 0));
+    const idleDuration = Math.max(0, finiteNumberOr(entity.idleDuration, 1.1));
+    const health = Math.max(0, finiteNumberOr(entity.health, 60));
+    return {
+        id: entity.id || `characterEnemy_${index + 1}`,
+        kind: "characterEnemy",
+        autoSpawned: entity.autoSpawned === true,
+        enemyDefinitionId: entity.enemyDefinitionId ? String(entity.enemyDefinitionId) : null,
+        characterId: String(entity.characterId || entity.characterProject || "ct_char_enemy_001"),
+        x,
+        y,
+        spawnX: x,
+        spawnY: y,
+        width,
+        height,
+        health,
+        maxHealth: health,
+        combatState: health > 0 ? "alive" : "dead",
+        state: health > 0 ? "idle" : "death",
+        animationSlot: health > 0 ? "idle" : "death",
+        animationTime: Number.isFinite(Number(entity.animationTime)) ? Number(entity.animationTime) : 0,
+        animationTimeOffset: Number(entity.animationTimeOffset) || 0,
+        facing,
+        strategy,
+        locomotion,
+        aiState: health <= 0 ? "dead" : (locomotion === "flying" ? "fly" : (strategy === "hunter" ? "patrol" : strategy)),
+        engaged: false,
+        patrolDistance,
+        patrolMinX: x - patrolDistance * 0.5,
+        patrolMaxX: x + patrolDistance * 0.5,
+        homePatrolMinX: x - patrolDistance * 0.5,
+        homePatrolMaxX: x + patrolDistance * 0.5,
+        temporaryPatrolMinX: null,
+        temporaryPatrolMaxX: null,
+        homeSupportId: null,
+        currentSupportId: null,
+        supportId: null,
+        ridingPlatformId: null,
+        route: [],
+        routeIndex: 0,
+        routeTargetSupportId: null,
+        routeTargetX: null,
+        routeRepathTimer: 0,
+        navigationFailureCount: 0,
+        airborne: locomotion === "flying",
+        velocityX: 0,
+        velocityY: 0,
+        groundVelocityX: 0,
+        routeTraversalPhase: null,
+        routeTraversalEdgeIndex: -1,
+        airTimer: 0,
+        airTraversalType: null,
+        airSourceSupportId: null,
+        airSourceObstacleId: null,
+        airTargetSupportId: null,
+        walkSpeed: Math.max(0, finiteNumberOr(entity.walkSpeed, 56)),
+        runSpeed: Math.max(0, finiteNumberOr(entity.runSpeed, finiteNumberOr(entity.chaseSpeed, state.tuning.enemyDefaultRunSpeed))),
+        runAcceleration: Math.max(1, finiteNumberOr(entity.runAcceleration, state.tuning.groundAcceleration)),
+        jumpHeight: Math.max(0, finiteNumberOr(entity.jumpHeight, state.tuning.enemyDefaultJumpHeight)),
+        jumpGravity: Math.max(1, finiteNumberOr(entity.jumpGravity, state.tuning.enemyDefaultJumpGravity)),
+        maxFallDistance: Math.max(0, finiteNumberOr(entity.maxFallDistance, state.tuning.enemyDefaultMaxFallDistance)),
+        unreachableGlareDuration: Math.max(0, finiteNumberOr(entity.unreachableGlareDuration, state.tuning.enemyDefaultGlareSeconds)),
+        glareTimer: 0,
+        routeRepathInterval: Math.max(FIXED_DT, finiteNumberOr(entity.routeRepathInterval, state.tuning.enemyDefaultRepathSeconds)),
+        homeRetryInterval: Math.max(FIXED_DT, finiteNumberOr(entity.homeRetryInterval, state.tuning.enemyDefaultHomeRetrySeconds)),
+        homeRetryTimer: 0,
+        awarenessRange: Math.max(0, finiteNumberOr(entity.awarenessRange, state.tuning.enemyDefaultAwarenessRange)),
+        awarenessHoldDuration: Math.max(0, finiteNumberOr(entity.awarenessHoldDuration, state.tuning.enemyDefaultAwarenessHoldSeconds)),
+        awarenessViewHalfAngle: clamp(finiteNumberOr(entity.awarenessViewHalfAngle, state.tuning.enemyDefaultAwarenessViewHalfAngle), 0, 180),
+        awarenessTimer: 0,
+        alerted: false,
+        lastSeenPlayerX: null,
+        lastSeenPlayerY: null,
+        lastSeenAt: null,
+        lastSeenSupportId: null,
+        glareFocusX: null,
+        glareFocusY: null,
+        idleDuration,
+        turnPause: Math.max(0, finiteNumberOr(entity.turnPause, 0.5)),
+        maxStepHeight: Math.max(0, finiteNumberOr(entity.maxStepHeight, 26)),
+        maxDropDistance: Math.max(0, finiteNumberOr(entity.maxDropDistance, 34)),
+        groundSnapDistance: Math.max(0, finiteNumberOr(entity.groundSnapDistance, 96)),
+        movementPhase: health <= 0 ? "dead" : (locomotion === "flying" ? "fly" : (isSimplePatrol && patrolDistance > 0 ? "idle" : "guard")),
+        phaseTimer: locomotion === "flying" ? 0 : (isSimplePatrol && patrolDistance > 0 ? idleDuration : 0),
+        flightBaseY: y,
+        flightTime: Math.max(0, finiteNumberOr(entity.flightTime, 0)),
+        flightPhaseOffset: finiteNumberOr(entity.flightPhaseOffset, 0),
+        flightAmplitude: Math.max(0, finiteNumberOr(entity.flightAmplitude, 16)),
+        flightCyclesPerSecond: Math.max(0, finiteNumberOr(entity.flightCyclesPerSecond, 0.58)),
+        bomberHorizontalSpeed: Math.max(0, finiteNumberOr(entity.bomberHorizontalSpeed, finiteNumberOr(entity.runSpeed, 150))),
+        bomberHoverHeight: Math.max(16, finiteNumberOr(entity.bomberHoverHeight, 180)),
+        bomberDropTolerance: Math.max(1, finiteNumberOr(entity.bomberDropTolerance, 34)),
+        bomberDropHeightTolerance: Math.max(4, finiteNumberOr(entity.bomberDropHeightTolerance, 36)),
+        bomberRetreatDistance: Math.max(0, finiteNumberOr(entity.bomberRetreatDistance, 120)),
+        bomberObstacleClearance: Math.max(8, finiteNumberOr(entity.bomberObstacleClearance, 56)),
+        bomberScreenTopMargin: Math.max(20, finiteNumberOr(entity.bomberScreenTopMargin, 72)),
+        bomberSteeringResponse: Math.max(0.5, finiteNumberOr(entity.bomberSteeringResponse, 4.5)),
+        bomberWanderAmplitude: Math.max(0, finiteNumberOr(entity.bomberWanderAmplitude, 28)),
+        bomberApproachArcHeight: Math.max(0, finiteNumberOr(entity.bomberApproachArcHeight, 64)),
+        bomberDropTimer: Math.max(0, finiteNumberOr(entity.bomberInitialDelay, 0.4)),
+        bomberState: strategy === "bomber" ? "perched" : null,
+        bomberPerchX: x,
+        bomberPerchY: y,
+        deathFlightSpeed: Math.max(1, finiteNumberOr(entity.deathFlightSpeed, 520)),
+        deathFlightLift: Math.max(0, finiteNumberOr(entity.deathFlightLift, 210)),
+        deathFlightGravity: finiteNumberOr(entity.deathFlightGravity, 90),
+        deathFlyOffDistance: Math.max(1, finiteNumberOr(entity.deathFlyOffDistance, 720)),
+        deathFlightStarted: false,
+        deathFlightStartX: x,
+        deathFlightStartY: y,
+        deathFlightDirection: facing,
+        hurtDuration: Math.max(FIXED_DT, finiteNumberOr(entity.hurtDuration, state.tuning.enemyDefaultHurtSeconds)),
+        deathDuration: Math.max(FIXED_DT, finiteNumberOr(entity.deathDuration, state.tuning.enemyDefaultDeathSeconds)),
+        attackDamage: Math.max(0, finiteNumberOr(entity.attackDamage, state.tuning.enemyDefaultAttackDamage)),
+        attackRange: Math.max(1, finiteNumberOr(entity.attackRange, state.tuning.enemyDefaultAttackRange)),
+        attackVerticalRange: Math.max(1, finiteNumberOr(entity.attackVerticalRange, state.tuning.enemyDefaultAttackVerticalRange)),
+        attackDuration: Math.max(FIXED_DT, finiteNumberOr(entity.attackDuration, state.tuning.enemyDefaultAttackDuration)),
+        attackHitTime: Math.max(0, finiteNumberOr(entity.attackHitTime, state.tuning.enemyDefaultAttackHitTime)),
+        attackCooldown: Math.max(0, finiteNumberOr(entity.attackCooldown, state.tuning.enemyDefaultAttackCooldown)),
+        attackMode: String(entity.attackMode || state.tuning.enemyDefaultAttackMode || "melee") === "projectile" ? "projectile" : "melee",
+        preferredAttackRange: Math.max(0, finiteNumberOr(entity.preferredAttackRange, state.tuning.enemyDefaultPreferredAttackRange)),
+        preferredAttackMinRange: Math.max(0, finiteNumberOr(entity.preferredAttackMinRange, Math.min((Number(entity.attackRange) || state.tuning.enemyDefaultAttackRange) * 0.45, state.tuning.enemyDefaultPreferredAttackRange * 0.6))),
+        projectileKind: String(entity.projectileKind || state.tuning.enemyDefaultProjectileKind || "fireball"),
+        projectileLaunchType: String(entity.projectileLaunchType || ""),
+        projectileReleaseTime: Math.max(0, finiteNumberOr(entity.projectileReleaseTime, entity.attackHitTime ?? state.tuning.enemyDefaultAttackHitTime)),
+        projectilePartName: entity.projectilePartName ? String(entity.projectilePartName) : null,
+        projectileFrameId: entity.projectileFrameId ? String(entity.projectileFrameId) : null,
+        projectileOriginLocalX: Number.isFinite(Number(entity.projectileOriginLocalX)) ? Number(entity.projectileOriginLocalX) : null,
+        projectileOriginLocalY: Number.isFinite(Number(entity.projectileOriginLocalY)) ? Number(entity.projectileOriginLocalY) : null,
+        projectileRigScale: Math.max(0.0001, finiteNumberOr(entity.projectileRigScale, 1)),
+        projectileSpeed: Math.max(1, finiteNumberOr(entity.projectileSpeed, state.tuning.enemyDefaultProjectileSpeed)),
+        projectileGravity: finiteNumberOr(entity.projectileGravity, state.tuning.enemyDefaultProjectileGravity),
+        projectileLifetime: Math.max(FIXED_DT, finiteNumberOr(entity.projectileLifetime, state.tuning.enemyDefaultProjectileLifetime)),
+        projectileRadius: Math.max(1, finiteNumberOr(entity.projectileRadius, state.tuning.enemyDefaultProjectileRadius)),
+        projectileDamage: Math.max(0, finiteNumberOr(entity.projectileDamage, state.tuning.enemyDefaultProjectileDamage)),
+        projectileCooldown: Math.max(0, finiteNumberOr(entity.projectileCooldown, state.tuning.enemyDefaultProjectileCooldown)),
+        projectileHomingStrength: Math.max(0, finiteNumberOr(entity.projectileHomingStrength, state.tuning.enemyDefaultProjectileHomingStrength)),
+        projectileKnockbackX: Math.max(0, finiteNumberOr(entity.projectileKnockbackX, state.tuning.enemyDefaultProjectileKnockbackX)),
+        projectileKnockbackY: finiteNumberOr(entity.projectileKnockbackY, state.tuning.enemyDefaultProjectileKnockbackY),
+        attackLungeDistance: Math.max(0, finiteNumberOr(entity.attackLungeDistance, state.tuning.enemyDefaultAttackLungeDistance)),
+        attackLungeSpeed: Math.max(0, finiteNumberOr(entity.attackLungeSpeed, state.tuning.enemyDefaultAttackLungeSpeed)),
+        attackKnockbackX: Math.max(0, finiteNumberOr(entity.attackKnockbackX, state.tuning.enemyDefaultAttackKnockbackX)),
+        attackKnockbackY: finiteNumberOr(entity.attackKnockbackY, state.tuning.enemyDefaultAttackKnockbackY),
+        attackTimer: 0,
+        attackCooldownTimer: 0,
+        attackLungeRemaining: 0,
+        attackHitApplied: false,
+        hurtTimer: 0,
+        deathTimer: health <= 0 ? Math.max(FIXED_DT, finiteNumberOr(entity.deathDuration, state.tuning.enemyDefaultDeathSeconds)) : 0,
+        deathPendingLanding: false,
+        deathElapsed: 0,
+        corpseHoldDuration: Math.max(0, finiteNumberOr(entity.corpseHoldDuration, state.tuning.enemyCorpseHoldSeconds)),
+        corpseFadeDuration: Math.max(0, finiteNumberOr(entity.corpseFadeDuration, state.tuning.enemyCorpseFadeSeconds)),
+        renderOpacity: 1,
+        hitFlashTimer: 0,
+        hitFlashDuration: state.tuning.enemyHitFlashSeconds,
+        healthBarTimer: 0,
+        lastDamagedAt: null,
+        lastHitBy: null,
+        renderScale: Math.max(0.05, Number(entity.renderScale) || 1),
+        renderOffsetX: Number(entity.renderOffsetX) || 0,
+        renderOffsetY: Number(entity.renderOffsetY) || 0,
+        visualized: false,
+        targetAnchorX: anchorX,
+        targetAnchorY: anchorY,
+        targetX: x - width * 0.5 + anchorX * width,
+        targetY: y - height + anchorY * height,
+        targetRadius: Math.max(4, Number(entity.targetRadius) || Math.min(width, height) * 0.16),
+        showTargetMarker: entity.showTargetMarker === true
+    };
+}
+
 export function applyEditorLevelToWorld(state, editorLevel) {
     if (!state?.world || !editorLevel || typeof editorLevel !== "object") {
         return false;
@@ -2357,6 +2572,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
     const random = ensureRandomState(state);
     random.levelLoadCount += 1;
     const source = editorLevel.level || editorLevel;
+    const autoSpawnEnemies = normalizeAutoSpawnEnemies(source.autoSpawnEnemies);
     const caveWindow = normalizeCaveWindow(source.caveWindow || source.visuals?.caveWindow);
     const caveKillBoundary = deriveCaveFullBlackKillBoundary(caveWindow);
     const placements = Array.isArray(source.placements) ? source.placements : [];
@@ -2455,6 +2671,15 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         atlasManifests,
         colorMap: normalizeLevelColorMap(source.colorMap),
         music: normalizeLevelMusic(source.music),
+        autoSpawnEnemies: {
+            ...autoSpawnEnemies,
+            intervalSeconds: 1,
+            timer: 1,
+            rollCount: 0,
+            spawnCount: 0,
+            lastResolvedEnemyIds: [],
+            lastError: null
+        },
         caveWindow,
         caveKillBoundary,
         visuals,
@@ -2540,199 +2765,9 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         entity.type === "characterEnemy" ||
         entity.kind === "characterEnemy" ||
         (entity.type === "enemy" && (entity.characterId || entity.characterProject));
-    const characterEnemies = runtimeEntities.filter(characterEnemyLike).map((entity, index) => {
-        const x = Number(entity.x) || 0;
-        const y = Number(entity.y) || 0;
-        const width = Math.max(1, Number(entity.w) || Number(entity.width) || 72);
-        const height = Math.max(1, Number(entity.h) || Number(entity.height) || 150);
-        const anchor = entity.targetAnchor && typeof entity.targetAnchor === "object" ? entity.targetAnchor : null;
-        const anchorX = clamp(Number(anchor?.x ?? 0.5), 0, 1);
-        const anchorY = clamp(Number(anchor?.y ?? 0.42), 0, 1);
-        const facing = Number(entity.facing) < 0 ? -1 : 1;
-        const legacyBehavior = String(entity.behavior || "guard") === "patrol" ? "patrol" : "guard";
-        const requestedStrategy = String(entity.strategy || "").trim().toLowerCase();
-        const strategy = requestedStrategy === "hunter"
-            ? "hunter"
-            : requestedStrategy === "bomber"
-                ? "bomber"
-                : requestedStrategy === "sentry"
-                ? "sentry"
-                : requestedStrategy === "simple_patrol"
-                    ? "simple_patrol"
-                    : (legacyBehavior === "patrol" ? "simple_patrol" : "sentry");
-        const locomotion = String(entity.locomotion || "").trim().toLowerCase() === "flying"
-            ? "flying"
-            : "ground";
-        const isSimplePatrol = strategy === "simple_patrol";
-        const patrolDistance = Math.max(0, finiteNumberOr(entity.patrolDistance, 0));
-        const idleDuration = Math.max(0, finiteNumberOr(entity.idleDuration, 1.1));
-        const health = Math.max(0, finiteNumberOr(entity.health, 60));
-        return {
-            id: entity.id || `characterEnemy_${index + 1}`,
-            kind: "characterEnemy",
-            characterId: String(entity.characterId || entity.characterProject || "ct_char_enemy_001"),
-            x,
-            y,
-            spawnX: x,
-            spawnY: y,
-            width,
-            height,
-            health,
-            maxHealth: health,
-            combatState: health > 0 ? "alive" : "dead",
-            state: health > 0 ? "idle" : "death",
-            animationSlot: health > 0 ? "idle" : "death",
-            animationTime: Number.isFinite(Number(entity.animationTime)) ? Number(entity.animationTime) : 0,
-            animationTimeOffset: Number(entity.animationTimeOffset) || 0,
-            facing,
-            strategy,
-            locomotion,
-            aiState: health <= 0 ? "dead" : (locomotion === "flying" ? "fly" : (strategy === "hunter" ? "patrol" : strategy)),
-            engaged: false,
-            patrolDistance,
-            patrolMinX: x - patrolDistance * 0.5,
-            patrolMaxX: x + patrolDistance * 0.5,
-            homePatrolMinX: x - patrolDistance * 0.5,
-            homePatrolMaxX: x + patrolDistance * 0.5,
-            temporaryPatrolMinX: null,
-            temporaryPatrolMaxX: null,
-            homeSupportId: null,
-            currentSupportId: null,
-            supportId: null,
-            ridingPlatformId: null,
-            route: [],
-            routeIndex: 0,
-            routeTargetSupportId: null,
-            routeTargetX: null,
-            routeRepathTimer: 0,
-            navigationFailureCount: 0,
-            airborne: locomotion === "flying",
-            velocityX: 0,
-            velocityY: 0,
-            groundVelocityX: 0,
-            routeTraversalPhase: null,
-            routeTraversalEdgeIndex: -1,
-            airTimer: 0,
-            airTraversalType: null,
-            airSourceSupportId: null,
-            airSourceObstacleId: null,
-            airTargetSupportId: null,
-            walkSpeed: Math.max(0, finiteNumberOr(entity.walkSpeed, 56)),
-            runSpeed: Math.max(0, finiteNumberOr(entity.runSpeed, finiteNumberOr(entity.chaseSpeed, state.tuning.enemyDefaultRunSpeed))),
-            runAcceleration: Math.max(1, finiteNumberOr(entity.runAcceleration, state.tuning.groundAcceleration)),
-            jumpHeight: Math.max(0, finiteNumberOr(entity.jumpHeight, state.tuning.enemyDefaultJumpHeight)),
-            jumpGravity: Math.max(1, finiteNumberOr(entity.jumpGravity, state.tuning.enemyDefaultJumpGravity)),
-            maxFallDistance: Math.max(0, finiteNumberOr(entity.maxFallDistance, state.tuning.enemyDefaultMaxFallDistance)),
-            unreachableGlareDuration: Math.max(0, finiteNumberOr(entity.unreachableGlareDuration, state.tuning.enemyDefaultGlareSeconds)),
-            glareTimer: 0,
-            routeRepathInterval: Math.max(FIXED_DT, finiteNumberOr(entity.routeRepathInterval, state.tuning.enemyDefaultRepathSeconds)),
-            homeRetryInterval: Math.max(FIXED_DT, finiteNumberOr(entity.homeRetryInterval, state.tuning.enemyDefaultHomeRetrySeconds)),
-            homeRetryTimer: 0,
-            awarenessRange: Math.max(0, finiteNumberOr(entity.awarenessRange, state.tuning.enemyDefaultAwarenessRange)),
-            awarenessHoldDuration: Math.max(0, finiteNumberOr(entity.awarenessHoldDuration, state.tuning.enemyDefaultAwarenessHoldSeconds)),
-            awarenessViewHalfAngle: clamp(finiteNumberOr(entity.awarenessViewHalfAngle, state.tuning.enemyDefaultAwarenessViewHalfAngle), 0, 180),
-            awarenessTimer: 0,
-            alerted: false,
-            lastSeenPlayerX: null,
-            lastSeenPlayerY: null,
-            lastSeenAt: null,
-            lastSeenSupportId: null,
-            glareFocusX: null,
-            glareFocusY: null,
-            idleDuration,
-            turnPause: Math.max(0, finiteNumberOr(entity.turnPause, 0.5)),
-            maxStepHeight: Math.max(0, finiteNumberOr(entity.maxStepHeight, 26)),
-            maxDropDistance: Math.max(0, finiteNumberOr(entity.maxDropDistance, 34)),
-            groundSnapDistance: Math.max(0, finiteNumberOr(entity.groundSnapDistance, 96)),
-            movementPhase: health <= 0 ? "dead" : (locomotion === "flying" ? "fly" : (isSimplePatrol && patrolDistance > 0 ? "idle" : "guard")),
-            phaseTimer: locomotion === "flying" ? 0 : (isSimplePatrol && patrolDistance > 0 ? idleDuration : 0),
-            flightBaseY: y,
-            flightTime: Math.max(0, finiteNumberOr(entity.flightTime, 0)),
-            flightPhaseOffset: finiteNumberOr(entity.flightPhaseOffset, 0),
-            flightAmplitude: Math.max(0, finiteNumberOr(entity.flightAmplitude, 16)),
-            flightCyclesPerSecond: Math.max(0, finiteNumberOr(entity.flightCyclesPerSecond, 0.58)),
-            bomberHorizontalSpeed: Math.max(0, finiteNumberOr(entity.bomberHorizontalSpeed, finiteNumberOr(entity.runSpeed, 150))),
-            bomberHoverHeight: Math.max(16, finiteNumberOr(entity.bomberHoverHeight, 180)),
-            bomberDropTolerance: Math.max(1, finiteNumberOr(entity.bomberDropTolerance, 34)),
-            bomberDropHeightTolerance: Math.max(4, finiteNumberOr(entity.bomberDropHeightTolerance, 36)),
-            bomberRetreatDistance: Math.max(0, finiteNumberOr(entity.bomberRetreatDistance, 120)),
-            bomberObstacleClearance: Math.max(8, finiteNumberOr(entity.bomberObstacleClearance, 56)),
-            bomberScreenTopMargin: Math.max(20, finiteNumberOr(entity.bomberScreenTopMargin, 72)),
-            bomberSteeringResponse: Math.max(0.5, finiteNumberOr(entity.bomberSteeringResponse, 4.5)),
-            bomberWanderAmplitude: Math.max(0, finiteNumberOr(entity.bomberWanderAmplitude, 28)),
-            bomberApproachArcHeight: Math.max(0, finiteNumberOr(entity.bomberApproachArcHeight, 64)),
-            bomberDropTimer: Math.max(0, finiteNumberOr(entity.bomberInitialDelay, 0.4)),
-            bomberState: strategy === "bomber" ? "perched" : null,
-            bomberPerchX: x,
-            bomberPerchY: y,
-            deathFlightSpeed: Math.max(1, finiteNumberOr(entity.deathFlightSpeed, 520)),
-            deathFlightLift: Math.max(0, finiteNumberOr(entity.deathFlightLift, 210)),
-            deathFlightGravity: finiteNumberOr(entity.deathFlightGravity, 90),
-            deathFlyOffDistance: Math.max(1, finiteNumberOr(entity.deathFlyOffDistance, 720)),
-            deathFlightStarted: false,
-            deathFlightStartX: x,
-            deathFlightStartY: y,
-            deathFlightDirection: facing,
-            hurtDuration: Math.max(FIXED_DT, finiteNumberOr(entity.hurtDuration, state.tuning.enemyDefaultHurtSeconds)),
-            deathDuration: Math.max(FIXED_DT, finiteNumberOr(entity.deathDuration, state.tuning.enemyDefaultDeathSeconds)),
-            attackDamage: Math.max(0, finiteNumberOr(entity.attackDamage, state.tuning.enemyDefaultAttackDamage)),
-            attackRange: Math.max(1, finiteNumberOr(entity.attackRange, state.tuning.enemyDefaultAttackRange)),
-            attackVerticalRange: Math.max(1, finiteNumberOr(entity.attackVerticalRange, state.tuning.enemyDefaultAttackVerticalRange)),
-            attackDuration: Math.max(FIXED_DT, finiteNumberOr(entity.attackDuration, state.tuning.enemyDefaultAttackDuration)),
-            attackHitTime: Math.max(0, finiteNumberOr(entity.attackHitTime, state.tuning.enemyDefaultAttackHitTime)),
-            attackCooldown: Math.max(0, finiteNumberOr(entity.attackCooldown, state.tuning.enemyDefaultAttackCooldown)),
-            attackMode: String(entity.attackMode || state.tuning.enemyDefaultAttackMode || "melee") === "projectile" ? "projectile" : "melee",
-            preferredAttackRange: Math.max(0, finiteNumberOr(entity.preferredAttackRange, state.tuning.enemyDefaultPreferredAttackRange)),
-            preferredAttackMinRange: Math.max(0, finiteNumberOr(entity.preferredAttackMinRange, Math.min((Number(entity.attackRange) || state.tuning.enemyDefaultAttackRange) * 0.45, state.tuning.enemyDefaultPreferredAttackRange * 0.6))),
-            projectileKind: String(entity.projectileKind || state.tuning.enemyDefaultProjectileKind || "fireball"),
-            projectileLaunchType: String(entity.projectileLaunchType || ""),
-            projectileReleaseTime: Math.max(0, finiteNumberOr(entity.projectileReleaseTime, entity.attackHitTime ?? state.tuning.enemyDefaultAttackHitTime)),
-            projectilePartName: entity.projectilePartName ? String(entity.projectilePartName) : null,
-            projectileFrameId: entity.projectileFrameId ? String(entity.projectileFrameId) : null,
-            projectileOriginLocalX: Number.isFinite(Number(entity.projectileOriginLocalX)) ? Number(entity.projectileOriginLocalX) : null,
-            projectileOriginLocalY: Number.isFinite(Number(entity.projectileOriginLocalY)) ? Number(entity.projectileOriginLocalY) : null,
-            projectileRigScale: Math.max(0.0001, finiteNumberOr(entity.projectileRigScale, 1)),
-            projectileSpeed: Math.max(1, finiteNumberOr(entity.projectileSpeed, state.tuning.enemyDefaultProjectileSpeed)),
-            projectileGravity: finiteNumberOr(entity.projectileGravity, state.tuning.enemyDefaultProjectileGravity),
-            projectileLifetime: Math.max(FIXED_DT, finiteNumberOr(entity.projectileLifetime, state.tuning.enemyDefaultProjectileLifetime)),
-            projectileRadius: Math.max(1, finiteNumberOr(entity.projectileRadius, state.tuning.enemyDefaultProjectileRadius)),
-            projectileDamage: Math.max(0, finiteNumberOr(entity.projectileDamage, state.tuning.enemyDefaultProjectileDamage)),
-            projectileCooldown: Math.max(0, finiteNumberOr(entity.projectileCooldown, state.tuning.enemyDefaultProjectileCooldown)),
-            projectileHomingStrength: Math.max(0, finiteNumberOr(entity.projectileHomingStrength, state.tuning.enemyDefaultProjectileHomingStrength)),
-            projectileKnockbackX: Math.max(0, finiteNumberOr(entity.projectileKnockbackX, state.tuning.enemyDefaultProjectileKnockbackX)),
-            projectileKnockbackY: finiteNumberOr(entity.projectileKnockbackY, state.tuning.enemyDefaultProjectileKnockbackY),
-            attackLungeDistance: Math.max(0, finiteNumberOr(entity.attackLungeDistance, state.tuning.enemyDefaultAttackLungeDistance)),
-            attackLungeSpeed: Math.max(0, finiteNumberOr(entity.attackLungeSpeed, state.tuning.enemyDefaultAttackLungeSpeed)),
-            attackKnockbackX: Math.max(0, finiteNumberOr(entity.attackKnockbackX, state.tuning.enemyDefaultAttackKnockbackX)),
-            attackKnockbackY: finiteNumberOr(entity.attackKnockbackY, state.tuning.enemyDefaultAttackKnockbackY),
-            attackTimer: 0,
-            attackCooldownTimer: 0,
-            attackLungeRemaining: 0,
-            attackHitApplied: false,
-            hurtTimer: 0,
-            deathTimer: health <= 0 ? Math.max(FIXED_DT, finiteNumberOr(entity.deathDuration, state.tuning.enemyDefaultDeathSeconds)) : 0,
-            deathPendingLanding: false,
-            deathElapsed: 0,
-            corpseHoldDuration: Math.max(0, finiteNumberOr(entity.corpseHoldDuration, state.tuning.enemyCorpseHoldSeconds)),
-            corpseFadeDuration: Math.max(0, finiteNumberOr(entity.corpseFadeDuration, state.tuning.enemyCorpseFadeSeconds)),
-            renderOpacity: 1,
-            hitFlashTimer: 0,
-            hitFlashDuration: state.tuning.enemyHitFlashSeconds,
-            healthBarTimer: 0,
-            lastDamagedAt: null,
-            lastHitBy: null,
-            renderScale: Math.max(0.05, Number(entity.renderScale) || 1),
-            renderOffsetX: Number(entity.renderOffsetX) || 0,
-            renderOffsetY: Number(entity.renderOffsetY) || 0,
-            visualized: false,
-            targetAnchorX: anchorX,
-            targetAnchorY: anchorY,
-            targetX: x - width * 0.5 + anchorX * width,
-            targetY: y - height + anchorY * height,
-            targetRadius: Math.max(4, Number(entity.targetRadius) || Math.min(width, height) * 0.16),
-            showTargetMarker: entity.showTargetMarker === true
-        };
-    });
+    const characterEnemies = runtimeEntities.filter(characterEnemyLike).map((entity, index) =>
+        createCharacterEnemyRuntime(state, entity, index)
+    );
     state.enemies = [...targetDummies, ...characterEnemies];
 
     const pickupLike = (entity) => {
@@ -2894,44 +2929,44 @@ export function applyEditorLevelToWorld(state, editorLevel) {
     return true;
 }
 
+function applyCharacterCombatProfileToEnemy(state, enemy) {
+    if (!isCharacterEnemyState(enemy)) return false;
+    const profile = state.characterCombatProfiles?.[enemy.characterId];
+    if (!profile || typeof profile !== "object") return false;
+    const projectiles = Array.isArray(profile.projectiles) ? profile.projectiles : [];
+    const projectile = projectiles.find((item) => String(item?.animationSlot || "attack") === "attack") || projectiles[0];
+    if (!projectile) return false;
+
+    const releaseTime = Math.max(0, finiteNumberOr(projectile.releaseTime, enemy.attackHitTime));
+    enemy.attackMode = "projectile";
+    enemy.attackDuration = Math.max(
+        FIXED_DT,
+        releaseTime + FIXED_DT,
+        finiteNumberOr(profile.attackDuration, enemy.attackDuration)
+    );
+    enemy.attackHitTime = releaseTime;
+    enemy.projectileReleaseTime = releaseTime;
+    enemy.projectileLaunchType = String(projectile.launchType || enemy.projectileLaunchType || "straight");
+    enemy.projectilePartName = projectile.partName ? String(projectile.partName) : enemy.projectilePartName;
+    enemy.projectileFrameId = projectile.frameId ? String(projectile.frameId) : enemy.projectileFrameId;
+    enemy.projectileKind = String(projectile.projectileKind || enemy.projectileKind || "fireball");
+    enemy.projectileOriginLocalX = finiteNumberOr(projectile.localX, enemy.projectileOriginLocalX);
+    enemy.projectileOriginLocalY = finiteNumberOr(projectile.localY, enemy.projectileOriginLocalY);
+    enemy.projectileRigScale = Math.max(0.0001, finiteNumberOr(projectile.rigScale, enemy.projectileRigScale));
+    return true;
+}
+
 export function applyCharacterCombatProfiles(state, profiles) {
     const profileMap = profiles instanceof Map
         ? profiles
         : new Map(Object.entries(profiles && typeof profiles === "object" ? profiles : {}));
+    state.characterCombatProfiles = Object.fromEntries(
+        [...profileMap.entries()].map(([characterId, profile]) => [String(characterId), deepClone(profile)])
+    );
     let applied = 0;
-
     for (const enemy of state.enemies || []) {
-        if (!isCharacterEnemyState(enemy)) {
-            continue;
-        }
-        const profile = profileMap.get(enemy.characterId);
-        if (!profile || typeof profile !== "object") {
-            continue;
-        }
-        const projectiles = Array.isArray(profile.projectiles) ? profile.projectiles : [];
-        const projectile = projectiles.find((item) => String(item?.animationSlot || "attack") === "attack") || projectiles[0];
-        if (!projectile) {
-            continue;
-        }
-        const releaseTime = Math.max(0, finiteNumberOr(projectile.releaseTime, enemy.attackHitTime));
-        enemy.attackMode = "projectile";
-        enemy.attackDuration = Math.max(
-            FIXED_DT,
-            releaseTime + FIXED_DT,
-            finiteNumberOr(profile.attackDuration, enemy.attackDuration)
-        );
-        enemy.attackHitTime = releaseTime;
-        enemy.projectileReleaseTime = releaseTime;
-        enemy.projectileLaunchType = String(projectile.launchType || enemy.projectileLaunchType || "straight");
-        enemy.projectilePartName = projectile.partName ? String(projectile.partName) : enemy.projectilePartName;
-        enemy.projectileFrameId = projectile.frameId ? String(projectile.frameId) : enemy.projectileFrameId;
-        enemy.projectileKind = String(projectile.projectileKind || enemy.projectileKind || "fireball");
-        enemy.projectileOriginLocalX = finiteNumberOr(projectile.localX, enemy.projectileOriginLocalX);
-        enemy.projectileOriginLocalY = finiteNumberOr(projectile.localY, enemy.projectileOriginLocalY);
-        enemy.projectileRigScale = Math.max(0.0001, finiteNumberOr(projectile.rigScale, enemy.projectileRigScale));
-        applied += 1;
+        if (applyCharacterCombatProfileToEnemy(state, enemy)) applied += 1;
     }
-
     if (applied > 0) {
         addEvent(state, "CHARACTER_COMBAT_PROFILES_APPLIED", { enemies: applied });
     }
@@ -3067,6 +3102,233 @@ function randomPowerUpEffectId(state, pickupId, effectIds, rollCount = 0) {
     const pool = normalizedRandomEffectPool(effectIds);
     if (!pool.length) return null;
     return pool[deterministicPowerUpIndex(state, pickupId, rollCount, pool.length)];
+}
+
+function autoSpawnRandomUnit(state, rollCount, channel) {
+    const random = ensureRandomState(state);
+    const salt = stableStringHash([
+        "auto-spawn-enemy",
+        state.world?.levelId || "level",
+        random.levelLoadCount,
+        Math.max(0, Math.floor(Number(rollCount) || 0)),
+        String(channel || "roll")
+    ].join(":"));
+    return mixedUint32(random.seed ^ salt) / 4294967296;
+}
+
+function expectedAutoSpawnDirection(state) {
+    const playerX = Number(state.player?.x) || 0;
+    const entities = state.world?.entities || [];
+    const exitDoor = wizardExitDoorEntity(entities);
+    const exitDx = Number(exitDoor?.x) - playerX;
+    if (Number.isFinite(exitDx) && Math.abs(exitDx) > 1) return exitDx < 0 ? -1 : 1;
+    const entryDoor = wizardEntryDoorEntity(entities);
+    const authoredRouteDx = Number(exitDoor?.x) - Number(entryDoor?.x);
+    if (Number.isFinite(authoredRouteDx) && Math.abs(authoredRouteDx) > 1) return authoredRouteDx < 0 ? -1 : 1;
+    return 1;
+}
+
+function autoSpawnBand(state, direction, enemyWidth, distanceUnit) {
+    const camera = state.camera || {};
+    const zoom = Math.max(0.1, Number(camera.zoom) || 1);
+    const viewportWidth = Math.max(320, Number(camera.viewportWidth) || 1280 / zoom);
+    const halfWidth = viewportWidth * 0.5;
+    const edgeX = (Number(camera.x) || Number(state.player?.x) || 0) + direction * halfWidth;
+    const bodyInset = Math.max(4, Math.max(1, Number(enemyWidth) || 1) * 0.52);
+    const nearDistance = viewportWidth * 0.1;
+    const farDistance = viewportWidth;
+    const nearCenterDistance = nearDistance + bodyInset;
+    const farCenterDistance = farDistance + bodyInset;
+    const bandA = edgeX + direction * nearCenterDistance;
+    const bandB = edgeX + direction * farCenterDistance;
+    const minX = Math.min(bandA, bandB);
+    const maxX = Math.max(bandA, bandB);
+    const desiredDistance = nearCenterDistance + (farCenterDistance - nearCenterDistance) * clamp(Number(distanceUnit) || 0, 0, 1);
+    const desiredX = edgeX + direction * desiredDistance;
+    return { viewportWidth, edgeX, minX, maxX, desiredX, bodyInset };
+}
+
+function autoSpawnGroundPosition(state, enemy, band) {
+    const supports = buildEnemyNavigationSupports(state.world, characterEnemyNavigationOptions(enemy, state));
+    let best = null;
+    for (const support of supports) {
+        const minX = Math.max(Number(support.xMin) + band.bodyInset, band.minX);
+        const maxX = Math.min(Number(support.xMax) - band.bodyInset, band.maxX);
+        if (!Number.isFinite(minX) || !Number.isFinite(maxX) || minX > maxX) continue;
+        const x = clamp(band.desiredX, minX, maxX);
+        const point = supportPoint(support, x, 0);
+        if (!point || !Number.isFinite(point.y)) continue;
+        const slopeDx = Number(support.x2) - Number(support.x1);
+        const slope = Math.abs(slopeDx) > 0.001
+            ? (Number(support.y2) - Number(support.y1)) / slopeDx
+            : 0;
+        if (characterEnemyBodyBlockedAt(state, enemy, x, point.y, {
+            ignoreSupportId: support.id,
+            groundSlope: slope
+        })) continue;
+        const overlapsEnemy = (state.enemies || []).some((other) =>
+            Number(other?.health) > 0 &&
+            Math.abs((Number(other.x) || 0) - x) < (Math.max(1, Number(other.width) || 1) + enemy.width) * 0.5 + 24 &&
+            Math.abs((Number(other.y) || 0) - point.y) < Math.max(enemy.height, Number(other.height) || 1)
+        );
+        if (overlapsEnemy) continue;
+        const score = Math.abs(x - band.desiredX) + Math.abs(point.y - (Number(state.player?.y) || point.y)) * 0.08;
+        if (!best || score < best.score) best = { x, y: point.y, support, score };
+    }
+    return best;
+}
+
+function autoSpawnFlyingPosition(state, enemy, band, verticalUnit) {
+    const bounds = state.world?.bounds || { x: -100000, y: -100000, w: 200000, h: 200000 };
+    const halfWidth = enemy.width * 0.5;
+    const minX = Math.max(band.minX, Number(bounds.x) + halfWidth);
+    const maxX = Math.min(band.maxX, Number(bounds.x) + Number(bounds.w) - halfWidth);
+    if (!Number.isFinite(minX) || !Number.isFinite(maxX) || minX > maxX) return null;
+    const x = clamp(band.desiredX, minX, maxX);
+    const camera = state.camera || {};
+    const zoom = Math.max(0.1, Number(camera.zoom) || 1);
+    const viewportHeight = Math.max(240, Number(camera.viewportHeight) || 720 / zoom);
+    const top = (Number(camera.y) || Number(state.player?.y) || 0) - viewportHeight * 0.5;
+    const bottom = top + viewportHeight;
+    const y = clamp(
+        top + viewportHeight * (0.25 + clamp(Number(verticalUnit) || 0, 0, 1) * 0.42),
+        Number(bounds.y) + enemy.height + 12,
+        Number(bounds.y) + Number(bounds.h) - 12
+    );
+    if (y < top - enemy.height || y > bottom + enemy.height) return null;
+    return { x, y, support: null };
+}
+
+function autoSpawnTargetForEnemy(enemy) {
+    return {
+        id: `${enemy.id}_target`,
+        kind: "targetDummyBullseye",
+        enemyId: enemy.id,
+        x: enemy.targetX,
+        y: enemy.targetY,
+        radius: enemy.targetRadius,
+        state: enemy.health > 0 ? "active" : "inactive",
+        showMarker: enemy.showTargetMarker
+    };
+}
+
+function spawnAutomaticEnemy(state, runtimeConfig) {
+    const selection = resolveAutoSpawnEnemyIds(runtimeConfig, state.enemyCatalog);
+    runtimeConfig.lastResolvedEnemyIds = selection.resolvedIds.slice();
+    if (!selection.valid || !selection.resolvedIds.length) {
+        runtimeConfig.lastError = selection.valid ? "The configured enemy pool resolves to no available enemies." : selection.errors.join(" ");
+        return null;
+    }
+    runtimeConfig.lastError = null;
+    const rollCount = Math.max(1, Math.floor(Number(runtimeConfig.rollCount) || 1));
+    const selectedIndex = Math.min(
+        selection.resolvedIds.length - 1,
+        Math.floor(autoSpawnRandomUnit(state, rollCount, "enemy") * selection.resolvedIds.length)
+    );
+    const enemyDefinitionId = selection.resolvedIds[selectedIndex];
+    const spawnIndex = Math.max(0, Math.floor(Number(runtimeConfig.spawnCount) || 0)) + 1;
+    const id = `auto_spawn_enemy_${String(spawnIndex).padStart(4, "0")}`;
+    const preliminaryEntity = enemyEntityFromDefinition(state.enemyCatalog, enemyDefinitionId, {
+        id,
+        x: Number(state.player?.x) || 0,
+        y: Number(state.player?.y) || 0,
+        autoSpawned: true,
+        enemyDefinitionId
+    });
+    if (!preliminaryEntity) return null;
+    const flying = String(preliminaryEntity.locomotion || "").trim().toLowerCase() === "flying";
+    preliminaryEntity.strategy = flying
+        ? String(preliminaryEntity.strategy || "bomber")
+        : "hunter";
+    const enemy = createCharacterEnemyRuntime(state, preliminaryEntity, (state.enemies || []).length);
+    const direction = expectedAutoSpawnDirection(state);
+    const band = autoSpawnBand(
+        state,
+        direction,
+        enemy.width,
+        autoSpawnRandomUnit(state, rollCount, "distance")
+    );
+    const position = flying
+        ? autoSpawnFlyingPosition(state, enemy, band, autoSpawnRandomUnit(state, rollCount, "vertical"))
+        : autoSpawnGroundPosition(state, enemy, band);
+    if (!position) {
+        runtimeConfig.lastError = "No safe off-screen spawn position exists in the forward route band.";
+        return null;
+    }
+
+    enemy.x = position.x;
+    enemy.y = position.y;
+    enemy.spawnX = position.x;
+    enemy.spawnY = position.y;
+    enemy.targetX = enemy.x - enemy.width * 0.5 + enemy.targetAnchorX * enemy.width;
+    enemy.targetY = enemy.y - enemy.height + enemy.targetAnchorY * enemy.height;
+    enemy.facing = (Number(state.player?.x) || 0) < enemy.x ? -1 : 1;
+    enemy.awarenessTimer = Math.max(2, Number(enemy.awarenessHoldDuration) || 0);
+    enemy.alerted = true;
+    enemy.engaged = true;
+    enemy.lastSeenPlayerX = Number(state.player?.x) || 0;
+    enemy.lastSeenPlayerY = Number(state.player?.y) || 0;
+    enemy.lastSeenAt = Number(state.clock?.time) || 0;
+    enemy.routeRepathTimer = 0;
+    if (flying) {
+        enemy.bomberPerchX = position.x;
+        enemy.bomberPerchY = position.y;
+        enemy.flightBaseY = position.y;
+        enemy.aiState = enemy.strategy === "bomber" ? "bomber" : "fly";
+        enemy.movementPhase = "noticed_player";
+    } else {
+        enemy.strategy = "hunter";
+        enemy.aiState = "pursue";
+        enemy.movementPhase = "pursue";
+        enemy.supportId = position.support?.id || null;
+        enemy.currentSupportId = position.support?.id || null;
+        enemy.homeSupportId = position.support?.id || null;
+        enemy.airborne = false;
+    }
+    applyCharacterCombatProfileToEnemy(state, enemy);
+    state.enemies = Array.isArray(state.enemies) ? state.enemies : [];
+    state.enemies.push(enemy);
+    state.targets = (state.targets || []).filter((target) => target.kind !== "debugHomingDot");
+    state.targets.push(autoSpawnTargetForEnemy(enemy));
+    runtimeConfig.spawnCount = spawnIndex;
+    addEvent(state, "AUTO_ENEMY_SPAWNED", {
+        enemyId: enemy.id,
+        enemyDefinitionId,
+        direction,
+        x: round(enemy.x),
+        y: round(enemy.y),
+        distanceBeyondScreen: round(Math.max(0, Math.abs(enemy.x - band.edgeX) - enemy.width * 0.5))
+    });
+    return enemy;
+}
+
+function updateAutomaticEnemySpawning(state, dt) {
+    const runtimeConfig = state.world?.autoSpawnEnemies;
+    if (!runtimeConfig || runtimeConfig.enabled !== true || Number(runtimeConfig.probabilityPercent) <= 0) {
+        if (runtimeConfig) runtimeConfig.timer = Math.max(FIXED_DT, Number(runtimeConfig.intervalSeconds) || 1);
+        return;
+    }
+    const interval = Math.max(FIXED_DT, Number(runtimeConfig.intervalSeconds) || 1);
+    runtimeConfig.timer = Math.max(-interval * 4, (Number(runtimeConfig.timer) || interval) - Math.max(0, Number(dt) || 0));
+    let safety = 0;
+    while (runtimeConfig.timer <= 0 && safety < 4) {
+        runtimeConfig.timer += interval;
+        runtimeConfig.rollCount = Math.max(0, Math.floor(Number(runtimeConfig.rollCount) || 0)) + 1;
+        const chance = clamp(Number(runtimeConfig.probabilityPercent) || 0, 0, 100) / 100;
+        if (autoSpawnRandomUnit(state, runtimeConfig.rollCount, "chance") < chance) {
+            spawnAutomaticEnemy(state, runtimeConfig);
+        }
+        safety += 1;
+    }
+}
+
+function pruneFinishedAutomaticEnemies(state) {
+    const removedIds = new Set((state.enemies || [])
+        .filter((enemy) => enemy?.autoSpawned === true && Number(enemy.health) <= 0 && Number(enemy.renderOpacity) <= 0)
+        .map((enemy) => enemy.id));
+    if (!removedIds.size) return;
+    state.enemies = (state.enemies || []).filter((enemy) => !removedIds.has(enemy.id));
+    state.targets = (state.targets || []).filter((target) => !removedIds.has(target.enemyId));
 }
 
 function sanitizeInput(inputFrame) {
@@ -3245,7 +3507,10 @@ function characterEnemyBodyBlockedAt(state, enemy, x, groundY, options = {}) {
         if (options.ignoreSupportId && (segment.id === options.ignoreSupportId || options.ignoreSupportId.startsWith(`${segment.id}_nav_`))) {
             continue;
         }
-        if (!isSolidSegmentKind(segment.kind)) {
+        // A green walkable line is a one-way floor: it supports feet from
+        // above but must never become a horizontal wall through an actor's
+        // torso while the actor walks underneath it.
+        if (!isAreaBlockingSegmentKind(segment.kind)) {
             continue;
         }
         if (segmentRectIntersection(
@@ -3608,7 +3873,7 @@ function updateCharacterEnemyAwareness(state, enemy, dt) {
 
 function findCharacterEnemyWalkingSupport(state, enemy, candidateX, direction) {
     const authoredStepHeight = Math.max(0, Number(enemy.maxStepHeight) || 0);
-    const automaticStepHeight = Math.max(authoredStepHeight, enemy.height / 8);
+    const automaticStepHeight = Math.max(authoredStepHeight, enemy.height * AUTOMATIC_STEP_HEIGHT_RATIO);
     const directSupport = findCharacterEnemyGroundSupport(
         state,
         candidateX,
@@ -3617,9 +3882,10 @@ function findCharacterEnemyWalkingSupport(state, enemy, candidateX, direction) {
         enemy.maxDropDistance,
         enemy.width
     );
+    const stepProbeX = candidateX + (direction < 0 ? -1 : 1) * Math.max(2, enemy.width * 0.14);
     const steppedSupport = findCharacterEnemyGroundSupport(
         state,
-        candidateX,
+        stepProbeX,
         enemy.y,
         automaticStepHeight,
         enemy.maxDropDistance,
@@ -3636,7 +3902,7 @@ function findCharacterEnemyWalkingSupport(state, enemy, candidateX, direction) {
 
     // Preserve ordinary slope and moving-platform support selection. Only switch
     // to the automatic step candidate when it is a distinct, genuinely higher
-    // surface inside one eighth of the actor's height.
+    // surface inside one fifth of the actor's height.
     if (steppedSupport
         && directSupport
         && steppedSupport.id !== directSupport.id
@@ -4191,6 +4457,76 @@ function characterEnemyReadyToAttackFromCurrentPosition(state, enemy) {
     }
     const horizontalDistance = Math.abs(state.player.x - enemy.x);
     return horizontalDistance >= Math.max(0, Number(enemy.preferredAttackMinRange) || 0);
+}
+
+function characterEnemyCanUseLocalGroundPursuit(state, enemy) {
+    if (enemy.attackMode === "projectile" || !state.player?.targetable) {
+        return false;
+    }
+    const automaticStepHeight = Math.max(0, enemy.height * AUTOMATIC_STEP_HEIGHT_RATIO);
+    const verticalTolerance = Math.max(
+        8,
+        Number(enemy.maxStepHeight) || 0,
+        automaticStepHeight
+    );
+    if (Math.abs((Number(state.player.y) || 0) - (Number(enemy.y) || 0)) > verticalTolerance + 2) {
+        return false;
+    }
+    const playerGround = findCharacterEnemyGroundSupport(
+        state,
+        Number(state.player.x) || 0,
+        Number(state.player.y) || 0,
+        verticalTolerance + 2,
+        verticalTolerance + 8,
+        Math.max(8, Number(state.player.width) || enemy.width)
+    );
+    const enemyGround = findCharacterEnemyGroundSupport(
+        state,
+        Number(enemy.x) || 0,
+        Number(enemy.y) || 0,
+        verticalTolerance + 2,
+        verticalTolerance + 8,
+        enemy.width
+    );
+    if (!playerGround || !enemyGround) {
+        return false;
+    }
+    return Math.abs(playerGround.y - enemyGround.y) <= verticalTolerance + 2;
+}
+
+function updateCharacterEnemyLocalGroundPursuit(state, enemy, dt) {
+    if (!characterEnemyCanUseLocalGroundPursuit(state, enemy)) {
+        return false;
+    }
+    const dx = (Number(state.player.x) || 0) - (Number(enemy.x) || 0);
+    if (Math.abs(dx) > 0.001) {
+        enemy.facing = dx < 0 ? -1 : 1;
+    }
+    enemy.engaged = true;
+    enemy.alerted = true;
+    enemy.aiState = "pursue";
+    clearCharacterEnemyNavigationPlan(enemy);
+    enemy.routeRepathTimer = Math.max(FIXED_DT, Number(enemy.routeRepathInterval) || FIXED_DT);
+
+    if (enemy.attackCooldownTimer <= 0 && characterEnemyReadyToAttackFromCurrentPosition(state, enemy)) {
+        startCharacterEnemyAttack(state, enemy);
+        return true;
+    }
+
+    const stopDistance = Math.max(4, Math.min(
+        Math.max(1, Number(enemy.attackRange) || 1) * 0.72,
+        Math.max(6, Math.abs(dx) - 1)
+    ));
+    const speed = Math.max(1, Number(enemy.runSpeed) || Number(enemy.walkSpeed) || 1);
+    const moved = moveCharacterEnemyToward(state, enemy, state.player.x, speed, dt, stopDistance);
+    if (moved > 0) {
+        enemy.movementPhase = "local_pursuit";
+        setCharacterEnemyAnimation(enemy, "walk");
+    } else {
+        enemy.movementPhase = "pursue";
+        setCharacterEnemyAnimation(enemy, "idle");
+    }
+    return true;
 }
 
 function characterEnemyCanAttackFromPoint(state, enemy, point) {
@@ -5092,7 +5428,7 @@ function updateCharacterEnemyPatrolRange(state, enemy, dt, minX, maxX, phase = "
     const candidateX = clamp(unclampedX, minX, maxX);
     const reachedBoundary = Math.abs(candidateX - unclampedX) > 0.0001 ||
         candidateX <= minX + 0.001 || candidateX >= maxX - 0.001;
-    const automaticStepHeight = Math.max(0, enemy.height / 8);
+    const automaticStepHeight = Math.max(0, enemy.height * AUTOMATIC_STEP_HEIGHT_RATIO);
     const support = findCharacterEnemyGroundSupport(
         state,
         candidateX,
@@ -5264,6 +5600,11 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
     if (enemy.aiState === "stranded_patrol") {
         enemy.homeRetryTimer = Math.max(0, (Number(enemy.homeRetryTimer) || 0) - dt);
         if (seesPlayer) {
+            if (updateCharacterEnemyLocalGroundPursuit(state, enemy, dt)) {
+                addEvent(state, "ENEMY_REENGAGED_LOCAL", { enemyId: enemy.id });
+                syncCharacterEnemyTarget(state, enemy);
+                return;
+            }
             const plan = chooseCharacterEnemyAttackPlan(state, enemy, navigation);
             if (plan) {
                 enemy.engaged = true;
@@ -5321,6 +5662,10 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
         if (seesPlayer && (enemy.routeRepathTimer <= 0 || !enemy.routeTargetSupportId) && !characterEnemyHasCommittedTraversal(enemy)) {
             const plan = chooseCharacterEnemyAttackPlan(state, enemy, navigation);
             if (!plan) {
+                if (updateCharacterEnemyLocalGroundPursuit(state, enemy, dt)) {
+                    syncCharacterEnemyTarget(state, enemy);
+                    return;
+                }
                 enterCharacterEnemyGlare(state, enemy);
                 syncCharacterEnemyTarget(state, enemy);
                 return;
@@ -5328,6 +5673,11 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
             setCharacterEnemyNavigationPlan(enemy, plan);
         }
         if (!followCharacterEnemyNavigationPlan(state, enemy, navigation, dt)) {
+            if (seesPlayer && updateCharacterEnemyLocalGroundPursuit(state, enemy, dt)) {
+                enemy.navigationFailureCount = 0;
+                syncCharacterEnemyTarget(state, enemy);
+                return;
+            }
             enemy.navigationFailureCount = (Number(enemy.navigationFailureCount) || 0) + 1;
             if (enemy.navigationFailureCount >= 2) {
                 enterCharacterEnemyGlare(state, enemy);
@@ -6068,7 +6418,9 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     updatePickups(state);
     updateSignalEmitters(state, input);
     updateMovingPlatforms(state, dt);
+    updateAutomaticEnemySpawning(state, dt);
     updateCharacterEnemies(state, dt);
+    pruneFinishedAutomaticEnemies(state);
     if (playerDeathActive(state)) {
         return state;
     }
@@ -6419,6 +6771,7 @@ function launchHomingRocket(state, input) {
             targetId: target ? target.id : null,
             homing: Boolean(rocketProfile.homing),
             homingStrength: Math.max(0, t.rocketProjectileHomingStrength * (Number(rocketProfile.homingStrengthMultiplier) || 0)),
+            initialHomingStrength: Math.max(0, t.rocketProjectileInitialHomingStrength * (Number(rocketProfile.homingStrengthMultiplier) || 0)),
             projectileSpeed,
             upLaunchTimer: rocketProfile.launchMode === "up" ? Math.max(0, t.rocketProjectileUpLaunchSeconds ?? 0.32) : 0,
             age: 0,
@@ -6610,13 +6963,18 @@ function updateProjectiles(state, dt) {
                     beginBoomerangReturn(state, projectile, "targetUnavailable");
                 } else {
                     target = target || findHomingTarget(state);
-                    if (target && projectile.upLaunchTimer <= 0) {
+                    if (target) {
                         projectile.targetId = target.id;
                         const desired = normalizeVector({ x: target.x - projectile.x, y: target.y - projectile.y });
                         const speed = Math.max(1, Number(projectile.projectileSpeed) || t.rocketProjectileSpeed);
                         const desiredVx = desired.x * speed;
                         const desiredVy = desired.y * speed;
-                        const blend = clamp((Number(projectile.homingStrength) || t.rocketProjectileHomingStrength) * dt, 0, 1);
+                        const normalHomingStrength = Number(projectile.homingStrength) || t.rocketProjectileHomingStrength;
+                        const initialHomingStrength = Number(projectile.initialHomingStrength) || t.rocketProjectileInitialHomingStrength || normalHomingStrength;
+                        const homingStrength = projectile.upLaunchTimer > 0
+                            ? Math.max(normalHomingStrength, initialHomingStrength)
+                            : normalHomingStrength;
+                        const blend = clamp(homingStrength * dt, 0, 1);
                         projectile.vx += (desiredVx - projectile.vx) * blend;
                         projectile.vy += (desiredVy - projectile.vy) * blend;
                         const nextSpeed = Math.hypot(projectile.vx, projectile.vy) || 1;
@@ -7924,7 +8282,7 @@ function moveAndCollideX(state, dx) {
         return;
     }
     if (p.onGround && p.vy >= 0) {
-        const stepped = tryActorStepUp(state, p, previousX, nextX, p.height / 8);
+        const stepped = tryActorStepUp(state, p, previousX, nextX, p.height * AUTOMATIC_STEP_HEIGHT_RATIO);
         if (stepped) {
             p.x = stepped.x;
             landPlayerOn(state, stepped.y, true, stepped.id, stepped.kind);
@@ -9105,10 +9463,14 @@ function updateHat(state) {
 function updateCameraHint(state, dt) {
     const p = state.player;
     const lookAhead = 150 * p.facing;
-    const verticalLead = clamp(p.vy * 0.12, -120, 90);
+    const upwardLead = clamp(Math.min(0, p.vy) * 0.12, -120, 0);
+    const descendingLead = p.onGround
+        ? 0
+        : clamp((Math.max(0, p.vy) - 35) * 0.42, 0, 260);
     const targetX = p.x + lookAhead;
-    const targetY = p.y - 170 + verticalLead;
-    const blend = 1 - Math.pow(0.001, dt);
+    const targetY = p.y - 170 + upwardLead + descendingLead;
+    const blendRate = descendingLead > 0 ? 0.00008 : 0.001;
+    const blend = 1 - Math.pow(blendRate, dt);
     state.camera.x += (targetX - state.camera.x) * blend;
     state.camera.y += (targetY - state.camera.y) * blend;
 }

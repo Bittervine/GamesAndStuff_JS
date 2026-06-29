@@ -436,6 +436,7 @@ Goal: make the prototype readable and pleasant during fast movement.
 * [ ] Add camera bounds.
 * [ ] Add camera debug mode.
 * [x] Polish fuel and health HUD.
+* [x] Keep the score/bars and optional minimap panels viewport-fitted, and let either panel open the pause menu.
 * [ ] Add weapon indicator.
 * [ ] Add aiming reticle.
 * [ ] Add landing, boost, launch, damage, and impact feedback.
@@ -2541,3 +2542,92 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Increase Mostly horizontal upper-platform density to roughly one quarter of the route span.
 - [x] Bias the extra raised platforms toward combat perches so monsters occupy the upper lane more often.
 - [x] Add regression coverage for transparent minimap rendering and horizontal upper-platform coverage.
+
+## Revision 261 mostly-horizontal playability audit
+
+- [x] Generate and visually inspect twelve Mostly-horizontal Earth cavern drafts across Standard/Grand lengths and both cavern variants.
+- [x] Replace opportunistic upper-perch clustering with a distributed upper lane covering at least roughly 25% of route width.
+- [x] Bias the upper lane toward combat perches while retaining occasional reward perches.
+- [x] Require each upper one-way platform to have validated bidirectional access from its ground parent.
+- [x] Give Skeleton Guards hunter navigation, jump height, fall tolerance, and repathing so upper encounters can pursue Ignatius.
+- [x] Reject generated upper ground enemies that lack a reachable parent transition or jumping hunter mobility.
+- [x] Increase downward camera anticipation to reveal landing space during fast falls.
+- [x] Reserve collision-safe moving-platform shafts in Mostly-horizontal drafts and reject later platform or enemy intrusion.
+- [x] Add regressions for upper-lane coverage, shaft clearance, upper-enemy mobility, and downward camera lead.
+
+## Revision 262 hunter re-engagement and raised upper platforms
+
+- [x] Keep same-height overlapping blockable platform tops connected in enemy navigation.
+- [x] Add a regression proving hunters can route across the composed run-and-gun floor.
+- [x] Let stranded melee hunters re-engage through local same-floor pursuit when Ignatius is visibly nearby.
+- [x] Preserve real ledge and wall blocking during local pursuit.
+- [x] Raise Mostly-horizontal combat and reward platforms to a second tier.
+- [x] Add an offset one-way access step for every raised upper destination.
+- [x] Require at least 170 world units of open rocket-turning clearance beneath each upper destination.
+- [x] Validate upper access support count, references, and rocket clearance across all route/cavern combinations.
+
+## Revision 263 geometry-calibrated rocket launch turn
+
+- [x] Preserve normal mid-flight homing at 4.8.
+- [x] Add a launch-only homing strength of 6.95 during the existing 0.32-second initial-turn window.
+- [x] Begin homing during the launch window instead of locking the rocket vertically until the timer expires.
+- [x] Measure the actual fixed-step height of one unboosted jump in the regression fixture.
+- [x] Verify the standard rocket only just clears a platform at that height while aiming toward a distant same-level target.
+- [x] Verify a slightly weaker 6.9 launch turn still hits the platform, pinning the threshold.
+- [x] Expose initial and normal homing separately in Game Tuning.
+
+## Revision 264 generated enemy platform clearance
+
+- [x] Search each ground-enemy support for body-clear spawn positions instead of using one right-biased point.
+- [x] Keep an 18-unit side margin and 14-unit vertical margin from every unrelated generated platform.
+- [x] Preserve overlapping same-height floor pieces as one legal standing surface.
+- [x] Reject encounter groups when no collision- and artwork-clear spawn slot exists.
+- [x] Add independent validation and seeded regressions for enemy/platform intrusion.
+
+## Revision 265 flying-enemy clearance and unambiguous ground seams
+
+- [x] Apply platform and moving-shaft clearance to flying encounter groups as well as ground enemies.
+- [x] Search multiple horizontal and vertical spawn slots for each complete bat group.
+- [x] Reject generated and manually perturbed flying encounters that intersect platform artwork.
+- [x] Increase automatic step traversal from one eighth to one fifth of actor height for Ignatius and grounded enemies.
+- [x] Deepen same-height run-and-gun platform overlap so ordinary seams form a clearly continuous floor.
+- [x] Require at least 72 world units of walkable overlap at every generated run-and-gun seam.
+
+## Revision 266 thin-platform collision audit
+
+- [x] Review every `at_atlas_XXX.json` environment manifest for thin versus substantial collision geometry.
+- [x] Replace Atlas 001 shallow ledge and rubble silhouettes with a single green walkable top line.
+- [x] Replace the four Atlas 002 shallow horizontal floor-strip silhouettes with a single green walkable top line.
+- [x] Preserve yellow blockable collision on Atlas 003 and on all substantial assets in Atlases 001, 002, and 004.
+- [x] Keep the established Atlas 004 split of one deep blockable platform and fifteen thin one-way platforms.
+- [x] Rebuild the `level_001` baked hunter navigation graph after reclassifying its `rubble_skull` placement.
+- [x] Add a headless test covering the complete four-atlas collision policy.
+
+
+## Revision 268 automatic enemy spawning
+
+- [x] `autoSpawnEnemies.enabled` defaults to `false`.
+- [x] `autoSpawnEnemies.probabilityPercent` is normalized to 0-100 and defaults to `0`.
+- [x] `autoSpawnEnemies.enemyPool` defaults to `1-999`.
+- [x] Pool parsing is shared with generator `allowedEnemies`, including comma-separated numbers, ranges, and `!` exclusions.
+- [x] The Level Editor stores, restores, previews, imports, exports, and browser-playtests the settings.
+- [x] Browser startup loads the enemy-definition catalog before applying a level.
+- [x] Runtime chance checks occur at one-second fixed-step intervals.
+- [x] Spawn selection and position sampling are deterministic for the level seed/load and roll number.
+- [x] Direction prefers the current player-to-exit horizontal sign and falls back to authored entry-to-exit direction, then right.
+- [x] Spawn X lies outside the current viewport by 10-100 percent of viewport width.
+- [x] Ground spawns require a safe support and no living-enemy body overlap.
+- [x] New enemies are immediately aware, engaged, facing the player, and remember the player's current coordinates.
+- [x] Fully faded dead automatic enemies and their target records are pruned.
+- [x] Existing fast tests and the new automatic-spawn test pass.
+
+## Revision 269 route-scaled power-ups and one-way enemy clearance
+
+- [x] Target approximately one generated power-up per 5,000 pixels of mandatory-route travel at default reward density.
+- [x] Preserve zero rewards at 0 percent density and scale the target within bounded limits at other density settings.
+- [x] Store the target in reward-plan/population schema version 3 and generator diagnostics.
+- [x] Reject generated reward populations that fail to meet their recorded power-up target.
+- [x] Keep generated power-ups off supports occupied by generated encounters.
+- [x] Let grounded enemies walk beneath green one-way lines without treating them as torso-height walls.
+- [x] Preserve full-body blocking for yellow blockable, damaging, and killable terrain.
+- [x] Add focused and fast-suite regressions for route-scaled power-up counts and under-platform enemy movement.
