@@ -2631,3 +2631,29 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Let grounded enemies walk beneath green one-way lines without treating them as torso-height walls.
 - [x] Preserve full-body blocking for yellow blockable, damaging, and killable terrain.
 - [x] Add focused and fast-suite regressions for route-scaled power-up counts and under-platform enemy movement.
+
+## Revision 270 exact jump and generated-layout geometry
+
+- [x] Author the ordinary jump directly as 200 world pixels.
+- [x] Derive launch velocity from gravity and jump height instead of tuning a sampled velocity.
+- [x] Use constant-acceleration displacement and split the apex-crossing collision sweep at the analytical apex.
+- [x] Verify an exact 200-pixel apex at 30, 60, and 120 simulation steps per second.
+- [x] Preserve 1,490 gravity and expose jump height in browser Game Tuning.
+- [x] Recalibrate launch-only rocket homing to 6.7, with 6.65 retained as the clipping-side regression boundary.
+- [x] Target approximately one generated power-up per 2,000 pixels of mandatory-route travel at default Reward density.
+- [x] Permit additional pickups on long eligible supports only when normal reward-spacing and safety exclusions remain valid.
+- [x] Require at least 180 pixels between the walking surfaces of horizontally overlapping generated static platforms.
+- [x] Apply the same 180-pixel contract to Mostly-horizontal lane spacing, upper access tiers, recovery placement, and validation diagnostics.
+- [x] Preserve separate moving-platform shaft validation rather than applying a static snapshot rule to moving supports.
+## Revision 271 generated lift safety
+
+- [x] Treat generated deathtraps as invalid output rather than intentional level design.
+- [x] Reserve 180 pixels of rider clearance above every Mostly-horizontal vertical shuttle throughout its complete travel.
+- [x] Open a dedicated docking slot between the lower and upper ground sections before horizontal chains are materialized.
+- [x] Reject lift positions whose rider corridor intersects yellow blockable geometry.
+- [x] Reject lift travel whose artwork sweeps through a green one-way platform.
+- [x] Reserve accepted lift corridors against later raised-platform placement.
+- [x] Recompute and validate crush hazards independently from the final movement record.
+- [x] Record zero-required `movingPlatformCrushHazardCount`, `movingPlatformSweepOverlapCount`, and `movingShaftIntrusionCount` diagnostics.
+- [x] Add a synthetic overhead-yellow-platform regression and the default `rocketfrock` Mostly horizontal plus Wide seed regression.
+

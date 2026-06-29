@@ -62,6 +62,12 @@ import {
 export const FIXED_DT = 1 / 60;
 const AUTOMATIC_STEP_HEIGHT_RATIO = 0.2;
 
+export function ordinaryJumpVelocity(gravity, jumpHeight) {
+    const resolvedGravity = Math.max(1, Number(gravity) || 1);
+    const resolvedHeight = Math.max(1, Number(jumpHeight) || 1);
+    return -Math.sqrt(2 * resolvedGravity * resolvedHeight);
+}
+
 const MOVING_PLATFORM_NAVIGATION_CACHE = new WeakMap();
 
 const WIZARD_DOOR_FLOOR_ANCHOR_Y_FACTOR = 239 / 263;
@@ -80,11 +86,12 @@ export const DEFAULT_TUNING = Object.freeze({
     playerWidth: 34,
     playerHeight: 104,
     gravity: 1490,
+    ordinaryJumpHeight: 200,
     terminalVelocity: 2500,
     fallDamageEnabled: true,
     fallDamageSafeImpactSpeed: 1441,
     fallDamagePerWizardHeight: 10,
-    jumpVelocity: -775,
+    jumpVelocity: ordinaryJumpVelocity(1490, 200),
     maxRunSpeed: 360,
     groundAcceleration: 950,
     airAcceleration: 820,
@@ -125,7 +132,7 @@ export const DEFAULT_TUNING = Object.freeze({
     rocketLaunchCooldown: 0.35,
     rocketProjectileSpeed: 520,
     rocketProjectileUpLaunchSeconds: 0.32,
-    rocketProjectileInitialHomingStrength: 6.95,
+    rocketProjectileInitialHomingStrength: 6.7,
     rocketProjectileHomingStrength: 4.8,
     rocketProjectileLifetime: 4.6,
     rocketProjectileExplosionSeconds: 0.42,
@@ -264,6 +271,15 @@ export function createInitialGameState(overrides = {}) {
     if (overrides.tuning) {
         Object.assign(tuning, overrides.tuning);
     }
+    const tuningOverrides = overrides.tuning && typeof overrides.tuning === "object" ? overrides.tuning : {};
+    if (Object.prototype.hasOwnProperty.call(tuningOverrides, "jumpVelocity")
+        && !Object.prototype.hasOwnProperty.call(tuningOverrides, "ordinaryJumpHeight")) {
+        const legacyVelocity = Math.abs(Number(tuning.jumpVelocity) || 0);
+        const gravity = Math.max(1, Number(tuning.gravity) || DEFAULT_TUNING.gravity);
+        tuning.ordinaryJumpHeight = Math.max(1, legacyVelocity * legacyVelocity / (2 * gravity));
+    }
+    tuning.ordinaryJumpHeight = Math.max(1, Number(tuning.ordinaryJumpHeight) || DEFAULT_TUNING.ordinaryJumpHeight);
+    tuning.jumpVelocity = ordinaryJumpVelocity(tuning.gravity, tuning.ordinaryJumpHeight);
 
     const world = createTestArena(tuning);
     const spawn = overrides.spawn || world.start || { x: 120, y: 600 };
@@ -315,6 +331,9 @@ export function createInitialGameState(overrides = {}) {
             airborneTime: 0,
             coyoteTimer: 0,
             airBoostArmed: false,
+            ordinaryJumpActive: false,
+            ordinaryJumpStartY: null,
+            ordinaryJumpApexY: null,
             lowHealthPulse: 0,
             visible: true,
             renderScale: 1,
@@ -6451,7 +6470,11 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     }
 
     if (input.jumpPressed && wasOnGround) {
+        t.jumpVelocity = ordinaryJumpVelocity(t.gravity, t.ordinaryJumpHeight);
         p.vy = t.jumpVelocity;
+        p.ordinaryJumpActive = true;
+        p.ordinaryJumpStartY = p.y;
+        p.ordinaryJumpApexY = null;
         p.onGround = false;
         p.supportId = null;
         p.airborneTime = 0;
@@ -6498,12 +6521,8 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
         return state;
     }
 
-    p.vy += t.gravity * dt;
-    p.vy = Math.min(p.vy, t.terminalVelocity);
-    applyAttachedHoverGovernor(state, dt);
-
     moveAndCollideX(state, p.vx * dt);
-    moveAndCollideY(state, p.vy * dt, wasOnGround);
+    integratePlayerVerticalMotion(state, dt, wasOnGround);
     if (playerDeathActive(state)) {
         return state;
     }
@@ -6564,6 +6583,7 @@ function startAttachedBoost(state) {
     }
 
     rocket.attachedBoosting = true;
+    p.ordinaryJumpActive = false;
     rocket.state = "attachedBoosting";
     rocket.attachedBoostTime = 0;
     rocket.boostBurstTimer = hasKickCharge ? Math.max(0, t.attachedBoostBurstDuration ?? 0.5) : 0;
@@ -8311,6 +8331,52 @@ function moveAndCollideX(state, dx) {
     };
 }
 
+function integratePlayerVerticalMotion(state, dt, wasOnGround) {
+    const p = state.player;
+    const t = state.tuning;
+
+    if (!p.ordinaryJumpActive || state.equipment.rocket.attachedBoosting) {
+        p.vy += t.gravity * dt;
+        p.vy = Math.min(p.vy, t.terminalVelocity);
+        applyAttachedHoverGovernor(state, dt);
+        moveAndCollideY(state, p.vy * dt, wasOnGround);
+        return;
+    }
+
+    const gravity = Math.max(1, Number(t.gravity) || DEFAULT_TUNING.gravity);
+    const initialVy = p.vy;
+    const finalVy = Math.min(initialVy + gravity * dt, t.terminalVelocity);
+    const crossesApex = initialVy < 0 && finalVy >= 0;
+
+    if (!crossesApex) {
+        const effectiveAcceleration = (finalVy - initialVy) / Math.max(0.000001, dt);
+        const dy = initialVy * dt + 0.5 * effectiveAcceleration * dt * dt;
+        p.vy = finalVy;
+        moveAndCollideY(state, dy, wasOnGround);
+        return;
+    }
+
+    const apexTime = Math.min(dt, Math.max(0, -initialVy / gravity));
+    const apexDisplacement = initialVy * apexTime + 0.5 * gravity * apexTime * apexTime;
+    p.vy = 0;
+    moveAndCollideY(state, apexDisplacement, wasOnGround);
+    if (!p.ordinaryJumpActive || state.collisions.playerTouching.up) return;
+
+    p.ordinaryJumpApexY = p.y;
+    addEvent(state, "PLAYER_JUMP_APEX", {
+        x: round(p.x),
+        y: round(p.y),
+        height: round((Number.isFinite(Number(p.ordinaryJumpStartY)) ? Number(p.ordinaryJumpStartY) : p.y) - p.y),
+        configuredHeight: round(t.ordinaryJumpHeight)
+    });
+
+    const remaining = Math.max(0, dt - apexTime);
+    p.vy = Math.min(gravity * remaining, t.terminalVelocity);
+    if (remaining > 0) {
+        moveAndCollideY(state, 0.5 * gravity * remaining * remaining, false);
+    }
+}
+
 function moveAndCollideY(state, dy, wasOnGround) {
     const p = state.player;
     const previousY = p.y;
@@ -8324,6 +8390,7 @@ function moveAndCollideY(state, dy, wasOnGround) {
     }
     if (collision.ceiling) {
         p.vy = 0;
+        p.ordinaryJumpActive = false;
         state.collisions.playerTouching.up = true;
         state.collisions.lastResolution = {
             axis: "y",
@@ -9186,6 +9253,7 @@ function polygonYIntervalsAtX(polygon, x) {
 
 function landPlayerOn(state, y, wasOnGround, id, kind = "blockable") {
     const p = state.player;
+    p.ordinaryJumpActive = false;
     const impactVy = Math.max(0, p.vy || 0);
     p.y = y;
     p.vy = 0;
@@ -9555,6 +9623,9 @@ export function resetPlayer(state, reason = "manualReset") {
     p.supportId = null;
     p.wasOnGround = false;
     p.airBoostArmed = false;
+    p.ordinaryJumpActive = false;
+    p.ordinaryJumpStartY = null;
+    p.ordinaryJumpApexY = null;
     p.facing = 1;
     p.visible = true;
     p.renderScale = 1;

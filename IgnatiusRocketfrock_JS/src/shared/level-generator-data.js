@@ -5,12 +5,14 @@ import {
 import { parseEnemySelection } from "./enemy-pool-data.js";
 export { parseEnemySelection } from "./enemy-pool-data.js";
 
-export const AUTOMATIC_LEVEL_GENERATOR_VERSION = 26;
+export const AUTOMATIC_LEVEL_GENERATOR_VERSION = 28;
 export const AUTOMATIC_LEVEL_GENERATOR_ID = "automatic-level-generator-9";
 
 const GENERATED_PLAYER_BODY_WIDTH = 34;
 const GENERATED_STATIC_HEADROOM = 112;
-export const GENERATED_POWER_UP_SPACING_PX = 5000;
+export const GENERATED_MINIMUM_VERTICAL_PLATFORM_SEPARATION = 180;
+export const GENERATED_MOVING_PLATFORM_RIDER_CLEARANCE = 180;
+export const GENERATED_POWER_UP_SPACING_PX = 2000;
 
 export const LEVEL_GENERATOR_STAGE_ORDER = Object.freeze([
     "route",
@@ -821,7 +823,7 @@ function buildBasicRewards({
     ];
     const maximumRouteProgress = Math.max(1, ...(route?.nodes || []).filter((node) => node.mandatory).map((node) => Number(node.progress) || 0));
 
-    const addReward = ({ type, support, context, routeNodeId = "", x = support.centerX, overrides = {} }) => {
+    const addReward = ({ type, support, context, routeNodeId = "", x = null, overrides = {} }) => {
         const metadata = metadataByType.get(type);
         const definition = entityCatalog.get(type);
         if (!metadata || !definition || !support) return null;
@@ -837,8 +839,23 @@ function buildBasicRewards({
         const left = support.walkableLeftX + metadata.edgeClearance + halfWidth;
         const right = support.walkableRightX - metadata.edgeClearance - halfWidth;
         if (left > right) return null;
-        const resolvedX = clamp(x, left, right);
         const resolvedY = support.surfaceY - metadata.verticalOffset;
+        let resolvedX = Number.isFinite(Number(x)) ? clamp(Number(x), left, right) : clamp(support.centerX, left, right);
+        if (!Number.isFinite(Number(x)) && metadata.category === "powerUp") {
+            const span = Math.max(0, right - left);
+            const edgeCandidates = rng.shuffle([left, right]);
+            const innerCandidates = rng.shuffle([
+                left + span * 0.25,
+                left + span * 0.75,
+                left + span * 0.5
+            ]);
+            const candidateXs = [...edgeCandidates, ...innerCandidates];
+            const available = candidateXs.find((candidateX) =>
+                !endpointXs.some((endpointX) => Math.abs(candidateX - endpointX) < theme.rewards.endpointExclusionDistance)
+                && !occupiedPositions.some((point) => Math.abs(point.x - candidateX) < theme.rewards.minimumRewardSpacing && Math.abs(point.y - resolvedY) < 180)
+            );
+            if (available !== undefined) resolvedX = available;
+        }
         if (endpointXs.some((endpointX) => Math.abs(resolvedX - endpointX) < theme.rewards.endpointExclusionDistance)) return null;
         if (occupiedPositions.some((point) => Math.abs(point.x - resolvedX) < theme.rewards.minimumRewardSpacing && Math.abs(point.y - resolvedY) < 180)) return null;
         const id = `generated_reward_${String(rewards.length + 1).padStart(3, "0")}_${runId}`;
@@ -999,6 +1016,58 @@ function buildBasicRewards({
             if (entity) {
                 powerUpCount += 1;
                 usedContextualTypes.add(selected.metadata.entityType);
+            }
+        }
+
+        // A one-per-2,000-pixel route can legitimately need more pickups than
+        // there are distinct supports. Long platforms may therefore host a
+        // additional pickups, but only at ordinary reward-spacing intervals.
+        if (powerUpCount < guaranteedPowerUpTarget) {
+            const repeatedSupportSlots = [];
+            const slotSpacing = Math.max(240, theme.rewards.minimumRewardSpacing);
+            const repeatableSupports = supports.filter((support) =>
+                !support.moving
+                && support.role !== "doorSupport"
+                && (support.routeNodeId || support.routeEdgeId)
+            );
+            for (const support of repeatableSupports) {
+                const usableLeft = support.walkableLeftX + 96;
+                const usableRight = support.walkableRightX - 96;
+                if (usableRight < usableLeft) continue;
+                const slotCount = Math.max(1, Math.floor((usableRight - usableLeft) / slotSpacing) + 1);
+                for (let slotIndex = 0; slotIndex < slotCount; slotIndex += 1) {
+                    const x = slotCount === 1
+                        ? (usableLeft + usableRight) * 0.5
+                        : usableLeft + (usableRight - usableLeft) * slotIndex / (slotCount - 1);
+                    repeatedSupportSlots.push({
+                        support,
+                        x,
+                        encounterPenalty: encounterSupportIds.has(support.id) ? 1 : 0,
+                        randomOrder: rng.float()
+                    });
+                }
+            }
+            repeatedSupportSlots.sort((left, right) =>
+                left.encounterPenalty - right.encounterPenalty
+                || left.randomOrder - right.randomOrder
+            );
+            for (const slot of repeatedSupportSlots) {
+                if (powerUpCount >= guaranteedPowerUpTarget) break;
+                const unused = powerUpMetadata.filter((metadata) => !usedContextualTypes.has(metadata.entityType));
+                const pool = unused.length ? unused : powerUpMetadata;
+                const selected = weightedRandomChoice(pool.map((metadata) => ({ metadata, weight: metadata.weight })), rng);
+                if (!selected) break;
+                const entity = addReward({
+                    type: selected.metadata.entityType,
+                    support: slot.support,
+                    x: slot.x,
+                    context: slot.support.secondaryPlatform ? "openUpperPerch" : "openRoute",
+                    routeNodeId: slot.support.routeNodeId
+                });
+                if (entity) {
+                    powerUpCount += 1;
+                    usedContextualTypes.add(selected.metadata.entityType);
+                }
             }
         }
     }
@@ -1897,6 +1966,54 @@ function rectanglesOverlapWithArea(first, second, epsilon = 0.01) {
         && Math.min(first.bottom, second.bottom) - Math.max(first.top, second.top) > epsilon;
 }
 
+function generatedBlockableSupportRect(support) {
+    const visual = generatedSupportVisualRect(support);
+    return {
+        left: visual.left,
+        right: visual.right,
+        top: finiteNumber(support?.surfaceY, visual.top),
+        bottom: visual.bottom
+    };
+}
+
+export function generatedMovingPlatformRiderEnvelope(support, movement = {}) {
+    const endOffsetX = finiteNumber(movement?.endOffsetX, 0);
+    const endOffsetY = finiteNumber(movement?.endOffsetY, 0);
+    const startLeft = finiteNumber(support?.centerX, 0) - finiteNumber(support?.width, 0) * 0.5;
+    const startRight = finiteNumber(support?.centerX, 0) + finiteNumber(support?.width, 0) * 0.5;
+    const startSurfaceY = finiteNumber(support?.surfaceY, 0);
+    const platformDepth = finiteNumber(support?.height, 0) * (1 - finiteNumber(support?.surfaceYRatio, 0));
+    const sideAllowance = GENERATED_PLAYER_BODY_WIDTH * 0.5;
+    return {
+        left: roundCoordinate(Math.min(startLeft, startLeft + endOffsetX) - sideAllowance),
+        right: roundCoordinate(Math.max(startRight, startRight + endOffsetX) + sideAllowance),
+        top: roundCoordinate(Math.min(startSurfaceY, startSurfaceY + endOffsetY) - GENERATED_MOVING_PLATFORM_RIDER_CLEARANCE),
+        bottom: roundCoordinate(Math.max(startSurfaceY, startSurfaceY + endOffsetY) + platformDepth)
+    };
+}
+
+function generatedMovingPlatformVisualSweepRect(support, movement = {}) {
+    const start = generatedSupportVisualRect(support);
+    const endOffsetX = finiteNumber(movement?.endOffsetX, 0);
+    const endOffsetY = finiteNumber(movement?.endOffsetY, 0);
+    return {
+        left: Math.min(start.left, start.left + endOffsetX),
+        right: Math.max(start.right, start.right + endOffsetX),
+        top: Math.min(start.top, start.top + endOffsetY),
+        bottom: Math.max(start.bottom, start.bottom + endOffsetY)
+    };
+}
+
+export function generatedMovingPlatformCrushHazards({ support, movement = {}, supports = [] } = {}) {
+    if (!support) return [];
+    const envelope = generatedMovingPlatformRiderEnvelope(support, movement);
+    return supports.filter((other) => other
+        && other.id !== support.id
+        && !other.moving
+        && other.collisionMode !== "oneWay"
+        && rectanglesOverlapWithArea(envelope, generatedBlockableSupportRect(other), 1));
+}
+
 function generatedGroundEnemyBodyRect(x, y, definition) {
     return {
         left: finiteNumber(x, 0) - finiteNumber(definition?.defaultSize?.w, 0) * 0.5,
@@ -2689,6 +2806,8 @@ export function validatePlayableEmptyCavern(value = {}) {
         recoveryUpperGapCoverageCount: 0,
         movingThinAssetViolationCount: 0,
         movingShaftIntrusionCount: 0,
+        movingPlatformCrushHazardCount: 0,
+        movingPlatformSweepOverlapCount: 0,
         verticalMovingPlatformCount: 0,
         staticVerticalIntermediateCount: 0,
         horizontalJumpGapCount: 0,
@@ -2716,6 +2835,7 @@ export function validatePlayableEmptyCavern(value = {}) {
         protectedLowerGapCount: 0,
         unprotectedLowerGapCount: 0,
         minimumStaticHeadroom: Infinity,
+        minimumVerticalPlatformSeparation: Infinity,
         unprotectedUpperGapCount: 0,
         maxMandatoryGap: 0,
         maxMandatoryRise: 0,
@@ -2896,8 +3016,8 @@ export function validatePlayableEmptyCavern(value = {}) {
                 const undersideY = support.surfaceY + support.height * (1 - support.surfaceYRatio);
                 const rocketClearance = groundParent.surfaceY - undersideY;
                 metrics.minimumUpperLaneRocketClearance = Math.min(metrics.minimumUpperLaneRocketClearance, rocketClearance);
-                if (rocketClearance < 170) {
-                    errors.push(`Upper platform “${support.id}” leaves only ${roundCoordinate(rocketClearance)} units for rockets to turn beneath it.`);
+                if (rocketClearance < GENERATED_MINIMUM_VERTICAL_PLATFORM_SEPARATION) {
+                    errors.push(`Upper platform “${support.id}” leaves only ${roundCoordinate(rocketClearance)} units beneath it; generated stacked platforms need at least ${GENERATED_MINIMUM_VERTICAL_PLATFORM_SEPARATION}.`);
                 }
             }
             if (metrics.upperAccessPlatformCount < metrics.secondaryPlatformCount) {
@@ -3022,12 +3142,23 @@ export function validatePlayableEmptyCavern(value = {}) {
                 errors.push(`Platforms “${first.id}” and “${second.id}” visually overlap at different walking heights; separate the step or align the surfaces.`);
             }
             if (overlap <= 24) continue;
+            const surfaceSeparation = Math.abs(first.surfaceY - second.surfaceY);
+            const movingPair = Boolean(first.moving || second.moving);
+            if (!movingPair && surfaceSeparation > 1) {
+                metrics.minimumVerticalPlatformSeparation = Math.min(
+                    metrics.minimumVerticalPlatformSeparation,
+                    surfaceSeparation
+                );
+                if (surfaceSeparation < GENERATED_MINIMUM_VERTICAL_PLATFORM_SEPARATION - 0.5) {
+                    errors.push(`Platforms “${first.id}” and “${second.id}” are vertically separated by only ${roundCoordinate(surfaceSeparation)}; overlapping generated platforms need at least ${GENERATED_MINIMUM_VERTICAL_PLATFORM_SEPARATION}.`);
+                }
+            }
             const upper = first.surfaceY <= second.surfaceY ? first : second;
             const lower = upper === first ? second : first;
             const upperBottom = upper.surfaceY + upper.height * (1 - upper.surfaceYRatio);
             const bodyClearance = lower.surfaceY - upperBottom;
             const includesRecoveryPlatform = first.role === "recoveryPlatform" || second.role === "recoveryPlatform";
-            const includesMovingPlatform = Boolean(first.moving || second.moving);
+            const includesMovingPlatform = movingPair;
             const connectedContinuousGround = (
                 (first.role === "runAndGunGround" && second.role === "runAndGunGround")
                 || (connectedPair && first.runAndGunGround && second.runAndGunGround)
@@ -3059,21 +3190,27 @@ export function validatePlayableEmptyCavern(value = {}) {
         }
     }
     if (!Number.isFinite(metrics.minimumStaticHeadroom)) metrics.minimumStaticHeadroom = 0;
+    if (!Number.isFinite(metrics.minimumVerticalPlatformSeparation)) metrics.minimumVerticalPlatformSeparation = 0;
+    else metrics.minimumVerticalPlatformSeparation = roundCoordinate(metrics.minimumVerticalPlatformSeparation);
 
     for (const moving of supports.filter((support) => support.moving && support.movementShaft && support.strictShaftClearance)) {
-        const shaft = moving.movementShaft;
+        const placement = placementById.get(moving.placementId);
+        const movement = placement?.movement || {};
+        const riderEnvelope = generatedMovingPlatformRiderEnvelope(moving, movement);
+        const visualSweep = generatedMovingPlatformVisualSweepRect(moving, movement);
         for (const other of supports) {
-            if (other.id === moving.id || [moving.movementStartSupportId, moving.movementEndSupportId].includes(other.id) || other.moving) continue;
-            const otherRect = {
-                left: other.centerX - other.width * 0.5,
-                right: other.centerX + other.width * 0.5,
-                top: other.surfaceY - other.height * other.surfaceYRatio,
-                bottom: other.surfaceY + other.height * (1 - other.surfaceYRatio)
-            };
-            if (Math.min(shaft.right, otherRect.right) - Math.max(shaft.left, otherRect.left) > 1
-                && Math.min(shaft.bottom, otherRect.bottom) - Math.max(shaft.top, otherRect.top) > 1) {
+            if (other.id === moving.id || other.moving) continue;
+            if (other.collisionMode === "oneWay") {
+                if (rectanglesOverlapWithArea(visualSweep, generatedSupportVisualRect(other), 1)) {
+                    metrics.movingPlatformSweepOverlapCount += 1;
+                    errors.push(`Moving platform “${moving.id}” sweeps through one-way support “${other.id}”.`);
+                }
+                continue;
+            }
+            if (rectanglesOverlapWithArea(riderEnvelope, generatedBlockableSupportRect(other), 1)) {
                 metrics.movingShaftIntrusionCount += 1;
-                errors.push(`Moving-platform shaft “${moving.id}” is obstructed by support “${other.id}”.`);
+                metrics.movingPlatformCrushHazardCount += 1;
+                errors.push(`Moving-platform rider corridor “${moving.id}” is obstructed by blockable support “${other.id}”.`);
             }
         }
     }
@@ -3371,6 +3508,52 @@ function buildStandardTraversal({
             const movableDirection = movable === toSupport ? direction : -direction;
             moveSupportCenter(movable, movable.centerX + movableDirection * (desiredDistance - currentDistance));
             movable.routeOffsetX = roundCoordinate(movable.centerX - finiteNumber(nodeById.get(movable.routeNodeId)?.x, movable.centerX));
+        }
+    }
+
+    if (useRunAndGunRoute) {
+        const horizontalDirectionAtSupport = (edge, supportId, incoming) => {
+            if (!edge || !["left", "right"].includes(edge.intendedDirection)) return 0;
+            const support = nodeSupport.get(supportId);
+            const other = nodeSupport.get(incoming ? edge.from : edge.to);
+            if (!support || !other) return 0;
+            return Math.sign(other.centerX - support.centerX);
+        };
+        const requiredLiftJunctionGap = theme.traversal.intermediateWidth * 1.02
+            + GENERATED_PLAYER_BODY_WIDTH
+            + 8;
+        for (const edge of edges.filter((candidate) => candidate.mandatory !== false
+            && (candidate.intendedDirection === "climb" || candidate.intendedDirection === "descend"))) {
+            const startSupport = nodeSupport.get(edge.from);
+            const endSupport = nodeSupport.get(edge.to);
+            if (!startSupport || !endSupport) continue;
+            const incoming = edges.find((candidate) => candidate.mandatory !== false && candidate.to === edge.from);
+            const outgoing = edges.find((candidate) => candidate.mandatory !== false && candidate.from === edge.to);
+            const incomingOccupiedSide = horizontalDirectionAtSupport(incoming, edge.from, true);
+            const outgoingOccupiedSide = horizontalDirectionAtSupport(outgoing, edge.to, false);
+            const startFreeSide = incomingOccupiedSide ? -incomingOccupiedSide : 0;
+            const endFreeSide = outgoingOccupiedSide ? -outgoingOccupiedSide : 0;
+            if (!startFreeSide || !endFreeSide || startFreeSide === endFreeSide) continue;
+
+            const leftSupport = startFreeSide > 0 ? startSupport : endSupport;
+            const rightSupport = leftSupport === startSupport ? endSupport : startSupport;
+            const currentGap = generatedSupportVisualRect(rightSupport).left - generatedSupportVisualRect(leftSupport).right;
+            if (currentGap >= requiredLiftJunctionGap) continue;
+            const adjustment = (requiredLiftJunctionGap - currentGap) * 0.5;
+            const startProgress = finiteNumber(nodeById.get(edge.from)?.progress, 0);
+            const endProgress = finiteNumber(nodeById.get(edge.to)?.progress, startProgress + 1);
+            const priorDirection = leftSupport === startSupport ? -1 : 1;
+            for (const node of nodes.filter((candidate) => candidate.mandatory !== false)) {
+                const support = nodeSupport.get(node.id);
+                if (!support) continue;
+                const progress = finiteNumber(node.progress, 0);
+                let deltaX = 0;
+                if (progress <= startProgress) deltaX = priorDirection * adjustment;
+                else if (progress >= endProgress) deltaX = -priorDirection * adjustment;
+                if (!deltaX) continue;
+                moveSupportCenter(support, support.centerX + deltaX);
+                support.verticalJunctionOffsetX = roundCoordinate(finiteNumber(support.verticalJunctionOffsetX, 0) + deltaX);
+            }
         }
     }
 
@@ -3767,46 +3950,49 @@ function buildStandardTraversal({
             moveSupportCenter(support, centerX);
             chosenCenterX = support.centerX;
         } else {
-            const shaftVerticalTop = Math.min(startSupport.surfaceY, endSupport.surfaceY) + 44;
-            const shaftVerticalBottom = Math.max(startSupport.surfaceY, endSupport.surfaceY) - 44;
-            const shaftSideClearance = GENERATED_PLAYER_BODY_WIDTH * 0.5 + 18;
+            const movement = {
+                endOffsetX: 0,
+                endOffsetY: roundCoordinate(endSupport.surfaceY - startSupport.surfaceY)
+            };
             const candidateCenters = [];
+            const startVisual = generatedSupportVisualRect(startSupport);
+            const endVisual = generatedSupportVisualRect(endSupport);
+            if (startVisual.left > endVisual.right) candidateCenters.push((startVisual.left + endVisual.right) * 0.5);
+            if (endVisual.left > startVisual.right) candidateCenters.push((endVisual.left + startVisual.right) * 0.5);
             for (const side of [preferredSide, -preferredSide]) {
-                const anchor = side > 0
+                const sharedAnchor = side > 0
                     ? Math.min(startSupport.walkableRightX, endSupport.walkableRightX) + support.width * 0.5 - support.walkableLeftInset
                     : Math.max(startSupport.walkableLeftX, endSupport.walkableLeftX) - (support.width * 0.5 - support.walkableRightInset);
-                for (const gap of [38, 54, 72, 92, 116, 142, 170, 202, 238]) candidateCenters.push(anchor + side * gap);
-            }
-            for (const centerX of candidateCenters) {
-                moveSupportCenter(support, centerX);
-                const shaft = {
-                    left: support.centerX - support.width * 0.5 - shaftSideClearance,
-                    right: support.centerX + support.width * 0.5 + shaftSideClearance,
-                    top: shaftVerticalTop,
-                    bottom: shaftVerticalBottom,
-                    startSupportId: startSupport.id,
-                    endSupportId: endSupport.id
-                };
-                const blocked = supports.some((other) => {
-                    if ([support.id, startSupport.id, endSupport.id].includes(other.id) || other.moving) return false;
-                    const otherLeft = other.centerX - other.width * 0.5;
-                    const otherRight = other.centerX + other.width * 0.5;
-                    const otherTop = other.surfaceY - other.height * other.surfaceYRatio;
-                    const otherBottom = otherTop + other.height;
-                    return Math.min(shaft.right, otherRight) - Math.max(shaft.left, otherLeft) > 1
-                        && Math.min(shaft.bottom, otherBottom) - Math.max(shaft.top, otherTop) > 1;
-                });
-                if (!blocked) {
-                    chosenCenterX = support.centerX;
-                    chosenShaft = shaft;
-                    break;
+                for (const gap of [38, 54, 72, 92, 116, 142, 170, 202, 238, 286]) {
+                    candidateCenters.push(sharedAnchor + side * gap);
                 }
+            }
+            for (const centerX of [...new Set(candidateCenters.map((value) => roundCoordinate(value)))]) {
+                moveSupportCenter(support, centerX);
+                const platformAtEnd = { ...support, surfaceY: endSupport.surfaceY };
+                const board = classifyTraversalTransition(startSupport, support, edge, theme);
+                const exit = classifyTraversalTransition(platformAtEnd, endSupport, edge, theme);
+                if (!board.valid || !exit.valid
+                    || board.gap > theme.traversal.mandatoryGap
+                    || exit.gap > theme.traversal.mandatoryGap) continue;
+                const riderEnvelope = generatedMovingPlatformRiderEnvelope(support, movement);
+                if (generatedMovingPlatformCrushHazards({ support, movement, supports }).length) continue;
+                if (movingShaftReservations.some((shaft) => rectanglesOverlapWithArea(riderEnvelope, shaft, 4))) continue;
+                const visualSweep = generatedMovingPlatformVisualSweepRect(support, movement);
+                const crossesOneWay = supports.some((other) => other.id !== support.id
+                    && !other.moving
+                    && other.collisionMode === "oneWay"
+                    && rectanglesOverlapWithArea(visualSweep, generatedSupportVisualRect(other), 1));
+                if (crossesOneWay) continue;
+                chosenCenterX = support.centerX;
+                chosenShaft = riderEnvelope;
+                break;
             }
             if (!Number.isFinite(chosenCenterX) || !chosenShaft) {
                 const placement = placements.find((candidate) => candidate.id === support.placementId);
                 supports.splice(supports.indexOf(support), 1);
                 if (placement) placements.splice(placements.indexOf(placement), 1);
-                throw new Error(`Vertical edge “${edge.id}” cannot reserve a collision-safe moving-platform shaft.`);
+                throw new Error(`Vertical edge “${edge.id}” cannot reserve a rider-safe moving-platform shaft clear of blockable geometry.`);
             }
             moveSupportCenter(support, chosenCenterX);
             support.movementShaft = {
@@ -3844,7 +4030,10 @@ function buildStandardTraversal({
         };
         placement.generationRole = "verticalMovingPlatform";
         placement.routeEdgeDirection = edge.intendedDirection;
-        if (support.movementShaft) placement.movementShaft = { ...support.movementShaft };
+        if (support.movementShaft) {
+            placement.movementShaft = { ...support.movementShaft };
+            placement.movementSafetyEnvelope = { ...support.movementShaft };
+        }
 
         const platformAtEnd = {
             ...support,
@@ -3887,7 +4076,13 @@ function buildStandardTraversal({
         throw new Error(`Mandatory route edge “${edge.id}” has unsupported direction “${edge.intendedDirection}”.`);
     };
 
-    for (const edge of edges) processEdge(edge);
+    if (useRunAndGunRoute) {
+        const verticalEdge = (edge) => edge.intendedDirection === "climb" || edge.intendedDirection === "descend";
+        for (const edge of edges.filter((candidate) => !verticalEdge(candidate))) processEdge(edge);
+        for (const edge of edges.filter(verticalEdge)) processEdge(edge);
+    } else {
+        for (const edge of edges) processEdge(edge);
+    }
 
     const secondaryPlatforms = [];
     const upperAccessPlatforms = [];
@@ -3918,6 +4113,8 @@ function buildStandardTraversal({
             };
             const overlapX = Math.min(candidate.right, otherRect.right) - Math.max(candidate.left, otherRect.left);
             if (overlapX <= 24) continue;
+            const surfaceSeparation = Math.abs(surfaceY - other.surfaceY);
+            if (surfaceSeparation > 1 && surfaceSeparation < GENERATED_MINIMUM_VERTICAL_PLATFORM_SEPARATION) return true;
             if (rectIntersects(candidate, otherRect, selection.asset.collisionMode === "oneWay" ? 6 : 24)) return true;
             if (!useRunAndGunRoute) {
                 const clearance = candidate.bottom <= otherRect.top
@@ -4087,15 +4284,8 @@ function buildStandardTraversal({
                         { collisionMode: "oneWay" }
                     );
                     if (!accessSelection) continue;
-                    const accessRise = clamp(rng.range(100, 108), 96, theme.traversal.mandatoryRise - 4);
-                    const maximumUpperStepRise = theme.traversal.mandatoryRise * 1.18 - 3;
-                    const lowerVisualDepth = selection.height * (1 - selection.asset.surfaceYRatio);
-                    const desiredRocketClearance = wideUpperCavern ? 188 : 176;
-                    const upperStepRise = clamp(
-                        desiredRocketClearance + lowerVisualDepth - accessRise,
-                        104,
-                        maximumUpperStepRise
-                    );
+                    const accessRise = GENERATED_MINIMUM_VERTICAL_PLATFORM_SEPARATION;
+                    const upperStepRise = GENERATED_MINIMUM_VERTICAL_PLATFORM_SEPARATION;
                     const accessSurfaceY = roundCoordinate(parent.surfaceY - accessRise);
                     const surfaceY = roundCoordinate(accessSurfaceY - upperStepRise);
                     const halfWalkable = Math.max(1, selection.width * 0.5 - selection.width * selection.asset.walkableLeftInsetRatio);
@@ -4209,7 +4399,11 @@ function buildStandardTraversal({
                 - Math.max(centerX - width * 0.5, other.centerX - other.width * 0.5);
             if (overlap <= 24) continue;
             const otherBottom = other.surfaceY + other.height * (1 - other.surfaceYRatio);
-            surfaceY = Math.max(surfaceY, otherBottom + GENERATED_STATIC_HEADROOM + 2);
+            surfaceY = Math.max(
+                surfaceY,
+                otherBottom + GENERATED_STATIC_HEADROOM + 2,
+                other.surfaceY + GENERATED_MINIMUM_VERTICAL_PLATFORM_SEPARATION
+            );
         }
         return roundCoordinate(surfaceY);
     };
@@ -4443,7 +4637,8 @@ function buildStandardTraversal({
                     const otherBottom = other.surfaceY + other.height * (1 - other.surfaceYRatio);
                     sharedLowerBaseY = Math.max(
                         sharedLowerBaseY,
-                        otherBottom + GENERATED_STATIC_HEADROOM + 2 - spec.progressionIndex * slopeStep
+                        otherBottom + GENERATED_STATIC_HEADROOM + 2 - spec.progressionIndex * slopeStep,
+                        other.surfaceY + GENERATED_MINIMUM_VERTICAL_PLATFORM_SEPARATION - spec.progressionIndex * slopeStep
                     );
                 }
             }
@@ -4715,7 +4910,9 @@ function classifyTraversalTransition(from, to, edge, theme) {
     const exposedLandingWidth = Math.max(0, fromLeft - toLeft, toRight - fromRight);
     const mandatory = edge.mandatory !== false;
     const gapLimit = mandatory ? theme.traversal.mandatoryGap : theme.traversal.mandatoryGap * 1.28;
-    const riseLimit = mandatory ? theme.traversal.mandatoryRise : theme.traversal.mandatoryRise * 1.18;
+    const riseLimit = mandatory
+        ? theme.traversal.mandatoryRise
+        : Math.max(theme.traversal.mandatoryRise * 1.18, GENERATED_MINIMUM_VERTICAL_PLATFORM_SEPARATION);
     const dropLimit = mandatory ? theme.traversal.mandatoryDrop : theme.traversal.mandatoryDrop * 1.2;
     const requiredExposedLandingWidth = mandatory ? 56 : GENERATED_PLAYER_BODY_WIDTH + 8;
     const oneWayPassThrough = (to.collisionMode === "oneWay" && rise > 0)
@@ -4723,7 +4920,10 @@ function classifyTraversalTransition(from, to, edge, theme) {
     const verticalClearanceValid = oneWayPassThrough
         || Math.max(rise, drop) <= 48
         || exposedLandingWidth >= requiredExposedLandingWidth;
-    const returnLimit = theme.traversal.mandatoryRise * 1.18;
+    const returnLimit = Math.max(
+        theme.traversal.mandatoryRise * 1.18,
+        GENERATED_MINIMUM_VERTICAL_PLATFORM_SEPARATION
+    );
     const valid = gap <= gapLimit
         && rise <= riseLimit
         && drop <= dropLimit
@@ -6098,7 +6298,7 @@ function buildThePath74RouteCandidate({ theme, settings, rng, attempt }) {
 function buildMostlyHorizontalRouteCandidate({ theme, settings, rng, attempt }) {
     const gridPlan = buildMostlyHorizontalGridPlan({ settings, rng });
     const cellSizeX = clamp(theme.route.nodeSpacing * 0.5, 420, 500);
-    const cellSizeY = clamp(theme.route.verticalStep * 0.68, 96, 136);
+    const cellSizeY = clamp(theme.route.verticalStep, GENERATED_MINIMUM_VERTICAL_PLATFORM_SEPARATION, 220);
     const rooms = chooseThePath74Rooms(gridPlan.path, rng).map((room) => ({
         ...room,
         semiAxisX: clamp(room.semiAxisX + 1, 3, 5),

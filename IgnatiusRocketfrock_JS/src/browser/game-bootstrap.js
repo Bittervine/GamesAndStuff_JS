@@ -1633,7 +1633,7 @@ function filteredDebugEvents(events, filterText = "") {
 function setupTuningControls() {
     const controls = [
         { key: "gravity", label: "Gravity", min: 800, max: 2200, step: 10 },
-        { key: "jumpVelocity", label: "Jump velocity", min: -1050, max: -450, step: 5 },
+        { key: "ordinaryJumpHeight", label: "Jump height", min: 80, max: 400, step: 5 },
         { key: "maxRunSpeed", label: "Max run speed", min: 180, max: 620, step: 5 },
         { key: "groundAcceleration", label: "Ground accel", min: 800, max: 5000, step: 25 },
         { key: "groundFriction", label: "Ground friction", min: 400, max: 4500, step: 25 },

@@ -171,6 +171,8 @@
             </tbody>
         </table>
 
+        <p>Ignatius’s ordinary ground jump rises exactly 200 world pixels. The launch speed is derived from gravity, so the designed apex does not change with display or simulation frame rate; rocket-assisted movement remains variable.</p>
+
         <h2>Minimap</h2>
         <p>The upper-left score-and-bars panel and the upper-right minimap scale down together whenever the screen is too small to contain them. If the minimap is hidden, the score panel can use the released space and remain larger. The minimap matches the rendered height of the score panel, never grows wider than it, and shows the cave outline, horizontal platform surfaces, the current camera window, Ignatius, and the exit marker. Click or tap either upper panel to open the pause menu. The minimap can be hidden in Settings; the score panel and <code>Escape</code> still open the menu.</p>
 
@@ -186,7 +188,9 @@
         <h2>Power-ups</h2>
         <ul>
             <li>Collected power-ups disappear and return after 60 seconds, so it can be worthwhile to revisit an earlier part of a level.</li>
-            <li>Automatically generated levels aim for roughly one genuine power-up per 5,000 pixels of route travel at the default Reward density.</li>
+            <li>Automatically generated levels aim for roughly one genuine power-up per 2,000 pixels of route travel at the default Reward density.</li>
+            <li>Generated static platforms that overlap horizontally keep their walking surfaces at least 180 pixels apart vertically.</li>
+            <li>Generated vertical lifts reserve a full rider-height corridor and dock beside solid yellow platforms rather than carrying riders into their undersides.</li>
             <li>The top-left Power bar shows the highest-priority active effect and its remaining duration. Shield is shown ahead of Speed Shot, which is shown ahead of wrench effects; all compatible effects remain active at the same time.</li>
             <li><strong>Shield</strong> lasts 5 seconds and blocks all ordinary incoming damage. The pickup glows blue, and Ignatius flashes blue while protected. The blue flash takes priority over the red critical-health flash.</li>
             <li><strong>Speed Shot</strong> lasts 8 seconds. It doubles the rocket firing rate and halves the fuel cost of each launch.</li>

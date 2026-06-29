@@ -85,6 +85,10 @@ import {
     generateAutomaticLevelDraft,
     generateAutomaticLevelRoute,
     generatedPowerUpTargetForRoute,
+    generatedMovingPlatformCrushHazards,
+    generatedMovingPlatformRiderEnvelope,
+    GENERATED_MINIMUM_VERTICAL_PLATFORM_SEPARATION,
+    GENERATED_MOVING_PLATFORM_RIDER_CLEARANCE,
     GENERATED_POWER_UP_SPACING_PX,
     generatorStageStreamName,
     incrementGeneratorStageRevision,
@@ -268,6 +272,7 @@ import {
 import {
     FIXED_DT,
     DEFAULT_TUNING,
+    ordinaryJumpVelocity,
     createInitialGameState,
     createInputFrame,
     createSubstepInputFrame,
@@ -4771,6 +4776,41 @@ function testAutomaticLevelGeneratorRouteFoundation() {
     assert.ok(editorHtml.includes("automaticGeneratedRecord") && editorHtml.includes("manual content and the previous level shell were preserved"), "clear-generated behavior should distinguish generated records from manual content");
 }
 
+function testGeneratedMovingPlatformRiderClearance() {
+    const moving = {
+        id: "synthetic_lift",
+        centerX: 0,
+        surfaceY: 500,
+        width: 200,
+        height: 40,
+        surfaceYRatio: 0.5,
+        collisionMode: "oneWay"
+    };
+    const movement = { endOffsetX: 0, endOffsetY: -300 };
+    const envelope = generatedMovingPlatformRiderEnvelope(moving, movement);
+    assert.equal(envelope.top, 200 - GENERATED_MOVING_PLATFORM_RIDER_CLEARANCE, "the lift corridor should preserve a full rider-height pocket above the highest stop");
+    assert.equal(envelope.bottom, 520, "the lift corridor should include the moving platform body below its lowest stop");
+    assert.equal(envelope.left, -117, "the lift corridor should include half a wizard of side clearance");
+    assert.equal(envelope.right, 117, "the lift corridor should include half a wizard of side clearance");
+
+    const overheadBlockable = {
+        id: "yellow_ceiling",
+        centerX: 0,
+        surfaceY: 100,
+        width: 620,
+        height: 100,
+        surfaceYRatio: 0.1,
+        collisionMode: "blockable"
+    };
+    const hazards = generatedMovingPlatformCrushHazards({ support: moving, movement, supports: [moving, overheadBlockable] });
+    assert.deepEqual(hazards.map((support) => support.id), ["yellow_ceiling"], "a lift that carries riders beneath a yellow platform should be rejected as a crush hazard");
+
+    const overheadOneWay = { ...overheadBlockable, id: "green_line", collisionMode: "oneWay" };
+    assert.equal(generatedMovingPlatformCrushHazards({ support: moving, movement, supports: [moving, overheadOneWay] }).length, 0, "green one-way lines should not be treated as crushing ceilings");
+    const sidePlatform = { ...overheadBlockable, id: "side_dock", centerX: 450 };
+    assert.equal(generatedMovingPlatformCrushHazards({ support: moving, movement, supports: [moving, sidePlatform] }).length, 0, "a yellow platform beside the lift should remain a valid docking platform");
+}
+
 function testAutomaticLevelGeneratorVariantCompatibility() {
     const rawThemes = ["earth-cavern", "ice-cavern"].map((themeId) =>
         JSON.parse(readFileSync(new URL(`../assets/level-generator-themes/${themeId}.json`, import.meta.url), "utf8"))
@@ -4847,9 +4887,12 @@ function testAutomaticLevelGeneratorVariantCompatibility() {
                         assert.equal(traversalMetrics.misalignedPlatformOverlapCount, 0, `${key} should overlap solid panels only when their walking surfaces align`);
                         assert.ok(traversalMetrics.secondaryPlatformCoverageRatio >= 0.245, `${key} should cover roughly one quarter of the route with distributed upper platforms`);
                         assert.equal(traversalMetrics.movingShaftIntrusionCount, 0, `${key} should keep each automatic lift shaft clear of static platforms`);
+                        assert.equal(traversalMetrics.movingPlatformCrushHazardCount, 0, `${key} should never carry riders into yellow blockable geometry`);
+                        assert.equal(traversalMetrics.movingPlatformSweepOverlapCount, 0, `${key} should keep the moving lift artwork clear of green one-way platforms throughout its travel`);
                         assert.ok(traversalMetrics.secondaryPlatformCount >= 1, `${key} should keep at least one raised upper platform available for combat or rewards`);
                         assert.ok(traversalMetrics.upperAccessPlatformCount >= traversalMetrics.secondaryPlatformCount, `${key} should give every high upper platform its own intermediate access step`);
-                        assert.ok(traversalMetrics.minimumUpperLaneRocketClearance >= 170, `${key} should leave enough open air beneath upper platforms for homing rockets to turn`);
+                        assert.ok(traversalMetrics.minimumUpperLaneRocketClearance >= GENERATED_MINIMUM_VERTICAL_PLATFORM_SEPARATION, `${key} should leave at least 180 pixels of open air beneath upper platforms`);
+                        assert.ok(traversalMetrics.minimumVerticalPlatformSeparation >= GENERATED_MINIMUM_VERTICAL_PLATFORM_SEPARATION, `${key} should keep vertically stacked platform surfaces at least 180 pixels apart`);
                         const oneWaySupports = draft.generation.traversal.supports.filter((support) => support.collisionMode === "oneWay");
                         for (const oneWay of oneWaySupports) {
                             const oneWayTop = oneWay.surfaceY - oneWay.height * oneWay.surfaceYRatio;
@@ -4892,6 +4935,31 @@ function testAutomaticLevelGeneratorVariantCompatibility() {
             }
         }
     }
+
+    const defaultWideHorizontal = generateAutomaticLevelDraft({
+        theme: themes[0],
+        assetCatalog,
+        seed: "rocketfrock",
+        settings: {
+            ...themes[0].defaults,
+            length: "standard",
+            enemyDensity: 0,
+            rewardDensity: 0
+        },
+        implementations: {
+            ...themes[0].implementations,
+            route: "mostly-horizontal-route-v1",
+            cavern: "wide-upper-contour-cavern-v1",
+            encounters: "not-generated-yet",
+            rewards: "not-generated-yet",
+            decoration: "suppressed-by-theme"
+        },
+        availableEnemyIds: []
+    });
+    assert.equal(defaultWideHorizontal.generation.validation.valid, true, "the default Mostly horizontal + Wide seed should remain valid after reserving lift rider corridors");
+    assert.equal(defaultWideHorizontal.generation.validation.metrics.movingPlatformCrushHazardCount, 0, "the default Mostly horizontal + Wide seed should contain no lift crush corridor");
+    assert.equal(defaultWideHorizontal.generation.validation.metrics.movingPlatformSweepOverlapCount, 0, "the default Mostly horizontal + Wide seed should keep lift travel visually separate from green platforms");
+    assert.ok(defaultWideHorizontal.generation.traversal.supports.filter((support) => support.moving && support.movementAxis === "vertical").every((support) => support.strictShaftClearance), "every vertical lift in the default Mostly horizontal route should reserve a strict rider-safe corridor");
 
     const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     assert.ok(editorHtml.includes("Generator variants") && editorHtml.includes('data-generator-stage="route"') && editorHtml.includes('data-generator-stage="cavern"'), "the editor should expose only meaningful route and cavern variants");
@@ -5062,6 +5130,8 @@ function testAutomaticLevelGeneratorEncounters() {
     const defaultBats = defaultHorizontalWide.entities.filter((entity) => entity.enemyCatalogId === "enemy_005");
     assert.ok(defaultBats.length >= 2, "the default Mostly horizontal + Wide seed should exercise a Bombing Bat group");
     assert.equal(defaultHorizontalWide.generation.validation.metrics.platformEnemyIntrusionCount, 0, "the default Mostly horizontal + Wide seed should spawn every bat clear of platform artwork");
+    assert.equal(defaultHorizontalWide.generation.validation.metrics.movingPlatformCrushHazardCount, 0, "the default Mostly horizontal + Wide seed should never place yellow geometry inside a lift rider corridor");
+    assert.equal(defaultHorizontalWide.generation.validation.metrics.movingPlatformSweepOverlapCount, 0, "the default Mostly horizontal + Wide seed should keep lift travel clear of green one-way platforms");
     const defaultSupportById = new Map(defaultHorizontalWide.generation.traversal.supports.map((support) => [support.id, support]));
     for (const transition of defaultHorizontalWide.generation.traversal.transitions.filter((record) => record.spacingStyle === "runAndGunGround")) {
         const from = defaultSupportById.get(transition.fromSupportId);
@@ -5202,11 +5272,11 @@ function testGeneratedPowerUpSpacingTarget() {
             { id: "d", x: 9000, y: 12000, progress: 3, mandatory: true }
         ]
     };
-    assert.equal(GENERATED_POWER_UP_SPACING_PX, 5000, "generated power-up density should be based on one pickup per 5,000 route pixels");
-    assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 0.38 }), 3, "15,000 pixels of default-density route should target three power-ups");
+    assert.equal(GENERATED_POWER_UP_SPACING_PX, 2000, "generated power-up density should be based on one pickup per 2,000 route pixels");
+    assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 0.38 }), 8, "15,000 pixels of default-density route should target about eight power-ups");
     assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 0 }), 0, "zero reward density should still disable generated power-ups completely");
-    assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 0.1 }), 1, "low nonzero reward density should retain a restrained pickup target");
-    assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 1 }), 5, "maximum reward density should raise but cap the route-scaled pickup target");
+    assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 0.1 }), 2, "low nonzero reward density should retain a restrained pickup target");
+    assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 1 }), 14, "maximum reward density should scale upward while retaining the density multiplier cap");
 }
 
 
@@ -7581,6 +7651,31 @@ function testJumpTransition() {
     assert.ok(state.debug.lastEvents.some((event) => event.type === "PLAYER_JUMPED"), "jump event should be logged");
 }
 
+function testOrdinaryJumpHeightIsExactAndGravityDerived() {
+    assert.equal(DEFAULT_TUNING.ordinaryJumpHeight, 200, "the ordinary jump should be authored directly as 200 pixels");
+    approx(
+        DEFAULT_TUNING.jumpVelocity,
+        ordinaryJumpVelocity(DEFAULT_TUNING.gravity, DEFAULT_TUNING.ordinaryJumpHeight),
+        0.0000001,
+        "default launch velocity should be derived from gravity and jump height"
+    );
+
+    for (const dt of [1 / 30, 1 / 60, 1 / 120]) {
+        const state = createInitialGameState({ tuning: { timestep: dt } });
+        settleOnGround(state);
+        const launchY = state.player.y;
+        stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), dt);
+        for (let step = 0; step < 240 && !Number.isFinite(state.player.ordinaryJumpApexY); step += 1) {
+            stepSimulation(state, createInputFrame(), dt);
+        }
+        assert.ok(Number.isFinite(state.player.ordinaryJumpApexY), `an apex should be resolved analytically at dt=${dt}`);
+        approx(launchY - state.player.ordinaryJumpApexY, 200, 0.000001, `ordinary jump height at dt=${dt}`);
+    }
+
+    const heavier = createInitialGameState({ tuning: { gravity: 1800, ordinaryJumpHeight: 200 } });
+    approx(heavier.tuning.jumpVelocity, -Math.sqrt(2 * 1800 * 200), 0.000001, "changing gravity should preserve the authored height by deriving a new launch velocity");
+}
+
 function testAttachedBoostStateAndFuelDrain() {
     const state = createInitialGameState();
     settleOnGround(state);
@@ -7728,13 +7823,15 @@ function measuredSingleUnboostedJumpHeight() {
     settleOnGround(state);
     const floorY = state.player.y;
     stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
-    let apexY = state.player.y;
+    let sampledApexY = state.player.y;
     for (let frame = 0; frame < 120; frame += 1) {
         stepSimulation(state, createInputFrame(), FIXED_DT);
-        apexY = Math.min(apexY, state.player.y);
-        if (frame > 3 && state.player.vy >= 0) break;
+        sampledApexY = Math.min(sampledApexY, state.player.y);
+        if (Number.isFinite(state.player.ordinaryJumpApexY)) {
+            return floorY - state.player.ordinaryJumpApexY;
+        }
     }
-    return floorY - apexY;
+    return floorY - sampledApexY;
 }
 
 function runJumpHeightPlatformRocket(initialHomingStrength) {
@@ -7785,12 +7882,12 @@ function testRocketInitialTurnClearsJumpHeightPlatform() {
     const tuned = runJumpHeightPlatformRocket(DEFAULT_TUNING.rocketProjectileInitialHomingStrength);
     assert.equal(tuned.rocket.state, "launched", "the tuned initial turn should remain in flight beneath a platform at the single-jump limit");
     assert.notEqual(tuned.rocket.impactReason, "jump_apex_platform", "the tuned initial turn should not strike the barely jump-reachable platform overhead");
-    assert.ok(tuned.clearance >= 0 && tuned.clearance < 0.5, `the tuned rocket should only just clear the platform, clearance=${tuned.clearance}`);
+    assert.ok(tuned.clearance >= 0 && tuned.clearance < 1, `the recalibrated launch turn should only just clear the exact 200-pixel platform, clearance=${tuned.clearance}`);
     assert.ok(tuned.maximumX > tuned.state.player.x + 300, "the rocket should complete meaningful sideways progress toward the same-level target");
     assert.equal(tuned.rocket.upLaunchTimer, 0, "the stronger launch steering should expire after the initial turn");
     assert.equal(tuned.rocket.homingStrength, DEFAULT_TUNING.rocketProjectileHomingStrength, "normal mid-flight homing should remain unchanged after the initial turn");
 
-    const slightlyWeaker = runJumpHeightPlatformRocket(6.9);
+    const slightlyWeaker = runJumpHeightPlatformRocket(6.65);
     assert.equal(slightlyWeaker.rocket.impactReason, "jump_apex_platform", "a slightly weaker initial turn should still clip the jump-height platform, pinning the geometric threshold");
 }
 
@@ -9611,7 +9708,7 @@ function testRenderingQualityScalesRocketParticles() {
 
 function testRocketTurnsFiftyPercentSharper() {
     assert.equal(DEFAULT_TUNING.rocketProjectileHomingStrength, 4.8, "normal rocket homing should remain 50 percent sharper than the former 3.2 default");
-    assert.equal(DEFAULT_TUNING.rocketProjectileInitialHomingStrength, 6.95, "only the launch-turn window should use the tighter geometric steering value");
+    assert.equal(DEFAULT_TUNING.rocketProjectileInitialHomingStrength, 6.7, "the launch-turn window should be recalibrated to the exact 200-pixel jump ceiling");
     assert.equal(DEFAULT_TUNING.rocketProjectileUpLaunchSeconds, 0.32, "the initial steering boost should remain limited to the existing launch window");
 }
 
@@ -9652,6 +9749,7 @@ const tests = [
     ["macro rooms, grounded doors, and guaranteed perimeter", testAutomaticLevelGeneratorMacroRoomsGroundedDoorsAndPerimeterContract],
     ["closed cave-window spline authoring", testCaveWindowSplineAuthoring],
     ["cave full-black lethal boundary", testCaveFullBlackKillBoundary],
+    ["generated moving-platform rider clearance", testGeneratedMovingPlatformRiderClearance],
     ["moving-platform schema and Level Editor", testMovingPlatformSchemaAndEditor],
     ["automatic shuttle moving platform", testAutomaticShuttleMovingPlatform],
     ["moving-platform crush requires nearest blocked exit for three ticks", testMovingPlatformCrushRequiresThreeTicksAndNearestExit],
@@ -9741,6 +9839,7 @@ const tests = [
     ["headless stepping and floor collision", testHeadlessSteppingAndFloorCollision],
     ["left/right movement symmetry", testLeftRightSymmetry],
     ["jump transition", testJumpTransition],
+    ["exact gravity-derived ordinary jump height", testOrdinaryJumpHeightIsExactAndGravityDerived],
     ["attached boost and fuel drain", testAttachedBoostStateAndFuelDrain],
     ["double-jump kick and hover governor", testDoubleJumpKickAndHoverGovernor],
     ["boost kick cannot be tap exploited", testBoostKickCannotBeTapExploited],

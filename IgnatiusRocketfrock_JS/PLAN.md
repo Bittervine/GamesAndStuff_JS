@@ -2838,3 +2838,19 @@ Clicking or tapping either upper panel now opens the pause menu. The score panel
 Generated reward population now derives a power-up target from the cumulative pixel distance of the mandatory route. At the default reward density, the target is approximately one genuine power-up per 5,000 route pixels. The existing Reward density control still scales that target, zero density still produces no rewards, and the independent reward validator rejects a generated draft that does not meet its recorded target. Treasure chests and optional thoughts remain separate from this count.
 
 Grounded monster occupancy no longer treats green `walkable` lines as torso-height walls. One-way lines continue to support feet from above and remain valid navigation surfaces, but a monster walking beneath one may pass through it horizontally. Yellow `blockable`, damaging, and killable geometry still obstruct the complete enemy body.
+
+## Revision 270 exact jump geometry, denser power-ups, and platform spacing
+
+Ignatius’s ordinary jump is now authored as an exact 200-world-pixel height. `src/core/simulation.js` derives launch velocity from gravity with `v = -sqrt(2gh)`, uses constant-acceleration displacement during the ordinary jump, and splits any fixed step that crosses the apex so collision sweeps reach the exact apex before descending. Gravity remains 1,490 world units per second squared, preserving the existing weight and timing while making the designed height independent of the simulation step. The browser tuning panel exposes jump height rather than raw launch velocity. Launch-only rocket homing is recalibrated from 6.95 to 6.7 so the standard rocket still only just clears a platform placed at the now-exact jump apex.
+
+Generated reward population now targets approximately one genuine power-up for every 2,000 pixels of mandatory-route travel at the default Reward density. Long eligible supports may carry multiple pickups when ordinary reward spacing, encounter exclusion, endpoint clearance, and support-safety rules all remain satisfied, allowing long routes to meet the denser target without inventing unsafe platforms.
+
+Automatic generator version 27 enforces at least 180 pixels of surface-to-surface vertical separation between horizontally overlapping static platforms. Mostly-horizontal lane changes and upper access tiers use the same design contract, while moving platforms remain governed by their travel-shaft checks. The 180-pixel routine rise remains 20 pixels below Ignatius’s exact physical apex, preserving a practical timing margin for mandatory traversal.
+## Revision 271 safe lift junctions and no generated deathtraps
+
+The generator must never intentionally produce a lethal trap. The reported Mostly horizontal plus Wide, upward-expanding case exposed a specific violation: a thin vertical shuttle could run directly beneath a thick yellow platform and carry enemies or Ignatius into its underside.
+
+Automatic generator version 28 opens a dedicated docking slot at Mostly-horizontal vertical junctions before the continuous ground chains are materialized. It then reserves the lift's complete route plus 180 pixels of rider clearance above the highest stop. Candidate positions are accepted only when both endpoints are boardable, the rider corridor does not intersect any yellow blockable support body, the moving artwork does not sweep through a green one-way platform, and the corridor does not overlap another reserved lift route. Later raised platforms consult the same reservation.
+
+Independent validation recomputes the corridor from the authored movement record rather than trusting placement metadata. Any crush hazard, green-platform sweep overlap, or shaft intrusion invalidates the draft and causes another deterministic geometry candidate to be tried. The default `rocketfrock` seed for Mostly horizontal plus Wide, upward-expanding is a permanent regression case.
+
