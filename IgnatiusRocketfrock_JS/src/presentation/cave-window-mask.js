@@ -1,10 +1,16 @@
 import {
-    caveSplineSegmentControls,
     normalizeCaveWindow,
-    sampleCaveWindowOutset
+    sampleCaveWindowOutset,
+    sampleCaveWindowPerturbedOutset
 } from "../shared/cave-window-data.js";
 
 const OPAQUE_BLACK = "rgb(0, 0, 0)";
+export const CAVE_GRADIENT_BAND_COUNT = 24;
+const ORGANIC_GRADIENT_PROGRESS = Object.freeze(
+    Array.from({ length: CAVE_GRADIENT_BAND_COUNT - 1 }, (_, index) => (index + 1) / CAVE_GRADIENT_BAND_COUNT)
+);
+const ORGANIC_GRADIENT_GEOMETRY_CACHE = new Map();
+const ORGANIC_GRADIENT_GEOMETRY_CACHE_LIMIT = 24;
 export const DEFAULT_CAVE_MASK_RENDER_SCALE = 0.35;
 
 function finiteNumber(value, fallback = 0) {
@@ -45,35 +51,109 @@ function screenPoint(view, parallaxOffset, point) {
     };
 }
 
-function traceCaveWindowPath(context, points, view, parallaxOffset) {
-    if (!Array.isArray(points) || points.length < 3) {
-        return false;
-    }
-    const first = screenPoint(view, parallaxOffset, points[0]);
-    context.beginPath();
+function traceSampledClosedPath(context, sampled, view, parallaxOffset) {
+    if (!Array.isArray(sampled) || sampled.length < 3) return false;
+    const first = screenPoint(view, parallaxOffset, sampled[0]);
     context.moveTo(first.x, first.y);
-    for (let index = 0; index < points.length; index += 1) {
-        const controls = caveSplineSegmentControls(points, index);
-        const controlA = screenPoint(view, parallaxOffset, controls.controlA);
-        const controlB = screenPoint(view, parallaxOffset, controls.controlB);
-        const end = screenPoint(view, parallaxOffset, controls.end);
-        context.bezierCurveTo(controlA.x, controlA.y, controlB.x, controlB.y, end.x, end.y);
+    for (let index = 1; index < sampled.length; index += 1) {
+        const point = screenPoint(view, parallaxOffset, sampled[index]);
+        context.lineTo(point.x, point.y);
     }
     context.closePath();
     return true;
 }
 
-function traceCaveWindowOutsetPath(context, points, distance, view, parallaxOffset) {
-    const outset = sampleCaveWindowOutset(points, distance, 20);
-    if (outset.length < 3) return false;
-    const first = screenPoint(view, parallaxOffset, outset[0]);
-    context.moveTo(first.x, first.y);
-    for (let index = 1; index < outset.length; index += 1) {
-        const point = screenPoint(view, parallaxOffset, outset[index]);
-        context.lineTo(point.x, point.y);
+export function caveGradientOpacityAtProgress(progress) {
+    const t = Math.max(0, Math.min(1, finiteNumber(progress, 0)));
+    return t * t * t * (t * (t * 6 - 15) + 10);
+}
+
+function incrementalAlpha(previousOpacity, targetOpacity) {
+    if (targetOpacity <= previousOpacity) return 0;
+    return Math.max(0, Math.min(1, (targetOpacity - previousOpacity) / Math.max(0.000001, 1 - previousOpacity)));
+}
+
+function approximateControlPerimeter(points) {
+    if (!Array.isArray(points) || points.length < 2) return 0;
+    let total = 0;
+    for (let index = 0; index < points.length; index += 1) {
+        const a = points[index];
+        const b = points[(index + 1) % points.length];
+        total += Math.hypot(finiteNumber(b?.x, 0) - finiteNumber(a?.x, 0), finiteNumber(b?.y, 0) - finiteNumber(a?.y, 0));
     }
-    context.closePath();
-    return true;
+    return total;
+}
+
+function gradientStepsPerSegment(cave) {
+    const pointCount = Math.max(1, cave.points.length);
+    const averageSegmentLength = approximateControlPerimeter(cave.points) / pointCount;
+    const targetSpacing = Math.max(3, Math.min(14, cave.gradientNoise.period * 0.22));
+    return Math.max(8, Math.min(64, Math.ceil(averageSegmentLength / targetSpacing)));
+}
+
+function caveGradientGeometryKey(cave) {
+    const points = cave.points
+        .map((point) => `${point.id || ""}:${finiteNumber(point.x, 0).toFixed(2)},${finiteNumber(point.y, 0).toFixed(2)},${point.mode || "smooth"}`)
+        .join(";");
+    return [
+        finiteNumber(cave.feather, 0).toFixed(2),
+        cave.gradientNoise.seed,
+        finiteNumber(cave.gradientNoise.amplitude, 0).toFixed(2),
+        finiteNumber(cave.gradientNoise.period, 0).toFixed(2),
+        points
+    ].join("|");
+}
+
+function caveGradientGeometry(cave) {
+    const key = caveGradientGeometryKey(cave);
+    const cached = ORGANIC_GRADIENT_GEOMETRY_CACHE.get(key);
+    if (cached) return cached;
+    const stepsPerSegment = gradientStepsPerSegment(cave);
+    let previousOpacity = 0;
+    const bands = cave.feather > 0
+        ? ORGANIC_GRADIENT_PROGRESS.map((progress) => {
+            const targetOpacity = caveGradientOpacityAtProgress(progress);
+            const alpha = incrementalAlpha(previousOpacity, targetOpacity);
+            previousOpacity = targetOpacity;
+            return {
+                progress,
+                alpha,
+                points: sampleCaveWindowPerturbedOutset(
+                    cave.points,
+                    cave.feather,
+                    cave.gradientNoise,
+                    progress,
+                    stepsPerSegment
+                )
+            };
+        })
+        : [];
+    const geometry = {
+        outset: sampleCaveWindowOutset(cave.points, cave.feather, stepsPerSegment),
+        bands
+    };
+    ORGANIC_GRADIENT_GEOMETRY_CACHE.set(key, geometry);
+    while (ORGANIC_GRADIENT_GEOMETRY_CACHE.size > ORGANIC_GRADIENT_GEOMETRY_CACHE_LIMIT) {
+        const oldestKey = ORGANIC_GRADIENT_GEOMETRY_CACHE.keys().next().value;
+        ORGANIC_GRADIENT_GEOMETRY_CACHE.delete(oldestKey);
+    }
+    return geometry;
+}
+
+function drawOrganicGradientBands(context, geometry, view, parallaxOffset, width, height) {
+    if (!geometry.bands.length) return;
+    context.save();
+    context.globalCompositeOperation = "source-over";
+    context.fillStyle = OPAQUE_BLACK;
+    for (const band of geometry.bands) {
+        if (band.alpha <= 0.000001) continue;
+        context.beginPath();
+        context.rect(0, 0, width, height);
+        traceSampledClosedPath(context, band.points, view, parallaxOffset);
+        context.globalAlpha = band.alpha;
+        context.fill("evenodd");
+    }
+    context.restore();
 }
 
 function createMaskCanvas(targetCanvas) {
@@ -107,6 +187,9 @@ export function caveWindowMaskRenderKey(caveWindow, view, worldBounds, renderSca
         cave.enabled ? 1 : 0,
         rounded(cave.feather, 2),
         rounded(cave.parallax, 4),
+        cave.gradientNoise.seed,
+        rounded(cave.gradientNoise.amplitude, 2),
+        rounded(cave.gradientNoise.period, 2),
         points,
         Math.max(1, Math.round(finiteNumber(view?.w, 1))),
         Math.max(1, Math.round(finiteNumber(view?.h, 1))),
@@ -151,6 +234,7 @@ export function drawCaveWindowMask({
     const renderKey = caveWindowMaskRenderKey(cave, view, worldBounds, scale);
     const reused = renderKey === previousRenderKey && surface.width === width && surface.height === height;
     const parallaxOffset = computeCaveWindowParallaxOffset(view, worldBounds, cave.parallax);
+    const gradientGeometry = caveGradientGeometry(cave);
 
     if (!reused) {
         const maskContext = surface.getContext("2d");
@@ -163,37 +247,20 @@ export function drawCaveWindowMask({
             h: height,
             zoom: Math.max(0.0001, finiteNumber(view?.zoom, 1)) * scale
         };
-        const featherPixels = Math.max(
-            0,
-            Math.min(Math.max(width, height), cave.feather * maskView.zoom)
-        );
-
         maskContext.save();
         maskContext.setTransform(1, 0, 0, 1, 0, 0);
         maskContext.globalCompositeOperation = "source-over";
         maskContext.globalAlpha = 1;
-        maskContext.shadowBlur = 0;
         maskContext.clearRect(0, 0, width, height);
-        maskContext.fillStyle = OPAQUE_BLACK;
-        maskContext.fillRect(0, 0, width, height);
 
-        maskContext.globalCompositeOperation = "destination-out";
-        maskContext.fillStyle = OPAQUE_BLACK;
-        if (featherPixels > 0.5) {
-            maskContext.shadowColor = "rgba(0, 0, 0, 1)";
-            maskContext.shadowBlur = featherPixels;
-            maskContext.shadowOffsetX = 0;
-            maskContext.shadowOffsetY = 0;
-            traceCaveWindowPath(maskContext, cave.points, maskView, parallaxOffset);
-            maskContext.fill();
-        }
+        // Build the complete feather from nested perturbed opacity contours.
+        // Unlike the former shadow blur, this is exactly transparent at the
+        // authored opening, uses the full configured distance, and lets the
+        // wavy iso-opacity lines remain visible instead of being buried beneath
+        // a smooth, already-dark edge.
+        drawOrganicGradientBands(maskContext, gradientGeometry, maskView, parallaxOffset, width, height);
 
-        maskContext.shadowBlur = 0;
-        maskContext.shadowColor = "rgba(0, 0, 0, 0)";
-        traceCaveWindowPath(maskContext, cave.points, maskView, parallaxOffset);
-        maskContext.fill();
-
-        // Clamp the blurred handover to the authored full-black distance. This
+        // Clamp the layered handover to the authored full-black distance. This
         // makes the Level Editor's outer guide an exact promise: every pixel
         // beyond that sampled outset is opaque black, regardless of browser
         // shadow-kernel differences.
@@ -201,7 +268,7 @@ export function drawCaveWindowMask({
         maskContext.fillStyle = OPAQUE_BLACK;
         maskContext.beginPath();
         maskContext.rect(0, 0, width, height);
-        traceCaveWindowOutsetPath(maskContext, cave.points, cave.feather, maskView, parallaxOffset);
+        traceSampledClosedPath(maskContext, gradientGeometry.outset, maskView, parallaxOffset);
         maskContext.fill("evenodd");
         maskContext.restore();
     }

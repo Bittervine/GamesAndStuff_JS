@@ -4,6 +4,7 @@ const KEY_BINDINGS = {
     moveLeft: ["ArrowLeft", "KeyA"],
     moveRight: ["ArrowRight", "KeyD"],
     jump: ["ArrowUp", "KeyW", "KeyZ"],
+    drop: ["ArrowDown", "KeyS"],
     interact: ["ArrowDown", "KeyS", "Enter", "NumpadEnter"],
     weapon: ["Space", "KeyX", "KeyK", "ControlLeft", "ControlRight"]
 };
@@ -14,6 +15,7 @@ const POINTER_CONTROL = Object.freeze({
     stickRadius: 96,
     moveDeadzone: 16,
     jumpThreshold: 36,
+    dropThreshold: 36,
     doubleTapSeconds: 0.3,
     doubleTapMaxDistance: 56
 });
@@ -250,6 +252,7 @@ export class RocketfrockInput {
         this.pointer.pointerCancelGraceUntil = 0;
         this.pointer.moveAxis = 0;
         this.pointer.jumpHeld = false;
+        this.pointer.dropHeld = false;
         this.recordPointerEvent(kind, event, pointerType);
     }
 
@@ -279,6 +282,7 @@ export class RocketfrockInput {
         this.pointer.pointerCancelGraceUntil = 0;
         this.pointer.moveAxis = 0;
         this.pointer.jumpHeld = false;
+        this.pointer.dropHeld = false;
         this.recordPointerEvent("cancelTimeout", { type: "pointercancel" }, pointerType);
     }
 
@@ -326,6 +330,11 @@ export class RocketfrockInput {
         }
 
         this.pointer.jumpHeld = dy < -POINTER_CONTROL.jumpThreshold;
+        const dropHeld = dy > POINTER_CONTROL.dropThreshold;
+        if (dropHeld && !this.pointer.dropHeld) {
+            this.pointer.dropPulse = true;
+        }
+        this.pointer.dropHeld = dropHeld;
     }
 
     suppressJumpUntilRelease() {
@@ -342,6 +351,8 @@ export class RocketfrockInput {
         this.pointer.pointerCancelGraceUntil = 0;
         this.pointer.moveAxis = 0;
         this.pointer.jumpHeld = false;
+        this.pointer.dropHeld = false;
+        this.pointer.dropPulse = false;
         this.previous = createInputFrame();
         this.lastInputDevice = "none";
         this.activeGamepadIndex = null;
@@ -409,7 +420,8 @@ export class RocketfrockInput {
             pointerWeaponPulse ||
             (this.pointer.active && (
                 Math.abs(this.pointer.moveAxis) > 0.001 ||
-                this.pointer.jumpHeld
+                this.pointer.jumpHeld ||
+                this.pointer.dropHeld
             ))
         );
 
@@ -437,6 +449,7 @@ export class RocketfrockInput {
             boostHeld: false,
             weaponHeld: anyKey(this.keys, KEY_BINDINGS.weapon) || gamepad.weaponHeld || pointerWeaponPulse,
             interactHeld: anyKey(this.keys, KEY_BINDINGS.interact) || gamepad.interactHeld,
+            dropHeld: anyKey(this.keys, KEY_BINDINGS.drop) || gamepad.dropHeld || this.pointer.dropHeld || this.pointer.dropPulse,
             aimVector: gamepad.aimVector || pointerAimVector(this.pointer) || { x: 1, y: 0 },
             inputDevice: this.lastInputDevice,
             gamepadActive,
@@ -444,6 +457,7 @@ export class RocketfrockInput {
         });
 
         this.pointer.weaponPulse = false;
+        this.pointer.dropPulse = false;
         current.jumpPressed = current.jumpHeld && !this.previous.jumpHeld;
         current.jumpReleased = !current.jumpHeld && this.previous.jumpHeld;
         current.boostPressed = current.boostHeld && !this.previous.boostHeld;
@@ -452,6 +466,8 @@ export class RocketfrockInput {
         current.weaponReleased = !current.weaponHeld && this.previous.weaponHeld;
         current.interactPressed = current.interactHeld && !this.previous.interactHeld;
         current.interactReleased = !current.interactHeld && this.previous.interactHeld;
+        current.dropPressed = current.dropHeld && !this.previous.dropHeld;
+        current.dropReleased = !current.dropHeld && this.previous.dropHeld;
         current.pausePressed = take(this.debugPressed, "pause");
         current.stepPressed = take(this.debugPressed, "step");
         current.resetPressed = take(this.debugPressed, "reset");
@@ -529,6 +545,8 @@ function createPointerState() {
         currentY: 0,
         moveAxis: 0,
         jumpHeld: false,
+        dropHeld: false,
+        dropPulse: false,
         weaponPulse: false,
         lastTapTime: -Infinity,
         lastTapX: 0,
@@ -546,6 +564,10 @@ function take(object, key) {
     return value;
 }
 
+function gamepadButtonHeld(button) {
+    return Boolean(button?.pressed || Number(button?.value) > 0.25);
+}
+
 function readGamepad(preferredIndex = null) {
     const empty = {
         connected: false,
@@ -557,6 +579,7 @@ function readGamepad(preferredIndex = null) {
         jumpHeld: false,
         weaponHeld: false,
         interactHeld: false,
+        dropHeld: false,
         aimVector: null
     };
 
@@ -577,8 +600,13 @@ function readGamepad(preferredIndex = null) {
         const ly = Number(pad.axes?.[1]) || 0;
         const moveAxis = Math.abs(lx) > 0.16 ? lx : 0;
         const jumpHeld = Boolean(pad.buttons?.[0]?.pressed || pad.buttons?.[12]?.pressed || ly < -0.55);
-        const weaponHeld = Boolean(pad.buttons?.[1]?.pressed);
-        const interactHeld = Boolean(pad.buttons?.[2]?.pressed || pad.buttons?.[13]?.pressed || ly > 0.55);
+        const weaponHeld = Boolean(
+            gamepadButtonHeld(pad.buttons?.[1]) ||
+            gamepadButtonHeld(pad.buttons?.[6]) ||
+            gamepadButtonHeld(pad.buttons?.[7])
+        );
+        const dropHeld = Boolean(pad.buttons?.[13]?.pressed || ly > 0.55);
+        const interactHeld = Boolean(pad.buttons?.[2]?.pressed || dropHeld);
         const moveLeft = lx < -0.35 || Boolean(pad.buttons?.[14]?.pressed);
         const moveRight = lx > 0.35 || Boolean(pad.buttons?.[15]?.pressed);
         const aimVector = Math.hypot(lx, ly) > 0.25 ? normalize({ x: lx, y: ly }) : null;
@@ -587,6 +615,7 @@ function readGamepad(preferredIndex = null) {
             jumpHeld ||
             weaponHeld ||
             interactHeld ||
+            dropHeld ||
             moveLeft ||
             moveRight ||
             Math.hypot(lx, ly) > 0.25
@@ -601,6 +630,7 @@ function readGamepad(preferredIndex = null) {
             jumpHeld,
             weaponHeld,
             interactHeld,
+            dropHeld,
             aimVector
         };
     });

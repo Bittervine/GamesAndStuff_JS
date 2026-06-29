@@ -548,7 +548,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 268</small></h1>
+        <h1>Level Editor <small>rev 280</small></h1>
         <p>Place atlas assets, entry/exit doors, mailboxes, enemies, and triggers, then export a level JSON. The wizard entry door is the effective start of the level.</p>
 
         <div class="box">
@@ -578,7 +578,7 @@
         <div class="box" data-panel-key="automatic-enemy-spawning">
             <h2>Automatic enemy spawning</h2>
             <div class="inline"><input id="auto-spawn-enemies-enabled" type="checkbox"><span class="small">Auto spawn enemies during play</span></div>
-            <label>Spawn probability each second (%)<input id="auto-spawn-enemies-probability" type="number" min="0" max="100" step="1" value="0"></label>
+            <label>Spawn probability each second (%)<input id="auto-spawn-enemies-probability" type="number" min="0" max="100" step="1" value="10"></label>
             <label>Enemy pool<input id="auto-spawn-enemies-pool" value="1-999" placeholder="1-999,!2,!4"></label>
             <p id="auto-spawn-enemies-preview" class="small">All available enemies are eligible by default.</p>
             <p class="small">Once per second, the game rolls this percentage. A successful roll creates one already-alert enemy beyond the screen in the expected direction of the exit. The pool uses the same numbered ranges and <code>!</code> exclusions as the Automatic Level Generator.</p>
@@ -609,7 +609,7 @@
 
         <div class="box" data-panel-key="automatic-level-generator">
             <h2>Automatic Level Generator</h2>
-            <p class="small">The Standard route creates a folded ThePath74 cavern with broad upper traversal, a nearly continuous lower recovery path, and occasional upper reward or combat perches. The Mostly horizontal route is a run-and-gun alternative: it advances steadily to the right, uses only occasional one- or two-cell height changes, and overlaps only solid blockable platforms whose walking surfaces are level. It reserves a distributed upper combat lane across roughly one quarter of the route. The actual combat platforms sit much higher above the ground to leave homing rockets room to turn, while offset one-way access steps keep every perch reachable without filling the firing space directly beneath it. Thin green one-way platforms stay separate, and any raised solid step is separated horizontally instead of being blended into a false continuous floor. Both cavern variants build smooth occupancy contours from ellipse rooms around the finished traversal. The Standard cavern uses balanced rooms; the Wide, upward-expanding cavern adds more broad, shallow rooms plus reachable upper tiers for monsters, treasure, and pickups while the lower boundary stays near the ground path. Rewarded generated levels include genuine power-ups as well as contextual rewards. All other generator stages use one compatible Standard implementation. Generated ground enemies on upper perches must have jumping hunter navigation, and Mostly-horizontal moving lifts reserve a collision-safe shaft that later platforms and enemies may not enter. Automatic cave foreground remains presentation-only and must leave doors, platforms, rewards, and lift shafts readable.</p>
+            <p class="small">Horizontal is the default route: a run-and-gun path that advances steadily toward the exit, uses only occasional one- or two-cell height changes, and overlaps only solid blockable platforms whose walking surfaces are level. It reserves a distributed upper combat lane across roughly one quarter of the route. The actual combat platforms sit much higher above the ground to leave homing rockets room to turn, while offset one-way access steps keep every perch reachable without filling the firing space directly beneath it. Thin green one-way platforms stay separate, and any raised solid step is separated horizontally instead of being blended into a false continuous floor. Standard remains available as a folded ThePath74 route with broad upper traversal, a nearly continuous lower recovery path, and occasional upper reward or combat perches. Domed is the default cavern shape. It keeps a reasonably flat lower perimeter close to the ground route while expanding its ceiling upward by another 50 percent, adding broad upper room volume for monsters, treasure, and pickups. Standard cavern geometry remains available as the balanced alternative. Rewarded generated levels include roughly one genuine power-up per 1,000 pixels of route at the default density. About half are random wrenches, with the rest split between Shield and Speed Shot, alongside contextual rewards. All other generator stages use one compatible Standard implementation. Generated ground enemies on upper perches must have jumping hunter navigation, and Horizontal moving lifts reserve a collision-safe shaft that later platforms and enemies may not enter. Automatic cave foreground remains presentation-only and must leave doors, platforms, rewards, and lift shafts readable.</p>
             <label>Theme<select id="generator-theme"></select></label>
             <div class="row">
                 <label>Seed<input id="generator-seed" value="rocketfrock"></label>
@@ -696,19 +696,30 @@
                 <label>Parallax<input id="cave-parallax" type="number" min="1" max="1.25" step="0.005"></label>
             </div>
             <div class="row">
-                <label>Full black distance px<input id="cave-feather" type="number" min="0" step="10"></label>
+                <label>Feather to full black px<input id="cave-feather" type="number" min="0" step="10"></label>
                 <div class="inline"><input id="cave-preview-shade" type="checkbox" checked><span class="small">Shade exterior in editor</span></div>
+            </div>
+            <div class="row">
+                <label>Gradient waviness px<input id="cave-gradient-noise-amplitude" type="number" min="0" max="320" step="5"></label>
+                <label>Wave period px<input id="cave-gradient-noise-period" type="number" min="10" max="500" step="10"></label>
+            </div>
+            <div class="row">
+                <label>Gradient seed<input id="cave-gradient-noise-seed" type="number" step="1"></label>
+                <span class="small">Amplitude moves the opacity contours; period sets the average distance between irregular waves.</span>
             </div>
             <div class="inline"><input id="cave-show-black-boundary" type="checkbox" checked><span class="small">Show where fully opaque black begins</span></div>
             <div class="inline"><input id="cave-show-generated" type="checkbox" checked><span class="small">Show generated perimeter assets in editor</span></div>
             <h2>Automatic perimeter decoration</h2>
             <div class="row">
                 <label>Seed<input id="cave-decor-seed" type="number" step="1"></label>
-                <label>Max spacing px<input id="cave-decor-spacing" type="number" min="80" max="1200" step="10"></label>
             </div>
             <div class="row">
                 <label>Asset scale<input id="cave-decor-scale" type="number" min="0.5" max="5" step="0.1"></label>
+                <label>Inward coverage %<input id="cave-decor-inward" type="number" min="15" max="70" step="1"></label>
+            </div>
+            <div class="row">
                 <label>Brightness<input id="cave-decor-brightness" type="number" min="0.08" max="1" step="0.02"></label>
+                <span class="small">Average share of each formation placed inside the cyan opening.</span>
             </div>
             <div class="row">
                 <button id="cave-auto-populate" type="button">Populate perimeter</button>
@@ -716,7 +727,7 @@
             </div>
             <p id="cave-status" class="small">No cave perimeter points.</p>
             <p id="cave-geometry-warning" class="small cave-geometry-warning" hidden></p>
-            <p class="small">The cyan perimeter is the cave opening. The dashed magenta outset is derived from Full black distance and marks the exact boundary beyond which the runtime mask is fully opaque black. Both curves and all foreground art are completely inert presentation layers. Foreground placements render after actors with cave parallax, are darkened for depth, overlap slightly into the cave, fade smoothly outward into black, and always have atlas collision disabled. Auto-population treats Max spacing as an upper limit, densely overlaps assets from the opening through the Full black line, and draws farther-out rows over inward rows so broad asset bases do not cover inward tips.</p>
+            <p class="small">The cyan perimeter is the cave opening. Feather to full black controls the complete transparent-to-black width; the dashed magenta outset marks the exact boundary beyond which the runtime mask is fully opaque black. Gradient waviness bends the opacity contours throughout that feather without moving the smooth perimeter, collision, navigation, decoration normals, or the lethal boundary. Both curves and all foreground art are completely inert presentation layers. Foreground placements render after actors with cave parallax, are darkened for depth, overlap slightly into the cave, fade smoothly outward into black, and always have atlas collision disabled. Auto-population derives dense overlap from each formation's actual rendered size, uses Inward coverage to control how much enters the playable opening, covers through the Full black line, and draws farther-out rows over inward rows so broad asset bases do not cover inward tips.</p>
         </div>
 
         <div class="box">
@@ -1047,8 +1058,10 @@ import {
     createCaveWindowPointsFromBounds,
     nearestCaveSplineSegment,
     normalizeCaveDecoration,
+    normalizeCaveGradientNoise,
     normalizeCaveWindow,
-    sampleCaveWindowOutset
+    sampleCaveWindowOutset,
+    sampleCaveWindowPerturbedOutset
 } from "./src/shared/cave-window-data.js";
 import {
     buildCaveDecorationCatalog,
@@ -1266,6 +1279,9 @@ import {
         caveEnabled: document.getElementById("cave-enabled"),
         caveParallax: document.getElementById("cave-parallax"),
         caveFeather: document.getElementById("cave-feather"),
+        caveGradientNoiseAmplitude: document.getElementById("cave-gradient-noise-amplitude"),
+        caveGradientNoisePeriod: document.getElementById("cave-gradient-noise-period"),
+        caveGradientNoiseSeed: document.getElementById("cave-gradient-noise-seed"),
         cavePointMode: document.getElementById("cave-point-mode"),
         caveDeletePoint: document.getElementById("cave-delete-point"),
         caveCreateFromBounds: document.getElementById("cave-create-from-bounds"),
@@ -1273,8 +1289,8 @@ import {
         caveShowBlackBoundary: document.getElementById("cave-show-black-boundary"),
         caveShowGenerated: document.getElementById("cave-show-generated"),
         caveDecorSeed: document.getElementById("cave-decor-seed"),
-        caveDecorSpacing: document.getElementById("cave-decor-spacing"),
         caveDecorScale: document.getElementById("cave-decor-scale"),
+        caveDecorInward: document.getElementById("cave-decor-inward"),
         caveDecorBrightness: document.getElementById("cave-decor-brightness"),
         caveAutoPopulate: document.getElementById("cave-auto-populate"),
         caveClearGenerated: document.getElementById("cave-clear-generated"),
@@ -1460,7 +1476,7 @@ import {
             atlasRefs: [],
             colorMap: normalizeLevelColorMap(DEFAULT_LEVEL_COLOR_MAP),
             music: normalizeLevelMusic(null),
-            autoSpawnEnemies: normalizeAutoSpawnEnemies(DEFAULT_AUTO_SPAWN_ENEMIES),
+            autoSpawnEnemies: normalizeAutoSpawnEnemies({ ...DEFAULT_AUTO_SPAWN_ENEMIES, probabilityPercent: 10 }),
             caveWindow: normalizeCaveWindow(null),
             placements: [],
             entities: [],
@@ -1553,26 +1569,39 @@ import {
         cave.enabled = Boolean(els.caveEnabled.checked);
         cave.parallax = Math.max(1, Math.min(1.25, finiteEditorNumber(els.caveParallax.value, cave.parallax)));
         cave.feather = Math.max(0, finiteEditorNumber(els.caveFeather.value, cave.feather));
+        cave.gradientNoise = normalizeCaveGradientNoise({
+            ...cave.gradientNoise,
+            amplitude: els.caveGradientNoiseAmplitude.value,
+            period: els.caveGradientNoisePeriod.value,
+            seed: els.caveGradientNoiseSeed.value
+        });
+        const inwardCoverage = Math.max(0.15, Math.min(0.7, finiteEditorNumber(els.caveDecorInward.value, 40) / 100));
+        const inwardVariation = 0.1;
         cave.decoration = normalizeCaveDecoration({
             ...cave.decoration,
             seed: els.caveDecorSeed.value,
-            spacing: els.caveDecorSpacing.value,
             scale: els.caveDecorScale.value,
-            brightness: els.caveDecorBrightness.value
+            brightness: els.caveDecorBrightness.value,
+            inwardFractionMin: inwardCoverage - inwardVariation,
+            inwardFractionMax: inwardCoverage + inwardVariation
         });
     }
 
     function refreshCaveWindowUi() {
         const cave = caveWindowRecord();
+        cave.gradientNoise = normalizeCaveGradientNoise(cave.gradientNoise);
         cave.decoration = normalizeCaveDecoration(cave.decoration);
         const selectedPoint = cavePointById(state.selectedCavePointId);
         const generatedCount = (state.level.placements || []).filter(isGeneratedCaveForeground).length;
         els.caveEnabled.checked = cave.enabled;
         els.caveParallax.value = Number(cave.parallax).toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
         els.caveFeather.value = Math.round(cave.feather);
+        els.caveGradientNoiseAmplitude.value = Math.round(cave.gradientNoise.amplitude);
+        els.caveGradientNoisePeriod.value = Math.round(cave.gradientNoise.period);
+        els.caveGradientNoiseSeed.value = cave.gradientNoise.seed;
         els.caveDecorSeed.value = cave.decoration.seed;
-        els.caveDecorSpacing.value = Math.round(cave.decoration.spacing);
         els.caveDecorScale.value = Number(cave.decoration.scale).toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+        els.caveDecorInward.value = String(Math.round((cave.decoration.inwardFractionMin + cave.decoration.inwardFractionMax) * 50));
         els.caveDecorBrightness.value = Number(cave.decoration.brightness).toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
         els.cavePointMode.disabled = !selectedPoint;
         els.caveDeletePoint.disabled = !selectedPoint;
@@ -1583,7 +1612,10 @@ import {
         const selectedText = selectedPoint ? ` Selected ${selectedPoint.id} (${selectedPoint.mode}).` : "";
         const generatedText = generatedCount ? ` ${generatedCount} generated foreground asset${generatedCount === 1 ? "" : "s"}.` : "";
         const blackBoundaryText = cave.points.length >= 3 ? ` Full black begins ${Math.round(cave.feather)} px outside the perimeter.` : "";
-        els.caveStatus.textContent = `${cave.points.length} perimeter point${cave.points.length === 1 ? "" : "s"}; ${closure}.${blackBoundaryText}${generatedText}${selectedText}`;
+        const gradientText = cave.points.length >= 3 && cave.gradientNoise.amplitude > 0
+            ? ` Gradient waviness ${Math.round(cave.gradientNoise.amplitude)} px with roughly ${Math.round(cave.gradientNoise.period)} px periods.`
+            : "";
+        els.caveStatus.textContent = `${cave.points.length} perimeter point${cave.points.length === 1 ? "" : "s"}; ${closure}.${blackBoundaryText}${gradientText}${generatedText}${selectedText}`;
     }
 
     function caveGeometryWarningDistance(cave) {
@@ -3539,6 +3571,33 @@ import {
             ctx.restore();
         }
 
+        if (cave.points.length >= 3 && cave.gradientNoise?.amplitude > 0 && els.caveShowBlackBoundary.checked) {
+            ctx.save();
+            for (const [progress, alpha] of [[0.25, 0.22], [0.5, 0.34], [0.75, 0.46]]) {
+                const gradientGuide = sampleCaveWindowPerturbedOutset(
+                    cave.points,
+                    cave.feather,
+                    cave.gradientNoise,
+                    progress,
+                    Math.max(20, Math.ceil(240 / Math.max(10, cave.gradientNoise.period)))
+                );
+                if (gradientGuide.length < 3) continue;
+                const first = worldToScreen(gradientGuide[0].x, gradientGuide[0].y);
+                ctx.beginPath();
+                ctx.moveTo(first.x, first.y);
+                for (let index = 1; index < gradientGuide.length; index += 1) {
+                    const point = worldToScreen(gradientGuide[index].x, gradientGuide[index].y);
+                    ctx.lineTo(point.x, point.y);
+                }
+                ctx.closePath();
+                ctx.strokeStyle = `rgba(213, 104, 255, ${alpha})`;
+                ctx.lineWidth = 1.15;
+                ctx.setLineDash([4, 6]);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
         if (fullBlackBoundary.length >= 3 && els.caveShowBlackBoundary.checked) {
             ctx.save();
             const first = worldToScreen(fullBlackBoundary[0].x, fullBlackBoundary[0].y);
@@ -5405,7 +5464,7 @@ import {
             const routeMetrics = route?.validation?.metrics || {};
             els.generatorStatus.textContent = [
                 `${generation.runId} · ${generation.themeId} · seed “${generation.seed}”`,
-                `${routeMetrics.mainNodeCount || 0} route nodes in the selected ${generation.implementations?.route === "mostly-horizontal-route-v1" ? "Mostly horizontal" : "Standard"} planner`,
+                `${routeMetrics.mainNodeCount || 0} route nodes in the selected ${generation.implementations?.route === "mostly-horizontal-route-v1" ? "Horizontal" : "Standard"} planner`,
                 `${metrics.platformCount || 0} generated platforms, ${metrics.mandatoryTransitionCount || 0} mandatory transitions, ${metrics.selectedPerchCount || 0} treasure perch${metrics.selectedPerchCount === 1 ? "" : "es"}, 2 supported doors, ${metrics.cavePointCount || 0} cave controls`,
                 `${metrics.encounterCount || 0} encounter${metrics.encounterCount === 1 ? "" : "s"}, ${metrics.enemyCount || 0} enem${metrics.enemyCount === 1 ? "y" : "ies"}, ${metrics.bombingBatGroups || 0} bat group${metrics.bombingBatGroups === 1 ? "" : "s"}, ${metrics.hunterCount || 0} hunter${metrics.hunterCount === 1 ? "" : "s"}`,
                 `${metrics.rewardCount || 0} reward${metrics.rewardCount === 1 ? "" : "s"}: ${metrics.chestCount || 0} upper-perch chest${metrics.chestCount === 1 ? "" : "es"}, ${metrics.powerUpCount || 0} power-up${metrics.powerUpCount === 1 ? "" : "s"}, ${metrics.utilityCount || 0} fuel cache${metrics.utilityCount === 1 ? "" : "s"}, ${metrics.thoughtCount || 0} location thought${metrics.thoughtCount === 1 ? "" : "s"}`,
@@ -6085,7 +6144,13 @@ import {
         persistUi();
         setStatus(els.caveEnabled.checked ? "Enabled the inert cave-window perimeter." : "Disabled the cave-window preview without deleting its points.");
     });
-    [els.caveParallax, els.caveFeather].forEach((element) => {
+    [
+        els.caveParallax,
+        els.caveFeather,
+        els.caveGradientNoiseAmplitude,
+        els.caveGradientNoisePeriod,
+        els.caveGradientNoiseSeed
+    ].forEach((element) => {
         element.addEventListener("change", () => {
             syncCaveWindowFromUi();
             persistUi();
@@ -6099,7 +6164,7 @@ import {
             ? "Showing generated cave-perimeter assets in the editor."
             : "Generated cave-perimeter assets are hidden in the editor only; they remain in the level and game.");
     });
-    [els.caveDecorSeed, els.caveDecorSpacing, els.caveDecorScale, els.caveDecorBrightness].forEach((element) => {
+    [els.caveDecorSeed, els.caveDecorScale, els.caveDecorInward, els.caveDecorBrightness].forEach((element) => {
         element.addEventListener("change", () => {
             syncCaveWindowFromUi();
             persistUi();

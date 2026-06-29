@@ -1,14 +1,18 @@
-const DEFAULT_FEATHER = 180;
+const DEFAULT_FEATHER = 200;
 const DEFAULT_PARALLAX = 1.1;
 const DEFAULT_POINT_MODE = "smooth";
+const DEFAULT_GRADIENT_NOISE = Object.freeze({
+    seed: 278,
+    amplitude: 50,
+    period: 50
+});
 const DEFAULT_DECORATION = Object.freeze({
     seed: 138,
-    spacing: 250,
     scale: 2,
     brightness: 0.36,
     saturation: 0.62,
-    inwardFractionMin: 0.18,
-    inwardFractionMax: 0.38,
+    inwardFractionMin: 0.3,
+    inwardFractionMax: 0.5,
     occlusionAccentChance: 0.02
 });
 
@@ -17,6 +21,7 @@ export const DEFAULT_CAVE_WINDOW = Object.freeze({
     enabled: false,
     feather: DEFAULT_FEATHER,
     parallax: DEFAULT_PARALLAX,
+    gradientNoise: Object.freeze(normalizeCaveGradientNoise(null)),
     decoration: Object.freeze(normalizeCaveDecoration(null)),
     points: Object.freeze([])
 });
@@ -42,11 +47,19 @@ function uniquePointId(requested, index, usedIds) {
     return id;
 }
 
+export function normalizeCaveGradientNoise(rawNoise) {
+    const source = rawNoise && typeof rawNoise === "object" ? rawNoise : {};
+    return {
+        seed: Math.trunc(finiteNumber(source.seed, DEFAULT_GRADIENT_NOISE.seed)),
+        amplitude: Math.max(0, Math.min(320, finiteNumber(source.amplitude, DEFAULT_GRADIENT_NOISE.amplitude))),
+        period: Math.max(10, Math.min(500, finiteNumber(source.period, DEFAULT_GRADIENT_NOISE.period)))
+    };
+}
+
 export function normalizeCaveDecoration(rawDecoration) {
     const source = rawDecoration && typeof rawDecoration === "object" ? rawDecoration : {};
     const result = {
         seed: Math.trunc(finiteNumber(source.seed, DEFAULT_DECORATION.seed)),
-        spacing: Math.max(80, Math.min(1200, finiteNumber(source.spacing, DEFAULT_DECORATION.spacing))),
         scale: Math.max(0.5, Math.min(5, finiteNumber(source.scale, DEFAULT_DECORATION.scale))),
         brightness: Math.max(0.08, Math.min(1, finiteNumber(source.brightness, DEFAULT_DECORATION.brightness))),
         saturation: Math.max(0, Math.min(1.5, finiteNumber(source.saturation, DEFAULT_DECORATION.saturation))),
@@ -79,6 +92,7 @@ export function normalizeCaveWindow(rawWindow) {
         enabled: Boolean(source.enabled),
         feather: Math.max(0, finiteNumber(source.feather, DEFAULT_FEATHER)),
         parallax: Math.max(1, Math.min(1.25, finiteNumber(source.parallax, DEFAULT_PARALLAX))),
+        gradientNoise: normalizeCaveGradientNoise(source.gradientNoise),
         decoration: normalizeCaveDecoration(source.decoration),
         points
     };
@@ -230,19 +244,21 @@ function outwardNormal(tangent, orientationSign) {
         : { x: -tangent.y, y: tangent.x };
 }
 
-export function sampleCaveWindowOutset(points, distance, stepsPerSegment = 16) {
-    const sampled = sampleClosedCaveSpline(points, stepsPerSegment).slice(0, -1);
-    const safeDistance = Math.max(0, finiteNumber(distance, 0));
-    if (sampled.length < 3 || safeDistance <= 0) {
+function sampleOutsetWithDistances(sampled, distances) {
+    if (sampled.length < 3) {
         return sampled.map((point) => ({ x: point.x, y: point.y }));
     }
-
     const orientationSign = polygonSignedArea(sampled) >= 0 ? 1 : -1;
     const outset = [];
     for (let index = 0; index < sampled.length; index += 1) {
         const previous = sampled[(index - 1 + sampled.length) % sampled.length];
         const current = sampled[index];
         const next = sampled[(index + 1) % sampled.length];
+        const safeDistance = Math.max(0, finiteNumber(distances[index], 0));
+        if (safeDistance <= 0) {
+            outset.push({ x: current.x, y: current.y });
+            continue;
+        }
         const incoming = normalizedVector(current.x - previous.x, current.y - previous.y);
         const outgoing = normalizedVector(next.x - current.x, next.y - current.y);
         const incomingNormal = outwardNormal(incoming, orientationSign);
@@ -260,6 +276,92 @@ export function sampleCaveWindowOutset(points, distance, stepsPerSegment = 16) {
         });
     }
     return outset;
+}
+
+function integerHash01(seed, index) {
+    let value = (Math.trunc(seed) + Math.imul(Math.trunc(index), 0x9e3779b1)) | 0;
+    value ^= value >>> 16;
+    value = Math.imul(value, 0x7feb352d);
+    value ^= value >>> 15;
+    value = Math.imul(value, 0x846ca68b);
+    value ^= value >>> 16;
+    return (value >>> 0) / 4294967295;
+}
+
+function smootherStep(value) {
+    const t = Math.max(0, Math.min(1, value));
+    return t * t * t * (t * (t * 6 - 15) + 10);
+}
+
+function cyclicValueNoise(distance, perimeterLength, scale, seed) {
+    if (perimeterLength <= 0.000001) return 0;
+    const latticeCount = Math.max(3, Math.round(perimeterLength / Math.max(1, scale)));
+    const cellLength = perimeterLength / latticeCount;
+    const cell = Math.floor(distance / cellLength);
+    const local = smootherStep((distance - cell * cellLength) / cellLength);
+    const indexA = ((cell % latticeCount) + latticeCount) % latticeCount;
+    const indexB = (indexA + 1) % latticeCount;
+    const a = integerHash01(seed, indexA) * 2 - 1;
+    const b = integerHash01(seed, indexB) * 2 - 1;
+    return a + (b - a) * local;
+}
+
+function sampledArcLengths(sampled) {
+    const arcLengths = new Array(sampled.length).fill(0);
+    let total = 0;
+    for (let index = 1; index < sampled.length; index += 1) {
+        total += pointDistance(sampled[index - 1], sampled[index]);
+        arcLengths[index] = total;
+    }
+    if (sampled.length > 1) total += pointDistance(sampled[sampled.length - 1], sampled[0]);
+    return { arcLengths, total };
+}
+
+export function sampleCaveWindowOutset(points, distance, stepsPerSegment = 16) {
+    const sampled = sampleClosedCaveSpline(points, stepsPerSegment).slice(0, -1);
+    const safeDistance = Math.max(0, finiteNumber(distance, 0));
+    if (sampled.length < 3 || safeDistance <= 0) {
+        return sampled.map((point) => ({ x: point.x, y: point.y }));
+    }
+    return sampleOutsetWithDistances(sampled, sampled.map(() => safeDistance));
+}
+
+export function sampleCaveWindowPerturbedOutset(
+    points,
+    distance,
+    rawNoise,
+    progress = 0.5,
+    stepsPerSegment = 16
+) {
+    const sampled = sampleClosedCaveSpline(points, stepsPerSegment).slice(0, -1);
+    const safeDistance = Math.max(0, finiteNumber(distance, 0));
+    const safeProgress = Math.max(0, Math.min(1, finiteNumber(progress, 0.5)));
+    if (sampled.length < 3 || safeDistance <= 0 || safeProgress <= 0) {
+        return sampled.map((point) => ({ x: point.x, y: point.y }));
+    }
+    if (safeProgress >= 1) {
+        return sampleOutsetWithDistances(sampled, sampled.map(() => safeDistance));
+    }
+
+    const noise = normalizeCaveGradientNoise(rawNoise);
+    // All opacity contours use the same cyclic noise profile and a sinusoidal
+    // envelope. Keeping the peak below distance / pi guarantees that adjacent
+    // contours remain ordered instead of folding across each other.
+    const effectiveAmplitude = Math.min(noise.amplitude, safeDistance * 0.29);
+    if (effectiveAmplitude <= 0.000001) {
+        const uniformDistance = safeDistance * safeProgress;
+        return sampleOutsetWithDistances(sampled, sampled.map(() => uniformDistance));
+    }
+
+    const { arcLengths, total } = sampledArcLengths(sampled);
+    const envelope = Math.sin(Math.PI * safeProgress);
+    const distances = arcLengths.map((arcLength) => {
+        const broad = cyclicValueNoise(arcLength, total, noise.period, noise.seed);
+        const detail = cyclicValueNoise(arcLength, total, noise.period * 0.47, noise.seed + 0x51f15e);
+        const perturbation = (broad * 0.72 + detail * 0.28) * effectiveAmplitude * envelope;
+        return Math.max(0, Math.min(safeDistance, safeDistance * safeProgress + perturbation));
+    });
+    return sampleOutsetWithDistances(sampled, distances);
 }
 
 function pointSegmentDistanceSquared(point, a, b) {

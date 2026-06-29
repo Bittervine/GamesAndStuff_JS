@@ -162,14 +162,14 @@ export function formationRotationForInward(entry, inward) {
 }
 
 
-export function caveDecorationStep(category, tangentSpan, requestedSpacing) {
-    const spacing = Math.max(80, finiteNumber(requestedSpacing, 250));
-    const categoryFactor = category === "wall" ? 0.66 : 0.52;
-    // Use generous tangential overlap. Curved cave sections and narrow tapered
-    // formations can otherwise leave visible slivers of the full-black guide
-    // between neighbouring placements even when their raw bounds almost touch.
-    const coverage = Math.max(40, finiteNumber(tangentSpan, spacing) * 0.5);
-    return clamp(Math.min(spacing * categoryFactor, coverage), 40, spacing);
+export function caveDecorationStep(category, tangentSpan) {
+    const span = Math.max(1, finiteNumber(tangentSpan, 160));
+    // Tangential density is derived entirely from the selected formation's
+    // actual rendered span. The strong overlap is what guarantees continuous
+    // cover through the full-black boundary, so a separate maximum-spacing
+    // knob could only make the result denser and no longer described the rule.
+    const stepFraction = category === "wall" ? 0.42 : 0.38;
+    return Math.max(40, span * stepFraction);
 }
 
 function uniqueGeneratedId(index, prefix = "cave_fg_auto") {
@@ -290,7 +290,7 @@ export function generateCavePerimeterPlacements({
         const probeCategory = categoryForNormal(probeInward);
         let candidate = chooseCandidate(catalog, probeCategory, settings.seed, index);
         if (!candidate) {
-            cursor += Math.max(48, settings.spacing * 0.5);
+            cursor += 80;
             index += 1;
             continue;
         }
@@ -300,7 +300,7 @@ export function generateCavePerimeterPlacements({
         let w = candidate.frame.w * scale;
         let h = candidate.frame.h * scale;
         let tangentSpan = probeCategory === "wall" ? h : w;
-        let step = caveDecorationStep(probeCategory, tangentSpan, settings.spacing);
+        let step = caveDecorationStep(probeCategory, tangentSpan);
         const jitter = (randomUnit(settings.seed, index, 1) - 0.5) * step * 0.16;
         const sample = sampleArc(arc, cursor + step * 0.5 + jitter) || probe;
         const inward = clockwiseInScreenSpace
@@ -320,7 +320,7 @@ export function generateCavePerimeterPlacements({
             w = candidate.frame.w * scale;
             h = candidate.frame.h * scale;
             tangentSpan = category === "wall" ? h : w;
-            step = caveDecorationStep(category, tangentSpan, settings.spacing);
+            step = caveDecorationStep(category, tangentSpan);
         }
 
         const normalDepth = category === "wall" ? w : h;

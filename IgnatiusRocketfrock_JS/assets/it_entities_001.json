@@ -876,7 +876,7 @@
       },
       "defaults": {
         "effectId": "speedShot",
-        "durationSeconds": 8,
+        "durationSeconds": 30,
         "respawnSeconds": 60,
         "radius": 30,
         "atlasId": "it_atlas_001",
@@ -899,7 +899,7 @@
       "type": "shieldPickup",
       "label": "Shield",
       "icon": "🛡",
-      "description": "Grants five seconds of complete damage invulnerability and makes Ignatius flash blue.",
+      "description": "Grants ten seconds of complete damage invulnerability and makes Ignatius flash blue.",
       "defaultState": "available",
       "defaultSize": {
         "w": 96,
@@ -907,7 +907,7 @@
       },
       "defaults": {
         "effectId": "shield",
-        "durationSeconds": 5,
+        "durationSeconds": 10,
         "respawnSeconds": 60,
         "radius": 30,
         "atlasId": "it_atlas_001",
@@ -930,7 +930,7 @@
       "type": "randomWrenchPickup",
       "label": "Random wrench powerup",
       "icon": "🔧",
-      "description": "Rolls a random 15-second wrench rocket mode when the level starts and every time it respawns.",
+      "description": "Rolls a random 30-second wrench rocket mode when the level starts and every time it respawns.",
       "defaultState": "available",
       "defaultSize": {
         "w": 96,
@@ -945,7 +945,7 @@
           "wrenchBigbomb",
           "wrenchBoomerang"
         ],
-        "durationSeconds": 15,
+        "durationSeconds": 30,
         "respawnSeconds": 60,
         "radius": 30,
         "atlasId": "it_atlas_001",

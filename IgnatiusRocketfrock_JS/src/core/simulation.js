@@ -88,6 +88,7 @@ export const DEFAULT_TUNING = Object.freeze({
     gravity: 1490,
     ordinaryJumpHeight: 200,
     terminalVelocity: 2500,
+    playerDropThroughGraceSeconds: 0.18,
     fallDamageEnabled: true,
     fallDamageSafeImpactSpeed: 1441,
     fallDamagePerWizardHeight: 10,
@@ -135,7 +136,7 @@ export const DEFAULT_TUNING = Object.freeze({
     rocketProjectileInitialHomingStrength: 6.7,
     rocketProjectileHomingStrength: 4.8,
     rocketProjectileLifetime: 4.6,
-    rocketProjectileExplosionSeconds: 0.42,
+    rocketProjectileExplosionSeconds: 0.24,
     rocketProjectileImpactRadius: 24,
     rocketProjectileDamage: 30,
     standardRocketSecondarySplashDamage: 1,
@@ -188,7 +189,8 @@ export const DEFAULT_TUNING = Object.freeze({
     playerDeathCoverParticleCount: 102,
     playerDeathBurstParticleCount: 72,
     hazardContactDamage: 20,
-    rocketImpactSmokePuffs: 24,
+    rocketImpactSmokePuffs: 12,
+    rocketImpactSmokeLifetime: 0.82,
     reactiveObjectDestructionSmokePuffs: 18,
     rocketSmokePuffLifetime: 1.5,
     rocketSmokePuffSpacing: 3,
@@ -229,6 +231,9 @@ export function createInputFrame(overrides = {}) {
         interactPressed: false,
         interactHeld: false,
         interactReleased: false,
+        dropPressed: false,
+        dropHeld: false,
+        dropReleased: false,
         aimVector: { x: 1, y: 0 },
         aimTarget: null,
         pausePressed: false,
@@ -261,6 +266,7 @@ export function createSubstepInputFrame(inputFrame, substepIndex = 0) {
         boostHeld: input.boostHeld,
         weaponHeld: input.weaponHeld,
         interactHeld: input.interactHeld,
+        dropHeld: input.dropHeld,
         aimVector: input.aimVector,
         aimTarget: input.aimTarget
     });
@@ -338,6 +344,7 @@ export function createInitialGameState(overrides = {}) {
             visible: true,
             renderScale: 1,
             supportId: null,
+            dropThroughTimer: 0,
             crushCandidateTicks: 0,
             crushCandidateKey: null,
             crushCandidateDetail: null,
@@ -4178,6 +4185,36 @@ function characterEnemyNavigationAdjustedEdge(state, edge, graph = null) {
     return adjustedCost === Number(edge.cost) ? edge : { ...edge, cost: adjustedCost };
 }
 
+function characterEnemyTraversalAllowedFromSupport(edge, sourceSupport) {
+    if (!edge || sourceSupport?.kind !== "walkable") {
+        return true;
+    }
+    const launchY = Number(edge.launchY);
+    const landingY = Number(edge.landingY);
+    if (!Number.isFinite(launchY) || !Number.isFinite(landingY) || landingY <= launchY + 0.001) {
+        return true;
+    }
+    // Monsters may descend from a green one-way line only by walking off the
+    // authored endpoint. Reject old baked jump arcs and malformed drop edges
+    // before the planner can turn them into an endless hop-and-land loop.
+    if (edge.type !== "drop" || edge.walkOff !== true) {
+        return false;
+    }
+    const vx = Number(edge.vx) || 0;
+    const launchX = Number(edge.launchX);
+    const landingX = Number(edge.landingX);
+    if (Math.abs(vx) <= 0.001 || !Number.isFinite(launchX) || !Number.isFinite(landingX)) {
+        return false;
+    }
+    const sourceEdgeX = vx < 0 ? Number(sourceSupport.xMin) : Number(sourceSupport.xMax);
+    const span = Math.max(0, Number(sourceSupport.xMax) - Number(sourceSupport.xMin));
+    const endpointTolerance = Math.max(3, Math.min(8, span * 0.04));
+    if (!Number.isFinite(sourceEdgeX) || Math.abs(launchX - sourceEdgeX) > endpointTolerance) {
+        return false;
+    }
+    return vx < 0 ? landingX < launchX - 0.001 : landingX > launchX + 0.001;
+}
+
 function movingPlatformAtEndpoint(state, platform, endpoint, tolerance = 1.5) {
     const visual = movingPlatformVisual(state, platform);
     if (!visual) return false;
@@ -4423,7 +4460,7 @@ function characterEnemyNavigationContext(state, enemy) {
     for (const support of supports) {
         edgeMap.set(support.id, (rawEdgeMap.get(support.id) || [])
             .map((edge) => characterEnemyNavigationAdjustedEdge(state, edge, bakedGraph))
-            .filter(Boolean));
+            .filter((edge) => edge && characterEnemyTraversalAllowedFromSupport(edge, support)));
     }
     const riderCurrent = translatedRiderNavigationSupport(state, enemy, supports);
     const current = riderCurrent || findEnemyNavigationSupport(supports.filter((support) => movingPlatformSupportAvailable(state, support)), enemy.x, enemy.y, {
@@ -5039,11 +5076,10 @@ function updateCharacterEnemyAirTraversal(state, enemy, dt, supports) {
             )
         );
         if (Math.abs(Number(enemy.velocityX) || 0) <= 0.001) {
-            // A straight gravity drop through a one-way walkable support has no
-            // horizontal edge to clear. Ignore only that source support until
-            // the body has fallen decisively below it, then ordinary collision
-            // resumes for the destination and all other geometry.
-            return y <= sourcePoint.y + departureDrop + 0.5 && enemy.airTimer <= 1;
+            // Monsters never intentionally drop through a one-way floor. A
+            // stale or malformed zero-horizontal drop edge must collide with
+            // its source support immediately rather than bypassing the line.
+            return false;
         }
         const direction = enemy.velocityX < 0 ? -1 : 1;
         const obstacleEdge = direction < 0
@@ -5266,7 +5302,7 @@ function followCharacterEnemyNavigationPlan(state, enemy, navigation, dt) {
     const edge = enemy.route?.[enemy.routeIndex];
     const speed = characterEnemyRunSpeed(enemy, state.tuning);
     if (edge) {
-        if (edge.from !== current.id) {
+        if (edge.from !== current.id || !characterEnemyTraversalAllowedFromSupport(edge, current)) {
             enemy.routeTraversalPhase = null;
             enemy.routeTraversalEdgeIndex = -1;
             enemy.groundVelocityX = 0;
@@ -6444,6 +6480,14 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
         return state;
     }
 
+    p.dropThroughTimer = Math.max(0, (Number(p.dropThroughTimer) || 0) - Math.max(0, Number(dt) || 0));
+    if (input.dropHeld || input.dropPressed) {
+        p.dropThroughTimer = Math.max(
+            p.dropThroughTimer,
+            Math.max(FIXED_DT, Number(t.playerDropThroughGraceSeconds) || 0.18)
+        );
+    }
+
     const wasOnGround = p.onGround;
     p.wasOnGround = wasOnGround;
     p.ax = 0;
@@ -6721,7 +6765,8 @@ function activeRocketProfile(state) {
         initialAnglesDegrees: [0],
         separateTargets: false,
         areaDamageRadiusWizardHeights: 0,
-        boomerang: false
+        boomerang: false,
+        phasesThroughObstacles: false
     };
 }
 
@@ -6809,6 +6854,7 @@ function launchHomingRocket(state, input) {
             secondaryEnemySplashRadius: standardRocketSecondarySplashRadius,
             boomerang: Boolean(rocketProfile.boomerang),
             piercesEnemies: Boolean(rocketProfile.piercesEnemies),
+            phasesThroughObstacles: Boolean(rocketProfile.phasesThroughObstacles),
             boomerangMode: rocketProfile.boomerang ? "outbound" : null,
             boomerangReturnStartedAt: null,
             boomerangRefundFuel: rocketProfile.boomerang ? launchCost * 0.5 : 0,
@@ -7044,8 +7090,12 @@ function updateProjectiles(state, dt) {
             const radius = Math.max(0, Number(projectile.radius) || 0);
             const catchImpact = sweptCircleRectImpact(start, end, radius, getPlayerRect(state));
             const enemyImpact = findProjectileEnemyImpact(state, projectile, previousX, previousY);
-            const reactiveImpact = findProjectileReactiveObjectImpact(state, projectile, previousX, previousY);
-            const terrainImpact = findProjectileTerrainImpact(state, projectile, previousX, previousY);
+            const reactiveImpact = projectile.phasesThroughObstacles
+                ? null
+                : findProjectileReactiveObjectImpact(state, projectile, previousX, previousY);
+            const terrainImpact = projectile.phasesThroughObstacles
+                ? null
+                : findProjectileTerrainImpact(state, projectile, previousX, previousY);
             const impacts = [
                 catchImpact ? { ...catchImpact, impactKind: "playerCatch", priority: 0 } : null,
                 enemyImpact ? { ...enemyImpact, impactKind: "enemy", priority: 1 } : null,
@@ -7147,8 +7197,12 @@ function updateProjectiles(state, dt) {
         }
 
         const enemyImpact = findProjectileEnemyImpact(state, projectile, previousX, previousY);
-        const reactiveImpact = findProjectileReactiveObjectImpact(state, projectile, previousX, previousY);
-        const terrainImpact = findProjectileTerrainImpact(state, projectile, previousX, previousY);
+        const reactiveImpact = projectile.phasesThroughObstacles
+            ? null
+            : findProjectileReactiveObjectImpact(state, projectile, previousX, previousY);
+        const terrainImpact = projectile.phasesThroughObstacles
+            ? null
+            : findProjectileTerrainImpact(state, projectile, previousX, previousY);
         const impacts = [
             enemyImpact ? { ...enemyImpact, impactKind: "enemy", priority: 0 } : null,
             reactiveImpact ? { ...reactiveImpact, impactKind: "reactiveObject", priority: 1 } : null,
@@ -7512,10 +7566,10 @@ function emitProjectileImpactSmoke(state, projectile, detail = {}) {
             vy: Math.sin(angle) * speed - 18 + hash01(seed + 73) * 42,
             lifetime: enemyProjectile
                 ? Math.max(0.18, (t.enemyProjectileImpactLifetime ?? 0.28) * (0.88 + hash01(seed + 101) * 0.32))
-                : (t.rocketSmokePuffLifetime ?? 1.5) * (0.6 + hash01(seed + 101) * 0.4),
+                : (t.rocketImpactSmokeLifetime ?? 0.82) * (0.72 + hash01(seed + 101) * 0.34),
             radius: enemyProjectile
                 ? 3 + hash01(seed + 157) * 4
-                : 6 + hash01(seed + 157) * 7,
+                : 8 + hash01(seed + 157) * 8,
             colorIndex: enemyProjectile ? 0 : null,
             impactWizardAccent: hitWizard
         });
@@ -8230,6 +8284,9 @@ function findActorVerticalSweepCollision(state, actor, previousY, nextY, options
         if (collisionIdIgnored(segment.id, options) || !isSolidSegmentKind(segment.kind) || Math.abs(segment.x2 - segment.x1) < 0.001) {
             continue;
         }
+        if (options.ignoreWalkable && segment.kind === "walkable") {
+            continue;
+        }
         for (const x of samples) {
             const y = segmentYAtX(segment, x);
             if (y === null) {
@@ -8302,7 +8359,9 @@ function moveAndCollideX(state, dx) {
         return;
     }
     if (p.onGround && p.vy >= 0) {
-        const stepped = tryActorStepUp(state, p, previousX, nextX, p.height * AUTOMATIC_STEP_HEIGHT_RATIO);
+        const stepped = tryActorStepUp(state, p, previousX, nextX, p.height * AUTOMATIC_STEP_HEIGHT_RATIO, {
+            ignoreWalkable: (Number(p.dropThroughTimer) || 0) > 0
+        });
         if (stepped) {
             p.x = stepped.x;
             landPlayerOn(state, stepped.y, true, stepped.id, stepped.kind);
@@ -8383,7 +8442,9 @@ function moveAndCollideY(state, dy, wasOnGround) {
     const nextY = previousY + dy;
     p.onGround = false;
     p.supportId = null;
-    const collision = findActorVerticalSweepCollision(state, p, previousY, nextY);
+    const collision = findActorVerticalSweepCollision(state, p, previousY, nextY, {
+        ignoreWalkable: (Number(p.dropThroughTimer) || 0) > 0
+    });
     p.y = collision ? collision.y : nextY;
     if (!collision) {
         return;
@@ -9621,6 +9682,7 @@ export function resetPlayer(state, reason = "manualReset") {
     p.vy = 0;
     p.onGround = false;
     p.supportId = null;
+    p.dropThroughTimer = 0;
     p.wasOnGround = false;
     p.airBoostArmed = false;
     p.ordinaryJumpActive = false;

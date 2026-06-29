@@ -63,7 +63,7 @@ Goal: make each level read as a window into a larger cavern without coupling pre
 * [x] Force manifest collision and gameplay attributes off for every foreground placement. Revision 138 enforces this in editor normalization, inspector edits, runtime conversion, and atlas collision hydration.
 * [x] Darken and slightly desaturate foreground artwork so occlusion reads as depth rather than a gameplay obstacle. Revision 138 applies authored brightness and saturation with shared cave parallax; revision 140 caches the treatment and adds an outward fade to opaque black.
 * [x] Let the Level Editor hide generated perimeter art without deleting it, while keeping shown art responsive through culling, frame caches, cached ordering/bounds, and deferred JSON serialization. Revision 140.
-* [x] Treat perimeter spacing as a maximum and adapt it to sprite coverage so floor and ceiling decorations overlap instead of leaving visible gaps. Revision 140.
+* [x] Derive perimeter density from sprite coverage so floor and ceiling decorations overlap instead of leaving visible gaps. Revision 140 introduced the adaptive rule; revision 279 removes the now-redundant authored maximum.
 * [x] Default new cave windows to 1.1 parallax and 2× generated asset scale. Parallax was tuned in revision 141; scale returned to 2× in revision 142.
 * [x] Shift generated perimeter decorations inward across the spline and use a broad eased fade with a fully black outward cap. Revision 141.
 * [x] Clamp smooth spline handles and regress the wide world-bounds starter loop against self-intersection. Revision 141.
@@ -1186,14 +1186,14 @@ Goal: grow the game beyond isolated prototype levels.
 - [x] Keep cave-window data out of portable gameplay and synchronize it in `src/browser/game-bootstrap.js`.
 - [x] Reuse one resized mask canvas instead of allocating a new surface every frame.
 - [x] Add regression coverage for parallax math, render order, startup/transition synchronization, and the core/presentation boundary.
-- [x] Add deterministic perimeter decoration using tagged atlas assets. Revision 138 adds seed/spacing/scale/brightness controls, replaceable generated records, and manual foreground placement.
+- [x] Add deterministic perimeter decoration using tagged atlas assets. Revision 138 added deterministic decoration controls, replaceable generated records, and manual foreground placement; revision 279 removes the redundant spacing control.
 
 ### Revision 138 deterministic perimeter decoration and inert foreground
 
 - [x] Move Edit perimeter and Add perimeter point controls from the global toolbar into the cave panel.
 - [x] Add a dedicated manual foreground-placement tool using the currently selected atlas asset.
 - [x] Add `src/shared/cave-window-decoration.js` for deterministic arc-length sampling, orientation classification, and tagged asset selection.
-- [x] Store seed, spacing, scale, brightness, and saturation under `caveWindow.decoration`.
+- [x] Store seed, scale, brightness, saturation, and inward-coverage tuning under `caveWindow.decoration`; discard obsolete spacing values. Revision 279.
 - [x] Add Populate perimeter and Clear generated commands; regeneration removes only records marked `generatedBy: "cavePerimeter"`.
 - [x] Render `caveForeground` after actors with the same cave parallax and dark/desaturated treatment, then apply the feathered black mask.
 - [x] Force foreground collision off in editor output, inspector conversion, runtime level conversion, and manifest collision hydration.
@@ -1224,7 +1224,7 @@ Goal: grow the game beyond isolated prototype levels.
 - [x] Stop applying `ctx.filter` per foreground placement in the Level Editor; reuse cached treated frame canvases.
 - [x] Suppress guides and labels for generated perimeter objects unless the object is selected.
 - [x] Defer full pretty-printed level JSON serialization until interaction pauses.
-- [x] Reinterpret authored perimeter spacing as a maximum and reduce actual spacing according to chosen sprite coverage.
+- [x] Supersede authored maximum spacing with density derived entirely from chosen sprite coverage. Revision 279.
 - [x] Use denser overlap on floor and ceiling runs than on walls.
 - [x] Allow large tagged floor and ceiling panels to participate in deterministic generation.
 - [x] Store an outward fade vector and fade interval on generated foreground placements.
@@ -2657,3 +2657,116 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Record zero-required `movingPlatformCrushHazardCount`, `movingPlatformSweepOverlapCount`, and `movingShaftIntrusionCount` diagnostics.
 - [x] Add a synthetic overhead-yellow-platform regression and the default `rocketfrock` Mostly horizontal plus Wide seed regression.
 
+
+## Revision 272 grounded power-ups and one-way enemy floors
+
+- [x] Normalize generated `powerUp` vertical offsets to zero so bottom-center entity anchors rest on their support surfaces.
+- [x] Update the reward catalog's three genuine power-up definitions to use ground seating.
+- [x] Reject generated power-ups that are not seated on their recorded support surface.
+- [x] Keep invisible thought triggers out of visual reward-spacing calculations while preserving all other safety checks.
+- [x] Treat the authored ends of a green one-way line as its only legal monster walk-off edges.
+- [x] Reject every non-walk-off navigation drop whose source is a green `walkable` support.
+- [x] Refuse zero-horizontal source-support bypasses at runtime so stale graph data cannot push monsters through a one-way line.
+- [x] Rebuild `level_001` hunter navigation data under the new one-way descent contract.
+- [x] Add regression coverage for ground-seated generated power-ups, legal edge walk-offs, and malformed direct-drop rejection.
+
+## Revision 273 player drop-through and generator naming
+
+- [x] Add an independent player `dropHeld`/`dropPressed`/`dropReleased` input action.
+- [x] Bind Down/S and gamepad down to player drop-through.
+- [x] Convert a downward mouse or touch gesture into a retained one-frame pulse when released before sampling.
+- [x] Allow Ignatius to ignore green `walkable` lines while standing or falling during the short drop window.
+- [x] Keep every yellow `blockable` line, area, and polygon solid during drop input.
+- [x] Keep enemy one-way behavior unchanged: no through-the-middle drops and only real edge walk-offs.
+- [x] Rename the route label “Mostly horizontal” to “Horizontal” without changing its stable implementation ID.
+- [x] Rename the cavern label “Wide, upward-expanding” to “Domed” without changing its stable implementation ID.
+- [x] Make Horizontal and Domed the explicit Earth and Ice theme defaults.
+- [x] Expand eligible Domed room stamps upward by a factor of 1.5 while retaining every source stamp's lower edge.
+- [x] Reserve one eligible quiet route support when generated narrative thoughts are enabled, so dense power-ups cannot consume every thought location.
+- [x] Update Level Editor guidance, in-game controls, the manual, and regression coverage.
+
+## Revision 274 one-way hunter jump-loop fix
+
+- [x] Reject every downward `jump` edge whose source support is a green `walkable` line.
+- [x] Reject overlapping downward `step` edges from green supports.
+- [x] Represent even small legal descents from green lines as endpoint `drop` edges marked `walkOff`.
+- [x] Filter stale baked edges unless they are outward-moving endpoint walk-offs.
+- [x] Recheck the same invariant immediately before a hunter begins traversal.
+- [x] Rebuild `level_001` hunter navigation with the corrected edge policy.
+- [x] Add a regression reproducing the repeated jump-and-reland loop with Ignatius below, then verify ordinary pursuit beside Ignatius after the legal descent.
+
+## Revision 275 small input, weapon, and cave-editor tuning
+
+- [x] Prefill new Level Editor automatic-enemy probability at 10 percent while keeping the switch off.
+- [x] Preserve zero-percent normalization for absent runtime settings and the `1-999` pool.
+- [x] Map both standard gamepad triggers, including analog values, to weapon fire.
+- [x] Reduce each green Twin rocket from 20 to 10 damage.
+- [x] Store Twin obstacle phasing on portable projectile state.
+- [x] Let phased Twin rockets ignore green/yellow lines, solids, blocking polygons, and reactive obstacles while retaining enemy collision.
+- [x] Raise the new cave-window Full black default from 180 to 200 pixels.
+- [x] Move automatic perimeter formations farther inward by default.
+- [x] Add a Level Editor **Inward coverage %** control that persists through the existing decoration schema.
+- [x] Add regressions for editor defaults, both gamepad triggers, Twin damage/phasing, and cave defaults.
+
+
+
+## Revision 276 denser and balanced generated power-ups
+
+- [x] Target approximately one generated power-up per 1,000 pixels of mandatory-route travel at default Reward density.
+- [x] Cap upward Reward-density scaling at 1.5× so Grand routes remain placeable.
+- [x] Set generated Random Wrench, Shield, and Speed Shot shares to 2:1:1.
+- [x] Use a deterministic running-deficit selector so each draft stays near the requested 50/25/25 mix.
+- [x] Pack dense pickups from safe platform edges inward while preserving ordinary reward spacing and endpoint clearance.
+- [x] Use common placement constraints so reward-only rerolls vary pickup types without moving their slots.
+- [x] Resolve reward slots before encounters and reserve fixed pickup-clearance envelopes so generated monsters never overlap them.
+- [x] Update the Level Editor guidance and game manual.
+- [x] Extend reward-density and generated-mix regression coverage.
+
+
+## Revision 277 organic cave fade and rocket-impact performance
+
+- [x] Normalize cave-gradient noise seed, amplitude, and scale in shared cave-window data. Superseded by revision 278 period semantics.
+- [x] Derive deterministic cyclic broad/fine perturbations along closed spline arc length.
+- [x] Keep the authored opening and exact full-black outset unperturbed.
+- [x] Overlay low-alpha wavy opacity bands only inside the presentation feather.
+- [x] Expose amplitude, scale, and seed in the Level Editor with a representative guide contour.
+- [x] Give generated caverns seed-derived gradient-noise settings.
+- [x] Cache reusable neutral and wrench-tinted smoke stamps in the Canvas renderer.
+- [x] Remove per-frame radial-gradient creation and per-puff sparkle loops from Ignatius impact smoke.
+- [x] Halve the default impact puff count, shorten impact lifetime, and shorten the central explosion hold without changing gameplay damage.
+- [x] Cover normalization, deterministic perturbation, exact outset preservation, editor controls, mask-cache invalidation, generated cave data, and smoke-cache contracts in tests.
+
+## Revision 278 full-width organic cave feather
+
+- [x] Keep the authored cave perimeter smooth so automatic formation normals remain stable.
+- [x] Replace gradient-noise scale with a 10-500 pixel period and default it to 50 pixels.
+- [x] Default gradient amplitude to 50 pixels.
+- [x] Remove the smooth Canvas shadow blur that made the cave edge dark immediately and concealed the waviness.
+- [x] Build the complete feather from twenty-four ordered perturbed opacity contours.
+- [x] Use a smoother-step opacity curve that is exactly transparent at the opening and opaque at the full-black outset.
+- [x] Adapt contour sampling to short wave periods while keeping geometry cached.
+- [x] Restore discoverable **Feather to full black px** wording in the Level Editor.
+- [x] Preview multiple opacity contours without perturbing the cyan authored perimeter.
+- [x] Give generated caves the same 200-pixel feather, 50-pixel amplitude, and 50-pixel period defaults.
+- [x] Preserve the unperturbed full-black lethal boundary and all collision/navigation contracts.
+- [x] Add regression coverage for defaults, period range, gradual opacity, generated settings, editor controls, and mask-cache invalidation.
+
+
+## Revision 279 perimeter decoration simplification
+
+- [x] Remove **Max spacing px** from the Level Editor.
+- [x] Remove `spacing` from normalized and generated `caveWindow.decoration` records.
+- [x] Ignore stale spacing values when older level data is loaded.
+- [x] Derive tangential placement steps from actual rendered formation spans with guaranteed strong overlap.
+- [x] Set generated perimeter asset scale to 2.0, matching the manual cave-window default.
+- [x] Add regression coverage for the simplified schema, editor controls, generated defaults, and perimeter continuity.
+
+
+## Revision 280 longer power-up durations
+
+- [x] Set Speed Shot to a 30-second refreshable duration.
+- [x] Set every wrench rocket mode to a 30-second refreshable duration.
+- [x] Set Shield to a 10-second refreshable duration.
+- [x] Synchronize catalog defaults, level-1 examples, tests, and the game manual.
+- [x] Fix the stale Level Editor revision label and stale current architecture timing/Twin descriptions discovered during the change, then record them in the plan.
+- [x] Codify the rule that discovered bugs/deprecations are noted in the plan and manual-covered changes update the manual.

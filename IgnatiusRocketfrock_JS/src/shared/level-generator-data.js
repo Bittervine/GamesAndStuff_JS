@@ -5,14 +5,15 @@ import {
 import { parseEnemySelection } from "./enemy-pool-data.js";
 export { parseEnemySelection } from "./enemy-pool-data.js";
 
-export const AUTOMATIC_LEVEL_GENERATOR_VERSION = 28;
+export const AUTOMATIC_LEVEL_GENERATOR_VERSION = 31;
 export const AUTOMATIC_LEVEL_GENERATOR_ID = "automatic-level-generator-9";
 
 const GENERATED_PLAYER_BODY_WIDTH = 34;
 const GENERATED_STATIC_HEADROOM = 112;
 export const GENERATED_MINIMUM_VERTICAL_PLATFORM_SEPARATION = 180;
 export const GENERATED_MOVING_PLATFORM_RIDER_CLEARANCE = 180;
-export const GENERATED_POWER_UP_SPACING_PX = 2000;
+export const GENERATED_POWER_UP_SPACING_PX = 1000;
+export const DOMED_CAVERN_UPWARD_EXPANSION_FACTOR = 1.5;
 
 export const LEVEL_GENERATOR_STAGE_ORDER = Object.freeze([
     "route",
@@ -27,12 +28,12 @@ export const LEVEL_GENERATOR_STAGE_ORDER = Object.freeze([
 
 export const LEVEL_GENERATOR_REGISTRIES = Object.freeze({
     route: Object.freeze([
-        Object.freeze({ id: "the-path74-route-v4", label: "Standard" }),
-        Object.freeze({ id: "mostly-horizontal-route-v1", label: "Mostly horizontal" })
+        Object.freeze({ id: "mostly-horizontal-route-v1", label: "Horizontal" }),
+        Object.freeze({ id: "the-path74-route-v4", label: "Standard" })
     ]),
     cavern: Object.freeze([
-        Object.freeze({ id: "the-path74-contour-cavern-v4", label: "Standard" }),
-        Object.freeze({ id: "wide-upper-contour-cavern-v1", label: "Wide, upward-expanding" })
+        Object.freeze({ id: "wide-upper-contour-cavern-v1", label: "Domed" }),
+        Object.freeze({ id: "the-path74-contour-cavern-v4", label: "Standard" })
     ]),
     traversal: Object.freeze([
         Object.freeze({ id: "layered-safety-network-traversal-v6", label: "Standard" })
@@ -179,8 +180,8 @@ const DEFAULT_THEME = Object.freeze({
         atlasIds: ["at_atlas_001", "at_atlas_002", "at_atlas_003"]
     }),
     implementations: Object.freeze({
-        route: "the-path74-route-v4",
-        cavern: "the-path74-contour-cavern-v4",
+        route: "mostly-horizontal-route-v1",
+        cavern: "wide-upper-contour-cavern-v1",
         traversal: "layered-safety-network-traversal-v6",
         endpoints: "grounded-chamber-endpoints-v2",
         encounters: "difficulty-budgeted-encounters-v1",
@@ -609,6 +610,7 @@ export function normalizeRewardGenerationCatalog(value) {
         const category = ["treasure", "powerUp", "utility", "narrative", "prop"].includes(entry.category)
             ? entry.category
             : "prop";
+        const verticalOffset = clampNumber(entry.verticalOffset, 0, 320, 0);
         return {
             rewardId: String(rewardId),
             entityType: String(entry.entityType || rewardId),
@@ -617,7 +619,10 @@ export function normalizeRewardGenerationCatalog(value) {
             weight: clampNumber(entry.weight, 0.05, 20, 1),
             minimumSupportWidth: clampNumber(entry.minimumSupportWidth, 80, 1200, 220),
             edgeClearance: clampNumber(entry.edgeClearance, 16, 280, 64),
-            verticalOffset: clampNumber(entry.verticalOffset, 0, 320, 0),
+            // Generated power-ups are floor pickups. Their authored position is
+            // the bottom centre of the entity, so a zero offset seats them on
+            // the support surface and keeps them inside ordinary walking reach.
+            verticalOffset: category === "powerUp" ? 0 : verticalOffset,
             minimumProgress: clamp01(entry.minimumProgress),
             maximumProgress: clampNumber(entry.maximumProgress, 0, 1, 1)
         };
@@ -691,7 +696,7 @@ export function generatedPowerUpTargetForRoute(route, settings = {}) {
     const densityScale = clamp(
         rewardDensity / Math.max(0.001, DEFAULT_GENERATOR_SETTINGS.rewardDensity),
         0.25,
-        1.75
+        1.5
     );
     return Math.max(1, Math.round(baselineTarget * densityScale));
 }
@@ -795,7 +800,6 @@ function buildBasicRewards({
     traversal,
     endpoints,
     cavern,
-    encounters,
     theme,
     settings,
     rewardPlan,
@@ -815,40 +819,93 @@ function buildBasicRewards({
     const occupiedSupportIds = new Set();
     const occupiedPositions = [];
     const selectedPerchSupportIds = [];
-    const encounterSupportIds = new Set((encounters?.encounters || []).map((encounter) => encounter.supportId));
     const perchChestTarget = Math.max(0, Math.floor(Number(rewardPlan?.treasureTarget) || 0));
     const endpointXs = [
         finiteNumber(endpoints?.entrance?.x, supportById.get(traversal.startSupportId)?.centerX || 0),
         finiteNumber(endpoints?.exit?.x, supportById.get(traversal.exitSupportId)?.centerX || 0)
     ];
     const maximumRouteProgress = Math.max(1, ...(route?.nodes || []).filter((node) => node.mandatory).map((node) => Number(node.progress) || 0));
+    const powerUpMetadata = (rewardGenerationCatalog?.rewards || [])
+        .filter((metadata) => metadata.category === "powerUp" && entityCatalog.has(metadata.entityType));
+    const powerUpWeightTotal = Math.max(0.001, powerUpMetadata.reduce((sum, metadata) => sum + Math.max(0, metadata.weight), 0));
+    const powerUpMinimumSupportWidth = Math.max(0, ...powerUpMetadata.map((metadata) => metadata.minimumSupportWidth));
+    const powerUpPlacementOutset = Math.max(0, ...powerUpMetadata.map((metadata) => {
+        const definition = entityCatalog.get(metadata.entityType);
+        return metadata.edgeClearance + finiteNumber(definition?.defaultSize?.w, 96) * 0.5;
+    }));
+    const powerUpMinimumProgress = Math.max(0, ...powerUpMetadata.map((metadata) => metadata.minimumProgress));
+    const powerUpMaximumProgress = Math.min(1, ...powerUpMetadata.map((metadata) => metadata.maximumProgress));
+    const selectPowerUpMetadata = (candidates) => {
+        const available = (candidates || []).filter(Boolean);
+        if (!available.length) return null;
+        const counts = new Map();
+        let placedCount = 0;
+        for (const reward of rewards) {
+            if (reward.category !== "powerUp") continue;
+            placedCount += 1;
+            counts.set(reward.entityType, (counts.get(reward.entityType) || 0) + 1);
+        }
+        const scored = available.map((metadata) => ({
+            metadata,
+            deficit: ((placedCount + 1) * Math.max(0, metadata.weight) / powerUpWeightTotal)
+                - (counts.get(metadata.entityType) || 0),
+            randomOrder: rng.float()
+        })).sort((left, right) => right.deficit - left.deficit || left.randomOrder - right.randomOrder);
+        return scored[0]?.metadata || null;
+    };
+    const thoughtMetadata = metadataByType.get("thoughtTrigger");
+    const thoughtReservedSupport = rewardPlan.allowThoughts && thoughtMetadata && entityCatalog.has("thoughtTrigger")
+        ? supports
+            .filter((support) => support.mandatory && ["routeFloor", "landingPlatform", "runAndGunGround"].includes(support.role))
+            .map((support) => {
+                const progress = supportProgress(support, routeNodeById, routeEdgeById);
+                const normalizedProgress = progress / maximumRouteProgress;
+                const left = support.walkableLeftX + finiteNumber(thoughtMetadata.edgeClearance, 0);
+                const right = support.walkableRightX - finiteNumber(thoughtMetadata.edgeClearance, 0);
+                const x = clamp(support.centerX, left, right);
+                return { support, progress, normalizedProgress, left, right, x };
+            })
+            .filter((candidate) => candidate.left <= candidate.right
+                && candidate.support.walkableWidth >= finiteNumber(thoughtMetadata.minimumSupportWidth, 0)
+                && candidate.normalizedProgress >= finiteNumber(thoughtMetadata.minimumProgress, 0)
+                && candidate.normalizedProgress <= finiteNumber(thoughtMetadata.maximumProgress, 1)
+                && !endpointXs.some((endpointX) => Math.abs(candidate.x - endpointX) < theme.rewards.endpointExclusionDistance))
+            .sort((left, right) => Math.abs(left.normalizedProgress - 0.5) - Math.abs(right.normalizedProgress - 0.5)
+                || left.support.id.localeCompare(right.support.id))[0]?.support || null
+        : null;
+    if (thoughtReservedSupport) occupiedSupportIds.add(thoughtReservedSupport.id);
 
     const addReward = ({ type, support, context, routeNodeId = "", x = null, overrides = {} }) => {
         const metadata = metadataByType.get(type);
         const definition = entityCatalog.get(type);
         if (!metadata || !definition || !support) return null;
         const normalizedProgress = supportProgress(support, routeNodeById, routeEdgeById) / maximumRouteProgress;
-        if (normalizedProgress < metadata.minimumProgress || normalizedProgress > metadata.maximumProgress) return null;
-        if (support.walkableWidth < metadata.minimumSupportWidth) return null;
+        const minimumProgress = metadata.category === "powerUp" ? powerUpMinimumProgress : metadata.minimumProgress;
+        const maximumProgress = metadata.category === "powerUp" ? powerUpMaximumProgress : metadata.maximumProgress;
+        const minimumSupportWidth = metadata.category === "powerUp" ? powerUpMinimumSupportWidth : metadata.minimumSupportWidth;
+        if (normalizedProgress < minimumProgress || normalizedProgress > maximumProgress) return null;
+        if (support.walkableWidth < minimumSupportWidth) return null;
         // Narrative thought triggers are invisible activation regions, not physical
         // pickups that must fit completely on top of a support. Their authored
         // minimum support width and edge clearance are sufficient; applying the
         // trigger rectangle half-width here would reject otherwise quiet route
         // supports produced by ThePath74.
-        const halfWidth = type === "thoughtTrigger" ? 0 : definition.defaultSize.w * 0.5;
-        const left = support.walkableLeftX + metadata.edgeClearance + halfWidth;
-        const right = support.walkableRightX - metadata.edgeClearance - halfWidth;
+        const placementOutset = metadata.category === "powerUp"
+            ? powerUpPlacementOutset
+            : metadata.edgeClearance + (type === "thoughtTrigger" ? 0 : definition.defaultSize.w * 0.5);
+        const left = support.walkableLeftX + placementOutset;
+        const right = support.walkableRightX - placementOutset;
         if (left > right) return null;
         const resolvedY = support.surfaceY - metadata.verticalOffset;
         let resolvedX = Number.isFinite(Number(x)) ? clamp(Number(x), left, right) : clamp(support.centerX, left, right);
         if (!Number.isFinite(Number(x)) && metadata.category === "powerUp") {
             const span = Math.max(0, right - left);
-            const edgeCandidates = rng.shuffle([left, right]);
-            const innerCandidates = rng.shuffle([
+            const edgeCandidates = [left, right];
+            const innerCandidates = [
                 left + span * 0.25,
                 left + span * 0.75,
                 left + span * 0.5
-            ]);
+            ];
             const candidateXs = [...edgeCandidates, ...innerCandidates];
             const available = candidateXs.find((candidateX) =>
                 !endpointXs.some((endpointX) => Math.abs(candidateX - endpointX) < theme.rewards.endpointExclusionDistance)
@@ -857,7 +914,10 @@ function buildBasicRewards({
             if (available !== undefined) resolvedX = available;
         }
         if (endpointXs.some((endpointX) => Math.abs(resolvedX - endpointX) < theme.rewards.endpointExclusionDistance)) return null;
-        if (occupiedPositions.some((point) => Math.abs(point.x - resolvedX) < theme.rewards.minimumRewardSpacing && Math.abs(point.y - resolvedY) < 180)) return null;
+        // Invisible narrative triggers do not compete for visual pickup spacing.
+        // They still require their own support and all endpoint/cave clearances.
+        if (metadata.category !== "narrative"
+            && occupiedPositions.some((point) => Math.abs(point.x - resolvedX) < theme.rewards.minimumRewardSpacing && Math.abs(point.y - resolvedY) < 180)) return null;
         const id = `generated_reward_${String(rewards.length + 1).padStart(3, "0")}_${runId}`;
         const entity = instantiateGeneratedCatalogEntity({
             id,
@@ -890,12 +950,13 @@ function buildBasicRewards({
     };
 
     if (perchChestTarget > 0) {
-        const perchCandidates = rng.shuffle(supports.filter((support) =>
+        const perchCandidates = supports.filter((support) =>
             support.secondaryPlatform
             && support.rewardPerch
             && !occupiedSupportIds.has(support.id)
-        )).sort((left, right) => supportProgress(left, routeNodeById, routeEdgeById)
-            - supportProgress(right, routeNodeById, routeEdgeById));
+        ).sort((left, right) => supportProgress(left, routeNodeById, routeEdgeById)
+            - supportProgress(right, routeNodeById, routeEdgeById)
+            || left.id.localeCompare(right.id));
         for (const support of perchCandidates) {
             if (selectedPerchSupportIds.length >= perchChestTarget) break;
             const entity = addReward({
@@ -921,29 +982,14 @@ function buildBasicRewards({
     });
 
     const contextual = [];
-    for (const encounter of encounters?.encounters || []) {
-        let context = "";
-        if (encounter.enemyId === "enemy_005") context = "beforeBatEncounter";
-        else if (encounter.placementClass === "groundRanged") context = "beforeRangedEncounter";
-        else if ((Number(encounter.difficultyCost) || 0) >= 5.5) context = "beforeLargeEncounter";
-        else if ((Number(encounter.groupSize) || 0) >= 3) context = "beforeDenseEncounter";
-        if (!context) continue;
-        const priorCandidates = [...mainSupportCandidates]
-            .filter((candidate) => candidate.progress < encounter.progress - 0.25 && !occupiedSupportIds.has(candidate.support.id))
-            .sort((a, b) => b.progress - a.progress)
-            .slice(0, 3);
-        const prior = priorCandidates.length ? rng.pick(priorCandidates) : null;
-        if (!prior) continue;
-        contextual.push({ context, support: prior.support, priority: 3 + (Number(encounter.difficultyCost) || 0), encounter, randomOrder: rng.float() });
-    }
     for (const transition of traversal?.transitions || []) {
         if (!transition.mandatory) continue;
         if ((transition.gap || 0) < 82 && (transition.rise || 0) < 64 && (transition.drop || 0) < 150) continue;
         const support = supportById.get(transition.fromSupportId);
         if (!support || !support.mandatory || occupiedSupportIds.has(support.id)) continue;
-        contextual.push({ context: "beforeDemandingMovement", support, priority: 2 + (transition.gap || 0) / 80 + (transition.rise || 0) / 70, transition, randomOrder: rng.float() });
+        contextual.push({ context: "beforeDemandingMovement", support, priority: 2 + (transition.gap || 0) / 80 + (transition.rise || 0) / 70, transition });
     }
-    contextual.sort((a, b) => (b.priority + b.randomOrder * 1.25) - (a.priority + a.randomOrder * 1.25) || a.support.centerX - b.support.centerX);
+    contextual.sort((a, b) => b.priority - a.priority || a.support.centerX - b.support.centerX || a.support.id.localeCompare(b.support.id));
     let contextualPlaced = 0;
     const usedContextualTypes = new Set();
     for (const candidate of contextual) {
@@ -952,41 +998,44 @@ function buildBasicRewards({
         const metadataCandidates = rewardMetadataForContext(rewardGenerationCatalog, candidate.context)
             .map((metadata) => ({ metadata, weight: metadata.weight }))
             .filter((entry) => entityCatalog.has(entry.metadata.entityType) && !usedContextualTypes.has(entry.metadata.entityType));
-        const selected = weightedRandomChoice(metadataCandidates, rng);
-        if (!selected) continue;
+        const selectedMetadata = metadataCandidates.length && metadataCandidates.every((entry) => entry.metadata.category === "powerUp")
+            ? selectPowerUpMetadata(metadataCandidates.map((entry) => entry.metadata))
+            : weightedRandomChoice(metadataCandidates, rng)?.metadata;
+        if (!selectedMetadata) continue;
         const entity = addReward({
-            type: selected.metadata.entityType,
+            type: selectedMetadata.entityType,
             support: candidate.support,
             context: candidate.context,
             routeNodeId: candidate.support.routeNodeId
         });
         if (entity) {
             contextualPlaced += 1;
-            usedContextualTypes.add(selected.metadata.entityType);
+            usedContextualTypes.add(selectedMetadata.entityType);
         }
     }
 
     if (contextualPlaced < rewardPlan.contextualRewardTarget) {
-        const fallbackSupports = rng.shuffle(mainSupportCandidates
+        const fallbackSupports = mainSupportCandidates
             .map((candidate) => candidate.support)
-            .filter((support) => !occupiedSupportIds.has(support.id) && !encounterSupportIds.has(support.id)));
-        const powerUpMetadata = (rewardGenerationCatalog?.rewards || [])
-            .filter((metadata) => metadata.category === "powerUp" && entityCatalog.has(metadata.entityType));
+            .filter((support) => !occupiedSupportIds.has(support.id))
+            .sort((left, right) => supportProgress(left, routeNodeById, routeEdgeById)
+                - supportProgress(right, routeNodeById, routeEdgeById)
+                || left.id.localeCompare(right.id));
         for (const support of fallbackSupports) {
             if (contextualPlaced >= rewardPlan.contextualRewardTarget) break;
             const unused = powerUpMetadata.filter((metadata) => !usedContextualTypes.has(metadata.entityType));
             const pool = unused.length ? unused : powerUpMetadata;
-            const selected = weightedRandomChoice(pool.map((metadata) => ({ metadata, weight: metadata.weight })), rng);
-            if (!selected) break;
+            const selectedMetadata = selectPowerUpMetadata(pool);
+            if (!selectedMetadata) break;
             const entity = addReward({
-                type: selected.metadata.entityType,
+                type: selectedMetadata.entityType,
                 support,
                 context: support.secondaryPlatform ? "openUpperPerch" : "openRoute",
                 routeNodeId: support.routeNodeId
             });
             if (entity) {
                 contextualPlaced += 1;
-                usedContextualTypes.add(selected.metadata.entityType);
+                usedContextualTypes.add(selectedMetadata.entityType);
             }
         }
     }
@@ -994,71 +1043,77 @@ function buildBasicRewards({
     const guaranteedPowerUpTarget = Math.max(0, Math.floor(Number(rewardPlan?.powerUpTarget) || 0));
     let powerUpCount = rewards.filter((reward) => reward.category === "powerUp").length;
     if (powerUpCount < guaranteedPowerUpTarget) {
-        const powerUpMetadata = (rewardGenerationCatalog?.rewards || [])
-            .filter((metadata) => metadata.category === "powerUp" && entityCatalog.has(metadata.entityType));
         // Keep the route-scaled guarantee owned entirely by the reward stream.
         // Encounter-only rerolls must not shuffle unrelated reward positions.
-        const fallbackSupports = rng.shuffle(mainSupportCandidates
+        const fallbackSupports = mainSupportCandidates
             .map((candidate) => candidate.support)
-            .filter((support) => !occupiedSupportIds.has(support.id)));
+            .filter((support) => !occupiedSupportIds.has(support.id))
+            .sort((left, right) => supportProgress(left, routeNodeById, routeEdgeById)
+                - supportProgress(right, routeNodeById, routeEdgeById)
+                || left.id.localeCompare(right.id));
         for (const support of fallbackSupports) {
             if (powerUpCount >= guaranteedPowerUpTarget) break;
-            const unused = powerUpMetadata.filter((metadata) => !usedContextualTypes.has(metadata.entityType));
-            const pool = unused.length ? unused : powerUpMetadata;
-            const selected = weightedRandomChoice(pool.map((metadata) => ({ metadata, weight: metadata.weight })), rng);
-            if (!selected) break;
+            const selectedMetadata = selectPowerUpMetadata(powerUpMetadata);
+            if (!selectedMetadata) break;
             const entity = addReward({
-                type: selected.metadata.entityType,
+                type: selectedMetadata.entityType,
                 support,
                 context: support.secondaryPlatform ? "openUpperPerch" : "openRoute",
                 routeNodeId: support.routeNodeId
             });
             if (entity) {
                 powerUpCount += 1;
-                usedContextualTypes.add(selected.metadata.entityType);
+                usedContextualTypes.add(selectedMetadata.entityType);
             }
         }
 
-        // A one-per-2,000-pixel route can legitimately need more pickups than
-        // there are distinct supports. Long platforms may therefore host a
+        // A one-per-1,000-pixel route can legitimately need more pickups than
+        // there are distinct supports. Long platforms may therefore host
         // additional pickups, but only at ordinary reward-spacing intervals.
         if (powerUpCount < guaranteedPowerUpTarget) {
             const repeatedSupportSlots = [];
             const slotSpacing = Math.max(240, theme.rewards.minimumRewardSpacing);
+            const candidateStep = Math.max(40, slotSpacing / 4);
             const repeatableSupports = supports.filter((support) =>
                 !support.moving
                 && support.role !== "doorSupport"
+                && support.id !== thoughtReservedSupport?.id
                 && (support.routeNodeId || support.routeEdgeId)
-            );
-            for (const support of repeatableSupports) {
-                const usableLeft = support.walkableLeftX + 96;
-                const usableRight = support.walkableRightX - 96;
-                if (usableRight < usableLeft) continue;
-                const slotCount = Math.max(1, Math.floor((usableRight - usableLeft) / slotSpacing) + 1);
-                for (let slotIndex = 0; slotIndex < slotCount; slotIndex += 1) {
-                    const x = slotCount === 1
-                        ? (usableLeft + usableRight) * 0.5
-                        : usableLeft + (usableRight - usableLeft) * slotIndex / (slotCount - 1);
+            ).sort((left, right) => supportProgress(left, routeNodeById, routeEdgeById)
+                - supportProgress(right, routeNodeById, routeEdgeById)
+                || left.id.localeCompare(right.id));
+            repeatableSupports.forEach((support, supportOrder) => {
+                const usableLeft = support.walkableLeftX + powerUpPlacementOutset;
+                const usableRight = support.walkableRightX - powerUpPlacementOutset;
+                if (usableRight < usableLeft) return;
+                for (let x = usableLeft; x <= usableRight + 0.01; x += candidateStep) {
                     repeatedSupportSlots.push({
                         support,
                         x,
-                        encounterPenalty: encounterSupportIds.has(support.id) ? 1 : 0,
-                        randomOrder: rng.float()
+                        supportOrder,
+                        slotRank: Math.round((x - usableLeft) / candidateStep)
                     });
                 }
-            }
+                if (usableRight - usableLeft > 1) {
+                    repeatedSupportSlots.push({
+                        support,
+                        x: usableRight,
+                        supportOrder,
+                        slotRank: Math.round((usableRight - usableLeft) / candidateStep)
+                    });
+                }
+            });
             repeatedSupportSlots.sort((left, right) =>
-                left.encounterPenalty - right.encounterPenalty
-                || left.randomOrder - right.randomOrder
+                left.slotRank - right.slotRank
+                || left.supportOrder - right.supportOrder
+                || left.x - right.x
             );
             for (const slot of repeatedSupportSlots) {
                 if (powerUpCount >= guaranteedPowerUpTarget) break;
-                const unused = powerUpMetadata.filter((metadata) => !usedContextualTypes.has(metadata.entityType));
-                const pool = unused.length ? unused : powerUpMetadata;
-                const selected = weightedRandomChoice(pool.map((metadata) => ({ metadata, weight: metadata.weight })), rng);
-                if (!selected) break;
+                const selectedMetadata = selectPowerUpMetadata(powerUpMetadata);
+                if (!selectedMetadata) break;
                 const entity = addReward({
-                    type: selected.metadata.entityType,
+                    type: selectedMetadata.entityType,
                     support: slot.support,
                     x: slot.x,
                     context: slot.support.secondaryPlatform ? "openUpperPerch" : "openRoute",
@@ -1066,26 +1121,27 @@ function buildBasicRewards({
                 });
                 if (entity) {
                     powerUpCount += 1;
-                    usedContextualTypes.add(selected.metadata.entityType);
+                    usedContextualTypes.add(selectedMetadata.entityType);
                 }
             }
         }
     }
 
     if (rewardPlan.allowThoughts && rng.chance(theme.rewards.thoughtChance)) {
-        const thoughtMetadata = metadataByType.get("thoughtTrigger");
         const text = theme.rewards.thoughts.length ? rng.pick(theme.rewards.thoughts) : "";
-        const candidates = rng.shuffle(supports
-            .filter((support) => support.mandatory && ["routeFloor", "landingPlatform"].includes(support.role))
-            .map((support) => ({ support, progress: supportProgress(support, routeNodeById, routeEdgeById) }))
-            .filter((candidate) => {
-                const normalizedProgress = candidate.progress / maximumRouteProgress;
-                return !occupiedSupportIds.has(candidate.support.id)
-                    && !encounterSupportIds.has(candidate.support.id)
-                    && candidate.support.walkableWidth >= finiteNumber(thoughtMetadata?.minimumSupportWidth, 0)
-                    && normalizedProgress >= finiteNumber(thoughtMetadata?.minimumProgress, 0)
-                    && normalizedProgress <= finiteNumber(thoughtMetadata?.maximumProgress, 1);
-            }));
+        const candidates = thoughtReservedSupport
+            ? [{ support: thoughtReservedSupport, progress: supportProgress(thoughtReservedSupport, routeNodeById, routeEdgeById) }]
+            : supports
+                .filter((support) => support.mandatory && ["routeFloor", "landingPlatform", "runAndGunGround"].includes(support.role))
+                .map((support) => ({ support, progress: supportProgress(support, routeNodeById, routeEdgeById) }))
+                .filter((candidate) => {
+                    const normalizedProgress = candidate.progress / maximumRouteProgress;
+                    return !occupiedSupportIds.has(candidate.support.id)
+                        && candidate.support.walkableWidth >= finiteNumber(thoughtMetadata?.minimumSupportWidth, 0)
+                        && normalizedProgress >= finiteNumber(thoughtMetadata?.minimumProgress, 0)
+                        && normalizedProgress <= finiteNumber(thoughtMetadata?.maximumProgress, 1);
+                })
+                .sort((left, right) => left.progress - right.progress || left.support.id.localeCompare(right.support.id));
         if (text) {
             for (const selected of candidates) {
                 const entity = addReward({
@@ -1499,6 +1555,26 @@ export function generateAutomaticLevelDraft(options = {}) {
                 theme
             });
             if (!emptyCavernValidation.valid) throw new Error(emptyCavernValidation.errors.join(" "));
+            const rewards = implementations.rewards === "basic-rewards-v1"
+                ? buildBasicRewards({
+                    route: routeGeneration.route,
+                    traversal,
+                    endpoints,
+                    cavern,
+                    theme,
+                    settings: routeGeneration.settings,
+                    rewardPlan,
+                    rewardGenerationCatalog,
+                    entityCatalog,
+                    rng: rewardsRng,
+                    runId: routeGeneration.runId
+                })
+                : emptyRewardPopulation(routeGeneration.runId, implementations.rewards, rewardPlan);
+            const rewardReservations = buildGeneratedRewardEnemyReservations({
+                rewards,
+                rewardGenerationCatalog,
+                entityCatalog
+            });
             const encounters = implementations.encounters === "difficulty-budgeted-encounters-v1"
                 ? buildDifficultyBudgetedEncounters({
                     route: routeGeneration.route,
@@ -1510,6 +1586,7 @@ export function generateAutomaticLevelDraft(options = {}) {
                     resolvedEnemyIds: routeGeneration.resolvedEnemyIds,
                     enemyGenerationCatalog,
                     enemyCatalog,
+                    rewardReservations,
                     rng: createNamedRandomStream(routeGeneration.seed, generatorStageStreamName("encounters", routeGeneration.stageRevisions), routeGeneration.attempt),
                     runId: routeGeneration.runId
                 })
@@ -1526,22 +1603,6 @@ export function generateAutomaticLevelDraft(options = {}) {
                 enemyGenerationCatalog,
                 enemyCatalog
             });
-            const rewards = implementations.rewards === "basic-rewards-v1"
-                ? buildBasicRewards({
-                    route: routeGeneration.route,
-                    traversal,
-                    endpoints,
-                    cavern,
-                    encounters,
-                    theme,
-                    settings: routeGeneration.settings,
-                    rewardPlan,
-                    rewardGenerationCatalog,
-                    entityCatalog,
-                    rng: rewardsRng,
-                    runId: routeGeneration.runId
-                })
-                : emptyRewardPopulation(routeGeneration.runId, implementations.rewards, rewardPlan);
             const rewardValidation = validateGeneratedRewards({
                 rewards,
                 entities: rewards.entities,
@@ -1704,6 +1765,37 @@ export function generateAutomaticLevelDraft(options = {}) {
 }
 
 
+function buildGeneratedRewardEnemyReservations({ rewards, rewardGenerationCatalog, entityCatalog }) {
+    const metadataByType = new Map((rewardGenerationCatalog?.rewards || []).map((entry) => [entry.entityType, entry]));
+    const powerUpDefinitions = (rewardGenerationCatalog?.rewards || [])
+        .filter((entry) => entry.category === "powerUp")
+        .map((entry) => entityCatalog.get(entry.entityType))
+        .filter(Boolean);
+    const powerUpWidth = Math.max(0, ...powerUpDefinitions.map((definition) => finiteNumber(definition?.defaultSize?.w, 0)));
+    const powerUpHeight = Math.max(0, ...powerUpDefinitions.map((definition) => finiteNumber(definition?.defaultSize?.h, 0)));
+    return (rewards?.entities || []).map((entity) => {
+        const metadata = metadataByType.get(String(entity?.type || ""));
+        if (!metadata || metadata.category === "narrative") return null;
+        const definition = entityCatalog.get(String(entity?.type || ""));
+        return {
+            x: finiteNumber(entity?.x, 0),
+            y: finiteNumber(entity?.y, 0),
+            w: metadata.category === "powerUp" ? powerUpWidth : finiteNumber(definition?.defaultSize?.w, entity?.w),
+            h: metadata.category === "powerUp" ? powerUpHeight : finiteNumber(definition?.defaultSize?.h, entity?.h)
+        };
+    }).filter(Boolean);
+}
+
+function generatedEnemyOverlapsRewardReservations(entity, reservations) {
+    return (reservations || []).some((reservation) => {
+        const horizontal = Math.abs(finiteNumber(entity?.x, 0) - finiteNumber(reservation?.x, 0));
+        const vertical = Math.abs(finiteNumber(entity?.y, 0) - finiteNumber(reservation?.y, 0));
+        return horizontal < (finiteNumber(entity?.w, 0) + finiteNumber(reservation?.w, 0)) * 0.55
+            && vertical < Math.max(finiteNumber(entity?.h, 0), finiteNumber(reservation?.h, 0)) * 0.72;
+    });
+}
+
+
 function emptyEncounterPopulation(runId, implementationId = "not-generated-yet") {
     return {
         version: 1,
@@ -1728,6 +1820,7 @@ function buildDifficultyBudgetedEncounters({
     resolvedEnemyIds,
     enemyGenerationCatalog,
     enemyCatalog,
+    rewardReservations = [],
     rng,
     runId
 }) {
@@ -1840,6 +1933,8 @@ function buildDifficultyBudgetedEncounters({
             runId
         });
         if (!built.entities.length) continue;
+        if (built.entities.some((entity) => endpointX.some((x) => Math.abs(finiteNumber(entity?.x, 0) - x) < calmDistance))) continue;
+        if (built.entities.some((entity) => generatedEnemyOverlapsRewardReservations(entity, rewardReservations))) continue;
         if (encounters.some((encounter) => Math.abs(encounter.x - built.encounter.x) < spacing)) continue;
         encounters.push(built.encounter);
         entities.push(...built.entities);
@@ -2512,6 +2607,10 @@ export function validateGeneratedRewards(value = {}) {
             if (!(Number(entity.scoreValue) > 0)) errors.push(`Treasure chest “${entity.id}” has no positive Score reward.`);
         } else if (metadata.category === "powerUp") {
             metrics.powerUpCount += 1;
+            if (Math.abs(entity.y - support.surfaceY) > 2) {
+                metrics.inaccessibleRewardCount += 1;
+                errors.push(`Power-up “${entity.id}” is not seated on its support surface.`);
+            }
         } else if (metadata.category === "utility") {
             metrics.utilityCount += 1;
         } else if (metadata.category === "narrative") {
@@ -2524,15 +2623,18 @@ export function validateGeneratedRewards(value = {}) {
             const verticalDistance = Math.abs((Number(entity.y) || 0) - (Number(enemy.y) || 0));
             if (horizontal < (definition.defaultSize.w + Number(enemy.w || 72)) * 0.55 && verticalDistance < Math.max(definition.defaultSize.h, Number(enemy.h || 120)) * 0.72) {
                 metrics.rewardEnemyOverlapCount += 1;
-                errors.push(`Reward “${entity.id}” overlaps generated enemy “${enemy.id}”.`);
+                errors.push(`Reward “${entity.id}” at (${roundCoordinate(entity.x)}, ${roundCoordinate(entity.y)}) on ${support.id} overlaps generated enemy “${enemy.id}” at (${roundCoordinate(enemy.x)}, ${roundCoordinate(enemy.y)}) on ${enemy.generationSupportId || "unknown"}.`);
                 break;
             }
         }
         for (let second = first + 1; second < entities.length; second += 1) {
             const other = entities[second];
+            const otherMetadata = metadataByType.get(String(other?.type || ""));
             const distanceX = Math.abs((Number(entity.x) || 0) - (Number(other.x) || 0));
             const distanceY = Math.abs((Number(entity.y) || 0) - (Number(other.y) || 0));
-            if (distanceY < 180) metrics.minimumRewardSpacing = Math.min(metrics.minimumRewardSpacing, distanceX);
+            if (metadata.category !== "narrative" && otherMetadata?.category !== "narrative" && distanceY < 180) {
+                metrics.minimumRewardSpacing = Math.min(metrics.minimumRewardSpacing, distanceX);
+            }
         }
     }
 
@@ -3021,7 +3123,7 @@ export function validatePlayableEmptyCavern(value = {}) {
                 }
             }
             if (metrics.upperAccessPlatformCount < metrics.secondaryPlatformCount) {
-                errors.push("The Mostly horizontal upper lane is missing one or more intermediate access platforms.");
+                errors.push("The Horizontal upper lane is missing one or more intermediate access platforms.");
             }
         }
         if (!Number.isFinite(metrics.minimumUpperLaneRocketClearance)) metrics.minimumUpperLaneRocketClearance = 0;
@@ -3097,7 +3199,7 @@ export function validatePlayableEmptyCavern(value = {}) {
         if (metrics.horizontalJumpGapCount > 0 && metrics.maximumHorizontalRouteOffset < 72) warnings.push("Horizontal platform sequences remained unusually close to the abstract route height.");
         if (metrics.organicSameHeightAdjacentCount > 0) errors.push("The organic upper route still contains a same-height platform row.");
         if (metrics.mainStaticPlatformCount >= 3 && metrics.longPlatformShare < 0.4) errors.push("The Standard traversal did not use long platforms for enough of the main route.");
-        if (mostlyHorizontalRoute && metrics.secondaryPlatformCoverageRatio < 0.245) errors.push(`The Mostly horizontal upper lane covers only ${roundCoordinate(metrics.secondaryPlatformCoverageRatio * 100)}% of the route span.`);
+        if (mostlyHorizontalRoute && metrics.secondaryPlatformCoverageRatio < 0.245) errors.push(`The Horizontal upper lane covers only ${roundCoordinate(metrics.secondaryPlatformCoverageRatio * 100)}% of the route span.`);
      else if (!Number.isFinite(metrics.minimumHorizontalJumpGap)) {
         metrics.minimumHorizontalJumpGap = 0;
     }
@@ -4340,7 +4442,7 @@ function buildStandardTraversal({
             }
         }
         if (coveredWidth() < targetCoverage - 1) {
-            throw new Error(`Mostly horizontal upper lane covers only ${roundCoordinate(coveredWidth() / routeSpan * 100)}% of the playable span; 25% is required.`);
+            throw new Error(`Horizontal upper lane covers only ${roundCoordinate(coveredWidth() / routeSpan * 100)}% of the playable span; 25% is required.`);
         }
     } else {
         const baseSecondaryLimit = settings.length === "grand" ? 8 : settings.length === "extended" ? 6 : settings.length === "standard" ? 5 : 3;
@@ -5463,6 +5565,25 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
         }
     }
 
+    if (wideUpperCavern) {
+        const ceilingExpansions = stamps
+            .filter((stamp) => stamp.kind !== "movingPlatformShaft" && Number(stamp.ry) > 0)
+            .map((stamp) => {
+                const originalBottom = stamp.y + stamp.ry;
+                const expandedRadiusY = stamp.ry * DOMED_CAVERN_UPWARD_EXPANSION_FACTOR;
+                return {
+                    ...stamp,
+                    id: `${stamp.id}_domed_ceiling`,
+                    y: originalBottom - expandedRadiusY,
+                    ry: expandedRadiusY,
+                    kind: "domedCeilingExpansion",
+                    sourceStampId: stamp.id,
+                    upwardExpansionFactor: DOMED_CAVERN_UPWARD_EXPANSION_FACTOR
+                };
+            });
+        stamps.push(...ceilingExpansions);
+    }
+
     if (!stamps.length) throw new Error("Room-and-tunnel cavern builder received no traversal supports.");
 
     const minX = Math.min(...stamps.map((stamp) => stamp.x - stamp.rx * 0.96));
@@ -5510,7 +5631,7 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
     };
     const endpointEntities = endpoints?.entities || [];
     return {
-        version: generatorId === "wide-upper-contour-cavern-v1" ? 5 : 4,
+        version: generatorId === "wide-upper-contour-cavern-v1" ? 6 : 4,
         generatorId,
         runId,
         macroPatternId: route?.macro?.patternId || "",
@@ -5524,12 +5645,16 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
         caveWindow: {
             version: 1,
             enabled: true,
-            feather: 118,
+            feather: 200,
             parallax: 1.08,
+            gradientNoise: {
+                seed: hashGeneratorSeed(`${seed}:gradient:${runId}`) % 1000000,
+                amplitude: 50,
+                period: 50
+            },
             decoration: {
                 seed: hashGeneratorSeed(`${seed}:cavern:${runId}`) % 1000000,
-                spacing: 180,
-                scale: 2.15,
+                scale: 2,
                 brightness: 0.46,
                 saturation: 0.68
             },
@@ -5777,10 +5902,10 @@ export function validateRouteGraph(graph, context = {}) {
             ? graph.macro.segments.filter((segment) => segment.direction === "up" || segment.direction === "down")
             : [];
         if (verticalSegments.some((segment) => finiteNumber(segment.length, 0) < 1 || finiteNumber(segment.length, 0) > 2)) {
-            errors.push("Mostly horizontal routes may use only one- or two-cell vertical steps.");
+            errors.push("Horizontal routes may use only one- or two-cell vertical steps.");
         }
-        if (metrics.backtrackEdges !== 0) errors.push("Mostly horizontal routes must advance steadily toward the exit.");
-        if (metrics.horizontalTravel < metrics.verticalTravel * 5) errors.push("The mostly horizontal route contains too much vertical travel.");
+        if (metrics.backtrackEdges !== 0) errors.push("Horizontal routes must advance steadily toward the exit.");
+        if (metrics.horizontalTravel < metrics.verticalTravel * 5) errors.push("The horizontal route contains too much vertical travel.");
     }
 
     for (const room of graph?.macro?.rooms || []) {
@@ -6368,7 +6493,7 @@ function buildMostlyHorizontalRouteCandidate({ theme, settings, rng, attempt }) 
         macro: {
             version: 1,
             patternId: "mostly-horizontal",
-            patternLabel: "Mostly horizontal run-and-gun route",
+            patternLabel: "Horizontal run-and-gun route",
             cellSizeX: roundCoordinate(cellSizeX),
             cellSizeY: roundCoordinate(cellSizeY),
             cellPath: worldCellPath,

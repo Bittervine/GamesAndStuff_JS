@@ -381,6 +381,7 @@ class RocketfrockRenderer {
         };
         this.foregroundSpriteCache = new Map();
         this.powerUpTintCache = new Map();
+        this.smokeStampCache = new Map();
         this.frameForegroundOffset = { x: 0, y: 0 };
         this.frameEntityVisibility = { collectedPickups: new Set(), defeatedEnemies: new Set() };
         this.frameVisualCounters = this.createVisualCounters();
@@ -1185,6 +1186,33 @@ class RocketfrockRenderer {
         return surface;
     }
 
+    getSmokeStampCanvas(tint = null) {
+        const key = String(tint || "neutral").toLowerCase();
+        const cached = this.smokeStampCache.get(key);
+        if (cached) return cached;
+        const ownerDocument = this.canvas?.ownerDocument || (typeof document !== "undefined" ? document : null);
+        if (!ownerDocument?.createElement) return null;
+        const surface = ownerDocument.createElement("canvas");
+        surface.width = 64;
+        surface.height = 64;
+        const context = surface.getContext("2d");
+        if (!context) return null;
+        const rgb = hexColorRgb(tint);
+        const gradient = context.createRadialGradient(32, 32, 1, 32, 32, 31);
+        if (rgb) {
+            gradient.addColorStop(0, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.34)`);
+            gradient.addColorStop(0.34, "rgba(207, 198, 218, 0.88)");
+        } else {
+            gradient.addColorStop(0, "rgba(207, 198, 218, 1)");
+        }
+        gradient.addColorStop(0.56, "rgba(155, 145, 170, 0.48)");
+        gradient.addColorStop(1, "rgba(92, 84, 112, 0)");
+        context.fillStyle = gradient;
+        context.fillRect(0, 0, 64, 64);
+        this.smokeStampCache.set(key, surface);
+        return surface;
+    }
+
     drawPowerUpComposite(powerUp, centerX, centerY, size, time, alpha = 1) {
         const atlas = this.environmentAtlases.get(powerUp?.atlasId || "it_atlas_001");
         const glowFrameName = powerUp?.glowFrame || "powerup_glow_white";
@@ -1847,33 +1875,34 @@ class RocketfrockRenderer {
 
             const smokeAlpha = 0.30 * Math.pow(1 - ageRatio, 1.25);
             const trailTint = puff.kind === "rocketSmokePuff" ? hexColorRgb(puff.trailTint) : null;
-
-            const g = ctx.createRadialGradient(p.x, p.y, 1, p.x, p.y, Math.max(1, radius));
-            if (trailTint) {
-                g.addColorStop(0, `rgba(${trailTint.r}, ${trailTint.g}, ${trailTint.b}, ${smokeAlpha * 0.34})`);
-                g.addColorStop(0.34, `rgba(207, 198, 218, ${smokeAlpha * 0.88})`);
+            const smokeStamp = this.getSmokeStampCanvas(trailTint ? puff.trailTint : null);
+            ctx.save();
+            ctx.globalAlpha = smokeAlpha;
+            if (smokeStamp) {
+                ctx.drawImage(smokeStamp, p.x - radius, p.y - radius, radius * 2, radius * 2);
             } else {
-                g.addColorStop(0, `rgba(207, 198, 218, ${smokeAlpha})`);
+                ctx.fillStyle = "rgba(180, 170, 194, 0.72)";
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+                ctx.fill();
             }
-            g.addColorStop(0.56, `rgba(155, 145, 170, ${smokeAlpha * 0.48})`);
-            g.addColorStop(1, "rgba(92, 84, 112, 0)");
-            ctx.fillStyle = g;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.restore();
 
             const sparkFade = Math.pow(1 - ageRatio, 1.9);
-            if (sparkFade > 0.025) {
+            const sparkMax = puff.kind === "rocketSmokePuff"
+                ? 3
+                : (puff.kind === "attachedRocketSmokePuff" ? 2 : 0);
+            if (sparkMax > 0 && sparkFade > 0.025) {
                 ctx.save();
                 ctx.globalCompositeOperation = "lighter";
-                const sparkCount = 2 + Math.floor(5 * (1 - ageRatio));
+                const sparkCount = 1 + Math.floor(sparkMax * (1 - ageRatio));
                 for (let i = 0; i < sparkCount; i += 1) {
                     const seed = (puff.sparkleSeed || 0) + i * 17;
                     const angle = hashNoise(seed, i) * Math.PI * 2;
                     const r = radius * (0.12 + hashNoise(seed + 31, i) * 0.64);
                     const twinkle = 0.72 + 0.28 * Math.sin((state.clock.time + puff.age) * 18 + i * 1.4);
-                    const size = (0.9 + hashNoise(seed + 79, i) * 2.6) * view.zoom;
-                    ctx.globalAlpha = clamp(0.12 + sparkFade * twinkle * 0.72, 0, 0.82);
+                    const size = (0.9 + hashNoise(seed + 79, i) * 2.2) * view.zoom;
+                    ctx.globalAlpha = clamp(0.10 + sparkFade * twinkle * 0.62, 0, 0.74);
                     ctx.fillStyle = trailTint && i % 3 === 0
                         ? `rgba(${trailTint.r}, ${trailTint.g}, ${trailTint.b}, 0.92)`
                         : (i % 3 === 0 ? "rgba(204, 157, 255, 0.92)" : "rgba(255, 238, 129, 0.94)");

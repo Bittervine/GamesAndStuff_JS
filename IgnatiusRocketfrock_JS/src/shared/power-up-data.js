@@ -52,7 +52,8 @@ const DEFAULT_ROCKET_PROFILE = Object.freeze({
     separateTargets: false,
     areaDamageRadiusWizardHeights: 0,
     boomerang: false,
-    piercesEnemies: false
+    piercesEnemies: false,
+    phasesThroughObstacles: false
 });
 
 function wrenchEffect({ id, label, glowTint, rocket }) {
@@ -60,7 +61,7 @@ function wrenchEffect({ id, label, glowTint, rocket }) {
         version: 1,
         id,
         label,
-        durationSeconds: 15,
+        durationSeconds: 30,
         permanent: false,
         stacking: POWER_UP_STACKING_RULES.REFRESH,
         clearOnDeath: true,
@@ -81,7 +82,7 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
         version: 1,
         id: POWER_UP_EFFECT_IDS.SHIELD,
         label: "Shield",
-        durationSeconds: 5,
+        durationSeconds: 10,
         permanent: false,
         stacking: POWER_UP_STACKING_RULES.REFRESH,
         clearOnDeath: true,
@@ -99,7 +100,7 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
         version: 1,
         id: POWER_UP_EFFECT_IDS.SPEED_SHOT,
         label: "Speed Shot",
-        durationSeconds: 8,
+        durationSeconds: 30,
         permanent: false,
         stacking: POWER_UP_STACKING_RULES.REFRESH,
         clearOnDeath: true,
@@ -148,11 +149,12 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
         glowTint: "#00ff00",
         rocket: {
             projectileCount: 2,
-            damageMultiplier: 2 / 3,
+            damageMultiplier: 1 / 3,
             radiusMultiplier: 0.8,
             visualScale: 0.8,
             initialAnglesDegrees: Object.freeze([-7, 7]),
-            separateTargets: true
+            separateTargets: true,
+            phasesThroughObstacles: true
         }
     }),
     [POWER_UP_EFFECT_IDS.WRENCH_BIGBOMB]: wrenchEffect({
@@ -295,7 +297,8 @@ export function normalizePowerUpEffectDefinition(rawDefinition, fallbackId = "")
                 finiteNumber(builtinRocket.areaDamageRadiusWizardHeights, 0)
             )),
             boomerang: Boolean(rocketSource.boomerang ?? builtinRocket.boomerang ?? false),
-            piercesEnemies: Boolean(rocketSource.piercesEnemies ?? builtinRocket.piercesEnemies ?? false)
+            piercesEnemies: Boolean(rocketSource.piercesEnemies ?? builtinRocket.piercesEnemies ?? false),
+            phasesThroughObstacles: Boolean(rocketSource.phasesThroughObstacles ?? builtinRocket.phasesThroughObstacles ?? false)
         }
     };
 }

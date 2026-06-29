@@ -12,8 +12,10 @@ import {
     computeTimedTextViewportLayout
 } from "../src/presentation/canvas-renderer.js";
 import {
+    caveGradientOpacityAtProgress,
     caveWindowMaskRenderKey,
     computeCaveWindowParallaxOffset,
+    CAVE_GRADIENT_BAND_COUNT,
     DEFAULT_CAVE_MASK_RENDER_SCALE
 } from "../src/presentation/cave-window-mask.js";
 import {
@@ -87,6 +89,7 @@ import {
     generatedPowerUpTargetForRoute,
     generatedMovingPlatformCrushHazards,
     generatedMovingPlatformRiderEnvelope,
+    DOMED_CAVERN_UPWARD_EXPANSION_FACTOR,
     GENERATED_MINIMUM_VERTICAL_PLATFORM_SEPARATION,
     GENERATED_MOVING_PLATFORM_RIDER_CLEARANCE,
     GENERATED_POWER_UP_SPACING_PX,
@@ -114,8 +117,10 @@ import {
     createCaveWindowPointsFromBounds,
     nearestCaveSplineSegment,
     normalizeCaveDecoration,
+    normalizeCaveGradientNoise,
     normalizeCaveWindow,
     sampleCaveWindowOutset,
+    sampleCaveWindowPerturbedOutset,
     sampleClosedCaveSpline
 } from "../src/shared/cave-window-data.js";
 import {
@@ -1069,6 +1074,8 @@ function testAutomaticEnemySpawning() {
     const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     assert.ok(editorHtml.includes('id="auto-spawn-enemies-enabled"'), "Level Editor should expose the automatic enemy spawn switch");
     assert.ok(editorHtml.includes('id="auto-spawn-enemies-probability"'), "Level Editor should expose the per-second percentage");
+    assert.ok(editorHtml.includes('id="auto-spawn-enemies-probability" type="number" min="0" max="100" step="1" value="10"'), "new editor levels should offer a moderate ten-percent spawn chance when the feature is enabled");
+    assert.ok(editorHtml.includes('probabilityPercent: 10'), "the Level Editor's empty-level model should preserve the ten-percent checkbox-ready default");
     assert.ok(editorHtml.includes('id="auto-spawn-enemies-pool"'), "Level Editor should expose the generator-format enemy pool");
     assert.ok(editorHtml.includes("refreshAutoSpawnEnemyPreview"), "Level Editor should preview the resolved enemy pool");
     const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
@@ -2873,6 +2880,293 @@ function testGroundEnemyWalksUnderOneWayPlatform() {
     assert.equal(enemy.y, 600, "walking beneath a one-way platform should keep the monster on its current floor");
 }
 
+function testGroundEnemyCannotDropThroughOneWayPlatform() {
+    const world = {
+        segments: [
+            { id: "upper_one_way", kind: "walkable", x1: 0, y1: 400, x2: 300, y2: 400 },
+            { id: "lower_floor", kind: "walkable", x1: -220, y1: 600, x2: 520, y2: 600 }
+        ],
+        solids: [],
+        collisionPolygons: []
+    };
+    const profile = {
+        bodyWidth: 72,
+        bodyHeight: 150,
+        runSpeed: 180,
+        jumpHeight: 180,
+        gravity: 1200,
+        maxFallDistance: 300,
+        maxStepHeight: 26,
+        maxStepGap: 18,
+        edgeInset: 12
+    };
+    const graph = bakeEnemyNavigationGraph(world, profile, { id: "one_way_drop_guard" });
+    const descents = graph.edges.filter((edge) => edge.from === "upper_one_way" && edge.to === "lower_floor" && edge.type === "drop");
+    assert.ok(descents.length > 0, "a monster should still be able to leave a one-way platform by walking off an exposed edge");
+    assert.equal(descents.every((edge) => edge.walkOff === true), true, "every descent from a green one-way support must be an edge walk-off");
+    assert.equal(descents.every((edge) => Math.abs(edge.vx) > 0.001 && edge.direction !== "down"), true, "one-way navigation must never encode a straight drop through the support line");
+    assert.equal(descents.every((edge) => edge.launchX <= 2.6 || edge.launchX >= 297.4), true, "one-way walk-offs should launch only at an authored platform end");
+
+    const state = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(state, {
+        levelId: "enemy_one_way_drop_guard_test",
+        playerStart: { x: 150, y: 600 },
+        entities: [{
+            id: "drop_guard",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_001",
+            x: 150,
+            y: 400,
+            w: 72,
+            h: 150,
+            facing: 1,
+            strategy: "hunter",
+            patrolDistance: 80,
+            walkSpeed: 40,
+            runSpeed: 180,
+            jumpHeight: 180,
+            jumpGravity: 1200,
+            maxFallDistance: 300,
+            maxStepHeight: 26,
+            awarenessRange: 800,
+            attackMode: "melee",
+            attackDamage: 0
+        }]
+    }), true, "one-way drop-guard fixture should apply");
+    state.world.segments = world.segments.map((segment) => ({ ...segment }));
+    state.world.solids = [];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+
+    const enemy = state.enemies.find((item) => item.id === "drop_guard");
+    // Simulate a stale pre-fix graph that asks for a zero-horizontal drop. The
+    // runtime collision guard must reject it even if such an edge reaches play.
+    enemy.airborne = true;
+    enemy.airTimer = 0;
+    enemy.airTraversalType = "drop";
+    enemy.airSourceSupportId = "upper_one_way";
+    enemy.airSourceObstacleId = null;
+    enemy.airTargetSupportId = "lower_floor";
+    enemy.currentSupportId = "upper_one_way";
+    enemy.supportId = null;
+    enemy.velocityX = 0;
+    enemy.velocityY = 0;
+    enemy.aiState = "drop";
+    enemy.movementPhase = "drop";
+
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(enemy.airborne, false, "a malformed direct-drop request should land back on the green support instead of passing through it");
+    assert.equal(enemy.y, 400, "the one-way support should remain authoritative under the monster's feet");
+}
+
+function testHunterDoesNotJumpLoopOnOneWayPlatform() {
+    const world = {
+        segments: [
+            { id: "upper_green", kind: "walkable", x1: 0, y1: 400, x2: 600, y2: 400 },
+            { id: "lower_yellow", kind: "blockable", x1: -100, y1: 650, x2: 900, y2: 650 }
+        ],
+        solids: [],
+        collisionPolygons: []
+    };
+    const profile = {
+        bodyWidth: 72,
+        bodyHeight: 150,
+        runSpeed: 180,
+        groundAcceleration: 950,
+        jumpHeight: 180,
+        gravity: 1200,
+        maxFallDistance: 400,
+        maxStepHeight: 26,
+        maxStepGap: 23.04,
+        edgeInset: 15.84,
+        bodyClearance: 24.48
+    };
+    const baked = bakeEnemyNavigationGraph(world, profile, { id: "one_way_jump_loop_guard" });
+    const descents = baked.edges.filter((edge) => edge.from === "upper_green" && edge.to === "lower_yellow");
+    assert.ok(descents.length > 0, "the hunter should retain a route from the upper one-way platform to the lower floor");
+    assert.equal(descents.some((edge) => edge.type === "jump"), false, "one-way descent planning must never use an upward jump arc toward a lower support");
+    assert.equal(descents.every((edge) => edge.type === "drop" && edge.walkOff === true), true, "every one-way descent should be an endpoint walk-off");
+
+    // Add a deliberately stale pre-fix edge. Runtime graph consumption must
+    // filter it, otherwise an engaged hunter directly above its last-seen
+    // target repeatedly jumps and lands on the same green line forever.
+    baked.edges.unshift({
+        id: "legacy_vertical_jump_through_green",
+        type: "jump",
+        direction: "up",
+        from: "upper_green",
+        to: "lower_yellow",
+        launchX: 300,
+        launchY: 400,
+        landingX: 300,
+        landingY: 650,
+        vx: 0,
+        vy: -Math.sqrt(2 * profile.gravity * profile.jumpHeight),
+        flightTime: 1.4,
+        cost: 1,
+        blockerIds: []
+    });
+
+    const state = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(state, {
+        levelId: "hunter_one_way_jump_loop_test",
+        playerStart: { x: 300, y: 650 },
+        entities: [{
+            id: "loop_guard",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_001",
+            x: 300,
+            y: 400,
+            w: 72,
+            h: 150,
+            facing: 1,
+            strategy: "hunter",
+            patrolDistance: 80,
+            walkSpeed: 40,
+            runSpeed: 180,
+            runAcceleration: 950,
+            jumpHeight: 180,
+            jumpGravity: 1200,
+            maxFallDistance: 400,
+            maxStepHeight: 26,
+            awarenessRange: 1200,
+            awarenessHalfAngle: 180,
+            attackMode: "melee",
+            attackRange: 60,
+            attackVerticalRange: 110,
+            attackDamage: 0
+        }],
+        navigationGraphs: { version: 2, profiles: [baked] }
+    }), true, "one-way jump-loop fixture should apply");
+    state.world.segments = world.segments.map((segment) => ({ ...segment }));
+    state.world.solids = [];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    Object.assign(state.player, { x: 300, y: 650, onGround: true, wasOnGround: true });
+
+    const enemy = state.enemies.find((item) => item.id === "loop_guard");
+    Object.assign(enemy, {
+        alerted: true,
+        engaged: true,
+        aiState: "pursue",
+        awarenessTimer: 10,
+        lastSeenPlayerX: 300,
+        lastSeenPlayerY: 650,
+        lastSeenSupportId: "lower_yellow",
+        routeRepathTimer: 0
+    });
+
+    const launches = [];
+    let wasAirborne = false;
+    for (let tick = 0; tick < 600; tick += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        if (enemy.airborne && !wasAirborne) {
+            launches.push(enemy.airTraversalType);
+        }
+        wasAirborne = enemy.airborne;
+    }
+    assert.equal(enemy.navigationGraphSource, "baked", "the stale-edge regression should exercise baked-graph filtering");
+    assert.equal(launches.includes("jump"), false, "a hunter pursuing a target below must not bounce on its green support");
+    assert.deepEqual(launches, ["drop"], "the hunter should leave the green line once through a legal endpoint walk-off");
+    assert.equal(enemy.currentSupportId, "lower_yellow", "the hunter should reach the lower floor instead of relanding on the source line");
+    assert.equal(enemy.y, 650, "the hunter should settle on the lower yellow floor");
+
+    state.player.x = enemy.x + 42;
+    state.player.y = 650;
+    let jumpedBesidePlayer = false;
+    for (let tick = 0; tick < 180; tick += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        jumpedBesidePlayer ||= enemy.airTraversalType === "jump";
+    }
+    assert.equal(jumpedBesidePlayer, false, "a hunter beside Ignatius on the same floor should pursue or attack rather than enter another jump loop");
+}
+
+function testPlayerCanDropThroughOneWayPlatforms() {
+    const state = createInitialGameState();
+    state.world.segments = [
+        { id: "upper_green", kind: "walkable", x1: -240, y1: 400, x2: 240, y2: 400 },
+        { id: "lower_yellow", kind: "blockable", x1: -240, y1: 600, x2: 240, y2: 600 }
+    ];
+    state.world.solids = [];
+    state.world.collisionPolygons = [];
+    state.world.resetY = 1200;
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+
+    Object.assign(state.player, {
+        x: 0,
+        y: 400,
+        vx: 0,
+        vy: 0,
+        onGround: true,
+        wasOnGround: true,
+        supportId: "upper_green",
+        dropThroughTimer: 0,
+        ordinaryJumpActive: false
+    });
+    stepSimulation(state, createInputFrame({ dropPressed: true, dropHeld: true }), FIXED_DT);
+    assert.ok(state.player.y > 400, "pressing down while standing on a green line should begin falling through it immediately");
+    assert.equal(state.player.onGround, false, "the green line should release the player while drop-through is active");
+    stepMany(state, 45);
+    approx(state.player.y, 600, 0.001, "a player dropping through green should land on the yellow floor below");
+    assert.equal(state.player.supportId, "lower_yellow", "yellow geometry below a drop-through should remain a normal landing support");
+
+    Object.assign(state.player, {
+        x: 0,
+        y: 380,
+        vx: 0,
+        vy: 160,
+        onGround: false,
+        wasOnGround: false,
+        supportId: null,
+        dropThroughTimer: 0,
+        ordinaryJumpActive: false
+    });
+    stepSimulation(state, createInputFrame({ dropPressed: true, dropHeld: true }), FIXED_DT);
+    stepMany(state, 10);
+    assert.ok(state.player.y > 405, "pressing down while already falling should carry the player through the next green line");
+    assert.notEqual(state.player.supportId, "upper_green", "a falling drop-through must not land on the green line");
+    stepMany(state, 35);
+    approx(state.player.y, 600, 0.001, "the falling drop-through should still stop at yellow geometry");
+
+    Object.assign(state.player, {
+        x: 0,
+        y: 600,
+        vx: 0,
+        vy: 0,
+        onGround: true,
+        wasOnGround: true,
+        supportId: "lower_yellow",
+        dropThroughTimer: 0,
+        ordinaryJumpActive: false
+    });
+    stepMany(state, 30, () => createInputFrame({ dropHeld: true }));
+    approx(state.player.y, 600, 0.001, "holding down must never pass through a yellow blocking line");
+    assert.equal(state.player.supportId, "lower_yellow", "yellow lines remain authoritative even while drop-through input is held");
+
+    const input = new RocketfrockInput({ addEventListener() {} });
+    input.onMouseDown({
+        button: 0,
+        clientX: 100,
+        clientY: 100,
+        target: { closest() { return null; } },
+        preventDefault() {}
+    });
+    input.onMouseMove({ clientX: 100, clientY: 155, preventDefault() {} });
+    input.onMouseEnd({ preventDefault() {} });
+    const swipeFrame = input.sample();
+    assert.equal(swipeFrame.dropHeld, true, "a completed downward mouse or touch-style swipe should pulse player drop-through");
+    assert.equal(swipeFrame.dropPressed, true, "a fresh downward swipe should create a drop-through press edge even when released before sampling");
+    const postSwipeFrame = input.sample();
+    assert.equal(postSwipeFrame.dropHeld, false, "the completed swipe pulse should last for only one sampled frame");
+    assert.equal(postSwipeFrame.dropReleased, true, "the completed swipe pulse should produce a clean release edge");
+}
+
 
 function testGroundEnemyAutomaticSmallStep() {
     const createEnemyStepState = (stepHeight) => {
@@ -4353,15 +4647,21 @@ function testAutomaticLevelGeneratorMacroRoomsGroundedDoorsAndPerimeterContract(
 
     for (const rawTheme of [rawEarthTheme, rawIceTheme]) {
         const theme = normalizeGeneratorTheme(rawTheme);
-        assert.equal(theme.implementations.route, "the-path74-route-v4", "current cavern themes should use the protected ThePath74 route planner");
-        assert.equal(theme.implementations.cavern, "the-path74-contour-cavern-v4", "current cavern themes should add 2–4 ellipse rooms before tracing the occupancy contour");
-        assert.equal(theme.implementations.traversal, "layered-safety-network-traversal-v6", "current cavern themes should realize ThePath74 as an upper route, a sloping lower recovery route, tertiary rescue platforms, and thin return lifts");
+        assert.equal(theme.implementations.route, "mostly-horizontal-route-v1", "current cavern themes should default to the Horizontal route planner");
+        assert.equal(theme.implementations.cavern, "wide-upper-contour-cavern-v1", "current cavern themes should default to the Domed cavern planner");
+        assert.equal(theme.implementations.traversal, "layered-safety-network-traversal-v6", "current cavern themes should share the current traversal realizer across Horizontal and Standard routes");
+        const standardImplementations = {
+            ...theme.implementations,
+            route: "the-path74-route-v4",
+            cavern: "the-path74-contour-cavern-v4"
+        };
         assert.equal(theme.implementations.validation, "the-path74-cavern-validation-v4", "current cavern themes should enforce ThePath74 geometry metrics");
         assert.equal(theme.implementations.endpoints, "grounded-chamber-endpoints-v2", "current cavern themes should seat endpoints in grounded chambers");
         assert.equal(theme.decoration.populatePerimeter, true, "current cavern themes should request populated cave walls");
 
         assert.throws(() => generateAutomaticLevelDraft({
             theme,
+            implementations: standardImplementations,
             assetCatalog,
             enemyGenerationCatalog,
             rewardGenerationCatalog,
@@ -4377,6 +4677,7 @@ function testAutomaticLevelGeneratorMacroRoomsGroundedDoorsAndPerimeterContract(
         for (const length of ["compact", "standard", "extended", "grand"]) {
             const draft = generateAutomaticLevelDraft({
                 theme,
+                implementations: standardImplementations,
                 assetCatalog,
                 enemyGenerationCatalog,
                 rewardGenerationCatalog,
@@ -4493,6 +4794,7 @@ function testAutomaticLevelGeneratorMacroRoomsGroundedDoorsAndPerimeterContract(
         for (let seed = 0; seed < 24; seed += 1) {
             const route = generateAutomaticLevelRoute({
                 theme,
+                implementations: standardImplementations,
                 seed: `macro-shape-${theme.themeId}-${seed}`,
                 settings: { ...theme.defaults, length: "grand", verticality: 0.9, winding: 0.9, },
                 availableEnemyIds
@@ -4509,7 +4811,7 @@ function testAutomaticLevelGeneratorMacroRoomsGroundedDoorsAndPerimeterContract(
 
     const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     assert.ok(editorHtml.includes("requirePopulatedPerimeter: true"), "Level Editor generation should require the requested perimeter stage to succeed");
-    assert.ok(editorHtml.includes("ThePath74") && editorHtml.includes("ellipse rooms") && editorHtml.includes("occupancy contour"), "Level Editor should explain ThePath74, its ellipse rooms, and the arbitrary contour envelope");
+    assert.ok(editorHtml.includes("Horizontal is the default route") && editorHtml.includes("Standard remains available as a folded ThePath74 route") && editorHtml.includes("Domed is the default cavern shape"), "Level Editor should explain the current defaults while retaining the Standard ThePath74 alternative");
 }
 
 
@@ -4659,13 +4961,17 @@ function testAutomaticLevelGeneratorRouteFoundation() {
     const rawRewardCatalog = JSON.parse(readFileSync(new URL("../assets/level-generator-rewards.json", import.meta.url), "utf8"));
     assert.ok(Object.values(rawRewardCatalog.rewards || {}).every((reward) => !(reward.contexts || []).some((context) => context === "branchDestination" || context === "branchBonus")), "the reward catalog should not retain retired branch-only contexts");
     assert.deepEqual(LEVEL_GENERATOR_REGISTRIES.route, [
-        { id: "the-path74-route-v4", label: "Standard" },
-        { id: "mostly-horizontal-route-v1", label: "Mostly horizontal" }
-    ], "the route selector should expose only the current standard and compatible mostly-horizontal planners");
+        { id: "mostly-horizontal-route-v1", label: "Horizontal" },
+        { id: "the-path74-route-v4", label: "Standard" }
+    ], "the route selector should expose Horizontal as the default and retain Standard as the alternate planner");
     assert.deepEqual(LEVEL_GENERATOR_REGISTRIES.cavern, [
-        { id: "the-path74-contour-cavern-v4", label: "Standard" },
-        { id: "wide-upper-contour-cavern-v1", label: "Wide, upward-expanding" }
-    ], "the cavern selector should expose only the current standard and wide upward variants");
+        { id: "wide-upper-contour-cavern-v1", label: "Domed" },
+        { id: "the-path74-contour-cavern-v4", label: "Standard" }
+    ], "the cavern selector should expose Domed as the default and retain Standard as the alternate shape");
+    assert.equal(earthTheme.implementations.route, "mostly-horizontal-route-v1", "Earth generation should default to the Horizontal route");
+    assert.equal(earthTheme.implementations.cavern, "wide-upper-contour-cavern-v1", "Earth generation should default to the Domed cavern");
+    assert.equal(iceTheme.implementations.route, "mostly-horizontal-route-v1", "Ice generation should default to the Horizontal route");
+    assert.equal(iceTheme.implementations.cavern, "wide-upper-contour-cavern-v1", "Ice generation should default to the Domed cavern");
     for (const stage of ["traversal", "endpoints", "encounters", "rewards", "decoration", "validation"]) {
         assert.equal(LEVEL_GENERATOR_REGISTRIES[stage].length, 1, `${stage} should expose only its current compatible implementation`);
         assert.equal(LEVEL_GENERATOR_REGISTRIES[stage][0].label, "Standard", `${stage} should use a simple Standard label`);
@@ -4724,7 +5030,7 @@ function testAutomaticLevelGeneratorRouteFoundation() {
     assert.notDeepEqual(changedRun.route.nodes, firstRun.route.nodes, "changing the seed should change the route candidate");
     assert.equal(firstRun.generatorId, AUTOMATIC_LEVEL_GENERATOR_ID, "generation provenance should identify the current automatic generator");
     assert.equal(firstRun.validation.valid, true, "the selected route should pass validation");
-    assert.ok(firstRun.validation.qualityScore >= 80, `the selected route should clear the visual-quality floor, got ${firstRun.validation.qualityScore}`);
+    assert.ok(firstRun.validation.qualityScore >= 75, `the default Horizontal route should clear its visual-quality floor, got ${firstRun.validation.qualityScore}`);
     assert.ok(firstRun.attemptsTried >= 8 && firstRun.attempt >= 1, "the generator should evaluate deterministic candidates and record the selected attempt");
     assert.deepEqual(firstRun.resolvedEnemyIds, ["enemy_001", "enemy_003", "enemy_005"], "generation provenance should store the resolved enemy filter");
 
@@ -4764,7 +5070,7 @@ function testAutomaticLevelGeneratorRouteFoundation() {
                 });
                 assert.equal(run.validation.valid, true, `${theme.themeId} seed ${seed} should produce a valid selected route`);
                 assert.equal(run.validation.metrics.edgeCrossings, 0, `${theme.themeId} seed ${seed} should avoid crossing route edges`);
-                assert.ok(run.validation.qualityScore >= 80, `${theme.themeId} seed ${seed} should clear the route quality floor`);
+                assert.ok(run.validation.qualityScore >= 75, `${theme.themeId} seed ${seed} should clear the Horizontal-route quality floor`);
             }
         }
     }
@@ -4857,6 +5163,9 @@ function testAutomaticLevelGeneratorVariantCompatibility() {
                     assert.equal(draft.generation.validation.valid, true, `${key} should be a compatible, fully validated generator combination`);
                     assert.equal(draft.generation.route.generatorId, routeId, `${key} should preserve the selected route implementation`);
                     assert.equal(draft.generation.cavern.generatorId, cavernId, `${key} should preserve the selected cavern implementation`);
+                    assert.ok(draft.caveWindow.gradientNoise?.amplitude === 50 && draft.caveWindow.gradientNoise?.period === 50 && draft.caveWindow.feather === 200, `${key} should carry deterministic organic gradient-noise settings into the generated cave window`);
+                    assert.equal(draft.caveWindow.decoration?.scale, 2, `${key} should use the two-times perimeter-asset scale default`);
+                    assert.equal("spacing" in (draft.caveWindow.decoration || {}), false, `${key} should derive perimeter density from actual asset coverage instead of serializing obsolete spacing data`);
 
                     if (routeId === "mostly-horizontal-route-v1") {
                         const routeMetrics = draft.generation.route.validation.metrics;
@@ -4917,14 +5226,23 @@ function testAutomaticLevelGeneratorVariantCompatibility() {
                 const mean = (values) => values.reduce((sum, value) => sum + value, 0) / Math.max(1, values.length);
                 const averageRoomWidth = (draft) => mean(draft.generation.cavern.rooms.map((room) => room.widthScreens));
                 const averageRoomHeight = (draft) => mean(draft.generation.cavern.rooms.map((room) => room.heightScreens));
-                assert.ok(wide.generation.cavern.rooms.length >= standard.generation.cavern.rooms.length + 2, `${theme.themeId} ${length} ${routeId} wide caverns should add several extra rooms`);
-                assert.ok(wide.generation.cavern.rooms.filter((room) => room.auxiliary).length >= 2, `${theme.themeId} ${length} ${routeId} wide caverns should include auxiliary upward room stamps`);
-                assert.ok(averageRoomWidth(wide) > averageRoomWidth(standard), `${theme.themeId} ${length} ${routeId} wide caverns should have broader rooms`);
-                assert.ok(averageRoomHeight(wide) < averageRoomHeight(standard), `${theme.themeId} ${length} ${routeId} wide caverns should have shallower rooms`);
+                assert.ok(wide.generation.cavern.rooms.length >= standard.generation.cavern.rooms.length + 2, `${theme.themeId} ${length} ${routeId} Domed caverns should add several extra rooms`);
+                assert.ok(wide.generation.cavern.rooms.filter((room) => room.auxiliary).length >= 2, `${theme.themeId} ${length} ${routeId} Domed caverns should include auxiliary upward room stamps`);
+                assert.ok(averageRoomWidth(wide) > averageRoomWidth(standard), `${theme.themeId} ${length} ${routeId} Domed caverns should have broader rooms`);
+                assert.ok(averageRoomHeight(wide) < averageRoomHeight(standard), `${theme.themeId} ${length} ${routeId} Domed caverns should have shallower base rooms`);
                 const minimumWidePerches = length === "compact" ? 2 : 3;
-                assert.ok(wide.generation.validation.metrics.secondaryPlatformCount >= minimumWidePerches, `${theme.themeId} ${length} ${routeId} wide caverns should retain several raised combat or reward platforms inside the enlarged rooms`);
+                assert.ok(wide.generation.validation.metrics.secondaryPlatformCount >= minimumWidePerches, `${theme.themeId} ${length} ${routeId} Domed caverns should retain several raised combat or reward platforms inside the enlarged rooms`);
                 assert.equal(wide.generation.validation.metrics.secondaryPlatformCount, wide.generation.validation.metrics.secondaryRewardPerchCount + wide.generation.validation.metrics.secondaryCombatPerchCount, `${theme.themeId} ${length} ${routeId} every raised platform should have a clear combat or reward purpose`);
-                assert.ok(wide.generation.validation.metrics.presentation.minimumPlatformFloorClearance >= theme.cavern.platformFloorClearance - 42, `${theme.themeId} ${length} ${routeId} wide caverns should preserve a stable near-ground lower boundary`);
+                assert.ok(wide.generation.validation.metrics.presentation.minimumPlatformFloorClearance >= theme.cavern.platformFloorClearance - 42, `${theme.themeId} ${length} ${routeId} Domed caverns should preserve a stable near-ground lower boundary`);
+                const sourceStamps = new Map(wide.generation.cavern.stamps.map((stamp) => [stamp.id, stamp]));
+                const domeStamps = wide.generation.cavern.stamps.filter((stamp) => stamp.kind === "domedCeilingExpansion");
+                assert.ok(domeStamps.length > 0, `${theme.themeId} ${length} ${routeId} Domed caverns should add explicit upward-only ceiling expansions`);
+                for (const dome of domeStamps) {
+                    const source = sourceStamps.get(dome.sourceStampId);
+                    assert.ok(source, `${theme.themeId} ${length} ${routeId} every dome expansion should reference its source room stamp`);
+                    approx(dome.ry, source.ry * DOMED_CAVERN_UPWARD_EXPANSION_FACTOR, 0.01, `${theme.themeId} ${length} ${routeId} dome radius should be 50% taller`);
+                    approx(dome.y + dome.ry, source.y + source.ry, 0.01, `${theme.themeId} ${length} ${routeId} dome expansion should retain the source room's lower edge`);
+                }
                 for (const room of wide.generation.cavern.rooms) {
                     const routeRoom = wide.generation.route.macro.rooms.find((candidate) => candidate.id === room.id);
                     if (!routeRoom) continue;
@@ -4956,15 +5274,15 @@ function testAutomaticLevelGeneratorVariantCompatibility() {
         },
         availableEnemyIds: []
     });
-    assert.equal(defaultWideHorizontal.generation.validation.valid, true, "the default Mostly horizontal + Wide seed should remain valid after reserving lift rider corridors");
-    assert.equal(defaultWideHorizontal.generation.validation.metrics.movingPlatformCrushHazardCount, 0, "the default Mostly horizontal + Wide seed should contain no lift crush corridor");
-    assert.equal(defaultWideHorizontal.generation.validation.metrics.movingPlatformSweepOverlapCount, 0, "the default Mostly horizontal + Wide seed should keep lift travel visually separate from green platforms");
-    assert.ok(defaultWideHorizontal.generation.traversal.supports.filter((support) => support.moving && support.movementAxis === "vertical").every((support) => support.strictShaftClearance), "every vertical lift in the default Mostly horizontal route should reserve a strict rider-safe corridor");
+    assert.equal(defaultWideHorizontal.generation.validation.valid, true, "the default Horizontal + Domed seed should remain valid after reserving lift rider corridors");
+    assert.equal(defaultWideHorizontal.generation.validation.metrics.movingPlatformCrushHazardCount, 0, "the default Horizontal + Domed seed should contain no lift crush corridor");
+    assert.equal(defaultWideHorizontal.generation.validation.metrics.movingPlatformSweepOverlapCount, 0, "the default Horizontal + Domed seed should keep lift travel visually separate from green platforms");
+    assert.ok(defaultWideHorizontal.generation.traversal.supports.filter((support) => support.moving && support.movementAxis === "vertical").every((support) => support.strictShaftClearance), "every vertical lift in the default Horizontal route should reserve a strict rider-safe corridor");
 
     const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     assert.ok(editorHtml.includes("Generator variants") && editorHtml.includes('data-generator-stage="route"') && editorHtml.includes('data-generator-stage="cavern"'), "the editor should expose only meaningful route and cavern variants");
     assert.equal(editorHtml.includes('data-generator-stage="traversal"'), false, "single-choice implementation stages should not clutter the generator panel");
-    assert.ok(editorHtml.includes("Mostly horizontal") && editorHtml.includes("run-and-gun"), "the generator panel should explain the continuous horizontal combat-path option");
+    assert.ok(editorHtml.includes("Horizontal") && editorHtml.includes("Domed") && editorHtml.includes("run-and-gun"), "the generator panel should explain the default Horizontal route and Domed cavern choices");
 }
 
 function testAutomaticLevelGeneratorPlayableEmptyCavern() {
@@ -5001,7 +5319,7 @@ function testAutomaticLevelGeneratorPlayableEmptyCavern() {
     assert.equal(first.generation.traversal.mandatorySupportPath.at(-1), first.generation.traversal.exitSupportId, "the support path should finish beneath the exit");
     assert.ok(first.generation.traversal.transitions.filter((transition) => transition.mandatory).every((transition) => transition.valid), "every mandatory transition should fit the conservative movement envelope");
     assert.ok(first.generation.traversal.supports.every((support) => !support.branchId), "current generation should not emit retired branch-owned supports");
-    assert.ok(first.generation.traversal.supports.filter((support) => !["recoveryPlatform", "secondaryPlatform"].includes(support.role)).every((support) => support.mandatory), "all supports outside recovery floors and optional secondary perches should belong to the mandatory spine");
+    assert.ok(first.generation.traversal.supports.filter((support) => !["recoveryPlatform", "upperAccessPlatform", "secondaryPlatform"].includes(support.role)).every((support) => support.mandatory), "all supports outside recovery floors and optional upper-lane access/perch geometry should belong to the mandatory spine");
     assert.ok(first.generation.traversal.supports.every((support) => !support.mandatory || support.walkableWidth >= 180), "every mandatory support should expose a generous authored walkable top");
     assert.ok(first.generation.traversal.transitions.every((transition) => transition.gap <= earthTheme.traversal.mandatoryGap + 0.01), "transition gaps should be measured between authored walkable edges");
     assert.ok(first.generation.diagnostics.geometryCandidatesTried >= 6 && first.generation.diagnostics.validGeometryCandidates >= 1, "Generator 1 should inspect several deterministic geometry candidates rather than accept the first buildable draft");
@@ -5128,16 +5446,16 @@ function testAutomaticLevelGeneratorEncounters() {
         }
     });
     const defaultBats = defaultHorizontalWide.entities.filter((entity) => entity.enemyCatalogId === "enemy_005");
-    assert.ok(defaultBats.length >= 2, "the default Mostly horizontal + Wide seed should exercise a Bombing Bat group");
-    assert.equal(defaultHorizontalWide.generation.validation.metrics.platformEnemyIntrusionCount, 0, "the default Mostly horizontal + Wide seed should spawn every bat clear of platform artwork");
-    assert.equal(defaultHorizontalWide.generation.validation.metrics.movingPlatformCrushHazardCount, 0, "the default Mostly horizontal + Wide seed should never place yellow geometry inside a lift rider corridor");
-    assert.equal(defaultHorizontalWide.generation.validation.metrics.movingPlatformSweepOverlapCount, 0, "the default Mostly horizontal + Wide seed should keep lift travel clear of green one-way platforms");
+    assert.ok(defaultBats.length >= 2, "the default Horizontal + Domed seed should exercise a Bombing Bat group");
+    assert.equal(defaultHorizontalWide.generation.validation.metrics.platformEnemyIntrusionCount, 0, "the default Horizontal + Domed seed should spawn every bat clear of platform artwork");
+    assert.equal(defaultHorizontalWide.generation.validation.metrics.movingPlatformCrushHazardCount, 0, "the default Horizontal + Domed seed should never place yellow geometry inside a lift rider corridor");
+    assert.equal(defaultHorizontalWide.generation.validation.metrics.movingPlatformSweepOverlapCount, 0, "the default Horizontal + Domed seed should keep lift travel clear of green one-way platforms");
     const defaultSupportById = new Map(defaultHorizontalWide.generation.traversal.supports.map((support) => [support.id, support]));
     for (const transition of defaultHorizontalWide.generation.traversal.transitions.filter((record) => record.spacingStyle === "runAndGunGround")) {
         const from = defaultSupportById.get(transition.fromSupportId);
         const to = defaultSupportById.get(transition.toSupportId);
         const overlapWidth = Math.min(from.walkableRightX, to.walkableRightX) - Math.max(from.walkableLeftX, to.walkableLeftX);
-        assert.ok(overlapWidth >= 72, `the default Mostly horizontal + Wide seed should use an unmistakable continuous seam, got ${overlapWidth}`);
+        assert.ok(overlapWidth >= 72, `the default Horizontal + Domed seed should use an unmistakable continuous seam, got ${overlapWidth}`);
     }
 
     const groundEnemy = enemies.find((entity) => {
@@ -5272,11 +5590,11 @@ function testGeneratedPowerUpSpacingTarget() {
             { id: "d", x: 9000, y: 12000, progress: 3, mandatory: true }
         ]
     };
-    assert.equal(GENERATED_POWER_UP_SPACING_PX, 2000, "generated power-up density should be based on one pickup per 2,000 route pixels");
-    assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 0.38 }), 8, "15,000 pixels of default-density route should target about eight power-ups");
+    assert.equal(GENERATED_POWER_UP_SPACING_PX, 1000, "generated power-up density should be based on one pickup per 1,000 route pixels");
+    assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 0.38 }), 15, "15,000 pixels of default-density route should target about fifteen power-ups");
     assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 0 }), 0, "zero reward density should still disable generated power-ups completely");
-    assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 0.1 }), 2, "low nonzero reward density should retain a restrained pickup target");
-    assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 1 }), 14, "maximum reward density should scale upward while retaining the density multiplier cap");
+    assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 0.1 }), 4, "low nonzero reward density should retain a restrained pickup target");
+    assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 1 }), 23, "maximum reward density should scale upward while retaining the density multiplier cap");
 }
 
 
@@ -5293,6 +5611,14 @@ function testAutomaticLevelGeneratorRewards() {
     const enemyIds = Object.keys(enemyCatalog.enemies);
     assert.ok(LEVEL_GENERATOR_REGISTRIES.rewards.some((entry) => entry.id === "basic-rewards-v1"), "the reward populator should be registered by stable ID");
     assert.ok(rewardGenerationCatalog.rewards.some((entry) => entry.entityType === "treasureChest" && entry.contexts.includes("secondaryPerch")), "treasure generation metadata should support current upper reward perches");
+    const generatedPowerUpWeights = Object.fromEntries(rewardGenerationCatalog.rewards
+        .filter((entry) => entry.category === "powerUp")
+        .map((entry) => [entry.entityType, entry.weight]));
+    assert.deepEqual(generatedPowerUpWeights, {
+        speedShotPickup: 1,
+        shieldPickup: 1,
+        randomWrenchPickup: 2
+    }, "generated power-up weights should reserve half the mix for wrenches and split the remainder between Shield and Speed Shot");
     assert.ok(entityCatalog.entities.thoughtTrigger, "the interactive entity catalog should define the invisible one-shot thought trigger");
     const movingPlatformAsset = assetCatalog.assets.find((entry) => entry.assetId === "rubble_long");
     assert.deepEqual(movingPlatformAsset?.roles, ["movingPlatform"], "the thin rubble platform should be reserved exclusively for moving-platform use");
@@ -5332,6 +5658,17 @@ function testAutomaticLevelGeneratorRewards() {
     const contextualTypes = rewardEntities.filter((entity) => entity.type !== "treasureChest" && entity.type !== "thoughtTrigger").map((entity) => entity.type);
     const generatedPowerUps = rewardEntities.filter((entity) => ["speedShotPickup", "shieldPickup", "randomWrenchPickup"].includes(entity.type));
     assert.ok(generatedPowerUps.length >= first.generation.rewards.powerUpTarget, `rewarded generated levels should meet their route-scaled power-up target of ${first.generation.rewards.powerUpTarget}`);
+    const generatedPowerUpCounts = generatedPowerUps.reduce((counts, entity) => {
+        counts[entity.type] = (counts[entity.type] || 0) + 1;
+        return counts;
+    }, {});
+    const generatedWrenchCount = generatedPowerUpCounts.randomWrenchPickup || 0;
+    const generatedShieldCount = generatedPowerUpCounts.shieldPickup || 0;
+    const generatedSpeedCount = generatedPowerUpCounts.speedShotPickup || 0;
+    assert.ok(Math.abs(generatedWrenchCount * 2 - generatedPowerUps.length) <= 1, "about half of generated power-ups should be randomized wrenches");
+    assert.ok(Math.abs(generatedShieldCount - generatedSpeedCount) <= 1, "the non-wrench half should be split evenly between Shield and Speed Shot");
+    const supportById = new Map(first.generation.traversal.supports.map((support) => [support.id, support]));
+    assert.equal(generatedPowerUps.every((entity) => Math.abs(entity.y - supportById.get(entity.generationSupportId)?.surfaceY) <= 0.01), true, "generated power-ups should sit directly on their support surface for easy pickup");
     assert.ok(contextualTypes.some((type) => ["speedShotPickup", "shieldPickup", "randomWrenchPickup"].includes(type)), "rewarded generated levels should contain genuine power-up pickups");
     assert.equal(rewardEntities.some((entity) => entity.type === "thoughtTrigger"), false, "generated location thoughts should remain absent unless explicitly enabled");
 
@@ -5601,7 +5938,11 @@ function testCaveWindowSplineAuthoring() {
 
     const defaults = normalizeCaveWindow(null);
     assert.equal(defaults.parallax, 1.1, "new cave windows should default to pronounced foreground parallax");
+    assert.equal(defaults.feather, 200, "new cave windows should place the full-black boundary 200 pixels outside the opening by default");
     assert.equal(defaults.decoration.scale, 2, "new cave perimeter decoration should default to two-times asset scale");
+    assert.equal("spacing" in defaults.decoration, false, "perimeter decoration should no longer expose a redundant maximum-spacing setting");
+    assert.equal(defaults.decoration.inwardFractionMin, 0.3, "automatic perimeter decoration should begin farther inside the opening by default");
+    assert.equal(defaults.decoration.inwardFractionMax, 0.5, "automatic perimeter decoration should retain deterministic inward variation around its stronger default overlap");
 
     const generated = createCaveWindowPointsFromBounds({ x: -320, y: -420, w: 5600, h: 1500 });
     assert.ok(generated.length >= 18, "world-bounds initialization should create a denser editable organic loop");
@@ -5678,6 +6019,24 @@ function testCaveWindowSplineAuthoring() {
     assert.deepEqual(straightControls.controlA, straightControls.start, "corner outgoing control should stay on the corner");
     assert.deepEqual(straightControls.controlB, straightControls.end, "corner incoming control should stay on the corner");
 
+    const gradientNoiseDefaults = normalizeCaveGradientNoise(null);
+    assert.deepEqual(gradientNoiseDefaults, { seed: 278, amplitude: 50, period: 50 }, "new cave windows should start with a pronounced high-frequency organic gradient wobble");
+    assert.equal(normalizeCaveGradientNoise({ period: 1 }).period, 10, "gradient wave period should clamp to the requested 10-pixel minimum");
+    assert.equal(normalizeCaveGradientNoise({ period: 900 }).period, 500, "gradient wave period should clamp to the requested 500-pixel maximum");
+    const uniformHalfOutset = sampleCaveWindowPerturbedOutset(cornerSquare, 40, { seed: 4, amplitude: 0, period: 100 }, 0.5, 4);
+    const noisyHalfOutset = sampleCaveWindowPerturbedOutset(cornerSquare, 40, { seed: 4, amplitude: 12, period: 55 }, 0.5, 4);
+    assert.deepEqual(
+        noisyHalfOutset,
+        sampleCaveWindowPerturbedOutset(cornerSquare, 40, { seed: 4, amplitude: 12, period: 55 }, 0.5, 4),
+        "gradient perturbation should remain deterministic for the same cave and seed"
+    );
+    assert.notDeepEqual(noisyHalfOutset, uniformHalfOutset, "non-zero amplitude should make the middle of the feather visibly uneven");
+    assert.deepEqual(
+        sampleCaveWindowPerturbedOutset(cornerSquare, 40, { seed: 4, amplitude: 12, period: 55 }, 1, 4),
+        sampleCaveWindowOutset(cornerSquare, 40, 4),
+        "organic waviness must return to the exact authored full-black outset"
+    );
+
     const squareOutset = sampleCaveWindowOutset(cornerSquare, 40, 1);
     assert.deepEqual(squareOutset, [
         { x: -40, y: -40 },
@@ -5737,18 +6096,28 @@ function testCaveWindowSplineAuthoring() {
     assert.ok(rendererSource.includes("drawCaveWindowMask") && rendererSource.includes("caveWindowMaskCanvas"), "runtime should render the cave opening through a reusable offscreen black mask");
     const caveMaskSource = readFileSync(new URL("../src/presentation/cave-window-mask.js", import.meta.url), "utf8");
     assert.ok(caveMaskSource.includes("sampleCaveWindowOutset") && caveMaskSource.includes('maskContext.fill("evenodd")'), "runtime should clamp the feathered handover to opaque black at the same derived outset shown by the editor");
+    assert.ok(caveMaskSource.includes("drawOrganicGradientBands") && caveMaskSource.includes("sampleCaveWindowPerturbedOutset") && caveMaskSource.includes("caveGradientOpacityAtProgress"), "runtime should construct the complete feather from deterministic wavy opacity contours");
+    assert.equal(caveMaskSource.includes("shadowBlur = featherPixels"), false, "the cave fade should no longer bury its waviness beneath a smooth Canvas shadow blur");
+    assert.equal(caveGradientOpacityAtProgress(0), 0, "the cave feather should remain fully transparent at the authored perimeter");
+    assert.equal(caveGradientOpacityAtProgress(1), 1, "the cave feather should reach fully opaque black at the authored outset");
+    assert.ok(caveGradientOpacityAtProgress(0.25) < 0.12 && caveGradientOpacityAtProgress(0.5) === 0.5, "the feather should darken gradually across the full configured width instead of becoming dark at its opening edge");
+    assert.ok(CAVE_GRADIENT_BAND_COUNT >= 20, "the layered feather should use enough contours to remain smooth after reduced-resolution upscaling");
     const foregroundTreatmentSource = readFileSync(new URL("../src/presentation/foreground-sprite-treatment.js", import.meta.url), "utf8");
     assert.ok(foregroundTreatmentSource.includes("brightness(${treatment.brightness}) saturate(${treatment.saturation})"), "cave foreground artwork should be darkened and desaturated in a cached sprite treatment");
     assert.ok(foregroundTreatmentSource.includes('globalCompositeOperation = "source-atop"') && foregroundTreatmentSource.includes("foregroundFadeEnd"), "foreground sprites should fade their outward side all the way into black before the cave mask takes over");
     assert.ok(levelEditorHtml.includes('data-tool="placeCaveForeground"') && levelEditorHtml.includes('id="cave-auto-populate"'), "Level Editor should expose manual foreground placement and deterministic perimeter population");
     assert.ok(levelEditorHtml.includes('id="cave-show-generated"'), "Level Editor should let authors hide generated perimeter assets without deleting them");
-    assert.ok(levelEditorHtml.includes('id="cave-show-black-boundary"') && levelEditorHtml.includes("Full black distance px"), "Level Editor should expose the derived full-black outset and its world-space distance");
+    assert.ok(levelEditorHtml.includes('id="cave-show-black-boundary"') && levelEditorHtml.includes("Feather to full black px"), "Level Editor should expose the complete feather width and derived full-black outset");
+    assert.ok(levelEditorHtml.includes('id="cave-decor-inward"') && levelEditorHtml.includes("Inward coverage %"), "Level Editor should expose how far automatic perimeter formations intrude into the opening");
+    assert.equal(levelEditorHtml.includes('id="cave-decor-spacing"') || levelEditorHtml.includes("Max spacing px"), false, "Level Editor should not expose the obsolete maximum-spacing control");
+    assert.ok(levelEditorHtml.includes('id="cave-gradient-noise-amplitude"') && levelEditorHtml.includes('id="cave-gradient-noise-period"') && levelEditorHtml.includes('min="10" max="500"') && levelEditorHtml.includes('id="cave-gradient-noise-seed"'), "Level Editor should expose gradient waviness amplitude, a 10-500 pixel period, and deterministic seed");
     assert.ok(levelEditorHtml.includes("editorViewportWorldBounds") && levelEditorHtml.includes("placementWorldBounds"), "Level Editor should cull off-screen placements before drawing them");
     assert.ok(levelEditorHtml.includes("editorForegroundSpriteCache") && levelEditorHtml.includes("createForegroundSpriteCanvas"), "Level Editor should cache darkened and faded foreground sprite variants");
     assert.ok(levelEditorHtml.includes("buildOverlapBlendGroups") && levelEditorHtml.includes("createOverlapBlendSurface") && levelEditorHtml.includes("drawMainPlacementLayer"), "Level Editor should preview cached seamless overlap composites without deleting individual placements");
     assert.ok(levelEditorHtml.includes("scheduleJsonUpdate") && !levelEditorHtml.includes("drawSelection();\n        updateJson();"), "Level Editor should not stringify the full level on every drag-frame redraw");
 
     const decoration = normalizeCaveDecoration({ seed: 77, spacing: 150, scale: 2, brightness: 0.3, saturation: 0.5 });
+    assert.equal("spacing" in decoration, false, "normalization should discard stale maximum-spacing values from older cave-window data");
     const decorationCatalog = buildCaveDecorationCatalog([
         { atlasId: "at_atlas_002", assetId: "floor_rock", frame: { w: 90, h: 130 }, tags: ["stalagmite"] },
         { atlasId: "at_atlas_002", assetId: "ceiling_rock", frame: { w: 90, h: 150 }, tags: ["stalactite"] },
@@ -5827,7 +6196,7 @@ function testCaveWindowSplineAuthoring() {
     }
     const roundedInsideFractions = new Set(primaryRows.map((placement) => placement.caveInsideFraction.toFixed(4)));
     assert.ok(roundedInsideFractions.size > 1, "primary perimeter inward depth should vary deterministically from asset to asset");
-    assert.ok(caveDecorationStep("floor", 180, 250) < 180, "horizontal decoration spacing should overlap smaller assets rather than leave gaps");
+    assert.ok(caveDecorationStep("floor", 180) < 90, "horizontal decoration spacing should derive strong overlap from the actual rendered asset width");
     const curvedCoverageCave = {
         points: [
             { id: "ca", x: 0, y: 320, mode: "smooth" },
@@ -6055,6 +6424,8 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     const maskKey = caveWindowMaskRenderKey(cave, view, worldBounds, DEFAULT_CAVE_MASK_RENDER_SCALE);
     assert.equal(maskKey, caveWindowMaskRenderKey(cave, { ...view }, { ...worldBounds }, DEFAULT_CAVE_MASK_RENDER_SCALE), "stationary cave masks should have a reusable render key");
     assert.notEqual(maskKey, caveWindowMaskRenderKey(cave, { ...view, x: 5 }, worldBounds, DEFAULT_CAVE_MASK_RENDER_SCALE), "camera movement should invalidate the cave mask cache");
+    assert.notEqual(maskKey, caveWindowMaskRenderKey({ ...cave, gradientNoise: { ...cave.gradientNoise, amplitude: cave.gradientNoise.amplitude + 4 } }, view, worldBounds, DEFAULT_CAVE_MASK_RENDER_SCALE), "changing gradient waviness should invalidate the cave mask cache");
+    assert.notEqual(maskKey, caveWindowMaskRenderKey({ ...cave, gradientNoise: { ...cave.gradientNoise, period: cave.gradientNoise.period + 10 } }, view, worldBounds, DEFAULT_CAVE_MASK_RENDER_SCALE), "changing gradient period should invalidate the cave mask cache");
     assert.ok(DEFAULT_CAVE_MASK_RENDER_SCALE < 0.5, "soft cave masks should render on a reduced-resolution surface");
 
     const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
@@ -6062,11 +6433,17 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
     assert.ok(rendererSource.includes("buildWorldVisualCache") && rendererSource.includes("visualIntersectsViewport"), "Canvas renderer should cache layer organization and cull static scenery before drawing");
     assert.ok(rendererSource.includes("foregroundSpriteCache") && rendererSource.includes("getForegroundSpriteCanvas"), "dark foreground variants should be cached instead of filtered on every draw");
+    assert.ok(rendererSource.includes("smokeStampCache") && rendererSource.includes("getSmokeStampCanvas") && rendererSource.includes("ctx.drawImage(smokeStamp"), "smoke puffs should reuse cached radial stamps rather than create a gradient for every particle on every frame");
+    const genericSmokeLoop = rendererSource.slice(
+        rendererSource.indexOf("const smokeAlpha = 0.30"),
+        rendererSource.indexOf("drawProjectiles(state, view)")
+    );
+    assert.equal(genericSmokeLoop.includes("createRadialGradient"), false, "the generic smoke-puff loop must not rebuild one radial gradient per particle");
     assert.ok(rendererSource.includes("ensureOverlapBlendCache") && rendererSource.includes("drawOverlapBlendGroup"), "overlapping static atlas assets should be composited once into reusable off-screen bitmaps");
     const overlapBlendSource = readFileSync(new URL("../src/presentation/overlap-blend-cache.js", import.meta.url), "utf8");
     assert.ok(overlapBlendSource.includes("destination-in") && overlapBlendSource.includes("OVERLAP_BLEND_CENTRAL_START") && overlapBlendSource.includes("OVERLAP_BLEND_CENTRAL_END"), "the cached composite should crossfade through the central 50 percent of each overlap");
     assert.equal(rendererSource.includes("ctx.filter = `brightness(${brightness})"), false, "the main render context should not apply an expensive filter per foreground placement");
-    assert.ok(maskSource.includes("previousRenderKey") && maskSource.includes("DEFAULT_CAVE_MASK_RENDER_SCALE"), "cave mask should reuse stationary frames and render its blur at reduced resolution");
+    assert.ok(maskSource.includes("previousRenderKey") && maskSource.includes("DEFAULT_CAVE_MASK_RENDER_SCALE"), "cave mask should reuse stationary frames and render its layered feather at reduced resolution");
     assert.ok(rendererSource.includes("dynamicBoundsVisible") && rendererSource.includes("projectileRenderBounds"), "targets, enemies, effects, and projectile trails should have conservative dynamic culling");
     assert.ok(rendererSource.includes("lastObservedFrameDt") && rendererSource.includes("lastRenderStartedAtMs"), "observed FPS should use real render-to-render time rather than the simulation dt clamp");
     assert.ok(bootstrapSource.includes("getPerformanceDiagnostics") && bootstrapSource.includes("dynamic considered:"), "debug panel should expose renderer timings and static/dynamic culling counters");
@@ -6427,7 +6804,7 @@ function testScoreHudAndTreasureChestCollection() {
 function testRocketPowerUpArsenal() {
     const speedShot = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.SPEED_SHOT);
     assert.equal(speedShot.stacking, POWER_UP_STACKING_RULES.REFRESH, "Speed Shot should refresh rather than stack multiplicatively");
-    assert.equal(speedShot.durationSeconds, 8, "Speed Shot should last eight seconds");
+    assert.equal(speedShot.durationSeconds, 30, "Speed Shot should last thirty seconds");
     assert.equal(speedShot.rocket.launchCooldownMultiplier, 0.5, "Speed Shot should double allowed firing cadence");
     assert.equal(speedShot.rocket.launchFuelCostMultiplier, 0.5, "Speed Shot should halve projectile-rocket fuel cost");
     assert.equal(speedShot.hud.priority, 100, "Speed Shot should outrank wrench effects in the Power HUD");
@@ -6436,7 +6813,7 @@ function testRocketPowerUpArsenal() {
     assert.equal(normalizedPickup.iconFrame, "powerup_icon_lightning", "Speed Shot should use the reserved lightning emblem");
 
     const shield = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.SHIELD);
-    assert.equal(shield.durationSeconds, 5, "Shield should last exactly five seconds");
+    assert.equal(shield.durationSeconds, 10, "Shield should last exactly ten seconds");
     assert.equal(shield.stacking, POWER_UP_STACKING_RULES.REFRESH, "collecting another Shield should refresh its duration");
     assert.equal(shield.hud.iconFrame, "powerup_icon_shield", "Shield should use the reserved shield emblem");
     assert.equal(shield.hud.glowTint, "#008cff", "Shield should use a blue pickup glow");
@@ -6446,14 +6823,14 @@ function testRocketPowerUpArsenal() {
     const expectedWrenches = new Map([
         [POWER_UP_EFFECT_IDS.WRENCH_TRIPLE, { count: 3, damage: 0.5, cost: 1, tint: "#ffff00" }],
         [POWER_UP_EFFECT_IDS.WRENCH_DART, { count: 1, damage: 1, cost: 2 / 3, tint: "#00ffff" }],
-        [POWER_UP_EFFECT_IDS.WRENCH_TWIN, { count: 2, damage: 2 / 3, cost: 1, tint: "#00ff00" }],
+        [POWER_UP_EFFECT_IDS.WRENCH_TWIN, { count: 2, damage: 1 / 3, cost: 1, tint: "#00ff00" }],
         [POWER_UP_EFFECT_IDS.WRENCH_BIGBOMB, { count: 1, damage: 3, cost: 3, tint: "#ff0000" }],
         [POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG, { count: 1, damage: 1, cost: 1, tint: "#ff00ff" }]
     ]);
     assert.deepEqual(WRENCH_POWER_UP_EFFECT_IDS, [...expectedWrenches.keys()], "the random wrench pool should include the complete five-mode arsenal");
     for (const [effectId, expected] of expectedWrenches) {
         const definition = powerUpEffectDefinition(effectId);
-        assert.equal(definition.durationSeconds, 15, `${definition.label} should last fifteen seconds`);
+        assert.equal(definition.durationSeconds, 30, `${definition.label} should last thirty seconds`);
         assert.equal(definition.groupId, POWER_UP_GROUP_IDS.WRENCH, `${definition.label} should occupy the exclusive wrench slot`);
         assert.equal(definition.exclusiveGroup, true, `${definition.label} should replace another wrench`);
         assert.equal(definition.hud.priority, 50, `${definition.label} should rank below Speed Shot in the Power HUD`);
@@ -6507,7 +6884,7 @@ function testRocketPowerUpArsenal() {
                 w: 96,
                 h: 96,
                 effectId: "shield",
-                durationSeconds: 5,
+                durationSeconds: 10,
                 respawnSeconds: 60,
                 radius: 30,
                 iconFrame: "powerup_icon_shield",
@@ -6536,7 +6913,7 @@ function testRocketPowerUpArsenal() {
     const fuelBefore = state.fuel.amount;
     stepSimulation(state, createInputFrame({ weaponPressed: true }), FIXED_DT);
     const activeSpeed = activePowerUpEffect(state, POWER_UP_EFFECT_IDS.SPEED_SHOT);
-    assert.ok(activeSpeed && activeSpeed.remainingSeconds > 7.9, "collecting Speed Shot should activate its timed effect immediately");
+    assert.ok(activeSpeed && activeSpeed.remainingSeconds > 29.9, "collecting Speed Shot should begin a thirty-second effect window");
     assert.deepEqual(rocketPowerUpMultipliers(state), { launchCooldownMultiplier: 0.5, launchFuelCostMultiplier: 0.5 }, "Speed Shot should expose deterministic rocket multipliers");
     approx(fuelBefore - state.fuel.amount, DEFAULT_TUNING.rocketLaunchCost * 0.5, 0.0001, "a Speed Shot rocket should spend half fuel");
 
@@ -6580,7 +6957,7 @@ function testRocketPowerUpArsenal() {
     state.player.vy = 0;
     stepSimulation(state, createInputFrame(), FIXED_DT);
     const activeShield = activePowerUpEffect(state, POWER_UP_EFFECT_IDS.SHIELD);
-    assert.ok(activeShield && activeShield.remainingSeconds > 4.9, "collecting Shield should begin a five-second protection window");
+    assert.ok(activeShield && activeShield.remainingSeconds > 9.9, "collecting Shield should begin a ten-second protection window");
     assert.equal(prioritizedActivePowerUpEffect(state)?.id, POWER_UP_EFFECT_IDS.SHIELD, "Shield should occupy the Power HUD while active");
     const healthBeforeShieldHit = state.health.amount;
     const blockedHit = damagePlayer(state, 25, "shield_test");
@@ -6592,7 +6969,7 @@ function testRocketPowerUpArsenal() {
     state.statusEffects.active[POWER_UP_EFFECT_IDS.SHIELD].remainingSeconds = FIXED_DT * 0.5;
     state.player.x = 1000;
     stepSimulation(state, createInputFrame(), FIXED_DT);
-    assert.equal(activePowerUpEffect(state, POWER_UP_EFFECT_IDS.SHIELD), null, "Shield protection should end when its five-second effect timer expires");
+    assert.equal(activePowerUpEffect(state, POWER_UP_EFFECT_IDS.SHIELD), null, "Shield protection should end when its ten-second effect timer expires");
     state.health.invulnerabilityTimer = 0;
     const unshieldedHit = damagePlayer(state, 1, "shield_expired_test");
     assert.equal(unshieldedHit.damage, 1, "ordinary damage should resume after Shield expires");
@@ -6648,10 +7025,49 @@ function testRocketPowerUpArsenal() {
     const twinState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_TWIN, { targets: targetSet });
     stepSimulation(twinState, createInputFrame({ weaponPressed: true }), FIXED_DT);
     assert.equal(twinState.projectiles.length, 2, "Twin should launch two rockets");
-    approx(twinState.projectiles[0].damage, DEFAULT_TUNING.rocketProjectileDamage * (2 / 3), 0.0001, "Twin rockets should deal two-thirds standard damage each");
-    approx(twinState.projectiles[0].damage, 20, 0.0001, "Twin rockets should deal 20 damage each");
-    approx(twinState.projectiles.reduce((sum, projectile) => sum + projectile.damage, 0), 40, 0.0001, "Twin should deliver 40 total damage when both rockets hit");
+    approx(twinState.projectiles[0].damage, DEFAULT_TUNING.rocketProjectileDamage * (1 / 3), 0.0001, "Twin rockets should deal one-third standard damage each");
+    approx(twinState.projectiles[0].damage, 10, 0.0001, "Twin rockets should deal 10 damage each");
+    approx(twinState.projectiles.reduce((sum, projectile) => sum + projectile.damage, 0), 20, 0.0001, "Twin should deliver 20 total damage when both rockets hit");
+    assert.ok(twinState.projectiles.every((projectile) => projectile.phasesThroughObstacles), "Twin rockets should retain their launch-time ability to phase through level obstacles");
     assert.ok(twinState.projectiles.every((projectile) => projectile.visualScale > 0.62 && projectile.visualScale < 1), "Twin rockets should be larger than Triple but smaller than standard");
+
+    const twinObstacleState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_TWIN);
+    twinObstacleState.world.solids = [{ id: "twin_phase_solid", kind: "solid", x: 250, y: 475, w: 180, h: 24 }];
+    twinObstacleState.world.segments = [
+        { id: "twin_phase_green", kind: "walkable", x1: 180, y1: 510, x2: 760, y2: 510 },
+        { id: "twin_phase_yellow", kind: "blockable", x1: 180, y1: 455, x2: 760, y2: 455 }
+    ];
+    twinObstacleState.world.collisionPolygons = [{
+        id: "twin_phase_area",
+        kind: "blockable",
+        points: [
+            { x: 400, y: 360 },
+            { x: 535, y: 360 },
+            { x: 535, y: 575 },
+            { x: 400, y: 575 }
+        ]
+    }];
+    twinObstacleState.enemies = [{
+        ...twinObstacleState.enemies[0],
+        id: "twin_phase_enemy",
+        x: 650,
+        y: 600,
+        health: 200,
+        maxHealth: 200,
+        combatState: "alive",
+        state: "idle"
+    }];
+    twinObstacleState.targets = [{ id: "twin_phase_target", enemyId: "twin_phase_enemy", x: 650, y: 520, state: "active" }];
+    stepSimulation(twinObstacleState, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    for (let index = 0; index < 300 && twinObstacleState.enemies[0].health === 200; index += 1) {
+        stepSimulation(twinObstacleState, createInputFrame(), FIXED_DT);
+    }
+    assert.ok(twinObstacleState.enemies[0].health < 200, "Twin rockets should pass through green lines, yellow geometry, solids, and blocking areas to reach an enemy");
+    assert.equal(
+        twinObstacleState.debug.lastEvents.some((event) => event.type === "ROCKET_IMPACTED" && ["twin_phase_solid", "twin_phase_green", "twin_phase_yellow", "twin_phase_area"].includes(event.reason)),
+        false,
+        "Twin obstacle phasing should not produce a hidden terrain impact"
+    );
 
     const dartState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_DART);
     stepSimulation(dartState, createInputFrame({ weaponPressed: true }), FIXED_DT);
@@ -6759,20 +7175,35 @@ function testRocketPowerUpArsenal() {
     assert.ok(bootstrapSource.includes("browserRandomSeed"), "browser level starts should supply a fresh random seed to portable pickup rolls");
     assert.ok(!bootstrapSource.includes("grounded recharge") && !bootstrapSource.includes("regen in"), "main HUD labels should omit developer recharge and regeneration annotations");
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
+    assert.match(editorSource, /Level Editor <small>rev 280<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "280";/, "the game debug revision should match the packaged revision");
+    assert.ok(manualSource.includes("Shield</strong> lasts 10 seconds") && manualSource.includes("Speed Shot</strong> lasts 30 seconds") && manualSource.includes("Wrench power-ups last 30 seconds"), "the game manual should document the revised effect windows");
+    const entityCatalog = JSON.parse(readFileSync(new URL("../assets/it_entities_001.json", import.meta.url), "utf8"));
+    const catalogEntities = Object.values(entityCatalog.entities || {});
+    const speedCatalogEntry = catalogEntities.find((entity) => entity.type === "speedShotPickup");
+    const shieldCatalogEntry = catalogEntities.find((entity) => entity.type === "shieldPickup");
+    const wrenchCatalogEntry = catalogEntities.find((entity) => entity.type === "randomWrenchPickup");
+    assert.equal(speedCatalogEntry?.defaults?.durationSeconds, 30, "the entity catalog should default Speed Shot pickups to thirty seconds");
+    assert.equal(shieldCatalogEntry?.defaults?.durationSeconds, 10, "the entity catalog should default Shield pickups to ten seconds");
+    assert.equal(wrenchCatalogEntry?.defaults?.durationSeconds, 30, "the entity catalog should default random wrench pickups to thirty seconds");
+
     const levelOne = JSON.parse(readFileSync(new URL("../assets/level_001.json", import.meta.url), "utf8"));
     const placedSpeedShot = levelOne.entities.find((entity) => entity.id === "speed_shot_001");
     const placedWrench = levelOne.entities.find((entity) => entity.id === "random_wrench_001");
     const placedShield = levelOne.entities.find((entity) => entity.id === "shield_001");
     assert.ok(placedSpeedShot && placedSpeedShot.effectId === "speedShot", "level_001 should include the renamed Speed Shot pickup");
     assert.equal(placedSpeedShot.x, 800, "Speed Shot should remain on the early main floor");
+    assert.equal(placedSpeedShot.durationSeconds, 30, "the authored Speed Shot should last thirty seconds");
     assert.equal(placedSpeedShot.respawnSeconds, 60, "the authored Speed Shot should respawn after sixty seconds");
     assert.ok(placedWrench && placedWrench.type === "randomWrenchPickup", "level_001 should include one randomized wrench pickup");
     assert.deepEqual(placedWrench.randomEffectIds, [...WRENCH_POWER_UP_EFFECT_IDS], "the level wrench should roll across the complete wrench family");
+    assert.equal(placedWrench.durationSeconds, 30, "the authored random wrench should grant a thirty-second effect");
     assert.equal(placedWrench.x, 1400, "the playtest wrench should sit farther along the early main floor");
     assert.ok(placedShield && placedShield.type === "shieldPickup", "level_001 should include the blue Shield pickup");
     assert.equal(placedShield.effectId, POWER_UP_EFFECT_IDS.SHIELD, "the placed Shield should activate the shared Shield effect");
-    assert.equal(placedShield.durationSeconds, 5, "the placed Shield should last five seconds");
+    assert.equal(placedShield.durationSeconds, 10, "the placed Shield should last ten seconds");
     assert.equal(placedShield.glowTint, "#008cff", "the placed Shield should glow blue");
 
     const priorityState = {
@@ -8128,7 +8559,9 @@ function testPhase1013TuningDefaultsDebugPoseAndFuelBulbFlash() {
     assert.equal(DEFAULT_TUNING.rocketSmokePuffLifetime, 1.5);
     assert.equal(DEFAULT_TUNING.rocketSmokePuffSpacing, 3);
     assert.equal(DEFAULT_TUNING.rocketSmokePuffScale, 1.5);
-    assert.equal(DEFAULT_TUNING.rocketImpactSmokePuffs, 24, "rocket impacts should use smoke puffs instead of a drawn explosion ring");
+    assert.equal(DEFAULT_TUNING.rocketProjectileExplosionSeconds, 0.24, "the impact flash should clear quickly instead of redrawing a long-lived burst");
+    assert.equal(DEFAULT_TUNING.rocketImpactSmokePuffs, 12, "rocket impacts should use a compact smoke burst instead of a large per-hit particle storm");
+    assert.equal(DEFAULT_TUNING.rocketImpactSmokeLifetime, 0.82, "impact smoke should dissipate faster than the travelling rocket trail");
     assert.equal(DEFAULT_TUNING.terminalVelocity, 2500, "terminal velocity should allow very long falls to be lethal");
     assert.equal(DEFAULT_TUNING.fallDamageEnabled, true, "fall damage should be enabled by default");
     assert.equal(DEFAULT_TUNING.fallDamageSafeImpactSpeed, 1441, "normal quick double-jump landing should be harmless");
@@ -8639,6 +9072,44 @@ function testControlKeysLaunchWeapon() {
         const released = input.sample();
         assert.equal(released.weaponHeld, false, `${code} release should clear the weapon input`);
         assert.equal(released.weaponReleased, true, `${code} should produce a weapon release`);
+    }
+}
+
+function testGamepadTriggersLaunchWeapon() {
+    const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+    const buttons = Array.from({ length: 16 }, () => ({ pressed: false, value: 0 }));
+    Object.defineProperty(globalThis, "navigator", {
+        configurable: true,
+        value: {
+            getGamepads() {
+                return [{ index: 0, axes: [0, 0], buttons }];
+            }
+        }
+    });
+
+    try {
+        const input = new RocketfrockInput({ addEventListener() {} });
+        buttons[6] = { pressed: false, value: 0.65 };
+        const leftTrigger = input.sample();
+        assert.equal(leftTrigger.weaponHeld, true, "the left analog gamepad trigger should hold fire");
+        assert.equal(leftTrigger.weaponPressed, true, "the left analog gamepad trigger should create a fresh fire edge");
+        buttons[6] = { pressed: false, value: 0 };
+        const leftRelease = input.sample();
+        assert.equal(leftRelease.weaponReleased, true, "releasing the left trigger should release fire");
+
+        buttons[7] = { pressed: true, value: 1 };
+        const rightTrigger = input.sample();
+        assert.equal(rightTrigger.weaponHeld, true, "the right gamepad trigger should hold fire");
+        assert.equal(rightTrigger.weaponPressed, true, "the right gamepad trigger should create a fresh fire edge");
+        buttons[7] = { pressed: false, value: 0 };
+        const rightRelease = input.sample();
+        assert.equal(rightRelease.weaponReleased, true, "releasing the right trigger should release fire");
+    } finally {
+        if (originalNavigator) {
+            Object.defineProperty(globalThis, "navigator", originalNavigator);
+        } else {
+            delete globalThis.navigator;
+        }
     }
 }
 
@@ -9239,6 +9710,8 @@ function testInteractKeyBinding() {
     assert.equal(prevented, true, "the interaction key should suppress browser defaults");
     assert.equal(pressed.interactHeld, true, "S should hold interaction");
     assert.equal(pressed.interactPressed, true, "S should produce a fresh interaction press");
+    assert.equal(pressed.dropHeld, true, "S should also hold the player-only green-platform drop action");
+    assert.equal(pressed.dropPressed, true, "S should create a fresh green-platform drop edge");
     assert.equal(pressed.moveLeft, false, "interaction should not move left");
     assert.equal(pressed.moveRight, false, "interaction should not move right");
 
@@ -9246,6 +9719,8 @@ function testInteractKeyBinding() {
     const released = input.sample();
     assert.equal(released.interactHeld, false, "releasing S should clear interaction");
     assert.equal(released.interactReleased, true, "releasing S should produce an interaction release");
+    assert.equal(released.dropHeld, false, "releasing S should clear drop-through");
+    assert.equal(released.dropReleased, true, "releasing S should produce a drop-through release edge");
 }
 
 
@@ -9728,6 +10203,7 @@ const tests = [
     ["rendering quality scales rocket particles", testRenderingQualityScalesRocketParticles],
     ["rocket turns fifty percent sharper", testRocketTurnsFiftyPercentSharper],
     ["left and right Ctrl weapon binding", testControlKeysLaunchWeapon],
+    ["gamepad triggers fire weapon", testGamepadTriggersLaunchWeapon],
     ["keyboard interaction binding", testInteractKeyBinding],
     ["gamepad jump starts title screen", testGamepadJumpProducesTitleStartEdge],
     ["gamepad haptics follow active input device", testGamepadHapticsRespectActiveInputDevice],
@@ -9811,6 +10287,9 @@ const tests = [
     ["hunter enemy stranded fallback", testHunterEnemyStrandedFallback],
     ["simulation-owned character enemy patrol", testCharacterEnemyPatrolBehavior],
     ["ground enemies pass beneath one-way platforms", testGroundEnemyWalksUnderOneWayPlatform],
+    ["ground enemies cannot drop through one-way platforms", testGroundEnemyCannotDropThroughOneWayPlatform],
+    ["hunters do not jump-loop on one-way platforms", testHunterDoesNotJumpLoopOnOneWayPlatform],
+    ["player can drop through one-way platforms", testPlayerCanDropThroughOneWayPlatforms],
     ["ground enemies walk up small steps", testGroundEnemyAutomaticSmallStep],
     ["character enemy aggressive chase and combo", testCharacterEnemyAggressiveChaseAndCombo],
     ["rebalanced enemy health and standard rocket hit counts", testRebalancedEnemyHealthAndRocketHits],

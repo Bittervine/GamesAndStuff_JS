@@ -36,8 +36,8 @@
     ]
   },
   "implementations": {
-    "route": "the-path74-route-v4",
-    "cavern": "the-path74-contour-cavern-v4",
+    "route": "mostly-horizontal-route-v1",
+    "cavern": "wide-upper-contour-cavern-v1",
     "traversal": "layered-safety-network-traversal-v6",
     "endpoints": "grounded-chamber-endpoints-v2",
     "encounters": "difficulty-budgeted-encounters-v1",

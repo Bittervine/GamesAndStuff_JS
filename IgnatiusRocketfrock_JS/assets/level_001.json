@@ -6862,13 +6862,13 @@
         "collected": "Collected"
       },
       "effectId": "speedShot",
-      "durationSeconds": 8,
+      "durationSeconds": 30,
       "radius": 30,
       "atlasId": "it_atlas_001",
       "glowFrame": "powerup_glow_white",
       "iconFrame": "powerup_icon_lightning",
       "glowTint": "#ffb52f",
-      "notes": "Speed Shot: double firing cadence and half rocket fuel cost for eight seconds. Respawns after sixty seconds.",
+      "notes": "Speed Shot: double firing cadence and half rocket fuel cost for thirty seconds. Respawns after sixty seconds.",
       "respawnSeconds": 60
     },
     {
@@ -6900,7 +6900,7 @@
         "wrenchBigbomb",
         "wrenchBoomerang"
       ],
-      "durationSeconds": 15,
+      "durationSeconds": 30,
       "respawnSeconds": 60,
       "radius": 30,
       "atlasId": "it_atlas_001",
@@ -6931,14 +6931,14 @@
         "collected": "Collected"
       },
       "effectId": "shield",
-      "durationSeconds": 5,
+      "durationSeconds": 10,
       "respawnSeconds": 60,
       "radius": 30,
       "atlasId": "it_atlas_001",
       "glowFrame": "powerup_glow_white",
       "iconFrame": "powerup_icon_shield",
       "glowTint": "#008cff",
-      "notes": "Shield: five seconds of complete damage invulnerability. Ignatius flashes blue while protected. Respawns after sixty seconds."
+      "notes": "Shield: ten seconds of complete damage invulnerability. Ignatius flashes blue while protected. Respawns after sixty seconds."
     }
   ],
   "navigationGraphs": {
@@ -8546,126 +8546,43 @@
           {
             "id": "nav_edge_61",
             "type": "drop",
-            "direction": "down",
+            "direction": "left",
             "from": "rubble_skull_001_walkable_1",
             "to": "left_step_blockable_1",
-            "launchX": 834,
-            "launchY": -253,
-            "landingX": 834,
-            "landingY": 291.379,
-            "vx": 0,
+            "launchX": 731.848,
+            "launchY": -253.982,
+            "landingX": 687.759,
+            "landingY": 293.58,
+            "vx": -47.104,
             "vy": 0,
-            "flightTime": 0.933277,
+            "flightTime": 0.936001,
             "fromObstacleId": null,
             "toObstacleId": "left_step_area_1",
-            "walkOff": false,
-            "cost": 286.97,
+            "walkOff": true,
+            "cost": 332.492,
             "blockerIds": []
           },
           {
             "id": "nav_edge_62",
-            "type": "jump",
-            "direction": "up",
+            "type": "drop",
+            "direction": "left",
             "from": "rubble_skull_001_walkable_1",
             "to": "left_step_blockable_1",
-            "launchX": 834,
-            "launchY": -253,
-            "landingX": 834,
-            "landingY": 291.379,
-            "vx": 0,
-            "vy": -707.107,
-            "flightTime": 1.657017,
+            "launchX": 731.848,
+            "launchY": -253.982,
+            "landingX": 693,
+            "landingY": 293.501,
+            "vx": -41.507,
+            "vy": 0,
+            "flightTime": 0.935934,
             "fromObstacleId": null,
             "toObstacleId": "left_step_area_1",
-            "cost": 471.065,
+            "walkOff": true,
+            "cost": 327.215,
             "blockerIds": []
           },
           {
             "id": "nav_edge_63",
-            "type": "drop",
-            "direction": "left",
-            "from": "rubble_skull_001_walkable_1",
-            "to": "left_step_blockable_1",
-            "launchX": 745.4,
-            "launchY": -253.852,
-            "landingX": 666.159,
-            "landingY": 293.905,
-            "vx": -84.644,
-            "vy": 0,
-            "flightTime": 0.936168,
-            "fromObstacleId": null,
-            "toObstacleId": "left_step_area_1",
-            "walkOff": false,
-            "cost": 367.732,
-            "blockerIds": []
-          },
-          {
-            "id": "nav_edge_64",
-            "type": "jump",
-            "direction": "left",
-            "from": "rubble_skull_001_walkable_1",
-            "to": "left_step_blockable_1",
-            "launchX": 745.4,
-            "launchY": -253.852,
-            "landingX": 666.159,
-            "landingY": 293.905,
-            "vx": -47.75,
-            "vy": -707.107,
-            "flightTime": 1.659491,
-            "fromObstacleId": null,
-            "toObstacleId": "left_step_area_1",
-            "cost": 562.205,
-            "runUpX": 772.64,
-            "runUpY": -253.59,
-            "runUpDistance": 27.24,
-            "requiredLaunchSpeed": 47.75,
-            "groundAcceleration": 950,
-            "blockerIds": []
-          },
-          {
-            "id": "nav_edge_65",
-            "type": "drop",
-            "direction": "right",
-            "from": "rubble_skull_001_walkable_1",
-            "to": "left_step_blockable_1",
-            "launchX": 922.6,
-            "launchY": -252.148,
-            "landingX": 991.738,
-            "landingY": 289.005,
-            "vx": 74.301,
-            "vy": 0,
-            "flightTime": 0.930507,
-            "fromObstacleId": null,
-            "toObstacleId": "left_step_area_1",
-            "walkOff": false,
-            "cost": 354.657,
-            "blockerIds": []
-          },
-          {
-            "id": "nav_edge_66",
-            "type": "jump",
-            "direction": "right",
-            "from": "rubble_skull_001_walkable_1",
-            "to": "left_step_blockable_1",
-            "launchX": 922.6,
-            "launchY": -252.148,
-            "landingX": 991.738,
-            "landingY": 289.005,
-            "vx": 41.784,
-            "vy": -707.107,
-            "flightTime": 1.65465,
-            "fromObstacleId": null,
-            "toObstacleId": "left_step_area_1",
-            "cost": 547.145,
-            "runUpX": 896.315,
-            "runUpY": -252.401,
-            "runUpDistance": 26.285,
-            "requiredLaunchSpeed": 41.784,
-            "groundAcceleration": 950,
-            "blockerIds": []
-          },
-          {
-            "id": "nav_edge_67",
             "type": "drop",
             "direction": "left",
             "from": "object_036_001_blockable_1",
@@ -8684,7 +8601,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_68",
+            "id": "nav_edge_64",
             "type": "jump",
             "direction": "left",
             "from": "object_036_001_blockable_1",
@@ -8707,7 +8624,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_69",
+            "id": "nav_edge_65",
             "type": "drop",
             "direction": "left",
             "from": "object_036_001_blockable_1",
@@ -8726,7 +8643,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_70",
+            "id": "nav_edge_66",
             "type": "jump",
             "direction": "left",
             "from": "object_036_001_blockable_1",
@@ -8749,7 +8666,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_71",
+            "id": "nav_edge_67",
             "type": "jump",
             "direction": "left",
             "from": "object_036_001_blockable_1",
@@ -8772,7 +8689,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_72",
+            "id": "nav_edge_68",
             "type": "jump",
             "direction": "left",
             "from": "object_036_001_blockable_1",
@@ -8795,7 +8712,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_73",
+            "id": "nav_edge_69",
             "type": "jump",
             "direction": "left",
             "from": "object_036_001_blockable_1",
@@ -8818,7 +8735,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_74",
+            "id": "nav_edge_70",
             "type": "jump",
             "direction": "left",
             "from": "object_036_001_blockable_1",
@@ -8841,7 +8758,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_75",
+            "id": "nav_edge_71",
             "type": "jump",
             "direction": "left",
             "from": "object_036_001_blockable_1",
@@ -8864,7 +8781,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_76",
+            "id": "nav_edge_72",
             "type": "jump",
             "direction": "left",
             "from": "object_036_001_blockable_1",
@@ -8887,7 +8804,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_77",
+            "id": "nav_edge_73",
             "type": "drop",
             "direction": "right",
             "from": "object_036_001_blockable_1",
@@ -8906,7 +8823,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_78",
+            "id": "nav_edge_74",
             "type": "drop",
             "direction": "right",
             "from": "object_036_001_blockable_1",
@@ -8925,7 +8842,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_79",
+            "id": "nav_edge_75",
             "type": "drop",
             "direction": "right",
             "from": "object_036_001_blockable_1",
@@ -8944,7 +8861,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_80",
+            "id": "nav_edge_76",
             "type": "jump",
             "direction": "right",
             "from": "object_036_001_blockable_1",
@@ -8967,7 +8884,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_81",
+            "id": "nav_edge_77",
             "type": "jump",
             "direction": "right",
             "from": "object_036_001_blockable_1",
@@ -8990,7 +8907,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_82",
+            "id": "nav_edge_78",
             "type": "jump",
             "direction": "right",
             "from": "object_036_001_blockable_1",
@@ -9013,7 +8930,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_83",
+            "id": "nav_edge_79",
             "type": "jump",
             "direction": "right",
             "from": "object_036_001_blockable_1",
@@ -9036,7 +8953,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_84",
+            "id": "nav_edge_80",
             "type": "jump",
             "direction": "up",
             "from": "object_036_001_blockable_5",
@@ -9054,7 +8971,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_85",
+            "id": "nav_edge_81",
             "type": "drop",
             "direction": "left",
             "from": "arch_ruin_001_blockable_1",
@@ -9073,7 +8990,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_86",
+            "id": "nav_edge_82",
             "type": "drop",
             "direction": "left",
             "from": "arch_ruin_001_blockable_1",
@@ -9092,7 +9009,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_87",
+            "id": "nav_edge_83",
             "type": "drop",
             "direction": "left",
             "from": "arch_ruin_001_blockable_1",
@@ -9111,7 +9028,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_88",
+            "id": "nav_edge_84",
             "type": "drop",
             "direction": "left",
             "from": "arch_ruin_001_blockable_1",
@@ -9130,7 +9047,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_89",
+            "id": "nav_edge_85",
             "type": "jump",
             "direction": "left",
             "from": "arch_ruin_001_blockable_1",
@@ -9153,7 +9070,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_90",
+            "id": "nav_edge_86",
             "type": "jump",
             "direction": "left",
             "from": "arch_ruin_001_blockable_1",
@@ -9176,7 +9093,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_91",
+            "id": "nav_edge_87",
             "type": "step",
             "direction": "overlap",
             "from": "arch_ruin_001_blockable_1",
@@ -9194,7 +9111,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_92",
+            "id": "nav_edge_88",
             "type": "jump",
             "direction": "left",
             "from": "arch_ruin_001_blockable_2",
@@ -9217,7 +9134,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_93",
+            "id": "nav_edge_89",
             "type": "jump",
             "direction": "left",
             "from": "arch_ruin_001_blockable_2",
@@ -9240,7 +9157,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_94",
+            "id": "nav_edge_90",
             "type": "jump",
             "direction": "left",
             "from": "arch_ruin_001_blockable_2",
@@ -9263,7 +9180,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_95",
+            "id": "nav_edge_91",
             "type": "step",
             "direction": "overlap",
             "from": "arch_ruin_001_blockable_2",
@@ -9281,7 +9198,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_96",
+            "id": "nav_edge_92",
             "type": "step",
             "direction": "overlap",
             "from": "arch_ruin_001_blockable_2",
@@ -9299,7 +9216,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_97",
+            "id": "nav_edge_93",
             "type": "jump",
             "direction": "left",
             "from": "arch_ruin_001_blockable_3",
@@ -9322,7 +9239,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_98",
+            "id": "nav_edge_94",
             "type": "jump",
             "direction": "left",
             "from": "arch_ruin_001_blockable_3",
@@ -9345,7 +9262,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_99",
+            "id": "nav_edge_95",
             "type": "jump",
             "direction": "left",
             "from": "arch_ruin_001_blockable_3",
@@ -9368,7 +9285,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_100",
+            "id": "nav_edge_96",
             "type": "jump",
             "direction": "right",
             "from": "arch_ruin_001_blockable_3",
@@ -9391,7 +9308,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_101",
+            "id": "nav_edge_97",
             "type": "jump",
             "direction": "right",
             "from": "arch_ruin_001_blockable_3",
@@ -9414,7 +9331,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_102",
+            "id": "nav_edge_98",
             "type": "step",
             "direction": "overlap",
             "from": "arch_ruin_001_blockable_3",
@@ -9432,7 +9349,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_103",
+            "id": "nav_edge_99",
             "type": "step",
             "direction": "overlap",
             "from": "arch_ruin_001_blockable_3",
@@ -9450,7 +9367,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_104",
+            "id": "nav_edge_100",
             "type": "jump",
             "direction": "right",
             "from": "arch_ruin_001_blockable_4",
@@ -9473,7 +9390,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_105",
+            "id": "nav_edge_101",
             "type": "jump",
             "direction": "right",
             "from": "arch_ruin_001_blockable_4",
@@ -9496,7 +9413,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_106",
+            "id": "nav_edge_102",
             "type": "jump",
             "direction": "right",
             "from": "arch_ruin_001_blockable_4",
@@ -9519,7 +9436,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_107",
+            "id": "nav_edge_103",
             "type": "step",
             "direction": "overlap",
             "from": "arch_ruin_001_blockable_4",
@@ -9537,7 +9454,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_108",
+            "id": "nav_edge_104",
             "type": "step",
             "direction": "overlap",
             "from": "arch_ruin_001_blockable_4",
@@ -9555,7 +9472,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_109",
+            "id": "nav_edge_105",
             "type": "jump",
             "direction": "right",
             "from": "arch_ruin_001_blockable_5",
@@ -9578,7 +9495,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_110",
+            "id": "nav_edge_106",
             "type": "jump",
             "direction": "right",
             "from": "arch_ruin_001_blockable_5",
@@ -9601,7 +9518,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_111",
+            "id": "nav_edge_107",
             "type": "step",
             "direction": "overlap",
             "from": "arch_ruin_001_blockable_5",
@@ -9619,7 +9536,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_112",
+            "id": "nav_edge_108",
             "type": "step",
             "direction": "overlap",
             "from": "arch_ruin_001_blockable_5",
@@ -9637,7 +9554,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_113",
+            "id": "nav_edge_109",
             "type": "drop",
             "direction": "right",
             "from": "arch_ruin_001_blockable_6",
@@ -9656,7 +9573,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_114",
+            "id": "nav_edge_110",
             "type": "drop",
             "direction": "right",
             "from": "arch_ruin_001_blockable_6",
@@ -9675,7 +9592,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_115",
+            "id": "nav_edge_111",
             "type": "drop",
             "direction": "right",
             "from": "arch_ruin_001_blockable_6",
@@ -9694,7 +9611,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_116",
+            "id": "nav_edge_112",
             "type": "jump",
             "direction": "right",
             "from": "arch_ruin_001_blockable_6",
@@ -9717,7 +9634,7 @@
             "blockerIds": []
           },
           {
-            "id": "nav_edge_117",
+            "id": "nav_edge_113",
             "type": "step",
             "direction": "overlap",
             "from": "arch_ruin_001_blockable_6",

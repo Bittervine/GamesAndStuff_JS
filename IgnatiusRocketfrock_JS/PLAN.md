@@ -1680,7 +1680,7 @@ The authored parallax factor is applied as a small extra camera-relative offset 
 
 Cave editing controls now live in the Level Editor's right-side **Cave window and foreground** panel instead of occupying the global toolbar. The same panel provides a dedicated **Place selected asset in foreground** tool. Manual foreground placements use the selected atlas frame at the authored cave scale, render after actors, inherit the cave parallax, and have manifest collision forcibly disabled. Moving an existing asset into `caveForeground` through the inspector applies the same safety rule.
 
-`src/shared/cave-window-decoration.js` adds deterministic arc-length placement around the closed spline. The generator classifies each sample from the cave's inward normal, choosing tagged stalagmites/rocks/floor pieces for lower edges, stalactites/ceiling pieces for upper edges, and wall/pillar pieces for sides. Seed, spacing, scale, and brightness are stored under `caveWindow.decoration`. Generated objects are explicit level placements marked `generatedBy: "cavePerimeter"`, so **Populate perimeter** safely replaces only prior generated art while **Clear generated** leaves manual foreground work intact.
+`src/shared/cave-window-decoration.js` adds deterministic arc-length placement around the closed spline. The generator classifies each sample from the cave's inward normal, choosing tagged stalagmites/rocks/floor pieces for lower edges, stalactites/ceiling pieces for upper edges, and wall/pillar pieces for sides. Seed, scale, and brightness are stored under `caveWindow.decoration`; revision 279 removes the former spacing field. Generated objects are explicit level placements marked `generatedBy: "cavePerimeter"`, so **Populate perimeter** safely replaces only prior generated art while **Clear generated** leaves manual foreground work intact.
 
 The runtime draws `caveForeground` after actors and actor-front entity pieces but before the feathered black mask. It applies the same camera-relative parallax as the mask and a dark, slightly desaturated Canvas filter. Both runtime level conversion and atlas-collision hydration reject collision from this layer even if imported data incorrectly enables it. No cave perimeter or foreground placement creates solids, supports, hazards, navigation, or projectile blocking.
 
@@ -2854,3 +2854,64 @@ Automatic generator version 28 opens a dedicated docking slot at Mostly-horizont
 
 Independent validation recomputes the corridor from the authored movement record rather than trusting placement metadata. Any crush hazard, green-platform sweep overlap, or shaft intrusion invalidates the draft and causes another deterministic geometry candidate to be tried. The default `rocketfrock` seed for Mostly horizontal plus Wide, upward-expanding is a permanent regression case.
 
+
+## Revision 272 grounded generated power-ups and one-way monster support integrity
+
+Automatic generator version 29 seats every generated `powerUp` entity directly on its selected support surface. The reward catalog still controls support width, edge clearance, progression, and contextual weighting, but power-up vertical offsets normalize to zero so the entity's bottom-center anchor rests on the floor and ordinary walking collects it naturally. Independent reward validation rejects any generated power-up that is not ground-seated. Invisible narrative thought triggers remain exempt from visual pickup-spacing calculations while retaining their separate-support, endpoint, and cave-clearance rules.
+
+Green `walkable` lines remain one-way floors for monsters as well as Ignatius. Enemy navigation may descend from one only by walking off an authored left or right end with real horizontal velocity; it may never encode a straight or diagonal fall through the middle of the support. One-way supports without polygon bodies now use their own line endpoints as ledge edges for valid walk-off routes. Runtime collision also refuses to ignore the source line for a zero-horizontal drop, providing a fail-safe for stale or malformed baked graph data. `level_001`'s hunter graph is rebuilt against this contract.
+
+## Revision 273 player drop-through and Horizontal/Domed generator defaults
+
+Ignatius may now deliberately descend through green one-way platforms. Down/S, gamepad down, or a downward pointer/touch swipe activates a short player-only pass-through window. The action works from a supported stance and while already falling. Yellow blockable lines and areas remain solid under every input state. Pointer handling retains a one-sample pulse when a swipe is completed between simulation frames, preventing quick touch gestures from disappearing. Enemy collision and navigation remain unchanged: monsters cannot intentionally drop through green lines and may descend only from a real platform edge.
+
+The Level Generator now presents **Horizontal** in place of “Mostly horizontal” and **Domed** in place of “Wide, upward-expanding.” Horizontal and Domed are the default Route and Cavern choices for Earth and Ice themes. Internal implementation IDs remain stable. Domed adds 50 percent more vertical radius above each eligible room while pinning the original lower edge, creating a taller ceiling without pulling the lower perimeter away from the ground route.
+
+## Revision 274 one-way hunter jump-loop correction
+
+The screenshot exposed a planner loophole rather than a loss of one-way collision. Revision 272 had forbidden direct `drop` edges through green lines, but the ballistic graph could still describe a lower target as a full upward `jump`. A hunter directly above its last-seen target preferred that short vertical arc, rose, fell onto the same green support, and immediately selected it again.
+
+All lower destinations from a green support now use authored endpoint walk-offs. Downward jumps and overlapping downward steps are absent from newly baked graphs, while small drops remain routable through the same edge-walk mechanic. Runtime also sanitizes matching old baked graphs before planning and checks the selected edge again before launch. Hunters therefore walk to a platform end and descend once, or remain and pursue locally when Ignatius is beside them; they never bounce in place while trying to reach a target below.
+
+## Revision 275 trigger fire, obstacle-phasing Twin, and perimeter controls
+
+New editor levels leave automatic reinforcements switched off but begin with a 10 percent per-second value, making the feature useful immediately when enabled. Standard gamepad left and right triggers now fire the weapon, including controllers that report analog trigger values without setting the digital pressed bit.
+
+The green Twin wrench trades damage for reliability. Its two homing rockets now deal 10 damage each and retain a launch-time obstacle-phasing flag. They ignore all ordinary level and reactive-obstacle collision while searching for enemies, but enemy hit detection remains authoritative.
+
+New cave windows place the full-black boundary 200 pixels beyond the authored opening. Automatic stalactite/stalagmite population now defaults to a stronger 30-50 percent inward overlap. The Level Editor presents the midpoint as an **Inward coverage %** field so authors can make the foreground bite shallower or deeper before regenerating it.
+
+
+
+## Revision 276 denser generated power-up distribution
+
+Generated levels now target approximately one genuine power-up per 1,000 pixels of mandatory-route travel at the default Reward density. The existing density control still scales the result, but its upper multiplier is capped at 1.5 to keep high-density Grand drafts physically placeable. Dense placement searches safe floor slots from platform edges inward, retains the authored reward-spacing and endpoint rules.
+
+The generated power-up mix is now balanced per draft rather than left to loose random chance. Random Wrench has a two-part share while Shield and Speed Shot each have one part. A deterministic running-deficit selector keeps the realized mix near 50 percent wrench, 25 percent Shield, and 25 percent Speed Shot, including contextual pickups already placed earlier in the reward pass. Power-up slots use common support, edge, and progression constraints so a reward-only reroll can change the pickup types without moving the pickup positions. Rewards are resolved before encounters, and their fixed non-narrative clearance envelopes are supplied to the encounter populator; monsters therefore route around pickups without letting either stage consume the other stage's random stream.
+
+
+## Revision 277 organic cave fade and economical rocket impacts
+
+The cave-window feather now supports deterministic visual perturbation through `caveWindow.gradientNoise`. Authors can configure the waviness amplitude in world pixels, the average wave scale, and a seed. The renderer combines broad and fine cyclic noise along the closed spline and overlays several low-opacity wavy bands inside the existing feather. Both endpoints of the transition remain fixed: the cyan opening is unchanged, and the exact authored full-black outset remains authoritative for masking and the lethal boundary. Generated caverns receive seed-derived defaults so repeated generator seeds remain reproducible.
+
+Ignatius rocket impacts now use a smaller, shorter smoke burst. The renderer creates neutral and wrench-tinted radial smoke stamps once and reuses them through scaled `drawImage` calls instead of creating a Canvas gradient for every puff on every frame. Impact puffs no longer run their own sparkle loops; one short central spark burst retains the hit punctuation. The authored medium-quality impact count falls from 24 to 12 and its typical lifetime falls below one second, substantially reducing the frame spike without changing damage, collision, splash, or homing behavior.
+
+## Revision 278 full-width organic cave feather
+
+Revision 278 keeps the authored cave perimeter smooth and moves all irregularity into the visual opacity contours. The first revision 277 implementation combined a smooth Canvas shadow blur with faint displaced bands; the smooth blur became dark immediately outside the opening and visually swallowed most of the waviness. The runtime mask now starts from a transparent surface and accumulates twenty-four deterministic perturbed contours along a smoother-step opacity curve. The opening remains exactly transparent, the transition consumes the complete authored feather width, and the existing exact outset still clamps everything beyond it to opaque black.
+
+Gradient noise now uses an explicit 10-500 pixel period instead of the former broad scale, with 50-pixel period and 50-pixel amplitude defaults. Adaptive contour sampling preserves short-period variation without changing the underlying cave spline. The Level Editor labels `caveWindow.feather` as **Feather to full black**, previews several opacity contours, and keeps the smooth perimeter separate from the wavy visual guides. Generated caves now use the same 200-pixel feather default as newly authored cave windows instead of the former hard-coded 118 pixels.
+
+
+## Revision 279 perimeter decoration simplification
+
+The **Max spacing px** setting is removed. Once automatic decoration was required to cover continuously from the smooth cave opening through the full-black boundary, the parameter ceased to behave as a useful general spacing control: high values were capped by sprite coverage, while low values only forced extra overlap. Automatic tangential placement now derives its step solely from the selected formation's rendered tangent span, using strong deterministic overlap and retaining the existing denser floor/ceiling treatment.
+
+`caveWindow.decoration.spacing` is no longer normalized or serialized. Older records that contain it load safely and discard it. The Level Editor no longer exposes or listens to the obsolete field. Generated cavern records now use the same 2.0 perimeter-asset scale as new manual cave windows, replacing the generator-only 2.15 value.
+
+
+## Revision 280 longer power-up durations
+
+Speed Shot and all five wrench modes now last 30 seconds. Shield now lasts 10 seconds. The change is applied consistently to shared effect definitions, entity-catalog defaults, the level-1 examples, tests, and player documentation. Existing refresh, exclusivity, clear-on-death, HUD-priority, and sixty-second pickup-respawn behavior is unchanged.
+
+Housekeeping bugs found during this revision: the Level Editor heading still displayed revision 268, and the current architecture summary still described the old 8/15/5-second power-up timings plus the pre-rebalance Green Twin damage. The editor label is corrected to revision 280 and the architecture summary now matches the authoritative shared data. Going forward, every discovered bug, stale behavior, or deprecated path must be noted in this plan, and manual-covered behavior must be updated in `GameManual.html` in the same revision.
