@@ -71,3 +71,14 @@ Reactive objects live in authoritative simulation state. Rockets strike them bef
 ## Palette placement workflow
 
 Selecting an Asset or Entity palette card activates its placement tool. While the pointer is over the canvas, the editor draws a translucent snapped preview using the same size, visual, anchor, and applicable ground-snap rules as the final record. Clicking places one object and returns to Select. The preview is transient UI state and must never be serialized or consume an ordinary object ID.
+
+
+## Level Editor rendering performance
+
+The editor remains Canvas 2D until representative profiling justifies the WebGL2 backend. Pointer events do not render immediately: redraw requests are coalesced through `requestAnimationFrame`.
+
+The canvas is divided conceptually into a static viewport scene and transient overlays. Cursor-following placement ghosts, selection outlines, and Shift-drag marquees can reuse the last static scene. This prevents a mouse move from redrawing every visible cave formation, recomputing cave-geometry warnings, rebuilding overlap bookkeeping, and serializing the whole level.
+
+Cave-foreground artwork also has its own transparent viewport cache. It is safe to reuse while ordinary terrain or entities move because the foreground is a later presentation layer. Editing foreground records, loading atlas artwork, recolouring atlases, or committing structural changes invalidates it. Entity previews are culled against conservative world bounds before expensive character or atlas composition.
+
+These caches contain only rendered editor pixels. Level records, placement ordering, collision, selection, JSON export, and runtime rendering remain authoritative elsewhere. WebGL2 should replace the drawing backend without changing those data contracts.

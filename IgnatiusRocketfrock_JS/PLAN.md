@@ -3079,3 +3079,14 @@ Revision 299 also corrects a second palette distortion found during the repair: 
 ## Revision 300 cursor-following placement previews
 
 Palette-driven placement now shows the actual chosen asset or entity under the pointer before committing it. The ghost uses snapping, authored dimensions, atlas/entity visuals, and nearby-ground snapping for doors and grounded enemies, so the click result matches the preview. Preview records use a reserved transient ID and never enter the level document. Assets and entities now share the same one-shot workflow: choose a palette card, move the preview into position, click once, then continue in Select mode.
+
+
+## Revision 301 Level Editor Canvas performance bridge
+
+Hands-on use of densely decorated levels exposed a confirmed editor hot path: cursor-following placement previews called the complete synchronous Canvas render for every pointer event. With roughly a thousand visible placements this also rescanned cave geometry warnings, checked overlap state across the main placement list, drew every entity without viewport rejection, and scheduled pretty-printed serialization of the full level document. WebGL2 would not remove those CPU-side costs, so the repair is implemented immediately rather than deferred.
+
+Revision 301 changes `draw()` into a requestAnimationFrame-coalesced scheduler. The editor renders a cached static viewport scene and then draws transient placement previews, selection outlines, and selection marquees separately. Preview pointer movement and marquee movement reuse the static scene. A second transparent viewport cache holds dense cave-foreground artwork, allowing ordinary terrain/entity edits to rebuild the scene without redrawing hundreds of unchanged perimeter formations. Foreground edits and atlas, colour-map, or structural changes explicitly invalidate that layer.
+
+Entities now use conservative cached world bounds for viewport culling. Overlap composites use stable placement-array identity plus explicit invalidation instead of rebuilding a full placement signature on each scene render. JSON serialization is removed from the render loop and is scheduled only by actual level mutations or metadata commits. The implementation deliberately preserves the canonical placement groups, bounds, and ordinary draw paths so upcoming WebGL2 work can replace presentation without inheriting a competing scene model.
+
+The release audit also found two denylisted files still present: `generate_level002_temp.mjs` and the obsolete `src/presentation/rocket-glow-cache.js` duplicate beside `rocket-glow-baking.js`. Both had already been classified as retired, but had reappeared in the revision-300 full archive. Revision 301 removes both stale files immediately. No Game Manual update is required because gameplay, controls, level schema, and visible editor workflow are unchanged.

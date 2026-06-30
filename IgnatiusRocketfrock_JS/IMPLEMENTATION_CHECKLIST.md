@@ -2994,3 +2994,17 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Keep preview state out of level JSON and avoid consuming an authored ID.
 - [x] Return to Select after placing either an asset or an entity.
 - [x] Clear the preview when the pointer leaves the canvas or another tool is selected.
+
+
+## Revision 301 Level Editor Canvas performance bridge
+
+- [x] Coalesce editor redraw requests through `requestAnimationFrame`.
+- [x] Split the static viewport scene from cursor previews, selection outlines, and marquee overlays.
+- [x] Reuse the static scene for placement-preview and selection-box pointer movement.
+- [x] Cache dense cave-foreground artwork in a transparent viewport layer with explicit invalidation.
+- [x] Cull entities against conservative editor world bounds before expensive preview composition.
+- [x] Replace per-render overlap signature construction with stable-array caching and explicit invalidation.
+- [x] Remove full-level JSON serialization scheduling from the render loop and attach it to authoring mutations.
+- [x] Remove the retired `generate_level002_temp.mjs` and duplicate `src/presentation/rocket-glow-cache.js` files found by the release audit.
+- [x] Synchronize revision labels, architecture guidance, developer guidance, plan notes, and regression coverage.
+- [ ] Browser-profile revision 301 in a densely populated cave at placement-preview, object-drag, pan, and whole-level Fit zoom levels; record the achieved frame rates before deciding the first WebGL2 migration slice.

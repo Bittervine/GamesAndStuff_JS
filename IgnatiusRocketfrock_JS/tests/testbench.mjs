@@ -6401,9 +6401,16 @@ function testCaveWindowSplineAuthoring() {
     assert.equal(levelEditorHtml.includes('id="cave-decor-spacing"') || levelEditorHtml.includes("Max spacing px"), false, "Level Editor should not expose the obsolete maximum-spacing control");
     assert.ok(levelEditorHtml.includes('id="cave-gradient-noise-amplitude"') && levelEditorHtml.includes('id="cave-gradient-noise-period"') && levelEditorHtml.includes('min="10" max="500"') && levelEditorHtml.includes('id="cave-gradient-noise-seed"'), "Level Editor should expose gradient waviness amplitude, a 10-500 pixel period, and deterministic seed");
     assert.ok(levelEditorHtml.includes("editorViewportWorldBounds") && levelEditorHtml.includes("placementWorldBounds"), "Level Editor should cull off-screen placements before drawing them");
+    assert.ok(levelEditorHtml.includes("entityWorldBounds") && levelEditorHtml.includes("drawEntity(entity, { viewportBounds })"), "Level Editor should cull off-screen entities before expensive preview composition");
     assert.ok(levelEditorHtml.includes("editorForegroundSpriteCache") && levelEditorHtml.includes("createForegroundSpriteCanvas"), "Level Editor should cache darkened and faded foreground sprite variants");
+    assert.ok(levelEditorHtml.includes("editorCaveForegroundLayerCache") && levelEditorHtml.includes("drawCaveForegroundLayer"), "Level Editor should cache dense cave foreground artwork in a reusable transparent viewport layer");
+    assert.ok(levelEditorHtml.includes("editorStaticSceneCache") && levelEditorHtml.includes("paintEditorFrame") && levelEditorHtml.includes("requestAnimationFrame"), "Level Editor should coalesce rendering and reuse a static viewport scene");
+    assert.ok(levelEditorHtml.includes("draw({ reuseScene: true })"), "placement-preview and marquee pointer movement should reuse the static editor scene");
     assert.ok(levelEditorHtml.includes("buildOverlapBlendGroups") && levelEditorHtml.includes("createOverlapBlendSurface") && levelEditorHtml.includes("drawMainPlacementLayer"), "Level Editor should preview cached seamless overlap composites without deleting individual placements");
-    assert.ok(levelEditorHtml.includes("scheduleJsonUpdate") && !levelEditorHtml.includes("drawSelection();\n        updateJson();"), "Level Editor should not stringify the full level on every drag-frame redraw");
+    assert.equal(levelEditorHtml.includes("function editorOverlapBlendSignature"), false, "Level Editor should not rebuild a whole-placement overlap signature on every scene render");
+    const editorDrawFunction = levelEditorHtml.slice(levelEditorHtml.indexOf("    function draw(options = null)"), levelEditorHtml.indexOf("    function drawPlacementPreview()"));
+    assert.equal(editorDrawFunction.includes("scheduleJsonUpdate"), false, "the editor render scheduler must not serialize the level document");
+    assert.ok(levelEditorHtml.includes("scheduleJsonUpdate") && levelEditorHtml.includes("function persistUi()"), "actual authoring mutations should retain deferred level serialization");
 
     const decoration = normalizeCaveDecoration({ seed: 77, scale: 2, brightness: 0.3, saturation: 0.5 });
     assert.equal("spacing" in decoration, false, "normalized cave decoration should contain only current density-independent fields");
@@ -7516,8 +7523,8 @@ function testRocketPowerUpArsenal() {
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 300<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(bootstrapSource, /const GAME_REVISION = "300";/, "the game debug revision should match the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 301<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "301";/, "the game debug revision should match the packaged revision");
     assert.match(editorSource, /<button id="fit-content-view">Fit<\/button>/, "the Level Editor should expose one concise Fit button");
     assert.equal(editorSource.includes('id="fit-view"'), false, "the removed Fit World control should not remain in the Level Editor");
     assert.equal(editorSource.includes('id="fit-cave-view"'), false, "the removed Fit Cave control should not remain in the Level Editor");

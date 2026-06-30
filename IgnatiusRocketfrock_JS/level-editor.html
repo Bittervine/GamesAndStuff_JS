@@ -669,7 +669,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 300</small></h1>
+        <h1>Level Editor <small>rev 301</small></h1>
 
         <div class="box">
             <h2>Level</h2>
@@ -1334,7 +1334,8 @@ import {
     };
 
     const canvas = document.getElementById("stage");
-    const ctx = canvas.getContext("2d");
+    const stageCtx = canvas.getContext("2d");
+    let ctx = stageCtx;
     const wrap = document.getElementById("canvas-wrap");
 
     const els = {
@@ -1556,8 +1557,12 @@ import {
         navigationPreviewGraphId: "",
         placementDrawCache: null,
         placementBoundsCache: new WeakMap(),
+        entityBoundsCache: new WeakMap(),
         editorForegroundSpriteCache: new Map(),
         editorOverlapBlendCache: null,
+        editorStaticSceneCache: null,
+        editorCaveForegroundLayerCache: null,
+        editorCaveForegroundRevision: 0,
         caveGeometryWarningText: "",
         generatorThemes: new Map(),
         generatorAssetCatalog: normalizeGenerationAssetCatalog(null),
@@ -1568,6 +1573,8 @@ import {
     };
     let colorMapRefreshTimer = null;
     let jsonUpdateTimer = null;
+    let editorDrawFrameRequest = null;
+    let editorSceneRebuildPending = true;
 
     function cloneData(value) {
         return JSON.parse(JSON.stringify(value));
@@ -1622,7 +1629,8 @@ import {
         canvas.height = Math.max(360, Math.floor(rect.height * dpr));
         canvas.style.width = `${rect.width}px`;
         canvas.style.height = `${rect.height}px`;
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        stageCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        invalidateEditorSceneCache({ caveForeground: true });
         draw();
     }
 
@@ -2152,6 +2160,7 @@ import {
         }
         state.editorForegroundSpriteCache.clear();
         state.editorOverlapBlendCache = null;
+        invalidateEditorSceneCache({ caveForeground: true });
         renderAssetList();
         return record;
     }
@@ -2536,6 +2545,7 @@ import {
         state.colorMapCacheKey = cacheKey;
         state.editorForegroundSpriteCache.clear();
         state.editorOverlapBlendCache = null;
+        invalidateEditorSceneCache({ caveForeground: true });
         const active = atlasRecord();
         state.atlasImage = active?.renderImage || active?.image || null;
         updateColorMapPreview();
@@ -4082,7 +4092,7 @@ import {
         }
         if (state.drag.kind === "selectionBox") {
             state.drag.current = point;
-            draw();
+            draw({ reuseScene: true });
             return;
         }
         if (state.drag.kind === "cavePoint") {
@@ -4123,6 +4133,8 @@ import {
                 selected.record.y = original.y + snappedDy;
             }
             state.editorOverlapBlendCache = null;
+            const movedCaveForeground = [...state.drag.ids].some((id) => placementById(id)?.layer === CAVE_FOREGROUND_LAYER);
+            if (movedCaveForeground) invalidateEditorSceneCache({ caveForeground: true });
             syncInspector(false);
             draw();
         }
@@ -4163,17 +4175,69 @@ import {
         } else draw();
     }
 
-    function draw() {
-        const rect = screenSize();
-        const viewportBounds = editorViewportWorldBounds();
+    function editorPixelRatio() {
+        return Math.max(1, Number(window.devicePixelRatio) || 1);
+    }
+
+    function ensureEditorViewportSurface(cacheName, rect) {
+        const dpr = editorPixelRatio();
+        const width = Math.max(1, Math.ceil(rect.width * dpr));
+        const height = Math.max(1, Math.ceil(rect.height * dpr));
+        let surface = state[cacheName];
+        if (!surface) {
+            const surfaceCanvas = document.createElement("canvas");
+            surface = {
+                canvas: surfaceCanvas,
+                context: surfaceCanvas.getContext("2d"),
+                width: 0,
+                height: 0,
+                dpr: 0,
+                valid: false,
+                key: ""
+            };
+            state[cacheName] = surface;
+        }
+        if (surface.width !== width || surface.height !== height || surface.dpr !== dpr) {
+            surface.canvas.width = width;
+            surface.canvas.height = height;
+            surface.width = width;
+            surface.height = height;
+            surface.dpr = dpr;
+            surface.valid = false;
+            surface.key = "";
+        }
+        surface.context.setTransform(dpr, 0, 0, dpr, 0, 0);
+        return surface;
+    }
+
+    function withEditorContext(nextContext, callback) {
+        const previousContext = ctx;
+        ctx = nextContext;
+        try {
+            return callback();
+        } finally {
+            ctx = previousContext;
+        }
+    }
+
+    function invalidateEditorSceneCache({ caveForeground = false } = {}) {
+        if (state.editorStaticSceneCache) state.editorStaticSceneCache.valid = false;
+        if (caveForeground) {
+            state.editorCaveForegroundRevision += 1;
+            if (state.editorCaveForegroundLayerCache) state.editorCaveForegroundLayerCache.valid = false;
+        }
+        editorSceneRebuildPending = true;
+    }
+
+    function renderEditorStaticScene(rect, viewportBounds) {
         ctx.clearRect(0, 0, rect.width, rect.height);
         drawBackground(rect);
         if (els.showGrid.checked) drawGrid(rect);
         drawWorldBounds();
         const placementGroups = sortedPlacementGroups();
         drawMainPlacementLayer(placementGroups.main, viewportBounds);
-        for (const entity of state.level.entities) drawEntity(entity);
-        for (const placement of placementGroups.caveForeground) drawPlacement(placement, viewportBounds);
+        for (const entity of state.level.entities) drawEntity(entity, { viewportBounds });
+        drawCaveForegroundLayer(placementGroups.caveForeground, viewportBounds, rect);
         drawNavigationGraph();
         const caveGeometryWarnings = gameplayGeometryCaveWarnings();
         drawCaveWindowOverlay(rect);
@@ -4181,10 +4245,42 @@ import {
         refreshCaveGeometryWarningUi(caveGeometryWarnings);
         drawAutomaticRouteOverlay();
         drawAutomaticValidationOverlay();
+    }
+
+    function rebuildEditorStaticScene(rect, viewportBounds) {
+        const surface = ensureEditorViewportSurface("editorStaticSceneCache", rect);
+        withEditorContext(surface.context, () => renderEditorStaticScene(rect, viewportBounds));
+        surface.valid = true;
+        return surface;
+    }
+
+    function paintEditorFrame() {
+        const rect = screenSize();
+        const viewportBounds = editorViewportWorldBounds();
+        let surface = ensureEditorViewportSurface("editorStaticSceneCache", rect);
+        if (editorSceneRebuildPending || !surface.valid) {
+            editorSceneRebuildPending = false;
+            surface = rebuildEditorStaticScene(rect, viewportBounds);
+        }
+        ctx = stageCtx;
+        stageCtx.clearRect(0, 0, rect.width, rect.height);
+        stageCtx.drawImage(surface.canvas, 0, 0, rect.width, rect.height);
         drawPlacementPreview();
         drawSelection();
         drawSelectionBox();
-        scheduleJsonUpdate();
+    }
+
+    function draw(options = null) {
+        const reuseScene = Boolean(options?.reuseScene);
+        if (!reuseScene) editorSceneRebuildPending = true;
+        if (editorDrawFrameRequest !== null) return;
+        const requestFrame = globalThis.requestAnimationFrame
+            ? globalThis.requestAnimationFrame.bind(globalThis)
+            : (callback) => window.setTimeout(callback, 16);
+        editorDrawFrameRequest = requestFrame(() => {
+            editorDrawFrameRequest = null;
+            paintEditorFrame();
+        });
     }
 
     function drawPlacementPreview() {
@@ -4402,10 +4498,13 @@ import {
         }
     }
 
-    function invalidateEditorPlacementCaches({ sprites = false } = {}) {
+    function invalidateEditorPlacementCaches({ sprites = false, caveForeground = true } = {}) {
         state.placementDrawCache = null;
         state.editorOverlapBlendCache = null;
+        state.placementBoundsCache = new WeakMap();
+        state.entityBoundsCache = new WeakMap();
         if (sprites) state.editorForegroundSpriteCache.clear();
+        invalidateEditorSceneCache({ caveForeground });
     }
 
     function normalizeStackOrder() {
@@ -4483,6 +4582,36 @@ import {
         return a.maxX >= b.minX && a.minX <= b.maxX && a.maxY >= b.minY && a.minY <= b.maxY;
     }
 
+    function entityWorldBounds(entity) {
+        const signature = [
+            finiteEditorNumber(entity?.x, 0),
+            finiteEditorNumber(entity?.y, 0),
+            finiteEditorNumber(entity?.w, 0),
+            finiteEditorNumber(entity?.h, 0),
+            finiteEditorNumber(entity?.scale, 1),
+            finiteEditorNumber(entity?.renderOffsetX, 0),
+            finiteEditorNumber(entity?.renderOffsetY, 0),
+            entity?.type || "",
+            entity?.visualState || ""
+        ].join("|");
+        const cached = state.entityBoundsCache.get(entity);
+        if (cached?.signature === signature) return cached.bounds;
+        const rects = [objectRect(entity, "entity")];
+        for (const visual of entityVisuals(entity)) rects.push(entityVisualRect(entity, visual));
+        const padding = Math.max(24, Math.min(160, Math.max(
+            finiteEditorNumber(entity?.w, 0),
+            finiteEditorNumber(entity?.h, 0)
+        ) * 0.25));
+        const bounds = {
+            minX: Math.min(...rects.map((rect) => rect.x)) - padding,
+            minY: Math.min(...rects.map((rect) => rect.y)) - padding,
+            maxX: Math.max(...rects.map((rect) => rect.x + rect.w)) + padding,
+            maxY: Math.max(...rects.map((rect) => rect.y + rect.h)) + padding
+        };
+        state.entityBoundsCache.set(entity, { signature, bounds });
+        return bounds;
+    }
+
     function generatedCavePlacementVisible(placement) {
         return !isGeneratedCaveForeground(placement) || els.caveShowGenerated.checked;
     }
@@ -4512,31 +4641,11 @@ import {
         return surface;
     }
 
-    function editorOverlapBlendSignature(placements) {
-        return `${state.colorMapCacheKey}|${placements.map((placement) => [
-            placement.id,
-            placement.kind,
-            placement.atlasId,
-            placement.assetId,
-            finiteEditorNumber(placement.x, 0),
-            finiteEditorNumber(placement.y, 0),
-            finiteEditorNumber(placement.w, 0),
-            finiteEditorNumber(placement.h, 0),
-            normalizeRotationRadians(placement.rotation, placement.angle),
-            placement.mirrorX ? 1 : 0,
-            placement.mirrorY ? 1 : 0,
-            placement.layer,
-            finiteEditorNumber(placement.order, 0),
-            placement.dynamicPosition ? 1 : 0,
-            placement.movingPlatformId || "",
-            placement.entityId || "",
-            placement.blendOverlaps === false ? 0 : 1
-        ].join(":")).join("|")}`;
-    }
-
     function editorOverlapBlendGroups(placements) {
-        const signature = editorOverlapBlendSignature(placements);
-        if (state.editorOverlapBlendCache?.signature === signature) {
+        if (
+            state.editorOverlapBlendCache?.placements === placements &&
+            state.editorOverlapBlendCache?.colorMapCacheKey === state.colorMapCacheKey
+        ) {
             return state.editorOverlapBlendCache;
         }
         const entries = placements.map((placement, index) => ({
@@ -4563,7 +4672,12 @@ import {
             groups.push(group);
             for (const placement of group.members) memberToGroup.set(placement, group);
         }
-        state.editorOverlapBlendCache = { signature, groups, memberToGroup };
+        state.editorOverlapBlendCache = {
+            placements,
+            colorMapCacheKey: state.colorMapCacheKey,
+            groups,
+            memberToGroup
+        };
         return state.editorOverlapBlendCache;
     }
 
@@ -4594,7 +4708,42 @@ import {
         }
     }
 
-    function drawPlacement(placement, viewportBounds = null, { skipArtwork = false, preview = false } = {}) {
+    function caveForegroundLayerCacheKey(rect) {
+        return [
+            Math.round(rect.width * 100) / 100,
+            Math.round(rect.height * 100) / 100,
+            editorPixelRatio(),
+            finiteEditorNumber(state.camera.x, 0),
+            finiteEditorNumber(state.camera.y, 0),
+            finiteEditorNumber(state.camera.zoom, 1),
+            state.colorMapCacheKey,
+            state.editorCaveForegroundRevision,
+            els.caveShowGenerated.checked ? 1 : 0
+        ].join("|");
+    }
+
+    function drawCaveForegroundLayer(placements, viewportBounds, rect) {
+        const surface = ensureEditorViewportSurface("editorCaveForegroundLayerCache", rect);
+        const key = caveForegroundLayerCacheKey(rect);
+        if (!surface.valid || surface.key !== key) {
+            withEditorContext(surface.context, () => {
+                ctx.clearRect(0, 0, rect.width, rect.height);
+                for (const placement of placements) {
+                    drawPlacement(placement, viewportBounds, { skipDetails: true });
+                }
+            });
+            surface.key = key;
+            surface.valid = true;
+        }
+        ctx.drawImage(surface.canvas, 0, 0, rect.width, rect.height);
+        for (const placement of placements) {
+            if (!generatedCavePlacementVisible(placement)) continue;
+            if (viewportBounds && !boundsIntersect(placementWorldBounds(placement), viewportBounds)) continue;
+            drawPlacementDetails(placement);
+        }
+    }
+
+    function drawPlacement(placement, viewportBounds = null, { skipArtwork = false, skipDetails = false, preview = false } = {}) {
         if (!generatedCavePlacementVisible(placement)) return false;
         if (viewportBounds && !boundsIntersect(placementWorldBounds(placement), viewportBounds)) return false;
         if (placement.kind === "cutoutMask") {
@@ -4633,6 +4782,12 @@ import {
             }
             ctx.restore();
         }
+        if (!skipDetails) drawPlacementDetails(placement, { preview, atlasId });
+        if (preview) drawPlacementPreviewOutline(placement);
+        return true;
+    }
+
+    function drawPlacementDetails(placement, { preview = false, atlasId = placement.atlasId || DEFAULT_ATLAS_ID } = {}) {
         const generated = isGeneratedCaveForeground(placement);
         const showDetails = !preview && (!generated || state.selectedId === placement.id);
         if (showDetails && els.showAssetGuides.checked) drawPlacementGuides(placement);
@@ -4640,8 +4795,6 @@ import {
             const topLeft = placementCorners(placement)[0];
             drawLabel(`${atlasId}:${placement.assetId}`, topLeft.x, topLeft.y - 8, COLORS.frame);
         }
-        if (preview) drawPlacementPreviewOutline(placement);
-        return true;
     }
 
     function drawPlacementPreviewOutline(placement) {
@@ -4884,7 +5037,8 @@ import {
         return true;
     }
 
-    function drawEntity(entity, { preview = false } = {}) {
+    function drawEntity(entity, { preview = false, viewportBounds = null } = {}) {
+        if (!preview && viewportBounds && !boundsIntersect(entityWorldBounds(entity), viewportBounds)) return false;
         if (!preview && els.showAssetGuides.checked) drawCharacterEnemyPatrolGuide(entity);
         if (preview) {
             ctx.save();
@@ -4926,6 +5080,7 @@ import {
             ctx.restore();
             drawEntityPreviewOutline(entity);
         }
+        return true;
     }
 
     function drawEntityPreviewOutline(entity) {
@@ -5333,7 +5488,9 @@ import {
             if (Number.isFinite(degrees)) rec.rotation = degrees * Math.PI / 180;
         }
         rec.notes = els.inspectNotes.value;
-        invalidateEditorPlacementCaches();
+        invalidateEditorPlacementCaches({
+            caveForeground: selected.kind === "asset" && rec.layer === CAVE_FOREGROUND_LAYER
+        });
         renderPlacementList();
         draw();
         scheduleJsonUpdate();
@@ -5353,13 +5510,14 @@ import {
         const dimensions = scaledEnemyDimensions(rec, 72, 150);
         els.inspectW.value = String(Math.round(dimensions.width * 100) / 100);
         els.inspectH.value = String(Math.round(dimensions.height * 100) / 100);
-        invalidateEditorPlacementCaches();
+        invalidateEditorPlacementCaches({ caveForeground: false });
         if (commit) {
             els.inspectEnemyRenderScale.value = String(rec.scale);
             persistUi();
             setStatus(`Scaled ${rec.id} to ${rec.scale}. Artwork, hitbox, offsets, and projectile radius use the same multiplier.`);
         } else {
             draw();
+            scheduleJsonUpdate();
         }
         return true;
     }
@@ -6755,6 +6913,7 @@ import {
         syncInspector();
         renderPlacementList();
         draw();
+        scheduleJsonUpdate();
     }
 
     function normalizeLoadedLevelPlacements() {
@@ -6973,14 +7132,14 @@ import {
         updateDrag(point, event);
         if (placementPreviewTool()) {
             state.placementPreviewPoint = point;
-            draw();
+            draw({ reuseScene: true });
         }
     });
 
     canvas.addEventListener("pointerleave", () => {
         if (!state.placementPreviewPoint) return;
         state.placementPreviewPoint = null;
-        if (placementPreviewTool()) draw();
+        if (placementPreviewTool()) draw({ reuseScene: true });
     });
 
     canvas.addEventListener("pointerup", (event) => {
@@ -7127,7 +7286,11 @@ import {
         draw();
     });
     els.showNavigationGraph.addEventListener("change", draw);
-    [els.showGrid, els.showAssetGuides, els.showLabels, els.snapEnabled, els.snap, els.worldW, els.worldH, els.levelId, els.levelTitle, els.levelMusic].forEach((el) => el.addEventListener("change", () => { syncMetadataFromUi(); draw(); }));
+    [els.showGrid, els.showAssetGuides, els.showLabels, els.snapEnabled, els.snap, els.worldW, els.worldH, els.levelId, els.levelTitle, els.levelMusic].forEach((el) => el.addEventListener("change", () => {
+        syncMetadataFromUi();
+        draw();
+        if ([els.worldW, els.worldH, els.levelId, els.levelTitle, els.levelMusic].includes(el)) scheduleJsonUpdate();
+    }));
 
     els.caveCreateFromBounds.addEventListener("click", createCaveWindowFromWorldBounds);
     els.caveDeletePoint.addEventListener("click", deleteSelectedCavePoint);

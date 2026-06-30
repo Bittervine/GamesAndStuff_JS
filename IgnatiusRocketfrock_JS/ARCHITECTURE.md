@@ -1113,3 +1113,12 @@ Palette canvas backing dimensions are derived from the displayed CSS box and a b
 ## Revision 300 palette-driven placement preview
 
 The Level Editor keeps `placementPreviewPoint` as transient UI state. Pointer movement over the canvas updates that point only while Place Asset, Place Cave Foreground, or Place Entity is active. `drawPlacementPreview()` builds an unsaved record with the reserved `__placement_preview__` ID and sends it through the normal placement/entity rendering path with preview opacity and a dashed outline. Character enemies and wizard doors use the same nearby-ground snap calculation as final placement. The preview is never inserted into `level.placements` or `level.entities`, never serialized, and never advances authored IDs. A successful asset or entity placement switches immediately to Select mode.
+
+
+## Revision 301 Level Editor Canvas performance bridge
+
+The Level Editor keeps Canvas 2D as its authoring backend while WebGL2 remains pending. Rendering is now split into a static viewport scene and transient overlays. `draw()` is a requestAnimationFrame scheduler rather than an immediate full render. A normal draw request rebuilds the static scene; cursor-placement and marquee-only requests may reuse it and redraw only placement previews, selection outlines, and the selection rectangle.
+
+Dense cave foreground artwork has a separate transparent viewport-layer cache. It is rendered through the ordinary `drawPlacement` path, keyed by viewport, camera, colour-map state, generated-art visibility, and an explicit foreground revision. Main-layer or entity edits may therefore rebuild the editor scene while reusing hundreds of unchanged cave-foreground sprites. Foreground edits, atlas changes, colour-map rebuilds, and structural persistence explicitly invalidate this layer. This cache is an editor-only Canvas optimization, not a second world model, and a future WebGL2 backend should consume the same placement groups and bounds rather than preserve the bitmap cache itself.
+
+Entities now use conservative cached world bounds and are rejected outside the expanded editor viewport before character composition or atlas drawing. Overlap composites rely on explicit invalidation and stable placement-array identity instead of rebuilding a complete placement signature on every scene render. Full level JSON serialization is scheduled by actual authoring mutations and metadata commits, never by the visual render loop.
