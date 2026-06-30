@@ -84,8 +84,16 @@ Cave-foreground artwork also has its own transparent viewport cache. It is safe 
 These caches contain only rendered editor pixels. Level records, placement ordering, collision, selection, JSON export, and runtime rendering remain authoritative elsewhere. WebGL2 should replace the drawing backend without changing those data contracts.
 
 
-## Release testing
+## Test gates and release testing
 
-`npm test` is the authoritative release gate. It runs the 154-test fast group first, then `devel/run_generator_tests.mjs`.
+The testbench is divided into named development gates, and every primary test has explicit ownership in `tests/test-gate-manifest.mjs`. Each shard runs in a fresh Node process. This keeps memory bounded and makes the intended scope visible.
 
-The generator runner deliberately starts four fresh Node processes in sequence: route and empty-cavern foundations, decorated macro drafts, encounter/reward/refinement/perimeter contracts, and the route-only macro seed sweep. Keep those boundaries unless profiling proves a replacement is safer. Combining them retains large temporary geometry; running several generator children concurrently creates memory contention. The macro split does not reduce coverage: it retains eight decorated Earth/Ice length cases and 24 route seeds per theme.
+Use `npm run test:editor` for Level Editor and Puppet Forge work, `npm run test:game` for simulation and runtime work, `npm run test:shared` for shared data, browser adapters, manifests, and presentation helpers, and `npm run test:generator` for procedural generation. `npm run test:smoke` is a small overlapping cross-system check. A focused development pass should normally run its affected gate plus `shared` and `smoke`; add any neighbouring gate whose contract changed.
+
+`npm test` is the authoritative fresh release gate. It runs twelve sequential fresh-process shards: two shared, two editor, four game, and four generator. The runner continues after a failed shard and prints a final table with passed, failed, timed-out, and skipped groups. Per-shard timeout defaults to five minutes and can be changed with `TEST_SHARD_TIMEOUT_MS`.
+
+After each completed shard, the runner writes `.build/test-gate-report.json`. `.build/` is excluded from releases. `npm run test:release:resume` may skip shards already passed only when the SHA-256 fingerprint of all test-relevant source is identical. Ordinary `npm test` ignores old progress and starts clean. Use `npm run test:list` to inspect gate composition.
+
+Generator boundaries remain foundation, decorated macro, content, and route-seed sweep. They stay sequential because concurrent geometry processes compete for memory. Testbench startup validates that every test has exactly one primary owner, so adding a test also requires an intentional manifest assignment.
+
+`npm run audit:renderer` checks the direct Canvas ownership boundary recorded in `RENDERER_BOUNDARY_AUDIT.md`. `npm run inspect:editor-stress` verifies the frozen dense fixture metrics recorded in `EDITOR_STRESS_BASELINE.md`.

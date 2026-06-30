@@ -6,6 +6,7 @@ import {
     storyReadingDuration
 } from "../src/shared/story-reading.js";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { testNameInGroup, validateTestGateManifest } from "./test-gate-manifest.mjs";
 import {
     computeResponsiveViewportMetrics,
     computeThoughtBubblePlacement,
@@ -367,6 +368,8 @@ function testSourceOrganization() {
         "../ARCHITECTURE.md",
         "../MUSIC_SOURCES.md",
         "../package.json",
+        "../EDITOR_STRESS_BASELINE.md",
+        "../RENDERER_BOUNDARY_AUDIT.md",
         "../src/core/simulation.js",
         "../src/core/enemy-navigation.js",
         "../src/core/world-collision-index.js",
@@ -400,6 +403,12 @@ function testSourceOrganization() {
         "../electron/preload.cjs",
         "../electron/README.md",
         "../devel/package_update.py",
+        "../devel/audit_renderer_boundary.mjs",
+        "../devel/inspect_editor_stress_fixture.mjs",
+        "../devel/run_test_gate.mjs",
+        "../devel/test-gate-runner.mjs",
+        "../tests/test-gate-manifest.mjs",
+        "../tests/fixtures/level-editor-stress.json",
         "../src/tools/character-editor/animation-editor.js",
         "../src/tools/character-editor/atlas-editor.js",
         "../src/tools/character-editor/character-dirty-state.js",
@@ -436,20 +445,42 @@ function testSourceOrganization() {
 
     const packageMetadata = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
     assert.equal(packageMetadata.type, "module", "package metadata should declare ES modules explicitly");
-    assert.equal(packageMetadata.scripts?.test, "npm run test:fast && npm run test:generator", "the release test command should isolate the fast and generator groups instead of retaining heavy geometry in one process");
-    assert.equal(packageMetadata.scripts?.["test:fast"], "node tests/testbench.mjs --progress --group=fast", "package metadata should expose the fast non-generator test group");
-    assert.equal(packageMetadata.scripts?.["test:generator"], "node devel/run_generator_tests.mjs", "package metadata should expose the isolated generator test runner");
-    const generatorRunner = readFileSync(new URL("../devel/run_generator_tests.mjs", import.meta.url), "utf8");
-    assert.match(generatorRunner, /group: "generator-foundation"/, "the generator runner should isolate route and empty-cavern foundations in one clean process");
-    assert.match(generatorRunner, /group: "generator-content"/, "the generator runner should isolate encounter, reward, refinement, and perimeter contracts in a second clean process");
-    assert.match(generatorRunner, /group: "generator-macro"/, "the generator runner should isolate decorated macro drafts in their own process");
-    assert.match(generatorRunner, /group: "generator-macro-sweep"/, "the generator runner should isolate the route-only macro seed sweep from decorated drafts");
-    assert.equal(generatorRunner.includes("Promise.all"), false, "generator suites should not compete concurrently for the geometry heap");
-    assert.ok(generatorRunner.includes("for (const suite of suites)") && generatorRunner.includes("await runSuite(suite)"), "the runner should execute four fresh generator processes sequentially within the release timeout");
+    assert.equal(packageMetadata.scripts?.test, "npm run test:release", "the default test command should be the fresh complete release gate");
+    assert.equal(packageMetadata.scripts?.["test:release"], "node devel/run_test_gate.mjs release", "package metadata should expose the named release gate");
+    assert.equal(packageMetadata.scripts?.["test:release:resume"], "node devel/run_test_gate.mjs release --resume", "package metadata should expose fingerprint-safe release resume");
+    assert.equal(packageMetadata.scripts?.["test:editor"], "node devel/run_test_gate.mjs editor", "package metadata should expose the focused editor gate");
+    assert.equal(packageMetadata.scripts?.["test:game"], "node devel/run_test_gate.mjs game", "package metadata should expose the focused game gate");
+    assert.equal(packageMetadata.scripts?.["test:shared"], "node devel/run_test_gate.mjs shared", "package metadata should expose the shared-contract gate");
+    assert.equal(packageMetadata.scripts?.["test:smoke"], "node devel/run_test_gate.mjs smoke", "package metadata should expose the compact cross-system smoke gate");
+    assert.equal(packageMetadata.scripts?.["test:generator"], "node devel/run_generator_tests.mjs", "package metadata should retain the generator compatibility entry point");
+    assert.equal(packageMetadata.scripts?.["audit:renderer"], "node devel/audit_renderer_boundary.mjs", "package metadata should expose the renderer-boundary audit");
+    assert.equal(packageMetadata.scripts?.["inspect:editor-stress"], "node devel/inspect_editor_stress_fixture.mjs", "package metadata should expose structural stress-fixture inspection");
     assert.equal(packageMetadata.scripts?.["test:profile"], "node tests/testbench.mjs --progress --profile", "package metadata should expose per-test timing diagnostics");
+
+    const gateManifest = readFileSync(new URL("./test-gate-manifest.mjs", import.meta.url), "utf8");
+    for (const shard of ["shared-1", "shared-2", "editor-1", "editor-2", "game-1", "game-2", "game-3", "game-4", "generator-foundation", "generator-macro", "generator-content", "generator-macro-sweep", "smoke"]) {
+        assert.ok(gateManifest.includes(`"${shard}"`), `${shard} should remain an explicit stable test shard`);
+    }
+    assert.match(gateManifest, /Tests missing primary shard ownership/, "the test manifest should reject newly added tests without intentional ownership");
+    assert.match(gateManifest, /Tests with duplicate primary shard ownership/, "the test manifest should reject ambiguous primary ownership");
+
+    const gateRunner = readFileSync(new URL("../devel/test-gate-runner.mjs", import.meta.url), "utf8");
+    assert.match(gateRunner, /TEST GATE SUMMARY/, "the common runner should retain an explicit final shard summary");
+    assert.match(gateRunner, /timed-out/, "the common runner should distinguish timeouts from ordinary failures");
+    assert.match(gateRunner, /testSourceFingerprint/, "resumed gates should be protected by a source fingerprint");
+    assert.match(gateRunner, /for \(let index = 0; index < shards\.length; index \+= 1\)/, "gate shards should execute sequentially in fresh processes");
+    assert.equal(gateRunner.includes("Promise.all"), false, "test shards should not compete concurrently for the virtual machine heap");
+    const generatorRunner = readFileSync(new URL("../devel/run_generator_tests.mjs", import.meta.url), "utf8");
+    assert.match(generatorRunner, /runTestGate\("generator"/, "the generator compatibility runner should delegate to the common named gate");
+
+    const rendererAudit = readFileSync(new URL("../devel/audit_renderer_boundary.mjs", import.meta.url), "utf8");
+    assert.match(rendererAudit, /APPROVED_DIRECT_CANVAS_OWNERS/, "the renderer audit should carry an explicit ownership allowlist");
+    assert.match(rendererAudit, /src\/browser\/game-bootstrap\.js", "small HUD minimap only"/, "browser bootstrap should retain only the documented minimap exception");
 
     const packageHelper = readFileSync(new URL("../devel/package_update.py", import.meta.url), "utf8");
     assert.ok(packageHelper.includes("RETIRED_FILES") && packageHelper.includes("src/presentation/rocket-glow-cache.js"), "release packaging should reject known retired files before creating an archive");
+    assert.ok(packageHelper.includes("FORBIDDEN_GENERATED_DIRECTORIES") && packageHelper.includes("FORBIDDEN_GENERATED_SUFFIXES"), "release packaging should reject transient test, coverage, backup, log, and temporary artifacts");
+    assert.ok(packageHelper.includes("archive contains duplicate member names") && packageHelper.includes("archive contains unsafe member paths"), "release packaging should validate member uniqueness and path safety");
     assert.ok(packageHelper.includes("hunter enemies but no baked navigation profiles"), "release packaging should reject hunter levels that would rebuild navigation edges every simulation tick");
 
     const architecture = readFileSync(new URL("../ARCHITECTURE.md", import.meta.url), "utf8");
@@ -586,6 +617,19 @@ function settleOnGround(state) {
 
 function releaseJumpAfterTakeoff(state) {
     stepSimulation(state, createInputFrame({ jumpReleased: true, jumpHeld: false }), FIXED_DT);
+}
+
+function testLevelEditorStressFixture() {
+    const fixture = JSON.parse(readFileSync(new URL("./fixtures/level-editor-stress.json", import.meta.url), "utf8"));
+    assert.equal(fixture.meta?.fixtureKind, "levelEditorStress", "the permanent dense fixture should identify its intended benchmark role");
+    assert.equal(fixture.meta?.fixtureRevision, 303, "the stress fixture should record the revision that froze its baseline");
+    assert.equal(fixture.levelId, "level_editor_stress_fixture", "the stress fixture should not masquerade as a campaign level");
+    assert.equal(fixture.placements?.length, 1039, "the stress fixture should retain a thousand-plus atlas placements");
+    assert.equal(fixture.entities?.length, 68, "the stress fixture should retain a dense entity population");
+    assert.equal(fixture.placements.filter((placement) => placement.layer === "caveForeground").length, 986, "the stress fixture should retain the dense cave-foreground workload");
+    assert.ok(fixture.caveWindow?.enabled && fixture.caveWindow.points?.length >= 8, "the stress fixture should include the authored cave window and perimeter workload");
+    assert.ok(fixture.entities.some((entity) => entity.type === "characterEnemy"), "the stress fixture should exercise composed character previews");
+    assert.ok(fixture.entities.some((entity) => entity.type === "enemySpawner"), "the stress fixture should exercise invisible/editor-only entity markers");
 }
 
 function testTimedTextViewportLayout() {
@@ -7545,8 +7589,8 @@ function testRocketPowerUpArsenal() {
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 302<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(bootstrapSource, /const GAME_REVISION = "302";/, "the game debug revision should match the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 303<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "303";/, "the game debug revision should match the packaged revision");
     assert.match(editorSource, /<button id="fit-content-view">Fit<\/button>/, "the Level Editor should expose one concise Fit button");
     assert.equal(editorSource.includes('id="fit-view"'), false, "the removed Fit World control should not remain in the Level Editor");
     assert.equal(editorSource.includes('id="fit-cave-view"'), false, "the removed Fit Cave control should not remain in the Level Editor");
@@ -10807,6 +10851,7 @@ function testRocketProjectileRendererExists() {
 
 const tests = [
     ["source organization and architecture map", testSourceOrganization],
+    ["level editor dense stress fixture", testLevelEditorStressFixture],
     ["game settings persistence and menu shell", testGameSettingsSchemaPersistenceAndMenuShell],
     ["synthesized level music system", testSynthesizedLevelMusicSystem],
     ["fullscreen Electron bridge contract", testFullscreenBridgeContract],
@@ -10972,6 +11017,8 @@ const tests = [
     ["manual reset", testReset]
 ];
 
+validateTestGateManifest(tests.map(([name]) => name));
+
 function testbenchArgumentValue(argumentName) {
     const prefix = `--${argumentName}=`;
     const match = process.argv.slice(2).find((argument) => argument.startsWith(prefix));
@@ -10979,39 +11026,7 @@ function testbenchArgumentValue(argumentName) {
 }
 
 function testbenchNameInGroup(name, group) {
-    if (!group || group === "all") return true;
-    const normalizedName = name.toLowerCase();
-    if (group === "generator") {
-        return normalizedName.includes("automatic level generator")
-            || normalizedName.includes("automatic perimeter population")
-            || normalizedName.includes("macro rooms, grounded doors")
-            || normalizedName.includes("macro room seed sweep")
-            || normalizedName.includes("atlas 004 long platforms");
-    }
-    if (group === "generator-foundation") {
-        return normalizedName.includes("atlas 004 long platforms")
-            || normalizedName.includes("automatic level generator route foundation")
-            || normalizedName.includes("automatic level generator variant compatibility")
-            || normalizedName.includes("automatic level generator playable empty cavern");
-    }
-    if (group === "generator-content") {
-        return normalizedName.includes("automatic level generator encounters")
-            || normalizedName.includes("automatic level generator rewards")
-            || normalizedName.includes("automatic level generator editor refinement")
-            || normalizedName.includes("automatic perimeter population and spatial culling");
-    }
-    if (group === "generator-core") {
-        return testbenchNameInGroup(name, "generator-foundation")
-            || testbenchNameInGroup(name, "generator-content");
-    }
-    if (group === "generator-macro") {
-        return normalizedName.includes("macro rooms, grounded doors");
-    }
-    if (group === "generator-macro-sweep") {
-        return normalizedName.includes("macro room seed sweep");
-    }
-    if (group === "fast") return !testbenchNameInGroup(name, "generator");
-    throw new Error(`Unknown test group: ${group}`);
+    return testNameInGroup(name, group);
 }
 
 const cliFilter = testbenchArgumentValue("filter").replaceAll("-", " ");

@@ -3021,3 +3021,21 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Preserve the complete decorated macro matrix and 48-route seed sweep after splitting their process boundary.
 - [x] Run the complete `npm test` gate successfully: 154 fast tests and 10 generator tests.
 - [x] Keep gameplay, level schema, and Game Manual unchanged for this presentation/test-harness revision.
+
+## Revision 303 named test gates and WebGL2 runway
+
+- [x] Give every headless test exactly one explicit primary owner under shared, editor, game, or generator.
+- [x] Add a small overlapping smoke gate for source organization, dense editor fixture integrity, editor/runtime transformation, serialization, headless stepping, and reset.
+- [x] Split shared and editor into two fresh-process shards, game into four, and generator into four.
+- [x] Add one common sequential runner with pass, fail, timeout, skip, duration, and final gate reporting.
+- [x] Continue remaining shards after an individual failure so earlier and later results remain visible.
+- [x] Persist fingerprinted shard progress only under excluded `.build/` and add an explicit release-resume command.
+- [x] Make ordinary `npm test` start a fresh complete release gate.
+- [x] Freeze a deterministic Level Editor stress fixture with 1,039 placements, 986 cave-foreground records, and 68 entities.
+- [x] Add structural fixture inspection, a recorded hash, and a repeatable browser profiling protocol.
+- [ ] Record hands-on Canvas frame timings for the five stress scenarios before selecting the first performance-sensitive WebGL2 slice.
+- [x] Audit and document every direct production Canvas owner.
+- [x] Add an automated renderer-boundary audit that rejects new unapproved direct Canvas owners.
+- [x] Strengthen compact release validation for revision notes, required infrastructure, archive naming, generated artifacts, unsafe/duplicate members, and excluded artwork.
+- [x] Keep gameplay, level schema, editor workflow, and Game Manual unchanged.
+- [x] Complete the revision-303 release gate: 165 unique primary tests across all twelve shards passed; the outer command wrapper interruption was resumed from the fingerprinted checkpoint without rerunning completed shards.

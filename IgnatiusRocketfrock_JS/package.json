@@ -3,9 +3,18 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "test": "npm run test:fast && npm run test:generator",
-        "test:fast": "node tests/testbench.mjs --progress --group=fast",
+        "test": "npm run test:release",
+        "test:release": "node devel/run_test_gate.mjs release",
+        "test:release:resume": "node devel/run_test_gate.mjs release --resume",
+        "test:smoke": "node devel/run_test_gate.mjs smoke",
+        "test:shared": "node devel/run_test_gate.mjs shared",
+        "test:editor": "node devel/run_test_gate.mjs editor",
+        "test:game": "node devel/run_test_gate.mjs game",
         "test:generator": "node devel/run_generator_tests.mjs",
-        "test:profile": "node tests/testbench.mjs --progress --profile"
+        "test:fast": "node devel/run_test_gate.mjs fast",
+        "test:list": "node devel/run_test_gate.mjs --list",
+        "test:profile": "node tests/testbench.mjs --progress --profile",
+        "audit:renderer": "node devel/audit_renderer_boundary.mjs",
+        "inspect:editor-stress": "node devel/inspect_editor_stress_fixture.mjs"
     }
 }
