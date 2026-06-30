@@ -6124,7 +6124,8 @@ function testCaveWindowSplineAuthoring() {
     assert.ok(levelEditorHtml.includes('data-tool="caveSelect"') && levelEditorHtml.includes('data-tool="caveAdd"'), "Level Editor should expose cave-point edit and insertion tools in the cave panel");
     const topbarMarkup = levelEditorHtml.slice(levelEditorHtml.indexOf('<div id="topbar">'), levelEditorHtml.indexOf('</div>', levelEditorHtml.indexOf('<div id="topbar">')));
     assert.equal(topbarMarkup.includes('data-tool="caveSelect"') || topbarMarkup.includes('data-tool="caveAdd"'), false, "cave editing controls should not clutter the top toolbar");
-    assert.ok(levelEditorHtml.includes('id="fit-content-view"') && levelEditorHtml.includes('id="fit-cave-view"'), "Level Editor should provide whole-content and cave-perimeter fit controls");
+    assert.match(levelEditorHtml, /<button id="fit-content-view">Fit<\/button>/, "Level Editor should provide one concise authored-content Fit control");
+    assert.equal(levelEditorHtml.includes('id="fit-view"') || levelEditorHtml.includes('id="fit-cave-view"'), false, "removed world and cave fit controls should not remain in the Level Editor");
     assert.ok(levelEditorHtml.includes('min="0.02"') && levelEditorHtml.includes("MIN_EDITOR_ZOOM = 0.02"), "Level Editor should zoom out far enough to author a whole cave");
     assert.ok(levelEditorHtml.includes("completely inert presentation layers") && levelEditorHtml.includes("always have atlas collision disabled"), "Level Editor should state the cave perimeter and foreground non-gameplay contract beside the controls");
 
@@ -6896,11 +6897,23 @@ function testRocketPowerUpArsenal() {
     const expectedWrenches = new Map([
         [POWER_UP_EFFECT_IDS.WRENCH_TRIPLE, { count: 3, damage: 0.5, cost: 1, tint: "#ffff00" }],
         [POWER_UP_EFFECT_IDS.WRENCH_DART, { count: 1, damage: 1, cost: 2 / 3, tint: "#00ffff" }],
-        [POWER_UP_EFFECT_IDS.WRENCH_TWIN, { count: 2, damage: 1 / 3, cost: 1, tint: "#00ff00" }],
-        [POWER_UP_EFFECT_IDS.WRENCH_BIGBOMB, { count: 1, damage: 3, cost: 3, tint: "#ff0000" }],
-        [POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG, { count: 1, damage: 1, cost: 1, tint: "#ff00ff" }]
+        [POWER_UP_EFFECT_IDS.WRENCH_BURST, { count: 3, damage: 0.5, cost: 1, tint: "#00ff00" }],
+        [POWER_UP_EFFECT_IDS.WRENCH_BIGBOMB, { count: 1, damage: 4, cost: 3, tint: "#ff0000" }],
+        [POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG, { count: 1, damage: 1, cost: 1, tint: "#ff00ff" }],
+        [POWER_UP_EFFECT_IDS.WRENCH_PHASE, { count: 1, damage: 1, cost: 1, tint: "#0000ff" }]
     ]);
-    assert.deepEqual(WRENCH_POWER_UP_EFFECT_IDS, [...expectedWrenches.keys()], "the random wrench pool should include the complete five-mode arsenal");
+    assert.deepEqual(WRENCH_POWER_UP_EFFECT_IDS, [...expectedWrenches.keys()], "the random wrench pool should include the complete six-mode arsenal");
+    assert.equal(powerUpEffectDefinition("wrenchTwin"), null, "the replaced Twin identity should no longer be accepted as a current wrench effect");
+    const burstDefinition = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.WRENCH_BURST);
+    assert.equal(normalizePowerUpPickup({
+        effectId: "wrenchTwin",
+        effect: { ...burstDefinition, id: "wrenchTwin" }
+    }), null, "an embedded effect definition should not revive the retired Twin pickup identity");
+    assert.equal(normalizeActivePowerUpEffect({
+        id: "wrenchTwin",
+        definition: { ...burstDefinition, id: "wrenchTwin" },
+        remainingSeconds: 5
+    }), null, "saved active-effect snapshots should reject the retired Twin identity");
     for (const [effectId, expected] of expectedWrenches) {
         const definition = powerUpEffectDefinition(effectId);
         assert.equal(definition.durationSeconds, 30, `${definition.label} should last thirty seconds`);
@@ -7095,23 +7108,32 @@ function testRocketPowerUpArsenal() {
     assert.ok(tripleTrailPuffs.length > 0, "powered rockets should emit persistent world-managed trail puffs");
     assert.ok(tripleTrailPuffs.every((puff) => puff.trailTint === "#ffff00"), "Triple rocket trail puffs should retain a restrained yellow power-up tint");
 
-    const twinState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_TWIN, { targets: targetSet });
-    stepSimulation(twinState, createInputFrame({ weaponPressed: true }), FIXED_DT);
-    assert.equal(twinState.projectiles.length, 2, "Twin should launch two rockets");
-    approx(twinState.projectiles[0].damage, DEFAULT_TUNING.rocketProjectileDamage * (1 / 3), 0.0001, "Twin rockets should deal one-third standard damage each");
-    approx(twinState.projectiles[0].damage, 10, 0.0001, "Twin rockets should deal 10 damage each");
-    approx(twinState.projectiles.reduce((sum, projectile) => sum + projectile.damage, 0), 20, 0.0001, "Twin should deliver 20 total damage when both rockets hit");
-    assert.ok(twinState.projectiles.every((projectile) => projectile.phasesThroughObstacles), "Twin rockets should retain their launch-time ability to phase through level obstacles");
-    assert.ok(twinState.projectiles.every((projectile) => projectile.visualScale > 0.62 && projectile.visualScale < 1), "Twin rockets should be larger than Triple but smaller than standard");
+    const burstState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_BURST, { targets: targetSet });
+    stepSimulation(burstState, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    assert.equal(burstState.projectiles.length, 3, "Burst should commit three rockets in one fuel-paid sequence");
+    assert.deepEqual(burstState.projectiles.map((projectile) => projectile.state), ["launched", "queued", "queued"], "Burst should launch one rocket immediately and hold the next two for quick succession");
+    assert.ok(burstState.projectiles.every((projectile) => projectile.homing === false), "Burst rockets should remain unguided");
+    assert.ok(burstState.projectiles.every((projectile) => projectile.vx > 0 && Math.abs(projectile.vy) < 0.001), "Burst rockets should be aimed straight forward along Ignatius's facing direction");
+    assert.ok(burstState.projectiles.every((projectile) => projectile.visualScale === 0.62), "Burst rockets should use the same small presentation scale as yellow Triple rockets");
+    assert.ok(burstState.projectiles.every((projectile) => projectile.phasesThroughObstacles === false), "green Burst rockets should no longer inherit the retired obstacle-phasing behavior");
+    approx(burstState.projectiles[0].damage, DEFAULT_TUNING.rocketProjectileDamage * 0.5, 0.0001, "Burst rockets should deal the same half-standard damage as each yellow rocket");
+    approx(burstState.projectiles[0].damage, 15, 0.0001, "Burst rockets should deal 15 damage each");
+    approx(burstState.projectiles.reduce((sum, projectile) => sum + projectile.damage, 0), 45, 0.0001, "Burst should deliver 45 total damage when all three rockets hit");
+    approx(100 - burstState.fuel.amount, DEFAULT_TUNING.rocketLaunchCost, 0.0001, "the complete Burst sequence should cost standard fuel once");
+    approx(powerUpEffectDefinition(POWER_UP_EFFECT_IDS.WRENCH_BURST).rocket.launchSequenceIntervalSeconds, 0.18, 0.0001, "Burst rockets should wait 0.18 seconds between launches");
+    stepMany(burstState, 24);
+    assert.ok(burstState.projectiles.every((projectile) => projectile.state === "launched"), "all three Burst rockets should become active within a short sequence");
+    assert.equal(burstState.debug.lastEvents.filter((event) => event.type === "ROCKET_SEQUENCE_SHOT_LAUNCHED").length, 2, "the two delayed Burst rockets should emit deterministic launch events");
+    assert.equal(new Set(burstState.projectiles.map((projectile) => projectile.x.toFixed(3))).size, 3, "quick succession should leave the earlier rockets visibly farther along the same forward line");
 
-    const twinObstacleState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_TWIN);
-    twinObstacleState.world.solids = [{ id: "twin_phase_solid", kind: "solid", x: 250, y: 475, w: 180, h: 24 }];
-    twinObstacleState.world.segments = [
-        { id: "twin_phase_green", kind: "walkable", x1: 180, y1: 510, x2: 760, y2: 510 },
-        { id: "twin_phase_yellow", kind: "blockable", x1: 180, y1: 455, x2: 760, y2: 455 }
+    const phaseObstacleState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_PHASE);
+    phaseObstacleState.world.solids = [{ id: "phase_solid", kind: "solid", x: 250, y: 475, w: 180, h: 24 }];
+    phaseObstacleState.world.segments = [
+        { id: "phase_green", kind: "walkable", x1: 180, y1: 510, x2: 760, y2: 510 },
+        { id: "phase_yellow", kind: "blockable", x1: 180, y1: 455, x2: 760, y2: 455 }
     ];
-    twinObstacleState.world.collisionPolygons = [{
-        id: "twin_phase_area",
+    phaseObstacleState.world.collisionPolygons = [{
+        id: "phase_area",
         kind: "blockable",
         points: [
             { x: 400, y: 360 },
@@ -7120,9 +7142,9 @@ function testRocketPowerUpArsenal() {
             { x: 400, y: 575 }
         ]
     }];
-    twinObstacleState.enemies = [{
-        ...twinObstacleState.enemies[0],
-        id: "twin_phase_enemy",
+    phaseObstacleState.enemies = [{
+        ...phaseObstacleState.enemies[0],
+        id: "phase_enemy",
         x: 650,
         y: 600,
         health: 200,
@@ -7130,16 +7152,22 @@ function testRocketPowerUpArsenal() {
         combatState: "alive",
         state: "idle"
     }];
-    twinObstacleState.targets = [{ id: "twin_phase_target", enemyId: "twin_phase_enemy", x: 650, y: 520, state: "active" }];
-    stepSimulation(twinObstacleState, createInputFrame({ weaponPressed: true }), FIXED_DT);
-    for (let index = 0; index < 300 && twinObstacleState.enemies[0].health === 200; index += 1) {
-        stepSimulation(twinObstacleState, createInputFrame(), FIXED_DT);
+    phaseObstacleState.targets = [{ id: "phase_target", enemyId: "phase_enemy", x: 650, y: 520, state: "active" }];
+    stepSimulation(phaseObstacleState, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    const phaseRocket = phaseObstacleState.projectiles[0];
+    assert.equal(phaseRocket.homing, true, "Phase should remain a homing rocket");
+    assert.equal(phaseRocket.phasesThroughObstacles, true, "Phase should inherit the former green obstacle-phasing ability");
+    assert.equal(phaseRocket.wrenchGlowTint, "#0000ff", "Phase should carry the pure blue wrench glow");
+    approx(phaseRocket.damage, DEFAULT_TUNING.rocketProjectileDamage, 0.0001, "Phase should deal standard rocket damage");
+    approx(100 - phaseObstacleState.fuel.amount, DEFAULT_TUNING.rocketLaunchCost, 0.0001, "Phase should cost standard fuel");
+    for (let index = 0; index < 300 && phaseObstacleState.enemies[0].health === 200; index += 1) {
+        stepSimulation(phaseObstacleState, createInputFrame(), FIXED_DT);
     }
-    assert.ok(twinObstacleState.enemies[0].health < 200, "Twin rockets should pass through green lines, yellow geometry, solids, and blocking areas to reach an enemy");
+    assert.ok(phaseObstacleState.enemies[0].health < 200, "Phase should pass through green lines, yellow geometry, solids, and blocking areas to reach an enemy");
     assert.equal(
-        twinObstacleState.debug.lastEvents.some((event) => event.type === "ROCKET_IMPACTED" && ["twin_phase_solid", "twin_phase_green", "twin_phase_yellow", "twin_phase_area"].includes(event.reason)),
+        phaseObstacleState.debug.lastEvents.some((event) => event.type === "ROCKET_IMPACTED" && ["phase_solid", "phase_green", "phase_yellow", "phase_area"].includes(event.reason)),
         false,
-        "Twin obstacle phasing should not produce a hidden terrain impact"
+        "Phase obstacle phasing should not produce a hidden terrain impact"
     );
 
     const dartState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_DART);
@@ -7182,8 +7210,11 @@ function testRocketPowerUpArsenal() {
     stepSimulation(bigbombState, createInputFrame({ weaponPressed: true }), FIXED_DT);
     const bomb = bigbombState.projectiles[0];
     approx(100 - bigbombState.fuel.amount, DEFAULT_TUNING.rocketLaunchCost * 3, 0.0001, "Bigbomb should cost triple fuel");
-    approx(bomb.damage, DEFAULT_TUNING.rocketProjectileDamage * 3, 0.0001, "Bigbomb should deal triple damage");
-    approx(bomb.damage, 90, 0.0001, "Bigbomb should now deal 90 damage");
+    approx(bomb.damage, DEFAULT_TUNING.rocketProjectileDamage * 4, 0.0001, "Bigbomb AoE should deal four times standard damage");
+    approx(bomb.damage, 120, 0.0001, "Bigbomb should now apply 120 damage throughout its blast area");
+    assert.ok(bomb.homing, "Bigbomb should remain homing after changing its launch direction");
+    assert.equal(bomb.upLaunchTimer, 0, "Bigbomb should not use the upward launch hold");
+    assert.ok(bomb.vx > 0 && Math.abs(bomb.vx) > Math.abs(bomb.vy) * 5, "Bigbomb should leave horizontally in Ignatius's facing direction before homing turns it");
     approx(Math.hypot(bomb.vx, bomb.vy), DEFAULT_TUNING.rocketProjectileSpeed * 0.5, 0.01, "Bigbomb should move at half standard speed");
     approx(bomb.areaDamageRadius, DEFAULT_TUNING.wizardHeight * 1.5, 0.0001, "Bigbomb diameter should span about three wizard heights");
     assert.equal(bomb.visualScale, 1.7, "Bigbomb should render larger than a standard rocket");
@@ -7192,6 +7223,16 @@ function testRocketPowerUpArsenal() {
         stepSimulation(bigbombState, createInputFrame(), FIXED_DT);
     }
     assert.ok(bigbombState.enemies[0].health < 500 && bigbombState.enemies[1].health < 500, "Bigbomb AoE should damage multiple nearby enemies");
+
+    const boomerangLaunchState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG, {
+        targets: [{ id: "boomerang_left_target", x: 0, y: 525, state: "active" }]
+    });
+    boomerangLaunchState.player.facing = -1;
+    stepSimulation(boomerangLaunchState, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    const outwardBoomerang = boomerangLaunchState.projectiles[0];
+    assert.equal(outwardBoomerang.homing, true, "Boomerang should remain homing after changing its launch direction");
+    assert.equal(outwardBoomerang.upLaunchTimer, 0, "Boomerang should not use the upward launch hold");
+    assert.ok(outwardBoomerang.vx < 0 && Math.abs(outwardBoomerang.vx) > Math.abs(outwardBoomerang.vy) * 5, "Boomerang should leave horizontally in the wizard's left-facing direction");
 
     const boomerangState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG, { targets: [] });
     stepSimulation(boomerangState, createInputFrame({ weaponPressed: true }), FIXED_DT);
@@ -7250,8 +7291,11 @@ function testRocketPowerUpArsenal() {
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 283<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(bootstrapSource, /const GAME_REVISION = "283";/, "the game debug revision should match the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 285<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "285";/, "the game debug revision should match the packaged revision");
+    assert.match(editorSource, /<button id="fit-content-view">Fit<\/button>/, "the Level Editor should expose one concise Fit button");
+    assert.equal(editorSource.includes('id="fit-view"'), false, "the removed Fit World control should not remain in the Level Editor");
+    assert.equal(editorSource.includes('id="fit-cave-view"'), false, "the removed Fit Cave control should not remain in the Level Editor");
     assert.ok(manualSource.includes("Shield</strong> lasts 10 seconds") && manualSource.includes("Speed Shot</strong> lasts 30 seconds") && manualSource.includes("Wrench power-ups last 30 seconds"), "the game manual should document the revised effect windows");
     const entityCatalog = JSON.parse(readFileSync(new URL("../assets/it_entities_001.json", import.meta.url), "utf8"));
     const catalogEntities = Object.values(entityCatalog.entities || {});
@@ -7334,9 +7378,10 @@ function testCachedWrenchRocketGlowKernels() {
     const expectedTints = new Map([
         [POWER_UP_EFFECT_IDS.WRENCH_TRIPLE, "#ffff00"],
         [POWER_UP_EFFECT_IDS.WRENCH_DART, "#00ffff"],
-        [POWER_UP_EFFECT_IDS.WRENCH_TWIN, "#00ff00"],
+        [POWER_UP_EFFECT_IDS.WRENCH_BURST, "#00ff00"],
         [POWER_UP_EFFECT_IDS.WRENCH_BIGBOMB, "#ff0000"],
-        [POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG, "#ff00ff"]
+        [POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG, "#ff00ff"],
+        [POWER_UP_EFFECT_IDS.WRENCH_PHASE, "#0000ff"]
     ]);
     for (const [effectId, tint] of expectedTints) {
         assert.equal(powerUpEffectDefinition(effectId)?.rocket?.glowTint, tint, `${effectId} should define its projectile glow colour separately from HUD rendering`);

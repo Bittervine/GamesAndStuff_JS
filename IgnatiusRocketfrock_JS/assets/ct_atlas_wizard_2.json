@@ -1,7 +1,7 @@
 {
     "meta": {
         "version": 1,
-        "note": "Supplemental wizard atlas containing precomposited rocket-plus-glow sprites for wrench power-ups. Each frame already includes the base projectile and its coloured halo, so powered shots render with a single atlas draw before procedural flame effects."
+        "note": "Supplemental wizard atlas containing six precomposited rocket-plus-glow sprites for wrench power-ups. Each frame already includes the base projectile and its coloured halo, so powered shots render with a single atlas draw before procedural flame effects."
     },
     "atlasId": "ct_atlas_wizard_2",
     "image": "ct_atlas_wizard_2.png",
@@ -18,7 +18,7 @@
             "w": 436,
             "h": 749
         },
-        "rocket_projectile_glow_wrench_twin": {
+        "rocket_projectile_glow_wrench_burst": {
             "x": 0,
             "y": 1498,
             "w": 436,
@@ -33,6 +33,12 @@
         "rocket_projectile_glow_wrench_boomerang": {
             "x": 0,
             "y": 2996,
+            "w": 436,
+            "h": 749
+        },
+        "rocket_projectile_glow_wrench_phase": {
+            "x": 0,
+            "y": 3745,
             "w": 436,
             "h": 749
         }
@@ -72,13 +78,13 @@
                 "wrenchDart"
             ]
         },
-        "rocket_projectile_glow_wrench_twin": {
-            "id": "rocket_projectile_glow_wrench_twin",
-            "frame": "rocket_projectile_glow_wrench_twin",
+        "rocket_projectile_glow_wrench_burst": {
+            "id": "rocket_projectile_glow_wrench_burst",
+            "frame": "rocket_projectile_glow_wrench_burst",
             "type": "projectileVariant",
             "layer": "character",
             "mirrorable": false,
-            "effectId": "wrenchTwin",
+            "effectId": "wrenchBurst",
             "paddingX": 120,
             "paddingY": 120,
             "tags": [
@@ -86,7 +92,7 @@
                 "projectile",
                 "rocket",
                 "glow",
-                "wrenchTwin"
+                "wrenchBurst"
             ]
         },
         "rocket_projectile_glow_wrench_bigbomb": {
@@ -121,6 +127,23 @@
                 "rocket",
                 "glow",
                 "wrenchBoomerang"
+            ]
+        },
+        "rocket_projectile_glow_wrench_phase": {
+            "id": "rocket_projectile_glow_wrench_phase",
+            "frame": "rocket_projectile_glow_wrench_phase",
+            "type": "projectileVariant",
+            "layer": "character",
+            "mirrorable": false,
+            "effectId": "wrenchPhase",
+            "paddingX": 120,
+            "paddingY": 120,
+            "tags": [
+                "wizard",
+                "projectile",
+                "rocket",
+                "glow",
+                "wrenchPhase"
             ]
         }
     }

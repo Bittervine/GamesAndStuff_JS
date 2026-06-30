@@ -2938,3 +2938,18 @@ The audit also found stale architecture instructions describing the pre-revision
 
 A new `devel/package_update.py` release helper verifies required files and synchronized revision labels, excludes PNG and XCF files and generated build directories, writes the compact update archive, and tests both zip integrity and forbidden-extension absence. No Game Manual update is required because there is no player-facing or editor-facing change.
 
+
+
+## Revision 285 Burst spacing tweak
+
+The green Burst wrench keeps its three small 15-damage unguided rockets and one standard fuel payment, but the sequence interval doubles from 0.09 seconds to 0.18 seconds so the rockets travel with a more clearly separated gap. No other wrench behavior changes.
+
+## Revision 284 editor Fit simplification and six-wrench rebalance
+
+The Level Editor now has one camera-framing button named **Fit**. It keeps the former authored-content behavior, while **Fit World** and **Fit Cave** and their unused handlers are removed. If no authored placements or entities exist, Fit still falls back to the world bounds.
+
+The wrench family now has six mutually exclusive thirty-second modes. Green Twin is replaced by Green Burst, which launches three small unguided rockets forward at 0.18-second intervals. Each rocket deals 15 damage, matching one yellow Triple rocket, for 45 total damage if all connect; the complete sequence consumes one standard launch fuel payment. The old green obstacle-phasing behavior moves to a new Blue Phase wrench: one standard-cost, standard-damage homing rocket that ignores platforms, solids, blocking polygons, cave collision, and reactive obstacles while retaining enemy collision. The retired `wrenchTwin` identity is unsupported in saved levels rather than migrated. A cleanup audit found that an embedded custom effect definition could otherwise revive an unknown retired ID through the generic normalizer; revision 284 now rejects `wrenchTwin` consistently in effect definitions, pickup records, and active-effect snapshots.
+
+Red Bigbomb and magenta Boomerang now leave the launcher horizontally in Ignatius's facing direction before homing, reducing immediate ceiling impacts. Bigbomb AoE damage rises from three times to four times the standard rocket damage, currently 120, while its triple fuel cost, half speed, half homing response, 1.7 scale, and existing AoE radius remain unchanged. Boomerang damage, cost, return, collision, and half-fuel catch refund remain unchanged. A brief outbound grace period prevents a targetless forward-launched Boomerang from reversing into Ignatius on its launch frame.
+
+`ct_atlas_wizard_2` gains a sixth precomposited powered-rocket frame with a pure-blue Phase glow. The manifest preserves the five existing frame coordinates and appends the new row. The compact revision archive continues to exclude PNG and XCF files, so the revised PNG is distributed separately. The Game Manual, architecture rules, entity catalog, level-1 examples, and regression suite are synchronized with the new behavior. All 157 headless tests pass.

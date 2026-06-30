@@ -464,7 +464,7 @@ World pickup composition remains Canvas-owned. The active-effect timer is now pa
 
 The lightning effect is canonically `speedShot`. The shared normalizer accepts current built-ins and complete explicit custom effects, but it explicitly rejects the retired Rocket Overdrive identity even when an old snapshot embeds a full definition; retired IDs and pickup types are not translated. Speed Shot remains an independent thirty-second effect with HUD priority 100, half projectile fuel cost, and half launch cooldown. The inactive Power label is now simply `Powerup:`.
 
-Five thirty-second wrench effects share the exclusive `wrench` group and HUD priority 50. Collecting Triple, Dart, Twin, Bigbomb, or Boomerang removes any other active wrench but leaves Speed Shot untouched. Triple launches three half-standard-damage, small homing rockets with distinct initial fan angles and separate target assignment when possible, for 45 total damage if all hit. Twin launches two one-third-standard-damage medium rockets, for 20 total damage if both hit; those rockets phase through ordinary level and reactive-obstacle geometry while still colliding with enemy targets. Dart launches one normal-sized, non-homing rocket straight along Ignatius's facing direction, deals standard rocket damage, and costs two-thirds standard fuel. Bigbomb costs triple fuel, travels at half speed, turns with half homing response, renders at 1.7× scale, deals triple damage, and applies full damage in a radius of 1.5 wizard heights. Boomerang uses standard rocket damage and cost; a miss or a destroyed target sends it back toward Ignatius, and a successful catch refunds half the launch fuel.
+Six thirty-second wrench effects share the exclusive `wrench` group and HUD priority 50. Collecting Triple, Dart, Burst, Bigbomb, Boomerang, or Phase removes any other active wrench but leaves Speed Shot untouched. Triple launches three half-standard-damage small homing rockets with distinct initial fan angles and separate target assignment when possible, for 45 total damage if all hit. Dart launches one normal-sized non-homing rocket straight along Ignatius's facing direction, deals standard rocket damage, and costs two-thirds standard fuel. Burst commits three small half-standard-damage unguided rockets for one standard fuel payment and activates them forward at 0.18-second intervals, for 45 total damage if all hit. Bigbomb launches forward before homing, costs triple fuel, travels at half speed, turns with half homing response, renders at 1.7× scale, deals four times standard damage, and applies full damage in a radius of 1.5 wizard heights. Boomerang also launches forward before homing; it uses standard damage and cost, returns toward Ignatius after a miss or destroyed target, and refunds half the launch fuel on a successful catch. Phase uses standard damage, cost, speed, and homing, but ignores ordinary level and reactive-obstacle geometry while still colliding with enemy targets.
 
 Power-up pickup runtime records now carry `respawnSeconds`, `respawnTimer`, and optional `randomEffectIds` plus `randomRollCount`. Browser startup supplies a fresh session seed, while portable core derives deterministic per-level and per-respawn rolls from that seed, pickup identity, level-load count, and roll count. All power-up pickups default to a sixty-second respawn. A random wrench rerolls before becoming available again. Level 1 keeps Speed Shot at x=800 and adds a random wrench at x=1400.
 
@@ -497,7 +497,7 @@ The Boomerang return phase remains part of the ordinary portable projectile simu
 
 ## Revision 219 rocket damage balance contract
 
-`DEFAULT_TUNING.rocketProjectileDamage` is now 30 and remains the single base value used when a player rocket is created. Wrench modes continue to derive projectile damage through their shared multipliers rather than duplicated absolute constants: Triple `1/3`, Twin `1/2`, Dart `2`, Bigbomb `3`, and Boomerang `1`. Enemy damage resolution clamps health to zero and marks an enemy defeated whenever `health <= 0`, so exact-zero hits are lethal without requiring negative health.
+`DEFAULT_TUNING.rocketProjectileDamage` is 30 and remains the single base value used when a player rocket is created. Wrench modes derive projectile damage through shared multipliers rather than duplicated absolute constants: Triple `0.5` for each of three projectiles, Dart `1`, Burst `0.5` for each of three sequenced projectiles, Bigbomb `4`, Boomerang `1`, and Phase `1`. Enemy damage resolution clamps health to zero and marks an enemy defeated whenever `health <= 0`, so exact-zero hits are lethal without requiring negative health.
 
 
 ## Revision 220 canonical monster-health fallback
@@ -507,7 +507,7 @@ Sixty HP is the canonical fallback for a newly authored `characterEnemy`. Catalo
 
 ## Revision 221 multiplier-derived wrench damage rebalance
 
-Wrench projectile damage continues to use multipliers against `DEFAULT_TUNING.rocketProjectileDamage`, currently 30. Triple uses `0.5` per projectile for three 15-damage rockets and a 45-damage maximum volley. Twin uses `2 / 3` per projectile for two 20-damage rockets and a 40-damage maximum volley. Dart uses `1.0`, so its advantage is its straight, fast, inexpensive and predictable flight rather than extra impact damage. Bigbomb remains `3.0`, and Boomerang remains `1.0`.
+Wrench projectile damage uses multipliers against `DEFAULT_TUNING.rocketProjectileDamage`, currently 30. Triple uses `0.5` per projectile for three 15-damage homing rockets and a 45-damage maximum volley. Dart uses `1.0`; its advantage is straight, predictable flight and a two-thirds fuel cost rather than extra impact damage. Burst uses `0.5` per projectile for three 15-damage unguided rockets launched in quick succession and a 45-damage maximum burst. Bigbomb uses `4.0` for 120 damage across its authored AoE. Boomerang and Phase each use `1.0`.
 
 
 ## Revision 222 archive repack boundary
@@ -996,3 +996,17 @@ The obsolete runtime `RocketGlowCache` class is removed because revision 230 alr
 
 `devel/package_update.py` now owns compact revision handoffs. It verifies required project files and synchronized game/editor revision labels, excludes PNG and XCF files plus generated build directories, creates the zip, and performs an integrity and forbidden-extension audit. These changes do not alter gameplay, saved-level interpretation, rendering output, controls, or editor behavior.
 
+
+
+## Revision 284 forward-launch rockets, Burst, Phase, and editor Fit cleanup
+
+## Revision 285 Burst spacing tweak
+
+Green Burst now spaces its three forward rockets at 0.18-second intervals instead of 0.09 seconds, doubling the visual gap between rockets while preserving the same damage, fuel cost, and unguided forward behavior.
+
+
+The Level Editor now exposes one `Fit` control, retaining the former authored-content framing behavior. The broad world-bounds and cave-only fit controls are removed, reducing three overlapping camera actions to the one useful authoring action.
+
+The mutually exclusive wrench group now contains six modes. Green Burst replaces Twin and commits three small unguided forward rockets for one standard fuel payment, activating them at 0.18-second intervals; each deals the same 15 damage as one yellow Triple rocket. Blue Phase inherits the former obstacle-phasing role as one standard-cost, standard-damage homing rocket. Red Bigbomb and magenta Boomerang now launch horizontally along Ignatius's facing direction before homing, reducing immediate roof impacts. Bigbomb damage rises from 90 to 120 while its triple fuel cost, half speed, half homing response, scale, and AoE radius remain unchanged.
+
+Powered rocket artwork remains a one-draw path through `ct_atlas_wizard_2`. The supplemental manifest now has a sixth pure-blue Phase frame, and the image grows vertically by one row while preserving all earlier frame coordinates. Green Twin is not migrated from saved data; `wrenchTwin` is unsupported, consistent with the current-schema-only policy.

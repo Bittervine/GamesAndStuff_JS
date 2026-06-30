@@ -198,7 +198,7 @@
             <li><strong>Shield</strong> lasts 10 seconds and blocks all ordinary incoming damage. The pickup glows blue, and Ignatius flashes blue while protected. The blue flash takes priority over the red critical-health flash.</li>
             <li><strong>Speed Shot</strong> lasts 30 seconds. It doubles the rocket firing rate and halves the fuel cost of each launch.</li>
             <li>Wrench power-ups last 30 seconds and replace any other active wrench. A random wrench pickup chooses its type when the level starts and rolls a new type whenever it respawns.</li>
-            <li>Rockets modified by a wrench carry a fuzzy outline in that wrench's colour, so the current payload remains visible even after launch. All wrench outlines are prepared on the loading screen to avoid first-shot stutter.</li>
+            <li>Rockets modified by a wrench carry a fuzzy outline in that wrench's colour, so the current payload remains visible even after launch. The six powered rockets use precomposited atlas frames, avoiding first-shot stutter and extra glow drawing during play.</li>
         </ul>
         <table>
             <thead>
@@ -207,9 +207,10 @@
             <tbody>
                 <tr><td><strong>Triple</strong> (yellow)</td><td>Fires three small homing rockets in a fan. Each deals 15 damage, for 45 total if all three hit, and they seek separate targets when possible.</td></tr>
                 <tr><td><strong>Dart</strong> (cyan)</td><td>Fires one normal-sized rocket straight ahead with no homing. It deals the normal 30 damage, costs two-thirds of the normal fuel, and stops and explodes on the first enemy it hits.</td></tr>
-                <tr><td><strong>Twin</strong> (green)</td><td>Fires two medium homing rockets in a shallow fan. Each deals 10 damage, for 20 total if both hit. They phase through green platforms, yellow blocking terrain, closed blocking areas, and other level obstacles while seeking an enemy.</td></tr>
-                <tr><td><strong>Bigbomb</strong> (red)</td><td>Fires one large, slow-turning rocket at half speed. It costs three times the fuel, deals 90 damage, and damages an area about three wizard heights wide.</td></tr>
-                <tr><td><strong>Boomerang</strong> (magenta)</td><td>Fires a normal 30-damage homing rocket. If no target remains, or after it destroys its target, it homes back toward Ignatius. Catching it refunds half the launch fuel, but hitting an enemy or obstacle on the return trip makes it explode with no refund.</td></tr>
+                <tr><td><strong>Burst</strong> (green)</td><td>Fires three small unguided rockets straight ahead in quick succession. Each deals 15 damage, for 45 total if all three hit, and the complete burst costs the same fuel as one standard rocket.</td></tr>
+                <tr><td><strong>Bigbomb</strong> (red)</td><td>Launches horizontally in the direction Ignatius faces, then homes toward its target. The large rocket travels at half speed, costs three times the normal fuel, deals 120 damage, and damages an area about three wizard heights wide.</td></tr>
+                <tr><td><strong>Boomerang</strong> (magenta)</td><td>Launches horizontally in the direction Ignatius faces, then homes toward its target. It deals the normal 30 damage. If no target remains, or after it destroys its target, it homes back toward Ignatius. Catching it refunds half the launch fuel, but hitting an enemy or obstacle on the return trip makes it explode with no refund.</td></tr>
+                <tr><td><strong>Phase</strong> (blue)</td><td>Fires one normal 30-damage homing rocket for the standard fuel cost. It passes through platforms, blocking terrain, closed blocking areas, and other level obstacles while continuing to seek an enemy.</td></tr>
             </tbody>
         </table>
 

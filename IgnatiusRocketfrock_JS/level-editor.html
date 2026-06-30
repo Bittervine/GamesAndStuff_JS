@@ -532,9 +532,7 @@
             <button id="play-browser-copy" type="button">▶ Play</button>
             <button id="zoom-out">−</button>
             <button id="zoom-in">+</button>
-            <button id="fit-view">Fit world</button>
-            <button id="fit-content-view">Fit content</button>
-            <button id="fit-cave-view">Fit cave</button>
+            <button id="fit-content-view">Fit</button>
 
         </div>
         <div id="canvas-wrap">
@@ -548,7 +546,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 283</small></h1>
+        <h1>Level Editor <small>rev 285</small></h1>
         <p>Place atlas assets, entry/exit doors, mailboxes, enemies, and triggers, then export a level JSON. The wizard entry door is the effective start of the level.</p>
 
         <div class="box">
@@ -572,7 +570,7 @@
             <div class="inline"><input id="snap-enabled" type="checkbox" checked><span class="small">Snap while placing/moving</span></div>
             <div class="inline"><input id="show-asset-guides" type="checkbox" checked><span class="small">Show manifest boxes and line features</span></div>
             <div class="inline"><input id="show-labels" type="checkbox" checked><span class="small">Show labels</span></div>
-            <p class="small">Hold the right mouse button and drag anywhere on the canvas to pan, regardless of the active tool. Fit world uses the cyan technical bounds; Fit content frames authored objects; Fit cave frames the visual perimeter.</p>
+            <p class="small">Hold the right mouse button and drag anywhere on the canvas to pan, regardless of the active tool. Fit frames the authored placements and entities.</p>
         </div>
 
         <div class="box" data-panel-key="automatic-enemy-spawning">
@@ -5836,10 +5834,6 @@ import {
         return true;
     }
 
-    function fitView() {
-        fitEditorBounds(state.level.world.bounds);
-    }
-
     function authoredContentBounds() {
         const points = [];
         for (const placement of state.level.placements) {
@@ -5877,15 +5871,6 @@ import {
         if (!fitEditorBounds(authoredContentBounds() || state.level.world.bounds)) {
             setStatus("There is no authored content to frame yet.", false);
         }
-    }
-
-    function fitCaveView() {
-        const bounds = caveWindowBounds(caveWindowRecord().points, 80);
-        if (!bounds) {
-            setStatus("Create at least one cave perimeter point before fitting the cave view.", false);
-            return;
-        }
-        fitEditorBounds(bounds);
     }
 
     function zoomEditorAtCenter(factor) {
@@ -5998,9 +5983,7 @@ import {
     document.querySelectorAll("button[data-tool]").forEach((button) => button.addEventListener("click", () => setTool(button.dataset.tool)));
     document.getElementById("zoom-in").addEventListener("click", () => zoomEditorAtCenter(1.15));
     document.getElementById("zoom-out").addEventListener("click", () => zoomEditorAtCenter(1 / 1.15));
-    document.getElementById("fit-view").addEventListener("click", fitView);
     document.getElementById("fit-content-view").addEventListener("click", fitContentView);
-    document.getElementById("fit-cave-view").addEventListener("click", fitCaveView);
     els.copyAsset.addEventListener("click", copySelectedAsset);
     els.zoom.addEventListener("change", () => {
         state.camera.zoom = Math.max(MIN_EDITOR_ZOOM, Math.min(MAX_EDITOR_ZOOM, Number(els.zoom.value) || state.camera.zoom));

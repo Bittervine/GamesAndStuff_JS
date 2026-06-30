@@ -941,9 +941,10 @@
         "randomEffectIds": [
           "wrenchTriple",
           "wrenchDart",
-          "wrenchTwin",
+          "wrenchBurst",
           "wrenchBigbomb",
-          "wrenchBoomerang"
+          "wrenchBoomerang",
+          "wrenchPhase"
         ],
         "durationSeconds": 30,
         "respawnSeconds": 60,

@@ -6733,6 +6733,7 @@ function activeRocketProfile(state) {
         homingStrengthMultiplier: 1,
         homing: true,
         launchMode: "up",
+        launchSequenceIntervalSeconds: 0,
         initialAnglesDegrees: [0],
         separateTargets: false,
         areaDamageRadiusWizardHeights: 0,
@@ -6773,6 +6774,7 @@ function launchHomingRocket(state, input) {
     const projectileSpeed = t.rocketProjectileSpeed * Math.max(0.05, Number(rocketProfile.speedMultiplier) || 1);
     const projectileDamage = Math.max(0, (t.rocketProjectileDamage ?? 30) * Math.max(0, Number(rocketProfile.damageMultiplier) || 0));
     const projectileRadius = 15 * Math.max(0.1, Number(rocketProfile.radiusMultiplier) || 1);
+    const launchSequenceIntervalSeconds = Math.max(0, Number(rocketProfile.launchSequenceIntervalSeconds) || 0);
     const areaDamageRadius = Math.max(0, Number(rocketProfile.areaDamageRadiusWizardHeights) || 0) * Math.max(1, Number(t.wizardHeight) || Number(p.height) || 104);
     const standardRocketSecondarySplashDamage = wrenchEffectId
         ? 0
@@ -6789,7 +6791,8 @@ function launchHomingRocket(state, input) {
         const target = rocketProfile.homing && targets.length
             ? targets[rocketProfile.separateTargets ? index % targets.length : 0]
             : null;
-        const lateral = index - (projectileCount - 1) * 0.5;
+        const launchDelay = launchSequenceIntervalSeconds * index;
+        const lateral = launchSequenceIntervalSeconds > 0 ? 0 : index - (projectileCount - 1) * 0.5;
         const spawnX = p.x + (rocketProfile.launchMode === "forward" ? 0 : lateral * 7);
         const spawnY = p.y - p.height * 0.72 + (rocketProfile.launchMode === "forward" ? lateral * 6 : 0);
         const projectile = {
@@ -6798,7 +6801,9 @@ function launchHomingRocket(state, input) {
             kind: rocketProfile.boomerang ? "boomerangRocket" : (rocketProfile.homing ? "homingRocket" : "dartRocket"),
             owner: "player",
             isRocket: true,
-            state: "launched",
+            state: launchDelay > 0 ? "queued" : "launched",
+            launchDelay,
+            launchFromPlayerOnActivation: launchDelay > 0,
             x: spawnX,
             y: spawnY,
             vx: launchDir.x * projectileSpeed,
@@ -6827,13 +6832,16 @@ function launchHomingRocket(state, input) {
             piercesEnemies: Boolean(rocketProfile.piercesEnemies),
             phasesThroughObstacles: Boolean(rocketProfile.phasesThroughObstacles),
             boomerangMode: rocketProfile.boomerang ? "outbound" : null,
+            boomerangOutboundTimer: rocketProfile.boomerang
+                ? Math.max(0, t.rocketProjectileUpLaunchSeconds ?? 0.32)
+                : 0,
             boomerangReturnStartedAt: null,
             boomerangRefundFuel: rocketProfile.boomerang ? launchCost * 0.5 : 0,
             frameId: "rocket_projectile",
             characterId: "ct_char_wizard_1",
-            trail: [
-                { x: spawnX, y: spawnY, time: state.clock.time }
-            ]
+            trail: launchDelay > 0
+                ? []
+                : [{ x: spawnX, y: spawnY, time: state.clock.time }]
         };
         weapons.nextProjectileId += 1;
         state.projectiles.push(projectile);
@@ -6863,6 +6871,7 @@ function beginBoomerangReturn(state, projectile, reason) {
     projectile.boomerangReturnStartedAt = state.clock.time;
     projectile.targetId = null;
     projectile.upLaunchTimer = 0;
+    projectile.boomerangOutboundTimer = 0;
     const target = {
         x: state.player.x,
         y: state.player.y - state.player.height * 0.55
@@ -6964,6 +6973,24 @@ function updateProjectiles(state, dt) {
     weapons.launchCooldownTimer = Math.max(0, weapons.launchCooldownTimer - dt);
 
     for (const projectile of state.projectiles) {
+        if (projectile.state === "queued") {
+            projectile.launchDelay = Math.max(0, (Number(projectile.launchDelay) || 0) - dt);
+            if (projectile.launchDelay > 0) continue;
+            if (projectile.launchFromPlayerOnActivation) {
+                projectile.x = state.player.x;
+                projectile.y = state.player.y - state.player.height * 0.72;
+            }
+            projectile.state = "launched";
+            projectile.launchFromPlayerOnActivation = false;
+            projectile.age = 0;
+            projectile.trail = [{ x: projectile.x, y: projectile.y, time: state.clock.time }];
+            addEvent(state, "ROCKET_SEQUENCE_SHOT_LAUNCHED", {
+                id: projectile.id,
+                volleyId: projectile.volleyId || null,
+                wrenchEffectId: projectile.wrenchEffectId || null
+            });
+        }
+
         projectile.age += dt;
         if (projectile.state === "exploding") {
             projectile.explosionTimer -= dt;
@@ -6979,6 +7006,7 @@ function updateProjectiles(state, dt) {
 
         if (projectile.isRocket) {
             projectile.upLaunchTimer = Math.max(0, (projectile.upLaunchTimer ?? 0) - dt);
+            projectile.boomerangOutboundTimer = Math.max(0, (projectile.boomerangOutboundTimer ?? 0) - dt);
             if (projectile.boomerangMode === "returning") {
                 const returnTarget = {
                     x: state.player.x,
@@ -6996,7 +7024,7 @@ function updateProjectiles(state, dt) {
                 projectile.vy = projectile.vy / nextSpeed * speed;
             } else if (projectile.homing) {
                 let target = findTargetById(state, projectile.targetId);
-                if (!target && projectile.boomerang && projectile.upLaunchTimer <= 0) {
+                if (!target && projectile.boomerang && projectile.boomerangOutboundTimer <= 0) {
                     beginBoomerangReturn(state, projectile, "targetUnavailable");
                 } else {
                     target = target || findHomingTarget(state);

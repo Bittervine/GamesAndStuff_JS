@@ -3,12 +3,14 @@ export const POWER_UP_EFFECT_IDS = Object.freeze({
     SHIELD: "shield",
     WRENCH_TRIPLE: "wrenchTriple",
     WRENCH_DART: "wrenchDart",
-    WRENCH_TWIN: "wrenchTwin",
+    WRENCH_BURST: "wrenchBurst",
     WRENCH_BIGBOMB: "wrenchBigbomb",
-    WRENCH_BOOMERANG: "wrenchBoomerang"
+    WRENCH_BOOMERANG: "wrenchBoomerang",
+    WRENCH_PHASE: "wrenchPhase"
 });
 
 const RETIRED_ROCKET_OVERDRIVE_ID = "rocketOverdrive";
+const RETIRED_WRENCH_TWIN_ID = "wrenchTwin";
 
 export const POWER_UP_GROUP_IDS = Object.freeze({
     WRENCH: "wrench"
@@ -17,17 +19,19 @@ export const POWER_UP_GROUP_IDS = Object.freeze({
 export const WRENCH_POWER_UP_EFFECT_IDS = Object.freeze([
     POWER_UP_EFFECT_IDS.WRENCH_TRIPLE,
     POWER_UP_EFFECT_IDS.WRENCH_DART,
-    POWER_UP_EFFECT_IDS.WRENCH_TWIN,
+    POWER_UP_EFFECT_IDS.WRENCH_BURST,
     POWER_UP_EFFECT_IDS.WRENCH_BIGBOMB,
-    POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG
+    POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG,
+    POWER_UP_EFFECT_IDS.WRENCH_PHASE
 ]);
 
 export const WRENCH_ROCKET_GLOW_ATLAS_FRAMES = Object.freeze({
     [POWER_UP_EFFECT_IDS.WRENCH_TRIPLE]: "rocket_projectile_glow_wrench_triple",
     [POWER_UP_EFFECT_IDS.WRENCH_DART]: "rocket_projectile_glow_wrench_dart",
-    [POWER_UP_EFFECT_IDS.WRENCH_TWIN]: "rocket_projectile_glow_wrench_twin",
+    [POWER_UP_EFFECT_IDS.WRENCH_BURST]: "rocket_projectile_glow_wrench_burst",
     [POWER_UP_EFFECT_IDS.WRENCH_BIGBOMB]: "rocket_projectile_glow_wrench_bigbomb",
-    [POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG]: "rocket_projectile_glow_wrench_boomerang"
+    [POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG]: "rocket_projectile_glow_wrench_boomerang",
+    [POWER_UP_EFFECT_IDS.WRENCH_PHASE]: "rocket_projectile_glow_wrench_phase"
 });
 
 export const POWER_UP_STACKING_RULES = Object.freeze({
@@ -48,6 +52,7 @@ const DEFAULT_ROCKET_PROFILE = Object.freeze({
     homingStrengthMultiplier: 1,
     homing: true,
     launchMode: "up",
+    launchSequenceIntervalSeconds: 0,
     initialAnglesDegrees: Object.freeze([0]),
     separateTargets: false,
     areaDamageRadiusWizardHeights: 0,
@@ -143,18 +148,18 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
             piercesEnemies: false
         }
     }),
-    [POWER_UP_EFFECT_IDS.WRENCH_TWIN]: wrenchEffect({
-        id: POWER_UP_EFFECT_IDS.WRENCH_TWIN,
-        label: "Twin",
+    [POWER_UP_EFFECT_IDS.WRENCH_BURST]: wrenchEffect({
+        id: POWER_UP_EFFECT_IDS.WRENCH_BURST,
+        label: "Burst",
         glowTint: "#00ff00",
         rocket: {
-            projectileCount: 2,
-            damageMultiplier: 1 / 3,
-            radiusMultiplier: 0.8,
-            visualScale: 0.8,
-            initialAnglesDegrees: Object.freeze([-7, 7]),
-            separateTargets: true,
-            phasesThroughObstacles: true
+            projectileCount: 3,
+            damageMultiplier: 1 / 2,
+            radiusMultiplier: 0.6,
+            visualScale: 0.62,
+            homing: false,
+            launchMode: "forward",
+            launchSequenceIntervalSeconds: 0.18
         }
     }),
     [POWER_UP_EFFECT_IDS.WRENCH_BIGBOMB]: wrenchEffect({
@@ -163,11 +168,12 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
         glowTint: "#ff0000",
         rocket: {
             launchFuelCostMultiplier: 3,
-            damageMultiplier: 3,
+            damageMultiplier: 4,
             radiusMultiplier: 1.7,
             visualScale: 1.7,
             speedMultiplier: 0.5,
             homingStrengthMultiplier: 0.5,
+            launchMode: "forward",
             areaDamageRadiusWizardHeights: 1.5
         }
     }),
@@ -176,7 +182,16 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
         label: "Boomerang",
         glowTint: "#ff00ff",
         rocket: {
+            launchMode: "forward",
             boomerang: true
+        }
+    }),
+    [POWER_UP_EFFECT_IDS.WRENCH_PHASE]: wrenchEffect({
+        id: POWER_UP_EFFECT_IDS.WRENCH_PHASE,
+        label: "Phase",
+        glowTint: "#0000ff",
+        rocket: {
+            phasesThroughObstacles: true
         }
     })
 });
@@ -196,12 +211,18 @@ function canonicalEffectId(effectId) {
     return String(effectId || "").trim();
 }
 
+function isRetiredPowerUpEffectId(effectId) {
+    const id = canonicalEffectId(effectId);
+    return id === RETIRED_ROCKET_OVERDRIVE_ID || id === RETIRED_WRENCH_TWIN_ID;
+}
+
 function normalizeAngles(value, fallback) {
     const source = Array.isArray(value) && value.length ? value : fallback;
     return source.map((angle) => finiteNumber(angle, 0));
 }
 
 export function powerUpEffectDefinition(effectId) {
+    if (isRetiredPowerUpEffectId(effectId)) return null;
     return BUILTIN_POWER_UP_EFFECTS[canonicalEffectId(effectId)] || null;
 }
 
@@ -212,6 +233,7 @@ export function wrenchRocketGlowAtlasFrameId(effectId) {
 export function normalizePowerUpEffectDefinition(rawDefinition, fallbackId = "") {
     const source = rawDefinition && typeof rawDefinition === "object" ? rawDefinition : {};
     const sourceId = canonicalEffectId(source.id || fallbackId);
+    if (isRetiredPowerUpEffectId(sourceId)) return null;
     const builtin = powerUpEffectDefinition(sourceId) || {};
     const id = canonicalEffectId(sourceId || builtin.id || fallbackId);
     if (!id) return null;
@@ -282,6 +304,10 @@ export function normalizePowerUpEffectDefinition(rawDefinition, fallbackId = "")
             launchMode: String(rocketSource.launchMode || builtinRocket.launchMode || "up") === "forward"
                 ? "forward"
                 : "up",
+            launchSequenceIntervalSeconds: Math.max(0, finiteNumber(
+                rocketSource.launchSequenceIntervalSeconds,
+                finiteNumber(builtinRocket.launchSequenceIntervalSeconds, 0)
+            )),
             initialAnglesDegrees: normalizeAngles(
                 rocketSource.initialAnglesDegrees,
                 builtinRocket.initialAnglesDegrees || [0]
@@ -301,7 +327,7 @@ export function normalizePowerUpEffectDefinition(rawDefinition, fallbackId = "")
 export function normalizePowerUpPickup(rawPickup) {
     const source = rawPickup && typeof rawPickup === "object" ? rawPickup : {};
     const requestedId = canonicalEffectId(source.effectId || POWER_UP_EFFECT_IDS.SPEED_SHOT);
-    if (requestedId === RETIRED_ROCKET_OVERDRIVE_ID) return null;
+    if (isRetiredPowerUpEffectId(requestedId)) return null;
     const builtin = powerUpEffectDefinition(requestedId);
     const hasAuthoredEffect = source.effect && typeof source.effect === "object";
     if (!builtin && !hasAuthoredEffect) return null;
@@ -332,7 +358,7 @@ export function normalizePowerUpPickup(rawPickup) {
 export function normalizeActivePowerUpEffect(rawEffect) {
     const source = rawEffect && typeof rawEffect === "object" ? rawEffect : {};
     const requestedId = canonicalEffectId(source.id || source.definition?.id);
-    if (requestedId === RETIRED_ROCKET_OVERDRIVE_ID) return null;
+    if (isRetiredPowerUpEffectId(requestedId)) return null;
     const definition = normalizePowerUpEffectDefinition(source.definition, source.id);
     if (!definition) return null;
     return {

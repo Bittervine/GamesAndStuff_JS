@@ -2804,3 +2804,22 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Synchronize game/editor revision labels to 283 and add housekeeping regressions.
 - [x] Pass the complete 157-test headless suite and audit the revision 283 archive.
 
+
+
+## Revision 285 Burst spacing tweak
+
+- [x] Double the time spacing between the three green Burst rockets from 0.09 to 0.18 seconds so the rockets spread out more clearly in flight.
+- [x] Preserve Burst damage, fuel cost, projectile size, and unguided forward behavior.
+- [x] Pass the relevant automated tests and package revision 285 without PNG or XCF files.
+
+## Revision 284 editor Fit simplification and six-wrench rebalance
+
+- [x] Remove **Fit World** and **Fit Cave** and rename the authored-content control to **Fit**.
+- [x] Launch red Bigbomb and magenta Boomerang rockets horizontally along Ignatius's facing direction before homing.
+- [x] Raise Bigbomb damage from 90 to 120 without changing its triple fuel cost.
+- [x] Replace green Twin with green Burst: three small unguided forward rockets, 0.18 seconds apart, 15 damage each, paid as one standard launch.
+- [x] Add blue Phase as a mutually exclusive thirty-second wrench with standard damage/fuel and obstacle-phasing homing behavior.
+- [x] Remove support for the superseded `wrenchTwin` saved-level identity, including embedded pickup definitions and active-effect snapshots.
+- [x] Add and register a sixth pure-blue precomposited powered-rocket frame in `ct_atlas_wizard_2`.
+- [x] Synchronize level-1 examples, entity-catalog defaults, manual, architecture, plan, and regression coverage.
+- [x] Pass the complete 157-test headless suite and audit the revision 284 archive plus separately distributed atlas PNG.
