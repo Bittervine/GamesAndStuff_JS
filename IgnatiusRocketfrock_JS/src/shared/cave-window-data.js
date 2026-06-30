@@ -16,16 +16,6 @@ const DEFAULT_DECORATION = Object.freeze({
     occlusionAccentChance: 0.02
 });
 
-export const DEFAULT_CAVE_WINDOW = Object.freeze({
-    version: 1,
-    enabled: false,
-    feather: DEFAULT_FEATHER,
-    parallax: DEFAULT_PARALLAX,
-    gradientNoise: Object.freeze(normalizeCaveGradientNoise(null)),
-    decoration: Object.freeze(normalizeCaveDecoration(null)),
-    points: Object.freeze([])
-});
-
 function finiteNumber(value, fallback) {
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;

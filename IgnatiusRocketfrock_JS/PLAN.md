@@ -2929,3 +2929,12 @@ A stale-data bug was found during the audit: `assets/level_001.json` still conta
 ## Revision 282 shorter post-death camera hold
 
 The camera now remains on Ignatius's death site for two seconds after the spark burst instead of three seconds. Cover and burst animation durations are unchanged, and every lethal route continues through the same portable death lifecycle and ordinary respawn path. The Game Manual now states the two-second hold explicitly. The complete 157-test headless suite passes. No deprecated feature or unrelated gameplay behavior was encountered during this change.
+
+## Revision 283 dead-code and release-packaging housekeeping
+
+A project-wide caller audit found several exported APIs that were no longer used by runtime, editors, tests, or development tools. Revision 283 removes `invalidateWorldCollisionIndex`, `DEFAULT_CAVE_WINDOW`, `DEFAULT_GENERATOR_STAGE_REVISIONS`, `STAGE_SPECIFIC_REGENERATION_OPTIONS`, `generatorRegistryEntry`, `isWrenchPowerUpEffectId`, and the historical story-reading baseline constants. Their removal does not change active normalization, simulation, rendering, generation, or authoring behavior.
+
+The audit also found stale architecture instructions describing the pre-revision-230 runtime wrench-glow cache as current. Powered wrench rockets have actually used authored combined frames from `ct_atlas_wizard_2` since revision 230. The unused `RocketGlowCache` class is removed, the retained image-processing helpers are renamed from `rocket-glow-cache.js` to `rocket-glow-baking.js`, and current architecture and agent guidance now describe the authored one-draw atlas path correctly. Historical revision notes remain historical. The discarded Enemy 004 candidate records under `devel/old` are deleted because Enemy 004 was removed from the project in revision 172.
+
+A new `devel/package_update.py` release helper verifies required files and synchronized revision labels, excludes PNG and XCF files and generated build directories, writes the compact update archive, and tests both zip integrity and forbidden-extension absence. No Game Manual update is required because there is no player-facing or editor-facing change.
+

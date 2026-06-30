@@ -151,10 +151,6 @@ function queryPartition(partition, queryBounds) {
     return entries.map((entry) => entry.record);
 }
 
-export function invalidateWorldCollisionIndex(world) {
-    if (world && typeof world === "object") WORLD_COLLISION_INDEX.delete(world);
-}
-
 export function queryWorldSolids(world, bounds) {
     return queryPartition(getIndex(world).solids, bounds);
 }

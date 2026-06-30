@@ -2792,3 +2792,15 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Add an explicit regression assertion for the new default.
 - [x] Update the Game Manual, architecture notes, plan, and packaged revision labels to 282.
 - [x] Pass the complete 157-test headless suite and verify the release archive excludes PNG and XCF files.
+
+## Revision 283 dead-code and release-packaging housekeeping
+
+- [x] Remove unused collision-index, cave-window, generator, power-up, and story-reading exports with no project callers.
+- [x] Remove the obsolete runtime `RocketGlowCache` class superseded by authored powered-rocket atlas frames.
+- [x] Rename the retained offline image-processing utility to `rocket-glow-baking.js` and update architecture/tests.
+- [x] Correct current architecture and agent guidance that still described runtime wrench-glow generation.
+- [x] Delete discarded Enemy 004 candidate JSON files from `devel/old`.
+- [x] Add `devel/package_update.py` to verify revision labels, required files, archive integrity, and PNG/XCF exclusion.
+- [x] Synchronize game/editor revision labels to 283 and add housekeeping regressions.
+- [x] Pass the complete 157-test headless suite and audit the revision 283 archive.
+

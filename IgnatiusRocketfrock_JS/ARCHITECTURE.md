@@ -41,7 +41,7 @@ IgnatiusRocketfrock_JS/
 │   │   ├── character-runtime.js
 │   │   ├── foreground-sprite-treatment.js
 │   │   ├── level-color-map-cache.js
-│   │   ├── rocket-glow-cache.js
+│   │   ├── rocket-glow-baking.js
 │   │   └── world-visual-cache.js
 │   ├── shared/
 │   │   ├── actor-geometry.js
@@ -146,7 +146,7 @@ Revision 135 removed the last documented core-to-presentation dependency. Colour
 | `src/browser/game-settings-store.js` | BROWSER ADAPTER | Safe local-storage load/save for normalized game-facing settings. |
 | `src/browser/electron-window-bridge.js` | BROWSER ADAPTER | Detection and normalization of the optional sandboxed Electron preload API for quit/fullscreen operations. |
 | `electron/main.cjs` / `electron/preload.cjs` | DESKTOP HOST | Optional native window, secure preload boundary, desktop quit, and fullscreen IPC. No gameplay ownership. |
-| `src/presentation/rocket-glow-cache.js` | PRESENTATION ONLY | One-time separable alpha dilation and Gaussian blur for wrench-coloured rocket silhouettes, cached by source sprite and tint for ordinary per-frame `drawImage` composition. |
+| `src/presentation/rocket-glow-baking.js` | PRESENTATION ONLY | Separable alpha dilation, Gaussian blur, and padded tinted-surface construction retained for offline powered-rocket atlas preparation and deterministic kernel tests. Runtime rendering does not import this module. |
 | `src/presentation/canvas-renderer.js` | PRESENTATION ONLY | Canvas world rendering, camera presentation, rig drawing, visual effects, cave-mask composition, story overlays, and debug overlays. It caches 64×64 neutral or wrench-tinted smoke stamps for scaled `drawImage` reuse and avoids per-puff impact sparkle loops. |
 | `src/presentation/cave-window-mask.js` | PRESENTATION ONLY | Reduced-resolution reusable offscreen black cave mask, stable render keys, spline-to-screen tracing, deterministic wavy opacity bands inside the feather, exact full-black clamping, and camera-relative foreground parallax. |
 | `src/presentation/foreground-sprite-treatment.js` | PRESENTATION ONLY | Cached Canvas preparation for dark/desaturated cave foreground frames, world-to-local outward vectors, and a linear handover to opaque black at the sprite's exterior edge. |
@@ -555,6 +555,8 @@ The Level Editor initializes Snap to 16 world units and uses 16 as the grid fall
 ## Revision 229 preload and haptic projection contract
 
 Wrench projectile glows remain presentation-only cached surfaces. `createRenderer` reserves the final portion of startup progress for `RocketfrockRenderer.prewarmWrenchRocketGlows`, which enumerates the shared wrench effect registry, resolves the already-loaded projectile frame, and populates `RocketGlowCache` before gameplay begins. Rendering still calls the same cache lookup, so startup and draw-time keys cannot drift.
+
+Revision 230 superseded this runtime cache contract with authored combined frames in `ct_atlas_wizard_2`. Current startup only verifies those supplemental atlas frames, and each powered rocket is drawn once from the authored combined sprite. Revision 283 removes the now-unused cache class and renames the remaining offline kernel utility to `rocket-glow-baking.js`.
 
 Input-device ownership belongs to `src/browser/browser-input.js`. Meaningful mapped gamepad button or deadzone-cleared axis activity records the active pad index. A three-second grace window supports damage feedback between control presses, while fresh keyboard or pointer gameplay input revokes gamepad ownership immediately. The portable simulation neither queries controllers nor requests vibration.
 
@@ -985,3 +987,12 @@ Automatic cavern records now contain the arbitrary closed polygon, stamps, rooms
 ## Revision 282 shorter post-death camera hold
 
 The portable player-death lifecycle keeps its existing cover and burst timing, but `DEFAULT_TUNING.playerDeathAfterglowSeconds` is reduced from 3 seconds to 2 seconds. `src/core/simulation.js` remains the sole timing authority, so HP loss, crushing, and cave-boundary defeats all use the same shorter pause before ordinary respawn. The renderer and camera code require no special-case change.
+
+## Revision 283 dead-code and release-packaging housekeeping
+
+Revision 283 removes internal APIs that had no caller anywhere in the game, editors, tests, or build tools: the collision-index invalidation export, the aggregate cave-window default, unused generator registry/revision exports, the unused wrench-effect classifier, and historical story-reading derivation constants. Their authoritative active helpers and normalized schemas are unchanged.
+
+The obsolete runtime `RocketGlowCache` class is removed because revision 230 already replaced runtime glow generation with authored combined powered-rocket frames in `ct_atlas_wizard_2`. The remaining separable dilation, Gaussian blur, and surface-construction helpers are renamed to `src/presentation/rocket-glow-baking.js` and are retained only for offline atlas work and deterministic kernel tests. Runtime code does not import this module. Discarded Enemy 004 candidate JSON files under `devel/old` are deleted.
+
+`devel/package_update.py` now owns compact revision handoffs. It verifies required project files and synchronized game/editor revision labels, excludes PNG and XCF files plus generated build directories, creates the zip, and performs an integrity and forbidden-extension audit. These changes do not alter gameplay, saved-level interpretation, rendering output, controls, or editor behavior.
+

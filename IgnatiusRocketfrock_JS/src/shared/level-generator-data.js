@@ -61,24 +61,6 @@ const INTERNAL_GENERATOR_IMPLEMENTATIONS = Object.freeze({
     decoration: Object.freeze(new Set(["suppressed-by-theme", "not-generated-yet"]))
 });
 
-
-export const DEFAULT_GENERATOR_STAGE_REVISIONS = Object.freeze({
-    route: 0,
-    cavern: 0,
-    traversal: 0,
-    endpoints: 0,
-    encounters: 0,
-    rewards: 0,
-    decoration: 0,
-    validation: 0
-});
-
-export const STAGE_SPECIFIC_REGENERATION_OPTIONS = Object.freeze([
-    Object.freeze({ id: "encounters", label: "Encounters only", dependentStages: Object.freeze(["encounters", "validation"]) }),
-    Object.freeze({ id: "rewards", label: "Rewards", dependentStages: Object.freeze(["rewards", "validation"]) }),
-    Object.freeze({ id: "validation", label: "Validation only", dependentStages: Object.freeze(["validation"]) })
-]);
-
 export const LEVEL_LENGTH_PRESETS = Object.freeze({
     compact: Object.freeze({ id: "compact", label: "Compact", mainNodes: 8 }),
     standard: Object.freeze({ id: "standard", label: "Standard", mainNodes: 12 }),
@@ -350,15 +332,10 @@ function generationOwnershipStage(record) {
     return String(record?.generationStage || record?.manualizedFromGeneration?.stage || "");
 }
 
-
 function hasGenerationStageProvenance(record, stage) {
     if (!record || generationOwnershipStage(record) !== stage) return false;
     return record.generatedBy === AUTOMATIC_LEVEL_GENERATOR_ID
         || Boolean(record.manualizedFromGeneration);
-}
-
-export function generatorRegistryEntry(stage, id) {
-    return (LEVEL_GENERATOR_REGISTRIES[stage] || []).find((entry) => entry.id === id) || null;
 }
 
 export function hashGeneratorSeed(value) {
@@ -524,7 +501,6 @@ export function generateAutomaticLevelRoute(options = {}) {
     return buildAutomaticLevelRouteResult(context, context.candidates[0]);
 }
 
-
 export function normalizeGenerationAssetCatalog(value) {
     const source = value && typeof value === "object" ? value : {};
     const assets = Array.isArray(source.assets) ? source.assets : [];
@@ -601,7 +577,6 @@ export function normalizeEnemyGenerationCatalog(value) {
     };
 }
 
-
 export function normalizeRewardGenerationCatalog(value) {
     const source = value && typeof value === "object" ? value : {};
     const rawRewards = source.rewards && typeof source.rewards === "object" ? source.rewards : {};
@@ -675,8 +650,6 @@ function normalizeEnemyCatalogDefinitions(value) {
         }];
     }));
 }
-
-
 
 export function generatedPowerUpTargetForRoute(route, settings = {}) {
     const rewardDensity = clamp01(settings.rewardDensity ?? DEFAULT_GENERATOR_SETTINGS.rewardDensity);
@@ -1169,7 +1142,6 @@ function buildBasicRewards({
     };
 }
 
-
 function generatedDecorationProtectionRegions({ traversal, endpoints, rewards, theme }) {
     if (!theme.decoration.protectGameplay) return [];
     const regions = [];
@@ -1216,7 +1188,6 @@ function generatedDecorationProtectionRegions({ traversal, endpoints, rewards, t
     }
     return regions;
 }
-
 
 function rotatedPlacementBounds(placement) {
     const x = finiteNumber(placement?.x, 0);
@@ -1316,7 +1287,6 @@ function buildGeneratedPerimeterDecoration({
         placements
     };
 }
-
 
 function rectangleIntersectionArea(left, right) {
     const overlapX = Math.max(0, Math.min(left.maxX, right.maxX) - Math.max(left.minX, right.minX));
@@ -1764,7 +1734,6 @@ export function generateAutomaticLevelDraft(options = {}) {
     };
 }
 
-
 function buildGeneratedRewardEnemyReservations({ rewards, rewardGenerationCatalog, entityCatalog }) {
     const metadataByType = new Map((rewardGenerationCatalog?.rewards || []).map((entry) => [entry.entityType, entry]));
     const powerUpDefinitions = (rewardGenerationCatalog?.rewards || [])
@@ -1794,7 +1763,6 @@ function generatedEnemyOverlapsRewardReservations(entity, reservations) {
             && vertical < Math.max(finiteNumber(entity?.h, 0), finiteNumber(reservation?.h, 0)) * 0.72;
     });
 }
-
 
 function emptyEncounterPopulation(runId, implementationId = "not-generated-yet") {
     return {
@@ -2344,7 +2312,6 @@ function cavernVerticalRangeAt(cavern, x, preferredY = NaN) {
     return [...ranges].sort((a, b) => (b.bottom - b.top) - (a.bottom - a.top))[0];
 }
 
-
 export function validateGeneratedEncounters(value = {}) {
     const encounters = value.encounters && typeof value.encounters === "object" ? value.encounters : emptyEncounterPopulation("", "not-generated-yet");
     const entities = Array.isArray(value.entities) ? value.entities : [];
@@ -2507,7 +2474,6 @@ export function validateGeneratedEncounters(value = {}) {
     qualityScore = clamp(Math.round(qualityScore * 10) / 10, 0, 100);
     return { valid: errors.length === 0, qualityScore, errors, warnings, metrics };
 }
-
 
 export function validateGeneratedRewards(value = {}) {
     const rewards = value.rewards && typeof value.rewards === "object"
@@ -2835,8 +2801,6 @@ export function buildAutomaticLevelValidationOverlay(generationValue) {
         validation: normalizeGenerationValidation(generation.validation)
     };
 }
-
-
 
 export function automaticLevelDraftBounds(generation, padding = 180) {
     const cavernBounds = generation?.cavern?.bounds;
@@ -3575,7 +3539,6 @@ function buildStandardTraversal({
             support.platformHeightStyle = "organicAnchor";
         }
     
-
 
     if (!useRunAndGunRoute) {
         for (const edge of edges.filter((candidate) => candidate.mandatory !== false
@@ -5621,7 +5584,6 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
     };
 }
 
-
 function deriveGeneratedWorld(cavern, traversal, theme) {
     const bounds = cavern.bounds;
     const margin = theme.cavern.worldMargin;
@@ -6003,18 +5965,12 @@ export function normalizeLevelGeneration(value) {
     };
 }
 
-
-
-
-
-
 function desiredMacroRoomCount(length) {
     if (length === "compact") return 1;
     if (length === "standard") return 2;
     if (length === "extended") return 3;
     return 4;
 }
-
 
 const THE_PATH74_DIRECTIONS = Object.freeze({
     right: Object.freeze({ dx: 1, dy: 0 }),
@@ -6466,14 +6422,6 @@ function buildMostlyHorizontalRouteCandidate({ theme, settings, rng, attempt }) 
         edges
     };
 }
-
-
-
-
-
-
-
-
 
 function graphReachable(startId, adjacency) {
     const visited = new Set();

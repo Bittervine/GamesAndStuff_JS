@@ -148,7 +148,7 @@ import {
     dilateAlphaSeparable,
     gaussianBlurAlphaSeparable,
     gaussianKernel
-} from "../src/presentation/rocket-glow-cache.js";
+} from "../src/presentation/rocket-glow-baking.js";
 import {
     DEFAULT_MOVING_PLATFORM,
     createDefaultMovingPlatform,
@@ -368,6 +368,7 @@ function testSourceOrganization() {
         "../src/presentation/world-visual-cache.js",
         "../src/presentation/character-runtime.js",
         "../src/presentation/level-color-map-cache.js",
+        "../src/presentation/rocket-glow-baking.js",
         "../src/shared/level-color-map-data.js",
         "../src/shared/cave-window-data.js",
         "../src/shared/cave-kill-boundary-data.js",
@@ -383,6 +384,7 @@ function testSourceOrganization() {
         "../electron/main.cjs",
         "../electron/preload.cjs",
         "../electron/README.md",
+        "../devel/package_update.py",
         "../src/tools/character-editor/animation-editor.js",
         "../src/tools/character-editor/atlas-editor.js",
         "../src/tools/character-editor/character-dirty-state.js",
@@ -403,7 +405,9 @@ function testSourceOrganization() {
         "../level_editor.html",
         "../character_tool.html",
         "../renderer_smoke.html",
-        "../src/presentation/level-color-map.js"
+        "../src/presentation/level-color-map.js",
+        "../src/presentation/rocket-glow-cache.js",
+        "../devel/old/ct_char_enemy_004.json"
     ];
     for (const relativePath of retiredFiles) {
         assert.equal(existsSync(new URL(relativePath, import.meta.url)), false, `${relativePath} should remain retired`);
@@ -493,7 +497,18 @@ function testSourceOrganization() {
     const levelEditorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const powerUpSource = readFileSync(new URL("../src/shared/power-up-data.js", import.meta.url), "utf8");
     const generatorSource = readFileSync(new URL("../src/shared/level-generator-data.js", import.meta.url), "utf8");
+    const storyReadingSource = readFileSync(new URL("../src/shared/story-reading.js", import.meta.url), "utf8");
+    const caveWindowSource = readFileSync(new URL("../src/shared/cave-window-data.js", import.meta.url), "utf8");
+    const collisionIndexSource = readFileSync(new URL("../src/core/world-collision-index.js", import.meta.url), "utf8");
     const simulationSource = coreSources[0];
+    for (const retiredExport of ["DEFAULT_GENERATOR_STAGE_REVISIONS", "STAGE_SPECIFIC_REGENERATION_OPTIONS", "generatorRegistryEntry"]) {
+        assert.equal(generatorSource.includes(retiredExport), false, `generator data should not retain unused export ${retiredExport}`);
+    }
+    assert.equal(storyReadingSource.includes("STORY_BASELINE_CHARACTER_COUNT"), false, "story timing should not retain unused derivation constants");
+    assert.equal(storyReadingSource.includes("STORY_BASELINE_READING_SECONDS"), false, "story timing should not retain unused derivation constants");
+    assert.equal(caveWindowSource.includes("DEFAULT_CAVE_WINDOW"), false, "cave-window data should not retain an unused default aggregate");
+    assert.equal(collisionIndexSource.includes("invalidateWorldCollisionIndex"), false, "collision indexing should not export an unused invalidation API");
+    assert.equal(powerUpSource.includes("isWrenchPowerUpEffectId"), false, "power-up data should not export an unused wrench classifier");
     for (const retiredToken of ["magicPortal", "wizardStart", "chaseSpeed", "awarenessVerticalRange"]) {
         assert.equal(simulationSource.includes(retiredToken), false, `portable simulation should not retain retired level token ${retiredToken}`);
     }
@@ -7235,8 +7250,8 @@ function testRocketPowerUpArsenal() {
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 282<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(bootstrapSource, /const GAME_REVISION = "282";/, "the game debug revision should match the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 283<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "283";/, "the game debug revision should match the packaged revision");
     assert.ok(manualSource.includes("Shield</strong> lasts 10 seconds") && manualSource.includes("Speed Shot</strong> lasts 30 seconds") && manualSource.includes("Wrench power-ups last 30 seconds"), "the game manual should document the revised effect windows");
     const entityCatalog = JSON.parse(readFileSync(new URL("../assets/it_entities_001.json", import.meta.url), "utf8"));
     const catalogEntities = Object.values(entityCatalog.entities || {});
@@ -7329,7 +7344,7 @@ function testCachedWrenchRocketGlowKernels() {
 
     const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
     const runtimeSource = readFileSync(new URL("../src/presentation/character-runtime.js", import.meta.url), "utf8");
-    const cacheSource = readFileSync(new URL("../src/presentation/rocket-glow-cache.js", import.meta.url), "utf8");
+    const bakingSource = readFileSync(new URL("../src/presentation/rocket-glow-baking.js", import.meta.url), "utf8");
     const wizardCharacter = JSON.parse(readFileSync(new URL("../assets/ct_char_wizard_1.json", import.meta.url), "utf8"));
     const wizardGlowAtlas = JSON.parse(readFileSync(new URL("../assets/ct_atlas_wizard_2.json", import.meta.url), "utf8"));
     assert.deepEqual(
@@ -7345,7 +7360,8 @@ function testCachedWrenchRocketGlowKernels() {
     assert.ok(rendererSource.includes("ctx.drawImage(drawAsset.canvas, drawOffsetX, drawOffsetY);"), "powered rockets should render from the combined atlas in a single sprite draw");
     assert.ok(!rendererSource.includes("glowAsset?.canvas"), "combined powered-rocket frames should no longer branch into a separate glow draw path each frame");
     assert.ok(runtimeSource.includes("character.supplementalAtlases") && runtimeSource.includes("supplemental character atlas manifest"), "runtime character loading should support supplemental atlas manifests");
-    assert.ok(cacheSource.includes("dilateAlphaSeparable") && cacheSource.includes("gaussianBlurAlphaSeparable"), "the glow-generator utility should remain available for offline atlas baking and tests");
+    assert.ok(bakingSource.includes("dilateAlphaSeparable") && bakingSource.includes("gaussianBlurAlphaSeparable"), "the glow-baking utility should remain available for offline atlas baking and tests");
+    assert.equal(bakingSource.includes("class RocketGlowCache"), false, "the retired runtime glow-cache class should not remain in the offline baking utility");
     assert.ok(rendererSource.includes("puff.trailTint") && rendererSource.includes("hexColorRgb"), "powered rocket trail smoke and sparkle crumbs should reuse the launch-time wrench colour without recolouring ordinary trails");
 }
 

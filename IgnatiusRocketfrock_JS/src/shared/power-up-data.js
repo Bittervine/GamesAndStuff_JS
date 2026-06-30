@@ -205,10 +205,6 @@ export function powerUpEffectDefinition(effectId) {
     return BUILTIN_POWER_UP_EFFECTS[canonicalEffectId(effectId)] || null;
 }
 
-export function isWrenchPowerUpEffectId(effectId) {
-    return WRENCH_POWER_UP_EFFECT_IDS.includes(canonicalEffectId(effectId));
-}
-
 export function wrenchRocketGlowAtlasFrameId(effectId) {
     return WRENCH_ROCKET_GLOW_ATLAS_FRAMES[canonicalEffectId(effectId)] || null;
 }
