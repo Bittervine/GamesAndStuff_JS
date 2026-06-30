@@ -1,8 +1,10 @@
 import { spawn } from "node:child_process";
 
 const suites = [
-    { name: "generator core contracts", group: "generator-core" },
-    { name: "generator macro contract", group: "generator-macro" }
+    { name: "generator foundation contracts", group: "generator-foundation" },
+    { name: "generator macro contract", group: "generator-macro" },
+    { name: "generator content contracts", group: "generator-content" },
+    { name: "generator macro seed sweep", group: "generator-macro-sweep" }
 ];
 
 function runSuite({ name, group }) {
@@ -28,9 +30,11 @@ function runSuite({ name, group }) {
     });
 }
 
-const results = await Promise.all(suites.map(runSuite));
-const failure = results.find((result) => result.code !== 0);
-if (failure) {
-    console.error(`${failure.name} failed${failure.signal ? ` with signal ${failure.signal}` : ` with exit code ${failure.code}`}.`);
-    process.exitCode = 1;
+for (const suite of suites) {
+    const result = await runSuite(suite);
+    if (result.code !== 0) {
+        console.error(`${result.name} failed${result.signal ? ` with signal ${result.signal}` : ` with exit code ${result.code}`}.`);
+        process.exitCode = 1;
+        break;
+    }
 }

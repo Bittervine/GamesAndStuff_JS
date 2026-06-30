@@ -3008,3 +3008,16 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Remove the retired `generate_level002_temp.mjs` and duplicate `src/presentation/rocket-glow-cache.js` files found by the release audit.
 - [x] Synchronize revision labels, architecture guidance, developer guidance, plan notes, and regression coverage.
 - [ ] Browser-profile revision 301 in a densely populated cave at placement-preview, object-drag, pan, and whole-level Fit zoom levels; record the achieved frame rates before deciding the first WebGL2 migration slice.
+
+
+## Revision 302 compact editor controls and reliable generator gate
+
+- [x] Add a reusable compact button-stack layout with a visible five-pixel vertical gap.
+- [x] Apply it to generator ownership, generator history/actions, and cave-perimeter action groups.
+- [x] Reduce only those grouped button labels to 14 pixels so spacing does not cause unnecessary wrapping.
+- [x] Add a source regression check requiring the compact button-stack contract.
+- [x] Split generator release coverage into foundation, decorated-macro, content, and route-seed-sweep groups.
+- [x] Run the four generator groups sequentially in fresh `--expose-gc` Node processes to avoid heap retention and concurrent memory contention.
+- [x] Preserve the complete decorated macro matrix and 48-route seed sweep after splitting their process boundary.
+- [x] Run the complete `npm test` gate successfully: 154 fast tests and 10 generator tests.
+- [x] Keep gameplay, level schema, and Game Manual unchanged for this presentation/test-harness revision.

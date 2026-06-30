@@ -727,9 +727,9 @@ The validator exposes `minimumOrganicHeightDelta`, `organicSameHeightAdjacentCou
 
 `tests/testbench.mjs` remains the dependency-free aggregate headless runner. It now accepts `--progress`, `--profile`, `--filter=<text>`, and `--group=<all|fast|generator>`. Progress mode prints the test name before execution so CPU-heavy generator regressions remain visibly active. Profile mode uses `process.hrtime.bigint()` and `process.memoryUsage()` only in the test layer; these diagnostics do not enter portable gameplay, browser startup, or presentation modules.
 
-`npm test` executes all tests in one Node process and remains the release gate. `npm run test:fast` excludes the generator-heavy group, `npm run test:generator` isolates that group in a fresh process, and `npm run test:profile` reports slow tests and peak resident memory. Grouping is test-harness metadata based on stable test names and does not alter production code or test assertions.
+`npm test` remains the release gate, but it composes a fast process with the isolated generator runner rather than retaining the complete suite in one Node heap. `npm run test:fast` excludes the generator-heavy group, `npm run test:generator` launches fresh generator processes, and `npm run test:profile` reports slow tests and peak resident memory. Grouping is test-harness metadata based on stable test names and does not alter production code or test assertions.
 
-The revision-247 timeout report was a command-wrapper timeout rather than a Node deadlock. The aggregate process exits normally after the generator regressions finish; no explicit `process.exit()` or leaked asynchronous handle is required to terminate it.
+The revision-247 timeout report was a command-wrapper timeout rather than a leaked asynchronous handle. Later generator growth nevertheless made heap isolation necessary; the current runner topology is documented in revision 302 below.
 
 ## Revision 249 longform organic traversal architecture
 
@@ -1122,3 +1122,10 @@ The Level Editor keeps Canvas 2D as its authoring backend while WebGL2 remains p
 Dense cave foreground artwork has a separate transparent viewport-layer cache. It is rendered through the ordinary `drawPlacement` path, keyed by viewport, camera, colour-map state, generated-art visibility, and an explicit foreground revision. Main-layer or entity edits may therefore rebuild the editor scene while reusing hundreds of unchanged cave-foreground sprites. Foreground edits, atlas changes, colour-map rebuilds, and structural persistence explicitly invalidate this layer. This cache is an editor-only Canvas optimization, not a second world model, and a future WebGL2 backend should consume the same placement groups and bounds rather than preserve the bitmap cache itself.
 
 Entities now use conservative cached world bounds and are rejected outside the expanded editor viewport before character composition or atlas drawing. Overlap composites rely on explicit invalidation and stable placement-array identity instead of rebuilding a complete placement signature on every scene render. Full level JSON serialization is scheduled by actual authoring mutations and metadata commits, never by the visual render loop.
+
+
+## Revision 302 compact Level Editor controls and generator release topology
+
+Adjacent Level Editor action rows use the editor-only `.compact-button-stack` presentation container. It supplies a five-pixel grid gap and slightly smaller 14-pixel button text while preserving the ordinary two-column `.row` width contract. The generator ownership controls, generator fit/clear/undo/redo controls, and cave-perimeter action controls use this container. It changes neither command wiring nor serialized level data.
+
+Generator release tests are split into four stable groups: `generator-foundation`, `generator-macro`, `generator-content`, and `generator-macro-sweep`. `devel/run_generator_tests.mjs` executes those groups sequentially in four fresh Node processes with `--expose-gc`. The split keeps route/empty-cavern foundations, decorated macro drafts, encounter/reward/perimeter contracts, and the route-only 48-seed macro sweep from retaining each other's temporary geometry. Sequential execution is intentional: concurrent generator children were observed competing for memory and extending the release run beyond the command wrapper's useful window. The macro seed sweep remains a complete 24-seed pass for each of the Earth and Ice themes; only its process boundary changed.

@@ -82,3 +82,10 @@ The canvas is divided conceptually into a static viewport scene and transient ov
 Cave-foreground artwork also has its own transparent viewport cache. It is safe to reuse while ordinary terrain or entities move because the foreground is a later presentation layer. Editing foreground records, loading atlas artwork, recolouring atlases, or committing structural changes invalidates it. Entity previews are culled against conservative world bounds before expensive character or atlas composition.
 
 These caches contain only rendered editor pixels. Level records, placement ordering, collision, selection, JSON export, and runtime rendering remain authoritative elsewhere. WebGL2 should replace the drawing backend without changing those data contracts.
+
+
+## Release testing
+
+`npm test` is the authoritative release gate. It runs the 154-test fast group first, then `devel/run_generator_tests.mjs`.
+
+The generator runner deliberately starts four fresh Node processes in sequence: route and empty-cavern foundations, decorated macro drafts, encounter/reward/refinement/perimeter contracts, and the route-only macro seed sweep. Keep those boundaries unless profiling proves a replacement is safer. Combining them retains large temporary geometry; running several generator children concurrently creates memory contention. The macro split does not reduce coverage: it retains eight decorated Earth/Ice length cases and 24 route seeds per theme.

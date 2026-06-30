@@ -170,6 +170,17 @@
             gap: 8px;
         }
 
+        .compact-button-stack {
+            display: grid;
+            gap: 5px;
+            margin: 5px 0;
+        }
+
+        .compact-button-stack button {
+            font-size: 14px;
+            line-height: 1.2;
+        }
+
         .triple {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
@@ -669,7 +680,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 301</small></h1>
+        <h1>Level Editor <small>rev 302</small></h1>
 
         <div class="box">
             <h2>Level</h2>
@@ -765,19 +776,23 @@
             </div>
             <div class="generator-ownership-tools">
                 <p id="generator-ownership-status" class="small generator-ownership-status">Select a generated placement or entity to manage its editor ownership.</p>
-                <div class="row">
-                    <button id="generator-lock-selected" type="button" disabled>Lock selected</button>
-                    <button id="generator-unlock-selected" type="button" disabled>Unlock selected</button>
+                <div class="compact-button-stack">
+                    <div class="row">
+                        <button id="generator-lock-selected" type="button" disabled>Lock selected</button>
+                        <button id="generator-unlock-selected" type="button" disabled>Unlock selected</button>
+                    </div>
+                    <button id="generator-manualize-selected" type="button" disabled>Convert selected to manual ownership</button>
                 </div>
-                <button id="generator-manualize-selected" type="button" disabled>Convert selected to manual ownership</button>
             </div>
-            <div class="row">
-                <button id="generator-fit-route" type="button">Fit generated cavern</button>
-                <button id="generator-clear" type="button">Clear generated</button>
-            </div>
-            <div class="row">
-                <button id="generator-undo" type="button" disabled>Undo generation</button>
-                <button id="generator-redo" type="button" disabled>Redo generation</button>
+            <div class="compact-button-stack">
+                <div class="row">
+                    <button id="generator-fit-route" type="button">Fit generated cavern</button>
+                    <button id="generator-clear" type="button">Clear generated</button>
+                </div>
+                <div class="row">
+                    <button id="generator-undo" type="button" disabled>Undo generation</button>
+                    <button id="generator-redo" type="button" disabled>Redo generation</button>
+                </div>
             </div>
             <div class="inline"><input id="generator-show-route" type="checkbox" checked><span class="small">Show route overlay</span></div>
             <div class="inline"><input id="generator-show-validation" type="checkbox"><span class="small">Show validation overlay</span></div>
@@ -791,14 +806,16 @@
         <div class="box">
             <h2>Cave window and foreground</h2>
             <div class="inline"><input id="cave-enabled" type="checkbox"><span class="small">Use this closed visual perimeter</span></div>
-            <div class="row">
-                <button data-tool="caveSelect" type="button">◇ Edit perimeter</button>
-                <button data-tool="caveAdd" type="button">＋ Add perimeter point</button>
-            </div>
-            <button data-tool="placeCaveForeground" type="button">Place selected asset in foreground</button>
-            <div class="row">
-                <button id="cave-create-from-bounds" type="button">Create from world bounds</button>
-                <button id="cave-delete-point" type="button" disabled>Delete selected point</button>
+            <div class="compact-button-stack">
+                <div class="row">
+                    <button data-tool="caveSelect" type="button">◇ Edit perimeter</button>
+                    <button data-tool="caveAdd" type="button">＋ Add perimeter point</button>
+                </div>
+                <button data-tool="placeCaveForeground" type="button">Place selected asset in foreground</button>
+                <div class="row">
+                    <button id="cave-create-from-bounds" type="button">Create from world bounds</button>
+                    <button id="cave-delete-point" type="button" disabled>Delete selected point</button>
+                </div>
             </div>
             <div class="row">
                 <label>Point shape<select id="cave-point-mode" disabled>

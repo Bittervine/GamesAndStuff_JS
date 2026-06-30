@@ -440,9 +440,12 @@ function testSourceOrganization() {
     assert.equal(packageMetadata.scripts?.["test:fast"], "node tests/testbench.mjs --progress --group=fast", "package metadata should expose the fast non-generator test group");
     assert.equal(packageMetadata.scripts?.["test:generator"], "node devel/run_generator_tests.mjs", "package metadata should expose the isolated generator test runner");
     const generatorRunner = readFileSync(new URL("../devel/run_generator_tests.mjs", import.meta.url), "utf8");
-    assert.match(generatorRunner, /group: "generator-core"/, "the generator runner should isolate the eight core contracts in one clean process");
-    assert.match(generatorRunner, /group: "generator-macro"/, "the generator runner should isolate the memory-heavy macro contract in its own process");
-    assert.equal(generatorRunner.includes("Promise.all"), true, "the core and macro processes should run concurrently so neither inherits the other's accumulated geometry state");
+    assert.match(generatorRunner, /group: "generator-foundation"/, "the generator runner should isolate route and empty-cavern foundations in one clean process");
+    assert.match(generatorRunner, /group: "generator-content"/, "the generator runner should isolate encounter, reward, refinement, and perimeter contracts in a second clean process");
+    assert.match(generatorRunner, /group: "generator-macro"/, "the generator runner should isolate decorated macro drafts in their own process");
+    assert.match(generatorRunner, /group: "generator-macro-sweep"/, "the generator runner should isolate the route-only macro seed sweep from decorated drafts");
+    assert.equal(generatorRunner.includes("Promise.all"), false, "generator suites should not compete concurrently for the geometry heap");
+    assert.ok(generatorRunner.includes("for (const suite of suites)") && generatorRunner.includes("await runSuite(suite)"), "the runner should execute four fresh generator processes sequentially within the release timeout");
     assert.equal(packageMetadata.scripts?.["test:profile"], "node tests/testbench.mjs --progress --profile", "package metadata should expose per-test timing diagnostics");
 
     const packageHelper = readFileSync(new URL("../devel/package_update.py", import.meta.url), "utf8");
@@ -4902,7 +4905,6 @@ function testAutomaticLevelGeneratorMacroRoomsGroundedDoorsAndPerimeterContract(
     const decorationCatalog = loadGeneratorDecorationCatalog();
     const availableEnemyIds = Object.keys(enemyCatalog.enemies);
     const patternIds = new Set();
-    let sawMaximumRoomSemiAxis = false;
     let sawMultiIntervalContour = false;
 
     for (const rawTheme of [rawEarthTheme, rawIceTheme]) {
@@ -4983,7 +4985,6 @@ function testAutomaticLevelGeneratorMacroRoomsGroundedDoorsAndPerimeterContract(
             assert.ok(macro.segments.every((segment) => segment.length >= 1 && segment.length <= (segment.direction === "up" || segment.direction === "down" ? 4 : 7)), "ThePath74 segment lengths should use horizontal 1–7 and vertical 1–4 bounds");
             assert.ok(macro.rooms.length >= 2 && macro.rooms.length <= 4, "ThePath74 should reserve two to four ellipse rooms");
             assert.ok(macro.rooms.every((room) => room.semiAxisX >= 2 && room.semiAxisX <= 4 && room.semiAxisY >= 2 && room.semiAxisY <= 4), "ThePath74 ellipse-room semi-axes should remain within 2–4 cells");
-            sawMaximumRoomSemiAxis ||= macro.rooms.some((room) => room.semiAxisX === 4 || room.semiAxisY === 4);
             assert.ok(draft.generation.cavern.rooms.length >= 2, `${theme.themeId} ${length} should contain the selected ellipse rooms`);
             assert.ok(presentation.largestRoomWidthScreens > 1 || presentation.largestRoomHeightScreens > 1, "generated caverns should open beyond a single screen");
             assert.ok(presentation.largestRoomWidthScreens <= 4.001 && presentation.largestRoomHeightScreens <= 3.001, "macro rooms should respect the 4×3-screen design ceiling");
@@ -5054,29 +5055,50 @@ function testAutomaticLevelGeneratorMacroRoomsGroundedDoorsAndPerimeterContract(
             // generator suite is launched with --expose-gc.
             globalThis.gc?.();
         }
-
-        for (let seed = 0; seed < 24; seed += 1) {
-            const route = generateAutomaticLevelRoute({
-                theme,
-                implementations: standardImplementations,
-                seed: `macro-shape-${theme.themeId}-${seed}`,
-                settings: { ...theme.defaults, length: "grand", verticality: 0.9, winding: 0.9, },
-                availableEnemyIds
-            });
-            patternIds.add(route.route.macro?.patternId);
-            const room = route.route.macro?.rooms?.find((candidate) => candidate.semiAxisX === 4 || candidate.semiAxisY === 4);
-            if (room) sawMaximumRoomSemiAxis = true;
-        }
     }
 
     assert.deepEqual([...patternIds], ["the-path74"], "current macro planning should use the locked ThePath74 family");
-    assert.equal(sawMaximumRoomSemiAxis, true, "seed sweeps should exercise the full 2–4 ellipse-room semi-axis range");
     assert.equal(sawMultiIntervalContour, true, "folded caverns should preserve separated upper and lower tunnels at the same X instead of filling the space between them");
 
     const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const developerManual = readFileSync(new URL("../DEVELOPER_MANUAL.md", import.meta.url), "utf8");
     assert.ok(editorHtml.includes("requirePopulatedPerimeter: true"), "Level Editor generation should require the requested perimeter stage to succeed");
     assert.ok(developerManual.includes("Horizontal is the run-and-gun route") && developerManual.includes("Standard remains the folded route") && developerManual.includes("Domed caverns"), "the developer manual should explain the current generator defaults without crowding the editor panel");
+}
+
+function testAutomaticLevelGeneratorMacroRoomSeedSweep() {
+    const rawThemes = [
+        JSON.parse(readFileSync(new URL("../assets/level-generator-themes/earth-cavern.json", import.meta.url), "utf8")),
+        JSON.parse(readFileSync(new URL("../assets/level-generator-themes/ice-cavern.json", import.meta.url), "utf8"))
+    ];
+    const availableEnemyIds = Object.keys(JSON.parse(readFileSync(new URL("../assets/ct_enemies_001.json", import.meta.url), "utf8")).enemies);
+    const patternIds = new Set();
+    let sawMaximumRoomSemiAxis = false;
+
+    for (const rawTheme of rawThemes) {
+        const theme = normalizeGeneratorTheme(rawTheme);
+        const standardImplementations = {
+            ...theme.implementations,
+            route: "the-path74-route-v4",
+            cavern: "the-path74-contour-cavern-v4"
+        };
+        for (let seed = 0; seed < 24; seed += 1) {
+            const route = generateAutomaticLevelRoute({
+                theme,
+                implementations: standardImplementations,
+                seed: `macro-shape-${theme.themeId}-${seed}`,
+                settings: { ...theme.defaults, length: "grand", verticality: 0.9, winding: 0.9 },
+                availableEnemyIds
+            });
+            patternIds.add(route.route.macro?.patternId);
+            const room = route.route.macro?.rooms?.find((candidate) => candidate.semiAxisX === 4 || candidate.semiAxisY === 4);
+            if (room) sawMaximumRoomSemiAxis = true;
+        }
+        globalThis.gc?.();
+    }
+
+    assert.deepEqual([...patternIds], ["the-path74"], "macro route seed sweeps should stay within the locked ThePath74 family");
+    assert.equal(sawMaximumRoomSemiAxis, true, "seed sweeps should exercise the full 2–4 ellipse-room semi-axis range");
 }
 
 
@@ -7523,13 +7545,14 @@ function testRocketPowerUpArsenal() {
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 301<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(bootstrapSource, /const GAME_REVISION = "301";/, "the game debug revision should match the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 302<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "302";/, "the game debug revision should match the packaged revision");
     assert.match(editorSource, /<button id="fit-content-view">Fit<\/button>/, "the Level Editor should expose one concise Fit button");
     assert.equal(editorSource.includes('id="fit-view"'), false, "the removed Fit World control should not remain in the Level Editor");
     assert.equal(editorSource.includes('id="fit-cave-view"'), false, "the removed Fit Cave control should not remain in the Level Editor");
     assert.equal(editorSource.includes('id="quick-entity"'), false, "the toolbar entity dropdown should be removed in favor of the Entity palette");
     assert.equal(editorSource.includes("els.quickEntity"), false, "Level Editor code should not retain wiring for the removed entity dropdown");
+    assert.ok(editorSource.includes(".compact-button-stack") && (editorSource.match(/class=\"compact-button-stack\"/g) || []).length >= 3, "compact button groups should keep visible spacing between adjacent Level Editor controls");
     assert.ok(editorSource.includes('selectedEntityType: "wizard_entry_door"') && editorSource.includes("selectEntityPaletteType(entry.type)"), "the Entity palette should own the active placement type");
     assert.ok(editorSource.includes('id="entity-search" type="search"') && editorSource.includes('id="asset-search" type="search"'), "both palettes should expose compact filter fields");
     assert.ok(editorSource.includes('class="palette-grid entity-palette"') && editorSource.includes('class="palette-grid asset-palette"'), "entity and asset choices should share the same thumbnail-grid structure");
@@ -10811,6 +10834,7 @@ const tests = [
     ["automatic level generator editor refinement", testAutomaticLevelGeneratorEditorRefinement],
     ["automatic perimeter population and spatial culling", testAutomaticLevelGeneratorPerimeterAndSpatialCulling],
     ["macro rooms, grounded doors, and guaranteed perimeter", testAutomaticLevelGeneratorMacroRoomsGroundedDoorsAndPerimeterContract],
+    ["macro room seed sweep", testAutomaticLevelGeneratorMacroRoomSeedSweep],
     ["closed cave-window spline authoring", testCaveWindowSplineAuthoring],
     ["cave full-black lethal boundary", testCaveFullBlackKillBoundary],
     ["generated moving-platform rider clearance", testGeneratedMovingPlatformRiderClearance],
@@ -10961,13 +10985,30 @@ function testbenchNameInGroup(name, group) {
         return normalizedName.includes("automatic level generator")
             || normalizedName.includes("automatic perimeter population")
             || normalizedName.includes("macro rooms, grounded doors")
+            || normalizedName.includes("macro room seed sweep")
             || normalizedName.includes("atlas 004 long platforms");
     }
+    if (group === "generator-foundation") {
+        return normalizedName.includes("atlas 004 long platforms")
+            || normalizedName.includes("automatic level generator route foundation")
+            || normalizedName.includes("automatic level generator variant compatibility")
+            || normalizedName.includes("automatic level generator playable empty cavern");
+    }
+    if (group === "generator-content") {
+        return normalizedName.includes("automatic level generator encounters")
+            || normalizedName.includes("automatic level generator rewards")
+            || normalizedName.includes("automatic level generator editor refinement")
+            || normalizedName.includes("automatic perimeter population and spatial culling");
+    }
     if (group === "generator-core") {
-        return testbenchNameInGroup(name, "generator") && !normalizedName.includes("macro rooms, grounded doors");
+        return testbenchNameInGroup(name, "generator-foundation")
+            || testbenchNameInGroup(name, "generator-content");
     }
     if (group === "generator-macro") {
         return normalizedName.includes("macro rooms, grounded doors");
+    }
+    if (group === "generator-macro-sweep") {
+        return normalizedName.includes("macro room seed sweep");
     }
     if (group === "fast") return !testbenchNameInGroup(name, "generator");
     throw new Error(`Unknown test group: ${group}`);
