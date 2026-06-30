@@ -213,6 +213,49 @@
             -webkit-tap-highlight-color: transparent;
         }
 
+
+        #boss-hud {
+            position: fixed;
+            left: 50%;
+            top: var(--hud-edge);
+            width: min(620px, calc(100vw - 32px));
+            transform: translateX(-50%);
+            z-index: 4;
+            pointer-events: none;
+            text-align: center;
+        }
+
+        #boss-name {
+            margin-bottom: 6px;
+            font-size: 15px;
+            font-weight: 820;
+            letter-spacing: 0.055em;
+            text-transform: uppercase;
+        }
+
+        #boss-health-text {
+            color: var(--muted);
+            font-size: 12px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        #boss-health-meter {
+            height: 16px;
+            margin-top: 7px;
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            border-radius: 999px;
+            overflow: hidden;
+            background: rgba(18, 6, 8, 0.72);
+            box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.45);
+        }
+
+        #boss-health-fill {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, #8e2534, #e05a46, #f0b25e);
+            transition: width 90ms linear;
+        }
+
         #hud {
             position: fixed;
             left: var(--hud-edge);
@@ -908,6 +951,13 @@
             </section>
         </div>
     </dialog>
+
+
+    <section id="boss-hud" class="panel" hidden aria-live="polite">
+        <div id="boss-name">Boss</div>
+        <div id="boss-health-text">0 / 0 HP</div>
+        <div id="boss-health-meter"><div id="boss-health-fill"></div></div>
+    </section>
 
     <section id="hud">
         <div id="meters" class="panel" role="button" tabindex="0" aria-label="Open game menu" aria-haspopup="dialog" aria-controls="game-menu-dialog" aria-expanded="false" data-ignore-game-pointer>

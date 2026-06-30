@@ -39,6 +39,12 @@ import {
     worldCollisionIndexDiagnostics
 } from "../src/core/world-collision-index.js";
 import { actorBodyRect, characterEnemyMeleeAttackRect, enemyProjectileHitbox } from "../src/shared/actor-geometry.js";
+import {
+    normalizeEnemyScale,
+    scaledEnemyDimensions,
+    scaledEnemyProjectileRadius,
+    scaledEnemyRenderScale
+} from "../src/shared/enemy-scale-data.js";
 import { GAMEPAD_ACTIVITY_TIMEOUT_SECONDS, RocketfrockInput } from "../src/browser/browser-input.js";
 import { calculateHudPanelScale } from "../src/browser/hud-panel-layout.js";
 import { GamepadHaptics, GAMEPAD_HAPTIC_PATTERNS } from "../src/browser/gamepad-haptics.js";
@@ -159,7 +165,11 @@ import {
     movingPlatformUsesFade,
     normalizeMovingPlatform
 } from "../src/shared/moving-platform-data.js";
-import { normalizeSignalChannel, normalizeSignalEmitter } from "../src/shared/signal-channel-data.js";
+import {
+    normalizeSignalChannel,
+    normalizeSignalEmitter,
+    normalizeSignalReceiver
+} from "../src/shared/signal-channel-data.js";
 import {
     DEFAULT_AUTO_SPAWN_ENEMIES,
     DEFAULT_ENEMY_SPAWNER,
@@ -379,6 +389,7 @@ function testSourceOrganization() {
         "../src/shared/cave-window-decoration.js",
         "../src/shared/animation-data.js",
         "../src/shared/actor-geometry.js",
+        "../src/shared/enemy-scale-data.js",
         "../src/shared/level-transform.js",
         "../src/shared/moving-platform-data.js",
         "../src/shared/signal-channel-data.js",
@@ -411,7 +422,8 @@ function testSourceOrganization() {
         "../renderer_smoke.html",
         "../src/presentation/level-color-map.js",
         "../src/presentation/rocket-glow-cache.js",
-        "../devel/old/ct_char_enemy_004.json"
+        "../devel/old/ct_char_enemy_004.json",
+        "../generate_level002_temp.mjs"
     ];
     for (const relativePath of retiredFiles) {
         assert.equal(existsSync(new URL(relativePath, import.meta.url)), false, `${relativePath} should remain retired`);
@@ -424,10 +436,18 @@ function testSourceOrganization() {
 
     const packageMetadata = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
     assert.equal(packageMetadata.type, "module", "package metadata should declare ES modules explicitly");
-    assert.equal(packageMetadata.scripts?.test, "node tests/testbench.mjs --progress", "package metadata should expose the aggregate test command with visible progress");
+    assert.equal(packageMetadata.scripts?.test, "npm run test:fast && npm run test:generator", "the release test command should isolate the fast and generator groups instead of retaining heavy geometry in one process");
     assert.equal(packageMetadata.scripts?.["test:fast"], "node tests/testbench.mjs --progress --group=fast", "package metadata should expose the fast non-generator test group");
-    assert.equal(packageMetadata.scripts?.["test:generator"], "node tests/testbench.mjs --progress --group=generator", "package metadata should expose the isolated generator test group");
+    assert.equal(packageMetadata.scripts?.["test:generator"], "node devel/run_generator_tests.mjs", "package metadata should expose the isolated generator test runner");
+    const generatorRunner = readFileSync(new URL("../devel/run_generator_tests.mjs", import.meta.url), "utf8");
+    assert.match(generatorRunner, /automatic level generator playable empty cavern/, "the generator runner should enumerate the heavy contracts explicitly");
+    assert.match(generatorRunner, /for \(const name of suites\)/, "the generator runner should launch each heavy contract in a fresh sequential process");
+    assert.equal(generatorRunner.includes("Promise.all"), false, "generator contracts should not compete concurrently for the same geometry-heavy memory budget");
     assert.equal(packageMetadata.scripts?.["test:profile"], "node tests/testbench.mjs --progress --profile", "package metadata should expose per-test timing diagnostics");
+
+    const packageHelper = readFileSync(new URL("../devel/package_update.py", import.meta.url), "utf8");
+    assert.ok(packageHelper.includes("RETIRED_FILES") && packageHelper.includes("src/presentation/rocket-glow-cache.js"), "release packaging should reject known retired files before creating an archive");
+    assert.ok(packageHelper.includes("hunter enemies but no baked navigation profiles"), "release packaging should reject hunter levels that would rebuild navigation edges every simulation tick");
 
     const architecture = readFileSync(new URL("../ARCHITECTURE.md", import.meta.url), "utf8");
     assert.ok(architecture.includes("PORTABLE CORE"), "architecture map should classify portable core modules");
@@ -505,6 +525,8 @@ function testSourceOrganization() {
     const caveWindowSource = readFileSync(new URL("../src/shared/cave-window-data.js", import.meta.url), "utf8");
     const collisionIndexSource = readFileSync(new URL("../src/core/world-collision-index.js", import.meta.url), "utf8");
     const simulationSource = coreSources[0];
+    assert.ok(simulationSource.includes("STATIC_ENEMY_NAVIGATION_CACHE") && simulationSource.includes("cache.profiles.set(profileKey, bundle)"), "runtime hunter fallback navigation should cache one static graph per world topology and mobility profile");
+    assert.match(simulationSource, /hasLivingBoss\(state\)/, "ordinary exit doors should consult the authoritative living-boss rule before opening");
     for (const retiredExport of ["DEFAULT_GENERATOR_STAGE_REVISIONS", "STAGE_SPECIFIC_REGENERATION_OPTIONS", "generatorRegistryEntry"]) {
         assert.equal(generatorSource.includes(retiredExport), false, `generator data should not retain unused export ${retiredExport}`);
     }
@@ -1304,6 +1326,70 @@ function testPlaceableEnemySpawner() {
     assert.equal(dormant.spawnCount, 1, "the newly visible one-hundred-percent spawner should then teleport in one enemy");
 }
 
+function testUnifiedEnemyScaling() {
+    assert.equal(normalizeEnemyScale(0, 1), 0.05, "enemy scale should retain a small positive lower bound");
+    assert.deepEqual(
+        scaledEnemyDimensions({ w: 40, h: 60, scale: 2.5 }),
+        { scale: 2.5, baseWidth: 40, baseHeight: 60, width: 100, height: 150 },
+        "shared enemy dimensions should multiply the Character Editor hitbox by one uniform level scale"
+    );
+    assert.equal(scaledEnemyRenderScale({ renderScale: 0.5, scale: 2.5 }), 1.25, "enemy artwork should use the same level scale");
+    assert.equal(scaledEnemyProjectileRadius({ projectileRadius: 6, scale: 2.5 }), 15, "enemy projectile radius should use the same level scale");
+
+    const state = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(state, {
+        levelId: "enemy_scale_test",
+        bounds: { x: 0, y: 0, w: 1000, h: 700 },
+        entities: [{
+            id: "scaled_enemy",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_002",
+            x: 300,
+            y: 500,
+            w: 40,
+            h: 60,
+            scale: 2.5,
+            renderScale: 0.5,
+            renderOffsetX: 3,
+            renderOffsetY: -4,
+            projectileRadius: 6,
+            health: 60,
+            strategy: "sentry"
+        }]
+    }), true, "a level containing a uniformly scaled enemy should apply");
+    const enemy = state.enemies.find((entry) => entry.id === "scaled_enemy");
+    assert.ok(enemy, "the uniformly scaled enemy should become a runtime actor");
+    approx(enemy.width, 100, 0.000001, "runtime hitbox width should use the uniform enemy scale");
+    approx(enemy.height, 150, 0.000001, "runtime hitbox height should use the uniform enemy scale");
+    approx(enemy.renderScale, 1.25, 0.000001, "runtime artwork should use the uniform enemy scale");
+    approx(enemy.renderOffsetX, 7.5, 0.000001, "runtime local artwork X offset should scale with the enemy");
+    approx(enemy.renderOffsetY, -10, 0.000001, "runtime local artwork Y offset should scale with the enemy");
+    approx(enemy.projectileRadius, 15, 0.000001, "runtime projectile collision and artwork radius should scale with the enemy");
+}
+
+function testLevelEditorMultiSelectionAndPaletteWorkflow() {
+    const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    assert.ok(editorHtml.includes('<button id="delete-selection" type="button">🗑 Delete</button>'), "Delete should be an immediate action button rather than a selectable tool");
+    assert.equal(editorHtml.includes('data-tool="delete"'), false, "the retired Delete tool should not remain selectable");
+    assert.ok(editorHtml.includes('els.deleteSelection.addEventListener("click", deleteSelected);'), "the Delete action should remove the current single or multi-selection without changing tools");
+    assert.ok(editorHtml.includes('kind: "selectionBox"') && editorHtml.includes('event.shiftKey'), "Shift-drag should create the ordinary selection rectangle");
+    assert.ok(editorHtml.includes('toggle: Boolean(event.ctrlKey || event.metaKey)'), "Ctrl+Shift-drag should toggle objects touched by the selection rectangle");
+    assert.ok(editorHtml.includes('if (event.ctrlKey || event.metaKey) toggleObjectSelection(rowData.id);'), "Ctrl-click in the placed-object list should toggle membership");
+    assert.ok(editorHtml.includes('rgba(174,174,184,0.88)') && editorHtml.includes('drawObjectSelectionOutline'), "secondary objects should use a separate gray dashed selection outline");
+    assert.ok(editorHtml.includes('primaryId: state.selectedId') && editorHtml.includes('snappedDx'), "group movement should preserve relative offsets while snapping from the primary object");
+
+    assert.equal(editorHtml.includes('id="asset-atlas"'), false, "the removed atlas dropdown should not remain in the Asset palette");
+    assert.ok(editorHtml.includes('for (const [atlasId, atlas] of state.atlases)'), "the Asset palette should aggregate assets from every loaded atlas");
+    assert.ok(editorHtml.includes('`${atlasId} · ${object?.type || "asset"}`'), "asset rows should identify their source atlas directly in the palette");
+
+    assert.ok(editorHtml.includes('protectedRegions: []'), "manual perimeter population should deliberately skip gameplay-clearance protection");
+    assert.equal(editorHtml.includes('function caveForegroundProtectionRegions()'), false, "the retired manual foreground shyness helper should remain removed");
+
+    assert.ok(editorHtml.includes('rec.scale = normalizeEnemyScale(els.inspectEnemyRenderScale.value, 1);'), "the enemy inspector should author one uniform scale instead of replacing the Character Editor artwork scale");
+    assert.ok(editorHtml.includes('els.inspectEnemyRenderScale.addEventListener("input"'), "enemy scale changes should update live while the value is edited");
+    assert.ok(editorHtml.includes('els.inspectW.disabled = selectedEnemy;') && editorHtml.includes('els.inspectH.disabled = selectedEnemy;'), "character-enemy W/H fields should be read-only effective hitbox dimensions");
+}
+
 function testEnemyCatalogAndLevelEditorIntegration() {
     const catalog = JSON.parse(readFileSync("./assets/ct_enemies_001.json", "utf8"));
     const skeleton = catalog.enemies?.enemy_001;
@@ -1378,7 +1464,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(editorHtml.includes('value="enemy_001"'), "level editor palette should expose the Skeleton Guard");
     assert.ok(editorHtml.includes('id="enemy-settings-row"'), "level editor should expose character-enemy behaviour controls");
     assert.ok(editorHtml.includes("drawCharacterEnemyPreview"), "level editor should preview enemies through the generic character renderer");
-    assert.ok(editorHtml.includes("const artworkOrigin = characterArtworkOrigin(entity);"), "level editor character previews should use the shared character-local artwork origin");
+    assert.ok(editorHtml.includes("const artworkOrigin = characterArtworkOrigin({") && editorHtml.includes("renderOffsetX: finiteEditorNumber(entity.renderOffsetX, 0) * enemyScale"), "level editor character previews should scale shared character-local artwork offsets with the enemy");
     assert.ok(rendererSource.includes("const artworkOrigin = characterArtworkOrigin(enemy);"), "runtime enemy rendering should use the shared character-local artwork origin");
     const rightOrigin = characterArtworkOrigin({ x: 100, y: 200, facing: 1, renderOffsetX: -11, renderOffsetY: 35 });
     const leftOrigin = characterArtworkOrigin({ x: 100, y: 200, facing: -1, renderOffsetX: -11, renderOffsetY: 35 });
@@ -4949,6 +5035,10 @@ function testAutomaticLevelGeneratorMacroRoomsGroundedDoorsAndPerimeterContract(
             const mandatoryVerticalSpan = Math.max(...mandatoryY) - Math.min(...mandatoryY);
             if (length === "grand") assert.ok(mandatoryVerticalSpan >= 520, "Grand macro routes should require substantial vertical travel");
             if (length === "grand") assert.ok(draft.generation.route.macro.cellPath.length >= 44, "Grand ThePath74 routes should retain a substantial cell path");
+            // Full decorated macro drafts retain large temporary geometry graphs in V8.
+            // Release each completed case before constructing the next one when the
+            // generator suite is launched with --expose-gc.
+            globalThis.gc?.();
         }
 
         for (let seed = 0; seed < 24; seed += 1) {
@@ -7408,8 +7498,8 @@ function testRocketPowerUpArsenal() {
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 289<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(bootstrapSource, /const GAME_REVISION = "289";/, "the game debug revision should match the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 293<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "293";/, "the game debug revision should match the packaged revision");
     assert.match(editorSource, /<button id="fit-content-view">Fit<\/button>/, "the Level Editor should expose one concise Fit button");
     assert.equal(editorSource.includes('id="fit-view"'), false, "the removed Fit World control should not remain in the Level Editor");
     assert.equal(editorSource.includes('id="fit-cave-view"'), false, "the removed Fit Cave control should not remain in the Level Editor");
@@ -9641,6 +9731,220 @@ function testMovingPlatformSchemaAndEditor() {
     assert.match(editorSource, /movingPlatformId: placement\.movement \? placement\.id : undefined/, "Level Editor navigation baking should tag dynamic geometry instead of renumbering later collision polygons");
 }
 
+function testBossDefeatSignalGate() {
+    const normalizedGate = normalizeSignalReceiver({
+        id: "boss_gate",
+        type: "hangingGate",
+        channel: " boss_defeated ",
+        x: 500,
+        y: 300,
+        w: 118,
+        h: 157,
+        collisionWidth: 112,
+        collisionHeight: 720
+    });
+    assert.equal(normalizedGate.channel, "boss_defeated", "boss gates should share trimmed named-signal channels");
+    assert.equal(normalizedGate.collisionHeight, 720, "a gate may block a taller passage than its decorative sprite");
+
+    const state = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(state, {
+        levelId: "boss_signal_gate_test",
+        testPlayerStart: { x: -200, y: 300 },
+        entities: [{
+            id: "test_boss",
+            type: "characterEnemy",
+            enemyCatalogId: "enemy_002",
+            characterId: "ct_char_enemy_002",
+            x: 180,
+            y: 100,
+            w: 72,
+            h: 150,
+            health: 30,
+            strategy: "sentry",
+            facing: -1,
+            isBoss: true,
+            bossName: "Test Goblin",
+            bossDefeatSignalChannel: "BOSS_TEST_DEFEATED"
+        }, {
+            id: "test_boss_gate",
+            type: "hangingGate",
+            x: 500,
+            y: 300,
+            w: 118,
+            h: 157,
+            channel: "BOSS_TEST_DEFEATED",
+            blocksPlayer: true,
+            signalReceiver: true,
+            collisionWidth: 112,
+            collisionHeight: 720,
+            collisionInsetTop: 0,
+            collisionInsetBottom: 0,
+            visualStates: { closed: [], open: [] },
+            state: "closed"
+        }]
+    }), true, "boss signal-gate test level should apply");
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+
+    const boss = state.enemies.find((enemy) => enemy.id === "test_boss");
+    assert.equal(boss.isBoss, true, "runtime enemies should retain authored boss identity");
+    assert.equal(boss.bossName, "Test Goblin", "runtime bosses should retain their authored HUD name");
+    const restoredBeforeFight = restoreGameState(serializeGameState(state));
+    const restoredBoss = restoredBeforeFight.enemies.find((enemy) => enemy.id === "test_boss");
+    assert.equal(restoredBoss.isBoss, true, "boss identity should survive portable JSON state serialization");
+    assert.equal(restoredBoss.bossDefeatSignalChannel, "BOSS_TEST_DEFEATED", "the boss defeat channel should survive portable JSON state serialization");
+    const closedSolid = state.world.solids.find((solid) => solid.signalReceiverId === "test_boss_gate");
+    assert.ok(closedSolid, "an inactive boss signal should keep the exit gate collidable");
+    assert.equal(closedSolid.h, 720, "the gate collision should cover the authored passage height");
+
+    addTestRocket(state, { id: "boss_lethal_hit", damage: 30 });
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+
+    assert.equal(boss.health, 0, "the test rocket should defeat the boss");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "BOSS_DEFEATED" && event.enemyId === boss.id), "boss death should emit its deterministic encounter event");
+    assert.equal(state.world.signalChannels.BOSS_TEST_DEFEATED.active, true, "boss death should activate the authored signal channel");
+    assert.equal(state.world.entityStates.test_boss_gate, "open", "the matching iron gate should enter its raised state");
+    assert.equal(state.world.solids.some((solid) => solid.signalReceiverId === "test_boss_gate"), false, "raising the gate should remove its blocking collision immediately");
+
+    const gameSource = readFileSync(new URL("../game.html", import.meta.url), "utf8");
+    const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
+    const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    assert.match(gameSource, /id="boss-hud"/, "the game shell should include the boss-health panel");
+    assert.match(bootstrapSource, /function updateBossHud/, "the browser runtime should update boss HUD visibility and health");
+    assert.match(editorSource, /Defeat signal/, "the Level Editor should expose the boss-to-gate signal channel");
+    assert.match(editorSource, /Signal-controlled gate/, "the Level Editor should expose reusable signal-controlled gate settings");
+    assert.match(editorSource, /Disable signal \(optional\)/, "the Level Editor should let encounter spawners stop on the boss-defeat signal");
+}
+
+function testLivingBossLocksExitDoor() {
+    const state = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(state, {
+        levelId: "boss_exit_lock_test",
+        testPlayerStart: { x: 500, y: 300 },
+        entities: [{
+            id: "exit_lock_boss",
+            type: "characterEnemy",
+            enemyCatalogId: "enemy_002",
+            characterId: "ct_char_enemy_002",
+            x: 180,
+            y: 100,
+            w: 72,
+            h: 150,
+            health: 30,
+            strategy: "sentry",
+            facing: -1,
+            isBoss: true,
+            bossName: "Door Warden"
+        }, {
+            id: "locked_exit",
+            type: "wizard_exit_door",
+            x: 500,
+            y: 300,
+            w: 125,
+            h: 164,
+            portalRole: "exit",
+            interaction: "levelPortal",
+            triggerDistance: 120,
+            destinationLevel: "level_999",
+            visualStates: { closed: [], open: [] },
+            state: "closed"
+        }]
+    }), true, "boss exit-lock test level should apply");
+    state.story.portalIntro = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 500;
+    state.player.y = 300;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(state.story.portalExit.active, false, "an exit door should refuse proximity activation while any boss remains alive");
+    assert.equal(state.world.entityStates.locked_exit, "closed", "the boss-locked exit should retain its closed visual state");
+
+    addTestRocket(state, { id: "exit_lock_boss_hit", damage: 30 });
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    const boss = state.enemies.find((enemy) => enemy.id === "exit_lock_boss");
+    assert.equal(boss.health, 0, "the lock test boss should be defeated by the test rocket");
+    state.player.x = 500;
+    state.player.y = 300;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(state.story.portalExit.active, true, "the same exit door should open normally once no living boss remains");
+    assert.equal(state.world.entityStates.locked_exit, "open", "boss defeat should allow the ordinary exit opening sequence without a gate");
+}
+
+function testLevelTwoGoblinBossArenaContract() {
+    const level = JSON.parse(readFileSync(new URL("../assets/level_002.json", import.meta.url), "utf8"));
+    assert.equal(level.levelId, "level_002", "the authored level should retain its sequential level ID");
+    assert.equal(level.generation.seed, "cinder-vault-291-8f6c2b", "the generated foundation should retain its reproducible random seed");
+    assert.ok(getMusicTune(level.music.tuneId), "level_002 should name a real synthesized tune rather than silently falling back");
+
+    const enemies = level.entities.filter((entity) => entity.type === "characterEnemy");
+    assert.equal(enemies.length, 16, "the route and arena should contain nine ground goblins, six bats, and one boss");
+    const counts = enemies.reduce((map, enemy) => map.set(enemy.enemyCatalogId, (map.get(enemy.enemyCatalogId) || 0) + 1), new Map());
+    assert.equal(counts.get("enemy_001") || 0, 0, "level_002 should contain no Skeleton Guards");
+    assert.equal(counts.get("enemy_002"), 6, "level_002 should retain Fireball Goblins including the boss");
+    assert.equal(counts.get("enemy_003"), 4, "level_002 should include four Musket Goblins for route variety");
+    assert.equal(counts.get("enemy_005"), 6, "level_002 should include three two-bat groups");
+    const batGroups = new Set(enemies.filter((enemy) => enemy.enemyCatalogId === "enemy_005").map((enemy) => enemy.generationEncounterId));
+    assert.equal(batGroups.size, 3, "the six bats should be grouped into three compact encounters");
+
+    const boss = enemies.find((enemy) => enemy.isBoss === true);
+    assert.ok(boss, "level_002 should contain one explicitly authored boss");
+    assert.equal(boss.bossName, "Gorblax the Incandescent", "the boss should have a stable HUD name");
+    assert.ok(scaledEnemyRenderScale(boss, 1) >= 1.5 && boss.health >= 750, "the compacted boss should remain visibly oversized and substantially tougher than ordinary goblins");
+    assert.equal(boss.scale, 2.8, "the boss should use one authored uniform scale rather than separate enlarged hitbox and render values");
+    assert.deepEqual({ w: boss.w, h: boss.h, renderScale: boss.renderScale, projectileRadius: boss.projectileRadius }, { w: 70, h: 105, renderScale: 0.55, projectileRadius: 14 }, "the boss should retain Character Editor base geometry and let its uniform scale enlarge artwork, hitbox, and fireballs together");
+    assert.equal(boss.bossDefeatSignalChannel, "BOSS_002_DEFEATED", "the boss should still own the reinforcement-shutdown signal");
+
+    const leftPlatforms = level.placements.filter((placement) => /^boss_left_platform_/.test(placement.id));
+    const rightPlatforms = level.placements.filter((placement) => /^boss_right_platform_/.test(placement.id));
+    assert.equal(leftPlatforms.length, 4, "the arena should have four vertically stacked fighting platforms on the left");
+    assert.equal(rightPlatforms.length, 4, "the arena should have four vertically stacked fighting platforms on the right");
+    const leftTopYs = leftPlatforms.map((placement) => placement.y).sort((a, b) => a - b);
+    const rightTopYs = rightPlatforms.map((placement) => placement.y).sort((a, b) => a - b);
+    assert.ok(leftTopYs.every((y, index) => index === 0 || y - leftTopYs[index - 1] >= 140), "left platforms should be separated by compact jumpable steps");
+    assert.ok(rightTopYs.every((y, index) => index === 0 || y - rightTopYs[index - 1] >= 140), "right platforms should be separated by compact jumpable steps");
+    assert.ok(Math.abs(leftTopYs[0] - rightTopYs[0]) >= 40, "the two platform columns should remain vertically staggered");
+    const arenaXs = [
+        ...leftPlatforms.flatMap((placement) => [placement.x, placement.x + placement.w]),
+        ...rightPlatforms.flatMap((placement) => [placement.x, placement.x + placement.w]),
+        boss.x,
+        level.entities.find((entity) => entity.id === "wizard_exit_door_002").x
+    ];
+    assert.ok(Math.max(...arenaXs) - Math.min(...arenaXs) <= 1900, "the complete fighting layout and exit should fit within a standard wide viewport");
+
+    const spawners = level.entities.filter((entity) => entity.type === "enemySpawner");
+    assert.equal(spawners.length, 6, "the lower three platforms on each side should reinforce the boss fight");
+    assert.ok(spawners.every((spawner) => spawner.enemyPool === "2,3"), "arena spawners should create ordinary Fireball or Musket Goblins");
+    assert.ok(spawners.every((spawner) => spawner.disableSignalChannel === "BOSS_002_DEFEATED"), "reinforcements should stop once the boss falls");
+
+    const wrenches = level.entities.filter((entity) => entity.type === "randomWrenchPickup");
+    assert.equal(wrenches.length, 4, "the arena should contain exactly four wrench power-ups");
+    assert.ok(wrenches.every((wrench) => wrench.x >= 16890 && wrench.x <= 18080 && wrench.y <= 720), "all four wrenches should sit on the compact arena columns");
+
+    const gate = level.entities.find((entity) => /Gate$/.test(entity.type || "") || entity.id === "boss_exit_gate_001");
+    const exit = level.entities.find((entity) => entity.id === "wizard_exit_door_002");
+    assert.equal(gate, undefined, "the revised arena should not hide its exit behind a decorative iron gate");
+    assert.ok(exit, "the arena should retain an ordinary wizard exit door");
+    assert.equal(exit.destinationLevel, "level_003", "the level-two exit should point to the next sequential level");
+
+    const profiles = level.navigationGraphs?.profiles || [];
+    assert.equal(profiles.length, 2, "ordinary goblins and the differently sized boss should each have a baked hunter mobility profile");
+    assert.ok(profiles.every((profile) => profile.supports.length > 40 && profile.edges.length > 0), "every baked mobility profile should contain the complete route supports and directed edges");
+
+    const runtimeState = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(runtimeState, level), true, "the complete level_002 file should load through the production level path");
+    const manifestMap = new Map(level.atlasRefs.map((reference) => [
+        reference.atlasId,
+        { manifest: JSON.parse(readFileSync(new URL(`../${reference.manifest}`, import.meta.url), "utf8")) }
+    ]));
+    assert.equal(applyAtlasManifestsToWorld(runtimeState, manifestMap), true, "level_002 should build its production collision world from the referenced manifests");
+    assert.equal(runtimeState.enemies.filter((enemy) => enemy.kind === "characterEnemy").length, 16, "runtime loading should retain all authored goblins and bats");
+    assert.equal(runtimeState.world.enemySpawners.length, 6, "runtime loading should retain all six arena spawners");
+    assert.equal(runtimeState.world.signalReceivers.some((receiver) => receiver.id === "boss_exit_gate_001"), false, "runtime loading should not recreate the removed iron gate");
+}
+
 function testAutomaticShuttleMovingPlatform() {
     const state = createMovingPlatformTestState({
         pattern: "shuttle",
@@ -10463,6 +10767,9 @@ const tests = [
     ["cave full-black lethal boundary", testCaveFullBlackKillBoundary],
     ["generated moving-platform rider clearance", testGeneratedMovingPlatformRiderClearance],
     ["moving-platform schema and Level Editor", testMovingPlatformSchemaAndEditor],
+    ["boss defeat signal and iron gate", testBossDefeatSignalGate],
+    ["living boss locks ordinary exit doors", testLivingBossLocksExitDoor],
+    ["level_002 goblin boss arena contract", testLevelTwoGoblinBossArenaContract],
     ["automatic shuttle moving platform", testAutomaticShuttleMovingPlatform],
     ["moving-platform crush requires nearest blocked exit for three ticks", testMovingPlatformCrushRequiresThreeTicksAndNearestExit],
     ["two-tick crush recovery emits diagnostics", testCrushWarningReportsTwoTickRecovery],
@@ -10497,6 +10804,8 @@ const tests = [
     ["flying bomber notices wizard below and ahead", testFlyingBomberNoticesWizardBelowAndAhead],
     ["automatic enemy spawning", testAutomaticEnemySpawning],
     ["placeable on-screen enemy spawner", testPlaceableEnemySpawner],
+    ["unified enemy scaling", testUnifiedEnemyScaling],
+    ["Level Editor multi-selection and all-atlas palette", testLevelEditorMultiSelectionAndPaletteWorkflow],
     ["enemy catalog and Level Editor integration", testEnemyCatalogAndLevelEditorIntegration],
     ["enemy navigation graph and jump reachability", testEnemyNavigationGraphAndJumpReachability],
     ["enemy navigation across overlapping solid floors", testEnemyNavigationAcrossOverlappingSolidFloors],
@@ -10606,6 +10915,12 @@ function testbenchNameInGroup(name, group) {
             || normalizedName.includes("macro rooms, grounded doors")
             || normalizedName.includes("atlas 004 long platforms");
     }
+    if (group === "generator-core") {
+        return testbenchNameInGroup(name, "generator") && !normalizedName.includes("macro rooms, grounded doors");
+    }
+    if (group === "generator-macro") {
+        return normalizedName.includes("macro rooms, grounded doors");
+    }
     if (group === "fast") return !testbenchNameInGroup(name, "generator");
     throw new Error(`Unknown test group: ${group}`);
 }
@@ -10627,6 +10942,7 @@ for (const [name, fn] of tests) {
     if (showProgress) console.log(`RUN  ${name}`);
     const testStartedAt = process.hrtime.bigint();
     await fn();
+    if (requestedTestGroup.startsWith("generator")) globalThis.gc?.();
     const elapsedMs = Number(process.hrtime.bigint() - testStartedAt) / 1e6;
     const memory = process.memoryUsage();
     peakRssBytes = Math.max(peakRssBytes, memory.rss);

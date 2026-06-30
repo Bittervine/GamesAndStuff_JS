@@ -10,6 +10,11 @@ export const SIGNAL_EMITTER_INTERACTIONS = Object.freeze([
     "keyhole"
 ]);
 
+export const SIGNAL_RECEIVER_TYPES = Object.freeze([
+    "spikedGate",
+    "hangingGate"
+]);
+
 export function normalizeSignalChannel(value, fallback = DEFAULT_SIGNAL_CHANNEL) {
     const fallbackText = String(fallback ?? DEFAULT_SIGNAL_CHANNEL).trim() || DEFAULT_SIGNAL_CHANNEL;
     const text = String(value ?? "").trim();
@@ -21,6 +26,40 @@ export function isSignalEmitterEntity(entity) {
     const type = String(entity.type || entity.kind || "");
     const interaction = String(entity.interaction || "");
     return SIGNAL_EMITTER_TYPES.includes(type) || SIGNAL_EMITTER_INTERACTIONS.includes(interaction);
+}
+
+export function isSignalReceiverEntity(entity) {
+    if (!entity || typeof entity !== "object") return false;
+    const type = String(entity.type || entity.kind || "");
+    return SIGNAL_RECEIVER_TYPES.includes(type) || entity.signalReceiver === true;
+}
+
+export function normalizeSignalReceiver(entity) {
+    if (!isSignalReceiverEntity(entity)) return null;
+    const width = Math.max(1, finiteNumber(entity.w ?? entity.width, 96));
+    const height = Math.max(1, finiteNumber(entity.h ?? entity.height, 180));
+    const collisionWidth = Math.max(1, finiteNumber(entity.collisionWidth, width));
+    const collisionHeight = Math.max(1, finiteNumber(entity.collisionHeight, height));
+    return {
+        id: String(entity.id || ""),
+        type: String(entity.type || entity.kind || "signalReceiver"),
+        channel: normalizeSignalChannel(entity.channel),
+        x: finiteNumber(entity.x, 0),
+        y: finiteNumber(entity.y, 0),
+        width,
+        height,
+        collisionWidth,
+        collisionHeight,
+        collisionOffsetX: finiteNumber(entity.collisionOffsetX, 0),
+        collisionOffsetY: finiteNumber(entity.collisionOffsetY, 0),
+        blocksPlayer: entity.blocksPlayer !== false,
+        collisionInsetX: Math.max(0, finiteNumber(entity.collisionInsetX, collisionWidth * 0.16)),
+        collisionInsetTop: Math.max(0, finiteNumber(entity.collisionInsetTop, 4)),
+        collisionInsetBottom: Math.max(0, finiteNumber(entity.collisionInsetBottom, 0)),
+        closedState: String(entity.closedState || "closed"),
+        openState: String(entity.openState || "open"),
+        invertSignal: entity.invertSignal === true
+    };
 }
 
 export function normalizeSignalEmitter(entity) {

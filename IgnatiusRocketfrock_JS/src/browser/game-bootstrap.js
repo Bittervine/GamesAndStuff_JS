@@ -44,6 +44,10 @@ const scoreText = document.getElementById("score-text");
 const powerText = document.getElementById("power-text");
 const powerTime = document.getElementById("power-time");
 const powerFill = document.getElementById("power-fill");
+const bossHud = document.getElementById("boss-hud");
+const bossName = document.getElementById("boss-name");
+const bossHealthText = document.getElementById("boss-health-text");
+const bossHealthFill = document.getElementById("boss-health-fill");
 const debugEl = document.getElementById("debug");
 const tuningControlsEl = document.getElementById("tuning-controls");
 const tuningJsonEl = document.getElementById("tuning-json");
@@ -96,7 +100,7 @@ const autoFullscreenRow = document.getElementById("auto-fullscreen-row");
 const autoFullscreenInput = document.getElementById("auto-fullscreen");
 const showMinimapInput = document.getElementById("show-minimap");
 
-const GAME_REVISION = "289";
+const GAME_REVISION = "293";
 
 let displayedLoadingProgress = 0;
 let activeCaveWindow = normalizeCaveWindow(null);
@@ -1511,8 +1515,27 @@ function displayedLevelNumber(levelId) {
     return match ? Math.max(1, Number(match[1]) || 1) : null;
 }
 
+
+function activeBossEnemy() {
+    const bosses = (gameState.enemies || []).filter((enemy) => enemy?.isBoss === true && Number(enemy.health) > 0);
+    return bosses.find((enemy) => enemy.engaged === true || enemy.alerted === true || Number(enemy.health) < Number(enemy.maxHealth)) || null;
+}
+
+function updateBossHud() {
+    if (!bossHud) return;
+    const boss = activeBossEnemy();
+    bossHud.hidden = !boss;
+    if (!boss) return;
+    const maximum = Math.max(1, Number(boss.maxHealth) || Number(boss.health) || 1);
+    const current = Math.max(0, Math.min(maximum, Number(boss.health) || 0));
+    if (bossName) bossName.textContent = String(boss.bossName || "Boss");
+    if (bossHealthText) bossHealthText.textContent = `${Math.round(current)} / ${Math.round(maximum)} HP`;
+    if (bossHealthFill) bossHealthFill.style.width = `${(current / maximum * 100).toFixed(1)}%`;
+}
+
 function updateHud() {
     drawMinimap();
+    updateBossHud();
     const levelNumber = displayedLevelNumber(gameState.world?.levelId);
     const levelTitle = String(gameState.story?.levelTitle || "Untitled Cave").trim() || "Untitled Cave";
     if (levelTitleText) {

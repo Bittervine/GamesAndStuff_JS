@@ -14,10 +14,13 @@ import {
 import { normalizeMovingPlatform } from "../shared/moving-platform-data.js";
 import {
     isSignalEmitterEntity,
+    isSignalReceiverEntity,
     normalizeSignalChannel,
-    normalizeSignalEmitter
+    normalizeSignalEmitter,
+    normalizeSignalReceiver
 } from "../shared/signal-channel-data.js";
 import { normalizeLevelMusic } from "../shared/music-data.js";
+import { normalizeEnemyScale, scaledEnemyDimensions, scaledEnemyProjectileRadius, scaledEnemyRenderScale } from "../shared/enemy-scale-data.js";
 import {
     enemyEntityFromDefinition,
     normalizeAutoSpawnEnemies,
@@ -70,6 +73,7 @@ export function ordinaryJumpVelocity(gravity, jumpHeight) {
 }
 
 const MOVING_PLATFORM_NAVIGATION_CACHE = new WeakMap();
+const STATIC_ENEMY_NAVIGATION_CACHE = new WeakMap();
 
 const WIZARD_DOOR_FLOOR_ANCHOR_Y_FACTOR = 239 / 263;
 const DEFAULT_WIZARD_DOOR_INSIDE_SCALE = 0.84;
@@ -502,6 +506,7 @@ function createTestArena(tuning) {
         movingPlatforms: [],
         signalChannels: {},
         signalEmitters: [],
+        signalReceivers: [],
         caveWindow: normalizeCaveWindow(null),
         caveKillBoundary: deriveCaveFullBlackKillBoundary(null),
         solids,
@@ -606,7 +611,7 @@ export function applyAtlasManifestsToWorld(state, environmentManifests) {
     state.world.segments = segments;
     state.world.collisionPolygons = polygons;
     bindMovingPlatformCollision(state, segments, polygons);
-    state.world.solids = (state.world.solids || []).filter((solid) => solid.kind === "wall" || solid.reactiveObjectId);
+    state.world.solids = (state.world.solids || []).filter((solid) => solid.kind === "wall" || solid.reactiveObjectId || solid.signalReceiverId);
     state.world.collisionMode = polygons.length ? "atlasSegmentsAndAreas" : "atlasSegments";
     state.world.collisionSegmentCount = segments.length;
     state.world.collisionPolygonCount = polygons.length;
@@ -1025,6 +1030,10 @@ function isWizardExitDoor(entity) {
     return Boolean(entity) && (entity.type === "wizard_exit_door" || entity.kind === "wizard_exit_door");
 }
 
+function hasLivingBoss(state) {
+    return (state?.enemies || []).some((enemy) => enemy?.isBoss === true && Number(enemy.health) > 0);
+}
+
 function isWizardDoor(entity) {
     return isWizardEntryDoor(entity) || isWizardExitDoor(entity);
 }
@@ -1332,6 +1341,14 @@ function updatePortalExit(state, dt) {
     if (!portal) return false;
 
     if (!exit.active) {
+        if (hasLivingBoss(state)) {
+            exit.lockedByBoss = true;
+            if (state.world.entityStates?.[exit.portalId] !== "closed") {
+                setWorldEntityState(state, exit.portalId, "closed");
+            }
+            return false;
+        }
+        exit.lockedByBoss = false;
         const horizontalDistance = Math.abs(state.player.x - Number(portal.x || 0));
         const verticalDistance = Math.abs(state.player.y - Number(portal.y || 0));
         if (horizontalDistance > exit.triggerDistance || verticalDistance > exit.verticalTolerance) return false;
@@ -1587,6 +1604,55 @@ export function emitSignalChannel(state, channel, options = {}) {
     return record;
 }
 
+function signalReceiverCollisionRect(receiver) {
+    const width = Math.max(1, Number(receiver?.collisionWidth) || Number(receiver?.width) || 1);
+    const height = Math.max(1, Number(receiver?.collisionHeight) || Number(receiver?.height) || 1);
+    const offsetX = Number(receiver?.collisionOffsetX) || 0;
+    const offsetY = Number(receiver?.collisionOffsetY) || 0;
+    const insetX = clamp(Number(receiver?.collisionInsetX) || 0, 0, width * 0.45);
+    const insetTop = clamp(Number(receiver?.collisionInsetTop) || 0, 0, height * 0.9);
+    const insetBottom = clamp(Number(receiver?.collisionInsetBottom) || 0, 0, height * 0.9 - insetTop);
+    return {
+        x: (Number(receiver?.x) || 0) + offsetX - width * 0.5 + insetX,
+        y: (Number(receiver?.y) || 0) + offsetY - height + insetTop,
+        w: Math.max(1, width - insetX * 2),
+        h: Math.max(1, height - insetTop - insetBottom)
+    };
+}
+
+function syncSignalReceiverCollision(state, receiver) {
+    if (!state?.world || !receiver?.id) return;
+    state.world.solids = (state.world.solids || []).filter((solid) => solid.signalReceiverId !== receiver.id);
+    if (!receiver.blocksPlayer || receiver.open) return;
+    state.world.solids.push({
+        id: `${receiver.id}_signal_solid`,
+        kind: "signalGate",
+        signalReceiverId: receiver.id,
+        ...signalReceiverCollisionRect(receiver)
+    });
+}
+
+function updateSignalReceivers(state) {
+    for (const receiver of state.world?.signalReceivers || []) {
+        const channel = signalChannelRecord(state, receiver.channel, true);
+        const open = receiver.invertSignal ? !channel.active : channel.active;
+        if (receiver.open === open) continue;
+        receiver.open = open;
+        const nextState = open ? receiver.openState : receiver.closedState;
+        if (!setWorldEntityState(state, receiver.id, nextState)) {
+            const entity = worldEntityById(state, receiver.id);
+            if (entity) entity.state = nextState;
+            state.world.entityStates[receiver.id] = nextState;
+        }
+        syncSignalReceiverCollision(state, receiver);
+        addEvent(state, open ? "SIGNAL_GATE_OPENED" : "SIGNAL_GATE_CLOSED", {
+            gateId: receiver.id,
+            channel: receiver.channel,
+            state: nextState
+        });
+    }
+}
+
 function configureSignalSystem(state, entities = []) {
     if (!state?.world) return;
     state.world.signalChannels = {};
@@ -1594,14 +1660,24 @@ function configureSignalSystem(state, entities = []) {
         .filter(isSignalEmitterEntity)
         .map((entity) => normalizeSignalEmitter(entity))
         .filter(Boolean);
+    state.world.signalReceivers = entities
+        .filter(isSignalReceiverEntity)
+        .map((entity) => normalizeSignalReceiver(entity))
+        .filter(Boolean)
+        .map((receiver) => ({ ...receiver, open: false }));
     for (const emitter of state.world.signalEmitters) {
         signalChannelRecord(state, emitter.channel, true);
+    }
+    for (const receiver of state.world.signalReceivers) {
+        signalChannelRecord(state, receiver.channel, true);
+        syncSignalReceiverCollision(state, receiver);
     }
     for (const platform of state.world.movingPlatforms || []) {
         if (platform.movement?.activation === "signal") {
             signalChannelRecord(state, platform.movement.signalChannel, true);
         }
     }
+    updateSignalReceivers(state);
 }
 
 function inventoryItemCount(state, itemId) {
@@ -2377,8 +2453,10 @@ function updateMovingPlatforms(state, dt) {
 function createCharacterEnemyRuntime(state, entity, index = 0) {
     const x = Number(entity.x) || 0;
     const y = Number(entity.y) || 0;
-    const width = Math.max(1, Number(entity.w) || Number(entity.width) || 72);
-    const height = Math.max(1, Number(entity.h) || Number(entity.height) || 150);
+    const dimensions = scaledEnemyDimensions(entity, 72, 150);
+    const enemyScale = normalizeEnemyScale(entity.scale, 1);
+    const width = dimensions.width;
+    const height = dimensions.height;
     const anchor = entity.targetAnchor && typeof entity.targetAnchor === "object" ? entity.targetAnchor : null;
     const anchorX = clamp(Number(anchor?.x ?? 0.5), 0, 1);
     const anchorY = clamp(Number(anchor?.y ?? 0.42), 0, 1);
@@ -2401,6 +2479,10 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
     return {
         id: entity.id || `characterEnemy_${index + 1}`,
         kind: "characterEnemy",
+        isBoss: entity.isBoss === true,
+        bossName: String(entity.bossName || "").trim() || "Boss",
+        bossDefeatSignalChannel: entity.bossDefeatSignalChannel ? normalizeSignalChannel(entity.bossDefeatSignalChannel) : null,
+        bossDefeatEmitted: false,
         autoSpawned: entity.autoSpawned === true,
         enemyDefinitionId: entity.enemyDefinitionId ? String(entity.enemyDefinitionId) : null,
         enemySpawnerId: entity.enemySpawnerId ? String(entity.enemySpawnerId) : null,
@@ -2411,6 +2493,7 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         spawnY: y,
         width,
         height,
+        scale: enemyScale,
         health,
         maxHealth: health,
         combatState: health > 0 ? "alive" : "dead",
@@ -2529,7 +2612,7 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         projectileSpeed: Math.max(1, finiteNumberOr(entity.projectileSpeed, state.tuning.enemyDefaultProjectileSpeed)),
         projectileGravity: finiteNumberOr(entity.projectileGravity, state.tuning.enemyDefaultProjectileGravity),
         projectileLifetime: Math.max(FIXED_DT, finiteNumberOr(entity.projectileLifetime, state.tuning.enemyDefaultProjectileLifetime)),
-        projectileRadius: Math.max(1, finiteNumberOr(entity.projectileRadius, state.tuning.enemyDefaultProjectileRadius)),
+        projectileRadius: scaledEnemyProjectileRadius(entity, state.tuning.enemyDefaultProjectileRadius),
         projectileDamage: Math.max(0, finiteNumberOr(entity.projectileDamage, state.tuning.enemyDefaultProjectileDamage)),
         projectileCooldown: Math.max(0, finiteNumberOr(entity.projectileCooldown, state.tuning.enemyDefaultProjectileCooldown)),
         projectileHomingStrength: Math.max(0, finiteNumberOr(entity.projectileHomingStrength, state.tuning.enemyDefaultProjectileHomingStrength)),
@@ -2555,9 +2638,9 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         healthBarTimer: 0,
         lastDamagedAt: null,
         lastHitBy: null,
-        renderScale: Math.max(0.05, Number(entity.renderScale) || 1),
-        renderOffsetX: Number(entity.renderOffsetX) || 0,
-        renderOffsetY: Number(entity.renderOffsetY) || 0,
+        renderScale: scaledEnemyRenderScale(entity, 1),
+        renderOffsetX: (Number(entity.renderOffsetX) || 0) * enemyScale,
+        renderOffsetY: (Number(entity.renderOffsetY) || 0) * enemyScale,
         visualized: false,
         targetAnchorX: anchorX,
         targetAnchorY: anchorY,
@@ -2666,6 +2749,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
                 width: Math.max(1, Number(entity.w) || Number(entity.width) || 64),
                 height: Math.max(1, Number(entity.h) || Number(entity.height) || 64),
                 groundSnapDistance: Math.max(24, Number(entity.groundSnapDistance) || 96),
+                disableSignalChannel: entity.disableSignalChannel ? normalizeSignalChannel(entity.disableSignalChannel) : null,
                 ...config,
                 intervalSeconds: 1,
                 timer: 1,
@@ -2712,6 +2796,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         movingPlatforms: createMovingPlatformRuntimes(visuals),
         signalChannels: {},
         signalEmitters: [],
+        signalReceivers: [],
         entities: runtimeEntities,
         entityStates: Object.fromEntries(runtimeEntities.filter((entity) => entity.id).map((entity) => [entity.id, entity.state || ""])),
         solids: [
@@ -3513,6 +3598,14 @@ function spawnEnemyFromSpawner(state, spawner) {
 function updateEnemySpawners(state, dt) {
     for (const spawner of state.world?.enemySpawners || []) {
         const interval = Math.max(FIXED_DT, Number(spawner.intervalSeconds) || 1);
+        const disabled = spawner.disableSignalChannel
+            ? signalChannelRecord(state, spawner.disableSignalChannel, false)?.active === true
+            : false;
+        if (disabled) {
+            spawner.onScreen = false;
+            spawner.timer = interval;
+            continue;
+        }
         const onScreen = enemySpawnerOnScreen(state, spawner);
         spawner.onScreen = onScreen;
         if (!onScreen || Number(spawner.probabilityPercent) <= 0) {
@@ -4646,17 +4739,53 @@ function translatedRiderNavigationSupport(state, enemy, supports) {
     return { support, x: enemy.x, y: enemy.y, delta: 0, score: -1 };
 }
 
-function characterEnemyNavigationContext(state, enemy) {
-    const options = characterEnemyNavigationOptions(enemy, state);
-    const liveSupports = buildEnemyNavigationSupports(state.world, options);
-    const candidateGraph = findBakedEnemyNavigationGraph(state.world?.navigationGraphs, options);
-    const bakedGraph = candidateGraph?.supportSignature === enemyNavigationSupportsSignature(liveSupports)
+function staticEnemyNavigationBundle(state, options) {
+    const world = state.world;
+    const solids = world?.solids || [];
+    const segments = world?.segments || [];
+    const polygons = world?.collisionPolygons || [];
+    let cache = STATIC_ENEMY_NAVIGATION_CACHE.get(world);
+    if (!cache
+        || cache.solids !== solids
+        || cache.segments !== segments
+        || cache.polygons !== polygons
+        || cache.solidCount !== solids.length
+        || cache.segmentCount !== segments.length
+        || cache.polygonCount !== polygons.length) {
+        cache = {
+            solids,
+            segments,
+            polygons,
+            solidCount: solids.length,
+            segmentCount: segments.length,
+            polygonCount: polygons.length,
+            profiles: new Map()
+        };
+        STATIC_ENEMY_NAVIGATION_CACHE.set(world, cache);
+    }
+
+    const profileKey = enemyNavigationProfileKey(options);
+    const cached = cache.profiles.get(profileKey);
+    if (cached) return cached;
+
+    const liveSupports = buildEnemyNavigationSupports(world, options);
+    const supportSignature = enemyNavigationSupportsSignature(liveSupports);
+    const candidateGraph = findBakedEnemyNavigationGraph(world?.navigationGraphs, options);
+    const bakedGraph = candidateGraph?.supportSignature === supportSignature
         ? candidateGraph
         : null;
     const staticSupports = bakedGraph?.supports?.length ? bakedGraph.supports : liveSupports;
     const staticEdgeMap = bakedGraph?.edges?.length
         ? enemyNavigationEdgeMapFromFlat(bakedGraph.edges, staticSupports)
-        : buildEnemyNavigationEdges(staticSupports, { ...options, world: state.world });
+        : buildEnemyNavigationEdges(staticSupports, { ...options, world });
+    const bundle = { staticSupports, staticEdgeMap, bakedGraph };
+    cache.profiles.set(profileKey, bundle);
+    return bundle;
+}
+
+function characterEnemyNavigationContext(state, enemy) {
+    const options = characterEnemyNavigationOptions(enemy, state);
+    const { staticSupports, staticEdgeMap, bakedGraph } = staticEnemyNavigationBundle(state, options);
     const movingBundle = movingPlatformNavigationBundle(state, options, staticSupports, staticEdgeMap);
     const supports = movingBundle.supports;
     const rawEdgeMap = movingBundle.edgeMap;
@@ -6676,6 +6805,7 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     updateTreasureChests(state, dt);
     updatePickups(state);
     updateSignalEmitters(state, input);
+    updateSignalReceivers(state);
     updateMovingPlatforms(state, dt);
     updateAutomaticEnemySpawning(state, dt);
     updateEnemySpawners(state, dt);
@@ -8043,6 +8173,18 @@ function applyProjectileDamageToEnemy(state, projectile, enemy) {
         maxHealth: round(enemy.maxHealth),
         deferredUntilLanding: enemy.deathPendingLanding === true
     });
+    if (defeated && enemy.isBoss === true && enemy.bossDefeatEmitted !== true) {
+        enemy.bossDefeatEmitted = true;
+        addEvent(state, "BOSS_DEFEATED", {
+            enemyId: enemy.id,
+            bossName: enemy.bossName,
+            signalChannel: enemy.bossDefeatSignalChannel
+        });
+        if (enemy.bossDefeatSignalChannel) {
+            emitSignalChannel(state, enemy.bossDefeatSignalChannel, { sourceId: enemy.id, active: true });
+            updateSignalReceivers(state);
+        }
+    }
     return {
         damage,
         health: enemy.health,

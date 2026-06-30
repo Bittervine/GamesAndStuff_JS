@@ -1974,12 +1974,15 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 
 ## Milestone D: basic boss encounters
 
-- [ ] Add `isBoss` and `bossName` to enemy placements and Level Editor controls.
-- [ ] Show one current/max-health boss bar for the actively engaged boss.
-- [ ] Activate the bar through awareness, damage, or explicit encounter activation and hide it after defeat/reset.
-- [ ] Emit a deterministic boss-defeated event.
-- [ ] Preserve ordinary enemy scale, health, movement, and attack overrides as the boss implementation foundation.
-- [ ] Add regressions for activation, health projection, defeat, serialization, and ordinary non-boss enemies.
+- [x] Add `isBoss` and `bossName` to enemy placements and Level Editor controls.
+- [x] Show one current/max-health boss bar for the actively engaged boss.
+- [x] Activate the bar through awareness or damage and hide it after defeat.
+- [ ] Add an explicit encounter activation/reset hook if a later arena controller needs one.
+- [x] Emit a deterministic boss-defeated event and optional named signal.
+- [x] Preserve ordinary enemy scale, health, movement, and attack overrides as the boss implementation foundation.
+- [x] Add regressions for identity, health projection, defeat, signal gates, serialization, and ordinary non-boss enemies.
+- [x] Let hanging/spiked gates remove their blocking collision when a matching signal activates.
+- [x] Let placeable enemy spawners stop on an optional named signal.
 
 ## Milestone E: rectangular water volumes
 
@@ -2860,3 +2863,62 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Add a compact procedural teleport flash and preserve source-spawner identity for diagnostics and serialization.
 - [x] Update the Level Editor inspector, entity catalog, Game Manual, architecture notes, plan, and automated regression coverage.
 - [x] Pass all 149 fast tests and all 9 generator regressions, then audit revision 289 packaging.
+
+
+## Revision 290 code audit and release housekeeping
+
+- [x] Verify the revision-289 archive contains the expected game, editor, source, asset-data, Electron, documentation, and test files.
+- [x] Run syntax checks for JavaScript/ES modules, compile the development Python scripts, validate every JSON document, and verify local imports plus HTML file references.
+- [x] Remove the accidentally reintroduced retired `src/presentation/rocket-glow-cache.js` file.
+- [x] Make `devel/package_update.py` reject known retired files before packaging.
+- [x] Refresh the stale project-layout diagram and record every discovered defect in the plan and architecture notes.
+- [x] Synchronize game and Level Editor revision labels to 290.
+- [x] Pass all 149 fast tests and all 9 generator regressions, then audit the compact update archive for integrity and PNG/XCF exclusion.
+
+
+## Revision 291 level_002 and first boss encounter
+
+- [x] Generate a reproducible default-style Earth cavern foundation with seed `cinder-vault-291-8f6c2b`.
+- [x] Restrict every authored and spawned enemy in `level_002` to Fireball Goblins (`enemy_002`).
+- [x] Hand-author a large final cavern with four staggered fighting platforms on each side.
+- [x] Add the gigantic 900-HP Fireball Goblin boss **Gorblax the Incandescent**.
+- [x] Add six on-screen-only goblin spawners and four arena wrench pickups.
+- [x] Block the exit behind an iron gate until `BOSS_002_DEFEATED` activates.
+- [x] Disable all arena spawners on the same boss-defeat signal.
+- [x] Add focused runtime and level-contract regressions.
+- [x] Browser-playtest the complete route; this exposed the missing navigation bake, oversized arena, sparse route population, and unattractive gate presentation addressed in revision 292.
+
+- [x] Run each geometry-heavy generator contract in a fresh sequential Node process so temporary drafts cannot accumulate or compete for memory.
+
+## Revision 292 level_002 performance repair and compact boss encounter
+
+- [x] Reproduce the 4 to 5 FPS browser collapse and identify missing baked hunter navigation profiles as the simulation bottleneck.
+- [x] Bake ordinary-goblin and boss-sized navigation profiles into `level_002`.
+- [x] Cache live fallback supports and edges once per world topology and mobility profile.
+- [x] Make release packaging reject hunter levels with no baked navigation profiles.
+- [x] Remove and deny the temporary root-level `generate_level002_temp.mjs` helper.
+- [x] Make every wizard exit door remain closed while any living boss exists in the level.
+- [x] Remove the level-2 iron gate and keep `BOSS_002_DEFEATED` for reinforcement shutdown.
+- [x] Compact the boss chamber, platform columns, cavern outline, boss, pickups, spawners, and exit into a standard wide viewport.
+- [x] Reduce Gorblax to 1.55 scale and 750 HP while retaining oversized boss presentation.
+- [x] Add four Musket Goblins and three two-bat groups, retain Fireball Goblins, and include no Skeleton Guards.
+- [x] Allow arena spawners to select Fireball or Musket Goblins while preserving strict off-screen dormancy.
+- [x] Update the Game Manual, plan, architecture notes, revision labels, package checks, and focused regression tests.
+- [x] Make `npm test` run the fast suite and isolated generator runner in separate processes so the authoritative release gate completes reliably.
+- [x] Browser-playtest revision 292; retain remaining encounter tuning under the revision-293 playtest item after the editor and unified-scale changes.
+
+## Revision 293 Level Editor workflow and unified enemy scale
+
+- [x] Add shared normalization for one character-enemy `scale` multiplier.
+- [x] Multiply runtime enemy hitbox dimensions, rendered character scale, local artwork offsets, and projectile radius by the same value.
+- [x] Use scaled dimensions for Level Editor previews, hit testing, ground snapping, and hunter navigation profiles.
+- [x] Make Enemy scale apply live while typing and make character-enemy W/H fields read-only effective dimensions.
+- [x] Migrate Gorblax to Fireball Goblin base geometry plus a 2.8 uniform scale and synchronize the baked boss mobility profile.
+- [x] Make packaging reject a hunter level when any scaled mobility profile lacks an exact bake.
+- [x] Add Shift-drag box selection, Ctrl-click toggling, and Ctrl+Shift-drag toggling.
+- [x] Preserve one primary white selection and gray secondary selections; support group move and delete.
+- [x] Convert the Delete toolbar control from a persistent tool into an immediate selection action.
+- [x] Remove the atlas dropdown and aggregate all loaded atlas frames in one searchable palette.
+- [x] Remove manual perimeter-population gameplay-clearance protection so foreground rock may intentionally cover playable space.
+- [x] Update the Game Manual, plan, architecture, agent guidance, revision labels, and regression coverage.
+- [ ] Browser-playtest revision 293, with particular attention to multi-selection ergonomics, one-screen boss framing, Gorblax's enlarged fireballs, and manual floor stalagmite coverage.

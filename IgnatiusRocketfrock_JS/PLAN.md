@@ -6,44 +6,51 @@ The project uses directory context instead of repeating `IgnatiusRocketfrock_` i
 
 ```text
 IgnatiusRocketfrock_JS/
-├── index.html
-├── game.html
-├── asset-editor.html
-├── level-editor.html
-├── character-editor.html
-├── renderer-smoke.html
+├── index.html, game.html, renderer-smoke.html
+├── asset-editor.html, level-editor.html, character-editor.html
 ├── src/
 │   ├── core/
+│   │   ├── simulation.js
 │   │   ├── enemy-navigation.js
-│   │   └── simulation.js
+│   │   └── world-collision-index.js
 │   ├── browser/
 │   │   ├── browser-input.js
-│   │   └── game-bootstrap.js
+│   │   ├── electron-window-bridge.js
+│   │   ├── game-bootstrap.js
+│   │   ├── game-settings-store.js
+│   │   ├── gamepad-haptics.js
+│   │   ├── hud-panel-layout.js
+│   │   └── music-director.js
 │   ├── presentation/
 │   │   ├── canvas-renderer.js
+│   │   ├── cave-window-mask.js
 │   │   ├── character-runtime.js
-│   │   └── level-color-map-cache.js
+│   │   ├── foreground-sprite-treatment.js
+│   │   ├── level-color-map-cache.js
+│   │   ├── overlap-blend-cache.js
+│   │   ├── rocket-glow-baking.js
+│   │   └── world-visual-cache.js
 │   ├── shared/
-│   │   ├── actor-geometry.js
-│   │   ├── animation-data.js
-│   │   ├── cave-window-data.js
-│   │   ├── level-color-map-data.js
-│   │   └── level-transform.js
-│   └── tools/
-│       └── character-editor/
-│           ├── animation-editor.js
-│           ├── atlas-editor.js
-│           ├── character-dirty-state.js
-│           ├── character-editor-view.js
-│           ├── character-project.js
-│           └── dopesheet-data.js
-├── tests/
-│   └── testbench.mjs
+│   │   ├── actor-geometry.js, animation-data.js
+│   │   ├── auto-spawn-enemy-data.js, enemy-pool-data.js
+│   │   ├── cave-kill-boundary-data.js, cave-window-data.js
+│   │   ├── cave-window-decoration.js, level-color-map-data.js
+│   │   ├── level-generator-data.js, level-transform.js
+│   │   ├── moving-platform-data.js, signal-channel-data.js
+│   │   ├── game-settings-data.js, music-data.js
+│   │   ├── power-up-data.js, story-reading.js
+│   │   └── other engine-neutral data helpers
+│   └── tools/character-editor/
+│       ├── animation-editor.js, atlas-editor.js
+│       ├── character-dirty-state.js, character-editor-view.js
+│       ├── character-project.js
+│       └── dopesheet-data.js
+├── tests/testbench.mjs
 ├── assets/
-├── devel/
+├── devel/package_update.py
+├── electron/
 ├── package.json
-├── AGENTS.md
-├── ARCHITECTURE.md
+├── AGENTS.md, ARCHITECTURE.md
 ├── IMPLEMENTATION_CHECKLIST.md
 └── PLAN.md
 ```
@@ -99,7 +106,7 @@ The core game fantasy is not only jumping, but converting movement into chaotic 
 Separate the game into clean layers. The current source directories encode those boundaries:
 
 * `src/core/` is the future portable gameplay core and should have close C++ parity.
-* `src/shared/` contains engine-neutral data and mathematics used by multiple layers.
+* `src/shared/` contains engine-neutral data and mathematics used by multiple layers, including `enemy-scale-data.js` as the single authority for uniform character-enemy placement scaling.
 * `src/browser/` owns browser startup, timing, and device adaptation.
 * `src/presentation/` owns Canvas rendering and visual-only runtime work.
 * `src/tools/` owns editor-only helpers and future editor entry modules.
@@ -2976,3 +2983,56 @@ Speed Shot and every current wrench upgrade now last 20 seconds instead of 30. S
 Add an invisible `enemySpawner` entity for boss arenas and other authored reinforcement encounters. Each placed spawner exposes the same 0–100 percent once-per-second chance and the same numbered range / `!` exclusion enemy pool as Automatic enemy spawning. Unlike level-wide automatic spawning, a placed spawner only advances its timer and rolls while its 64×64 authoring region is inside the current camera view; off-screen time is discarded rather than banked.
 
 On a successful roll, the selected catalog enemy appears at the spawner point, already aware of Ignatius and ready to fight. Ground enemies snap to a safe nearby support; flying enemies use the point directly. Occupied, blocked, or unsupported attempts are skipped. A small procedural purple-blue teleport flash and a brief actor brightness flash sell the conjuration without adding an image asset. The Level Editor keeps a visible crosshair-ring marker and resolved-pool preview, while the entity remains invisible in gameplay.
+
+
+## Revision 290 code audit and release housekeeping
+
+A full static and automated review found one confirmed release defect: the retired `src/presentation/rocket-glow-cache.js` had reappeared beside `rocket-glow-baking.js`. The duplicate contained the obsolete runtime `RocketGlowCache` class, violated the revision-283 retirement contract, and made the source-organization test fail immediately. Revision 290 removes the stray file again.
+
+The audit also found a release-pipeline gap. `devel/package_update.py` verified required files, synchronized revision labels, archive integrity, and PNG/XCF exclusion, but it did not reject known retired paths. The helper now maintains an explicit retired-file denylist and aborts packaging if any of those files reappear. Regression coverage checks that this guard includes the retired rocket-glow cache.
+
+Documentation housekeeping updates the stale project-layout diagram to reflect the current core, browser, presentation, shared, and tool modules. No player-facing, editor-facing, control, balance, level-data, or save-schema behavior changed, so the Game Manual does not require an update.
+
+## Revision 291 level_002 and first boss encounter
+
+`assets/level_002.json` is now a complete generated-and-refined Earth cavern titled **The Incandescent Goblin Gallery**. Its reproducible generator foundation uses seed `cinder-vault-291-8f6c2b`, default-scale route settings, and Fireball Goblins exclusively. Six ordinary Fireball Goblins populate the journey before a manually enlarged final cavern.
+
+The final arena has four vertically staggered long platforms on each side, with the opposing columns offset so enemies and Ignatius can move between firing heights rather than occupying flat mirrored rows. Six invisible on-screen enemy spawners sit on the lower three platforms of each column and resolve only `enemy_002`. Four random-wrench pickups are distributed across the platform columns. The central boss, **Gorblax the Incandescent**, is an ordinary Fireball Goblin placement enlarged to 1.95 render scale and 900 HP with stronger fireballs and wider awareness.
+
+The basic boss milestone is now substantially implemented. Character-enemy placements support `isBoss`, `bossName`, and `bossDefeatSignalChannel`; the Level Editor exposes those fields; the browser HUD shows one current/max-health bar after awareness or damage; and lethal damage emits `BOSS_DEFEATED` exactly once. Boss identity and signal data remain ordinary serializable state. A future explicit encounter-activation/reset controller is still deferred because this first arena activates naturally through enemy awareness.
+
+Named signal receivers now make hanging and spiked gates reusable blockers. A closed receiver contributes a portable solid rectangle and switches to its open visual state while removing collision when its channel activates. Optional collision dimensions may exceed the decorative sprite dimensions, allowing a gate to block an entire passage without stretching its artwork. Enemy spawners also accept an optional `disableSignalChannel`, exposed in the Level Editor, so reinforcements can stop at encounter completion.
+
+In level 2, defeating Gorblax activates `BOSS_002_DEFEATED`. That signal raises the iron gate before the exit door and disables all six reinforcement spawners. The exit then leads to `level_003`; until that level exists, the existing missing-destination fallback applies. The generated route and arena contract have deterministic headless coverage, but the full level still requires browser playtesting for boss health, reinforcement pacing, platform traversal, camera composition, and the visual fit of the raised gate.
+
+Housekeeping found during the revision: the monolithic generator command could become pathological when the large macro-contract ran after the other decorated-draft tests. `npm run test:generator` now uses `devel/run_generator_tests.mjs` to launch each geometry-heavy contract in an isolated sequential Node process with `--expose-gc`. This preserves all nine generator regressions without retaining one suite's temporary geometry in the next process or creating concurrent memory contention.
+
+## Revision 292 level_002 performance repair and compact boss encounter
+
+The first browser playtest of `level_002` exposed a severe simulation regression. The level contained hunter enemies but its `navigationGraphs.profiles` array was empty, so every ground goblin rebuilt the complete ballistic route-edge graph every simulation tick. The renderer itself remained inexpensive, which is why the debug panel showed only a small drawing cost while observed frame rate fell to roughly 4 to 5 FPS. Revision 292 bakes both required hunter profiles into the level: one for ordinary Fireball and Musket Goblins and one for the differently sized boss.
+
+The runtime fallback is now safe as well. Static hunter supports and directed edges are cached once per world topology and mobility profile. Replacing or resizing the world's solid, segment, or collision-polygon arrays invalidates that cache, while moving-platform supports continue through their existing dynamic bundle. A release check now rejects any `level_*.json` that contains hunter enemies but no baked navigation profiles. The temporary one-off level-generation script is removed and denied by packaging so it cannot drift into later releases.
+
+Exit locking is simpler and universal. Every `wizard_exit_door` refuses to start its proximity-opening sequence while any living boss remains in the current level. Defeating the final boss restores the ordinary door sequence automatically. Named boss-defeat signals remain useful for reinforcement shutdown, music, rewards, and optional signal-controlled barriers, but an iron gate is no longer required merely to lock an exit.
+
+The final chamber in `level_002` is rebuilt as a compact wide-screen arena. It keeps four staggered platforms on each side, six on-screen-only reinforcement spawners, and four wrench pickups, but the columns, floor, cavern outline, boss, and exit now fit within a standard wide viewport. Gorblax is reduced from 1.95 scale and 900 HP to 1.55 scale and 750 HP so he remains clearly oversized without swallowing the arena. The decorative iron gate is removed. The six spawners can conjure either regular Fireball or Musket Goblins and still stop on `BOSS_002_DEFEATED`.
+
+The ordinary route is no longer deserted. It now contains five non-boss Fireball Goblins, four Musket Goblins, and three compact groups of two Bombing Bats. No Skeleton Guards are present. Placeable spawners remain strictly camera-bound: even during an active boss fight, an off-screen spawner performs no roll and accumulates no elapsed time. The compact arena ensures all six intended reinforcement points are normally visible together.
+
+The monolithic `npm test` process still reproduced the previously diagnosed geometry-retention slowdown when it reached the generator cases after the fast suite. The release command now runs the complete fast group and isolated generator runner sequentially as separate processes, preserving all assertions without retaining the fast-suite heap.
+
+The next task is a fresh hands-on playtest of revision 292 to tune boss health, platform spacing, spawner probability, enemy density, and exact camera framing. The boss foundation itself is now complete enough for authored level work; water volumes remain the next major planned world system.
+
+## Revision 293 Level Editor selection, unified enemy scale, and foreground freedom
+
+Character-enemy placement now has one authored `scale` multiplier. `src/shared/enemy-scale-data.js` owns normalization and the derived hitbox, artwork scale, and projectile-radius calculations. The Character Editor enemy catalog remains the source of the base hitbox (`w`/`h`) and base artwork/projectile values. At runtime, the Level Editor, hit testing, ground snapping, and hunter mobility profiles all consume the same scaled dimensions. Artwork offsets scale with the actor as well, so an enlarged enemy remains registered to the same local foot and equipment positions. Old entities with no `scale` remain exactly 1×. Gorblax in `level_002` is migrated from separate enlarged width, height, render scale, and projectile radius values to the Fireball Goblin base values plus one 2.8 multiplier.
+
+The Level Editor's **Enemy scale** value applies on every `input` event. The selected enemy preview, effective W/H display, hit-test rectangle, and serialized JSON change without pressing **Apply**. Character-enemy W/H inputs are read-only effective dimensions; base hitbox edits belong in Puppet Forge's enemy defaults. Because scaling a hunter changes its mobility profile, release packaging now requires an exact baked navigation profile for every authored hunter rather than merely checking that some graph exists.
+
+Object selection now distinguishes one primary object from a multi-selection set. Shift-drag creates a world-space selection rectangle. Ctrl-click toggles one entity or placement, while Ctrl+Shift-drag toggles all fully enclosed records. The most recently added or clicked object is the primary white-dashed selection and remains editable through **Selected object**; secondary members use gray dashed outlines and participate only in group movement and deletion. Group movement snaps from the primary object and applies one shared delta, preserving relative spacing. The toolbar **Delete** control is an immediate action and never replaces the current tool.
+
+The Asset palette now aggregates every frame from every loaded atlas in one searchable list. Each row identifies its atlas, and choosing a row activates the correct atlas automatically. The separate atlas dropdown is removed.
+
+Manual **Populate perimeter** no longer passes endpoint, pickup, enemy, or platform protection regions to the foreground decorator. Inward coverage is therefore literal: stalactites and stalagmites may intentionally overlap the visible playing area so Ignatius, enemies, doors, and platforms can pass behind foreground rock. Automatic level generation retains its own stricter safety and validation rules; this change applies to the explicit manual authoring command only.
+
+The next task remains a hands-on `level_002` playtest in revision 293, now including the unified boss/fireball scale, compact arena framing, encounter density, spawner cadence, and the repaired navigation performance. After that tuning pass, rectangular water volumes remain the next major planned world system.
