@@ -138,6 +138,32 @@
             background: var(--panel2);
         }
 
+        .box:not(.palette-box) {
+            border-radius: 11px;
+            padding: 9px;
+            margin-bottom: 8px;
+        }
+
+        .box:not(.palette-box) > h2 {
+            margin-bottom: 5px;
+        }
+
+        .box:not(.palette-box) h3 {
+            margin: 8px 0 4px;
+        }
+
+        .box:not(.palette-box) label {
+            gap: 3px;
+            margin: 5px 0;
+        }
+
+        .box:not(.palette-box) input,
+        .box:not(.palette-box) select,
+        .box:not(.palette-box) textarea,
+        .box:not(.palette-box) button {
+            padding: 6px 8px;
+        }
+
         .row {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -286,43 +312,134 @@
             color: var(--orange);
         }
 
-        .entity-palette {
+        .palette-box {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 28px);
+            min-height: 420px;
+            overflow: hidden;
+        }
+
+        .palette-box > h2,
+        .palette-box > p,
+        .palette-toolbar,
+        .palette-search {
+            flex: 0 0 auto;
+        }
+
+        .palette-toolbar {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: minmax(0, 1fr) auto;
             gap: 8px;
+            align-items: end;
+            margin-bottom: 8px;
         }
 
-        .entity-palette button {
-            text-align: left;
+        .palette-toolbar label,
+        .palette-search {
+            margin: 0;
         }
 
-        .entity-palette button.active {
-            border-color: rgba(139,224,255,0.78);
-            background: rgba(139,224,255,0.16);
+        .palette-toolbar button {
+            width: auto;
+            min-width: 42px;
+            padding-inline: 10px;
         }
 
-        .asset-preview {
+        .palette-grid {
             display: grid;
-            grid-template-columns: 112px 1fr;
-            gap: 10px;
-            align-items: center;
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px solid var(--line);
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-auto-rows: max-content;
+            align-content: start;
+            align-items: start;
+            gap: 8px;
+            min-height: 0;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            scrollbar-gutter: stable;
+            padding: 2px 4px 4px 2px;
         }
 
-        #asset-preview-canvas {
-            width: 112px;
-            height: 84px;
-            border: 1px solid var(--line);
+        .palette-box .palette-grid {
+            flex: 1 1 auto;
+        }
+
+        .palette-card {
+            display: flex;
+            flex-direction: column;
+            align-self: start;
+            gap: 5px;
+            min-width: 0;
+            min-height: 178px;
+            height: auto;
+            padding: 6px;
             border-radius: 10px;
+            text-align: left;
+            overflow: hidden;
+        }
+
+        .palette-card:hover {
+            background: rgba(255,255,255,0.14);
+        }
+
+        .palette-card.active,
+        .palette-card.selected {
+            border-color: rgba(139,224,255,0.82);
+            background: rgba(139,224,255,0.16);
+            box-shadow: inset 0 0 0 1px rgba(139,224,255,0.22);
+        }
+
+        canvas.palette-thumbnail {
+            flex: 0 0 132px;
+            width: 100%;
+            min-height: 132px;
+            height: 132px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            cursor: pointer;
             background:
-                linear-gradient(45deg, rgba(255,255,255,0.07) 25%, transparent 25%),
-                linear-gradient(-45deg, rgba(255,255,255,0.07) 25%, transparent 25%),
-                linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.07) 75%),
-                linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.07) 75%);
-            background-size: 20px 20px;
-            background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+                linear-gradient(45deg, rgba(255,255,255,0.055) 25%, transparent 25%),
+                linear-gradient(-45deg, rgba(255,255,255,0.055) 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.055) 75%),
+                linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.055) 75%),
+                rgba(0,0,0,0.18);
+            background-size: 16px 16px;
+            background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+        }
+
+        .palette-card-title {
+            overflow: hidden;
+            color: var(--ink);
+            font-size: 11px;
+            font-weight: 750;
+            line-height: 1.2;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .palette-card-meta {
+            overflow: hidden;
+            color: var(--muted);
+            font-size: 9px;
+            font-weight: 500;
+            line-height: 1.2;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .palette-status {
+            flex: 0 0 auto;
+            margin: 7px 0 0;
+        }
+
+        .palette-empty {
+            grid-column: 1 / -1;
+            padding: 16px 10px;
+            border: 1px dashed var(--line);
+            border-radius: 10px;
+            color: var(--muted);
+            text-align: center;
+            font-size: 11px;
         }
 
         .cutout-mask-ui {
@@ -369,6 +486,11 @@
 
         .box.collapsed {
             padding-bottom: 8px;
+        }
+
+        .palette-box.collapsed {
+            height: auto;
+            min-height: 0;
         }
 
         .generator-primary {
@@ -508,6 +630,11 @@
                 border-left: 0;
                 border-top: 1px solid var(--line);
             }
+
+            .palette-box {
+                height: min(80vh, 760px);
+                min-height: 360px;
+            }
         }
     </style>
 </head>
@@ -517,19 +644,11 @@
         <div id="topbar">
             <button data-tool="select" class="active">☝ Select</button>
             <button data-tool="pan">🖐 Pan</button>
-            <button id="copy-asset" type="button" disabled>⧉ Copy asset</button>
+            <button id="cut-selection" type="button" disabled>✂ Cut</button>
+            <button id="copy-selection" type="button" disabled>⧉ Copy</button>
+            <button id="paste-selection" type="button" disabled>▣ Paste</button>
             <button data-tool="placeAsset">🧱 Place asset</button>
             <button data-tool="placeEntity">🧙 Place entity</button>
-            <select id="quick-entity" aria-label="Entity type">
-                <option value="wizard_entry_door">🚪 wizard entry door</option>
-                <option value="wizard_exit_door">🚪 wizard exit door</option>
-                <option value="targetDummy">🎯 target dummy</option>
-                <option value="enemy_001">☠ Skeleton Guard</option>
-                <option value="fuel">⛽ fuel pickup</option>
-                <option value="monsterSpawn">👾 monster spawn</option>
-                <option value="trigger">⚡ event trigger</option>
-                <option value="cutoutMask">✂ cutout mask</option>
-            </select>
             <button id="delete-selection" type="button">🗑 Delete</button>
             <button id="to-front" type="button">To Front</button>
             <button id="to-back" type="button">To Back</button>
@@ -550,8 +669,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 293</small></h1>
-        <p>Place atlas assets, entry/exit doors, mailboxes, enemies, and triggers, then export a level JSON. The wizard entry door is the effective start of the level.</p>
+        <h1>Level Editor <small>rev 300</small></h1>
 
         <div class="box">
             <h2>Level</h2>
@@ -561,7 +679,6 @@
                 <button id="new-level">New empty level</button>
             </div>
             <label>Import level JSON<input id="level-file" type="file" accept="application/json,.json"></label>
-            <p class="small">Startup scans <code>assets/level_001.json</code>, <code>assets/level_002.json</code>, and onward up to <code>level_020</code>, stopping at the first missing level. Asset atlases are loaded automatically from <code>assets/at_atlas_001.*</code> onward.</p>
         </div>
 
         <div class="box">
@@ -574,7 +691,6 @@
             <div class="inline"><input id="snap-enabled" type="checkbox" checked><span class="small">Snap while placing/moving</span></div>
             <div class="inline"><input id="show-asset-guides" type="checkbox" checked><span class="small">Show manifest boxes and line features</span></div>
             <div class="inline"><input id="show-labels" type="checkbox" checked><span class="small">Show labels</span></div>
-            <p class="small">Hold the right mouse button and drag anywhere on the canvas to pan, regardless of the active tool. Fit frames the authored placements and entities.</p>
         </div>
 
         <div class="box" data-panel-key="automatic-enemy-spawning">
@@ -583,7 +699,6 @@
             <label>Spawn probability each second (%)<input id="auto-spawn-enemies-probability" type="number" min="0" max="100" step="1" value="10"></label>
             <label>Enemy pool<input id="auto-spawn-enemies-pool" value="1-999" placeholder="1-999,!2,!4"></label>
             <p id="auto-spawn-enemies-preview" class="small">All available enemies are eligible by default.</p>
-            <p class="small">Once per second, the game rolls this percentage. A successful roll creates one already-alert enemy beyond the screen in the expected direction of the exit. The pool uses the same numbered ranges and <code>!</code> exclusions as the Automatic Level Generator.</p>
         </div>
 
         <div class="box">
@@ -595,7 +710,6 @@
             <label>Preview profile<select id="navigation-profile-select"></select></label>
             <div class="inline"><input id="show-navigation-graph" type="checkbox"><span class="small">Show baked supports and directed transitions</span></div>
             <p id="navigation-graph-status" class="small">No baked navigation graph.</p>
-            <p class="small">The builder derives one mobility profile for each distinct hunter body size, run speed, jump height, gravity, fall limit, and step capability in the level. Graphs include directed left/right jumps, left/right drops, and chasm crossings. Dynamic blocker IDs can disable or penalize affected edges at runtime.</p>
         </div>
 
         <div class="box">
@@ -611,7 +725,6 @@
 
         <div class="box" data-panel-key="automatic-level-generator">
             <h2>Automatic Level Generator</h2>
-            <p class="small">Horizontal is the default route: a run-and-gun path that advances steadily toward the exit, uses only occasional one- or two-cell height changes, and overlaps only solid blockable platforms whose walking surfaces are level. It reserves a distributed upper combat lane across roughly one quarter of the route. The actual combat platforms sit much higher above the ground to leave homing rockets room to turn, while offset one-way access steps keep every perch reachable without filling the firing space directly beneath it. Thin green one-way platforms stay separate, and any raised solid step is separated horizontally instead of being blended into a false continuous floor. Standard remains available as a folded ThePath74 route with broad upper traversal, a nearly continuous lower recovery path, and occasional upper reward or combat perches. Domed is the default cavern shape. It keeps a reasonably flat lower perimeter close to the ground route while expanding its ceiling upward by another 50 percent, adding broad upper room volume for monsters, treasure, and pickups. Standard cavern geometry remains available as the balanced alternative. Rewarded generated levels include roughly one genuine power-up per 1,000 pixels of route at the default density. About half are random wrenches, with the rest split between Shield and Speed Shot, alongside contextual rewards. All other generator stages use one compatible Standard implementation. Generated ground enemies on upper perches must have jumping hunter navigation, and Horizontal moving lifts reserve a collision-safe shaft that later platforms and enemies may not enter. Automatic cave foreground remains presentation-only and must leave doors, platforms, rewards, and lift shafts readable.</p>
             <label>Theme<select id="generator-theme"></select></label>
             <div class="row">
                 <label>Seed<input id="generator-seed" value="rocketfrock"></label>
@@ -640,7 +753,6 @@
                 <summary>Generator variants</summary>
                 <label>Route<select id="generator-impl-route" data-generator-stage="route"></select></label>
                 <label>Cavern<select id="generator-impl-cavern" data-generator-stage="cavern"></select></label>
-                <p class="small">Traversal, endpoints, encounters, rewards, decoration, and validation use the current compatible Standard implementations.</p>
             </details>
             <button id="generator-generate" class="generator-primary" type="button">Generate cavern + encounters + rewards</button>
             <div class="generator-stage-tools">
@@ -650,7 +762,6 @@
                     <option value="validation">Validation only</option>
                 </select></label>
                 <button id="generator-regenerate" type="button">Regenerate selected stage</button>
-                <p class="small">Encounter rerolls preserve route, platforms, endpoints, and rewards. Reward rerolls preserve the route and terrain, replace only generated rewards, and keep existing encounters anchored to their supports. Validation only reports the current generated records.</p>
             </div>
             <div class="generator-ownership-tools">
                 <p id="generator-ownership-status" class="small generator-ownership-status">Select a generated placement or entity to manage its editor ownership.</p>
@@ -659,7 +770,6 @@
                     <button id="generator-unlock-selected" type="button" disabled>Unlock selected</button>
                 </div>
                 <button id="generator-manualize-selected" type="button" disabled>Convert selected to manual ownership</button>
-                <p class="small">Locking prevents direct editor changes but regeneration still replaces generated ownership. Manual conversion permanently detaches the object from generator clear and regeneration operations.</p>
             </div>
             <div class="row">
                 <button id="generator-fit-route" type="button">Fit generated cavern</button>
@@ -729,7 +839,6 @@
             </div>
             <p id="cave-status" class="small">No cave perimeter points.</p>
             <p id="cave-geometry-warning" class="small cave-geometry-warning" hidden></p>
-            <p class="small">The cyan perimeter is the cave opening. Feather to full black controls the complete transparent-to-black width; the dashed magenta outset marks the exact boundary beyond which the runtime mask is fully opaque black. Gradient waviness bends the opacity contours throughout that feather without moving the smooth perimeter, collision, navigation, decoration normals, or the lethal boundary. Both curves and all foreground art are completely inert presentation layers. Foreground placements render after actors with cave parallax, are darkened for depth, overlap slightly into the cave, fade smoothly outward into black, and always have atlas collision disabled. Auto-population derives dense overlap from each formation's actual rendered size, uses Inward coverage to control how much enters the playable opening, covers through the Full black line, and draws farther-out rows over inward rows so broad asset bases do not cover inward tips. Manual population intentionally applies no gameplay-clearance protection, so foreground formations may overlap platforms, doors, actors, and other playable space when you want Ignatius to pass behind them.</p>
         </div>
 
         <div class="box">
@@ -752,35 +861,24 @@
                 <button id="color-map-reset" type="button">Reset colour map</button>
                 <span id="color-map-status" class="small">Original atlas colours</span>
             </div>
-            <p class="small">The original PNG files are never changed. Recoloured atlas copies are cached only when these settings change. Characters, collision geometry, and the deep-blue background are unaffected. Atlas-backed entity artwork is recoloured with the rest of the level.</p>
         </div>
 
-        <div class="box">
+        <div class="box palette-box entity-palette-box" data-panel-key="entity-palette">
             <h2>Entity palette</h2>
-            <p class="small">Choose what Place Entity will create, including cutout masks. Clicking a button also switches to Place Entity mode.</p>
-            <div class="entity-palette" id="entity-palette">
-                <button data-entity="wizard_entry_door">🚪 Wizard entry door</button>
-                <button data-entity="wizard_exit_door">🚪 Wizard exit door</button>
-                <button data-entity="targetDummy">🎯 Target dummy</button>
-                <button data-entity="enemy_001">☠ Skeleton Guard</button>
-                <button data-entity="fuel">⛽ Fuel pickup</button>
-                <button data-entity="monsterSpawn">👾 Monster spawn</button>
-                <button data-entity="trigger">⚡ Event trigger</button>
-                <button data-entity="cutoutMask">✂ Cutout mask</button>
-            </div>
+            <p class="small">Choose what Place Entity will create, including cutout masks. Clicking a card also switches to Place Entity mode.</p>
+            <label class="palette-search">Filter entities<input id="entity-search" type="search" placeholder="goblin, door, pickup..."></label>
+            <div class="palette-grid entity-palette" id="entity-palette" aria-label="Entity palette"></div>
+            <p id="entity-palette-status" class="small palette-status">Loading entities…</p>
         </div>
 
-        <div class="box">
+        <div class="box palette-box asset-palette-box" data-panel-key="asset-palette">
             <h2>Asset palette</h2>
-            <div class="row">
-                <button id="reload-atlas-library" type="button">Reload atlas library</button>
+            <div class="palette-toolbar">
+                <label>Filter assets<input id="asset-search" type="search" placeholder="ledge, floor, pillar..."></label>
+                <button id="reload-atlas-library" type="button" title="Reload atlas library" aria-label="Reload atlas library">↻ Reload</button>
             </div>
-            <label>Search assets<input id="asset-search" placeholder="ledge, floor, pillar..."></label>
-            <div id="asset-list" class="list"></div>
-            <div class="asset-preview">
-                <canvas id="asset-preview-canvas" width="224" height="168" aria-label="Selected asset preview"></canvas>
-                <p id="asset-preview-info" class="small">Select an asset to preview it.</p>
-            </div>
+            <div id="asset-list" class="palette-grid asset-palette" aria-label="Asset palette"></div>
+            <p id="asset-palette-status" class="small palette-status">Loading assets…</p>
         </div>
 
         <div class="box">
@@ -788,9 +886,9 @@
             <div id="placement-list" class="list"></div>
         </div>
 
-        <div class="box">
+        <div class="box" id="selected-object-panel">
             <h2>Selected object</h2>
-            <p id="selection-summary" class="small">Nothing selected. Shift-drag selects a box; Ctrl-click or Ctrl+Shift-drag toggles objects.</p>
+            <p id="selection-summary" class="small">Nothing selected. Shift-drag selects fully enclosed objects; Ctrl-click or Ctrl+Shift-drag toggles objects.</p>
             <label>ID<input id="inspect-id"></label>
             <label>Kind<input id="inspect-kind" readonly></label>
             <div class="row">
@@ -863,7 +961,6 @@
                         <label>Hidden reset time s<input id="inspect-moving-hidden" type="number" min="0.05" step="0.05"></label>
                     </div>
                 </div>
-                <p class="small">Shuttle loop is the safe default and pauses at both endpoints. Every vanishing pattern always restores the platform automatically after its hidden reset time, so the player never has to die merely to recover it. Drag the circular END handle on the canvas to edit the route.</p>
             </div>
             <label id="entity-type-row">Entity type
                 <select id="inspect-entity-type">
@@ -898,13 +995,11 @@
                         <label class="inline"><input id="inspect-keyhole-consume" type="checkbox" checked> Consume key</label>
                     </div>
                 </div>
-                <p class="small">Press Down, S, Enter, or gamepad south/down while nearby. Levers toggle the channel; keyholes emit once after the required key is available.</p>
             </div>
             <div id="gate-settings-row" style="display:none">
                 <h3>Signal-controlled gate</h3>
                 <label>Signal channel<input id="inspect-gate-channel" maxlength="64" value="A"></label>
                 <label class="inline"><input id="inspect-gate-blocks-player" type="checkbox" checked> Block Ignatius while closed</label>
-                <p class="small">The gate begins closed and raises when its named signal becomes active. Boss enemies can emit a channel when defeated.</p>
             </div>
             <div id="mailbox-story-row" style="display:none">
                 <h3>Mailbox story</h3>
@@ -918,7 +1013,6 @@
                 <label>Ignatius's thought
                     <textarea id="inspect-mailbox-thought" rows="7" placeholder="Ignatius's response after reading the letter"></textarea>
                 </label>
-                <p class="small">Each mailbox owns its own letter, thought, trigger distance, and timings. A level may contain several tutorial mailboxes. Long text scrolls automatically; Jump advances or closes it.</p>
             </div>
             <div id="treasure-settings-row" style="display:none">
                 <h3>Treasure chest</h3>
@@ -926,7 +1020,6 @@
                     <label>Score value<input id="inspect-treasure-score" type="number" min="1" step="10"></label>
                     <label>Collection distance<input id="inspect-treasure-distance" type="number" min="8" step="4"></label>
                 </div>
-                <p class="small">The chest opens automatically when Ignatius comes close, awards Score once, briefly shows its loot, and then remains open and empty.</p>
             </div>
             <div id="door-settings-row" style="display:none">
                 <h3>Wizard doorway</h3>
@@ -935,7 +1028,6 @@
                     <label id="door-distance-label">Trigger distance<input id="inspect-door-distance" type="number" min="24" step="1"></label>
                     <label>Walk speed<input id="inspect-door-walk-speed" type="number" min="40" step="1"></label>
                 </div>
-                <p class="small">Entry doors replace the old wizard-start marker. Exit doors are mirrored by default. Empty exit destinations use the next numbered level; if it cannot be loaded, the current level is loaded again.</p>
             </div>
             <div id="enemy-settings-row" style="display:none">
                 <h3>Character enemy</h3>
@@ -986,7 +1078,6 @@
                     <label>Attack reach<input id="inspect-enemy-attack-range" type="number" min="1" step="1"></label>
                 </div>
                 <label>Attack cooldown seconds<input id="inspect-enemy-attack-cooldown" type="number" min="0" step="0.05"></label>
-                <p class="small">Enemy scale applies immediately and multiplies the Character Editor's authored hitbox, artwork scale, artwork offsets, and projectile radius together. The W/H fields above show the resulting hitbox and are read-only for character enemies. The placement point is the enemy's foot position. Awareness ignores level collision geometry: distance and the facing cone determine whether Ignatius is noticed, while walls may still block movement and attacks. Simple-minded patrol preserves the original local behaviour. Hunters leave their patrol, select reachable attack positions, cross gaps with a single jump, glare when Ignatius is unreachable, and then attempt to return home. A hunter that cannot climb home adopts its current platform as a temporary patrol and periodically retries the route.</p>
             </div>
             <div id="enemy-spawner-settings-row" style="display:none">
                 <h3>Enemy spawner</h3>
@@ -994,7 +1085,6 @@
                 <label>Enemy pool<input id="inspect-enemy-spawner-pool" value="1-999" placeholder="1-999,!2,!4"></label>
                 <label>Disable signal (optional)<input id="inspect-enemy-spawner-disable-signal" maxlength="64" placeholder="BOSS_DEFEATED"></label>
                 <p id="inspect-enemy-spawner-preview" class="small">All available enemies are eligible by default.</p>
-                <p class="small">Invisible during play. It rolls only while this entity's authored area is inside the current camera view. A successful roll teleports one already-alert enemy onto this point with a brief flash. Ground enemies require a safe nearby floor; blocked or occupied attempts are skipped. The pool uses the same numbered ranges and <code>!</code> exclusions as Automatic enemy spawning.</p>
             </div>
             <div id="reactive-settings-row" style="display:none">
                 <h3>Reactive object</h3>
@@ -1007,10 +1097,8 @@
                     <label class="inline"><input id="inspect-reactive-blocks-player" type="checkbox"> Blocks player</label>
                     <label class="inline"><input id="inspect-reactive-blocks-projectiles" type="checkbox"> Blocks rockets</label>
                 </div>
-                <p class="small">Reactive objects live in authoritative game state. Rockets strike them before terrain behind them, and their collision is removed when they enter a non-blocking state such as destroyed.</p>
             </div>
-            <label>Notes<textarea id="inspect-notes"></textarea></label>
-            <button id="apply-inspector">Apply</button>
+            <label>Notes<input id="inspect-notes" maxlength="240" placeholder="Optional note"></label>
         </div>
 
         <div class="box">
@@ -1031,7 +1119,6 @@
 <script type="module">
 import {
     atlasNodeToPlacementWorld,
-    duplicateLevelPlacement,
     normalizeRotationRadians,
     placementCenter,
     placementCorners,
@@ -1331,10 +1418,11 @@ import {
         colorMapTargetChip: document.getElementById("color-map-target-chip"),
         colorMapStatus: document.getElementById("color-map-status"),
         colorMapReset: document.getElementById("color-map-reset"),
+        entitySearch: document.getElementById("entity-search"),
+        entityPaletteStatus: document.getElementById("entity-palette-status"),
         assetSearch: document.getElementById("asset-search"),
         assetList: document.getElementById("asset-list"),
-        assetPreviewCanvas: document.getElementById("asset-preview-canvas"),
-        assetPreviewInfo: document.getElementById("asset-preview-info"),
+        assetPaletteStatus: document.getElementById("asset-palette-status"),
         placementList: document.getElementById("placement-list"),
         selectionSummary: document.getElementById("selection-summary"),
         inspectId: document.getElementById("inspect-id"),
@@ -1436,17 +1524,21 @@ import {
         entityTypeRow: document.getElementById("entity-type-row"),
         entityStateRow: document.getElementById("entity-state-row"),
         levelJson: document.getElementById("level-json"),
-        quickEntity: document.getElementById("quick-entity"),
-        copyAsset: document.getElementById("copy-asset"),
+        cutSelection: document.getElementById("cut-selection"),
+        copySelection: document.getElementById("copy-selection"),
+        pasteSelection: document.getElementById("paste-selection"),
         deleteSelection: document.getElementById("delete-selection"),
         entityPalette: document.getElementById("entity-palette")
     };
 
     const state = {
         tool: "select",
+        placementPreviewPoint: null,
         selectedAssetId: "",
+        selectedEntityType: "wizard_entry_door",
         selectedId: "",
         selectedIds: new Set(),
+        objectClipboard: { mode: "copy", items: [], pasteCount: 0, primarySourceId: "" },
         selectedCavePointId: "",
         drag: null,
         camera: { x: -160, y: -80, zoom: 0.55 },
@@ -1985,10 +2077,15 @@ import {
 
     function setTool(tool) {
         state.tool = tool;
+        if (!placementPreviewTool(tool)) state.placementPreviewPoint = null;
         document.querySelectorAll("button[data-tool]").forEach((button) => {
             button.classList.toggle("active", button.dataset.tool === tool);
         });
         draw();
+    }
+
+    function placementPreviewTool(tool = state.tool) {
+        return tool === "placeAsset" || tool === "placeCaveForeground" || tool === "placeEntity";
     }
 
     function setStatus(text, ok = true) {
@@ -2080,7 +2177,6 @@ import {
             state.selectedAssetId = assetIds()[0] || "";
         }
         if (renderPalette) renderAssetList();
-        drawAssetPreview(state.selectedAssetId, atlasId);
         if (redraw) draw();
         return true;
     }
@@ -2130,7 +2226,6 @@ import {
     async function loadDefaultManifest() {
         await loadAtlasLibrary();
         renderAssetList();
-        drawAssetPreview(state.selectedAssetId);
         draw();
     }
 
@@ -2444,7 +2539,7 @@ import {
         const active = atlasRecord();
         state.atlasImage = active?.renderImage || active?.image || null;
         updateColorMapPreview();
-        drawAssetPreview(state.selectedAssetId);
+        renderAssetList();
         if (redraw) {
             draw();
         }
@@ -2885,7 +2980,7 @@ import {
         return state.entityCatalog.get(type) || null;
     }
 
-    function instantiateCatalogEntity(type, point) {
+    function instantiateCatalogEntity(type, point, { id = "" } = {}) {
         const definition = catalogDefinition(type);
         if (!definition) return null;
         const p = snapPoint(point);
@@ -2897,7 +2992,7 @@ import {
             stateLabels[stateId] = stateDef.label || stateId;
         }
         return {
-            id: nextId(type),
+            id: id || nextId(type),
             type,
             catalogId: definition.catalogId || "it_entities_001",
             x: p.x,
@@ -2912,32 +3007,36 @@ import {
         };
     }
 
-    function addEntityPaletteOption(type, definition) {
-        const label = definition.label || type;
-        const icon = definition.icon || "◆";
-        if (!els.quickEntity.querySelector(`option[value="${CSS.escape(type)}"]`)) {
-            const option = document.createElement("option");
-            option.value = type;
-            option.textContent = `${icon} ${label}`;
-            els.quickEntity.appendChild(option);
+    const BASE_ENTITY_PALETTE_ENTRIES = [
+        {
+            type: "monsterSpawn",
+            label: "Monster spawn",
+            icon: "👾",
+            description: "Legacy monster-spawn marker.",
+            category: "Logic"
+        },
+        {
+            type: "trigger",
+            label: "Event trigger",
+            icon: "⚡",
+            description: "Legacy event-trigger region.",
+            category: "Logic"
+        },
+        {
+            type: "cutoutMask",
+            label: "Cutout mask",
+            icon: "✂",
+            description: "Editor mask that restores cave background over earlier artwork.",
+            category: "Editor"
         }
+    ];
+
+    function addEntityPaletteOption(type) {
         if (!els.inspectEntityType.querySelector(`option[value="${CSS.escape(type)}"]`)) {
             const option = document.createElement("option");
             option.value = type;
             option.textContent = type;
             els.inspectEntityType.appendChild(option);
-        }
-        if (!els.entityPalette.querySelector(`button[data-entity="${CSS.escape(type)}"]`)) {
-            const button = document.createElement("button");
-            button.type = "button";
-            button.dataset.entity = type;
-            button.textContent = `${icon} ${label}`;
-            button.addEventListener("click", () => {
-                els.quickEntity.value = type;
-                updateEntityPalette();
-                setTool("placeEntity");
-            });
-            els.entityPalette.appendChild(button);
         }
     }
 
@@ -2948,12 +3047,13 @@ import {
             for (const [type, rawDefinition] of Object.entries(catalog.entities || {})) {
                 const definition = { ...cloneData(rawDefinition), type, catalogId: catalog.catalogId || "it_entities_001" };
                 state.entityCatalog.set(type, definition);
-                addEntityPaletteOption(type, definition);
+                addEntityPaletteOption(type);
             }
-            updateEntityPalette();
+            renderEntityPalette();
             return state.entityCatalog.size;
         } catch (error) {
             setStatus(`Interactive-item catalog could not load: ${error.message || error}`, false);
+            renderEntityPalette();
             return 0;
         }
     }
@@ -2962,12 +3062,12 @@ import {
         return state.enemyCatalog.get(enemyId) || null;
     }
 
-    function instantiateEnemyCatalogEntity(enemyId, point) {
+    function instantiateEnemyCatalogEntity(enemyId, point, { id = "" } = {}) {
         const definition = enemyCatalogDefinition(enemyId);
         if (!definition) return null;
         const p = snapPoint(point);
         return {
-            id: nextId(enemyId),
+            id: id || nextId(enemyId),
             type: "characterEnemy",
             enemyCatalogId: enemyId,
             characterId: String(definition.characterId || "ct_char_enemy_001"),
@@ -2982,29 +3082,6 @@ import {
         };
     }
 
-    function addEnemyPaletteOption(enemyId, definition) {
-        const label = definition.label || enemyId;
-        const icon = definition.icon || "◆";
-        if (!els.quickEntity.querySelector(`option[value="${CSS.escape(enemyId)}"]`)) {
-            const option = document.createElement("option");
-            option.value = enemyId;
-            option.textContent = `${icon} ${label}`;
-            els.quickEntity.appendChild(option);
-        }
-        if (!els.entityPalette.querySelector(`button[data-entity="${CSS.escape(enemyId)}"]`)) {
-            const button = document.createElement("button");
-            button.type = "button";
-            button.dataset.entity = enemyId;
-            button.textContent = `${icon} ${label}`;
-            button.addEventListener("click", () => {
-                els.quickEntity.value = enemyId;
-                updateEntityPalette();
-                setTool("placeEntity");
-            });
-            els.entityPalette.appendChild(button);
-        }
-    }
-
     async function loadEnemyCatalog() {
         try {
             const catalog = await loadJsonUrl(ENEMY_CATALOG_URL);
@@ -3013,7 +3090,6 @@ import {
             for (const [enemyId, rawDefinition] of Object.entries(catalog.enemies || {})) {
                 const definition = { ...cloneData(rawDefinition), enemyId, catalogId: catalog.catalogId || "ct_enemies_001" };
                 state.enemyCatalog.set(enemyId, definition);
-                addEnemyPaletteOption(enemyId, definition);
                 const characterId = String(definition.characterId || "");
                 if (characterId) {
                     const configuredUrl = String(definition.characterUrl || characterId);
@@ -3027,114 +3103,503 @@ import {
                 }
             }
             await Promise.all(projectLoads);
-            updateEntityPalette();
+            renderEntityPalette();
             refreshGeneratorEnemyPreview();
             refreshAutoSpawnEnemyPreview();
             refreshSelectedEnemySpawnerPreview();
             return state.enemyCatalog.size;
         } catch (error) {
             setStatus(`Enemy catalog could not load: ${error.message || error}`, false);
+            renderEntityPalette();
             return 0;
         }
     }
 
-    function updateEntityPalette() {
-        if (!els.entityPalette || !els.quickEntity) {
-            return;
+    function entityPaletteCategory(type, definition, kind) {
+        if (kind === "enemy") return "Enemy";
+        if (definition?.category) return definition.category;
+        if (type === "wizard_entry_door" || type === "wizard_exit_door") return "Portal";
+        if (/pickup$/i.test(type) || type === "fuel") return "Pickup";
+        if (/trigger|switch|spawner/i.test(type)) return "Logic";
+        if (/gate|barrier|hazard|crate|chest/i.test(type)) return "World";
+        return "Entity";
+    }
+
+    function entityPaletteEntries() {
+        const entries = [];
+        const occupied = new Set();
+        for (const [type, definition] of state.entityCatalog) {
+            occupied.add(type);
+            entries.push({
+                type,
+                kind: "catalog",
+                definition,
+                label: definition.label || type,
+                icon: definition.icon || "◆",
+                description: definition.description || "",
+                category: entityPaletteCategory(type, definition, "catalog")
+            });
         }
-        const selectedType = els.quickEntity.value;
+        for (const [type, definition] of state.enemyCatalog) {
+            occupied.add(type);
+            entries.push({
+                type,
+                kind: "enemy",
+                definition,
+                label: definition.label || type,
+                icon: definition.icon || "◆",
+                description: definition.description || "",
+                category: "Enemy"
+            });
+        }
+        for (const entry of BASE_ENTITY_PALETTE_ENTRIES) {
+            if (!occupied.has(entry.type)) entries.push({ ...entry, kind: "base", definition: entry });
+        }
+        const categoryOrder = new Map(["Portal", "Enemy", "Pickup", "World", "Logic", "Entity", "Editor"].map((name, index) => [name, index]));
+        entries.sort((a, b) => {
+            const categoryDelta = (categoryOrder.get(a.category) ?? 99) - (categoryOrder.get(b.category) ?? 99);
+            return categoryDelta || a.label.localeCompare(b.label) || a.type.localeCompare(b.type);
+        });
+        return entries;
+    }
+
+    const paletteOpaqueBoundsCache = new WeakMap();
+    const paletteAlphaScratch = document.createElement("canvas");
+    const paletteAlphaScratchContext = paletteAlphaScratch.getContext("2d", { willReadFrequently: true });
+
+    function clearPaletteCanvas(canvas) {
+        const pixelRatio = Math.max(1, Math.min(2, Number(globalThis.devicePixelRatio) || 1));
+        const cssWidth = Math.max(1, Math.round(canvas.clientWidth || canvas.width || 1));
+        const cssHeight = Math.max(1, Math.round(canvas.clientHeight || canvas.height || 1));
+        const backingWidth = Math.max(1, Math.round(cssWidth * pixelRatio));
+        const backingHeight = Math.max(1, Math.round(cssHeight * pixelRatio));
+        if (canvas.width !== backingWidth || canvas.height !== backingHeight) {
+            canvas.width = backingWidth;
+            canvas.height = backingHeight;
+        }
+        const pctx = canvas.getContext("2d");
+        pctx.setTransform(1, 0, 0, 1, 0, 0);
+        pctx.clearRect(0, 0, canvas.width, canvas.height);
+        pctx.imageSmoothingEnabled = true;
+        pctx.imageSmoothingQuality = "high";
+        return pctx;
+    }
+
+    function paletteOpaqueBounds(source, sx = 0, sy = 0, sw = null, sh = null) {
+        const sourceWidth = Math.max(1, Number(source?.naturalWidth || source?.width) || 1);
+        const sourceHeight = Math.max(1, Number(source?.naturalHeight || source?.height) || 1);
+        const x = Math.max(0, Math.min(sourceWidth - 1, Math.floor(Number(sx) || 0)));
+        const y = Math.max(0, Math.min(sourceHeight - 1, Math.floor(Number(sy) || 0)));
+        const width = Math.max(1, Math.min(sourceWidth - x, Math.floor(Number(sw) || sourceWidth)));
+        const height = Math.max(1, Math.min(sourceHeight - y, Math.floor(Number(sh) || sourceHeight)));
+        if (!source || !paletteAlphaScratchContext) return { x, y, w: width, h: height };
+
+        let sourceCache = paletteOpaqueBoundsCache.get(source);
+        if (!sourceCache) {
+            sourceCache = new Map();
+            paletteOpaqueBoundsCache.set(source, sourceCache);
+        }
+        const cacheKey = `${x}:${y}:${width}:${height}`;
+        const cached = sourceCache.get(cacheKey);
+        if (cached) return cached;
+
+        const sampleScale = Math.min(1, 256 / width, 256 / height);
+        const sampleWidth = Math.max(1, Math.ceil(width * sampleScale));
+        const sampleHeight = Math.max(1, Math.ceil(height * sampleScale));
+        paletteAlphaScratch.width = sampleWidth;
+        paletteAlphaScratch.height = sampleHeight;
+        paletteAlphaScratchContext.clearRect(0, 0, sampleWidth, sampleHeight);
+
+        let result = { x, y, w: width, h: height };
+        try {
+            paletteAlphaScratchContext.drawImage(source, x, y, width, height, 0, 0, sampleWidth, sampleHeight);
+            const pixels = paletteAlphaScratchContext.getImageData(0, 0, sampleWidth, sampleHeight).data;
+            let minX = sampleWidth;
+            let minY = sampleHeight;
+            let maxX = -1;
+            let maxY = -1;
+            for (let py = 0; py < sampleHeight; py += 1) {
+                for (let px = 0; px < sampleWidth; px += 1) {
+                    if (pixels[(py * sampleWidth + px) * 4 + 3] <= 4) continue;
+                    minX = Math.min(minX, px);
+                    minY = Math.min(minY, py);
+                    maxX = Math.max(maxX, px);
+                    maxY = Math.max(maxY, py);
+                }
+            }
+            if (maxX >= minX && maxY >= minY) {
+                minX = Math.max(0, minX - 1);
+                minY = Math.max(0, minY - 1);
+                maxX = Math.min(sampleWidth - 1, maxX + 1);
+                maxY = Math.min(sampleHeight - 1, maxY + 1);
+                const localX = minX / sampleScale;
+                const localY = minY / sampleScale;
+                const localRight = Math.min(width, (maxX + 1) / sampleScale);
+                const localBottom = Math.min(height, (maxY + 1) / sampleScale);
+                result = {
+                    x: x + localX,
+                    y: y + localY,
+                    w: Math.max(1, localRight - localX),
+                    h: Math.max(1, localBottom - localY)
+                };
+            }
+        } catch {
+            // A full-frame fallback still produces a usable preview if pixel reads are unavailable.
+        }
+        sourceCache.set(cacheKey, result);
+        return result;
+    }
+
+    function drawPaletteIcon(canvas, icon, label = "") {
+        const pctx = clearPaletteCanvas(canvas);
+        pctx.save();
+        pctx.textAlign = "center";
+        pctx.textBaseline = "middle";
+        pctx.font = "64px system-ui, sans-serif";
+        pctx.fillStyle = "rgba(255,255,255,0.94)";
+        pctx.fillText(icon || "◆", canvas.width * 0.5, canvas.height * 0.47);
+        if (label) {
+            pctx.font = "600 13px system-ui, sans-serif";
+            pctx.fillStyle = "rgba(230,220,242,0.74)";
+            pctx.fillText(label, canvas.width * 0.5, canvas.height - 12);
+        }
+        pctx.restore();
+    }
+
+    function drawAtlasFrameThumbnail(canvas, atlasId, frame) {
+        const pctx = clearPaletteCanvas(canvas);
+        const image = imageForAtlas(atlasId);
+        if (!image || !frame) return false;
+        const visible = paletteOpaqueBounds(image, frame.x, frame.y, frame.w, frame.h);
+        const pad = 12;
+        const scale = Math.min((canvas.width - pad * 2) / visible.w, (canvas.height - pad * 2) / visible.h);
+        const w = visible.w * scale;
+        const h = visible.h * scale;
+        const x = (canvas.width - w) * 0.5;
+        const y = (canvas.height - h) * 0.5;
+        pctx.drawImage(image, visible.x, visible.y, visible.w, visible.h, x, y, w, h);
+        return true;
+    }
+
+    function catalogThumbnailEntity(definition) {
+        const type = definition.type || "entity";
+        const defaultState = definition.defaultState || Object.keys(definition.states || {})[0] || "default";
+        const visualStates = {};
+        for (const [stateId, stateDef] of Object.entries(definition.states || {})) {
+            visualStates[stateId] = cloneData(stateDef.visuals || []);
+        }
+        return {
+            type,
+            x: 0,
+            y: 0,
+            w: Math.max(1, Number(definition.defaultSize?.w) || 64),
+            h: Math.max(1, Number(definition.defaultSize?.h) || 64),
+            state: defaultState,
+            visualStates,
+            ...cloneData(definition.defaults || {})
+        };
+    }
+
+    function drawCatalogEntityThumbnail(canvas, definition) {
+        const entity = catalogThumbnailEntity(definition);
+        const visuals = entityVisuals(entity).slice().sort((a, b) => {
+            const rank = (layer) => layer === "decorBack" ? 0 : layer === "decorFront" ? 1 : layer === "actorFront" ? 2 : 1;
+            return rank(a.layer) - rank(b.layer);
+        });
+        const drawable = visuals.map((visual) => {
+            const frame = frameFor(visual.assetId, visual.atlasId);
+            const image = imageForAtlas(visual.atlasId);
+            const rect = entityVisualRect(entity, visual);
+            if (!frame || !image) return null;
+            const sourceBounds = paletteOpaqueBounds(image, frame.x, frame.y, frame.w, frame.h);
+            const leftFraction = (sourceBounds.x - frame.x) / Math.max(1, frame.w);
+            const topFraction = (sourceBounds.y - frame.y) / Math.max(1, frame.h);
+            const widthFraction = sourceBounds.w / Math.max(1, frame.w);
+            const heightFraction = sourceBounds.h / Math.max(1, frame.h);
+            const contentRect = {
+                x: rect.x + rect.w * leftFraction,
+                y: rect.y + rect.h * topFraction,
+                w: rect.w * widthFraction,
+                h: rect.h * heightFraction
+            };
+            return { visual, frame, image, rect, sourceBounds, contentRect };
+        }).filter(Boolean);
+        if (!drawable.length) return false;
+        const pctx = clearPaletteCanvas(canvas);
+        const bounds = drawable.reduce((acc, entry) => ({
+            minX: Math.min(acc.minX, entry.contentRect.x),
+            minY: Math.min(acc.minY, entry.contentRect.y),
+            maxX: Math.max(acc.maxX, entry.contentRect.x + entry.contentRect.w),
+            maxY: Math.max(acc.maxY, entry.contentRect.y + entry.contentRect.h)
+        }), { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+        const width = Math.max(1, bounds.maxX - bounds.minX);
+        const height = Math.max(1, bounds.maxY - bounds.minY);
+        const pad = 12;
+        const fit = Math.min((canvas.width - pad * 2) / width, (canvas.height - pad * 2) / height);
+        const offsetX = (canvas.width - width * fit) * 0.5 - bounds.minX * fit;
+        const offsetY = (canvas.height - height * fit) * 0.5 - bounds.minY * fit;
+        for (const { visual, image, sourceBounds, contentRect } of drawable) {
+            const centerX = offsetX + (contentRect.x + contentRect.w * 0.5) * fit;
+            const centerY = offsetY + (contentRect.y + contentRect.h * 0.5) * fit;
+            pctx.save();
+            pctx.globalAlpha *= Number(visual.alpha ?? 1);
+            pctx.translate(centerX, centerY);
+            pctx.scale(Boolean(entity.mirrorX) !== Boolean(visual.mirrorX) ? -1 : 1, Boolean(entity.mirrorY) !== Boolean(visual.mirrorY) ? -1 : 1);
+            pctx.drawImage(
+                image,
+                sourceBounds.x,
+                sourceBounds.y,
+                sourceBounds.w,
+                sourceBounds.h,
+                -contentRect.w * fit * 0.5,
+                -contentRect.h * fit * 0.5,
+                contentRect.w * fit,
+                contentRect.h * fit
+            );
+            pctx.restore();
+        }
+        return true;
+    }
+
+    function transformedCommandBounds(command) {
+        const canvas = command.asset?.canvas;
+        const transform = command.transform;
+        if (!canvas || !transform) return null;
+        const scale = Number(command.spriteScale) || 1;
+        const cos = Math.cos(transform.angle || 0);
+        const sin = Math.sin(transform.angle || 0);
+        const visible = paletteOpaqueBounds(canvas, 0, 0, canvas.width, canvas.height);
+        const left = command.drawX + visible.x;
+        const top = command.drawY + visible.y;
+        const right = left + visible.w;
+        const bottom = top + visible.h;
+        const corners = [
+            [left, top],
+            [right, top],
+            [right, bottom],
+            [left, bottom]
+        ].map(([x, y]) => {
+            const sx = x * scale;
+            const sy = y * scale;
+            return {
+                x: transform.x + sx * cos - sy * sin,
+                y: transform.y + sx * sin + sy * cos
+            };
+        });
+        return {
+            minX: Math.min(...corners.map((point) => point.x)),
+            minY: Math.min(...corners.map((point) => point.y)),
+            maxX: Math.max(...corners.map((point) => point.x)),
+            maxY: Math.max(...corners.map((point) => point.y))
+        };
+    }
+
+    function drawComposedPaletteThumbnail(canvas, commands) {
+        const commandBounds = commands.map(transformedCommandBounds).filter(Boolean);
+        if (!commandBounds.length) return false;
+        const bounds = commandBounds.reduce((acc, value) => ({
+            minX: Math.min(acc.minX, value.minX),
+            minY: Math.min(acc.minY, value.minY),
+            maxX: Math.max(acc.maxX, value.maxX),
+            maxY: Math.max(acc.maxY, value.maxY)
+        }), { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+        const margin = 12;
+        const scratch = document.createElement("canvas");
+        scratch.width = Math.max(1, Math.ceil(bounds.maxX - bounds.minX + margin * 2));
+        scratch.height = Math.max(1, Math.ceil(bounds.maxY - bounds.minY + margin * 2));
+        const sctx = scratch.getContext("2d", { willReadFrequently: true });
+        if (!sctx) return false;
+        sctx.imageSmoothingEnabled = true;
+        sctx.imageSmoothingQuality = "high";
+        sctx.translate(margin - bounds.minX, margin - bounds.minY);
+        for (const command of commands) {
+            const { asset, transform, spriteScale, drawX, drawY } = command;
+            sctx.save();
+            sctx.globalAlpha *= transform.alpha;
+            sctx.translate(transform.x, transform.y);
+            sctx.rotate(transform.angle);
+            sctx.scale(spriteScale, spriteScale);
+            sctx.drawImage(asset.canvas, drawX, drawY);
+            sctx.restore();
+        }
+        const visible = paletteOpaqueBounds(scratch, 0, 0, scratch.width, scratch.height);
+        const pctx = clearPaletteCanvas(canvas);
+        const pad = 7;
+        const fit = Math.min((canvas.width - pad * 2) / visible.w, (canvas.height - pad * 2) / visible.h);
+        const drawWidth = visible.w * fit;
+        const drawHeight = visible.h * fit;
+        pctx.drawImage(
+            scratch,
+            visible.x,
+            visible.y,
+            visible.w,
+            visible.h,
+            (canvas.width - drawWidth) * 0.5,
+            (canvas.height - drawHeight) * 0.5,
+            drawWidth,
+            drawHeight
+        );
+        return true;
+    }
+
+    function drawEnemyEntityThumbnail(canvas, definition) {
+        const characterId = String(definition.characterId || "");
+        const project = state.characterProjects.get(characterId);
+        if (!project) return false;
+        const entity = {
+            characterId,
+            w: Math.max(1, Number(definition.defaultSize?.w) || 72),
+            h: Math.max(1, Number(definition.defaultSize?.h) || 150),
+            scale: 1,
+            ...cloneData(definition.defaults || {})
+        };
+        const sampled = sampleRuntimeCharacterPose(project, entity.animationSlot || "idle", 0);
+        const transforms = animationPoseToRuntimeTransforms(sampled.pose, project.rig, 1, scaledEnemyRenderScale(entity, 0.8));
+        const commands = buildRuntimeCharacterDrawCommands(project, transforms).filter((command) => command.asset?.canvas && command.transform);
+        return drawComposedPaletteThumbnail(canvas, commands);
+    }
+
+    function drawEntityPaletteThumbnail(canvas, entry) {
+        const drew = entry.kind === "enemy"
+            ? drawEnemyEntityThumbnail(canvas, entry.definition)
+            : entry.kind === "catalog"
+                ? drawCatalogEntityThumbnail(canvas, entry.definition)
+                : false;
+        if (!drew) drawPaletteIcon(canvas, entry.icon, entry.category);
+    }
+
+    function createPaletteCard({ value, label, meta, title, selected, onClick }) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `palette-card${selected ? " active" : ""}`;
+        button.title = title;
+        const thumbnail = document.createElement("canvas");
+        thumbnail.className = "palette-thumbnail";
+        thumbnail.width = 320;
+        thumbnail.height = 240;
+        thumbnail.setAttribute("aria-hidden", "true");
+        const titleLine = document.createElement("span");
+        titleLine.className = "palette-card-title";
+        titleLine.textContent = label;
+        const metaLine = document.createElement("span");
+        metaLine.className = "palette-card-meta";
+        metaLine.textContent = meta;
+        button.append(thumbnail, titleLine, metaLine);
+        button.dataset.paletteValue = value;
+        button.addEventListener("click", onClick);
+        return { button, thumbnail };
+    }
+
+    function renderEntityPalette() {
+        if (!els.entityPalette) return;
+        const query = String(els.entitySearch?.value || "").trim().toLowerCase();
+        const allEntries = entityPaletteEntries();
+        const entries = allEntries.filter((entry) => {
+            const searchable = `${entry.type} ${entry.label} ${entry.category} ${entry.description}`.toLowerCase();
+            return !query || searchable.includes(query);
+        });
+        els.entityPalette.innerHTML = "";
+        for (const entry of entries) {
+            const { button, thumbnail } = createPaletteCard({
+                value: entry.type,
+                label: `${entry.icon} ${entry.label}`,
+                meta: `${entry.category} · ${entry.type}`,
+                title: `${entry.label}\n${entry.description || entry.type}`,
+                selected: entry.type === state.selectedEntityType,
+                onClick: () => selectEntityPaletteType(entry.type)
+            });
+            button.dataset.entity = entry.type;
+            els.entityPalette.appendChild(button);
+            drawEntityPaletteThumbnail(thumbnail, entry);
+        }
+        if (!entries.length) {
+            const empty = document.createElement("div");
+            empty.className = "palette-empty";
+            empty.textContent = "No entities match this filter.";
+            els.entityPalette.appendChild(empty);
+        }
+        if (els.entityPaletteStatus) {
+            els.entityPaletteStatus.textContent = query
+                ? `Showing ${entries.length} of ${allEntries.length} entities.`
+                : `${allEntries.length} entities · two-column thumbnail palette.`;
+        }
+        updateEntityPalette();
+    }
+
+    function updateEntityPalette() {
+        if (!els.entityPalette) return;
         for (const button of els.entityPalette.querySelectorAll("button[data-entity]")) {
-            button.classList.toggle("active", button.dataset.entity === selectedType);
+            button.classList.toggle("active", button.dataset.entity === state.selectedEntityType);
+        }
+    }
+
+    function selectEntityPaletteType(type, { activateTool = true } = {}) {
+        const nextType = String(type || "").trim();
+        if (!nextType) return;
+        state.selectedEntityType = nextType;
+        updateEntityPalette();
+        if (activateTool) setTool("placeEntity");
+    }
+
+    function updateAssetPaletteSelection() {
+        if (!els.assetList) return;
+        for (const button of els.assetList.querySelectorAll("button[data-atlas-id][data-asset-id]")) {
+            const selected = button.dataset.atlasId === state.activeAtlasId && button.dataset.assetId === state.selectedAssetId;
+            button.classList.toggle("active", selected);
         }
     }
 
     function renderAssetList() {
-        const query = els.assetSearch.value.trim().toLowerCase();
-        const rows = [];
+        const query = String(els.assetSearch?.value || "").trim().toLowerCase();
+        const allRows = [];
         for (const [atlasId, atlas] of state.atlases) {
             const frames = atlas?.manifest?.frames || {};
             const objects = atlas?.manifest?.objects || {};
             for (const id of Object.keys(frames)) {
                 const object = objects[id] || {};
                 const tags = Array.isArray(object.tags) ? object.tags.join(" ") : String(object.tags || "");
-                const searchable = `${atlasId} ${id} ${object.type || ""} ${tags}`.toLowerCase();
-                if (!query || searchable.includes(query)) rows.push({ atlasId, id, object, frame: frames[id] });
+                allRows.push({ atlasId, id, object, frame: frames[id], tags });
             }
         }
+        const rows = allRows.filter((entry) => {
+            const searchable = `${entry.atlasId} ${entry.id} ${entry.object.type || ""} ${entry.tags}`.toLowerCase();
+            return !query || searchable.includes(query);
+        });
         rows.sort((a, b) => a.atlasId.localeCompare(b.atlasId) || a.id.localeCompare(b.id));
         els.assetList.innerHTML = "";
         for (const entry of rows) {
             const { atlasId, id, object, frame } = entry;
-            const row = document.createElement("div");
             const selected = state.activeAtlasId === atlasId && state.selectedAssetId === id;
-            row.className = `item${selected ? " selected" : ""}`;
-            row.innerHTML = `<span>${escapeHtml(id)}</span><span class="pill">${escapeHtml(`${atlasId} · ${object?.type || "asset"}`)}</span>`;
-            row.addEventListener("click", () => {
-                state.selectedAssetId = id;
-                setActiveAtlas(atlasId, { redraw: false, renderPalette: false });
-                setTool("placeAsset");
-                renderAssetList();
-                drawAssetPreview(id, atlasId);
-                draw();
+            const { button, thumbnail } = createPaletteCard({
+                value: `${atlasId}:${id}`,
+                label: id,
+                meta: `${atlasId} · ${object?.type || "asset"} · ${frame.w}×${frame.h}`,
+                title: `${atlasId}:${id}\n${object?.type || "asset"} · ${frame.w}×${frame.h}`,
+                selected,
+                onClick: () => {
+                    state.selectedAssetId = id;
+                    setActiveAtlas(atlasId, { redraw: false, renderPalette: false });
+                    setTool("placeAsset");
+                    updateAssetPaletteSelection();
+                    draw();
+                }
             });
-            row.addEventListener("mouseenter", () => drawAssetPreview(id, atlasId));
-            row.addEventListener("mouseleave", () => drawAssetPreview(state.selectedAssetId, state.activeAtlasId));
-            row.title = frame ? `${atlasId}:${id} · ${frame.w}×${frame.h}` : `${atlasId}:${id}`;
-            els.assetList.appendChild(row);
+            button.dataset.atlasId = atlasId;
+            button.dataset.assetId = id;
+            els.assetList.appendChild(button);
+            drawAtlasFrameThumbnail(thumbnail, atlasId, frame);
         }
-        drawAssetPreview(state.selectedAssetId, state.activeAtlasId);
-    }
-
-    function drawAssetPreview(assetId, atlasId = state.activeAtlasId) {
-        const preview = els.assetPreviewCanvas;
-        const pctx = preview.getContext("2d");
-        pctx.clearRect(0, 0, preview.width, preview.height);
-        pctx.fillStyle = "rgba(0,0,0,0.18)";
-        pctx.fillRect(0, 0, preview.width, preview.height);
-
-        const frame = frameFor(assetId, atlasId);
-        const object = objectFor(assetId, atlasId);
-        if (!assetId || !frame) {
-            els.assetPreviewInfo.textContent = "Select an asset to preview it.";
-            return;
+        if (!rows.length) {
+            const empty = document.createElement("div");
+            empty.className = "palette-empty";
+            empty.textContent = "No assets match this filter.";
+            els.assetList.appendChild(empty);
         }
-
-        const pad = 10;
-        const scale = Math.min((preview.width - pad * 2) / frame.w, (preview.height - pad * 2) / frame.h);
-        const w = frame.w * scale;
-        const h = frame.h * scale;
-        const x = (preview.width - w) * 0.5;
-        const y = (preview.height - h) * 0.5;
-
-        const previewImage = imageForAtlas(atlasId);
-        if (previewImage) {
-            pctx.drawImage(previewImage, frame.x, frame.y, frame.w, frame.h, x, y, w, h);
-        } else {
-            pctx.fillStyle = "rgba(86,230,255,0.14)";
-            pctx.fillRect(x, y, w, h);
+        if (els.assetPaletteStatus) {
+            els.assetPaletteStatus.textContent = query
+                ? `Showing ${rows.length} of ${allRows.length} assets from ${state.atlases.size} atlases.`
+                : `${allRows.length} assets · ${state.atlases.size} loaded atlases.`;
         }
-
-        pctx.strokeStyle = "rgba(86,230,255,0.95)";
-        pctx.setLineDash([5, 4]);
-        pctx.strokeRect(x, y, w, h);
-        pctx.setLineDash([]);
-
-        if (object?.nodes && object?.lines) {
-            drawPreviewCollisionAreas(pctx, object, x, y, scale);
-            for (const line of object.lines) {
-                const a = object.nodes.find((node) => node.id === line.from);
-                const b = object.nodes.find((node) => node.id === line.to);
-                if (!a || !b) continue;
-                pctx.strokeStyle = COLORS[line.kind] || COLORS.blockable;
-                pctx.lineWidth = 2;
-                pctx.beginPath();
-                pctx.moveTo(x + a.x * scale, y + a.y * scale);
-                pctx.lineTo(x + b.x * scale, y + b.y * scale);
-                pctx.stroke();
-            }
-        }
-
-        els.assetPreviewInfo.textContent = `${assetId}\n${object?.type || "asset"} · ${frame.w}×${frame.h}`;
     }
 
     function renderPlacementList() {
@@ -3245,10 +3710,9 @@ import {
         return `${prefix}_${String(index).padStart(3, "0")}`;
     }
 
-    function placeAsset(point, { foreground = false } = {}) {
+    function createAssetPlacement(point, { foreground = false, id = "" } = {}) {
         const atlasId = state.activeAtlasId;
         if (!state.selectedAssetId || !frameFor(state.selectedAssetId, atlasId)) {
-            setStatus("Select an asset in the palette first.", false);
             return null;
         }
         const frame = frameFor(state.selectedAssetId, atlasId);
@@ -3258,8 +3722,8 @@ import {
         const w = Math.round(frame.w * scale);
         const h = Math.round(frame.h * scale);
         const p = snapPoint(point);
-        const placement = {
-            id: nextId(state.selectedAssetId),
+        return {
+            id: id || nextId(state.selectedAssetId),
             kind: "atlasAsset",
             atlasId,
             assetId: state.selectedAssetId,
@@ -3278,16 +3742,24 @@ import {
             foregroundFadeEnd: foreground ? 0.92 : undefined,
             notes: foreground ? "Inert manually placed cave foreground artwork." : ""
         };
+    }
+
+    function placeAsset(point, { foreground = false } = {}) {
+        const placement = createAssetPlacement(point, { foreground });
+        if (!placement) {
+            setStatus("Select an asset in the palette first.", false);
+            return null;
+        }
         state.level.placements.push(placement);
         selectOnly(placement.id);
         persistUi();
         return placement;
     }
 
-    function placeCutoutMask(point) {
+    function createCutoutMask(point, { id = "" } = {}) {
         const p = snapPoint(point);
-        const placement = {
-            id: nextId("cutoutMask"),
+        return {
+            id: id || nextId("cutoutMask"),
             kind: "cutoutMask",
             x: p.x - 80,
             y: p.y - 60,
@@ -3296,20 +3768,25 @@ import {
             layer: "mask",
             notes: "Editor/rendering mask. Restores the cave background over visuals drawn before this mask, but does not block later assets or gameplay."
         };
+    }
+
+    function placeCutoutMask(point) {
+        const placement = createCutoutMask(point);
         state.level.placements.push(placement);
         selectOnly(placement.id);
         persistUi();
+        return placement;
     }
 
-    function placeEntity(point) {
-        const type = els.quickEntity.value;
+    function createEntityPlacement(point, { preview = false } = {}) {
+        const type = state.selectedEntityType || "wizard_entry_door";
         if (type === "cutoutMask") {
-            placeCutoutMask(point);
-            return;
+            return { kind: "placement", record: createCutoutMask(point, { id: preview ? "__placement_preview__" : "" }) };
         }
         const p = snapPoint(point);
-        const entity = instantiateEnemyCatalogEntity(type, p) || instantiateCatalogEntity(type, p) || {
-            id: nextId(type),
+        const previewId = preview ? "__placement_preview__" : "";
+        const entity = instantiateEnemyCatalogEntity(type, p, { id: previewId }) || instantiateCatalogEntity(type, p, { id: previewId }) || {
+            id: previewId || nextId(type),
             type,
             x: p.x,
             y: p.y,
@@ -3325,38 +3802,128 @@ import {
             entity.destinationLevel = entity.destinationLevel || defaultNextLevelId(state.level.levelId);
             entity.mirrorX = entity.mirrorX !== false;
         }
+        if (preview) {
+            if (isWizardDoor(entity)) snapWizardDoorToNearbyGround(entity);
+            if (isCharacterEnemy(entity)) snapCharacterEnemyToNearbyGround(entity);
+        }
+        return { kind: "entity", record: entity };
+    }
+
+    function placeEntity(point) {
+        const created = createEntityPlacement(point);
+        if (!created?.record) return null;
+        if (created.kind === "placement") {
+            state.level.placements.push(created.record);
+            selectOnly(created.record.id);
+            persistUi();
+            return created.record;
+        }
+        const entity = created.record;
         state.level.entities.push(entity);
         selectOnly(entity.id);
         if (isWizardDoor(entity)) snapWizardDoorToNearbyGround(entity, { announce: true });
         if (isCharacterEnemy(entity)) snapCharacterEnemyToNearbyGround(entity, { announce: true });
         persistUi();
+        return entity;
     }
 
-    function copySelectedAsset() {
-        const selected = selectedRecord();
-        if (!selected || selected.kind !== "asset") {
-            setStatus("Select a placed atlas asset before copying it.", false);
-            syncInspector();
-            return null;
+    function clipboardRecordKind(selected) {
+        return selected?.kind === "entity" ? "entity" : "placement";
+    }
+
+    function clipboardIdPrefix(item) {
+        const record = item?.record || {};
+        if (item?.kind === "entity") return String(record.enemyCatalogId || record.type || "entity");
+        return String(record.assetId || (record.kind === "cutoutMask" ? "cutoutMask" : "asset"));
+    }
+
+    function setObjectClipboard(mode, selected = selectedRecords()) {
+        if (!selected.length) {
+            setStatus(`Select one or more objects before ${mode === "cut" ? "cutting" : "copying"}.`, false);
+            return false;
         }
-        const source = selected.record;
-        if (generatedRecordLocked(source)) {
-            setStatus(`${source.id} is locked. Unlock it before copying.`, false);
-            return null;
+        state.objectClipboard = {
+            mode,
+            items: selected.map((item) => ({
+                kind: clipboardRecordKind(item),
+                record: cloneData(item.record)
+            })),
+            pasteCount: 0,
+            primarySourceId: state.selectedId
+        };
+        syncInspector(false);
+        return true;
+    }
+
+    function copySelected() {
+        const selected = selectedRecords();
+        if (!setObjectClipboard("copy", selected)) return false;
+        setStatus(`Copied ${selected.length} object${selected.length === 1 ? "" : "s"}.`);
+        return true;
+    }
+
+    function cutSelected() {
+        const selected = selectedRecords();
+        if (!selected.length) {
+            setStatus("Select one or more objects before cutting.", false);
+            return false;
         }
+        const locked = selected.find((item) => generatedRecordLocked(item.record));
+        if (locked) {
+            setStatus(`${locked.record.id} is locked. Unlock the complete selection before cutting.`, false);
+            return false;
+        }
+        if (!setObjectClipboard("cut", selected)) return false;
+        const ids = new Set(selected.map((item) => item.record.id));
+        state.level.placements = state.level.placements.filter((item) => !ids.has(item.id));
+        state.level.entities = state.level.entities.filter((item) => !ids.has(item.id));
+        clearObjectSelection();
+        persistUi();
+        setStatus(`Cut ${ids.size} object${ids.size === 1 ? "" : "s"}. Paste restores the first copy at the same position.`);
+        return true;
+    }
+
+    function pasteSelection() {
+        const clipboard = state.objectClipboard || {};
+        const items = Array.isArray(clipboard.items) ? clipboard.items : [];
+        if (!items.length) {
+            setStatus("Copy or cut one or more objects before pasting.", false);
+            return false;
+        }
+        const preserveCutIds = clipboard.mode === "cut" && Number(clipboard.pasteCount) === 0;
         const grid = Math.max(1, Number(els.snap.value) || 16);
-        const offset = Math.max(8, Math.min(32, grid));
-        const copy = duplicateLevelPlacement(source, {
-            id: nextId(source.assetId || "asset"),
-            dx: offset,
-            dy: -offset
-        });
-        state.level.placements.push(copy);
-        selectOnly(copy.id);
+        const step = Math.max(8, Math.min(32, grid));
+        const offsetMultiplier = preserveCutIds ? 0 : Math.max(1, Number(clipboard.pasteCount) + 1);
+        const dx = step * offsetMultiplier;
+        const dy = -step * offsetMultiplier;
+        const pastedIds = [];
+        const pastedBySourceId = new Map();
+        for (const item of items) {
+            const record = cloneData(item.record);
+            const canPreserveId = preserveCutIds && record.id && !recordById(record.id);
+            if (!canPreserveId) {
+                record.id = nextId(clipboardIdPrefix(item));
+                removeAutomaticGenerationProvenance(record);
+            }
+            record.x = (Number(record.x) || 0) + dx;
+            record.y = (Number(record.y) || 0) + dy;
+            if (item.kind === "entity") state.level.entities.push(record);
+            else state.level.placements.push(record);
+            pastedIds.push(record.id);
+            pastedBySourceId.set(item.record.id, record.id);
+        }
+        if (preserveCutIds) {
+            clipboard.mode = "copy";
+            clipboard.pasteCount = 0;
+        } else {
+            clipboard.pasteCount = Math.max(0, Number(clipboard.pasteCount) || 0) + 1;
+        }
+        const pastedPrimaryId = pastedBySourceId.get(clipboard.primarySourceId) || pastedIds.at(-1) || "";
+        setObjectSelection(pastedIds, pastedPrimaryId);
         setTool("select");
         persistUi();
-        setStatus(`Copied ${source.id} as ${copy.id}.`);
-        return copy;
+        setStatus(`Pasted ${pastedIds.length} object${pastedIds.length === 1 ? "" : "s"}.`);
+        return true;
     }
 
     function deleteSelected() {
@@ -3419,37 +3986,30 @@ import {
         return { x, y, w: Math.abs(b.x - a.x), h: Math.abs(b.y - a.y) };
     }
 
-    function rectContainsRect(outer, inner) {
-        return inner.x >= outer.x && inner.y >= outer.y &&
-            inner.x + inner.w <= outer.x + outer.w && inner.y + inner.h <= outer.y + outer.h;
+    function rectToBounds(rect) {
+        return {
+            minX: rect.x,
+            minY: rect.y,
+            maxX: rect.x + rect.w,
+            maxY: rect.y + rect.h
+        };
     }
 
-    function placementWorldBounds(placement) {
-        const corners = placement.kind === "cutoutMask"
-            ? [
-                { x: placement.x, y: placement.y },
-                { x: placement.x + placement.w, y: placement.y + placement.h }
-            ]
-            : placementCorners(placement);
-        const xs = corners.map((point) => point.x);
-        const ys = corners.map((point) => point.y);
-        return {
-            x: Math.min(...xs),
-            y: Math.min(...ys),
-            w: Math.max(...xs) - Math.min(...xs),
-            h: Math.max(...ys) - Math.min(...ys)
-        };
+    function boundsContainsBounds(outer, inner) {
+        return inner.minX >= outer.minX && inner.minY >= outer.minY &&
+            inner.maxX <= outer.maxX && inner.maxY <= outer.maxY;
     }
 
     function objectIdsInsideSelectionRect(selectionRect) {
         const ids = [];
+        const selectionBounds = rectToBounds(selectionRect);
         const placementGroups = sortedPlacementGroups();
         for (const placement of [...placementGroups.main, ...placementGroups.caveForeground]) {
             if (!generatedCavePlacementVisible(placement)) continue;
-            if (rectContainsRect(selectionRect, placementWorldBounds(placement))) ids.push(placement.id);
+            if (boundsContainsBounds(selectionBounds, placementWorldBounds(placement))) ids.push(placement.id);
         }
         for (const entity of state.level.entities) {
-            if (rectContainsRect(selectionRect, objectRect(entity, "entity"))) ids.push(entity.id);
+            if (boundsContainsBounds(selectionBounds, rectToBounds(objectRect(entity, "entity")))) ids.push(entity.id);
         }
         return ids;
     }
@@ -3621,9 +4181,29 @@ import {
         refreshCaveGeometryWarningUi(caveGeometryWarnings);
         drawAutomaticRouteOverlay();
         drawAutomaticValidationOverlay();
+        drawPlacementPreview();
         drawSelection();
         drawSelectionBox();
         scheduleJsonUpdate();
+    }
+
+    function drawPlacementPreview() {
+        const point = state.placementPreviewPoint;
+        if (!point || !placementPreviewTool()) return;
+        if (state.tool === "placeAsset" || state.tool === "placeCaveForeground") {
+            const placement = createAssetPlacement(point, {
+                foreground: state.tool === "placeCaveForeground",
+                id: "__placement_preview__"
+            });
+            if (placement) drawPlacement(placement, null, { preview: true });
+            return;
+        }
+        if (state.tool === "placeEntity") {
+            const created = createEntityPlacement(point, { preview: true });
+            if (!created?.record) return;
+            if (created.kind === "placement") drawPlacement(created.record, null, { preview: true });
+            else drawEntity(created.record, { preview: true });
+        }
     }
 
     function drawBackground(rect) {
@@ -4014,11 +4594,12 @@ import {
         }
     }
 
-    function drawPlacement(placement, viewportBounds = null, { skipArtwork = false } = {}) {
+    function drawPlacement(placement, viewportBounds = null, { skipArtwork = false, preview = false } = {}) {
         if (!generatedCavePlacementVisible(placement)) return false;
         if (viewportBounds && !boundsIntersect(placementWorldBounds(placement), viewportBounds)) return false;
         if (placement.kind === "cutoutMask") {
-            drawCutoutMask(placement);
+            if (preview) drawCutoutMaskPreview(placement);
+            else drawCutoutMask(placement);
             return true;
         }
 
@@ -4035,6 +4616,7 @@ import {
             : imageForAtlas(atlasId);
         if (!skipArtwork) {
             ctx.save();
+            if (preview) ctx.globalAlpha *= 0.58;
             ctx.globalAlpha *= Number.isFinite(Number(placement.alpha)) ? Number(placement.alpha) : 1;
             ctx.translate(center.x, center.y);
             ctx.rotate(rotation);
@@ -4052,13 +4634,43 @@ import {
             ctx.restore();
         }
         const generated = isGeneratedCaveForeground(placement);
-        const showDetails = !generated || state.selectedId === placement.id;
+        const showDetails = !preview && (!generated || state.selectedId === placement.id);
         if (showDetails && els.showAssetGuides.checked) drawPlacementGuides(placement);
         if (showDetails && els.showLabels.checked) {
             const topLeft = placementCorners(placement)[0];
             drawLabel(`${atlasId}:${placement.assetId}`, topLeft.x, topLeft.y - 8, COLORS.frame);
         }
+        if (preview) drawPlacementPreviewOutline(placement);
         return true;
+    }
+
+    function drawPlacementPreviewOutline(placement) {
+        const corners = placementCorners(placement).map((point) => worldToScreen(point.x, point.y));
+        if (!corners.length) return;
+        ctx.save();
+        ctx.strokeStyle = "rgba(255,255,255,0.92)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([7, 5]);
+        ctx.beginPath();
+        ctx.moveTo(corners[0].x, corners[0].y);
+        for (let index = 1; index < corners.length; index += 1) ctx.lineTo(corners[index].x, corners[index].y);
+        ctx.closePath();
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    function drawCutoutMaskPreview(mask) {
+        const p = worldToScreen(mask.x, mask.y);
+        const w = mask.w * state.camera.zoom;
+        const h = mask.h * state.camera.zoom;
+        ctx.save();
+        ctx.fillStyle = "rgba(255,255,255,0.08)";
+        ctx.strokeStyle = "rgba(255,255,255,0.92)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([7, 5]);
+        ctx.fillRect(p.x, p.y, w, h);
+        ctx.strokeRect(p.x, p.y, w, h);
+        ctx.restore();
     }
 
     function drawCutoutMask(mask) {
@@ -4272,8 +4884,12 @@ import {
         return true;
     }
 
-    function drawEntity(entity) {
-        if (els.showAssetGuides.checked) drawCharacterEnemyPatrolGuide(entity);
+    function drawEntity(entity, { preview = false } = {}) {
+        if (!preview && els.showAssetGuides.checked) drawCharacterEnemyPatrolGuide(entity);
+        if (preview) {
+            ctx.save();
+            ctx.globalAlpha *= 0.58;
+        }
         const visuals = entityVisuals(entity).slice().sort((a, b) => {
             const rank = (layer) => layer === "decorBack" ? 0 : layer === "decorFront" ? 1 : layer === "actorFront" ? 2 : 1;
             return rank(a.layer) - rank(b.layer);
@@ -4304,7 +4920,22 @@ import {
             ctx.fillRect(p.x, p.y, rect.w * state.camera.zoom, rect.h * state.camera.zoom);
             ctx.strokeRect(p.x, p.y, rect.w * state.camera.zoom, rect.h * state.camera.zoom);
         }
-        if (els.showLabels.checked) drawLabel(entity.id, entity.x, rect.y - 8, COLORS.entity);
+        if (!preview && els.showLabels.checked) drawLabel(entity.id, entity.x, rect.y - 8, COLORS.entity);
+        ctx.restore();
+        if (preview) {
+            ctx.restore();
+            drawEntityPreviewOutline(entity);
+        }
+    }
+
+    function drawEntityPreviewOutline(entity) {
+        const rect = objectRect(entity, "entity");
+        const p = worldToScreen(rect.x, rect.y);
+        ctx.save();
+        ctx.strokeStyle = "rgba(255,255,255,0.92)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([7, 5]);
+        ctx.strokeRect(p.x, p.y, rect.w * state.camera.zoom, rect.h * state.camera.zoom);
         ctx.restore();
     }
 
@@ -4529,9 +5160,13 @@ import {
 
     function syncInspector(syncFields = true) {
         const selected = selectedRecord();
-        if (els.copyAsset) {
-            els.copyAsset.disabled = !selected || selected.kind !== "asset" || generatedRecordLocked(selected.record);
-        }
+        const selection = selectedRecords();
+        const hasSelection = selection.length > 0;
+        const hasLockedSelection = selection.some((item) => generatedRecordLocked(item.record));
+        els.cutSelection.disabled = !hasSelection || hasLockedSelection;
+        els.copySelection.disabled = !hasSelection;
+        els.pasteSelection.disabled = !state.objectClipboard?.items?.length;
+        els.deleteSelection.disabled = !hasSelection || hasLockedSelection;
         if (!selected) {
             els.selectionSummary.textContent = "Nothing selected.";
             els.movingPlatformRow.style.display = "none";
@@ -4673,6 +5308,38 @@ import {
         renderPlacementList();
     }
 
+    function applyInspectorVisuals() {
+        const selected = selectedRecord();
+        if (!selected) return false;
+        const rec = selected.record;
+        if (generatedRecordLocked(rec)) return false;
+        const setFinite = (property, input, fallback = null) => {
+            if (!input || input.value.trim() === "") return;
+            const value = Number(input.value);
+            if (Number.isFinite(value)) rec[property] = value;
+            else if (fallback !== null) rec[property] = fallback;
+        };
+        setFinite("x", els.inspectX, 0);
+        setFinite("y", els.inspectY, 0);
+        const editingCharacterEnemy = selected.kind === "entity" && isCharacterEnemy(rec);
+        if (!editingCharacterEnemy) {
+            setFinite("w", els.inspectW, rec.w || 1);
+            setFinite("h", els.inspectH, rec.h || 1);
+            rec.w = Math.max(1, finiteEditorNumber(rec.w, 1));
+            rec.h = Math.max(1, finiteEditorNumber(rec.h, 1));
+        }
+        if (selected.kind === "asset") {
+            const degrees = Number(els.inspectAngle.value);
+            if (Number.isFinite(degrees)) rec.rotation = degrees * Math.PI / 180;
+        }
+        rec.notes = els.inspectNotes.value;
+        invalidateEditorPlacementCaches();
+        renderPlacementList();
+        draw();
+        scheduleJsonUpdate();
+        return true;
+    }
+
     function updateSelectedEnemyScaleFromInspector({ commit = false } = {}) {
         const selected = selectedRecord();
         if (!selected || selected.kind !== "entity" || !isCharacterEnemy(selected.record)) return false;
@@ -4697,7 +5364,7 @@ import {
         return true;
     }
 
-    function applyInspector() {
+    function applyInspector(event = null) {
         const selected = selectedRecord();
         if (!selected) return;
         const rec = selected.record;
@@ -4706,6 +5373,15 @@ import {
             syncInspector();
             return;
         }
+        const changedControlId = String(event?.target?.id || "");
+        const geometryCommit = !changedControlId || [
+            "inspect-x",
+            "inspect-y",
+            "inspect-w",
+            "inspect-h",
+            "inspect-entity-type",
+            "inspect-enemy-character"
+        ].includes(changedControlId);
         const oldId = rec.id;
         const newId = els.inspectId.value.trim() || rec.id || state.selectedId;
         if (newId !== rec.id && idExists(newId)) {
@@ -4833,7 +5509,7 @@ import {
                     rec.destinationLevel = els.inspectDoorDestination.value.trim() || defaultNextLevelId(state.level.levelId);
                     rec.mirrorX = rec.mirrorX !== false;
                 }
-                snapWizardDoorToNearbyGround(rec, { announce: true });
+                if (geometryCommit) snapWizardDoorToNearbyGround(rec, { announce: true });
             }
             if (isEnemySpawner(rec)) {
                 const config = normalizeEnemySpawner({
@@ -4905,7 +5581,7 @@ import {
                 rec.groundSnapDistance = Math.max(0, finiteEditorNumber(rec.groundSnapDistance, 96));
                 rec.animationSlot = "idle";
                 rec.state = "idle";
-                snapCharacterEnemyToNearbyGround(rec, { announce: true });
+                if (geometryCommit) snapCharacterEnemyToNearbyGround(rec, { announce: true });
             }
         }
         if (oldId !== rec.id && state.selectedIds.has(oldId)) {
@@ -6254,7 +6930,11 @@ import {
             return;
         }
         if (state.tool === "placeEntity") {
-            placeEntity(point);
+            const placed = placeEntity(point);
+            if (placed) {
+                setTool("select");
+                setStatus(`Placed ${placed.id}. Select tool active for fine-tuning.`);
+            }
             return;
         }
         if (state.tool === "select") {
@@ -6291,6 +6971,16 @@ import {
         const point = screenToWorld(event.clientX - rect.left, event.clientY - rect.top);
         els.cursor.textContent = `x:${point.x.toFixed(0)} y:${point.y.toFixed(0)} zoom:${state.camera.zoom.toFixed(2)}`;
         updateDrag(point, event);
+        if (placementPreviewTool()) {
+            state.placementPreviewPoint = point;
+            draw();
+        }
+    });
+
+    canvas.addEventListener("pointerleave", () => {
+        if (!state.placementPreviewPoint) return;
+        state.placementPreviewPoint = null;
+        if (placementPreviewTool()) draw();
     });
 
     canvas.addEventListener("pointerup", (event) => {
@@ -6313,25 +7003,18 @@ import {
     }, { passive: false });
 
     document.querySelectorAll("button[data-tool]").forEach((button) => button.addEventListener("click", () => setTool(button.dataset.tool)));
+    els.cutSelection.addEventListener("click", cutSelected);
+    els.copySelection.addEventListener("click", copySelected);
+    els.pasteSelection.addEventListener("click", pasteSelection);
     els.deleteSelection.addEventListener("click", deleteSelected);
     document.getElementById("zoom-in").addEventListener("click", () => zoomEditorAtCenter(1.15));
     document.getElementById("zoom-out").addEventListener("click", () => zoomEditorAtCenter(1 / 1.15));
     document.getElementById("fit-content-view").addEventListener("click", fitContentView);
-    els.copyAsset.addEventListener("click", copySelectedAsset);
     els.zoom.addEventListener("change", () => {
         state.camera.zoom = Math.max(MIN_EDITOR_ZOOM, Math.min(MAX_EDITOR_ZOOM, Number(els.zoom.value) || state.camera.zoom));
         draw();
     });
-    if (els.entityPalette) {
-        for (const button of els.entityPalette.querySelectorAll("button[data-entity]")) {
-            button.addEventListener("click", () => {
-                els.quickEntity.value = button.dataset.entity;
-                updateEntityPalette();
-                setTool("placeEntity");
-            });
-        }
-    }
-    els.quickEntity.addEventListener("change", updateEntityPalette);
+    if (els.entityPalette) updateEntityPalette();
 
     els.generatorTheme.addEventListener("change", () => applyGeneratorThemeDefaults(els.generatorTheme.value, { preserveSeed: true }));
     els.generatorRandomizeSeed.addEventListener("click", () => {
@@ -6378,6 +7061,7 @@ import {
     els.generatorShowRoute.addEventListener("change", draw);
     els.generatorShowValidation.addEventListener("change", draw);
 
+    els.entitySearch.addEventListener("input", renderEntityPalette);
     els.assetSearch.addEventListener("input", renderAssetList);
     document.getElementById("new-level").addEventListener("click", () => {
         state.level = makeEmptyLevel();
@@ -6392,7 +7076,6 @@ import {
     });
     document.getElementById("load-level").addEventListener("click", loadSelectedLevel);
     document.getElementById("reload-atlas-library").addEventListener("click", loadDefaultManifest);
-    document.getElementById("apply-inspector").addEventListener("click", applyInspector);
     els.inspectEnemyRenderScale.addEventListener("input", () => updateSelectedEnemyScaleFromInspector());
     els.inspectEnemyRenderScale.addEventListener("change", () => updateSelectedEnemyScaleFromInspector({ commit: true }));
     els.inspectMovingEnabled.addEventListener("change", () => {
@@ -6415,6 +7098,19 @@ import {
         els.inspectCollision.disabled = inertForeground;
         els.movingPlatformRow.style.display = inertForeground ? "none" : "block";
     });
+    const liveInspectorVisualIds = new Set([
+        "inspect-x",
+        "inspect-y",
+        "inspect-w",
+        "inspect-h",
+        "inspect-angle",
+        "inspect-notes"
+    ]);
+    for (const control of document.querySelectorAll("#selected-object-panel input, #selected-object-panel select, #selected-object-panel textarea")) {
+        if (!control.id || control.readOnly || control.id === "inspect-kind" || control.id === "inspect-enemy-render-scale") continue;
+        control.addEventListener("change", applyInspector);
+        if (liveInspectorVisualIds.has(control.id)) control.addEventListener("input", applyInspectorVisuals);
+    }
     document.getElementById("to-front").addEventListener("click", raiseSelectedToTop);
     document.getElementById("to-back").addEventListener("click", lowerSelectedToBottom);
     document.getElementById("play-browser-copy").addEventListener("click", playBrowserCopy);
@@ -6548,6 +7244,41 @@ import {
             persistUi();
         });
         setStatus("Loaded browser copy.");
+    });
+
+
+    function shortcutTargetIsTextEditor(target) {
+        return target instanceof HTMLInputElement
+            || target instanceof HTMLTextAreaElement
+            || target instanceof HTMLSelectElement
+            || Boolean(target?.isContentEditable);
+    }
+
+    window.addEventListener("keydown", (event) => {
+        if (shortcutTargetIsTextEditor(event.target)) return;
+        const modifier = event.ctrlKey || event.metaKey;
+        const key = String(event.key || "").toLowerCase();
+        if (modifier && !event.altKey) {
+            if (key === "x" && selectedRecords().length) {
+                event.preventDefault();
+                cutSelected();
+                return;
+            }
+            if (key === "c" && selectedRecords().length) {
+                event.preventDefault();
+                copySelected();
+                return;
+            }
+            if (key === "v" && state.objectClipboard?.items?.length) {
+                event.preventDefault();
+                pasteSelection();
+                return;
+            }
+        }
+        if (!modifier && !event.altKey && (event.key === "Delete" || event.key === "Backspace") && selectedRecords().length) {
+            event.preventDefault();
+            deleteSelected();
+        }
     });
 
     window.addEventListener("resize", resizeCanvas);

@@ -75,6 +75,7 @@ IgnatiusRocketfrock_JS/
 ├── devel/
 ├── package.json
 ├── AGENTS.md
+├── DEVELOPER_MANUAL.md
 ├── PLAN.md
 ├── IMPLEMENTATION_CHECKLIST.md
 └── ARCHITECTURE.md
@@ -1075,3 +1076,40 @@ Level Editor multi-selection is authoring UI state only. `selectedId` names the 
 The Asset palette is atlas-agnostic at the UI layer: it enumerates all loaded atlas manifests and stores the chosen atlas in `activeAtlasId` before placement. Runtime level records still carry explicit `atlasId` and `assetId`; the palette merge does not merge manifests or make frame IDs globally unique.
 
 Manual cave-perimeter population intentionally supplies no protected gameplay regions. It remains an inert `caveForeground` presentation operation and may visually occlude gameplay objects. Automatic generator decoration retains its own endpoint, reward, traversal, and cave-containment protections. Foreground overlap must never create collision or navigation geometry.
+
+
+## Revision 294 Level Editor clipboard model
+
+The Level Editor clipboard is transient authoring state in `state.objectClipboard`; it is not part of the level schema. Each clipboard item records whether it belongs in `entities` or `placements` plus a deep clone of the source record. Multi-object order and relative coordinates are preserved. Copy paste creates fresh IDs, strips automatic-generation provenance from clones, and offsets the group by one snapped diagonal step per paste. Cut removes only unlocked selections; its first paste may restore the original IDs and coordinates, after which the payload behaves like an ordinary copied group.
+
+Cut, Copy, Paste, and Delete are commands rather than tools. The toolbar and keyboard shortcuts call the same functions. Shortcut handling must not intercept keystrokes from text-editing controls. Pasted records become the active selection and the editor returns to Select mode. Selection and clipboard state remain editor-only and must never appear in exported level JSON.
+
+## Revision 295 canonical Level Editor selection bounds
+
+Level Editor placement bounds have one representation and one implementation. The cached `placementWorldBounds(placement)` helper returns `{ minX, minY, maxX, maxY }` and is shared by viewport culling, overlap work, and Shift-drag selection. Entity hit rectangles remain `{ x, y, w, h }` at their local API boundary and are converted through `rectToBounds` before containment tests. Duplicate function declarations are forbidden because JavaScript hoisting silently lets the later declaration replace the earlier one, which previously made atlas placements impossible to box-select.
+
+## Revision 296 Level Editor entity-palette authority
+
+The Level Editor keeps the active entity placement type in transient `state.selectedEntityType`. The right-side Entity palette is the only control that changes that value. Palette buttons also activate Place Entity mode; the toolbar Place entity command only activates the tool and reuses the existing selection. Do not restore a second dropdown or other parallel entity-type state, because duplicate pickers can drift apart and consume scarce toolbar width.
+
+## Revision 297 Level Editor palette presentation
+
+The Level Editor's Asset and Entity palettes share one editor-only card-grid presentation contract. Each panel occupies the available viewport height, keeps search and status controls outside an internally scrolling two-column grid, and draws thumbnails into small per-card canvases. Asset thumbnails crop directly from the already loaded atlas image. Interactive catalog entities compose their default-state visuals from existing atlas frames, while character enemies sample the already loaded idle rig through the ordinary character-runtime helpers. Invisible or legacy editor entities use icon fallbacks. Palette filters and card state are transient UI data and never enter exported level JSON.
+
+## Revision 298 Level Editor palette fitting
+
+Palette grids use `grid-auto-rows: max-content`; cards and thumbnail canvases have explicit minimum/flex heights and may never shrink merely because more results exist. The internal grid owns overflow scrolling. `paletteOpaqueBounds` samples and caches source alpha bounds per image/canvas rectangle. Direct atlas previews crop to those bounds; catalog composites map each crop back into its authored destination rectangle; character previews use alpha-aware transformed command bounds before fitting. This is editor presentation only and does not alter atlas manifests, runtime rendering, or serialized level data.
+
+## Revision 299 editor inspector and preview composition
+
+`level-editor.html` owns transient Level Editor inspector and palette behavior. Visual inspector fields mutate the selected record immediately, invalidate editor placement caches, redraw, and schedule JSON refresh without resynchronizing the focused input on every keystroke. Nonvisual inspector controls use their normal change event and the shared full inspector commit path. The inspector has no Apply command.
+
+Character palette cards must not fit from theoretical rig extents alone. Render the complete idle-pose command list to an editor-only temporary canvas, compute visible alpha bounds from the composited result, then center and contain that crop in the card. This stays editor-only and does not alter runtime character rendering.
+
+Long implementation explanations belong in `DEVELOPER_MANUAL.md`, not inside persistent Level Editor panels. Palette panels are exempt from the compact non-palette panel spacing rules because they need stable wheel-scroll margins and viewport-height card areas.
+
+Palette canvas backing dimensions are derived from the displayed CSS box and a bounded device-pixel ratio before drawing. Fitting calculations must use those prepared dimensions; never calculate against the old fixed 320×240 fallback and resize afterward.
+
+## Revision 300 palette-driven placement preview
+
+The Level Editor keeps `placementPreviewPoint` as transient UI state. Pointer movement over the canvas updates that point only while Place Asset, Place Cave Foreground, or Place Entity is active. `drawPlacementPreview()` builds an unsaved record with the reserved `__placement_preview__` ID and sends it through the normal placement/entity rendering path with preview opacity and a dashed outline. Character enemies and wizard doors use the same nearby-ground snap calculation as final placement. The preview is never inserted into `level.placements` or `level.entities`, never serialized, and never advances authored IDs. A successful asset or entity placement switches immediately to Select mode.

@@ -3036,3 +3036,46 @@ The Asset palette now aggregates every frame from every loaded atlas in one sear
 Manual **Populate perimeter** no longer passes endpoint, pickup, enemy, or platform protection regions to the foreground decorator. Inward coverage is therefore literal: stalactites and stalagmites may intentionally overlap the visible playing area so Ignatius, enemies, doors, and platforms can pass behind foreground rock. Automatic level generation retains its own stricter safety and validation rules; this change applies to the explicit manual authoring command only.
 
 The next task remains a hands-on `level_002` playtest in revision 293, now including the unified boss/fireball scale, compact arena framing, encounter density, spawner cadence, and the repaired navigation performance. After that tuning pass, rectangular water volumes remain the next major planned world system.
+
+
+## Revision 294 standard Level Editor clipboard actions
+
+Replace the atlas-asset-only Copy action with standard Cut, Copy, Paste, and Delete actions that operate on either the primary object or the complete multi-selection. The clipboard stores full placement/entity records without serializing selection state into level JSON. Copying preserves relative spacing and creates fresh IDs on paste; generated copies become manual records so generator ownership cannot be duplicated accidentally. Cutting rejects locked generated records, removes the originals immediately, and restores the first paste at the original coordinates with the original IDs when those IDs remain available. Later pastes use fresh IDs and a snapped cascading offset.
+
+Toolbar buttons and Ctrl/Cmd+X, Ctrl/Cmd+C, Ctrl/Cmd+V, Delete, and Backspace share the same commands. Keyboard handling deliberately yields to inputs, textareas, selects, and content-editable controls so ordinary text editing remains native. Clipboard commands never become persistent tools and Paste returns the editor to Select mode with the pasted group selected. The generator release runner also restores the intended two-process split: the eight core generator contracts run together in one clean Node process while the memory-heaviest macro contract runs concurrently in a second clean process. This avoids the environment-dependent stall seen in the accidental nine-process sequential runner while preserving heap isolation for the macro suite.
+
+The next gameplay task remains the hands-on revision-294 `level_002` playtest and encounter tuning. Rectangular water volumes remain the next major planned world system after the current boss-level pass.
+
+## Revision 295 Level Editor box-selection bounds fix
+
+Browser playtesting revision 294 exposed a confirmed Level Editor bug rather than a usage mistake. `level-editor.html` contained two function declarations named `placementWorldBounds`. The earlier selection helper expected `{ x, y, w, h }`, but JavaScript hoisted the later cached culling helper, which returned `{ minX, minY, maxX, maxY }`. Asset-selection containment therefore compared undefined fields and could never add atlas placements to a Shift-drag selection.
+
+Revision 295 removes the duplicate helper and makes both assets and entities use one canonical min/max bounds representation during box selection. Shift-drag continues to replace the selection with fully enclosed records, and Ctrl+Shift-drag continues to toggle those records. A regression check now requires exactly one `placementWorldBounds` declaration and verifies compatible bounds conversion for both placements and entities. The next gameplay task remains hands-on `level_002` encounter tuning; rectangular water volumes remain the next major planned world system afterward.
+
+## Revision 296 Entity palette owns placement choice
+
+Revision 296 removes the stale entity-type dropdown from the Level Editor toolbar. The right-side Entity palette is now the single source of truth for the active entity placement type; clicking a palette button selects that type and enters Place Entity mode, while the toolbar button simply reuses the current palette choice. This recovers toolbar space and removes duplicate UI state. Regression checks forbid the retired `quick-entity` element and its JavaScript wiring.
+
+## Revision 297 full-height thumbnail palettes
+
+Revision 297 replaces the Level Editor's text-heavy asset list and one-at-a-time preview with a full-height, internally scrolling two-column thumbnail grid. Every loaded atlas frame is visible directly in the Asset palette, with its frame name, atlas, object type, and dimensions attached to the card. A compact filter remains fixed above the scroll area, beside the atlas reload action.
+
+The Entity palette now uses the same card grid, viewport-height panel, internal scrollbar, and filter field. Catalog entities draw their authored default visual, character enemies draw their idle rig pose, and invisible/editor-only entities fall back to a large identifying icon. Palette selection still owns the active Place Asset or Place Entity choice; the redesign changes authoring presentation only and does not alter level JSON or runtime behavior.
+
+## Revision 298 palette thumbnail readability repair
+
+The first hands-on pass of revision 297 exposed a real CSS-grid failure: when many cards were present, implicit `auto` rows compressed to fit the available palette height, reducing canvases to narrow slits. Revision 298 gives the grid max-content rows and every card a non-shrinking preview area, so overflow is handled only by the intended scrollbar.
+
+Asset, catalog-entity, and character previews now compute cached visible-alpha bounds. The thumbnail fitter crops transparent frame margins, preserves composed visual alignment, and centers the actually visible artwork rather than the nominal source rectangle. This fixes apparently missing asset thumbnails and off-centre enemies while retaining the two-column design.
+
+## Revision 299 Level Editor live inspector and compact panels
+
+Hands-on testing found that composed enemy thumbnails could still be undersized or off-center because fitting used calculated rig-command bounds before the complete character had been rasterized. Revision 299 renders each composed character preview to a temporary surface, crops the final combined alpha, and fits that crop into the card. This was fixed immediately.
+
+The Selected object panel now applies position, size, angle, and Notes while typing; other fields commit on their ordinary change event, and the obsolete Apply button is removed. Notes is a single-line field. Static explanatory essays were removed from compact right-hand panels and moved to `DEVELOPER_MANUAL.md`. The Entity and Asset palette panel geometry and margins remain unchanged.
+
+Revision 299 also corrects a second palette distortion found during the repair: the fixed 320×240 backing bitmap did not always match the CSS card aspect ratio. Palette canvases now size their backing store from their displayed width and height before fitting artwork, preventing browser stretching.
+
+## Revision 300 cursor-following placement previews
+
+Palette-driven placement now shows the actual chosen asset or entity under the pointer before committing it. The ghost uses snapping, authored dimensions, atlas/entity visuals, and nearby-ground snapping for doors and grounded enemies, so the click result matches the preview. Preview records use a reserved transient ID and never enter the level document. Assets and entities now share the same one-shot workflow: choose a palette card, move the preview into position, click once, then continue in Select mode.

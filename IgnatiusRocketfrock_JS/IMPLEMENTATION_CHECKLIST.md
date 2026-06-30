@@ -2921,4 +2921,76 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Remove the atlas dropdown and aggregate all loaded atlas frames in one searchable palette.
 - [x] Remove manual perimeter-population gameplay-clearance protection so foreground rock may intentionally cover playable space.
 - [x] Update the Game Manual, plan, architecture, agent guidance, revision labels, and regression coverage.
-- [ ] Browser-playtest revision 293, with particular attention to multi-selection ergonomics, one-screen boss framing, Gorblax's enlarged fireballs, and manual floor stalagmite coverage.
+- [x] Browser-playtest revision 293; the editor pass exposed the need for standard clipboard commands, addressed in revision 294, while remaining `level_002` encounter tuning moves forward.
+
+
+## Revision 294 standard Level Editor clipboard
+
+- [x] Remove the asset-only Copy asset toolbar action.
+- [x] Add Cut, Copy, Paste, and Delete command buttons without changing the active tool.
+- [x] Support complete single- and multi-selection clipboard payloads for both entities and placements.
+- [x] Preserve group spacing, generate unique IDs for copied records, and select the pasted group.
+- [x] Make copied generated records manual on paste instead of duplicating generator ownership.
+- [x] Make Cut reject locked generated records and restore the first paste at the original coordinates when possible.
+- [x] Add Ctrl/Cmd+X, Ctrl/Cmd+C, Ctrl/Cmd+V, Delete, and Backspace shortcuts while preserving native text-field editing.
+- [x] Restore the generator release runner to concurrent core and macro processes so the isolated suite completes reliably.
+- [x] Update the Game Manual, plan, architecture notes, revision labels, and regression coverage.
+- [ ] Browser-playtest revision 294, including clipboard cascades, multi-object Cut/Paste, locked generated selections, and the remaining `level_002` encounter tuning.
+
+## Revision 295 Level Editor box-selection repair
+
+- [x] Reproduce the revision-294 symptom where Shift-drag drew a marquee but atlas placements inside it were not selected.
+- [x] Remove the duplicate, incompatible `placementWorldBounds` declaration.
+- [x] Compare placements and entities through one canonical min/max bounds schema.
+- [x] Add regression checks for one bounds helper and compatible asset/entity box-selection comparisons.
+- [ ] Browser-playtest revision 295 with rotated assets, cave-foreground assets, entities, replacement selection, and Ctrl+Shift toggle selection.
+- [ ] Continue hands-on `level_002` boss encounter tuning after the editor selection pass.
+
+## Revision 296 Entity picker cleanup
+
+- [x] Remove the top-toolbar entity dropdown.
+- [x] Make the Entity palette the sole owner of the active entity placement type.
+- [x] Keep the Place entity toolbar button as a shortcut that reuses the current palette selection.
+- [x] Remove all `quick-entity` and `els.quickEntity` wiring.
+- [x] Add regression checks preventing the duplicate picker from returning.
+- [ ] Browser-playtest palette selection followed by repeated Place entity toolbar use.
+
+## Revision 297 full-height palette grids
+
+- [x] Replace the Asset palette's text rows and single preview with two-column thumbnail cards for every loaded atlas frame.
+- [x] Make the Asset palette panel viewport-height with a dedicated internal scrollbar.
+- [x] Give the Entity palette the same two-column card layout, viewport-height scrolling, and visual selection treatment.
+- [x] Render catalog-entity default visuals, character-enemy idle poses, and icon fallbacks for invisible/editor entities.
+- [x] Add compact filter fields to both palettes and keep atlas reload beside the Asset filter.
+- [x] Keep palette selection as the sole source of active asset/entity placement choices.
+- [x] Remove the obsolete one-at-a-time asset preview canvas and wiring.
+- [ ] Browser-playtest long palette scrolling, filtering, selection persistence, and thumbnail readability at common editor window sizes.
+
+## Revision 298 readable palette thumbnails
+
+- [x] Reproduce the revision-297 symptom where unfiltered palettes compressed thumbnail canvases into horizontal slits.
+- [x] Use max-content grid rows and non-shrinking card/preview heights so long palettes scroll instead of squeezing.
+- [x] Increase thumbnail backing resolution and visible preview height.
+- [x] Crop atlas previews to cached non-transparent bounds and center them.
+- [x] Use alpha-aware bounds for catalog composites and character idle-pose previews.
+- [x] Update the Game Manual, plan, architecture guidance, revision labels, and regression coverage.
+- [ ] Browser-playtest unfiltered and filtered palettes at common browser zoom levels.
+
+## Revision 299 compact live Level Editor inspector
+
+- [x] Remove the Selected object Apply button.
+- [x] Apply X, Y, W, H, rotation, and Notes live while editing.
+- [x] Commit remaining inspector controls on their normal change event.
+- [x] Replace the oversized Notes textarea with one line.
+- [x] Compact non-palette right-hand panels without changing Entity or Asset palette margins.
+- [x] Move long static editor explanations into `DEVELOPER_MANUAL.md`.
+- [x] Rasterize composed enemy previews before alpha cropping so they fill and center correctly.
+- [x] Match palette canvas backing aspect ratio to its displayed card before fitting previews.
+
+## Revision 300 cursor placement previews
+
+- [x] Show the selected asset or entity at its snapped canvas position while the pointer moves in placement mode.
+- [x] Reuse normal asset/entity rendering and enemy/door ground snapping for the transient preview.
+- [x] Keep preview state out of level JSON and avoid consuming an authored ID.
+- [x] Return to Select after placing either an asset or an entity.
+- [x] Clear the preview when the pointer leaves the canvas or another tool is selected.

@@ -440,9 +440,9 @@ function testSourceOrganization() {
     assert.equal(packageMetadata.scripts?.["test:fast"], "node tests/testbench.mjs --progress --group=fast", "package metadata should expose the fast non-generator test group");
     assert.equal(packageMetadata.scripts?.["test:generator"], "node devel/run_generator_tests.mjs", "package metadata should expose the isolated generator test runner");
     const generatorRunner = readFileSync(new URL("../devel/run_generator_tests.mjs", import.meta.url), "utf8");
-    assert.match(generatorRunner, /automatic level generator playable empty cavern/, "the generator runner should enumerate the heavy contracts explicitly");
-    assert.match(generatorRunner, /for \(const name of suites\)/, "the generator runner should launch each heavy contract in a fresh sequential process");
-    assert.equal(generatorRunner.includes("Promise.all"), false, "generator contracts should not compete concurrently for the same geometry-heavy memory budget");
+    assert.match(generatorRunner, /group: "generator-core"/, "the generator runner should isolate the eight core contracts in one clean process");
+    assert.match(generatorRunner, /group: "generator-macro"/, "the generator runner should isolate the memory-heavy macro contract in its own process");
+    assert.equal(generatorRunner.includes("Promise.all"), true, "the core and macro processes should run concurrently so neither inherits the other's accumulated geometry state");
     assert.equal(packageMetadata.scripts?.["test:profile"], "node tests/testbench.mjs --progress --profile", "package metadata should expose per-test timing diagnostics");
 
     const packageHelper = readFileSync(new URL("../devel/package_update.py", import.meta.url), "utf8");
@@ -1369,18 +1369,32 @@ function testUnifiedEnemyScaling() {
 
 function testLevelEditorMultiSelectionAndPaletteWorkflow() {
     const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
-    assert.ok(editorHtml.includes('<button id="delete-selection" type="button">🗑 Delete</button>'), "Delete should be an immediate action button rather than a selectable tool");
+    assert.ok(editorHtml.includes('<button id="cut-selection" type="button" disabled>✂ Cut</button>'), "the toolbar should expose a standard Cut action");
+    assert.ok(editorHtml.includes('<button id="copy-selection" type="button" disabled>⧉ Copy</button>'), "the toolbar should expose a standard Copy action");
+    assert.ok(editorHtml.includes('<button id="paste-selection" type="button" disabled>▣ Paste</button>'), "the toolbar should expose a standard Paste action");
+    assert.ok(editorHtml.includes('<button id="delete-selection" type="button">🗑 Delete</button>'), "Delete should remain an immediate action button rather than a selectable tool");
     assert.equal(editorHtml.includes('data-tool="delete"'), false, "the retired Delete tool should not remain selectable");
-    assert.ok(editorHtml.includes('els.deleteSelection.addEventListener("click", deleteSelected);'), "the Delete action should remove the current single or multi-selection without changing tools");
+    assert.equal(editorHtml.includes('id="copy-asset"'), false, "the old asset-only duplicate action should be removed");
+    assert.ok(editorHtml.includes('els.cutSelection.addEventListener("click", cutSelected);'), "Cut should remove the current single or multi-selection into the editor clipboard");
+    assert.ok(editorHtml.includes('els.copySelection.addEventListener("click", copySelected);'), "Copy should store the current single or multi-selection");
+    assert.ok(editorHtml.includes('els.pasteSelection.addEventListener("click", pasteSelection);'), "Paste should restore a copied or cut selection");
+    assert.ok(editorHtml.includes('els.deleteSelection.addEventListener("click", deleteSelected);'), "Delete should remove the current single or multi-selection without changing tools");
+    assert.ok(editorHtml.includes('objectClipboard: { mode: "copy", items: [], pasteCount: 0, primarySourceId: "" }'), "the clipboard should retain complete multi-object records and repeated-paste state");
+    assert.ok(editorHtml.includes('removeAutomaticGenerationProvenance(record);'), "copied generated records should become manual records when pasted");
+    assert.ok(editorHtml.includes('key === "x"') && editorHtml.includes('key === "c"') && editorHtml.includes('key === "v"'), "Ctrl/Cmd+X, C, and V should invoke the standard clipboard actions");
+    assert.ok(editorHtml.includes('event.key === "Delete" || event.key === "Backspace"'), "Delete and Backspace should remove the current canvas selection");
     assert.ok(editorHtml.includes('kind: "selectionBox"') && editorHtml.includes('event.shiftKey'), "Shift-drag should create the ordinary selection rectangle");
     assert.ok(editorHtml.includes('toggle: Boolean(event.ctrlKey || event.metaKey)'), "Ctrl+Shift-drag should toggle objects touched by the selection rectangle");
+    assert.equal((editorHtml.match(/function placementWorldBounds\(/g) || []).length, 1, "selection and draw culling must share one canonical placement-bounds helper");
+    assert.ok(editorHtml.includes('boundsContainsBounds(selectionBounds, placementWorldBounds(placement))'), "asset box selection should compare compatible min/max world bounds");
+    assert.ok(editorHtml.includes('boundsContainsBounds(selectionBounds, rectToBounds(objectRect(entity, "entity")))'), "entity box selection should use the same min/max bounds schema");
     assert.ok(editorHtml.includes('if (event.ctrlKey || event.metaKey) toggleObjectSelection(rowData.id);'), "Ctrl-click in the placed-object list should toggle membership");
     assert.ok(editorHtml.includes('rgba(174,174,184,0.88)') && editorHtml.includes('drawObjectSelectionOutline'), "secondary objects should use a separate gray dashed selection outline");
     assert.ok(editorHtml.includes('primaryId: state.selectedId') && editorHtml.includes('snappedDx'), "group movement should preserve relative offsets while snapping from the primary object");
 
     assert.equal(editorHtml.includes('id="asset-atlas"'), false, "the removed atlas dropdown should not remain in the Asset palette");
     assert.ok(editorHtml.includes('for (const [atlasId, atlas] of state.atlases)'), "the Asset palette should aggregate assets from every loaded atlas");
-    assert.ok(editorHtml.includes('`${atlasId} · ${object?.type || "asset"}`'), "asset rows should identify their source atlas directly in the palette");
+    assert.ok(editorHtml.includes('meta: `${atlasId} · ${object?.type || "asset"} · ${frame.w}×${frame.h}`'), "asset thumbnail cards should identify their source atlas, type, and frame size directly in the palette");
 
     assert.ok(editorHtml.includes('protectedRegions: []'), "manual perimeter population should deliberately skip gameplay-clearance protection");
     assert.equal(editorHtml.includes('function caveForegroundProtectionRegions()'), false, "the retired manual foreground shyness helper should remain removed");
@@ -1461,7 +1475,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
     assert.ok(editorHtml.includes("ENEMY_CATALOG_URL"), "level editor should load the explicit enemy catalog");
-    assert.ok(editorHtml.includes('value="enemy_001"'), "level editor palette should expose the Skeleton Guard");
+    assert.ok(editorHtml.includes('for (const [type, definition] of state.enemyCatalog)') && editorHtml.includes('button.dataset.entity = entry.type;'), "level editor palette should expose every loaded enemy catalog entry, including the Skeleton Guard");
     assert.ok(editorHtml.includes('id="enemy-settings-row"'), "level editor should expose character-enemy behaviour controls");
     assert.ok(editorHtml.includes("drawCharacterEnemyPreview"), "level editor should preview enemies through the generic character renderer");
     assert.ok(editorHtml.includes("const artworkOrigin = characterArtworkOrigin({") && editorHtml.includes("renderOffsetX: finiteEditorNumber(entity.renderOffsetX, 0) * enemyScale"), "level editor character previews should scale shared character-local artwork offsets with the enemy");
@@ -4583,8 +4597,8 @@ function testCharacterProjectWorkspace() {
     assert.ok(levelEditorHtml.includes("const placement = placeAsset(point, { foreground });"), "level editor should inspect whether normal or foreground asset placement succeeded");
     assert.ok(levelEditorHtml.includes('setTool("select");'), "successful asset placement should return the level editor to Select mode");
     assert.ok(levelEditorHtml.includes("Select tool active for fine-tuning"), "level editor should explain the automatic tool switch");
-    assert.ok(levelEditorHtml.includes('id="copy-asset"'), "level editor should expose Copy asset beside placement tools");
-    assert.ok(levelEditorHtml.includes("duplicateLevelPlacement(source"), "Copy asset should preserve the selected placement through the shared duplication helper");
+    assert.ok(levelEditorHtml.includes('id="cut-selection"') && levelEditorHtml.includes('id="copy-selection"') && levelEditorHtml.includes('id="paste-selection"'), "level editor should expose Cut, Copy, and Paste for entities and placements");
+    assert.ok(levelEditorHtml.includes('function pasteSelection()') && levelEditorHtml.includes('setObjectSelection(pastedIds'), "Paste should recreate and select a complete single or multi-object clipboard payload");
     assert.ok(levelEditorHtml.includes("snapWizardDoorToNearbyGround"), "level editor should snap wizard entry/exit doors to nearby authored collision lines");
     assert.ok(levelEditorHtml.includes("wizard_entry_door") && levelEditorHtml.includes("wizard_exit_door"), "level editor should expose dedicated entry and exit door types");
     assert.ok(!levelEditorHtml.includes('data-entity="wizardStart"'), "the retired wizard-start entity should not remain in the palette");
@@ -5060,8 +5074,9 @@ function testAutomaticLevelGeneratorMacroRoomsGroundedDoorsAndPerimeterContract(
     assert.equal(sawMultiIntervalContour, true, "folded caverns should preserve separated upper and lower tunnels at the same X instead of filling the space between them");
 
     const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    const developerManual = readFileSync(new URL("../DEVELOPER_MANUAL.md", import.meta.url), "utf8");
     assert.ok(editorHtml.includes("requirePopulatedPerimeter: true"), "Level Editor generation should require the requested perimeter stage to succeed");
-    assert.ok(editorHtml.includes("Horizontal is the default route") && editorHtml.includes("Standard remains available as a folded ThePath74 route") && editorHtml.includes("Domed is the default cavern shape"), "Level Editor should explain the current defaults while retaining the Standard ThePath74 alternative");
+    assert.ok(developerManual.includes("Horizontal is the run-and-gun route") && developerManual.includes("Standard remains the folded route") && developerManual.includes("Domed caverns"), "the developer manual should explain the current generator defaults without crowding the editor panel");
 }
 
 
@@ -5533,7 +5548,8 @@ function testAutomaticLevelGeneratorVariantCompatibility() {
     const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     assert.ok(editorHtml.includes("Generator variants") && editorHtml.includes('data-generator-stage="route"') && editorHtml.includes('data-generator-stage="cavern"'), "the editor should expose only meaningful route and cavern variants");
     assert.equal(editorHtml.includes('data-generator-stage="traversal"'), false, "single-choice implementation stages should not clutter the generator panel");
-    assert.ok(editorHtml.includes("Horizontal") && editorHtml.includes("Domed") && editorHtml.includes("run-and-gun"), "the generator panel should explain the default Horizontal route and Domed cavern choices");
+    const developerManual = readFileSync(new URL("../DEVELOPER_MANUAL.md", import.meta.url), "utf8");
+    assert.ok(developerManual.includes("Horizontal is the run-and-gun route") && developerManual.includes("Domed caverns"), "the developer manual should explain the default Horizontal route and Domed cavern choices");
 }
 
 function testAutomaticLevelGeneratorPlayableEmptyCavern() {
@@ -5831,7 +5847,8 @@ function testAutomaticLevelGeneratorEncounters() {
 
     const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const generatorSource = readFileSync(new URL("../src/shared/level-generator-data.js", import.meta.url), "utf8");
-    assert.ok(editorHtml.includes("level-generator-enemies.json") && editorHtml.includes("current compatible Standard implementations") && generatorSource.includes("difficulty-budgeted-encounters-v1"), "Level Editor should load the versioned enemy-generation catalog while keeping encounters on the current Standard implementation");
+    const developerManual = readFileSync(new URL("../DEVELOPER_MANUAL.md", import.meta.url), "utf8");
+    assert.ok(editorHtml.includes("level-generator-enemies.json") && developerManual.includes("Reward rerolls preserve route and terrain") && generatorSource.includes("difficulty-budgeted-encounters-v1"), "the editor should load the versioned enemy-generation catalog while the developer manual records the current Standard encounter workflow");
     assert.ok(editorHtml.includes("buildPlacedHunterNavigationGraphs({ silent: true"), "generation should refresh navigation graphs after placing hunter enemies");
     assert.ok(editorHtml.includes("navigationGraphs") && editorHtml.includes("replacedLevelShell"), "generation undo and clear should preserve the previous navigation graph shell");
 }
@@ -6333,7 +6350,8 @@ function testCaveWindowSplineAuthoring() {
     assert.match(levelEditorHtml, /<button id="fit-content-view">Fit<\/button>/, "Level Editor should provide one concise authored-content Fit control");
     assert.equal(levelEditorHtml.includes('id="fit-view"') || levelEditorHtml.includes('id="fit-cave-view"'), false, "removed world and cave fit controls should not remain in the Level Editor");
     assert.ok(levelEditorHtml.includes('min="0.02"') && levelEditorHtml.includes("MIN_EDITOR_ZOOM = 0.02"), "Level Editor should zoom out far enough to author a whole cave");
-    assert.ok(levelEditorHtml.includes("completely inert presentation layers") && levelEditorHtml.includes("always have atlas collision disabled"), "Level Editor should state the cave perimeter and foreground non-gameplay contract beside the controls");
+    const developerManual = readFileSync(new URL("../DEVELOPER_MANUAL.md", import.meta.url), "utf8");
+    assert.ok(developerManual.includes("Cave foreground is inert presentation") && developerManual.includes("never has atlas collision"), "the developer manual should preserve the cave perimeter and foreground non-gameplay contract");
 
     const levelOne = JSON.parse(readFileSync(new URL("../assets/level_001.json", import.meta.url), "utf8"));
     assert.equal(levelOne.caveWindow.enabled, true, "level_001 should preserve the user's authored cave window");
@@ -7498,11 +7516,33 @@ function testRocketPowerUpArsenal() {
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 293<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(bootstrapSource, /const GAME_REVISION = "293";/, "the game debug revision should match the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 300<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "300";/, "the game debug revision should match the packaged revision");
     assert.match(editorSource, /<button id="fit-content-view">Fit<\/button>/, "the Level Editor should expose one concise Fit button");
     assert.equal(editorSource.includes('id="fit-view"'), false, "the removed Fit World control should not remain in the Level Editor");
     assert.equal(editorSource.includes('id="fit-cave-view"'), false, "the removed Fit Cave control should not remain in the Level Editor");
+    assert.equal(editorSource.includes('id="quick-entity"'), false, "the toolbar entity dropdown should be removed in favor of the Entity palette");
+    assert.equal(editorSource.includes("els.quickEntity"), false, "Level Editor code should not retain wiring for the removed entity dropdown");
+    assert.ok(editorSource.includes('selectedEntityType: "wizard_entry_door"') && editorSource.includes("selectEntityPaletteType(entry.type)"), "the Entity palette should own the active placement type");
+    assert.ok(editorSource.includes('id="entity-search" type="search"') && editorSource.includes('id="asset-search" type="search"'), "both palettes should expose compact filter fields");
+    assert.ok(editorSource.includes('class="palette-grid entity-palette"') && editorSource.includes('class="palette-grid asset-palette"'), "entity and asset choices should share the same thumbnail-grid structure");
+    assert.ok(editorSource.includes("grid-template-columns: repeat(2, minmax(0, 1fr))") && editorSource.includes("overflow-y: auto"), "palette grids should show two cards per row and scroll internally");
+    assert.ok(editorSource.includes("grid-auto-rows: max-content") && editorSource.includes("min-height: 178px") && editorSource.includes("flex: 0 0 132px"), "palette rows and preview canvases should scroll at a useful fixed height instead of compressing into slits");
+    assert.ok(editorSource.includes("paletteOpaqueBounds") && editorSource.includes("sourceBounds = paletteOpaqueBounds") && editorSource.includes("visible = paletteOpaqueBounds"), "palette previews should fit and center visible alpha content instead of transparent source rectangles");
+    assert.ok(editorSource.includes("drawComposedPaletteThumbnail") && editorSource.includes('const scratch = document.createElement("canvas")') && editorSource.includes("return drawComposedPaletteThumbnail(canvas, commands)"), "character palette previews should crop the final composited alpha instead of fitting theoretical rig bounds");
+    assert.ok(editorSource.includes("canvas.clientWidth") && editorSource.includes("canvas.clientHeight") && editorSource.includes("devicePixelRatio"), "palette backing canvases should match their displayed aspect ratio instead of stretching a fixed bitmap");
+    assert.ok(editorSource.includes("drawAtlasFrameThumbnail") && editorSource.includes("drawEntityPaletteThumbnail"), "both palettes should draw direct card thumbnails");
+    assert.ok(editorSource.includes("placementPreviewPoint: null") && editorSource.includes("drawPlacementPreview()") && editorSource.includes('id: "__placement_preview__"'), "asset and entity placement tools should maintain a transient cursor-following preview");
+    assert.ok(editorSource.includes('drawPlacement(placement, null, { preview: true })') && editorSource.includes('drawEntity(created.record, { preview: true })'), "placement previews should use the actual asset and entity render paths");
+    assert.match(editorSource, /if \(state\.tool === "placeEntity"\) \{[\s\S]*?const placed = placeEntity\(point\);[\s\S]*?setTool\("select"\);/, "placing an entity should return to the Select tool just like asset placement");
+    assert.ok(editorSource.includes('id="selected-object-panel"') && editorSource.includes("applyInspectorVisuals") && editorSource.includes("liveInspectorVisualIds"), "the Selected object panel should apply visual fields live");
+    assert.equal(editorSource.includes('id="apply-inspector"'), false, "the obsolete inspector Apply button should be removed");
+    assert.ok(editorSource.includes('<label>Notes<input id="inspect-notes"') && !editorSource.includes('<textarea id="inspect-notes"'), "Notes should use one compact line");
+    assert.ok(editorSource.includes(".box:not(.palette-box)") && editorSource.includes("#selected-object-panel input"), "ordinary editor boxes should be compact without changing palette-box spacing");
+    assert.equal(editorSource.includes("Horizontal is the default route: a run-and-gun path"), false, "long generator guidance should no longer occupy the editor panel");
+    const developerManualSource = readFileSync(new URL("../DEVELOPER_MANUAL.md", import.meta.url), "utf8");
+    assert.ok(developerManualSource.includes("## Automatic Level Generator") && developerManualSource.includes("## Live object inspector"), "removed editor guidance should live in the developer manual");
+    assert.equal(editorSource.includes('id="asset-preview-canvas"'), false, "the obsolete one-at-a-time asset preview should be removed");
     assert.ok(manualSource.includes("Shield</strong> lasts 10 seconds") && manualSource.includes("Speed Shot</strong> lasts 20 seconds") && manualSource.includes("Wrench power-ups last 20 seconds"), "the game manual should document the revised effect windows");
     const entityCatalog = JSON.parse(readFileSync(new URL("../assets/it_entities_001.json", import.meta.url), "utf8"));
     const catalogEntities = Object.values(entityCatalog.entities || {});
@@ -9723,7 +9763,8 @@ function testMovingPlatformSchemaAndEditor() {
     assert.match(editorSource, /Enable movement/, "Level Editor should expose the moving-platform component");
     assert.match(editorSource, /Shuttle loop/, "Level Editor should present the safe default shuttle preset");
     assert.match(editorSource, /Hidden reset time/, "Level Editor should expose the automatic recovery timing");
-    assert.match(editorSource, /Drag the circular END handle/, "Level Editor should explain direct route editing");
+    const developerManual = readFileSync(new URL("../DEVELOPER_MANUAL.md", import.meta.url), "utf8");
+    assert.match(developerManual, /circular END handle edits the route/, "the developer manual should explain direct route editing");
     assert.match(editorSource, /movingPlatformEndHandleHit/, "Level Editor should provide an interactive endpoint handle");
     assert.match(editorSource, /Named signal channel/, "Level Editor should expose signal-triggered platforms");
     assert.match(editorSource, /Signal emitter/, "Level Editor should expose reusable lever and keyhole channels");

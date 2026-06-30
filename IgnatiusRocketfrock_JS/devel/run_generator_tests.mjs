@@ -1,24 +1,17 @@
 import { spawn } from "node:child_process";
 
 const suites = [
-    "Atlas 004 long platforms and collision manifest",
-    "automatic level generator route foundation",
-    "automatic level generator variant compatibility",
-    "automatic level generator playable empty cavern",
-    "automatic level generator encounters",
-    "automatic level generator rewards",
-    "automatic level generator editor refinement",
-    "automatic perimeter population and spatial culling",
-    "macro rooms, grounded doors, and guaranteed perimeter"
+    { name: "generator core contracts", group: "generator-core" },
+    { name: "generator macro contract", group: "generator-macro" }
 ];
 
-function runSuite(name) {
+function runSuite({ name, group }) {
     return new Promise((resolve, reject) => {
         const child = spawn(process.execPath, [
             "--expose-gc",
             "tests/testbench.mjs",
             "--progress",
-            `--filter=${name}`
+            `--group=${group}`
         ], {
             cwd: process.cwd(),
             stdio: "inherit",
@@ -35,11 +28,9 @@ function runSuite(name) {
     });
 }
 
-for (const name of suites) {
-    const result = await runSuite(name);
-    if (result.code !== 0) {
-        console.error(`${result.name} failed${result.signal ? ` with signal ${result.signal}` : ` with exit code ${result.code}`}.`);
-        process.exitCode = 1;
-        break;
-    }
+const results = await Promise.all(suites.map(runSuite));
+const failure = results.find((result) => result.code !== 0);
+if (failure) {
+    console.error(`${failure.name} failed${failure.signal ? ` with signal ${failure.signal}` : ` with exit code ${failure.code}`}.`);
+    process.exitCode = 1;
 }

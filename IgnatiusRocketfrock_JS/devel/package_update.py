@@ -31,6 +31,7 @@ RETIRED_FILES = {
 REQUIRED_FILES = {
     "AGENTS.md",
     "ARCHITECTURE.md",
+    "DEVELOPER_MANUAL.md",
     "GameManual.html",
     "IMPLEMENTATION_CHECKLIST.md",
     "PLAN.md",
