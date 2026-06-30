@@ -6727,29 +6727,32 @@
       "catalogId": "it_entities_001",
       "x": 4768,
       "y": 512,
-      "w": 72,
-      "h": 84,
+      "w": 68,
+      "h": 80,
       "state": "openLoot",
       "visualStates": {
         "closed": [
           {
             "atlasId": "it_atlas_001",
             "assetId": "chest_closed",
-            "layer": "decorFront"
+            "layer": "decorFront",
+            "offsetY": 4
           }
         ],
         "openLoot": [
           {
             "atlasId": "it_atlas_001",
             "assetId": "chest_open_loot",
-            "layer": "decorFront"
+            "layer": "decorFront",
+            "offsetY": 4
           }
         ],
         "openEmpty": [
           {
             "atlasId": "it_atlas_001",
             "assetId": "chest_open_empty",
-            "layer": "decorFront"
+            "layer": "decorFront",
+            "offsetY": 4
           }
         ]
       },
@@ -6861,13 +6864,13 @@
         "collected": "Collected"
       },
       "effectId": "speedShot",
-      "durationSeconds": 30,
+      "durationSeconds": 20,
       "radius": 30,
       "atlasId": "it_atlas_001",
       "glowFrame": "powerup_glow_white",
       "iconFrame": "powerup_icon_lightning",
       "glowTint": "#ffb52f",
-      "notes": "Speed Shot: double firing cadence and half rocket fuel cost for thirty seconds. Respawns after sixty seconds.",
+      "notes": "Speed Shot: double firing cadence and half rocket fuel cost for twenty seconds. Respawns after sixty seconds.",
       "respawnSeconds": 60
     },
     {
@@ -6900,7 +6903,7 @@
         "wrenchBoomerang",
         "wrenchPhase"
       ],
-      "durationSeconds": 30,
+      "durationSeconds": 20,
       "respawnSeconds": 60,
       "radius": 30,
       "atlasId": "it_atlas_001",

@@ -2466,7 +2466,7 @@ Milestone A is complete. The next planned implementation milestone is Milestone 
 
 ## Revision 227 treasure-chest presentation refinement
 
-Revision 227 scales treasure chests to a compact 72 by 84 world-unit default intended to fit most plausible ledges. The open-with-loot and open-empty atlas frames use matched 193 by 239 cutouts so the state change does not jump. Uncollected chests begin in `openLoot`; collection changes them to `openEmpty`. The mismatched closed artwork is not part of the normal chest flow.
+Revision 227 scales treasure chests to a compact 72 by 84 world-unit default intended to fit most plausible ledges. Revision 287 trims that further to 68 by 80 and lowers the visual by 4 pixels so all visible base corners sit on the brighter top surface of narrow ledges more convincingly. The open-with-loot and open-empty atlas frames use matched 193 by 239 cutouts so the state change does not jump. Uncollected chests begin in `openLoot`; collection changes them to `openEmpty`. The mismatched closed artwork is not part of the normal chest flow.
 
 
 ## Revision 228 editor snap and chest placement
@@ -2912,7 +2912,7 @@ The **Max spacing px** setting is removed. Once automatic decoration was require
 
 ## Revision 280 longer power-up durations
 
-Speed Shot and all five wrench modes now last 30 seconds. Shield now lasts 10 seconds. The change is applied consistently to shared effect definitions, entity-catalog defaults, the level-1 examples, tests, and player documentation. Existing refresh, exclusivity, clear-on-death, HUD-priority, and sixty-second pickup-respawn behavior is unchanged.
+Revision 280 set Speed Shot and the then-five wrench modes to 30 seconds and Shield to 10 seconds. Revision 288 later supersedes the Speed Shot and wrench duration with 20 seconds while leaving Shield at 10 seconds. The change is applied consistently to shared effect definitions, entity-catalog defaults, the level-1 examples, tests, and player documentation. Existing refresh, exclusivity, clear-on-death, HUD-priority, and sixty-second pickup-respawn behavior is unchanged.
 
 Housekeeping bugs found during this revision: the Level Editor heading still displayed revision 268, and the current architecture summary still described the old 8/15/5-second power-up timings plus the pre-rebalance Green Twin damage. The editor label is corrected to revision 280 and the architecture summary now matches the authoritative shared data. Going forward, every discovered bug, stale behavior, or deprecated path must be noted in this plan, and manual-covered behavior must be updated in `GameManual.html` in the same revision.
 
@@ -2948,8 +2948,31 @@ The green Burst wrench keeps its three small 15-damage unguided rockets and one 
 
 The Level Editor now has one camera-framing button named **Fit**. It keeps the former authored-content behavior, while **Fit World** and **Fit Cave** and their unused handlers are removed. If no authored placements or entities exist, Fit still falls back to the world bounds.
 
-The wrench family now has six mutually exclusive thirty-second modes. Green Twin is replaced by Green Burst, which launches three small unguided rockets forward at 0.18-second intervals. Each rocket deals 15 damage, matching one yellow Triple rocket, for 45 total damage if all connect; the complete sequence consumes one standard launch fuel payment. The old green obstacle-phasing behavior moves to a new Blue Phase wrench: one standard-cost, standard-damage homing rocket that ignores platforms, solids, blocking polygons, cave collision, and reactive obstacles while retaining enemy collision. The retired `wrenchTwin` identity is unsupported in saved levels rather than migrated. A cleanup audit found that an embedded custom effect definition could otherwise revive an unknown retired ID through the generic normalizer; revision 284 now rejects `wrenchTwin` consistently in effect definitions, pickup records, and active-effect snapshots.
+The wrench family now has six mutually exclusive twenty-second modes. Green Twin is replaced by Green Burst, which launches three small unguided rockets forward at 0.18-second intervals. Each rocket deals 15 damage, matching one yellow Triple rocket, for 45 total damage if all connect; the complete sequence consumes one standard launch fuel payment. The old green obstacle-phasing behavior moves to a new Blue Phase wrench: one standard-cost, standard-damage homing rocket that ignores platforms, solids, blocking polygons, cave collision, and reactive obstacles while retaining enemy collision. The retired `wrenchTwin` identity is unsupported in saved levels rather than migrated. A cleanup audit found that an embedded custom effect definition could otherwise revive an unknown retired ID through the generic normalizer; revision 284 now rejects `wrenchTwin` consistently in effect definitions, pickup records, and active-effect snapshots.
 
 Red Bigbomb and magenta Boomerang now leave the launcher horizontally in Ignatius's facing direction before homing, reducing immediate ceiling impacts. Bigbomb AoE damage rises from three times to four times the standard rocket damage, currently 120, while its triple fuel cost, half speed, half homing response, 1.7 scale, and existing AoE radius remain unchanged. Boomerang damage, cost, return, collision, and half-fuel catch refund remain unchanged. A brief outbound grace period prevents a targetless forward-launched Boomerang from reversing into Ignatius on its launch frame.
 
 `ct_atlas_wizard_2` gains a sixth precomposited powered-rocket frame with a pure-blue Phase glow. The manifest preserves the five existing frame coordinates and appends the new row. The compact revision archive continues to exclude PNG and XCF files, so the revised PNG is distributed separately. The Game Manual, architecture rules, entity catalog, level-1 examples, and regression suite are synchronized with the new behavior. All 157 headless tests pass.
+
+## Revision 287 treasure-chest seating refinement
+
+Treasure chests are now a touch smaller and visually lower: the default footprint becomes 68×80 instead of 72×84, and the chest sprite is drawn 4 pixels lower than the support point. This keeps generated chests from looking like their front corners float above narrow ledges while leaving collection logic and reward pacing unchanged. Because the chest is slightly smaller, the generator also relaxes its treasure metadata a bit, using a 180-pixel minimum support width and 40-pixel edge clearance.
+
+## Revision 286 denser generated treasure
+
+Automatically generated levels now target roughly one treasure chest per 500 pixels of mandatory-route travel. The old length-preset cap of one to four chests is removed. Default and high Reward density retain the 500-pixel average, low nonzero density scales the target down, and zero density still produces no rewards. Chests may occupy safe main-route floors, lower recovery routes, upper-access steps, detached reward perches, and other reachable static upper perches. The target is validated, while endpoint exclusions, cave containment, support edge clearance, reward spacing, and enemy reservations remain mandatory.
+
+Power-ups are unchanged and still target approximately one per 1,000 route pixels at default Reward density, with the existing upper multiplier capped at 1.5. Reward schema version 4 and diagnostics now expose both target counts. The Game Manual is updated to describe both frequencies.
+
+
+
+## Revision 288 shorter Speed Shot and wrench durations
+
+Speed Shot and every current wrench upgrade now last 20 seconds instead of 30. Shield remains at 10 seconds. The change is synchronized across shared effect definitions, entity-catalog defaults, level-1 examples, tests, architecture guidance, and the Game Manual. Collection still refreshes the active window rather than accumulating duration; wrench exclusivity, Speed Shot coexistence, clear-on-death behavior, HUD priority, and sixty-second pickup respawns are unchanged.
+
+
+## Revision 289 placeable on-screen enemy spawners
+
+Add an invisible `enemySpawner` entity for boss arenas and other authored reinforcement encounters. Each placed spawner exposes the same 0–100 percent once-per-second chance and the same numbered range / `!` exclusion enemy pool as Automatic enemy spawning. Unlike level-wide automatic spawning, a placed spawner only advances its timer and rolls while its 64×64 authoring region is inside the current camera view; off-screen time is discarded rather than banked.
+
+On a successful roll, the selected catalog enemy appears at the spawner point, already aware of Ignatius and ready to fight. Ground enemies snap to a safe nearby support; flying enemies use the point directly. Occupied, blocked, or unsupported attempts are skipped. A small procedural purple-blue teleport flash and a brief actor brightness flash sell the conjuration without adding an image asset. The Level Editor keeps a visible crosshair-ring marker and resolved-pool preview, while the entity remains invisible in gameplay.

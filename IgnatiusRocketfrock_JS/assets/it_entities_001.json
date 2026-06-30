@@ -1,7 +1,7 @@
 {
   "meta": {
-    "version": 8,
-    "note": "Revision 237 adds an invisible, one-shot location thought trigger for explicitly enabled generated narrative beats."
+    "version": 9,
+    "note": "Revision 289 adds an invisible, on-screen-only enemy spawner entity with the automatic-spawn enemy-pool grammar."
   },
   "catalogId": "it_entities_001",
   "atlasRefs": [
@@ -15,7 +15,7 @@
     "targetDummy": {
       "type": "targetDummy",
       "label": "Target dummy",
-      "icon": "🎯",
+      "icon": "\ud83c\udfaf",
       "description": "Rocket target and combat-training prop.",
       "defaultState": "idle",
       "defaultSize": {
@@ -44,10 +44,32 @@
         }
       }
     },
+    "enemySpawner": {
+      "type": "enemySpawner",
+      "label": "Enemy spawner",
+      "icon": "\u2726",
+      "description": "Invisible during play. While its authored area is on screen, it rolls once per second and teleports in one already-alert enemy on a successful roll.",
+      "defaultState": "active",
+      "defaultSize": {
+        "w": 64,
+        "h": 64
+      },
+      "defaults": {
+        "probabilityPercent": 10,
+        "enemyPool": "1-999",
+        "collisionFromManifest": false
+      },
+      "states": {
+        "active": {
+          "label": "Active",
+          "visuals": []
+        }
+      }
+    },
     "mailbox": {
       "type": "mailbox",
       "label": "Editor's mailbox",
-      "icon": "📬",
+      "icon": "\ud83d\udcec",
       "description": "An editor-letter mailbox. Each placed mailbox owns its own trigger distance, letter, thought, and timing metadata, so a level can contain several tutorial letters.",
       "defaultState": "letterAvailable",
       "defaultSize": {
@@ -64,8 +86,8 @@
         "thoughtAtlasId": "it_atlas_001",
         "thoughtAssetId": "thought_bubble_large",
         "letterTitle": "A Letter from Your Humble Editor",
-        "letterText": "Dear Ignatius,\n\nI hope this letter finds you well, and with most of your limbs still attached. I look forward to receiving the first chapter of your travel book shortly. I have even come up with a great title: “Ignatius Rocketfrock and the Introductory Cave of Training.” Please proceed boldly!\n\nSincerely,\nYour humble editor,\nWilfred of Bittervine",
-        "thoughtText": "How kind of him! I hope I can make him proud. This cave doesn’t look quite like it did in the brochures, but I’m sure it will be fine."
+        "letterText": "Dear Ignatius,\n\nI hope this letter finds you well, and with most of your limbs still attached. I look forward to receiving the first chapter of your travel book shortly. I have even come up with a great title: \u201cIgnatius Rocketfrock and the Introductory Cave of Training.\u201d Please proceed boldly!\n\nSincerely,\nYour humble editor,\nWilfred of Bittervine",
+        "thoughtText": "How kind of him! I hope I can make him proud. This cave doesn\u2019t look quite like it did in the brochures, but I\u2019m sure it will be fine."
       },
       "states": {
         "letterAvailable": {
@@ -93,7 +115,7 @@
     "thoughtTrigger": {
       "type": "thoughtTrigger",
       "label": "Location thought trigger",
-      "icon": "💭",
+      "icon": "\ud83d\udcad",
       "description": "Invisible one-shot region that pauses play and shows an Ignatius thought bubble when entered.",
       "defaultState": "available",
       "defaultSize": {
@@ -122,7 +144,7 @@
     "wizard_entry_door": {
       "type": "wizard_entry_door",
       "label": "Wizard entry door",
-      "icon": "🚪",
+      "icon": "\ud83d\udeaa",
       "description": "The effective level start. It snaps to nearby ground, opens, lets Ignatius walk out behind the foreground door layer, then closes.",
       "defaultState": "closed",
       "defaultSize": {
@@ -182,7 +204,7 @@
     "wizard_exit_door": {
       "type": "wizard_exit_door",
       "label": "Wizard exit door",
-      "icon": "🚪",
+      "icon": "\ud83d\udeaa",
       "description": "The level exit. It is mirrored by default, snaps to nearby ground, opens when Ignatius approaches, and walks him through before loading its destination level.",
       "defaultState": "closed",
       "defaultSize": {
@@ -243,12 +265,12 @@
     "treasureChest": {
       "type": "treasureChest",
       "label": "Treasure chest",
-      "icon": "🧰",
+      "icon": "\ud83e\uddf0",
       "description": "Automatic proximity treasure chest: begins open with loot, awards Score once, then remains open and empty.",
       "defaultState": "openLoot",
       "defaultSize": {
-        "w": 72,
-        "h": 84
+        "w": 68,
+        "h": 80
       },
       "defaults": {
         "interaction": "openChest",
@@ -264,7 +286,8 @@
             {
               "atlasId": "it_atlas_001",
               "assetId": "chest_closed",
-              "layer": "decorFront"
+              "layer": "decorFront",
+              "offsetY": 4
             }
           ]
         },
@@ -274,7 +297,8 @@
             {
               "atlasId": "it_atlas_001",
               "assetId": "chest_open_loot",
-              "layer": "decorFront"
+              "layer": "decorFront",
+              "offsetY": 4
             }
           ]
         },
@@ -284,7 +308,8 @@
             {
               "atlasId": "it_atlas_001",
               "assetId": "chest_open_empty",
-              "layer": "decorFront"
+              "layer": "decorFront",
+              "offsetY": 4
             }
           ]
         }
@@ -293,7 +318,7 @@
     "breakableCrate": {
       "type": "breakableCrate",
       "label": "Breakable crate",
-      "icon": "▣",
+      "icon": "\u25a3",
       "description": "A solid reactive crate that intercepts rockets, becomes damaged, then disappears when destroyed.",
       "defaultState": "intact",
       "defaultSize": {
@@ -353,7 +378,7 @@
     "destructibleBarrier": {
       "type": "destructibleBarrier",
       "label": "Breakable iron barrier",
-      "icon": "▥",
+      "icon": "\u25a5",
       "description": "A tall solid barrier that intercepts rockets, bends when damaged, and removes its collision when destroyed.",
       "defaultState": "intact",
       "defaultSize": {
@@ -414,7 +439,7 @@
     "leverSwitch": {
       "type": "leverSwitch",
       "label": "Lever switch",
-      "icon": "🎚️",
+      "icon": "\ud83c\udf9a\ufe0f",
       "description": "Nearby switch that toggles a named signal channel. Press Down, S, or Enter to operate it.",
       "defaultState": "off",
       "defaultSize": {
@@ -452,7 +477,7 @@
     "keyholeSwitch": {
       "type": "keyholeSwitch",
       "label": "Keyhole switch",
-      "icon": "🗝️",
+      "icon": "\ud83d\udddd\ufe0f",
       "description": "Consumes the configured key when Ignatius operates it, then emits its named signal once.",
       "defaultState": "locked",
       "defaultSize": {
@@ -504,7 +529,7 @@
     "spikedGate": {
       "type": "spikedGate",
       "label": "Spiked gate",
-      "icon": "⛓️",
+      "icon": "\u26d3\ufe0f",
       "description": "Switchable vertical gate.",
       "defaultState": "closed",
       "defaultSize": {
@@ -542,7 +567,7 @@
     "hangingGate": {
       "type": "hangingGate",
       "label": "Hanging iron bars",
-      "icon": "⛓️",
+      "icon": "\u26d3\ufe0f",
       "description": "Alternative switchable iron gate.",
       "defaultState": "closed",
       "defaultSize": {
@@ -580,7 +605,7 @@
     "fuel": {
       "type": "fuel",
       "label": "Rocket fuel",
-      "icon": "⛽",
+      "icon": "\u26fd",
       "description": "Mid-air rocket-fuel pickup.",
       "defaultState": "available",
       "defaultSize": {
@@ -607,7 +632,7 @@
     "herbPickupBlue": {
       "type": "herbPickupBlue",
       "label": "Blue herb",
-      "icon": "🌿",
+      "icon": "\ud83c\udf3f",
       "description": "Potential power-up ingredient.",
       "defaultState": "available",
       "defaultSize": {
@@ -634,7 +659,7 @@
     "mushroomPickup": {
       "type": "mushroomPickup",
       "label": "Red mushroom",
-      "icon": "🍄",
+      "icon": "\ud83c\udf44",
       "description": "",
       "defaultState": "available",
       "defaultSize": {
@@ -661,7 +686,7 @@
     "herbPickupPurple": {
       "type": "herbPickupPurple",
       "label": "Purple bell herb",
-      "icon": "🌿",
+      "icon": "\ud83c\udf3f",
       "description": "",
       "defaultState": "available",
       "defaultSize": {
@@ -688,7 +713,7 @@
     "herbPickupYellow": {
       "type": "herbPickupYellow",
       "label": "Yellow herb",
-      "icon": "🌿",
+      "icon": "\ud83c\udf3f",
       "description": "",
       "defaultState": "available",
       "defaultSize": {
@@ -715,8 +740,8 @@
     "ornateKeyPickup": {
       "type": "ornateKeyPickup",
       "label": "Ornate key",
-      "icon": "🗝️",
-      "description": "An ornate key collected into Ignatius’s inventory.",
+      "icon": "\ud83d\udddd\ufe0f",
+      "description": "An ornate key collected into Ignatius\u2019s inventory.",
       "defaultState": "available",
       "defaultSize": {
         "w": 42,
@@ -746,8 +771,8 @@
     "ironKeyPickup": {
       "type": "ironKeyPickup",
       "label": "Iron key",
-      "icon": "🗝️",
-      "description": "An iron key collected into Ignatius’s inventory and usable by keyholes.",
+      "icon": "\ud83d\udddd\ufe0f",
+      "description": "An iron key collected into Ignatius\u2019s inventory and usable by keyholes.",
       "defaultState": "available",
       "defaultSize": {
         "w": 45,
@@ -777,7 +802,7 @@
     "magicRingPickup": {
       "type": "magicRingPickup",
       "label": "Magic ring",
-      "icon": "💍",
+      "icon": "\ud83d\udc8d",
       "description": "",
       "defaultState": "available",
       "defaultSize": {
@@ -804,7 +829,7 @@
     "checkpointRune": {
       "type": "checkpointRune",
       "label": "Rune checkpoint",
-      "icon": "🔮",
+      "icon": "\ud83d\udd2e",
       "description": "",
       "defaultState": "inactive",
       "defaultSize": {
@@ -840,7 +865,7 @@
     "spikedBallHazard": {
       "type": "spikedBallHazard",
       "label": "Spiked ball hazard",
-      "icon": "☠️",
+      "icon": "\u2620\ufe0f",
       "description": "",
       "defaultState": "active",
       "defaultSize": {
@@ -867,7 +892,7 @@
     "speedShotPickup": {
       "type": "speedShotPickup",
       "label": "Speed Shot",
-      "icon": "⚡",
+      "icon": "\u26a1",
       "description": "Timed firing boost: rockets may be fired twice as often and cost half as much fuel.",
       "defaultState": "available",
       "defaultSize": {
@@ -876,7 +901,7 @@
       },
       "defaults": {
         "effectId": "speedShot",
-        "durationSeconds": 30,
+        "durationSeconds": 20,
         "respawnSeconds": 60,
         "radius": 30,
         "atlasId": "it_atlas_001",
@@ -898,7 +923,7 @@
     "shieldPickup": {
       "type": "shieldPickup",
       "label": "Shield",
-      "icon": "🛡",
+      "icon": "\ud83d\udee1",
       "description": "Grants ten seconds of complete damage invulnerability and makes Ignatius flash blue.",
       "defaultState": "available",
       "defaultSize": {
@@ -929,8 +954,8 @@
     "randomWrenchPickup": {
       "type": "randomWrenchPickup",
       "label": "Random wrench powerup",
-      "icon": "🔧",
-      "description": "Rolls a random 30-second wrench rocket mode when the level starts and every time it respawns.",
+      "icon": "\ud83d\udd27",
+      "description": "Rolls a random 20-second wrench rocket mode when the level starts and every time it respawns.",
       "defaultState": "available",
       "defaultSize": {
         "w": 96,
@@ -946,7 +971,7 @@
           "wrenchBoomerang",
           "wrenchPhase"
         ],
-        "durationSeconds": 30,
+        "durationSeconds": 20,
         "respawnSeconds": 60,
         "radius": 30,
         "atlasId": "it_atlas_001",

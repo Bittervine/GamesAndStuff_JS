@@ -2069,7 +2069,7 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 
 ## Revision 227 treasure-chest presentation refinement
 
-- [x] Reduce the default chest footprint to 72 by 84 world units for broad ledge compatibility.
+- [x] Reduce the default chest footprint to 72 by 84 world units for broad ledge compatibility. Later refined to 68 by 80 with a 4-pixel lower visual seat on narrow ledges.
 - [x] Normalize open-loot and open-empty atlas cutouts to matched dimensions and alignment.
 - [x] Start uncollected chests visibly open with loot and remove the mismatched closed artwork from the normal flow.
 
@@ -2823,3 +2823,40 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Add and register a sixth pure-blue precomposited powered-rocket frame in `ct_atlas_wizard_2`.
 - [x] Synchronize level-1 examples, entity-catalog defaults, manual, architecture, plan, and regression coverage.
 - [x] Pass the complete 157-test headless suite and audit the revision 284 archive plus separately distributed atlas PNG.
+
+## Revision 287 treasure-chest seating refinement
+
+- [x] Shrink treasure chests slightly from 72×84 to 68×80 world units.
+- [x] Lower treasure-chest visuals by 4 pixels so the visible base corners sit on narrow ledges more convincingly.
+- [x] Relax generated chest metadata slightly for the smaller art: 180 minimum support width and 40 edge clearance.
+- [x] Update the level 1 demonstration chest, entity catalog, plan, architecture notes, and regression checks.
+
+## Revision 286 denser generated treasure
+
+- [x] Replace the one-to-four chest length cap with a route-scaled target averaging one chest per 500 pixels.
+- [x] Keep generated power-ups at one per 1,000 route pixels at default Reward density.
+- [x] Permit chests on safe main-route supports, upper-access steps, detached reward perches, and reachable static upper perches.
+- [x] Advance reward plan/population records to schema version 4 and expose chest targets in diagnostics.
+- [x] Reject generated drafts that miss either the chest or power-up target.
+- [x] Update the Game Manual, plan, architecture, agent guidance, and regression coverage.
+- [x] Pass all 148 fast tests and all 9 generator tests, then audit revision 286 packaging.
+
+
+
+## Revision 288 shorter Speed Shot and wrench durations
+
+- [x] Reduce Speed Shot duration from 30 seconds to 20 seconds.
+- [x] Reduce every current wrench-upgrade duration from 30 seconds to 20 seconds.
+- [x] Keep Shield at 10 seconds and preserve refresh, exclusivity, HUD priority, and sixty-second pickup respawns.
+- [x] Synchronize the entity catalog, level-1 examples, manual, plan, architecture guidance, revision labels, and regression tests.
+
+
+## Revision 289 placeable on-screen enemy spawners
+
+- [x] Add a catalogued `enemySpawner` entity with a visible Level Editor marker and no gameplay artwork or collision.
+- [x] Reuse Automatic enemy spawning's 0–100 percent once-per-second chance and numbered range / exclusion enemy-pool grammar.
+- [x] Keep each spawner completely dormant while off screen, including resetting its timer so off-screen time cannot be banked.
+- [x] Spawn selected enemies at the authored point, snap ground enemies safely, reject blocked or occupied attempts, and start arrivals already alerted and engaged.
+- [x] Add a compact procedural teleport flash and preserve source-spawner identity for diagnostics and serialization.
+- [x] Update the Level Editor inspector, entity catalog, Game Manual, architecture notes, plan, and automated regression coverage.
+- [x] Pass all 149 fast tests and all 9 generator regressions, then audit revision 289 packaging.

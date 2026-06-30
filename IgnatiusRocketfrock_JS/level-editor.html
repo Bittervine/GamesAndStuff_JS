@@ -546,7 +546,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 285</small></h1>
+        <h1>Level Editor <small>rev 289</small></h1>
         <p>Place atlas assets, entry/exit doors, mailboxes, enemies, and triggers, then export a level JSON. The wizard entry door is the effective start of the level.</p>
 
         <div class="box">
@@ -868,6 +868,7 @@
                     <option value="wizard_exit_door">wizard_exit_door</option>
                     <option value="targetDummy">targetDummy</option>
                     <option value="characterEnemy">characterEnemy</option>
+                    <option value="enemySpawner">enemySpawner</option>
                     <option value="fuel">fuel</option>
                     <option value="monsterSpawn">monsterSpawn</option>
                     <option value="trigger">trigger</option>
@@ -972,6 +973,13 @@
                 </div>
                 <label>Attack cooldown seconds<input id="inspect-enemy-attack-cooldown" type="number" min="0" step="0.05"></label>
                 <p class="small">The placement point is the enemy's foot position. Awareness ignores level collision geometry: distance and the facing cone determine whether Ignatius is noticed, while walls may still block movement and attacks. Simple-minded patrol preserves the original local behaviour. Hunters leave their patrol, select reachable attack positions, cross gaps with a single jump, glare when Ignatius is unreachable, and then attempt to return home. A hunter that cannot climb home adopts its current platform as a temporary patrol and periodically retries the route.</p>
+            </div>
+            <div id="enemy-spawner-settings-row" style="display:none">
+                <h3>Enemy spawner</h3>
+                <label>Spawn probability each second (%)<input id="inspect-enemy-spawner-probability" type="number" min="0" max="100" step="1" value="10"></label>
+                <label>Enemy pool<input id="inspect-enemy-spawner-pool" value="1-999" placeholder="1-999,!2,!4"></label>
+                <p id="inspect-enemy-spawner-preview" class="small">All available enemies are eligible by default.</p>
+                <p class="small">Invisible during play. It rolls only while this entity's authored area is inside the current camera view. A successful roll teleports one already-alert enemy onto this point with a brief flash. Ground enemies require a safe nearby floor; blocked or occupied attempts are skipped. The pool uses the same numbered ranges and <code>!</code> exclusions as Automatic enemy spawning.</p>
             </div>
             <div id="reactive-settings-row" style="display:none">
                 <h3>Reactive object</h3>
@@ -1094,7 +1102,9 @@ import { isSignalEmitterEntity, normalizeSignalChannel } from "./src/shared/sign
 import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
 import {
     DEFAULT_AUTO_SPAWN_ENEMIES,
-    normalizeAutoSpawnEnemies
+    DEFAULT_ENEMY_SPAWNER,
+    normalizeAutoSpawnEnemies,
+    normalizeEnemySpawner
 } from "./src/shared/auto-spawn-enemy-data.js";
 
 (() => {
@@ -1371,6 +1381,10 @@ import {
         inspectDoorDistance: document.getElementById("inspect-door-distance"),
         inspectDoorWalkSpeed: document.getElementById("inspect-door-walk-speed"),
         enemySettingsRow: document.getElementById("enemy-settings-row"),
+        enemySpawnerSettingsRow: document.getElementById("enemy-spawner-settings-row"),
+        inspectEnemySpawnerProbability: document.getElementById("inspect-enemy-spawner-probability"),
+        inspectEnemySpawnerPool: document.getElementById("inspect-enemy-spawner-pool"),
+        inspectEnemySpawnerPreview: document.getElementById("inspect-enemy-spawner-preview"),
         inspectEnemyCharacter: document.getElementById("inspect-enemy-character"),
         inspectEnemyStrategy: document.getElementById("inspect-enemy-strategy"),
         inspectEnemyFacing: document.getElementById("inspect-enemy-facing"),
@@ -1744,7 +1758,7 @@ import {
         for (const entity of state.level.entities || []) {
             const type = String(entity?.type || entity?.kind || "");
             const endpoint = type === "wizard_entry_door" || type === "wizard_exit_door";
-            const important = endpoint || ["treasureChest", "speedShotPickup", "shieldPickup", "randomWrenchPickup", "fuel"].includes(type);
+            const important = endpoint || ["treasureChest", "speedShotPickup", "shieldPickup", "randomWrenchPickup", "fuel", "enemySpawner"].includes(type);
             if (!important) continue;
             const padding = endpoint ? 210 : 72;
             const w = Math.max(24, finiteEditorNumber(entity.w, 96));
@@ -1839,6 +1853,10 @@ import {
 
     function isTreasureChest(record) {
         return record?.type === "treasureChest" || record?.interaction === "openChest";
+    }
+
+    function isEnemySpawner(record) {
+        return String(record?.type || record?.kind || "") === "enemySpawner";
     }
 
     function isCharacterEnemy(record) {
@@ -3045,6 +3063,7 @@ import {
             updateEntityPalette();
             refreshGeneratorEnemyPreview();
             refreshAutoSpawnEnemyPreview();
+            refreshSelectedEnemySpawnerPreview();
             return state.enemyCatalog.size;
         } catch (error) {
             setStatus(`Enemy catalog could not load: ${error.message || error}`, false);
@@ -4049,6 +4068,36 @@ import {
     }
 
 
+    function drawEnemySpawnerPreview(entity) {
+        if (!isEnemySpawner(entity)) return false;
+        const rect = objectRect(entity, "entity");
+        const center = worldToScreen(rect.x + rect.w * 0.5, rect.y + rect.h * 0.5);
+        const radius = Math.max(10, Math.min(rect.w, rect.h) * state.camera.zoom * 0.38);
+        ctx.save();
+        ctx.globalCompositeOperation = "source-over";
+        ctx.fillStyle = "rgba(126, 76, 210, 0.16)";
+        ctx.strokeStyle = "rgba(204, 151, 255, 0.95)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 4]);
+        ctx.beginPath();
+        ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(center.x - radius * 0.72, center.y);
+        ctx.lineTo(center.x + radius * 0.72, center.y);
+        ctx.moveTo(center.x, center.y - radius * 0.72);
+        ctx.lineTo(center.x, center.y + radius * 0.72);
+        ctx.stroke();
+        ctx.fillStyle = "rgba(255,255,255,0.96)";
+        ctx.beginPath();
+        ctx.arc(center.x, center.y, Math.max(2, radius * 0.11), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        return true;
+    }
+
     function drawPowerUpEntityPreview(entity) {
         if (!entity?.effectId) return false;
         const atlasId = entity.atlasId || "it_atlas_001";
@@ -4084,7 +4133,7 @@ import {
             const rank = (layer) => layer === "decorBack" ? 0 : layer === "decorFront" ? 1 : layer === "actorFront" ? 2 : 1;
             return rank(a.layer) - rank(b.layer);
         });
-        let drewVisual = drawCharacterEnemyPreview(entity) || drawPowerUpEntityPreview(entity);
+        let drewVisual = drawCharacterEnemyPreview(entity) || drawEnemySpawnerPreview(entity) || drawPowerUpEntityPreview(entity);
         for (const visual of visuals) {
             const frame = frameFor(visual.assetId, visual.atlasId);
             const image = imageForAtlas(visual.atlasId);
@@ -4313,6 +4362,7 @@ import {
             els.movingPlatformRow.style.display = "none";
             els.signalSettingsRow.style.display = "none";
             els.keyholeSettingsRow.style.display = "none";
+            els.enemySpawnerSettingsRow.style.display = "none";
             refreshGeneratorOwnershipUi();
             return;
         }
@@ -4369,6 +4419,10 @@ import {
             els.inspectMailboxThought.value = formatMailboxThoughtText(rec);
             els.inspectTreasureScore.value = Math.max(1, Math.floor(finiteEditorNumber(rec.scoreValue, 100)));
             els.inspectTreasureDistance.value = Math.max(8, finiteEditorNumber(rec.collectionDistance, 88));
+            const enemySpawnerConfig = normalizeEnemySpawner(isEnemySpawner(rec) ? rec : DEFAULT_ENEMY_SPAWNER);
+            els.inspectEnemySpawnerProbability.value = String(enemySpawnerConfig.probabilityPercent);
+            els.inspectEnemySpawnerPool.value = enemySpawnerConfig.enemyPool;
+            refreshSelectedEnemySpawnerPreview();
             const isEntryDoor = rec.type === "wizard_entry_door";
             const isExitDoor = rec.type === "wizard_exit_door";
             els.inspectDoorDestination.value = rec.destinationLevel || (isExitDoor ? defaultNextLevelId(state.level.levelId) : "");
@@ -4406,6 +4460,7 @@ import {
         const isTreasure = selected.kind === "entity" && isTreasureChest(rec);
         const isDoor = selected.kind === "entity" && isWizardDoor(rec);
         const isEnemy = selected.kind === "entity" && isCharacterEnemy(rec);
+        const isSpawner = selected.kind === "entity" && isEnemySpawner(rec);
         const isReactive = selected.kind === "entity" && isReactiveObject(rec);
         const isSignalEmitter = selected.kind === "entity" && isSignalEmitterEntity(rec);
         const isKeyhole = isSignalEmitter && (rec.type === "keyholeSwitch" || rec.interaction === "keyhole");
@@ -4415,6 +4470,7 @@ import {
         els.treasureSettingsRow.style.display = isTreasure ? "block" : "none";
         els.doorSettingsRow.style.display = isDoor ? "block" : "none";
         els.enemySettingsRow.style.display = isEnemy ? "block" : "none";
+        els.enemySpawnerSettingsRow.style.display = isSpawner ? "block" : "none";
         els.reactiveSettingsRow.style.display = isReactive ? "block" : "none";
         els.assetSizeRow.style.display = selected.kind === "asset" || selected.kind === "cutoutMask" || selected.kind === "entity" ? "grid" : "none";
         els.assetExtraRow.style.display = selected.kind === "asset" ? "grid" : "none";
@@ -4554,6 +4610,20 @@ import {
                     rec.mirrorX = rec.mirrorX !== false;
                 }
                 snapWizardDoorToNearbyGround(rec, { announce: true });
+            }
+            if (isEnemySpawner(rec)) {
+                const config = normalizeEnemySpawner({
+                    probabilityPercent: els.inspectEnemySpawnerProbability.value,
+                    enemyPool: els.inspectEnemySpawnerPool.value
+                });
+                rec.type = "enemySpawner";
+                rec.state = "active";
+                rec.probabilityPercent = config.probabilityPercent;
+                rec.enemyPool = config.enemyPool;
+                rec.collisionFromManifest = false;
+                rec.groundSnapDistance = Math.max(24, finiteEditorNumber(rec.groundSnapDistance, 96));
+                rec.visualStates = { active: [] };
+                rec.stateLabels = { active: "Active" };
             }
             if (isReactiveObject(rec)) {
                 rec.reactiveKind = "destructible";
@@ -4798,6 +4868,21 @@ import {
             ? `Resolved enemies (${labels.length}): ${labels.join(", ")}`
             : "No existing catalog enemies match this expression.";
         els.autoSpawnEnemiesPreview.style.color = "";
+    }
+
+    function refreshSelectedEnemySpawnerPreview() {
+        if (!els.inspectEnemySpawnerPreview) return;
+        const result = parseEnemySelection(els.inspectEnemySpawnerPool.value, [...state.enemyCatalog.keys()]);
+        if (!result.valid) {
+            els.inspectEnemySpawnerPreview.textContent = result.errors.join(" ");
+            els.inspectEnemySpawnerPreview.style.color = "#ffbbc3";
+            return;
+        }
+        const labels = result.resolvedIds.map((enemyId) => state.enemyCatalog.get(enemyId)?.label || enemyId);
+        els.inspectEnemySpawnerPreview.textContent = labels.length
+            ? `Resolved enemies (${labels.length}): ${labels.join(", ")}`
+            : "No existing catalog enemies match this expression.";
+        els.inspectEnemySpawnerPreview.style.color = "";
     }
 
     function syncAutoSpawnEnemiesFromUi() {
@@ -6031,6 +6116,8 @@ import {
         refreshAutoSpawnEnemyPreview();
         updateJson();
     });
+    els.inspectEnemySpawnerPool.addEventListener("input", refreshSelectedEnemySpawnerPreview);
+    els.inspectEnemySpawnerPool.addEventListener("change", refreshSelectedEnemySpawnerPreview);
     els.generatorGenerate.addEventListener("click", generateAutomaticRoutePreview);
     els.generatorRegenerate.addEventListener("click", regenerateAutomaticGeneratorStage);
     els.generatorLockSelected.addEventListener("click", () => setSelectedGeneratedLock(true));

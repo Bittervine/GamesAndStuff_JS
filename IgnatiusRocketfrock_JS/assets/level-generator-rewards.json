@@ -6,11 +6,15 @@
       "entityType": "treasureChest",
       "category": "treasure",
       "contexts": [
-        "secondaryPerch"
+        "secondaryPerch",
+        "upperPerch",
+        "upperAccess",
+        "recoveryRoute",
+        "openRoute"
       ],
       "weight": 1,
-      "minimumSupportWidth": 185,
-      "edgeClearance": 42,
+      "minimumSupportWidth": 180,
+      "edgeClearance": 40,
       "verticalOffset": 0,
       "minimumProgress": 0.12,
       "maximumProgress": 0.92

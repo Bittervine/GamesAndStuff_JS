@@ -12,6 +12,7 @@ const GENERATED_PLAYER_BODY_WIDTH = 34;
 const GENERATED_STATIC_HEADROOM = 112;
 export const GENERATED_MINIMUM_VERTICAL_PLATFORM_SEPARATION = 180;
 export const GENERATED_MOVING_PLATFORM_RIDER_CLEARANCE = 180;
+export const GENERATED_TREASURE_CHEST_SPACING_PX = 500;
 export const GENERATED_POWER_UP_SPACING_PX = 1000;
 export const DOMED_CAVERN_UPWARD_EXPANSION_FACTOR = 1.5;
 
@@ -651,9 +652,7 @@ function normalizeEnemyCatalogDefinitions(value) {
     }));
 }
 
-export function generatedPowerUpTargetForRoute(route, settings = {}) {
-    const rewardDensity = clamp01(settings.rewardDensity ?? DEFAULT_GENERATOR_SETTINGS.rewardDensity);
-    if (rewardDensity <= 0.001) return 0;
+function generatedMandatoryRouteDistance(route) {
     const mandatoryNodes = (route?.nodes || [])
         .filter((node) => node?.mandatory !== false)
         .sort((left, right) => finiteNumber(left?.progress, 0) - finiteNumber(right?.progress, 0));
@@ -665,23 +664,35 @@ export function generatedPowerUpTargetForRoute(route, settings = {}) {
         const xs = mandatoryNodes.map((node) => finiteNumber(node?.x, 0));
         routeDistance = Math.max(...xs) - Math.min(...xs);
     }
-    const baselineTarget = Math.max(1, Math.round(routeDistance / GENERATED_POWER_UP_SPACING_PX));
+    return Math.max(0, routeDistance);
+}
+
+function generatedRouteScaledRewardTarget(route, settings, spacingPx, maximumDensityScale = 1.5) {
+    const rewardDensity = clamp01(settings.rewardDensity ?? DEFAULT_GENERATOR_SETTINGS.rewardDensity);
+    if (rewardDensity <= 0.001) return 0;
+    const routeDistance = generatedMandatoryRouteDistance(route);
+    const baselineTarget = Math.max(1, Math.round(routeDistance / Math.max(1, spacingPx)));
     const densityScale = clamp(
         rewardDensity / Math.max(0.001, DEFAULT_GENERATOR_SETTINGS.rewardDensity),
         0.25,
-        1.5
+        maximumDensityScale
     );
     return Math.max(1, Math.round(baselineTarget * densityScale));
 }
 
+export function generatedTreasureChestTargetForRoute(route, settings = {}) {
+    return generatedRouteScaledRewardTarget(route, settings, GENERATED_TREASURE_CHEST_SPACING_PX, 1);
+}
+
+export function generatedPowerUpTargetForRoute(route, settings = {}) {
+    return generatedRouteScaledRewardTarget(route, settings, GENERATED_POWER_UP_SPACING_PX);
+}
+
 function planBasicRewards({ route, theme, settings, runId, implementationId }) {
     const mainNodeCount = (route?.nodes || []).filter((node) => node.mandatory !== false).length;
-    const perchCapacity = settings.length === "grand" ? 4 : settings.length === "extended" ? 3 : settings.length === "standard" ? 2 : 1;
-    let treasureTarget = implementationId === "basic-rewards-v1"
-        ? Math.round(perchCapacity * settings.rewardDensity)
+    const treasureTarget = implementationId === "basic-rewards-v1"
+        ? generatedTreasureChestTargetForRoute(route, settings)
         : 0;
-    if (settings.rewardDensity >= 0.24 && treasureTarget === 0) treasureTarget = 1;
-    treasureTarget = Math.min(perchCapacity, treasureTarget);
     const contextualRewardTarget = implementationId === "basic-rewards-v1"
         ? Math.min(
             theme.rewards.maximumContextualPowerUps,
@@ -689,7 +700,7 @@ function planBasicRewards({ route, theme, settings, runId, implementationId }) {
         )
         : 0;
     return {
-        version: 3,
+        version: 4,
         generatorId: implementationId,
         runId,
         treasureTarget,
@@ -708,7 +719,7 @@ function planBasicRewards({ route, theme, settings, runId, implementationId }) {
 
 function emptyRewardPopulation(runId, implementationId = "not-generated-yet", plan = null) {
     return {
-        version: 3,
+        version: 4,
         generatorId: String(implementationId || "not-generated-yet"),
         runId: String(runId || ""),
         treasureTarget: Math.max(0, Math.floor(Number(plan?.treasureTarget) || 0)),
@@ -768,6 +779,17 @@ function supportProgress(support, routeNodeById, routeEdgeById) {
     return ((Number(from?.progress) || 0) + (Number(to?.progress) || 0)) * 0.5;
 }
 
+function generatedVisualRewardSpacing(theme, leftCategory, rightCategory) {
+    if (leftCategory === "treasure" && rightCategory === "treasure") {
+        // The target is an average of one chest per 500 route pixels, not a
+        // rigid 500-pixel exclusion circle. A smaller local minimum lets bends,
+        // stacked lanes, and short supports distribute the target naturally.
+        return Math.min(theme.rewards.minimumRewardSpacing, GENERATED_TREASURE_CHEST_SPACING_PX * 0.48);
+    }
+    if (leftCategory === rightCategory) return theme.rewards.minimumRewardSpacing;
+    return Math.max(180, theme.rewards.minimumRewardSpacing * 0.5);
+}
+
 function buildBasicRewards({
     route,
     traversal,
@@ -792,12 +814,14 @@ function buildBasicRewards({
     const occupiedSupportIds = new Set();
     const occupiedPositions = [];
     const selectedPerchSupportIds = [];
-    const perchChestTarget = Math.max(0, Math.floor(Number(rewardPlan?.treasureTarget) || 0));
+    const treasureChestTarget = Math.max(0, Math.floor(Number(rewardPlan?.treasureTarget) || 0));
     const endpointXs = [
         finiteNumber(endpoints?.entrance?.x, supportById.get(traversal.startSupportId)?.centerX || 0),
         finiteNumber(endpoints?.exit?.x, supportById.get(traversal.exitSupportId)?.centerX || 0)
     ];
     const maximumRouteProgress = Math.max(1, ...(route?.nodes || []).filter((node) => node.mandatory).map((node) => Number(node.progress) || 0));
+    const treasureMetadata = metadataByType.get("treasureChest");
+    const treasureDefinition = entityCatalog.get("treasureChest");
     const powerUpMetadata = (rewardGenerationCatalog?.rewards || [])
         .filter((metadata) => metadata.category === "powerUp" && entityCatalog.has(metadata.entityType));
     const powerUpWeightTotal = Math.max(0.001, powerUpMetadata.reduce((sum, metadata) => sum + Math.max(0, metadata.weight), 0));
@@ -848,7 +872,12 @@ function buildBasicRewards({
         : null;
     if (thoughtReservedSupport) occupiedSupportIds.add(thoughtReservedSupport.id);
 
-    const addReward = ({ type, support, context, routeNodeId = "", x = null, overrides = {} }) => {
+    const positionConflicts = (category, x, y) => occupiedPositions.some((point) =>
+        Math.abs(point.x - x) < generatedVisualRewardSpacing(theme, category, point.category)
+        && Math.abs(point.y - y) < 180
+    );
+
+    const addReward = ({ type, support, context, routeNodeId = "", x = null, overrides = {}, reserveSupport = true }) => {
         const metadata = metadataByType.get(type);
         const definition = entityCatalog.get(type);
         if (!metadata || !definition || !support) return null;
@@ -882,15 +911,14 @@ function buildBasicRewards({
             const candidateXs = [...edgeCandidates, ...innerCandidates];
             const available = candidateXs.find((candidateX) =>
                 !endpointXs.some((endpointX) => Math.abs(candidateX - endpointX) < theme.rewards.endpointExclusionDistance)
-                && !occupiedPositions.some((point) => Math.abs(point.x - candidateX) < theme.rewards.minimumRewardSpacing && Math.abs(point.y - resolvedY) < 180)
+                && !positionConflicts(metadata.category, candidateX, resolvedY)
             );
             if (available !== undefined) resolvedX = available;
         }
         if (endpointXs.some((endpointX) => Math.abs(resolvedX - endpointX) < theme.rewards.endpointExclusionDistance)) return null;
         // Invisible narrative triggers do not compete for visual pickup spacing.
         // They still require their own support and all endpoint/cave clearances.
-        if (metadata.category !== "narrative"
-            && occupiedPositions.some((point) => Math.abs(point.x - resolvedX) < theme.rewards.minimumRewardSpacing && Math.abs(point.y - resolvedY) < 180)) return null;
+        if (metadata.category !== "narrative" && positionConflicts(metadata.category, resolvedX, resolvedY)) return null;
         const id = `generated_reward_${String(rewards.length + 1).padStart(3, "0")}_${runId}`;
         const entity = instantiateGeneratedCatalogEntity({
             id,
@@ -917,27 +945,27 @@ function buildBasicRewards({
             x: entity.x,
             y: entity.y
         });
-        occupiedSupportIds.add(support.id);
-        occupiedPositions.push({ x: entity.x, y: entity.y });
+        if (reserveSupport) occupiedSupportIds.add(support.id);
+        occupiedPositions.push({ x: entity.x, y: entity.y, category: metadata.category });
         return entity;
     };
 
-    if (perchChestTarget > 0) {
-        const perchCandidates = supports.filter((support) =>
+    if (treasureChestTarget > 0 && treasureMetadata && treasureDefinition) {
+        const preferredPerches = supports.filter((support) =>
             support.secondaryPlatform
             && support.rewardPerch
-            && !occupiedSupportIds.has(support.id)
+            && support.id !== thoughtReservedSupport?.id
         ).sort((left, right) => supportProgress(left, routeNodeById, routeEdgeById)
             - supportProgress(right, routeNodeById, routeEdgeById)
             || left.id.localeCompare(right.id));
-        for (const support of perchCandidates) {
-            if (selectedPerchSupportIds.length >= perchChestTarget) break;
+        for (const support of preferredPerches) {
             const entity = addReward({
                 type: "treasureChest",
                 support,
                 context: "secondaryPerch",
                 routeNodeId: support.routeNodeId,
-                overrides: { scoreValue: theme.rewards.treasureChestScore }
+                overrides: { scoreValue: theme.rewards.treasureChestScore },
+                reserveSupport: false
             });
             if (entity) selectedPerchSupportIds.push(support.id);
         }
@@ -1100,6 +1128,99 @@ function buildBasicRewards({
         }
     }
 
+    let treasureChestCount = rewards.filter((reward) => reward.category === "treasure").length;
+    if (treasureChestCount < treasureChestTarget && treasureMetadata && treasureDefinition) {
+        const placeTreasureChest = (support, x = null) => {
+            const context = support.secondaryPlatform
+                ? support.rewardPerch ? "secondaryPerch" : "upperPerch"
+                : support.role === "upperAccessPlatform"
+                    ? "upperAccess"
+                    : support.role === "recoveryPlatform"
+                        ? "recoveryRoute"
+                        : "openRoute";
+            const entity = addReward({
+                type: "treasureChest",
+                support,
+                x,
+                context,
+                routeNodeId: support.routeNodeId,
+                overrides: { scoreValue: theme.rewards.treasureChestScore },
+                reserveSupport: false
+            });
+            if (!entity) return null;
+            treasureChestCount += 1;
+            if (context === "secondaryPerch" && !selectedPerchSupportIds.includes(support.id)) {
+                selectedPerchSupportIds.push(support.id);
+            }
+            return entity;
+        };
+
+        if (treasureChestCount < treasureChestTarget) {
+            const chestOutset = finiteNumber(treasureMetadata.edgeClearance, 0)
+                + finiteNumber(treasureDefinition.defaultSize?.w, 96) * 0.5;
+            const candidateStep = Math.max(80, Math.min(160, theme.rewards.minimumRewardSpacing / 3));
+            const chestSlots = [];
+            const eligibleSupports = supports.filter((support) =>
+                !support.moving
+                && support.role !== "doorSupport"
+                && support.id !== thoughtReservedSupport?.id
+                && (support.routeNodeId || support.routeEdgeId)
+                && (
+                    (support.mandatory && ["routeFloor", "landingPlatform", "runAndGunGround"].includes(support.role))
+                    || support.role === "recoveryPlatform"
+                    || support.role === "upperAccessPlatform"
+                    || (support.secondaryPlatform && !support.rewardPerch)
+                )
+                && support.walkableWidth >= finiteNumber(treasureMetadata.minimumSupportWidth, 0)
+            );
+            for (const support of eligibleSupports) {
+                const normalizedProgress = supportProgress(support, routeNodeById, routeEdgeById) / maximumRouteProgress;
+                if (normalizedProgress < finiteNumber(treasureMetadata.minimumProgress, 0)
+                    || normalizedProgress > finiteNumber(treasureMetadata.maximumProgress, 1)) continue;
+                const left = support.walkableLeftX + chestOutset;
+                const right = support.walkableRightX - chestOutset;
+                if (left > right) continue;
+                const span = Math.max(1, right - left);
+                for (let x = left; x <= right + 0.01; x += candidateStep) {
+                    const localProgress = clamp((x - left) / span, 0, 1);
+                    chestSlots.push({
+                        support,
+                        x,
+                        normalizedProgress: clamp(normalizedProgress + (localProgress - 0.5) * 0.45 / maximumRouteProgress, 0, 1)
+                    });
+                }
+                if (right - left > 1) {
+                    chestSlots.push({ support, x: right, normalizedProgress });
+                }
+            }
+
+            const unusedSlots = new Set(chestSlots.map((_, index) => index));
+            for (let targetIndex = 0; targetIndex < treasureChestTarget && treasureChestCount < treasureChestTarget; targetIndex += 1) {
+                const desiredProgress = (targetIndex + 0.5) / treasureChestTarget;
+                const ordered = [...unusedSlots].sort((leftIndex, rightIndex) => {
+                    const left = chestSlots[leftIndex];
+                    const right = chestSlots[rightIndex];
+                    return Math.abs(left.normalizedProgress - desiredProgress) - Math.abs(right.normalizedProgress - desiredProgress)
+                        || left.support.id.localeCompare(right.support.id)
+                        || left.x - right.x;
+                });
+                for (const slotIndex of ordered) {
+                    const slot = chestSlots[slotIndex];
+                    unusedSlots.delete(slotIndex);
+                    if (placeTreasureChest(slot.support, slot.x)) break;
+                }
+            }
+
+            if (treasureChestCount < treasureChestTarget) {
+                for (const slotIndex of unusedSlots) {
+                    if (treasureChestCount >= treasureChestTarget) break;
+                    const slot = chestSlots[slotIndex];
+                    placeTreasureChest(slot.support, slot.x);
+                }
+            }
+        }
+    }
+
     if (rewardPlan.allowThoughts && rng.chance(theme.rewards.thoughtChance)) {
         const text = theme.rewards.thoughts.length ? rng.pick(theme.rewards.thoughts) : "";
         const candidates = thoughtReservedSupport
@@ -1130,10 +1251,10 @@ function buildBasicRewards({
     }
 
     return {
-        version: 3,
+        version: 4,
         generatorId: "basic-rewards-v1",
         runId,
-        treasureTarget: perchChestTarget,
+        treasureTarget: treasureChestTarget,
         contextualRewardTarget: rewardPlan.contextualRewardTarget,
         powerUpTarget: guaranteedPowerUpTarget,
         selectedPerchSupportIds,
@@ -1698,6 +1819,7 @@ export function generateAutomaticLevelDraft(options = {}) {
                 selectedPerchCount: rewards.selectedPerchSupportIds.length,
                 rewardCount: rewards.entities.length,
                 chestCount: rewards.entities.filter((entity) => entity.type === "treasureChest").length,
+                chestTarget: rewards.treasureTarget,
                 powerUpCount: rewards.entities.filter((entity) => ["speedShotPickup", "shieldPickup", "randomWrenchPickup"].includes(entity.type)).length,
                 powerUpTarget: rewards.powerUpTarget,
                 thoughtCount: rewards.entities.filter((entity) => entity.type === "thoughtTrigger").length
@@ -2497,6 +2619,7 @@ export function validateGeneratedRewards(value = {}) {
     const metrics = {
         rewardCount: entities.length,
         chestCount: 0,
+        chestTarget: Math.max(0, Math.floor(Number(rewards.treasureTarget) || 0)),
         powerUpCount: 0,
         powerUpTarget: Math.max(0, Math.floor(Number(rewards.powerUpTarget) || 0)),
         utilityCount: 0,
@@ -2550,10 +2673,29 @@ export function validateGeneratedRewards(value = {}) {
         if (metadata.category === "treasure") {
             metrics.chestCount += 1;
             if (entity.type !== "treasureChest") errors.push(`Treasure reward “${entity.id}” is not a treasure chest.`);
-            if (entity.generationContext !== "secondaryPerch") errors.push(`Treasure chest “${entity.id}” is not marked as an upper-perch reward.`);
-            if (!selectedPerches.has(support.id)) errors.push(`Treasure chest “${entity.id}” is not attached to a selected upper reward perch.`);
-            if (!support.secondaryPlatform || !support.rewardPerch) errors.push(`Treasure chest “${entity.id}” is not seated on an authored secondary reward perch.`);
-            metrics.rewardedPerchCount += 1;
+            if (entity.generationContext === "secondaryPerch") {
+                if (!selectedPerches.has(support.id)) errors.push(`Treasure chest “${entity.id}” is not attached to a selected upper reward perch.`);
+                if (!support.secondaryPlatform || !support.rewardPerch) errors.push(`Treasure chest “${entity.id}” is not seated on an authored secondary reward perch.`);
+                metrics.rewardedPerchCount += 1;
+            } else if (entity.generationContext === "openRoute") {
+                if (!support.mandatory || !["routeFloor", "landingPlatform", "runAndGunGround", "recoveryPlatform"].includes(support.role)) {
+                    errors.push(`Treasure chest “${entity.id}” is not attached to a supported mandatory-route surface.`);
+                }
+            } else if (entity.generationContext === "upperAccess") {
+                if (support.role !== "upperAccessPlatform" || support.moving) {
+                    errors.push(`Treasure chest “${entity.id}” is not attached to a static upper-access support.`);
+                }
+            } else if (entity.generationContext === "upperPerch") {
+                if (!support.secondaryPlatform || support.moving) {
+                    errors.push(`Treasure chest “${entity.id}” is not attached to a static reachable upper perch.`);
+                }
+            } else if (entity.generationContext === "recoveryRoute") {
+                if (support.role !== "recoveryPlatform" || support.moving) {
+                    errors.push(`Treasure chest “${entity.id}” is not attached to a static recovery-route support.`);
+                }
+            } else {
+                errors.push(`Treasure chest “${entity.id}” has unsupported generation context “${entity.generationContext || "unknown"}”.`);
+            }
             if (Math.abs(entity.y - support.surfaceY) > 2) errors.push(`Treasure chest “${entity.id}” is not seated on its support surface.`);
             if (!(Number(entity.scoreValue) > 0)) errors.push(`Treasure chest “${entity.id}” has no positive Score reward.`);
         } else if (metadata.category === "powerUp") {
@@ -2585,21 +2727,24 @@ export function validateGeneratedRewards(value = {}) {
             const distanceY = Math.abs((Number(entity.y) || 0) - (Number(other.y) || 0));
             if (metadata.category !== "narrative" && otherMetadata?.category !== "narrative" && distanceY < 180) {
                 metrics.minimumRewardSpacing = Math.min(metrics.minimumRewardSpacing, distanceX);
+                const requiredSpacing = generatedVisualRewardSpacing(theme, metadata.category, otherMetadata.category);
+                if (distanceX < requiredSpacing - 0.01) {
+                    errors.push(`Generated rewards “${entity.id}” and “${other.id}” are only ${roundCoordinate(distanceX)} units apart; ${roundCoordinate(requiredSpacing)} is required for their categories.`);
+                }
             }
         }
     }
 
     if (settings.rewardDensity <= 0.001 && (entities.length || selectedPerches.size)) errors.push("Zero reward density must produce no rewards or selected reward perches.");
+    if (metrics.chestCount < metrics.chestTarget) errors.push(`Generated rewards contain ${metrics.chestCount} treasure chests but the route-scaled target is ${metrics.chestTarget}.`);
     if (metrics.powerUpCount < metrics.powerUpTarget) errors.push(`Generated rewards contain ${metrics.powerUpCount} power-ups but the route-scaled target is ${metrics.powerUpTarget}.`);
     if (metrics.thoughtCount > theme.rewards.maximumThoughts) errors.push("Generated narrative thoughts exceed the theme maximum.");
     if (endpointEntities.some((entity) => !hasGenerationStageProvenance(entity, "endpoints"))) errors.push("Beginning and end doors must remain owned by the Endpoint Placer or be explicit manual replacements for it.");
     if (endpointEntities.some((entity) => entity?.manualizedFromGeneration)) warnings.push("One or more generated endpoint doors were converted to manual ownership.");
     if (!Number.isFinite(metrics.minimumRewardSpacing)) metrics.minimumRewardSpacing = 0;
     if (!Number.isFinite(metrics.minimumRewardEndpointDistance)) metrics.minimumRewardEndpointDistance = 0;
-    if (entities.length > 1 && metrics.minimumRewardSpacing > 0 && metrics.minimumRewardSpacing < theme.rewards.minimumRewardSpacing - 0.01) errors.push("Generated rewards are packed more tightly than the configured readable spacing.");
     if (selectedPerches.size && metrics.rewardedPerchCount !== selectedPerches.size) errors.push("Not every selected upper reward perch has a meaningful treasure destination.");
-    if (settings.rewardDensity > 0.22 && rewards.treasureTarget > 0 && !selectedPerches.size) warnings.push("Reward density requested treasure, but no upper reward perch was available.");
-    if (settings.rewardDensity > 0.6 && entities.length < selectedPerches.size + 1) warnings.push("High reward density produced few contextual rewards beyond treasure placements.");
+    if (settings.rewardDensity > 0.6 && metrics.chestCount < metrics.chestTarget) warnings.push("High reward density could not fill its route-scaled treasure target.");
 
     let qualityScore = 100 - errors.length * 45 - warnings.length * 2;
     qualityScore -= Math.max(0, selectedPerches.size - metrics.rewardedPerchCount) * 18;

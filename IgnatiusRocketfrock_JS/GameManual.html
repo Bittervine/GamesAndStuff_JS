@@ -191,13 +191,13 @@
         <h2>Power-ups</h2>
         <ul>
             <li>Collected power-ups disappear and return after 60 seconds, so it can be worthwhile to revisit an earlier part of a level.</li>
-            <li>Automatically generated levels aim for roughly one genuine power-up per 1,000 pixels of route travel at the default Reward density, placed directly on a walkable surface for easy collection. About half are random-wrench pickups; the remainder is split evenly between Shield and Speed Shot.</li>
+            <li>Automatically generated levels aim for roughly one treasure chest per 500 pixels and one genuine power-up per 1,000 pixels of route travel at the default Reward density. Chests may appear on the main route, lower recovery routes, upper access steps, or reachable upper perches. Power-ups are placed directly on a walkable surface for easy collection; about half are random-wrench pickups, with the remainder split evenly between Shield and Speed Shot.</li>
             <li>Generated static platforms that overlap horizontally keep their walking surfaces at least 180 pixels apart vertically.</li>
             <li>Generated vertical lifts reserve a full rider-height corridor and dock beside solid yellow platforms rather than carrying riders into their undersides.</li>
             <li>The top-left Power bar shows the highest-priority active effect and its remaining duration. Shield is shown ahead of Speed Shot, which is shown ahead of wrench effects; all compatible effects remain active at the same time.</li>
             <li><strong>Shield</strong> lasts 10 seconds and blocks all ordinary incoming damage. The pickup glows blue, and Ignatius flashes blue while protected. The blue flash takes priority over the red critical-health flash.</li>
-            <li><strong>Speed Shot</strong> lasts 30 seconds. It doubles the rocket firing rate and halves the fuel cost of each launch.</li>
-            <li>Wrench power-ups last 30 seconds and replace any other active wrench. A random wrench pickup chooses its type when the level starts and rolls a new type whenever it respawns.</li>
+            <li><strong>Speed Shot</strong> lasts 20 seconds. It doubles the rocket firing rate and halves the fuel cost of each launch.</li>
+            <li>Wrench power-ups last 20 seconds and replace any other active wrench. A random wrench pickup chooses its type when the level starts and rolls a new type whenever it respawns.</li>
             <li>Rockets modified by a wrench carry a fuzzy outline in that wrench's colour, so the current payload remains visible even after launch. The six powered rockets use precomposited atlas frames, avoiding first-shot stutter and extra glow drawing during play.</li>
         </ul>
         <table>
@@ -256,6 +256,7 @@
             <li>The pool uses the generator format: comma-separated numbers and ranges, with <code>!</code> exclusions. For example, <code>1-9,!2,!4</code>.</li>
             <li>Ground reinforcements spawn on a safe support and immediately hunt the player's last-seen position. Flying reinforcements retain their flying attack behavior and also begin already aware of the player.</li>
         </ul>
+        <p><strong>Enemy spawner</strong> is a separate placeable entity for scripted fights such as boss encounters. It is invisible during play and uses the same per-second percentage and numbered enemy-pool format as automatic spawning. Each spawner rolls independently only while its authored area is inside the current camera view. Off-screen spawners do not roll or accumulate time. A successful roll teleports one already-alert enemy onto the spawner point with a brief purple-blue flash. Ground enemies require a nearby safe floor, and a blocked or occupied spawn attempt is skipped.</p>
 
         <h2>Level authoring: cave perimeter</h2>
         <p>Manual and generated cave windows default to a 200-pixel <strong>Feather to full black</strong> distance. The fade can be made organically uneven with <strong>Gradient waviness</strong>, <strong>Wave period</strong>, and <strong>Gradient seed</strong>. Wave period accepts 10-500 pixels and defaults to 50; waviness also defaults to 50 pixels. The smooth cyan perimeter remains unchanged so automatic stalactites and stalagmites keep stable inward directions. Only the opacity contours inside the feather wobble, while collision, navigation, and the exact full-black boundary remain unchanged. Automatic perimeter decoration defaults to a 2.0 asset scale and places about 40% of each formation inside the cyan opening, with slight deterministic variation. The Level Editor's <strong>Inward coverage %</strong> field adjusts that overlap before repopulating the perimeter. Formation spacing is calculated automatically from each asset's rendered size so the decoration remains densely overlapped through the full-black boundary.</p>

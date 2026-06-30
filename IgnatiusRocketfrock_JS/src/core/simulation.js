@@ -22,6 +22,7 @@ import {
     enemyEntityFromDefinition,
     normalizeAutoSpawnEnemies,
     normalizeEnemyDefinitionCatalog,
+    normalizeEnemySpawner,
     resolveAutoSpawnEnemyIds
 } from "../shared/auto-spawn-enemy-data.js";
 import {
@@ -2402,6 +2403,7 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         kind: "characterEnemy",
         autoSpawned: entity.autoSpawned === true,
         enemyDefinitionId: entity.enemyDefinitionId ? String(entity.enemyDefinitionId) : null,
+        enemySpawnerId: entity.enemySpawnerId ? String(entity.enemySpawnerId) : null,
         characterId: String(entity.characterId || entity.characterProject || "ct_char_enemy_001"),
         x,
         y,
@@ -2652,6 +2654,28 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             if (visual?.assetId) visuals.push(editorEntityVisualToWorld(entity, visual, index, entity.state || ""));
         });
     }
+    const enemySpawners = runtimeEntities
+        .filter((entity) => String(entity?.type || entity?.kind || "") === "enemySpawner")
+        .map((entity, index) => {
+            const config = normalizeEnemySpawner(entity);
+            return {
+                id: String(entity.id || `enemy_spawner_${index + 1}`),
+                entityId: String(entity.id || `enemy_spawner_${index + 1}`),
+                x: Number(entity.x) || 0,
+                y: Number(entity.y) || 0,
+                width: Math.max(1, Number(entity.w) || Number(entity.width) || 64),
+                height: Math.max(1, Number(entity.h) || Number(entity.height) || 64),
+                groundSnapDistance: Math.max(24, Number(entity.groundSnapDistance) || 96),
+                ...config,
+                intervalSeconds: 1,
+                timer: 1,
+                rollCount: 0,
+                spawnCount: 0,
+                onScreen: false,
+                lastResolvedEnemyIds: [],
+                lastError: null
+            };
+        });
 
     visuals.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
@@ -2681,6 +2705,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             lastResolvedEnemyIds: [],
             lastError: null
         },
+        enemySpawners,
         caveWindow,
         caveKillBoundary,
         visuals,
@@ -3116,6 +3141,42 @@ function autoSpawnRandomUnit(state, rollCount, channel) {
     return mixedUint32(random.seed ^ salt) / 4294967296;
 }
 
+function enemySpawnerRandomUnit(state, spawnerId, rollCount, channel) {
+    const random = ensureRandomState(state);
+    const salt = stableStringHash([
+        "enemy-spawner",
+        state.world?.levelId || "level",
+        random.levelLoadCount,
+        String(spawnerId || "enemySpawner"),
+        Math.max(0, Math.floor(Number(rollCount) || 0)),
+        String(channel || "roll")
+    ].join(":"));
+    return mixedUint32(random.seed ^ salt) / 4294967296;
+}
+
+function cameraVisibleWorldRect(state) {
+    const camera = state.camera || {};
+    const width = Math.max(1, Number(camera.viewportWidth) || 1280);
+    const height = Math.max(1, Number(camera.viewportHeight) || 720);
+    return {
+        x: (Number(camera.x) || Number(state.player?.x) || 0) - width * 0.5,
+        y: (Number(camera.y) || Number(state.player?.y) || 0) - height * 0.56,
+        w: width,
+        h: height
+    };
+}
+
+function enemySpawnerOnScreen(state, spawner) {
+    const width = Math.max(1, Number(spawner?.width) || 64);
+    const height = Math.max(1, Number(spawner?.height) || 64);
+    return rectsOverlap(cameraVisibleWorldRect(state), {
+        x: (Number(spawner?.x) || 0) - width * 0.5,
+        y: (Number(spawner?.y) || 0) - height,
+        w: width,
+        h: height
+    });
+}
+
 function expectedAutoSpawnDirection(state) {
     const playerX = Number(state.player?.x) || 0;
     const entities = state.world?.entities || [];
@@ -3212,6 +3273,99 @@ function autoSpawnTargetForEnemy(enemy) {
     };
 }
 
+function activateSpawnedEnemy(state, enemy, position, { flash = false } = {}) {
+    const flying = String(enemy.locomotion || "").trim().toLowerCase() === "flying";
+    enemy.x = position.x;
+    enemy.y = position.y;
+    enemy.spawnX = position.x;
+    enemy.spawnY = position.y;
+    enemy.targetX = enemy.x - enemy.width * 0.5 + enemy.targetAnchorX * enemy.width;
+    enemy.targetY = enemy.y - enemy.height + enemy.targetAnchorY * enemy.height;
+    enemy.facing = (Number(state.player?.x) || 0) < enemy.x ? -1 : 1;
+    enemy.awarenessTimer = Math.max(2, Number(enemy.awarenessHoldDuration) || 0);
+    enemy.alerted = true;
+    enemy.engaged = true;
+    enemy.lastSeenPlayerX = Number(state.player?.x) || 0;
+    enemy.lastSeenPlayerY = Number(state.player?.y) || 0;
+    enemy.lastSeenAt = Number(state.clock?.time) || 0;
+    enemy.routeRepathTimer = 0;
+    if (flying) {
+        enemy.bomberPerchX = position.x;
+        enemy.bomberPerchY = position.y;
+        enemy.flightBaseY = position.y;
+        enemy.aiState = enemy.strategy === "bomber" ? "bomber" : "fly";
+        enemy.movementPhase = "noticed_player";
+    } else {
+        enemy.strategy = "hunter";
+        enemy.aiState = "pursue";
+        enemy.movementPhase = "pursue";
+        enemy.supportId = position.support?.id || null;
+        enemy.currentSupportId = position.support?.id || null;
+        enemy.homeSupportId = position.support?.id || null;
+        enemy.airborne = false;
+    }
+    if (flash) enemy.hitFlashTimer = Math.max(Number(enemy.hitFlashTimer) || 0, 0.24);
+    applyCharacterCombatProfileToEnemy(state, enemy);
+    state.enemies = Array.isArray(state.enemies) ? state.enemies : [];
+    state.enemies.push(enemy);
+    state.targets = (state.targets || []).filter((target) => target.kind !== "debugHomingDot");
+    state.targets.push(autoSpawnTargetForEnemy(enemy));
+    return enemy;
+}
+
+function spawnPositionOverlapsActor(state, enemy, x, y) {
+    const rect = {
+        x: x - enemy.width * 0.5,
+        y: y - enemy.height,
+        w: enemy.width,
+        h: enemy.height
+    };
+    if (rectsOverlap(rect, getPlayerRect(state))) return true;
+    return (state.enemies || []).some((other) => {
+        if (!other || Number(other.health) <= 0) return false;
+        const width = Math.max(1, Number(other.width) || 1);
+        const height = Math.max(1, Number(other.height) || 1);
+        return rectsOverlap(rect, {
+            x: (Number(other.x) || 0) - width * 0.5,
+            y: (Number(other.y) || 0) - height,
+            w: width,
+            h: height
+        });
+    });
+}
+
+function emitEnemySpawnerFlash(state, enemy) {
+    const centerX = Number(enemy.x) || 0;
+    const centerY = (Number(enemy.y) || 0) - Math.max(16, Number(enemy.height) || 80) * 0.48;
+    const baseRadius = Math.max(22, Math.min(54, Math.max(Number(enemy.width) || 0, Number(enemy.height) || 0) * 0.34));
+    addSmokePuff(state, {
+        kind: "enemyTeleportFlash",
+        x: centerX,
+        y: centerY,
+        lifetime: 0.36,
+        radius: baseRadius,
+        colorIndex: 0
+    });
+    const particleScale = renderingParticleScale(state.settings);
+    const count = Math.max(6, Math.round(10 * particleScale));
+    for (let index = 0; index < count; index += 1) {
+        const angle = Math.PI * 2 * index / count + enemySpawnerRandomUnit(state, enemy.id, index + 1, "flash-angle") * 0.34;
+        const speed = 80 + enemySpawnerRandomUnit(state, enemy.id, index + 1, "flash-speed") * 95;
+        addSmokePuff(state, {
+            kind: "enemyTeleportSpark",
+            x: centerX + Math.cos(angle) * baseRadius * 0.16,
+            y: centerY + Math.sin(angle) * baseRadius * 0.16,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 18,
+            lifetime: 0.28 + enemySpawnerRandomUnit(state, enemy.id, index + 1, "flash-life") * 0.16,
+            radius: 2.2 + (index % 3) * 0.65,
+            colorIndex: index % 3,
+            rotation: angle,
+            spin: (index % 2 ? 1 : -1) * 8
+        });
+    }
+}
+
 function spawnAutomaticEnemy(state, runtimeConfig) {
     const selection = resolveAutoSpawnEnemyIds(runtimeConfig, state.enemyCatalog);
     runtimeConfig.lastResolvedEnemyIds = selection.resolvedIds.slice();
@@ -3256,40 +3410,7 @@ function spawnAutomaticEnemy(state, runtimeConfig) {
         return null;
     }
 
-    enemy.x = position.x;
-    enemy.y = position.y;
-    enemy.spawnX = position.x;
-    enemy.spawnY = position.y;
-    enemy.targetX = enemy.x - enemy.width * 0.5 + enemy.targetAnchorX * enemy.width;
-    enemy.targetY = enemy.y - enemy.height + enemy.targetAnchorY * enemy.height;
-    enemy.facing = (Number(state.player?.x) || 0) < enemy.x ? -1 : 1;
-    enemy.awarenessTimer = Math.max(2, Number(enemy.awarenessHoldDuration) || 0);
-    enemy.alerted = true;
-    enemy.engaged = true;
-    enemy.lastSeenPlayerX = Number(state.player?.x) || 0;
-    enemy.lastSeenPlayerY = Number(state.player?.y) || 0;
-    enemy.lastSeenAt = Number(state.clock?.time) || 0;
-    enemy.routeRepathTimer = 0;
-    if (flying) {
-        enemy.bomberPerchX = position.x;
-        enemy.bomberPerchY = position.y;
-        enemy.flightBaseY = position.y;
-        enemy.aiState = enemy.strategy === "bomber" ? "bomber" : "fly";
-        enemy.movementPhase = "noticed_player";
-    } else {
-        enemy.strategy = "hunter";
-        enemy.aiState = "pursue";
-        enemy.movementPhase = "pursue";
-        enemy.supportId = position.support?.id || null;
-        enemy.currentSupportId = position.support?.id || null;
-        enemy.homeSupportId = position.support?.id || null;
-        enemy.airborne = false;
-    }
-    applyCharacterCombatProfileToEnemy(state, enemy);
-    state.enemies = Array.isArray(state.enemies) ? state.enemies : [];
-    state.enemies.push(enemy);
-    state.targets = (state.targets || []).filter((target) => target.kind !== "debugHomingDot");
-    state.targets.push(autoSpawnTargetForEnemy(enemy));
+    activateSpawnedEnemy(state, enemy, position);
     runtimeConfig.spawnCount = spawnIndex;
     addEvent(state, "AUTO_ENEMY_SPAWNED", {
         enemyId: enemy.id,
@@ -3300,6 +3421,118 @@ function spawnAutomaticEnemy(state, runtimeConfig) {
         distanceBeyondScreen: round(Math.max(0, Math.abs(enemy.x - band.edgeX) - enemy.width * 0.5))
     });
     return enemy;
+}
+
+function enemySpawnerGroundPosition(state, enemy, spawner) {
+    const snapDistance = Math.max(24, Number(spawner.groundSnapDistance) || Number(enemy.groundSnapDistance) || 96);
+    const support = findCharacterEnemyGroundSupport(
+        state,
+        Number(spawner.x) || 0,
+        Number(spawner.y) || 0,
+        snapDistance,
+        snapDistance,
+        enemy.width
+    );
+    if (!support) return null;
+    const x = Number(spawner.x) || 0;
+    const y = support.y;
+    if (characterEnemyBodyBlockedAt(state, enemy, x, y, {
+        ignoreSupportId: support.id,
+        groundSlope: Number(support.slope) || 0
+    })) return null;
+    if (spawnPositionOverlapsActor(state, enemy, x, y)) return null;
+    return { x, y, support };
+}
+
+function enemySpawnerFlyingPosition(state, enemy, spawner) {
+    const x = Number(spawner.x) || 0;
+    const y = Number(spawner.y) || 0;
+    const bounds = state.world?.bounds;
+    if (bounds) {
+        const halfWidth = enemy.width * 0.5;
+        if (x - halfWidth < Number(bounds.x) || x + halfWidth > Number(bounds.x) + Number(bounds.w)) return null;
+        if (y - enemy.height < Number(bounds.y) || y > Number(bounds.y) + Number(bounds.h)) return null;
+    }
+    if (characterEnemyBodyBlockedAt(state, enemy, x, y)) return null;
+    if (spawnPositionOverlapsActor(state, enemy, x, y)) return null;
+    return { x, y, support: null };
+}
+
+function spawnEnemyFromSpawner(state, spawner) {
+    const selection = resolveAutoSpawnEnemyIds(spawner, state.enemyCatalog);
+    spawner.lastResolvedEnemyIds = selection.resolvedIds.slice();
+    if (!selection.valid || !selection.resolvedIds.length) {
+        spawner.lastError = selection.valid ? "The configured enemy pool resolves to no available enemies." : selection.errors.join(" ");
+        return null;
+    }
+    spawner.lastError = null;
+    const rollCount = Math.max(1, Math.floor(Number(spawner.rollCount) || 1));
+    const selectedIndex = Math.min(
+        selection.resolvedIds.length - 1,
+        Math.floor(enemySpawnerRandomUnit(state, spawner.id, rollCount, "enemy") * selection.resolvedIds.length)
+    );
+    const enemyDefinitionId = selection.resolvedIds[selectedIndex];
+    const spawnIndex = Math.max(0, Math.floor(Number(spawner.spawnCount) || 0)) + 1;
+    const safeSpawnerId = String(spawner.id || "enemy_spawner").replace(/[^a-z0-9_]+/gi, "_");
+    const id = `${safeSpawnerId}_enemy_${String(spawnIndex).padStart(4, "0")}`;
+    const preliminaryEntity = enemyEntityFromDefinition(state.enemyCatalog, enemyDefinitionId, {
+        id,
+        x: Number(spawner.x) || 0,
+        y: Number(spawner.y) || 0,
+        autoSpawned: true,
+        enemySpawnerId: spawner.id,
+        enemyDefinitionId
+    });
+    if (!preliminaryEntity) return null;
+    const flying = String(preliminaryEntity.locomotion || "").trim().toLowerCase() === "flying";
+    preliminaryEntity.strategy = flying
+        ? String(preliminaryEntity.strategy || "bomber")
+        : "hunter";
+    const enemy = createCharacterEnemyRuntime(state, preliminaryEntity, (state.enemies || []).length);
+    const position = flying
+        ? enemySpawnerFlyingPosition(state, enemy, spawner)
+        : enemySpawnerGroundPosition(state, enemy, spawner);
+    if (!position) {
+        spawner.lastError = "The spawner position is blocked, occupied, or has no suitable ground for the selected enemy.";
+        return null;
+    }
+
+    activateSpawnedEnemy(state, enemy, position, { flash: true });
+    emitEnemySpawnerFlash(state, enemy);
+    spawner.spawnCount = spawnIndex;
+    addEvent(state, "ENEMY_SPAWNER_SPAWNED", {
+        spawnerId: spawner.id,
+        enemyId: enemy.id,
+        enemyDefinitionId,
+        x: round(enemy.x),
+        y: round(enemy.y)
+    });
+    return enemy;
+}
+
+function updateEnemySpawners(state, dt) {
+    for (const spawner of state.world?.enemySpawners || []) {
+        const interval = Math.max(FIXED_DT, Number(spawner.intervalSeconds) || 1);
+        const onScreen = enemySpawnerOnScreen(state, spawner);
+        spawner.onScreen = onScreen;
+        if (!onScreen || Number(spawner.probabilityPercent) <= 0) {
+            // Off-screen spawners are completely dormant. They do not accumulate
+            // elapsed time and therefore cannot fire immediately when scrolled into view.
+            spawner.timer = interval;
+            continue;
+        }
+        spawner.timer = Math.max(-interval * 4, (Number(spawner.timer) || interval) - Math.max(0, Number(dt) || 0));
+        let safety = 0;
+        while (spawner.timer <= 0 && safety < 4) {
+            spawner.timer += interval;
+            spawner.rollCount = Math.max(0, Math.floor(Number(spawner.rollCount) || 0)) + 1;
+            const chance = clamp(Number(spawner.probabilityPercent) || 0, 0, 100) / 100;
+            if (enemySpawnerRandomUnit(state, spawner.id, spawner.rollCount, "chance") < chance) {
+                spawnEnemyFromSpawner(state, spawner);
+            }
+            safety += 1;
+        }
+    }
 }
 
 function updateAutomaticEnemySpawning(state, dt) {
@@ -6445,6 +6678,7 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     updateSignalEmitters(state, input);
     updateMovingPlatforms(state, dt);
     updateAutomaticEnemySpawning(state, dt);
+    updateEnemySpawners(state, dt);
     updateCharacterEnemies(state, dt);
     pruneFinishedAutomaticEnemies(state);
     if (playerDeathActive(state)) {
@@ -7436,7 +7670,7 @@ function addSmokePuff(state, spec) {
         vy: round(spec.vy || 0),
         age: 0,
         lifetime: spec.lifetime ?? state.tuning.rocketSmokePuffLifetime ?? 1.5,
-        radius: ["wizardDeathCoverSpark", "wizardDeathBurstParticle", "wizardCrushParticle", "enemyProjectileImpactPuff"].includes(spec.kind)
+        radius: ["wizardDeathCoverSpark", "wizardDeathBurstParticle", "wizardCrushParticle", "enemyProjectileImpactPuff", "enemyTeleportFlash", "enemyTeleportSpark"].includes(spec.kind)
             ? (spec.radius ?? 4)
             : (spec.radius ?? 12) * (state.tuning.rocketSmokePuffScale ?? 1.5),
         sparkleSeed: spec.sparkleSeed ?? seed,

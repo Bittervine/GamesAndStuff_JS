@@ -1858,6 +1858,58 @@ class RocketfrockRenderer {
                 continue;
             }
 
+            if (puff.kind === "enemyTeleportFlash") {
+                const fade = Math.pow(1 - ageRatio, 1.45);
+                const expansion = 0.34 + ageRatio * 0.92;
+                const flashRadius = Math.max(2, Number(puff.radius) || 24) * view.zoom * expansion;
+                ctx.save();
+                ctx.globalCompositeOperation = "lighter";
+                const glow = ctx.createRadialGradient(p.x, p.y, 1, p.x, p.y, flashRadius);
+                glow.addColorStop(0, `rgba(255, 255, 255, ${0.92 * fade})`);
+                glow.addColorStop(0.24, `rgba(124, 236, 255, ${0.74 * fade})`);
+                glow.addColorStop(0.58, `rgba(163, 88, 255, ${0.52 * fade})`);
+                glow.addColorStop(1, "rgba(90, 34, 180, 0)");
+                ctx.fillStyle = glow;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, flashRadius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 0.9 * fade;
+                ctx.strokeStyle = "rgba(202, 142, 255, 0.96)";
+                ctx.lineWidth = Math.max(1, 2.4 * view.zoom * (1 - ageRatio * 0.45));
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, flashRadius * 0.78, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+                this.markDynamicDrawn();
+                continue;
+            }
+
+            if (puff.kind === "enemyTeleportSpark") {
+                const fade = Math.pow(1 - ageRatio, 1.2);
+                const shardRadius = Math.max(1, Number(puff.radius) || 2) * view.zoom;
+                const paletteIndex = (Number(puff.colorIndex) || 0) % 3;
+                const color = paletteIndex === 0
+                    ? `rgba(255, 255, 255, ${0.98 * fade})`
+                    : paletteIndex === 1
+                        ? `rgba(116, 235, 255, ${0.94 * fade})`
+                        : `rgba(190, 104, 255, ${0.94 * fade})`;
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate(Number(puff.rotation) || 0);
+                ctx.globalCompositeOperation = "lighter";
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.moveTo(0, -shardRadius * 1.7);
+                ctx.lineTo(shardRadius * 0.72, 0);
+                ctx.lineTo(0, shardRadius * 1.7);
+                ctx.lineTo(-shardRadius * 0.72, 0);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+                this.markDynamicDrawn();
+                continue;
+            }
+
             if (puff.kind === "enemyProjectileImpactPuff") {
                 const fade = Math.pow(1 - ageRatio, 1.35);
                 const darkRadius = radius * (0.82 + ageRatio * 0.28);

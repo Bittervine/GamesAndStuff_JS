@@ -87,11 +87,13 @@ import {
     generateAutomaticLevelDraft,
     generateAutomaticLevelRoute,
     generatedPowerUpTargetForRoute,
+    generatedTreasureChestTargetForRoute,
     generatedMovingPlatformCrushHazards,
     generatedMovingPlatformRiderEnvelope,
     DOMED_CAVERN_UPWARD_EXPANSION_FACTOR,
     GENERATED_MINIMUM_VERTICAL_PLATFORM_SEPARATION,
     GENERATED_MOVING_PLATFORM_RIDER_CLEARANCE,
+    GENERATED_TREASURE_CHEST_SPACING_PX,
     GENERATED_POWER_UP_SPACING_PX,
     generatorStageStreamName,
     incrementGeneratorStageRevision,
@@ -160,7 +162,9 @@ import {
 import { normalizeSignalChannel, normalizeSignalEmitter } from "../src/shared/signal-channel-data.js";
 import {
     DEFAULT_AUTO_SPAWN_ENEMIES,
+    DEFAULT_ENEMY_SPAWNER,
     normalizeAutoSpawnEnemies,
+    normalizeEnemySpawner,
     resolveAutoSpawnEnemyIds
 } from "../src/shared/auto-spawn-enemy-data.js";
 import {
@@ -1200,6 +1204,104 @@ function testAutomaticEnemySpawning() {
     for (let step = 0; step < 122; step += 1) stepSimulation(disabled, createInputFrame(), FIXED_DT);
     assert.equal(disabled.world.autoSpawnEnemies.rollCount, 0, "zero percent should keep the feature dormant");
     assert.equal(disabled.enemies.length, 0, "zero percent should never create an enemy");
+}
+
+function createEnemySpawnerTestState({
+    spawnerX = 160,
+    spawnerY = 600,
+    probabilityPercent = 100,
+    enemyPool = "1",
+    randomSeed = 991
+} = {}) {
+    const catalog = JSON.parse(readFileSync("./assets/ct_enemies_001.json", "utf8"));
+    const state = createInitialGameState({ enemyCatalog: catalog, randomSeed });
+    applyEditorLevelToWorld(state, {
+        levelId: "enemy_spawner_test",
+        world: { bounds: { x: -1200, y: -500, w: 3600, h: 1800 }, resetY: 1300 },
+        entities: [{
+            id: "boss_reinforcement_spawner",
+            type: "enemySpawner",
+            x: spawnerX,
+            y: spawnerY,
+            w: 64,
+            h: 64,
+            state: "active",
+            probabilityPercent,
+            enemyPool,
+            collisionFromManifest: false,
+            visualStates: { active: [] }
+        }]
+    });
+    state.world.solids = [{ id: "spawner_test_floor", kind: "floor", x: -1100, y: 600, w: 3400, h: 120 }];
+    state.world.segments = [];
+    state.world.collisionPolygons = [];
+    state.player.x = 0;
+    state.player.y = 600;
+    state.player.onGround = true;
+    state.camera.x = 0;
+    state.camera.y = 430;
+    state.camera.viewportWidth = 400;
+    state.camera.viewportHeight = 720;
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    return state;
+}
+
+function testPlaceableEnemySpawner() {
+    assert.deepEqual(normalizeEnemySpawner(null), DEFAULT_ENEMY_SPAWNER, "enemy spawners should default to a ten-percent one-second roll and the complete numbered enemy pool");
+    assert.deepEqual(normalizeEnemySpawner({ probabilityPercent: 180, enemyPool: "1-3,!2" }), { probabilityPercent: 100, enemyPool: "1-3,!2" }, "enemy spawners should clamp chance and preserve the shared enemy-pool expression");
+
+    const catalog = JSON.parse(readFileSync("./assets/it_entities_001.json", "utf8"));
+    const definition = catalog.entities?.enemySpawner;
+    assert.ok(definition, "the interactive entity catalog should expose a placeable enemy spawner");
+    assert.equal(definition.defaultSize.w, 64, "enemy spawners should have a compact editor selection width");
+    assert.equal(definition.defaults.probabilityPercent, 10, "new enemy spawners should begin with the same moderate ten-percent chance as the automatic-spawn editor control");
+    assert.deepEqual(definition.states.active.visuals, [], "enemy spawners should have no runtime artwork");
+
+    const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    assert.ok(editorHtml.includes('id="enemy-spawner-settings-row"'), "the Level Editor should expose dedicated enemy-spawner settings");
+    assert.ok(editorHtml.includes('id="inspect-enemy-spawner-probability" type="number" min="0" max="100" step="1" value="10"'), "the spawner inspector should use the same per-second percentage range as automatic spawning");
+    assert.ok(editorHtml.includes('id="inspect-enemy-spawner-pool"'), "the spawner inspector should expose the shared enemy-pool expression");
+    assert.ok(editorHtml.includes("refreshSelectedEnemySpawnerPreview"), "the spawner inspector should preview its resolved enemy types");
+    assert.ok(editorHtml.includes("drawEnemySpawnerPreview"), "the invisible runtime entity should retain a clear procedural editor marker");
+
+    const onScreen = createEnemySpawnerTestState();
+    assert.equal(onScreen.world.enemySpawners.length, 1, "authored enemy spawners should become portable runtime spawner records");
+    assert.equal(onScreen.world.visuals.some((visual) => visual.entityId === "boss_reinforcement_spawner"), false, "enemy spawners should be invisible during play");
+    for (let step = 0; step < 62; step += 1) stepSimulation(onScreen, createInputFrame(), FIXED_DT);
+    const spawner = onScreen.world.enemySpawners[0];
+    assert.equal(spawner.rollCount, 1, "an on-screen enemy spawner should roll once after one visible second");
+    assert.equal(spawner.spawnCount, 1, "a one-hundred-percent on-screen spawner should create one enemy on its first roll");
+    const event = onScreen.debug.lastEvents.find((entry) => entry.type === "ENEMY_SPAWNER_SPAWNED");
+    const enemy = onScreen.enemies.find((entry) => entry.id === event?.enemyId);
+    assert.ok(event && enemy, "a successful spawner roll should emit a diagnostic event and create an enemy");
+    assert.equal(enemy.enemyDefinitionId, "enemy_001", "the spawner should resolve enemy types through the same numbered pool as automatic spawning");
+    assert.equal(enemy.enemySpawnerId, "boss_reinforcement_spawner", "spawned reinforcements should retain their source spawner identity");
+    assert.equal(enemy.strategy, "hunter", "spawned ground reinforcements should immediately use hunter navigation");
+    assert.equal(enemy.alerted, true, "spawned reinforcements should arrive already aware of Ignatius");
+    assert.equal(enemy.engaged, true, "spawned reinforcements should immediately join the fight");
+    assert.ok(enemy.hitFlashTimer > 0, "the arriving enemy should briefly use the existing bright character flash");
+    assert.ok(onScreen.effects.smokePuffs.some((puff) => puff.kind === "enemyTeleportFlash"), "the spawn should create a central teleport flash");
+    assert.ok(onScreen.effects.smokePuffs.some((puff) => puff.kind === "enemyTeleportSpark"), "the spawn should scatter small teleport sparks");
+    const restoredSpawnerState = restoreGameState(serializeGameState(onScreen));
+    assert.equal(restoredSpawnerState.world.enemySpawners[0].spawnCount, 1, "spawner timers and successful spawn counts should survive ordinary state serialization");
+    assert.equal(restoredSpawnerState.enemies.find((entry) => entry.id === enemy.id)?.enemySpawnerId, "boss_reinforcement_spawner", "serialized spawned enemies should retain their source spawner identity");
+
+    const offScreen = createEnemySpawnerTestState({ spawnerX: 1000, randomSeed: 992 });
+    for (let step = 0; step < 180; step += 1) stepSimulation(offScreen, createInputFrame(), FIXED_DT);
+    const dormant = offScreen.world.enemySpawners[0];
+    assert.equal(dormant.rollCount, 0, "an off-screen enemy spawner should not roll at all");
+    assert.equal(dormant.spawnCount, 0, "an off-screen enemy spawner should never create enemies");
+    assert.equal(dormant.timer, 1, "off-screen time should not accumulate toward an immediate spawn");
+
+    offScreen.player.x = 840;
+    offScreen.camera.x = 840;
+    for (let step = 0; step < 30; step += 1) stepSimulation(offScreen, createInputFrame(), FIXED_DT);
+    assert.equal(dormant.rollCount, 0, "scrolling a dormant spawner on screen should still require a full visible second");
+    for (let step = 0; step < 32; step += 1) stepSimulation(offScreen, createInputFrame(), FIXED_DT);
+    assert.equal(dormant.rollCount, 1, "the spawner should begin rolling only after one complete on-screen second");
+    assert.equal(dormant.spawnCount, 1, "the newly visible one-hundred-percent spawner should then teleport in one enemy");
 }
 
 function testEnemyCatalogAndLevelEditorIntegration() {
@@ -5645,7 +5747,7 @@ function testAutomaticLevelGeneratorEncounters() {
 }
 
 
-function testGeneratedPowerUpSpacingTarget() {
+function testGeneratedRewardSpacingTargets() {
     const route = {
         nodes: [
             { id: "a", x: 0, y: 0, progress: 0, mandatory: true },
@@ -5654,11 +5756,16 @@ function testGeneratedPowerUpSpacingTarget() {
             { id: "d", x: 9000, y: 12000, progress: 3, mandatory: true }
         ]
     };
-    assert.equal(GENERATED_POWER_UP_SPACING_PX, 1000, "generated power-up density should be based on one pickup per 1,000 route pixels");
-    assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 0.38 }), 15, "15,000 pixels of default-density route should target about fifteen power-ups");
+    assert.equal(GENERATED_TREASURE_CHEST_SPACING_PX, 500, "generated treasure density should be based on one chest per 500 route pixels");
+    assert.equal(generatedTreasureChestTargetForRoute(route, { rewardDensity: 0.38 }), 30, "15,000 pixels of default-density route should target about thirty treasure chests");
+    assert.equal(generatedTreasureChestTargetForRoute(route, { rewardDensity: 0 }), 0, "zero reward density should disable generated treasure chests completely");
+    assert.equal(generatedTreasureChestTargetForRoute(route, { rewardDensity: 0.1 }), 8, "low nonzero reward density should retain a restrained chest target");
+    assert.equal(generatedTreasureChestTargetForRoute(route, { rewardDensity: 1 }), 30, "maximum reward density should retain the one-per-500-pixel chest target rather than packing chests more tightly");
+    assert.equal(GENERATED_POWER_UP_SPACING_PX, 1000, "generated power-up density should remain one pickup per 1,000 route pixels");
+    assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 0.38 }), 15, "15,000 pixels of default-density route should still target about fifteen power-ups");
     assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 0 }), 0, "zero reward density should still disable generated power-ups completely");
     assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 0.1 }), 4, "low nonzero reward density should retain a restrained pickup target");
-    assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 1 }), 23, "maximum reward density should scale upward while retaining the density multiplier cap");
+    assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 1 }), 23, "maximum reward density should scale power-ups upward while retaining the density multiplier cap");
 }
 
 
@@ -5674,7 +5781,7 @@ function testAutomaticLevelGeneratorRewards() {
     const entityCatalog = JSON.parse(readFileSync(new URL("../assets/it_entities_001.json", import.meta.url), "utf8"));
     const enemyIds = Object.keys(enemyCatalog.enemies);
     assert.ok(LEVEL_GENERATOR_REGISTRIES.rewards.some((entry) => entry.id === "basic-rewards-v1"), "the reward populator should be registered by stable ID");
-    assert.ok(rewardGenerationCatalog.rewards.some((entry) => entry.entityType === "treasureChest" && entry.contexts.includes("secondaryPerch")), "treasure generation metadata should support current upper reward perches");
+    assert.ok(rewardGenerationCatalog.rewards.some((entry) => entry.entityType === "treasureChest" && entry.contexts.includes("secondaryPerch") && entry.contexts.includes("openRoute")), "treasure generation metadata should support upper reward perches and ordinary route surfaces");
     const generatedPowerUpWeights = Object.fromEntries(rewardGenerationCatalog.rewards
         .filter((entry) => entry.category === "powerUp")
         .map((entry) => [entry.entityType, entry.weight]));
@@ -5709,8 +5816,8 @@ function testAutomaticLevelGeneratorRewards() {
     const endpointEntities = first.entities.filter((entity) => entity.generationStage === "endpoints");
     const selectedPerches = first.generation.rewards.selectedPerchSupportIds;
     const chests = rewardEntities.filter((entity) => entity.type === "treasureChest");
-    assert.ok(selectedPerches.length >= 1, "a high reward-density extended cavern should select at least one detached upper reward perch");
-    assert.equal(chests.length, selectedPerches.length, "each selected upper reward perch should contain exactly one treasure chest");
+    assert.ok(chests.length >= first.generation.rewards.treasureTarget, `rewarded generated levels should meet their route-scaled treasure target of ${first.generation.rewards.treasureTarget}`);
+    assert.ok(selectedPerches.length >= 1, "a high reward-density extended cavern should still use at least one detached upper reward perch");
     for (const supportId of selectedPerches) {
         const support = first.generation.traversal.supports.find((candidate) => candidate.id === supportId);
         assert.ok(support?.secondaryPlatform && support?.rewardPerch, "selected treasure supports should be detached secondary reward perches");
@@ -5718,6 +5825,13 @@ function testAutomaticLevelGeneratorRewards() {
         assert.ok(perchTransitions.length >= 2 && perchTransitions.every((transition) => transition.valid), "upper reward perches should remain safely reachable and returnable");
         const chest = chests.find((entity) => entity.generationSupportId === supportId);
         assert.ok(chest && chest.generationContext === "secondaryPerch" && chest.scoreValue > 0, "each selected perch should hold a positive-Score treasure chest");
+    }
+    const treasureSupportById = new Map(first.generation.traversal.supports.map((support) => [support.id, support]));
+    for (const chest of chests) {
+        const support = treasureSupportById.get(chest.generationSupportId);
+        assert.ok(support, "every generated treasure chest should retain a valid support reference");
+        assert.ok(["secondaryPerch", "upperPerch", "upperAccess", "recoveryRoute", "openRoute"].includes(chest.generationContext), "generated treasure should use a current supported placement context");
+        assert.ok(chest.scoreValue > 0 && Math.abs(chest.y - support.surfaceY) <= 0.01, "every generated chest should be seated and award positive Score");
     }
     const contextualTypes = rewardEntities.filter((entity) => entity.type !== "treasureChest" && entity.type !== "thoughtTrigger").map((entity) => entity.type);
     const generatedPowerUps = rewardEntities.filter((entity) => ["speedShotPickup", "shieldPickup", "randomWrenchPickup"].includes(entity.type));
@@ -5752,6 +5866,8 @@ function testAutomaticLevelGeneratorRewards() {
         entityCatalog
     });
     assert.equal(independent.valid, true, `standalone reward validation should accept the selected draft: ${independent.errors.join(" ")}`);
+    assert.equal(independent.metrics.chestTarget, first.generation.rewards.treasureTarget, "standalone validation should expose the route-scaled treasure target");
+    assert.ok(independent.metrics.chestCount >= independent.metrics.chestTarget, "standalone validation should confirm that the chest target was met");
     assert.equal(independent.metrics.rewardedPerchCount, selectedPerches.length, "standalone validation should account for every selected upper reward perch");
     assert.equal(independent.metrics.endpointCrowdingCount, 0, "reward placement should preserve entrance and exit calm space");
     assert.equal(independent.metrics.rewardEnemyOverlapCount, 0, "rewards should not overlap generated enemies");
@@ -6854,8 +6970,9 @@ function testScoreHudAndTreasureChestCollection() {
     assert.equal(authored.title, "The Introductory Cave of Training", "level 1 should use the shorter authored title");
     assert.ok(authoredChest, "level 1 should contain the requested demonstration treasure chest");
     assert.equal(authoredChest.state, "openLoot", "the demonstration chest should begin open with visible treasure");
-    assert.equal(authoredChest.w, 72, "the demonstration chest should use the compact ledge-friendly width");
-    assert.equal(authoredChest.h, 84, "the demonstration chest should use the compact ledge-friendly height");
+    assert.equal(authoredChest.w, 68, "the demonstration chest should use the slightly smaller ledge-friendly width");
+    assert.equal(authoredChest.h, 80, "the demonstration chest should use the slightly smaller ledge-friendly height");
+    assert.equal(authoredChest.visualStates.openLoot[0].offsetY, 4, "the demonstration chest visual should sit a few pixels lower on narrow ledges");
     assert.equal(authoredChest.scoreValue, 100, "the demonstration chest should award 100 Score");
     assert.equal(authoredChest.x, 4768, "the demonstration chest should use the requested 16-pixel-grid X position");
     assert.equal(authoredChest.y, 512, "the demonstration chest should rest on the exit-platform surface at a 16-pixel-grid Y position");
@@ -6869,7 +6986,7 @@ function testScoreHudAndTreasureChestCollection() {
 function testRocketPowerUpArsenal() {
     const speedShot = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.SPEED_SHOT);
     assert.equal(speedShot.stacking, POWER_UP_STACKING_RULES.REFRESH, "Speed Shot should refresh rather than stack multiplicatively");
-    assert.equal(speedShot.durationSeconds, 30, "Speed Shot should last thirty seconds");
+    assert.equal(speedShot.durationSeconds, 20, "Speed Shot should last twenty seconds");
     assert.equal(speedShot.rocket.launchCooldownMultiplier, 0.5, "Speed Shot should double allowed firing cadence");
     assert.equal(speedShot.rocket.launchFuelCostMultiplier, 0.5, "Speed Shot should halve projectile-rocket fuel cost");
     assert.equal(speedShot.hud.priority, 100, "Speed Shot should outrank wrench effects in the Power HUD");
@@ -6916,7 +7033,7 @@ function testRocketPowerUpArsenal() {
     }), null, "saved active-effect snapshots should reject the retired Twin identity");
     for (const [effectId, expected] of expectedWrenches) {
         const definition = powerUpEffectDefinition(effectId);
-        assert.equal(definition.durationSeconds, 30, `${definition.label} should last thirty seconds`);
+        assert.equal(definition.durationSeconds, 20, `${definition.label} should last twenty seconds`);
         assert.equal(definition.groupId, POWER_UP_GROUP_IDS.WRENCH, `${definition.label} should occupy the exclusive wrench slot`);
         assert.equal(definition.exclusiveGroup, true, `${definition.label} should replace another wrench`);
         assert.equal(definition.hud.priority, 50, `${definition.label} should rank below Speed Shot in the Power HUD`);
@@ -6999,7 +7116,7 @@ function testRocketPowerUpArsenal() {
     const fuelBefore = state.fuel.amount;
     stepSimulation(state, createInputFrame({ weaponPressed: true }), FIXED_DT);
     const activeSpeed = activePowerUpEffect(state, POWER_UP_EFFECT_IDS.SPEED_SHOT);
-    assert.ok(activeSpeed && activeSpeed.remainingSeconds > 29.9, "collecting Speed Shot should begin a thirty-second effect window");
+    assert.ok(activeSpeed && activeSpeed.remainingSeconds > 19.9, "collecting Speed Shot should begin a twenty-second effect window");
     assert.deepEqual(rocketPowerUpMultipliers(state), { launchCooldownMultiplier: 0.5, launchFuelCostMultiplier: 0.5 }, "Speed Shot should expose deterministic rocket multipliers");
     approx(fuelBefore - state.fuel.amount, DEFAULT_TUNING.rocketLaunchCost * 0.5, 0.0001, "a Speed Shot rocket should spend half fuel");
 
@@ -7291,20 +7408,20 @@ function testRocketPowerUpArsenal() {
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 285<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(bootstrapSource, /const GAME_REVISION = "285";/, "the game debug revision should match the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 289<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "289";/, "the game debug revision should match the packaged revision");
     assert.match(editorSource, /<button id="fit-content-view">Fit<\/button>/, "the Level Editor should expose one concise Fit button");
     assert.equal(editorSource.includes('id="fit-view"'), false, "the removed Fit World control should not remain in the Level Editor");
     assert.equal(editorSource.includes('id="fit-cave-view"'), false, "the removed Fit Cave control should not remain in the Level Editor");
-    assert.ok(manualSource.includes("Shield</strong> lasts 10 seconds") && manualSource.includes("Speed Shot</strong> lasts 30 seconds") && manualSource.includes("Wrench power-ups last 30 seconds"), "the game manual should document the revised effect windows");
+    assert.ok(manualSource.includes("Shield</strong> lasts 10 seconds") && manualSource.includes("Speed Shot</strong> lasts 20 seconds") && manualSource.includes("Wrench power-ups last 20 seconds"), "the game manual should document the revised effect windows");
     const entityCatalog = JSON.parse(readFileSync(new URL("../assets/it_entities_001.json", import.meta.url), "utf8"));
     const catalogEntities = Object.values(entityCatalog.entities || {});
     const speedCatalogEntry = catalogEntities.find((entity) => entity.type === "speedShotPickup");
     const shieldCatalogEntry = catalogEntities.find((entity) => entity.type === "shieldPickup");
     const wrenchCatalogEntry = catalogEntities.find((entity) => entity.type === "randomWrenchPickup");
-    assert.equal(speedCatalogEntry?.defaults?.durationSeconds, 30, "the entity catalog should default Speed Shot pickups to thirty seconds");
+    assert.equal(speedCatalogEntry?.defaults?.durationSeconds, 20, "the entity catalog should default Speed Shot pickups to twenty seconds");
     assert.equal(shieldCatalogEntry?.defaults?.durationSeconds, 10, "the entity catalog should default Shield pickups to ten seconds");
-    assert.equal(wrenchCatalogEntry?.defaults?.durationSeconds, 30, "the entity catalog should default random wrench pickups to thirty seconds");
+    assert.equal(wrenchCatalogEntry?.defaults?.durationSeconds, 20, "the entity catalog should default random wrench pickups to twenty seconds");
 
     const levelOne = JSON.parse(readFileSync(new URL("../assets/level_001.json", import.meta.url), "utf8"));
     const placedSpeedShot = levelOne.entities.find((entity) => entity.id === "speed_shot_001");
@@ -7312,11 +7429,11 @@ function testRocketPowerUpArsenal() {
     const placedShield = levelOne.entities.find((entity) => entity.id === "shield_001");
     assert.ok(placedSpeedShot && placedSpeedShot.effectId === "speedShot", "level_001 should include the renamed Speed Shot pickup");
     assert.equal(placedSpeedShot.x, 800, "Speed Shot should remain on the early main floor");
-    assert.equal(placedSpeedShot.durationSeconds, 30, "the authored Speed Shot should last thirty seconds");
+    assert.equal(placedSpeedShot.durationSeconds, 20, "the authored Speed Shot should last twenty seconds");
     assert.equal(placedSpeedShot.respawnSeconds, 60, "the authored Speed Shot should respawn after sixty seconds");
     assert.ok(placedWrench && placedWrench.type === "randomWrenchPickup", "level_001 should include one randomized wrench pickup");
     assert.deepEqual(placedWrench.randomEffectIds, [...WRENCH_POWER_UP_EFFECT_IDS], "the level wrench should roll across the complete wrench family");
-    assert.equal(placedWrench.durationSeconds, 30, "the authored random wrench should grant a thirty-second effect");
+    assert.equal(placedWrench.durationSeconds, 20, "the authored random wrench should grant a twenty-second effect");
     assert.equal(placedWrench.x, 1400, "the playtest wrench should sit farther along the early main floor");
     assert.ok(placedShield && placedShield.type === "shieldPickup", "level_001 should include the blue Shield pickup");
     assert.equal(placedShield.effectId, POWER_UP_EFFECT_IDS.SHIELD, "the placed Shield should activate the shared Shield effect");
@@ -10337,7 +10454,7 @@ const tests = [
     ["automatic level generator variant compatibility", testAutomaticLevelGeneratorVariantCompatibility],
     ["automatic level generator playable empty cavern", testAutomaticLevelGeneratorPlayableEmptyCavern],
     ["automatic level generator encounters", testAutomaticLevelGeneratorEncounters],
-    ["generated reward power-up spacing", testGeneratedPowerUpSpacingTarget],
+    ["generated reward spacing targets", testGeneratedRewardSpacingTargets],
     ["automatic level generator rewards", testAutomaticLevelGeneratorRewards],
     ["automatic level generator editor refinement", testAutomaticLevelGeneratorEditorRefinement],
     ["automatic perimeter population and spatial culling", testAutomaticLevelGeneratorPerimeterAndSpatialCulling],
@@ -10379,6 +10496,7 @@ const tests = [
     ["flying bomber leaves perch platform", testFlyingBomberCanLeavePerchPlatform],
     ["flying bomber notices wizard below and ahead", testFlyingBomberNoticesWizardBelowAndAhead],
     ["automatic enemy spawning", testAutomaticEnemySpawning],
+    ["placeable on-screen enemy spawner", testPlaceableEnemySpawner],
     ["enemy catalog and Level Editor integration", testEnemyCatalogAndLevelEditorIntegration],
     ["enemy navigation graph and jump reachability", testEnemyNavigationGraphAndJumpReachability],
     ["enemy navigation across overlapping solid floors", testEnemyNavigationAcrossOverlappingSolidFloors],

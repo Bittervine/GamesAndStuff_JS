@@ -6,6 +6,11 @@ export const DEFAULT_AUTO_SPAWN_ENEMIES = Object.freeze({
     enemyPool: "1-999"
 });
 
+export const DEFAULT_ENEMY_SPAWNER = Object.freeze({
+    probabilityPercent: 10,
+    enemyPool: "1-999"
+});
+
 function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
 }
@@ -27,6 +32,18 @@ export function normalizeAutoSpawnEnemies(value) {
         enabled: source.enabled === true,
         probabilityPercent,
         enemyPool
+    };
+}
+
+export function normalizeEnemySpawner(value) {
+    const source = value && typeof value === "object" ? value : {};
+    return {
+        probabilityPercent: clamp(
+            finiteNumber(source.probabilityPercent ?? source.probability ?? source.chancePercent, DEFAULT_ENEMY_SPAWNER.probabilityPercent),
+            0,
+            100
+        ),
+        enemyPool: String(source.enemyPool ?? source.allowedEnemies ?? DEFAULT_ENEMY_SPAWNER.enemyPool).trim() || DEFAULT_ENEMY_SPAWNER.enemyPool
     };
 }
 
