@@ -3224,6 +3224,7 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Preserve pre-WebGL2 draw order for targets, pickups, enemies, effects, projectiles, player, death cover, and score popups.
 - [x] Keep static scenery, foreground, cave composition, and final presentation on WebGL2.
 - [x] Leave pure Canvas fallback behavior unchanged.
+- [x] Make Canvas 2D the default renderer and keep WebGL2 available through `game.html?webgl=1` and equivalent opt-in URL switches.
+- [x] Benchmark dense and explosion-seeded level_002 viewports; both paths held 60 fps, but forced Canvas was slightly cheaper than the current staged WebGL2 hybrid path.
 - [x] Record that direct dynamic GPU helpers require real-browser visual validation before reactivation.
 - [x] Bump revision labels and regression coverage.
-

@@ -124,6 +124,7 @@ let minimapLastDrawAt = -Infinity;
 let minimapLastSizeKey = "";
 let hudPanelScale = 1;
 let enemyCharacterProjectUrls = [];
+const preferWebGL2Renderer = shouldPreferWebGL2Renderer();
 gameState.debug.revision = GAME_REVISION;
 addEvent(gameState, `BUILD_REVISION_${GAME_REVISION}`);
 const input = new RocketfrockInput(window);
@@ -138,6 +139,7 @@ if (!loadedBrowserCopy) {
 setLoadingProgress(0.1, "Level data ready");
 try {
     renderer = await createRenderer(canvas, {
+        preferWebGL2: preferWebGL2Renderer,
         environmentAtlasManifestUrls: gameState.world.atlasManifests,
         enemyCharacterUrls: enemyCharacterProjectUrls,
         onProgress: ({ progress, label }) => {
@@ -185,6 +187,13 @@ function browserRandomSeed() {
 
 function clamp01(value) {
     return Math.max(0, Math.min(1, Number(value) || 0));
+}
+
+function shouldPreferWebGL2Renderer() {
+    const params = new URLSearchParams(window.location.search || "");
+    const rawValue = params.get("webgl") ?? params.get("webgl2") ?? "";
+    const value = String(rawValue).trim().toLowerCase();
+    return ["1", "true", "on", "webgl", "webgl2", "gpu"].includes(value);
 }
 
 function setLoadingProgress(progress, label = "Loading game assets") {
