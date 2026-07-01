@@ -32,7 +32,7 @@ The editor builds one navigation profile for each distinct hunter body size and 
 
 Horizontal is the run-and-gun route. It advances steadily toward the exit, favors solid overlapping ground pieces with level walking surfaces, uses only occasional height changes, and reserves elevated combat perches with open space for homing rockets. Thin one-way platforms remain separate and serve raised positions rather than pretending to form a continuous floor.
 
-Standard remains the folded route with broad upper traversal, a nearly continuous lower recovery path, and occasional upper reward or combat positions. Domed caverns keep the lower perimeter close to the route while expanding ceiling volume. Rewarded levels target roughly one real power-up per 1,000 route pixels at default density, split between random wrenches, Shield, and Speed Shot plus contextual rewards.
+Standard remains the folded route with broad upper traversal, a nearly continuous lower recovery path, and occasional upper reward or combat positions. Domed caverns keep the lower perimeter close to the route while expanding ceiling volume. Rewarded levels target roughly one real power-up per 1,000 route pixels at default density, split between random wrenches, Shield, and Overdrive plus contextual rewards.
 
 Encounter rerolls preserve route, platforms, endpoints, and rewards. Reward rerolls preserve route and terrain while replacing generated rewards and retaining anchored encounters. Validation reports the current generated records. Generator locks prevent direct editing but regeneration still replaces generator-owned records. Converting a generated object to manual ownership detaches it from generator clear and regeneration operations.
 
@@ -116,10 +116,74 @@ The canonical yellow wrench remains `POWER_UP_EFFECT_IDS.WRENCH_TRIPLE` for save
 Player rocket firing is edge-triggered but has no simulation cooldown. `src/core/simulation.js` should attempt a launch for every delivered `weaponPressed` edge and reject it only when fuel is insufficient or another explicit gameplay rule blocks the action. Do not restore `rocketLaunchCooldown`, `weapons.launchCooldownTimer`, `launchCooldownMultiplier`, or cooldown-based `ROCKET_LAUNCH_BLOCKED` events. Older serialized states may still contain a `launchCooldownTimer` property; it is ignored. Holding a launch key does not invent repeated presses, so automatic fire remains a separate future control decision.
 
 
-## Revision 309 wrench launch-path tuning
+## Revision 310 wrench launch-path tuning
 
-Yellow Fivefold keeps five evenly spaced non-homing rockets but narrows its full fan from 30 degrees to 15 degrees. The canonical offsets in `src/shared/power-up-data.js` are now `[-7.5, -3.75, 0, 3.75, 7.5]` around the nearest-forward aim line.
+Yellow Fivefold keeps five evenly spaced non-homing rockets in the canonical `[-7.5, -3.75, 0, 3.75, 7.5]` fan around the nearest-forward aim line. Blue Homing Triple keeps its authored `[-12, 0, 12]` fan and standard homing behavior.
 
-Blue Homing Triple retains the authored `[-12, 0, 12]` fan and standard homing behavior, but each projectile receives an independent deterministic launch-angle perturbation bounded by `HOMING_TRIPLE_INITIAL_DIRECTION_JITTER_DEGREES`, currently 2 degrees. The salt includes the level, level-load count, volley identity, and projectile index, so quickly repeated volleys do not share three rigid rails while identical seeded replays remain identical. Keep this randomness in portable simulation data; do not use `Math.random()` or renderer-owned variation.
+Both yellow Fivefold and blue Homing Triple now use a small deterministic shared wedge-direction perturbation bounded by `HOMING_TRIPLE_INITIAL_DIRECTION_JITTER_DEGREES`, currently 2 degrees. `src/core/simulation.js` samples that offset once per volley and applies the same value to every projectile in the volley, so the wedge keeps its internal spacing while rapidly repeated volleys no longer retrace one rigid set of rails. The salt includes the level, level-load count, and volley identity; identical seeded replays therefore remain identical. Keep this randomness in portable simulation data; do not use `Math.random()` or renderer-owned variation.
 
-The lightning pickup is now displayed as **Overdrive** while retaining the internal `speedShot` effect and `speedShotPickup` entity IDs. Its passive fuel recovery is `attachedBoostDrainRate * OVERDRIVE_PASSIVE_FUEL_RECOVERY_DRAIN_FACTOR`, currently 90 percent of hover drain. Apply that rate even during attached boost, while airborne, and during the normal recharge delay. When ordinary recharge is eligible, use the larger rate rather than adding both. This keeps tuning predictable: with the current 40 fuel/second hover drain, Overdrive recovers 36 fuel/second and hovering therefore consumes a net 4 fuel/second.
+The lightning pickup is **Overdrive**, with canonical internal IDs `overdrive` and `overdrivePickup`. Its passive fuel recovery is `attachedBoostDrainRate * OVERDRIVE_PASSIVE_FUEL_RECOVERY_DRAIN_FACTOR`, currently 90 percent of hover drain. Apply that rate even during attached boost, while airborne, and during the normal recharge delay. When ordinary recharge is eligible, use the larger rate rather than adding both. This keeps tuning predictable: with the current 40 fuel/second hover drain, Overdrive recovers 36 fuel/second and hovering therefore consumes a net 4 fuel/second.
+
+
+## Revision 311 WebGL2 rendering guidance
+
+The game canvas is WebGL2-first. `createRenderer` in `src/presentation/canvas-renderer.js` attempts `createWebGL2RendererBackend` and uses the visible canvas as the WebGL target. A separate hidden Canvas 2D surface remains available for procedural drawing and for the complete fallback renderer. Do not request a 2D context from the visible canvas before WebGL2 selection, because a browser canvas cannot switch context families afterward.
+
+Use `WebGL2RendererBackend.queueSprite` or `queueSurface` for stable image-backed visuals. Preserve scene order: the batch only merges adjacent commands that use the same texture, and texture changes flush automatically. Static sources should use cached uploads; the staging surface must be marked dynamic so each changed pass uses `texSubImage2D`. The same staging canvas is uploaded twice per frame, once for actors/effects and once for masks/overlays, so each upload must force a fresh texture update even within one WebGL frame.
+
+Canvas/image sources are uploaded premultiplied and rendered with `ONE, ONE_MINUS_SRC_ALPHA`. Do not change one side of that contract independently. Clear the GPU texture cache after replacing colour-mapped atlas canvases or foreground/overlap caches. Keep gameplay and deterministic simulation completely unaware of the renderer backend. WebGPU should only be reconsidered when a measured workload cannot be served by this WebGL2 batcher and browser/runtime support is acceptable.
+
+## Revision 312 particle-pass migration guidance
+
+When adding or adjusting rocket smoke, projectile explosion, or Ignatius death particles, prefer the dedicated WebGL2 effect helpers in `src/presentation/canvas-renderer.js` (`drawWorldEffectsWebGL`, `drawProjectileExplosionEffectsWebGL`, and `drawPlayerDeathCoverWebGL`) rather than pushing those families back onto the staging canvas. These helpers rely on small cached sprite canvases and backend blend-mode selection, so keep their visuals image-backed and batching-friendly.
+
+Only move an effect family into the direct GPU pass when its ordering relative to staging uploads is explicit. Lower scenery/actor staging uploads happen first, then the direct GPU particle pass, then upper staged actors/UI content. If an effect still needs the full Canvas drawing API or does not justify a dedicated sprite treatment, leave it on the staging canvas and preserve fallback parity.
+
+## Revision 313 enemy projectile migration guidance
+
+With WebGL2 active, launched enemy fireballs, musket balls, and rocks should now be handled by `drawEnemyProjectilesWebGL` in `src/presentation/canvas-renderer.js`. Keep those projectile visuals sprite-oriented so they can stay in the GPU batcher. If a new enemy projectile family is lightweight and image-backed, prefer extending this pass instead of routing it back through the staging canvas.
+
+Preserve scene order carefully. The direct enemy-projectile pass sits after the lower staged world/effect upload and before the staged pass containing player rockets, Ignatius, and score popups. If a projectile depends on complex Canvas drawing semantics or must interleave differently, document that explicitly before changing its pass assignment.
+
+## Revision 314 player rocket migration guidance
+
+With WebGL2 active, launched player rockets should now be rendered by `drawPlayerRocketsWebGL` and `drawProjectileRocketWebGL` in `src/presentation/canvas-renderer.js`. Keep future rocket-visual adjustments sprite-friendly so they can stay in this GPU batch. The helper `queueWebGLAssetSprite` now supports pivot-style local offsets for images whose simulation origin is not the centre of the source bitmap.
+
+The staging Canvas path still owns Ignatius, text, and several other dynamic overlays, so any new projectile-related embellishment should be placed carefully: direct rocket trails, direct rocket bodies, and direct explosion effects happen before the staged player/UI pass. Preserve the pure Canvas fallback behavior when extending these helpers.
+
+## Revision 315 actor rendering guidance
+
+With WebGL2 active, target markers, pickups, enemies, and the player rig should use their direct GPU helpers in `src/presentation/canvas-renderer.js`. Character animation and pose calculation remain shared with the Canvas path; do not fork gameplay or animation state for the GPU renderer. Add image-backed actor details through `queueCharacterProjectPoseWebGL` or adjacent sprite passes whenever their ordering is clear.
+
+The upper staging pass is now primarily for procedural remnants such as the mounted fuel bulb, debug guides, mailbox/story text, and cave masking. Score popups should use `getWebGLTextSpriteCanvas` plus `drawScorePopupsWebGL` rather than returning to the full-screen staging layer. Avoid moving sprite-like actors back into that staging pass. Any new effect that requires Canvas should be isolated so it does not force already-migrated actors to be redrawn there.
+
+## Revision 316 WebGL parity guidance
+
+When changing GPU character ordering, compare it directly with `renderCanvas2D`. Death-cover sparks are intentionally drawn after Ignatius and before score popups. Moving them back into the earlier world-effect pass makes the effect appear behind the player and breaks the original visual contract.
+
+Character damage flashes use the secondary `overlayTintAlpha` / `overlayTintCanvasKey` channel of `queueCharacterProjectPoseWebGL`. Keep that channel separate from the primary shield/low-health tint so simultaneous effects can compose. All character projects must prepare `hitFlashCanvas`; only the player project additionally requires `shieldCanvas` and `lowHealthCanvas`.
+
+## Revision 317 fallback and context-loss guidance
+
+Do not probe WebGL2 by requesting it directly from the visible game canvas and then attempting a 2D fallback on that same element. Canvas context families are sticky. Use `probeWebGL2RendererSupport`, which creates and disposes a complete scratch backend, before the visible canvas is committed to WebGL2. If the probe fails, the visible canvas must remain untouched and use the ordinary Canvas 2D renderer.
+
+Once the visible canvas owns WebGL2, a context-loss interval is not a Canvas fallback opportunity because the renderer's 2D canvas is only the hidden staging surface. Keep presentation idle until `webglcontextrestored` rebuilds the GPU resources.
+
+## Revision 318 Level Editor WebGL2 guidance
+
+The Level Editor uses WebGL2 as a compositor, not as a second authoring model. Continue implementing placement, entity, cave, navigation, and guide drawing through the existing Canvas functions. Static content belongs in `renderEditorStaticScene`; cursor previews and selection-only visuals belong in `renderEditorTransientOverlay`. The WebGL path retains the static Canvas as a cached texture and uploads only the transient layer during pointer-only frames.
+
+When a static scene surface is redrawn, invalidate its GPU texture with `editorWebGLBackend.invalidateTexture(surface.canvas)`. Never request a 2D context from the visible stage before the disposable WebGL probe has decided the backend. Preserve the direct Canvas path because browsers and embedded runtimes may lack usable WebGL2.
+
+## Revision 319 Overdrive naming guidance
+
+Use `overdrive` for the portable effect ID, `overdrivePickup` for authored and generated level entities, and `POWER_UP_EFFECT_IDS.OVERDRIVE` in code. Do not reintroduce `speedShot`, `speedShotPickup`, or a translation layer for them. All supported bundled levels were migrated together in revision 319.
+
+The older `rocketOverdrive` experiment remains a retired and rejected identity. Overdrive behavior itself is unchanged: twenty-second refresh duration, half player-rocket fuel cost, and passive fuel recovery at ninety percent of hover drain.
+
+## Revision 320 dynamic WebGL safety rule
+
+Do not reactivate direct WebGL rendering for Ignatius, enemies, or projectiles solely on the strength of headless/source-contract tests. Revision 319 passed the automated suite but failed the first real playtest with all gameplay-critical sprites invisible.
+
+The supported production path now draws the entire dynamic actor stack to the transparent staging canvas and lets WebGL2 composite that layer. Any future direct-sprite reintroduction must be incremental, guarded by a runtime switch, and checked in at least Chromium and Firefox with visible-player, visible-enemy, visible-projectile, hit-flash, death, and context-restoration scenarios.
+

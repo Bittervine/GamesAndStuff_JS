@@ -153,6 +153,9 @@
         <p>The game opens on the title card. Press a key, click, tap, or use the Start button to begin. That first interaction also unlocks the browser audio system.</p>
         <p class="note">The Manual link is available from the title card before the game starts.</p>
 
+        <h2>Graphics compatibility</h2>
+        <p>The game uses WebGL2 for its main sprite and scenery rendering when the browser supports it. On systems without WebGL2, it automatically falls back to the Canvas 2D renderer. The visual content and gameplay rules are the same in both modes, though performance may differ on scenery-heavy levels.</p>
+
         <h2>Goal</h2>
         <p>Guide Ignatius through the cave, survive hostile creatures and hazards, operate useful devices, and reach the exit door.</p>
 
@@ -206,12 +209,12 @@
                 <tr><th>Wrench</th><th>Rocket mode</th></tr>
             </thead>
             <tbody>
-                <tr><td><strong>Fivefold</strong> (yellow)</td><td>Fires five small non-homing rockets evenly across a narrow 15-degree fan, from 7.5 degrees below to 7.5 degrees above the centre line. The centre rocket is aimed at the nearest enemy in the direction Ignatius faces when the volley is launched. Each rocket deals 6 damage, for the standard 30 total if all five hit. The volley costs half the normal fuel, and the rockets travel at twice standard speed.</td></tr>
+                <tr><td><strong>Fivefold</strong> (yellow)</td><td>Fires five small non-homing rockets evenly across a narrow 15-degree fan, from 7.5 degrees below to 7.5 degrees above the centre line. The centre rocket is aimed at the nearest enemy in the direction Ignatius faces when the volley is launched, and each whole volley gets a tiny random angular nudge so rapid repeated volleys do not all trace the exact same wedge. Each rocket deals 6 damage, for the standard 30 total if all five hit. The volley costs half the normal fuel, and the rockets travel at twice standard speed.</td></tr>
                 <tr><td><strong>Dart</strong> (cyan)</td><td>Fires one normal-sized non-homing rocket straight along Ignatius's facing direction. It deals the standard 30 damage, costs half the normal fuel, and travels at twice standard speed.</td></tr>
                 <tr><td><strong>Target</strong> (green)</td><td>Fires one non-homing rocket along a launch-time line toward the nearest enemy in the direction Ignatius faces. It deals the standard 30 damage, costs half the normal fuel, and travels at twice standard speed. If no enemy is ahead, it fires straight forward.</td></tr>
                 <tr><td><strong>Bigbomb</strong> (red)</td><td>Launches horizontally in the direction Ignatius faces, then homes toward its target. The large rocket travels at half speed, costs three times the normal fuel, deals 120 damage, and damages an area about three wizard heights wide.</td></tr>
                 <tr><td><strong>Boomerang</strong> (magenta)</td><td>Launches horizontally in the direction Ignatius faces, then homes toward its target at standard speed. It deals the standard 30 damage and costs half the normal fuel. If no target remains, or after it destroys its target, it homes back toward Ignatius. Catching it refunds half the reduced launch fuel, but hitting an enemy or obstacle on the return trip makes it explode with no refund.</td></tr>
-                <tr><td><strong>Homing Triple</strong> (blue)</td><td>Fires three small homing rockets in the established narrow fan and assigns separate targets when possible. Each launch direction receives a tiny random variation, so rapidly fired volleys do not repeatedly trace the same three paths. Each rocket deals 10 damage, for the standard 30 total if all three hit. The volley costs half the normal fuel and travels at standard speed.</td></tr>
+                <tr><td><strong>Homing Triple</strong> (blue)</td><td>Fires three small homing rockets in the established narrow fan and assigns separate targets when possible. Each whole volley receives a tiny random angular nudge, so rapidly fired volleys do not repeatedly trace the same three overall paths while the spacing inside the fan stays the same. Each rocket deals 10 damage, for the standard 30 total if all three hit. The volley costs half the normal fuel and travels at standard speed.</td></tr>
             </tbody>
         </table>
 

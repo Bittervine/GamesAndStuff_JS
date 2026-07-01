@@ -2884,7 +2884,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         return Boolean(entity.pickupKind) || Boolean(entity.effectId) || Array.isArray(entity.randomEffectIds) || [
             "fuel",
             "fuelPickup",
-            "speedShotPickup",
+            "overdrivePickup",
             "shieldPickup",
             "randomWrenchPickup",
             "ornateKeyPickup",
@@ -2906,8 +2906,8 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             ? randomPowerUpEffectId(state, entity.id || `random_powerup_${index + 1}`, randomEffectIds, randomRollCount)
             : null;
         const authoredEffectId = selectedRandomEffectId || entity.effectId ||
-            (type === "speedShotPickup"
-                ? POWER_UP_EFFECT_IDS.SPEED_SHOT
+            (type === "overdrivePickup"
+                ? POWER_UP_EFFECT_IDS.OVERDRIVE
                 : (type === "shieldPickup" ? POWER_UP_EFFECT_IDS.SHIELD : null));
         const powerUp = authoredEffectId
             ? normalizePowerUpPickup({
@@ -7064,7 +7064,7 @@ function rotateVector(vector, radians) {
     };
 }
 
-function deterministicRocketLaunchAngleJitterDegrees(state, volleyId, projectileIndex, maximumDegrees) {
+function deterministicRocketLaunchAngleJitterDegrees(state, volleyId, maximumDegrees) {
     const magnitude = Math.max(0, Number(maximumDegrees) || 0);
     if (magnitude <= 0) return 0;
     const random = ensureRandomState(state);
@@ -7072,8 +7072,7 @@ function deterministicRocketLaunchAngleJitterDegrees(state, volleyId, projectile
         "rocket-launch-angle-jitter",
         state.world?.levelId || "level",
         random.levelLoadCount,
-        String(volleyId || "volley"),
-        Math.max(0, Math.floor(Number(projectileIndex) || 0))
+        String(volleyId || "volley")
     ].join(":"));
     const unit = mixedUint32(random.seed ^ salt) / 4294967296;
     return (unit * 2 - 1) * magnitude;
@@ -7191,14 +7190,14 @@ function launchHomingRocket(state) {
     const spawnedIds = [];
 
     const initialAngleJitterDegrees = Math.max(0, Number(rocketProfile.initialAngleJitterDegrees) || 0);
+    const volleyAngleJitterDegrees = deterministicRocketLaunchAngleJitterDegrees(
+        state,
+        volleyId,
+        initialAngleJitterDegrees
+    );
     for (let index = 0; index < projectileCount; index += 1) {
         const authoredAngleDegrees = Number(angles[index % angles.length]) || 0;
-        const jitterDegrees = deterministicRocketLaunchAngleJitterDegrees(
-            state,
-            volleyId,
-            index,
-            initialAngleJitterDegrees
-        );
+        const jitterDegrees = volleyAngleJitterDegrees;
         const angleDegrees = authoredAngleDegrees + jitterDegrees;
         const launchDir = rotateVector(baseDirection, angleDegrees * Math.PI / 180);
         const target = rocketProfile.homing && targets.length
@@ -9913,7 +9912,7 @@ function updateFuelRecharge(state, dt) {
     const fuel = state.fuel;
     const t = state.tuning;
     const rocket = state.equipment.rocket;
-    const overdriveActive = Boolean(activePowerUpEffect(state, POWER_UP_EFFECT_IDS.SPEED_SHOT));
+    const overdriveActive = Boolean(activePowerUpEffect(state, POWER_UP_EFFECT_IDS.OVERDRIVE));
     const overdriveRecoveryRate = overdriveActive
         ? Math.max(0, Number(t.attachedBoostDrainRate) || 0) * OVERDRIVE_PASSIVE_FUEL_RECOVERY_DRAIN_FACTOR
         : 0;

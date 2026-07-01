@@ -100,7 +100,7 @@ const autoFullscreenRow = document.getElementById("auto-fullscreen-row");
 const autoFullscreenInput = document.getElementById("auto-fullscreen");
 const showMinimapInput = document.getElementById("show-minimap");
 
-const GAME_REVISION = "309";
+const GAME_REVISION = "320";
 
 let displayedLoadingProgress = 0;
 let activeCaveWindow = normalizeCaveWindow(null);
@@ -1608,8 +1608,11 @@ function updateDebugText() {
     const characterText = `characters:${[...runtimeProjects.keys()].join(",") || "none"}`;
     const performanceStats = renderer.getPerformanceDiagnostics?.() || {};
     const performanceText = Number.isFinite(performanceStats.averageFrameMs)
-        ? `render avg:${performanceStats.averageFrameMs.toFixed(2)}ms last:${performanceStats.frameMs.toFixed(2)}ms observed:${performanceStats.observedFps.toFixed(0)}fps world:${performanceStats.worldMs.toFixed(2)} actors:${performanceStats.actorsMs.toFixed(2)} foreground:${performanceStats.foregroundMs.toFixed(2)} mask:${performanceStats.maskMs.toFixed(2)} overlay:${performanceStats.overlayMs.toFixed(2)}`
+        ? `render:${performanceStats.backend || "canvas2d"} avg:${performanceStats.averageFrameMs.toFixed(2)}ms last:${performanceStats.frameMs.toFixed(2)}ms observed:${performanceStats.observedFps.toFixed(0)}fps world:${performanceStats.worldMs.toFixed(2)} actors:${performanceStats.actorsMs.toFixed(2)} foreground:${performanceStats.foregroundMs.toFixed(2)} mask:${performanceStats.maskMs.toFixed(2)} overlay:${performanceStats.overlayMs.toFixed(2)}`
         : "render diagnostics pending";
+    const gpuPerformanceText = performanceStats.backend === "webgl2-hybrid"
+        ? `gpu draws:${performanceStats.gpuDrawCalls || 0} quads:${performanceStats.gpuQuads || 0} uploads:${performanceStats.gpuTextureUploads || 0} updates:${performanceStats.gpuTextureUpdates || 0} layers:${performanceStats.gpuCanvasLayerUploads || 0} textures:${performanceStats.gpuTextureCount || 0}${performanceStats.gpuContextLost ? " CONTEXT-LOST" : ""}`
+        : "gpu: Canvas 2D fallback";
     const visualPerformanceText = Number.isFinite(performanceStats.visualsConsidered)
         ? `visuals considered:${performanceStats.visualsConsidered} drawn:${performanceStats.visualsDrawn} culled:${performanceStats.visualsCulled} spatial:${performanceStats.visualsSpatialCulled || 0} dynamic considered:${performanceStats.dynamicConsidered} drawn:${performanceStats.dynamicDrawn} culled:${performanceStats.dynamicCulled} foreground-cache hit:${performanceStats.foregroundCacheHits} miss:${performanceStats.foregroundCacheMisses} mask-cache:${performanceStats.maskReused ? "hit" : "miss"}`
         : "visual diagnostics pending";
@@ -1619,6 +1622,7 @@ function updateDebugText() {
         `difficulty:${gameState.settings?.difficulty || "normal"} damageScale:${gameDifficultyPreset(gameState.settings).damageScale.toFixed(2)} quality:${gameState.settings?.renderingQuality || "medium"} particleScale:${gameRenderingQualityPreset(gameState.settings).particleScale.toFixed(2)} music:${Math.round((gameState.settings?.musicVolume ?? 0.1) * 100)}% sfx:${Math.round(effectiveSfxVolume * 100)}% tune:${activeLevelMusic.tuneId} audio:${isGameAudioMuted() ? "muted" : (musicDirector.isUnlocked() ? "on" : "locked")}`,
         viewText,
         performanceText,
+        gpuPerformanceText,
         visualPerformanceText,
         characterText,
         animationText,

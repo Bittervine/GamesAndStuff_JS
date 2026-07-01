@@ -37704,7 +37704,7 @@
     },
     {
       "id": "generated_reward_004_alg9_d32f35d0",
-      "type": "speedShotPickup",
+      "type": "overdrivePickup",
       "catalogId": "it_entities_001",
       "x": 2956.986,
       "y": 900,
@@ -37719,7 +37719,7 @@
         "available": "Available",
         "collected": "Collected"
       },
-      "effectId": "speedShot",
+      "effectId": "overdrive",
       "durationSeconds": 20,
       "respawnSeconds": 60,
       "radius": 30,
@@ -37810,7 +37810,7 @@
     },
     {
       "id": "generated_reward_009_alg9_d32f35d0",
-      "type": "speedShotPickup",
+      "type": "overdrivePickup",
       "catalogId": "it_entities_001",
       "x": 8788.025,
       "y": 520,
@@ -37825,7 +37825,7 @@
         "available": "Available",
         "collected": "Collected"
       },
-      "effectId": "speedShot",
+      "effectId": "overdrive",
       "durationSeconds": 20,
       "respawnSeconds": 60,
       "radius": 30,
@@ -37846,7 +37846,7 @@
     },
     {
       "id": "generated_reward_012_alg9_d32f35d0",
-      "type": "speedShotPickup",
+      "type": "overdrivePickup",
       "catalogId": "it_entities_001",
       "x": 11483.625,
       "y": 520,
@@ -37861,7 +37861,7 @@
         "available": "Available",
         "collected": "Collected"
       },
-      "effectId": "speedShot",
+      "effectId": "overdrive",
       "durationSeconds": 20,
       "respawnSeconds": 60,
       "radius": 30,
@@ -37954,7 +37954,7 @@
     },
     {
       "id": "generated_reward_017_alg9_d32f35d0",
-      "type": "speedShotPickup",
+      "type": "overdrivePickup",
       "catalogId": "it_entities_001",
       "x": 4306.104,
       "y": 540,
@@ -37969,7 +37969,7 @@
         "available": "Available",
         "collected": "Collected"
       },
-      "effectId": "speedShot",
+      "effectId": "overdrive",
       "durationSeconds": 20,
       "respawnSeconds": 60,
       "radius": 30,
@@ -56261,7 +56261,7 @@
         {
           "id": "reward_004",
           "entityId": "generated_reward_004_alg9_d32f35d0",
-          "entityType": "speedShotPickup",
+          "entityType": "overdrivePickup",
           "category": "powerUp",
           "context": "openRoute",
           "supportId": "support_route_main_edge_002_ground_01",
@@ -56316,7 +56316,7 @@
         {
           "id": "reward_009",
           "entityId": "generated_reward_009_alg9_d32f35d0",
-          "entityType": "speedShotPickup",
+          "entityType": "overdrivePickup",
           "category": "powerUp",
           "context": "openRoute",
           "supportId": "support_route_main_006",
@@ -56349,7 +56349,7 @@
         {
           "id": "reward_012",
           "entityId": "generated_reward_012_alg9_d32f35d0",
-          "entityType": "speedShotPickup",
+          "entityType": "overdrivePickup",
           "category": "powerUp",
           "context": "openRoute",
           "supportId": "support_route_main_007",
@@ -56404,7 +56404,7 @@
         {
           "id": "reward_017",
           "entityId": "generated_reward_017_alg9_d32f35d0",
-          "entityType": "speedShotPickup",
+          "entityType": "overdrivePickup",
           "category": "powerUp",
           "context": "openUpperPerch",
           "supportId": "support_secondary_03_support_upper_access_03_support_route_main_edge_002_ground_02",

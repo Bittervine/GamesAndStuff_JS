@@ -889,8 +889,8 @@
         }
       }
     },
-    "speedShotPickup": {
-      "type": "speedShotPickup",
+    "overdrivePickup": {
+      "type": "overdrivePickup",
       "label": "Overdrive",
       "icon": "\u26a1",
       "description": "Timed rocket overdrive: launches cost half fuel and passive recovery offsets 90% of hover drain, even while fuel is being spent.",
@@ -900,7 +900,7 @@
         "h": 96
       },
       "defaults": {
-        "effectId": "speedShot",
+        "effectId": "overdrive",
         "durationSeconds": 20,
         "respawnSeconds": 60,
         "radius": 30,

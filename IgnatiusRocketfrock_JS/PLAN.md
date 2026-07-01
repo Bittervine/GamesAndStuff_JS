@@ -23,6 +23,7 @@ IgnatiusRocketfrock_JS/
 │   │   └── music-director.js
 │   ├── presentation/
 │   │   ├── canvas-renderer.js
+│   │   ├── webgl2-renderer.js
 │   │   ├── cave-window-mask.js
 │   │   ├── character-runtime.js
 │   │   ├── foreground-sprite-treatment.js
@@ -2016,13 +2017,13 @@ Rocket Overdrive now lasts 8 seconds. The shared effect schema also owns a numer
 
 The old Canvas-drawn top-right effect badge is removed. The permanent top-left HUD now contains three bars in this order: Health, Rocket fuel, and Power. Health and fuel labels use rounded whole values (`100 / 100 HP` and `100 / 100 %`) without regeneration, cap, or grounded-recharge annotations. The Power bar is empty and reads `Powerup: None` when inactive; while an effect is active, it displays the selected effect name, remaining/total seconds, and a proportional duration fill.
 
-## Revision 213 Speed Shot and randomized wrench arsenal
+## Revision 213 Overdrive and randomized wrench arsenal
 
-The first lightning effect is renamed Speed Shot and retains its eight-second half-cost, double-cadence behavior. Its HUD priority remains above the wrench family, and the inactive Power label now reads only `Powerup:`.
+The first lightning effect is renamed Overdrive and retains its eight-second half-cost, double-cadence behavior. Its HUD priority remains above the wrench family, and the inactive Power label now reads only `Powerup:`.
 
-The first complete wrench milestone adds Triple, Dart, Twin, Bigbomb, and Boomerang as fifteen-second mutually exclusive rocket modes. Triple and Twin produce distinct multi-projectile fans with best-effort separate targeting. Dart is a forward non-homing double-damage shot at two-thirds fuel cost. Bigbomb is a large slow-turning, half-speed, triple-cost and triple-damage projectile with an AoE diameter of roughly three wizard heights. Boomerang returns after a miss or destroyed target and refunds half its launch fuel when caught. Speed Shot can coexist with any wrench and remains the effect shown in the HUD while active.
+The first complete wrench milestone adds Triple, Dart, Twin, Bigbomb, and Boomerang as fifteen-second mutually exclusive rocket modes. Triple and Twin produce distinct multi-projectile fans with best-effort separate targeting. Dart is a forward non-homing double-damage shot at two-thirds fuel cost. Bigbomb is a large slow-turning, half-speed, triple-cost and triple-damage projectile with an AoE diameter of roughly three wizard heights. Boomerang returns after a miss or destroyed target and refunds half its launch fuel when caught. Overdrive can coexist with any wrench and remains the effect shown in the HUD while active.
 
-All power-up pickups now respawn after sixty seconds. Random-wrench placements select one wrench type from a portable deterministic pool at level start, disappear on collection, and reroll when they respawn. Browser starts and menu restarts supply a fresh random seed, while saved simulation state preserves the selected type, respawn timer, and roll count. Level 1 adds a random wrench at x=1400 while retaining Speed Shot at x=800. The game manual documents the two-slot stacking rule, pickup respawns, random rerolls, HUD priority, and all five wrench behaviors.
+All power-up pickups now respawn after sixty seconds. Random-wrench placements select one wrench type from a portable deterministic pool at level start, disappear on collection, and reroll when they respawn. Browser starts and menu restarts supply a fresh random seed, while saved simulation state preserves the selected type, respawn timer, and roll count. Level 1 adds a random wrench at x=1400 while retaining Overdrive at x=800. The game manual documents the two-slot stacking rule, pickup respawns, random rerolls, HUD priority, and all five wrench behaviors.
 
 The next milestone should begin with hands-on balance and visual playtesting of the five rocket modes. In particular, verify Triple/Twin target distribution in crowded combat, Dart aiming feel, Bigbomb AoE readability and cost, Boomerang catch reliability, and whether the sixty-second tactical return window suits level pacing before adding another power-up family.
 
@@ -2030,7 +2031,7 @@ The next milestone should begin with hands-on balance and visual playtesting of 
 
 ## Revision 214 cached coloured wrench-rocket outlines
 
-Every rocket launched under a wrench effect now preserves that wrench's ID and colour in the projectile record. This is launch-time identity, not a live lookup of Ignatius's current wrench, so replacing a wrench cannot recolour a projectile already in flight. Triple is yellow, Dart cyan, Twin green, Bigbomb red, and Boomerang purple. Standard rockets and rockets modified only by Speed Shot remain visually unchanged.
+Every rocket launched under a wrench effect now preserves that wrench's ID and colour in the projectile record. This is launch-time identity, not a live lookup of Ignatius's current wrench, so replacing a wrench cannot recolour a projectile already in flight. Triple is yellow, Dart cyan, Twin green, Bigbomb red, and Boomerang purple. Standard rockets and rockets modified only by Overdrive remain visually unchanged.
 
 The new presentation-only `src/presentation/rocket-glow-cache.js` builds one padded offscreen sprite for each source-rocket/tint pair. It extracts the authored rocket alpha, expands the silhouette with separable horizontal and vertical sliding-window maximum filters, applies a separable Gaussian blur, writes the tinted alpha surface, and retains it in a source-keyed cache. Runtime drawing then performs only an additive cached `drawImage` behind the ordinary rocket sprite before drawing the rocket and nozzle flame. The expensive image processing is therefore paid only on first use of a wrench colour, never once per rocket per frame.
 
@@ -2057,7 +2058,7 @@ Boomerang rockets no longer become collision-free while returning to Ignatius. W
 
 ## Revision 219 thirty-damage standard rocket balance
 
-Ignatius's standard projectile rocket now deals 30 damage instead of 55. Enemy defeat already uses a `health <= 0` threshold, so the 80-HP Fireball Goblin survives at 50 HP and 20 HP before dying on the third hit, while the 90-HP Musket Goblin reaches exactly 0 HP on the third hit and dies immediately. Wrench damage remains multiplier-based and therefore scales automatically: Triple deals 10 per rocket, Twin 15 per rocket, Dart 60, Bigbomb 90, and Boomerang 30. Speed Shot changes cadence and fuel cost only, so it continues to use the active rocket mode's damage unchanged.
+Ignatius's standard projectile rocket now deals 30 damage instead of 55. Enemy defeat already uses a `health <= 0` threshold, so the 80-HP Fireball Goblin survives at 50 HP and 20 HP before dying on the third hit, while the 90-HP Musket Goblin reaches exactly 0 HP on the third hit and dies immediately. Wrench damage remains multiplier-based and therefore scales automatically: Triple deals 10 per rocket, Twin 15 per rocket, Dart 60, Bigbomb 90, and Boomerang 30. Overdrive changes cadence and fuel cost only, so it continues to use the active rocket mode's damage unchanged.
 
 
 ## Revision 220 enemy-health baseline and existing-enemy rebalance
@@ -2079,11 +2080,11 @@ Revision 222 is an unchanged repack of revision 221. It introduces no gameplay, 
 
 ## Revision 223 Shield power-up and completion of the current power-up set
 
-The reserved shield emblem now defines a standalone five-second `shield` effect in `src/shared/power-up-data.js`. Shield refreshes rather than stacks, clears on death, coexists with Speed Shot and the current wrench, and has the highest Power HUD priority while active. Its pickup uses `powerup_icon_shield` over the shared white glow tinted blue (`#008cff`) and respawns after sixty seconds. Level 1 places the first Shield at x=1900 on the early main floor.
+The reserved shield emblem now defines a standalone five-second `shield` effect in `src/shared/power-up-data.js`. Shield refreshes rather than stacks, clears on death, coexists with Overdrive and the current wrench, and has the highest Power HUD priority while active. Its pickup uses `powerup_icon_shield` over the shared white glow tinted blue (`#008cff`) and respawns after sixty seconds. Level 1 places the first Shield at x=1900 on the early main floor.
 
 Portable incoming-damage handling checks the active Shield before applying ordinary damage. Shielded hits leave health and damage-recovery state unchanged. Existing calls that explicitly set `bypassInvulnerability` remain authoritative for rules intended to be lethal regardless of temporary protection. Presentation precomputes a blue-tinted copy of each wizard part and pulses that overlay while Shield is active. The Shield overlay includes the backpack rocket and suppresses the ordinary red critical-health tint, so blue always wins when both conditions apply.
 
-The current power-up set is now complete: Shield, Speed Shot, and the five-mode wrench family. The bomb, magnet, and spark emblems remain intentionally unused until a later design decision explicitly reopens power-up work. The next milestone should be selected from the remaining non-power-up gameplay or content work after a focused Shield playtest confirms pickup placement, five-second readability, damage blocking, and blue-flash visibility.
+The current power-up set is now complete: Shield, Overdrive, and the five-mode wrench family. The bomb, magnet, and spark emblems remain intentionally unused until a later design decision explicitly reopens power-up work. The next milestone should be selected from the remaining non-power-up gameplay or content work after a focused Shield playtest confirms pickup placement, five-second readability, damage blocking, and blue-flash visibility.
 
 
 ## Revision 224 grounded mobs finish airborne movement before dying
@@ -2137,12 +2138,12 @@ Planned first-pass behavior:
 
 * The directly struck enemy keeps the normal standard-rocket damage, currently 30, and does not receive an additional splash point.
 * Other enemies inside the weak splash receive exactly 1 damage.
-* The effect belongs to the standard projectile mode. Speed Shot and Shield do not replace that projectile mode, so they retain the weak splash; an active wrench replaces the projectile mode and therefore uses only its own authored behavior.
+* The effect belongs to the standard projectile mode. Overdrive and Shield do not replace that projectile mode, so they retain the weak splash; an active wrench replaces the projectile mode and therefore uses only its own authored behavior.
 * Trigger the weak splash when the standard rocket explodes against an enemy, blocking reactive object, or terrain, allowing a near miss against a clustered bat group to be useful.
 * Affect enemies only. Do not damage treasure chests, doors, switches, other reactive scenery, or Ignatius.
 * Begin with a splash **diameter** of approximately two wizard heights, equivalent to a radius of one wizard height. Treat this as a playtest value rather than an immutable rule.
 * Use a small restrained impact pulse clearly weaker than Bigbomb.
-* Add deterministic tests for direct-hit exclusion, secondary 1-damage hits, range limits, standard/Speed Shot behavior, and wrench exclusion.
+* Add deterministic tests for direct-hit exclusion, secondary 1-damage hits, range limits, standard/Overdrive behavior, and wrench exclusion.
 
 If terrain shielding proves visually necessary during playtesting, add a shared line-of-effect rule rather than special-casing bats.
 
@@ -2506,7 +2507,7 @@ No additional standalone engine refactor is required before Automatic Level Gene
 
 Revision 233 completes the last small pre-generator gameplay prerequisite. Standard rockets now carry a one-damage enemy-only secondary splash with a radius of one wizard height, giving a diameter of roughly two wizard heights. The directly struck enemy is explicitly excluded from the splash and therefore still receives exactly the normal 30 direct damage rather than 31. The splash also occurs when a standard rocket impacts terrain or a reactive object, but it never damages reactive scenery itself.
 
-Speed Shot retains the standard splash because it modifies cadence and fuel cost without replacing the projectile profile. All wrench modes carry zero standard-splash damage and continue to use only their individually authored mechanics, including Bigbomb's separate full-damage area explosion. Generator 0 may now begin with no remaining pre-generator gameplay dependency.
+Overdrive retains the standard splash because it modifies cadence and fuel cost without replacing the projectile profile. All wrench modes carry zero standard-splash damage and continue to use only their individually authored mechanics, including Bigbomb's separate full-damage area explosion. Generator 0 may now begin with no remaining pre-generator gameplay dependency.
 
 ## Revision 234 Automatic Level Generator 0 route foundation
 
@@ -2894,7 +2895,7 @@ New cave windows place the full-black boundary 200 pixels beyond the authored op
 
 Generated levels now target approximately one genuine power-up per 1,000 pixels of mandatory-route travel at the default Reward density. The existing density control still scales the result, but its upper multiplier is capped at 1.5 to keep high-density Grand drafts physically placeable. Dense placement searches safe floor slots from platform edges inward, retains the authored reward-spacing and endpoint rules.
 
-The generated power-up mix is now balanced per draft rather than left to loose random chance. Random Wrench has a two-part share while Shield and Speed Shot each have one part. A deterministic running-deficit selector keeps the realized mix near 50 percent wrench, 25 percent Shield, and 25 percent Speed Shot, including contextual pickups already placed earlier in the reward pass. Power-up slots use common support, edge, and progression constraints so a reward-only reroll can change the pickup types without moving the pickup positions. Rewards are resolved before encounters, and their fixed non-narrative clearance envelopes are supplied to the encounter populator; monsters therefore route around pickups without letting either stage consume the other stage's random stream.
+The generated power-up mix is now balanced per draft rather than left to loose random chance. Random Wrench has a two-part share while Shield and Overdrive each have one part. A deterministic running-deficit selector keeps the realized mix near 50 percent wrench, 25 percent Shield, and 25 percent Overdrive, including contextual pickups already placed earlier in the reward pass. Power-up slots use common support, edge, and progression constraints so a reward-only reroll can change the pickup types without moving the pickup positions. Rewards are resolved before encounters, and their fixed non-narrative clearance envelopes are supplied to the encounter populator; monsters therefore route around pickups without letting either stage consume the other stage's random stream.
 
 
 ## Revision 277 organic cave fade and economical rocket impacts
@@ -2919,14 +2920,14 @@ The **Max spacing px** setting is removed. Once automatic decoration was require
 
 ## Revision 280 longer power-up durations
 
-Revision 280 set Speed Shot and the then-five wrench modes to 30 seconds and Shield to 10 seconds. Revision 288 later supersedes the Speed Shot and wrench duration with 20 seconds while leaving Shield at 10 seconds. The change is applied consistently to shared effect definitions, entity-catalog defaults, the level-1 examples, tests, and player documentation. Existing refresh, exclusivity, clear-on-death, HUD-priority, and sixty-second pickup-respawn behavior is unchanged.
+Revision 280 set Overdrive and the then-five wrench modes to 30 seconds and Shield to 10 seconds. Revision 288 later supersedes the Overdrive and wrench duration with 20 seconds while leaving Shield at 10 seconds. The change is applied consistently to shared effect definitions, entity-catalog defaults, the level-1 examples, tests, and player documentation. Existing refresh, exclusivity, clear-on-death, HUD-priority, and sixty-second pickup-respawn behavior is unchanged.
 
 Housekeeping bugs found during this revision: the Level Editor heading still displayed revision 268, and the current architecture summary still described the old 8/15/5-second power-up timings plus the pre-rebalance Green Twin damage. The editor label is corrected to revision 280 and the architecture summary now matches the authoritative shared data. Going forward, every discovered bug, stale behavior, or deprecated path must be noted in this plan, and manual-covered behavior must be updated in `GameManual.html` in the same revision.
 
 
 ## Revision 281 current-schema-only saved-level cleanup
 
-The compatibility debt recorded across earlier revisions is removed instead of being carried forward indefinitely. Runtime and the Level Editor no longer migrate root-level `playerStart`, `wizardStart`, or `start` records, `magicPortal`/plain `exit` entities, revision-075 `thoughts` arrays, enemy `behavior`/`chaseSpeed`/`awarenessVerticalRange` fields, or the retired Rocket Overdrive pickup/effect identity. Current records must use doorway-owned starts, `thoughtText`, `strategy`, `runSpeed`, and `speedShot`.
+The compatibility debt recorded across earlier revisions is removed instead of being carried forward indefinitely. Runtime and the Level Editor no longer migrate root-level `playerStart`, `wizardStart`, or `start` records, `magicPortal`/plain `exit` entities, revision-075 `thoughts` arrays, enemy `behavior`/`chaseSpeed`/`awarenessVerticalRange` fields, or the retired Rocket Overdrive pickup/effect identity. Current records must use doorway-owned starts, `thoughtText`, `strategy`, `runSpeed`, and `overdrive`.
 
 The automatic cavern generator no longer computes or serializes the old top/bottom `profile`, and cavern containment no longer has a profile fallback. The arbitrary closed polygon is now the sole cavern geometry representation. State initialization also drops the old raw `jumpVelocity` tuning migration and derives that internal value only from `ordinaryJumpHeight` and gravity.
 
@@ -2973,9 +2974,9 @@ Power-ups are unchanged and still target approximately one per 1,000 route pixel
 
 
 
-## Revision 288 shorter Speed Shot and wrench durations
+## Revision 288 shorter Overdrive and wrench durations
 
-Speed Shot and every current wrench upgrade now last 20 seconds instead of 30. Shield remains at 10 seconds. The change is synchronized across shared effect definitions, entity-catalog defaults, level-1 examples, tests, architecture guidance, and the Game Manual. Collection still refreshes the active window rather than accumulating duration; wrench exclusivity, Speed Shot coexistence, clear-on-death behavior, HUD priority, and sixty-second pickup respawns are unchanged.
+Overdrive and every current wrench upgrade now last 20 seconds instead of 30. Shield remains at 10 seconds. The change is synchronized across shared effect definitions, entity-catalog defaults, level-1 examples, tests, architecture guidance, and the Game Manual. Collection still refreshes the active window rather than accumulating duration; wrench exclusivity, Overdrive coexistence, clear-on-death behavior, HUD priority, and sixty-second pickup respawns are unchanged.
 
 
 ## Revision 289 placeable on-screen enemy spawners
@@ -3132,9 +3133,9 @@ The stable serialized effect IDs remain `wrenchBurst` and `wrenchPhase` for comp
 
 ## Revision 306 wrench-first Power HUD priority
 
-Revision 306 changes only which simultaneous timed effect is shown in the top-left Power bar. Any active wrench upgrade now has HUD priority 200 and is displayed ahead of Shield at 150 and Speed Shot at 100. Shield and Speed Shot remain active underneath the displayed wrench, keep their own timers and gameplay effects, and reappear in priority order when the wrench expires.
+Revision 306 changes only which simultaneous timed effect is shown in the top-left Power bar. Any active wrench upgrade now has HUD priority 200 and is displayed ahead of Shield at 150 and Overdrive at 100. Shield and Overdrive remain active underneath the displayed wrench, keep their own timers and gameplay effects, and reappear in priority order when the wrench expires.
 
-The priority selector also compares normalized saved metadata with the current built-in priority for the same canonical effect ID. This prevents an older serialized wrench definition that still contains priority 50 from hiding behind Shield or Speed Shot after loading. No pickup duration, effect stacking, wrench exclusivity, fuel cost, damage, projectile behavior, or respawn timing changes in this revision.
+The priority selector also compares normalized saved metadata with the current built-in priority for the same canonical effect ID. This prevents an older serialized wrench definition that still contains priority 50 from hiding behind Shield or Overdrive after loading. No pickup duration, effect stacking, wrench exclusivity, fuel cost, damage, projectile behavior, or respawn timing changes in this revision.
 
 
 ## Revision 307 yellow Fivefold volley
@@ -3145,11 +3146,81 @@ Revision 307 expands the yellow wrench from three rockets to five while preservi
 
 Revision 308 removes the confirmed 0.35-second player rocket launch cooldown. Every distinct weapon-press edge now launches immediately whenever the current fuel amount covers the launch cost. The fixed-step input buffer continues to preserve presses until simulation consumes them, while held input remains edge-triggered rather than becoming automatic fire. Fuel cost, recharge delay, projectile behavior, wrench profiles, and enemy attack cooldowns are unchanged.
 
-The obsolete cooldown contract is removed from portable tuning, weapon state, normalized power-up rocket profiles, Speed Shot metadata, launch events, and runtime decrement logic. The already-unused `weapons.launchedThisPhase` field and unused launch-function input parameter are removed at the same boundary cleanup. Older serialized states that still contain `weapons.launchCooldownTimer` or embedded `launchCooldownMultiplier` fields remain loadable because those surplus fields are ignored. Speed Shot therefore retains its twenty-second half-fuel benefit but no longer claims a cadence multiplier in data or player guidance. Regression coverage proves consecutive fixed-step presses both launch, even when a legacy cooldown timer is present. The stale rapid-fire atlas tag, entity-catalog description, level-1 note, and current project instructions are corrected in the same revision.
+The obsolete cooldown contract is removed from portable tuning, weapon state, normalized power-up rocket profiles, Overdrive metadata, launch events, and runtime decrement logic. The already-unused `weapons.launchedThisPhase` field and unused launch-function input parameter are removed at the same boundary cleanup. Older serialized states that still contain `weapons.launchCooldownTimer` or embedded `launchCooldownMultiplier` fields remain loadable because those surplus fields are ignored. Overdrive therefore retains its twenty-second half-fuel benefit but no longer claims a cadence multiplier in data or player guidance. Regression coverage proves consecutive fixed-step presses both launch, even when a legacy cooldown timer is present. The stale rapid-fire atlas tag, entity-catalog description, level-1 note, and current project instructions are corrected in the same revision.
 
 
 ## Revision 309 wrench volley path tuning
 
 Revision 309 narrows yellow Fivefold's complete fan by half, from +/-15 degrees to +/-7.5 degrees, using five evenly spaced offsets at -7.5, -3.75, 0, +3.75, and +7.5 degrees. Blue Homing Triple retains its -12, 0, and +12 degree authored fan but adds an independent deterministic launch-angle jitter of at most 2 degrees to each rocket. The variation changes between rapidly fired volleys while remaining reproducible for the same simulation seed and state. No fuel, damage, speed, homing-strength, target-selection, or collision values change for either wrench.
 
-The same revision renames the visible Speed Shot power-up to Overdrive while retaining `speedShot` and `speedShotPickup` as stable serialization identities. Overdrive still lasts twenty seconds and halves projectile launch cost. It now also supplies continuous passive fuel recovery at 90 percent of the current attached-hover drain rate, including while airborne, during the ordinary recharge delay, and while hover fuel is actively being consumed. Ordinary grounded recovery may exceed this floor but is not added to it. With current tuning, hover drain is 40 fuel/second and the Overdrive floor is 36 fuel/second, leaving a deliberate net hover cost of 4 fuel/second. The former retired `rocketOverdrive` ID remains unsupported and is not revived by the display-name change.
+## Revision 310 shared wedge-direction jitter for yellow and blue volleys
+
+Revision 310 changes the blue and yellow multi-rocket wrench modes so repeated volleys no longer reuse one rigid fan direction. Yellow Fivefold and blue Homing Triple still keep their existing authored internal offsets, but the whole wedge now receives one small deterministic shared angular offset per volley. That means the rockets inside a volley preserve the same spacing relative to each other as before, while rapidly repeated volleys take slightly different overall paths.
+
+The portable `initialAngleJitterDegrees` field is still the knob that enables this behavior, but `src/core/simulation.js` now samples it once per volley instead of once per projectile. The applied offset is stored back onto each spawned projectile as `launchAngleJitterDegrees` for diagnostics and replay tests. The same 2-degree bound is now enabled for yellow Fivefold as well as blue Homing Triple. Fuel cost, homing, target selection, speed, damage, and collision behavior remain unchanged.
+
+The same revision renamed the visible lightning power-up to Overdrive. Revision 319 later made `overdrive` and `overdrivePickup` its canonical internal identities. Overdrive still lasts twenty seconds and halves projectile launch cost. It now also supplies continuous passive fuel recovery at 90 percent of the current attached-hover drain rate, including while airborne, during the ordinary recharge delay, and while hover fuel is actively being consumed. Ordinary grounded recovery may exceed this floor but is not added to it. With current tuning, hover drain is 40 fuel/second and the Overdrive floor is 36 fuel/second, leaving a deliberate net hover cost of 4 fuel/second. The former retired `rocketOverdrive` ID remains unsupported and is not revived by the display-name change.
+
+
+## Revision 311 WebGL2 hybrid renderer
+
+Revision 311 moves the game presentation onto a WebGL2-first hybrid backend. The visible game canvas now requests a high-performance WebGL2 context. Static world atlas sprites, cached overlap composites, actor-front scenery, cave foreground sprites, cutout masks, and final layer composition are sent through a batched textured-quad renderer. Adjacent quads sharing a texture are submitted through one dynamic vertex buffer, while textures are cached and reused across frames.
+
+Complex procedural drawing that still benefits from the mature Canvas 2D implementation, including character rig effects, particles, text, debug overlays, and the organic cave mask, is rendered into transparent staging layers. Those layers are uploaded into reusable WebGL textures with `texSubImage2D` and composited by the GPU in the correct scene order. This avoids rewriting fragile presentation logic in one step while shifting the heaviest repeated scenery and final compositing work to WebGL2.
+
+`createRenderer` retains a direct Canvas 2D fallback when WebGL2 is unavailable. The WebGL backend handles context loss/restoration, rebuilds shader and buffer resources, and exposes draw-call, quad, texture-upload, texture-update, layer-upload, and texture-count diagnostics in the existing debug panel. WebGPU is intentionally not used: WebGL2 has broader browser and embedded-runtime coverage, simpler fallback behavior, and is sufficient for the current 2D sprite workload. Future migration work may move character parts and selected particle families into the same sprite batch after visual parity is established.
+
+## Revision 312 direct WebGL2 particles for trails and deaths
+
+Revision 312 takes the next renderer-migration step after the hybrid WebGL2 conversion. Rocket smoke trails, projectile explosion bursts/rings, and Ignatius death particles now bypass the Canvas staging pass when WebGL2 is available. They are emitted as direct textured quads in ordered GPU passes, using cached particle sprites and additive blending where appropriate.
+
+The main goal is to remove one of the most particle-heavy categories from repeated Canvas rasterization without rewriting every dynamic actor draw path at once. Unsupported procedural effects still remain on the staging canvas, and the pure Canvas fallback path is unchanged. This preserves risk control while pushing another measurable slice of frame work onto the GPU.
+
+## Revision 313 direct WebGL2 enemy projectiles
+
+Revision 313 continues the renderer migration by moving live enemy projectiles out of the Canvas staging layer when WebGL2 is available. Enemy fireballs, musket balls, and rocks now draw directly as GPU sprite batches, and enemy fireball trail particles join that same pass. This keeps their ordering correct relative to enemies behind them and Ignatius in front of them while reducing another chunk of repeated Canvas work.
+
+Player rockets, player-specific rig effects, text, and the remaining miscellaneous procedural overlays still stay on Canvas for now. That keeps the migration incremental and lowers risk while broadening the set of high-frequency moving visuals handled by the GPU batcher.
+
+## Revision 314 direct WebGL2 player rockets
+
+Revision 314 continues the renderer migration by moving the launched player rocket visuals themselves out of the Canvas staging layer when WebGL2 is available. The direct GPU pass now draws the rocket body sprites and a lightweight flame treatment for all active player rockets, while the already-migrated rocket trails and explosion effects remain in their own WebGL passes.
+
+The migration keeps scene order stable by drawing player rockets in the same middle GPU section that already handles direct particle effects and enemy projectiles, before the upper staged pass that still contains Ignatius, score popups, and other Canvas-driven overlays. The Canvas fallback remains unchanged.
+
+## Revision 315 direct WebGL2 actors, pickups, and targets
+
+Revision 315 moves the remaining high-frequency world actors that can be represented as sprites into direct WebGL2 passes. Target markers, ordinary and power-up pickups, runtime character enemies, simple enemy fallbacks, enemy health bars, and the Ignatius character rig now bypass the full-screen Canvas staging layer when WebGL2 is active.
+
+Character rigs remain driven by the same animation sampling and pose data. The renderer converts each runtime draw command into pivot-aware GPU quads, including facing reflection, per-part rotation, alpha, shield/low-health tint overlays, and character shadows. The mounted rocket fuel bulb and debug/story-heavy overlays remain on the upper Canvas staging pass because they still rely on procedural drawing. Score popups now use cached text sprites in a direct WebGL pass, and the portal-intro glow is also emitted directly as an additive GPU sprite.
+
+## Revision 316 WebGL parity review fixes
+
+Revision 316 audits the WebGL2 path against the pre-WebGL Canvas renderer and corrects two visible parity regressions found during that comparison. Ignatius death-cover sparks now render after the player rig, matching the original Canvas order so the sparks obscure the body instead of appearing behind it. Player and enemy hit flashes now use cached white silhouette overlays in the GPU character pass, while player shield and low-health overlays remain active independently.
+
+The complete release gate remains the regression baseline, but these fixes also add source-contract checks for death-cover ordering and WebGL hit-flash support. Packaging now uses the project packaging script so transient `.build` test reports remain outside the distributed update archive.
+
+## Revision 317 WebGL2 fallback hardening review
+
+Revision 317 performs a second parity review against the pre-WebGL2 revision 310 and hardens the renderer selection boundary. WebGL2 is now fully probed on a disposable scratch canvas before the visible game canvas is committed to the WebGL context family. Browsers with no WebGL2 support, or with a context that exists but cannot compile/link the renderer resources, therefore leave the visible canvas untouched and continue through the original Canvas 2D renderer.
+
+The runtime render switch also no longer attempts to draw the Canvas fallback into the hidden staging canvas during a transient WebGL context loss. The renderer now waits for `webglcontextrestored`, avoiding invisible wasted frames and keeping startup fallback distinct from runtime context recovery. The Canvas 2D draw order and gameplay contracts remain unchanged.
+
+## Revision 318 WebGL2 Level Editor compositor
+
+Revision 318 brings the Level Editor onto a WebGL2-first presentation path without replacing its mature Canvas authoring routines. The editor still renders the expensive static viewport scene into its existing cached Canvas surface, but WebGL2 now keeps that scene as a reusable GPU texture. Pointer-following placement previews, selection outlines, and selection marquees are drawn into a separate transparent transient surface and composited over the static texture each animation frame. This avoids copying and repainting the full dense static scene during ordinary cursor movement.
+
+The editor probes WebGL2 on a disposable canvas before committing the visible stage to a GPU context. Browsers without WebGL2, or browsers where shader/resource initialization fails, retain the original visible Canvas 2D renderer. Context loss pauses visible submission until restoration, then invalidates the scene caches and rebuilds normally. Level data, placement drawing, hit testing, collision previews, serialization, and editor tools are unchanged.
+
+## Revision 319 canonical Overdrive identity
+
+Revision 319 removes the last internal Speed Shot naming. The effect ID is now `overdrive`, the placeable pickup type is `overdrivePickup`, and `POWER_UP_EFFECT_IDS.OVERDRIVE` is the only built-in constant for the lightning power-up. Every bundled authored level, generated-level metadata record, reward catalog, entity catalog entry, stress fixture, test, and manual reference has been updated to use the canonical names.
+
+No compatibility alias for `speedShot` or `speedShotPickup` remains. This is deliberate because all currently supported levels ship inside the project archive and have been migrated together. The older, separate `rocketOverdrive` identity remains retired and unsupported. Gameplay behavior is unchanged: Overdrive lasts twenty seconds, halves player rocket fuel cost, and supplies passive fuel recovery equal to ninety percent of hover drain.
+
+## Revision 320 dynamic-sprite correctness fallback
+
+Revision 320 responds to the first live playtest of the broad WebGL2 migration. On the tested browser, static scenery, perimeter decoration, HUD, minimap, and the small mounted fuel indicator remained visible, but Ignatius, monsters, and projectiles were invisible. Automated source and simulation tests had not exercised real browser texture presentation closely enough to expose that failure.
+
+The WebGL2 renderer now keeps static scenery, foreground composition, and final layer compositing on the GPU, while the complete dynamic actor stack is rendered through the proven Canvas path into one transparent staging layer. This restores the exact pre-WebGL2 ordering for portal glow, targets, pickups, enemies, effects, projectiles, Ignatius, death-cover sparks, and score popups. Direct GPU helper methods remain in the codebase for controlled reintroduction only after browser-level visual validation.
+

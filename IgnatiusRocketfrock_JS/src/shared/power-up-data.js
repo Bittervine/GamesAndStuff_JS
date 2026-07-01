@@ -1,5 +1,5 @@
 export const POWER_UP_EFFECT_IDS = Object.freeze({
-    SPEED_SHOT: "speedShot",
+    OVERDRIVE: "overdrive",
     SHIELD: "shield",
     WRENCH_TRIPLE: "wrenchTriple",
     WRENCH_DART: "wrenchDart",
@@ -17,7 +17,8 @@ export const POWER_UP_GROUP_IDS = Object.freeze({
 });
 
 export const NON_HOMING_ROCKET_SPEED_FACTOR = 2;
-export const HOMING_TRIPLE_INITIAL_DIRECTION_JITTER_DEGREES = 2;
+export const MULTI_ROCKET_VOLLEY_DIRECTION_JITTER_DEGREES = 2;
+export const HOMING_TRIPLE_INITIAL_DIRECTION_JITTER_DEGREES = MULTI_ROCKET_VOLLEY_DIRECTION_JITTER_DEGREES;
 export const OVERDRIVE_PASSIVE_FUEL_RECOVERY_DRAIN_FACTOR = 0.9;
 
 export const WRENCH_POWER_UP_EFFECT_IDS = Object.freeze([
@@ -106,9 +107,9 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
         }),
         rocket: DEFAULT_ROCKET_PROFILE
     }),
-    [POWER_UP_EFFECT_IDS.SPEED_SHOT]: Object.freeze({
+    [POWER_UP_EFFECT_IDS.OVERDRIVE]: Object.freeze({
         version: 1,
-        id: POWER_UP_EFFECT_IDS.SPEED_SHOT,
+        id: POWER_UP_EFFECT_IDS.OVERDRIVE,
         label: "Overdrive",
         durationSeconds: 20,
         permanent: false,
@@ -141,6 +142,7 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
             homing: false,
             launchMode: "forward",
             initialAnglesDegrees: Object.freeze([-7.5, -3.75, 0, 3.75, 7.5]),
+            initialAngleJitterDegrees: MULTI_ROCKET_VOLLEY_DIRECTION_JITTER_DEGREES,
             aimAtNearestForwardTarget: true
         }
     }),
@@ -206,7 +208,7 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
             radiusMultiplier: 0.6,
             visualScale: 0.62,
             initialAnglesDegrees: Object.freeze([-12, 0, 12]),
-            initialAngleJitterDegrees: HOMING_TRIPLE_INITIAL_DIRECTION_JITTER_DEGREES,
+            initialAngleJitterDegrees: MULTI_ROCKET_VOLLEY_DIRECTION_JITTER_DEGREES,
             separateTargets: true
         }
     })
@@ -345,7 +347,7 @@ export function normalizePowerUpEffectDefinition(rawDefinition, fallbackId = "")
 
 export function normalizePowerUpPickup(rawPickup) {
     const source = rawPickup && typeof rawPickup === "object" ? rawPickup : {};
-    const requestedId = canonicalEffectId(source.effectId || POWER_UP_EFFECT_IDS.SPEED_SHOT);
+    const requestedId = canonicalEffectId(source.effectId || POWER_UP_EFFECT_IDS.OVERDRIVE);
     if (isRetiredPowerUpEffectId(requestedId)) return null;
     const builtin = powerUpEffectDefinition(requestedId);
     const hasAuthoredEffect = source.effect && typeof source.effect === "object";

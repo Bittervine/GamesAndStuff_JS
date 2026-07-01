@@ -6843,8 +6843,8 @@
       "bomberWanderAmplitude": 44
     },
     {
-      "id": "speed_shot_001",
-      "type": "speedShotPickup",
+      "id": "overdrive_001",
+      "type": "overdrivePickup",
       "catalogId": "it_entities_001",
       "x": 800,
       "y": 844,
@@ -6863,7 +6863,7 @@
         "available": "Available",
         "collected": "Collected"
       },
-      "effectId": "speedShot",
+      "effectId": "overdrive",
       "durationSeconds": 20,
       "radius": 30,
       "atlasId": "it_atlas_001",

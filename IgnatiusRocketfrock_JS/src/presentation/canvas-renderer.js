@@ -55,6 +55,7 @@ import {
     loadRuntimeCharacterProject,
     sampleRuntimeCharacterPose
 } from "./character-runtime.js";
+import { createWebGL2RendererBackend } from "./webgl2-renderer.js";
 
 const FIXED_DRAW_ORDER = [
     "leftArm",
@@ -102,6 +103,15 @@ const REQUIRED_RIG_SECTIONS = ["global", "animation", "anchors", "legMotion", "p
 // converted through this same viewport transform before gameplay sees them.
 const MIN_TOUCH_VIEWPORT_WIDTH = 600;
 const VISUAL_CULL_MARGIN_PX = 128;
+const WEBGL_DIRECT_WORLD_EFFECT_KINDS = new Set([
+    "rocketSmokePuff",
+    "attachedRocketSmokePuff",
+    "rocketImpactSmokePuff",
+    "wizardDeathBurstParticle",
+    "wizardCrushParticle",
+    "enemyProjectileImpactPuff"
+]);
+const WEBGL_DIRECT_ENEMY_PROJECTILE_KINDS = new Set(["enemyFireball", "enemyMusketBall", "enemyRock"]);
 
 function rendererNowMs() {
     if (typeof performance !== "undefined" && typeof performance.now === "function") {
@@ -246,8 +256,34 @@ export function computeThoughtBubblePlacement({
     };
 }
 
+export function probeWebGL2RendererSupport(ownerDocument) {
+    if (!ownerDocument?.createElement) return false;
+    const probeCanvas = ownerDocument.createElement("canvas");
+    if (!probeCanvas?.getContext) return false;
+    probeCanvas.width = 2;
+    probeCanvas.height = 2;
+    const backend = createWebGL2RendererBackend(probeCanvas);
+    if (!backend) return false;
+    backend.dispose();
+    return true;
+}
+
 export async function createRenderer(canvas, options = {}) {
-    const ctx = canvas.getContext("2d", { alpha: false });
+    const preferWebGL2 = options.preferWebGL2 !== false;
+    const ownerDocument = canvas?.ownerDocument || (typeof document !== "undefined" ? document : null);
+    const webglProbePassed = preferWebGL2 && probeWebGL2RendererSupport(ownerDocument);
+    const webglBackend = webglProbePassed ? createWebGL2RendererBackend(canvas) : null;
+    let renderCanvas = canvas;
+    if (webglBackend) {
+        renderCanvas = ownerDocument.createElement("canvas");
+    }
+    const ctx = renderCanvas.getContext("2d", {
+        alpha: Boolean(webglBackend),
+        desynchronized: true
+    });
+    if (!ctx) {
+        throw new Error("Could not create the renderer's Canvas 2D drawing context.");
+    }
     const onProgress = typeof options.onProgress === "function" ? options.onProgress : () => {};
     const hasExplicitEnvironmentManifestUrls = Array.isArray(options.environmentAtlasManifestUrls);
     const environmentManifestUrls = hasExplicitEnvironmentManifestUrls
@@ -322,24 +358,29 @@ export async function createRenderer(canvas, options = {}) {
         throw new Error(`Required runtime character could not be loaded: ${DEFAULT_CHARACTER_URL}`);
     }
     playerProject.rig = normalizeRigConfig(playerProject.rig);
-    for (const asset of playerProject.assets.values()) {
-        asset.lowHealthCanvas = makeTintedSpriteCanvas(asset.canvas, "#f04b45");
-        asset.shieldCanvas = makeTintedSpriteCanvas(asset.canvas, "#008cff");
-    }
-
     const characterProjects = new Map();
     for (const result of projectResults) {
-        if (result.project) {
-            characterProjects.set(result.project.characterId, result.project);
+        if (!result.project) continue;
+        for (const asset of result.project.assets.values()) {
+            asset.hitFlashCanvas = makeTintedSpriteCanvas(asset.canvas, "#ffffff");
+            if (result.project === playerProject) {
+                asset.lowHealthCanvas = makeTintedSpriteCanvas(asset.canvas, "#f04b45");
+                asset.shieldCanvas = makeTintedSpriteCanvas(asset.canvas, "#008cff");
+            }
         }
+        characterProjects.set(result.project.characterId, result.project);
     }
     const renderer = new RocketfrockRenderer(
-        canvas,
+        renderCanvas,
         ctx,
         playerProject,
         environmentAtlases,
         characterProjects,
-        [...environmentAtlases.values()].map((atlas) => atlas.manifestUrl).filter(Boolean)
+        [...environmentAtlases.values()].map((atlas) => atlas.manifestUrl).filter(Boolean),
+        {
+            displayCanvas: canvas,
+            webglBackend
+        }
     );
     onProgress({ progress: 0.93, label: "Loading wizard powered-rocket atlas" });
     await renderer.prewarmWrenchRocketGlows(({ completed, total, label }) => {
@@ -354,9 +395,20 @@ export async function createRenderer(canvas, options = {}) {
 }
 
 class RocketfrockRenderer {
-    constructor(canvas, ctx, playerProject, environmentAtlases = new Map(), characterProjects = new Map(), environmentManifestUrls = []) {
+    constructor(
+        canvas,
+        ctx,
+        playerProject,
+        environmentAtlases = new Map(),
+        characterProjects = new Map(),
+        environmentManifestUrls = [],
+        options = {}
+    ) {
         this.canvas = canvas;
+        this.displayCanvas = options.displayCanvas || canvas;
         this.ctx = ctx;
+        this.webglBackend = options.webglBackend || null;
+        this.renderBackend = this.webglBackend ? "webgl2-hybrid" : "canvas2d";
         this.playerProject = playerProject;
         this.assets = playerProject.assets;
         this.rigConfig = playerProject.rig;
@@ -382,10 +434,21 @@ class RocketfrockRenderer {
         this.foregroundSpriteCache = new Map();
         this.powerUpTintCache = new Map();
         this.smokeStampCache = new Map();
+        this.webglParticleSpriteCache = new Map();
+        this.webglTextSpriteCache = new Map();
         this.frameForegroundOffset = { x: 0, y: 0 };
         this.frameEntityVisibility = { collectedPickups: new Set(), defeatedEnemies: new Set() };
+        this.framePlayerRocketTransform = null;
         this.frameVisualCounters = this.createVisualCounters();
         this.performanceDiagnostics = {
+            backend: this.renderBackend,
+            gpuDrawCalls: 0,
+            gpuQuads: 0,
+            gpuTextureUploads: 0,
+            gpuTextureUpdates: 0,
+            gpuCanvasLayerUploads: 0,
+            gpuTextureCount: 0,
+            gpuContextLost: false,
             frameMs: 0,
             averageFrameMs: 0,
             worldMs: 0,
@@ -524,6 +587,7 @@ class RocketfrockRenderer {
         this.caveWindowCenter = caveWindowCenter(this.caveWindow);
         this.caveWindowMaskKey = "";
         this.foregroundSpriteCache.clear();
+        this.webglBackend?.resetTextures();
         return this.caveWindow;
     }
 
@@ -549,6 +613,7 @@ class RocketfrockRenderer {
         this.environmentColorMapKey = "";
         this.foregroundSpriteCache.clear();
         this.overlapBlendCache.source = null;
+        this.webglBackend?.resetTextures();
         this.syncEnvironmentColorMap(this.environmentColorMap);
         return loaded.size > 0;
     }
@@ -567,6 +632,7 @@ class RocketfrockRenderer {
         this.environmentColorMapKey = cacheKey;
         this.foregroundSpriteCache.clear();
         this.overlapBlendCache.source = null;
+        this.webglBackend?.resetTextures();
         for (const atlas of this.environmentAtlases.values()) {
             if (!atlas?.image) {
                 continue;
@@ -579,10 +645,14 @@ class RocketfrockRenderer {
 
     resize() {
         const metrics = computeResponsiveViewportMetrics(
-            this.canvas.clientWidth,
-            this.canvas.clientHeight,
+            this.displayCanvas.clientWidth,
+            this.displayCanvas.clientHeight,
             typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1
         );
+        if (this.displayCanvas.width !== metrics.backingWidth || this.displayCanvas.height !== metrics.backingHeight) {
+            this.displayCanvas.width = metrics.backingWidth;
+            this.displayCanvas.height = metrics.backingHeight;
+        }
         if (this.canvas.width !== metrics.backingWidth || this.canvas.height !== metrics.backingHeight) {
             this.canvas.width = metrics.backingWidth;
             this.canvas.height = metrics.backingHeight;
@@ -691,8 +761,105 @@ class RocketfrockRenderer {
         ctx.restore();
     }
 
+    getWebGLTextSpriteCanvas(text, fontPx = 22) {
+        const key = `${String(text)}|${Math.max(8, Math.round(fontPx))}`;
+        const cached = this.webglTextSpriteCache.get(key);
+        if (cached) return cached;
+        const ownerDocument = this.canvas?.ownerDocument || (typeof document !== "undefined" ? document : null);
+        if (!ownerDocument?.createElement) return null;
+        const surface = ownerDocument.createElement("canvas");
+        const measure = ownerDocument.createElement("canvas").getContext("2d");
+        if (!measure) return null;
+        measure.font = `bold ${Math.max(8, Math.round(fontPx))}px ui-sans-serif, system-ui, sans-serif`;
+        const metrics = measure.measureText(String(text));
+        const width = Math.max(8, Math.ceil(metrics.width + fontPx * 0.55));
+        const height = Math.max(8, Math.ceil(fontPx * 1.55));
+        surface.width = width;
+        surface.height = height;
+        const context = surface.getContext("2d");
+        if (!context) return null;
+        context.font = `bold ${Math.max(8, Math.round(fontPx))}px ui-sans-serif, system-ui, sans-serif`;
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.lineJoin = "round";
+        context.lineWidth = Math.max(2, fontPx * 0.18);
+        context.strokeStyle = "rgba(24, 12, 34, 0.92)";
+        context.fillStyle = "rgba(255, 220, 92, 0.98)";
+        context.strokeText(String(text), width * 0.5, height * 0.52);
+        context.fillText(String(text), width * 0.5, height * 0.52);
+        this.webglTextSpriteCache.set(key, surface);
+        return surface;
+    }
+
+    drawScorePopupsWebGL(state, view) {
+        const backend = this.webglBackend;
+        if (!backend?.available) return;
+        this.syncScorePopups(state);
+        if (!this.scorePopups.length) return;
+        for (const popup of this.scorePopups) {
+            const ratio = clamp(popup.age / Math.max(0.001, popup.duration), 0, 1);
+            const worldY = popup.y - 46 * ratio;
+            if (!this.dynamicBoundsVisible({
+                minX: popup.x - 60,
+                minY: worldY - 24,
+                maxX: popup.x + 60,
+                maxY: worldY + 24
+            }, view, 48)) continue;
+            const point = this.worldToScreen(view, popup.x, worldY);
+            const fade = ratio < 0.68 ? 1 : 1 - (ratio - 0.68) / 0.32;
+            const sprite = this.getWebGLTextSpriteCanvas(popup.text, 22 * view.zoom);
+            if (!sprite) continue;
+            backend.queueSprite({
+                source: sprite,
+                centerX: point.x,
+                centerY: point.y,
+                width: sprite.width,
+                height: sprite.height,
+                alpha: clamp(fade, 0, 1)
+            });
+            this.markDynamicDrawn();
+        }
+    }
+
+    drawPortalIntroGlowWebGL(state, view) {
+        const backend = this.webglBackend;
+        const intro = state.story?.portalIntro;
+        if (!backend?.available || !intro?.active || intro.phase === "closed") return false;
+        const portal = (state.world?.entities || []).find((entity) => entity.id === intro.portalId);
+        if (!portal) return false;
+        const center = this.worldToScreen(view, Number(portal.x) || 0, (Number(portal.y) || 0) - (Number(portal.h) || 197) * 0.48);
+        const radius = Math.max(Number(portal.w) || 150, Number(portal.h) || 197) * 0.55 * view.zoom;
+        const pulse = 0.78 + Math.sin(state.clock.time * 8) * 0.12;
+        const glow = this.getWebGLParticleSpriteCanvas("softGlow");
+        if (!glow) return false;
+        return backend.queueSprite({
+            source: glow,
+            centerX: center.x,
+            centerY: center.y,
+            width: radius * 2,
+            height: radius * 2,
+            tint: [154 / 255, 82 / 255, 1, 1],
+            alpha: 0.18 * pulse,
+            blendMode: "additive"
+        });
+    }
+
     render(state, inputFrame, dt) {
-        const frameStart = rendererNowMs();
+        if (this.webglBackend) {
+            if (this.webglBackend.available) {
+                return this.renderWebGL2(state, inputFrame, dt);
+            }
+            // A visible canvas that has acquired a WebGL context cannot become
+            // a Canvas 2D target. During a transient context loss, keep the
+            // hidden staging surface idle and wait for webglcontextrestored.
+            // Startup fallback is selected before the visible canvas acquires
+            // WebGL, so browsers without WebGL2 still use renderCanvas2D.
+            return undefined;
+        }
+        return this.renderCanvas2D(state, inputFrame, dt);
+    }
+
+    prepareFrame(state, dt, frameStart) {
         if (this.lastRenderStartedAtMs > 0) {
             this.lastObservedFrameDt = Math.max(0.0001, Math.min(5, (frameStart - this.lastRenderStartedAtMs) / 1000));
         }
@@ -703,6 +870,7 @@ class RocketfrockRenderer {
         const view = this.computeView(state);
         this.lastCharacterDraws = [];
         this.frameVisualCounters = this.createVisualCounters();
+        this.framePlayerRocketTransform = null;
         this.frameEntityVisibility = {
             collectedPickups: new Set((state.pickups || []).filter((item) => item?.collected).map((item) => item.id)),
             defeatedEnemies: new Set((state.enemies || []).filter((item) => Number(item?.health) <= 0).map((item) => item.id))
@@ -713,6 +881,12 @@ class RocketfrockRenderer {
             this.caveWindow?.parallax
         );
         this.getWorldVisualCache(state);
+        return view;
+    }
+
+    renderCanvas2D(state, inputFrame, dt) {
+        const frameStart = rendererNowMs();
+        const view = this.prepareFrame(state, dt, frameStart);
 
         this.clear(view);
         this.drawBackdrop(view);
@@ -750,13 +924,105 @@ class RocketfrockRenderer {
         });
     }
 
+    clearStagingLayer() {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = "source-over";
+        ctx.filter = "none";
+        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        ctx.restore();
+    }
+
+    uploadStagingLayer(view) {
+        const backend = this.webglBackend;
+        if (!backend?.available) return false;
+        backend.flush();
+        return backend.queueSurface(this.canvas, 0, 0, view.w, view.h, 1, true);
+    }
+
+    renderWebGL2(state, inputFrame, dt) {
+        const frameStart = rendererNowMs();
+        const view = this.prepareFrame(state, dt, frameStart);
+        const backend = this.webglBackend;
+        if (!backend.beginFrame(view.w, view.h, LEVEL_BACKGROUND_COLOR)) {
+            return;
+        }
+
+        const visualResult = this.drawOrderedWorldVisualsWebGL(state, view, false);
+        backend.flush();
+
+        this.clearStagingLayer();
+        this.drawBackdrop(view);
+        this.drawWorldCanvasGeometry(state, view, visualResult);
+        this.uploadStagingLayer(view);
+        backend.flush();
+        const worldEnd = rendererNowMs();
+
+        // Revision 320 correctness fallback:
+        // Keep static scenery and final composition on WebGL2, but render the complete
+        // dynamic actor stack on the mature Canvas path before uploading it as one
+        // transparent layer. Live browser testing exposed invisible GPU character and
+        // projectile sprites on otherwise working WebGL2 implementations. This route
+        // preserves the pre-WebGL2 ordering and visual behavior while the direct-sprite
+        // helpers remain available for isolated reintroduction after browser validation.
+        this.clearStagingLayer();
+        this.drawPortalIntroGlow(state, view);
+        this.drawTargets(state, view);
+        this.drawPickups(state, view);
+        this.drawEnemies(state, view);
+        this.drawWorldEffects(state, view);
+        this.drawProjectiles(state, view);
+        this.drawPlayer(state, view);
+        this.drawPlayerDeathCover(state, view);
+        this.drawScorePopups(state, view);
+        if (state.debug.showPuppetGuide) {
+            this.drawEnemyGuides(state, view);
+        }
+        this.uploadStagingLayer(view);
+        backend.flush();
+        const actorsEnd = rendererNowMs();
+
+        this.drawOrderedWorldVisualsWebGL(state, view, true);
+        this.drawCaveForegroundVisualsWebGL(state, view);
+        backend.flush();
+        const foregroundEnd = rendererNowMs();
+
+        this.clearStagingLayer();
+        this.drawCaveWindow(state, view);
+        this.drawMailboxStoryOverlay(state, view);
+        this.drawDebug(state, view, inputFrame);
+        this.uploadStagingLayer(view);
+        const gpuStats = backend.endFrame();
+        const frameEnd = rendererNowMs();
+        this.updatePerformanceDiagnostics({
+            frameMs: frameEnd - frameStart,
+            worldMs: worldEnd - frameStart,
+            actorsMs: actorsEnd - worldEnd,
+            foregroundMs: foregroundEnd - actorsEnd,
+            maskMs: frameEnd - foregroundEnd,
+            overlayMs: 0,
+            gpuStats
+        });
+    }
+
     updatePerformanceDiagnostics(timings) {
         const previousAverage = Number(this.performanceDiagnostics.averageFrameMs) || 0;
         const frameMs = Math.max(0, Number(timings.frameMs) || 0);
         const averageFrameMs = previousAverage > 0
             ? previousAverage * 0.9 + frameMs * 0.1
             : frameMs;
+        const gpuStats = timings.gpuStats || this.webglBackend?.getDiagnostics?.() || {};
         this.performanceDiagnostics = {
+            backend: String(gpuStats.backend || this.renderBackend),
+            gpuDrawCalls: Math.max(0, Number(gpuStats.drawCalls) || 0),
+            gpuQuads: Math.max(0, Number(gpuStats.quads) || 0),
+            gpuTextureUploads: Math.max(0, Number(gpuStats.textureUploads) || 0),
+            gpuTextureUpdates: Math.max(0, Number(gpuStats.textureUpdates) || 0),
+            gpuCanvasLayerUploads: Math.max(0, Number(gpuStats.canvasLayerUploads) || 0),
+            gpuTextureCount: Math.max(0, Number(gpuStats.staticTextureCount) || 0),
+            gpuContextLost: Boolean(gpuStats.contextLost),
             frameMs,
             averageFrameMs,
             worldMs: Math.max(0, Number(timings.worldMs) || 0),
@@ -872,9 +1138,12 @@ class RocketfrockRenderer {
     }
 
     drawWorld(state, view) {
-        const ctx = this.ctx;
         const visualResult = this.drawOrderedWorldVisuals(state, view, false);
+        return this.drawWorldCanvasGeometry(state, view, visualResult);
+    }
 
+    drawWorldCanvasGeometry(state, view, visualResult = { hasRenderableVisuals: false }) {
+        const ctx = this.ctx;
         const shouldDrawCollision = Boolean(state.debug.showCollision) || !visualResult.hasRenderableVisuals;
         if (shouldDrawCollision) {
             for (const solid of state.world.solids) {
@@ -971,6 +1240,149 @@ class RocketfrockRenderer {
             ctx.stroke();
         }
         ctx.restore();
+    }
+
+    drawOrderedWorldVisualsWebGL(state, view, actorFrontOnly = false) {
+        const backend = this.webglBackend;
+        if (!backend?.available) {
+            return { drewAny: false, hasRenderableVisuals: false };
+        }
+        const cache = this.getWorldVisualCache(state);
+        const partitionName = actorFrontOnly ? "actorFront" : "main";
+        const query = queryWorldVisualEntries(cache, partitionName, view, null, VISUAL_CULL_MARGIN_PX);
+        this.frameVisualCounters.spatialCulled += query.spatialCulled;
+        const partition = query.partition;
+        const hasRenderableVisuals = Boolean(partition?.hasCutout) || [...(partition?.atlasIds || [])]
+            .some((atlasId) => {
+                const atlas = this.environmentAtlases.get(atlasId);
+                return Boolean(atlas && !atlas.missing && atlas.image);
+            });
+        const overlapCache = actorFrontOnly ? null : this.ensureOverlapBlendCache(state);
+        const drawnBlendGroups = new Set();
+        let drewAny = false;
+        for (const { visual, bounds } of query.entries) {
+            const blendGroup = overlapCache?.memberToGroup?.get(visual);
+            if (blendGroup) {
+                if (!drawnBlendGroups.has(blendGroup)) {
+                    drawnBlendGroups.add(blendGroup);
+                    if (this.drawOverlapBlendGroupWebGL(blendGroup, view)) drewAny = true;
+                }
+                continue;
+            }
+            if (visual.kind === "atlasSprite") {
+                if (this.queueAtlasSpriteVisualWebGL(visual, view, state, bounds)) drewAny = true;
+            } else if (visual.kind === "cutoutMask") {
+                if (this.queueCutoutMaskVisualWebGL(visual, view, bounds)) drewAny = true;
+            }
+        }
+        return { drewAny, hasRenderableVisuals };
+    }
+
+    drawOverlapBlendGroupWebGL(group, view) {
+        this.frameVisualCounters.considered += group?.members?.length || 1;
+        if (!group?.canvas || !visualIntersectsViewport(group.bounds, view, null, VISUAL_CULL_MARGIN_PX)) {
+            this.frameVisualCounters.culled += group?.members?.length || 1;
+            return false;
+        }
+        const topLeft = this.worldToScreen(view, group.bounds.minX, group.bounds.minY);
+        const width = (group.bounds.maxX - group.bounds.minX) * view.zoom;
+        const height = (group.bounds.maxY - group.bounds.minY) * view.zoom;
+        const queued = this.webglBackend.queueSurface(group.canvas, topLeft.x, topLeft.y, width, height, 1, false);
+        if (queued) this.frameVisualCounters.drawn += 1;
+        return queued;
+    }
+
+    drawCaveForegroundVisualsWebGL(state, view) {
+        const cache = this.getWorldVisualCache(state);
+        const query = queryWorldVisualEntries(
+            cache,
+            "caveForeground",
+            view,
+            this.frameForegroundOffset,
+            VISUAL_CULL_MARGIN_PX
+        );
+        this.frameVisualCounters.spatialCulled += query.spatialCulled;
+        let drewAny = false;
+        for (const { visual, bounds } of query.entries) {
+            if (visual.kind === "atlasSprite" && this.queueAtlasSpriteVisualWebGL(visual, view, state, bounds)) {
+                drewAny = true;
+            }
+        }
+        return drewAny;
+    }
+
+    queueCutoutMaskVisualWebGL(mask, view, cachedBounds = null) {
+        this.frameVisualCounters.considered += 1;
+        const bounds = cachedBounds || visualWorldBounds(mask);
+        if (!visualIntersectsViewport(bounds, view, null, VISUAL_CULL_MARGIN_PX)) {
+            this.frameVisualCounters.culled += 1;
+            return false;
+        }
+        const point = this.worldToScreen(view, mask.x, mask.y);
+        const queued = this.webglBackend.queueSolidRect(
+            point.x,
+            point.y,
+            mask.w * view.zoom,
+            mask.h * view.zoom,
+            LEVEL_BACKGROUND_COLOR
+        );
+        if (queued) this.frameVisualCounters.drawn += 1;
+        return queued;
+    }
+
+    queueAtlasSpriteVisualWebGL(visual, view, state = null, cachedBounds = null) {
+        if (visual.entityId && state) {
+            if (this.frameEntityVisibility.collectedPickups.has(visual.entityId)) return false;
+            if (visual.entityType === "targetDummy" && this.frameEntityVisibility.defeatedEnemies.has(visual.entityId)) return false;
+        }
+        this.frameVisualCounters.considered += 1;
+        const caveForeground = visual.layer === "caveForeground";
+        const foregroundOffset = caveForeground ? this.frameForegroundOffset : null;
+        const bounds = cachedBounds || visualWorldBounds(visual);
+        if (!visualIntersectsViewport(bounds, view, foregroundOffset, VISUAL_CULL_MARGIN_PX)) {
+            this.frameVisualCounters.culled += 1;
+            return false;
+        }
+        const atlas = this.environmentAtlases.get(visual.atlasId);
+        if (!atlas || atlas.missing || !atlas.image) return false;
+        const frameName = visual.frame || visual.assetId;
+        const frame = atlas.frames?.[frameName];
+        if (!frame) return false;
+        const centerWorld = placementCenter(visual);
+        const center = this.worldToScreen(
+            view,
+            centerWorld.x - (foregroundOffset?.x || 0),
+            centerWorld.y - (foregroundOffset?.y || 0)
+        );
+        let source = atlas.renderImage || atlas.image;
+        let sourceX = frame.x;
+        let sourceY = frame.y;
+        let sourceWidth = frame.w;
+        let sourceHeight = frame.h;
+        if (caveForeground) {
+            source = this.getForegroundSpriteCanvas(atlas, frameName, frame, visual);
+            sourceX = 0;
+            sourceY = 0;
+            sourceWidth = source.width;
+            sourceHeight = source.height;
+        }
+        const queued = this.webglBackend.queueSprite({
+            source,
+            sourceX,
+            sourceY,
+            sourceWidth,
+            sourceHeight,
+            centerX: center.x,
+            centerY: center.y,
+            width: visual.w * view.zoom,
+            height: visual.h * view.zoom,
+            rotation: normalizeRotationRadians(visual.rotation, visual.angle),
+            mirrorX: Boolean(visual.mirrorX),
+            mirrorY: Boolean(visual.mirrorY),
+            alpha: visual.alpha ?? 1
+        });
+        if (queued) this.frameVisualCounters.drawn += 1;
+        return queued;
     }
 
     drawOrderedWorldVisuals(state, view, actorFrontOnly = false) {
@@ -1213,6 +1625,131 @@ class RocketfrockRenderer {
         return surface;
     }
 
+    getWebGLParticleSpriteCanvas(kind = "softGlow") {
+        const key = String(kind || "softGlow");
+        const cached = this.webglParticleSpriteCache.get(key);
+        if (cached) return cached;
+        const ownerDocument = this.canvas?.ownerDocument || (typeof document !== "undefined" ? document : null);
+        if (!ownerDocument?.createElement) return null;
+        const surface = ownerDocument.createElement("canvas");
+        const size = key === "ring" ? 96 : 64;
+        surface.width = size;
+        surface.height = size;
+        const context = surface.getContext("2d");
+        if (!context) return null;
+        const cx = size * 0.5;
+        const cy = size * 0.5;
+        if (key === "ring") {
+            context.strokeStyle = "rgba(255, 255, 255, 0.95)";
+            context.lineWidth = size * 0.10;
+            context.beginPath();
+            context.arc(cx, cy, size * 0.34, 0, Math.PI * 2);
+            context.stroke();
+            context.strokeStyle = "rgba(255, 255, 255, 0.34)";
+            context.lineWidth = size * 0.20;
+            context.beginPath();
+            context.arc(cx, cy, size * 0.34, 0, Math.PI * 2);
+            context.stroke();
+        } else if (key === "musketBall") {
+            context.fillStyle = "rgba(42, 44, 49, 0.98)";
+            context.beginPath();
+            context.arc(cx, cy, size * 0.28, 0, Math.PI * 2);
+            context.fill();
+            context.fillStyle = "rgba(255, 255, 255, 0.25)";
+            context.beginPath();
+            context.arc(cx - size * 0.08, cy - size * 0.09, size * 0.08, 0, Math.PI * 2);
+            context.fill();
+        } else if (key === "rock") {
+            context.fillStyle = "rgba(91, 83, 96, 0.98)";
+            context.strokeStyle = "rgba(36, 31, 39, 0.98)";
+            context.lineWidth = size * 0.045;
+            context.beginPath();
+            for (let i = 0; i < 8; i += 1) {
+                const angle = i / 8 * Math.PI * 2;
+                const wobble = i % 2 === 0 ? 0.32 : 0.25;
+                const x = cx + Math.cos(angle) * size * wobble;
+                const y = cy + Math.sin(angle) * size * wobble;
+                if (i === 0) context.moveTo(x, y); else context.lineTo(x, y);
+            }
+            context.closePath();
+            context.fill();
+            context.stroke();
+        } else if (key === "shadow") {
+            const gradient = context.createRadialGradient(cx, cy, size * 0.05, cx, cy, size * 0.48);
+            gradient.addColorStop(0, "rgba(0, 0, 0, 0.58)");
+            gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+            context.save();
+            context.translate(cx, cy);
+            context.scale(1, 0.25);
+            context.fillStyle = gradient;
+            context.beginPath();
+            context.arc(0, 0, size * 0.48, 0, Math.PI * 2);
+            context.fill();
+            context.restore();
+        } else if (key === "targetDisc") {
+            context.fillStyle = "rgba(255, 126, 98, 0.82)";
+            context.strokeStyle = "rgba(255, 234, 124, 0.86)";
+            context.lineWidth = size * 0.06;
+            context.beginPath();
+            context.arc(cx, cy, size * 0.31, 0, Math.PI * 2);
+            context.fill();
+            context.stroke();
+        } else if (key === "pickupDisc") {
+            context.fillStyle = "rgba(113, 224, 126, 0.82)";
+            context.strokeStyle = "rgba(255, 255, 255, 0.65)";
+            context.lineWidth = size * 0.06;
+            context.beginPath();
+            context.arc(cx, cy, size * 0.31, 0, Math.PI * 2);
+            context.fill();
+            context.stroke();
+        } else if (key === "rocketFlame") {
+            const gradient = context.createLinearGradient(cx, size * 0.84, cx, size * 0.14);
+            gradient.addColorStop(0, "rgba(255, 115, 30, 0)");
+            gradient.addColorStop(0.25, "rgba(255, 150, 40, 0.78)");
+            gradient.addColorStop(0.58, "rgba(255, 238, 145, 0.94)");
+            gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+            context.fillStyle = gradient;
+            context.beginPath();
+            context.moveTo(cx, size * 0.86);
+            context.quadraticCurveTo(size * 0.72, size * 0.64, cx, size * 0.14);
+            context.quadraticCurveTo(size * 0.28, size * 0.64, cx, size * 0.86);
+            context.closePath();
+            context.fill();
+        } else if (key === "diamond") {
+            context.fillStyle = "rgba(255, 255, 255, 1)";
+            context.beginPath();
+            context.moveTo(cx, cy - size * 0.32);
+            context.lineTo(cx + size * 0.16, cy);
+            context.lineTo(cx, cy + size * 0.32);
+            context.lineTo(cx - size * 0.16, cy);
+            context.closePath();
+            context.fill();
+        } else if (key === "crossSpark") {
+            context.strokeStyle = "rgba(255, 255, 255, 0.96)";
+            context.lineWidth = size * 0.09;
+            context.lineCap = "round";
+            context.beginPath();
+            context.moveTo(size * 0.18, cy);
+            context.lineTo(size * 0.82, cy);
+            context.moveTo(cx, size * 0.18);
+            context.lineTo(cx, size * 0.82);
+            context.stroke();
+            context.fillStyle = "rgba(255, 255, 255, 1)";
+            context.beginPath();
+            context.arc(cx, cy, size * 0.11, 0, Math.PI * 2);
+            context.fill();
+        } else {
+            const gradient = context.createRadialGradient(cx, cy, size * 0.05, cx, cy, size * 0.5);
+            gradient.addColorStop(0, "rgba(255, 255, 255, 1)");
+            gradient.addColorStop(0.42, "rgba(255, 255, 255, 0.74)");
+            gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+            context.fillStyle = gradient;
+            context.fillRect(0, 0, size, size);
+        }
+        this.webglParticleSpriteCache.set(key, surface);
+        return surface;
+    }
+
     drawPowerUpComposite(powerUp, centerX, centerY, size, time, alpha = 1) {
         const atlas = this.environmentAtlases.get(powerUp?.atlasId || "it_atlas_001");
         const glowFrameName = powerUp?.glowFrame || "powerup_glow_white";
@@ -1386,6 +1923,301 @@ class RocketfrockRenderer {
     assetLocalToScreen(visual, frame, node, view) {
         const world = atlasNodeToPlacementWorld(visual, frame, node);
         return this.worldToScreen(view, world.x, world.y);
+    }
+
+    queueShadowWebGL(x, groundY, zoom, actorScale = 1) {
+        const shadow = this.getWebGLParticleSpriteCanvas("shadow");
+        if (!shadow || !this.webglBackend?.available) return false;
+        return this.webglBackend.queueSprite({
+            source: shadow,
+            centerX: x,
+            centerY: groundY + 4 * zoom * actorScale,
+            width: 92 * zoom * actorScale,
+            height: 24 * zoom * actorScale,
+            alpha: 0.46,
+            blendMode: "alpha"
+        });
+    }
+
+    drawTargetsWebGL(state, view) {
+        const backend = this.webglBackend;
+        if (!backend?.available) return;
+        const disc = this.getWebGLParticleSpriteCanvas("targetDisc");
+        const ring = this.getWebGLParticleSpriteCanvas("ring");
+        for (const target of state.targets || []) {
+            if (target.state !== "active" || target.showMarker === false) continue;
+            const targetExtent = Math.max(1, Number(target.radius) || 1) + 16;
+            if (!this.dynamicBoundsVisible({
+                minX: target.x - targetExtent,
+                minY: target.y - targetExtent,
+                maxX: target.x + targetExtent,
+                maxY: target.y + targetExtent
+            }, view, 48)) continue;
+            const point = this.worldToScreen(view, target.x, target.y);
+            const pulse = 0.5 + 0.5 * Math.sin(state.clock.time * 5.5);
+            const radius = Math.max(1, Number(target.radius) || 1) * view.zoom;
+            if (disc) {
+                backend.queueSprite({
+                    source: disc,
+                    centerX: point.x,
+                    centerY: point.y,
+                    width: radius * 3.25,
+                    height: radius * 3.25,
+                    alpha: 0.9
+                });
+            }
+            if (ring) {
+                const ringRadius = (Math.max(1, Number(target.radius) || 1) + 9 + pulse * 4) * view.zoom;
+                backend.queueSprite({
+                    source: ring,
+                    centerX: point.x,
+                    centerY: point.y,
+                    width: ringRadius * 2,
+                    height: ringRadius * 2,
+                    tint: [1, 1, 1, 1],
+                    alpha: 0.28 + pulse * 0.08,
+                    blendMode: "additive"
+                });
+            }
+            this.markDynamicDrawn();
+        }
+    }
+
+    drawPowerUpCompositeWebGL(powerUp, centerX, centerY, size, time, alpha = 1) {
+        const backend = this.webglBackend;
+        if (!backend?.available) return false;
+        const atlas = this.environmentAtlases.get(powerUp?.atlasId || "it_atlas_001");
+        const glowFrameName = powerUp?.glowFrame || "powerup_glow_white";
+        const iconFrameName = powerUp?.iconFrame || "powerup_icon_lightning";
+        const glowFrame = atlas?.frames?.[glowFrameName];
+        const iconFrame = atlas?.frames?.[iconFrameName];
+        const pulse = 0.92 + Math.sin(time * 5.4) * 0.08;
+        let drew = false;
+        if (atlas?.image && glowFrame && iconFrame) {
+            const glow = this.getTintedAtlasFrameCanvas(atlas, glowFrameName, glowFrame, powerUp?.glowTint || "#ffb52f");
+            if (glow) {
+                drew = backend.queueSprite({
+                    source: glow,
+                    centerX,
+                    centerY,
+                    width: size * 1.16 * pulse,
+                    height: size * 1.16 * pulse,
+                    alpha: alpha * 0.92,
+                    blendMode: "additive"
+                }) || drew;
+            }
+            const iconSize = size * 0.47 * pulse;
+            const iconAspect = iconFrame.w / Math.max(1, iconFrame.h);
+            const iconW = iconAspect >= 1 ? iconSize : iconSize * iconAspect;
+            const iconH = iconAspect >= 1 ? iconSize / iconAspect : iconSize;
+            drew = backend.queueSprite({
+                source: atlas.renderImage || atlas.image,
+                sourceX: iconFrame.x,
+                sourceY: iconFrame.y,
+                sourceWidth: iconFrame.w,
+                sourceHeight: iconFrame.h,
+                centerX,
+                centerY,
+                width: iconW,
+                height: iconH,
+                alpha
+            }) || drew;
+        } else {
+            const glow = this.getWebGLParticleSpriteCanvas("softGlow");
+            if (glow) {
+                drew = backend.queueSprite({
+                    source: glow,
+                    centerX,
+                    centerY,
+                    width: size * 1.12,
+                    height: size * 1.12,
+                    tint: powerUp?.glowTint || "#ffb52f",
+                    alpha: alpha * 0.86,
+                    blendMode: "additive"
+                }) || drew;
+            }
+        }
+        return drew;
+    }
+
+    drawPickupsWebGL(state, view) {
+        const backend = this.webglBackend;
+        if (!backend?.available) return;
+        const pickupDisc = this.getWebGLParticleSpriteCanvas("pickupDisc");
+        for (const pickup of state.pickups || []) {
+            if (pickup.collected || pickup.visualized) continue;
+            const pickupExtent = Math.max(1, Number(pickup.radius) || 1);
+            const centerY = Number.isFinite(Number(pickup.centerY)) ? Number(pickup.centerY) : Number(pickup.y) || 0;
+            if (!this.dynamicBoundsVisible({
+                minX: pickup.x - pickupExtent,
+                minY: centerY - pickupExtent,
+                maxX: pickup.x + pickupExtent,
+                maxY: centerY + pickupExtent
+            }, view, 48)) continue;
+            const bob = pickup.kind === "powerUp" ? Math.sin(state.clock.time * 2.8 + pickup.x * 0.01) * 7 : 0;
+            const point = this.worldToScreen(view, pickup.x, centerY + bob);
+            const radius = Math.max(1, Number(pickup.radius) || 1) * view.zoom;
+            let drew = false;
+            if (pickup.kind === "powerUp" && pickup.powerUp) {
+                drew = this.drawPowerUpCompositeWebGL(pickup.powerUp, point.x, point.y, Math.max(44 * view.zoom, radius * 2.25), state.clock.time);
+            } else if (pickupDisc) {
+                drew = backend.queueSprite({
+                    source: pickupDisc,
+                    centerX: point.x,
+                    centerY: point.y,
+                    width: radius * 3.25,
+                    height: radius * 3.25,
+                    alpha: 0.82 + 0.18 * Math.sin(state.clock.time * 5 + pickup.x)
+                });
+            }
+            if (drew) this.markDynamicDrawn();
+        }
+    }
+
+    queueCharacterProjectPoseWebGL(project, screenX, screenGroundY, facing, renderedTransforms, bounds, options = {}) {
+        const backend = this.webglBackend;
+        if (!backend?.available) return [];
+        const alpha = Number.isFinite(Number(options.alpha)) ? Number(options.alpha) : 1;
+        const tintAlpha = clamp(Number(options.tintAlpha) || 0, 0, 1);
+        const overlayTintAlpha = clamp(Number(options.overlayTintAlpha) || 0, 0, 1);
+        const commands = buildRuntimeCharacterDrawCommands(project, renderedTransforms);
+        for (const command of commands) {
+            const { asset, transform, pivot, spriteScale, drawX, drawY, partName } = command;
+            if (!asset || asset.missing || !transform) continue;
+            const localCenterX = transform.x + Math.cos(transform.angle) * (drawX + asset.width * 0.5) * spriteScale - Math.sin(transform.angle) * (drawY + asset.height * 0.5) * spriteScale;
+            const localCenterY = transform.y + Math.sin(transform.angle) * (drawX + asset.width * 0.5) * spriteScale + Math.cos(transform.angle) * (drawY + asset.height * 0.5) * spriteScale;
+            const rotation = facing < 0 ? -transform.angle : transform.angle;
+            backend.queueSprite({
+                source: asset.canvas,
+                centerX: screenX + facing * localCenterX,
+                centerY: screenGroundY + localCenterY,
+                width: asset.width * spriteScale,
+                height: asset.height * spriteScale,
+                rotation,
+                mirrorX: facing < 0,
+                alpha: alpha * transform.alpha
+            });
+            const partTint = partName === "rocket" && options.tintCanvasKey !== "shieldCanvas" ? 0 : tintAlpha;
+            const tintCanvas = asset[options.tintCanvasKey] || asset.lowHealthCanvas;
+            if (partTint > 0 && tintCanvas) {
+                backend.queueSprite({
+                    source: tintCanvas,
+                    centerX: screenX + facing * localCenterX,
+                    centerY: screenGroundY + localCenterY,
+                    width: asset.width * spriteScale,
+                    height: asset.height * spriteScale,
+                    rotation,
+                    mirrorX: facing < 0,
+                    alpha: alpha * transform.alpha * partTint,
+                    blendMode: "additive"
+                });
+            }
+            const overlayTintCanvas = asset[options.overlayTintCanvasKey];
+            if (overlayTintAlpha > 0 && overlayTintCanvas) {
+                backend.queueSprite({
+                    source: overlayTintCanvas,
+                    centerX: screenX + facing * localCenterX,
+                    centerY: screenGroundY + localCenterY,
+                    width: asset.width * spriteScale,
+                    height: asset.height * spriteScale,
+                    rotation,
+                    mirrorX: facing < 0,
+                    alpha: alpha * transform.alpha * overlayTintAlpha,
+                    blendMode: "additive"
+                });
+            }
+            const spriteBounds = transformedSpriteBounds(asset, pivot, transform, spriteScale);
+            mergeBounds(bounds, spriteBounds, screenX, screenGroundY, facing);
+            options.afterPart?.(partName, command);
+        }
+        return commands;
+    }
+
+    drawEnemyHealthBarWebGL(enemy, view, actorScale = 1) {
+        const maxHealth = Math.max(0, Number(enemy.maxHealth) || 0);
+        const health = clamp(Number(enemy.health) || 0, 0, maxHealth || 1);
+        if (health <= 0 || maxHealth <= 0 || health >= maxHealth || (Number(enemy.healthBarTimer) || 0) <= 0) return;
+        const backend = this.webglBackend;
+        const center = this.worldToScreen(view, enemy.x, enemy.y - enemy.height - 10 / Math.max(0.05, actorScale));
+        const width = Math.max(34, Math.min(74, enemy.width * Math.max(0.75, actorScale))) * view.zoom;
+        const height = 6 * view.zoom;
+        const ratio = health / maxHealth;
+        backend.queueSolidRect(center.x - width * 0.5 - view.zoom, center.y - view.zoom, width + view.zoom * 2, height + view.zoom * 2, "rgba(14, 10, 22, 0.78)");
+        backend.queueSolidRect(center.x - width * 0.5, center.y, width, height, "rgba(92, 36, 52, 0.92)");
+        backend.queueSolidRect(center.x - width * 0.5, center.y, width * ratio, height, "rgba(245, 202, 86, 0.96)");
+    }
+
+    drawRuntimeCharacterEnemyWebGL(project, enemy, state, view) {
+        const renderOpacity = enemy.health <= 0 ? clamp(Number(enemy.renderOpacity ?? 1), 0, 1) : 1;
+        if (renderOpacity <= 0) return false;
+        const actorScale = Math.max(0.05, Number(enemy.renderScale) || 1);
+        const facing = Number(enemy.facing) < 0 ? -1 : 1;
+        const artworkOrigin = characterArtworkOrigin(enemy);
+        const screen = this.worldToScreen(view, artworkOrigin.x, artworkOrigin.y);
+        const requestedSlot = enemy.animationSlot || enemy.state || "idle";
+        const time = Number.isFinite(Number(enemy.animationTime)) ? Number(enemy.animationTime) : state.clock.time + (Number(enemy.animationTimeOffset) || 0);
+        const sampled = sampleRuntimeCharacterPose(project, requestedSlot, time);
+        const transforms = animationPoseToRuntimeTransforms(sampled.pose, project.rig, view.zoom, actorScale);
+        applyRuntimeProjectileHandoffVisibility(project, sampled.slot, time, transforms);
+        const bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+        if (enemy.locomotion !== "flying") this.queueShadowWebGL(screen.x, screen.y, view.zoom, actorScale * 0.72);
+        const flashDuration = Math.max(0.001, Number(enemy.hitFlashDuration) || state.tuning.enemyHitFlashSeconds || 0.16);
+        const flash = clamp((Number(enemy.hitFlashTimer) || 0) / flashDuration, 0, 1);
+        this.queueCharacterProjectPoseWebGL(project, screen.x, screen.y, facing, transforms, bounds, {
+            alpha: renderOpacity,
+            overlayTintAlpha: flash * 0.72,
+            overlayTintCanvasKey: "hitFlashCanvas"
+        });
+        this.drawEnemyHealthBarWebGL(enemy, view, actorScale);
+        this.lastCharacterDraws.push({ actorId: enemy.id, characterId: project.characterId, animationSlot: sampled.slot, bounds: Number.isFinite(bounds.minX) ? { ...bounds } : null });
+        return true;
+    }
+
+    drawEnemiesWebGL(state, view) {
+        const backend = this.webglBackend;
+        if (!backend?.available) return;
+        const fallback = this.getWebGLParticleSpriteCanvas("softGlow");
+        for (const enemy of state.enemies || []) {
+            if (enemy.visualized) continue;
+            const enemyWidth = Math.max(1, Number(enemy.width) || 1);
+            const enemyHeight = Math.max(1, Number(enemy.height) || 1);
+            const enemyBounds = { minX: enemy.x - enemyWidth * 0.5, minY: enemy.y - enemyHeight - 36, maxX: enemy.x + enemyWidth * 0.5, maxY: enemy.y + 12 };
+            if (!this.dynamicBoundsVisible(enemyBounds, view, 96)) continue;
+            const project = this.getCharacterProject(enemy.characterId || enemy.characterProject);
+            if (project) {
+                if (this.drawRuntimeCharacterEnemyWebGL(project, enemy, state, view)) this.markDynamicDrawn();
+                continue;
+            }
+            if (enemy.health <= 0 || !fallback) continue;
+            const center = this.worldToScreen(view, enemy.x, enemy.y - enemyHeight * 0.5);
+            backend.queueSprite({
+                source: fallback,
+                centerX: center.x,
+                centerY: center.y,
+                width: enemyWidth * view.zoom,
+                height: enemyHeight * view.zoom,
+                tint: enemy.hitFlashTimer > 0 ? [1, 246 / 255, 214 / 255, 1] : [202 / 255, 135 / 255, 1, 1],
+                alpha: 0.74
+            });
+            this.drawEnemyHealthBarWebGL(enemy, view, 1);
+            this.markDynamicDrawn();
+        }
+    }
+
+    drawEnemyGuides(state, view) {
+        if (!state.debug.showPuppetGuide) return;
+        for (const enemy of state.enemies || []) {
+            if (enemy.visualized) continue;
+            const width = Math.max(1, Number(enemy.width) || 1);
+            const height = Math.max(1, Number(enemy.height) || 1);
+            const guideBounds = {
+                minX: enemy.x - Math.max(width, Number(enemy.awarenessRange) || 0),
+                minY: enemy.y - Math.max(height, Number(enemy.awarenessRange) || 0),
+                maxX: enemy.x + Math.max(width, Number(enemy.awarenessRange) || 0),
+                maxY: enemy.y + Math.max(height, Number(enemy.awarenessRange) || 0)
+            };
+            if (visualIntersectsViewport(guideBounds, view, null, 48)) this.drawEnemyPuppetGuide(enemy, state, view);
+        }
     }
 
     drawTargets(state, view) {
@@ -1802,17 +2634,25 @@ class RocketfrockRenderer {
         ctx.restore();
     }
 
-    drawWorldEffects(state, view) {
+    drawWorldEffects(state, view, options = {}) {
         const ctx = this.ctx;
         const puffs = state.effects?.smokePuffs || [];
         if (!puffs.length) {
             return;
         }
 
+        const onlyKinds = options.onlyKinds instanceof Set ? options.onlyKinds : null;
+        const skipKinds = options.skipKinds instanceof Set ? options.skipKinds : null;
         ctx.save();
         ctx.globalCompositeOperation = "source-over";
         for (const puff of puffs) {
             if (puff.kind === "wizardDeathCoverSpark") {
+                continue;
+            }
+            if (skipKinds?.has(puff.kind)) {
+                continue;
+            }
+            if (onlyKinds && !onlyKinds.has(puff.kind)) {
                 continue;
             }
             const ageRatio = clamp(puff.age / Math.max(0.001, puff.lifetime), 0, 1);
@@ -1969,10 +2809,587 @@ class RocketfrockRenderer {
         ctx.restore();
     }
 
-    drawProjectiles(state, view) {
+    drawWorldEffectsWebGL(state, view) {
+        const backend = this.webglBackend;
+        if (!backend?.available) {
+            return;
+        }
+        const puffs = state.effects?.smokePuffs || [];
+        if (!puffs.length) {
+            return;
+        }
+        const glowSprite = this.getWebGLParticleSpriteCanvas("softGlow");
+        const diamondSprite = this.getWebGLParticleSpriteCanvas("diamond");
+        for (const puff of puffs) {
+            if (!WEBGL_DIRECT_WORLD_EFFECT_KINDS.has(puff.kind)) {
+                continue;
+            }
+            const ageRatio = clamp(puff.age / Math.max(0.001, puff.lifetime), 0, 1);
+            const radiusWorld = Math.max(1, Number(puff.radius) || 1) * (0.75 + ageRatio * 1.65);
+            if (!this.dynamicBoundsVisible({
+                minX: puff.x - radiusWorld,
+                minY: puff.y - radiusWorld,
+                maxX: puff.x + radiusWorld,
+                maxY: puff.y + radiusWorld
+            }, view, 64)) {
+                continue;
+            }
+            const point = this.worldToScreen(view, puff.x, puff.y);
+            const radius = radiusWorld * view.zoom;
+
+            if (puff.kind === "wizardDeathBurstParticle" || puff.kind === "wizardCrushParticle") {
+                const fade = Math.pow(1 - ageRatio, 1.35);
+                const shardRadius = Math.max(1, Number(puff.radius) || 1) * view.zoom * (0.9 + (1 - ageRatio) * 0.1);
+                const paletteIndex = (Number(puff.colorIndex) || 0) % 3;
+                const tint = paletteIndex === 0
+                    ? [161 / 255, 72 / 255, 1, 1]
+                    : paletteIndex === 1
+                        ? [1, 220 / 255, 65 / 255, 1]
+                        : [1, 1, 246 / 255, 1];
+                if (glowSprite) {
+                    backend.queueSprite({
+                        source: glowSprite,
+                        centerX: point.x,
+                        centerY: point.y,
+                        width: shardRadius * 3.6,
+                        height: shardRadius * 3.6,
+                        tint,
+                        alpha: 0.38 * fade,
+                        blendMode: "additive"
+                    });
+                }
+                if (diamondSprite) {
+                    backend.queueSprite({
+                        source: diamondSprite,
+                        centerX: point.x,
+                        centerY: point.y,
+                        width: shardRadius * 1.55,
+                        height: shardRadius * 2.95,
+                        rotation: Number(puff.rotation) || 0,
+                        tint,
+                        alpha: 0.96 * fade,
+                        blendMode: "additive"
+                    });
+                }
+                this.markDynamicDrawn();
+                continue;
+            }
+
+            if (puff.kind === "enemyProjectileImpactPuff") {
+                if (glowSprite) {
+                    const fade = Math.pow(1 - ageRatio, 1.35);
+                    const darkRadius = radius * (0.82 + ageRatio * 0.28);
+                    backend.queueSprite({
+                        source: glowSprite,
+                        centerX: point.x,
+                        centerY: point.y,
+                        width: darkRadius * 2,
+                        height: darkRadius * 2,
+                        tint: [82 / 255, 51 / 255, 58 / 255, 1],
+                        alpha: 0.5 * fade,
+                        blendMode: "alpha"
+                    });
+                }
+                this.markDynamicDrawn();
+                continue;
+            }
+
+            const trailTint = puff.kind === "rocketSmokePuff" ? hexColorRgb(puff.trailTint) : null;
+            const smokeStamp = this.getSmokeStampCanvas(trailTint ? puff.trailTint : null);
+            const smokeAlpha = 0.30 * Math.pow(1 - ageRatio, 1.25);
+            if (smokeStamp) {
+                backend.queueSprite({
+                    source: smokeStamp,
+                    centerX: point.x,
+                    centerY: point.y,
+                    width: radius * 2,
+                    height: radius * 2,
+                    alpha: smokeAlpha,
+                    blendMode: "alpha"
+                });
+            }
+
+            const sparkFade = Math.pow(1 - ageRatio, 1.9);
+            const sparkMax = puff.kind === "rocketSmokePuff"
+                ? 3
+                : (puff.kind === "attachedRocketSmokePuff" ? 2 : 0);
+            if (glowSprite && sparkMax > 0 && sparkFade > 0.025) {
+                const sparkCount = 1 + Math.floor(sparkMax * (1 - ageRatio));
+                for (let i = 0; i < sparkCount; i += 1) {
+                    const seed = (puff.sparkleSeed || 0) + i * 17;
+                    const angle = hashNoise(seed, i) * Math.PI * 2;
+                    const r = radius * (0.12 + hashNoise(seed + 31, i) * 0.64);
+                    const twinkle = 0.72 + 0.28 * Math.sin((state.clock.time + puff.age) * 18 + i * 1.4);
+                    const size = (0.9 + hashNoise(seed + 79, i) * 2.2) * view.zoom;
+                    const alpha = clamp(0.10 + sparkFade * twinkle * 0.62, 0, 0.74);
+                    const tint = trailTint && i % 3 === 0
+                        ? [trailTint.r / 255, trailTint.g / 255, trailTint.b / 255, 1]
+                        : (i % 3 === 0 ? [204 / 255, 157 / 255, 1, 1] : [1, 238 / 255, 129 / 255, 1]);
+                    backend.queueSprite({
+                        source: glowSprite,
+                        centerX: point.x + Math.cos(angle) * r,
+                        centerY: point.y + Math.sin(angle) * r,
+                        width: size * 2,
+                        height: size * 2,
+                        tint,
+                        alpha,
+                        blendMode: "additive"
+                    });
+                }
+            }
+            this.markDynamicDrawn();
+        }
+    }
+
+    drawSparkBurstWebGL(x, y, view, seed, count, radius, palette = "rocket") {
+        const backend = this.webglBackend;
+        const glowSprite = this.getWebGLParticleSpriteCanvas("softGlow");
+        if (!backend?.available || !glowSprite) {
+            return;
+        }
+        for (let i = 0; i < count; i += 1) {
+            const a = hashNoise(seed, i) * Math.PI * 2;
+            const r = (0.25 + hashNoise(seed + 31, i) * 0.75) * radius;
+            const px = x + Math.cos(a) * r;
+            const py = y + Math.sin(a) * r;
+            const size = (palette === "enemy" ? 0.9 : 1.1) * (1 + hashNoise(seed + 71, i) * (palette === "enemy" ? 1.7 : 2.3)) * view.zoom;
+            const alpha = (palette === "enemy" ? 0.22 : 0.28) + hashNoise(seed + 109, i) * (palette === "enemy" ? 0.28 : 0.38);
+            const tint = palette === "enemy"
+                ? (i % 2 === 0 ? [1, 92 / 255, 68 / 255, 1] : [1, 155 / 255, 84 / 255, 1])
+                : palette === "wizardAccent"
+                    ? (i % 2 === 0 ? [1, 238 / 255, 114 / 255, 1] : [184 / 255, 112 / 255, 1, 1])
+                    : (i % 3 === 0 ? [1, 246 / 255, 166 / 255, 1] : [1, 137 / 255, 82 / 255, 1]);
+            backend.queueSprite({
+                source: glowSprite,
+                centerX: px,
+                centerY: py,
+                width: size * 2,
+                height: size * 2,
+                tint,
+                alpha,
+                blendMode: "additive"
+            });
+        }
+    }
+
+    drawProjectileExplosionEffectsWebGL(state, view) {
+        const backend = this.webglBackend;
+        if (!backend?.available) {
+            return;
+        }
+        const ringSprite = this.getWebGLParticleSpriteCanvas("ring");
+        for (const projectile of state.projectiles || []) {
+            if (projectile.state !== "exploding") {
+                continue;
+            }
+            if (!this.dynamicBoundsVisible(this.projectileRenderBounds(projectile), view, 96)) {
+                continue;
+            }
+            const point = this.worldToScreen(view, projectile.x, projectile.y);
+            if (projectile.owner !== "enemy") {
+                const explosionScale = Math.max(1, Number(projectile.explosionVisualScale) || 1);
+                this.drawSparkBurstWebGL(
+                    point.x,
+                    point.y,
+                    view,
+                    projectile.age + projectile.x,
+                    Math.max(9, Math.round(9 * explosionScale)),
+                    22 * explosionScale * view.zoom,
+                    "rocket"
+                );
+                const areaRadius = Math.max(0, Number(projectile.areaDamageRadius) || 0);
+                if (areaRadius > 0 && ringSprite) {
+                    const total = Math.max(0.001, Number(state.tuning?.rocketProjectileExplosionSeconds) || 0.42);
+                    const remaining = Math.max(0, Number(projectile.explosionTimer) || 0);
+                    const progress = Math.max(0, Math.min(1, 1 - remaining / total));
+                    backend.queueSprite({
+                        source: ringSprite,
+                        centerX: point.x,
+                        centerY: point.y,
+                        width: areaRadius * view.zoom * 2 * (0.18 + progress * 0.82),
+                        height: areaRadius * view.zoom * 2 * (0.18 + progress * 0.82),
+                        tint: [1, 208 / 255, 89 / 255, 1],
+                        alpha: (1 - progress) * 0.58,
+                        blendMode: "additive"
+                    });
+                }
+            } else if (projectile.impactKind === "player") {
+                this.drawSparkBurstWebGL(point.x, point.y, view, projectile.age + projectile.x, 3, 9 * view.zoom, "wizardAccent");
+            }
+            this.markDynamicDrawn();
+        }
+    }
+
+    drawPlayerDeathCoverWebGL(state, view) {
+        const backend = this.webglBackend;
+        if (!backend?.available || state.player?.deathPhase !== "cover") {
+            return;
+        }
+        const sparks = (state.effects?.smokePuffs || []).filter((puff) => puff.kind === "wizardDeathCoverSpark");
+        if (!sparks.length) {
+            return;
+        }
+        const crossSprite = this.getWebGLParticleSpriteCanvas("crossSpark");
+        const glowSprite = this.getWebGLParticleSpriteCanvas("softGlow");
+        for (const spark of sparks) {
+            const delay = Math.max(0, Number(spark.delay) || 0);
+            if ((Number(spark.age) || 0) < delay) {
+                continue;
+            }
+            const localAge = Math.max(0, (Number(spark.age) || 0) - delay);
+            const ramp = clamp(localAge / 0.075, 0, 1);
+            const twinkle = 0.7 + 0.3 * Math.sin(localAge * 36 + (Number(spark.sparkleSeed) || 0) * 0.17);
+            const alpha = ramp * twinkle;
+            const radiusWorld = Math.max(1, Number(spark.radius) || 1) * 2.1;
+            if (!this.dynamicBoundsVisible({
+                minX: spark.x - radiusWorld,
+                minY: spark.y - radiusWorld,
+                maxX: spark.x + radiusWorld,
+                maxY: spark.y + radiusWorld
+            }, view, 48)) {
+                continue;
+            }
+            const point = this.worldToScreen(view, spark.x, spark.y);
+            const radius = Math.max(1, Number(spark.radius) || 1) * view.zoom;
+            const paletteIndex = (Number(spark.colorIndex) || 0) % 3;
+            const tint = paletteIndex === 0
+                ? [168 / 255, 78 / 255, 1, 1]
+                : paletteIndex === 1
+                    ? [1, 222 / 255, 70 / 255, 1]
+                    : [1, 1, 250 / 255, 1];
+            if (glowSprite) {
+                backend.queueSprite({
+                    source: glowSprite,
+                    centerX: point.x,
+                    centerY: point.y,
+                    width: radius * 4.3,
+                    height: radius * 4.3,
+                    tint,
+                    alpha: 0.22 * alpha,
+                    blendMode: "additive"
+                });
+            }
+            if (crossSprite) {
+                backend.queueSprite({
+                    source: crossSprite,
+                    centerX: point.x,
+                    centerY: point.y,
+                    width: radius * 3.2,
+                    height: radius * 3.2,
+                    rotation: Number(spark.rotation) || 0,
+                    tint,
+                    alpha: 0.98 * alpha,
+                    blendMode: "additive"
+                });
+            }
+            this.markDynamicDrawn();
+        }
+    }
+
+    fireballHeatTint(heat) {
+        if (heat > 0.78) {
+            return [1, 240 / 255, 165 / 255, 1];
+        }
+        if (heat > 0.50) {
+            return [1, 188 / 255, 55 / 255, 1];
+        }
+        if (heat > 0.25) {
+            return [1, 110 / 255, 24 / 255, 1];
+        }
+        return [220 / 255, 44 / 255, 18 / 255, 1];
+    }
+
+    queueWebGLAssetSprite(asset, centerX, centerY, targetHeight, rotation = 0, options = {}) {
+        const backend = this.webglBackend;
+        if (!backend?.available || !asset?.canvas || asset.missing) {
+            return false;
+        }
+        const spriteScale = Math.max(0.0001, Number(targetHeight) || 0) / Math.max(1, asset.height);
+        const localOffsetX = Number(options.localOffsetX) || 0;
+        const localOffsetY = Number(options.localOffsetY) || 0;
+        const offsetX = localOffsetX * spriteScale;
+        const offsetY = localOffsetY * spriteScale;
+        const cos = Math.cos(rotation);
+        const sin = Math.sin(rotation);
+        const rotatedOffsetX = offsetX * cos - offsetY * sin;
+        const rotatedOffsetY = offsetX * sin + offsetY * cos;
+        return backend.queueSprite({
+            source: asset.canvas,
+            centerX: centerX + rotatedOffsetX,
+            centerY: centerY + rotatedOffsetY,
+            width: asset.width * spriteScale,
+            height: asset.height * spriteScale,
+            rotation,
+            alpha: options.alpha ?? 1,
+            blendMode: options.blendMode || "alpha",
+            tint: options.tint || [1, 1, 1, 1]
+        });
+    }
+
+    drawEnemyFireballParticlesWebGL(projectile, state, view) {
+        const backend = this.webglBackend;
+        const glowSprite = this.getWebGLParticleSpriteCanvas("softGlow");
+        if (!backend?.available || !glowSprite) {
+            return false;
+        }
+        let drew = false;
+        const particles = Array.isArray(projectile.trail) ? projectile.trail : [];
+        for (const particle of particles) {
+            const age = state.clock.time - Number(particle.birth || 0);
+            const lifetime = Math.max(0.0001, Number(particle.lifetime) || 0.2);
+            if (age < 0 || age > lifetime) {
+                continue;
+            }
+            const fade = 1 - age / lifetime;
+            const worldX = Number(particle.x || 0) + Number(particle.vx || 0) * age;
+            const worldY = Number(particle.y || 0) + Number(particle.vy || 0) * age;
+            const screen = this.worldToScreen(view, worldX, worldY);
+            const radius = Math.max(0.15 * view.zoom, Number(particle.radius || 2) * fade * view.zoom);
+            const heatBase = Number(particle.heat ?? 0.5);
+            const cooledHeat = clamp(heatBase * (0.45 + fade * 0.55), 0, 1);
+            const tint = this.fireballHeatTint(cooledHeat);
+            const queued = backend.queueSprite({
+                source: glowSprite,
+                centerX: screen.x,
+                centerY: screen.y,
+                width: radius * 2,
+                height: radius * 2,
+                tint,
+                alpha: fade * 0.92,
+                blendMode: "additive"
+            });
+            drew = queued || drew;
+        }
+        return drew;
+    }
+
+    drawProjectileFireballWebGL(projectile, state, view) {
+        const backend = this.webglBackend;
+        if (!backend?.available) {
+            return false;
+        }
+        const p = this.worldToScreen(view, projectile.x, projectile.y);
+        const speed = Math.hypot(projectile.vx, projectile.vy) || 1;
+        const angle = Math.atan2(projectile.vy / speed, projectile.vx / speed);
+        const trailEnabled = state.settings?.renderingQuality !== "low";
+        let drew = false;
+        if (trailEnabled) {
+            drew = this.drawEnemyFireballParticlesWebGL(projectile, state, view) || drew;
+        }
+        const glowSprite = this.getWebGLParticleSpriteCanvas("softGlow");
+        const fallbackRadius = Math.max(2, Number(projectile.radius) || 10) * view.zoom;
+        if (glowSprite) {
+            drew = backend.queueSprite({
+                source: glowSprite,
+                centerX: p.x,
+                centerY: p.y,
+                width: fallbackRadius * 2.4,
+                height: fallbackRadius * 2.4,
+                tint: this.fireballHeatTint(0.72),
+                alpha: 0.78,
+                blendMode: "additive"
+            }) || drew;
+        }
+        const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_002", projectile.frameId || "fireball") ||
+            this.getCharacterAtlasFrame("ct_char_enemy_002", "fireball");
+        if (asset && !asset.missing) {
+            const targetHeight = Math.max(8, Number(projectile.radius) || 10) * 2 * view.zoom;
+            drew = this.queueWebGLAssetSprite(asset, p.x, p.y, targetHeight, angle) || drew;
+        }
+        return drew;
+    }
+
+    drawProjectileMusketBallWebGL(projectile, state, view) {
+        const backend = this.webglBackend;
+        if (!backend?.available) {
+            return false;
+        }
+        const p = this.worldToScreen(view, projectile.x, projectile.y);
+        const targetHeight = Math.max(2, Number(projectile.radius) || 1) * 2.45 * view.zoom;
+        const rotation = projectile.age * 8;
+        const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_003", projectile.frameId || "cannonball") ||
+            this.getCharacterAtlasFrame("ct_char_enemy_003", "cannonball") ||
+            this.getCharacterAtlasFrame("ct_char_enemy_002", "cannonball");
+        if (asset && !asset.missing) {
+            return this.queueWebGLAssetSprite(asset, p.x, p.y, targetHeight, rotation);
+        }
+        const fallback = this.getWebGLParticleSpriteCanvas("musketBall");
+        return Boolean(fallback && backend.queueSprite({
+            source: fallback,
+            centerX: p.x,
+            centerY: p.y,
+            width: targetHeight,
+            height: targetHeight,
+            rotation
+        }));
+    }
+
+    drawProjectileRockWebGL(projectile, state, view) {
+        const backend = this.webglBackend;
+        if (!backend?.available) {
+            return false;
+        }
+        const p = this.worldToScreen(view, projectile.x, projectile.y);
+        const targetHeight = Math.max(8, Number(projectile.radius) || 10) * 2.35 * view.zoom;
+        const rotation = (Number(projectile.age) || 0) * 5 + projectile.x * 0.01;
+        const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_005", projectile.frameId || "rock") ||
+            this.getCharacterAtlasFrame("ct_char_enemy_005", "rock");
+        if (asset && !asset.missing) {
+            return this.queueWebGLAssetSprite(asset, p.x, p.y, targetHeight, rotation);
+        }
+        const fallback = this.getWebGLParticleSpriteCanvas("rock");
+        return Boolean(fallback && backend.queueSprite({
+            source: fallback,
+            centerX: p.x,
+            centerY: p.y,
+            width: targetHeight,
+            height: targetHeight,
+            rotation
+        }));
+    }
+
+    drawProjectileRocketWebGL(projectile, state, view) {
+        const backend = this.webglBackend;
+        if (!backend?.available) {
+            return false;
+        }
+        const baseAsset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_wizard_1", projectile.frameId || "rocket_projectile") ||
+            this.assets.get(projectile.frameId || "rocket_projectile") ||
+            this.assets.get("rocket");
+        if (!baseAsset || baseAsset.missing) {
+            return false;
+        }
+        const p = this.worldToScreen(view, projectile.x, projectile.y);
+        const speed = Math.hypot(projectile.vx, projectile.vy) || 1;
+        const dir = { x: projectile.vx / speed, y: projectile.vy / speed };
+        const angle = Math.atan2(dir.x, -dir.y);
+        const pivot = projectile.frameId === "rocket_projectile"
+            ? { x: 0.5, y: 0.78 }
+            : this.rigConfig.pivots.rocket;
+        const visualScale = Math.max(0.1, Number(projectile.visualScale) || 1);
+        const targetHeight = (projectile.frameId === "rocket_projectile" ? 58 : 72) * visualScale * view.zoom;
+
+        const glowFrameId = projectile.wrenchGlowFrameId || wrenchRocketGlowAtlasFrameId(projectile.wrenchEffectId);
+        const poweredAsset = glowFrameId
+            ? this.getCharacterAtlasFrame(projectile.characterId || "ct_char_wizard_1", glowFrameId) ||
+                this.getCharacterAtlasFrame("ct_char_wizard_1", glowFrameId)
+            : null;
+        const drawAsset = poweredAsset?.canvas ? poweredAsset : baseAsset;
+        const drawOffsetX = -pivot.x * baseAsset.width - (drawAsset === poweredAsset ? (Number(drawAsset.paddingX) || 0) : 0);
+        const drawOffsetY = -pivot.y * baseAsset.height - (drawAsset === poweredAsset ? (Number(drawAsset.paddingY) || 0) : 0);
+        const localCenterX = drawOffsetX + drawAsset.width * 0.5;
+        const localCenterY = drawOffsetY + drawAsset.height * 0.5;
+
+        let drew = false;
+        const flameSprite = this.getWebGLParticleSpriteCanvas("rocketFlame") || this.getWebGLParticleSpriteCanvas("softGlow");
+        if (flameSprite) {
+            const flicker = 0.88 + 0.18 * Math.sin((state.clock.time + projectile.age * 11) * 22 + projectile.id.length * 13);
+            const flameLength = targetHeight * (0.58 + 0.12 * visualScale) * flicker;
+            const flameWidth = targetHeight * 0.28;
+            const localFlameY = baseAsset.height * (1 - pivot.y) + 8;
+            const flameOffsetY = localFlameY * (targetHeight / Math.max(1, baseAsset.height));
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+            const flameCenterX = p.x - flameOffsetY * sin;
+            const flameCenterY = p.y + flameOffsetY * cos;
+            drew = backend.queueSprite({
+                source: flameSprite,
+                centerX: flameCenterX,
+                centerY: flameCenterY,
+                width: flameWidth,
+                height: flameLength,
+                rotation: angle + Math.PI,
+                tint: [1, 180 / 255, 72 / 255, 1],
+                alpha: 0.56,
+                blendMode: "additive"
+            }) || drew;
+            drew = backend.queueSprite({
+                source: flameSprite,
+                centerX: flameCenterX,
+                centerY: flameCenterY - 0.06 * flameOffsetY,
+                width: flameWidth * 0.56,
+                height: flameLength * 0.55,
+                rotation: angle + Math.PI,
+                tint: [1, 246 / 255, 176 / 255, 1],
+                alpha: 0.72,
+                blendMode: "additive"
+            }) || drew;
+        }
+        drew = this.queueWebGLAssetSprite(drawAsset, p.x, p.y, targetHeight, angle, {
+            localOffsetX: localCenterX,
+            localOffsetY: localCenterY
+        }) || drew;
+        return drew;
+    }
+
+    drawPlayerRocketsWebGL(state, view) {
+        const backend = this.webglBackend;
+        const handled = new Set();
+        if (!backend?.available) {
+            return handled;
+        }
+        for (const projectile of state.projectiles || []) {
+            if (projectile.state !== "launched" || projectile.owner === "enemy") {
+                continue;
+            }
+            if (projectile.kind === "enemyFireball" || projectile.kind === "enemyMusketBall" || projectile.kind === "enemyRock") {
+                continue;
+            }
+            if (!this.dynamicBoundsVisible(this.projectileRenderBounds(projectile), view, 96)) {
+                continue;
+            }
+            if (this.drawProjectileRocketWebGL(projectile, state, view)) {
+                handled.add(projectile.id);
+                this.markDynamicDrawn();
+            }
+        }
+        return handled;
+    }
+
+    drawEnemyProjectilesWebGL(state, view) {
+        const backend = this.webglBackend;
+        const handled = new Set();
+        if (!backend?.available) {
+            return handled;
+        }
+        for (const projectile of state.projectiles || []) {
+            if (projectile.state !== "launched" || projectile.owner !== "enemy") {
+                continue;
+            }
+            if (!WEBGL_DIRECT_ENEMY_PROJECTILE_KINDS.has(projectile.kind)) {
+                continue;
+            }
+            if (!this.dynamicBoundsVisible(this.projectileRenderBounds(projectile), view, 96)) {
+                continue;
+            }
+            let drew = false;
+            if (projectile.kind === "enemyFireball") {
+                drew = this.drawProjectileFireballWebGL(projectile, state, view);
+            } else if (projectile.kind === "enemyMusketBall") {
+                drew = this.drawProjectileMusketBallWebGL(projectile, state, view);
+            } else if (projectile.kind === "enemyRock") {
+                drew = this.drawProjectileRockWebGL(projectile, state, view);
+            }
+            if (drew) {
+                handled.add(projectile.id);
+                this.markDynamicDrawn();
+            }
+        }
+        return handled;
+    }
+
+    drawProjectiles(state, view, options = {}) {
         const ctx = this.ctx;
+        const skipExploding = options.skipExploding === true;
+        const skipProjectileIds = options.skipProjectileIds instanceof Set ? options.skipProjectileIds : null;
         for (const projectile of state.projectiles || []) {
             if (projectile.state !== "exploding" && projectile.state !== "launched") {
+                continue;
+            }
+            if (skipExploding && projectile.state === "exploding") {
+                continue;
+            }
+            if (skipProjectileIds?.has(projectile.id)) {
                 continue;
             }
             if (!this.dynamicBoundsVisible(this.projectileRenderBounds(projectile), view, 96)) {
@@ -2737,6 +4154,62 @@ class RocketfrockRenderer {
         ctx.restore();
     }
 
+    drawPlayerWebGL(state, view) {
+        if (state.player.visible === false || !this.webglBackend?.available) {
+            this.lastBounds = null;
+            this.framePlayerRocketTransform = null;
+            return false;
+        }
+        const point = this.worldToScreen(view, state.player.x, state.player.y);
+        const renderScale = Math.max(0.05, Number(state.player.renderScale) || 1);
+        this.queueShadowWebGL(point.x, point.y, view.zoom, renderScale);
+        const targetPose = this.computeRigPose(state, view.zoom);
+        const pose = this.blendRigPose(targetPose, state, view.zoom);
+        const renderedTransforms = scalePoseTransforms(pose.transforms, renderScale);
+        const shieldTint = getPlayerShieldTintAlpha(state);
+        const lowHealthTint = shieldTint > 0 ? 0 : getLowHealthTintAlpha(state);
+        const hitFlash = getPlayerHitFlash(state);
+        const bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+        this.queueCharacterProjectPoseWebGL(
+            this.playerProject,
+            point.x,
+            point.y,
+            state.player.facing,
+            renderedTransforms,
+            bounds,
+            {
+                alpha: 1,
+                tintAlpha: shieldTint > 0 ? shieldTint : lowHealthTint,
+                tintCanvasKey: shieldTint > 0 ? "shieldCanvas" : "lowHealthCanvas",
+                overlayTintAlpha: hitFlash * 0.72,
+                overlayTintCanvasKey: "hitFlashCanvas",
+                afterPart: (partName, command) => {
+                    if (partName === "rocket") {
+                        this.framePlayerRocketTransform = {
+                            transform: command?.transform ? { ...command.transform } : null,
+                            screenX: point.x,
+                            screenY: point.y,
+                            facing: state.player.facing
+                        };
+                    }
+                }
+            }
+        );
+        this.lastBounds = Number.isFinite(bounds.minX) ? bounds : null;
+        return true;
+    }
+
+    drawPlayerCanvasOverlays(state, view) {
+        const mounted = this.framePlayerRocketTransform;
+        if (!mounted?.transform || state.player.visible === false) return;
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.translate(mounted.screenX, mounted.screenY);
+        ctx.scale(Number(mounted.facing) < 0 ? -1 : 1, 1);
+        this.drawMountedRocketFuelBulb(mounted.transform, state, view.zoom);
+        ctx.restore();
+    }
+
     drawPlayer(state, view) {
         if (state.player.visible === false) {
             this.lastBounds = null;
@@ -3386,7 +4859,7 @@ function drawRocketFuelBulbLocal(ctx, asset, pivot, state, time) {
     const bulbY = (0.47 - pivot.y) * asset.height;
     const radius = Math.max(5, Math.min(asset.width, asset.height) * 0.055 * scale);
     const overdriveRecovering = Boolean(
-        activePowerUpEffect(state, POWER_UP_EFFECT_IDS.SPEED_SHOT) &&
+        activePowerUpEffect(state, POWER_UP_EFFECT_IDS.OVERDRIVE) &&
         fuel.amount < fuel.max
     );
     const canRechargeNow = tuning.fuelRechargeRequiresGround === false || state.player.onGround || fuel.rechargeLatched === true;

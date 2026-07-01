@@ -19,8 +19,8 @@
       "minimumProgress": 0.12,
       "maximumProgress": 0.92
     },
-    "speedShotPickup": {
-      "entityType": "speedShotPickup",
+    "overdrivePickup": {
+      "entityType": "overdrivePickup",
       "category": "powerUp",
       "contexts": [
         "beforeBatEncounter",

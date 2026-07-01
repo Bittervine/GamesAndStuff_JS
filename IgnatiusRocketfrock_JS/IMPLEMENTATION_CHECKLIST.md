@@ -1780,24 +1780,24 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Update browser and portable build labels to revision 212.
 - [x] Pass the complete aggregate headless test suite.
 
-## Revision 213 Speed Shot and randomized wrench arsenal
+## Revision 213 Overdrive and randomized wrench arsenal
 
 - [x] Change the empty HUD label from `Powerup: None` to `Powerup:`.
-- [x] Rename the lightning effect and catalog pickup to Speed Shot while normalizing legacy `rocketOverdrive` IDs.
-- [x] Keep Speed Shot at eight seconds, half rocket fuel cost, double firing cadence, and higher HUD priority than wrenches.
+- [x] Rename the lightning effect and catalog pickup to Overdrive while normalizing legacy `rocketOverdrive` IDs.
+- [x] Keep Overdrive at eight seconds, half rocket fuel cost, double firing cadence, and higher HUD priority than wrenches.
 - [x] Add a shared mutually exclusive `wrench` effect group with fifteen-second durations.
 - [x] Implement Triple as three small one-third-damage homing rockets with distinct fan angles and separate target selection when possible.
 - [x] Implement Dart as one normal-sized, forward, non-homing, double-damage rocket costing two-thirds standard fuel.
 - [x] Implement Twin as two medium half-damage homing rockets with distinct launch angles.
 - [x] Implement Bigbomb as a 1.7× rocket with triple fuel cost, triple damage, half speed, half homing response, and AoE radius of 1.5 wizard heights.
 - [x] Implement Boomerang return after misses or destroyed targets and refund half launch fuel when caught.
-- [x] Ensure collecting a wrench replaces only the active wrench and never cancels Speed Shot.
-- [x] Add deterministic shared HUD priority when Speed Shot and a wrench coexist.
+- [x] Ensure collecting a wrench replaces only the active wrench and never cancels Overdrive.
+- [x] Add deterministic shared HUD priority when Overdrive and a wrench coexist.
 - [x] Add sixty-second respawn timers to all power-up pickups.
 - [x] Add deterministic session-seeded random wrench selection at level start and reroll on respawn.
 - [x] Preserve selected effect, respawn timer, and reroll count through state serialization.
-- [x] Add Speed Shot and random-wrench catalog entities and Level Editor composite previews.
-- [x] Keep Speed Shot at x=800 and add a random wrench at x=1400 in level 1.
+- [x] Add Overdrive and random-wrench catalog entities and Level Editor composite previews.
+- [x] Keep Overdrive at x=800 and add a random wrench at x=1400 in level 1.
 - [x] Render per-mode projectile scale and a visible Bigbomb AoE pulse.
 - [x] Update the game manual with durations, stacking, respawns, random wrench behavior, HUD priority, and all five wrench modes.
 - [x] Update browser and portable build labels to revision 213.
@@ -1808,7 +1808,7 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 ## Revision 214 cached wrench-rocket glow sprites
 
 - [x] Store the launch-time wrench effect ID and glow tint on every wrench-modified projectile.
-- [x] Keep standard and Speed Shot-only rockets free of wrench glow metadata.
+- [x] Keep standard and Overdrive-only rockets free of wrench glow metadata.
 - [x] Add a presentation-only source-sprite/tint cache for precomposited rocket glows.
 - [x] Expand the alpha silhouette with separable horizontal and vertical maximum-filter passes.
 - [x] Blur the expanded silhouette with separable horizontal and vertical Gaussian passes.
@@ -1899,7 +1899,7 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 ## Revision 223 Shield power-up
 
 - [x] Define a five-second refreshable Shield effect with the reserved shield icon and a blue pickup glow.
-- [x] Let Shield coexist with Speed Shot and one active wrench while taking highest priority in the Power HUD.
+- [x] Let Shield coexist with Overdrive and one active wrench while taking highest priority in the Power HUD.
 - [x] Block ordinary incoming damage in portable simulation while Shield is active.
 - [x] Preserve explicit `bypassInvulnerability` rules for intentionally lethal damage.
 - [x] Flash all wizard artwork blue while protected, including the backpack rocket.
@@ -1958,9 +1958,9 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [ ] Use an initial splash diameter of approximately two wizard heights, subject to playtest.
 - [ ] Trigger the splash on standard-rocket impacts with enemies, blockers, and terrain.
 - [ ] Affect enemies only and leave Ignatius, chests, doors, switches, and reactive scenery untouched.
-- [ ] Preserve the splash under Speed Shot and Shield, but exclude all wrench projectile modes.
+- [ ] Preserve the splash under Overdrive and Shield, but exclude all wrench projectile modes.
 - [ ] Add a restrained visual pulse distinct from Bigbomb.
-- [ ] Add deterministic regressions for range, direct-hit exclusion, multiple secondaries, Speed Shot, Shield, and wrench exclusion.
+- [ ] Add deterministic regressions for range, direct-hit exclusion, multiple secondaries, Overdrive, Shield, and wrench exclusion.
 - [ ] Playtest clustered Bombing Bats and tune diameter/line-of-effect behavior if necessary.
 
 ## Milestone C: location-triggered thought bubbles
@@ -2119,8 +2119,8 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Exclude the directly struck enemy so normal direct damage remains exactly 30.
 - [x] Trigger the enemy-only splash on enemy, terrain, and reactive-object impacts.
 - [x] Keep reactive scenery immune to the weak secondary splash.
-- [x] Preserve the splash for Speed Shot while disabling it for every wrench mode.
-- [x] Add deterministic diagnostics and regression coverage for direct, nearby, distant, Speed Shot, and wrench cases.
+- [x] Preserve the splash for Overdrive while disabling it for every wrench mode.
+- [x] Add deterministic diagnostics and regression coverage for direct, nearby, distant, Overdrive, and wrench cases.
 - [x] Mark the pre-generator prerequisite list complete.
 
 ## Revision 234 Automatic Level Generator 0 route foundation
@@ -2717,7 +2717,7 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 
 - [x] Target approximately one generated power-up per 1,000 pixels of mandatory-route travel at default Reward density.
 - [x] Cap upward Reward-density scaling at 1.5× so Grand routes remain placeable.
-- [x] Set generated Random Wrench, Shield, and Speed Shot shares to 2:1:1.
+- [x] Set generated Random Wrench, Shield, and Overdrive shares to 2:1:1.
 - [x] Use a deterministic running-deficit selector so each draft stays near the requested 50/25/25 mix.
 - [x] Pack dense pickups from safe platform edges inward while preserving ordinary reward spacing and endpoint clearance.
 - [x] Use common placement constraints so reward-only rerolls vary pickup types without moving their slots.
@@ -2767,7 +2767,7 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 
 ## Revision 280 longer power-up durations
 
-- [x] Set Speed Shot to a 30-second refreshable duration.
+- [x] Set Overdrive to a 30-second refreshable duration.
 - [x] Set every wrench rocket mode to a 30-second refreshable duration.
 - [x] Set Shield to a 10-second refreshable duration.
 - [x] Synchronize catalog defaults, level-1 examples, tests, and the game manual.
@@ -2780,7 +2780,7 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Remove runtime and Level Editor migration for root-level player starts, `magicPortal`, and plain `exit` records.
 - [x] Remove revision-075 mailbox `thoughts` array import handling; retain only `thoughtText`, and strip unsupported retired fields during editor import.
 - [x] Remove enemy `behavior`, `chaseSpeed`, and `awarenessVerticalRange` compatibility paths.
-- [x] Remove Rocket Overdrive effect, pickup, and active-state aliases; retain only Speed Shot.
+- [x] Remove Rocket Overdrive effect, pickup, and active-state aliases; retain only Overdrive.
 - [x] Remove top/bottom cavern-profile generation, serialization, and containment fallback.
 - [x] Remove the legacy raw `jumpVelocity` tuning migration.
 - [x] Delete the lingering obsolete cave-decoration `spacing` property from `level_001`.
@@ -2846,9 +2846,9 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 
 
 
-## Revision 288 shorter Speed Shot and wrench durations
+## Revision 288 shorter Overdrive and wrench durations
 
-- [x] Reduce Speed Shot duration from 30 seconds to 20 seconds.
+- [x] Reduce Overdrive duration from 30 seconds to 20 seconds.
 - [x] Reduce every current wrench-upgrade duration from 30 seconds to 20 seconds.
 - [x] Keep Shield at 10 seconds and preserve refresh, exclusivity, HUD priority, and sixty-second pickup respawns.
 - [x] Synchronize the entity catalog, level-1 examples, manual, plan, architecture guidance, revision labels, and regression tests.
@@ -3071,8 +3071,8 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 
 ## Revision 306 wrench-first Power HUD priority
 
-- [x] Raise every built-in wrench effect HUD priority above Shield and Speed Shot.
-- [x] Keep Shield above Speed Shot when no wrench is active.
+- [x] Raise every built-in wrench effect HUD priority above Shield and Overdrive.
+- [x] Keep Shield above Overdrive when no wrench is active.
 - [x] Preserve simultaneous effect timers, stacking, exclusivity, and gameplay behavior.
 - [x] Make the selector honor current built-in priority when an older saved active-effect definition embeds the retired wrench priority.
 - [x] Update player guidance, architecture rules, project instructions, revision labels, and regression expectations.
@@ -3093,22 +3093,137 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Permit consecutive fixed-step weapon presses to launch whenever fuel is sufficient.
 - [x] Ignore legacy serialized `launchCooldownTimer` values rather than letting them block firing.
 - [x] Remove cooldown multipliers from built-in and normalized power-up rocket profiles.
-- [x] Keep Speed Shot's twenty-second duration and half-fuel benefit without a retired cadence claim.
+- [x] Keep Overdrive's twenty-second duration and half-fuel benefit without a retired cadence claim.
 - [x] Preserve edge-triggered controls, fuel accounting, recharge delay, wrench behavior, and enemy cooldowns.
 - [x] Add regression coverage and update the Game Manual, developer guidance, architecture, plan, and revision labels.
 
 
-## Revision 309 wrench volley path tuning
+## Revision 310 wrench volley wedge-direction jitter
 
-- [x] Narrow yellow Fivefold from a +/-15-degree cone to +/-7.5 degrees.
-- [x] Keep all five yellow launch lines evenly spaced around the nearest-forward centre aim.
-- [x] Add a small shared 2-degree initial direction jitter to each blue Homing Triple rocket.
-- [x] Derive blue jitter deterministically from portable simulation seed and volley identity.
-- [x] Preserve blue homing, target assignment, damage, speed, fuel cost, and collision behavior.
-- [x] Add regression coverage for jitter bounds, successive-volley variation, deterministic replay, and the narrowed yellow fan.
+- [x] Keep yellow Fivefold and blue Homing Triple internal launch spacing unchanged within each wedge.
+- [x] Add a small deterministic shared wedge-direction jitter to yellow Fivefold as well as blue Homing Triple.
+- [x] Apply the same sampled jitter to every projectile in a volley rather than perturbing individual rockets separately.
+- [x] Keep successive rapidly fired volleys from reusing one identical overall fan direction.
+- [x] Preserve deterministic replay by deriving the wedge offset from the portable simulation seed and volley identity.
+- [x] Retain the applied shared offset as `launchAngleJitterDegrees` on each projectile for diagnostics.
+- [x] Preserve fuel cost, damage, speed, homing, target selection, and collision behavior for both affected wrench modes.
+- [x] Add regression coverage for yellow and blue wedge spacing, successive-volley variation, and deterministic replay.
 - [x] Update player guidance, developer notes, architecture, plan, and revision labels.
-- [x] Rename the visible `speedShot` power-up to Overdrive while retaining its stable internal IDs.
-- [x] Add an Overdrive passive fuel-recovery floor equal to 90 percent of attached hover drain.
-- [x] Apply the floor while airborne, during ordinary recharge delay, and while hover fuel is being consumed.
-- [x] Use the greater of ordinary recovery and the Overdrive floor rather than adding both rates.
-- [x] Keep the retired `rocketOverdrive` identity unsupported despite the new visible name.
+
+
+## Revision 311 WebGL2 renderer conversion
+
+- [x] Prefer a high-performance WebGL2 context for the visible game canvas.
+- [x] Retain a Canvas 2D startup fallback when WebGL2 is unavailable.
+- [x] Add a dedicated presentation-only WebGL2 backend module.
+- [x] Batch textured quads through one dynamic interleaved vertex buffer.
+- [x] Cache static atlas, foreground-treatment, and overlap-composite textures.
+- [x] Draw main scenery, actor-front scenery, cave foreground, and cutout masks directly with WebGL2.
+- [x] Composite procedural actors/effects and mask/overlay passes through transparent reusable Canvas staging textures.
+- [x] Update dynamic staging textures with `texSubImage2D` rather than reallocating each frame.
+- [x] Use premultiplied-alpha upload and blending rules compatible with Canvas sources.
+- [x] Handle WebGL context loss/restoration and rebuild GPU resources.
+- [x] Invalidate GPU textures when colour maps, cave windows, or atlas sets change.
+- [x] Expose backend, draw-call, quad, upload, update, layer, and texture diagnostics.
+- [x] Add source-contract regression coverage and update documentation and revision labels.
+
+## Revision 312 direct WebGL2 effect migration
+
+- [x] Keep the Canvas 2D fallback renderer unchanged.
+- [x] Add per-sprite alpha vs additive blend selection in the WebGL2 backend.
+- [x] Reuse cached particle sprite canvases for GPU-friendly glow, ring, diamond, and cross-spark quads.
+- [x] Draw rocket smoke trails directly in WebGL2 instead of through the staging canvas.
+- [x] Draw projectile explosion spark bursts and radius rings directly in WebGL2.
+- [x] Draw Ignatius death burst/cover particles directly in WebGL2.
+- [x] Preserve ordered composition by inserting dedicated GPU particle passes between staging uploads.
+- [x] Leave non-migrated procedural effects on the staging canvas.
+- [x] Extend renderer source-contract coverage and bump packaged revision labels.
+
+## Revision 313 direct WebGL2 enemy projectile migration
+
+- [x] Add a dedicated direct WebGL2 pass for launched enemy projectile families.
+- [x] Keep ordering between enemies, projectiles, Ignatius, and staged overlays intact.
+- [x] Render enemy fireball trail particles through the same GPU pass.
+- [x] Prefer atlas sprite rendering for fireballs, musket balls, and rocks.
+- [x] Provide small cached fallback canvases for musket-ball and rock rendering when needed.
+- [x] Continue using the Canvas fallback renderer unchanged when WebGL2 is unavailable.
+- [x] Extend renderer source-contract coverage and bump packaged revision labels.
+
+## Revision 314 direct WebGL2 player rocket migration
+
+- [x] Add a dedicated direct WebGL2 pass for launched player rockets.
+- [x] Preserve rocket ordering relative to direct trails/explosions and the staged player draw pass.
+- [x] Render rocket body sprites through the GPU batcher with pivot-aware offset handling.
+- [x] Add a lightweight GPU rocket-flame treatment using cached sprite art.
+- [x] Skip WebGL-handled player rockets in the staged Canvas projectile pass.
+- [x] Keep the Canvas fallback renderer unchanged when WebGL2 is unavailable.
+- [x] Extend renderer source-contract coverage and bump packaged revision labels.
+
+## Revision 315 direct WebGL2 actor migration
+
+- [x] Render target markers directly through cached WebGL sprite quads.
+- [x] Render ordinary pickups and power-up glow/icon composites directly through WebGL2.
+- [x] Convert runtime character enemy draw commands into direct GPU quads.
+- [x] Render enemy shadows and health bars directly with the WebGL backend.
+- [x] Convert the Ignatius rig parts to direct WebGL2 while preserving animation sampling and facing.
+- [x] Preserve shield and low-health tint overlays through cached tint textures.
+- [x] Render score popups through cached WebGL text sprites.
+- [x] Render portal-intro glow directly through an additive WebGL sprite.
+- [x] Keep the mounted fuel bulb and debug/story overlays on the Canvas staging pass.
+- [x] Preserve the complete Canvas fallback renderer.
+- [x] Extend renderer source-contract coverage and bump packaged revision labels.
+
+## Revision 316 WebGL parity audit
+
+- [x] Compare the WebGL2 draw order against the revision 310 Canvas renderer.
+- [x] Move Ignatius death-cover sparks after the GPU player rig.
+- [x] Generate cached white hit-flash canvases for all loaded character projects.
+- [x] Add an independent secondary tint overlay channel to GPU character rendering.
+- [x] Restore enemy hit flashes in the WebGL path.
+- [x] Restore player hit flashes without suppressing shield or low-health overlays.
+- [x] Add regression source checks for ordering and hit-flash support.
+- [x] Package without transient `.build` output.
+
+## Revision 317 WebGL2 fallback review
+
+- [x] Recompare the hybrid renderer with revision 310 Canvas draw order and fallback behavior.
+- [x] Probe full WebGL2 backend initialization on a disposable scratch canvas before touching the visible canvas.
+- [x] Preserve direct Canvas 2D startup when WebGL2 is unavailable or initialization fails.
+- [x] Avoid rendering into the invisible staging canvas during transient WebGL context loss.
+- [x] Add regression coverage for unavailable-context probing and successful scratch-backend initialization/disposal.
+- [x] Keep gameplay, simulation, Canvas fallback draw order, and asset contracts unchanged.
+
+## Revision 318 WebGL2 Level Editor compositor
+
+- [x] Probe WebGL2 backend initialization on a disposable canvas before committing the visible editor stage.
+- [x] Keep a complete visible Canvas 2D fallback when WebGL2 is unavailable.
+- [x] Retain the existing cached Canvas static-scene renderer as the authoring source of truth.
+- [x] Upload the static editor scene only when it is invalidated.
+- [x] Draw placement previews, selection outlines, and marquees into a separate transparent transient surface.
+- [x] Composite static and transient editor surfaces through the shared WebGL2 sprite backend.
+- [x] Invalidate the retained static GPU texture whenever the Canvas scene cache is rebuilt.
+- [x] Rebuild editor scene caches after WebGL context restoration.
+- [x] Preserve editor data, hit testing, serialization, and Canvas fallback behavior.
+- [x] Add source-contract coverage and bump packaged revision labels.
+
+## Revision 319 canonical Overdrive identity
+
+- [x] Rename the built-in effect constant to `POWER_UP_EFFECT_IDS.OVERDRIVE`.
+- [x] Rename the portable effect ID from `speedShot` to `overdrive`.
+- [x] Rename the entity type from `speedShotPickup` to `overdrivePickup`.
+- [x] Update every bundled level and generated reward metadata record.
+- [x] Update the entity catalog, reward catalog, editor stress fixture, tests, manuals, and project rules.
+- [x] Remove all Speed Shot compatibility names rather than adding another alias.
+- [x] Keep the retired `rocketOverdrive` identity unsupported.
+- [x] Preserve Overdrive duration, half-fuel launch cost, passive recovery, stacking, and HUD priority.
+
+## Revision 320 live-playtest visibility correction
+
+- [x] Reproduce the reported failure from render-path inspection: static GPU scenery visible while direct dynamic sprites can vanish.
+- [x] Restore all gameplay-critical dynamic visuals to one Canvas staging pass under WebGL2.
+- [x] Preserve pre-WebGL2 draw order for targets, pickups, enemies, effects, projectiles, player, death cover, and score popups.
+- [x] Keep static scenery, foreground, cave composition, and final presentation on WebGL2.
+- [x] Leave pure Canvas fallback behavior unchanged.
+- [x] Record that direct dynamic GPU helpers require real-browser visual validation before reactivation.
+- [x] Bump revision labels and regression coverage.
+

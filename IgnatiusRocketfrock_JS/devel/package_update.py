@@ -49,6 +49,7 @@ REQUIRED_FILES = {
     "devel/test-gate-runner.mjs",
     "src/browser/game-bootstrap.js",
     "src/core/simulation.js",
+    "src/presentation/webgl2-renderer.js",
     "tests/fixtures/level-editor-stress.json",
     "tests/test-gate-manifest.mjs",
     "tests/testbench.mjs",

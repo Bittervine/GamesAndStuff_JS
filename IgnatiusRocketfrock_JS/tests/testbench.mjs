@@ -10,8 +10,10 @@ import { testNameInGroup, validateTestGateManifest } from "./test-gate-manifest.
 import {
     computeResponsiveViewportMetrics,
     computeThoughtBubblePlacement,
-    computeTimedTextViewportLayout
+    computeTimedTextViewportLayout,
+    probeWebGL2RendererSupport
 } from "../src/presentation/canvas-renderer.js";
+import { WebGL2RendererBackend } from "../src/presentation/webgl2-renderer.js";
 import {
     caveGradientOpacityAtProgress,
     caveWindowMaskRenderKey,
@@ -383,6 +385,7 @@ function testSourceOrganization() {
         "../src/browser/music-director.js",
         "../src/browser/electron-window-bridge.js",
         "../src/presentation/canvas-renderer.js",
+        "../src/presentation/webgl2-renderer.js",
         "../src/presentation/cave-window-mask.js",
         "../src/presentation/foreground-sprite-treatment.js",
         "../src/presentation/world-visual-cache.js",
@@ -579,7 +582,7 @@ function testSourceOrganization() {
     assert.equal(levelEditorSource.includes("entity.runSpeed ?? entity.chaseSpeed"), false, "Level Editor should not translate retired enemy speed fields");
     assert.equal(levelEditorSource.includes("Array.isArray(record?.thoughts)"), false, "Level Editor should not translate retired mailbox thought arrays");
     assert.ok(levelEditorSource.includes("RETIRED_LEVEL_ENTITY_TYPES") && levelEditorSource.includes("delete normalizedEntity.chaseSpeed"), "Level Editor should strip unsupported retired entity records and fields during import");
-    assert.equal(powerUpSource.includes('id === "rocketOverdrive" ? POWER_UP_EFFECT_IDS.SPEED_SHOT'), false, "shared power-up data should not translate the retired Rocket Overdrive identity");
+    assert.equal(powerUpSource.includes('id === "rocketOverdrive" ? POWER_UP_EFFECT_IDS.OVERDRIVE'), false, "shared power-up data should not translate the retired Rocket Overdrive identity");
     assert.ok(powerUpSource.includes("RETIRED_ROCKET_OVERDRIVE_ID") && powerUpSource.includes("return null"), "shared power-up data should explicitly reject retired Rocket Overdrive records");
     assert.equal(generatorSource.includes("smoothCavernProfile") || /\bprofile:\s*profile\.map/.test(generatorSource), false, "current cavern generation should not emit the retired top/bottom profile record");
     assert.ok(generatorSource.includes("delete cavern.profile"), "generation normalization should strip retired cavern profiles from imported records");
@@ -5962,7 +5965,7 @@ function testAutomaticLevelGeneratorRewards() {
         .filter((entry) => entry.category === "powerUp")
         .map((entry) => [entry.entityType, entry.weight]));
     assert.deepEqual(generatedPowerUpWeights, {
-        speedShotPickup: 1,
+        overdrivePickup: 1,
         shieldPickup: 1,
         randomWrenchPickup: 2
     }, "generated power-up weights should reserve half the mix for wrenches and split the remainder between Shield and Overdrive");
@@ -6010,7 +6013,7 @@ function testAutomaticLevelGeneratorRewards() {
         assert.ok(chest.scoreValue > 0 && Math.abs(chest.y - support.surfaceY) <= 0.01, "every generated chest should be seated and award positive Score");
     }
     const contextualTypes = rewardEntities.filter((entity) => entity.type !== "treasureChest" && entity.type !== "thoughtTrigger").map((entity) => entity.type);
-    const generatedPowerUps = rewardEntities.filter((entity) => ["speedShotPickup", "shieldPickup", "randomWrenchPickup"].includes(entity.type));
+    const generatedPowerUps = rewardEntities.filter((entity) => ["overdrivePickup", "shieldPickup", "randomWrenchPickup"].includes(entity.type));
     assert.ok(generatedPowerUps.length >= first.generation.rewards.powerUpTarget, `rewarded generated levels should meet their route-scaled power-up target of ${first.generation.rewards.powerUpTarget}`);
     const generatedPowerUpCounts = generatedPowerUps.reduce((counts, entity) => {
         counts[entity.type] = (counts[entity.type] || 0) + 1;
@@ -6018,12 +6021,12 @@ function testAutomaticLevelGeneratorRewards() {
     }, {});
     const generatedWrenchCount = generatedPowerUpCounts.randomWrenchPickup || 0;
     const generatedShieldCount = generatedPowerUpCounts.shieldPickup || 0;
-    const generatedSpeedCount = generatedPowerUpCounts.speedShotPickup || 0;
+    const generatedSpeedCount = generatedPowerUpCounts.overdrivePickup || 0;
     assert.ok(Math.abs(generatedWrenchCount * 2 - generatedPowerUps.length) <= 1, "about half of generated power-ups should be randomized wrenches");
     assert.ok(Math.abs(generatedShieldCount - generatedSpeedCount) <= 1, "the non-wrench half should be split evenly between Shield and Overdrive");
     const supportById = new Map(first.generation.traversal.supports.map((support) => [support.id, support]));
     assert.equal(generatedPowerUps.every((entity) => Math.abs(entity.y - supportById.get(entity.generationSupportId)?.surfaceY) <= 0.01), true, "generated power-ups should sit directly on their support surface for easy pickup");
-    assert.ok(contextualTypes.some((type) => ["speedShotPickup", "shieldPickup", "randomWrenchPickup"].includes(type)), "rewarded generated levels should contain genuine power-up pickups");
+    assert.ok(contextualTypes.some((type) => ["overdrivePickup", "shieldPickup", "randomWrenchPickup"].includes(type)), "rewarded generated levels should contain genuine power-up pickups");
     assert.equal(rewardEntities.some((entity) => entity.type === "thoughtTrigger"), false, "generated location thoughts should remain absent unless explicitly enabled");
 
     const independent = validateGeneratedRewards({
@@ -6058,7 +6061,7 @@ function testAutomaticLevelGeneratorRewards() {
     assert.ok(wideSecondarySupports.length >= 3, "a rewarded Wide cavern should populate its open upper volume with several reachable platforms");
     assert.ok(wideContent.entities.some((entity) => entity.generationStage === "encounters" && wideSupportById.get(entity.generationSupportId)?.combatPerch), "Wide caverns should use at least one upper combat perch for monsters");
     assert.ok(wideContent.entities.some((entity) => entity.generationStage === "rewards" && wideSupportById.get(entity.generationSupportId)?.rewardPerch), "Wide caverns should use at least one upper reward perch for treasure or pickups");
-    assert.ok(wideContent.entities.some((entity) => entity.generationStage === "rewards" && ["speedShotPickup", "shieldPickup", "randomWrenchPickup"].includes(entity.type)), "Wide rewarded caverns should retain a genuine power-up pickup");
+    assert.ok(wideContent.entities.some((entity) => entity.generationStage === "rewards" && ["overdrivePickup", "shieldPickup", "randomWrenchPickup"].includes(entity.type)), "Wide rewarded caverns should retain a genuine power-up pickup");
 
     const zeroRewards = generateAutomaticLevelDraft({
         ...options,
@@ -6707,6 +6710,110 @@ function testCaveFullBlackKillBoundary() {
 
 
 function testCanvasWorldVisualPerformanceInfrastructure() {
+    const glCalls = { drawArrays: 0, texImage2D: 0, texSubImage2D: 0 };
+    let nextHandle = 1;
+    const gl = {
+        VERTEX_SHADER: 1,
+        FRAGMENT_SHADER: 2,
+        COMPILE_STATUS: 3,
+        LINK_STATUS: 4,
+        ARRAY_BUFFER: 5,
+        DYNAMIC_DRAW: 6,
+        FLOAT: 7,
+        TEXTURE_2D: 8,
+        TEXTURE_MIN_FILTER: 9,
+        TEXTURE_MAG_FILTER: 10,
+        TEXTURE_WRAP_S: 11,
+        TEXTURE_WRAP_T: 12,
+        NEAREST: 13,
+        LINEAR: 14,
+        CLAMP_TO_EDGE: 15,
+        RGBA: 16,
+        UNSIGNED_BYTE: 17,
+        DEPTH_TEST: 18,
+        CULL_FACE: 19,
+        SCISSOR_TEST: 20,
+        BLEND: 21,
+        FUNC_ADD: 22,
+        ONE: 23,
+        ONE_MINUS_SRC_ALPHA: 24,
+        COLOR_BUFFER_BIT: 25,
+        TEXTURE0: 26,
+        TRIANGLES: 27,
+        UNPACK_FLIP_Y_WEBGL: 28,
+        UNPACK_PREMULTIPLY_ALPHA_WEBGL: 29,
+        createShader: () => ({ id: nextHandle++ }),
+        shaderSource: () => {},
+        compileShader: () => {},
+        getShaderParameter: () => true,
+        getShaderInfoLog: () => "",
+        deleteShader: () => {},
+        createProgram: () => ({ id: nextHandle++ }),
+        attachShader: () => {},
+        linkProgram: () => {},
+        getProgramParameter: () => true,
+        getProgramInfoLog: () => "",
+        deleteProgram: () => {},
+        getAttribLocation: (_program, name) => ({ a_position: 0, a_uv: 1, a_color: 2 }[name]),
+        getUniformLocation: () => ({ id: nextHandle++ }),
+        createVertexArray: () => ({ id: nextHandle++ }),
+        createBuffer: () => ({ id: nextHandle++ }),
+        bindVertexArray: () => {},
+        bindBuffer: () => {},
+        bufferData: () => {},
+        enableVertexAttribArray: () => {},
+        vertexAttribPointer: () => {},
+        createTexture: () => ({ id: nextHandle++ }),
+        bindTexture: () => {},
+        texParameteri: () => {},
+        texImage2D: () => { glCalls.texImage2D += 1; },
+        texSubImage2D: () => { glCalls.texSubImage2D += 1; },
+        deleteTexture: () => {},
+        deleteBuffer: () => {},
+        deleteVertexArray: () => {},
+        viewport: () => {},
+        disable: () => {},
+        enable: () => {},
+        blendEquation: () => {},
+        blendFunc: () => {},
+        clearColor: () => {},
+        clear: () => {},
+        useProgram: () => {},
+        uniform2f: () => {},
+        uniform1i: () => {},
+        activeTexture: () => {},
+        pixelStorei: () => {},
+        bufferSubData: () => {},
+        drawArrays: () => { glCalls.drawArrays += 1; }
+    };
+    const fakeCanvas = { width: 640, height: 360, addEventListener: () => {} };
+    assert.equal(
+        probeWebGL2RendererSupport({ createElement: () => ({ width: 0, height: 0, addEventListener: () => {}, getContext: () => null }) }),
+        false,
+        "WebGL2 probing should reject unavailable contexts without touching the visible game canvas"
+    );
+    assert.equal(
+        probeWebGL2RendererSupport({ createElement: () => ({ ...fakeCanvas, getContext: () => gl }) }),
+        true,
+        "WebGL2 probing should fully initialize and dispose a scratch backend before the visible canvas is committed to WebGL"
+    );
+    const gpu = new WebGL2RendererBackend(fakeCanvas, gl);
+    const atlasSource = { width: 256, height: 128 };
+    gpu.beginFrame(640, 360, "rgb(6, 6, 12)");
+    gpu.queueSprite({ source: atlasSource, sourceWidth: 64, sourceHeight: 64, centerX: 100, centerY: 100, width: 64, height: 64 });
+    gpu.queueSprite({ source: atlasSource, sourceX: 64, sourceWidth: 64, sourceHeight: 64, centerX: 170, centerY: 100, width: 64, height: 64 });
+    gpu.flush();
+    const stagingSource = { width: 640, height: 360 };
+    gpu.queueSurface(stagingSource, 0, 0, 640, 360, 1, true);
+    gpu.flush();
+    gpu.queueSurface(stagingSource, 0, 0, 640, 360, 1, true);
+    gpu.queueSolidRect(0, 0, 32, 32, "#ffffff");
+    const gpuDiagnostics = gpu.endFrame();
+    assert.equal(gpuDiagnostics.quads, 5, "WebGL sprite batching should account for atlas quads, two staging passes, and solid cutout quads");
+    assert.ok(gpuDiagnostics.drawCalls < gpuDiagnostics.quads, "adjacent sprites sharing one texture should reduce draw calls below quad count");
+    assert.ok(glCalls.texImage2D >= 3, "the WebGL backend should allocate its white, atlas, and staging textures");
+    assert.ok(glCalls.texSubImage2D >= 1, "the second staging upload in one frame should update the reusable texture");
+    assert.equal(glCalls.drawArrays, gpuDiagnostics.drawCalls, "GPU diagnostics should match actual submitted draw calls");
     const visuals = [
         {
             id: "terrain_visible",
@@ -6794,9 +6901,28 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     assert.ok(DEFAULT_CAVE_MASK_RENDER_SCALE < 0.5, "soft cave masks should render on a reduced-resolution surface");
 
     const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
+    const webglSource = readFileSync(new URL("../src/presentation/webgl2-renderer.js", import.meta.url), "utf8");
     const maskSource = readFileSync(new URL("../src/presentation/cave-window-mask.js", import.meta.url), "utf8");
     const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
     assert.ok(rendererSource.includes("buildWorldVisualCache") && rendererSource.includes("visualIntersectsViewport"), "Canvas renderer should cache layer organization and cull static scenery before drawing");
+    assert.ok(rendererSource.includes("createWebGL2RendererBackend") && rendererSource.includes("renderWebGL2") && rendererSource.includes("renderCanvas2D"), "the game renderer should prefer a WebGL2 hybrid path while retaining a Canvas 2D fallback");
+    assert.ok(rendererSource.includes("probeWebGL2RendererSupport") && rendererSource.includes("const webglProbePassed"), "WebGL2 support should be proven on a scratch canvas before the visible canvas is committed to the GPU context family");
+    assert.ok(rendererSource.includes("if (this.webglBackend) {") && rendererSource.includes("wait for webglcontextrestored"), "a lost WebGL context should not incorrectly redirect rendering into the invisible staging canvas");
+    assert.ok(rendererSource.includes("drawOrderedWorldVisualsWebGL") && rendererSource.includes("queueAtlasSpriteVisualWebGL"), "static world, actor-front, and cave-foreground atlas visuals should use direct GPU sprite batches");
+    assert.ok(rendererSource.includes("drawWorldEffectsWebGL") && rendererSource.includes("drawProjectileExplosionEffectsWebGL") && rendererSource.includes("drawPlayerDeathCoverWebGL"), "rocket trails, projectile explosions, and Ignatius death particles should have direct WebGL2 effect passes");
+    assert.ok(rendererSource.indexOf("this.drawPlayer(state, view)") < rendererSource.indexOf("this.drawPlayerDeathCover(state, view)"), "the active hybrid dynamic pass must render death-cover sparks after Ignatius so they actually cover the rig");
+    assert.ok(rendererSource.includes("drawEnemyProjectilesWebGL") && rendererSource.includes("WEBGL_DIRECT_ENEMY_PROJECTILE_KINDS"), "enemy projectile families should have their own direct WebGL2 pass when the GPU backend is active");
+    assert.ok(rendererSource.includes("Revision 320 correctness fallback") && rendererSource.includes("this.drawEnemies(state, view)") && rendererSource.includes("this.drawPlayer(state, view)"), "the WebGL2 renderer should stage the complete dynamic actor stack through Canvas until direct GPU sprite parity is browser-validated");
+    assert.ok(rendererSource.includes("drawPlayerRocketsWebGL") && rendererSource.includes("drawProjectileRocketWebGL") && rendererSource.includes("rocketFlame"), "player rocket bodies and flame treatment should also have a direct WebGL2 pass when the GPU backend is active");
+    assert.ok(rendererSource.includes("hitFlashCanvas") && rendererSource.includes("overlayTintCanvasKey"), "WebGL character rendering should preserve player and enemy hit-flash overlays");
+    assert.ok(rendererSource.includes("drawTargetsWebGL") && rendererSource.includes("drawPickupsWebGL") && rendererSource.includes("drawEnemiesWebGL") && rendererSource.includes("drawPlayerWebGL"), "targets, pickups, enemies, and the player rig should use direct WebGL2 presentation paths where practical");
+    assert.ok(rendererSource.includes("drawScorePopupsWebGL") && rendererSource.includes("drawPortalIntroGlowWebGL") && rendererSource.includes("getWebGLTextSpriteCanvas"), "score popups and portal glow should use cached direct WebGL2 sprite paths");
+    assert.ok(rendererSource.includes("uploadStagingLayer") && rendererSource.includes("gpuCanvasLayerUploads"), "procedural actors and overlays should be composited through explicit transparent staging layers instead of forcing the whole scene back through Canvas 2D");
+    assert.ok(webglSource.includes('getContext("webgl2"') && webglSource.includes('powerPreference: "high-performance"'), "the WebGL backend should request a WebGL2 high-performance context");
+    assert.ok(webglSource.includes("bufferSubData") && webglSource.includes("drawArrays") && webglSource.includes("VERTICES_PER_QUAD"), "the WebGL backend should batch textured quads through one dynamic vertex buffer");
+    assert.ok(webglSource.includes("blendMode = \"alpha\"") && webglSource.includes("gl.blendFunc(gl.ONE, gl.ONE)"), "the WebGL backend should support switching between alpha and additive sprite blending for particle passes");
+    assert.ok(webglSource.includes("texSubImage2D") && webglSource.includes("UNPACK_PREMULTIPLY_ALPHA_WEBGL"), "dynamic Canvas staging layers should update reusable premultiplied textures rather than reallocating them every frame");
+    assert.ok(webglSource.includes("webglcontextlost") && webglSource.includes("webglcontextrestored"), "the GPU backend should explicitly handle WebGL context loss and restoration");
     assert.ok(rendererSource.includes("foregroundSpriteCache") && rendererSource.includes("getForegroundSpriteCanvas"), "dark foreground variants should be cached instead of filtered on every draw");
     assert.ok(rendererSource.includes("smokeStampCache") && rendererSource.includes("getSmokeStampCanvas") && rendererSource.includes("ctx.drawImage(smokeStamp"), "smoke puffs should reuse cached radial stamps rather than create a gradient for every particle on every frame");
     const genericSmokeLoop = rendererSource.slice(
@@ -6811,7 +6937,7 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     assert.ok(maskSource.includes("previousRenderKey") && maskSource.includes("DEFAULT_CAVE_MASK_RENDER_SCALE"), "cave mask should reuse stationary frames and render its layered feather at reduced resolution");
     assert.ok(rendererSource.includes("dynamicBoundsVisible") && rendererSource.includes("projectileRenderBounds"), "targets, enemies, effects, and projectile trails should have conservative dynamic culling");
     assert.ok(rendererSource.includes("lastObservedFrameDt") && rendererSource.includes("lastRenderStartedAtMs"), "observed FPS should use real render-to-render time rather than the simulation dt clamp");
-    assert.ok(bootstrapSource.includes("getPerformanceDiagnostics") && bootstrapSource.includes("dynamic considered:"), "debug panel should expose renderer timings and static/dynamic culling counters");
+    assert.ok(bootstrapSource.includes("getPerformanceDiagnostics") && bootstrapSource.includes("dynamic considered:") && bootstrapSource.includes("gpu draws:"), "debug panel should expose renderer timings, culling counters, and WebGL batch diagnostics");
 }
 
 function testLevelPlacementCopy() {
@@ -6985,7 +7111,7 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     assert.ok(atlas.objects.powerup_icon_wrench.tags.includes("upgrade"), "the wrench should be identified as the generic rocket-upgrade emblem");
     assert.ok(!atlas.objects.powerup_icon_lightning.tags.includes("rapid-fire") && atlas.objects.powerup_icon_lightning.tags.includes("fuel-efficiency"), "the lightning icon should describe Overdrive fuel efficiency without a retired rapid-fire promise");
     assert.ok(catalog.entities.mailbox && catalog.entities.treasureChest && catalog.entities.wizard_entry_door && catalog.entities.wizard_exit_door, "catalog should define mailboxes plus dedicated wizard entry/exit doors");
-    assert.ok(catalog.entities.speedShotPickup && catalog.entities.shieldPickup && catalog.entities.randomWrenchPickup, "interactive catalog should expose Overdrive, Shield, and the randomized wrench pickup family");
+    assert.ok(catalog.entities.overdrivePickup && catalog.entities.shieldPickup && catalog.entities.randomWrenchPickup, "interactive catalog should expose Overdrive, Shield, and the randomized wrench pickup family");
     assert.equal(catalog.entities.shieldPickup.defaults.glowTint, "#008cff", "Shield pickups should use the authored blue glow");
     assert.equal(catalog.entities.shieldPickup.defaults.iconFrame, "powerup_icon_shield", "Shield pickups should use the reserved shield emblem");
     assert.ok(catalog.entities.breakableCrate, "interactive catalog should expose the first reactive destructible object");
@@ -7168,25 +7294,25 @@ function testScoreHudAndTreasureChestCollection() {
 }
 
 function testRocketPowerUpArsenal() {
-    const speedShot = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.SPEED_SHOT);
-    assert.equal(speedShot.label, "Overdrive", "the lightning power-up should use its new Overdrive display name");
-    assert.equal(speedShot.stacking, POWER_UP_STACKING_RULES.REFRESH, "Overdrive should refresh rather than stack multiplicatively");
-    assert.equal(speedShot.durationSeconds, 20, "Overdrive should last twenty seconds");
-    assert.equal("launchCooldownMultiplier" in speedShot.rocket, false, "rocket profiles should not retain a firing-cooldown field");
-    assert.equal(speedShot.rocket.launchFuelCostMultiplier, 0.5, "Overdrive should halve projectile-rocket fuel cost");
-    assert.equal(speedShot.hud.priority, 100, "Overdrive should rank below Shield and wrench effects in the Power HUD");
+    const overdrive = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.OVERDRIVE);
+    assert.equal(overdrive.label, "Overdrive", "the lightning power-up should use its new Overdrive display name");
+    assert.equal(overdrive.stacking, POWER_UP_STACKING_RULES.REFRESH, "Overdrive should refresh rather than stack multiplicatively");
+    assert.equal(overdrive.durationSeconds, 20, "Overdrive should last twenty seconds");
+    assert.equal("launchCooldownMultiplier" in overdrive.rocket, false, "rocket profiles should not retain a firing-cooldown field");
+    assert.equal(overdrive.rocket.launchFuelCostMultiplier, 0.5, "Overdrive should halve projectile-rocket fuel cost");
+    assert.equal(overdrive.hud.priority, 100, "Overdrive should rank below Shield and wrench effects in the Power HUD");
     assert.equal(OVERDRIVE_PASSIVE_FUEL_RECOVERY_DRAIN_FACTOR, 0.9, "Overdrive's passive recovery floor should equal ninety percent of hover drain");
     assert.equal(normalizePowerUpPickup({ effectId: "rocketOverdrive" }), null, "retired Rocket Overdrive records should not revive the current Overdrive effect under an obsolete ID");
     assert.equal(normalizePowerUpPickup({
         effectId: "rocketOverdrive",
-        effect: { ...speedShot, id: "rocketOverdrive" }
+        effect: { ...overdrive, id: "rocketOverdrive" }
     }), null, "a complete embedded definition should not revive the retired Rocket Overdrive identity");
     assert.equal(normalizeActivePowerUpEffect({
         id: "rocketOverdrive",
-        definition: { ...speedShot, id: "rocketOverdrive" },
+        definition: { ...overdrive, id: "rocketOverdrive" },
         remainingSeconds: 5
     }), null, "saved active-effect snapshots should reject the retired Rocket Overdrive identity");
-    const normalizedPickup = normalizePowerUpPickup({ effectId: POWER_UP_EFFECT_IDS.SPEED_SHOT });
+    const normalizedPickup = normalizePowerUpPickup({ effectId: POWER_UP_EFFECT_IDS.OVERDRIVE });
     assert.equal(normalizedPickup.iconFrame, "powerup_icon_lightning", "Overdrive should use the reserved lightning emblem");
 
     const shield = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.SHIELD);
@@ -7241,13 +7367,13 @@ function testRocketPowerUpArsenal() {
         entities: [
             {
                 id: "speed_a",
-                type: "speedShotPickup",
+                type: "overdrivePickup",
                 state: "available",
                 x: 300,
                 y: 600,
                 w: 96,
                 h: 96,
-                effectId: "speedShot",
+                effectId: "overdrive",
                 respawnSeconds: 60,
                 radius: 30,
                 visualStates: { available: { visuals: [] }, collected: { visuals: [] } }
@@ -7302,7 +7428,7 @@ function testRocketPowerUpArsenal() {
 
     const fuelBefore = state.fuel.amount;
     stepSimulation(state, createInputFrame({ weaponPressed: true }), FIXED_DT);
-    const activeSpeed = activePowerUpEffect(state, POWER_UP_EFFECT_IDS.SPEED_SHOT);
+    const activeSpeed = activePowerUpEffect(state, POWER_UP_EFFECT_IDS.OVERDRIVE);
     assert.ok(activeSpeed && activeSpeed.remainingSeconds > 19.9, "collecting Overdrive should begin a twenty-second effect window");
     assert.deepEqual(rocketPowerUpMultipliers(state), { launchFuelCostMultiplier: 0.5 }, "Overdrive should expose its deterministic fuel multiplier without a retired cooldown multiplier");
     const overdriveRecoveryRate = DEFAULT_TUNING.attachedBoostDrainRate * OVERDRIVE_PASSIVE_FUEL_RECOVERY_DRAIN_FACTOR;
@@ -7374,7 +7500,7 @@ function testRocketPowerUpArsenal() {
     stepSimulation(state, createInputFrame(), FIXED_DT);
     assert.equal(activeWrenchPowerUpEffect(state)?.id, POWER_UP_EFFECT_IDS.WRENCH_DART, "a newly collected wrench should replace the old wrench");
     assert.equal(Object.values(state.statusEffects.active).filter((effect) => effect.definition.groupId === POWER_UP_GROUP_IDS.WRENCH).length, 1, "only one wrench effect may remain active");
-    assert.ok(activePowerUpEffect(state, POWER_UP_EFFECT_IDS.SPEED_SHOT), "replacing a wrench must not cancel Overdrive");
+    assert.ok(activePowerUpEffect(state, POWER_UP_EFFECT_IDS.OVERDRIVE), "replacing a wrench must not cancel Overdrive");
 
     state.player.x = 900;
     state.player.y = 600;
@@ -7433,23 +7559,45 @@ function testRocketPowerUpArsenal() {
     ];
     const projectileAngle = (projectile) => Math.atan2(projectile.vy, projectile.vx);
 
+    const tripleDefinition = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.WRENCH_TRIPLE);
+    assert.equal(tripleDefinition.rocket.initialAngleJitterDegrees, HOMING_TRIPLE_INITIAL_DIRECTION_JITTER_DEGREES, "yellow Fivefold should use the shared small volley-direction jitter");
     const tripleState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_TRIPLE, { targets: targetSet });
     stepSimulation(tripleState, createInputFrame({ weaponPressed: true }), FIXED_DT);
     assert.equal(tripleState.projectiles.length, 5, "yellow Fivefold should launch five rockets in one volley");
     assert.ok(tripleState.projectiles.every((projectile) => projectile.homing === false), "yellow Fivefold rockets should remain non-homing after launch");
     assert.ok(tripleState.projectiles.every((projectile) => projectile.targetId === "target_a"), "yellow Fivefold should aim its centre line at the nearest forward enemy");
+    const expectedOffsets = [-7.5, -3.75, 0, 3.75, 7.5];
     const tripleAngles = tripleState.projectiles.map(projectileAngle);
     const centreAngle = tripleAngles[2];
-    const expectedOffsets = [-7.5, -3.75, 0, 3.75, 7.5];
     tripleAngles.forEach((angle, index) => {
         approx((angle - centreAngle) * 180 / Math.PI, expectedOffsets[index], 0.0001, `yellow Fivefold rocket ${index + 1} should remain inside the narrowed +/-7.5 degree cone`);
     });
+    const firstTripleJitters = tripleState.projectiles.map((projectile) => projectile.launchAngleJitterDegrees);
+    assert.ok(firstTripleJitters.every((jitter) => Math.abs(jitter) <= HOMING_TRIPLE_INITIAL_DIRECTION_JITTER_DEGREES + 0.0001), "yellow Fivefold volley jitter should remain inside its small authored limit");
+    assert.ok(firstTripleJitters.every((jitter) => Math.abs(jitter - firstTripleJitters[0]) <= 0.000001), "yellow Fivefold should shift the whole wedge together rather than perturbing each rocket independently");
+    assert.ok(firstTripleJitters.some((jitter) => Math.abs(jitter) > 0.01), "yellow Fivefold should actually perturb the shared wedge direction");
     approx(Math.hypot(tripleState.projectiles[2].vx, tripleState.projectiles[2].vy), DEFAULT_TUNING.rocketProjectileSpeed * NON_HOMING_ROCKET_SPEED_FACTOR, 0.01, "yellow Fivefold should use the shared double-speed non-homing factor");
     approx(tripleState.projectiles[0].damage, DEFAULT_TUNING.rocketProjectileDamage / 5, 0.0001, "yellow Fivefold rockets should deal one-fifth standard damage each");
     approx(tripleState.projectiles.reduce((sum, projectile) => sum + projectile.damage, 0), DEFAULT_TUNING.rocketProjectileDamage, 0.0001, "yellow Fivefold should deliver one standard rocket of total damage");
     approx(100 - tripleState.fuel.amount, DEFAULT_TUNING.rocketLaunchCost * 0.5, 0.0001, "yellow Fivefold should cost half standard fuel");
     assert.ok(tripleState.projectiles.every((projectile) => projectile.wrenchEffectId === POWER_UP_EFFECT_IDS.WRENCH_TRIPLE), "Fivefold projectiles should retain their launch-time wrench identity");
     assert.ok(tripleState.projectiles.every((projectile) => projectile.wrenchGlowTint === "#ffff00"), "Fivefold projectiles should retain the yellow glow tint after the player changes effects");
+    stepSimulation(tripleState, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    const secondTripleVolley = tripleState.projectiles.slice(5, 10);
+    assert.equal(secondTripleVolley.length, 5, "a quickly fired second yellow volley should launch immediately");
+    const secondTripleAngles = secondTripleVolley.map(projectileAngle);
+    const secondTripleCentreAngle = secondTripleAngles[2];
+    secondTripleAngles.forEach((angle, index) => {
+        approx((angle - secondTripleCentreAngle) * 180 / Math.PI, expectedOffsets[index], 0.0001, `yellow Fivefold rocket ${index + 1} should preserve the authored internal spacing across successive volleys`);
+    });
+    const secondTripleJitters = secondTripleVolley.map((projectile) => projectile.launchAngleJitterDegrees);
+    assert.ok(secondTripleJitters.every((jitter) => Math.abs(jitter) <= HOMING_TRIPLE_INITIAL_DIRECTION_JITTER_DEGREES + 0.0001), "later yellow volleys should keep the same restrained jitter bound");
+    assert.ok(secondTripleJitters.every((jitter) => Math.abs(jitter - secondTripleJitters[0]) <= 0.000001), "later yellow volleys should keep a shared wedge-direction offset");
+    assert.ok(Math.abs(secondTripleJitters[0] - firstTripleJitters[0]) > 0.01, "successive yellow volleys should not reuse the same wedge direction every time");
+    const tripleReplayState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_TRIPLE, { targets: targetSet });
+    stepSimulation(tripleReplayState, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    const replayTripleJitters = tripleReplayState.projectiles.map((projectile) => projectile.launchAngleJitterDegrees);
+    firstTripleJitters.forEach((jitter, index) => approx(replayTripleJitters[index], jitter, 0.000001, `yellow Fivefold jitter should remain deterministic for replay rocket ${index + 1}`));
     stepMany(tripleState, 8, () => createInputFrame());
     const tripleTrailPuffs = tripleState.effects.smokePuffs.filter((puff) => puff.kind === "rocketSmokePuff");
     assert.ok(tripleTrailPuffs.length > 0, "powered rockets should emit persistent world-managed trail puffs");
@@ -7485,15 +7633,21 @@ function testRocketPowerUpArsenal() {
     assert.ok(phaseState.projectiles.every((projectile) => projectile.homing === true), "blue Homing Triple rockets should remain guided");
     assert.deepEqual(new Set(phaseState.projectiles.map((projectile) => projectile.targetId)).size, 3, "blue Homing Triple should prefer separate targets when enough are available");
     assert.ok(new Set(phaseState.projectiles.map((projectile) => `${projectile.vx.toFixed(3)}:${projectile.vy.toFixed(3)}`)).size === 3, "blue Homing Triple should retain the former yellow fan-out launch paths");
+    const phaseAngles = phaseState.projectiles.map(projectileAngle);
+    assert.ok(phaseAngles[0] < phaseAngles[1] && phaseAngles[1] < phaseAngles[2], "blue Homing Triple should preserve its left-centre-right launch ordering inside the wedge");
     const firstPhaseJitters = phaseState.projectiles.map((projectile) => projectile.launchAngleJitterDegrees);
     assert.ok(firstPhaseJitters.every((jitter) => Math.abs(jitter) <= HOMING_TRIPLE_INITIAL_DIRECTION_JITTER_DEGREES + 0.0001), "blue Homing Triple launch jitter should remain inside its small authored limit");
-    assert.ok(firstPhaseJitters.some((jitter) => Math.abs(jitter) > 0.01), "blue Homing Triple should actually perturb at least one launch direction");
+    assert.ok(firstPhaseJitters.every((jitter) => Math.abs(jitter - firstPhaseJitters[0]) <= 0.000001), "blue Homing Triple should shift the whole wedge together rather than perturbing each rocket independently");
+    assert.ok(firstPhaseJitters.some((jitter) => Math.abs(jitter) > 0.01), "blue Homing Triple should actually perturb the shared wedge direction");
     stepSimulation(phaseState, createInputFrame({ weaponPressed: true }), FIXED_DT);
     const secondPhaseVolley = phaseState.projectiles.slice(3, 6);
     assert.equal(secondPhaseVolley.length, 3, "a quickly fired second blue volley should launch immediately");
+    const secondPhaseAngles = secondPhaseVolley.map(projectileAngle);
+    assert.ok(secondPhaseAngles[0] < secondPhaseAngles[1] && secondPhaseAngles[1] < secondPhaseAngles[2], "blue Homing Triple should preserve its left-centre-right ordering across successive volleys");
     const secondPhaseJitters = secondPhaseVolley.map((projectile) => projectile.launchAngleJitterDegrees);
     assert.ok(secondPhaseJitters.every((jitter) => Math.abs(jitter) <= HOMING_TRIPLE_INITIAL_DIRECTION_JITTER_DEGREES + 0.0001), "later blue volleys should keep the same restrained jitter bound");
-    assert.ok(secondPhaseJitters.some((jitter, index) => Math.abs(jitter - firstPhaseJitters[index]) > 0.01), "successive blue volleys should not reuse three identical launch rails");
+    assert.ok(secondPhaseJitters.every((jitter) => Math.abs(jitter - secondPhaseJitters[0]) <= 0.000001), "later blue volleys should keep a shared wedge-direction offset");
+    assert.ok(Math.abs(secondPhaseJitters[0] - firstPhaseJitters[0]) > 0.01, "successive blue volleys should not reuse the same wedge direction every time");
     const phaseReplayState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_PHASE, { targets: targetSet });
     stepSimulation(phaseReplayState, createInputFrame({ weaponPressed: true }), FIXED_DT);
     const replayJitters = phaseReplayState.projectiles.map((projectile) => projectile.launchAngleJitterDegrees);
@@ -7612,7 +7766,7 @@ function testRocketPowerUpArsenal() {
     approx(blockedBoomerangState.fuel.amount, 85, 0.0001, "an obstructed Boomerang return should not refund launch fuel");
 
     const serialized = restoreGameState(serializeGameState(state));
-    assert.ok(activePowerUpEffect(serialized, POWER_UP_EFFECT_IDS.SPEED_SHOT), "active effects should survive ordinary state serialization");
+    assert.ok(activePowerUpEffect(serialized, POWER_UP_EFFECT_IDS.OVERDRIVE), "active effects should survive ordinary state serialization");
     assert.equal(serialized.pickups.find((pickup) => pickup.id === wrenchPickup.id).randomRollCount, 1, "pickup reroll state should survive serialization");
 
     const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
@@ -7629,8 +7783,10 @@ function testRocketPowerUpArsenal() {
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 309<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(bootstrapSource, /const GAME_REVISION = "309";/, "the game debug revision should match the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 320<\/small>/, "the Level Editor should display the packaged revision");
+    assert.ok(editorSource.includes("createWebGL2RendererBackend") && editorSource.includes("paintEditorFrameWebGL") && editorSource.includes("editorTransientOverlayCache"), "the Level Editor should prefer a WebGL2 compositor for cached static scenes and transient overlays");
+    assert.ok(editorSource.includes("probeEditorWebGL2Support") && editorSource.includes("editorCanvas2D !== canvas"), "the Level Editor must probe on a disposable canvas and retain a true Canvas 2D fallback");
+    assert.match(bootstrapSource, /const GAME_REVISION = "320";/, "the game debug revision should match the packaged revision");
     assert.match(editorSource, /<button id="fit-content-view">Fit<\/button>/, "the Level Editor should expose one concise Fit button");
     assert.equal(editorSource.includes('id="fit-view"'), false, "the removed Fit World control should not remain in the Level Editor");
     assert.equal(editorSource.includes('id="fit-cave-view"'), false, "the removed Fit Cave control should not remain in the Level Editor");
@@ -7661,7 +7817,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(manualSource.includes("Rocket launches have no firing cooldown") && manualSource.includes("Rocket firing itself has no cooldown"), "the game manual should document fuel-gated immediate rocket launching");
     const entityCatalog = JSON.parse(readFileSync(new URL("../assets/it_entities_001.json", import.meta.url), "utf8"));
     const catalogEntities = Object.values(entityCatalog.entities || {});
-    const speedCatalogEntry = catalogEntities.find((entity) => entity.type === "speedShotPickup");
+    const speedCatalogEntry = catalogEntities.find((entity) => entity.type === "overdrivePickup");
     const shieldCatalogEntry = catalogEntities.find((entity) => entity.type === "shieldPickup");
     const wrenchCatalogEntry = catalogEntities.find((entity) => entity.type === "randomWrenchPickup");
     assert.equal(speedCatalogEntry?.defaults?.durationSeconds, 20, "the entity catalog should default Overdrive pickups to twenty seconds");
@@ -7669,13 +7825,13 @@ function testRocketPowerUpArsenal() {
     assert.equal(wrenchCatalogEntry?.defaults?.durationSeconds, 20, "the entity catalog should default random wrench pickups to twenty seconds");
 
     const levelOne = JSON.parse(readFileSync(new URL("../assets/level_001.json", import.meta.url), "utf8"));
-    const placedSpeedShot = levelOne.entities.find((entity) => entity.id === "speed_shot_001");
+    const placedOverdrive = levelOne.entities.find((entity) => entity.id === "overdrive_001");
     const placedWrench = levelOne.entities.find((entity) => entity.id === "random_wrench_001");
     const placedShield = levelOne.entities.find((entity) => entity.id === "shield_001");
-    assert.ok(placedSpeedShot && placedSpeedShot.effectId === "speedShot", "level_001 should include the renamed Overdrive pickup");
-    assert.equal(placedSpeedShot.x, 800, "Overdrive should remain on the early main floor");
-    assert.equal(placedSpeedShot.durationSeconds, 20, "the authored Overdrive should last twenty seconds");
-    assert.equal(placedSpeedShot.respawnSeconds, 60, "the authored Overdrive should respawn after sixty seconds");
+    assert.ok(placedOverdrive && placedOverdrive.effectId === "overdrive", "level_001 should include the renamed Overdrive pickup");
+    assert.equal(placedOverdrive.x, 800, "Overdrive should remain on the early main floor");
+    assert.equal(placedOverdrive.durationSeconds, 20, "the authored Overdrive should last twenty seconds");
+    assert.equal(placedOverdrive.respawnSeconds, 60, "the authored Overdrive should respawn after sixty seconds");
     assert.ok(placedWrench && placedWrench.type === "randomWrenchPickup", "level_001 should include one randomized wrench pickup");
     assert.deepEqual(placedWrench.randomEffectIds, [...WRENCH_POWER_UP_EFFECT_IDS], "the level wrench should roll across the complete wrench family");
     assert.equal(placedWrench.durationSeconds, 20, "the authored random wrench should grant a twenty-second effect");
@@ -7688,9 +7844,9 @@ function testRocketPowerUpArsenal() {
     const priorityState = {
         statusEffects: {
             active: {
-                speedShot: {
-                    id: POWER_UP_EFFECT_IDS.SPEED_SHOT,
-                    definition: speedShot,
+                overdrive: {
+                    id: POWER_UP_EFFECT_IDS.OVERDRIVE,
+                    definition: overdrive,
                     remainingSeconds: 4,
                     activatedAt: 1
                 },
@@ -7720,7 +7876,7 @@ function testRocketPowerUpArsenal() {
     priorityState.statusEffects.active.wrenchTriple.remainingSeconds = 0;
     assert.equal(prioritizedActivePowerUpEffect(priorityState)?.id, POWER_UP_EFFECT_IDS.SHIELD, "Shield should display after the wrench expires and ahead of Overdrive");
     priorityState.statusEffects.active.shield.remainingSeconds = 0;
-    assert.equal(prioritizedActivePowerUpEffect(priorityState)?.id, POWER_UP_EFFECT_IDS.SPEED_SHOT, "Overdrive should display after both the wrench and Shield expire");
+    assert.equal(prioritizedActivePowerUpEffect(priorityState)?.id, POWER_UP_EFFECT_IDS.OVERDRIVE, "Overdrive should display after both the wrench and Shield expire");
 }
 
 function testCachedWrenchRocketGlowKernels() {
@@ -8864,9 +9020,9 @@ function testStandardRocketSecondarySplash() {
 
     const speedState = createInitialGameState();
     settleOnGround(speedState);
-    const speedDefinition = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.SPEED_SHOT);
-    speedState.statusEffects.active[POWER_UP_EFFECT_IDS.SPEED_SHOT] = {
-        id: POWER_UP_EFFECT_IDS.SPEED_SHOT,
+    const speedDefinition = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.OVERDRIVE);
+    speedState.statusEffects.active[POWER_UP_EFFECT_IDS.OVERDRIVE] = {
+        id: POWER_UP_EFFECT_IDS.OVERDRIVE,
         definition: speedDefinition,
         remainingSeconds: speedDefinition.durationSeconds,
         sourceId: "test",
