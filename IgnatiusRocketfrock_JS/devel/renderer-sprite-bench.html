@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ignatius Rocketfrock Renderer Sprite Bench</title>
+    <style>
+        html, body {
+            margin: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #06060c;
+            color: #f2edf8;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        canvas {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+
+        #panel {
+            position: fixed;
+            left: 12px;
+            top: 12px;
+            z-index: 10;
+            width: min(520px, calc(100vw - 24px));
+            padding: 12px;
+            border: 1px solid rgba(201, 167, 255, 0.3);
+            border-radius: 8px;
+            background: rgba(18, 14, 26, 0.88);
+            box-shadow: 0 18px 50px rgba(0, 0, 0, 0.38);
+        }
+
+        #controls {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        #controls select,
+        #controls input {
+            min-width: 0;
+        }
+
+        #debug {
+            margin: 0;
+            white-space: pre-wrap;
+            font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="glstage"></canvas>
+    <canvas id="c2dstage"></canvas>
+    <div id="panel">
+        <div id="controls">
+            <label for="mode">mode</label>
+            <select id="mode">
+                <option value="webgl-cached">WebGL cached sprites</option>
+                <option value="webgl-upload">WebGL full-canvas upload</option>
+                <option value="canvas2d">Canvas2D sprites</option>
+            </select>
+            <button id="reset" type="button">reset stats</button>
+            <label for="sprites">sprites</label>
+            <input id="sprites" type="range" min="100" max="12000" step="100" value="2000">
+            <output id="spriteValue">2000</output>
+        </div>
+        <pre id="debug">starting...</pre>
+    </div>
+
+    <script>
+        (() => {
+            const params = new URLSearchParams(window.location.search || "");
+            const initialMode = params.get("mode") || "webgl-cached";
+            const initialSprites = Math.max(100, Math.min(12000, Number(params.get("sprites")) || 2000));
+            const glCanvas = document.getElementById("glstage");
+            const canvas2d = document.getElementById("c2dstage");
+            const modeEl = document.getElementById("mode");
+            const spriteEl = document.getElementById("sprites");
+            const spriteValue = document.getElementById("spriteValue");
+            const debug = document.getElementById("debug");
+            modeEl.value = ["webgl-cached", "webgl-upload", "canvas2d"].includes(initialMode) ? initialMode : "webgl-cached";
+            spriteEl.value = String(initialSprites);
+            spriteValue.value = String(initialSprites);
+
+            const gl = glCanvas.getContext("webgl2", {
+                alpha: false,
+                antialias: false,
+                depth: false,
+                stencil: false,
+                premultipliedAlpha: true,
+                preserveDrawingBuffer: false,
+                powerPreference: "high-performance",
+                desynchronized: true
+            });
+            const ctx = canvas2d.getContext("2d", { alpha: false, desynchronized: true });
+            const layer = document.createElement("canvas");
+            const layerCtx = layer.getContext("2d", { alpha: true, desynchronized: true });
+            const stamp = document.createElement("canvas");
+            stamp.width = 64;
+            stamp.height = 64;
+            const stampCtx = stamp.getContext("2d");
+            const gradient = stampCtx.createRadialGradient(32, 32, 1, 32, 32, 32);
+            gradient.addColorStop(0, "rgba(255,245,190,0.95)");
+            gradient.addColorStop(0.22, "rgba(255,170,74,0.72)");
+            gradient.addColorStop(0.58, "rgba(172,136,190,0.34)");
+            gradient.addColorStop(1, "rgba(30,24,40,0)");
+            stampCtx.fillStyle = gradient;
+            stampCtx.fillRect(0, 0, 64, 64);
+
+            function compileShader(type, source) {
+                const shader = gl.createShader(type);
+                gl.shaderSource(shader, source);
+                gl.compileShader(shader);
+                if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                    throw new Error(gl.getShaderInfoLog(shader) || "shader compile failed");
+                }
+                return shader;
+            }
+
+            function createProgram(vertexSource, fragmentSource) {
+                const program = gl.createProgram();
+                gl.attachShader(program, compileShader(gl.VERTEX_SHADER, vertexSource));
+                gl.attachShader(program, compileShader(gl.FRAGMENT_SHADER, fragmentSource));
+                gl.linkProgram(program);
+                if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                    throw new Error(gl.getProgramInfoLog(program) || "program link failed");
+                }
+                return program;
+            }
+
+            let programInfo = null;
+            let smokeTexture = null;
+            let layerTexture = null;
+            let buffer = null;
+            let vertexData = new Float32Array(0);
+            let sprites = [];
+            let samples = [];
+            let lastNow = performance.now();
+            let frame = 0;
+            let textureUploads = 0;
+            let textureUpdates = 0;
+            let lastUploadBytes = 0;
+
+            if (gl) {
+                const program = createProgram(
+                    `#version 300 es
+                    precision highp float;
+                    in vec2 a_position;
+                    in vec2 a_uv;
+                    in vec4 a_color;
+                    uniform vec2 u_resolution;
+                    out vec2 v_uv;
+                    out vec4 v_color;
+                    void main() {
+                        vec2 clip = vec2(
+                            a_position.x / u_resolution.x * 2.0 - 1.0,
+                            1.0 - a_position.y / u_resolution.y * 2.0
+                        );
+                        gl_Position = vec4(clip, 0.0, 1.0);
+                        v_uv = a_uv;
+                        v_color = a_color;
+                    }`,
+                    `#version 300 es
+                    precision mediump float;
+                    uniform sampler2D u_texture;
+                    in vec2 v_uv;
+                    in vec4 v_color;
+                    out vec4 outColor;
+                    void main() {
+                        vec4 texel = texture(u_texture, v_uv);
+                        outColor = vec4(texel.rgb * v_color.rgb * v_color.a, texel.a * v_color.a);
+                    }`
+                );
+                programInfo = {
+                    program,
+                    position: gl.getAttribLocation(program, "a_position"),
+                    uv: gl.getAttribLocation(program, "a_uv"),
+                    color: gl.getAttribLocation(program, "a_color"),
+                    resolution: gl.getUniformLocation(program, "u_resolution"),
+                    texture: gl.getUniformLocation(program, "u_texture")
+                };
+                buffer = gl.createBuffer();
+                smokeTexture = createTexture(stamp);
+                layerTexture = gl.createTexture();
+                gl.bindTexture(gl.TEXTURE_2D, layerTexture);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                gl.bindTexture(gl.TEXTURE_2D, null);
+            }
+
+            function createTexture(source) {
+                const texture = gl.createTexture();
+                gl.bindTexture(gl.TEXTURE_2D, texture);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+                gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+                gl.bindTexture(gl.TEXTURE_2D, null);
+                textureUploads += 1;
+                return texture;
+            }
+
+            function resize() {
+                const dpr = Math.max(1, Math.min(2, devicePixelRatio || 1));
+                const width = Math.max(1, Math.floor(innerWidth * dpr));
+                const height = Math.max(1, Math.floor(innerHeight * dpr));
+                for (const canvas of [glCanvas, canvas2d, layer]) {
+                    if (canvas.width !== width || canvas.height !== height) {
+                        canvas.width = width;
+                        canvas.height = height;
+                    }
+                }
+            }
+
+            function rebuildSprites() {
+                const count = Math.max(1, Number(spriteEl.value) || 1);
+                spriteValue.value = String(count);
+                sprites = Array.from({ length: count }, (_, index) => ({
+                    x: (index * 97) % Math.max(1, glCanvas.width),
+                    y: (index * 53) % Math.max(1, glCanvas.height),
+                    vx: ((index % 17) - 8) * 0.23,
+                    vy: (((index * 3) % 19) - 9) * 0.18,
+                    size: 18 + (index % 11) * 2.8,
+                    phase: index * 0.37
+                }));
+                vertexData = new Float32Array(count * 6 * 8);
+            }
+
+            function writeVertex(offset, x, y, u, v, r, g, b, a) {
+                vertexData[offset] = x;
+                vertexData[offset + 1] = y;
+                vertexData[offset + 2] = u;
+                vertexData[offset + 3] = v;
+                vertexData[offset + 4] = r;
+                vertexData[offset + 5] = g;
+                vertexData[offset + 6] = b;
+                vertexData[offset + 7] = a;
+            }
+
+            function updateSprites(dt) {
+                const width = Math.max(1, glCanvas.width);
+                const height = Math.max(1, glCanvas.height);
+                for (const sprite of sprites) {
+                    sprite.x += sprite.vx * dt;
+                    sprite.y += sprite.vy * dt;
+                    if (sprite.x < -80) sprite.x += width + 160;
+                    if (sprite.x > width + 80) sprite.x -= width + 160;
+                    if (sprite.y < -80) sprite.y += height + 160;
+                    if (sprite.y > height + 80) sprite.y -= height + 160;
+                }
+            }
+
+            function setupGlFrame() {
+                gl.viewport(0, 0, glCanvas.width, glCanvas.height);
+                gl.disable(gl.DEPTH_TEST);
+                gl.disable(gl.CULL_FACE);
+                gl.enable(gl.BLEND);
+                gl.blendEquation(gl.FUNC_ADD);
+                gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+                gl.clearColor(6 / 255, 6 / 255, 12 / 255, 1);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+                gl.useProgram(programInfo.program);
+                gl.uniform2f(programInfo.resolution, glCanvas.width, glCanvas.height);
+                gl.uniform1i(programInfo.texture, 0);
+            }
+
+            function drawWebglCached() {
+                setupGlFrame();
+                let offset = 0;
+                for (let index = 0; index < sprites.length; index += 1) {
+                    const sprite = sprites[index];
+                    const pulse = 0.72 + Math.sin(frame * 0.025 + sprite.phase) * 0.22;
+                    const half = sprite.size * pulse;
+                    const x0 = sprite.x - half;
+                    const y0 = sprite.y - half;
+                    const x1 = sprite.x + half;
+                    const y1 = sprite.y + half;
+                    const red = 1;
+                    const green = 0.62 + (index % 5) * 0.055;
+                    const blue = 0.32 + (index % 7) * 0.035;
+                    const alpha = 0.34;
+                    writeVertex(offset, x0, y0, 0, 1, red, green, blue, alpha); offset += 8;
+                    writeVertex(offset, x1, y0, 1, 1, red, green, blue, alpha); offset += 8;
+                    writeVertex(offset, x1, y1, 1, 0, red, green, blue, alpha); offset += 8;
+                    writeVertex(offset, x0, y0, 0, 1, red, green, blue, alpha); offset += 8;
+                    writeVertex(offset, x1, y1, 1, 0, red, green, blue, alpha); offset += 8;
+                    writeVertex(offset, x0, y1, 0, 0, red, green, blue, alpha); offset += 8;
+                }
+                gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+                gl.bufferData(gl.ARRAY_BUFFER, vertexData.subarray(0, offset), gl.DYNAMIC_DRAW);
+                const stride = 8 * 4;
+                gl.enableVertexAttribArray(programInfo.position);
+                gl.vertexAttribPointer(programInfo.position, 2, gl.FLOAT, false, stride, 0);
+                gl.enableVertexAttribArray(programInfo.uv);
+                gl.vertexAttribPointer(programInfo.uv, 2, gl.FLOAT, false, stride, 2 * 4);
+                gl.enableVertexAttribArray(programInfo.color);
+                gl.vertexAttribPointer(programInfo.color, 4, gl.FLOAT, false, stride, 4 * 4);
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, smokeTexture);
+                gl.drawArrays(gl.TRIANGLES, 0, offset / 8);
+                return { drawCalls: 1, quads: sprites.length };
+            }
+
+            function drawFullScreenLayer() {
+                const width = glCanvas.width;
+                const height = glCanvas.height;
+                const data = new Float32Array([
+                    0, 0, 0, 1, 1, 1, 1, 1, width, 0, 1, 1, 1, 1, 1, 1, width, height, 1, 0, 1, 1, 1, 1,
+                    0, 0, 0, 1, 1, 1, 1, 1, width, height, 1, 0, 1, 1, 1, 1, 0, height, 0, 0, 1, 1, 1, 1
+                ]);
+                setupGlFrame();
+                gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+                gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
+                const stride = 8 * 4;
+                gl.enableVertexAttribArray(programInfo.position);
+                gl.vertexAttribPointer(programInfo.position, 2, gl.FLOAT, false, stride, 0);
+                gl.enableVertexAttribArray(programInfo.uv);
+                gl.vertexAttribPointer(programInfo.uv, 2, gl.FLOAT, false, stride, 2 * 4);
+                gl.enableVertexAttribArray(programInfo.color);
+                gl.vertexAttribPointer(programInfo.color, 4, gl.FLOAT, false, stride, 4 * 4);
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, layerTexture);
+                gl.drawArrays(gl.TRIANGLES, 0, 6);
+            }
+
+            function drawWebglUpload() {
+                layerCtx.setTransform(1, 0, 0, 1, 0, 0);
+                layerCtx.clearRect(0, 0, layer.width, layer.height);
+                layerCtx.globalCompositeOperation = "source-over";
+                for (const sprite of sprites) {
+                    const pulse = 0.72 + Math.sin(frame * 0.025 + sprite.phase) * 0.22;
+                    const size = sprite.size * pulse * 2;
+                    layerCtx.globalAlpha = 0.34;
+                    layerCtx.drawImage(stamp, sprite.x - size * 0.5, sprite.y - size * 0.5, size, size);
+                }
+                gl.bindTexture(gl.TEXTURE_2D, layerTexture);
+                gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+                if (frame === 0 || drawWebglUpload.lastWidth !== layer.width || drawWebglUpload.lastHeight !== layer.height) {
+                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, layer);
+                    textureUploads += 1;
+                    drawWebglUpload.lastWidth = layer.width;
+                    drawWebglUpload.lastHeight = layer.height;
+                } else {
+                    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, layer);
+                    textureUpdates += 1;
+                }
+                gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+                lastUploadBytes = layer.width * layer.height * 4;
+                drawFullScreenLayer();
+                return { drawCalls: 1, quads: 1 };
+            }
+
+            function drawCanvas2d() {
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.fillStyle = "rgb(6,6,12)";
+                ctx.fillRect(0, 0, canvas2d.width, canvas2d.height);
+                ctx.globalCompositeOperation = "source-over";
+                for (const sprite of sprites) {
+                    const pulse = 0.72 + Math.sin(frame * 0.025 + sprite.phase) * 0.22;
+                    const size = sprite.size * pulse * 2;
+                    ctx.globalAlpha = 0.34;
+                    ctx.drawImage(stamp, sprite.x - size * 0.5, sprite.y - size * 0.5, size, size);
+                }
+                return { drawCalls: sprites.length, quads: sprites.length };
+            }
+
+            function draw(now) {
+                resize();
+                if (!sprites.length || sprites.length !== Number(spriteEl.value)) rebuildSprites();
+                const dt = Math.min(64, now - lastNow);
+                lastNow = now;
+                updateSprites(dt);
+                const mode = modeEl.value;
+                glCanvas.hidden = mode === "canvas2d";
+                canvas2d.hidden = mode !== "canvas2d";
+                const start = performance.now();
+                let diag = { drawCalls: 0, quads: 0 };
+                if (!gl && mode !== "canvas2d") {
+                    debug.textContent = "WebGL2 unavailable in this browser.";
+                    requestAnimationFrame(draw);
+                    return;
+                }
+                if (mode === "webgl-cached") diag = drawWebglCached();
+                else if (mode === "webgl-upload") diag = drawWebglUpload();
+                else diag = drawCanvas2d();
+                const frameMs = performance.now() - start;
+                samples.push({ frameMs, rafMs: dt });
+                if (samples.length > 180) samples.shift();
+                const sorted = samples.map((sample) => sample.frameMs).sort((a, b) => a - b);
+                const median = sorted[Math.floor(sorted.length / 2)] || 0;
+                const average = samples.reduce((sum, sample) => sum + sample.frameMs, 0) / samples.length;
+                const rafAverage = samples.reduce((sum, sample) => sum + sample.rafMs, 0) / samples.length;
+                const fps = rafAverage > 0 ? 1000 / rafAverage : 0;
+                const uploadMb = mode === "webgl-upload" ? (lastUploadBytes * fps / 1048576) : 0;
+                debug.textContent =
+                    `mode: ${mode}\n` +
+                    `sprites: ${sprites.length}\n` +
+                    `fps: ${fps.toFixed(1)}\n` +
+                    `frame median: ${median.toFixed(3)} ms\n` +
+                    `frame avg: ${average.toFixed(3)} ms\n` +
+                    `last frame: ${frameMs.toFixed(3)} ms\n` +
+                    `draw calls: ${diag.drawCalls}\n` +
+                    `quads: ${diag.quads}\n` +
+                    `texture uploads total: ${textureUploads}\n` +
+                    `texture updates total: ${textureUpdates}\n` +
+                    `estimated upload bandwidth: ${uploadMb.toFixed(1)} MB/s`;
+                frame += 1;
+                requestAnimationFrame(draw);
+            }
+
+            spriteEl.addEventListener("input", rebuildSprites);
+            modeEl.addEventListener("change", () => {
+                samples = [];
+                frame = 0;
+                textureUpdates = 0;
+                lastUploadBytes = 0;
+            });
+            document.getElementById("reset").addEventListener("click", () => {
+                samples = [];
+                textureUploads = 0;
+                textureUpdates = 0;
+            });
+            addEventListener("resize", () => {
+                resize();
+                rebuildSprites();
+            });
+            resize();
+            rebuildSprites();
+            requestAnimationFrame(draw);
+        })();
+    </script>
+</body>
+</html>

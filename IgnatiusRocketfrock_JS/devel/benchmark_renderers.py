@@ -54,7 +54,7 @@ import { readFile } from "node:fs/promises";
 const require = createRequire(CONFIG.playwrightPackageJson);
 const { chromium } = require("playwright");
 const config = JSON.parse(await readFile(CONFIG.configPath, "utf8"));
-const level = await readFile(config.levelPath, "utf8");
+const level = config.syntheticLive ? "" : await readFile(config.levelPath, "utf8");
 
 function urlFor(webglValue) {
     const url = new URL(config.url);
@@ -132,6 +132,390 @@ function summarize(run) {
         maskCacheHitRate: samples.length ? samples.filter((sample) => sample.maskCache === "hit").length / samples.length : 0,
         contextLost: samples.some((sample) => sample.contextLost)
     };
+}
+
+const SYNTHETIC_HTML = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rocketfrock Synthetic GPU Sprite Bench</title>
+<style>
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #06060c; color: #f2edf8; font-family: system-ui, sans-serif; }
+canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+#panel { position: fixed; left: 12px; top: 12px; z-index: 10; width: min(520px, calc(100vw - 24px)); padding: 12px; border: 1px solid rgba(201,167,255,0.3); border-radius: 8px; background: rgba(18, 14, 26, 0.88); box-shadow: 0 18px 50px rgba(0,0,0,0.38); }
+#controls { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; margin-bottom: 8px; }
+#controls select, #controls input { min-width: 0; }
+#debug { margin: 0; white-space: pre-wrap; font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+</style>
+</head>
+<body>
+<canvas id="glstage"></canvas>
+<canvas id="c2dstage"></canvas>
+<div id="panel">
+  <div id="controls">
+    <label for="mode">mode</label>
+    <select id="mode">
+      <option value="webgl-cached">WebGL cached sprites</option>
+      <option value="webgl-upload">WebGL full-canvas upload</option>
+      <option value="canvas2d">Canvas2D sprites</option>
+    </select>
+    <button id="reset" type="button">reset stats</button>
+    <label for="sprites">sprites</label>
+    <input id="sprites" type="range" min="100" max="12000" step="100" value="2000">
+    <output id="spriteValue">2000</output>
+  </div>
+  <pre id="debug">starting...</pre>
+</div>
+<script>
+(() => {
+  const initialMode = "__SYNTHETIC_MODE__";
+  const initialSprites = __SYNTHETIC_SPRITES__;
+  const glCanvas = document.getElementById("glstage");
+  const canvas2d = document.getElementById("c2dstage");
+  const modeEl = document.getElementById("mode");
+  const spriteEl = document.getElementById("sprites");
+  const spriteValue = document.getElementById("spriteValue");
+  const debug = document.getElementById("debug");
+  modeEl.value = initialMode;
+  spriteEl.value = String(initialSprites);
+  spriteValue.value = String(initialSprites);
+
+  const gl = glCanvas.getContext("webgl2", {
+    alpha: false,
+    antialias: false,
+    depth: false,
+    stencil: false,
+    premultipliedAlpha: true,
+    preserveDrawingBuffer: false,
+    powerPreference: "high-performance",
+    desynchronized: true
+  });
+  const ctx = canvas2d.getContext("2d", { alpha: false, desynchronized: true });
+  const layer = document.createElement("canvas");
+  const layerCtx = layer.getContext("2d", { alpha: true, desynchronized: true });
+  const stamp = document.createElement("canvas");
+  stamp.width = 64;
+  stamp.height = 64;
+  const stampCtx = stamp.getContext("2d");
+  const g = stampCtx.createRadialGradient(32, 32, 1, 32, 32, 32);
+  g.addColorStop(0, "rgba(255,245,190,0.95)");
+  g.addColorStop(0.22, "rgba(255,170,74,0.72)");
+  g.addColorStop(0.58, "rgba(172,136,190,0.34)");
+  g.addColorStop(1, "rgba(30,24,40,0)");
+  stampCtx.fillStyle = g;
+  stampCtx.fillRect(0, 0, 64, 64);
+
+  function shader(type, source) {
+    const item = gl.createShader(type);
+    gl.shaderSource(item, source);
+    gl.compileShader(item);
+    if (!gl.getShaderParameter(item, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(item));
+    return item;
+  }
+  function program(vs, fs) {
+    const item = gl.createProgram();
+    gl.attachShader(item, shader(gl.VERTEX_SHADER, vs));
+    gl.attachShader(item, shader(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(item);
+    if (!gl.getProgramParameter(item, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(item));
+    return item;
+  }
+
+  let programInfo = null;
+  let smokeTexture = null;
+  let layerTexture = null;
+  let buffer = null;
+  let vertexData = new Float32Array(0);
+  let sprites = [];
+  let samples = [];
+  let lastNow = performance.now();
+  let frame = 0;
+  let textureUploads = 0;
+  let textureUpdates = 0;
+  let lastUploadBytes = 0;
+
+  if (gl) {
+    const prog = program(
+      "#version 300 es\\nprecision highp float; in vec2 a_position; in vec2 a_uv; in vec4 a_color; uniform vec2 u_resolution; out vec2 v_uv; out vec4 v_color; void main(){ vec2 clip=vec2(a_position.x/u_resolution.x*2.0-1.0, 1.0-a_position.y/u_resolution.y*2.0); gl_Position=vec4(clip,0.0,1.0); v_uv=a_uv; v_color=a_color; }",
+      "#version 300 es\\nprecision mediump float; uniform sampler2D u_texture; in vec2 v_uv; in vec4 v_color; out vec4 outColor; void main(){ vec4 texel=texture(u_texture,v_uv); outColor=vec4(texel.rgb*v_color.rgb*v_color.a, texel.a*v_color.a); }"
+    );
+    programInfo = {
+      program: prog,
+      position: gl.getAttribLocation(prog, "a_position"),
+      uv: gl.getAttribLocation(prog, "a_uv"),
+      color: gl.getAttribLocation(prog, "a_color"),
+      resolution: gl.getUniformLocation(prog, "u_resolution"),
+      texture: gl.getUniformLocation(prog, "u_texture")
+    };
+    buffer = gl.createBuffer();
+    smokeTexture = createTexture(stamp);
+    layerTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, layerTexture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+  }
+
+  function createTexture(source) {
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    textureUploads += 1;
+    return texture;
+  }
+
+  function resize() {
+    const dpr = Math.max(1, Math.min(2, devicePixelRatio || 1));
+    const width = Math.max(1, Math.floor(innerWidth * dpr));
+    const height = Math.max(1, Math.floor(innerHeight * dpr));
+    for (const c of [glCanvas, canvas2d, layer]) {
+      if (c.width !== width || c.height !== height) {
+        c.width = width;
+        c.height = height;
+      }
+    }
+  }
+
+  function rebuildSprites() {
+    const count = Math.max(1, Number(spriteEl.value) || 1);
+    spriteValue.value = String(count);
+    sprites = Array.from({ length: count }, (_, i) => ({
+      x: (i * 97) % Math.max(1, glCanvas.width),
+      y: (i * 53) % Math.max(1, glCanvas.height),
+      vx: ((i % 17) - 8) * 0.23,
+      vy: (((i * 3) % 19) - 9) * 0.18,
+      size: 18 + (i % 11) * 2.8,
+      phase: i * 0.37
+    }));
+    vertexData = new Float32Array(count * 6 * 8);
+  }
+
+  function writeVertex(offset, x, y, u, v, r, g, b, a) {
+    vertexData[offset] = x;
+    vertexData[offset + 1] = y;
+    vertexData[offset + 2] = u;
+    vertexData[offset + 3] = v;
+    vertexData[offset + 4] = r;
+    vertexData[offset + 5] = g;
+    vertexData[offset + 6] = b;
+    vertexData[offset + 7] = a;
+  }
+
+  function updateSprites(dt) {
+    const w = Math.max(1, glCanvas.width);
+    const h = Math.max(1, glCanvas.height);
+    for (const sprite of sprites) {
+      sprite.x += sprite.vx * dt;
+      sprite.y += sprite.vy * dt;
+      if (sprite.x < -80) sprite.x += w + 160;
+      if (sprite.x > w + 80) sprite.x -= w + 160;
+      if (sprite.y < -80) sprite.y += h + 160;
+      if (sprite.y > h + 80) sprite.y -= h + 160;
+    }
+  }
+
+  function setupGlFrame() {
+    gl.viewport(0, 0, glCanvas.width, glCanvas.height);
+    gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.CULL_FACE);
+    gl.enable(gl.BLEND);
+    gl.blendEquation(gl.FUNC_ADD);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.clearColor(6 / 255, 6 / 255, 12 / 255, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.useProgram(programInfo.program);
+    gl.uniform2f(programInfo.resolution, glCanvas.width, glCanvas.height);
+    gl.uniform1i(programInfo.texture, 0);
+  }
+
+  function drawWebglCached() {
+    setupGlFrame();
+    let offset = 0;
+    for (let i = 0; i < sprites.length; i += 1) {
+      const sprite = sprites[i];
+      const pulse = 0.72 + Math.sin(frame * 0.025 + sprite.phase) * 0.22;
+      const half = sprite.size * pulse;
+      const x0 = sprite.x - half;
+      const y0 = sprite.y - half;
+      const x1 = sprite.x + half;
+      const y1 = sprite.y + half;
+      const r = 1;
+      const g = 0.62 + (i % 5) * 0.055;
+      const b = 0.32 + (i % 7) * 0.035;
+      const a = 0.34;
+      writeVertex(offset, x0, y0, 0, 1, r, g, b, a); offset += 8;
+      writeVertex(offset, x1, y0, 1, 1, r, g, b, a); offset += 8;
+      writeVertex(offset, x1, y1, 1, 0, r, g, b, a); offset += 8;
+      writeVertex(offset, x0, y0, 0, 1, r, g, b, a); offset += 8;
+      writeVertex(offset, x1, y1, 1, 0, r, g, b, a); offset += 8;
+      writeVertex(offset, x0, y1, 0, 0, r, g, b, a); offset += 8;
+    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, vertexData.subarray(0, offset), gl.DYNAMIC_DRAW);
+    const stride = 8 * 4;
+    gl.enableVertexAttribArray(programInfo.position);
+    gl.vertexAttribPointer(programInfo.position, 2, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(programInfo.uv);
+    gl.vertexAttribPointer(programInfo.uv, 2, gl.FLOAT, false, stride, 2 * 4);
+    gl.enableVertexAttribArray(programInfo.color);
+    gl.vertexAttribPointer(programInfo.color, 4, gl.FLOAT, false, stride, 4 * 4);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, smokeTexture);
+    gl.drawArrays(gl.TRIANGLES, 0, offset / 8);
+    return { drawCalls: 1, quads: sprites.length, textureUpdates: 0 };
+  }
+
+  function drawFullScreenLayer() {
+    const w = glCanvas.width;
+    const h = glCanvas.height;
+    const data = new Float32Array([
+      0, 0, 0, 1, 1, 1, 1, 1,  w, 0, 1, 1, 1, 1, 1, 1,  w, h, 1, 0, 1, 1, 1, 1,
+      0, 0, 0, 1, 1, 1, 1, 1,  w, h, 1, 0, 1, 1, 1, 1,  0, h, 0, 0, 1, 1, 1, 1
+    ]);
+    setupGlFrame();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
+    const stride = 8 * 4;
+    gl.enableVertexAttribArray(programInfo.position);
+    gl.vertexAttribPointer(programInfo.position, 2, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(programInfo.uv);
+    gl.vertexAttribPointer(programInfo.uv, 2, gl.FLOAT, false, stride, 2 * 4);
+    gl.enableVertexAttribArray(programInfo.color);
+    gl.vertexAttribPointer(programInfo.color, 4, gl.FLOAT, false, stride, 4 * 4);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, layerTexture);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+  }
+
+  function drawWebglUpload() {
+    layerCtx.setTransform(1, 0, 0, 1, 0, 0);
+    layerCtx.clearRect(0, 0, layer.width, layer.height);
+    layerCtx.globalCompositeOperation = "source-over";
+    for (let i = 0; i < sprites.length; i += 1) {
+      const sprite = sprites[i];
+      const pulse = 0.72 + Math.sin(frame * 0.025 + sprite.phase) * 0.22;
+      const size = sprite.size * pulse * 2;
+      layerCtx.globalAlpha = 0.34;
+      layerCtx.drawImage(stamp, sprite.x - size * 0.5, sprite.y - size * 0.5, size, size);
+    }
+    gl.bindTexture(gl.TEXTURE_2D, layerTexture);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    if (frame === 0 || drawWebglUpload.lastWidth !== layer.width || drawWebglUpload.lastHeight !== layer.height) {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, layer);
+      textureUploads += 1;
+      drawWebglUpload.lastWidth = layer.width;
+      drawWebglUpload.lastHeight = layer.height;
+    } else {
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, layer);
+      textureUpdates += 1;
+    }
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    lastUploadBytes = layer.width * layer.height * 4;
+    drawFullScreenLayer();
+    return { drawCalls: 1, quads: 1, textureUpdates: 1 };
+  }
+
+  function drawCanvas2d() {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = "rgb(6,6,12)";
+    ctx.fillRect(0, 0, canvas2d.width, canvas2d.height);
+    ctx.globalCompositeOperation = "source-over";
+    for (let i = 0; i < sprites.length; i += 1) {
+      const sprite = sprites[i];
+      const pulse = 0.72 + Math.sin(frame * 0.025 + sprite.phase) * 0.22;
+      const size = sprite.size * pulse * 2;
+      ctx.globalAlpha = 0.34;
+      ctx.drawImage(stamp, sprite.x - size * 0.5, sprite.y - size * 0.5, size, size);
+    }
+    return { drawCalls: sprites.length, quads: sprites.length, textureUpdates: 0 };
+  }
+
+  function draw(now) {
+    resize();
+    if (!sprites.length || sprites.length !== Number(spriteEl.value)) rebuildSprites();
+    const dt = Math.min(64, now - lastNow);
+    lastNow = now;
+    updateSprites(dt);
+    const mode = modeEl.value;
+    glCanvas.hidden = mode === "canvas2d";
+    canvas2d.hidden = mode !== "canvas2d";
+    const start = performance.now();
+    let diag = { drawCalls: 0, quads: 0, textureUpdates: 0 };
+    if (!gl && mode !== "canvas2d") {
+      debug.textContent = "WebGL2 unavailable in this browser.";
+      requestAnimationFrame(draw);
+      return;
+    }
+    if (mode === "webgl-cached") diag = drawWebglCached();
+    else if (mode === "webgl-upload") diag = drawWebglUpload();
+    else diag = drawCanvas2d();
+    const frameMs = performance.now() - start;
+    samples.push({ frameMs, rafMs: dt });
+    if (samples.length > 180) samples.shift();
+    const sorted = samples.map(s => s.frameMs).sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)] || 0;
+    const avg = samples.reduce((sum, s) => sum + s.frameMs, 0) / samples.length;
+    const rafAvg = samples.reduce((sum, s) => sum + s.rafMs, 0) / samples.length;
+    const fps = rafAvg > 0 ? 1000 / rafAvg : 0;
+    const uploadMb = mode === "webgl-upload" ? (lastUploadBytes * fps / 1048576) : 0;
+    debug.textContent =
+      "mode: " + mode + "\\n" +
+      "sprites: " + sprites.length + "\\n" +
+      "fps: " + fps.toFixed(1) + "\\n" +
+      "frame median: " + median.toFixed(3) + " ms\\n" +
+      "frame avg: " + avg.toFixed(3) + " ms\\n" +
+      "last frame: " + frameMs.toFixed(3) + " ms\\n" +
+      "draw calls: " + diag.drawCalls + "\\n" +
+      "quads: " + diag.quads + "\\n" +
+      "texture uploads total: " + textureUploads + "\\n" +
+      "texture updates total: " + textureUpdates + "\\n" +
+      "estimated upload bandwidth: " + uploadMb.toFixed(1) + " MB/s";
+    frame += 1;
+    requestAnimationFrame(draw);
+  }
+
+  spriteEl.addEventListener("input", rebuildSprites);
+  modeEl.addEventListener("change", () => { samples = []; frame = 0; textureUpdates = 0; lastUploadBytes = 0; });
+  document.getElementById("reset").addEventListener("click", () => { samples = []; textureUploads = 0; textureUpdates = 0; });
+  addEventListener("resize", () => { resize(); rebuildSprites(); });
+  resize();
+  rebuildSprites();
+  requestAnimationFrame(draw);
+})();
+</script>
+</body>
+</html>`;
+
+async function runSyntheticLive(browser) {
+    const context = await browser.newContext({
+        viewport: { width: config.viewportWidth, height: config.viewportHeight },
+        deviceScaleFactor: config.dpr,
+        colorScheme: "dark"
+    });
+    const page = await context.newPage();
+    const html = SYNTHETIC_HTML
+        .replace("__SYNTHETIC_MODE__", config.syntheticMode)
+        .replace("__SYNTHETIC_SPRITES__", String(config.syntheticSprites));
+    await page.setContent(html, { waitUntil: "domcontentloaded" });
+    console.log("Synthetic live sprite benchmark is running.");
+    console.log("Use the on-page mode dropdown to compare cached GPU sprites, full-canvas uploads, and Canvas2D.");
+    if (config.syntheticSeconds > 0) {
+        await page.waitForTimeout(config.syntheticSeconds * 1000);
+        console.log(await page.locator("#debug").textContent());
+    } else {
+        console.log("Close the browser tab/window or press Ctrl+C to stop.");
+        await page.waitForEvent("close", { timeout: 0 });
+    }
+    await context.close();
 }
 
 function seedBossExplosionScene() {
@@ -301,6 +685,9 @@ console.log("Scene: paused level_002 boss arena with seeded rocket explosion");
 
 const browser = await chromium.launch(launchOptions);
 try {
+    if (config.syntheticLive) {
+        await runSyntheticLive(browser);
+    } else {
     const measuredRuns = [];
     for (const testCase of testCases) {
         for (let i = 1; i <= config.warmups; i += 1) {
@@ -345,6 +732,7 @@ try {
         const delta = ((webgl.medianLastMs - canvas.medianLastMs) / canvas.medianLastMs) * 100;
         console.log(`WebGL2 median render time is ${Math.abs(delta).toFixed(1)}% ${delta >= 0 ? "slower" : "faster"} than Canvas 2D in this run.`);
     }
+    }
 } finally {
     await browser.close();
 }
@@ -382,6 +770,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--playwright-dir", default=str(DEFAULT_PLAYWRIGHT_DIR), help="directory containing Playwright package.json")
     parser.add_argument("--browser-exe", default=str(default_browser_exe() or ""), help="Chrome/Opera/Chromium executable; empty uses Playwright default")
     parser.add_argument("--headed", action="store_true", help="show the browser window; closer to manual browser testing")
+    parser.add_argument("--synthetic-live", action="store_true", help="open a live sprite-only GPU/Canvas benchmark page")
+    parser.add_argument("--synthetic-mode", choices=["webgl-cached", "webgl-upload", "canvas2d"], default="webgl-cached", help="initial live synthetic benchmark mode")
+    parser.add_argument("--synthetic-sprites", type=int, default=2000, help="initial sprite count for the synthetic live benchmark")
+    parser.add_argument("--synthetic-seconds", type=float, default=0, help="auto-close synthetic benchmark after N seconds; 0 keeps it open")
     return parser.parse_args()
 
 
@@ -416,10 +808,14 @@ def main() -> int:
         "url": args.url,
         "levelPath": str(level),
         "browserExe": str(browser_exe) if browser_exe else "",
-        "headless": not args.headed,
+        "headless": (not args.headed) and not (args.synthetic_live and args.synthetic_seconds <= 0),
         "viewportWidth": width,
         "viewportHeight": height,
         "dpr": args.dpr,
+        "syntheticLive": bool(args.synthetic_live),
+        "syntheticMode": args.synthetic_mode,
+        "syntheticSprites": max(1, args.synthetic_sprites),
+        "syntheticSeconds": max(0, args.synthetic_seconds),
         "runs": max(1, args.runs),
         "warmups": max(0, args.warmups),
         "samples": max(1, args.samples),

@@ -7064,17 +7064,25 @@ function rotateVector(vector, radians) {
     };
 }
 
-function deterministicRocketLaunchAngleJitterDegrees(state, volleyId, maximumDegrees) {
-    const magnitude = Math.max(0, Number(maximumDegrees) || 0);
-    if (magnitude <= 0) return 0;
+function deterministicRocketLaunchUnit(state, volleyId, channel, jitterId = null) {
     const random = ensureRandomState(state);
-    const salt = stableStringHash([
-        "rocket-launch-angle-jitter",
+    const saltParts = [
+        String(channel || "rocket-launch"),
         state.world?.levelId || "level",
         random.levelLoadCount,
         String(volleyId || "volley")
-    ].join(":"));
-    const unit = mixedUint32(random.seed ^ salt) / 4294967296;
+    ];
+    if (jitterId !== null && jitterId !== undefined) {
+        saltParts.push(String(jitterId));
+    }
+    const salt = stableStringHash(saltParts.join(":"));
+    return mixedUint32(random.seed ^ salt) / 4294967296;
+}
+
+function deterministicRocketLaunchAngleJitterDegrees(state, volleyId, maximumDegrees, jitterId = null) {
+    const magnitude = Math.max(0, Number(maximumDegrees) || 0);
+    if (magnitude <= 0) return 0;
+    const unit = deterministicRocketLaunchUnit(state, volleyId, "rocket-launch-angle-jitter", jitterId);
     return (unit * 2 - 1) * magnitude;
 }
 
@@ -7130,6 +7138,8 @@ function activeRocketProfile(state) {
         launchSequenceIntervalSeconds: 0,
         initialAnglesDegrees: [0],
         initialAngleJitterDegrees: 0,
+        homingMeanderIntervalSeconds: 0,
+        homingMeanderTurnDegrees: 0,
         separateTargets: false,
         aimAtNearestForwardTarget: false,
         areaDamageRadiusWizardHeights: 0,
@@ -7190,6 +7200,8 @@ function launchHomingRocket(state) {
     const spawnedIds = [];
 
     const initialAngleJitterDegrees = Math.max(0, Number(rocketProfile.initialAngleJitterDegrees) || 0);
+    const homingMeanderIntervalSeconds = Math.max(0, Number(rocketProfile.homingMeanderIntervalSeconds) || 0);
+    const homingMeanderTurnDegrees = Math.max(0, Number(rocketProfile.homingMeanderTurnDegrees) || 0);
     const volleyAngleJitterDegrees = deterministicRocketLaunchAngleJitterDegrees(
         state,
         volleyId,
@@ -7208,6 +7220,14 @@ function launchHomingRocket(state) {
         const perpendicular = { x: -baseDirection.y, y: baseDirection.x };
         const spawnX = launchOrigin.x + perpendicular.x * lateral * 7;
         const spawnY = launchOrigin.y + perpendicular.y * lateral * 7;
+        const meanderInitialTimer = homingMeanderIntervalSeconds > 0 && homingMeanderTurnDegrees > 0
+            ? homingMeanderIntervalSeconds * (0.35 + deterministicRocketLaunchUnit(
+                state,
+                volleyId,
+                "rocket-homing-meander-delay",
+                `projectile_${index}`
+            ) * 0.5)
+            : 0;
         const projectile = {
             id: `rocket_${String(weapons.nextProjectileId).padStart(3, "0")}`,
             volleyId,
@@ -7228,6 +7248,12 @@ function launchHomingRocket(state) {
             initialHomingStrength: Math.max(0, t.rocketProjectileInitialHomingStrength * (Number(rocketProfile.homingStrengthMultiplier) || 0)),
             projectileSpeed,
             launchAngleJitterDegrees: jitterDegrees,
+            volleyLaunchAngleJitterDegrees: volleyAngleJitterDegrees,
+            homingMeanderIntervalSeconds,
+            homingMeanderTurnDegrees,
+            homingMeanderTimer: meanderInitialTimer,
+            homingMeanderStep: 0,
+            homingMeanderLastTurn: 0,
             upLaunchTimer: rocketProfile.launchMode === "up" ? Math.max(0, t.rocketProjectileUpLaunchSeconds ?? 0.32) : 0,
             age: 0,
             lifetime: t.rocketProjectileLifetime,
@@ -7299,6 +7325,35 @@ function beginBoomerangReturn(state, projectile, reason) {
         refundFuel: round(projectile.boomerangRefundFuel || 0)
     });
     return true;
+}
+
+function applyRocketHomingMeander(state, projectile, dt) {
+    const interval = Math.max(0, Number(projectile.homingMeanderIntervalSeconds) || 0);
+    const turnDegrees = Math.max(0, Number(projectile.homingMeanderTurnDegrees) || 0);
+    if (interval <= 0 || turnDegrees <= 0 || dt <= 0) return;
+    projectile.homingMeanderTimer = (Number(projectile.homingMeanderTimer) || 0) - dt;
+    let guard = 0;
+    while (projectile.homingMeanderTimer <= 0 && guard < 4) {
+        const step = Math.max(0, Math.floor(Number(projectile.homingMeanderStep) || 0));
+        const unit = deterministicRocketLaunchUnit(
+            state,
+            projectile.volleyId || projectile.id || "rocket",
+            "rocket-homing-meander-turn",
+            `${projectile.id || "projectile"}:${step}`
+        );
+        const direction = unit < 0.5 ? -1 : 1;
+        const rotated = rotateVector(
+            { x: Number(projectile.vx) || 0, y: Number(projectile.vy) || 0 },
+            direction * turnDegrees * Math.PI / 180
+        );
+        projectile.vx = rotated.x;
+        projectile.vy = rotated.y;
+        projectile.homingMeanderLastTurn = direction;
+        projectile.homingMeanderLastTurnDegrees = direction * turnDegrees;
+        projectile.homingMeanderStep = step + 1;
+        projectile.homingMeanderTimer += interval;
+        guard += 1;
+    }
 }
 
 function completeBoomerangReturn(state, projectile) {
@@ -7441,6 +7496,7 @@ function updateProjectiles(state, dt) {
                     target = target || findHomingTarget(state);
                     if (target) {
                         projectile.targetId = target.id;
+                        applyRocketHomingMeander(state, projectile, dt);
                         const desired = normalizeVector({ x: target.x - projectile.x, y: target.y - projectile.y });
                         const speed = Math.max(1, Number(projectile.projectileSpeed) || t.rocketProjectileSpeed);
                         const desiredVx = desired.x * speed;
@@ -7731,14 +7787,23 @@ function recordProjectileTrail(state, projectile) {
         projectile.lastSmokePuff = { x: projectile.x, y: projectile.y };
     }
 
-    const maxTrailAge = 1.25;
+    const maxTrailAge = 0.42 * rocketTrailDurationScale(state, projectile);
     const cutoff = state.clock.time - maxTrailAge;
     while (projectile.trail.length > 2 && projectile.trail[0].time < cutoff) {
         projectile.trail.shift();
     }
-    while (projectile.trail.length > 64) {
+    while (projectile.trail.length > 24) {
         projectile.trail.shift();
     }
+}
+
+function rocketTrailDurationScale(state, projectile) {
+    const standardSpeed = Math.max(1, Number(state.tuning?.rocketProjectileSpeed) || 1);
+    const projectileSpeed = Math.max(
+        1,
+        Number(projectile.projectileSpeed) || Math.hypot(Number(projectile.vx) || 0, Number(projectile.vy) || 0) || standardSpeed
+    );
+    return clamp(standardSpeed / projectileSpeed, 0.25, 2.5);
 }
 
 function recordEnemyFireballTrail(state, projectile) {
@@ -7802,6 +7867,7 @@ function addRocketSmokePuff(state, projectile) {
     }
 
     const speed = Math.hypot(projectile.vx, projectile.vy) || 1;
+    const durationScale = rocketTrailDurationScale(state, projectile);
     const tailX = -projectile.vx / speed;
     const tailY = -projectile.vy / speed;
     const seed = Math.floor((projectile.x * 17 + projectile.y * 31 + state.clock.tick * 7) % 100000);
@@ -7815,7 +7881,7 @@ function addRocketSmokePuff(state, projectile) {
         vx: round(tailX * 8),
         vy: round(tailY * 8 - 10),
         age: 0,
-        lifetime: Math.max(0.45, (state.tuning.rocketSmokePuffLifetime ?? 1.5) * 0.68),
+        lifetime: Math.max(0.14, (state.tuning.rocketSmokePuffLifetime ?? 1.5) * 0.23 * durationScale),
         radius: (7 + (seed % 6)) * Math.max(0.6, (state.tuning.rocketSmokePuffScale ?? 1.5) * 0.72),
         sparkleSeed: seed,
         trailTint: String(projectile.wrenchGlowTint || "").trim() || null

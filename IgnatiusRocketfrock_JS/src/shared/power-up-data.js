@@ -17,8 +17,8 @@ export const POWER_UP_GROUP_IDS = Object.freeze({
 });
 
 export const NON_HOMING_ROCKET_SPEED_FACTOR = 2;
-export const MULTI_ROCKET_VOLLEY_DIRECTION_JITTER_DEGREES = 2;
-export const HOMING_TRIPLE_INITIAL_DIRECTION_JITTER_DEGREES = MULTI_ROCKET_VOLLEY_DIRECTION_JITTER_DEGREES;
+export const HOMING_TRIPLE_MEANDER_INTERVAL_SECONDS = 0.16;
+export const HOMING_TRIPLE_MEANDER_TURN_DEGREES = 7;
 export const OVERDRIVE_PASSIVE_FUEL_RECOVERY_DRAIN_FACTOR = 0.9;
 
 export const WRENCH_POWER_UP_EFFECT_IDS = Object.freeze([
@@ -59,6 +59,8 @@ const DEFAULT_ROCKET_PROFILE = Object.freeze({
     launchSequenceIntervalSeconds: 0,
     initialAnglesDegrees: Object.freeze([0]),
     initialAngleJitterDegrees: 0,
+    homingMeanderIntervalSeconds: 0,
+    homingMeanderTurnDegrees: 0,
     separateTargets: false,
     aimAtNearestForwardTarget: false,
     areaDamageRadiusWizardHeights: 0,
@@ -142,7 +144,6 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
             homing: false,
             launchMode: "forward",
             initialAnglesDegrees: Object.freeze([-7.5, -3.75, 0, 3.75, 7.5]),
-            initialAngleJitterDegrees: MULTI_ROCKET_VOLLEY_DIRECTION_JITTER_DEGREES,
             aimAtNearestForwardTarget: true
         }
     }),
@@ -208,7 +209,8 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
             radiusMultiplier: 0.6,
             visualScale: 0.62,
             initialAnglesDegrees: Object.freeze([-12, 0, 12]),
-            initialAngleJitterDegrees: MULTI_ROCKET_VOLLEY_DIRECTION_JITTER_DEGREES,
+            homingMeanderIntervalSeconds: HOMING_TRIPLE_MEANDER_INTERVAL_SECONDS,
+            homingMeanderTurnDegrees: HOMING_TRIPLE_MEANDER_TURN_DEGREES,
             separateTargets: true
         }
     })
@@ -329,6 +331,14 @@ export function normalizePowerUpEffectDefinition(rawDefinition, fallbackId = "")
             initialAngleJitterDegrees: Math.max(0, finiteNumber(
                 rocketSource.initialAngleJitterDegrees,
                 finiteNumber(builtinRocket.initialAngleJitterDegrees, 0)
+            )),
+            homingMeanderIntervalSeconds: Math.max(0, finiteNumber(
+                rocketSource.homingMeanderIntervalSeconds,
+                finiteNumber(builtinRocket.homingMeanderIntervalSeconds, 0)
+            )),
+            homingMeanderTurnDegrees: Math.max(0, finiteNumber(
+                rocketSource.homingMeanderTurnDegrees,
+                finiteNumber(builtinRocket.homingMeanderTurnDegrees, 0)
             )),
             separateTargets: Boolean(rocketSource.separateTargets ?? builtinRocket.separateTargets ?? false),
             aimAtNearestForwardTarget: Boolean(

@@ -181,7 +181,8 @@ import {
     resolveAutoSpawnEnemyIds
 } from "../src/shared/auto-spawn-enemy-data.js";
 import {
-    HOMING_TRIPLE_INITIAL_DIRECTION_JITTER_DEGREES,
+    HOMING_TRIPLE_MEANDER_INTERVAL_SECONDS,
+    HOMING_TRIPLE_MEANDER_TURN_DEGREES,
     NON_HOMING_ROCKET_SPEED_FACTOR,
     OVERDRIVE_PASSIVE_FUEL_RECOVERY_DRAIN_FACTOR,
     POWER_UP_EFFECT_IDS,
@@ -7559,24 +7560,29 @@ function testRocketPowerUpArsenal() {
         { id: "target_c", x: 800, y: 520, state: "active" }
     ];
     const projectileAngle = (projectile) => Math.atan2(projectile.vy, projectile.vx);
+    const angleDeltaDegrees = (angle, baseAngle) => {
+        let delta = (angle - baseAngle) * 180 / Math.PI;
+        while (delta > 180) delta -= 360;
+        while (delta < -180) delta += 360;
+        return delta;
+    };
 
     const tripleDefinition = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.WRENCH_TRIPLE);
-    assert.equal(tripleDefinition.rocket.initialAngleJitterDegrees, HOMING_TRIPLE_INITIAL_DIRECTION_JITTER_DEGREES, "yellow Fivefold should use the shared small volley-direction jitter");
+    assert.equal(tripleDefinition.rocket.initialAngleJitterDegrees, 0, "yellow Fivefold should not randomize its launch angle");
+    assert.equal(tripleDefinition.rocket.homingMeanderTurnDegrees, 0, "yellow Fivefold should not use guided meander");
     const tripleState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_TRIPLE, { targets: targetSet });
     stepSimulation(tripleState, createInputFrame({ weaponPressed: true }), FIXED_DT);
     assert.equal(tripleState.projectiles.length, 5, "yellow Fivefold should launch five rockets in one volley");
     assert.ok(tripleState.projectiles.every((projectile) => projectile.homing === false), "yellow Fivefold rockets should remain non-homing after launch");
     assert.ok(tripleState.projectiles.every((projectile) => projectile.targetId === "target_a"), "yellow Fivefold should aim its centre line at the nearest forward enemy");
     const expectedOffsets = [-7.5, -3.75, 0, 3.75, 7.5];
+    const tripleOrigin = { x: tripleState.player.x, y: tripleState.player.y - tripleState.player.height * 0.72 };
+    const tripleAimAngle = Math.atan2(targetSet[0].y - tripleOrigin.y, targetSet[0].x - tripleOrigin.x);
     const tripleAngles = tripleState.projectiles.map(projectileAngle);
-    const centreAngle = tripleAngles[2];
     tripleAngles.forEach((angle, index) => {
-        approx((angle - centreAngle) * 180 / Math.PI, expectedOffsets[index], 0.0001, `yellow Fivefold rocket ${index + 1} should remain inside the narrowed +/-7.5 degree cone`);
+        approx(angleDeltaDegrees(angle, tripleAimAngle), expectedOffsets[index], 0.0001, `yellow Fivefold rocket ${index + 1} should use its exact authored launch angle`);
     });
-    const firstTripleJitters = tripleState.projectiles.map((projectile) => projectile.launchAngleJitterDegrees);
-    assert.ok(firstTripleJitters.every((jitter) => Math.abs(jitter) <= HOMING_TRIPLE_INITIAL_DIRECTION_JITTER_DEGREES + 0.0001), "yellow Fivefold volley jitter should remain inside its small authored limit");
-    assert.ok(firstTripleJitters.every((jitter) => Math.abs(jitter - firstTripleJitters[0]) <= 0.000001), "yellow Fivefold should shift the whole wedge together rather than perturbing each rocket independently");
-    assert.ok(firstTripleJitters.some((jitter) => Math.abs(jitter) > 0.01), "yellow Fivefold should actually perturb the shared wedge direction");
+    assert.ok(tripleState.projectiles.every((projectile) => projectile.launchAngleJitterDegrees === 0), "yellow Fivefold launch jitter should be zero for every rocket");
     approx(Math.hypot(tripleState.projectiles[2].vx, tripleState.projectiles[2].vy), DEFAULT_TUNING.rocketProjectileSpeed * NON_HOMING_ROCKET_SPEED_FACTOR, 0.01, "yellow Fivefold should use the shared double-speed non-homing factor");
     approx(tripleState.projectiles[0].damage, DEFAULT_TUNING.rocketProjectileDamage / 5, 0.0001, "yellow Fivefold rockets should deal one-fifth standard damage each");
     approx(tripleState.projectiles.reduce((sum, projectile) => sum + projectile.damage, 0), DEFAULT_TUNING.rocketProjectileDamage, 0.0001, "yellow Fivefold should deliver one standard rocket of total damage");
@@ -7587,22 +7593,22 @@ function testRocketPowerUpArsenal() {
     const secondTripleVolley = tripleState.projectiles.slice(5, 10);
     assert.equal(secondTripleVolley.length, 5, "a quickly fired second yellow volley should launch immediately");
     const secondTripleAngles = secondTripleVolley.map(projectileAngle);
-    const secondTripleCentreAngle = secondTripleAngles[2];
     secondTripleAngles.forEach((angle, index) => {
-        approx((angle - secondTripleCentreAngle) * 180 / Math.PI, expectedOffsets[index], 0.0001, `yellow Fivefold rocket ${index + 1} should preserve the authored internal spacing across successive volleys`);
+        approx(angleDeltaDegrees(angle, tripleAimAngle), expectedOffsets[index], 0.0001, `later yellow Fivefold rocket ${index + 1} should reuse the exact authored launch angle`);
     });
-    const secondTripleJitters = secondTripleVolley.map((projectile) => projectile.launchAngleJitterDegrees);
-    assert.ok(secondTripleJitters.every((jitter) => Math.abs(jitter) <= HOMING_TRIPLE_INITIAL_DIRECTION_JITTER_DEGREES + 0.0001), "later yellow volleys should keep the same restrained jitter bound");
-    assert.ok(secondTripleJitters.every((jitter) => Math.abs(jitter - secondTripleJitters[0]) <= 0.000001), "later yellow volleys should keep a shared wedge-direction offset");
-    assert.ok(Math.abs(secondTripleJitters[0] - firstTripleJitters[0]) > 0.01, "successive yellow volleys should not reuse the same wedge direction every time");
-    const tripleReplayState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_TRIPLE, { targets: targetSet });
-    stepSimulation(tripleReplayState, createInputFrame({ weaponPressed: true }), FIXED_DT);
-    const replayTripleJitters = tripleReplayState.projectiles.map((projectile) => projectile.launchAngleJitterDegrees);
-    firstTripleJitters.forEach((jitter, index) => approx(replayTripleJitters[index], jitter, 0.000001, `yellow Fivefold jitter should remain deterministic for replay rocket ${index + 1}`));
+    assert.ok(secondTripleVolley.every((projectile) => projectile.launchAngleJitterDegrees === 0), "later yellow Fivefold volleys should still have no launch jitter");
     stepMany(tripleState, 8, () => createInputFrame());
     const tripleTrailPuffs = tripleState.effects.smokePuffs.filter((puff) => puff.kind === "rocketSmokePuff");
     assert.ok(tripleTrailPuffs.length > 0, "powered rockets should emit persistent world-managed trail puffs");
     assert.ok(tripleTrailPuffs.every((puff) => puff.trailTint === "#ffff00"), "Fivefold rocket trail puffs should retain a restrained yellow power-up tint");
+    const expectedFastTrailLifetime = Math.max(
+        0.14,
+        DEFAULT_TUNING.rocketSmokePuffLifetime * 0.23 / NON_HOMING_ROCKET_SPEED_FACTOR
+    );
+    assert.ok(
+        tripleTrailPuffs.every((puff) => Math.abs(puff.lifetime - expectedFastTrailLifetime) <= 0.000001),
+        "Fivefold's double-speed rockets should shorten trail-puff duration to preserve world-space trail length"
+    );
 
     const targetState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_BURST, { targets: targetSet });
     stepSimulation(targetState, createInputFrame({ weaponPressed: true }), FIXED_DT);
@@ -7627,7 +7633,9 @@ function testRocketPowerUpArsenal() {
     assert.ok(targetBehindState.projectiles[0].vx > 0 && Math.abs(targetBehindState.projectiles[0].vy) < 0.001, "without a forward enemy, green Target should fire straight in the facing direction");
 
     const phaseDefinition = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.WRENCH_PHASE);
-    assert.equal(phaseDefinition.rocket.initialAngleJitterDegrees, HOMING_TRIPLE_INITIAL_DIRECTION_JITTER_DEGREES, "blue Homing Triple should use the shared small launch-angle jitter");
+    assert.equal(phaseDefinition.rocket.initialAngleJitterDegrees, 0, "blue Homing Triple should not randomize its launch angle");
+    assert.equal(phaseDefinition.rocket.homingMeanderIntervalSeconds, HOMING_TRIPLE_MEANDER_INTERVAL_SECONDS, "blue Homing Triple should author periodic guidance disturbances");
+    assert.equal(phaseDefinition.rocket.homingMeanderTurnDegrees, HOMING_TRIPLE_MEANDER_TURN_DEGREES, "blue Homing Triple should author a small meander turn");
     const phaseState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_PHASE, { targets: targetSet });
     stepSimulation(phaseState, createInputFrame({ weaponPressed: true }), FIXED_DT);
     assert.equal(phaseState.projectiles.length, 3, "blue Homing Triple should launch three rockets in one volley");
@@ -7637,22 +7645,32 @@ function testRocketPowerUpArsenal() {
     const phaseAngles = phaseState.projectiles.map(projectileAngle);
     assert.ok(phaseAngles[0] < phaseAngles[1] && phaseAngles[1] < phaseAngles[2], "blue Homing Triple should preserve its left-centre-right launch ordering inside the wedge");
     const firstPhaseJitters = phaseState.projectiles.map((projectile) => projectile.launchAngleJitterDegrees);
-    assert.ok(firstPhaseJitters.every((jitter) => Math.abs(jitter) <= HOMING_TRIPLE_INITIAL_DIRECTION_JITTER_DEGREES + 0.0001), "blue Homing Triple launch jitter should remain inside its small authored limit");
-    assert.ok(firstPhaseJitters.every((jitter) => Math.abs(jitter - firstPhaseJitters[0]) <= 0.000001), "blue Homing Triple should shift the whole wedge together rather than perturbing each rocket independently");
-    assert.ok(firstPhaseJitters.some((jitter) => Math.abs(jitter) > 0.01), "blue Homing Triple should actually perturb the shared wedge direction");
+    assert.ok(firstPhaseJitters.every((jitter) => jitter === 0), "blue Homing Triple launch jitter should be zero for every rocket");
+    phaseState.projectiles.slice(0, 3).forEach((projectile, index) => {
+        approx(projectile.homingMeanderIntervalSeconds, HOMING_TRIPLE_MEANDER_INTERVAL_SECONDS, 0.000001, `blue Homing Triple rocket ${index + 1} should carry the authored meander interval`);
+        approx(projectile.homingMeanderTurnDegrees, HOMING_TRIPLE_MEANDER_TURN_DEGREES, 0.000001, `blue Homing Triple rocket ${index + 1} should carry the authored meander turn`);
+        assert.ok(projectile.homingMeanderTimer > 0 && projectile.homingMeanderTimer < HOMING_TRIPLE_MEANDER_INTERVAL_SECONDS, `blue Homing Triple rocket ${index + 1} should have a deterministic initial meander delay`);
+        assert.equal(projectile.homingMeanderStep, 0, `blue Homing Triple rocket ${index + 1} should not meander before flight updates`);
+    });
+    assert.equal(new Set(phaseState.projectiles.slice(0, 3).map((projectile) => projectile.homingMeanderTimer.toFixed(6))).size, 3, "blue Homing Triple rockets should not share the same initial meander delay");
+    const firstPhaseMeanderTimers = phaseState.projectiles.slice(0, 3).map((projectile) => projectile.homingMeanderTimer);
+    stepMany(phaseState, Math.ceil((HOMING_TRIPLE_MEANDER_INTERVAL_SECONDS + FIXED_DT) / FIXED_DT), () => createInputFrame());
+    assert.ok(phaseState.projectiles.slice(0, 3).every((projectile) => projectile.homingMeanderStep > 0), "blue Homing Triple rockets should receive periodic left/right disturbance turns");
+    assert.ok(phaseState.projectiles.slice(0, 3).every((projectile) => Math.abs(projectile.homingMeanderLastTurn) === 1), "blue Homing Triple disturbance should choose a left or right turn");
+    assert.ok(phaseState.projectiles.slice(0, 3).every((projectile) => Math.abs(projectile.homingMeanderLastTurnDegrees) === HOMING_TRIPLE_MEANDER_TURN_DEGREES), "blue Homing Triple disturbance should use the authored turn amount");
     stepSimulation(phaseState, createInputFrame({ weaponPressed: true }), FIXED_DT);
     const secondPhaseVolley = phaseState.projectiles.slice(3, 6);
     assert.equal(secondPhaseVolley.length, 3, "a quickly fired second blue volley should launch immediately");
     const secondPhaseAngles = secondPhaseVolley.map(projectileAngle);
     assert.ok(secondPhaseAngles[0] < secondPhaseAngles[1] && secondPhaseAngles[1] < secondPhaseAngles[2], "blue Homing Triple should preserve its left-centre-right ordering across successive volleys");
-    const secondPhaseJitters = secondPhaseVolley.map((projectile) => projectile.launchAngleJitterDegrees);
-    assert.ok(secondPhaseJitters.every((jitter) => Math.abs(jitter) <= HOMING_TRIPLE_INITIAL_DIRECTION_JITTER_DEGREES + 0.0001), "later blue volleys should keep the same restrained jitter bound");
-    assert.ok(secondPhaseJitters.every((jitter) => Math.abs(jitter - secondPhaseJitters[0]) <= 0.000001), "later blue volleys should keep a shared wedge-direction offset");
-    assert.ok(Math.abs(secondPhaseJitters[0] - firstPhaseJitters[0]) > 0.01, "successive blue volleys should not reuse the same wedge direction every time");
+    assert.ok(secondPhaseVolley.every((projectile) => projectile.launchAngleJitterDegrees === 0), "later blue Homing Triple volleys should still have no launch jitter");
+    assert.equal(new Set(secondPhaseVolley.map((projectile) => projectile.homingMeanderTimer.toFixed(6))).size, 3, "later blue volleys should give each rocket a distinct initial meander delay");
     const phaseReplayState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_PHASE, { targets: targetSet });
     stepSimulation(phaseReplayState, createInputFrame({ weaponPressed: true }), FIXED_DT);
-    const replayJitters = phaseReplayState.projectiles.map((projectile) => projectile.launchAngleJitterDegrees);
-    firstPhaseJitters.forEach((jitter, index) => approx(replayJitters[index], jitter, 0.000001, `blue Homing Triple jitter should remain deterministic for replay rocket ${index + 1}`));
+    const replayMeanderTimers = phaseReplayState.projectiles.map((projectile) => projectile.homingMeanderTimer);
+    firstPhaseMeanderTimers.forEach((timer, index) => {
+        approx(replayMeanderTimers[index], timer, 0.000001, `blue Homing Triple replay rocket ${index + 1} should receive the same deterministic meander delay`);
+    });
     assert.ok(phaseState.projectiles.every((projectile) => projectile.phasesThroughObstacles === false), "blue Homing Triple should no longer phase through blocking geometry");
     approx(Math.hypot(phaseState.projectiles[3].vx, phaseState.projectiles[3].vy), DEFAULT_TUNING.rocketProjectileSpeed, 0.01, "blue Homing Triple should use standard rocket speed");
     approx(phaseState.projectiles[3].damage, DEFAULT_TUNING.rocketProjectileDamage / 3, 0.0001, "blue Homing Triple rockets should deal one-third standard damage each");
@@ -9080,11 +9098,12 @@ function testRocketTrailTracksCurvedPathAndPersistsAfterExplosion() {
     assert.equal(state.projectiles.length, 1, "rocket should still exist while trail is inspected");
     const trail = state.projectiles[0].trail;
     assert.ok(Array.isArray(trail), "rocket should expose a serializable trail array");
-    assert.ok(trail.length > 12, `rocket trail should retain path samples, got ${trail.length}`);
+    assert.ok(trail.length > 6, `rocket trail should retain recent path samples, got ${trail.length}`);
+    assert.ok(trail.length <= 24, `rocket trail should stay within the shortened sample cap, got ${trail.length}`);
     const xSpan = Math.max(...trail.map((point) => point.x)) - Math.min(...trail.map((point) => point.x));
     const ySpan = Math.max(...trail.map((point) => point.y)) - Math.min(...trail.map((point) => point.y));
     assert.ok(xSpan > 80, `homing trail should bend sideways after the upward launch, xSpan=${xSpan}`);
-    assert.ok(ySpan > 120, `rocket trail should show the vertical launch path, ySpan=${ySpan}`);
+    assert.ok(ySpan < 80, `shortened rocket trail should discard the old vertical launch arc, ySpan=${ySpan}`);
 
     const smokeCountDuringFlight = state.effects.smokePuffs.length;
     assert.ok(smokeCountDuringFlight > 8, `world-managed smoke puffs should be emitted during flight, got ${smokeCountDuringFlight}`);

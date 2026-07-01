@@ -3693,7 +3693,7 @@ class RocketfrockRenderer {
             time: point.time ?? state.clock.time
         }));
 
-        const maxScreenLength = this.canvas.width * 0.22;
+        const maxScreenLength = this.canvas.width * 0.075;
         const visible = [screenTrail[screenTrail.length - 1]];
         let distanceSoFar = 0;
         for (let i = screenTrail.length - 2; i >= 0; i -= 1) {
