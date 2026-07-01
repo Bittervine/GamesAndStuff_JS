@@ -97,3 +97,11 @@ After each completed shard, the runner writes `.build/test-gate-report.json`. `.
 Generator boundaries remain foundation, decorated macro, content, and route-seed sweep. They stay sequential because concurrent geometry processes compete for memory. Testbench startup validates that every test has exactly one primary owner, so adding a test also requires an intentional manifest assignment.
 
 `npm run audit:renderer` checks the direct Canvas ownership boundary recorded in `RENDERER_BOUNDARY_AUDIT.md`. `npm run inspect:editor-stress` verifies the frozen dense fixture metrics recorded in `EDITOR_STRESS_BASELINE.md`.
+
+## Fixed-step browser input buffering
+
+The browser loop deliberately separates polling from edge consumption. Call `input.sample({ consumeGameplayEdges: false })` once per animation frame, pass that frame to the first available fixed simulation step, and then call `input.consumeGameplayEdges(stepInput)`. Do not clear press/release fields merely because a rendered frame occurred. A 120 Hz display commonly produces render frames with no 60 Hz simulation step, and consuming there would lose short presses.
+
+Keyboard and pointer transitions are event-latched. Gamepad transitions are latched when the Gamepad API is polled. A quick complete tap may therefore produce both `jumpPressed` and `jumpReleased` in one simulation frame. The jump simulation processes release first so an airborne release-and-repress can arm and start the rocket boost deterministically. `createSubstepInputFrame` remains responsible for stripping edges from the second and later catch-up steps while retaining held controls.
+
+Use plain `input.sample()` only in isolated tests or utilities that intend to consume the returned edges immediately. Menu, focus-loss, level-restart, and title-start paths should continue to call `input.clear()` or `suppressJumpUntilRelease()` as appropriate so buffered gameplay gestures cannot leak across UI boundaries.

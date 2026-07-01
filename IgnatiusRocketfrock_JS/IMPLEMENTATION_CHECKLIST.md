@@ -3039,3 +3039,16 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Strengthen compact release validation for revision notes, required infrastructure, archive naming, generated artifacts, unsafe/duplicate members, and excluded artwork.
 - [x] Keep gameplay, level schema, editor workflow, and Game Manual unchanged.
 - [x] Complete the revision-303 release gate: 165 unique primary tests across all twelve shards passed; the outer command wrapper interruption was resumed from the fingerprinted checkpoint without rerunning completed shards.
+
+## Revision 304 fixed-step input edge buffering
+
+- [x] Reproduce the lost-input path where a browser render frame samples jump but runs zero fixed simulation steps.
+- [x] Latch keyboard and pointer gameplay press/release transitions independently from current held state.
+- [x] Preserve sampled gamepad transitions until a fixed step consumes them.
+- [x] Allow press and release to coexist in one `InputFrame` for complete taps and release-plus-repress gestures.
+- [x] Sample without consuming gameplay edges in the browser animation loop.
+- [x] Consume delivered gameplay edges only after the first fixed step runs.
+- [x] Retain held state across catch-up substeps while preventing edge reuse.
+- [x] Preserve title-screen jump suppression and one-frame pointer drop pulses.
+- [x] Add regression coverage for render-only frames, complete taps, airborne release-plus-repress, and exactly-once boost activation.
+- [x] Update revision labels, architecture, developer guidance, plan notes, player manual, and stable test ownership.

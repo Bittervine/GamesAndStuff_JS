@@ -100,7 +100,7 @@ const autoFullscreenRow = document.getElementById("auto-fullscreen-row");
 const autoFullscreenInput = document.getElementById("auto-fullscreen");
 const showMinimapInput = document.getElementById("show-minimap");
 
-const GAME_REVISION = "303";
+const GAME_REVISION = "304";
 
 let displayedLoadingProgress = 0;
 let activeCaveWindow = normalizeCaveWindow(null);
@@ -1427,7 +1427,7 @@ function applyLoadedAtlasCollisions() {
 function frame(now) {
     const realDt = Math.min(0.08, (now - lastNow) / 1000);
     lastNow = now;
-    let inputFrame = input.sample();
+    let inputFrame = input.sample({ consumeGameplayEdges: false });
     if (titleScreenActive && !isGameMenuOpen() && titleStartRequested(inputFrame)) {
         startGameFromTitle();
         // Consume the title gesture until the physical gamepad control is released.
@@ -1457,6 +1457,9 @@ function frame(now) {
     while (accumulator >= FIXED_DT && safety < 8) {
         const stepInput = createSubstepInputFrame(inputFrame, safety);
         stepSimulation(gameState, stepInput, FIXED_DT);
+        if (safety === 0) {
+            input.consumeGameplayEdges(stepInput);
+        }
         accumulator -= FIXED_DT;
         safety += 1;
     }

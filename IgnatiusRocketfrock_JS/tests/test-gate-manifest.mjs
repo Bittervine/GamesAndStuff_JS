@@ -5,6 +5,7 @@ export const TEST_SHARDS = Object.freeze({
             "game settings persistence and menu shell",
             "synthesized level music system",
             "fullscreen Electron bridge contract",
+            "buffered gameplay edges survive render-only frames",
             "left and right Ctrl weapon binding",
             "gamepad triggers fire weapon",
             "keyboard interaction binding",
@@ -191,6 +192,7 @@ export const TEST_SHARDS = Object.freeze({
     ]),
     "smoke": Object.freeze([
             "source organization and architecture map",
+            "buffered gameplay edges survive render-only frames",
             "level editor dense stress fixture",
             "editor level transform runtime",
             "Level Editor multi-selection and all-atlas palette",

@@ -174,7 +174,7 @@
 
         <p>On a gamepad, either trigger launches the equipped weapon. Green walkable lines are one-way for Ignatius: he lands on them from above, but holding down lets him descend through them even while already falling. Enemies never intentionally drop through green lines. Yellow blockable lines and areas remain solid from every direction.</p>
 
-        <p>Ignatius’s ordinary ground jump rises exactly 200 world pixels. The launch speed is derived from gravity, so the designed apex does not change with display or simulation frame rate; rocket-assisted movement remains variable.</p>
+        <p>Ignatius’s ordinary ground jump rises exactly 200 world pixels. The launch speed is derived from gravity, so the designed apex does not change with display or simulation frame rate; rocket-assisted movement remains variable. Quick jump taps and the airborne release-and-press gesture are buffered until the next gameplay step, so the double-jump does not depend on display frame timing.</p>
 
         <h2>Minimap</h2>
         <p>The upper-left score-and-bars panel and the upper-right minimap scale down together whenever the screen is too small to contain them. If the minimap is hidden, the score panel can use the released space and remain larger. The minimap matches the rendered height of the score panel, never grows wider than it, and shows the cave outline, horizontal platform surfaces, the current camera window, Ignatius, and the exit marker. Click or tap either upper panel to open the pause menu. The minimap can be hidden in Settings; the score panel and <code>Escape</code> still open the menu.</p>

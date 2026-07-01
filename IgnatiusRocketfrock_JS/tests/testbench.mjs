@@ -7589,8 +7589,8 @@ function testRocketPowerUpArsenal() {
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 303<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(bootstrapSource, /const GAME_REVISION = "303";/, "the game debug revision should match the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 304<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "304";/, "the game debug revision should match the packaged revision");
     assert.match(editorSource, /<button id="fit-content-view">Fit<\/button>/, "the Level Editor should expose one concise Fit button");
     assert.equal(editorSource.includes('id="fit-view"'), false, "the removed Fit World control should not remain in the Level Editor");
     assert.equal(editorSource.includes('id="fit-cave-view"'), false, "the removed Fit Cave control should not remain in the Level Editor");
@@ -9482,6 +9482,78 @@ function testReset() {
 
 
 
+function testBufferedGameplayEdgesSurviveRenderOnlyFrames() {
+    const keyEvent = (code) => ({
+        code,
+        repeat: false,
+        preventDefault() {}
+    });
+
+    const input = new RocketfrockInput({ addEventListener() {} });
+    input.onKeyDown(keyEvent("KeyW"));
+    const firstRenderOnlySample = input.sample({ consumeGameplayEdges: false });
+    assert.equal(firstRenderOnlySample.jumpPressed, true, "a jump press should be visible immediately");
+    assert.equal(firstRenderOnlySample.jumpHeld, true, "the held jump state should accompany the buffered edge");
+
+    const secondRenderOnlySample = input.sample({ consumeGameplayEdges: false });
+    assert.equal(secondRenderOnlySample.jumpPressed, true, "a render frame with no simulation step must not consume the jump edge");
+    input.consumeGameplayEdges(secondRenderOnlySample);
+
+    const heldAfterConsumption = input.sample({ consumeGameplayEdges: false });
+    assert.equal(heldAfterConsumption.jumpPressed, false, "the first fixed step should consume the buffered press exactly once");
+    assert.equal(heldAfterConsumption.jumpHeld, true, "consuming an edge must not clear the physical held state");
+
+    input.onKeyUp(keyEvent("KeyW"));
+    input.onKeyDown(keyEvent("KeyW"));
+    const releaseAndRepress = input.sample({ consumeGameplayEdges: false });
+    assert.equal(releaseAndRepress.jumpReleased, true, "a release between samples should remain buffered");
+    assert.equal(releaseAndRepress.jumpPressed, true, "a repress between samples should remain buffered alongside the release");
+    assert.equal(releaseAndRepress.jumpHeld, true, "release plus repress should finish in the held state");
+    input.consumeGameplayEdges(releaseAndRepress);
+    const cleanHeldFrame = input.sample({ consumeGameplayEdges: false });
+    assert.equal(cleanHeldFrame.jumpPressed, false, "the buffered repress should not repeat after consumption");
+    assert.equal(cleanHeldFrame.jumpReleased, false, "the buffered release should not repeat after consumption");
+
+    const completeTap = new RocketfrockInput({ addEventListener() {} });
+    completeTap.onKeyDown(keyEvent("KeyW"));
+    completeTap.onKeyUp(keyEvent("KeyW"));
+    const tapFrame = completeTap.sample({ consumeGameplayEdges: false });
+    assert.equal(tapFrame.jumpPressed, true, "a complete tap between samples should preserve its press edge");
+    assert.equal(tapFrame.jumpReleased, true, "a complete tap between samples should preserve its release edge");
+    assert.equal(tapFrame.jumpHeld, false, "a complete tap should finish released");
+
+    const state = createInitialGameState();
+    settleOnGround(state);
+    const gameplayInput = new RocketfrockInput({ addEventListener() {} });
+    gameplayInput.onKeyDown(keyEvent("KeyW"));
+    const groundJump = gameplayInput.sample({ consumeGameplayEdges: false });
+    stepSimulation(state, groundJump, FIXED_DT);
+    gameplayInput.consumeGameplayEdges(groundJump);
+    assert.equal(state.player.onGround, false, "the buffered ground press should start the ordinary jump");
+
+    gameplayInput.onKeyUp(keyEvent("KeyW"));
+    gameplayInput.onKeyDown(keyEvent("KeyW"));
+    const doubleJump = gameplayInput.sample({ consumeGameplayEdges: false });
+    stepSimulation(state, doubleJump, FIXED_DT);
+    gameplayInput.consumeGameplayEdges(doubleJump);
+    assert.equal(state.equipment.rocket.attachedBoosting, true, "a release and repress between fixed steps should arm and start the air boost");
+    const boostStarts = state.debug.lastEvents.filter((event) => event.type === "PLAYER_BOOST_STARTED").length;
+    assert.equal(boostStarts, 1, "the buffered double-jump gesture should start exactly one boost");
+
+    const sustain = gameplayInput.sample({ consumeGameplayEdges: false });
+    stepSimulation(state, sustain, FIXED_DT);
+    gameplayInput.consumeGameplayEdges(sustain);
+    assert.equal(
+        state.debug.lastEvents.filter((event) => event.type === "PLAYER_BOOST_STARTED").length,
+        boostStarts,
+        "holding jump after edge consumption must not retrigger the air boost"
+    );
+
+    const bootstrapSource = readFileSync("./src/browser/game-bootstrap.js", "utf8");
+    assert.match(bootstrapSource, /input\.sample\(\{ consumeGameplayEdges: false \}\)/, "the browser loop should sample without consuming gameplay edges");
+    assert.match(bootstrapSource, /while \(accumulator >= FIXED_DT[\s\S]*stepSimulation\(gameState, stepInput, FIXED_DT\);[\s\S]*input\.consumeGameplayEdges\(stepInput\)/, "the browser loop should consume gameplay edges only after the first fixed step runs");
+}
+
 function testControlKeysLaunchWeapon() {
     const target = {
         addEventListener() {}
@@ -10858,6 +10930,7 @@ const tests = [
     ["difficulty scales only incoming damage", testDifficultyScalesOnlyIncomingDamage],
     ["rendering quality scales rocket particles", testRenderingQualityScalesRocketParticles],
     ["rocket turns fifty percent sharper", testRocketTurnsFiftyPercentSharper],
+    ["buffered gameplay edges survive render-only frames", testBufferedGameplayEdgesSurviveRenderOnlyFrames],
     ["left and right Ctrl weapon binding", testControlKeysLaunchWeapon],
     ["gamepad triggers fire weapon", testGamepadTriggersLaunchWeapon],
     ["keyboard interaction binding", testInteractKeyBinding],

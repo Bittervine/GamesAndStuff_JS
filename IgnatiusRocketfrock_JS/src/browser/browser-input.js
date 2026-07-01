@@ -11,6 +11,14 @@ const KEY_BINDINGS = {
 
 const DEBUG_KEYS = new Set(["KeyP", "KeyO", "KeyR", "KeyH", "KeyV", "KeyC", "KeyE", "KeyL", "F1"]);
 
+const GAMEPLAY_DIGITAL_ACTIONS = Object.freeze([
+    Object.freeze({ held: "jumpHeld", pressed: "jumpPressed", released: "jumpReleased" }),
+    Object.freeze({ held: "boostHeld", pressed: "boostPressed", released: "boostReleased" }),
+    Object.freeze({ held: "weaponHeld", pressed: "weaponPressed", released: "weaponReleased" }),
+    Object.freeze({ held: "interactHeld", pressed: "interactPressed", released: "interactReleased" }),
+    Object.freeze({ held: "dropHeld", pressed: "dropPressed", released: "dropReleased" })
+]);
+
 const POINTER_CONTROL = Object.freeze({
     stickRadius: 96,
     moveDeadzone: 16,
@@ -28,7 +36,8 @@ export class RocketfrockInput {
     constructor(target = window) {
         this.target = target;
         this.keys = new Set();
-        this.previous = createInputFrame();
+        this.gamepad = createEmptyGamepadState();
+        this.pendingGameplayEdges = createPendingGameplayEdges();
         this.debugPressed = {
             pause: false,
             step: false,
@@ -95,7 +104,9 @@ export class RocketfrockInput {
             if (event.code === "F1") this.debugPressed.debugPanel = true;
         }
 
+        const before = this.digitalHeldState();
         this.keys.add(event.code);
+        this.latchDigitalTransitions(before, this.digitalHeldState());
         this.recordKeyEvent("down", event);
     }
 
@@ -103,7 +114,9 @@ export class RocketfrockInput {
         if (this.isGameplayKey(event.code) || DEBUG_KEYS.has(event.code)) {
             event.preventDefault();
         }
+        const before = this.digitalHeldState();
         this.keys.delete(event.code);
+        this.latchDigitalTransitions(before, this.digitalHeldState());
         this.recordKeyEvent("up", event);
     }
 
@@ -207,6 +220,7 @@ export class RocketfrockInput {
 
     beginPointerContact(event, pointerId, x, y, pointerType, source = "pointer") {
         event.preventDefault();
+        const before = this.digitalHeldState();
         const now = performance.now() / 1000;
         const lastDistance = Math.hypot(x - this.pointer.lastTapX, y - this.pointer.lastTapY);
         if (now - this.pointer.lastTapTime <= POINTER_CONTROL.doubleTapSeconds && lastDistance <= POINTER_CONTROL.doubleTapMaxDistance) {
@@ -230,19 +244,23 @@ export class RocketfrockInput {
         this.pointer.currentX = x;
         this.pointer.currentY = y;
         this.updatePointerStick();
+        this.latchDigitalTransitions(before, this.digitalHeldState());
         this.recordPointerEvent("start", event, pointerType);
     }
 
     movePointerContact(event, x, y) {
         event.preventDefault();
+        const before = this.digitalHeldState();
         this.pointer.pointerCancelGraceUntil = 0;
         this.pointer.currentX = x;
         this.pointer.currentY = y;
         this.updatePointerStick();
+        this.latchDigitalTransitions(before, this.digitalHeldState());
     }
 
     endPointerContact(event, kind) {
         event.preventDefault();
+        const before = this.digitalHeldState();
         const pointerType = pointerTypeFromEvent(event);
         this.pointer.active = false;
         this.pointer.pointerId = null;
@@ -253,6 +271,7 @@ export class RocketfrockInput {
         this.pointer.moveAxis = 0;
         this.pointer.jumpHeld = false;
         this.pointer.dropHeld = false;
+        this.latchDigitalTransitions(before, this.digitalHeldState());
         this.recordPointerEvent(kind, event, pointerType);
     }
 
@@ -273,6 +292,7 @@ export class RocketfrockInput {
         if (performance.now() / 1000 <= this.pointer.pointerCancelGraceUntil) {
             return;
         }
+        const before = this.digitalHeldState();
         const pointerType = this.pointer.pointerType;
         this.pointer.active = false;
         this.pointer.pointerId = null;
@@ -283,6 +303,7 @@ export class RocketfrockInput {
         this.pointer.moveAxis = 0;
         this.pointer.jumpHeld = false;
         this.pointer.dropHeld = false;
+        this.latchDigitalTransitions(before, this.digitalHeldState());
         this.recordPointerEvent("cancelTimeout", { type: "pointercancel" }, pointerType);
     }
 
@@ -339,6 +360,8 @@ export class RocketfrockInput {
 
     suppressJumpUntilRelease() {
         this.jumpSuppressedUntilRelease = true;
+        this.pendingGameplayEdges.jumpPressed = false;
+        this.pendingGameplayEdges.jumpReleased = false;
     }
 
     clear() {
@@ -353,7 +376,9 @@ export class RocketfrockInput {
         this.pointer.jumpHeld = false;
         this.pointer.dropHeld = false;
         this.pointer.dropPulse = false;
-        this.previous = createInputFrame();
+        this.pointer.weaponPulse = false;
+        this.gamepad = createEmptyGamepadState();
+        this.pendingGameplayEdges = createPendingGameplayEdges();
         this.lastInputDevice = "none";
         this.activeGamepadIndex = null;
         this.lastGamepadActivityAt = Number.NEGATIVE_INFINITY;
@@ -408,10 +433,47 @@ export class RocketfrockInput {
         return Object.values(KEY_BINDINGS).some((bindings) => bindings.includes(code));
     }
 
-    sample() {
+    digitalHeldState(gamepad = this.gamepad) {
+        return {
+            jumpHeld: anyKey(this.keys, KEY_BINDINGS.jump) || Boolean(gamepad?.jumpHeld) || this.pointer.jumpHeld,
+            boostHeld: false,
+            weaponHeld: anyKey(this.keys, KEY_BINDINGS.weapon) || Boolean(gamepad?.weaponHeld) || this.pointer.weaponPulse,
+            interactHeld: anyKey(this.keys, KEY_BINDINGS.interact) || Boolean(gamepad?.interactHeld),
+            dropHeld: anyKey(this.keys, KEY_BINDINGS.drop) || Boolean(gamepad?.dropHeld) || this.pointer.dropHeld || this.pointer.dropPulse
+        };
+    }
+
+    latchDigitalTransitions(before, after) {
+        for (const action of GAMEPLAY_DIGITAL_ACTIONS) {
+            const wasHeld = Boolean(before?.[action.held]);
+            const isHeld = Boolean(after?.[action.held]);
+            if (!wasHeld && isHeld) {
+                this.pendingGameplayEdges[action.pressed] = true;
+            }
+            if (wasHeld && !isHeld) {
+                this.pendingGameplayEdges[action.released] = true;
+            }
+        }
+    }
+
+    consumeGameplayEdges(inputFrame = null) {
+        for (const action of GAMEPLAY_DIGITAL_ACTIONS) {
+            for (const field of [action.pressed, action.released]) {
+                if (!inputFrame || inputFrame[field]) {
+                    this.pendingGameplayEdges[field] = false;
+                }
+            }
+        }
+    }
+
+    sample({ consumeGameplayEdges = true } = {}) {
         this.expireDeferredPointerCancel();
         const sampleTime = inputNowSeconds();
+        const beforeGamepad = this.digitalHeldState();
         const gamepad = readGamepad(this.activeGamepadIndex);
+        this.gamepad = gamepad;
+        const heldState = this.digitalHeldState();
+        this.latchDigitalTransitions(beforeGamepad, heldState);
         const keyboardMoveAxis = (anyKey(this.keys, KEY_BINDINGS.moveRight) ? 1 : 0) - (anyKey(this.keys, KEY_BINDINGS.moveLeft) ? 1 : 0);
         const moveAxis = clamp(keyboardMoveAxis + gamepad.moveAxis + this.pointer.moveAxis, -1, 1);
         const pointerWeaponPulse = this.pointer.weaponPulse;
@@ -445,29 +507,22 @@ export class RocketfrockInput {
             moveLeft: anyKey(this.keys, KEY_BINDINGS.moveLeft) || gamepad.moveLeft || moveAxis < -0.35,
             moveRight: anyKey(this.keys, KEY_BINDINGS.moveRight) || gamepad.moveRight || moveAxis > 0.35,
             moveAxis,
-            jumpHeld: anyKey(this.keys, KEY_BINDINGS.jump) || gamepad.jumpHeld || this.pointer.jumpHeld,
-            boostHeld: false,
-            weaponHeld: anyKey(this.keys, KEY_BINDINGS.weapon) || gamepad.weaponHeld || pointerWeaponPulse,
-            interactHeld: anyKey(this.keys, KEY_BINDINGS.interact) || gamepad.interactHeld,
-            dropHeld: anyKey(this.keys, KEY_BINDINGS.drop) || gamepad.dropHeld || this.pointer.dropHeld || this.pointer.dropPulse,
+            ...heldState,
             aimVector: gamepad.aimVector || pointerAimVector(this.pointer) || { x: 1, y: 0 },
             inputDevice: this.lastInputDevice,
             gamepadActive,
             gamepadIndex: gamepadActive ? gamepad.index : null
         });
 
+        for (const action of GAMEPLAY_DIGITAL_ACTIONS) {
+            current[action.pressed] = Boolean(this.pendingGameplayEdges[action.pressed]);
+            current[action.released] = Boolean(this.pendingGameplayEdges[action.released]);
+        }
+
+        const beforePulseClear = this.digitalHeldState();
         this.pointer.weaponPulse = false;
         this.pointer.dropPulse = false;
-        current.jumpPressed = current.jumpHeld && !this.previous.jumpHeld;
-        current.jumpReleased = !current.jumpHeld && this.previous.jumpHeld;
-        current.boostPressed = current.boostHeld && !this.previous.boostHeld;
-        current.boostReleased = !current.boostHeld && this.previous.boostHeld;
-        current.weaponPressed = current.weaponHeld && !this.previous.weaponHeld;
-        current.weaponReleased = !current.weaponHeld && this.previous.weaponHeld;
-        current.interactPressed = current.interactHeld && !this.previous.interactHeld;
-        current.interactReleased = !current.interactHeld && this.previous.interactHeld;
-        current.dropPressed = current.dropHeld && !this.previous.dropHeld;
-        current.dropReleased = !current.dropHeld && this.previous.dropHeld;
+        this.latchDigitalTransitions(beforePulseClear, this.digitalHeldState());
         current.pausePressed = take(this.debugPressed, "pause");
         current.stepPressed = take(this.debugPressed, "step");
         current.resetPressed = take(this.debugPressed, "reset");
@@ -483,12 +538,16 @@ export class RocketfrockInput {
             current.jumpHeld = false;
             current.jumpPressed = false;
             current.jumpReleased = false;
+            this.pendingGameplayEdges.jumpPressed = false;
+            this.pendingGameplayEdges.jumpReleased = false;
             if (!stillHeld) {
                 this.jumpSuppressedUntilRelease = false;
             }
         }
 
-        this.previous = current;
+        if (consumeGameplayEdges) {
+            this.consumeGameplayEdges(current);
+        }
         return current;
     }
 }
@@ -531,6 +590,15 @@ function pointerTypeFromEvent(event) {
     return "pointer";
 }
 
+function createPendingGameplayEdges() {
+    const edges = {};
+    for (const action of GAMEPLAY_DIGITAL_ACTIONS) {
+        edges[action.pressed] = false;
+        edges[action.released] = false;
+    }
+    return edges;
+}
+
 function createPointerState() {
     return {
         active: false,
@@ -568,8 +636,8 @@ function gamepadButtonHeld(button) {
     return Boolean(button?.pressed || Number(button?.value) > 0.25);
 }
 
-function readGamepad(preferredIndex = null) {
-    const empty = {
+function createEmptyGamepadState() {
+    return {
         connected: false,
         index: null,
         active: false,
@@ -582,6 +650,10 @@ function readGamepad(preferredIndex = null) {
         dropHeld: false,
         aimVector: null
     };
+}
+
+function readGamepad(preferredIndex = null) {
+    const empty = createEmptyGamepadState();
 
     if (typeof navigator === "undefined" || !navigator.getGamepads) {
         return empty;
