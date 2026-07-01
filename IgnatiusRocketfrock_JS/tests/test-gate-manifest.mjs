@@ -73,7 +73,7 @@ export const TEST_SHARDS = Object.freeze({
             "keyhole consumes key and triggers platform",
             "vanishing moving platforms always recover",
             "Score HUD and treasure chest collection",
-            "Speed Shot, Shield, and wrench power-up arsenal",
+            "Overdrive, Shield, and wrench power-up arsenal",
             "scripted mailbox letter",
             "one-shot location thought trigger",
             "scripted portal entrance",

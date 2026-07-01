@@ -1254,10 +1254,9 @@
         "icon",
         "lightning",
         "rocket",
-        "rapid-fire",
         "fuel-efficiency"
       ],
-      "notes": "Rocket overdrive emblem. Intended above a yellow-orange tinted powerup_glow_white; the later gameplay effect should allow rockets twice as often for half the fuel cost.",
+      "notes": "Overdrive emblem. Intended above a yellow-orange tinted powerup_glow_white; the gameplay effect halves rocket launch fuel cost and continuously recovers fuel at 90% of hover drain.",
       "nodes": [],
       "lines": []
     },

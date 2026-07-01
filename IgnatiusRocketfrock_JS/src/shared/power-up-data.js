@@ -16,6 +16,10 @@ export const POWER_UP_GROUP_IDS = Object.freeze({
     WRENCH: "wrench"
 });
 
+export const NON_HOMING_ROCKET_SPEED_FACTOR = 2;
+export const HOMING_TRIPLE_INITIAL_DIRECTION_JITTER_DEGREES = 2;
+export const OVERDRIVE_PASSIVE_FUEL_RECOVERY_DRAIN_FACTOR = 0.9;
+
 export const WRENCH_POWER_UP_EFFECT_IDS = Object.freeze([
     POWER_UP_EFFECT_IDS.WRENCH_TRIPLE,
     POWER_UP_EFFECT_IDS.WRENCH_DART,
@@ -41,7 +45,6 @@ export const POWER_UP_STACKING_RULES = Object.freeze({
 });
 
 const DEFAULT_ROCKET_PROFILE = Object.freeze({
-    launchCooldownMultiplier: 1,
     launchFuelCostMultiplier: 1,
     projectileCount: 1,
     damageMultiplier: 1,
@@ -54,7 +57,9 @@ const DEFAULT_ROCKET_PROFILE = Object.freeze({
     launchMode: "up",
     launchSequenceIntervalSeconds: 0,
     initialAnglesDegrees: Object.freeze([0]),
+    initialAngleJitterDegrees: 0,
     separateTargets: false,
+    aimAtNearestForwardTarget: false,
     areaDamageRadiusWizardHeights: 0,
     boomerang: false,
     piercesEnemies: false,
@@ -76,7 +81,7 @@ function wrenchEffect({ id, label, glowTint, rocket }) {
             iconFrame: "powerup_icon_wrench",
             glowFrame: "powerup_glow_white",
             glowTint,
-            priority: 50
+            priority: 200
         }),
         rocket: Object.freeze({ ...DEFAULT_ROCKET_PROFILE, glowTint, ...rocket })
     });
@@ -104,7 +109,7 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
     [POWER_UP_EFFECT_IDS.SPEED_SHOT]: Object.freeze({
         version: 1,
         id: POWER_UP_EFFECT_IDS.SPEED_SHOT,
-        label: "Speed Shot",
+        label: "Overdrive",
         durationSeconds: 20,
         permanent: false,
         stacking: POWER_UP_STACKING_RULES.REFRESH,
@@ -119,21 +124,24 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
         }),
         rocket: Object.freeze({
             ...DEFAULT_ROCKET_PROFILE,
-            launchCooldownMultiplier: 0.5,
             launchFuelCostMultiplier: 0.5
         })
     }),
     [POWER_UP_EFFECT_IDS.WRENCH_TRIPLE]: wrenchEffect({
         id: POWER_UP_EFFECT_IDS.WRENCH_TRIPLE,
-        label: "Triple",
+        label: "Fivefold",
         glowTint: "#ffff00",
         rocket: {
-            projectileCount: 3,
-            damageMultiplier: 1 / 2,
+            launchFuelCostMultiplier: 0.5,
+            projectileCount: 5,
+            damageMultiplier: 1 / 5,
             radiusMultiplier: 0.6,
             visualScale: 0.62,
-            initialAnglesDegrees: Object.freeze([-12, 0, 12]),
-            separateTargets: true
+            speedMultiplier: NON_HOMING_ROCKET_SPEED_FACTOR,
+            homing: false,
+            launchMode: "forward",
+            initialAnglesDegrees: Object.freeze([-7.5, -3.75, 0, 3.75, 7.5]),
+            aimAtNearestForwardTarget: true
         }
     }),
     [POWER_UP_EFFECT_IDS.WRENCH_DART]: wrenchEffect({
@@ -141,8 +149,9 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
         label: "Dart",
         glowTint: "#00ffff",
         rocket: {
-            launchFuelCostMultiplier: 2 / 3,
+            launchFuelCostMultiplier: 0.5,
             damageMultiplier: 1,
+            speedMultiplier: NON_HOMING_ROCKET_SPEED_FACTOR,
             homing: false,
             launchMode: "forward",
             piercesEnemies: false
@@ -150,16 +159,15 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
     }),
     [POWER_UP_EFFECT_IDS.WRENCH_BURST]: wrenchEffect({
         id: POWER_UP_EFFECT_IDS.WRENCH_BURST,
-        label: "Burst",
+        label: "Target",
         glowTint: "#00ff00",
         rocket: {
-            projectileCount: 3,
-            damageMultiplier: 1 / 2,
-            radiusMultiplier: 0.6,
-            visualScale: 0.62,
+            launchFuelCostMultiplier: 0.5,
+            damageMultiplier: 1,
+            speedMultiplier: NON_HOMING_ROCKET_SPEED_FACTOR,
             homing: false,
             launchMode: "forward",
-            launchSequenceIntervalSeconds: 0.18
+            aimAtNearestForwardTarget: true
         }
     }),
     [POWER_UP_EFFECT_IDS.WRENCH_BIGBOMB]: wrenchEffect({
@@ -182,16 +190,24 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
         label: "Boomerang",
         glowTint: "#ff00ff",
         rocket: {
+            launchFuelCostMultiplier: 0.5,
             launchMode: "forward",
             boomerang: true
         }
     }),
     [POWER_UP_EFFECT_IDS.WRENCH_PHASE]: wrenchEffect({
         id: POWER_UP_EFFECT_IDS.WRENCH_PHASE,
-        label: "Phase",
+        label: "Homing Triple",
         glowTint: "#0000ff",
         rocket: {
-            phasesThroughObstacles: true
+            launchFuelCostMultiplier: 0.5,
+            projectileCount: 3,
+            damageMultiplier: 1 / 3,
+            radiusMultiplier: 0.6,
+            visualScale: 0.62,
+            initialAnglesDegrees: Object.freeze([-12, 0, 12]),
+            initialAngleJitterDegrees: HOMING_TRIPLE_INITIAL_DIRECTION_JITTER_DEGREES,
+            separateTargets: true
         }
     })
 });
@@ -268,10 +284,6 @@ export function normalizePowerUpEffectDefinition(rawDefinition, fallbackId = "")
             priority: finiteNumber(hudSource.priority, finiteNumber(builtinHud.priority, 0))
         },
         rocket: {
-            launchCooldownMultiplier: Math.max(0.05, finiteNumber(
-                rocketSource.launchCooldownMultiplier,
-                finiteNumber(builtinRocket.launchCooldownMultiplier, 1)
-            )),
             launchFuelCostMultiplier: Math.max(0, finiteNumber(
                 rocketSource.launchFuelCostMultiplier,
                 finiteNumber(builtinRocket.launchFuelCostMultiplier, 1)
@@ -312,7 +324,14 @@ export function normalizePowerUpEffectDefinition(rawDefinition, fallbackId = "")
                 rocketSource.initialAnglesDegrees,
                 builtinRocket.initialAnglesDegrees || [0]
             ).slice(0, projectileCount),
+            initialAngleJitterDegrees: Math.max(0, finiteNumber(
+                rocketSource.initialAngleJitterDegrees,
+                finiteNumber(builtinRocket.initialAngleJitterDegrees, 0)
+            )),
             separateTargets: Boolean(rocketSource.separateTargets ?? builtinRocket.separateTargets ?? false),
+            aimAtNearestForwardTarget: Boolean(
+                rocketSource.aimAtNearestForwardTarget ?? builtinRocket.aimAtNearestForwardTarget ?? false
+            ),
             areaDamageRadiusWizardHeights: Math.max(0, finiteNumber(
                 rocketSource.areaDamageRadiusWizardHeights,
                 finiteNumber(builtinRocket.areaDamageRadiusWizardHeights, 0)
@@ -406,7 +425,17 @@ export function prioritizedActivePowerUpEffect(state) {
         .map((raw) => normalizeActivePowerUpEffect(raw))
         .filter((effect) => effect && (effect.definition.permanent || effect.remainingSeconds > 0));
     active.sort((left, right) => {
-        const priorityDifference = right.definition.hud.priority - left.definition.hud.priority;
+        const leftBuiltinPriority = powerUpEffectDefinition(left.id)?.hud?.priority;
+        const rightBuiltinPriority = powerUpEffectDefinition(right.id)?.hud?.priority;
+        const leftPriority = Math.max(
+            finiteNumber(left.definition.hud.priority, 0),
+            finiteNumber(leftBuiltinPriority, 0)
+        );
+        const rightPriority = Math.max(
+            finiteNumber(right.definition.hud.priority, 0),
+            finiteNumber(rightBuiltinPriority, 0)
+        );
+        const priorityDifference = rightPriority - leftPriority;
         if (Math.abs(priorityDifference) > 0.000001) return priorityDifference;
         const activationDifference = right.activatedAt - left.activatedAt;
         if (Math.abs(activationDifference) > 0.000001) return activationDifference;
@@ -416,16 +445,13 @@ export function prioritizedActivePowerUpEffect(state) {
 }
 
 export function rocketPowerUpMultipliers(state) {
-    let launchCooldownMultiplier = 1;
     let launchFuelCostMultiplier = 1;
     for (const raw of Object.values(state?.statusEffects?.active || {})) {
         const active = normalizeActivePowerUpEffect(raw);
         if (!active || (!active.definition.permanent && active.remainingSeconds <= 0)) continue;
-        launchCooldownMultiplier *= active.definition.rocket.launchCooldownMultiplier;
         launchFuelCostMultiplier *= active.definition.rocket.launchFuelCostMultiplier;
     }
     return {
-        launchCooldownMultiplier: Math.max(0.05, launchCooldownMultiplier),
         launchFuelCostMultiplier: Math.max(0, launchFuelCostMultiplier)
     };
 }

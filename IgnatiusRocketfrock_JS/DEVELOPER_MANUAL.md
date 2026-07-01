@@ -105,3 +105,21 @@ The browser loop deliberately separates polling from edge consumption. Call `inp
 Keyboard and pointer transitions are event-latched. Gamepad transitions are latched when the Gamepad API is polled. A quick complete tap may therefore produce both `jumpPressed` and `jumpReleased` in one simulation frame. The jump simulation processes release first so an airborne release-and-repress can arm and start the rocket boost deterministically. `createSubstepInputFrame` remains responsible for stripping edges from the second and later catch-up steps while retaining held controls.
 
 Use plain `input.sample()` only in isolated tests or utilities that intend to consume the returned edges immediately. Menu, focus-loss, level-restart, and title-start paths should continue to call `input.clear()` or `suppressJumpUntilRelease()` as appropriate so buffered gameplay gestures cannot leak across UI boundaries.
+
+
+## Revision 307 yellow wrench profile note
+
+The canonical yellow wrench remains `POWER_UP_EFFECT_IDS.WRENCH_TRIPLE` for save compatibility, but its visible label is Fivefold. Its current profile is data-driven in `src/shared/power-up-data.js`: `projectileCount: 5`, `damageMultiplier: 1 / 5`, and `initialAnglesDegrees: [-7.5, -3.75, 0, 3.75, 7.5]`. Keep the centre entry at index 2 when tests or tooling inspect the nearest-forward aim line.
+
+## Revision 308 uncapped player rocket launch cadence
+
+Player rocket firing is edge-triggered but has no simulation cooldown. `src/core/simulation.js` should attempt a launch for every delivered `weaponPressed` edge and reject it only when fuel is insufficient or another explicit gameplay rule blocks the action. Do not restore `rocketLaunchCooldown`, `weapons.launchCooldownTimer`, `launchCooldownMultiplier`, or cooldown-based `ROCKET_LAUNCH_BLOCKED` events. Older serialized states may still contain a `launchCooldownTimer` property; it is ignored. Holding a launch key does not invent repeated presses, so automatic fire remains a separate future control decision.
+
+
+## Revision 309 wrench launch-path tuning
+
+Yellow Fivefold keeps five evenly spaced non-homing rockets but narrows its full fan from 30 degrees to 15 degrees. The canonical offsets in `src/shared/power-up-data.js` are now `[-7.5, -3.75, 0, 3.75, 7.5]` around the nearest-forward aim line.
+
+Blue Homing Triple retains the authored `[-12, 0, 12]` fan and standard homing behavior, but each projectile receives an independent deterministic launch-angle perturbation bounded by `HOMING_TRIPLE_INITIAL_DIRECTION_JITTER_DEGREES`, currently 2 degrees. The salt includes the level, level-load count, volley identity, and projectile index, so quickly repeated volleys do not share three rigid rails while identical seeded replays remain identical. Keep this randomness in portable simulation data; do not use `Math.random()` or renderer-owned variation.
+
+The lightning pickup is now displayed as **Overdrive** while retaining the internal `speedShot` effect and `speedShotPickup` entity IDs. Its passive fuel recovery is `attachedBoostDrainRate * OVERDRIVE_PASSIVE_FUEL_RECOVERY_DRAIN_FACTOR`, currently 90 percent of hover drain. Apply that rate even during attached boost, while airborne, and during the normal recharge delay. When ordinary recharge is eligible, use the larger rate rather than adding both. This keeps tuning predictable: with the current 40 fuel/second hover drain, Overdrive recovers 36 fuel/second and hovering therefore consumes a net 4 fuel/second.

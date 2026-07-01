@@ -172,7 +172,7 @@
             </tbody>
         </table>
 
-        <p>On a gamepad, either trigger launches the equipped weapon. Green walkable lines are one-way for Ignatius: he lands on them from above, but holding down lets him descend through them even while already falling. Enemies never intentionally drop through green lines. Yellow blockable lines and areas remain solid from every direction.</p>
+        <p>On a gamepad, either trigger launches the equipped weapon. Green walkable lines are one-way for Ignatius: he lands on them from above, but holding down lets him descend through them even while already falling. Enemies never intentionally drop through green lines. Player and enemy shots pass through green walkable lines. Yellow blockable lines and areas remain solid from every direction and stop shots.</p>
 
         <p>Ignatius’s ordinary ground jump rises exactly 200 world pixels. The launch speed is derived from gravity, so the designed apex does not change with display or simulation frame rate; rocket-assisted movement remains variable. Quick jump taps and the airborne release-and-press gesture are buffered until the next gameplay step, so the double-jump does not depend on display frame timing.</p>
 
@@ -182,21 +182,22 @@
         <h2>Rocketfrock</h2>
         <ul>
             <li>The rocket pack can boost, slow falls, and fire homing rockets.</li>
+            <li>Rocket launches have no firing cooldown. Each distinct launch press fires immediately whenever enough fuel is available.</li>
             <li>When a gamepad is the active control device, supported controllers rumble strongly when Ignatius is hurt and more gently for rocket fire, the double-jump kick, and sustained hover. Keyboard or touch control keeps controller vibration silent.</li>
-            <li>Fuel only recharges after Ignatius returns to the ground.</li>
+            <li>Fuel normally begins recharging after Ignatius returns to the ground. Overdrive provides its smaller passive recovery even in the air and while hovering.</li>
             <li>Homing rockets prefer active targets in the direction Ignatius is facing.</li>
-            <li>A standard rocket deals 30 damage to the enemy it directly hits. Its small impact splash deals exactly 1 damage to other nearby enemies within a diameter of about two wizard heights. Speed Shot retains this splash; wrench rockets use only their own behavior.</li>
+            <li>A standard rocket deals 30 damage to the enemy it directly hits. Its small impact splash deals exactly 1 damage to other nearby enemies within a diameter of about two wizard heights. Overdrive retains this splash; wrench rockets use only their own behavior.</li>
         </ul>
 
         <h2>Power-ups</h2>
         <ul>
             <li>Collected power-ups disappear and return after 60 seconds, so it can be worthwhile to revisit an earlier part of a level.</li>
-            <li>Automatically generated levels aim for roughly one treasure chest per 500 pixels and one genuine power-up per 1,000 pixels of route travel at the default Reward density. Chests may appear on the main route, lower recovery routes, upper access steps, or reachable upper perches. Power-ups are placed directly on a walkable surface for easy collection; about half are random-wrench pickups, with the remainder split evenly between Shield and Speed Shot.</li>
+            <li>Automatically generated levels aim for roughly one treasure chest per 500 pixels and one genuine power-up per 1,000 pixels of route travel at the default Reward density. Chests may appear on the main route, lower recovery routes, upper access steps, or reachable upper perches. Power-ups are placed directly on a walkable surface for easy collection; about half are random-wrench pickups, with the remainder split evenly between Shield and Overdrive.</li>
             <li>Generated static platforms that overlap horizontally keep their walking surfaces at least 180 pixels apart vertically.</li>
             <li>Generated vertical lifts reserve a full rider-height corridor and dock beside solid yellow platforms rather than carrying riders into their undersides.</li>
-            <li>The top-left Power bar shows the highest-priority active effect and its remaining duration. Shield is shown ahead of Speed Shot, which is shown ahead of wrench effects; all compatible effects remain active at the same time.</li>
+            <li>The top-left Power bar shows the highest-priority active effect and its remaining duration. Any active wrench upgrade is shown ahead of Shield and Overdrive; all compatible effects remain active at the same time.</li>
             <li><strong>Shield</strong> lasts 10 seconds and blocks all ordinary incoming damage. The pickup glows blue, and Ignatius flashes blue while protected. The blue flash takes priority over the red critical-health flash.</li>
-            <li><strong>Speed Shot</strong> lasts 20 seconds. It doubles the rocket firing rate and halves the fuel cost of each launch.</li>
+            <li><strong>Overdrive</strong> lasts 20 seconds and halves the fuel cost of each launch. It also recovers fuel continuously at a minimum rate equal to 90% of hover consumption, including while hovering or during the ordinary recharge delay. Normal grounded recovery may be faster, but the two rates do not add together. Rocket firing itself has no cooldown.</li>
             <li>Wrench power-ups last 20 seconds and replace any other active wrench. A random wrench pickup chooses its type when the level starts and rolls a new type whenever it respawns.</li>
             <li>Rockets modified by a wrench carry a fuzzy outline in that wrench's colour, so the current payload remains visible even after launch. The six powered rockets use precomposited atlas frames, avoiding first-shot stutter and extra glow drawing during play.</li>
         </ul>
@@ -205,12 +206,12 @@
                 <tr><th>Wrench</th><th>Rocket mode</th></tr>
             </thead>
             <tbody>
-                <tr><td><strong>Triple</strong> (yellow)</td><td>Fires three small homing rockets in a fan. Each deals 15 damage, for 45 total if all three hit, and they seek separate targets when possible.</td></tr>
-                <tr><td><strong>Dart</strong> (cyan)</td><td>Fires one normal-sized rocket straight ahead with no homing. It deals the normal 30 damage, costs two-thirds of the normal fuel, and stops and explodes on the first enemy it hits.</td></tr>
-                <tr><td><strong>Burst</strong> (green)</td><td>Fires three small unguided rockets straight ahead in quick succession. Each deals 15 damage, for 45 total if all three hit, and the complete burst costs the same fuel as one standard rocket.</td></tr>
+                <tr><td><strong>Fivefold</strong> (yellow)</td><td>Fires five small non-homing rockets evenly across a narrow 15-degree fan, from 7.5 degrees below to 7.5 degrees above the centre line. The centre rocket is aimed at the nearest enemy in the direction Ignatius faces when the volley is launched. Each rocket deals 6 damage, for the standard 30 total if all five hit. The volley costs half the normal fuel, and the rockets travel at twice standard speed.</td></tr>
+                <tr><td><strong>Dart</strong> (cyan)</td><td>Fires one normal-sized non-homing rocket straight along Ignatius's facing direction. It deals the standard 30 damage, costs half the normal fuel, and travels at twice standard speed.</td></tr>
+                <tr><td><strong>Target</strong> (green)</td><td>Fires one non-homing rocket along a launch-time line toward the nearest enemy in the direction Ignatius faces. It deals the standard 30 damage, costs half the normal fuel, and travels at twice standard speed. If no enemy is ahead, it fires straight forward.</td></tr>
                 <tr><td><strong>Bigbomb</strong> (red)</td><td>Launches horizontally in the direction Ignatius faces, then homes toward its target. The large rocket travels at half speed, costs three times the normal fuel, deals 120 damage, and damages an area about three wizard heights wide.</td></tr>
-                <tr><td><strong>Boomerang</strong> (magenta)</td><td>Launches horizontally in the direction Ignatius faces, then homes toward its target. It deals the normal 30 damage. If no target remains, or after it destroys its target, it homes back toward Ignatius. Catching it refunds half the launch fuel, but hitting an enemy or obstacle on the return trip makes it explode with no refund.</td></tr>
-                <tr><td><strong>Phase</strong> (blue)</td><td>Fires one normal 30-damage homing rocket for the standard fuel cost. It passes through platforms, blocking terrain, closed blocking areas, and other level obstacles while continuing to seek an enemy.</td></tr>
+                <tr><td><strong>Boomerang</strong> (magenta)</td><td>Launches horizontally in the direction Ignatius faces, then homes toward its target at standard speed. It deals the standard 30 damage and costs half the normal fuel. If no target remains, or after it destroys its target, it homes back toward Ignatius. Catching it refunds half the reduced launch fuel, but hitting an enemy or obstacle on the return trip makes it explode with no refund.</td></tr>
+                <tr><td><strong>Homing Triple</strong> (blue)</td><td>Fires three small homing rockets in the established narrow fan and assigns separate targets when possible. Each launch direction receives a tiny random variation, so rapidly fired volleys do not repeatedly trace the same three paths. Each rocket deals 10 damage, for the standard 30 total if all three hit. The volley costs half the normal fuel and travels at standard speed.</td></tr>
             </tbody>
         </table>
 

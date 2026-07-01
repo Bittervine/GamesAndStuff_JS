@@ -6870,7 +6870,7 @@
       "glowFrame": "powerup_glow_white",
       "iconFrame": "powerup_icon_lightning",
       "glowTint": "#ffb52f",
-      "notes": "Speed Shot: double firing cadence and half rocket fuel cost for twenty seconds. Respawns after sixty seconds.",
+      "notes": "Overdrive: half rocket launch cost plus passive fuel recovery equal to 90% of hover drain for twenty seconds. Respawns after sixty seconds.",
       "respawnSeconds": 60
     },
     {
@@ -6910,7 +6910,7 @@
       "glowFrame": "powerup_glow_white",
       "iconFrame": "powerup_icon_wrench",
       "glowTint": "#ffff00",
-      "notes": "Random wrench pickup. Rolls Triple, Dart, Burst, Bigbomb, Boomerang, or Phase at level start and on every sixty-second respawn."
+      "notes": "Random wrench pickup. Rolls Fivefold, Dart, Target, Bigbomb, Boomerang, or Homing Triple at level start and on every sixty-second respawn."
     },
     {
       "id": "shield_001",

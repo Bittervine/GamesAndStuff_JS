@@ -3385,15 +3385,27 @@ function drawRocketFuelBulbLocal(ctx, asset, pivot, state, time) {
     const bulbX = (0.46 - pivot.x) * asset.width;
     const bulbY = (0.47 - pivot.y) * asset.height;
     const radius = Math.max(5, Math.min(asset.width, asset.height) * 0.055 * scale);
+    const overdriveRecovering = Boolean(
+        activePowerUpEffect(state, POWER_UP_EFFECT_IDS.SPEED_SHOT) &&
+        fuel.amount < fuel.max
+    );
     const canRechargeNow = tuning.fuelRechargeRequiresGround === false || state.player.onGround || fuel.rechargeLatched === true;
     const recharging = Boolean(
         tuning.rocketFuelBulbPulseWhenRecharging !== false &&
-        !rocket.attachedBoosting &&
-        canRechargeNow &&
-        (fuel.rechargeDelayTimer ?? 0) <= 0 &&
-        fuel.amount < Math.min(fuel.rechargeCap ?? fuel.max, fuel.max)
+        (
+            overdriveRecovering ||
+            (
+                !rocket.attachedBoosting &&
+                canRechargeNow &&
+                (fuel.rechargeDelayTimer ?? 0) <= 0 &&
+                fuel.amount < Math.min(fuel.rechargeCap ?? fuel.max, fuel.max)
+            )
+        )
     );
-    const unavailable = (tuning.fuelRechargeRequiresGround !== false && !state.player.onGround && fuel.rechargeLatched !== true) || (fuel.rechargeDelayTimer ?? 0) > 0;
+    const unavailable = !overdriveRecovering && (
+        (tuning.fuelRechargeRequiresGround !== false && !state.player.onGround && fuel.rechargeLatched !== true) ||
+        (fuel.rechargeDelayTimer ?? 0) > 0
+    );
     const flash = clamp((rocket.fuelBulbFlashTimer ?? 0) / 0.45, 0, 1);
     const pulse = recharging ? 0.5 + 0.5 * Math.sin(time * 13.5) : 0;
 

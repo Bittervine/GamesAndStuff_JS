@@ -891,9 +891,9 @@
     },
     "speedShotPickup": {
       "type": "speedShotPickup",
-      "label": "Speed Shot",
+      "label": "Overdrive",
       "icon": "\u26a1",
-      "description": "Timed firing boost: rockets may be fired twice as often and cost half as much fuel.",
+      "description": "Timed rocket overdrive: launches cost half fuel and passive recovery offsets 90% of hover drain, even while fuel is being spent.",
       "defaultState": "available",
       "defaultSize": {
         "w": 96,

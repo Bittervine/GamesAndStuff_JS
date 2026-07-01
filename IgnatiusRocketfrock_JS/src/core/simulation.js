@@ -29,6 +29,7 @@ import {
     resolveAutoSpawnEnemyIds
 } from "../shared/auto-spawn-enemy-data.js";
 import {
+    OVERDRIVE_PASSIVE_FUEL_RECOVERY_DRAIN_FACTOR,
     POWER_UP_EFFECT_IDS,
     WRENCH_POWER_UP_EFFECT_IDS,
     activePowerUpEffect,
@@ -135,7 +136,6 @@ export const DEFAULT_TUNING = Object.freeze({
     rechargeRate: 52,
     attachedBoostDrainRate: 40,
     rocketLaunchCost: 30,
-    rocketLaunchCooldown: 0.35,
     rocketProjectileSpeed: 520,
     rocketProjectileUpLaunchSeconds: 0.32,
     rocketProjectileInitialHomingStrength: 6.7,
@@ -397,9 +397,7 @@ export function createInitialGameState(overrides = {}) {
         },
         weapons: {
             current: "rocket",
-            launchCooldownTimer: 0,
             nextProjectileId: 1,
-            launchedThisPhase: false
         },
         projectiles: [],
         reactiveObjects: [],
@@ -6892,7 +6890,7 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     }
 
     if (input.weaponPressed) {
-        launchHomingRocket(state, input);
+        launchHomingRocket(state);
     }
     updateProjectiles(state, dt);
     updateWorldEffects(state, dt);
@@ -7066,16 +7064,23 @@ function rotateVector(vector, radians) {
     };
 }
 
-function orderedHomingTargets(state) {
-    const activeTargets = (state.targets || []).filter((target) => target.state === "active");
-    if (!activeTargets.length) return [];
-    const player = state.player || { x: 0, y: 0, height: 0, facing: 1 };
-    const facing = player.facing < 0 ? -1 : 1;
-    const originX = Number(player.x) || 0;
-    const originY = (Number(player.y) || 0) - (Number(player.height) || 0) * 0.72;
-    const forwardTargets = activeTargets.filter((target) => (Number(target.x) - originX) * facing >= -0.001);
-    const candidates = forwardTargets.length ? forwardTargets : activeTargets;
-    return candidates.slice().sort((left, right) => {
+function deterministicRocketLaunchAngleJitterDegrees(state, volleyId, projectileIndex, maximumDegrees) {
+    const magnitude = Math.max(0, Number(maximumDegrees) || 0);
+    if (magnitude <= 0) return 0;
+    const random = ensureRandomState(state);
+    const salt = stableStringHash([
+        "rocket-launch-angle-jitter",
+        state.world?.levelId || "level",
+        random.levelLoadCount,
+        String(volleyId || "volley"),
+        Math.max(0, Math.floor(Number(projectileIndex) || 0))
+    ].join(":"));
+    const unit = mixedUint32(random.seed ^ salt) / 4294967296;
+    return (unit * 2 - 1) * magnitude;
+}
+
+function sortTargetsByDistance(targets, originX, originY) {
+    return targets.slice().sort((left, right) => {
         const leftDx = Number(left.x) - originX;
         const leftDy = Number(left.y) - originY;
         const rightDx = Number(right.x) - originX;
@@ -7084,6 +7089,32 @@ function orderedHomingTargets(state) {
         if (Math.abs(distanceDifference) > 0.0001) return distanceDifference;
         return String(left.id).localeCompare(String(right.id));
     });
+}
+
+function orderedForwardTargets(state) {
+    const activeTargets = (state.targets || []).filter((target) => target.state === "active");
+    if (!activeTargets.length) return [];
+    const player = state.player || { x: 0, y: 0, height: 0, facing: 1 };
+    const facing = player.facing < 0 ? -1 : 1;
+    const originX = Number(player.x) || 0;
+    const originY = (Number(player.y) || 0) - (Number(player.height) || 0) * 0.72;
+    return sortTargetsByDistance(
+        activeTargets.filter((target) => (Number(target.x) - originX) * facing >= -0.001),
+        originX,
+        originY
+    );
+}
+
+function orderedHomingTargets(state) {
+    const activeTargets = (state.targets || []).filter((target) => target.state === "active");
+    if (!activeTargets.length) return [];
+    const player = state.player || { x: 0, y: 0, height: 0, facing: 1 };
+    const originX = Number(player.x) || 0;
+    const originY = (Number(player.y) || 0) - (Number(player.height) || 0) * 0.72;
+    const forwardTargets = orderedForwardTargets(state);
+    return forwardTargets.length
+        ? forwardTargets
+        : sortTargetsByDistance(activeTargets, originX, originY);
 }
 
 function activeRocketProfile(state) {
@@ -7099,14 +7130,16 @@ function activeRocketProfile(state) {
         launchMode: "up",
         launchSequenceIntervalSeconds: 0,
         initialAnglesDegrees: [0],
+        initialAngleJitterDegrees: 0,
         separateTargets: false,
+        aimAtNearestForwardTarget: false,
         areaDamageRadiusWizardHeights: 0,
         boomerang: false,
         phasesThroughObstacles: false
     };
 }
 
-function launchHomingRocket(state, input) {
+function launchHomingRocket(state) {
     const t = state.tuning;
     const weapons = state.weapons;
     const powerUpMultipliers = rocketPowerUpMultipliers(state);
@@ -7116,11 +7149,6 @@ function launchHomingRocket(state, input) {
     const wrenchGlowTint = String(rocketProfile.glowTint || activeWrenchEffect?.definition?.hud?.glowTint || "").trim() || null;
     const wrenchGlowFrameId = wrenchRocketGlowAtlasFrameId(wrenchEffectId);
     const launchCost = Math.max(0, t.rocketLaunchCost * powerUpMultipliers.launchFuelCostMultiplier);
-    const launchCooldown = Math.max(FIXED_DT, t.rocketLaunchCooldown * powerUpMultipliers.launchCooldownMultiplier);
-    if (weapons.launchCooldownTimer > 0) {
-        addEvent(state, "ROCKET_LAUNCH_BLOCKED", { reason: "cooldown" });
-        return false;
-    }
     if (state.fuel.amount < launchCost) {
         addEvent(state, "ROCKET_LAUNCH_BLOCKED", { reason: "fuel", fuel: round(state.fuel.amount), requiredFuel: round(launchCost) });
         return false;
@@ -7129,9 +7157,22 @@ function launchHomingRocket(state, input) {
     const p = state.player;
     const projectileCount = Math.max(1, Math.floor(Number(rocketProfile.projectileCount) || 1));
     const targets = orderedHomingTargets(state);
-    const baseDirection = rocketProfile.launchMode === "forward"
+    const launchOrigin = {
+        x: Number(p.x) || 0,
+        y: (Number(p.y) || 0) - (Number(p.height) || 0) * 0.72
+    };
+    const defaultDirection = rocketProfile.launchMode === "forward"
         ? { x: p.facing < 0 ? -1 : 1, y: 0 }
         : { x: 0, y: -1 };
+    const aimedTarget = rocketProfile.aimAtNearestForwardTarget
+        ? orderedForwardTargets(state)[0] || null
+        : null;
+    const aimedVector = aimedTarget
+        ? { x: Number(aimedTarget.x) - launchOrigin.x, y: Number(aimedTarget.y) - launchOrigin.y }
+        : null;
+    const baseDirection = aimedVector && Math.hypot(aimedVector.x, aimedVector.y) > 0.0001
+        ? normalizeVector(aimedVector)
+        : defaultDirection;
     const angles = Array.isArray(rocketProfile.initialAnglesDegrees) && rocketProfile.initialAnglesDegrees.length
         ? rocketProfile.initialAnglesDegrees
         : [0];
@@ -7149,16 +7190,25 @@ function launchHomingRocket(state, input) {
     const volleyId = `rocket_volley_${state.clock.tick}_${weapons.nextProjectileId}`;
     const spawnedIds = [];
 
+    const initialAngleJitterDegrees = Math.max(0, Number(rocketProfile.initialAngleJitterDegrees) || 0);
     for (let index = 0; index < projectileCount; index += 1) {
-        const angleDegrees = Number(angles[index % angles.length]) || 0;
+        const authoredAngleDegrees = Number(angles[index % angles.length]) || 0;
+        const jitterDegrees = deterministicRocketLaunchAngleJitterDegrees(
+            state,
+            volleyId,
+            index,
+            initialAngleJitterDegrees
+        );
+        const angleDegrees = authoredAngleDegrees + jitterDegrees;
         const launchDir = rotateVector(baseDirection, angleDegrees * Math.PI / 180);
         const target = rocketProfile.homing && targets.length
             ? targets[rocketProfile.separateTargets ? index % targets.length : 0]
-            : null;
+            : aimedTarget;
         const launchDelay = launchSequenceIntervalSeconds * index;
         const lateral = launchSequenceIntervalSeconds > 0 ? 0 : index - (projectileCount - 1) * 0.5;
-        const spawnX = p.x + (rocketProfile.launchMode === "forward" ? 0 : lateral * 7);
-        const spawnY = p.y - p.height * 0.72 + (rocketProfile.launchMode === "forward" ? lateral * 6 : 0);
+        const perpendicular = { x: -baseDirection.y, y: baseDirection.x };
+        const spawnX = launchOrigin.x + perpendicular.x * lateral * 7;
+        const spawnY = launchOrigin.y + perpendicular.y * lateral * 7;
         const projectile = {
             id: `rocket_${String(weapons.nextProjectileId).padStart(3, "0")}`,
             volleyId,
@@ -7178,6 +7228,7 @@ function launchHomingRocket(state, input) {
             homingStrength: Math.max(0, t.rocketProjectileHomingStrength * (Number(rocketProfile.homingStrengthMultiplier) || 0)),
             initialHomingStrength: Math.max(0, t.rocketProjectileInitialHomingStrength * (Number(rocketProfile.homingStrengthMultiplier) || 0)),
             projectileSpeed,
+            launchAngleJitterDegrees: jitterDegrees,
             upLaunchTimer: rocketProfile.launchMode === "up" ? Math.max(0, t.rocketProjectileUpLaunchSeconds ?? 0.32) : 0,
             age: 0,
             lifetime: t.rocketProjectileLifetime,
@@ -7212,18 +7263,17 @@ function launchHomingRocket(state, input) {
         spawnedIds.push(projectile.id);
     }
 
-    weapons.launchCooldownTimer = launchCooldown;
-    weapons.launchedThisPhase = true;
     state.fuel.amount = clamp(state.fuel.amount - launchCost, 0, state.fuel.max);
     markRocketUse(state);
     addEvent(state, "ROCKET_LAUNCHED", {
         id: spawnedIds[0],
         projectileIds: spawnedIds,
         projectileCount,
-        targetIds: spawnedIds.map((_, index) => targets.length ? targets[rocketProfile.separateTargets ? index % targets.length : 0]?.id || null : null),
+        targetIds: state.projectiles
+            .filter((projectile) => projectile.volleyId === volleyId)
+            .map((projectile) => projectile.targetId || null),
         fuel: round(state.fuel.amount),
         fuelCost: round(launchCost),
-        cooldown: round(launchCooldown),
         wrenchEffectId
     });
     return true;
@@ -7333,8 +7383,6 @@ function detonatePlayerProjectile(state, projectile, reason, detail = {}) {
 
 function updateProjectiles(state, dt) {
     const t = state.tuning;
-    const weapons = state.weapons;
-    weapons.launchCooldownTimer = Math.max(0, weapons.launchCooldownTimer - dt);
 
     for (const projectile of state.projectiles) {
         if (projectile.state === "queued") {
@@ -8228,7 +8276,7 @@ function findProjectileTerrainImpact(state, projectile, previousX, previousY) {
     }
 
     for (const segment of queryWorldSegments(state.world, terrainQueryBounds)) {
-        if (!isSolidSegmentKind(segment.kind)) {
+        if (segment.kind === "walkable" || !isSolidSegmentKind(segment.kind)) {
             continue;
         }
         const hit = sweptCircleSegmentImpact(start, end, radius, segment);
@@ -9865,32 +9913,37 @@ function updateFuelRecharge(state, dt) {
     const fuel = state.fuel;
     const t = state.tuning;
     const rocket = state.equipment.rocket;
+    const overdriveActive = Boolean(activePowerUpEffect(state, POWER_UP_EFFECT_IDS.SPEED_SHOT));
+    const overdriveRecoveryRate = overdriveActive
+        ? Math.max(0, Number(t.attachedBoostDrainRate) || 0) * OVERDRIVE_PASSIVE_FUEL_RECOVERY_DRAIN_FACTOR
+        : 0;
 
     fuel.amount = clamp(fuel.amount, 0, fuel.max);
 
     updateBoostKickGroundRecharge(state, dt);
 
-    if (rocket.attachedBoosting) {
-        return;
-    }
-
-    if (fuel.rechargeDelayTimer > 0) {
-        fuel.rechargeDelayTimer = Math.max(0, fuel.rechargeDelayTimer - dt);
-        return;
-    }
-
-    if (t.fuelRechargeRequiresGround !== false && !fuel.rechargeLatched) {
-        if (!state.player.onGround) {
-            return;
+    let normalRecoveryRate = 0;
+    if (!rocket.attachedBoosting) {
+        if (fuel.rechargeDelayTimer > 0) {
+            fuel.rechargeDelayTimer = Math.max(0, fuel.rechargeDelayTimer - dt);
+        } else if (t.fuelRechargeRequiresGround !== false && !fuel.rechargeLatched) {
+            if (state.player.onGround) {
+                fuel.rechargeLatched = true;
+                addEvent(state, "FUEL_RECHARGE_STARTED", { grounded: true });
+                normalRecoveryRate = Math.max(0, Number(t.rechargeRate) || 0);
+            }
+        } else {
+            normalRecoveryRate = Math.max(0, Number(t.rechargeRate) || 0);
         }
-        fuel.rechargeLatched = true;
-        addEvent(state, "FUEL_RECHARGE_STARTED", { grounded: true });
     }
 
-    const cap = clamp(fuel.rechargeCap, 0, fuel.max);
+    const recoveryRate = Math.max(overdriveRecoveryRate, normalRecoveryRate);
+    const cap = overdriveActive
+        ? fuel.max
+        : clamp(fuel.rechargeCap, 0, fuel.max);
     if (fuel.amount < cap) {
         const previous = fuel.amount;
-        fuel.amount = Math.min(cap, fuel.amount + t.rechargeRate * dt);
+        fuel.amount = Math.min(cap, fuel.amount + recoveryRate * dt);
         if (Math.floor(previous) !== Math.floor(fuel.amount)) {
             addEvent(state, "FUEL_CHANGED", { amount: round(fuel.amount), cap });
         }
@@ -10084,7 +10137,6 @@ export function resetPlayer(state, reason = "manualReset") {
     state.equipment.rocket.boostAccelerationNow = 0;
     state.equipment.rocket.boostVisualPowerNow = 0;
     state.equipment.rocket.attachedSmokeTimer = 0;
-    state.weapons.launchCooldownTimer = 0;
     state.projectiles.length = 0;
     if (state.effects?.smokePuffs) {
         state.effects.smokePuffs.length = 0;

@@ -3052,3 +3052,63 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Preserve title-screen jump suppression and one-frame pointer drop pulses.
 - [x] Add regression coverage for render-only frames, complete taps, airborne release-plus-repress, and exactly-once boost activation.
 - [x] Update revision labels, architecture, developer guidance, plan notes, player manual, and stable test ownership.
+
+## Revision 305 projectile and wrench checks
+
+- [x] Make player rockets ignore green `walkable` collision segments.
+- [x] Make enemy projectiles ignore green `walkable` collision segments through the same terrain-impact query.
+- [x] Keep solids, yellow `blockable` lines, and blocking areas authoritative for both projectile owners.
+- [x] Export one `NON_HOMING_ROCKET_SPEED_FACTOR` and set it to 2.
+- [x] Rebuild yellow Triple as three non-homing one-third-damage rockets at -15, 0, and +15 degrees around the nearest-forward launch-time aim.
+- [x] Rebuild green Target as one non-homing standard-damage rocket aimed at the nearest forward enemy when launched.
+- [x] Give cyan Dart half fuel cost, standard damage, and the shared double-speed factor.
+- [x] Rebuild blue Homing Triple as three homing one-third-damage rockets in the former yellow fan, with separate targets when possible.
+- [x] Give magenta Boomerang half fuel cost while preserving standard damage, standard speed, homing, return, and catch refund behavior.
+- [x] Leave red Bigbomb tuning unchanged.
+- [x] Preserve stable serialized effect IDs while updating misleading visible labels.
+- [x] Add regressions for forward target selection, fan angles, speed, fuel, damage, homing state, projectile ownership, walkable passage, and blockable impacts.
+- [x] Update the Game Manual, architecture, plan, checklist, and packaged revision labels.
+
+## Revision 306 wrench-first Power HUD priority
+
+- [x] Raise every built-in wrench effect HUD priority above Shield and Speed Shot.
+- [x] Keep Shield above Speed Shot when no wrench is active.
+- [x] Preserve simultaneous effect timers, stacking, exclusivity, and gameplay behavior.
+- [x] Make the selector honor current built-in priority when an older saved active-effect definition embeds the retired wrench priority.
+- [x] Update player guidance, architecture rules, project instructions, revision labels, and regression expectations.
+
+
+## Revision 307 yellow Fivefold volley
+
+- [x] Expand the yellow wrench volley from three rockets to five.
+- [x] Keep every launch direction inside the existing +/-15-degree cone.
+- [x] Space the five launch angles evenly at -15, -7.5, 0, +7.5, and +15 degrees.
+- [x] Give each projectile one fifth standard damage so the complete volley retains standard total damage.
+- [x] Preserve half fuel cost, double non-homing speed, nearest-forward aim, collision behavior, and stable serialized ID.
+- [x] Rename the visible yellow mode from Triple to Fivefold and update player guidance and regression coverage.
+
+## Revision 308 remove player rocket firing cooldown
+
+- [x] Remove the 0.35-second player rocket launch cooldown from portable tuning and simulation.
+- [x] Permit consecutive fixed-step weapon presses to launch whenever fuel is sufficient.
+- [x] Ignore legacy serialized `launchCooldownTimer` values rather than letting them block firing.
+- [x] Remove cooldown multipliers from built-in and normalized power-up rocket profiles.
+- [x] Keep Speed Shot's twenty-second duration and half-fuel benefit without a retired cadence claim.
+- [x] Preserve edge-triggered controls, fuel accounting, recharge delay, wrench behavior, and enemy cooldowns.
+- [x] Add regression coverage and update the Game Manual, developer guidance, architecture, plan, and revision labels.
+
+
+## Revision 309 wrench volley path tuning
+
+- [x] Narrow yellow Fivefold from a +/-15-degree cone to +/-7.5 degrees.
+- [x] Keep all five yellow launch lines evenly spaced around the nearest-forward centre aim.
+- [x] Add a small shared 2-degree initial direction jitter to each blue Homing Triple rocket.
+- [x] Derive blue jitter deterministically from portable simulation seed and volley identity.
+- [x] Preserve blue homing, target assignment, damage, speed, fuel cost, and collision behavior.
+- [x] Add regression coverage for jitter bounds, successive-volley variation, deterministic replay, and the narrowed yellow fan.
+- [x] Update player guidance, developer notes, architecture, plan, and revision labels.
+- [x] Rename the visible `speedShot` power-up to Overdrive while retaining its stable internal IDs.
+- [x] Add an Overdrive passive fuel-recovery floor equal to 90 percent of attached hover drain.
+- [x] Apply the floor while airborne, during ordinary recharge delay, and while hover fuel is being consumed.
+- [x] Use the greater of ordinary recovery and the Overdrive floor rather than adding both rates.
+- [x] Keep the retired `rocketOverdrive` identity unsupported despite the new visible name.
