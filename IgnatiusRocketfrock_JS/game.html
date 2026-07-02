@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <link rel="icon" href="favicon.ico" sizes="any">
     <title>Ignatius Rocketfrock: Phase 1 Physics Arena</title>
     <style>
         :root {
@@ -435,6 +436,28 @@
         #tuning h2 {
             margin: 0 0 8px;
             font-size: 15px;
+        }
+
+        .tuning-section {
+            display: grid;
+            gap: 3px;
+            margin: 14px 0 6px;
+            padding-top: 10px;
+            border-top: 1px solid var(--line);
+            color: var(--ink);
+            font-size: 12px;
+        }
+
+        .tuning-section:first-child {
+            margin-top: 4px;
+            padding-top: 0;
+            border-top: 0;
+        }
+
+        .tuning-section > span {
+            color: var(--muted);
+            font-size: 11px;
+            line-height: 1.35;
         }
 
         #tuning label {
@@ -991,7 +1014,7 @@
 
     <section id="tuning" hidden>
         <h2>Game tuning</h2>
-        <div class="small tuning-help">These write into <code>gameState.tuning</code>, so devtools exports include the current feel. The JSON box is copyable and editable.</div>
+        <div class="small tuning-help">These write into <code>gameState.tuning</code>, so devtools exports include the current feel. Enemy multipliers are temporary playtest controls and the JSON box is copyable and editable.</div>
         <div id="tuning-controls"></div>
         <textarea id="tuning-json" spellcheck="false" aria-label="Tuning JSON"></textarea>
         <div class="button-row">

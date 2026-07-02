@@ -3269,3 +3269,24 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Update architecture, developer guidance, renderer audit, plan, and automated contracts.
 
 - [x] Remove the WebGL-only 40-pixel soft-glow core that snapped to the newest rocket-trail sample and looked like an intermittent orange warning beacon.
+
+
+## Revision 327 temporary enemy balance controls
+
+- [x] Add separate melee and ranged HP multipliers to Game tuning.
+- [x] Preserve living enemies' current health percentage when an HP multiplier changes.
+- [x] Add separate melee and ranged run-speed multipliers.
+- [x] Add separate melee and ranged attack-rate multipliers that scale the complete attack cadence.
+- [x] Add a ranged projectile-speed multiplier, including ballistic, homing, and dropped projectiles.
+- [x] Apply ranged movement and attack-rate tuning to flying bombers.
+- [x] Keep all multiplier defaults at 1 and leave authored enemy/level values untouched.
+- [x] Add regression coverage for classification, live HP rescaling, movement, firing cadence, projectile speed, and the tuning UI.
+
+
+## Revision 328 favicon and enemy-ID planning
+
+- [x] Add a multi-resolution `favicon.ico` based on the authored Ignatius projectile rocket.
+- [x] Reference the shared favicon from the game, redirects, manual, and browser authoring tools.
+- [x] Require the favicon in packaging and source-organization regression checks.
+- [x] Audit sparse enemy-number handling and confirm that holes do not break catalog enumeration.
+- [ ] After the final mapping is approved, migrate goblins into `enemy_010`–`enemy_019` and bats into `enemy_020`–`enemy_029` in one coordinated revision.

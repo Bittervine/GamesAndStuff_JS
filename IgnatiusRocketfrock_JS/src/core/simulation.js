@@ -153,6 +153,13 @@ export const DEFAULT_TUNING = Object.freeze({
     enemyCorpseHoldSeconds: 2,
     enemyCorpseFadeSeconds: 3,
     enemyDefaultRunSpeed: 150,
+    meleeEnemyHealthScale: 1,
+    meleeEnemyRunSpeedScale: 1,
+    meleeEnemyAttackRateScale: 1,
+    rangedEnemyHealthScale: 1,
+    rangedEnemyRunSpeedScale: 1,
+    rangedEnemyAttackRateScale: 1,
+    rangedEnemyProjectileSpeedScale: 1,
     enemyDefaultJumpHeight: 118,
     enemyDefaultJumpGravity: 1250,
     enemyDefaultMaxFallDistance: 280,
@@ -2448,6 +2455,70 @@ function updateMovingPlatforms(state, dt) {
 }
 
 
+
+function characterEnemyIsRanged(enemy) {
+    return String(enemy?.attackMode || "melee") === "projectile";
+}
+
+function positiveEnemyTuningScale(value) {
+    return Math.max(0.01, Number(value) || 1);
+}
+
+function characterEnemyHealthScale(enemy, tuning = DEFAULT_TUNING) {
+    return positiveEnemyTuningScale(characterEnemyIsRanged(enemy)
+        ? tuning?.rangedEnemyHealthScale
+        : tuning?.meleeEnemyHealthScale);
+}
+
+function characterEnemyRunSpeedScale(enemy, tuning = DEFAULT_TUNING) {
+    return positiveEnemyTuningScale(characterEnemyIsRanged(enemy)
+        ? tuning?.rangedEnemyRunSpeedScale
+        : tuning?.meleeEnemyRunSpeedScale);
+}
+
+function characterEnemyAttackRateScale(enemy, tuning = DEFAULT_TUNING) {
+    return positiveEnemyTuningScale(characterEnemyIsRanged(enemy)
+        ? tuning?.rangedEnemyAttackRateScale
+        : tuning?.meleeEnemyAttackRateScale);
+}
+
+function characterEnemyProjectileSpeed(enemy, tuning = DEFAULT_TUNING) {
+    const baseSpeed = Math.max(1, finiteNumberOr(enemy?.projectileSpeed, tuning?.enemyDefaultProjectileSpeed));
+    return baseSpeed * positiveEnemyTuningScale(tuning?.rangedEnemyProjectileSpeedScale);
+}
+
+function syncCharacterEnemyHealthScale(state, enemy) {
+    if (!enemy || enemy.kind !== "characterEnemy") {
+        return;
+    }
+    const previousScale = positiveEnemyTuningScale(enemy.tuningHealthScaleApplied);
+    const previousMax = Math.max(0, Number(enemy.maxHealth) || 0);
+    const baseMax = Math.max(0, Number(enemy.tuningBaseMaxHealth) || (previousMax / previousScale) || Number(enemy.health) || 0);
+    const nextScale = characterEnemyHealthScale(enemy, state?.tuning);
+    enemy.tuningBaseMaxHealth = baseMax;
+    if (Math.abs(nextScale - previousScale) <= 0.000001 && previousMax > 0) {
+        enemy.tuningHealthScaleApplied = nextScale;
+        return;
+    }
+    const healthFraction = previousMax > 0
+        ? clamp((Number(enemy.health) || 0) / previousMax, 0, 1)
+        : ((Number(enemy.health) || 0) > 0 ? 1 : 0);
+    const nextMax = baseMax * nextScale;
+    enemy.maxHealth = nextMax;
+    enemy.tuningHealthScaleApplied = nextScale;
+    if ((Number(enemy.health) || 0) <= 0 || enemy.combatState === ENEMY_COMBAT_STATE.DEAD) {
+        enemy.health = 0;
+    } else {
+        enemy.health = nextMax * healthFraction;
+    }
+}
+
+export function syncEnemyTuningHealthScales(state) {
+    for (const enemy of state?.enemies || []) {
+        syncCharacterEnemyHealthScale(state, enemy);
+    }
+}
+
 function createCharacterEnemyRuntime(state, entity, index = 0) {
     const x = Number(entity.x) || 0;
     const y = Number(entity.y) || 0;
@@ -2473,7 +2544,10 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
     const isSimplePatrol = strategy === "simple_patrol";
     const patrolDistance = Math.max(0, finiteNumberOr(entity.patrolDistance, 0));
     const idleDuration = Math.max(0, finiteNumberOr(entity.idleDuration, 1.1));
-    const health = Math.max(0, finiteNumberOr(entity.health, 60));
+    const attackMode = String(entity.attackMode || state.tuning.enemyDefaultAttackMode || "melee") === "projectile" ? "projectile" : "melee";
+    const tuningBaseMaxHealth = Math.max(0, finiteNumberOr(entity.health, 60));
+    const tuningHealthScaleApplied = characterEnemyHealthScale({ attackMode }, state.tuning);
+    const health = tuningBaseMaxHealth * tuningHealthScaleApplied;
     return {
         id: entity.id || `characterEnemy_${index + 1}`,
         kind: "characterEnemy",
@@ -2494,6 +2568,8 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         scale: enemyScale,
         health,
         maxHealth: health,
+        tuningBaseMaxHealth,
+        tuningHealthScaleApplied,
         combatState: health > 0 ? "alive" : "dead",
         state: health > 0 ? "idle" : "death",
         animationSlot: health > 0 ? "idle" : "death",
@@ -2596,7 +2672,7 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         attackDuration: Math.max(FIXED_DT, finiteNumberOr(entity.attackDuration, state.tuning.enemyDefaultAttackDuration)),
         attackHitTime: Math.max(0, finiteNumberOr(entity.attackHitTime, state.tuning.enemyDefaultAttackHitTime)),
         attackCooldown: Math.max(0, finiteNumberOr(entity.attackCooldown, state.tuning.enemyDefaultAttackCooldown)),
-        attackMode: String(entity.attackMode || state.tuning.enemyDefaultAttackMode || "melee") === "projectile" ? "projectile" : "melee",
+        attackMode,
         preferredAttackRange: Math.max(0, finiteNumberOr(entity.preferredAttackRange, state.tuning.enemyDefaultPreferredAttackRange)),
         preferredAttackMinRange: Math.max(0, finiteNumberOr(entity.preferredAttackMinRange, Math.min((Number(entity.attackRange) || state.tuning.enemyDefaultAttackRange) * 0.45, state.tuning.enemyDefaultPreferredAttackRange * 0.6))),
         projectileKind: String(entity.projectileKind || state.tuning.enemyDefaultProjectileKind || "fireball"),
@@ -3076,6 +3152,7 @@ export function applyCharacterCombatProfiles(state, profiles) {
         if (applyCharacterCombatProfileToEnemy(state, enemy)) applied += 1;
     }
     if (applied > 0) {
+        syncEnemyTuningHealthScales(state);
         addEvent(state, "CHARACTER_COMBAT_PROFILES_APPLIED", { enemies: applied });
     }
     return applied;
@@ -3976,9 +4053,9 @@ function solveBallisticLaunchVelocity(origin, target, launchSpeed, gravity) {
 }
 
 
-function solveCharacterEnemyBallisticVelocity(enemy, origin, target) {
+function solveCharacterEnemyBallisticVelocity(enemy, origin, target, tuning = DEFAULT_TUNING) {
     const gravity = Number(enemy.projectileGravity) || 980;
-    let launchSpeed = Math.max(1, Number(enemy.projectileSpeed) || 1);
+    let launchSpeed = characterEnemyProjectileSpeed(enemy, tuning);
     let velocity = solveBallisticLaunchVelocity(origin, target, launchSpeed, gravity);
     if (!velocity) {
         for (const multiplier of [1.1, 1.2, 1.35, 1.5, 1.75, 2]) {
@@ -4008,7 +4085,7 @@ function characterEnemyProjectilePathClearFromPoint(state, enemy, point) {
         return !findProjectileTerrainImpact(state, probe, origin.x, origin.y);
     }
 
-    const ballistic = solveCharacterEnemyBallisticVelocity(enemy, origin, target);
+    const ballistic = solveCharacterEnemyBallisticVelocity(enemy, origin, target, state.tuning);
     if (!ballistic || Math.abs(ballistic.x) < 0.0001) {
         return false;
     }
@@ -4059,16 +4136,18 @@ function launchCharacterEnemyProjectile(state, enemy) {
     let lifetime = Math.max(FIXED_DT, Number(enemy.projectileLifetime) || 1);
     let trail = [];
 
+    const tunedProjectileSpeed = characterEnemyProjectileSpeed(enemy, state.tuning);
+
     if (launchType === "drop") {
         vx = finiteNumberOr(enemy.velocityX, 0) * 0.18;
-        vy = Math.max(0, Number(enemy.projectileSpeed) || 40);
+        vy = tunedProjectileSpeed;
         gravity = Math.max(1, Number(enemy.projectileGravity) || 900);
         homingStrength = 0;
         radius = Math.max(5, radius);
     } else if (launchType === "ballistic") {
-        const ballistic = solveCharacterEnemyBallisticVelocity(enemy, origin, target);
+        const ballistic = solveCharacterEnemyBallisticVelocity(enemy, origin, target, state.tuning);
         gravity = ballistic?.gravity || gravity || 980;
-        const launchSpeed = ballistic?.launchSpeed || Math.max(1, Number(enemy.projectileSpeed) || 1);
+        const launchSpeed = ballistic?.launchSpeed || tunedProjectileSpeed;
         if (ballistic) {
             vx = ballistic.x;
             vy = ballistic.y;
@@ -4080,8 +4159,8 @@ function launchCharacterEnemyProjectile(state, enemy) {
         radius = Math.max(3, radius);
     } else {
         const aim = normalizeVector({ x: target.x - origin.x, y: target.y - origin.y });
-        vx = aim.x * enemy.projectileSpeed;
-        vy = aim.y * enemy.projectileSpeed;
+        vx = aim.x * tunedProjectileSpeed;
+        vy = aim.y * tunedProjectileSpeed;
         gravity = 0;
         if (launchType === "homing_hi" || launchType === "pathing_hi") {
             homingStrength = Math.max(2.4, Number(enemy.projectileHomingStrength) || 0);
@@ -4131,7 +4210,8 @@ function launchCharacterEnemyProjectile(state, enemy) {
 }
 
 function characterEnemyRunSpeed(enemy, tuning = DEFAULT_TUNING) {
-    return Math.max(0, finiteNumberOr(enemy?.runSpeed, tuning?.enemyDefaultRunSpeed));
+    const baseSpeed = Math.max(0, finiteNumberOr(enemy?.runSpeed, tuning?.enemyDefaultRunSpeed));
+    return baseSpeed * characterEnemyRunSpeedScale(enemy, tuning);
 }
 
 function characterEnemyCanNoticePlayer(state, enemy) {
@@ -4328,15 +4408,16 @@ function startCharacterEnemyAttack(state, enemy) {
 
 function updateCharacterEnemyAttack(state, enemy, dt) {
     const duration = Math.max(FIXED_DT, Number(enemy.attackDuration) || state.tuning.enemyDefaultAttackDuration || 0.44);
+    const attackDt = Math.max(0, Number(dt) || 0) * characterEnemyAttackRateScale(enemy, state.tuning);
     const previousElapsed = duration - Math.max(0, Number(enemy.attackTimer) || 0);
-    enemy.attackTimer = Math.max(0, (Number(enemy.attackTimer) || 0) - dt);
+    enemy.attackTimer = Math.max(0, (Number(enemy.attackTimer) || 0) - attackDt);
     const elapsed = duration - enemy.attackTimer;
     const hitTime = clamp(Number(enemy.attackHitTime) || 0, 0, duration);
 
     enemy.combatState = ENEMY_COMBAT_STATE.ATTACKING;
     enemy.movementPhase = "attack";
     setCharacterEnemyAnimation(enemy, "attack");
-    advanceCharacterEnemyAttackLunge(state, enemy, dt, elapsed, hitTime);
+    advanceCharacterEnemyAttackLunge(state, enemy, attackDt, elapsed, hitTime);
 
     if (!enemy.attackHitApplied && previousElapsed <= hitTime && elapsed >= hitTime) {
         enemy.attackHitApplied = true;
@@ -4904,7 +4985,7 @@ function updateCharacterEnemyLocalGroundPursuit(state, enemy, dt) {
         Math.max(1, Number(enemy.attackRange) || 1) * 0.72,
         Math.max(6, Math.abs(dx) - 1)
     ));
-    const speed = Math.max(1, Number(enemy.runSpeed) || Number(enemy.walkSpeed) || 1);
+    const speed = Math.max(1, characterEnemyRunSpeed(enemy, state.tuning) || Number(enemy.walkSpeed) || 1);
     const moved = moveCharacterEnemyToward(state, enemy, state.player.x, speed, dt, stopDistance);
     if (moved > 0) {
         enemy.movementPhase = "local_pursuit";
@@ -6121,7 +6202,7 @@ function updateFlyingCharacterEnemy(state, enemy, dt) {
         }
 
         const active = seesPlayer || enemy.awarenessTimer > 0;
-        const horizontalSpeed = Math.max(0, Number(enemy.bomberHorizontalSpeed) || Number(enemy.walkSpeed) || 0);
+        const horizontalSpeed = Math.max(0, (Number(enemy.bomberHorizontalSpeed) || Number(enemy.walkSpeed) || 0) * characterEnemyRunSpeedScale(enemy, state.tuning));
         const tolerance = Math.max(1, Number(enemy.bomberDropTolerance) || 34);
         const perchX = finiteNumberOr(enemy.bomberPerchX, enemy.spawnX);
         const perchY = finiteNumberOr(enemy.bomberPerchY, enemy.spawnY);
@@ -6257,7 +6338,7 @@ function updateFlyingCharacterEnemy(state, enemy, dt) {
                 enemy.velocityY = -Math.abs(enemy.velocityY || horizontalSpeed * 0.35);
             }
             if (Math.abs(dx) > 0.001) enemy.facing = dx < 0 ? -1 : 1;
-            enemy.bomberDropTimer = Math.max(0, (Number(enemy.bomberDropTimer) || 0) - dt);
+            enemy.bomberDropTimer = Math.max(0, (Number(enemy.bomberDropTimer) || 0) - dt * characterEnemyAttackRateScale(enemy, state.tuning));
             const dropHeightTolerance = Math.max(4, Number(enemy.bomberDropHeightTolerance) || 36);
             const nearBombingHeight = Math.abs(enemy.y - targetY) <= dropHeightTolerance;
             const verticallyAbove = enemy.y < playerY - 24;
@@ -6474,8 +6555,13 @@ function updateCharacterEnemies(state, dt) {
             continue;
         }
 
-        enemy.animationTime = Math.max(0, Number(enemy.animationTime) || 0) + dt;
-        enemy.attackCooldownTimer = Math.max(0, (Number(enemy.attackCooldownTimer) || 0) - dt);
+        syncCharacterEnemyHealthScale(state, enemy);
+        const attackRateScale = characterEnemyAttackRateScale(enemy, state.tuning);
+        const animationDt = (enemy.combatState === ENEMY_COMBAT_STATE.ATTACKING || (Number(enemy.attackTimer) || 0) > 0)
+            ? dt * attackRateScale
+            : dt;
+        enemy.animationTime = Math.max(0, Number(enemy.animationTime) || 0) + animationDt;
+        enemy.attackCooldownTimer = Math.max(0, (Number(enemy.attackCooldownTimer) || 0) - dt * attackRateScale);
 
         if (
             enemy.health <= 0 &&

@@ -1272,3 +1272,19 @@ A queued WebGL sprite with no explicit atlas rectangle means “use the complete
 The direct WebGL effect pass consumes the same portable projectile and `effects.smokePuffs` records as Canvas. Player rocket path samples, enemy-fireball particles, projectile explosion state, impact puffs, reactive-object destruction smoke, and teleport effects remain simulation-owned data. Presentation converts them to batches of pinned smoke, glow, ring, disc, diamond, and flame textures. No GPU-only effect state is authoritative.
 
 The WebGL cave window is geometry, not a screen texture. `buildCaveWindowGpuMaskGeometry` compiles the authored cave spline, organic feather bands, and outer contour into cached world-space arrays. `WebGL2RendererBackend.drawCaveMaskGeometry` uploads those arrays only when the cave definition changes. Each frame it applies camera, zoom, and parallax uniforms, draws the feather mesh, writes the outer contour with odd-even stencil inversion, and paints black only where the stencil indicates the exterior. A stencil-capable context is requested explicitly. The existing Canvas mask remains a presentation fallback, preserving the default Canvas renderer and unusual WebGL implementations without usable stencil support.
+
+
+## Revision 327 temporary melee/ranged tuning layer
+
+Gameplay balance experiments use seven neutral multipliers in `DEFAULT_TUNING`: separate melee and ranged health, run-speed, and attack-rate scales, plus a ranged projectile-speed scale. An enemy is classified as ranged when its runtime `attackMode` is `projectile`; all other character enemies use the melee group. This includes flying bombers in the ranged group.
+
+The authored enemy values remain authoritative. Health stores an unscaled `tuningBaseMaxHealth` and an applied scale so changing the slider can preserve the current health percentage of already living enemies. Run speed and projectile launch speed are multiplied only when consumed. Attack rate changes the rate at which attack wind-up, attack animations, post-attack cooldowns, and bomber drop timers advance, so a factor of 2 represents approximately twice the complete attack cadence rather than merely shortening one recovery delay.
+
+The browser Game tuning panel exposes these as temporary multiplier sliders. Defaults are exactly `1`, serialization keeps the chosen test values, and level/catalog JSON is not rewritten. After balance testing, the accepted factors can be baked into each enemy definition and level override, then the multipliers can be reset to `1` or removed without changing the resulting gameplay.
+
+
+## Revision 328 browser identity and enemy namespace notes
+
+All browser-facing tools now share the root `favicon.ico`, a multi-resolution icon built from the authored projectile rocket. It is presentation metadata only and has no runtime loading or renderer dependency. The compact release packager retains ICO files while continuing to omit PNG and XCF source artwork.
+
+Enemy catalogs are sparse-key maps rather than numeric arrays, so missing numbers do not affect runtime enumeration. Family-range renumbering remains a coordinated data migration because known character-project preload lists, authoring-tool project lists, generator special cases, levels, and regression fixtures contain explicit IDs.

@@ -314,6 +314,7 @@ import {
     applyAtlasManifestsToWorld,
     defaultNextLevelId,
     setWorldEntityState,
+    syncEnemyTuningHealthScales,
     damagePlayer
 } from "../src/core/simulation.js";
 
@@ -367,6 +368,7 @@ function applyEditorLevelToWorld(state, editorLevel) {
 function testSourceOrganization() {
     const expectedFiles = [
         "../index.html",
+        "../favicon.ico",
         "../asset-editor.html",
         "../level-editor.html",
         "../character-editor.html",
@@ -426,6 +428,11 @@ function testSourceOrganization() {
     ];
     for (const relativePath of expectedFiles) {
         assert.equal(existsSync(new URL(relativePath, import.meta.url)), true, `${relativePath} should exist in the organized source tree`);
+    }
+
+    for (const htmlName of ["index.html", "IgnatiusRocketfrock_JS.html", "game.html", "level-editor.html", "asset-editor.html", "character-editor.html", "GameManual.html"]) {
+        const html = readFileSync(new URL(`../${htmlName}`, import.meta.url), "utf8");
+        assert.match(html, /<link rel="icon" href="favicon\.ico" sizes="any">/, `${htmlName} should use the shared Rocketfrock favicon`);
     }
 
     const retiredFiles = [
@@ -7856,10 +7863,10 @@ function testRocketPowerUpArsenal() {
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 326<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 328<\/small>/, "the Level Editor should display the packaged revision");
     assert.ok(editorSource.includes("createWebGL2RendererBackend") && editorSource.includes("paintEditorFrameWebGL") && editorSource.includes("editorTransientOverlayCache"), "the Level Editor should prefer a WebGL2 compositor for cached static scenes and transient overlays");
     assert.ok(editorSource.includes("probeEditorWebGL2Support") && editorSource.includes("editorCanvas2D !== canvas"), "the Level Editor must probe on a disposable canvas and retain a true Canvas 2D fallback");
-    assert.match(bootstrapSource, /const GAME_REVISION = "326";/, "the game debug revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "328";/, "the game debug revision should match the packaged revision");
     assert.match(editorSource, /<button id="fit-content-view">Fit<\/button>/, "the Level Editor should expose one concise Fit button");
     assert.equal(editorSource.includes('id="fit-view"'), false, "the removed Fit World control should not remain in the Level Editor");
     assert.equal(editorSource.includes('id="fit-cave-view"'), false, "the removed Fit Cave control should not remain in the Level Editor");
@@ -11134,6 +11141,168 @@ async function testFullscreenBridgeContract() {
     assert.deepEqual(calls, ["get", "set:false"], "the bridge should expose only the expected fullscreen operations");
 }
 
+function testTemporaryEnemyTuningMultipliers() {
+    const state = createInitialGameState({
+        tuning: {
+            meleeEnemyHealthScale: 2,
+            rangedEnemyHealthScale: 0.5
+        }
+    });
+    assert.equal(applyEditorLevelToWorld(state, {
+        levelId: "enemy_tuning_multiplier_test",
+        testPlayerStart: { x: 0, y: 600 },
+        entities: [
+            {
+                id: "scaled_melee",
+                type: "characterEnemy",
+                x: 420,
+                y: 600,
+                health: 100,
+                runSpeed: 100,
+                strategy: "sentry",
+                attackMode: "melee",
+                awarenessRange: 1000
+            },
+            {
+                id: "scaled_ranged",
+                type: "characterEnemy",
+                x: 620,
+                y: 600,
+                health: 100,
+                runSpeed: 100,
+                strategy: "sentry",
+                attackMode: "projectile",
+                attackRange: 900,
+                attackVerticalRange: 300,
+                attackDuration: 0.2,
+                attackHitTime: 0.05,
+                projectileCooldown: 0.8,
+                projectileSpeed: 200,
+                projectileDamage: 0,
+                projectileLifetime: 10,
+                preferredAttackRange: 500,
+                preferredAttackMinRange: 0,
+                awarenessRange: 1000
+            }
+        ]
+    }), true, "enemy multiplier test level should apply");
+    state.world.solids = [];
+    state.world.segments = [{ id: "floor", kind: "walkable", x1: -1000, y1: 600, x2: 1600, y2: 600 }];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 0;
+    state.player.y = 600;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+
+    const melee = state.enemies.find((enemy) => enemy.id === "scaled_melee");
+    const ranged = state.enemies.find((enemy) => enemy.id === "scaled_ranged");
+    assert.equal(melee.maxHealth, 200, "melee HP multiplier should apply to newly loaded enemies");
+    assert.equal(ranged.maxHealth, 50, "ranged HP multiplier should be independent from melee HP");
+
+    melee.health = 100;
+    state.tuning.meleeEnemyHealthScale = 4;
+    syncEnemyTuningHealthScales(state);
+    assert.equal(melee.maxHealth, 400, "changing the melee HP multiplier should update existing enemies");
+    assert.equal(melee.health, 200, "live HP scaling should preserve the enemy's health fraction");
+    assert.equal(ranged.maxHealth, 50, "changing melee HP must not alter ranged enemies");
+
+    function runMeleeDistance(runScale) {
+        const runState = createInitialGameState({ tuning: { meleeEnemyRunSpeedScale: runScale } });
+        applyEditorLevelToWorld(runState, {
+            levelId: `melee_run_${runScale}`,
+            testPlayerStart: { x: 0, y: 600 },
+            entities: [{
+                id: "runner",
+                type: "characterEnemy",
+                x: 500,
+                y: 600,
+                runSpeed: 100,
+                strategy: "sentry",
+                attackMode: "melee",
+                attackRange: 20,
+                awarenessRange: 1000,
+                awarenessViewHalfAngle: 180
+            }]
+        });
+        runState.world.solids = [];
+        runState.world.segments = [{ id: "floor", kind: "walkable", x1: -1000, y1: 600, x2: 1600, y2: 600 }];
+        runState.world.collisionPolygons = [];
+        runState.story.portalIntro = null;
+        runState.player.x = 0;
+        runState.player.y = 600;
+        runState.player.onGround = true;
+        runState.player.wasOnGround = true;
+        const runner = runState.enemies.find((enemy) => enemy.id === "runner");
+        const startX = runner.x;
+        stepMany(runState, 120);
+        return startX - runner.x;
+    }
+    const normalRun = runMeleeDistance(1);
+    const fastRun = runMeleeDistance(2);
+    assert.ok(fastRun > normalRun * 1.6, `melee run-speed multiplier should materially increase chase distance (${fastRun} > ${normalRun})`);
+
+    function rangedSample(attackRateScale, projectileSpeedScale, ticks = 480) {
+        const rangedState = createInitialGameState({
+            tuning: {
+                rangedEnemyAttackRateScale: attackRateScale,
+                rangedEnemyProjectileSpeedScale: projectileSpeedScale
+            }
+        });
+        applyEditorLevelToWorld(rangedState, {
+            levelId: `ranged_sample_${attackRateScale}_${projectileSpeedScale}`,
+            testPlayerStart: { x: 0, y: 600 },
+            entities: [{
+                id: "shooter",
+                type: "characterEnemy",
+                x: 300,
+                y: 600,
+                strategy: "sentry",
+                attackMode: "projectile",
+                attackRange: 900,
+                attackVerticalRange: 300,
+                attackDuration: 0.2,
+                attackHitTime: 0.05,
+                projectileCooldown: 0.8,
+                projectileSpeed: 200,
+                projectileDamage: 0,
+                projectileLifetime: 20,
+                projectileHomingStrength: 0,
+                preferredAttackRange: 300,
+                preferredAttackMinRange: 0,
+                awarenessRange: 1000,
+                awarenessViewHalfAngle: 180
+            }]
+        });
+        rangedState.world.solids = [];
+        rangedState.world.segments = [{ id: "floor", kind: "walkable", x1: -1000, y1: 600, x2: 1600, y2: 600 }];
+        rangedState.world.collisionPolygons = [];
+        rangedState.story.portalIntro = null;
+        rangedState.player.x = 0;
+        rangedState.player.y = 600;
+        rangedState.player.onGround = true;
+        rangedState.player.wasOnGround = true;
+        let firstSpeed = null;
+        const firstProjectileId = rangedState.weapons.nextProjectileId;
+        for (let index = 0; index < ticks; index += 1) {
+            stepSimulation(rangedState, createInputFrame());
+            const first = rangedState.projectiles.find((projectile) => projectile.owner === "enemy");
+            if (first && firstSpeed === null) firstSpeed = Math.hypot(first.vx, first.vy);
+        }
+        const shots = rangedState.weapons.nextProjectileId - firstProjectileId;
+        return { shots, firstSpeed };
+    }
+    const normalRanged = rangedSample(1, 1);
+    const tunedRanged = rangedSample(3, 2);
+    assert.ok(tunedRanged.shots >= normalRanged.shots * 2, `ranged attack-rate multiplier should produce substantially more shots (${tunedRanged.shots} >= ${normalRanged.shots})`);
+    assert.ok(tunedRanged.firstSpeed > normalRanged.firstSpeed * 1.8, `ranged projectile-speed multiplier should scale launch velocity (${tunedRanged.firstSpeed} > ${normalRanged.firstSpeed})`);
+
+    const bootstrapSource = readFileSync("./src/browser/game-bootstrap.js", "utf8");
+    assert.ok(bootstrapSource.includes("Temporary enemy multipliers") && bootstrapSource.includes("rangedEnemyProjectileSpeedScale"), "Game tuning should expose the temporary melee/ranged multiplier controls");
+}
+
 function testDifficultyScalesOnlyIncomingDamage() {
     const easy = createInitialGameState({ settings: { difficulty: "easy" } });
     const easyResult = damagePlayer(easy, 40, "test");
@@ -11224,6 +11393,7 @@ const tests = [
     ["game settings persistence and menu shell", testGameSettingsSchemaPersistenceAndMenuShell],
     ["synthesized level music system", testSynthesizedLevelMusicSystem],
     ["fullscreen Electron bridge contract", testFullscreenBridgeContract],
+    ["temporary melee and ranged enemy tuning multipliers", testTemporaryEnemyTuningMultipliers],
     ["difficulty scales only incoming damage", testDifficultyScalesOnlyIncomingDamage],
     ["rendering quality scales rocket particles", testRenderingQualityScalesRocketParticles],
     ["rocket turns fifty percent sharper", testRocketTurnsFiftyPercentSharper],

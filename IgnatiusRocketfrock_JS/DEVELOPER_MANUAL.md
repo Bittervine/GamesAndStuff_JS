@@ -203,3 +203,12 @@ Open `game.html?webgl=1` and first confirm that the debug panel says `render:web
 On a warmed ordinary frame, the GPU diagnostics should normally read `uploads:0 updates:0 layers:0`. Camera movement should no longer increment `updates`, because the cave opening and feather are resident geometry and the exterior is generated with the stencil buffer. A nonzero `layers` count remains legitimate for mailbox/story presentation, debug or puppet guides, collision-only fallback scenery, or an unsupported residual visual.
 
 WebGL2 is requested with a stencil buffer. If the implementation reports no usable stencil support, the renderer deliberately falls back to the older cached Canvas cave-mask texture while retaining the rest of the GPU path. Canvas 2D behavior is unchanged and remains the default without the URL parameter.
+
+
+## Temporary enemy balance multipliers
+
+The Game tuning panel begins with a temporary enemy-balance section. Melee and ranged enemies each have independent HP, run-speed, and attack-rate multipliers. Ranged enemies also have a projectile-speed multiplier. `1×` preserves the authored values.
+
+Ranged classification is based on runtime attack mode, not artwork or enemy ID. Any monster whose `attackMode` is `projectile`, including the bombing bat, receives the ranged multipliers. Attack rate accelerates the complete attack cycle, including wind-up/release timing and recovery cooldown. HP changes apply immediately to living monsters while preserving their current health percentage.
+
+These controls deliberately do not modify `ct_enemies_001.json`, level JSON, or generator catalogs. During balancing, copy the tuning JSON to retain a promising combination. Once final factors are chosen, recalculate the authored enemy values and return all seven multipliers to `1×`; this keeps the final data explicit and removes dependence on a global playtest layer.

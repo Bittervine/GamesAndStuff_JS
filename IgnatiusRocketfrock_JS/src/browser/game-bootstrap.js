@@ -12,6 +12,7 @@ import {
     resetPlayer,
     cloneGameState,
     serializeGameState,
+    syncEnemyTuningHealthScales,
     addEvent
 } from "../core/simulation.js";
 import { RocketfrockInput } from "./browser-input.js";
@@ -100,7 +101,7 @@ const autoFullscreenRow = document.getElementById("auto-fullscreen-row");
 const autoFullscreenInput = document.getElementById("auto-fullscreen");
 const showMinimapInput = document.getElementById("show-minimap");
 
-const GAME_REVISION = "326";
+const GAME_REVISION = "328";
 
 let displayedLoadingProgress = 0;
 let activeCaveWindow = normalizeCaveWindow(null);
@@ -1672,6 +1673,18 @@ function filteredDebugEvents(events, filterText = "") {
 
 function setupTuningControls() {
     const controls = [
+        {
+            section: "Temporary enemy multipliers",
+            help: "Melee and ranged enemies are classified by attack mode. These multipliers affect every current and newly spawned monster without changing level data."
+        },
+        { key: "meleeEnemyHealthScale", label: "Melee HP", min: 0.25, max: 8, step: 0.05, format: "multiplier" },
+        { key: "meleeEnemyRunSpeedScale", label: "Melee run speed", min: 0.25, max: 3, step: 0.05, format: "multiplier" },
+        { key: "meleeEnemyAttackRateScale", label: "Melee attack rate", min: 0.1, max: 8, step: 0.1, format: "multiplier" },
+        { key: "rangedEnemyHealthScale", label: "Ranged HP", min: 0.25, max: 8, step: 0.05, format: "multiplier" },
+        { key: "rangedEnemyRunSpeedScale", label: "Ranged run speed", min: 0.25, max: 3, step: 0.05, format: "multiplier" },
+        { key: "rangedEnemyAttackRateScale", label: "Ranged attack rate", min: 0.1, max: 8, step: 0.1, format: "multiplier" },
+        { key: "rangedEnemyProjectileSpeedScale", label: "Ranged projectile speed", min: 0.25, max: 4, step: 0.05, format: "multiplier" },
+        { section: "Existing game tuning" },
         { key: "gravity", label: "Gravity", min: 800, max: 2200, step: 10 },
         { key: "ordinaryJumpHeight", label: "Jump height", min: 80, max: 400, step: 5 },
         { key: "maxRunSpeed", label: "Max run speed", min: 180, max: 620, step: 5 },
@@ -1712,6 +1725,20 @@ function setupTuningControls() {
     ];
 
     for (const spec of controls) {
+        if (spec.section) {
+            const section = document.createElement("div");
+            section.className = "tuning-section";
+            const title = document.createElement("strong");
+            title.textContent = spec.section;
+            section.append(title);
+            if (spec.help) {
+                const help = document.createElement("span");
+                help.textContent = spec.help;
+                section.append(help);
+            }
+            tuningControlsEl.append(section);
+            continue;
+        }
         const label = document.createElement("label");
         const name = document.createElement("span");
         const range = document.createElement("input");
@@ -1722,17 +1749,17 @@ function setupTuningControls() {
         range.max = spec.max;
         range.step = spec.step;
         range.value = gameState.tuning[spec.key] ?? DEFAULT_TUNING[spec.key];
-        value.textContent = formatTuningValue(range.value);
+        value.textContent = formatTuningValue(range.value, spec);
         range.addEventListener("input", () => {
             gameState.tuning[spec.key] = Number(range.value);
             applyTuningSideEffects(spec.key);
-            value.textContent = formatTuningValue(range.value);
+            value.textContent = formatTuningValue(range.value, spec);
             syncTuningJson();
             showTuningMessage("");
         });
         label.append(name, range, value);
         tuningControlsEl.append(label);
-        tuningSliders.set(spec.key, { range, value });
+        tuningSliders.set(spec.key, { range, value, spec });
     }
 
     syncTuningJson();
@@ -1795,6 +1822,9 @@ function applyTuningSideEffects(key) {
         gameState.fuel.rechargeCap = Math.min(gameState.tuning.baseRechargeCap, gameState.fuel.max);
         gameState.fuel.amount = Math.min(gameState.fuel.amount, gameState.fuel.max);
     }
+    if (key === "meleeEnemyHealthScale" || key === "rangedEnemyHealthScale") {
+        syncEnemyTuningHealthScales(gameState);
+    }
     gameState.clock.fixedDt = gameState.tuning.timestep || FIXED_DT;
 }
 
@@ -1806,7 +1836,7 @@ function syncSlidersFromTuning() {
     for (const [key, refs] of tuningSliders) {
         const value = gameState.tuning[key] ?? DEFAULT_TUNING[key];
         refs.range.value = value;
-        refs.value.textContent = formatTuningValue(value);
+        refs.value.textContent = formatTuningValue(value, refs.spec);
         applyTuningSideEffects(key);
     }
 }
@@ -1815,8 +1845,11 @@ function showTuningMessage(message) {
     tuningMessageEl.textContent = message;
 }
 
-function formatTuningValue(value) {
+function formatTuningValue(value, spec = null) {
     const n = Number(value);
+    if (spec?.format === "multiplier") {
+        return `${n.toFixed(2).replace(/\.?0+$/, "")}×`;
+    }
     return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 

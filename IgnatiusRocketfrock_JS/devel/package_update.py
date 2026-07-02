@@ -40,6 +40,7 @@ REQUIRED_FILES = {
     "IMPLEMENTATION_CHECKLIST.md",
     "PLAN.md",
     "game.html",
+    "favicon.ico",
     "level-editor.html",
     "package.json",
     "devel/audit_renderer_boundary.mjs",

@@ -56,6 +56,7 @@ export const TEST_SHARDS = Object.freeze({
             "animation easing modes"
     ]),
     "game-1": Object.freeze([
+            "temporary melee and ranged enemy tuning multipliers",
             "difficulty scales only incoming damage",
             "rendering quality scales rocket particles",
             "rocket turns fifty percent sharper",
