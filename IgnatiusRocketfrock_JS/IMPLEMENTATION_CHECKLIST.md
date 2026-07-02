@@ -3267,3 +3267,5 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Validate the headed Chromium WebGL2 frame with visible effects and `uploads:0 updates:0 layers:0` after warm-up.
 - [x] Validate camera movement without texture uploads or updates.
 - [x] Update architecture, developer guidance, renderer audit, plan, and automated contracts.
+
+- [x] Remove the WebGL-only 40-pixel soft-glow core that snapped to the newest rocket-trail sample and looked like an intermittent orange warning beacon.

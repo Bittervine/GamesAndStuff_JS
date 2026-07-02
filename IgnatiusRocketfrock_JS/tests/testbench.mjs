@@ -6967,6 +6967,7 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     assert.ok(rendererSource.includes("buildCaveWindowGpuMaskGeometry") && rendererSource.includes("drawCaveMaskGeometry"), "the WebGL cave mask should use reusable world-space geometry before considering the Canvas compatibility fallback");
     assert.ok(maskSource.includes("gradientVertices") && maskSource.includes("exteriorStencilVertices"), "cave-window data should compile into resident gradient and odd-even exterior meshes");
     assert.ok(rendererSource.includes("drawPlayerRocketsWebGL") && rendererSource.includes("drawProjectileRocketWebGL") && rendererSource.includes("rocketFlame"), "player rocket bodies and flame treatment should also have a direct WebGL2 pass when the GPU backend is active");
+    assert.ok(rendererSource.includes("Do not add a separate large soft-glow core at the newest trail sample") && !rendererSource.includes("width: 40 * view.zoom"), "the direct WebGL rocket trail must not add a large sample-snapped orange beacon behind the nozzle flame");
     assert.ok(rendererSource.includes("hitFlashCanvas") && rendererSource.includes("overlayTintCanvasKey"), "WebGL character rendering should preserve player and enemy hit-flash overlays");
     assert.ok(rendererSource.includes("drawTargetsWebGL") && rendererSource.includes("drawPickupsWebGL") && rendererSource.includes("drawEnemiesWebGL") && rendererSource.includes("drawPlayerWebGL"), "targets, pickups, enemies, and the player rig should use direct WebGL2 presentation paths where practical");
     assert.ok(rendererSource.includes("drawScorePopupsWebGL") && rendererSource.includes("drawPortalIntroGlowWebGL") && rendererSource.includes("getWebGLTextSpriteCanvas"), "score popups and portal glow should use cached direct WebGL2 sprite paths");
@@ -7855,10 +7856,10 @@ function testRocketPowerUpArsenal() {
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 324<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 326<\/small>/, "the Level Editor should display the packaged revision");
     assert.ok(editorSource.includes("createWebGL2RendererBackend") && editorSource.includes("paintEditorFrameWebGL") && editorSource.includes("editorTransientOverlayCache"), "the Level Editor should prefer a WebGL2 compositor for cached static scenes and transient overlays");
     assert.ok(editorSource.includes("probeEditorWebGL2Support") && editorSource.includes("editorCanvas2D !== canvas"), "the Level Editor must probe on a disposable canvas and retain a true Canvas 2D fallback");
-    assert.match(bootstrapSource, /const GAME_REVISION = "324";/, "the game debug revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "326";/, "the game debug revision should match the packaged revision");
     assert.match(editorSource, /<button id="fit-content-view">Fit<\/button>/, "the Level Editor should expose one concise Fit button");
     assert.equal(editorSource.includes('id="fit-view"'), false, "the removed Fit World control should not remain in the Level Editor");
     assert.equal(editorSource.includes('id="fit-cave-view"'), false, "the removed Fit Cave control should not remain in the Level Editor");

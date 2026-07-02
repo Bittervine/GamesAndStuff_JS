@@ -3255,3 +3255,17 @@ A headed Chromium run with an actual WebGL2 context confirmed visible rocket tra
 The next GPU-residency work, if continued, is the exceptional presentation layer: mailbox/story text, debug and puppet guides, geometry fallback levels, and presentation caches that are still baked once on a CPU Canvas before becoming resident textures. Those are not ordinary frame-by-frame uploads.
 
 Release-gate infrastructure note: the current `generator-foundation` and `generator-content` shards can stall when several expensive generator tests run sequentially in one Node process, even though the same tests complete normally in fresh isolated processes. Revision 324 browser and renderer tests are unaffected. The release runner should later split those generator cases into smaller fresh-process shards, or the generator's process-global caches should be audited for cross-test accumulation. Until that harness issue is resolved, isolated generator test results are the reliable diagnostic for these cases.
+
+
+## Revision 325 WebGL rocket-nozzle flame cleanup
+
+A small but ugly regression remained in the opt-in `?webgl=1` renderer after revision 324: the projectile rocket's local nozzle flame shimmered far more aggressively than the Canvas 2D version and its bright inner core was offset in screen Y rather than along the rocket's rotated local axis. The resulting additive overlap produced a distracting flashing blob at the back of the flying rocket even though the ordinary `?webgl=0` path still looked correct.
+
+Revision 325 keeps the direct resident-texture rocket flame in WebGL, but reworks its placement and modulation so it behaves like the existing Canvas flame. The WebGL helper now anchors the flame at the same authored nozzle location used by `drawRocketFlameLocal`, derives a stable per-projectile flutter seed from the projectile id, reduces the length variation to the same restrained 4% flutter used by the Canvas path, and keeps both flame quads centred on the nozzle instead of offsetting the bright core in screen space. This removes the unpleasant flashing artifact without changing rocket gameplay, trail effects, or the default Canvas renderer.
+
+
+## Revision 326 remove the WebGL rocket-trail beacon
+
+The revision 325 flame cleanup did not address the artifact shown in the follow-up screenshot because the fuzzy orange circle was not part of the nozzle flame. It was a separate 40-pixel additive `softGlow` sprite attached to the newest sampled point of the curved rocket trail. Since trail samples advance in discrete simulation steps, that glow jumped between nearby positions and appeared only on some rendered frames, producing the conspicuous rotating-warning-light effect beside the projectile.
+
+Revision 326 removes that WebGL-only hot-core sprite completely. The dedicated nozzle flame remains attached to the authored rocket nozzle, while the curved trail retains its smoke and small sparkle crumbs. The normal Canvas renderer remains unchanged. A renderer regression assertion now prevents the large sample-snapped orange glow from being reintroduced into the direct GPU trail path.

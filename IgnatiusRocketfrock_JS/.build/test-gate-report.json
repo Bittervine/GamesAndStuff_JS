@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "fingerprint": "a01a09f996a6925083548d8b7b8a8e5897ede595013b9d4809867fafa9efbc61",
+  "results": {
+    "shared-1": {
+      "status": "passed",
+      "durationMs": 209,
+      "exitCode": 0,
+      "signal": null,
+      "completedAt": "2026-07-02T04:29:31.081Z"
+    },
+    "shared-2": {
+      "status": "passed",
+      "durationMs": 219,
+      "exitCode": 0,
+      "signal": null,
+      "completedAt": "2026-07-02T04:29:31.302Z"
+    },
+    "editor-1": {
+      "status": "passed",
+      "durationMs": 237,
+      "exitCode": 0,
+      "signal": null,
+      "completedAt": "2026-07-02T04:29:31.541Z"
+    },
+    "editor-2": {
+      "status": "passed",
+      "durationMs": 212,
+      "exitCode": 0,
+      "signal": null,
+      "completedAt": "2026-07-02T04:29:31.756Z"
+    },
+    "game-1": {
+      "status": "passed",
+      "durationMs": 378,
+      "exitCode": 0,
+      "signal": null,
+      "completedAt": "2026-07-02T04:29:32.136Z"
+    },
+    "game-2": {
+      "status": "passed",
+      "durationMs": 773,
+      "exitCode": 0,
+      "signal": null,
+      "completedAt": "2026-07-02T04:29:32.911Z"
+    },
+    "game-3": {
+      "status": "passed",
+      "durationMs": 357,
+      "exitCode": 0,
+      "signal": null,
+      "completedAt": "2026-07-02T04:29:33.271Z"
+    },
+    "game-4": {
+      "status": "passed",
+      "durationMs": 425,
+      "exitCode": 0,
+      "signal": null,
+      "completedAt": "2026-07-02T04:29:33.699Z"
+    }
+  },
+  "lastGate": "fast",
+  "startedAt": "2026-07-02T04:29:30.869Z",
+  "completedAt": "2026-07-02T04:29:33.702Z"
+}

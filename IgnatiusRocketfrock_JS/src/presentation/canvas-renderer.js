@@ -3630,24 +3630,59 @@ class RocketfrockRenderer {
                 }) || drew;
             }
 
-            const newest = visible[visible.length - 1];
-            const previous = visible[Math.max(0, visible.length - 2)];
-            const vx = newest.x - previous.x;
-            const vy = newest.y - previous.y;
-            const length = Math.hypot(vx, vy) || 1;
-            const tailX = -vx / length;
-            const tailY = -vy / length;
-            drew = backend.queueSprite({
-                source: glowSprite,
-                centerX: newest.x + tailX * 16 * view.zoom,
-                centerY: newest.y + tailY * 16 * view.zoom,
-                width: 40 * view.zoom,
-                height: 40 * view.zoom,
-                tint: [1, 158 / 255, 72 / 255, 1],
-                alpha: 0.34,
-                blendMode: "additive"
-            }) || drew;
+            // Do not add a separate large soft-glow core at the newest trail sample.
+            // Its position jumps whenever the simulation records a new path sample, which
+            // reads as an orange warning beacon beside the rocket. The dedicated nozzle
+            // flame owns the short hot exhaust immediately behind the projectile.
         }
+        return drew;
+    }
+
+    drawProjectileRocketFlameWebGL(projectile, state, centerX, centerY, angle, baseAsset, pivot, targetHeight, visualScale = 1) {
+        const backend = this.webglBackend;
+        if (!backend?.available) {
+            return false;
+        }
+        const flameSprite = this.getWebGLParticleSpriteCanvas("rocketFlame") || this.getWebGLParticleSpriteCanvas("softGlow");
+        if (!flameSprite) {
+            return false;
+        }
+        const safeScale = Math.max(0.1, Number(visualScale) || 1);
+        const stableSeed = String(projectile?.id || "rocket")
+            .split("")
+            .reduce((sum, ch, index) => sum + ch.charCodeAt(0) * (index + 1), 0);
+        const flutter = 0.96 + 0.04 * Math.sin((state.clock.time || 0) * 33 + stableSeed * 0.17);
+        const flameLength = targetHeight * (0.52 + 0.08 * safeScale) * flutter;
+        const flameWidth = targetHeight * (0.20 + 0.03 * safeScale);
+        const nozzleLocalY = (0.965 - pivot.y) * baseAsset.height;
+        const nozzleOffset = nozzleLocalY * (targetHeight / Math.max(1, baseAsset.height));
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        const flameCenterX = centerX - nozzleOffset * sin;
+        const flameCenterY = centerY + nozzleOffset * cos;
+
+        let drew = backend.queueSprite({
+            source: flameSprite,
+            centerX: flameCenterX,
+            centerY: flameCenterY,
+            width: flameWidth,
+            height: flameLength,
+            rotation: angle + Math.PI,
+            tint: [1, 168 / 255, 78 / 255, 1],
+            alpha: 0.40,
+            blendMode: "additive"
+        });
+        drew = backend.queueSprite({
+            source: flameSprite,
+            centerX: flameCenterX,
+            centerY: flameCenterY,
+            width: flameWidth * 0.50,
+            height: flameLength * 0.58,
+            rotation: angle + Math.PI,
+            tint: [1, 244 / 255, 196 / 255, 1],
+            alpha: 0.54,
+            blendMode: "additive"
+        }) || drew;
         return drew;
     }
 
@@ -3684,40 +3719,7 @@ class RocketfrockRenderer {
         const localCenterY = drawOffsetY + drawAsset.height * 0.5;
 
         let drew = this.drawRocketPathTrailWebGL(projectile, state, view);
-        const flameSprite = this.getWebGLParticleSpriteCanvas("rocketFlame") || this.getWebGLParticleSpriteCanvas("softGlow");
-        if (flameSprite) {
-            const flicker = 0.88 + 0.18 * Math.sin((state.clock.time + projectile.age * 11) * 22 + projectile.id.length * 13);
-            const flameLength = targetHeight * (0.58 + 0.12 * visualScale) * flicker;
-            const flameWidth = targetHeight * 0.28;
-            const localFlameY = baseAsset.height * (1 - pivot.y) + 8;
-            const flameOffsetY = localFlameY * (targetHeight / Math.max(1, baseAsset.height));
-            const cos = Math.cos(angle);
-            const sin = Math.sin(angle);
-            const flameCenterX = p.x - flameOffsetY * sin;
-            const flameCenterY = p.y + flameOffsetY * cos;
-            drew = backend.queueSprite({
-                source: flameSprite,
-                centerX: flameCenterX,
-                centerY: flameCenterY,
-                width: flameWidth,
-                height: flameLength,
-                rotation: angle + Math.PI,
-                tint: [1, 180 / 255, 72 / 255, 1],
-                alpha: 0.56,
-                blendMode: "additive"
-            }) || drew;
-            drew = backend.queueSprite({
-                source: flameSprite,
-                centerX: flameCenterX,
-                centerY: flameCenterY - 0.06 * flameOffsetY,
-                width: flameWidth * 0.56,
-                height: flameLength * 0.55,
-                rotation: angle + Math.PI,
-                tint: [1, 246 / 255, 176 / 255, 1],
-                alpha: 0.72,
-                blendMode: "additive"
-            }) || drew;
-        }
+        drew = this.drawProjectileRocketFlameWebGL(projectile, state, p.x, p.y, angle, baseAsset, pivot, targetHeight, visualScale) || drew;
         drew = this.queueWebGLAssetSprite(drawAsset, p.x, p.y, targetHeight, angle, {
             localOffsetX: localCenterX,
             localOffsetY: localCenterY
