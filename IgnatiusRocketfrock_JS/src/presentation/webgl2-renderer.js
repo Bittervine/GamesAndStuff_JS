@@ -1,6 +1,7 @@
 const FLOATS_PER_VERTEX = 8;
 const VERTICES_PER_QUAD = 6;
 const DEFAULT_INITIAL_QUADS = 1024;
+const MASK_FLOATS_PER_VERTEX = 3;
 
 function finiteNumber(value, fallback = 0) {
     const number = Number(value);
@@ -95,7 +96,7 @@ export function canUseWebGL2(canvas) {
             alpha: false,
             antialias: true,
             depth: false,
-            stencil: false,
+            stencil: true,
             premultipliedAlpha: true,
             preserveDrawingBuffer: false,
             powerPreference: "high-performance"
@@ -110,10 +111,12 @@ export class WebGL2RendererBackend {
         if (!canvas || !gl) throw new Error("WebGL2RendererBackend requires a canvas and WebGL2 context.");
         this.canvas = canvas;
         this.gl = gl;
+        this.stencilAvailable = typeof gl.getContextAttributes !== "function" || gl.getContextAttributes()?.stencil !== false;
         this.available = true;
         this.contextLost = false;
         this.textureCache = new WeakMap();
         this.textureRecords = new Set();
+        this.pinnedSources = new Set();
         this.frameId = 0;
         this.currentTextureRecord = null;
         this.quadCapacity = DEFAULT_INITIAL_QUADS;
@@ -121,6 +124,9 @@ export class WebGL2RendererBackend {
         this.vertexFloatCount = 0;
         this.frameDiagnostics = this.createFrameDiagnostics();
         this.currentBlendMode = "alpha";
+        this.caveMaskGeometryKey = "";
+        this.caveMaskGradientVertexCount = 0;
+        this.caveMaskStencilVertexCount = 0;
         this.totalDiagnostics = {
             contextRestores: 0,
             contextLosses: 0
@@ -131,13 +137,14 @@ export class WebGL2RendererBackend {
 
     createFrameDiagnostics() {
         return {
-            backend: "webgl2-hybrid",
+            backend: "webgl2-resident",
             drawCalls: 0,
             quads: 0,
             textureUploads: 0,
             textureUpdates: 0,
             canvasLayerUploads: 0,
             staticTextureCount: this.textureRecords?.size || 0,
+            residentTextureBytes: this.estimatedTextureBytes?.() || 0,
             contextLost: Boolean(this.contextLost)
         };
     }
@@ -156,6 +163,9 @@ export class WebGL2RendererBackend {
             this.textureRecords.clear();
             this.initializeResources();
             this.available = true;
+            for (const source of this.pinnedSources) {
+                this.textureRecord(source, false, false);
+            }
             this.totalDiagnostics.contextRestores += 1;
         });
     }
@@ -229,6 +239,56 @@ export class WebGL2RendererBackend {
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, whiteSource);
         this.whiteTextureRecord = { texture, width: 1, height: 1, source: null, dynamic: false };
         gl.bindTexture(gl.TEXTURE_2D, null);
+
+        this.initializeCaveMaskResources();
+    }
+
+    initializeCaveMaskResources() {
+        const gl = this.gl;
+        const vertexSource = `#version 300 es
+            precision highp float;
+            in vec2 a_world_position;
+            in float a_alpha;
+            uniform vec2 u_resolution;
+            uniform vec2 u_view_origin;
+            uniform vec2 u_parallax_offset;
+            uniform float u_zoom;
+            out float v_alpha;
+            void main() {
+                vec2 screen = (a_world_position - u_view_origin - u_parallax_offset) * u_zoom;
+                vec2 clip = vec2(
+                    screen.x / u_resolution.x * 2.0 - 1.0,
+                    1.0 - screen.y / u_resolution.y * 2.0
+                );
+                gl_Position = vec4(clip, 0.0, 1.0);
+                v_alpha = a_alpha;
+            }
+        `;
+        const fragmentSource = `#version 300 es
+            precision mediump float;
+            in float v_alpha;
+            out vec4 outColor;
+            void main() {
+                outColor = vec4(0.0, 0.0, 0.0, clamp(v_alpha, 0.0, 1.0));
+            }
+        `;
+        this.caveMaskProgram = createProgram(gl, vertexSource, fragmentSource);
+        this.caveMaskPositionLocation = gl.getAttribLocation(this.caveMaskProgram, "a_world_position");
+        this.caveMaskAlphaLocation = gl.getAttribLocation(this.caveMaskProgram, "a_alpha");
+        this.caveMaskResolutionLocation = gl.getUniformLocation(this.caveMaskProgram, "u_resolution");
+        this.caveMaskViewOriginLocation = gl.getUniformLocation(this.caveMaskProgram, "u_view_origin");
+        this.caveMaskParallaxLocation = gl.getUniformLocation(this.caveMaskProgram, "u_parallax_offset");
+        this.caveMaskZoomLocation = gl.getUniformLocation(this.caveMaskProgram, "u_zoom");
+        this.caveMaskVertexArray = gl.createVertexArray();
+        this.caveMaskGradientBuffer = gl.createBuffer();
+        this.caveMaskStencilBuffer = gl.createBuffer();
+        this.caveMaskFullscreenBuffer = gl.createBuffer();
+        if (!this.caveMaskVertexArray || !this.caveMaskGradientBuffer || !this.caveMaskStencilBuffer || !this.caveMaskFullscreenBuffer) {
+            throw new Error("WebGL2 could not allocate cave-mask geometry buffers.");
+        }
+        this.caveMaskGeometryKey = "";
+        this.caveMaskGradientVertexCount = 0;
+        this.caveMaskStencilVertexCount = 0;
     }
 
     dispose() {
@@ -239,20 +299,65 @@ export class WebGL2RendererBackend {
         }
         this.textureRecords.clear();
         if (this.whiteTextureRecord?.texture) gl.deleteTexture(this.whiteTextureRecord.texture);
+        if (this.caveMaskGradientBuffer) gl.deleteBuffer(this.caveMaskGradientBuffer);
+        if (this.caveMaskStencilBuffer) gl.deleteBuffer(this.caveMaskStencilBuffer);
+        if (this.caveMaskFullscreenBuffer) gl.deleteBuffer(this.caveMaskFullscreenBuffer);
+        if (this.caveMaskVertexArray) gl.deleteVertexArray(this.caveMaskVertexArray);
+        if (this.caveMaskProgram) gl.deleteProgram(this.caveMaskProgram);
         if (this.vertexBuffer) gl.deleteBuffer(this.vertexBuffer);
         if (this.vertexArray) gl.deleteVertexArray(this.vertexArray);
         if (this.program) gl.deleteProgram(this.program);
         this.available = false;
     }
 
-    resetTextures() {
+    resetTextures(options = {}) {
         this.flush();
+        const preservePinned = options.preservePinned !== false;
         const gl = this.gl;
         for (const record of this.textureRecords) {
             gl.deleteTexture(record.texture);
         }
         this.textureRecords.clear();
         this.textureCache = new WeakMap();
+        if (!preservePinned) {
+            this.pinnedSources.clear();
+            return;
+        }
+        for (const source of this.pinnedSources) {
+            this.textureRecord(source, false, false);
+        }
+    }
+
+    replacePinnedTextures(sources = []) {
+        this.resetTextures({ preservePinned: false });
+        return this.preloadTextures(sources);
+    }
+
+    preloadTexture(source) {
+        if (!source || !this.available || this.contextLost) return false;
+        this.pinnedSources.add(source);
+        return Boolean(this.textureRecord(source, false, false));
+    }
+
+    preloadTextures(sources = []) {
+        let loaded = 0;
+        for (const source of sources) {
+            if (this.preloadTexture(source)) loaded += 1;
+        }
+        return loaded;
+    }
+
+    refreshTexture(source) {
+        if (!source || !this.available || this.contextLost) return false;
+        return Boolean(this.textureRecord(source, true, true));
+    }
+
+    estimatedTextureBytes() {
+        let bytes = 0;
+        for (const record of this.textureRecords) {
+            bytes += Math.max(1, record.width) * Math.max(1, record.height) * 4;
+        }
+        return bytes;
     }
 
     invalidateTexture(source) {
@@ -282,6 +387,7 @@ export class WebGL2RendererBackend {
         gl.disable(gl.DEPTH_TEST);
         gl.disable(gl.CULL_FACE);
         gl.disable(gl.SCISSOR_TEST);
+        if (gl.STENCIL_TEST !== undefined) gl.disable(gl.STENCIL_TEST);
         gl.enable(gl.BLEND);
         gl.blendEquation(gl.FUNC_ADD);
         this.currentBlendMode = "alpha";
@@ -296,9 +402,146 @@ export class WebGL2RendererBackend {
         return true;
     }
 
+    bindCaveMaskBuffer(buffer) {
+        const gl = this.gl;
+        gl.bindVertexArray(this.caveMaskVertexArray);
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        const stride = MASK_FLOATS_PER_VERTEX * 4;
+        gl.enableVertexAttribArray(this.caveMaskPositionLocation);
+        gl.vertexAttribPointer(this.caveMaskPositionLocation, 2, gl.FLOAT, false, stride, 0);
+        gl.enableVertexAttribArray(this.caveMaskAlphaLocation);
+        gl.vertexAttribPointer(this.caveMaskAlphaLocation, 1, gl.FLOAT, false, stride, 2 * 4);
+    }
+
+    uploadCaveMaskGeometry(geometry) {
+        if (!geometry || !this.available || this.contextLost) return false;
+        const key = String(geometry.key || "");
+        if (key && key === this.caveMaskGeometryKey) return true;
+        const gradientVertices = geometry.gradientVertices instanceof Float32Array
+            ? geometry.gradientVertices
+            : new Float32Array(geometry.gradientVertices || []);
+        const stencilVertices = geometry.exteriorStencilVertices instanceof Float32Array
+            ? geometry.exteriorStencilVertices
+            : new Float32Array(geometry.exteriorStencilVertices || []);
+        if (!stencilVertices.length) return false;
+        this.flush();
+        const gl = this.gl;
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.caveMaskGradientBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, gradientVertices, gl.DYNAMIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.caveMaskStencilBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, stencilVertices, gl.DYNAMIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        this.caveMaskGeometryKey = key;
+        this.caveMaskGradientVertexCount = gradientVertices.length / MASK_FLOATS_PER_VERTEX;
+        this.caveMaskStencilVertexCount = stencilVertices.length / MASK_FLOATS_PER_VERTEX;
+        return true;
+    }
+
+    drawCaveMaskGeometry({
+        geometry,
+        width,
+        height,
+        viewX = 0,
+        viewY = 0,
+        zoom = 1,
+        parallaxX = 0,
+        parallaxY = 0
+    } = {}) {
+        const gl = this.gl;
+        if (
+            !this.available ||
+            this.contextLost ||
+            !geometry ||
+            !this.stencilAvailable ||
+            typeof gl.stencilFunc !== "function" ||
+            typeof gl.stencilOp !== "function" ||
+            typeof gl.colorMask !== "function"
+        ) {
+            return false;
+        }
+        if (!this.uploadCaveMaskGeometry(geometry)) return false;
+        this.flush();
+
+        const safeWidth = Math.max(1, finiteNumber(width, this.canvas.width || 1));
+        const safeHeight = Math.max(1, finiteNumber(height, this.canvas.height || 1));
+        const safeZoom = Math.max(0.0001, finiteNumber(zoom, 1));
+        const originX = finiteNumber(viewX, 0);
+        const originY = finiteNumber(viewY, 0);
+        const offsetX = finiteNumber(parallaxX, 0);
+        const offsetY = finiteNumber(parallaxY, 0);
+
+        gl.useProgram(this.caveMaskProgram);
+        gl.uniform2f(this.caveMaskResolutionLocation, safeWidth, safeHeight);
+        gl.uniform2f(this.caveMaskViewOriginLocation, originX, originY);
+        gl.uniform2f(this.caveMaskParallaxLocation, offsetX, offsetY);
+        gl.uniform1f(this.caveMaskZoomLocation, safeZoom);
+        gl.enable(gl.BLEND);
+        gl.blendEquation(gl.FUNC_ADD);
+        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+
+        if (this.caveMaskGradientVertexCount > 0) {
+            this.bindCaveMaskBuffer(this.caveMaskGradientBuffer);
+            gl.drawArrays(gl.TRIANGLES, 0, this.caveMaskGradientVertexCount);
+            this.frameDiagnostics.drawCalls += 1;
+        }
+
+        gl.enable(gl.STENCIL_TEST);
+        gl.clearStencil(0);
+        gl.stencilMask(0xff);
+        gl.clear(gl.STENCIL_BUFFER_BIT);
+        gl.colorMask(false, false, false, false);
+        gl.disable(gl.BLEND);
+        gl.stencilFunc(gl.ALWAYS, 0, 0xff);
+        gl.stencilOp(gl.KEEP, gl.KEEP, gl.INVERT);
+        this.bindCaveMaskBuffer(this.caveMaskStencilBuffer);
+        gl.drawArrays(gl.TRIANGLES, 0, this.caveMaskStencilVertexCount);
+        this.frameDiagnostics.drawCalls += 1;
+
+        const left = originX + offsetX;
+        const top = originY + offsetY;
+        const right = left + safeWidth / safeZoom;
+        const bottom = top + safeHeight / safeZoom;
+        const fullscreenVertices = new Float32Array([
+            left, top, 1,
+            right, top, 1,
+            right, bottom, 1,
+            left, top, 1,
+            right, bottom, 1,
+            left, bottom, 1
+        ]);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.caveMaskFullscreenBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, fullscreenVertices, gl.DYNAMIC_DRAW);
+        gl.colorMask(true, true, true, true);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+        gl.stencilMask(0x00);
+        gl.stencilFunc(gl.EQUAL, 0, 0x01);
+        gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+        this.bindCaveMaskBuffer(this.caveMaskFullscreenBuffer);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+        this.frameDiagnostics.drawCalls += 1;
+
+        gl.stencilMask(0xff);
+        gl.disable(gl.STENCIL_TEST);
+        gl.colorMask(true, true, true, true);
+        gl.enable(gl.BLEND);
+        gl.blendEquation(gl.FUNC_ADD);
+        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+        gl.bindVertexArray(null);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gl.useProgram(this.program);
+        gl.uniform2f(this.resolutionLocation, safeWidth, safeHeight);
+        gl.uniform1i(this.textureLocation, 0);
+        gl.activeTexture(gl.TEXTURE0);
+        this.currentBlendMode = "alpha";
+        this.currentTextureRecord = null;
+        return true;
+    }
+
     endFrame() {
         this.flush();
         this.frameDiagnostics.staticTextureCount = this.textureRecords.size;
+        this.frameDiagnostics.residentTextureBytes = this.estimatedTextureBytes();
         this.frameDiagnostics.contextLost = Boolean(this.contextLost);
         return this.getDiagnostics();
     }
@@ -363,6 +606,9 @@ export class WebGL2RendererBackend {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
         gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+        if (gl.UNPACK_COLORSPACE_CONVERSION_WEBGL !== undefined) {
+            gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
+        }
         try {
             if (allocate) {
                 gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, record.source);
@@ -375,6 +621,9 @@ export class WebGL2RendererBackend {
         } finally {
             gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
             gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+            if (gl.UNPACK_COLORSPACE_CONVERSION_WEBGL !== undefined) {
+                gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.BROWSER_DEFAULT_WEBGL);
+            }
             gl.bindTexture(gl.TEXTURE_2D, null);
         }
     }
@@ -447,8 +696,8 @@ export class WebGL2RendererBackend {
         const bottomRight = transform(halfWidth, halfHeight);
         const bottomLeft = transform(-halfWidth, halfHeight);
 
-        const sw = Math.max(0.0001, finiteNumber(sourceWidth, record.width));
-        const sh = Math.max(0.0001, finiteNumber(sourceHeight, record.height));
+        const sw = Math.max(0.0001, sourceWidth == null ? record.width : finiteNumber(sourceWidth, record.width));
+        const sh = Math.max(0.0001, sourceHeight == null ? record.height : finiteNumber(sourceHeight, record.height));
         let u0 = finiteNumber(sourceX, 0) / record.width;
         let u1 = (finiteNumber(sourceX, 0) + sw) / record.width;
         let vTop = 1 - finiteNumber(sourceY, 0) / record.height;
@@ -540,7 +789,7 @@ export function createWebGL2RendererBackend(canvas) {
             alpha: false,
             antialias: true,
             depth: false,
-            stencil: false,
+            stencil: true,
             premultipliedAlpha: true,
             preserveDrawingBuffer: false,
             powerPreference: "high-performance",

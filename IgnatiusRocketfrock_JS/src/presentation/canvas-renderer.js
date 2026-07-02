@@ -31,7 +31,11 @@ import {
     wrenchRocketGlowAtlasFrameId
 } from "../shared/power-up-data.js";
 import { createColorMappedCanvas } from "./level-color-map-cache.js";
-import { computeCaveWindowParallaxOffset, drawCaveWindowMask } from "./cave-window-mask.js";
+import {
+    buildCaveWindowGpuMaskGeometry,
+    computeCaveWindowParallaxOffset,
+    drawCaveWindowMask
+} from "./cave-window-mask.js";
 import {
     caveWindowCenter,
     createForegroundSpriteCanvas,
@@ -107,9 +111,12 @@ const WEBGL_DIRECT_WORLD_EFFECT_KINDS = new Set([
     "rocketSmokePuff",
     "attachedRocketSmokePuff",
     "rocketImpactSmokePuff",
+    "reactiveObjectDestructionSmokePuff",
     "wizardDeathBurstParticle",
     "wizardCrushParticle",
-    "enemyProjectileImpactPuff"
+    "enemyProjectileImpactPuff",
+    "enemyTeleportFlash",
+    "enemyTeleportSpark"
 ]);
 const WEBGL_DIRECT_ENEMY_PROJECTILE_KINDS = new Set(["enemyFireball", "enemyMusketBall", "enemyRock"]);
 
@@ -269,7 +276,7 @@ export function probeWebGL2RendererSupport(ownerDocument) {
 }
 
 export async function createRenderer(canvas, options = {}) {
-    const preferWebGL2 = options.preferWebGL2 !== false;
+    const preferWebGL2 = options.preferWebGL2 === true;
     const ownerDocument = canvas?.ownerDocument || (typeof document !== "undefined" ? document : null);
     const webglProbePassed = preferWebGL2 && probeWebGL2RendererSupport(ownerDocument);
     const webglBackend = webglProbePassed ? createWebGL2RendererBackend(canvas) : null;
@@ -408,7 +415,7 @@ class RocketfrockRenderer {
         this.displayCanvas = options.displayCanvas || canvas;
         this.ctx = ctx;
         this.webglBackend = options.webglBackend || null;
-        this.renderBackend = this.webglBackend ? "webgl2-hybrid" : "canvas2d";
+        this.renderBackend = this.webglBackend ? "webgl2-resident" : "canvas2d";
         this.playerProject = playerProject;
         this.assets = playerProject.assets;
         this.rigConfig = playerProject.rig;
@@ -423,6 +430,7 @@ class RocketfrockRenderer {
         this.caveWindowCenter = null;
         this.caveWindowMaskCanvas = null;
         this.caveWindowMaskKey = "";
+        this.caveWindowGpuMaskGeometry = null;
         this.worldVisualCache = buildWorldVisualCache([]);
         this.overlapBlendCache = {
             source: null,
@@ -448,6 +456,7 @@ class RocketfrockRenderer {
             gpuTextureUpdates: 0,
             gpuCanvasLayerUploads: 0,
             gpuTextureCount: 0,
+            gpuResidentTextureBytes: 0,
             gpuContextLost: false,
             frameMs: 0,
             averageFrameMs: 0,
@@ -511,6 +520,47 @@ class RocketfrockRenderer {
             });
         }
         return frameIds.length;
+    }
+
+    prewarmWebGLTextures() {
+        const backend = this.webglBackend;
+        if (!backend?.available) return 0;
+        const sources = new Set();
+        const add = (source) => {
+            if (source) sources.add(source);
+        };
+        for (const atlas of this.environmentAtlases.values()) {
+            add(atlas?.renderImage || atlas?.image);
+        }
+        for (const project of this.characterProjects.values()) {
+            add(project?.image);
+            for (const atlas of project?.supplementalAtlases?.values?.() || []) {
+                add(atlas?.image);
+            }
+            for (const asset of project?.assets?.values?.() || []) {
+                add(asset?.image || asset?.canvas);
+                add(asset?.hitFlashCanvas);
+                add(asset?.lowHealthCanvas);
+                add(asset?.shieldCanvas);
+            }
+        }
+        for (const kind of [
+            "softGlow",
+            "ring",
+            "musketBall",
+            "rock",
+            "shadow",
+            "targetDisc",
+            "pickupDisc",
+            "rocketFlame",
+            "diamond",
+            "crossSpark",
+            "solidDisc"
+        ]) {
+            add(this.getWebGLParticleSpriteCanvas(kind));
+        }
+        add(this.getSmokeStampCanvas());
+        return backend.replacePinnedTextures([...sources]);
     }
 
     createVisualCounters() {
@@ -586,8 +636,11 @@ class RocketfrockRenderer {
         this.caveWindow = caveWindow && typeof caveWindow === "object" ? caveWindow : null;
         this.caveWindowCenter = caveWindowCenter(this.caveWindow);
         this.caveWindowMaskKey = "";
+        this.caveWindowGpuMaskGeometry = buildCaveWindowGpuMaskGeometry(this.caveWindow);
+        for (const surface of this.foregroundSpriteCache.values()) {
+            this.webglBackend?.invalidateTexture(surface);
+        }
         this.foregroundSpriteCache.clear();
-        this.webglBackend?.resetTextures();
         return this.caveWindow;
     }
 
@@ -613,7 +666,6 @@ class RocketfrockRenderer {
         this.environmentColorMapKey = "";
         this.foregroundSpriteCache.clear();
         this.overlapBlendCache.source = null;
-        this.webglBackend?.resetTextures();
         this.syncEnvironmentColorMap(this.environmentColorMap);
         return loaded.size > 0;
     }
@@ -632,7 +684,6 @@ class RocketfrockRenderer {
         this.environmentColorMapKey = cacheKey;
         this.foregroundSpriteCache.clear();
         this.overlapBlendCache.source = null;
-        this.webglBackend?.resetTextures();
         for (const atlas of this.environmentAtlases.values()) {
             if (!atlas?.image) {
                 continue;
@@ -640,6 +691,7 @@ class RocketfrockRenderer {
             atlas.renderImage = createColorMappedCanvas(atlas.image, colorMap, undefined, atlas.id);
             atlas.colorMapCacheKey = cacheKey;
         }
+        this.prewarmWebGLTextures();
         return true;
     }
 
@@ -951,36 +1003,64 @@ class RocketfrockRenderer {
         }
 
         const visualResult = this.drawOrderedWorldVisualsWebGL(state, view, false);
-        backend.flush();
-
-        this.clearStagingLayer();
-        this.drawBackdrop(view);
-        this.drawWorldCanvasGeometry(state, view, visualResult);
-        this.uploadStagingLayer(view);
+        const needsWorldCanvasLayer = Boolean(
+            state.debug.showCollision ||
+            state.debug.showAssetGuides ||
+            !visualResult.hasRenderableVisuals
+        );
+        if (needsWorldCanvasLayer) {
+            this.clearStagingLayer();
+            this.drawBackdrop(view);
+            this.drawWorldCanvasGeometry(state, view, visualResult);
+            this.uploadStagingLayer(view);
+        }
         backend.flush();
         const worldEnd = rendererNowMs();
 
-        // Revision 320 correctness fallback:
-        // Keep static scenery and final composition on WebGL2, but render the complete
-        // dynamic actor stack on the mature Canvas path before uploading it as one
-        // transparent layer. Live browser testing exposed invisible GPU character and
-        // projectile sprites on otherwise working WebGL2 implementations. This route
-        // preserves the pre-WebGL2 ordering and visual behavior while the direct-sprite
-        // helpers remain available for isolated reintroduction after browser validation.
-        this.clearStagingLayer();
-        this.drawPortalIntroGlow(state, view);
-        this.drawTargets(state, view);
-        this.drawPickups(state, view);
-        this.drawEnemies(state, view);
-        this.drawWorldEffects(state, view);
-        this.drawProjectiles(state, view);
-        this.drawPlayer(state, view);
-        this.drawPlayerDeathCover(state, view);
-        this.drawScorePopups(state, view);
-        if (state.debug.showPuppetGuide) {
-            this.drawEnemyGuides(state, view);
+        this.drawPortalIntroGlowWebGL(state, view);
+        this.drawTargetsWebGL(state, view);
+        this.drawPickupsWebGL(state, view);
+        this.drawEnemiesWebGL(state, view);
+        this.drawWorldEffectsWebGL(state, view);
+
+        const hasResidualWorldEffects = (state.effects?.smokePuffs || []).some((puff) => (
+            puff.kind !== "wizardDeathCoverSpark" &&
+            !WEBGL_DIRECT_WORLD_EFFECT_KINDS.has(puff.kind)
+        ));
+        if (hasResidualWorldEffects) {
+            this.clearStagingLayer();
+            this.drawWorldEffects(state, view, { skipKinds: WEBGL_DIRECT_WORLD_EFFECT_KINDS });
+            this.uploadStagingLayer(view);
         }
-        this.uploadStagingLayer(view);
+
+        this.drawProjectileExplosionEffectsWebGL(state, view);
+        const handledProjectileIds = new Set([
+            ...this.drawEnemyProjectilesWebGL(state, view),
+            ...this.drawPlayerRocketsWebGL(state, view)
+        ]);
+        const hasResidualProjectiles = (state.projectiles || []).some((projectile) => (
+            projectile.state === "launched" &&
+            !handledProjectileIds.has(projectile.id) &&
+            visualIntersectsViewport(this.projectileRenderBounds(projectile), view, null, 96)
+        ));
+        if (hasResidualProjectiles) {
+            this.clearStagingLayer();
+            this.drawProjectiles(state, view, {
+                skipExploding: true,
+                skipProjectileIds: handledProjectileIds
+            });
+            this.uploadStagingLayer(view);
+        }
+
+        this.drawPlayerWebGL(state, view);
+        this.drawPlayerFuelBulbWebGL(state, view);
+        this.drawPlayerDeathCoverWebGL(state, view);
+        this.drawScorePopupsWebGL(state, view);
+        if (state.debug.showPuppetGuide) {
+            this.clearStagingLayer();
+            this.drawEnemyGuides(state, view);
+            this.uploadStagingLayer(view);
+        }
         backend.flush();
         const actorsEnd = rendererNowMs();
 
@@ -989,11 +1069,23 @@ class RocketfrockRenderer {
         backend.flush();
         const foregroundEnd = rendererNowMs();
 
-        this.clearStagingLayer();
-        this.drawCaveWindow(state, view);
-        this.drawMailboxStoryOverlay(state, view);
-        this.drawDebug(state, view, inputFrame);
-        this.uploadStagingLayer(view);
+        this.drawCaveWindowWebGL(state, view);
+        backend.flush();
+        const maskEnd = rendererNowMs();
+
+        const story = state.story?.mailboxEvent;
+        const hasStoryOverlay = Boolean(story?.active && (story.phase === "letter" || story.phase === "thought"));
+        const hasDebugOverlay = Boolean(
+            state.debug.showCollision ||
+            state.debug.showHitboxes ||
+            state.debug.showVelocity
+        );
+        if (hasStoryOverlay || hasDebugOverlay) {
+            this.clearStagingLayer();
+            if (hasStoryOverlay) this.drawMailboxStoryOverlay(state, view);
+            if (hasDebugOverlay) this.drawDebug(state, view, inputFrame);
+            this.uploadStagingLayer(view);
+        }
         const gpuStats = backend.endFrame();
         const frameEnd = rendererNowMs();
         this.updatePerformanceDiagnostics({
@@ -1001,8 +1093,8 @@ class RocketfrockRenderer {
             worldMs: worldEnd - frameStart,
             actorsMs: actorsEnd - worldEnd,
             foregroundMs: foregroundEnd - actorsEnd,
-            maskMs: frameEnd - foregroundEnd,
-            overlayMs: 0,
+            maskMs: maskEnd - foregroundEnd,
+            overlayMs: frameEnd - maskEnd,
             gpuStats
         });
     }
@@ -1022,6 +1114,7 @@ class RocketfrockRenderer {
             gpuTextureUpdates: Math.max(0, Number(gpuStats.textureUpdates) || 0),
             gpuCanvasLayerUploads: Math.max(0, Number(gpuStats.canvasLayerUploads) || 0),
             gpuTextureCount: Math.max(0, Number(gpuStats.staticTextureCount) || 0),
+            gpuResidentTextureBytes: Math.max(0, Number(gpuStats.residentTextureBytes) || 0),
             gpuContextLost: Boolean(gpuStats.contextLost),
             frameMs,
             averageFrameMs,
@@ -1135,6 +1228,54 @@ class RocketfrockRenderer {
         this.caveWindowMaskKey = result.renderKey || "";
         this.frameVisualCounters.maskReused = Boolean(result.reused);
         return result.drawn;
+    }
+
+    drawCaveWindowWebGL(state, view) {
+        const backend = this.webglBackend;
+        if (!backend?.available) return false;
+        const geometry = this.caveWindowGpuMaskGeometry || buildCaveWindowGpuMaskGeometry(this.caveWindow);
+        if (geometry) {
+            this.caveWindowGpuMaskGeometry = geometry;
+            const parallaxOffset = computeCaveWindowParallaxOffset(
+                view,
+                state.world?.bounds,
+                this.caveWindow?.parallax
+            );
+            const drawn = backend.drawCaveMaskGeometry({
+                geometry,
+                width: view.w,
+                height: view.h,
+                viewX: view.x,
+                viewY: view.y,
+                zoom: view.zoom,
+                parallaxX: parallaxOffset.x,
+                parallaxY: parallaxOffset.y
+            });
+            if (drawn) {
+                this.frameVisualCounters.maskReused = true;
+                return true;
+            }
+        }
+
+        // Compatibility escape hatch for unusual WebGL2 implementations that
+        // refuse a stencil attachment even when one was requested.
+        const result = drawCaveWindowMask({
+            targetContext: this.ctx,
+            maskCanvas: this.caveWindowMaskCanvas,
+            previousRenderKey: this.caveWindowMaskKey,
+            caveWindow: this.caveWindow,
+            view,
+            worldBounds: state.world?.bounds,
+            drawToTarget: false
+        });
+        this.caveWindowMaskCanvas = result.maskCanvas;
+        this.caveWindowMaskKey = result.renderKey || "";
+        this.frameVisualCounters.maskReused = Boolean(result.reused);
+        if (!result.drawn || !result.maskCanvas) return false;
+        if (!result.reused) {
+            backend.refreshTexture(result.maskCanvas);
+        }
+        return backend.queueSurface(result.maskCanvas, 0, 0, view.w, view.h, 1, false);
     }
 
     drawWorld(state, view) {
@@ -1639,7 +1780,12 @@ class RocketfrockRenderer {
         if (!context) return null;
         const cx = size * 0.5;
         const cy = size * 0.5;
-        if (key === "ring") {
+        if (key === "solidDisc") {
+            context.fillStyle = "rgba(255, 255, 255, 1)";
+            context.beginPath();
+            context.arc(cx, cy, size * 0.46, 0, Math.PI * 2);
+            context.fill();
+        } else if (key === "ring") {
             context.strokeStyle = "rgba(255, 255, 255, 0.95)";
             context.lineWidth = size * 0.10;
             context.beginPath();
@@ -1994,18 +2140,20 @@ class RocketfrockRenderer {
         const pulse = 0.92 + Math.sin(time * 5.4) * 0.08;
         let drew = false;
         if (atlas?.image && glowFrame && iconFrame) {
-            const glow = this.getTintedAtlasFrameCanvas(atlas, glowFrameName, glowFrame, powerUp?.glowTint || "#ffb52f");
-            if (glow) {
-                drew = backend.queueSprite({
-                    source: glow,
-                    centerX,
-                    centerY,
-                    width: size * 1.16 * pulse,
-                    height: size * 1.16 * pulse,
-                    alpha: alpha * 0.92,
-                    blendMode: "additive"
-                }) || drew;
-            }
+            drew = backend.queueSprite({
+                source: atlas.renderImage || atlas.image,
+                sourceX: glowFrame.x,
+                sourceY: glowFrame.y,
+                sourceWidth: glowFrame.w,
+                sourceHeight: glowFrame.h,
+                centerX,
+                centerY,
+                width: size * 1.16 * pulse,
+                height: size * 1.16 * pulse,
+                tint: powerUp?.glowTint || "#ffb52f",
+                alpha: alpha * 0.92,
+                blendMode: "additive"
+            }) || drew;
             const iconSize = size * 0.47 * pulse;
             const iconAspect = iconFrame.w / Math.max(1, iconFrame.h);
             const iconW = iconAspect >= 1 ? iconSize : iconSize * iconAspect;
@@ -2087,8 +2235,14 @@ class RocketfrockRenderer {
             const localCenterX = transform.x + Math.cos(transform.angle) * (drawX + asset.width * 0.5) * spriteScale - Math.sin(transform.angle) * (drawY + asset.height * 0.5) * spriteScale;
             const localCenterY = transform.y + Math.sin(transform.angle) * (drawX + asset.width * 0.5) * spriteScale + Math.cos(transform.angle) * (drawY + asset.height * 0.5) * spriteScale;
             const rotation = facing < 0 ? -transform.angle : transform.angle;
+            const source = asset.image || asset.canvas;
+            const atlasBacked = Boolean(asset.image);
             backend.queueSprite({
-                source: asset.canvas,
+                source,
+                sourceX: atlasBacked ? asset.sourceX : 0,
+                sourceY: atlasBacked ? asset.sourceY : 0,
+                sourceWidth: atlasBacked ? asset.sourceWidth : asset.width,
+                sourceHeight: atlasBacked ? asset.sourceHeight : asset.height,
                 centerX: screenX + facing * localCenterX,
                 centerY: screenGroundY + localCenterY,
                 width: asset.width * spriteScale,
@@ -2875,6 +3029,65 @@ class RocketfrockRenderer {
                 continue;
             }
 
+            if (puff.kind === "enemyTeleportFlash") {
+                const fade = Math.pow(1 - ageRatio, 1.45);
+                const expansion = 0.34 + ageRatio * 0.92;
+                const flashRadius = Math.max(2, Number(puff.radius) || 24) * view.zoom * expansion;
+                if (glowSprite) {
+                    backend.queueSprite({
+                        source: glowSprite,
+                        centerX: point.x,
+                        centerY: point.y,
+                        width: flashRadius * 2,
+                        height: flashRadius * 2,
+                        tint: [124 / 255, 236 / 255, 1, 1],
+                        alpha: 0.84 * fade,
+                        blendMode: "additive"
+                    });
+                }
+                const ringSprite = this.getWebGLParticleSpriteCanvas("ring");
+                if (ringSprite) {
+                    backend.queueSprite({
+                        source: ringSprite,
+                        centerX: point.x,
+                        centerY: point.y,
+                        width: flashRadius * 1.56,
+                        height: flashRadius * 1.56,
+                        tint: [202 / 255, 142 / 255, 1, 1],
+                        alpha: 0.9 * fade,
+                        blendMode: "additive"
+                    });
+                }
+                this.markDynamicDrawn();
+                continue;
+            }
+
+            if (puff.kind === "enemyTeleportSpark") {
+                const fade = Math.pow(1 - ageRatio, 1.2);
+                const shardRadius = Math.max(1, Number(puff.radius) || 2) * view.zoom;
+                const paletteIndex = (Number(puff.colorIndex) || 0) % 3;
+                const tint = paletteIndex === 0
+                    ? [1, 1, 1, 1]
+                    : paletteIndex === 1
+                        ? [116 / 255, 235 / 255, 1, 1]
+                        : [190 / 255, 104 / 255, 1, 1];
+                if (diamondSprite) {
+                    backend.queueSprite({
+                        source: diamondSprite,
+                        centerX: point.x,
+                        centerY: point.y,
+                        width: shardRadius * 1.44,
+                        height: shardRadius * 3.4,
+                        rotation: Number(puff.rotation) || 0,
+                        tint,
+                        alpha: 0.96 * fade,
+                        blendMode: "additive"
+                    });
+                }
+                this.markDynamicDrawn();
+                continue;
+            }
+
             if (puff.kind === "enemyProjectileImpactPuff") {
                 if (glowSprite) {
                     const fade = Math.pow(1 - ageRatio, 1.35);
@@ -2889,6 +3102,18 @@ class RocketfrockRenderer {
                         alpha: 0.5 * fade,
                         blendMode: "alpha"
                     });
+                    if (puff.impactWizardAccent) {
+                        backend.queueSprite({
+                            source: glowSprite,
+                            centerX: point.x,
+                            centerY: point.y,
+                            width: Math.max(2, darkRadius * 0.34),
+                            height: Math.max(2, darkRadius * 0.34),
+                            tint: [1, 228 / 255, 112 / 255, 1],
+                            alpha: 0.52 * fade,
+                            blendMode: "additive"
+                        });
+                    }
                 }
                 this.markDynamicDrawn();
                 continue;
@@ -2978,6 +3203,8 @@ class RocketfrockRenderer {
             return;
         }
         const ringSprite = this.getWebGLParticleSpriteCanvas("ring");
+        const glowSprite = this.getWebGLParticleSpriteCanvas("softGlow");
+        const discSprite = this.getWebGLParticleSpriteCanvas("solidDisc");
         for (const projectile of state.projectiles || []) {
             if (projectile.state !== "exploding") {
                 continue;
@@ -2986,8 +3213,37 @@ class RocketfrockRenderer {
                 continue;
             }
             const point = this.worldToScreen(view, projectile.x, projectile.y);
+            const total = Math.max(0.001, Number(state.tuning?.rocketProjectileExplosionSeconds) || 0.42);
+            const remaining = Math.max(0, Number(projectile.explosionTimer) || 0);
+            const progress = Math.max(0, Math.min(1, 1 - remaining / total));
+            const flashFade = Math.pow(1 - progress, 1.45);
             if (projectile.owner !== "enemy") {
                 const explosionScale = Math.max(1, Number(projectile.explosionVisualScale) || 1);
+                const coreRadius = (12 + 16 * progress) * explosionScale * view.zoom;
+                if (glowSprite) {
+                    backend.queueSprite({
+                        source: glowSprite,
+                        centerX: point.x,
+                        centerY: point.y,
+                        width: coreRadius * 3.1,
+                        height: coreRadius * 3.1,
+                        tint: [1, 134 / 255, 54 / 255, 1],
+                        alpha: 0.76 * flashFade,
+                        blendMode: "additive"
+                    });
+                }
+                if (discSprite) {
+                    backend.queueSprite({
+                        source: discSprite,
+                        centerX: point.x,
+                        centerY: point.y,
+                        width: coreRadius * 0.82,
+                        height: coreRadius * 0.82,
+                        tint: [1, 246 / 255, 174 / 255, 1],
+                        alpha: 0.74 * flashFade,
+                        blendMode: "additive"
+                    });
+                }
                 this.drawSparkBurstWebGL(
                     point.x,
                     point.y,
@@ -2999,9 +3255,6 @@ class RocketfrockRenderer {
                 );
                 const areaRadius = Math.max(0, Number(projectile.areaDamageRadius) || 0);
                 if (areaRadius > 0 && ringSprite) {
-                    const total = Math.max(0.001, Number(state.tuning?.rocketProjectileExplosionSeconds) || 0.42);
-                    const remaining = Math.max(0, Number(projectile.explosionTimer) || 0);
-                    const progress = Math.max(0, Math.min(1, 1 - remaining / total));
                     backend.queueSprite({
                         source: ringSprite,
                         centerX: point.x,
@@ -3013,8 +3266,29 @@ class RocketfrockRenderer {
                         blendMode: "additive"
                     });
                 }
-            } else if (projectile.impactKind === "player") {
-                this.drawSparkBurstWebGL(point.x, point.y, view, projectile.age + projectile.x, 3, 9 * view.zoom, "wizardAccent");
+            } else {
+                const enemyRadius = (7 + progress * 7) * view.zoom;
+                if (glowSprite) {
+                    backend.queueSprite({
+                        source: glowSprite,
+                        centerX: point.x,
+                        centerY: point.y,
+                        width: enemyRadius * 3,
+                        height: enemyRadius * 3,
+                        tint: [1, 78 / 255, 38 / 255, 1],
+                        alpha: 0.42 * flashFade,
+                        blendMode: "additive"
+                    });
+                }
+                this.drawSparkBurstWebGL(
+                    point.x,
+                    point.y,
+                    view,
+                    projectile.age + projectile.x,
+                    projectile.impactKind === "player" ? 4 : 3,
+                    (projectile.impactKind === "player" ? 10 : 8) * view.zoom,
+                    projectile.impactKind === "player" ? "wizardAccent" : "enemy"
+                );
             }
             this.markDynamicDrawn();
         }
@@ -3101,7 +3375,7 @@ class RocketfrockRenderer {
 
     queueWebGLAssetSprite(asset, centerX, centerY, targetHeight, rotation = 0, options = {}) {
         const backend = this.webglBackend;
-        if (!backend?.available || !asset?.canvas || asset.missing) {
+        if (!backend?.available || !(asset?.image || asset?.canvas) || asset.missing) {
             return false;
         }
         const spriteScale = Math.max(0.0001, Number(targetHeight) || 0) / Math.max(1, asset.height);
@@ -3113,8 +3387,14 @@ class RocketfrockRenderer {
         const sin = Math.sin(rotation);
         const rotatedOffsetX = offsetX * cos - offsetY * sin;
         const rotatedOffsetY = offsetX * sin + offsetY * cos;
+        const source = asset.image || asset.canvas;
+        const atlasBacked = Boolean(asset.image);
         return backend.queueSprite({
-            source: asset.canvas,
+            source,
+            sourceX: atlasBacked ? asset.sourceX : 0,
+            sourceY: atlasBacked ? asset.sourceY : 0,
+            sourceWidth: atlasBacked ? asset.sourceWidth : asset.width,
+            sourceHeight: atlasBacked ? asset.sourceHeight : asset.height,
             centerX: centerX + rotatedOffsetX,
             centerY: centerY + rotatedOffsetY,
             width: asset.width * spriteScale,
@@ -3152,10 +3432,10 @@ class RocketfrockRenderer {
                 source: glowSprite,
                 centerX: screen.x,
                 centerY: screen.y,
-                width: radius * 2,
-                height: radius * 2,
+                width: radius * 2.8,
+                height: radius * 2.8,
                 tint,
-                alpha: fade * 0.92,
+                alpha: Math.min(1, fade * 1.08),
                 blendMode: "additive"
             });
             drew = queued || drew;
@@ -3248,6 +3528,129 @@ class RocketfrockRenderer {
         }));
     }
 
+    drawRocketPathTrailWebGL(projectile, state, view) {
+        const backend = this.webglBackend;
+        if (!backend?.available) return false;
+        const rawTrail = Array.isArray(projectile.trail) ? projectile.trail : [];
+        const trail = rawTrail.concat([{ x: projectile.x, y: projectile.y, time: state.clock.time }]);
+        if (trail.length < 2) return false;
+
+        const screenTrail = trail.map((point) => ({
+            ...this.worldToScreen(view, point.x, point.y),
+            time: point.time ?? state.clock.time
+        }));
+        const maxScreenLength = view.w * 0.075;
+        const visible = [screenTrail[screenTrail.length - 1]];
+        let distanceSoFar = 0;
+        for (let index = screenTrail.length - 2; index >= 0; index -= 1) {
+            const newer = screenTrail[index + 1];
+            const older = screenTrail[index];
+            const segment = Math.hypot(newer.x - older.x, newer.y - older.y);
+            if (distanceSoFar + segment > maxScreenLength) {
+                const remaining = Math.max(0, maxScreenLength - distanceSoFar);
+                const ratio = segment <= 0 ? 0 : remaining / segment;
+                visible.push({
+                    x: newer.x + (older.x - newer.x) * ratio,
+                    y: newer.y + (older.y - newer.y) * ratio,
+                    time: older.time
+                });
+                break;
+            }
+            visible.push(older);
+            distanceSoFar += segment;
+        }
+        visible.reverse();
+        if (visible.length < 2) return false;
+
+        const smokeStamp = this.getSmokeStampCanvas(projectile.wrenchGlowTint || null);
+        const glowSprite = this.getWebGLParticleSpriteCanvas("softGlow");
+        let drew = false;
+        if (smokeStamp) {
+            for (let index = 0; index < visible.length - 1; index += 1) {
+                const a = visible[index];
+                const b = visible[index + 1];
+                const dx = b.x - a.x;
+                const dy = b.y - a.y;
+                const segmentLength = Math.hypot(dx, dy);
+                if (segmentLength <= 0.001) continue;
+                const u = index / Math.max(1, visible.length - 2);
+                const age = clamp((state.clock.time - (a.time ?? state.clock.time)) / 1.25, 0, 1);
+                const smokeAlpha = (0.055 + 0.17 * u) * (1 - age * 0.55);
+                const smokeWidth = Math.max(2, (18 - u * 9) * view.zoom);
+                drew = backend.queueSprite({
+                    source: smokeStamp,
+                    centerX: (a.x + b.x) * 0.5,
+                    centerY: (a.y + b.y) * 0.5,
+                    width: segmentLength + smokeWidth,
+                    height: smokeWidth,
+                    rotation: Math.atan2(dy, dx),
+                    alpha: smokeAlpha,
+                    blendMode: "alpha"
+                }) || drew;
+            }
+        }
+
+        if (glowSprite) {
+            const sparkCount = Math.min(42, Math.max(8, visible.length * 2));
+            const seed = projectile.id.length * 97 + Math.floor(projectile.x * 0.11) + Math.floor(projectile.y * 0.07);
+            const poweredTint = hexColorRgb(projectile.wrenchGlowTint);
+            for (let index = 0; index < sparkCount; index += 1) {
+                const segmentIndex = Math.min(visible.length - 2, Math.floor(hashNoise(seed + 13, index) * (visible.length - 1)));
+                const a = visible[segmentIndex];
+                const b = visible[segmentIndex + 1];
+                const t = hashNoise(seed + 31, index);
+                const x = a.x + (b.x - a.x) * t;
+                const y = a.y + (b.y - a.y) * t;
+                const dx = b.x - a.x;
+                const dy = b.y - a.y;
+                const length = Math.hypot(dx, dy) || 1;
+                const nx = -dy / length;
+                const ny = dx / length;
+                const u = (segmentIndex + t) / Math.max(1, visible.length - 1);
+                const spread = (5 + (1 - u) * 11) * view.zoom;
+                const jitter = (hashNoise(seed + 71, index) - 0.5) * spread;
+                const age = clamp((state.clock.time - (a.time ?? state.clock.time)) / 1.25, 0, 1);
+                const twinkle = 0.72 + 0.28 * Math.sin(state.clock.time * 19 + index * 1.7);
+                const fade = Math.pow(u, 0.38) * (1 - age * 0.55) * twinkle;
+                const size = (0.8 + hashNoise(seed + 101, index) * 2.1) * view.zoom * (0.45 + fade);
+                const tint = poweredTint && index % 3 === 0
+                    ? [poweredTint.r / 255, poweredTint.g / 255, poweredTint.b / 255, 1]
+                    : (index % 7 === 0
+                        ? [197 / 255, 151 / 255, 1, 1]
+                        : (index % 2 === 0 ? [1, 239 / 255, 126 / 255, 1] : [1, 133 / 255, 82 / 255, 1]));
+                drew = backend.queueSprite({
+                    source: glowSprite,
+                    centerX: x + nx * jitter,
+                    centerY: y + ny * jitter,
+                    width: size * 2.4,
+                    height: size * 2.4,
+                    tint,
+                    alpha: clamp(0.06 + fade * 0.58, 0, 0.72),
+                    blendMode: "additive"
+                }) || drew;
+            }
+
+            const newest = visible[visible.length - 1];
+            const previous = visible[Math.max(0, visible.length - 2)];
+            const vx = newest.x - previous.x;
+            const vy = newest.y - previous.y;
+            const length = Math.hypot(vx, vy) || 1;
+            const tailX = -vx / length;
+            const tailY = -vy / length;
+            drew = backend.queueSprite({
+                source: glowSprite,
+                centerX: newest.x + tailX * 16 * view.zoom,
+                centerY: newest.y + tailY * 16 * view.zoom,
+                width: 40 * view.zoom,
+                height: 40 * view.zoom,
+                tint: [1, 158 / 255, 72 / 255, 1],
+                alpha: 0.34,
+                blendMode: "additive"
+            }) || drew;
+        }
+        return drew;
+    }
+
     drawProjectileRocketWebGL(projectile, state, view) {
         const backend = this.webglBackend;
         if (!backend?.available) {
@@ -3280,7 +3683,7 @@ class RocketfrockRenderer {
         const localCenterX = drawOffsetX + drawAsset.width * 0.5;
         const localCenterY = drawOffsetY + drawAsset.height * 0.5;
 
-        let drew = false;
+        let drew = this.drawRocketPathTrailWebGL(projectile, state, view);
         const flameSprite = this.getWebGLParticleSpriteCanvas("rocketFlame") || this.getWebGLParticleSpriteCanvas("softGlow");
         if (flameSprite) {
             const flicker = 0.88 + 0.18 * Math.sin((state.clock.time + projectile.age * 11) * 22 + projectile.id.length * 13);
@@ -4196,6 +4599,144 @@ class RocketfrockRenderer {
             }
         );
         this.lastBounds = Number.isFinite(bounds.minX) ? bounds : null;
+        return true;
+    }
+
+    drawPlayerFuelBulbWebGL(state, view) {
+        if (state.tuning.rocketFuelBulbEnabled === false || state.player.visible === false) return false;
+        const mounted = this.framePlayerRocketTransform;
+        const transform = mounted?.transform;
+        const backend = this.webglBackend;
+        const asset = this.assets.get("rocket");
+        if (!backend?.available || !transform || !asset || asset.missing) return false;
+
+        const pivot = this.rigConfig.pivots.rocket;
+        const spriteScale = transform.targetHeight / Math.max(1, asset.height);
+        const bulbX = (0.46 - pivot.x) * asset.width * spriteScale;
+        const bulbY = (0.47 - pivot.y) * asset.height * spriteScale;
+        const rotated = rotatePoint(bulbX, bulbY, transform.angle);
+        const facing = Number(mounted.facing) < 0 ? -1 : 1;
+        const centerX = mounted.screenX + facing * (transform.x + rotated.x);
+        const centerY = mounted.screenY + transform.y + rotated.y;
+
+        const fuel = state.fuel || { amount: 0, max: 100, rechargeDelayTimer: 0, rechargeCap: 100 };
+        const tuning = state.tuning || {};
+        const rocket = state.equipment?.rocket || {};
+        const ratio = clamp(fuel.amount / Math.max(1, fuel.max || 100), 0, 1);
+        const percent = ratio * 100;
+        const low = tuning.rocketFuelBulbLowThreshold ?? 25;
+        const mid = tuning.rocketFuelBulbMediumThreshold ?? 60;
+        const scale = tuning.rocketFuelBulbScale ?? 1;
+        const radius = Math.max(5, Math.min(asset.width, asset.height) * 0.055 * scale) * spriteScale;
+        const overdriveRecovering = Boolean(
+            activePowerUpEffect(state, POWER_UP_EFFECT_IDS.OVERDRIVE) && fuel.amount < fuel.max
+        );
+        const canRechargeNow = tuning.fuelRechargeRequiresGround === false || state.player.onGround || fuel.rechargeLatched === true;
+        const recharging = Boolean(
+            tuning.rocketFuelBulbPulseWhenRecharging !== false &&
+            (overdriveRecovering || (
+                !rocket.attachedBoosting &&
+                canRechargeNow &&
+                (fuel.rechargeDelayTimer ?? 0) <= 0 &&
+                fuel.amount < Math.min(fuel.rechargeCap ?? fuel.max, fuel.max)
+            ))
+        );
+        const unavailable = !overdriveRecovering && (
+            (tuning.fuelRechargeRequiresGround !== false && !state.player.onGround && fuel.rechargeLatched !== true) ||
+            (fuel.rechargeDelayTimer ?? 0) > 0
+        );
+        const flash = clamp((rocket.fuelBulbFlashTimer ?? 0) / 0.45, 0, 1);
+        const pulse = recharging ? 0.5 + 0.5 * Math.sin(state.clock.time * 13.5) : 0;
+        const dim = unavailable && !recharging ? 0.62 : 1;
+
+        let fill = [18 / 255, 16 / 255, 20 / 255, 0.88];
+        let glow = [0, 0, 0, 0];
+        if (percent > 0.5 && percent < low) {
+            fill = [220 / 255, 59 / 255, 58 / 255, 0.95];
+            glow = [1, 67 / 255, 53 / 255, 0.45];
+        } else if (percent >= low && percent < mid) {
+            fill = [239 / 255, 198 / 255, 71 / 255, 0.96];
+            glow = [1, 217 / 255, 75 / 255, 0.42];
+        } else if (percent >= mid) {
+            fill = [103 / 255, 218 / 255, 117 / 255, 0.96];
+            glow = [100 / 255, 244 / 255, 126 / 255, 0.42];
+        }
+
+        const disc = this.getWebGLParticleSpriteCanvas("solidDisc");
+        const softGlow = this.getWebGLParticleSpriteCanvas("softGlow");
+        const ring = this.getWebGLParticleSpriteCanvas("ring");
+        if (!disc) return false;
+        if (percent > 0.5 && softGlow) {
+            const glowRadius = radius * (2.2 + pulse * 0.75 + flash * 1.8);
+            backend.queueSprite({
+                source: softGlow,
+                centerX,
+                centerY,
+                width: glowRadius * 2,
+                height: glowRadius * 2,
+                tint: glow,
+                alpha: dim * (0.55 + pulse * 0.35 + flash * 0.42),
+                blendMode: "additive"
+            });
+        }
+        backend.queueSprite({
+            source: disc,
+            centerX,
+            centerY,
+            width: radius * 2.56,
+            height: radius * 2.56,
+            tint: [5 / 255, 4 / 255, 7 / 255, 0.92],
+            alpha: 0.82
+        });
+        backend.queueSprite({
+            source: disc,
+            centerX,
+            centerY,
+            width: radius * 2,
+            height: radius * 2,
+            tint: fill,
+            alpha: dim
+        });
+        if (fuel.amount > 0 && fuel.amount < fuel.max) {
+            const emptyRatio = 1 - ratio;
+            backend.queueSprite({
+                source: disc,
+                sourceX: 0,
+                sourceY: 0,
+                sourceWidth: disc.width,
+                sourceHeight: Math.max(1, disc.height * emptyRatio),
+                centerX,
+                centerY: centerY - radius + radius * emptyRatio,
+                width: radius * 2,
+                height: radius * 2 * emptyRatio,
+                tint: [0, 0, 0, 0.92],
+                alpha: 0.28
+            });
+        }
+        if (ring) {
+            backend.queueSprite({
+                source: ring,
+                centerX,
+                centerY,
+                width: radius * 3.12 * (1 + flash * 0.22),
+                height: radius * 3.12 * (1 + flash * 0.22),
+                tint: flash > 0.01
+                    ? [1, 1, 210 / 255, 0.98]
+                    : unavailable
+                        ? [1, 1, 1, 0.32]
+                        : [1, 1, 1, 0.66],
+                alpha: 0.88
+            });
+        }
+        backend.queueSprite({
+            source: disc,
+            centerX: centerX - radius * 0.28,
+            centerY: centerY - radius * 0.32,
+            width: radius * 0.46,
+            height: radius * 0.46,
+            tint: [1, 1, 1, 0.82],
+            alpha: 0.70
+        });
         return true;
     }
 

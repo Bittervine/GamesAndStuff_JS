@@ -33,3 +33,13 @@ Texture-producing helpers such as cave masks, colour-map caches, overlap composi
 The first WebGL2 slice should render a static world through a backend interface while Canvas remains available as a fallback. Camera transforms, layer partitions, visible-record queries, character draw commands, and effect records should be backend inputs. Input, simulation, collision, level loading, editor JSON, and generator output stay unchanged.
 
 Do not combine the initial backend switch with gameplay changes, level-format changes, editor rewrites, or a new asset pipeline. Keep the minimap and editor surfaces on Canvas until the game-world backend is stable and the stress fixture has comparable measurements.
+
+## Revision 323 resident-texture note
+
+The opt-in game renderer now consumes original character atlas images/source rectangles and pins presentation cache surfaces as WebGL textures. This does not change direct-Canvas ownership: cave masks, colour maps, overlap composites, foreground treatments, tint surfaces, text sprites, and particle stamps are still produced inside the approved presentation boundary. Normal WebGL gameplay no longer uploads the complete dynamic actor stack or final cave composition as full-screen Canvas layers; rare overlays and unsupported residual visuals use the existing conditional staging seam.
+
+## Revision 324 geometric cave-mask and effect note
+
+The cave-window source remains presentation-owned, but the opt-in WebGL path no longer rasterizes it into a camera-sized Canvas texture. Authored cave data is compiled into cached world-space feather and exterior geometry, then rendered with blend and stencil passes. The Canvas calls in `cave-window-mask.js` remain required for the default renderer and the explicit WebGL compatibility fallback; their lexical ownership count is therefore not expected to disappear.
+
+Procedural effect stamps are still prepared once inside `canvas-renderer.js`, pinned as textures, and drawn directly by the WebGL batcher. Player rocket trails, goblin-fireball trails, projectile explosions, reactive-object destruction smoke, projectile impact puffs, and teleport effects do not require a full-screen staging layer during normal gameplay. Mailbox/debug overlays and unsupported residual visuals remain the intentionally narrow staging boundary.

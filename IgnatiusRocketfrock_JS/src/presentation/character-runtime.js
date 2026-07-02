@@ -467,6 +467,11 @@ function makeRuntimeAtlasFrameAsset(image, frame, partName, frameId, imageUrl, a
     ctx.drawImage(image, x, y, width, height, 0, 0, width, height);
     return {
         canvas,
+        image,
+        sourceX: x,
+        sourceY: y,
+        sourceWidth: width,
+        sourceHeight: height,
         width,
         height,
         naturalWidth: image.naturalWidth || image.width || width,

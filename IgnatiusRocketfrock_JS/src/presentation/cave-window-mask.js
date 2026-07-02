@@ -1,5 +1,6 @@
 import {
     normalizeCaveWindow,
+    sampleClosedCaveSpline,
     sampleCaveWindowOutset,
     sampleCaveWindowPerturbedOutset
 } from "../shared/cave-window-data.js";
@@ -129,8 +130,10 @@ function caveGradientGeometry(cave) {
         })
         : [];
     const geometry = {
+        opening: sampleClosedCaveSpline(cave.points, stepsPerSegment),
         outset: sampleCaveWindowOutset(cave.points, cave.feather, stepsPerSegment),
-        bands
+        bands,
+        gpuMask: null
     };
     ORGANIC_GRADIENT_GEOMETRY_CACHE.set(key, geometry);
     while (ORGANIC_GRADIENT_GEOMETRY_CACHE.size > ORGANIC_GRADIENT_GEOMETRY_CACHE_LIMIT) {
@@ -138,6 +141,109 @@ function caveGradientGeometry(cave) {
         ORGANIC_GRADIENT_GEOMETRY_CACHE.delete(oldestKey);
     }
     return geometry;
+}
+
+function openContour(points) {
+    const contour = Array.isArray(points)
+        ? points
+            .filter((point) => Number.isFinite(Number(point?.x)) && Number.isFinite(Number(point?.y)))
+            .map((point) => ({ x: Number(point.x), y: Number(point.y) }))
+        : [];
+    if (contour.length > 1) {
+        const first = contour[0];
+        const last = contour[contour.length - 1];
+        if (Math.hypot(first.x - last.x, first.y - last.y) <= 0.0001) {
+            contour.pop();
+        }
+    }
+    return contour;
+}
+
+function appendMaskVertex(target, point, alpha) {
+    target.push(point.x, point.y, alpha);
+}
+
+function appendMaskTriangle(target, a, alphaA, b, alphaB, c, alphaC) {
+    appendMaskVertex(target, a, alphaA);
+    appendMaskVertex(target, b, alphaB);
+    appendMaskVertex(target, c, alphaC);
+}
+
+function appendRingStrip(target, inner, outer, innerAlpha, outerAlpha) {
+    const count = Math.min(inner.length, outer.length);
+    if (count < 3) return;
+    for (let index = 0; index < count; index += 1) {
+        const next = (index + 1) % count;
+        appendMaskTriangle(target, inner[index], innerAlpha, outer[index], outerAlpha, outer[next], outerAlpha);
+        appendMaskTriangle(target, inner[index], innerAlpha, outer[next], outerAlpha, inner[next], innerAlpha);
+    }
+}
+
+function buildParityContourTriangles(contour) {
+    if (contour.length < 3) return new Float32Array(0);
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const point of contour) {
+        minX = Math.min(minX, point.x);
+        minY = Math.min(minY, point.y);
+        maxX = Math.max(maxX, point.x);
+        maxY = Math.max(maxY, point.y);
+    }
+    const origin = {
+        x: minX - Math.max(64, maxX - minX) * 0.37,
+        y: minY - Math.max(64, maxY - minY) * 0.29
+    };
+    const vertices = [];
+    for (let index = 0; index < contour.length; index += 1) {
+        const next = (index + 1) % contour.length;
+        appendMaskTriangle(vertices, origin, 1, contour[index], 1, contour[next], 1);
+    }
+    return new Float32Array(vertices);
+}
+
+/**
+ * Builds reusable world-space GPU geometry for the cave feather and exterior.
+ * Camera movement is intentionally excluded from this cache. The WebGL backend
+ * applies camera, zoom, and parallax as uniforms, so no Canvas texture needs to
+ * be repainted or transferred while the camera moves.
+ */
+export function buildCaveWindowGpuMaskGeometry(caveWindow) {
+    const cave = normalizeCaveWindow(caveWindow);
+    if (!cave.enabled || cave.points.length < 3) return null;
+    const geometry = caveGradientGeometry(cave);
+    if (geometry.gpuMask) return geometry.gpuMask;
+
+    const contours = [
+        { points: openContour(geometry.opening), opacity: 0 },
+        ...geometry.bands.map((band) => ({
+            points: openContour(band.points),
+            opacity: caveGradientOpacityAtProgress(band.progress)
+        })),
+        { points: openContour(geometry.outset), opacity: 1 }
+    ].filter((entry) => entry.points.length >= 3);
+
+    const gradientVertices = [];
+    for (let index = 1; index < contours.length; index += 1) {
+        const previous = contours[index - 1];
+        const current = contours[index];
+        appendRingStrip(
+            gradientVertices,
+            previous.points,
+            current.points,
+            previous.opacity,
+            current.opacity
+        );
+    }
+
+    const outset = contours[contours.length - 1]?.points || [];
+    geometry.gpuMask = Object.freeze({
+        key: caveGradientGeometryKey(cave),
+        gradientVertices: new Float32Array(gradientVertices),
+        exteriorStencilVertices: buildParityContourTriangles(outset)
+    });
+    return geometry.gpuMask;
 }
 
 function drawOrganicGradientBands(context, geometry, view, parallaxOffset, width, height) {
@@ -211,7 +317,8 @@ export function drawCaveWindowMask({
     caveWindow,
     view,
     worldBounds,
-    renderScale = DEFAULT_CAVE_MASK_RENDER_SCALE
+    renderScale = DEFAULT_CAVE_MASK_RENDER_SCALE,
+    drawToTarget = true
 }) {
     const cave = normalizeCaveWindow(caveWindow);
     if (!cave.enabled || cave.points.length < 3) {
@@ -273,12 +380,14 @@ export function drawCaveWindowMask({
         maskContext.restore();
     }
 
-    targetContext.save();
-    targetContext.globalCompositeOperation = "source-over";
-    targetContext.globalAlpha = 1;
-    targetContext.imageSmoothingEnabled = true;
-    targetContext.drawImage(surface, 0, 0, width, height, 0, 0, targetWidth, targetHeight);
-    targetContext.restore();
+    if (drawToTarget && targetContext) {
+        targetContext.save();
+        targetContext.globalCompositeOperation = "source-over";
+        targetContext.globalAlpha = 1;
+        targetContext.imageSmoothingEnabled = true;
+        targetContext.drawImage(surface, 0, 0, width, height, 0, 0, targetWidth, targetHeight);
+        targetContext.restore();
+    }
 
     return {
         drawn: true,

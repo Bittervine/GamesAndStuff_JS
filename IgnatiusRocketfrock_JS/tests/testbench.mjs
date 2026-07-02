@@ -15,6 +15,7 @@ import {
 } from "../src/presentation/canvas-renderer.js";
 import { WebGL2RendererBackend } from "../src/presentation/webgl2-renderer.js";
 import {
+    buildCaveWindowGpuMaskGeometry,
     caveGradientOpacityAtProgress,
     caveWindowMaskRenderKey,
     computeCaveWindowParallaxOffset,
@@ -6743,6 +6744,13 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
         TRIANGLES: 27,
         UNPACK_FLIP_Y_WEBGL: 28,
         UNPACK_PREMULTIPLY_ALPHA_WEBGL: 29,
+        STENCIL_TEST: 30,
+        STENCIL_BUFFER_BIT: 31,
+        ALWAYS: 32,
+        KEEP: 33,
+        INVERT: 34,
+        EQUAL: 35,
+        getContextAttributes: () => ({ stencil: true }),
         createShader: () => ({ id: nextHandle++ }),
         shaderSource: () => {},
         compileShader: () => {},
@@ -6755,7 +6763,13 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
         getProgramParameter: () => true,
         getProgramInfoLog: () => "",
         deleteProgram: () => {},
-        getAttribLocation: (_program, name) => ({ a_position: 0, a_uv: 1, a_color: 2 }[name]),
+        getAttribLocation: (_program, name) => ({
+            a_position: 0,
+            a_uv: 1,
+            a_color: 2,
+            a_world_position: 0,
+            a_alpha: 1
+        }[name]),
         getUniformLocation: () => ({ id: nextHandle++ }),
         createVertexArray: () => ({ id: nextHandle++ }),
         createBuffer: () => ({ id: nextHandle++ }),
@@ -6781,10 +6795,16 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
         clear: () => {},
         useProgram: () => {},
         uniform2f: () => {},
+        uniform1f: () => {},
         uniform1i: () => {},
         activeTexture: () => {},
         pixelStorei: () => {},
         bufferSubData: () => {},
+        clearStencil: () => {},
+        stencilMask: () => {},
+        stencilFunc: () => {},
+        stencilOp: () => {},
+        colorMask: () => {},
         drawArrays: () => { glCalls.drawArrays += 1; }
     };
     const fakeCanvas = { width: 640, height: 360, addEventListener: () => {} };
@@ -6815,6 +6835,14 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     assert.ok(glCalls.texImage2D >= 3, "the WebGL backend should allocate its white, atlas, and staging textures");
     assert.ok(glCalls.texSubImage2D >= 1, "the second staging upload in one frame should update the reusable texture");
     assert.equal(glCalls.drawArrays, gpuDiagnostics.drawCalls, "GPU diagnostics should match actual submitted draw calls");
+
+    const proceduralSource = { width: 64, height: 64 };
+    gpu.beginFrame(640, 360, "rgb(6, 6, 12)");
+    gpu.queueSprite({ source: proceduralSource, centerX: 100, centerY: 100, width: 64, height: 64 });
+    assert.equal(gpu.vertexData[2], 0, "full-source procedural sprites should begin at the left texture edge when no source rectangle is supplied");
+    assert.equal(gpu.vertexData[10], 1, "full-source procedural sprites should span the complete texture width when sourceWidth is null");
+    assert.equal(gpu.vertexData[19], 0, "full-source procedural sprites should span the complete texture height when sourceHeight is null");
+    gpu.endFrame();
     const visuals = [
         {
             id: "terrain_visible",
@@ -6901,29 +6929,54 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     assert.notEqual(maskKey, caveWindowMaskRenderKey({ ...cave, gradientNoise: { ...cave.gradientNoise, period: cave.gradientNoise.period + 10 } }, view, worldBounds, DEFAULT_CAVE_MASK_RENDER_SCALE), "changing gradient period should invalidate the cave mask cache");
     assert.ok(DEFAULT_CAVE_MASK_RENDER_SCALE < 0.5, "soft cave masks should render on a reduced-resolution surface");
 
+    const caveGpuGeometry = buildCaveWindowGpuMaskGeometry(cave);
+    assert.ok(caveGpuGeometry.gradientVertices.length > 0, "the cave feather should compile into reusable GPU triangle geometry");
+    assert.ok(caveGpuGeometry.exteriorStencilVertices.length > 0, "the cave exterior should compile into a reusable odd-even stencil contour");
+    const drawCallsBeforeMask = glCalls.drawArrays;
+    gpu.beginFrame(640, 360, "rgb(6, 6, 12)");
+    assert.equal(gpu.drawCaveMaskGeometry({
+        geometry: caveGpuGeometry,
+        width: 640,
+        height: 360,
+        viewX: 0,
+        viewY: 0,
+        zoom: 1,
+        parallaxX: 0,
+        parallaxY: 0
+    }), true, "the WebGL backend should draw the cave feather and exterior directly from resident geometry");
+    const caveMaskDiagnostics = gpu.endFrame();
+    assert.equal(caveMaskDiagnostics.textureUploads, 0, "the geometric cave mask should not allocate a Canvas texture during a frame");
+    assert.equal(caveMaskDiagnostics.textureUpdates, 0, "camera-independent cave geometry should not trigger texture updates");
+    assert.ok(glCalls.drawArrays >= drawCallsBeforeMask + 2, "the cave mask should submit gradient and stencil-backed exterior passes");
+
     const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
     const webglSource = readFileSync(new URL("../src/presentation/webgl2-renderer.js", import.meta.url), "utf8");
     const maskSource = readFileSync(new URL("../src/presentation/cave-window-mask.js", import.meta.url), "utf8");
     const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
     assert.ok(rendererSource.includes("buildWorldVisualCache") && rendererSource.includes("visualIntersectsViewport"), "Canvas renderer should cache layer organization and cull static scenery before drawing");
-    assert.ok(rendererSource.includes("createWebGL2RendererBackend") && rendererSource.includes("renderWebGL2") && rendererSource.includes("renderCanvas2D"), "the game renderer should retain both the WebGL2 hybrid path and Canvas 2D renderer");
+    assert.ok(rendererSource.includes("createWebGL2RendererBackend") && rendererSource.includes("renderWebGL2") && rendererSource.includes("renderCanvas2D"), "the game renderer should retain both the opt-in WebGL2 resident-texture path and Canvas 2D renderer");
     assert.ok(rendererSource.includes("probeWebGL2RendererSupport") && rendererSource.includes("const webglProbePassed"), "WebGL2 support should be proven on a scratch canvas before the visible canvas is committed to the GPU context family");
     assert.ok(bootstrapSource.includes("shouldPreferWebGL2Renderer") && bootstrapSource.includes('params.get("webgl")') && bootstrapSource.includes('"webgl2"') && bootstrapSource.includes("preferWebGL2: preferWebGL2Renderer"), "game.html should default to Canvas 2D while supporting a webgl=1-style URL switch for opt-in WebGL2 benchmark runs");
     assert.ok(rendererSource.includes("if (this.webglBackend) {") && rendererSource.includes("wait for webglcontextrestored"), "a lost WebGL context should not incorrectly redirect rendering into the invisible staging canvas");
     assert.ok(rendererSource.includes("drawOrderedWorldVisualsWebGL") && rendererSource.includes("queueAtlasSpriteVisualWebGL"), "static world, actor-front, and cave-foreground atlas visuals should use direct GPU sprite batches");
     assert.ok(rendererSource.includes("drawWorldEffectsWebGL") && rendererSource.includes("drawProjectileExplosionEffectsWebGL") && rendererSource.includes("drawPlayerDeathCoverWebGL"), "rocket trails, projectile explosions, and Ignatius death particles should have direct WebGL2 effect passes");
+    assert.ok(rendererSource.includes("drawRocketPathTrailWebGL") && rendererSource.includes('"reactiveObjectDestructionSmokePuff"') && rendererSource.includes("drawEnemyFireballParticlesWebGL"), "rocket trails, goblin-fireball trails, and destroyed-object smoke should remain in direct GPU effect passes");
     assert.ok(rendererSource.indexOf("this.drawPlayer(state, view)") < rendererSource.indexOf("this.drawPlayerDeathCover(state, view)"), "the active hybrid dynamic pass must render death-cover sparks after Ignatius so they actually cover the rig");
     assert.ok(rendererSource.includes("drawEnemyProjectilesWebGL") && rendererSource.includes("WEBGL_DIRECT_ENEMY_PROJECTILE_KINDS"), "enemy projectile families should have their own direct WebGL2 pass when the GPU backend is active");
-    assert.ok(rendererSource.includes("Revision 320 correctness fallback") && rendererSource.includes("this.drawEnemies(state, view)") && rendererSource.includes("this.drawPlayer(state, view)"), "the WebGL2 renderer should stage the complete dynamic actor stack through Canvas until direct GPU sprite parity is browser-validated");
+    assert.ok(rendererSource.includes("prewarmWebGLTextures") && rendererSource.includes("replacePinnedTextures") && rendererSource.includes("asset.image || asset.canvas"), "the opt-in WebGL2 renderer should pin original atlas textures and draw atlas-backed dynamic sprites directly from them");
+    assert.ok(rendererSource.includes("buildCaveWindowGpuMaskGeometry") && rendererSource.includes("drawCaveMaskGeometry"), "the WebGL cave mask should use reusable world-space geometry before considering the Canvas compatibility fallback");
+    assert.ok(maskSource.includes("gradientVertices") && maskSource.includes("exteriorStencilVertices"), "cave-window data should compile into resident gradient and odd-even exterior meshes");
     assert.ok(rendererSource.includes("drawPlayerRocketsWebGL") && rendererSource.includes("drawProjectileRocketWebGL") && rendererSource.includes("rocketFlame"), "player rocket bodies and flame treatment should also have a direct WebGL2 pass when the GPU backend is active");
     assert.ok(rendererSource.includes("hitFlashCanvas") && rendererSource.includes("overlayTintCanvasKey"), "WebGL character rendering should preserve player and enemy hit-flash overlays");
     assert.ok(rendererSource.includes("drawTargetsWebGL") && rendererSource.includes("drawPickupsWebGL") && rendererSource.includes("drawEnemiesWebGL") && rendererSource.includes("drawPlayerWebGL"), "targets, pickups, enemies, and the player rig should use direct WebGL2 presentation paths where practical");
     assert.ok(rendererSource.includes("drawScorePopupsWebGL") && rendererSource.includes("drawPortalIntroGlowWebGL") && rendererSource.includes("getWebGLTextSpriteCanvas"), "score popups and portal glow should use cached direct WebGL2 sprite paths");
-    assert.ok(rendererSource.includes("uploadStagingLayer") && rendererSource.includes("gpuCanvasLayerUploads"), "procedural actors and overlays should be composited through explicit transparent staging layers instead of forcing the whole scene back through Canvas 2D");
+    assert.ok(rendererSource.includes("uploadStagingLayer") && rendererSource.includes("hasStoryOverlay") && rendererSource.includes("hasDebugOverlay"), "rare procedural story and debug overlays should retain an explicit transparent staging fallback without routing the normal actor stack through Canvas 2D");
     assert.ok(webglSource.includes('getContext("webgl2"') && webglSource.includes('powerPreference: "high-performance"'), "the WebGL backend should request a WebGL2 high-performance context");
     assert.ok(webglSource.includes("bufferSubData") && webglSource.includes("drawArrays") && webglSource.includes("VERTICES_PER_QUAD"), "the WebGL backend should batch textured quads through one dynamic vertex buffer");
+    assert.ok(webglSource.includes("sourceWidth == null ? record.width") && webglSource.includes("sourceHeight == null ? record.height"), "procedural full-texture sprites must not collapse to a transparent top-left texel when their source rectangle is omitted");
+    assert.ok(webglSource.includes("stencil: true") && webglSource.includes("gl.INVERT") && webglSource.includes("drawCaveMaskGeometry"), "the cave exterior should use the WebGL stencil buffer instead of a CPU-painted mask upload");
     assert.ok(webglSource.includes("blendMode = \"alpha\"") && webglSource.includes("gl.blendFunc(gl.ONE, gl.ONE)"), "the WebGL backend should support switching between alpha and additive sprite blending for particle passes");
-    assert.ok(webglSource.includes("texSubImage2D") && webglSource.includes("UNPACK_PREMULTIPLY_ALPHA_WEBGL"), "dynamic Canvas staging layers should update reusable premultiplied textures rather than reallocating them every frame");
+    assert.ok(webglSource.includes("texSubImage2D") && webglSource.includes("UNPACK_PREMULTIPLY_ALPHA_WEBGL") && webglSource.includes("residentTextureBytes"), "dynamic fallback surfaces should update reusable premultiplied textures while diagnostics report persistent GPU residency");
     assert.ok(webglSource.includes("webglcontextlost") && webglSource.includes("webglcontextrestored"), "the GPU backend should explicitly handle WebGL context loss and restoration");
     assert.ok(rendererSource.includes("foregroundSpriteCache") && rendererSource.includes("getForegroundSpriteCanvas"), "dark foreground variants should be cached instead of filtered on every draw");
     assert.ok(rendererSource.includes("smokeStampCache") && rendererSource.includes("getSmokeStampCanvas") && rendererSource.includes("ctx.drawImage(smokeStamp"), "smoke puffs should reuse cached radial stamps rather than create a gradient for every particle on every frame");
@@ -7802,10 +7855,10 @@ function testRocketPowerUpArsenal() {
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 320<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 324<\/small>/, "the Level Editor should display the packaged revision");
     assert.ok(editorSource.includes("createWebGL2RendererBackend") && editorSource.includes("paintEditorFrameWebGL") && editorSource.includes("editorTransientOverlayCache"), "the Level Editor should prefer a WebGL2 compositor for cached static scenes and transient overlays");
     assert.ok(editorSource.includes("probeEditorWebGL2Support") && editorSource.includes("editorCanvas2D !== canvas"), "the Level Editor must probe on a disposable canvas and retain a true Canvas 2D fallback");
-    assert.match(bootstrapSource, /const GAME_REVISION = "320";/, "the game debug revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "324";/, "the game debug revision should match the packaged revision");
     assert.match(editorSource, /<button id="fit-content-view">Fit<\/button>/, "the Level Editor should expose one concise Fit button");
     assert.equal(editorSource.includes('id="fit-view"'), false, "the removed Fit World control should not remain in the Level Editor");
     assert.equal(editorSource.includes('id="fit-cave-view"'), false, "the removed Fit Cave control should not remain in the Level Editor");

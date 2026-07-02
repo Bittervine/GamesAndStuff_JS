@@ -1247,3 +1247,28 @@ Live browser testing revealed that the direct WebGL2 dynamic-sprite pass could p
 
 Static atlas scenery and foreground layers still use direct WebGL2 batches. Dynamic actors and gameplay effects are drawn in their established Canvas order onto a transparent staging canvas, then uploaded and composited once by WebGL2. This preserves GPU acceleration for dense static scenery and final composition without risking missing gameplay-critical visuals. The direct actor/projectile methods are retained as experimental code, not as the active production path.
 
+
+## Revision 323 opt-in GPU-resident render graph
+
+The renderer now has two intentionally separate production paths. `createRenderer(canvas, { preferWebGL2: true })` is the only route that may acquire WebGL2; omission or a failed scratch-canvas probe leaves the visible game canvas on the unchanged Canvas 2D renderer. `game.html` supplies that option only for the existing `?webgl=1`-style opt-in switch.
+
+In the WebGL2 path, `src/presentation/character-runtime.js` keeps both the cropped compatibility Canvas and the original atlas image/source rectangle for every runtime frame. `src/presentation/canvas-renderer.js` queues atlas-backed character and projectile quads from the original image, while cropped tint canvases remain optional overlay textures. `src/presentation/webgl2-renderer.js` pins known static sources, restores them after context restoration, batches source rectangles from shared atlases, and reports estimated resident texture bytes.
+
+The normal opt-in frame graph is:
+
+1. Direct resident static-world atlas/cutout batches, with a conditional Canvas layer only for collision/asset guides or artless fallback geometry.
+2. Direct portal, target, pickup, enemy, supported effect, projectile, player, fuel-bulb, death-cover, and score-popup batches.
+3. Conditional transparent staging layers only for unsupported residual effects/projectiles and the puppet guide.
+4. Direct actor-front and cave-foreground batches.
+5. A dedicated reduced-resolution cave-mask texture, refreshed only when its render key changes.
+6. A final conditional transparent layer for active story or debug overlays.
+
+Canvas-produced colour maps, overlap composites, foreground treatments, masks, tint surfaces, text sprites, and particle stamps are presentation caches, not authoritative scene data. Their pixels may be uploaded and retained by WebGL2, but gameplay state, level records, collision, navigation, and camera transforms remain CPU-owned portable data. A future GPU-only preparation phase can replace individual cache producers without changing those boundaries.
+
+## Revision 324 procedural-sprite and cave-mask GPU contracts
+
+A queued WebGL sprite with no explicit atlas rectangle means “use the complete source texture.” `WebGL2RendererBackend.queueSprite` must distinguish omitted `sourceWidth` / `sourceHeight` values from numeric zero. Coercing `null` with `Number(null)` collapses UVs onto one texel and is especially destructive for procedural textures whose upper-left pixel is transparent. Atlas-backed calls may continue to provide their own source rectangles.
+
+The direct WebGL effect pass consumes the same portable projectile and `effects.smokePuffs` records as Canvas. Player rocket path samples, enemy-fireball particles, projectile explosion state, impact puffs, reactive-object destruction smoke, and teleport effects remain simulation-owned data. Presentation converts them to batches of pinned smoke, glow, ring, disc, diamond, and flame textures. No GPU-only effect state is authoritative.
+
+The WebGL cave window is geometry, not a screen texture. `buildCaveWindowGpuMaskGeometry` compiles the authored cave spline, organic feather bands, and outer contour into cached world-space arrays. `WebGL2RendererBackend.drawCaveMaskGeometry` uploads those arrays only when the cave definition changes. Each frame it applies camera, zoom, and parallax uniforms, draws the feather mesh, writes the outer contour with odd-even stencil inversion, and paints black only where the stencil indicates the exterior. A stencil-capable context is requested explicitly. The existing Canvas mask remains a presentation fallback, preserving the default Canvas renderer and unusual WebGL implementations without usable stencil support.

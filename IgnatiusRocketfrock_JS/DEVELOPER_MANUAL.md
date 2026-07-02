@@ -187,3 +187,19 @@ Do not reactivate direct WebGL rendering for Ignatius, enemies, or projectiles s
 
 The supported production path now draws the entire dynamic actor stack to the transparent staging canvas and lets WebGL2 composite that layer. Any future direct-sprite reintroduction must be incremental, guarded by a runtime switch, and checked in at least Chromium and Firefox with visible-player, visible-enemy, visible-projectile, hit-flash, death, and context-restoration scenarios.
 
+
+## Revision 323 WebGL2 resident-texture testing
+
+Canvas 2D remains the normal game renderer. Add `?webgl=1` to `game.html` only when testing the opt-in GPU path. Startup probes WebGL2 on a disposable canvas before the visible canvas is committed, so an unavailable or failed GPU backend still starts through Canvas 2D.
+
+The debug panel identifies the experimental path as `webgl2-resident`. Its GPU line reports draw calls, quads, new uploads, texture updates, full-screen Canvas-layer uploads, texture count, and estimated resident MiB. In ordinary gameplay after startup, `layers:0` is the important revision-323 expectation. A nonzero layer count is legitimate while a story/debug overlay, puppet guide, fallback geometry, or unsupported residual visual is active. Cave-mask camera changes may increment texture updates without incrementing Canvas-layer uploads.
+
+For visual validation, use a real browser configuration with WebGL2 enabled. Some headless Chromium builds disable WebGL entirely and silently exercise the Canvas fallback instead. Confirm both the `webgl2-resident` backend label and visible atlas-backed actors before treating a benchmark as a GPU result.
+
+## Revision 324 WebGL effect and cave-mask validation
+
+Open `game.html?webgl=1` and first confirm that the debug panel says `render:webgl2-resident`; a browser that silently falls back to Canvas is not a valid GPU test. Fire a player rocket along a curved route and verify that the smoky, sparkling path and nozzle flame remain visible. Detonate both a player rocket and an enemy fireball, then destroy a reactive crate or barrier. The explosion cores, rings or sparks, impact puffs, goblin-fireball trail, and destruction smoke should all be visible.
+
+On a warmed ordinary frame, the GPU diagnostics should normally read `uploads:0 updates:0 layers:0`. Camera movement should no longer increment `updates`, because the cave opening and feather are resident geometry and the exterior is generated with the stencil buffer. A nonzero `layers` count remains legitimate for mailbox/story presentation, debug or puppet guides, collision-only fallback scenery, or an unsupported residual visual.
+
+WebGL2 is requested with a stencil buffer. If the implementation reports no usable stencil support, the renderer deliberately falls back to the older cached Canvas cave-mask texture while retaining the rest of the GPU path. Canvas 2D behavior is unchanged and remains the default without the URL parameter.

@@ -100,7 +100,7 @@ const autoFullscreenRow = document.getElementById("auto-fullscreen-row");
 const autoFullscreenInput = document.getElementById("auto-fullscreen");
 const showMinimapInput = document.getElementById("show-minimap");
 
-const GAME_REVISION = "320";
+const GAME_REVISION = "324";
 
 let displayedLoadingProgress = 0;
 let activeCaveWindow = normalizeCaveWindow(null);
@@ -156,6 +156,7 @@ if (!applyLoadedAtlasCollisions()) {
 }
 // Build any level-wide recoloured atlas copies once during level startup. The
 // render loop only compares the cache key and uses ordinary drawImage calls.
+setLoadingProgress(0.965, preferWebGL2Renderer ? "Uploading persistent renderer textures" : "Preparing environment textures");
 renderer.syncEnvironmentColorMap(gameState.world.colorMap);
 setLoadingProgress(0.98, "Preparing the first frame");
 let accumulator = 0;
@@ -1619,8 +1620,8 @@ function updateDebugText() {
     const performanceText = Number.isFinite(performanceStats.averageFrameMs)
         ? `render:${performanceStats.backend || "canvas2d"} avg:${performanceStats.averageFrameMs.toFixed(2)}ms last:${performanceStats.frameMs.toFixed(2)}ms observed:${performanceStats.observedFps.toFixed(0)}fps world:${performanceStats.worldMs.toFixed(2)} actors:${performanceStats.actorsMs.toFixed(2)} foreground:${performanceStats.foregroundMs.toFixed(2)} mask:${performanceStats.maskMs.toFixed(2)} overlay:${performanceStats.overlayMs.toFixed(2)}`
         : "render diagnostics pending";
-    const gpuPerformanceText = performanceStats.backend === "webgl2-hybrid"
-        ? `gpu draws:${performanceStats.gpuDrawCalls || 0} quads:${performanceStats.gpuQuads || 0} uploads:${performanceStats.gpuTextureUploads || 0} updates:${performanceStats.gpuTextureUpdates || 0} layers:${performanceStats.gpuCanvasLayerUploads || 0} textures:${performanceStats.gpuTextureCount || 0}${performanceStats.gpuContextLost ? " CONTEXT-LOST" : ""}`
+    const gpuPerformanceText = String(performanceStats.backend || "").startsWith("webgl2")
+        ? `gpu draws:${performanceStats.gpuDrawCalls || 0} quads:${performanceStats.gpuQuads || 0} uploads:${performanceStats.gpuTextureUploads || 0} updates:${performanceStats.gpuTextureUpdates || 0} layers:${performanceStats.gpuCanvasLayerUploads || 0} textures:${performanceStats.gpuTextureCount || 0} resident:${((performanceStats.gpuResidentTextureBytes || 0) / (1024 * 1024)).toFixed(1)}MiB${performanceStats.gpuContextLost ? " CONTEXT-LOST" : ""}`
         : "gpu: Canvas 2D fallback";
     const visualPerformanceText = Number.isFinite(performanceStats.visualsConsidered)
         ? `visuals considered:${performanceStats.visualsConsidered} drawn:${performanceStats.visualsDrawn} culled:${performanceStats.visualsCulled} spatial:${performanceStats.visualsSpatialCulled || 0} dynamic considered:${performanceStats.dynamicConsidered} drawn:${performanceStats.dynamicDrawn} culled:${performanceStats.dynamicCulled} foreground-cache hit:${performanceStats.foregroundCacheHits} miss:${performanceStats.foregroundCacheMisses} mask-cache:${performanceStats.maskReused ? "hit" : "miss"}`

@@ -3228,3 +3228,42 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Benchmark dense and explosion-seeded level_002 viewports; both paths held 60 fps, but forced Canvas was slightly cheaper than the current staged WebGL2 hybrid path.
 - [x] Record that direct dynamic GPU helpers require real-browser visual validation before reactivation.
 - [x] Bump revision labels and regression coverage.
+
+## Revision 323 opt-in resident-texture WebGL2 migration
+
+- [x] Treat the supplied archive as revision 322 by user decree without inventing missing 321/322 history.
+- [x] Synchronize the game and Level Editor labels to revision 323.
+- [x] Keep Canvas 2D as the default and require the existing explicit WebGL URL parameter.
+- [x] Retain original character atlas images and frame source rectangles in runtime assets.
+- [x] Draw atlas-backed player, enemy, and projectile sprites directly from shared atlas textures.
+- [x] Preload and pin known static environment, character, tint, smoke, and particle sources in WebGL2.
+- [x] Re-upload pinned sources after WebGL context restoration.
+- [x] Draw power-up glows by tinting their resident atlas frame instead of baking another Canvas texture.
+- [x] Draw the mounted rocket fuel bulb through cached GPU sprites.
+- [x] Restore direct GPU passes for targets, pickups, enemies, effects, projectiles, Ignatius, death cover, and score popups.
+- [x] Give the cave mask its own reduced-resolution texture and update it only when the mask key changes.
+- [x] Avoid ordinary full-screen Canvas-layer uploads during a warm gameplay frame.
+- [x] Keep conditional Canvas staging for story/debug tooling and unsupported residual visuals.
+- [x] Preserve WebGL context-loss behavior and the complete Canvas fallback path.
+- [x] Expose resident texture memory and staging-layer counts in renderer diagnostics.
+- [x] Validate the direct atlas path in real headed Chromium with visible Ignatius and zero warm-frame staging uploads.
+- [x] Extend source-contract coverage and run game/smoke regression gates.
+- [ ] Later: move CPU-generated cave masks, colour maps, overlap/foreground treatments, tint surfaces, and generated text/effect stamps into shaders or GPU render targets where measurements justify it.
+
+## Revision 324 GPU effects and geometric cave mask
+
+- [x] Increment game and Level Editor revision labels to 324.
+- [x] Fix full-texture WebGL sprites so omitted source rectangles span the complete texture instead of a transparent corner texel.
+- [x] Add a UV regression test for procedural resident textures.
+- [x] Draw the player rocket's curved path trail directly through WebGL.
+- [x] Keep goblin-fireball trail particles visible through the direct GPU path.
+- [x] Give player and enemy projectile explosions visible GPU glow, disc, ring, and spark passes.
+- [x] Draw reactive-object destruction smoke directly from the resident smoke stamp.
+- [x] Keep rocket impact, enemy impact, teleport flash, and teleport spark records in the direct effect set.
+- [x] Compile cave opening and feather contours into reusable world-space GPU geometry.
+- [x] Draw the full-black cave exterior with an odd-even stencil pass.
+- [x] Keep camera, zoom, and parallax changes uniform-only so they do not update a cave-mask texture.
+- [x] Retain the Canvas cave-mask route as compatibility fallback and leave Canvas 2D as the default renderer.
+- [x] Validate the headed Chromium WebGL2 frame with visible effects and `uploads:0 updates:0 layers:0` after warm-up.
+- [x] Validate camera movement without texture uploads or updates.
+- [x] Update architecture, developer guidance, renderer audit, plan, and automated contracts.
