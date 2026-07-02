@@ -24,3 +24,7 @@ The lead voice is synthesized as low double bass, supported by a tuba pulse. The
 - Modest Mussorgsky, *Night on Bald Mountain*. The underlying composition is public domain. Mutopia provides a machine-readable LilyPond piano arrangement under CC BY 3.0: https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1892
 
 Those source files are not packaged. If a future arrangement imports or adapts a licensed modern edition rather than independently encoding the public-domain composition, its exact license and attribution must be recorded here and in the distributed build.
+
+## Register policy
+
+All synthesized level themes keep their lead material in the same low octave band as Level_001's *In the Hall of the Mountain King* arrangement. Revision 346 lowers the alternate lead voices by two octaves while preserving their intervals, rhythm, accompaniment, and melodic contour.

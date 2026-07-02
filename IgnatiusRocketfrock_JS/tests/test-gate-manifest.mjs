@@ -26,6 +26,7 @@ export const TEST_SHARDS = Object.freeze({
             "state serialization and cloning",
             "rocket projectile renderer exists",
             "wizard atlas includes dedicated projectile rocket",
+            "enemy hit effect stutter lab",
             "enemy projectile impact fx remain economical",
             "enemy projectile player hit carries small wizard accent flag",
             "enemy projectile visual language renderer contract"
@@ -127,6 +128,7 @@ export const TEST_SHARDS = Object.freeze({
             "rebalanced enemy health and standard rocket hit counts",
             "character enemy rocket combat",
             "airborne enemy defers death until landing",
+            "enemy contact damage uses independent invulnerability",
             "character enemy melee attack",
             "terrain shields player from enemy melee",
             "fireball goblin projectile attack",
@@ -145,6 +147,7 @@ export const TEST_SHARDS = Object.freeze({
             "left/right movement symmetry",
             "jump transition",
             "exact gravity-derived ordinary jump height",
+            "down doubles gravity during ascent and descent",
             "attached boost and fuel drain",
             "double-jump kick and hover governor"
     ]),

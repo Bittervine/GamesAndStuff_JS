@@ -2560,10 +2560,15 @@ class RocketfrockRenderer {
         if (enemy.locomotion !== "flying") {
             this.drawShadow(screen.x, screen.y, view.zoom * actorScale * 0.72);
         }
-        if (flash > 0) {
-            this.ctx.filter = `brightness(${1 + flash * 1.9}) saturate(${1 - flash * 0.72})`;
-        }
-        this.drawCharacterProjectPose(project, screen.x, screen.y, facing, transforms, bounds, { alpha: 1 });
+        // Chrome may defer Canvas filter work until compositing, making the cost show
+        // up as a later requestAnimationFrame hitch rather than inside this draw call.
+        // Reuse the already prepared white sprite surfaces, matching the WebGL path,
+        // so enemy hits do not change the Canvas filter pipeline mid-frame.
+        this.drawCharacterProjectPose(project, screen.x, screen.y, facing, transforms, bounds, {
+            alpha: 1,
+            overlayTintAlpha: flash * 0.72,
+            overlayTintCanvasKey: "hitFlashCanvas"
+        });
         this.ctx.restore();
         this.drawEnemyHealthBar(enemy, view, actorScale);
         this.lastCharacterDraws.push({
@@ -4767,12 +4772,10 @@ class RocketfrockRenderer {
         const renderScale = Math.max(0.05, Number(state.player.renderScale) || 1);
         this.drawShadow(p.x, p.y, view.zoom * renderScale);
         const hitFlash = getPlayerHitFlash(state);
-        this.ctx.save();
-        if (hitFlash > 0) {
-            this.ctx.filter = `brightness(${1 + hitFlash * 1.65}) saturate(${1 - hitFlash * 0.64}) sepia(${hitFlash * 0.32})`;
-        }
-        const bounds = this.drawWizardRig(p.x, p.y, state.player.facing, state, view.zoom, renderScale);
-        this.ctx.restore();
+        const bounds = this.drawWizardRig(p.x, p.y, state.player.facing, state, view.zoom, renderScale, {
+            overlayTintAlpha: hitFlash * 0.72,
+            overlayTintCanvasKey: "hitFlashCanvas"
+        });
         this.lastBounds = bounds;
     }
 
@@ -4788,7 +4791,7 @@ class RocketfrockRenderer {
         ctx.restore();
     }
 
-    drawWizardRig(screenX, screenGroundY, facing, state, zoom, renderScale = 1) {
+    drawWizardRig(screenX, screenGroundY, facing, state, zoom, renderScale = 1, options = {}) {
         const targetPose = this.computeRigPose(state, zoom);
         const pose = this.blendRigPose(targetPose, state, zoom);
         const bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
@@ -4796,7 +4799,8 @@ class RocketfrockRenderer {
         this.drawRigPose(screenX, screenGroundY, facing, pose, state, zoom, bounds, {
             alpha: 1,
             drawFuelBulb: true,
-            renderScale
+            renderScale,
+            ...options
         });
 
         return bounds;
@@ -4826,6 +4830,7 @@ class RocketfrockRenderer {
         const ctx = this.ctx;
         const alpha = Number.isFinite(Number(options.alpha)) ? Number(options.alpha) : 1;
         const tintAlpha = clamp(Number(options.tintAlpha) || 0, 0, 1);
+        const overlayTintAlpha = clamp(Number(options.overlayTintAlpha) || 0, 0, 1);
         const commands = buildRuntimeCharacterDrawCommands(project, renderedTransforms);
         ctx.save();
         ctx.globalAlpha *= alpha;
@@ -4833,7 +4838,10 @@ class RocketfrockRenderer {
         ctx.scale(facing, 1);
         for (const command of commands) {
             const partTint = command.partName === "rocket" && options.tintCanvasKey !== "shieldCanvas" ? 0 : tintAlpha;
-            const spriteBounds = this.drawCharacterCommand(project, command, partTint, options.tintCanvasKey);
+            const spriteBounds = this.drawCharacterCommand(project, command, partTint, options.tintCanvasKey, {
+                overlayTintAlpha,
+                overlayTintCanvasKey: options.overlayTintCanvasKey
+            });
             mergeBounds(bounds, spriteBounds, screenX, screenGroundY, facing);
             options.afterPart?.(command.partName, command);
         }
@@ -4841,7 +4849,7 @@ class RocketfrockRenderer {
         return commands;
     }
 
-    drawCharacterCommand(project, command, tintAlpha = 0, tintCanvasKey = "lowHealthCanvas") {
+    drawCharacterCommand(project, command, tintAlpha = 0, tintCanvasKey = "lowHealthCanvas", options = {}) {
         const { asset, transform, pivot, spriteScale, drawX, drawY, partName } = command;
         if (!asset || asset.missing || !transform) {
             return null;
@@ -4859,6 +4867,17 @@ class RocketfrockRenderer {
             ctx.globalAlpha = baseAlpha * tintAlpha;
             ctx.drawImage(tintCanvas, drawX, drawY);
             ctx.globalAlpha = baseAlpha;
+        }
+        const overlayTintAlpha = clamp(Number(options.overlayTintAlpha) || 0, 0, 1);
+        const overlayTintCanvas = asset[options.overlayTintCanvasKey];
+        if (overlayTintAlpha > 0 && overlayTintCanvas) {
+            const baseAlpha = ctx.globalAlpha;
+            const baseComposite = ctx.globalCompositeOperation;
+            ctx.globalCompositeOperation = "lighter";
+            ctx.globalAlpha = baseAlpha * overlayTintAlpha;
+            ctx.drawImage(overlayTintCanvas, drawX, drawY);
+            ctx.globalAlpha = baseAlpha;
+            ctx.globalCompositeOperation = baseComposite;
         }
         if (project.rig.global.debugPivots) {
             ctx.globalAlpha = 1;

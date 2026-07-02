@@ -40,7 +40,7 @@ Encounter rerolls preserve route, platforms, endpoints, and rewards. Reward rero
 
 The cyan loop is the cave opening. Feather controls the transparent-to-black width. The dashed magenta outset is the exact full-black boundary. Gradient waviness perturbs opacity contours without moving collision, navigation, decoration normals, or the lethal boundary.
 
-Cave foreground is inert presentation. It renders after actors with cave parallax, uses depth treatment, fades outward into black, and never has atlas collision. Automatic population derives dense overlap from rendered formation size and covers through the full-black boundary. Manual population intentionally has no gameplay-clearance protection, allowing foreground formations to overlap platforms, doors, actors, and other playable space.
+Cave foreground is inert presentation. It renders after actors with cave parallax, uses depth treatment, fades outward into black, and never has atlas collision. Automatic population derives dense overlap from rendered formation size and covers through the full-black boundary. Manual population intentionally has no gameplay-clearance protection, allowing foreground formations to overlap platforms, doors, actors, and other playable space. The Level Editor applies the same world-bounds-anchored camera offset to the cave opening, its gradient guides, and every `caveForeground` placement. Pan and zoom the editor to the camera region being authored before judging whether a door, platform, or actor remains inside the visible opening.
 
 ## Level colour map
 
@@ -75,13 +75,15 @@ Selecting an Asset or Entity palette card activates its placement tool. While th
 
 ## Level Editor rendering performance
 
-The editor remains Canvas 2D until representative profiling justifies the WebGL2 backend. Pointer events do not render immediately: redraw requests are coalesced through `requestAnimationFrame`.
+Pointer events do not render immediately: redraw requests are coalesced through `requestAnimationFrame`. The editor uses three independently cached world-space artwork layers: ordinary placements, entities, and cave foreground. Each layer is divided into 1024-world-pixel tiles. Empty tiles are never allocated, tiles outside the working set are pruned, and zoomed-out views use lower-resolution tile tiers so a whole-level view does not create a full-resolution bitmap of the entire world.
 
-The canvas is divided conceptually into a static viewport scene and transient overlays. Cursor-following placement ghosts, selection outlines, and Shift-drag marquees can reuse the last static scene. This prevents a mouse move from redrawing every visible cave formation, recomputing cave-geometry warnings, rebuilding overlap bookkeeping, and serializing the whole level.
+With WebGL2 active, tile canvases are uploaded once and remain resident textures. Panning changes only their quad positions. Do not reintroduce full-window Canvas staging uploads in the pan path; that makes an empty level resolution-bound and can reduce desktop dragging to single-digit frame rates. With Canvas 2D active, the same world tiles are drawn directly onto the stage.
 
-Cave-foreground artwork also has its own transparent viewport cache. It is safe to reuse while ordinary terrain or entities move because the foreground is a later presentation layer. Editing foreground records, loading atlas artwork, recolouring atlases, or committing structural changes invalidates it. Entity previews are culled against conservative world bounds before expensive character or atlas composition.
+Editor-only vectors and controls use the separate transparent `#stage-overlay` Canvas. Grid lines, labels, collision guides, cave controls, route diagnostics, placement ghosts, selections, and marquees are drawn there directly rather than uploaded through WebGL. This also prevents guide flicker in the Canvas fallback. A record being dragged is temporarily omitted from its resident tile and drawn on the overlay until the drag is committed.
 
-These caches contain only rendered editor pixels. Level records, placement ordering, collision, selection, JSON export, and runtime rendering remain authoritative elsewhere. WebGL2 should replace the drawing backend without changing those data contracts.
+`?webgl=1` prefers WebGL2 and `?webgl=0` forces Canvas 2D. Add `?profile=1` or `?perf=1` to expose frame, world-layer, overlay, tile-build, and GPU-upload timings in the editor HUD. The latest values are also available as `globalThis.__ignatiusEditorPerformance` for browser profiling.
+
+These caches contain only rendered editor pixels. Level records, placement ordering, collision, selection, JSON export, and runtime rendering remain authoritative elsewhere.
 
 
 ## Test gates and release testing
@@ -162,6 +164,7 @@ The upper staging pass is now primarily for procedural remnants such as the moun
 When changing GPU character ordering, compare it directly with `renderCanvas2D`. Death-cover sparks are intentionally drawn after Ignatius and before score popups. Moving them back into the earlier world-effect pass makes the effect appear behind the player and breaks the original visual contract.
 
 Character damage flashes use the secondary `overlayTintAlpha` / `overlayTintCanvasKey` channel of `queueCharacterProjectPoseWebGL`. Keep that channel separate from the primary shield/low-health tint so simultaneous effects can compose. All character projects must prepare `hitFlashCanvas`; only the player project additionally requires `shieldCanvas` and `lowHealthCanvas`.
+ In the Canvas fallback, route both enemy and player injury flashes through the same prepared `hitFlashCanvas` overlay path in `drawCharacterProjectPose`; do not reintroduce live `ctx.filter` flashes on the gameplay canvas.
 
 ## Revision 317 fallback and context-loss guidance
 
@@ -169,11 +172,11 @@ Do not probe WebGL2 by requesting it directly from the visible game canvas and t
 
 Once the visible canvas owns WebGL2, a context-loss interval is not a Canvas fallback opportunity because the renderer's 2D canvas is only the hidden staging surface. Keep presentation idle until `webglcontextrestored` rebuilds the GPU resources.
 
-## Revision 318 Level Editor WebGL2 guidance
+## Revision 351 Level Editor resident-tile guidance
 
-The Level Editor uses WebGL2 as a compositor, not as a second authoring model. Continue implementing placement, entity, cave, navigation, and guide drawing through the existing Canvas functions. Static content belongs in `renderEditorStaticScene`; cursor previews and selection-only visuals belong in `renderEditorTransientOverlay`. The WebGL path retains the static Canvas as a cached texture and uploads only the transient layer during pointer-only frames.
+The Level Editor uses WebGL2 as a resident tile compositor, not as a second authoring model. Continue implementing asset and entity composition through the shared Canvas drawing helpers, but bake stable artwork into world tiles. WebGL should receive those tile canvases as static textures. The transparent DOM overlay owns changing editor vectors and must not be uploaded as a full-window texture.
 
-When a static scene surface is redrawn, invalidate its GPU texture with `editorWebGLBackend.invalidateTexture(surface.canvas)`. Never request a 2D context from the visible stage before the disposable WebGL probe has decided the backend. Preserve the direct Canvas path because browsers and embedded runtimes may lack usable WebGL2.
+When artwork changes, invalidate only the affected tile-layer cache. Camera movement and ordinary redraw scheduling are not artwork invalidations. Never request a 2D context from the visible stage before the disposable WebGL probe has decided the backend. Preserve the Canvas tile path because browsers and embedded runtimes may lack usable WebGL2.
 
 ## Revision 319 Overdrive naming guidance
 
@@ -231,3 +234,31 @@ When testing ranged enemies, place solid cover between the enemy and Ignatius an
 ### Enemy projectile volleys (revision 332)
 
 Projectile enemies may author `projectileVolleyCount` (1-15, default 1) and `projectileVolleyHalfAngle` in degrees (0-180, default 0). The simulation distributes projectiles evenly from negative to positive half-angle around the launch-time aim vector. Straight-volley attack permission succeeds when at least one member's swept circular trajectory intersects the player before terrain or a reactive projectile blocker. Each released projectile remains an independent ordinary projectile and carries `volleyId`, `volleyIndex`, `volleyCount`, and `volleyAngleOffsetDegrees` for diagnostics and presentation.
+
+
+### Camera-relative cave preview (revision 333)
+
+The cave window is not fixed to ordinary world geometry when `parallax` is above 1. Runtime anchors the effect at the technical world-bounds centre and shifts the opening and cave-foreground artwork according to the current camera centre. The Level Editor now calls the same `computeCaveWindowParallaxOffset` helper, so panning to a room previews the mask position that gameplay will use there. Cave-point and foreground-asset hit testing, placement, dragging, labels, guides, and marquee selection operate on the displayed position while preserving authored world coordinates in level JSON.
+
+## Enemy-hit effect stutter lab
+
+Serve the project through a local web server and open `devel/enemy-hit-effect-lab.html`. The page cannot load character JSON, atlas images, or `level_002.json` reliably from a `file://` URL.
+
+Begin with one effect copy and allow the moving ruler to settle. Each button waits for at least 24 recent requestAnimationFrame samples, then begins on a frame boundary. The table reports the recent baseline median, the worst frame delay above that baseline, synchronous renderer draw time, one-shot trigger action time, late-frame count, browser long tasks, and WebGL texture uploads. A hidden tab, focus loss, or frame gap of 250 ms or more marks the result invalid. Do not diagnose an effect from a crossed-out row.
+
+Use **No-effect baseline** first. If the baseline itself has large positive spikes, solve the browser, display, recording, power-saving, or tab-scheduling problem before comparing effects. **Canvas filter flash** intentionally retains the retired filter primitive as a comparison. **Runtime hit flash** and **Complete enemy hit** use the current prepared-overlay production approach in both renderers.
+
+For WebGL2, press **Reset WebGL textures**, trigger a visual component, then repeat it without resetting. A first-use-only excess paired with texture uploads indicates lazy residency. **Prewarm hit textures** should remove that difference. Zero uploads means texture creation is not the cause of that run.
+
+The production-pipeline buttons run one real fixed step against the supplied `level_002` collision and navigation data without rendering the whole game scene. Compare **Fixed step, no hit** with **Sentry hit**, **Unalerted hunter hit**, and **Alerted hunter hit**. A hunter-only action-time jump points toward navigation or awareness work. **Rocket expiry only** isolates portable impact-smoke and explosion state creation without enemy damage.
+
+Increase **Effect copies** only after testing the ordinary single-hit case. It amplifies visual submission cost but does not multiply production simulation probes. **Run all tests** executes the valid controls sequentially. The lab narrows the suspect list; Chrome Performance recordings of the complete game remain the final confirmation.
+
+
+### Ordinary-jump height trimming
+
+Keep `ordinaryJumpHeight` as the authored full apex. Down is modeled as a full airborne gravity modifier: whenever it is held, use `2 * gravity` instead of `gravity`, during both ascent and descent. This halves the ordinary jump height when held from takeoff, curbs boost-kick travel, and creates a fast fall. Preserve the independent one-way-platform rule so grounded or descending Down input also grants passage through green walkable lines.
+
+Enemy body contact damage is intentionally independent from ordinary attack invulnerability. Route it through `damagePlayer` with `invulnerabilityTimerKey: "contactInvulnerabilityTimer"`; do not set or consult the ordinary timer for contact hits. This preserves same-frame melee attacks while preventing sustained overlap from applying damage every simulation tick.
+
+Revision 347 re-voices the alternate synthesized tunes rather than applying one blanket lead transpose. Each melody is placed in Level_001's low register according to its original tessitura, and every true bassoon foundation is kept strictly below the lead to prevent accidental voice crossing. Decorative bell accents remain independent of the bass hierarchy.

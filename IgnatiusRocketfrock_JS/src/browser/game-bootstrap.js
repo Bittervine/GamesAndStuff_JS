@@ -101,7 +101,7 @@ const autoFullscreenRow = document.getElementById("auto-fullscreen-row");
 const autoFullscreenInput = document.getElementById("auto-fullscreen");
 const showMinimapInput = document.getElementById("show-minimap");
 
-const GAME_REVISION = "332";
+const GAME_REVISION = "342";
 
 let displayedLoadingProgress = 0;
 let activeCaveWindow = normalizeCaveWindow(null);
@@ -126,6 +126,8 @@ let minimapLastSizeKey = "";
 let hudPanelScale = 1;
 let enemyCharacterProjectUrls = [];
 const preferWebGL2Renderer = shouldPreferWebGL2Renderer();
+const hudBackdropBlurDisabled = shouldDisableHudBackdropBlur();
+document.documentElement.classList.toggle("dev-no-hud-blur", hudBackdropBlurDisabled);
 gameState.debug.revision = GAME_REVISION;
 addEvent(gameState, `BUILD_REVISION_${GAME_REVISION}`);
 const input = new RocketfrockInput(window);
@@ -191,11 +193,25 @@ function clamp01(value) {
     return Math.max(0, Math.min(1, Number(value) || 0));
 }
 
+function shouldDisableHudBackdropBlur() {
+    const params = new URLSearchParams(window.location.search || "");
+    const rawValue = params.get("hudblur") ?? params.get("backdrop");
+    return rawValue != null && ["0", "false", "off", "none"].includes(String(rawValue).trim().toLowerCase());
+}
+
 function shouldPreferWebGL2Renderer() {
     const params = new URLSearchParams(window.location.search || "");
-    const rawValue = params.get("webgl") ?? params.get("webgl2") ?? "";
-    const value = String(rawValue).trim().toLowerCase();
-    return ["1", "true", "on", "webgl", "webgl2", "gpu"].includes(value);
+    const rawValue = params.get("webgl") ?? params.get("webgl2");
+    if (rawValue != null) {
+        const value = String(rawValue).trim().toLowerCase();
+        if (["0", "false", "off", "canvas", "canvas2d", "cpu"].includes(value)) {
+            return false;
+        }
+        return ["1", "true", "on", "webgl", "webgl2", "gpu"].includes(value);
+    }
+    // Desktop builds opt into the GPU renderer by default. An ordinary web page
+    // remains Canvas 2D unless webgl=1 (or an equivalent value) is requested.
+    return Boolean(electronWindowBridge);
 }
 
 function setLoadingProgress(progress, label = "Loading game assets") {
@@ -1629,7 +1645,7 @@ function updateDebugText() {
         : "visual diagnostics pending";
 
     debugEl.textContent = [
-        `rev:${GAME_REVISION}  ${gameState.debug.paused ? "PAUSED" : "RUNNING"}  tick:${gameState.clock.tick}  t:${gameState.clock.time.toFixed(2)}`,
+        `rev:${GAME_REVISION}  hudBlur:${hudBackdropBlurDisabled ? "off" : "on"}  ${gameState.debug.paused ? "PAUSED" : "RUNNING"}  tick:${gameState.clock.tick}  t:${gameState.clock.time.toFixed(2)}`,
         `difficulty:${gameState.settings?.difficulty || "normal"} damageScale:${gameDifficultyPreset(gameState.settings).damageScale.toFixed(2)} quality:${gameState.settings?.renderingQuality || "medium"} particleScale:${gameRenderingQualityPreset(gameState.settings).particleScale.toFixed(2)} music:${Math.round((gameState.settings?.musicVolume ?? 0.1) * 100)}% sfx:${Math.round(effectiveSfxVolume * 100)}% tune:${activeLevelMusic.tuneId} audio:${isGameAudioMuted() ? "muted" : (musicDirector.isUnlocked() ? "on" : "locked")}`,
         viewText,
         performanceText,
@@ -1710,6 +1726,7 @@ function setupTuningControls() {
         { key: "rocketProjectileDamage", label: "Rocket damage", min: 0, max: 200, step: 5 },
         { key: "hazardContactDamage", label: "Hazard contact damage", min: 0, max: 100, step: 1 },
         { key: "playerDamageInvulnerabilitySeconds", label: "Damage invulnerability", min: 0, max: 2, step: 0.05 },
+        { key: "playerContactDamageInvulnerabilitySeconds", label: "Contact invulnerability", min: 0, max: 2, step: 0.05 },
         { key: "healthRegenDelay", label: "Health regen delay", min: 0, max: 15, step: 0.25 },
         { key: "healthRegenRate", label: "Health regen rate", min: 0, max: 30, step: 0.5 },
         { key: "rocketSmokePuffLifetime", label: "Smoke puff lifetime", min: 0.4, max: 6, step: 0.1 },

@@ -106,8 +106,8 @@ export const DEFAULT_TUNING = Object.freeze({
     landingFriction: 550,
     airDrag: 0.12,
     attachedBoostAcceleration: -1580,
-    attachedBoostStartImpulse: -700,
-    attachedBoostKickFuelCost: 10,
+    attachedBoostStartImpulse: -600,
+    attachedBoostKickFuelCost: 5,
     attachedBoostStartMaxDownwardVelocity: 120,
     attachedBoostInitialAcceleration: -3050,
     attachedBoostSustainAcceleration: -1500,
@@ -192,6 +192,7 @@ export const DEFAULT_TUNING = Object.freeze({
     enemyDefaultProjectileKnockbackX: 180,
     enemyDefaultProjectileKnockbackY: -120,
     playerDamageInvulnerabilitySeconds: 0.45,
+    playerContactDamageInvulnerabilitySeconds: 0.45,
     playerHitFlashSeconds: 0.24,
     playerCrushConfirmTicks: 3,
     playerCrushClosingDistanceEpsilon: 0.0001,
@@ -374,6 +375,7 @@ export function createInitialGameState(overrides = {}) {
             max: tuning.maxHealth,
             lastDamagedAt: null,
             invulnerabilityTimer: 0,
+            contactInvulnerabilityTimer: 0,
             regenerating: false,
             low: false
         },
@@ -5319,10 +5321,12 @@ function alertCharacterEnemyFromPlayerDamage(state, enemy) {
     enemy.alerted = true;
     enemy.engaged = true;
 
-    const navigation = enemy.strategy === "hunter"
-        ? characterEnemyNavigationContext(state, enemy)
-        : null;
-    rememberCharacterEnemyPlayerPosition(state, enemy, navigation);
+    // Damage already arrives after this tick's enemy-AI update. Building the full
+    // navigation context again here duplicates support/edge work on the exact frame
+    // of impact and is unnecessary for preserving the last-seen coordinates. The
+    // hunter's ordinary update resolves its current/player supports on the next fixed
+    // step, where route planning belongs.
+    rememberCharacterEnemyPlayerPosition(state, enemy, null);
 
     const dx = (Number(state.player.x) || 0) - (Number(enemy.x) || 0);
     if (Math.abs(dx) > 0.001) {
@@ -7024,7 +7028,9 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     }
 
     p.dropThroughTimer = Math.max(0, (Number(p.dropThroughTimer) || 0) - Math.max(0, Number(dt) || 0));
-    if (input.dropHeld || input.dropPressed) {
+    const dropIntent = Boolean(input.dropHeld || input.dropPressed);
+    const mayStartDropThrough = (p.onGround && !input.jumpPressed) || (!p.onGround && p.vy >= 0);
+    if (dropIntent && mayStartDropThrough) {
         p.dropThroughTimer = Math.max(
             p.dropThroughTimer,
             Math.max(FIXED_DT, Number(t.playerDropThroughGraceSeconds) || 0.18)
@@ -7109,7 +7115,7 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     }
 
     moveAndCollideX(state, p.vx * dt);
-    integratePlayerVerticalMotion(state, dt, wasOnGround);
+    integratePlayerVerticalMotion(state, dt, wasOnGround, Boolean(input.dropHeld || input.dropPressed));
     if (playerDeathActive(state)) {
         return state;
     }
@@ -7120,6 +7126,10 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
         return state;
     }
     applyPlayerSurfaceHazards(state);
+    if (playerDeathActive(state)) {
+        return state;
+    }
+    updateEnemyContactDamage(state);
     if (playerDeathActive(state)) {
         return state;
     }
@@ -7155,7 +7165,7 @@ function startAttachedBoost(state) {
     const t = state.tuning;
     const kickMax = t.attachedBoostKickChargeMax ?? 1;
     const kickCharge = clamp(rocket.boostKickCharge ?? kickMax, 0, kickMax);
-    const kickFuelCost = Math.max(0, t.attachedBoostKickFuelCost ?? 10);
+    const kickFuelCost = Math.max(0, t.attachedBoostKickFuelCost ?? 5);
     const hasKickCharge = kickCharge > 0.001 && state.fuel.amount >= kickFuelCost;
     const canSustainWithoutKick = t.attachedBoostAllowSustainWithoutKickCharge !== false && state.fuel.amount > 0;
 
@@ -9088,21 +9098,29 @@ function moveAndCollideX(state, dx) {
     };
 }
 
-function integratePlayerVerticalMotion(state, dt, wasOnGround) {
+function integratePlayerVerticalMotion(state, dt, wasOnGround, doubleGravityHeld = false) {
     const p = state.player;
     const t = state.tuning;
+    const gravity = Math.max(1, Number(t.gravity) || DEFAULT_TUNING.gravity);
+    const effectiveGravity = gravity * (doubleGravityHeld ? 2 : 1);
+    const initialVy = p.vy;
 
     if (!p.ordinaryJumpActive || state.equipment.rocket.attachedBoosting) {
-        p.vy += t.gravity * dt;
+        // Down is a true gravity modifier, not a jump-only brake. Holding it
+        // doubles downward acceleration during both ascent and descent. The
+        // input layer independently grants one-way-platform drop-through, so
+        // falling with Down combines faster descent with passage through green
+        // walkable lines.
+        p.ay = effectiveGravity;
+        p.vy += effectiveGravity * dt;
         p.vy = Math.min(p.vy, t.terminalVelocity);
         applyAttachedHoverGovernor(state, dt);
         moveAndCollideY(state, p.vy * dt, wasOnGround);
         return;
     }
 
-    const gravity = Math.max(1, Number(t.gravity) || DEFAULT_TUNING.gravity);
-    const initialVy = p.vy;
-    const finalVy = Math.min(initialVy + gravity * dt, t.terminalVelocity);
+    p.ay = effectiveGravity;
+    const finalVy = Math.min(initialVy + effectiveGravity * dt, t.terminalVelocity);
     const crossesApex = initialVy < 0 && finalVy >= 0;
 
     if (!crossesApex) {
@@ -9113,8 +9131,8 @@ function integratePlayerVerticalMotion(state, dt, wasOnGround) {
         return;
     }
 
-    const apexTime = Math.min(dt, Math.max(0, -initialVy / gravity));
-    const apexDisplacement = initialVy * apexTime + 0.5 * gravity * apexTime * apexTime;
+    const apexTime = Math.min(dt, Math.max(0, -initialVy / effectiveGravity));
+    const apexDisplacement = initialVy * apexTime + 0.5 * effectiveGravity * apexTime * apexTime;
     p.vy = 0;
     moveAndCollideY(state, apexDisplacement, wasOnGround);
     if (!p.ordinaryJumpActive || state.collisions.playerTouching.up) return;
@@ -9124,13 +9142,15 @@ function integratePlayerVerticalMotion(state, dt, wasOnGround) {
         x: round(p.x),
         y: round(p.y),
         height: round((Number.isFinite(Number(p.ordinaryJumpStartY)) ? Number(p.ordinaryJumpStartY) : p.y) - p.y),
-        configuredHeight: round(t.ordinaryJumpHeight)
+        configuredHeight: round(t.ordinaryJumpHeight),
+        brakedHeight: doubleGravityHeld ? round((Number(t.ordinaryJumpHeight) || DEFAULT_TUNING.ordinaryJumpHeight) * 0.5) : null
     });
 
     const remaining = Math.max(0, dt - apexTime);
-    p.vy = Math.min(gravity * remaining, t.terminalVelocity);
+    p.ay = effectiveGravity;
+    p.vy = Math.min(effectiveGravity * remaining, t.terminalVelocity);
     if (remaining > 0) {
-        moveAndCollideY(state, 0.5 * gravity * remaining * remaining, false);
+        moveAndCollideY(state, 0.5 * effectiveGravity * remaining * remaining, false);
     }
 }
 
@@ -9439,6 +9459,7 @@ function triggerPlayerDeath(state, options = {}) {
     state.health.amount = 0;
     state.health.regenerating = false;
     state.health.invulnerabilityTimer = 0;
+    state.health.contactInvulnerabilityTimer = 0;
     player.vx = 0;
     player.vy = 0;
     player.ax = 0;
@@ -10250,10 +10271,52 @@ function updateBoostKickGroundRecharge(state, dt) {
     }
 }
 
+function enemyContactBodyRect(enemy) {
+    return {
+        x: (Number(enemy.x) || 0) - Math.max(1, Number(enemy.width) || 1) * 0.5,
+        y: (Number(enemy.y) || 0) - Math.max(1, Number(enemy.height) || 1),
+        w: Math.max(1, Number(enemy.width) || 1),
+        h: Math.max(1, Number(enemy.height) || 1)
+    };
+}
+
+function updateEnemyContactDamage(state) {
+    if (!playerIsAvailableCombatTarget(state)) return;
+    const playerRect = getPlayerRect(state);
+    let strongest = null;
+
+    for (const enemy of state.enemies || []) {
+        if ((Number(enemy.health) || 0) <= 0) continue;
+        if (enemy.combatState === ENEMY_COMBAT_STATE.DEAD || enemy.state === "destroyed") continue;
+        if (!rectsOverlap(playerRect, enemyContactBodyRect(enemy))) continue;
+
+        const meleeDamage = Math.max(0, Number(enemy.attackDamage) || 0);
+        const rangedDamage = Math.max(0, Number(enemy.projectileDamage) || 0);
+        const contactDamage = Math.max(meleeDamage, rangedDamage) * 0.25;
+        if (contactDamage <= 0) continue;
+        if (!strongest || contactDamage > strongest.damage) {
+            strongest = { enemy, damage: contactDamage };
+        }
+    }
+
+    if (!strongest) return;
+    const result = damagePlayer(state, strongest.damage, strongest.enemy.id, {
+        invulnerabilityTimerKey: "contactInvulnerabilityTimer",
+        invulnerabilitySeconds: state.tuning.playerContactDamageInvulnerabilitySeconds,
+        cause: "enemyContact"
+    });
+    addEvent(state, result.damage > 0 ? "ENEMY_CONTACT_HIT" : "ENEMY_CONTACT_BLOCKED", {
+        enemyId: strongest.enemy.id,
+        damage: round(result.damage),
+        health: round(state.health.amount)
+    });
+}
+
 function updateHealth(state, dt) {
     const health = state.health;
     const t = state.tuning;
     health.invulnerabilityTimer = Math.max(0, (Number(health.invulnerabilityTimer) || 0) - dt);
+    health.contactInvulnerabilityTimer = Math.max(0, (Number(health.contactInvulnerabilityTimer) || 0) - dt);
     health.low = health.amount <= t.lowHealthThreshold;
 
     const rawLastDamagedAt = health.lastDamagedAt;
@@ -10316,7 +10379,8 @@ export function damagePlayer(state, amount = 34, sourceId = "debug", options = {
     const shielded = options.bypassInvulnerability !== true && Boolean(
         activePowerUpEffect(state, POWER_UP_EFFECT_IDS.SHIELD)
     );
-    const damageInvulnerable = options.bypassInvulnerability !== true && (Number(health.invulnerabilityTimer) || 0) > 0;
+    const invulnerabilityTimerKey = String(options.invulnerabilityTimerKey || "invulnerabilityTimer");
+    const damageInvulnerable = options.bypassInvulnerability !== true && (Number(health[invulnerabilityTimerKey]) || 0) > 0;
     const blocked = shielded || damageInvulnerable;
     if (requestedDamage <= 0 || before <= 0 || blocked) {
         return {
@@ -10324,7 +10388,7 @@ export function damagePlayer(state, amount = 34, sourceId = "debug", options = {
             health: before,
             defeated: before <= 0,
             blocked,
-            blockedBy: shielded ? "shield" : (damageInvulnerable ? "damageInvulnerability" : null)
+            blockedBy: shielded ? "shield" : (damageInvulnerable ? invulnerabilityTimerKey : null)
         };
     }
 
@@ -10338,7 +10402,7 @@ export function damagePlayer(state, amount = 34, sourceId = "debug", options = {
         });
     }
     health.regenerating = false;
-    health.invulnerabilityTimer = Math.max(
+    health[invulnerabilityTimerKey] = Math.max(
         0,
         Number(options.invulnerabilitySeconds ?? state.tuning.playerDamageInvulnerabilitySeconds) || 0
     );
@@ -10419,6 +10483,7 @@ export function resetPlayer(state, reason = "manualReset") {
     state.health.amount = state.health.max;
     state.health.lastDamagedAt = null;
     state.health.invulnerabilityTimer = 0;
+    state.health.contactInvulnerabilityTimer = 0;
     state.health.regenerating = false;
     state.health.low = false;
     addEvent(state, "PLAYER_RESET", { reason });

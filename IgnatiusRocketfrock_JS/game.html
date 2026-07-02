@@ -274,9 +274,22 @@
             border: 1px solid var(--line);
             border-radius: 16px;
             padding: 12px 14px;
-            background: var(--panel);
+            /* Backdrop blur on the live HUD produced large rounded compositor
+               halos around the score and boss panels in Chrome/Electron. Keep
+               the same translucent card look with an opaque gradient instead
+               of filtering the stage behind the panel. */
+            background: linear-gradient(180deg, rgba(23, 17, 32, 0.92), rgba(16, 12, 24, 0.94));
             box-shadow: 0 20px 70px rgba(0, 0, 0, 0.22);
-            backdrop-filter: blur(10px);
+            backdrop-filter: none;
+        }
+
+        html.dev-no-hud-blur .panel,
+        html.dev-no-hud-blur #tuning {
+            backdrop-filter: none !important;
+        }
+
+        html.dev-no-hud-blur #game-menu-dialog::backdrop {
+            backdrop-filter: none !important;
         }
 
         #title-row {

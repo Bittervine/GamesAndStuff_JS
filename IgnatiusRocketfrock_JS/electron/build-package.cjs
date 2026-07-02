@@ -12,6 +12,7 @@ const buildDirOnly = process.argv.includes("--dir");
 const runtimeEntries = [
     "game.html",
     "GameManual.html",
+    "favicon.ico",
     "assets",
     "src"
 ];
@@ -103,6 +104,7 @@ const stagedPackage = {
             "preload.cjs",
             "game.html",
             "GameManual.html",
+            "favicon.ico",
             "assets/**/*",
             "src/**/*",
             "package.json"
@@ -111,7 +113,8 @@ const stagedPackage = {
             target: [
                 buildDirOnly ? "dir" : "portable"
             ],
-            signAndEditExecutable: false,
+            icon: "favicon.ico",
+            sign: false,
             artifactName: "${productName}-${version}-${arch}.${ext}"
         },
         portable: {

@@ -24,6 +24,11 @@ const CHANNELS = Object.freeze({
 
 let mainWindow = null;
 
+function resolveWindowIconPath() {
+    const appRoot = app.isPackaged ? app.getAppPath() : path.resolve(__dirname, "..");
+    return path.join(appRoot, "favicon.ico");
+}
+
 function sendFullscreenState(window) {
     if (!window || window.isDestroyed()) {
         return;
@@ -66,6 +71,7 @@ function createMainWindow() {
         show: false,
         fullscreen: true,
         backgroundColor: "#0d0b12",
+        icon: resolveWindowIconPath(),
         autoHideMenuBar: true,
         webPreferences: {
             preload: path.join(__dirname, "preload.cjs"),

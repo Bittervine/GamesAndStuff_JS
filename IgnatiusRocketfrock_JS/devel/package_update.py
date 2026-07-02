@@ -44,6 +44,8 @@ REQUIRED_FILES = {
     "level-editor.html",
     "package.json",
     "devel/audit_renderer_boundary.mjs",
+    "devel/enemy-hit-effect-lab.html",
+    "devel/enemy-hit-effect-lab.js",
     "devel/inspect_editor_stress_fixture.mjs",
     "devel/run_generator_tests.mjs",
     "devel/run_test_gate.mjs",

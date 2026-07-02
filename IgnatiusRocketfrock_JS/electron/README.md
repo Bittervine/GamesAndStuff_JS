@@ -10,7 +10,7 @@ npm install
 npm run electron
 ```
 
-`electron/main.cjs` serves the project through the privileged local `ignatius://app/` scheme so ES modules, JSON fetches, images, and relative links work without disabling web security. It opens `game.html` with `contextIsolation`, sandboxing, and Node integration disabled. `electron/preload.cjs` exposes only these operations:
+`electron/main.cjs` serves the project through the privileged local `ignatius://app/` scheme so ES modules, JSON fetches, images, and relative links work without disabling web security. It opens `game.html` with `contextIsolation`, sandboxing, and Node integration disabled. Electron prefers the WebGL2 renderer by default, while ordinary browser launches continue to default to Canvas 2D. An explicit `webgl=0` URL value can still force the fallback renderer for diagnosis. `electron/preload.cjs` exposes only these operations:
 
 - `quit()`
 - `getFullscreen()`
@@ -37,4 +37,4 @@ Outputs:
 - `electron/dist/*portable.exe` for the default portable build.
 - `electron/dist/win-unpacked/` when running `build.bat dir` for an unpacked smoke build.
 
-The staged app includes only runtime game files: `game.html`, `assets/`, `src/`, `main.cjs`, `preload.cjs`, and a generated package manifest. Generated folders (`node_modules/`, `.build/`, and `dist/`) are intentionally ignored by git.
+The staged app includes only runtime game files: `game.html`, `GameManual.html`, `favicon.ico`, `assets/`, `src/`, `main.cjs`, `preload.cjs`, and a generated package manifest. The shared webpage `favicon.ico` is also used for the live Electron window and the packaged Windows executable. Generated folders (`node_modules/`, `.build/`, and `dist/`) are intentionally ignored by git.

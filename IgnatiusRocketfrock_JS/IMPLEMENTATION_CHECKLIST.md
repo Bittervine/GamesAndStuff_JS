@@ -3332,3 +3332,69 @@ Revision 332 adds `enemy_012`, the Tri-fireball Goblin. It shares `ct_atlas_enem
 Portable enemy projectile state now supports `projectileVolleyCount` and `projectileVolleyHalfAngle`. The release path creates one ordinary projectile record per angle and tags each with stable volley metadata, leaving projectile kind, frame, straight travel, homing, collision, damage, and future presentation choices independent. This is the reusable seam for later single, triple, and quintuple straight arrows, spinning axes, and other authored projectile families without adding enemy-specific launch branches.
 
 Shot validation evaluates the actual trajectory of every straight volley member against Ignatius's body, projectile lifetime, radius, blocking solids, blockable lines and polygons, and reactive obstacles. A volley may begin and release when any one member has a plausible unobstructed hit; it is not incorrectly rejected merely because another member will strike scenery. The same any-member rule is rechecked at the authored release frame.
+
+
+## Revision 333 camera-relative cave preview
+
+Revision 333 fixes a Level Editor/runtime mismatch in cave-window authoring. Runtime shifts the cave opening and `caveForeground` artwork around the technical world-bounds centre when `caveWindow.parallax` is greater than 1, but the editor previously displayed those records at unshifted world coordinates. In long levels this could make a door appear safely inside the cave in the editor while the play camera shifted the black mask hundreds of world units over it.
+
+The editor now reuses `computeCaveWindowParallaxOffset` with its own current viewport and camera. Panning and zooming therefore move the cave spline, gradient contours, full-black boundary, point handles, and foreground artwork exactly as gameplay would from the corresponding camera region. Cave-point insertion, foreground placement, hit testing, dragging, guides, labels, selection outlines, and box selection convert correctly between displayed and authored coordinates, leaving level JSON camera-independent.
+
+## Revision 334 enemy-hit effect stutter laboratory
+
+- [x] Add a development-only HTML page under `devel/` with a continuously moving timing ruler.
+- [x] Load and animate the real `enemy_010` Fireball Goblin character project.
+- [x] Provide separate triggers for hurt pose, runtime flash, Canvas filter flash, pre-tinted overlay flash, health bar, explosion core, explosion ring, impact sparks, impact smoke, and the complete hit.
+- [x] Support both Canvas 2D and the production resident-sprite WebGL2 backend.
+- [x] Measure maximum frame interval, maximum synchronous draw time, frames above 25 ms, and WebGL texture uploads per trigger.
+- [x] Add WebGL texture reset and prewarm controls so first-use upload stalls can be compared directly.
+- [x] Add an effect-copy multiplier and an automatic full sequence.
+- [x] Keep the lab development-only and outside simulation, level data, and production renderer authority.
+- [x] Add a headless contract test and explicit shared-gate ownership.
+- [x] Adopt the supplied updated `assets/level_002.json`.
+- [x] Synchronize visible game and Level Editor labels to revision 334.
+
+## Revision 335 Chrome enemy-hit stutter diagnosis and mitigation
+
+- [x] Interpret revision 334 results as inconclusive because the probe counted slow baseline cadence and tab/focus pauses as effect cost.
+- [x] Add a no-effect baseline and normalize each measurement against the immediately preceding requestAnimationFrame median and p95.
+- [x] Start tests on an animation-frame boundary instead of including the frame interval leading into a button click.
+- [x] Mark hidden-tab, focus-loss, and 250 ms or larger scheduling gaps invalid rather than storing them as effect spikes.
+- [x] Report trigger action time, renderer draw time, late frames, long tasks, and WebGL uploads separately.
+- [x] Add real `level_002` fixed-step probes for no-hit hunter, projectile expiry, sentry hit, unalerted hunter hit, and alerted hunter hit.
+- [x] Replace production Canvas enemy `ctx.filter` flashing with additive prepared `hitFlashCanvas` overlays.
+
+- [x] Replace the production Canvas wizard injury `ctx.filter` flash with the same prepared additive `hitFlashCanvas` overlay used for enemy injuries.
+- [x] Remove the redundant full hunter navigation-context build from the projectile-damage helper while preserving last-seen coordinates and normal next-step routing.
+- [x] Add regression assertions for the revised diagnostic contract and both production mitigations.
+- [x] Synchronize visible game, editor, and diagnostic labels to revision 335.
+
+## Revision 336 Chrome deferred-hit diagnosis
+
+- [x] Interpret the one/five/ten-copy runs as a scaling Canvas presentation pause rather than a simulation Long Task.
+- [x] Remove permanent `backdrop-filter` from the laboratory control panel.
+- [x] Add an isolated game-HUD backdrop-blur trigger.
+- [x] Give combined effects component-specific production-like lifetimes.
+- [x] Add no-flash, no-smoke, particles-only, no-additive, and production-like combination probes.
+- [x] Report frame time outside synchronous draw work.
+- [x] Add tab-separated result export.
+- [x] Add `hudblur=0` and `backdrop=0` live-game diagnostic queries.
+- [x] Synchronize game, editor, laboratory, tests, and documentation to revision 336.
+
+- [x] Tune boost kick fuel cost to 5 and upward impulse to -600.
+- [x] Use the shared `favicon.ico` for the Electron window and packaged Windows executable.
+- [x] Prefer WebGL2 by default only when the Electron preload bridge is present; retain Canvas 2D as the ordinary webpage default.
+
+
+## Revision 342 adjustable ordinary-jump apex
+
+- [x] Add a 100-pixel authored fully braked ordinary-jump height.
+- [x] Apply the derived bonus gravity only while an ordinary jump is moving upward and Down is held.
+- [x] Preserve normal gravity after the apex and preserve Down as the one-way-platform drop control.
+- [x] Keep full and fully braked apexes analytical and frame-rate independent.
+- [x] Add regression coverage for 30, 60, and 120 Hz, delayed braking, and unchanged falling gravity.
+- [x] Expose the braked height in the temporary tuning panel and document the control.
+
+- [x] Add enemy contact damage at one quarter of the stronger melee/projectile damage with an independent contact-only invulnerability timer.
+
+Revision 347 re-voices the alternate synthesized tunes rather than applying one blanket lead transpose. Each melody is placed in Level_001's low register according to its original tessitura, and every true bassoon foundation is kept strictly below the lead to prevent accidental voice crossing. Decorative bell accents remain independent of the bass hierarchy.

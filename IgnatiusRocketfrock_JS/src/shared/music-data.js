@@ -92,6 +92,10 @@ const mountainKingMelody = [
     ...sequencedPhrase(16, mountainKingTheme, 0.96, -5)
 ];
 
+// Alternate level themes are re-voiced into the same dark lead register as
+// Level_001, but each tune uses the octave displacement that suits its written
+// tessitura. Bass parts are kept clearly beneath their melodies instead of
+// being left behind when a lead is transposed.
 const dwarfMarchMotifA = [
     "D4", "A3", "D4", "F4", "E4", "D4", "C#4", "D4",
     "A3", "D4", "F4", "A4", "G4", "F4", "E4", "D4"
@@ -165,19 +169,19 @@ export const MUSIC_TUNES = Object.freeze([
                 instrument: "pizzicato",
                 gain: 0.66,
                 notes: Object.freeze([
-                    ...phrase(0, dwarfMarchMotifA, 0.5, 0.84),
-                    ...phrase(8, dwarfMarchMotifA, 0.5, 0.88),
-                    ...phrase(16, dwarfMarchMotifB, 0.5, 0.9),
-                    ...phrase(24, dwarfMarchMotifA.map((pitch) => transposePitch(pitch, 12)), 0.5, 0.92)
+                    ...phrase(0, dwarfMarchMotifA.map((pitch) => transposePitch(pitch, -12)), 0.5, 0.84),
+                    ...phrase(8, dwarfMarchMotifA.map((pitch) => transposePitch(pitch, -12)), 0.5, 0.88),
+                    ...phrase(16, dwarfMarchMotifB.map((pitch) => transposePitch(pitch, -12)), 0.5, 0.9),
+                    ...phrase(24, dwarfMarchMotifA.map((pitch) => transposePitch(pitch, -12)), 0.5, 0.92)
                 ])
             }),
             Object.freeze({
                 instrument: "bassoon",
                 gain: 0.42,
                 notes: Object.freeze([
-                    ...bassPulse(0, 16, "D2", "A2", 0.7),
-                    ...bassPulse(16, 8, "Bb2", "F3", 0.68),
-                    ...bassPulse(24, 8, "D2", "A2", 0.78)
+                    ...bassPulse(0, 16, "D1", "A1", 0.7),
+                    ...bassPulse(16, 8, "Bb1", "F2", 0.68),
+                    ...bassPulse(24, 8, "D1", "A1", 0.78)
                 ])
             })
         ])
@@ -196,30 +200,30 @@ export const MUSIC_TUNES = Object.freeze([
                 instrument: "pizzicato",
                 gain: 0.62,
                 notes: Object.freeze([
-                    ...phrase(0, anitraPhraseA, 0.5, 0.82),
-                    ...phrase(6, anitraPhraseA, 0.5, 0.86),
-                    ...phrase(12, anitraPhraseB, 0.5, 0.88),
-                    ...phrase(18, anitraPhraseA, 0.5, 0.9)
+                    ...phrase(0, anitraPhraseA.map((pitch) => transposePitch(pitch, -24)), 0.5, 0.82),
+                    ...phrase(6, anitraPhraseA.map((pitch) => transposePitch(pitch, -24)), 0.5, 0.86),
+                    ...phrase(12, anitraPhraseB.map((pitch) => transposePitch(pitch, -24)), 0.5, 0.88),
+                    ...phrase(18, anitraPhraseA.map((pitch) => transposePitch(pitch, -24)), 0.5, 0.9)
                 ])
             }),
             Object.freeze({
                 instrument: "bell",
                 gain: 0.18,
                 notes: Object.freeze([
-                    note(0, 0.7, "A4", 0.5), note(3, 0.7, "E5", 0.48),
-                    note(6, 0.7, "A4", 0.52), note(9, 0.7, "E5", 0.5),
-                    note(12, 0.7, "C5", 0.55), note(15, 0.7, "E5", 0.52),
-                    note(18, 0.7, "A4", 0.58), note(21, 0.7, "E5", 0.55)
+                    note(0, 0.7, "A2", 0.5), note(3, 0.7, "E3", 0.48),
+                    note(6, 0.7, "A2", 0.52), note(9, 0.7, "E3", 0.5),
+                    note(12, 0.7, "C3", 0.55), note(15, 0.7, "E3", 0.52),
+                    note(18, 0.7, "A2", 0.58), note(21, 0.7, "E3", 0.55)
                 ])
             }),
             Object.freeze({
                 instrument: "bassoon",
                 gain: 0.28,
                 notes: Object.freeze([
-                    note(0, 2.5, "A2", 0.55), note(3, 2.5, "E3", 0.48),
-                    note(6, 2.5, "A2", 0.55), note(9, 2.5, "E3", 0.48),
-                    note(12, 2.5, "C3", 0.55), note(15, 2.5, "E3", 0.48),
-                    note(18, 2.5, "A2", 0.58), note(21, 2.5, "E3", 0.5)
+                    note(0, 2.5, "A1", 0.55), note(3, 2.5, "E2", 0.48),
+                    note(6, 2.5, "A1", 0.55), note(9, 2.5, "E2", 0.48),
+                    note(12, 2.5, "C2", 0.55), note(15, 2.5, "E2", 0.48),
+                    note(18, 2.5, "A1", 0.58), note(21, 2.5, "E2", 0.5)
                 ])
             })
         ])
@@ -238,20 +242,20 @@ export const MUSIC_TUNES = Object.freeze([
                 instrument: "strings",
                 gain: 0.58,
                 notes: Object.freeze([
-                    ...phrase(0, baldMountainMotif, 0.5, 0.82),
-                    ...phrase(8, baldMountainMotif.map((pitch) => transposePitch(pitch, 5)), 0.5, 0.86),
-                    ...phrase(16, baldMountainMotif, 0.5, 0.9),
-                    ...phrase(24, baldMountainMotif.map((pitch) => transposePitch(pitch, 12)), 0.5, 0.94)
+                    ...phrase(0, baldMountainMotif.map((pitch) => transposePitch(pitch, -12)), 0.5, 0.82),
+                    ...phrase(8, baldMountainMotif.map((pitch) => transposePitch(pitch, -12)), 0.5, 0.86),
+                    ...phrase(16, baldMountainMotif.map((pitch) => transposePitch(pitch, -12)), 0.5, 0.9),
+                    ...phrase(24, baldMountainMotif.map((pitch) => transposePitch(pitch, -12)), 0.5, 0.94)
                 ])
             }),
             Object.freeze({
                 instrument: "bassoon",
                 gain: 0.48,
                 notes: Object.freeze([
-                    ...bassPulse(0, 8, "D2", "A2", 0.74),
-                    ...bassPulse(8, 8, "G2", "D3", 0.74),
-                    ...bassPulse(16, 8, "D2", "A2", 0.82),
-                    ...bassPulse(24, 8, "D2", "A2", 0.9)
+                    ...bassPulse(0, 8, "D1", "A1", 0.74),
+                    ...bassPulse(8, 8, "G1", "D2", 0.74),
+                    ...bassPulse(16, 8, "D1", "A1", 0.82),
+                    ...bassPulse(24, 8, "D1", "A1", 0.9)
                 ])
             })
         ])

@@ -414,6 +414,8 @@ function testSourceOrganization() {
         "../electron/README.md",
         "../devel/package_update.py",
         "../devel/audit_renderer_boundary.mjs",
+        "../devel/enemy-hit-effect-lab.html",
+        "../devel/enemy-hit-effect-lab.js",
         "../devel/inspect_editor_stress_fixture.mjs",
         "../devel/run_test_gate.mjs",
         "../devel/test-gate-runner.mjs",
@@ -1463,7 +1465,7 @@ function testLevelEditorMultiSelectionAndPaletteWorkflow() {
     assert.ok(editorHtml.includes('kind: "selectionBox"') && editorHtml.includes('event.shiftKey'), "Shift-drag should create the ordinary selection rectangle");
     assert.ok(editorHtml.includes('toggle: Boolean(event.ctrlKey || event.metaKey)'), "Ctrl+Shift-drag should toggle objects touched by the selection rectangle");
     assert.equal((editorHtml.match(/function placementWorldBounds\(/g) || []).length, 1, "selection and draw culling must share one canonical placement-bounds helper");
-    assert.ok(editorHtml.includes('boundsContainsBounds(selectionBounds, placementWorldBounds(placement))'), "asset box selection should compare compatible min/max world bounds");
+    assert.ok(editorHtml.includes("const displayedPlacement = displayedCaveForegroundPlacement(placement);") && editorHtml.includes("boundsContainsBounds(selectionBounds, placementWorldBounds(displayedPlacement))"), "asset box selection should compare compatible min/max world bounds after applying cave-foreground parallax");
     assert.ok(editorHtml.includes('boundsContainsBounds(selectionBounds, rectToBounds(objectRect(entity, "entity")))'), "entity box selection should use the same min/max bounds schema");
     assert.ok(editorHtml.includes('if (event.ctrlKey || event.metaKey) toggleObjectSelection(rowData.id);'), "Ctrl-click in the placed-object list should toggle membership");
     assert.ok(editorHtml.includes('rgba(174,174,184,0.88)') && editorHtml.includes('drawObjectSelectionOutline'), "secondary objects should use a separate gray dashed selection outline");
@@ -3981,6 +3983,67 @@ function testAirborneEnemyDefersDeathUntilLanding() {
     assert.ok(Math.abs(enemy.y - 400) < 0.01, "the grounded death animation should not be followed by a second corpse drop");
 }
 
+function testEnemyContactDamageUsesIndependentInvulnerability() {
+    const state = createInitialGameState({
+        tuning: {
+            playerDamageInvulnerabilitySeconds: 0.45,
+            playerContactDamageInvulnerabilitySeconds: 0.45,
+            healthRegenRate: 0
+        }
+    });
+    assert.equal(applyEditorLevelToWorld(state, {
+        levelId: "enemy_contact_damage_test",
+        testPlayerStart: { x: 0, y: 600 },
+        entities: [{
+            id: "contact_guard",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_001",
+            x: 0,
+            y: 600,
+            w: 72,
+            h: 150,
+            strategy: "sentry",
+            health: 100,
+            attackDamage: 40,
+            projectileDamage: 80,
+            attackRange: 92,
+            attackVerticalRange: 110,
+            attackDuration: 0.3,
+            attackHitTime: 0.1,
+            attackCooldown: 0.4
+        }]
+    }), true, "contact damage test level should apply");
+    state.world.solids = [];
+    state.world.segments = [{ id: "contact_floor", kind: "walkable", x1: -200, y1: 600, x2: 300, y2: 600 }];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 0;
+    state.player.y = 600;
+    state.player.onGround = true;
+
+    const before = state.health.amount;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    approx(before - state.health.amount, 20, 0.000001, "contact damage should be one quarter of the stronger ranged or melee damage");
+    assert.ok(state.health.contactInvulnerabilityTimer > 0, "contact damage should start its own cooldown");
+    assert.equal(state.health.invulnerabilityTimer, 0, "contact damage must not consume ordinary attack invulnerability");
+
+    const afterContact = state.health.amount;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    approx(state.health.amount, afterContact, 0.000001, "continued overlap should be blocked by contact-only invulnerability");
+
+    const meleeResult = damagePlayer(state, 10, "same_frame_melee");
+    approx(meleeResult.damage, 10, 0.000001, "ordinary melee damage should still land during contact invulnerability");
+    const contactTimerBefore = state.health.contactInvulnerabilityTimer;
+    const contactResult = damagePlayer(state, 20, "same_frame_contact", {
+        invulnerabilityTimerKey: "contactInvulnerabilityTimer",
+        invulnerabilitySeconds: state.tuning.playerContactDamageInvulnerabilitySeconds
+    });
+    assert.equal(contactResult.damage, 0, "the independent contact cooldown should still block another contact hit");
+    assert.ok(contactTimerBefore > 0, "contact timer should remain active during the independent melee hit");
+}
+
 function testCharacterEnemyMeleeAttack() {
     const state = createInitialGameState({
         tuning: {
@@ -4792,7 +4855,7 @@ function testCharacterProjectWorkspace() {
     assert.ok(toolHtml.includes("part-to-front"), "character tool should expose a selected-part To Front control");
 
     const levelEditorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
-    assert.ok(levelEditorHtml.includes("const placement = placeAsset(point, { foreground });"), "level editor should inspect whether normal or foreground asset placement succeeded");
+    assert.ok(levelEditorHtml.includes("const authoredPoint = foreground ? caveAuthoredPoint(point) : point;") && levelEditorHtml.includes("const placement = placeAsset(authoredPoint, { foreground });"), "level editor should inspect whether normal or foreground asset placement succeeded while storing foreground coordinates behind the gameplay parallax preview");
     assert.ok(levelEditorHtml.includes('setTool("select");'), "successful asset placement should return the level editor to Select mode");
     assert.ok(levelEditorHtml.includes("Select tool active for fine-tuning"), "level editor should explain the automatic tool switch");
     assert.ok(levelEditorHtml.includes('id="cut-selection"') && levelEditorHtml.includes('id="copy-selection"') && levelEditorHtml.includes('id="paste-selection"'), "level editor should expose Cut, Copy, and Paste for entities and placements");
@@ -4800,7 +4863,7 @@ function testCharacterProjectWorkspace() {
     assert.ok(levelEditorHtml.includes("snapWizardDoorToNearbyGround"), "level editor should snap wizard entry/exit doors to nearby authored collision lines");
     assert.ok(levelEditorHtml.includes("wizard_entry_door") && levelEditorHtml.includes("wizard_exit_door"), "level editor should expose dedicated entry and exit door types");
     assert.ok(!levelEditorHtml.includes('data-entity="wizardStart"'), "the retired wizard-start entity should not remain in the palette");
-    assert.ok(!levelEditorHtml.includes('globalCompositeOperation = "destination-out"'), "editor cutout masks should not erase the canvas alpha");
+    assert.ok(levelEditorHtml.includes("drawCutoutMaskArtwork") && levelEditorHtml.includes('globalCompositeOperation = "destination-out"'), "world-tile cutout masks should erase only the transparent artwork tile so the shared editor backing remains visible");
     const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
     assert.ok(rendererSource.includes("ctx.fillStyle = LEVEL_BACKGROUND_COLOR"), "runtime cutout masks should repaint the shared cave backing");
     assert.ok(!rendererSource.includes('globalCompositeOperation = "destination-out"'), "runtime cutout masks should not erase canvas alpha");
@@ -6614,6 +6677,9 @@ function testCaveWindowSplineAuthoring() {
     assert.ok(levelEditorHtml.includes('data-tool="placeCaveForeground"') && levelEditorHtml.includes('id="cave-auto-populate"'), "Level Editor should expose manual foreground placement and deterministic perimeter population");
     assert.ok(levelEditorHtml.includes('id="cave-show-generated"'), "Level Editor should let authors hide generated perimeter assets without deleting them");
     assert.ok(levelEditorHtml.includes('id="cave-show-black-boundary"') && levelEditorHtml.includes("Feather to full black px"), "Level Editor should expose the complete feather width and derived full-black outset");
+    assert.ok(levelEditorHtml.includes('import { computeCaveWindowParallaxOffset } from "./src/presentation/cave-window-mask.js";') && levelEditorHtml.includes("function editorCaveParallaxOffset"), "Level Editor should reuse the runtime cave-window parallax formula rather than maintaining an approximate editor-only shift");
+    assert.ok(levelEditorHtml.includes("caveWorldToScreen") && levelEditorHtml.includes("displayedCaveForegroundPlacement"), "Level Editor should shift both the cave opening guides and foreground artwork with the current viewport camera");
+    assert.ok(levelEditorHtml.includes("const snappedPoint = snapPoint(caveAuthoredPoint(point));") && levelEditorHtml.includes("const display = caveDisplayPoint(candidate);"), "cave-point insertion and hit testing should remain correct while the parallax preview is active");
     assert.ok(levelEditorHtml.includes('id="cave-decor-inward"') && levelEditorHtml.includes("Inward coverage %"), "Level Editor should expose how far automatic perimeter formations intrude into the opening");
     assert.equal(levelEditorHtml.includes('id="cave-decor-spacing"') || levelEditorHtml.includes("Max spacing px"), false, "Level Editor should not expose the obsolete maximum-spacing control");
     assert.ok(levelEditorHtml.includes('id="cave-gradient-noise-amplitude"') && levelEditorHtml.includes('id="cave-gradient-noise-period"') && levelEditorHtml.includes('min="10" max="500"') && levelEditorHtml.includes('id="cave-gradient-noise-seed"'), "Level Editor should expose gradient waviness amplitude, a 10-500 pixel period, and deterministic seed");
@@ -6621,8 +6687,17 @@ function testCaveWindowSplineAuthoring() {
     assert.ok(levelEditorHtml.includes("entityWorldBounds") && levelEditorHtml.includes("drawEntity(entity, { viewportBounds })"), "Level Editor should cull off-screen entities before expensive preview composition");
     assert.ok(levelEditorHtml.includes("editorForegroundSpriteCache") && levelEditorHtml.includes("createForegroundSpriteCanvas"), "Level Editor should cache darkened and faded foreground sprite variants");
     assert.ok(levelEditorHtml.includes("editorCaveForegroundLayerCache") && levelEditorHtml.includes("drawCaveForegroundLayer"), "Level Editor should cache dense cave foreground artwork in a reusable transparent viewport layer");
-    assert.ok(levelEditorHtml.includes("editorStaticSceneCache") && levelEditorHtml.includes("paintEditorFrame") && levelEditorHtml.includes("requestAnimationFrame"), "Level Editor should coalesce rendering and reuse a static viewport scene");
-    assert.ok(levelEditorHtml.includes("draw({ reuseScene: true })"), "placement-preview and marquee pointer movement should reuse the static editor scene");
+    assert.ok(levelEditorHtml.includes("editorForegroundViewportQuery") && levelEditorHtml.includes("queryWorldVisualEntries"), "Level Editor cave foreground should use spatial broad-phase culling instead of scanning every perimeter sprite per camera redraw");
+    assert.match(levelEditorHtml, /visiblePlacements[\s\S]*filter\(generatedCavePlacementVisible\)/, "hidden generated cave foreground should be removed before the artwork pass");
+    assert.ok(levelEditorHtml.includes('id="stage-overlay"') && levelEditorHtml.includes("renderEditorOverlay") && levelEditorHtml.includes("requestAnimationFrame"), "Level Editor should coalesce rendering while drawing guides on a direct transparent Canvas overlay");
+    assert.ok(levelEditorHtml.includes("editorMainLayerTileCache") && levelEditorHtml.includes("editorEntityLayerTileCache") && levelEditorHtml.includes("editorTileResolutionScale"), "Level Editor should keep scenery and entity artwork in reusable world-space tiles with low-zoom resolution tiers");
+    assert.ok(levelEditorHtml.includes("paintEditorTileLayer") && levelEditorHtml.includes("queueSurface") && levelEditorHtml.includes("editorWebGLBackend.queueSurface"), "WebGL editor tiles should remain resident instead of uploading full-window Canvas layers every frame");
+    assert.equal(levelEditorHtml.includes("editorStaticSceneCache"), false, "Level Editor should not rebuild and upload a full-window static scene while panning");
+    const editorScreenSizeFunction = levelEditorHtml.slice(levelEditorHtml.indexOf("    function screenSize()"), levelEditorHtml.indexOf("    function worldToScreen"));
+    assert.equal(editorScreenSizeFunction.includes("getBoundingClientRect"), false, "the pan render path should use the resize-cached viewport instead of forcing browser layout every frame");
+    assert.ok(levelEditorHtml.includes("editorCanvasClientRect") && levelEditorHtml.includes("function editorCanvasRect()"), "pointer coordinates should reuse the resize-cached canvas client rectangle");
+    assert.ok(levelEditorHtml.includes("editorLastRendererReadoutAt") && levelEditorHtml.includes("< 250"), "performance diagnostics should be throttled so HUD text does not dirty layout on every frame");
+    assert.ok(levelEditorHtml.includes("draw({ reuseScene: true })"), "placement-preview and marquee pointer movement should remain compatible with the coalesced render scheduler");
     assert.ok(levelEditorHtml.includes("buildOverlapBlendGroups") && levelEditorHtml.includes("createOverlapBlendSurface") && levelEditorHtml.includes("drawMainPlacementLayer"), "Level Editor should preview cached seamless overlap composites without deleting individual placements");
     assert.equal(levelEditorHtml.includes("function editorOverlapBlendSignature"), false, "Level Editor should not rebuild a whole-placement overlap signature on every scene render");
     const editorDrawFunction = levelEditorHtml.slice(levelEditorHtml.indexOf("    function draw(options = null)"), levelEditorHtml.indexOf("    function drawPlacementPreview()"));
@@ -7099,7 +7174,7 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     assert.ok(rendererSource.includes("buildWorldVisualCache") && rendererSource.includes("visualIntersectsViewport"), "Canvas renderer should cache layer organization and cull static scenery before drawing");
     assert.ok(rendererSource.includes("createWebGL2RendererBackend") && rendererSource.includes("renderWebGL2") && rendererSource.includes("renderCanvas2D"), "the game renderer should retain both the opt-in WebGL2 resident-texture path and Canvas 2D renderer");
     assert.ok(rendererSource.includes("probeWebGL2RendererSupport") && rendererSource.includes("const webglProbePassed"), "WebGL2 support should be proven on a scratch canvas before the visible canvas is committed to the GPU context family");
-    assert.ok(bootstrapSource.includes("shouldPreferWebGL2Renderer") && bootstrapSource.includes('params.get("webgl")') && bootstrapSource.includes('"webgl2"') && bootstrapSource.includes("preferWebGL2: preferWebGL2Renderer"), "game.html should default to Canvas 2D while supporting a webgl=1-style URL switch for opt-in WebGL2 benchmark runs");
+    assert.ok(bootstrapSource.includes("shouldPreferWebGL2Renderer") && bootstrapSource.includes('params.get("webgl")') && bootstrapSource.includes('"webgl2"') && bootstrapSource.includes("return Boolean(electronWindowBridge)") && bootstrapSource.includes("preferWebGL2: preferWebGL2Renderer"), "ordinary webpages should default to Canvas 2D while Electron defaults to WebGL2 and explicit URL switches remain supported");
     assert.ok(rendererSource.includes("if (this.webglBackend) {") && rendererSource.includes("wait for webglcontextrestored"), "a lost WebGL context should not incorrectly redirect rendering into the invisible staging canvas");
     assert.ok(rendererSource.includes("drawOrderedWorldVisualsWebGL") && rendererSource.includes("queueAtlasSpriteVisualWebGL"), "static world, actor-front, and cave-foreground atlas visuals should use direct GPU sprite batches");
     assert.ok(rendererSource.includes("drawWorldEffectsWebGL") && rendererSource.includes("drawProjectileExplosionEffectsWebGL") && rendererSource.includes("drawPlayerDeathCoverWebGL"), "rocket trails, projectile explosions, and Ignatius death particles should have direct WebGL2 effect passes");
@@ -7118,6 +7193,8 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     assert.ok(fireballWebGLSource.includes("the circular glow is only a missing-art fallback"), "the WebGL fireball must keep its circular glow limited to missing-art fallback rendering");
     assert.ok(fireballWebGLSource.indexOf("const asset =") < fireballWebGLSource.indexOf('getWebGLParticleSpriteCanvas("softGlow")'), "the authored fireball sprite should return before any circular fallback glow is considered");
     assert.ok(rendererSource.includes("hitFlashCanvas") && rendererSource.includes("overlayTintCanvasKey"), "WebGL character rendering should preserve player and enemy hit-flash overlays");
+    assert.ok(rendererSource.includes('overlayTintCanvasKey: "hitFlashCanvas"') && rendererSource.includes("drawPlayer(state, view)"), "player and enemy hit reactions should continue to rely on prepared white hit-flash overlays");
+    assert.equal(rendererSource.includes("this.ctx.filter = `brightness(${1 + hitFlash * 1.65}) saturate(${1 - hitFlash * 0.64}) sepia(${hitFlash * 0.32})`"), false, "the Canvas player injury flash should not use a live ctx.filter on the gameplay surface");
     assert.ok(rendererSource.includes("drawTargetsWebGL") && rendererSource.includes("drawPickupsWebGL") && rendererSource.includes("drawEnemiesWebGL") && rendererSource.includes("drawPlayerWebGL"), "targets, pickups, enemies, and the player rig should use direct WebGL2 presentation paths where practical");
     assert.ok(rendererSource.includes("drawScorePopupsWebGL") && rendererSource.includes("drawPortalIntroGlowWebGL") && rendererSource.includes("getWebGLTextSpriteCanvas"), "score popups and portal glow should use cached direct WebGL2 sprite paths");
     assert.ok(rendererSource.includes("uploadStagingLayer") && rendererSource.includes("hasStoryOverlay") && rendererSource.includes("hasDebugOverlay"), "rare procedural story and debug overlays should retain an explicit transparent staging fallback without routing the normal actor stack through Canvas 2D");
@@ -8005,10 +8082,20 @@ function testRocketPowerUpArsenal() {
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 332<\/small>/, "the Level Editor should display the packaged revision");
-    assert.ok(editorSource.includes("createWebGL2RendererBackend") && editorSource.includes("paintEditorFrameWebGL") && editorSource.includes("editorTransientOverlayCache"), "the Level Editor should prefer a WebGL2 compositor for cached static scenes and transient overlays");
-    assert.ok(editorSource.includes("probeEditorWebGL2Support") && editorSource.includes("editorCanvas2D !== canvas"), "the Level Editor must probe on a disposable canvas and retain a true Canvas 2D fallback");
-    assert.match(bootstrapSource, /const GAME_REVISION = "332";/, "the game debug revision should match the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 351<\/small>/, "the Level Editor should display the packaged revision");
+    assert.ok(
+        editorSource.includes("createWebGL2RendererBackend") &&
+        editorSource.includes("editorMainLayerTileCache") &&
+        editorSource.includes('id="stage-overlay"') &&
+        editorSource.includes("editorWebGLBackend.queueSurface"),
+        "the Level Editor should composite resident world tiles in WebGL2 and draw changing guides on a direct Canvas overlay"
+    );
+    assert.ok(
+        editorSource.includes("probeEditorWebGL2Support") &&
+        editorSource.includes("const stageCtx = editorWebGLBackend ? null : canvas.getContext"),
+        "the Level Editor must probe on a disposable canvas and retain a true Canvas 2D fallback"
+    );
+    assert.match(bootstrapSource, /const GAME_REVISION = "342";/, "the game debug revision should match the packaged revision");
     assert.match(editorSource, /<button id="fit-content-view">Fit<\/button>/, "the Level Editor should expose one concise Fit button");
     assert.equal(editorSource.includes('id="fit-view"'), false, "the removed Fit World control should not remain in the Level Editor");
     assert.equal(editorSource.includes('id="fit-cave-view"'), false, "the removed Fit Cave control should not remain in the Level Editor");
@@ -8982,6 +9069,85 @@ function testOrdinaryJumpHeightIsExactAndGravityDerived() {
     approx(heavier.tuning.jumpVelocity, -Math.sqrt(2 * 1800 * 200), 0.000001, "changing gravity should preserve the authored height by deriving a new launch velocity");
 }
 
+function testDownDoublesGravityDuringAscentAndDescent() {
+    for (const dt of [1 / 30, 1 / 60, 1 / 120]) {
+        const state = createInitialGameState({ tuning: { timestep: dt } });
+        settleOnGround(state);
+        const launchY = state.player.y;
+        stepSimulation(state, createInputFrame({
+            jumpPressed: true,
+            jumpHeld: true,
+            dropPressed: true,
+            dropHeld: true
+        }), dt);
+        assert.equal(state.player.dropThroughTimer, 0, "Down used to brake ascent must not pre-arm one-way-platform drop-through");
+        for (let step = 0; step < 240 && !Number.isFinite(state.player.ordinaryJumpApexY); step += 1) {
+            stepSimulation(state, createInputFrame({ dropHeld: true }), dt);
+        }
+        assert.ok(Number.isFinite(state.player.ordinaryJumpApexY), `a braked apex should resolve analytically at dt=${dt}`);
+        approx(launchY - state.player.ordinaryJumpApexY, 100, 0.000001, `doubling gravity should halve the ordinary jump height at dt=${dt}`);
+    }
+
+    const adjustable = createInitialGameState();
+    settleOnGround(adjustable);
+    const adjustableLaunchY = adjustable.player.y;
+    stepSimulation(adjustable, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    stepMany(adjustable, 7, () => createInputFrame());
+    stepMany(adjustable, 120, () => createInputFrame({ dropHeld: true }));
+    const delayedBrakeHeight = adjustableLaunchY - adjustable.player.ordinaryJumpApexY;
+    assert.ok(delayedBrakeHeight > 100 && delayedBrakeHeight < 200, `pressing Down later should select an intermediate apex, got ${delayedBrakeHeight}`);
+
+    const boostedPlain = createInitialGameState();
+    const boostedBraked = createInitialGameState();
+    for (const state of [boostedPlain, boostedBraked]) {
+        settleOnGround(state);
+        stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+        releaseJumpAfterTakeoff(state);
+        stepMany(state, 9, () => createInputFrame({ jumpHeld: false }));
+        stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+        assert.equal(state.equipment.rocket.attachedBoosting, true, "air jump should start the attached boost state");
+    }
+    const beforePlainVy = boostedPlain.player.vy;
+    const beforeBrakedVy = boostedBraked.player.vy;
+    assert.ok(beforePlainVy < 0 && beforeBrakedVy < 0, "the boost kick comparison should begin while Ignatius is still travelling upward");
+    stepSimulation(boostedPlain, createInputFrame({ jumpHeld: true }), FIXED_DT);
+    stepSimulation(boostedBraked, createInputFrame({ jumpHeld: true, dropHeld: true }), FIXED_DT);
+    approx(
+        boostedBraked.player.vy - boostedPlain.player.vy,
+        boostedBraked.tuning.gravity * FIXED_DT,
+        0.000001,
+        "holding Down during boosted ascent should add one extra gravity quantum each step"
+    );
+
+    let minPlainY = boostedPlain.player.y;
+    let minBrakedY = boostedBraked.player.y;
+    for (let step = 0; step < 180 && (boostedPlain.player.vy < 0 || boostedBraked.player.vy < 0); step += 1) {
+        stepSimulation(boostedPlain, createInputFrame({ jumpHeld: true }), FIXED_DT);
+        stepSimulation(boostedBraked, createInputFrame({ jumpHeld: true, dropHeld: true }), FIXED_DT);
+        minPlainY = Math.min(minPlainY, boostedPlain.player.y);
+        minBrakedY = Math.min(minBrakedY, boostedBraked.player.y);
+    }
+    assert.ok(boostedBraked.player.y >= minBrakedY, "the braked boosted sample should record its peak ascent");
+    assert.ok((boostedPlain.player.y - minPlainY) >= 0, "plain boosted ascent should also record its peak");
+    assert.ok(minBrakedY > minPlainY + 5, `boosted ascent should peak lower when Down is held, plain minY=${minPlainY}, braked minY=${minBrakedY}`);
+
+    const falling = createInitialGameState();
+    settleOnGround(falling);
+    stepSimulation(falling, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    for (let step = 0; step < 240 && !(Number.isFinite(falling.player.ordinaryJumpApexY) && falling.player.vy > 0); step += 1) {
+        stepSimulation(falling, createInputFrame(), FIXED_DT);
+    }
+    assert.ok(falling.player.vy > 0, "falling-gravity check should begin after the ordinary apex");
+    const beforeFallingVy = falling.player.vy;
+    stepSimulation(falling, createInputFrame({ dropPressed: true, dropHeld: true }), FIXED_DT);
+    approx(
+        falling.player.vy - beforeFallingVy,
+        falling.tuning.gravity * 2 * FIXED_DT,
+        0.000001,
+        "Down during descent should double gravity"
+    );
+}
+
 function testAttachedBoostStateAndFuelDrain() {
     const state = createInitialGameState();
     settleOnGround(state);
@@ -9426,8 +9592,8 @@ function testFuelRechargeDelayGroundRequirementAndCap() {
 }
 
 function testPhase1013TuningDefaultsDebugPoseAndFuelBulbFlash() {
-    assert.equal(DEFAULT_TUNING.attachedBoostStartImpulse, -700, "Phase 1.015 should bake in the current preferred boost kick");
-    assert.equal(DEFAULT_TUNING.attachedBoostKickFuelCost, 10, "Phase 1.015 should make the double-jump kick cost 10 fuel");
+    assert.equal(DEFAULT_TUNING.attachedBoostStartImpulse, -600, "the preferred boost kick impulse should be -600");
+    assert.equal(DEFAULT_TUNING.attachedBoostKickFuelCost, 5, "the double-jump kick should cost 5 fuel");
     assert.equal(DEFAULT_TUNING.rechargeDelayAfterUse, 1, "Phase 1.015 should bake in the current recharge delay");
     assert.equal(DEFAULT_TUNING.rechargeRate, 52, "Phase 1.015 should bake in the current recharge rate");
     assert.equal(DEFAULT_TUNING.rocketLaunchCost, 30, "Phase 1.015 should bake in the current rocket launch cost");
@@ -9807,6 +9973,64 @@ function testWeaponLaunchUsesDedicatedProjectileRocketFrame() {
     assert.equal(state.projectiles.length, 1, "pressing the weapon button should launch one rocket projectile");
     assert.equal(state.projectiles[0].frameId, "rocket_projectile", "the launched rocket should use the dedicated projectile-only frame");
     assert.equal(state.projectiles[0].characterId, "ct_char_wizard_1", "the launched rocket should source the projectile frame from Ignatius's atlas");
+}
+
+function testEnemyHitEffectLabContract() {
+    const html = readFileSync(new URL("../devel/enemy-hit-effect-lab.html", import.meta.url), "utf8");
+    const script = readFileSync(new URL("../devel/enemy-hit-effect-lab.js", import.meta.url), "utf8");
+    const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
+    const simulationSource = readFileSync(new URL("../src/core/simulation.js", import.meta.url), "utf8");
+    assert.match(html, /Enemy hit effect stutter lab/, "the diagnostic page should identify its enemy-hit focus");
+    assert.match(html, /rev 337/, "the diagnostic page should display the packaged revision");
+    for (const effect of [
+        "baseline", "hurtPose", "runtimeFlash", "filterFlash", "overlayFlash", "healthBar",
+        "explosionCore", "explosionRing", "sparks", "smoke", "particlesCombined", "allNoFlash",
+        "allNoSmoke", "allSourceOver", "productionVisualHit", "hudBlur", "all", "productionNoHit",
+        "productionExpiry", "productionSentryHit", "productionHunterHit", "productionAlertedHunterHit"
+    ]) {
+        assert.ok(html.includes(`data-effect="${effect}"`), `the diagnostic page should expose a ${effect} trigger`);
+    }
+    assert.match(html, /Reset WebGL textures/, "the diagnostic page should make first-use texture upload spikes reproducible");
+    assert.match(html, /Prewarm hit textures/, "the diagnostic page should support a prewarmed comparison");
+    assert.match(script, /loadRuntimeCharacterProject\("\.\.\/assets\/ct_char_enemy_010\.json"/, "the lab should use the actual Fireball Goblin character project");
+    assert.match(script, /fetch\("\.\.\/assets\/level_002\.json"\)/, "the production probe should use the supplied dense campaign level");
+    assert.match(script, /applyEditorLevelToWorld/, "the production probe should exercise the real portable level application path");
+    assert.match(script, /stepSimulation\(state, createInputFrame\(\), FIXED_DT\)/, "the production probe should time real fixed simulation steps");
+    assert.match(script, /createWebGL2RendererBackend/, "the lab should exercise the production WebGL2 sprite backend");
+    assert.match(script, /sampleRuntimeCharacterPose/, "the lab should use real idle and hurt animation sampling");
+    assert.match(script, /ctx\.filter = `brightness/, "the lab should retain the old Canvas filter as an isolated comparison");
+    assert.match(script, /asset\.hitFlashCanvas/, "the lab should isolate the pre-tinted hit-flash overlay");
+    assert.match(script, /webgl\.resetTextures/, "the lab should be able to clear resident WebGL textures");
+    assert.match(script, /webgl\.preloadTextures/, "the lab should be able to prewarm resident WebGL textures");
+    assert.match(script, /baselineMedianMs/, "the lab should normalize effect spikes against the immediately preceding frame cadence");
+    assert.match(script, /frameMs >= 250/, "the lab should reject tab suspension and other giant requestAnimationFrame gaps");
+    assert.match(script, /PerformanceObserver/, "the lab should report browser long tasks separately from renderer draw time");
+    assert.match(script, /textureUploads/, "the lab should report WebGL texture uploads alongside frame spikes");
+    assert.match(html, /The control panel is deliberately opaque/, "the lab UI should not impose a permanent backdrop-filter compositor cost");
+    assert.doesNotMatch(html.match(/#panel[\s\S]*?\}/)?.[0] || "", /backdrop-filter/, "the diagnostic panel itself should not use backdrop blur");
+    assert.match(script, /maxDeferredMs/, "the lab should separate frame time outside synchronous drawing");
+    assert.match(script, /componentProgress/, "combined effects should keep component-specific lifetimes");
+    assert.match(script, /copyResults/, "the lab should export complete result tables without screenshot cropping");
+    assert.match(rendererSource, /overlayTintCanvasKey: "hitFlashCanvas"/, "the production renderer should retain prepared hit-flash surfaces while diagnosis continues");
+    const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
+    const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
+    assert.match(gameHtml, /html\.dev-no-hud-blur \.panel/, "the live game should expose a developer no-backdrop-blur comparison mode");
+    assert.match(bootstrapSource, /params\.get\("hudblur"\)/, "the live game should accept the hudblur=0 diagnostic query");
+
+    const enemyCanvasStart = rendererSource.indexOf("drawRuntimeCharacterEnemy(project, enemy, state, view)");
+    const enemyCanvasEnd = rendererSource.indexOf("drawEnemyPuppetGuide", enemyCanvasStart);
+    const enemyCanvasBody = rendererSource.slice(enemyCanvasStart, enemyCanvasEnd);
+    assert.ok(enemyCanvasStart >= 0 && enemyCanvasEnd > enemyCanvasStart, "renderer should retain the Canvas character-enemy path");
+    assert.doesNotMatch(enemyCanvasBody, /ctx\.filter/, "production Canvas enemy hits should no longer switch the browser filter pipeline");
+    assert.match(enemyCanvasBody, /overlayTintCanvasKey: "hitFlashCanvas"/, "production Canvas enemy hits should use prepared white sprite overlays");
+    assert.match(rendererSource, /globalCompositeOperation = "lighter"/, "Canvas character overlays should preserve the additive flash used by WebGL");
+
+    const alertStart = simulationSource.indexOf("function alertCharacterEnemyFromPlayerDamage");
+    const alertEnd = simulationSource.indexOf("function rememberCharacterEnemyPlayerPosition", alertStart);
+    const alertBody = simulationSource.slice(alertStart, alertEnd);
+    assert.ok(alertStart >= 0 && alertEnd > alertStart, "portable simulation should retain the damage-awareness helper");
+    assert.doesNotMatch(alertBody, /characterEnemyNavigationContext/, "enemy damage should not rebuild the full navigation context a second time on the impact step");
+    assert.match(alertBody, /rememberCharacterEnemyPlayerPosition\(state, enemy, null\)/, "damage should still remember Ignatius's coordinates while deferring support resolution to normal AI update");
 }
 
 function testEnemyProjectileImpactFxRemainEconomical() {
@@ -10522,11 +10746,12 @@ function testLevelTwoGoblinBossArenaContract() {
     assert.ok(getMusicTune(level.music.tuneId), "level_002 should name a real synthesized tune rather than silently falling back");
 
     const enemies = level.entities.filter((entity) => entity.type === "characterEnemy");
-    assert.equal(enemies.length, 16, "the route and arena should contain nine ground goblins, six bats, and one boss");
+    assert.equal(enemies.length, 30, "the updated route and arena should contain twenty-three ground goblins, six bats, and one boss");
     const counts = enemies.reduce((map, enemy) => map.set(enemy.enemyCatalogId, (map.get(enemy.enemyCatalogId) || 0) + 1), new Map());
     assert.equal(counts.get("enemy_001") || 0, 0, "level_002 should contain no Skeleton Guards");
     assert.equal(counts.get("enemy_010"), 6, "level_002 should retain Fireball Goblins including the boss");
     assert.equal(counts.get("enemy_011"), 4, "level_002 should include four Musket Goblins for route variety");
+    assert.equal(counts.get("enemy_012"), 14, "the updated level should include fourteen Tri-fireball Goblins");
     assert.equal(counts.get("enemy_020"), 6, "level_002 should include three two-bat groups");
     const batGroups = new Set(enemies.filter((enemy) => enemy.enemyCatalogId === "enemy_020").map((enemy) => enemy.generationEncounterId));
     assert.equal(batGroups.size, 3, "the six bats should be grouped into three compact encounters");
@@ -10558,7 +10783,7 @@ function testLevelTwoGoblinBossArenaContract() {
 
     const spawners = level.entities.filter((entity) => entity.type === "enemySpawner");
     assert.equal(spawners.length, 6, "the lower three platforms on each side should reinforce the boss fight");
-    assert.ok(spawners.every((spawner) => spawner.enemyPool === "10,11"), "arena spawners should create ordinary Fireball or Musket Goblins");
+    assert.ok(spawners.every((spawner) => spawner.enemyPool === "10,11,12"), "arena spawners should create ordinary Fireball, Musket, or Tri-fireball Goblins");
     assert.ok(spawners.every((spawner) => spawner.disableSignalChannel === "BOSS_002_DEFEATED"), "reinforcements should stop once the boss falls");
 
     const wrenches = level.entities.filter((entity) => entity.type === "randomWrenchPickup");
@@ -10582,7 +10807,7 @@ function testLevelTwoGoblinBossArenaContract() {
         { manifest: JSON.parse(readFileSync(new URL(`../${reference.manifest}`, import.meta.url), "utf8")) }
     ]));
     assert.equal(applyAtlasManifestsToWorld(runtimeState, manifestMap), true, "level_002 should build its production collision world from the referenced manifests");
-    assert.equal(runtimeState.enemies.filter((enemy) => enemy.kind === "characterEnemy").length, 16, "runtime loading should retain all authored goblins and bats");
+    assert.equal(runtimeState.enemies.filter((enemy) => enemy.kind === "characterEnemy").length, 30, "runtime loading should retain all authored goblins and bats");
     assert.equal(runtimeState.world.enemySpawners.length, 6, "runtime loading should retain all six arena spawners");
     assert.equal(runtimeState.world.signalReceivers.some((receiver) => receiver.id === "boss_exit_gate_001"), false, "runtime loading should not recreate the removed iron gate");
 }
@@ -11173,6 +11398,9 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.match(manualHtml, /Ignatius Rocketfrock Manual/, "the title manual should exist");
     assert.match(manualHtml, /href="game\.html"/, "the manual should link back to the game");
     assert.match(electronBuildSource, /"GameManual\.html"/, "the Electron package should include the manual page");
+    assert.match(electronBuildSource, /"favicon\.ico"/, "the Electron stage should include the shared webpage favicon");
+    assert.match(electronBuildSource, /icon:\s*"favicon\.ico"/, "the Windows package should embed the shared favicon as its application icon");
+    assert.match(electronBuildSource, /sign:\s*false/, "the portable build should disable code signing without disabling executable resource editing");
     assert.doesNotMatch(packageSource, /"main": "electron\/main\.cjs"/, "root package metadata should not own Electron-specific entrypoints");
     assert.match(electronPackageSource, /"main": "main\.cjs"/, "Electron-local package metadata should point at the prepared shell");
     assert.match(electronPackageSource, /"build:win-portable"/, "Electron-local package metadata should expose a portable Windows build script");
@@ -11180,6 +11408,7 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.match(electronMainSource, /registerSchemesAsPrivileged/, "Electron should serve dynamic modules and fetches through a privileged local scheme");
     assert.match(electronMainSource, /supportFetchAPI:\s*true/, "the local Electron scheme should support the game's JSON and module fetches");
     assert.match(electronMainSource, /fullscreen:\s*true/, "the Electron host should launch in its fullscreen-only mode");
+    assert.match(electronMainSource, /icon:\s*resolveWindowIconPath\(\)/, "the live Electron window should use the shared webpage favicon");
     assert.doesNotMatch(electronMainSource, /webSecurity:\s*false/, "Electron preparation must not disable web security");
 }
 
@@ -11202,6 +11431,18 @@ function testSynthesizedLevelMusicSystem() {
     assert.equal(getMusicTune("none").voices.length, 0, "the no-music choice should schedule no voices");
     assert.equal(pitchToMidi("A4"), 69, "pitch parsing should use standard MIDI note numbering");
     assert.equal(pitchToMidi("E#3"), pitchToMidi("F3"), "source-faithful enharmonic spellings should schedule the correct frequency");
+    const referenceTune = getMusicTune("grieg_mountain_king");
+    const referenceMaximum = Math.max(...referenceTune.voices.flatMap((voice) => voice.notes.map((entry) => pitchToMidi(entry.pitch))).filter(Number.isFinite));
+    for (const tuneId of ["grieg_march_dwarfs", "grieg_anitra_dance", "mussorgsky_bald_mountain"]) {
+        const tune = getMusicTune(tuneId);
+        const maximum = Math.max(...tune.voices.flatMap((voice) => voice.notes.map((entry) => pitchToMidi(entry.pitch))).filter(Number.isFinite));
+        assert.ok(maximum <= referenceMaximum + 4, `${tuneId} should remain in the same low octave band as Level_001, got MIDI ${maximum}`);
+        const lead = tune.voices[0];
+        const bass = tune.voices.find((voice) => voice.instrument === "bassoon");
+        const leadMinimum = Math.min(...lead.notes.map((entry) => pitchToMidi(entry.pitch)).filter(Number.isFinite));
+        const bassMaximum = Math.max(...bass.notes.map((entry) => pitchToMidi(entry.pitch)).filter(Number.isFinite));
+        assert.ok(bassMaximum < leadMinimum, `${tuneId} bass should remain beneath its lead instead of crossing above it`);
+    }
     assert.equal(transposePitch("B3", 12), "B4", "authored phrases should support octave transposition");
     assert.ok(Math.abs(noteFrequency("A4") - 440) < 0.000001, "the Web Audio synthesizer should tune A4 to 440 Hz");
 
@@ -11902,6 +12143,7 @@ const tests = [
     ["rebalanced enemy health and standard rocket hit counts", testRebalancedEnemyHealthAndRocketHits],
     ["character enemy rocket combat", testCharacterEnemyRocketCombat],
     ["airborne enemy defers death until landing", testAirborneEnemyDefersDeathUntilLanding],
+    ["enemy contact damage uses independent invulnerability", testEnemyContactDamageUsesIndependentInvulnerability],
     ["character enemy melee attack", testCharacterEnemyMeleeAttack],
     ["terrain shields player from enemy melee", testEnemyMeleeBlockedByTerrain],
     ["fireball goblin projectile attack", testFireballGoblinProjectileAttack],
@@ -11930,6 +12172,7 @@ const tests = [
     ["left/right movement symmetry", testLeftRightSymmetry],
     ["jump transition", testJumpTransition],
     ["exact gravity-derived ordinary jump height", testOrdinaryJumpHeightIsExactAndGravityDerived],
+    ["down doubles gravity during ascent and descent", testDownDoublesGravityDuringAscentAndDescent],
     ["attached boost and fuel drain", testAttachedBoostStateAndFuelDrain],
     ["double-jump kick and hover governor", testDoubleJumpKickAndHoverGovernor],
     ["boost kick cannot be tap exploited", testBoostKickCannotBeTapExploited],
@@ -11958,6 +12201,7 @@ const tests = [
     ["rocket impacts atlas collision lines and areas", testRocketImpactsAtlasCollisionLinesAndAreas],
     ["wizard atlas includes dedicated projectile rocket", testWizardAtlasIncludesDedicatedProjectileRocket],
     ["weapon launch uses dedicated projectile rocket frame", testWeaponLaunchUsesDedicatedProjectileRocketFrame],
+    ["enemy hit effect stutter lab", testEnemyHitEffectLabContract],
     ["enemy projectile impact fx remain economical", testEnemyProjectileImpactFxRemainEconomical],
     ["enemy projectile player hit carries small wizard accent flag", testEnemyProjectilePlayerHitCarriesSmallWizardAccentFlag],
     ["enemy projectile visual language renderer contract", testEnemyProjectileVisualLanguageRendererContract],
