@@ -226,7 +226,7 @@ BACKUP_ENEMY_CATALOG = True
 #
 # Example:
 #
-#     CATALOG_TEMPLATE_ENEMY_KEY = "enemy_003"
+#     CATALOG_TEMPLATE_ENEMY_KEY = "enemy_011"
 #
 # Set to None to create a neutral generated entry.
 #

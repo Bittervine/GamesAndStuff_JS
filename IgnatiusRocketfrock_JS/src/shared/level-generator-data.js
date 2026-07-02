@@ -1811,7 +1811,7 @@ export function generateAutomaticLevelDraft(options = {}) {
                 encounterCount: encounters.encounters.length,
                 enemyCount: encounters.entities.length,
                 hunterCount: encounters.entities.filter((entity) => entity.strategy === "hunter").length,
-                bombingBatCount: encounters.entities.filter((entity) => entity.enemyCatalogId === "enemy_005").length,
+                bombingBatCount: encounters.entities.filter((entity) => entity.enemyCatalogId === "enemy_020").length,
                 budget: encounters.budget,
                 spentBudget: encounters.spentBudget
             },
@@ -2497,7 +2497,7 @@ export function validateGeneratedEncounters(value = {}) {
         }
         if (metadata.placementClass === "flyingBomber") {
             metrics.flyingEnemyCount += 1;
-            metrics.bombingBatCount += enemyId === "enemy_005" ? 1 : 0;
+            metrics.bombingBatCount += enemyId === "enemy_020" ? 1 : 0;
             if (entity.y >= support.surfaceY - 60) errors.push(`Flying enemy “${entity.id}” is too close to its route support.`);
         } else {
             metrics.groundEnemyCount += 1;
@@ -2575,8 +2575,8 @@ export function validateGeneratedEncounters(value = {}) {
         if (group.length !== record.groupSize || group.length !== (record.entityIds || []).length) errors.push(`Encounter “${record.id}” has inconsistent group membership.`);
         const metadata = metadataById.get(record.enemyId);
         if (metadata?.placementClass === "flyingBomber") {
-            metrics.bombingBatGroups += record.enemyId === "enemy_005" ? 1 : 0;
-            if (record.enemyId === "enemy_005" && (group.length < 2 || group.length > 3)) errors.push(`Bombing Bat encounter “${record.id}” must contain two or three bats.`);
+            metrics.bombingBatGroups += record.enemyId === "enemy_020" ? 1 : 0;
+            if (record.enemyId === "enemy_020" && (group.length < 2 || group.length > 3)) errors.push(`Bombing Bat encounter “${record.id}” must contain two or three bats.`);
             const sorted = [...group].sort((a, b) => a.x - b.x);
             for (let index = 1; index < sorted.length; index += 1) {
                 const separation = sorted[index].x - sorted[index - 1].x;

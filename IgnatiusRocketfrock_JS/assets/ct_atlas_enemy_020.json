@@ -1,10 +1,10 @@
 {
     "meta": {
         "version": 4,
-        "note": "Revision 172 preserves the 22 authored bat animation frames and adds the rock projectile embedded in the supplied atlas."
+        "note": "Revision 172 preserves the 22 authored bat animation frames and adds the rock projectile embedded in the supplied atlas. Revision 329 renumbers the bat atlas to the bat family range."
     },
-    "atlasId": "ct_atlas_enemy_005",
-    "image": "ct_atlas_enemy_005.png",
+    "atlasId": "ct_atlas_enemy_020",
+    "image": "ct_atlas_enemy_020.png",
     "frames": {
         "frame_01": {
             "x": 51,

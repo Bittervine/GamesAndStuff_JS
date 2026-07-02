@@ -1,13 +1,13 @@
 # Level Editor Stress Baseline
 
-Revision 303 freezes `tests/fixtures/level-editor-stress.json` as the permanent dense-editor comparison level. It is not a campaign level. It is a compact JSON snapshot of the revision-302 dense `level_002` authoring workload, renamed and marked as a fixture so later gameplay edits cannot quietly move the performance goalposts.
+Revision 303 froze `tests/fixtures/level-editor-stress.json` as the permanent dense-editor comparison level. Revision 329 performs an identifier-only migration to the goblin and bat family number ranges while preserving the same geometry, entity counts, and workload. It is not a campaign level. It is a compact JSON snapshot of the revision-302 dense `level_002` authoring workload, renamed and marked as a fixture so later gameplay edits cannot quietly move the performance goalposts.
 
 Run `npm run inspect:editor-stress` to verify its structural baseline.
 
 | Metric | Frozen value |
 | --- | ---: |
-| SHA-256 | `01189546893648d250968add6c0320d6e5bb8a14e97eb98f2251c27e1e0642ea` |
-| JSON bytes | 1,487,002 |
+| SHA-256 | `6fbd44374bb29fd8a9338af724b255e69b7f3fc8fbff1f67064d0377110d5993` |
+| JSON bytes | 1,487,044 |
 | Placements | 1,039 |
 | Terrain placements | 53 |
 | Cave-foreground placements | 986 |

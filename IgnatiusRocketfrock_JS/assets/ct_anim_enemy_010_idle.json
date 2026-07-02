@@ -3,7 +3,7 @@
         "version": 3,
         "note": "User-corrected canonical Fireball Goblin idle adopted in revision 108. Its compact proportions and shoulder/hip placements are the source pose for all other goblin animations. Revision 113 applies the one-time +52 rig-space Y normalization so local y=0 matches the runtime ground."
     },
-    "animationId": "ct_anim_enemy_002_idle",
+    "animationId": "ct_anim_enemy_010_idle",
     "duration": 1.2,
     "loop": true,
     "mirrorable": true,

@@ -74,7 +74,7 @@ Portable effect identity, duration/permanence, stacking or refresh behavior, exc
 
 Ground running is data-driven through `assets/ct_anim_wizard_run_1.json` and `src/shared/animation-data.js`. Do not add new run-pose formulas to the renderer or scale animation values per sprite. Animation `x`/`y` values are unscaled rig-space pixels, `rotation` is radians, `scale` multiplies the rig part target height, and `alpha` is scalar opacity. The procedural run and its comparison mode were removed in revision 056. Edit run keyframes in `character-editor.html`; shared keyframe mutations belong in `src/tools/character-editor/animation-editor.js`.
 
-The retained bat in `enemy_005` use still-frame animation without a second runtime or editor pipeline. A frame-swapped character stacks atlas frames as ordinary rig parts, registers them on one stable visual landmark, and uses step-keyed `alpha` tracks so exactly one frame is visible at a time. Preserve the source sequence order unless the user explicitly requests editing it. Keep this data-driven in numbered character/rig/atlas/animation JSON; do not add a dedicated still-frame editor mode unless repeated use justifies it.
+The retained bat in `enemy_020` use still-frame animation without a second runtime or editor pipeline. A frame-swapped character stacks atlas frames as ordinary rig parts, registers them on one stable visual landmark, and uses step-keyed `alpha` tracks so exactly one frame is visible at a time. Preserve the source sequence order unless the user explicitly requests editing it. Keep this data-driven in numbered character/rig/atlas/animation JSON; do not add a dedicated still-frame editor mode unless repeated use justifies it.
 
 ## CHARACTER DOPESHEET RULE ##
 
@@ -99,7 +99,7 @@ Projectile sprites may remain rig parts while an attack animation prepares them,
 
 ## ENEMY PROJECT NAMING RULE ##
 
-Enemy character projects use stable numbered filenames rather than species-specific filenames: `ct_char_enemy_0XX.json`, `ct_rig_enemy_0XX.json`, `ct_atlas_enemy_0XX.json`, `ct_atlas_enemy_0XX.png`, and `ct_anim_enemy_0XX_<slot>.json`. Keep the human-readable species/name in `displayName`, roles, and tags, not in the filenames. `enemy_001` is currently the Skeleton Guard. Future automatic discovery should use a generated/indexed enemy catalog or numbered probing; browser code must not pretend it can enumerate an arbitrary static asset directory.
+Enemy character projects use stable numbered filenames rather than species-specific filenames: `ct_char_enemy_0XX.json`, `ct_rig_enemy_0XX.json`, `ct_atlas_enemy_0XX.json`, `ct_atlas_enemy_0XX.png`, and `ct_anim_enemy_0XX_<slot>.json`. Keep the human-readable species/name in `displayName`, roles, and tags, not in the filenames. `enemy_001` is currently the Skeleton Guard. The active family ranges are skeletons `enemy_001` through `enemy_009`, goblins `enemy_010` through `enemy_019`, and bats `enemy_020` through `enemy_029`; current concrete entries are `enemy_001`, `enemy_010`, `enemy_011`, and `enemy_020`. Future automatic discovery should use a generated/indexed enemy catalog or numbered probing; browser code must not pretend it can enumerate an arbitrary static asset directory.
 
 ## CHARACTER TOOL DIRECT-EDIT RULE ##
 

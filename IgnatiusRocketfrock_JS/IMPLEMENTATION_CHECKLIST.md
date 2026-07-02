@@ -3290,3 +3290,16 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Require the favicon in packaging and source-organization regression checks.
 - [x] Audit sparse enemy-number handling and confirm that holes do not break catalog enumeration.
 - [ ] After the final mapping is approved, migrate goblins into `enemy_010`–`enemy_019` and bats into `enemy_020`–`enemy_029` in one coordinated revision.
+
+
+## Revision 329 enemy family ranges
+
+- [x] Keep Skeleton Guard as `enemy_001` in the skeleton range.
+- [x] Rename Fireball Goblin and all matching resources to `enemy_010`.
+- [x] Rename Musket Goblin and all matching resources to `enemy_011`.
+- [x] Rename Bombing Bat and all matching resources to `enemy_020`.
+- [x] Rename the shared goblin atlas to `ct_atlas_enemy_010` and the bat atlas to `ct_atlas_enemy_020`.
+- [x] Update both bundled levels, boss spawners, automatic spawn filters, generator provenance, and the dense editor fixture.
+- [x] Update renderer preloads, Puppet Forge, Level Editor, generator special cases, helper scripts, and tests.
+- [x] Remove the old live resource filenames instead of adding compatibility aliases.
+- [x] Package revision 329 as a full archive including normally excluded binary assets.

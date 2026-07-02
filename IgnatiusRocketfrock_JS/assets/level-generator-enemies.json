@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "catalogId": "cavern-enemy-generation-v1",
   "enemies": {
     "enemy_001": {
@@ -21,7 +21,7 @@
       "requiresNavigation": true,
       "notes": "A jumping close-range hunter that can leave raised combat perches and pursue Ignatius."
     },
-    "enemy_002": {
+    "enemy_010": {
       "placementClass": "groundRanged",
       "groupMin": 1,
       "groupMax": 1,
@@ -40,7 +40,7 @@
       "requiresNavigation": true,
       "notes": "A hunter with homing fireballs and enough room to leave its home platform."
     },
-    "enemy_003": {
+    "enemy_011": {
       "placementClass": "groundRanged",
       "groupMin": 1,
       "groupMax": 1,
@@ -59,7 +59,7 @@
       "requiresNavigation": true,
       "notes": "A later-route ballistic hunter with a longer protected player approach."
     },
-    "enemy_005": {
+    "enemy_020": {
       "placementClass": "flyingBomber",
       "groupMin": 2,
       "groupMax": 3,

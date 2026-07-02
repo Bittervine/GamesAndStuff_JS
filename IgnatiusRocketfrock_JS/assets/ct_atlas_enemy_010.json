@@ -1,10 +1,10 @@
 {
     "meta": {
         "version": 2,
-        "note": "Enemy 002 goblin atlas. Revision 103 corrects left/right arm and leg identities. Fireball and cannonball remain unattached projectile sprites rather than rig parts."
+        "note": "Enemy 010 goblin atlas. Revision 103 corrects left/right arm and leg identities. Fireball and cannonball remain unattached projectile sprites rather than rig parts. Revision 329 renumbers the shared goblin atlas to the goblin family range."
     },
-    "atlasId": "ct_atlas_enemy_002",
-    "image": "ct_atlas_enemy_002.png",
+    "atlasId": "ct_atlas_enemy_010",
+    "image": "ct_atlas_enemy_010.png",
     "frames": {
         "head": {
             "x": 10,

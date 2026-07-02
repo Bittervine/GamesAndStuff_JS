@@ -1,11 +1,11 @@
 {
     "meta": {
         "version": 3,
-        "note": "Revision 169 frame-swapped rig for the replacement Atlas 005 bat. All 22 source frames are stacked as ordinary rig parts and registered on the visible orange eye."
+        "note": "Revision 169 frame-swapped rig for the replacement Atlas 020 bat. All 22 source frames are stacked as ordinary rig parts and registered on the visible orange eye. Revision 329 renumbers this rig into the bat family range."
     },
-    "rigId": "ct_rig_enemy_005",
-    "atlasId": "ct_atlas_enemy_005",
-    "atlasManifest": "ct_atlas_enemy_005.json",
+    "rigId": "ct_rig_enemy_020",
+    "atlasId": "ct_atlas_enemy_020",
+    "atlasManifest": "ct_atlas_enemy_020.json",
     "drawOrder": [
         "frame_01",
         "frame_02",

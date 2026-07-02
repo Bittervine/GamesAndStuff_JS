@@ -598,7 +598,7 @@ function testSourceOrganization() {
     assert.equal(simulationSource.includes('hasOwnProperty.call(tuningOverrides, "jumpVelocity")'), false, "state initialization should not migrate the retired jumpVelocity tuning override");
     const characterRuntime = readFileSync(new URL("../src/presentation/character-runtime.js", import.meta.url), "utf8");
     assert.ok(!characterRuntime.includes("rigPartOverrides") && !characterRuntime.includes("rigPivotOverrides") && !characterRuntime.includes("applyRuntimeCharacterRigOverrides"), "runtime character loading should not contain character-level rig replacement support");
-    for (const characterFile of ["ct_char_wizard_1.json", "ct_char_enemy_001.json", "ct_char_enemy_002.json", "ct_char_enemy_003.json"]) {
+    for (const characterFile of ["ct_char_wizard_1.json", "ct_char_enemy_001.json", "ct_char_enemy_010.json", "ct_char_enemy_011.json"]) {
         const character = JSON.parse(readFileSync(new URL(`../assets/${characterFile}`, import.meta.url), "utf8"));
         assert.equal("rigPartOverrides" in character, false, `${characterFile} should not contain rig-part replacement data`);
         assert.equal("rigPivotOverrides" in character, false, `${characterFile} should not contain pivot replacement data`);
@@ -637,7 +637,7 @@ function releaseJumpAfterTakeoff(state) {
 function testLevelEditorStressFixture() {
     const fixture = JSON.parse(readFileSync(new URL("./fixtures/level-editor-stress.json", import.meta.url), "utf8"));
     assert.equal(fixture.meta?.fixtureKind, "levelEditorStress", "the permanent dense fixture should identify its intended benchmark role");
-    assert.equal(fixture.meta?.fixtureRevision, 303, "the stress fixture should record the revision that froze its baseline");
+    assert.equal(fixture.meta?.fixtureRevision, 329, "the stress fixture should record the revision that last migrated its identifiers");
     assert.equal(fixture.levelId, "level_editor_stress_fixture", "the stress fixture should not masquerade as a campaign level");
     assert.equal(fixture.placements?.length, 1039, "the stress fixture should retain a thousand-plus atlas placements");
     assert.equal(fixture.entities?.length, 68, "the stress fixture should retain a dense entity population");
@@ -818,21 +818,21 @@ async function testGenericRuntimeCharacterProject() {
 async function testGoblinRuntimeCharacterProjects() {
     const jsonByUrl = new Map();
     for (const filename of [
-        "ct_char_enemy_002.json",
-        "ct_char_enemy_003.json",
-        "ct_rig_enemy_002.json",
-        "ct_rig_enemy_003.json",
-        "ct_atlas_enemy_002.json",
-        "ct_anim_enemy_002_idle.json",
-        "ct_anim_enemy_002_walk.json",
-        "ct_anim_enemy_002_attack.json",
-        "ct_anim_enemy_002_hurt.json",
-        "ct_anim_enemy_002_death.json",
-        "ct_anim_enemy_003_idle.json",
-        "ct_anim_enemy_003_walk.json",
-        "ct_anim_enemy_003_attack.json",
-        "ct_anim_enemy_003_hurt.json",
-        "ct_anim_enemy_003_death.json"
+        "ct_char_enemy_010.json",
+        "ct_char_enemy_011.json",
+        "ct_rig_enemy_010.json",
+        "ct_rig_enemy_011.json",
+        "ct_atlas_enemy_010.json",
+        "ct_anim_enemy_010_idle.json",
+        "ct_anim_enemy_010_walk.json",
+        "ct_anim_enemy_010_attack.json",
+        "ct_anim_enemy_010_hurt.json",
+        "ct_anim_enemy_010_death.json",
+        "ct_anim_enemy_011_idle.json",
+        "ct_anim_enemy_011_walk.json",
+        "ct_anim_enemy_011_attack.json",
+        "ct_anim_enemy_011_hurt.json",
+        "ct_anim_enemy_011_death.json"
     ]) {
         jsonByUrl.set(`assets/${filename}`, JSON.parse(readFileSync(`./assets/${filename}`, "utf8")));
     }
@@ -849,22 +849,22 @@ async function testGoblinRuntimeCharacterProjects() {
         })
     };
 
-    const fireball = await loadRuntimeCharacterProject("assets/ct_char_enemy_002.json", loader);
-    const musket = await loadRuntimeCharacterProject("assets/ct_char_enemy_003.json", loader);
+    const fireball = await loadRuntimeCharacterProject("assets/ct_char_enemy_010.json", loader);
+    const musket = await loadRuntimeCharacterProject("assets/ct_char_enemy_011.json", loader);
 
-    assert.equal(fireball.characterId, "ct_char_enemy_002", "fireball goblin should keep its character ID");
-    assert.equal(musket.characterId, "ct_char_enemy_003", "musket goblin should keep its character ID");
-    assert.equal(fireball.rig.rigId, "ct_rig_enemy_002", "Fireball Goblin should load its dedicated rig");
-    assert.equal(musket.rig.rigId, "ct_rig_enemy_003", "Musket Goblin should load its dedicated rig");
+    assert.equal(fireball.characterId, "ct_char_enemy_010", "fireball goblin should keep its character ID");
+    assert.equal(musket.characterId, "ct_char_enemy_011", "musket goblin should keep its character ID");
+    assert.equal(fireball.rig.rigId, "ct_rig_enemy_010", "Fireball Goblin should load its dedicated rig");
+    assert.equal(musket.rig.rigId, "ct_rig_enemy_011", "Musket Goblin should load its dedicated rig");
     assert.equal(fireball.rig.parts.leftArm.frame, "leftArmOpen", "Fireball Goblin rig should retain the open casting arm part");
     assert.equal(musket.rig.parts.leftArmClosed.frame, "leftArmClosed", "Musket Goblin rig should retain the closed support arm part");
     assert.equal(musket.rig.parts.rightArm.frame, "rightArmClosed", "Musket Goblin should use the corrected closed right trigger arm");
     assert.equal(musket.rig.parts.weapon.frame, "musket", "Musket Goblin should use the musket frame");
-    assert.deepEqual(fireball.rig.pivots.rightArm, { x: 0.18, y: 0.31 }, "Enemy 002 right-arm pivot should come directly from its rig");
-    assert.deepEqual(musket.rig.pivots.rightArm, { x: 0.17, y: 0.29 }, "Enemy 003 right-arm pivot should come directly from its rig without character-level replacement");
+    assert.deepEqual(fireball.rig.pivots.rightArm, { x: 0.18, y: 0.31 }, "Enemy 010 right-arm pivot should come directly from its rig");
+    assert.deepEqual(musket.rig.pivots.rightArm, { x: 0.17, y: 0.29 }, "Enemy 011 right-arm pivot should come directly from its rig without character-level replacement");
     assert.deepEqual(
         fireball.rig.drawOrder,
-        jsonByUrl.get("assets/ct_rig_enemy_002.json").drawOrder,
+        jsonByUrl.get("assets/ct_rig_enemy_010.json").drawOrder,
         "runtime goblin rig should preserve the user-authored depth-first order"
     );
     assert.equal(fireball.atlasAssets.get("fireball")?.frameId, "fireball", "runtime project should expose the authored fireball atlas resource");
@@ -892,7 +892,7 @@ async function testGoblinRuntimeCharacterProjects() {
 }
 
 async function testBatFrameSwapProjectsAndFlight() {
-    const retainedSuffixes = ["005"];
+    const retainedSuffixes = ["020"];
     const jsonByUrl = new Map();
     for (const suffix of retainedSuffixes) {
         for (const filename of [
@@ -929,26 +929,26 @@ async function testBatFrameSwapProjectsAndFlight() {
         }
     }
 
-    const atlas005 = jsonByUrl.get("assets/ct_atlas_enemy_005.json");
-    const rig005 = jsonByUrl.get("assets/ct_rig_enemy_005.json");
-    const animation005 = jsonByUrl.get("assets/ct_anim_enemy_005_fly.json");
+    const atlas020 = jsonByUrl.get("assets/ct_atlas_enemy_020.json");
+    const rig020 = jsonByUrl.get("assets/ct_rig_enemy_020.json");
+    const animation020 = jsonByUrl.get("assets/ct_anim_enemy_020_fly.json");
     const orderedFrameNames = Array.from({ length: 22 }, (_, index) => `frame_${String(index + 1).padStart(2, "0")}`);
-    assert.deepEqual(Object.keys(atlas005.frames).slice(0, 22), orderedFrameNames, "Atlas 005 should expose all 22 animation frames in authored order");
-    assert.deepEqual(atlas005.frames.rock, { x: 1833, y: 962, w: 60, h: 56 }, "Atlas 005 should expose the supplied rock projectile frame");
-    assert.deepEqual(rig005.drawOrder, orderedFrameNames, "replacement Atlas 005 rig should preserve source order exactly");
-    assert.equal(animation005.duration, 1.1, "22 Atlas 005 frames should play at 20 FPS");
-    assert.equal(Object.keys(animation005.tracks).length, 22, "replacement Atlas 005 should key every supplied frame");
-    assert.equal(animation005.presentation?.mode, "exclusive_frame_parts", "frame-swapped bat should declare its animation presentation contract");
-    assert.deepEqual(animation005.presentation?.parts, orderedFrameNames, "frame-swapped bat should declare every exclusive frame part in source order");
+    assert.deepEqual(Object.keys(atlas020.frames).slice(0, 22), orderedFrameNames, "Atlas 020 should expose all 22 animation frames in authored order");
+    assert.deepEqual(atlas020.frames.rock, { x: 1833, y: 962, w: 60, h: 56 }, "Atlas 020 should expose the supplied rock projectile frame");
+    assert.deepEqual(rig020.drawOrder, orderedFrameNames, "replacement Atlas 020 rig should preserve source order exactly");
+    assert.equal(animation020.duration, 1.1, "22 Atlas 020 frames should play at 20 FPS");
+    assert.equal(Object.keys(animation020.tracks).length, 22, "replacement Atlas 020 should key every supplied frame");
+    assert.equal(animation020.presentation?.mode, "exclusive_frame_parts", "frame-swapped bat should declare its animation presentation contract");
+    assert.deepEqual(animation020.presentation?.parts, orderedFrameNames, "frame-swapped bat should declare every exclusive frame part in source order");
 
-    const project005 = await loadRuntimeCharacterProject("assets/ct_char_enemy_005.json", loader);
-    assert.equal(project005.animations.get("fly").presentation.mode, "exclusive_frame_parts", "runtime should retain the validated frame-sequence contract");
+    const project020 = await loadRuntimeCharacterProject("assets/ct_char_enemy_020.json", loader);
+    assert.equal(project020.animations.get("fly").presentation.mode, "exclusive_frame_parts", "runtime should retain the validated frame-sequence contract");
     for (let index = 0; index < orderedFrameNames.length; index += 1) {
-        const sampled = sampleRuntimeCharacterPose(project005, "fly", index * 0.05 + 0.001);
+        const sampled = sampleRuntimeCharacterPose(project020, "fly", index * 0.05 + 0.001);
         const visibleNames = Object.entries(sampled.pose)
             .filter(([, transform]) => Number(transform.alpha) > 0.5)
             .map(([partName]) => partName);
-        assert.deepEqual(visibleNames, [orderedFrameNames[index]], `Atlas 005 sample ${index + 1} should select its matching source frame`);
+        assert.deepEqual(visibleNames, [orderedFrameNames[index]], `Atlas 020 sample ${index + 1} should select its matching source frame`);
     }
 
     const state = createInitialGameState();
@@ -959,7 +959,7 @@ async function testBatFrameSwapProjectsAndFlight() {
         entities: [{
             id: "bat_candidate_test",
             type: "characterEnemy",
-            characterId: "ct_char_enemy_005",
+            characterId: "ct_char_enemy_020",
             x: 520,
             y: 280,
             w: 84,
@@ -1014,7 +1014,7 @@ function testFlyingBomberDropsProjectile() {
         entities: [{
             id: "bomber",
             type: "characterEnemy",
-            characterId: "ct_char_enemy_005",
+            characterId: "ct_char_enemy_020",
             x: 220,
             y: 300,
             w: 84,
@@ -1080,7 +1080,7 @@ function testFlyingBomberUsesCurvedApproach() {
         entities: [{
             id: "curved_bomber",
             type: "characterEnemy",
-            characterId: "ct_char_enemy_005",
+            characterId: "ct_char_enemy_020",
             x: 180,
             y: 500,
             w: 84,
@@ -1132,7 +1132,7 @@ function testFlyingBomberNoticesWizardBelowAndAhead() {
         entities: [{
             id: "bomber",
             type: "characterEnemy",
-            characterId: "ct_char_enemy_005",
+            characterId: "ct_char_enemy_020",
             x: 420,
             y: 330,
             w: 150,
@@ -1167,7 +1167,7 @@ function testFlyingBomberCanLeavePerchPlatform() {
         entities: [{
             id: "perched_bomber",
             type: "characterEnemy",
-            characterId: "ct_char_enemy_005",
+            characterId: "ct_char_enemy_020",
             x: 220,
             y: 500,
             w: 84,
@@ -1233,8 +1233,8 @@ function createAutomaticEnemySpawnTestState({
 function testAutomaticEnemySpawning() {
     assert.deepEqual(normalizeAutoSpawnEnemies(null), DEFAULT_AUTO_SPAWN_ENEMIES, "automatic enemy spawning should default to disabled, zero percent, and enemies 001-999");
     assert.deepEqual(
-        resolveAutoSpawnEnemyIds({ enabled: true, probabilityPercent: 25, enemyPool: "1-5,!2,!4" }, JSON.parse(readFileSync("./assets/ct_enemies_001.json", "utf8"))).resolvedIds,
-        ["enemy_001", "enemy_003", "enemy_005"],
+        resolveAutoSpawnEnemyIds({ enabled: true, probabilityPercent: 25, enemyPool: "1-20,!10,!19" }, JSON.parse(readFileSync("./assets/ct_enemies_001.json", "utf8"))).resolvedIds,
+        ["enemy_001", "enemy_011", "enemy_020"],
         "automatic spawning should share the level generator enemy-pool expression format"
     );
 
@@ -1268,18 +1268,18 @@ function testAutomaticEnemySpawning() {
     assert.equal(firstRightEnemy.engaged, true, "spawned enemies should immediately pursue the player");
     assert.equal(firstRightEnemy.lastSeenPlayerX, rightward.player.x, "spawned hunters should remember the player's current position");
 
-    const leftward = createAutomaticEnemySpawnTestState({ exitX: -4000, enemyPool: "2", randomSeed: 321 });
+    const leftward = createAutomaticEnemySpawnTestState({ exitX: -4000, enemyPool: "10", randomSeed: 321 });
     for (let step = 0; step < 62; step += 1) stepSimulation(leftward, createInputFrame(), FIXED_DT);
     const leftSpawn = leftward.debug.lastEvents.find((event) => event.type === "AUTO_ENEMY_SPAWNED");
     const leftEnemy = leftward.enemies.find((enemy) => enemy.id === leftSpawn?.enemyId);
     assert.equal(leftSpawn?.direction, -1, "an exit to the left should produce a forward left-side spawn");
-    assert.equal(leftEnemy?.enemyDefinitionId, "enemy_002", "leftward spawning should still obey the configured pool");
+    assert.equal(leftEnemy?.enemyDefinitionId, "enemy_010", "leftward spawning should still obey the configured pool");
     assert.ok(leftSpawn.distanceBeyondScreen >= 40 && leftSpawn.distanceBeyondScreen <= 400, "leftward spawn distance should use the same off-screen band");
 
-    const flying = createAutomaticEnemySpawnTestState({ enemyPool: "5", randomSeed: 88 });
+    const flying = createAutomaticEnemySpawnTestState({ enemyPool: "20", randomSeed: 88 });
     for (let step = 0; step < 62; step += 1) stepSimulation(flying, createInputFrame(), FIXED_DT);
     const flyingEnemy = flying.enemies.find((enemy) => enemy.autoSpawned);
-    assert.equal(flyingEnemy?.enemyDefinitionId, "enemy_005", "flying catalog enemies should remain eligible for automatic spawning");
+    assert.equal(flyingEnemy?.enemyDefinitionId, "enemy_020", "flying catalog enemies should remain eligible for automatic spawning");
     assert.equal(flyingEnemy?.strategy, "bomber", "flying reinforcements should retain the strategy required by their locomotion");
     assert.equal(flyingEnemy?.alerted, true, "flying reinforcements should also begin aware of the player");
     assert.equal(flyingEnemy?.engaged, true, "flying reinforcements should begin engaged rather than idling at their spawn point");
@@ -1405,7 +1405,7 @@ function testUnifiedEnemyScaling() {
         entities: [{
             id: "scaled_enemy",
             type: "characterEnemy",
-            characterId: "ct_char_enemy_002",
+            characterId: "ct_char_enemy_010",
             x: 300,
             y: 500,
             w: 40,
@@ -1473,24 +1473,24 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(skeleton.characterId, "ct_char_enemy_001", "enemy_001 should reference its generic character project");
     assert.equal(skeleton.defaults.behavior, undefined, "enemy catalog should not duplicate strategy with legacy behavior");
     assert.equal(skeleton.defaults.strategy, "hunter", "Skeleton Guard should use jumping hunter navigation so raised encounters can pursue Ignatius");
-    assert.equal(catalog.enemies.enemy_002.defaults.strategy, "hunter", "Fireball Goblin should use the hunter strategy");
-    assert.equal(catalog.enemies.enemy_003.defaults.strategy, "hunter", "Musket Goblin should use the hunter strategy");
+    assert.equal(catalog.enemies.enemy_010.defaults.strategy, "hunter", "Fireball Goblin should use the hunter strategy");
+    assert.equal(catalog.enemies.enemy_011.defaults.strategy, "hunter", "Musket Goblin should use the hunter strategy");
     assert.equal(skeleton.defaults.health, 90, "Skeleton Guard should default to 90 HP");
-    assert.equal(catalog.enemies.enemy_002.defaults.health, 60, "Fireball Goblin should default to 60 HP");
-    assert.equal(catalog.enemies.enemy_003.defaults.health, 60, "Musket Goblin should default to 60 HP");
-    for (const enemyId of ["enemy_005"]) {
+    assert.equal(catalog.enemies.enemy_010.defaults.health, 60, "Fireball Goblin should default to 60 HP");
+    assert.equal(catalog.enemies.enemy_011.defaults.health, 60, "Musket Goblin should default to 60 HP");
+    for (const enemyId of ["enemy_020"]) {
         const bat = catalog.enemies[enemyId];
         assert.ok(bat, `${enemyId} should register a retained bat candidate`);
         assert.equal(bat.defaults.locomotion, "flying", `${enemyId} should opt into flying locomotion`);
         assert.equal(bat.defaults.health, 1, `${enemyId} should leave after one successful hit during the comparison trial`);
         assert.equal(bat.defaults.animationSlot, "fly", `${enemyId} should request its authored fly clip`);
     }
-    assert.equal(catalog.enemies.enemy_005.defaults.strategy, "bomber", "Enemy 005 should demonstrate the bomber strategy");
-    assert.equal(catalog.enemies.enemy_005.defaults.projectileLaunchType, "drop", "Enemy 005 should release gravity-driven drops");
-    assert.equal(catalog.enemies.enemy_005.defaults.projectileKind, "rock", "Enemy 005 should drop rocks from its perch attack");
-    assert.equal(catalog.enemies.enemy_005.defaults.bomberHoverHeight, 280, "Bombing Bat should aim for the revised high bombing station");
-    assert.ok(catalog.enemies.enemy_005.defaults.bomberApproachArcHeight > 0, "Bombing Bat should author a curved approach arc");
-    assert.ok(catalog.enemies.enemy_005.defaults.bomberDropHeightTolerance > 0, "Bombing Bat should author a release-height tolerance");
+    assert.equal(catalog.enemies.enemy_020.defaults.strategy, "bomber", "Enemy 020 should demonstrate the bomber strategy");
+    assert.equal(catalog.enemies.enemy_020.defaults.projectileLaunchType, "drop", "Enemy 020 should release gravity-driven drops");
+    assert.equal(catalog.enemies.enemy_020.defaults.projectileKind, "rock", "Enemy 020 should drop rocks from its perch attack");
+    assert.equal(catalog.enemies.enemy_020.defaults.bomberHoverHeight, 280, "Bombing Bat should aim for the revised high bombing station");
+    assert.ok(catalog.enemies.enemy_020.defaults.bomberApproachArcHeight > 0, "Bombing Bat should author a curved approach arc");
+    assert.ok(catalog.enemies.enemy_020.defaults.bomberDropHeightTolerance > 0, "Bombing Bat should author a release-height tolerance");
     const characterEditorDefaultsHtml = readFileSync("./character-editor.html", "utf8");
     assert.ok(characterEditorDefaultsHtml.includes("Enemy type defaults"), "Puppet Forge should expose enemy type defaults");
     assert.ok(characterEditorDefaultsHtml.includes("enemy-catalog-json"), "Puppet Forge should expose the full enemy catalog JSON beside the other JSON editors");
@@ -1504,13 +1504,13 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     for (const discardedId of ["enemy_004", "enemy_006", "enemy_007", "enemy_008"]) {
         assert.equal(catalog.enemies[discardedId], undefined, `${discardedId} should be removed from the active enemy catalog`);
     }
-    assert.equal(catalog.enemies.enemy_002.defaults.runSpeed, 200, "Fireball Goblin should default to the authored 200 px/s run speed");
-    assert.equal(catalog.enemies.enemy_003.defaults.runSpeed, 200, "Musket Goblin should default to the authored 200 px/s run speed");
-    assert.equal(catalog.enemies.enemy_002.defaults.jumpHeight, 200, "Fireball Goblin should default to the playtested 200 px jump height");
-    assert.equal(catalog.enemies.enemy_003.defaults.jumpHeight, 200, "Musket Goblin should default to the playtested 200 px jump height");
+    assert.equal(catalog.enemies.enemy_010.defaults.runSpeed, 200, "Fireball Goblin should default to the authored 200 px/s run speed");
+    assert.equal(catalog.enemies.enemy_011.defaults.runSpeed, 200, "Musket Goblin should default to the authored 200 px/s run speed");
+    assert.equal(catalog.enemies.enemy_010.defaults.jumpHeight, 200, "Fireball Goblin should default to the playtested 200 px jump height");
+    assert.equal(catalog.enemies.enemy_011.defaults.jumpHeight, 200, "Musket Goblin should default to the playtested 200 px jump height");
     assert.equal(skeleton.defaults.awarenessViewHalfAngle, 60, "Skeleton Guard should default to the authored ±60 degree awareness cone");
-    assert.equal(catalog.enemies.enemy_002.defaults.awarenessViewHalfAngle, 60, "Fireball Goblin should default to the authored ±60 degree awareness cone");
-    assert.equal(catalog.enemies.enemy_003.defaults.awarenessViewHalfAngle, 60, "Musket Goblin should default to the authored ±60 degree awareness cone");
+    assert.equal(catalog.enemies.enemy_010.defaults.awarenessViewHalfAngle, 60, "Fireball Goblin should default to the authored ±60 degree awareness cone");
+    assert.equal(catalog.enemies.enemy_011.defaults.awarenessViewHalfAngle, 60, "Musket Goblin should default to the authored ±60 degree awareness cone");
     assert.equal(DEFAULT_TUNING.enemyDefaultAwarenessViewHalfAngle, 60, "simulation fallback should match the authored ±60 degree awareness cone");
     assert.ok(skeleton.defaults.patrolDistance > 0, "Skeleton Guard should have a visible default patrol span");
     assert.ok(skeleton.defaults.attackDamage > 0, "Skeleton Guard should have authored melee damage");
@@ -1521,14 +1521,14 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(skeleton.defaults.awarenessVerticalRange, undefined, "unused vertical-awareness data should stay removed from the catalog");
     assert.ok(skeleton.defaults.attackCooldown < 0.25, "Skeleton Guard should chain rapid sword chops");
     const levelOne = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
-    assert.ok(levelOne.entities.some((entity) => entity.characterId === "ct_char_enemy_002"), "level_001 should contain a Fireball Goblin");
-    assert.ok(levelOne.entities.some((entity) => entity.characterId === "ct_char_enemy_003"), "level_001 should contain a Musket Goblin");
-    const levelOneBat = levelOne.entities.find((entity) => entity.characterId === "ct_char_enemy_005");
+    assert.ok(levelOne.entities.some((entity) => entity.characterId === "ct_char_enemy_010"), "level_001 should contain a Fireball Goblin");
+    assert.ok(levelOne.entities.some((entity) => entity.characterId === "ct_char_enemy_011"), "level_001 should contain a Musket Goblin");
+    const levelOneBat = levelOne.entities.find((entity) => entity.characterId === "ct_char_enemy_020");
     assert.ok(levelOneBat, "level_001 should retain the Bombing Bat");
     assert.equal(levelOneBat.bomberHoverHeight, 280, "level_001 Bombing Bat should use the revised high attack altitude");
     assert.equal(levelOneBat.bomberDropHeightTolerance, 20, "level_001 Bombing Bat should wait until it reaches the high release band");
     assert.equal(levelOneBat.bomberApproachArcHeight, 72, "level_001 Bombing Bat should use the authored curved approach");
-    for (const goblin of levelOne.entities.filter((entity) => entity.characterId === "ct_char_enemy_002" || entity.characterId === "ct_char_enemy_003")) {
+    for (const goblin of levelOne.entities.filter((entity) => entity.characterId === "ct_char_enemy_010" || entity.characterId === "ct_char_enemy_011")) {
         assert.equal(goblin.runSpeed, 200, `${goblin.id} should use the baked 200 px/s run profile`);
         assert.equal(goblin.jumpHeight, 200, `${goblin.id} should use the baked 200 px jump profile`);
         assert.equal(goblin.awarenessViewHalfAngle, 60, `${goblin.id} should use the authored ±60 degree awareness cone`);
@@ -1579,11 +1579,11 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(characterEditorHtml.includes("characterArtworkOffset(renderOffsetX, renderOffsetY, CHARACTER_EDITOR_WORLD_SCALE)"), "Puppet Forge should scale character-local artwork offsets with its preview-world transform");
     assert.ok(characterEditorHtml.includes("animationPoseToRuntimeTransforms("), "Puppet Forge should use the same pose-to-transform path as the runtime and Level Editor");
     assert.ok(characterEditorHtml.includes("transform.x += artworkOffset.x"), "Puppet Forge should apply the local X offset before its facing mirror");
-    assert.ok(characterEditorHtml.includes('enemy_005: "assets/ct_char_enemy_005.json"'), "Puppet Forge should expose replacement Atlas 005");
+    assert.ok(characterEditorHtml.includes('enemy_020: "assets/ct_char_enemy_020.json"'), "Puppet Forge should expose replacement Atlas 020");
     for (const discardedSuffix of ["006", "007", "008"]) {
         assert.ok(!characterEditorHtml.includes(`ct_char_enemy_${discardedSuffix}.json`), `Puppet Forge should not expose discarded enemy ${discardedSuffix}`);
     }
-    for (const retainedSuffix of ["005"]) {
+    for (const retainedSuffix of ["020"]) {
         assert.ok(rendererSource.includes(`assets/ct_char_enemy_${retainedSuffix}.json`), `renderer should preload retained enemy ${retainedSuffix}`);
     }
     for (const discardedSuffix of ["006", "007", "008"]) {
@@ -1840,7 +1840,7 @@ function testHunterRangedAttackPositionSelection() {
         entities: [{
             id: "ranged_hunter",
             type: "characterEnemy",
-            characterId: "ct_char_enemy_002",
+            characterId: "ct_char_enemy_010",
             x: 0,
             y: 600,
             w: 72,
@@ -1945,7 +1945,7 @@ function testLevelOneUsesBakedHunterNavigationGraphs() {
 
 function testHunterCrossesLevelOneCentralPillarAndJumpsDown() {
     const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
-    level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_002_001");
+    level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_010_001");
 
     const state = createInitialGameState();
     assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply for the central-pillar traversal regression test");
@@ -1964,7 +1964,7 @@ function testHunterCrossesLevelOneCentralPillarAndJumpsDown() {
     state.player.wasOnGround = true;
     state.player.visible = true;
 
-    const enemy = state.enemies.find((item) => item.id === "enemy_002_001");
+    const enemy = state.enemies.find((item) => item.id === "enemy_010_001");
     assert.ok(enemy, "level_001 should instantiate the fireball goblin used by the central-pillar regression test");
     enemy.awarenessRange = 2000;
     enemy.facing = -1;
@@ -1992,7 +1992,7 @@ function testHunterCrossesLevelOneCentralPillarAndJumpsDown() {
 
 function testEngagedHunterImmediatelyLeavesPillarForLastSeenPlayer() {
     const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
-    level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_002_001");
+    level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_010_001");
 
     const state = createInitialGameState();
     assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply for the ledge-exit awareness regression test");
@@ -2011,7 +2011,7 @@ function testEngagedHunterImmediatelyLeavesPillarForLastSeenPlayer() {
     state.player.wasOnGround = true;
     state.player.visible = true;
 
-    const enemy = state.enemies.find((item) => item.id === "enemy_002_001");
+    const enemy = state.enemies.find((item) => item.id === "enemy_010_001");
     assert.ok(enemy, "level_001 should instantiate the fireball goblin used by the ledge-exit regression test");
     enemy.x = 1550;
     enemy.y = 658.5;
@@ -2053,7 +2053,7 @@ function testEngagedHunterImmediatelyLeavesPillarForLastSeenPlayer() {
 
 function testHunterWalksOffLevelOneLeftLedge() {
     const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
-    level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_002_001");
+    level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_010_001");
 
     const state = createInitialGameState();
     assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply for the long ledge walk-off regression test");
@@ -2072,7 +2072,7 @@ function testHunterWalksOffLevelOneLeftLedge() {
     state.player.wasOnGround = true;
     state.player.visible = true;
 
-    const enemy = state.enemies.find((item) => item.id === "enemy_002_001");
+    const enemy = state.enemies.find((item) => item.id === "enemy_010_001");
     assert.ok(enemy, "level_001 should instantiate the fireball goblin used by the long ledge regression test");
     enemy.x = 970;
     enemy.y = 289.33;
@@ -2112,7 +2112,7 @@ function testHunterWalksOffLevelOneLeftLedge() {
 
 function testHunterClimbsLevelOnePillarFromLeftWithoutWallClipping() {
     const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
-    level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_002_001");
+    level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_010_001");
 
     const state = createInitialGameState();
     assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply for the left-side pillar regression test");
@@ -2131,7 +2131,7 @@ function testHunterClimbsLevelOnePillarFromLeftWithoutWallClipping() {
     state.player.wasOnGround = true;
     state.player.visible = true;
 
-    const enemy = state.enemies.find((item) => item.id === "enemy_002_001");
+    const enemy = state.enemies.find((item) => item.id === "enemy_010_001");
     assert.ok(enemy, "level_001 should instantiate the fireball goblin used by the left-side pillar regression test");
     enemy.x = 1300;
     enemy.y = 844.24;
@@ -2172,7 +2172,7 @@ function testHunterClimbsLevelOnePillarFromLeftWithoutWallClipping() {
 
 function testHunterJumpsOntoLevelOneArchWithLargeAuthoredJump() {
     const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
-    const musketGoblin = level.entities.find((entity) => entity.id === "enemy_003_001");
+    const musketGoblin = level.entities.find((entity) => entity.id === "enemy_011_001");
     assert.ok(musketGoblin, "level_001 should contain the Musket Goblin used by the arch regression test");
     musketGoblin.jumpHeight = 555;
     musketGoblin.facing = 1;
@@ -2198,7 +2198,7 @@ function testHunterJumpsOntoLevelOneArchWithLargeAuthoredJump() {
     state.player.wasOnGround = true;
     state.player.visible = true;
 
-    const enemy = state.enemies.find((item) => item.id === "enemy_003_001");
+    const enemy = state.enemies.find((item) => item.id === "enemy_011_001");
     let sawAirborne = false;
     let landedOnArch = false;
     let glaredBeforeJump = false;
@@ -2224,7 +2224,7 @@ function testHunterFindsReachableFiringFallbackBeforeGlare() {
         entities: [{
             id: "fallback_hunter",
             type: "characterEnemy",
-            characterId: "ct_char_enemy_002",
+            characterId: "ct_char_enemy_010",
             x: 500,
             y: 600,
             w: 72,
@@ -2309,7 +2309,7 @@ function testHunterJumpUsesObstacleClearRunUp() {
         entities: [{
             id: "run_up_hunter",
             type: "characterEnemy",
-            characterId: "ct_char_enemy_003",
+            characterId: "ct_char_enemy_011",
             x: 20,
             y: 600,
             w: 76,
@@ -2389,7 +2389,7 @@ function testHunterJumpBacksAwayForReverseRunUp() {
         entities: [{
             id: "reverse_run_up_hunter",
             type: "characterEnemy",
-            characterId: "ct_char_enemy_002",
+            characterId: "ct_char_enemy_010",
             x: 405,
             y: 600,
             w: 72,
@@ -2473,7 +2473,7 @@ function testHunterDropLandsOnOrdinaryCollisionGeometry() {
         entities: [{
             id: "collision_drop_hunter",
             type: "characterEnemy",
-            characterId: "ct_char_enemy_002",
+            characterId: "ct_char_enemy_010",
             x: 60,
             y: 360,
             w: 72,
@@ -2549,7 +2549,7 @@ function testHunterWalkOffDropClearsSourcePillar() {
         entities: [{
             id: "offset_drop_hunter",
             type: "characterEnemy",
-            characterId: "ct_char_enemy_002",
+            characterId: "ct_char_enemy_010",
             x: 280,
             y: 430,
             w: 72,
@@ -2652,7 +2652,7 @@ function testHunterWalkOffDropClearsSourcePillar() {
 
 function testHunterWalksAcrossSlopedBlockableArchAndDrops() {
     const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
-    level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_003_001");
+    level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_011_001");
 
     const state = createInitialGameState();
     assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply for the sloped blockable arch regression test");
@@ -2671,7 +2671,7 @@ function testHunterWalksAcrossSlopedBlockableArchAndDrops() {
     state.player.wasOnGround = true;
     state.player.visible = true;
 
-    const enemy = state.enemies.find((item) => item.id === "enemy_003_001");
+    const enemy = state.enemies.find((item) => item.id === "enemy_011_001");
     assert.ok(enemy, "level_001 should instantiate the musket goblin used by the sloped arch regression test");
     enemy.x = 3330;
     enemy.y = 706.462;
@@ -2724,7 +2724,7 @@ function testHunterAwarenessIsConsistentBehindOccluder() {
             {
                 id: "near_hunter",
                 type: "characterEnemy",
-                characterId: "ct_char_enemy_002",
+                characterId: "ct_char_enemy_010",
                 x: 420,
                 y: 600,
                 w: 72,
@@ -2742,7 +2742,7 @@ function testHunterAwarenessIsConsistentBehindOccluder() {
             {
                 id: "far_hunter",
                 type: "characterEnemy",
-                characterId: "ct_char_enemy_003",
+                characterId: "ct_char_enemy_011",
                 x: 760,
                 y: 600,
                 w: 76,
@@ -2941,7 +2941,7 @@ function testZeroHealthStartsDeathLifecycleAndDisablesTargeting() {
         entities: [{
             id: "persistent_hunter",
             type: "characterEnemy",
-            characterId: "ct_char_enemy_002",
+            characterId: "ct_char_enemy_010",
             x: 220,
             y: 600,
             w: 76,
@@ -3663,9 +3663,9 @@ function testRebalancedEnemyHealthAndRocketHits() {
     const levelOne = JSON.parse(readFileSync(new URL("../assets/level_001.json", import.meta.url), "utf8"));
     const profiles = [
         { id: "enemy_001", characterId: "ct_char_enemy_001", expectedHealth: 90, expectedHits: 3 },
-        { id: "enemy_002", characterId: "ct_char_enemy_002", expectedHealth: 60, expectedHits: 2 },
-        { id: "enemy_003", characterId: "ct_char_enemy_003", expectedHealth: 60, expectedHits: 2 },
-        { id: "enemy_005", characterId: "ct_char_enemy_005", expectedHealth: 1, expectedHits: 1 }
+        { id: "enemy_010", characterId: "ct_char_enemy_010", expectedHealth: 60, expectedHits: 2 },
+        { id: "enemy_011", characterId: "ct_char_enemy_011", expectedHealth: 60, expectedHits: 2 },
+        { id: "enemy_020", characterId: "ct_char_enemy_020", expectedHealth: 1, expectedHits: 1 }
     ];
 
     for (const profile of profiles) {
@@ -3676,7 +3676,7 @@ function testRebalancedEnemyHealthAndRocketHits() {
         assert.equal(placed.health, profile.expectedHealth, `${placed.id} should bake the same health as its catalog default`);
     }
 
-    for (const profile of profiles.filter((entry) => entry.id !== "enemy_005")) {
+    for (const profile of profiles.filter((entry) => entry.id !== "enemy_020")) {
         const state = createInitialGameState();
         assert.equal(applyEditorLevelToWorld(state, {
             levelId: `balanced_health_${profile.id}`,
@@ -4086,7 +4086,7 @@ function testFireballGoblinProjectileAttack() {
         entities: [{
             id: "fireball_goblin",
             type: "characterEnemy",
-            characterId: "ct_char_enemy_002",
+            characterId: "ct_char_enemy_010",
             x: 210,
             y: 600,
             w: 72,
@@ -4113,7 +4113,7 @@ function testFireballGoblinProjectileAttack() {
             awarenessRange: 360,
         }]
     });
-    applyCharacterCombatProfiles(state, new Map([["ct_char_enemy_002", {
+    applyCharacterCombatProfiles(state, new Map([["ct_char_enemy_010", {
         attackDuration: 0.62,
         projectiles: [{
             partName: "fireball",
@@ -4174,7 +4174,7 @@ function testMusketGoblinProjectileAttack() {
         entities: [{
             id: "musket_goblin",
             type: "characterEnemy",
-            characterId: "ct_char_enemy_003",
+            characterId: "ct_char_enemy_011",
             x: 250,
             y: 600,
             w: 76,
@@ -4201,7 +4201,7 @@ function testMusketGoblinProjectileAttack() {
             awarenessRange: 430,
         }]
     });
-    applyCharacterCombatProfiles(state, new Map([["ct_char_enemy_003", {
+    applyCharacterCombatProfiles(state, new Map([["ct_char_enemy_011", {
         attackDuration: 0.62,
         projectiles: [{
             partName: "cannonball",
@@ -4627,11 +4627,11 @@ function testCharacterProjectWorkspace() {
     assert.ok(toolHtml.includes("Atlas parts"), "character tool should expose atlas rectangle authoring mode");
     assert.ok(toolHtml.includes("Add selected to rig"), "character tool should expose atlas-frame to rig assignment");
     assert.ok(toolHtml.includes("Enemy 001: Skeleton Guard"), "character tool should expose enemy_001 as a known project");
-    assert.ok(toolHtml.includes("Enemy 002: Fireball Goblin"), "character tool should expose the Fireball Goblin as a known project");
-    assert.ok(toolHtml.includes("Enemy 003: Musket Goblin"), "character tool should expose the Musket Goblin as a known project");
+    assert.ok(toolHtml.includes("Enemy 010: Fireball Goblin"), "character tool should expose the Fireball Goblin as a known project");
+    assert.ok(toolHtml.includes("Enemy 011: Musket Goblin"), "character tool should expose the Musket Goblin as a known project");
     assert.ok(toolHtml.includes('enemy_001: "assets/ct_char_enemy_001.json"'), "known enemy_001 project should use the numbered enemy filename convention");
-    assert.ok(toolHtml.includes('enemy_002: "assets/ct_char_enemy_002.json"'), "known enemy_002 project should resolve to its character definition");
-    assert.ok(toolHtml.includes('enemy_003: "assets/ct_char_enemy_003.json"'), "known enemy_003 project should resolve to its character definition");
+    assert.ok(toolHtml.includes('enemy_010: "assets/ct_char_enemy_010.json"'), "known enemy_010 project should resolve to its character definition");
+    assert.ok(toolHtml.includes('enemy_011: "assets/ct_char_enemy_011.json"'), "known enemy_011 project should resolve to its character definition");
     assert.ok(toolHtml.includes("state.rig = await loadJson(state.rigUrl)"), "character tool should load the referenced rig directly");
     assert.ok(!toolHtml.includes("rigPartOverrides") && !toolHtml.includes("rigPivotOverrides") && !toolHtml.includes("applyCharacterRigOverrides"), "character tool should not support character-level rig overrides");
     assert.ok(toolHtml.includes('id="apply-preview-alpha"'), "character tool should expose an animation-preview alpha toggle");
@@ -5356,10 +5356,10 @@ function testAutomaticLevelGeneratorRouteFoundation() {
     assert.deepEqual(firstValues, [secondStream.float(), secondStream.float(), secondStream.float()], "named random streams should reproduce exactly");
     assert.notDeepEqual(firstValues, [encounterStream.float(), encounterStream.float(), encounterStream.float()], "different generator stages should use independent named streams");
 
-    const enemyIds = ["enemy_001", "enemy_002", "enemy_003", "enemy_005"];
-    const selection = parseEnemySelection("1-999,!2,!4", enemyIds);
+    const enemyIds = ["enemy_001", "enemy_010", "enemy_011", "enemy_020"];
+    const selection = parseEnemySelection("1-20,!10,!19", enemyIds);
     assert.equal(selection.valid, true, "enemy range and exclusion syntax should parse");
-    assert.deepEqual(selection.resolvedIds, ["enemy_001", "enemy_003", "enemy_005"], "enemy selection should resolve only catalog entries and exclusions");
+    assert.deepEqual(selection.resolvedIds, ["enemy_001", "enemy_011", "enemy_020"], "enemy selection should resolve only catalog entries and exclusions");
     assert.equal(parseEnemySelection("5-2", enemyIds).valid, false, "backwards enemy ranges should be rejected visibly");
 
     const settings = {
@@ -5367,7 +5367,7 @@ function testAutomaticLevelGeneratorRouteFoundation() {
         length: "extended",
         verticality: 0.66,
         winding: 0.58,
-        allowedEnemies: "1-999,!2"
+        allowedEnemies: "1-999,!10"
     };
     const firstRun = generateAutomaticLevelRoute({ theme: earthTheme, seed: "rocketfrock-route", settings, availableEnemyIds: enemyIds });
     const repeatedRun = generateAutomaticLevelRoute({ theme: earthTheme, seed: "rocketfrock-route", settings, availableEnemyIds: enemyIds });
@@ -5378,7 +5378,7 @@ function testAutomaticLevelGeneratorRouteFoundation() {
     assert.equal(firstRun.validation.valid, true, "the selected route should pass validation");
     assert.ok(firstRun.validation.qualityScore >= 75, `the default Horizontal route should clear its visual-quality floor, got ${firstRun.validation.qualityScore}`);
     assert.ok(firstRun.attemptsTried >= 8 && firstRun.attempt >= 1, "the generator should evaluate deterministic candidates and record the selected attempt");
-    assert.deepEqual(firstRun.resolvedEnemyIds, ["enemy_001", "enemy_003", "enemy_005"], "generation provenance should store the resolved enemy filter");
+    assert.deepEqual(firstRun.resolvedEnemyIds, ["enemy_001", "enemy_011", "enemy_020"], "generation provenance should store the resolved enemy filter");
 
     const route = firstRun.route;
     const exit = route.nodes.find((node) => node.id === route.exitNodeId);
@@ -5637,7 +5637,7 @@ function testAutomaticLevelGeneratorPlayableEmptyCavern() {
     const earthTheme = normalizeGeneratorTheme(JSON.parse(readFileSync(new URL("../assets/level-generator-themes/earth-cavern.json", import.meta.url), "utf8")));
     const iceTheme = normalizeGeneratorTheme(JSON.parse(readFileSync(new URL("../assets/level-generator-themes/ice-cavern.json", import.meta.url), "utf8")));
     const assetCatalog = normalizeGenerationAssetCatalog(JSON.parse(readFileSync(new URL("../assets/level-generator-platforms.json", import.meta.url), "utf8")));
-    const enemyIds = ["enemy_001", "enemy_003", "enemy_005"];
+    const enemyIds = ["enemy_001", "enemy_011", "enemy_020"];
     assert.ok(assetCatalog.assets.some((asset) => asset.roles.includes("doorSupport")), "the generation catalog should explicitly identify safe door supports");
     assert.ok(assetCatalog.assets.some((asset) => asset.roles.includes("landingPlatform")), "the generation catalog should explicitly identify traversal landings");
     assert.ok(assetCatalog.assets.every((asset) => Number.isFinite(asset.walkableLeftInsetRatio) && Number.isFinite(asset.walkableRightInsetRatio)), "generation assets should record their authored walkable collision edges");
@@ -5764,7 +5764,7 @@ function testAutomaticLevelGeneratorEncounters() {
     assert.ok(first.generation.validation.metrics.hunterCount >= 1, "the representative draft should exercise hunter navigation rebuilding");
     assert.equal(first.generation.validation.metrics.unreachableUpperGroundEnemyCount, 0, "ground enemies placed on upper perches should have a valid return route and jumping hunter mobility");
     assert.equal(first.generation.validation.metrics.platformEnemyIntrusionCount, 0, "generated enemies should keep their full bodies clear of every platform");
-    for (const encounter of first.generation.encounters.encounters.filter((record) => record.enemyId === "enemy_005")) {
+    for (const encounter of first.generation.encounters.encounters.filter((record) => record.enemyId === "enemy_020")) {
         assert.ok(encounter.groupSize === 2 || encounter.groupSize === 3, "Bombing Bats should always be generated in groups of two or three");
         const group = enemies.filter((enemy) => enemy.generationEncounterId === encounter.id).sort((a, b) => a.x - b.x);
         for (let index = 1; index < group.length; index += 1) {
@@ -5798,7 +5798,7 @@ function testAutomaticLevelGeneratorEncounters() {
             decoration: "suppressed-by-theme"
         }
     });
-    const defaultBats = defaultHorizontalWide.entities.filter((entity) => entity.enemyCatalogId === "enemy_005");
+    const defaultBats = defaultHorizontalWide.entities.filter((entity) => entity.enemyCatalogId === "enemy_020");
     assert.ok(defaultBats.length >= 2, "the default Horizontal + Domed seed should exercise a Bombing Bat group");
     assert.equal(defaultHorizontalWide.generation.validation.metrics.platformEnemyIntrusionCount, 0, "the default Horizontal + Domed seed should spawn every bat clear of platform artwork");
     assert.equal(defaultHorizontalWide.generation.validation.metrics.movingPlatformCrushHazardCount, 0, "the default Horizontal + Domed seed should never place yellow geometry inside a lift rider corridor");
@@ -5813,7 +5813,7 @@ function testAutomaticLevelGeneratorEncounters() {
 
     const groundEnemy = enemies.find((entity) => {
         const support = first.generation.traversal.supports.find((candidate) => candidate.id === entity.generationSupportId);
-        return support && !support.secondaryPlatform && entity.enemyCatalogId !== "enemy_005";
+        return support && !support.secondaryPlatform && entity.enemyCatalogId !== "enemy_020";
     });
     assert.ok(groundEnemy, "the encounter fixture should contain a ground enemy for platform-clearance validation");
     const gluedTraversal = JSON.parse(JSON.stringify(first.generation.traversal));
@@ -5849,10 +5849,10 @@ function testAutomaticLevelGeneratorEncounters() {
     const batOnly = generateAutomaticLevelDraft({
         ...options,
         seed: "bat-groups-only",
-        settings: { ...options.settings, allowedEnemies: "5", enemyDensity: 0.9, difficulty: 0.7 }
+        settings: { ...options.settings, allowedEnemies: "20", enemyDensity: 0.9, difficulty: 0.7 }
     });
     const batEnemies = batOnly.entities.filter((entity) => entity.type === "characterEnemy");
-    assert.ok(batEnemies.length >= 2 && batEnemies.every((enemy) => enemy.enemyCatalogId === "enemy_005"), "enemy filtering should permit a bat-only generated cavern");
+    assert.ok(batEnemies.length >= 2 && batEnemies.every((enemy) => enemy.enemyCatalogId === "enemy_020"), "enemy filtering should permit a bat-only generated cavern");
     assert.ok(batOnly.generation.encounters.encounters.every((encounter) => encounter.groupSize === 2 || encounter.groupSize === 3), "every bat-only encounter should preserve the two-or-three grouping rule");
     assert.equal(batOnly.generation.validation.metrics.platformEnemyIntrusionCount, 0, "generated flying groups should keep their full bodies clear of platform artwork");
     const batForGlueTest = batEnemies[0];
@@ -5895,7 +5895,7 @@ function testAutomaticLevelGeneratorEncounters() {
 
     const stressSettings = [
         { length: "compact", enemyDensity: 0.2, difficulty: 0, safety: 1, allowedEnemies: "1-999" },
-        { length: "standard", enemyDensity: 0.5, difficulty: 0.45, safety: 0.75, allowedEnemies: "1-999,!3" },
+        { length: "standard", enemyDensity: 0.5, difficulty: 0.45, safety: 0.75, allowedEnemies: "1-999,!11" },
         { length: "extended", enemyDensity: 0.78, difficulty: 0.75, safety: 0.5, allowedEnemies: "1-999" },
         { length: "grand", enemyDensity: 1, difficulty: 1, safety: 0.2, allowedEnemies: "1-999" }
     ];
@@ -5920,7 +5920,7 @@ function testAutomaticLevelGeneratorEncounters() {
                 assert.ok(validation.metrics.minimumEndpointDistance >= draft.generation.encounters.calmDistance || validation.metrics.enemyCount === 0, `${theme.themeId} seed ${seed} should preserve calm endpoint zones`);
                 assert.ok(draft.generation.encounters.spentBudget <= draft.generation.encounters.budget + 0.01, `${theme.themeId} seed ${seed} should stay inside its encounter budget`);
                 assert.equal(validation.metrics.platformEnemyIntrusionCount, 0, `${theme.themeId} seed ${seed} should keep every generated enemy clear of unrelated platform artwork`);
-                const generatedBats = draft.generation.encounters.encounters.filter((encounter) => encounter.enemyId === "enemy_005");
+                const generatedBats = draft.generation.encounters.encounters.filter((encounter) => encounter.enemyId === "enemy_020");
                 assert.ok(generatedBats.every((encounter) => encounter.groupSize === 2 || encounter.groupSize === 3), `${theme.themeId} seed ${seed} should never place a solitary Bombing Bat`);
             }
         }
@@ -7863,10 +7863,10 @@ function testRocketPowerUpArsenal() {
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 328<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 329<\/small>/, "the Level Editor should display the packaged revision");
     assert.ok(editorSource.includes("createWebGL2RendererBackend") && editorSource.includes("paintEditorFrameWebGL") && editorSource.includes("editorTransientOverlayCache"), "the Level Editor should prefer a WebGL2 compositor for cached static scenes and transient overlays");
     assert.ok(editorSource.includes("probeEditorWebGL2Support") && editorSource.includes("editorCanvas2D !== canvas"), "the Level Editor must probe on a disposable canvas and retain a true Canvas 2D fallback");
-    assert.match(bootstrapSource, /const GAME_REVISION = "328";/, "the game debug revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "329";/, "the game debug revision should match the packaged revision");
     assert.match(editorSource, /<button id="fit-content-view">Fit<\/button>/, "the Level Editor should expose one concise Fit button");
     assert.equal(editorSource.includes('id="fit-view"'), false, "the removed Fit World control should not remain in the Level Editor");
     assert.equal(editorSource.includes('id="fit-cave-view"'), false, "the removed Fit Cave control should not remain in the Level Editor");
@@ -8332,18 +8332,18 @@ function testNumberedEnemy001Assets() {
         assert.ok(death.referencePose[partName], `enemy_001 death should contain ${partName}`);
     }
 
-    const goblinFireballCharacter = JSON.parse(readFileSync("./assets/ct_char_enemy_002.json", "utf8"));
-    const goblinMusketCharacter = JSON.parse(readFileSync("./assets/ct_char_enemy_003.json", "utf8"));
-    const goblinFireballRig = JSON.parse(readFileSync("./assets/ct_rig_enemy_002.json", "utf8"));
-    const goblinMusketRig = JSON.parse(readFileSync("./assets/ct_rig_enemy_003.json", "utf8"));
-    const goblinAtlas = JSON.parse(readFileSync("./assets/ct_atlas_enemy_002.json", "utf8"));
-    assert.equal(goblinFireballCharacter.characterId, "ct_char_enemy_002", "fireball goblin character ID should follow numbered enemy convention");
-    assert.equal(goblinMusketCharacter.characterId, "ct_char_enemy_003", "musket goblin character ID should follow numbered enemy convention");
-    assert.equal(goblinFireballCharacter.rig, "ct_rig_enemy_002.json", "Fireball Goblin should reference its dedicated rig");
-    assert.equal(goblinMusketCharacter.rig, "ct_rig_enemy_003.json", "Musket Goblin should reference its dedicated rig");
-    assert.equal(goblinFireballRig.rigId, "ct_rig_enemy_002", "Fireball Goblin rig should use the numbered rig filename");
-    assert.equal(goblinMusketRig.rigId, "ct_rig_enemy_003", "Musket Goblin rig should use the numbered rig filename");
-    assert.equal(goblinAtlas.atlasId, "ct_atlas_enemy_002", "shared goblin atlas should use the next numbered atlas filename");
+    const goblinFireballCharacter = JSON.parse(readFileSync("./assets/ct_char_enemy_010.json", "utf8"));
+    const goblinMusketCharacter = JSON.parse(readFileSync("./assets/ct_char_enemy_011.json", "utf8"));
+    const goblinFireballRig = JSON.parse(readFileSync("./assets/ct_rig_enemy_010.json", "utf8"));
+    const goblinMusketRig = JSON.parse(readFileSync("./assets/ct_rig_enemy_011.json", "utf8"));
+    const goblinAtlas = JSON.parse(readFileSync("./assets/ct_atlas_enemy_010.json", "utf8"));
+    assert.equal(goblinFireballCharacter.characterId, "ct_char_enemy_010", "fireball goblin character ID should follow numbered enemy convention");
+    assert.equal(goblinMusketCharacter.characterId, "ct_char_enemy_011", "musket goblin character ID should follow numbered enemy convention");
+    assert.equal(goblinFireballCharacter.rig, "ct_rig_enemy_010.json", "Fireball Goblin should reference its dedicated rig");
+    assert.equal(goblinMusketCharacter.rig, "ct_rig_enemy_011.json", "Musket Goblin should reference its dedicated rig");
+    assert.equal(goblinFireballRig.rigId, "ct_rig_enemy_010", "Fireball Goblin rig should use the numbered rig filename");
+    assert.equal(goblinMusketRig.rigId, "ct_rig_enemy_011", "Musket Goblin rig should use the numbered rig filename");
+    assert.equal(goblinAtlas.atlasId, "ct_atlas_enemy_010", "shared goblin atlas should use the next numbered atlas filename");
     assert.ok(goblinAtlas.frames.fireball, "goblin atlas should include the fireball projectile frame");
     assert.ok(goblinAtlas.frames.cannonball, "goblin atlas should include the cannonball projectile frame");
     assert.ok(goblinAtlas.frames.musket, "goblin atlas should include the musket frame");
@@ -8362,18 +8362,18 @@ function testNumberedEnemy001Assets() {
     assert.equal(goblinMusketCharacter.projectilePart, "cannonball", "Musket Goblin should select the cannonball projectile part");
     assert.deepEqual(goblinFireballRig.drawOrder, ["leftArm", "leftArmClosed", "leftLeg", "rightLeg", "head", "torso", "weapon", "rightArm", "cannonball", "fireball"], "Fireball Goblin draw order should preserve the accepted user-authored depth order including previewable projectile parts");
     assert.deepEqual(goblinMusketRig.drawOrder, goblinFireballRig.drawOrder, "both dedicated goblin rigs should preserve the accepted depth order");
-    assert.deepEqual(goblinFireballRig.pivots.rightArm, { x: 0.18, y: 0.31 }, "Enemy 002 right-arm pivot should remain authoritative in its rig file");
-    assert.deepEqual(goblinMusketRig.pivots.rightArm, { x: 0.17, y: 0.29 }, "Enemy 003 right-arm pivot should remain authoritative in its rig file");
+    assert.deepEqual(goblinFireballRig.pivots.rightArm, { x: 0.18, y: 0.31 }, "Enemy 010 right-arm pivot should remain authoritative in its rig file");
+    assert.deepEqual(goblinMusketRig.pivots.rightArm, { x: 0.17, y: 0.29 }, "Enemy 011 right-arm pivot should remain authoritative in its rig file");
     assert.ok(goblinFireballRig.parts.leftArmClosed && goblinMusketRig.parts.leftArmClosed, "both goblin rigs should retain the alternate closed left arm as an independently animatable part");
     assert.equal(goblinFireballRig.parts.fireball.projectile.launchType, "homing_lo", "fireball rig part should be tagged as low-homing");
     approx(goblinFireballRig.parts.fireball.projectile.releaseTime, 0.372, 0.000001, "fireball rig part should carry an explicit release time");
     assert.equal(goblinMusketRig.parts.cannonball.projectile.launchType, "ballistic", "cannonball rig part should be tagged as ballistic");
     approx(goblinMusketRig.parts.cannonball.projectile.releaseTime, 0.49531814840382643, 0.000001, "cannonball rig part should carry an explicit release time");
 
-    const fireIdle = JSON.parse(readFileSync("./assets/ct_anim_enemy_002_idle.json", "utf8"));
-    const fireAttack = JSON.parse(readFileSync("./assets/ct_anim_enemy_002_attack.json", "utf8"));
-    const musketIdle = JSON.parse(readFileSync("./assets/ct_anim_enemy_003_idle.json", "utf8"));
-    const musketAttack = JSON.parse(readFileSync("./assets/ct_anim_enemy_003_attack.json", "utf8"));
+    const fireIdle = JSON.parse(readFileSync("./assets/ct_anim_enemy_010_idle.json", "utf8"));
+    const fireAttack = JSON.parse(readFileSync("./assets/ct_anim_enemy_010_attack.json", "utf8"));
+    const musketIdle = JSON.parse(readFileSync("./assets/ct_anim_enemy_011_idle.json", "utf8"));
+    const musketAttack = JSON.parse(readFileSync("./assets/ct_anim_enemy_011_attack.json", "utf8"));
     assert.equal(goblinFireballRig.global.groundOffset, 0, "Fireball Goblin ground correction should be baked into authored coordinates rather than applied at runtime");
     assert.equal(goblinMusketRig.global.groundOffset, 0, "Musket Goblin ground correction should be baked into authored coordinates rather than applied at runtime");
     approx(fireIdle.tracks.rightLeg.y[0].value, -130.05551366037764, 0.000001, "Fireball Goblin right foot should use the baked +52 ground normalization");
@@ -8396,8 +8396,8 @@ function testNumberedEnemy001Assets() {
     assert.equal(musketAttack.tracks.leftArmClosed.alpha[0].value, 1, "Musket Goblin attack should begin with the closed front arm visible");
 
     const goblinAnimationFiles = [
-        "ct_anim_enemy_002_walk.json", "ct_anim_enemy_002_attack.json", "ct_anim_enemy_002_hurt.json", "ct_anim_enemy_002_death.json",
-        "ct_anim_enemy_003_idle.json", "ct_anim_enemy_003_walk.json", "ct_anim_enemy_003_attack.json", "ct_anim_enemy_003_hurt.json", "ct_anim_enemy_003_death.json"
+        "ct_anim_enemy_010_walk.json", "ct_anim_enemy_010_attack.json", "ct_anim_enemy_010_hurt.json", "ct_anim_enemy_010_death.json",
+        "ct_anim_enemy_011_idle.json", "ct_anim_enemy_011_walk.json", "ct_anim_enemy_011_attack.json", "ct_anim_enemy_011_hurt.json", "ct_anim_enemy_011_death.json"
     ];
     const requiredGoblinBodyParts = goblinFireballRig.drawOrder.filter((partName) => {
         const frameName = goblinFireballRig.parts?.[partName]?.frame;
@@ -9737,7 +9737,7 @@ function testEnemyProjectileVisualLanguageRendererContract() {
     const fireballSource = rendererSource.slice(fireballStart, fireballEnd);
     assert.match(fireballSource, /const trailEnabled = state\.settings\?\.renderingQuality !== "low";/, "the animated fireball trail should be enabled on Medium and High graphics quality");
     assert.match(fireballSource, /if \(trailEnabled\) \{\s*this\.drawEnemyFireballParticles\(projectile, state, view\);\s*\}/, "Medium and High quality should draw emitted fire particles");
-    assert.match(fireballSource, /this\.getCharacterAtlasFrame\(projectile\.characterId \|\| "ct_char_enemy_002", projectile\.frameId \|\| "fireball"\)/, "the authored fireball sprite should remain the projectile body at every quality");
+    assert.match(fireballSource, /this\.getCharacterAtlasFrame\(projectile\.characterId \|\| "ct_char_enemy_010", projectile\.frameId \|\| "fireball"\)/, "the authored fireball sprite should remain the projectile body at every quality");
     assert.doesNotMatch(rendererSource, /Jump to continue|scrolls automatically/, "story overlays should no longer explain skip controls");
     assert.match(fireballSource, /ctx\.drawImage\(asset\.canvas/, "the fireball renderer should draw the authored sprite");
     assert.match(rendererSource, /const radius = Math\.max\(0\.15 \* view\.zoom, Number\(particle\.radius \|\| 2\) \* fade \* view\.zoom\);/, "emitted circles should shrink linearly with remaining lifetime");
@@ -10244,8 +10244,8 @@ function testBossDefeatSignalGate() {
         entities: [{
             id: "test_boss",
             type: "characterEnemy",
-            enemyCatalogId: "enemy_002",
-            characterId: "ct_char_enemy_002",
+            enemyCatalogId: "enemy_010",
+            characterId: "ct_char_enemy_010",
             x: 180,
             y: 100,
             w: 72,
@@ -10316,8 +10316,8 @@ function testLivingBossLocksExitDoor() {
         entities: [{
             id: "exit_lock_boss",
             type: "characterEnemy",
-            enemyCatalogId: "enemy_002",
-            characterId: "ct_char_enemy_002",
+            enemyCatalogId: "enemy_010",
+            characterId: "ct_char_enemy_010",
             x: 180,
             y: 100,
             w: 72,
@@ -10374,10 +10374,10 @@ function testLevelTwoGoblinBossArenaContract() {
     assert.equal(enemies.length, 16, "the route and arena should contain nine ground goblins, six bats, and one boss");
     const counts = enemies.reduce((map, enemy) => map.set(enemy.enemyCatalogId, (map.get(enemy.enemyCatalogId) || 0) + 1), new Map());
     assert.equal(counts.get("enemy_001") || 0, 0, "level_002 should contain no Skeleton Guards");
-    assert.equal(counts.get("enemy_002"), 6, "level_002 should retain Fireball Goblins including the boss");
-    assert.equal(counts.get("enemy_003"), 4, "level_002 should include four Musket Goblins for route variety");
-    assert.equal(counts.get("enemy_005"), 6, "level_002 should include three two-bat groups");
-    const batGroups = new Set(enemies.filter((enemy) => enemy.enemyCatalogId === "enemy_005").map((enemy) => enemy.generationEncounterId));
+    assert.equal(counts.get("enemy_010"), 6, "level_002 should retain Fireball Goblins including the boss");
+    assert.equal(counts.get("enemy_011"), 4, "level_002 should include four Musket Goblins for route variety");
+    assert.equal(counts.get("enemy_020"), 6, "level_002 should include three two-bat groups");
+    const batGroups = new Set(enemies.filter((enemy) => enemy.enemyCatalogId === "enemy_020").map((enemy) => enemy.generationEncounterId));
     assert.equal(batGroups.size, 3, "the six bats should be grouped into three compact encounters");
 
     const boss = enemies.find((enemy) => enemy.isBoss === true);
@@ -10407,7 +10407,7 @@ function testLevelTwoGoblinBossArenaContract() {
 
     const spawners = level.entities.filter((entity) => entity.type === "enemySpawner");
     assert.equal(spawners.length, 6, "the lower three platforms on each side should reinforce the boss fight");
-    assert.ok(spawners.every((spawner) => spawner.enemyPool === "2,3"), "arena spawners should create ordinary Fireball or Musket Goblins");
+    assert.ok(spawners.every((spawner) => spawner.enemyPool === "10,11"), "arena spawners should create ordinary Fireball or Musket Goblins");
     assert.ok(spawners.every((spawner) => spawner.disableSignalChannel === "BOSS_002_DEFEATED"), "reinforcements should stop once the boss falls");
 
     const wrenches = level.entities.filter((entity) => entity.type === "randomWrenchPickup");

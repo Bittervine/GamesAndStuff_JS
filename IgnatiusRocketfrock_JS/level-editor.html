@@ -681,7 +681,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 328</small></h1>
+        <h1>Level Editor <small>rev 329</small></h1>
 
         <div class="box">
             <h2>Level</h2>
@@ -709,7 +709,7 @@
             <h2>Automatic enemy spawning</h2>
             <div class="inline"><input id="auto-spawn-enemies-enabled" type="checkbox"><span class="small">Auto spawn enemies during play</span></div>
             <label>Spawn probability each second (%)<input id="auto-spawn-enemies-probability" type="number" min="0" max="100" step="1" value="10"></label>
-            <label>Enemy pool<input id="auto-spawn-enemies-pool" value="1-999" placeholder="1-999,!2,!4"></label>
+            <label>Enemy pool<input id="auto-spawn-enemies-pool" value="1-999" placeholder="1-20,!10,!19"></label>
             <p id="auto-spawn-enemies-preview" class="small">All available enemies are eligible by default.</p>
         </div>
 
@@ -759,7 +759,7 @@
                 <label>Reward density<div class="generator-range"><input id="generator-reward-density" type="range" min="0" max="100" step="1"><output id="generator-reward-density-value">0</output></div></label>
             </div>
             <div class="inline"><input id="generator-allow-thoughts" type="checkbox"><span class="small">Allow generated location thoughts</span></div>
-            <label>Allowed enemies<input id="generator-enemy-filter" value="1-999" placeholder="1-999,!2,!4"></label>
+            <label>Allowed enemies<input id="generator-enemy-filter" value="1-999" placeholder="1-20,!10,!19"></label>
             <p id="generator-enemy-preview" class="small generator-enemies">Enemy catalog not loaded yet.</p>
             <details class="generator-advanced">
                 <summary>Generator variants</summary>
@@ -1100,7 +1100,7 @@
             <div id="enemy-spawner-settings-row" style="display:none">
                 <h3>Enemy spawner</h3>
                 <label>Spawn probability each second (%)<input id="inspect-enemy-spawner-probability" type="number" min="0" max="100" step="1" value="10"></label>
-                <label>Enemy pool<input id="inspect-enemy-spawner-pool" value="1-999" placeholder="1-999,!2,!4"></label>
+                <label>Enemy pool<input id="inspect-enemy-spawner-pool" value="1-999" placeholder="1-20,!10,!19"></label>
                 <label>Disable signal (optional)<input id="inspect-enemy-spawner-disable-signal" maxlength="64" placeholder="BOSS_DEFEATED"></label>
                 <p id="inspect-enemy-spawner-preview" class="small">All available enemies are eligible by default.</p>
             </div>

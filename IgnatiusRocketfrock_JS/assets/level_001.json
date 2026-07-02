@@ -1,8 +1,9 @@
 {
   "meta": {
-    "version": 19,
-    "editor": "Ignatius Rocketfrock Level Editor",
-    "note": "Revision 268 adds optional one-second automatic enemy spawning, disabled by default with the full enemy_001 through enemy_999 pool eligible."
+    "version": 20,
+    "editor": "Ignatius Rocketfrock Level Editor rev 329",
+    "note": "Revision 329 migrates the bundled enemy placements to the skeleton, goblin, and bat family number ranges.",
+    "revision": 329
   },
   "levelId": "level_001",
   "title": "The Introductory Cave of Training",
@@ -6471,9 +6472,9 @@
       "thoughtText": "How kind of him! I hope I can make him proud. This cave doesn\u2019t look quite like it did in the brochures, but I\u2019m sure it will be fine."
     },
     {
-      "id": "enemy_002_001",
+      "id": "enemy_010_001",
       "type": "characterEnemy",
-      "characterId": "ct_char_enemy_002",
+      "characterId": "ct_char_enemy_010",
       "x": 2140,
       "y": 844.4168965944273,
       "w": 70,
@@ -6531,9 +6532,9 @@
       "notes": ""
     },
     {
-      "id": "enemy_003_001",
+      "id": "enemy_011_001",
       "type": "characterEnemy",
-      "characterId": "ct_char_enemy_003",
+      "characterId": "ct_char_enemy_011",
       "x": 2860,
       "y": 844.5666922600619,
       "w": 70,
@@ -6769,10 +6770,10 @@
       "collisionFromManifest": false
     },
     {
-      "id": "enemy_005_001",
+      "id": "enemy_020_001",
       "type": "characterEnemy",
-      "enemyCatalogId": "enemy_005",
-      "characterId": "ct_char_enemy_005",
+      "enemyCatalogId": "enemy_020",
+      "characterId": "ct_char_enemy_020",
       "x": 4544,
       "y": 448,
       "w": 150,

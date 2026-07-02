@@ -1,11 +1,11 @@
 {
     "meta": {
         "version": 5,
-        "note": "Dedicated Musket Goblin rig with projectile preview parts. Revision 113 bakes a 52-pixel rig-space ground correction into anchors and setup offsets so local y=0 is the actual runtime ground; no runtime ground offset is used. Revision 128 makes this file authoritative for all part and pivot geometry."
+        "note": "Dedicated Fireball Goblin rig with projectile preview parts. Revision 113 bakes a 52-pixel rig-space ground correction into anchors and setup offsets so local y=0 is the actual runtime ground; no runtime ground offset is used. Revision 128 makes this file authoritative for all part and pivot geometry. Revision 329 renumbers this rig into the goblin family range."
     },
-    "rigId": "ct_rig_enemy_003",
-    "atlasId": "ct_atlas_enemy_002",
-    "atlasManifest": "ct_atlas_enemy_002.json",
+    "rigId": "ct_rig_enemy_010",
+    "atlasId": "ct_atlas_enemy_010",
+    "atlasManifest": "ct_atlas_enemy_010.json",
     "drawOrder": [
         "leftArm",
         "leftArmClosed",
@@ -62,8 +62,8 @@
     },
     "pivots": {
         "rightArm": {
-            "x": 0.17,
-            "y": 0.29
+            "x": 0.18,
+            "y": 0.31
         },
         "leftArm": {
             "x": 0.075,

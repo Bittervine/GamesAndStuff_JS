@@ -1,9 +1,9 @@
 {
     "meta": {
-        "version": 4,
-        "note": "Revision 108 hurt reaction preserves the corrected shoulder and hip attachment points while the body recoils as a connected mass. Revision 113 applies the one-time +52 rig-space Y normalization so local y=0 matches the runtime ground."
+        "version": 5,
+        "note": "Musket Goblin hurt. Based directly on the user-authored Enemy 010 animation with the closed front arm kept visible, the open casting arm hidden, and the musket attached as a separate held weapon. Revision 113 applies the one-time +52 rig-space Y normalization so local y=0 matches the runtime ground."
     },
-    "animationId": "ct_anim_enemy_002_hurt",
+    "animationId": "ct_anim_enemy_011_hurt",
     "duration": 0.48,
     "loop": false,
     "mirrorable": true,
@@ -58,11 +58,18 @@
             "alpha": 1
         },
         "weapon": {
-            "x": -508.58849776418583,
-            "y": -277.44804747296234,
+            "x": 105,
+            "y": -178.0,
             "rotation": 0,
             "scale": 1,
-            "alpha": 0
+            "alpha": 1
+        },
+        "cannonball": {
+            "x": 0,
+            "y": 52.0,
+            "rotation": 0,
+            "scale": 1,
+            "alpha": 1
         }
     },
     "tracks": {
@@ -352,6 +359,13 @@
                     "value": 1.3337356564965406,
                     "easing": "easeInOut"
                 }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 0,
+                    "easing": "step"
+                }
             ]
         },
         "leftArmClosed": {
@@ -395,58 +409,184 @@
                     "value": 1.2855452510477163,
                     "easing": "easeInOut"
                 }
-            ]
-        },
-        "fireball": {
-            "alpha": [
+            ],
+            "scale": [
                 {
                     "time": 0,
-                    "value": 0,
+                    "value": 0.5,
                     "easing": "step"
                 }
             ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "step"
+                }
+            ]
+        },
+        "weapon": {
             "x": [
                 {
-                    "time": 0.123,
-                    "value": -436.4890145161336,
+                    "time": 0,
+                    "value": -42.32298775401151,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.1,
+                    "value": -59.168414654909185,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.202105260650197,
+                    "value": -77.57745474416316,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.26,
+                    "value": -68.92740901160096,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.397,
+                    "value": -36.17493427036769,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.48,
+                    "value": -33.69310100061293,
                     "easing": "easeInOut"
                 }
             ],
             "y": [
                 {
-                    "time": 0.123,
-                    "value": -557.1315436689547,
+                    "time": 0,
+                    "value": -79.9862702934854,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.1,
+                    "value": -85.1067698243632,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.202105260650197,
+                    "value": -88.01513793193914,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.26,
+                    "value": -84.46381427508663,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.397,
+                    "value": -82.80747943227095,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.48,
+                    "value": -80.456885028914,
                     "easing": "easeInOut"
                 }
             ],
             "rotation": [
                 {
-                    "time": 0.123,
+                    "time": 0,
                     "value": 0,
                     "easing": "easeInOut"
+                },
+                {
+                    "time": 0.1,
+                    "value": 0.3751199735271249,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.202105260650197,
+                    "value": 0.3050552077289641,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.26,
+                    "value": 0.2801993450089211,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.397,
+                    "value": 0.07976418544489491,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.48,
+                    "value": 0,
+                    "easing": "easeInOut"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "step"
                 }
             ]
         },
         "cannonball": {
             "x": [
                 {
-                    "time": 0.48,
-                    "value": -494.9959317103089,
+                    "time": 0,
+                    "value": -404.45620183156694,
                     "easing": "linear"
                 }
             ],
             "y": [
                 {
-                    "time": 0.48,
-                    "value": -394.6165413533835,
+                    "time": 0,
+                    "value": -323.47909860940894,
                     "easing": "linear"
                 }
             ],
             "rotation": [
                 {
-                    "time": 0.48,
-                    "value": 1.474099902547593,
+                    "time": 0,
+                    "value": 0,
                     "easing": "linear"
+                }
+            ],
+            "scale": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 0,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "fireball": {
+            "x": [
+                {
+                    "time": 0.48,
+                    "value": -786.4459011436734,
+                    "easing": "step"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0.48,
+                    "value": -554.8474455124248,
+                    "easing": "step"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0.48,
+                    "value": 0,
+                    "easing": "step"
                 }
             ],
             "alpha": [

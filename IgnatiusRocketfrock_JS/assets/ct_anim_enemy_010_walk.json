@@ -3,7 +3,7 @@
         "version": 4,
         "note": "Revision 108 walk rebuilt from the user-corrected compact idle. Hip and shoulder pivots follow the torso rigidly while limbs rotate around those joints. Revision 113 applies the one-time +52 rig-space Y normalization so local y=0 matches the runtime ground."
     },
-    "animationId": "ct_anim_enemy_002_walk",
+    "animationId": "ct_anim_enemy_010_walk",
     "duration": 0.8,
     "loop": true,
     "mirrorable": true,

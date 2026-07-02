@@ -1,8 +1,8 @@
 {
     "meta": {
-        "version": 31,
-        "note": "Revision 261 gives Skeleton Guards jumping hunter navigation so generated upper-platform encounters can pursue Ignatius.",
-        "revision": 261
+        "version": 32,
+        "note": "Revision 329 groups the current enemies into numbered families: Skeleton Guard enemy_001, goblins enemy_010 and enemy_011, and Bombing Bat enemy_020.",
+        "revision": 329
     },
     "catalogId": "ct_enemies_001",
     "enemies": {
@@ -58,10 +58,10 @@
             },
             "description": ""
         },
-        "enemy_002": {
+        "enemy_010": {
             "label": "Fireball Goblin",
             "icon": "\ud83d\udd25",
-            "characterId": "ct_char_enemy_002",
+            "characterId": "ct_char_enemy_010",
             "defaultSize": {
                 "w": 70,
                 "h": 105
@@ -119,10 +119,10 @@
                 "awarenessViewHalfAngle": 60
             }
         },
-        "enemy_003": {
+        "enemy_011": {
             "label": "Musket Goblin",
             "icon": "\ud83d\udd2b",
-            "characterId": "ct_char_enemy_003",
+            "characterId": "ct_char_enemy_011",
             "defaultSize": {
                 "w": 70,
                 "h": 105
@@ -180,11 +180,11 @@
                 "awarenessViewHalfAngle": 60
             }
         },
-        "enemy_005": {
+        "enemy_020": {
             "label": "Bombing Bat",
             "icon": "\ud83e\udd87",
             "description": "The retained bat enemy. It patrols a small area around its authored perch, activates only when Ignatius enters its normal awareness view, flies overhead, and drops atlas-authored rocks.",
-            "characterId": "ct_char_enemy_005",
+            "characterId": "ct_char_enemy_020",
             "defaultSize": {
                 "w": 55,
                 "h": 44

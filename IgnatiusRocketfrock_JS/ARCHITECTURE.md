@@ -1288,3 +1288,10 @@ The browser Game tuning panel exposes these as temporary multiplier sliders. Def
 All browser-facing tools now share the root `favicon.ico`, a multi-resolution icon built from the authored projectile rocket. It is presentation metadata only and has no runtime loading or renderer dependency. The compact release packager retains ICO files while continuing to omit PNG and XCF source artwork.
 
 Enemy catalogs are sparse-key maps rather than numeric arrays, so missing numbers do not affect runtime enumeration. Family-range renumbering remains a coordinated data migration because known character-project preload lists, authoring-tool project lists, generator special cases, levels, and regression fixtures contain explicit IDs.
+
+
+## Revision 329 enemy family namespaces
+
+Enemy catalog IDs are sparse keyed identifiers, not array positions. Revision 329 formalizes family ranges without changing catalog lookup semantics: skeleton variants occupy `001-009`, goblin variants occupy `010-019`, and bat variants occupy `020-029`. The active projects are `enemy_001`, `enemy_010`, `enemy_011`, and `enemy_020`. Selection expressions continue to resolve by the numeric suffix of actual catalog keys, so holes are valid and do not create placeholder enemies.
+
+A family migration must update the catalog ID, character ID, rig ID, animation IDs, atlas ID and image filename, explicit renderer preloads, editor project tables, generator special cases, level placements, numeric spawn filters, and tests as one atomic change. Revision 329 does this with no legacy aliases. The two goblins share `ct_atlas_enemy_010` while retaining separate `ct_rig_enemy_010` and `ct_rig_enemy_011` geometry.

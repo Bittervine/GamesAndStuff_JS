@@ -1,9 +1,9 @@
 {
   "meta": {
-    "version": 293,
-    "editor": "Ignatius Level Editor rev 293",
-    "note": "Revision 293 adopts unified enemy scaling while preserving the compact boss arena, goblin-and-bat population, and baked hunter navigation.",
-    "revision": 293
+    "version": 329,
+    "editor": "Ignatius Level Editor rev 329",
+    "note": "Revision 329 migrates all authored goblins, bats, spawners, and generator metadata to the new enemy family number ranges.",
+    "revision": 329
   },
   "levelId": "level_002",
   "title": "The Incandescent Goblin Gallery",
@@ -58,7 +58,7 @@
   "autoSpawnEnemies": {
     "enabled": false,
     "probabilityPercent": 0,
-    "enemyPool": "2"
+    "enemyPool": "10"
   },
   "caveWindow": {
     "version": 1,
@@ -37179,10 +37179,10 @@
       "order": 20000
     },
     {
-      "id": "encounter_001_enemy_002_01",
+      "id": "encounter_001_enemy_010_01",
       "type": "characterEnemy",
-      "enemyCatalogId": "enemy_002",
-      "characterId": "ct_char_enemy_002",
+      "enemyCatalogId": "enemy_010",
+      "characterId": "ct_char_enemy_010",
       "w": 70,
       "h": 105,
       "facing": -1,
@@ -37248,10 +37248,10 @@
       "generationDifficultyCost": 3.4
     },
     {
-      "id": "encounter_002_enemy_002_01",
+      "id": "encounter_002_enemy_010_01",
       "type": "characterEnemy",
-      "enemyCatalogId": "enemy_003",
-      "characterId": "ct_char_enemy_003",
+      "enemyCatalogId": "enemy_011",
+      "characterId": "ct_char_enemy_011",
       "w": 70,
       "h": 105,
       "facing": -1,
@@ -37317,10 +37317,10 @@
       "generationDifficultyCost": 3.4
     },
     {
-      "id": "encounter_003_enemy_002_01",
+      "id": "encounter_003_enemy_010_01",
       "type": "characterEnemy",
-      "enemyCatalogId": "enemy_002",
-      "characterId": "ct_char_enemy_002",
+      "enemyCatalogId": "enemy_010",
+      "characterId": "ct_char_enemy_010",
       "w": 70,
       "h": 105,
       "facing": -1,
@@ -37386,10 +37386,10 @@
       "generationDifficultyCost": 3.4
     },
     {
-      "id": "encounter_004_enemy_002_01",
+      "id": "encounter_004_enemy_010_01",
       "type": "characterEnemy",
-      "enemyCatalogId": "enemy_002",
-      "characterId": "ct_char_enemy_002",
+      "enemyCatalogId": "enemy_010",
+      "characterId": "ct_char_enemy_010",
       "w": 70,
       "h": 105,
       "facing": -1,
@@ -37455,10 +37455,10 @@
       "generationDifficultyCost": 3.4
     },
     {
-      "id": "encounter_005_enemy_002_01",
+      "id": "encounter_005_enemy_010_01",
       "type": "characterEnemy",
-      "enemyCatalogId": "enemy_003",
-      "characterId": "ct_char_enemy_003",
+      "enemyCatalogId": "enemy_011",
+      "characterId": "ct_char_enemy_011",
       "w": 70,
       "h": 105,
       "facing": -1,
@@ -37524,10 +37524,10 @@
       "generationDifficultyCost": 3.4
     },
     {
-      "id": "encounter_006_enemy_002_01",
+      "id": "encounter_006_enemy_010_01",
       "type": "characterEnemy",
-      "enemyCatalogId": "enemy_003",
-      "characterId": "ct_char_enemy_003",
+      "enemyCatalogId": "enemy_011",
+      "characterId": "ct_char_enemy_011",
       "w": 70,
       "h": 105,
       "facing": -1,
@@ -39321,8 +39321,8 @@
     {
       "id": "level002_fireball_goblin_07",
       "type": "characterEnemy",
-      "enemyCatalogId": "enemy_002",
-      "characterId": "ct_char_enemy_002",
+      "enemyCatalogId": "enemy_010",
+      "characterId": "ct_char_enemy_010",
       "w": 70,
       "h": 105,
       "facing": -1,
@@ -39439,8 +39439,8 @@
     {
       "id": "level002_musket_goblin_04",
       "type": "characterEnemy",
-      "enemyCatalogId": "enemy_003",
-      "characterId": "ct_char_enemy_003",
+      "enemyCatalogId": "enemy_011",
+      "characterId": "ct_char_enemy_011",
       "w": 70,
       "h": 105,
       "facing": -1,
@@ -39557,8 +39557,8 @@
     {
       "id": "level002_fireball_goblin_08",
       "type": "characterEnemy",
-      "enemyCatalogId": "enemy_002",
-      "characterId": "ct_char_enemy_002",
+      "enemyCatalogId": "enemy_010",
+      "characterId": "ct_char_enemy_010",
       "w": 70,
       "h": 105,
       "facing": -1,
@@ -39674,8 +39674,8 @@
     {
       "id": "level002_bat_g1_1",
       "type": "characterEnemy",
-      "enemyCatalogId": "enemy_005",
-      "characterId": "ct_char_enemy_005",
+      "enemyCatalogId": "enemy_020",
+      "characterId": "ct_char_enemy_020",
       "w": 55,
       "h": 44,
       "facing": -1,
@@ -39807,8 +39807,8 @@
     {
       "id": "level002_bat_g1_2",
       "type": "characterEnemy",
-      "enemyCatalogId": "enemy_005",
-      "characterId": "ct_char_enemy_005",
+      "enemyCatalogId": "enemy_020",
+      "characterId": "ct_char_enemy_020",
       "w": 55,
       "h": 44,
       "facing": -1,
@@ -39941,8 +39941,8 @@
     {
       "id": "level002_bat_g2_1",
       "type": "characterEnemy",
-      "enemyCatalogId": "enemy_005",
-      "characterId": "ct_char_enemy_005",
+      "enemyCatalogId": "enemy_020",
+      "characterId": "ct_char_enemy_020",
       "w": 55,
       "h": 44,
       "facing": -1,
@@ -40075,8 +40075,8 @@
     {
       "id": "level002_bat_g2_2",
       "type": "characterEnemy",
-      "enemyCatalogId": "enemy_005",
-      "characterId": "ct_char_enemy_005",
+      "enemyCatalogId": "enemy_020",
+      "characterId": "ct_char_enemy_020",
       "w": 55,
       "h": 44,
       "facing": -1,
@@ -40153,8 +40153,8 @@
     {
       "id": "level002_bat_g3_1",
       "type": "characterEnemy",
-      "enemyCatalogId": "enemy_005",
-      "characterId": "ct_char_enemy_005",
+      "enemyCatalogId": "enemy_020",
+      "characterId": "ct_char_enemy_020",
       "w": 55,
       "h": 44,
       "facing": -1,
@@ -40231,8 +40231,8 @@
     {
       "id": "level002_bat_g3_2",
       "type": "characterEnemy",
-      "enemyCatalogId": "enemy_005",
-      "characterId": "ct_char_enemy_005",
+      "enemyCatalogId": "enemy_020",
+      "characterId": "ct_char_enemy_020",
       "w": 55,
       "h": 44,
       "facing": -1,
@@ -40466,7 +40466,7 @@
         "active": "Active"
       },
       "probabilityPercent": 3,
-      "enemyPool": "2,3",
+      "enemyPool": "10,11",
       "collisionFromManifest": false,
       "disableSignalChannel": "BOSS_002_DEFEATED",
       "notes": "On-screen-only regular goblin reinforcement spawner. Disabled when the boss-defeat signal activates.",
@@ -40488,7 +40488,7 @@
         "active": "Active"
       },
       "probabilityPercent": 3,
-      "enemyPool": "2,3",
+      "enemyPool": "10,11",
       "collisionFromManifest": false,
       "disableSignalChannel": "BOSS_002_DEFEATED",
       "notes": "On-screen-only regular goblin reinforcement spawner. Disabled when the boss-defeat signal activates.",
@@ -40510,7 +40510,7 @@
         "active": "Active"
       },
       "probabilityPercent": 3,
-      "enemyPool": "2,3",
+      "enemyPool": "10,11",
       "collisionFromManifest": false,
       "disableSignalChannel": "BOSS_002_DEFEATED",
       "notes": "On-screen-only regular goblin reinforcement spawner. Disabled when the boss-defeat signal activates.",
@@ -40532,7 +40532,7 @@
         "active": "Active"
       },
       "probabilityPercent": 3,
-      "enemyPool": "2,3",
+      "enemyPool": "10,11",
       "collisionFromManifest": false,
       "disableSignalChannel": "BOSS_002_DEFEATED",
       "notes": "On-screen-only regular goblin reinforcement spawner. Disabled when the boss-defeat signal activates.",
@@ -40554,7 +40554,7 @@
         "active": "Active"
       },
       "probabilityPercent": 3,
-      "enemyPool": "2,3",
+      "enemyPool": "10,11",
       "collisionFromManifest": false,
       "disableSignalChannel": "BOSS_002_DEFEATED",
       "notes": "On-screen-only regular goblin reinforcement spawner. Disabled when the boss-defeat signal activates.",
@@ -40576,7 +40576,7 @@
         "active": "Active"
       },
       "probabilityPercent": 3,
-      "enemyPool": "2,3",
+      "enemyPool": "10,11",
       "collisionFromManifest": false,
       "disableSignalChannel": "BOSS_002_DEFEATED",
       "notes": "On-screen-only regular goblin reinforcement spawner. Disabled when the boss-defeat signal activates.",
@@ -40585,8 +40585,8 @@
     {
       "id": "boss_fireball_goblin_001",
       "type": "characterEnemy",
-      "enemyCatalogId": "enemy_002",
-      "characterId": "ct_char_enemy_002",
+      "enemyCatalogId": "enemy_010",
+      "characterId": "ct_char_enemy_010",
       "w": 70,
       "h": 105,
       "facing": -1,
@@ -51601,10 +51601,10 @@
       "enemyDensity": 0.48,
       "rewardDensity": 0.38,
       "allowThoughts": false,
-      "allowedEnemies": "2"
+      "allowedEnemies": "10"
     },
     "resolvedEnemyIds": [
-      "enemy_002"
+      "enemy_010"
     ],
     "route": {
       "version": 5,
@@ -56121,14 +56121,14 @@
       "minimumEncounterSpacing": 723.24,
       "maximumEncounters": 9,
       "allowedEnemyIds": [
-        "enemy_002"
+        "enemy_010"
       ],
       "encounters": [
         {
           "id": "encounter_001",
           "supportId": "support_secondary_07_support_upper_access_07_support_route_main_007",
           "routeNodeId": "route_main_007",
-          "enemyId": "enemy_002",
+          "enemyId": "enemy_010",
           "placementClass": "groundRanged",
           "groupSize": 1,
           "difficultyCost": 3.4,
@@ -56136,13 +56136,13 @@
           "y": 160,
           "progress": 0.7,
           "entityIds": [
-            "encounter_001_enemy_002_01"
+            "encounter_001_enemy_010_01"
           ]
         },
         {
           "id": "encounter_002",
           "supportId": "support_secondary_06_support_upper_access_06_support_route_main_edge_006_ground_01",
-          "enemyId": "enemy_002",
+          "enemyId": "enemy_010",
           "placementClass": "groundRanged",
           "groupSize": 1,
           "difficultyCost": 3.4,
@@ -56150,13 +56150,13 @@
           "y": 160,
           "progress": 0.65,
           "entityIds": [
-            "encounter_002_enemy_002_01"
+            "encounter_002_enemy_010_01"
           ]
         },
         {
           "id": "encounter_003",
           "supportId": "support_route_main_edge_002_ground_01",
-          "enemyId": "enemy_002",
+          "enemyId": "enemy_010",
           "placementClass": "groundRanged",
           "groupSize": 1,
           "difficultyCost": 3.4,
@@ -56164,14 +56164,14 @@
           "y": 900,
           "progress": 0.25,
           "entityIds": [
-            "encounter_003_enemy_002_01"
+            "encounter_003_enemy_010_01"
           ]
         },
         {
           "id": "encounter_004",
           "supportId": "support_route_main_003",
           "routeNodeId": "route_main_003",
-          "enemyId": "enemy_002",
+          "enemyId": "enemy_010",
           "placementClass": "groundRanged",
           "groupSize": 1,
           "difficultyCost": 3.4,
@@ -56179,13 +56179,13 @@
           "y": 900,
           "progress": 0.3,
           "entityIds": [
-            "encounter_004_enemy_002_01"
+            "encounter_004_enemy_010_01"
           ]
         },
         {
           "id": "encounter_005",
           "supportId": "support_route_main_edge_004_ground_01",
-          "enemyId": "enemy_002",
+          "enemyId": "enemy_010",
           "placementClass": "groundRanged",
           "groupSize": 1,
           "difficultyCost": 3.4,
@@ -56193,14 +56193,14 @@
           "y": 900,
           "progress": 0.45,
           "entityIds": [
-            "encounter_005_enemy_002_01"
+            "encounter_005_enemy_010_01"
           ]
         },
         {
           "id": "encounter_006",
           "supportId": "support_route_main_008",
           "routeNodeId": "route_main_008",
-          "enemyId": "enemy_002",
+          "enemyId": "enemy_010",
           "placementClass": "groundRanged",
           "groupSize": 1,
           "difficultyCost": 3.4,
@@ -56208,7 +56208,7 @@
           "y": 900,
           "progress": 0.8,
           "entityIds": [
-            "encounter_006_enemy_002_01"
+            "encounter_006_enemy_010_01"
           ]
         }
       ]

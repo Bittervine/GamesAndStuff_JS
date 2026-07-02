@@ -1,9 +1,9 @@
 {
     "meta": {
         "version": 5,
-        "note": "Musket Goblin walk. Based directly on the user-authored Enemy 002 animation with the closed front arm kept visible, the open casting arm hidden, and the musket attached as a separate held weapon. Revision 113 applies the one-time +52 rig-space Y normalization so local y=0 matches the runtime ground."
+        "note": "Musket Goblin walk. Based directly on the user-authored Enemy 010 animation with the closed front arm kept visible, the open casting arm hidden, and the musket attached as a separate held weapon. Revision 113 applies the one-time +52 rig-space Y normalization so local y=0 matches the runtime ground."
     },
-    "animationId": "ct_anim_enemy_003_walk",
+    "animationId": "ct_anim_enemy_011_walk",
     "duration": 0.8,
     "loop": true,
     "mirrorable": true,

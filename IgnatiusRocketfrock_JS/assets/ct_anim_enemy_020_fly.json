@@ -1,9 +1,9 @@
 {
     "meta": {
         "version": 3,
-        "note": "Revision 169 fly loop for the replacement Atlas 005 bat. It plays all 22 supplied frames in their existing left-to-right, top-to-bottom order at 20 frames per second without duplicate removal or reordering."
+        "note": "Revision 169 fly loop for the replacement Atlas 020 bat. It plays all 22 supplied frames in their existing left-to-right, top-to-bottom order at 20 frames per second without duplicate removal or reordering. Revision 329 renumbers the project to enemy_020."
     },
-    "animationId": "ct_anim_enemy_005_fly",
+    "animationId": "ct_anim_enemy_020_fly",
     "duration": 1.1,
     "loop": true,
     "mirrorable": true,

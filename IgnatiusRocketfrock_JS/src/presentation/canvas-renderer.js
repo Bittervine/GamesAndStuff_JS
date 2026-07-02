@@ -75,9 +75,9 @@ const FIXED_DRAW_ORDER = [
 const DEFAULT_CHARACTER_URL = "assets/ct_char_wizard_1.json";
 const KNOWN_ENEMY_CHARACTER_URLS = [
     "assets/ct_char_enemy_001.json",
-    "assets/ct_char_enemy_002.json",
-    "assets/ct_char_enemy_003.json",
-    "assets/ct_char_enemy_005.json"
+    "assets/ct_char_enemy_010.json",
+    "assets/ct_char_enemy_011.json",
+    "assets/ct_char_enemy_020.json"
 ];
 
 const ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES = [
@@ -3470,8 +3470,8 @@ class RocketfrockRenderer {
                 blendMode: "additive"
             }) || drew;
         }
-        const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_002", projectile.frameId || "fireball") ||
-            this.getCharacterAtlasFrame("ct_char_enemy_002", "fireball");
+        const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_010", projectile.frameId || "fireball") ||
+            this.getCharacterAtlasFrame("ct_char_enemy_010", "fireball");
         if (asset && !asset.missing) {
             const targetHeight = Math.max(8, Number(projectile.radius) || 10) * 2 * view.zoom;
             drew = this.queueWebGLAssetSprite(asset, p.x, p.y, targetHeight, angle) || drew;
@@ -3487,9 +3487,9 @@ class RocketfrockRenderer {
         const p = this.worldToScreen(view, projectile.x, projectile.y);
         const targetHeight = Math.max(2, Number(projectile.radius) || 1) * 2.45 * view.zoom;
         const rotation = projectile.age * 8;
-        const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_003", projectile.frameId || "cannonball") ||
-            this.getCharacterAtlasFrame("ct_char_enemy_003", "cannonball") ||
-            this.getCharacterAtlasFrame("ct_char_enemy_002", "cannonball");
+        const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_011", projectile.frameId || "cannonball") ||
+            this.getCharacterAtlasFrame("ct_char_enemy_011", "cannonball") ||
+            this.getCharacterAtlasFrame("ct_char_enemy_010", "cannonball");
         if (asset && !asset.missing) {
             return this.queueWebGLAssetSprite(asset, p.x, p.y, targetHeight, rotation);
         }
@@ -3512,8 +3512,8 @@ class RocketfrockRenderer {
         const p = this.worldToScreen(view, projectile.x, projectile.y);
         const targetHeight = Math.max(8, Number(projectile.radius) || 10) * 2.35 * view.zoom;
         const rotation = (Number(projectile.age) || 0) * 5 + projectile.x * 0.01;
-        const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_005", projectile.frameId || "rock") ||
-            this.getCharacterAtlasFrame("ct_char_enemy_005", "rock");
+        const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_020", projectile.frameId || "rock") ||
+            this.getCharacterAtlasFrame("ct_char_enemy_020", "rock");
         if (asset && !asset.missing) {
             return this.queueWebGLAssetSprite(asset, p.x, p.y, targetHeight, rotation);
         }
@@ -3891,8 +3891,8 @@ class RocketfrockRenderer {
     drawProjectileRock(projectile, state, view) {
         const ctx = this.ctx;
         const p = this.worldToScreen(view, projectile.x, projectile.y);
-        const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_005", projectile.frameId || "rock") ||
-            this.getCharacterAtlasFrame("ct_char_enemy_005", "rock");
+        const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_020", projectile.frameId || "rock") ||
+            this.getCharacterAtlasFrame("ct_char_enemy_020", "rock");
         if (asset && !asset.missing) {
             const targetHeight = Math.max(8, Number(projectile.radius) || 10) * 2.35 * view.zoom;
             const spriteScale = targetHeight / Math.max(1, asset.height);
@@ -4023,8 +4023,8 @@ class RocketfrockRenderer {
             this.drawEnemyFireballParticles(projectile, state, view);
         }
 
-        const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_002", projectile.frameId || "fireball") ||
-            this.getCharacterAtlasFrame("ct_char_enemy_002", "fireball");
+        const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_010", projectile.frameId || "fireball") ||
+            this.getCharacterAtlasFrame("ct_char_enemy_010", "fireball");
         if (asset && !asset.missing) {
             const targetHeight = Math.max(8, Number(projectile.radius) || 10) * 2 * view.zoom;
             const spriteScale = targetHeight / Math.max(1, asset.height);
@@ -4055,9 +4055,9 @@ class RocketfrockRenderer {
     drawProjectileMusketBall(projectile, state, view) {
         const ctx = this.ctx;
         const p = this.worldToScreen(view, projectile.x, projectile.y);
-        const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_003", projectile.frameId || "cannonball") ||
-            this.getCharacterAtlasFrame("ct_char_enemy_003", "cannonball") ||
-            this.getCharacterAtlasFrame("ct_char_enemy_002", "cannonball");
+        const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_011", projectile.frameId || "cannonball") ||
+            this.getCharacterAtlasFrame("ct_char_enemy_011", "cannonball") ||
+            this.getCharacterAtlasFrame("ct_char_enemy_010", "cannonball");
         if (asset && !asset.missing) {
             const targetHeight = projectile.radius * 2.45 * view.zoom;
             const spriteScale = targetHeight / Math.max(1, asset.height);

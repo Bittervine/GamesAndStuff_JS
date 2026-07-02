@@ -212,3 +212,10 @@ The Game tuning panel begins with a temporary enemy-balance section. Melee and r
 Ranged classification is based on runtime attack mode, not artwork or enemy ID. Any monster whose `attackMode` is `projectile`, including the bombing bat, receives the ranged multipliers. Attack rate accelerates the complete attack cycle, including wind-up/release timing and recovery cooldown. HP changes apply immediately to living monsters while preserving their current health percentage.
 
 These controls deliberately do not modify `ct_enemies_001.json`, level JSON, or generator catalogs. During balancing, copy the tuning JSON to retain a promising combination. Once final factors are chosen, recalculate the authored enemy values and return all seven multipliers to `1×`; this keeps the final data explicit and removes dependence on a global playtest layer.
+
+
+## Enemy family numbering
+
+The current enemy namespace is grouped by creature family. Skeleton variants use `enemy_001` through `enemy_009`, goblins use `enemy_010` through `enemy_019`, and bats use `enemy_020` through `enemy_029`. The active entries are Skeleton Guard `enemy_001`, Fireball Goblin `enemy_010`, Musket Goblin `enemy_011`, and Bombing Bat `enemy_020`.
+
+The goblins share `ct_atlas_enemy_010.png` but use separate character, rig, and animation stems for `010` and `011`. Bombing Bat uses the `020` stem throughout. Numeric enemy-pool fields refer to these suffixes, so use `10,11` for both ordinary goblins and `20` for the bombing bat. Gaps are valid because catalogs enumerate actual entries. Do not add aliases for the retired live identifiers; update all bundled levels and tools together when a future family migration is intentional.
