@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "catalogId": "cavern-enemy-generation-v1",
   "enemies": {
     "enemy_001": {
@@ -58,6 +58,25 @@
       "preferredProgressMax": 0.94,
       "requiresNavigation": true,
       "notes": "A later-route ballistic hunter with a longer protected player approach."
+    },
+    "enemy_012": {
+      "placementClass": "groundRanged",
+      "groupMin": 1,
+      "groupMax": 1,
+      "difficultyCost": 4.1,
+      "weight": 0.85,
+      "minDifficulty": 0.32,
+      "maxDifficulty": 1,
+      "minWalkableWidth": 350,
+      "edgeClearance": 62,
+      "landingBuffer": 150,
+      "headroom": 175,
+      "patrolRoom": 210,
+      "minGroupSpacing": 96,
+      "preferredProgressMin": 0.22,
+      "preferredProgressMax": 0.94,
+      "requiresNavigation": true,
+      "notes": "A hunter that fires three smaller straight fireballs across a +/-15 degree fan when any shot has a clear chance to hit."
     },
     "enemy_020": {
       "placementClass": "flyingBomber",

@@ -1,0 +1,426 @@
+{
+  "meta": {
+    "version": 3,
+    "note": "User-corrected canonical Fireball Goblin idle adopted in revision 108. Its compact proportions and shoulder/hip placements are the source pose for all other goblin animations. Revision 113 applies the one-time +52 rig-space Y normalization so local y=0 matches the runtime ground. Revision 332 copies this clip unchanged for the Tri-fireball Goblin."
+  },
+  "animationId": "ct_anim_enemy_012_idle",
+  "duration": 1.2,
+  "loop": true,
+  "mirrorable": true,
+  "referencePose": {
+    "rightLeg": {
+      "x": -22,
+      "y": -88.0,
+      "rotation": 0.06,
+      "scale": 1,
+      "alpha": 1
+    },
+    "rightArm": {
+      "x": 22,
+      "y": -205.0,
+      "rotation": 0.1,
+      "scale": 1,
+      "alpha": 1
+    },
+    "torso": {
+      "x": 0,
+      "y": -110.0,
+      "rotation": 0,
+      "scale": 1,
+      "alpha": 1
+    },
+    "head": {
+      "x": 2,
+      "y": -230.0,
+      "rotation": 0,
+      "scale": 1,
+      "alpha": 1
+    },
+    "leftLeg": {
+      "x": 26,
+      "y": -88.0,
+      "rotation": -0.04,
+      "scale": 1,
+      "alpha": 1
+    },
+    "leftArm": {
+      "x": 45,
+      "y": -201.0,
+      "rotation": 0.02,
+      "scale": 1,
+      "alpha": 1
+    },
+    "leftArmClosed": {
+      "x": 0,
+      "y": 52.0,
+      "rotation": 0,
+      "scale": 1,
+      "alpha": 1
+    },
+    "fireball": {
+      "x": 0,
+      "y": 52.0,
+      "rotation": 0,
+      "scale": 1,
+      "alpha": 1
+    }
+  },
+  "tracks": {
+    "torso": {
+      "y": [
+        {
+          "time": 0,
+          "value": -110.0,
+          "easing": "easeInOut"
+        },
+        {
+          "time": 0.6,
+          "value": -113.0,
+          "easing": "easeInOut"
+        }
+      ]
+    },
+    "head": {
+      "y": [
+        {
+          "time": 0,
+          "value": -221.85700275375234,
+          "easing": "easeInOut"
+        },
+        {
+          "time": 0.033400000000003364,
+          "value": -221.8745637411903,
+          "easing": "easeInOut"
+        },
+        {
+          "time": 0.6,
+          "value": -224.69053724659335,
+          "easing": "easeInOut"
+        }
+      ],
+      "rotation": [
+        {
+          "time": 0,
+          "value": -0.012,
+          "easing": "easeInOut"
+        },
+        {
+          "time": 0.033400000000003364,
+          "value": -0.011826468444444408,
+          "easing": "easeInOut"
+        },
+        {
+          "time": 0.6,
+          "value": -0.0063062530479613445,
+          "easing": "easeInOut"
+        }
+      ],
+      "x": [
+        {
+          "time": 0,
+          "value": -20.17762950530119,
+          "easing": "easeInOut"
+        },
+        {
+          "time": 0.033400000000003364,
+          "value": -20.187897230144753,
+          "easing": "easeInOut"
+        },
+        {
+          "time": 0.6,
+          "value": -20.646793338560396,
+          "easing": "easeInOut"
+        }
+      ]
+    },
+    "rightArm": {
+      "y": [
+        {
+          "time": 0,
+          "value": -216.58714021594227,
+          "easing": "easeInOut"
+        },
+        {
+          "time": 0.6,
+          "value": -219.3188304532086,
+          "easing": "easeInOut"
+        }
+      ],
+      "rotation": [
+        {
+          "time": 0,
+          "value": 1.1480818500481682,
+          "easing": "easeInOut"
+        },
+        {
+          "time": 0.6,
+          "value": 1.1542370068916261,
+          "easing": "easeInOut"
+        }
+      ],
+      "x": [
+        {
+          "time": 0,
+          "value": -34.067315912423965,
+          "easing": "linear"
+        },
+        {
+          "time": 0.6,
+          "value": -34.11918202269418,
+          "easing": "easeInOut"
+        }
+      ]
+    },
+    "leftArm": {
+      "y": [
+        {
+          "time": 0,
+          "value": -222.9835603127217,
+          "easing": "easeInOut"
+        },
+        {
+          "time": 0.6,
+          "value": -227.8951512348944,
+          "easing": "easeInOut"
+        }
+      ],
+      "rotation": [
+        {
+          "time": 0,
+          "value": 1.3337356564965406,
+          "easing": "easeInOut"
+        },
+        {
+          "time": 0.6,
+          "value": 1.4812744561708029,
+          "easing": "easeInOut"
+        }
+      ],
+      "x": [
+        {
+          "time": 0,
+          "value": 18.205727025082183,
+          "easing": "linear"
+        },
+        {
+          "time": 0.6,
+          "value": 23.979513914605164,
+          "easing": "easeInOut"
+        }
+      ],
+      "alpha": [
+        {
+          "time": 0,
+          "value": 0,
+          "easing": "linear"
+        }
+      ]
+    },
+    "leftArmClosed": {
+      "x": [
+        {
+          "time": 0,
+          "value": 36.36074075567074,
+          "easing": "linear"
+        },
+        {
+          "time": 0.6085302913387899,
+          "value": 35.84087724319359,
+          "easing": "linear"
+        }
+      ],
+      "y": [
+        {
+          "time": 0,
+          "value": -221.4280228383991,
+          "easing": "linear"
+        },
+        {
+          "time": 0.6085302913387899,
+          "value": -224.83575970605216,
+          "easing": "linear"
+        }
+      ],
+      "rotation": [
+        {
+          "time": 0,
+          "value": 1.1555452510477162,
+          "easing": "linear"
+        },
+        {
+          "time": 0.6085302913387899,
+          "value": 1.1546331299867383,
+          "easing": "linear"
+        }
+      ],
+      "scale": [
+        {
+          "time": 0,
+          "value": 0.5,
+          "easing": "linear"
+        }
+      ],
+      "alpha": [
+        {
+          "time": 0,
+          "value": 1,
+          "easing": "linear"
+        }
+      ]
+    },
+    "weapon": {
+      "x": [
+        {
+          "time": 0,
+          "value": -508.58849776418583,
+          "easing": "linear"
+        }
+      ],
+      "y": [
+        {
+          "time": 0,
+          "value": -277.44804747296234,
+          "easing": "linear"
+        }
+      ],
+      "rotation": [
+        {
+          "time": 0,
+          "value": 0,
+          "easing": "linear"
+        }
+      ],
+      "alpha": [
+        {
+          "time": 0,
+          "value": 0,
+          "easing": "linear"
+        }
+      ]
+    },
+    "leftLeg": {
+      "x": [
+        {
+          "time": 0,
+          "value": 0.16253340871708843,
+          "easing": "linear"
+        }
+      ],
+      "y": [
+        {
+          "time": 0,
+          "value": -137.7019415206407,
+          "easing": "linear"
+        }
+      ],
+      "rotation": [
+        {
+          "time": 0,
+          "value": -0.04,
+          "easing": "linear"
+        }
+      ]
+    },
+    "rightLeg": {
+      "x": [
+        {
+          "time": 0,
+          "value": -21.043097245065788,
+          "easing": "linear"
+        }
+      ],
+      "y": [
+        {
+          "time": 0,
+          "value": -130.05551366037764,
+          "easing": "linear"
+        }
+      ],
+      "rotation": [
+        {
+          "time": 0,
+          "value": -0.2831052855081367,
+          "easing": "linear"
+        }
+      ]
+    },
+    "fireball": {
+      "x": [
+        {
+          "time": 0,
+          "value": -390.7368277731212,
+          "easing": "linear"
+        }
+      ],
+      "y": [
+        {
+          "time": 0,
+          "value": -380.7218082972936,
+          "easing": "linear"
+        }
+      ],
+      "rotation": [
+        {
+          "time": 0,
+          "value": 0,
+          "easing": "linear"
+        }
+      ],
+      "scale": [
+        {
+          "time": 0,
+          "value": 1,
+          "easing": "linear"
+        }
+      ],
+      "alpha": [
+        {
+          "time": 0,
+          "value": 0,
+          "easing": "linear"
+        }
+      ]
+    },
+    "cannonball": {
+      "alpha": [
+        {
+          "time": 0,
+          "value": 0,
+          "easing": "linear"
+        }
+      ],
+      "x": [
+        {
+          "time": 0,
+          "value": -495.9352244635826,
+          "easing": "linear"
+        }
+      ],
+      "y": [
+        {
+          "time": 0,
+          "value": -401.5639362765434,
+          "easing": "linear"
+        }
+      ],
+      "rotation": [
+        {
+          "time": 0,
+          "value": 0,
+          "easing": "linear"
+        }
+      ]
+    }
+  },
+  "playback": {
+    "idleThreshold": 0.04,
+    "baseCyclesPerSecond": 0.55,
+    "speedCyclesPerSecond": 2.2,
+    "maxSpeedRatio": 1.4
+  },
+  "rootMotion": {
+    "enabled": false,
+    "xTrack": null,
+    "yTrack": null
+  }
+}

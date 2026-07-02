@@ -226,3 +226,8 @@ The goblins share `ct_atlas_enemy_010.png` but use separate character, rig, and 
 Ranged enemies may start attacks well outside their authored `attackRange`; that value now guides preferred approach spacing. They still require Ignatius to be inside the current awareness range and facing cone. A remembered last-seen position keeps pursuit alive but never permits firing by itself.
 
 When testing ranged enemies, place solid cover between the enemy and Ignatius and verify that no wind-up begins. Remove the cover and verify that the enemy may attack immediately even from long range, provided the projectile can reach within its lifetime. Move behind cover or out of the awareness cone during the wind-up and verify that no projectile is released. Bombing bats should only drop when their predicted falling-rock lane overlaps Ignatius and no platform or blocking geometry interrupts the descent.
+
+
+### Enemy projectile volleys (revision 332)
+
+Projectile enemies may author `projectileVolleyCount` (1-15, default 1) and `projectileVolleyHalfAngle` in degrees (0-180, default 0). The simulation distributes projectiles evenly from negative to positive half-angle around the launch-time aim vector. Straight-volley attack permission succeeds when at least one member's swept circular trajectory intersects the player before terrain or a reactive projectile blocker. Each released projectile remains an independent ordinary projectile and carries `volleyId`, `volleyIndex`, `volleyCount`, and `volleyAngleOffsetDegrees` for diagnostics and presentation.

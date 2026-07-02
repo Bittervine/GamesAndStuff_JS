@@ -130,6 +130,7 @@ export const TEST_SHARDS = Object.freeze({
             "character enemy melee attack",
             "terrain shields player from enemy melee",
             "fireball goblin projectile attack",
+            "tri-fireball goblin uses any clear volley trajectory",
             "ranged enemies fire beyond preferred attack range",
             "ranged enemies require clear projectile lane",
             "ranged shot lane revalidated at release",

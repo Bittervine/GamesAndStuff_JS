@@ -2690,6 +2690,8 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         projectileDamage: Math.max(0, finiteNumberOr(entity.projectileDamage, state.tuning.enemyDefaultProjectileDamage)),
         projectileCooldown: Math.max(0, finiteNumberOr(entity.projectileCooldown, state.tuning.enemyDefaultProjectileCooldown)),
         projectileHomingStrength: Math.max(0, finiteNumberOr(entity.projectileHomingStrength, state.tuning.enemyDefaultProjectileHomingStrength)),
+        projectileVolleyCount: clamp(Math.round(finiteNumberOr(entity.projectileVolleyCount, 1)), 1, 15),
+        projectileVolleyHalfAngle: clamp(finiteNumberOr(entity.projectileVolleyHalfAngle, 0), 0, 180),
         projectileKnockbackX: Math.max(0, finiteNumberOr(entity.projectileKnockbackX, state.tuning.enemyDefaultProjectileKnockbackX)),
         projectileKnockbackY: finiteNumberOr(entity.projectileKnockbackY, state.tuning.enemyDefaultProjectileKnockbackY),
         attackLungeDistance: Math.max(0, finiteNumberOr(entity.attackLungeDistance, state.tuning.enemyDefaultAttackLungeDistance)),
@@ -4074,6 +4076,36 @@ function solveCharacterEnemyBallisticVelocity(enemy, origin, target, tuning = DE
     return velocity ? { ...velocity, gravity, launchSpeed } : null;
 }
 
+function characterEnemyProjectileVolleyAngleOffsets(enemy) {
+    const count = clamp(Math.round(finiteNumberOr(enemy?.projectileVolleyCount, 1)), 1, 15);
+    const halfAngleDegrees = clamp(finiteNumberOr(enemy?.projectileVolleyHalfAngle, 0), 0, 180);
+    if (count <= 1 || halfAngleDegrees <= 0) {
+        return [0];
+    }
+    const step = (halfAngleDegrees * 2) / (count - 1);
+    return Array.from({ length: count }, (_, index) => (-halfAngleDegrees + step * index) * Math.PI / 180);
+}
+
+function characterEnemyStraightProjectileCanHitPlayer(state, enemy, origin, baseAim, angleOffset, speed, lifetime, radius) {
+    const direction = rotateVector(baseAim, angleOffset);
+    const end = {
+        x: origin.x + direction.x * speed * lifetime,
+        y: origin.y + direction.y * speed * lifetime
+    };
+    const playerImpact = sweptCircleRectImpact(origin, end, radius, getPlayerRect(state));
+    if (!playerImpact) {
+        return false;
+    }
+    const terrainImpact = findProjectileTerrainImpact(
+        state,
+        { x: end.x, y: end.y, radius },
+        origin.x,
+        origin.y,
+        { includeReactiveObjects: true }
+    );
+    return !terrainImpact || terrainImpact.t > playerImpact.t + 0.000001;
+}
+
 function characterEnemyProjectilePathClearFromPoint(state, enemy, point) {
     const player = state.player;
     const facing = player.x < point.x ? -1 : 1;
@@ -4128,12 +4160,19 @@ function characterEnemyProjectilePathClearFromPoint(state, enemy, point) {
 
     if (launchType !== "ballistic") {
         const speed = characterEnemyProjectileSpeed(enemy, state.tuning);
-        const distance = Math.hypot(target.x - origin.x, target.y - origin.y);
-        if (distance / Math.max(1, speed) > lifetime) {
-            return false;
-        }
-        const probe = { x: target.x, y: target.y, radius };
-        return !findProjectileTerrainImpact(state, probe, origin.x, origin.y, { includeReactiveObjects: true });
+        const baseAim = normalizeVector({ x: target.x - origin.x, y: target.y - origin.y });
+        return characterEnemyProjectileVolleyAngleOffsets(enemy).some((angleOffset) =>
+            characterEnemyStraightProjectileCanHitPlayer(
+                state,
+                enemy,
+                origin,
+                baseAim,
+                angleOffset,
+                speed,
+                lifetime,
+                radius
+            )
+        );
     }
 
     const ballistic = solveCharacterEnemyBallisticVelocity(enemy, origin, target, state.tuning);
@@ -4161,7 +4200,7 @@ function characterEnemyProjectilePathClearFromPoint(state, enemy, point) {
     return true;
 }
 
-function launchCharacterEnemyProjectile(state, enemy) {
+function launchCharacterEnemyProjectile(state, enemy, angleOffset = 0, volley = null) {
     const player = state.player;
     const origin = String(enemy.projectileLaunchType || "") === "drop"
         ? {
@@ -4209,7 +4248,8 @@ function launchCharacterEnemyProjectile(state, enemy) {
         }
         radius = Math.max(3, radius);
     } else {
-        const aim = normalizeVector({ x: target.x - origin.x, y: target.y - origin.y });
+        const baseAim = normalizeVector({ x: target.x - origin.x, y: target.y - origin.y });
+        const aim = rotateVector(baseAim, angleOffset);
         vx = aim.x * tunedProjectileSpeed;
         vy = aim.y * tunedProjectileSpeed;
         gravity = 0;
@@ -4253,11 +4293,25 @@ function launchCharacterEnemyProjectile(state, enemy) {
         damage,
         knockbackX,
         knockbackY,
-        trail
+        trail,
+        volleyId: volley?.id || null,
+        volleyIndex: Number.isFinite(Number(volley?.index)) ? Number(volley.index) : 0,
+        volleyCount: Math.max(1, Math.round(finiteNumberOr(volley?.count, 1))),
+        volleyAngleOffsetDegrees: angleOffset * 180 / Math.PI
     };
     state.weapons.nextProjectileId += 1;
     state.projectiles.push(projectile);
     return projectile;
+}
+
+function launchCharacterEnemyProjectileVolley(state, enemy) {
+    const angleOffsets = characterEnemyProjectileVolleyAngleOffsets(enemy);
+    const volleyId = `enemy_volley_${state.clock.tick}_${String(state.weapons.nextProjectileId).padStart(3, "0")}`;
+    return angleOffsets.map((angleOffset, index) => launchCharacterEnemyProjectile(state, enemy, angleOffset, {
+        id: volleyId,
+        index,
+        count: angleOffsets.length
+    }));
 }
 
 function characterEnemyRunSpeed(enemy, tuning = DEFAULT_TUNING) {
@@ -4433,6 +4487,8 @@ function startCharacterEnemyAttack(state, enemy) {
     enemy.projectileDamage = Math.max(0, finiteNumberOr(enemy.projectileDamage, state.tuning.enemyDefaultProjectileDamage));
     enemy.projectileCooldown = Math.max(0, finiteNumberOr(enemy.projectileCooldown, state.tuning.enemyDefaultProjectileCooldown));
     enemy.projectileHomingStrength = Math.max(0, finiteNumberOr(enemy.projectileHomingStrength, state.tuning.enemyDefaultProjectileHomingStrength));
+    enemy.projectileVolleyCount = clamp(Math.round(finiteNumberOr(enemy.projectileVolleyCount, 1)), 1, 15);
+    enemy.projectileVolleyHalfAngle = clamp(finiteNumberOr(enemy.projectileVolleyHalfAngle, 0), 0, 180);
     enemy.projectileKnockbackX = Math.max(0, finiteNumberOr(enemy.projectileKnockbackX, state.tuning.enemyDefaultProjectileKnockbackX));
     enemy.projectileKnockbackY = finiteNumberOr(enemy.projectileKnockbackY, state.tuning.enemyDefaultProjectileKnockbackY);
     enemy.attackLungeDistance = Math.max(0, finiteNumberOr(enemy.attackLungeDistance, state.tuning.enemyDefaultAttackLungeDistance));
@@ -4473,19 +4529,25 @@ function updateCharacterEnemyAttack(state, enemy, dt) {
     if (!enemy.attackHitApplied && previousElapsed <= hitTime && elapsed >= hitTime) {
         enemy.attackHitApplied = true;
         if (enemy.attackMode === "projectile") {
-            const projectile = characterEnemyCanUseProjectile(state, enemy)
-                ? launchCharacterEnemyProjectile(state, enemy)
-                : null;
-            if (projectile) {
-                addEvent(state, "ENEMY_PROJECTILE_FIRED", {
-                    enemyId: enemy.id,
-                    projectileId: projectile.id,
-                    projectileKind: projectile.kind,
-                    projectilePartName: projectile.projectilePartName,
-                    launchType: projectile.launchType,
-                    x: round(projectile.x),
-                    y: round(projectile.y)
-                });
+            const projectiles = characterEnemyCanUseProjectile(state, enemy)
+                ? launchCharacterEnemyProjectileVolley(state, enemy)
+                : [];
+            if (projectiles.length > 0) {
+                for (const projectile of projectiles) {
+                    addEvent(state, "ENEMY_PROJECTILE_FIRED", {
+                        enemyId: enemy.id,
+                        projectileId: projectile.id,
+                        projectileKind: projectile.kind,
+                        projectilePartName: projectile.projectilePartName,
+                        launchType: projectile.launchType,
+                        volleyId: projectile.volleyId,
+                        volleyIndex: projectile.volleyIndex,
+                        volleyCount: projectile.volleyCount,
+                        volleyAngleOffsetDegrees: round(projectile.volleyAngleOffsetDegrees),
+                        x: round(projectile.x),
+                        y: round(projectile.y)
+                    });
+                }
             } else {
                 addEvent(state, "ENEMY_ATTACK_MISSED", { enemyId: enemy.id, reason: "noClearProjectileShot" });
             }

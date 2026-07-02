@@ -3312,3 +3312,12 @@ Bombing bats use a dedicated falling-rock prediction. The simulation solves the 
 Revision 331 removes the fuzzy orange circular bulb that the opt-in `?webgl=1` renderer drew underneath every authored goblin fireball. The Canvas renderer already used its radial fireball glow only when atlas artwork was missing, but the WebGL path always submitted both the circular soft-glow quad and the authored teardrop sprite. That extra additive circle rounded off the narrow rear of the projectile and visibly broke its silhouette.
 
 The direct WebGL fireball path now returns immediately after drawing the resident authored atlas sprite. Its circular soft glow remains available only as the same missing-art fallback used by Canvas. Live emitted trail particles remain unchanged. A renderer regression check verifies that the authored sprite is resolved before the fallback glow and that the fallback is not composited beneath normal fireballs.
+
+
+## Revision 332 Tri-fireball Goblin and generic straight volleys
+
+Revision 332 adds `enemy_012`, the Tri-fireball Goblin. It shares `ct_atlas_enemy_010` with the other goblins, owns a copied `ct_rig_enemy_012` project, and uses copied Fireball Goblin idle, walk, attack, hurt, and death clips so later visual tuning can remain isolated. The new catalog entry keeps the ordinary Fireball Goblin damage per projectile, uses slightly smaller radius-12 fireballs, disables homing, and launches three shots at -15, 0, and +15 degrees around the launch-time line to Ignatius.
+
+Portable enemy projectile state now supports `projectileVolleyCount` and `projectileVolleyHalfAngle`. The release path creates one ordinary projectile record per angle and tags each with stable volley metadata, leaving projectile kind, frame, straight travel, homing, collision, damage, and future presentation choices independent. This is the reusable seam for later single, triple, and quintuple straight arrows, spinning axes, and other authored projectile families without adding enemy-specific launch branches.
+
+Shot validation evaluates the actual trajectory of every straight volley member against Ignatius's body, projectile lifetime, radius, blocking solids, blockable lines and polygons, and reactive obstacles. A volley may begin and release when any one member has a plausible unobstructed hit; it is not incorrectly rejected merely because another member will strike scenery. The same any-member rule is rechecked at the authored release frame.

@@ -1307,3 +1307,12 @@ For projectile attackers, authored `attackRange` and `preferredAttackRange` desc
 ## Revision 331 authored fireball ownership
 
 When an authored enemy-fireball atlas frame is available, that frame owns the projectile body in both rendering backends. The WebGL2 path may draw the simulation-owned emitted particles behind it, but it must not add a separate circular core glow beneath the atlas sprite. The procedural circular body is retained solely as a missing-art fallback, matching Canvas 2D and preserving the authored teardrop silhouette.
+
+
+## Revision 332 Tri-fireball Goblin and generic straight volleys
+
+Revision 332 adds `enemy_012`, the Tri-fireball Goblin. It shares `ct_atlas_enemy_010` with the other goblins, owns a copied `ct_rig_enemy_012` project, and uses copied Fireball Goblin idle, walk, attack, hurt, and death clips so later visual tuning can remain isolated. The new catalog entry keeps the ordinary Fireball Goblin damage per projectile, uses slightly smaller radius-12 fireballs, disables homing, and launches three shots at -15, 0, and +15 degrees around the launch-time line to Ignatius.
+
+Portable enemy projectile state now supports `projectileVolleyCount` and `projectileVolleyHalfAngle`. The release path creates one ordinary projectile record per angle and tags each with stable volley metadata, leaving projectile kind, frame, straight travel, homing, collision, damage, and future presentation choices independent. This is the reusable seam for later single, triple, and quintuple straight arrows, spinning axes, and other authored projectile families without adding enemy-specific launch branches.
+
+Shot validation evaluates the actual trajectory of every straight volley member against Ignatius's body, projectile lifetime, radius, blocking solids, blockable lines and polygons, and reactive obstacles. A volley may begin and release when any one member has a plausible unobstructed hit; it is not incorrectly rejected merely because another member will strike scenery. The same any-member rule is rechecked at the authored release frame.

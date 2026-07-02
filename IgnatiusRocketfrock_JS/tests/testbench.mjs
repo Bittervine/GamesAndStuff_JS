@@ -598,7 +598,7 @@ function testSourceOrganization() {
     assert.equal(simulationSource.includes('hasOwnProperty.call(tuningOverrides, "jumpVelocity")'), false, "state initialization should not migrate the retired jumpVelocity tuning override");
     const characterRuntime = readFileSync(new URL("../src/presentation/character-runtime.js", import.meta.url), "utf8");
     assert.ok(!characterRuntime.includes("rigPartOverrides") && !characterRuntime.includes("rigPivotOverrides") && !characterRuntime.includes("applyRuntimeCharacterRigOverrides"), "runtime character loading should not contain character-level rig replacement support");
-    for (const characterFile of ["ct_char_wizard_1.json", "ct_char_enemy_001.json", "ct_char_enemy_010.json", "ct_char_enemy_011.json"]) {
+    for (const characterFile of ["ct_char_wizard_1.json", "ct_char_enemy_001.json", "ct_char_enemy_010.json", "ct_char_enemy_011.json", "ct_char_enemy_012.json"]) {
         const character = JSON.parse(readFileSync(new URL(`../assets/${characterFile}`, import.meta.url), "utf8"));
         assert.equal("rigPartOverrides" in character, false, `${characterFile} should not contain rig-part replacement data`);
         assert.equal("rigPivotOverrides" in character, false, `${characterFile} should not contain pivot replacement data`);
@@ -820,8 +820,10 @@ async function testGoblinRuntimeCharacterProjects() {
     for (const filename of [
         "ct_char_enemy_010.json",
         "ct_char_enemy_011.json",
+        "ct_char_enemy_012.json",
         "ct_rig_enemy_010.json",
         "ct_rig_enemy_011.json",
+        "ct_rig_enemy_012.json",
         "ct_atlas_enemy_010.json",
         "ct_anim_enemy_010_idle.json",
         "ct_anim_enemy_010_walk.json",
@@ -832,7 +834,12 @@ async function testGoblinRuntimeCharacterProjects() {
         "ct_anim_enemy_011_walk.json",
         "ct_anim_enemy_011_attack.json",
         "ct_anim_enemy_011_hurt.json",
-        "ct_anim_enemy_011_death.json"
+        "ct_anim_enemy_011_death.json",
+        "ct_anim_enemy_012_idle.json",
+        "ct_anim_enemy_012_walk.json",
+        "ct_anim_enemy_012_attack.json",
+        "ct_anim_enemy_012_hurt.json",
+        "ct_anim_enemy_012_death.json"
     ]) {
         jsonByUrl.set(`assets/${filename}`, JSON.parse(readFileSync(`./assets/${filename}`, "utf8")));
     }
@@ -851,11 +858,14 @@ async function testGoblinRuntimeCharacterProjects() {
 
     const fireball = await loadRuntimeCharacterProject("assets/ct_char_enemy_010.json", loader);
     const musket = await loadRuntimeCharacterProject("assets/ct_char_enemy_011.json", loader);
+    const triFireball = await loadRuntimeCharacterProject("assets/ct_char_enemy_012.json", loader);
 
     assert.equal(fireball.characterId, "ct_char_enemy_010", "fireball goblin should keep its character ID");
     assert.equal(musket.characterId, "ct_char_enemy_011", "musket goblin should keep its character ID");
+    assert.equal(triFireball.characterId, "ct_char_enemy_012", "tri-fireball goblin should keep its character ID");
     assert.equal(fireball.rig.rigId, "ct_rig_enemy_010", "Fireball Goblin should load its dedicated rig");
     assert.equal(musket.rig.rigId, "ct_rig_enemy_011", "Musket Goblin should load its dedicated rig");
+    assert.equal(triFireball.rig.rigId, "ct_rig_enemy_012", "Tri-fireball Goblin should load its copied dedicated rig");
     assert.equal(fireball.rig.parts.leftArm.frame, "leftArmOpen", "Fireball Goblin rig should retain the open casting arm part");
     assert.equal(musket.rig.parts.leftArmClosed.frame, "leftArmClosed", "Musket Goblin rig should retain the closed support arm part");
     assert.equal(musket.rig.parts.rightArm.frame, "rightArmClosed", "Musket Goblin should use the corrected closed right trigger arm");
@@ -871,14 +881,19 @@ async function testGoblinRuntimeCharacterProjects() {
     assert.equal(musket.atlasAssets.get("cannonball")?.frameId, "cannonball", "runtime project should expose unattached cannonball atlas resources");
     assert.equal(fireball.animations.size, 5, "fireball goblin should resolve its dedicated animation set");
     assert.equal(musket.animations.size, 5, "musket goblin should resolve its dedicated weapon-aware animation set");
+    assert.equal(triFireball.animations.size, 5, "tri-fireball goblin should resolve its copied Fireball Goblin animation set");
     assert.equal(fireball.projectiles.size, 1, "Fireball Goblin should activate only its selected projectile part");
     assert.equal(musket.projectiles.size, 1, "Musket Goblin should activate only its selected projectile part");
+    assert.equal(triFireball.projectiles.size, 1, "Tri-fireball Goblin should activate only its copied fireball projectile part");
     const fireballProjectile = fireball.projectiles.get("fireball");
     const musketProjectile = musket.projectiles.get("cannonball");
+    const triFireballProjectile = triFireball.projectiles.get("fireball");
     assert.equal(fireballProjectile.launchType, "homing_lo", "Fireball Goblin rig should tag the fireball as low-homing");
     assert.equal(fireballProjectile.animationSlot, "attack", "fireball handoff should be attached to the attack slot");
     approx(fireballProjectile.releaseTime, 0.372, 0.000001, "fireball handoff should use the explicit authored release time");
     assert.ok(fireballProjectile.localX > 200 && fireballProjectile.localY < -180, "fireball release should sample the ground-normalized authored attack position");
+    assert.equal(triFireballProjectile.launchType, "straight", "Tri-fireball Goblin rig should tag its copied fireball handoff as straight");
+    approx(triFireballProjectile.releaseTime, fireballProjectile.releaseTime, 0.000001, "Tri-fireball Goblin should copy the Fireball Goblin release timing");
     assert.equal(musketProjectile.launchType, "ballistic", "Musket Goblin rig should tag the cannonball as ballistic");
     approx(musketProjectile.releaseTime, 0.49531814840382643, 0.000001, "cannonball handoff should use the explicit authored release time");
     assert.ok(musketProjectile.localX > 180 && musketProjectile.localY < -220, "cannonball release should sample the ground-normalized muzzle position");
@@ -1234,7 +1249,7 @@ function testAutomaticEnemySpawning() {
     assert.deepEqual(normalizeAutoSpawnEnemies(null), DEFAULT_AUTO_SPAWN_ENEMIES, "automatic enemy spawning should default to disabled, zero percent, and enemies 001-999");
     assert.deepEqual(
         resolveAutoSpawnEnemyIds({ enabled: true, probabilityPercent: 25, enemyPool: "1-20,!10,!19" }, JSON.parse(readFileSync("./assets/ct_enemies_001.json", "utf8"))).resolvedIds,
-        ["enemy_001", "enemy_011", "enemy_020"],
+        ["enemy_001", "enemy_011", "enemy_012", "enemy_020"],
         "automatic spawning should share the level generator enemy-pool expression format"
     );
 
@@ -1475,9 +1490,16 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(skeleton.defaults.strategy, "hunter", "Skeleton Guard should use jumping hunter navigation so raised encounters can pursue Ignatius");
     assert.equal(catalog.enemies.enemy_010.defaults.strategy, "hunter", "Fireball Goblin should use the hunter strategy");
     assert.equal(catalog.enemies.enemy_011.defaults.strategy, "hunter", "Musket Goblin should use the hunter strategy");
+    assert.equal(catalog.enemies.enemy_012.defaults.strategy, "hunter", "Tri-fireball Goblin should use the hunter strategy");
     assert.equal(skeleton.defaults.health, 90, "Skeleton Guard should default to 90 HP");
     assert.equal(catalog.enemies.enemy_010.defaults.health, 60, "Fireball Goblin should default to 60 HP");
     assert.equal(catalog.enemies.enemy_011.defaults.health, 60, "Musket Goblin should default to 60 HP");
+    assert.equal(catalog.enemies.enemy_012.defaults.health, 60, "Tri-fireball Goblin should copy the Fireball Goblin health");
+    assert.equal(catalog.enemies.enemy_012.defaults.projectileLaunchType, "straight", "Tri-fireball Goblin should use non-homing straight shots");
+    assert.equal(catalog.enemies.enemy_012.defaults.projectileVolleyCount, 3, "Tri-fireball Goblin should launch three projectiles");
+    assert.equal(catalog.enemies.enemy_012.defaults.projectileVolleyHalfAngle, 15, "Tri-fireball Goblin should use a +/-15 degree fan");
+    assert.equal(catalog.enemies.enemy_012.defaults.projectileRadius, 12, "Tri-fireball Goblin fireballs should be slightly smaller than the ordinary radius-14 fireball");
+    assert.equal(catalog.enemies.enemy_012.defaults.projectileDamage, catalog.enemies.enemy_010.defaults.projectileDamage, "each tri-fireball shot should deal the ordinary homing fireball damage");
     for (const enemyId of ["enemy_020"]) {
         const bat = catalog.enemies[enemyId];
         assert.ok(bat, `${enemyId} should register a retained bat candidate`);
@@ -1506,11 +1528,13 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     }
     assert.equal(catalog.enemies.enemy_010.defaults.runSpeed, 200, "Fireball Goblin should default to the authored 200 px/s run speed");
     assert.equal(catalog.enemies.enemy_011.defaults.runSpeed, 200, "Musket Goblin should default to the authored 200 px/s run speed");
+    assert.equal(catalog.enemies.enemy_012.defaults.runSpeed, 200, "Tri-fireball Goblin should copy the Fireball Goblin run speed");
     assert.equal(catalog.enemies.enemy_010.defaults.jumpHeight, 200, "Fireball Goblin should default to the playtested 200 px jump height");
     assert.equal(catalog.enemies.enemy_011.defaults.jumpHeight, 200, "Musket Goblin should default to the playtested 200 px jump height");
     assert.equal(skeleton.defaults.awarenessViewHalfAngle, 60, "Skeleton Guard should default to the authored ±60 degree awareness cone");
     assert.equal(catalog.enemies.enemy_010.defaults.awarenessViewHalfAngle, 60, "Fireball Goblin should default to the authored ±60 degree awareness cone");
     assert.equal(catalog.enemies.enemy_011.defaults.awarenessViewHalfAngle, 60, "Musket Goblin should default to the authored ±60 degree awareness cone");
+    assert.equal(catalog.enemies.enemy_012.defaults.awarenessViewHalfAngle, 60, "Tri-fireball Goblin should copy the authored ±60 degree awareness cone");
     assert.equal(DEFAULT_TUNING.enemyDefaultAwarenessViewHalfAngle, 60, "simulation fallback should match the authored ±60 degree awareness cone");
     assert.ok(skeleton.defaults.patrolDistance > 0, "Skeleton Guard should have a visible default patrol span");
     assert.ok(skeleton.defaults.attackDamage > 0, "Skeleton Guard should have authored melee damage");
@@ -4163,6 +4187,115 @@ function testFireballGoblinProjectileAttack() {
     assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_PROJECTILE_IMPACTED" && event.impactKind === "player"), "fireball impact should emit a player-impact event");
 }
 
+function testTriFireballGoblinVolleyUsesAnyClearTrajectory() {
+    const state = createInitialGameState({
+        tuning: {
+            playerDamageInvulnerabilitySeconds: 0.1,
+            healthRegenDelay: 99,
+            maxDebugEvents: 200
+        }
+    });
+    applyEditorLevelToWorld(state, {
+        levelId: "tri_fireball_goblin_test",
+        testPlayerStart: { x: 80, y: 600 },
+        bounds: { x: 0, y: 0, w: 600, h: 800 },
+        entities: [{
+            id: "tri_fireball_goblin",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_012",
+            x: 220,
+            y: 600,
+            w: 70,
+            h: 105,
+            facing: -1,
+            strategy: "sentry",
+            attackMode: "projectile",
+            attackDuration: 0.24,
+            attackHitTime: 0.08,
+            projectileCooldown: 1,
+            projectileKind: "fireball",
+            projectileLaunchType: "straight",
+            projectileSpeed: 285,
+            projectileGravity: 0,
+            projectileLifetime: 3.6,
+            projectileRadius: 12,
+            projectileDamage: 12,
+            projectileHomingStrength: 0,
+            projectileVolleyCount: 3,
+            projectileVolleyHalfAngle: 15,
+            preferredAttackRange: 220,
+            preferredAttackMinRange: 0,
+            awarenessRange: 800,
+            awarenessViewHalfAngle: 90
+        }]
+    });
+    state.world.segments = [{ id: "floor", kind: "walkable", x1: -100, y1: 600, x2: 500, y2: 600 }];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 80;
+    state.player.y = 600;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+
+    // This narrow obstacle blocks the centre line, but the upper and lower fan members
+    // still pass around it and intersect Ignatius's tall hurtbox.
+    state.world.solids = [{ id: "centre_lane_blocker", kind: "wall", x: 137, y: 515, w: 10, h: 10 }];
+    stepMany(state, 12);
+
+    const fired = state.debug.lastEvents.filter((event) => event.type === "ENEMY_PROJECTILE_FIRED" && event.enemyId === "tri_fireball_goblin");
+    assert.equal(fired.length, 3, "one viable member should allow the Tri-fireball Goblin to release the complete three-shot volley");
+    assert.deepEqual(fired.map((event) => event.volleyAngleOffsetDegrees), [-15, 0, 15], "the volley should use the exact -15, 0, +15 degree offsets");
+    const volley = state.projectiles.filter((projectile) => projectile.enemyId === "tri_fireball_goblin");
+    assert.ok(volley.length >= 2, "the clear outer shots should remain alive even if the blocked centre shot already hit scenery");
+    assert.ok(volley.every((projectile) => projectile.launchType === "straight" && projectile.homingStrength === 0), "all three fireballs should be non-homing straight projectiles");
+    assert.ok(volley.every((projectile) => projectile.radius === 12 && projectile.damage === 12), "each smaller fireball should retain the ordinary homing fireball damage");
+    const blockedState = createInitialGameState({ tuning: { maxDebugEvents: 100 } });
+    applyEditorLevelToWorld(blockedState, {
+        levelId: "tri_fireball_all_blocked_test",
+        testPlayerStart: { x: 80, y: 600 },
+        entities: [{
+            id: "blocked_tri_fireball_goblin",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_012",
+            x: 220,
+            y: 600,
+            w: 70,
+            h: 105,
+            facing: -1,
+            strategy: "sentry",
+            attackMode: "projectile",
+            attackDuration: 0.24,
+            attackHitTime: 0.08,
+            projectileCooldown: 1,
+            projectileKind: "fireball",
+            projectileLaunchType: "straight",
+            projectileSpeed: 285,
+            projectileLifetime: 3.6,
+            projectileRadius: 12,
+            projectileDamage: 12,
+            projectileVolleyCount: 3,
+            projectileVolleyHalfAngle: 15,
+            preferredAttackMinRange: 0,
+            awarenessRange: 800,
+            awarenessViewHalfAngle: 90
+        }]
+    });
+    blockedState.world.solids = [{ id: "full_fan_wall", kind: "wall", x: 130, y: 440, w: 24, h: 160 }];
+    blockedState.world.segments = [{ id: "floor", kind: "walkable", x1: -100, y1: 600, x2: 500, y2: 600 }];
+    blockedState.world.collisionPolygons = [];
+    blockedState.story.portalIntro = null;
+    blockedState.story.portalExit = null;
+    blockedState.story.mailboxEvent = null;
+    blockedState.player.x = 80;
+    blockedState.player.y = 600;
+    blockedState.player.onGround = true;
+    blockedState.player.wasOnGround = true;
+    stepMany(blockedState, 30);
+    assert.equal(blockedState.debug.lastEvents.some((event) => event.type === "ENEMY_ATTACK_STARTED"), false, "the Tri-fireball Goblin should not wind up when all three trajectories are blocked");
+}
+
 function testMusketGoblinProjectileAttack() {
     const state = createInitialGameState({
         tuning: {
@@ -4634,6 +4767,7 @@ function testCharacterProjectWorkspace() {
     assert.ok(toolHtml.includes('enemy_001: "assets/ct_char_enemy_001.json"'), "known enemy_001 project should use the numbered enemy filename convention");
     assert.ok(toolHtml.includes('enemy_010: "assets/ct_char_enemy_010.json"'), "known enemy_010 project should resolve to its character definition");
     assert.ok(toolHtml.includes('enemy_011: "assets/ct_char_enemy_011.json"'), "known enemy_011 project should resolve to its character definition");
+    assert.ok(toolHtml.includes('enemy_012: "assets/ct_char_enemy_012.json"'), "known enemy_012 project should resolve to its character definition");
     assert.ok(toolHtml.includes("state.rig = await loadJson(state.rigUrl)"), "character tool should load the referenced rig directly");
     assert.ok(!toolHtml.includes("rigPartOverrides") && !toolHtml.includes("rigPivotOverrides") && !toolHtml.includes("applyCharacterRigOverrides"), "character tool should not support character-level rig overrides");
     assert.ok(toolHtml.includes('id="apply-preview-alpha"'), "character tool should expose an animation-preview alpha toggle");
@@ -5358,10 +5492,10 @@ function testAutomaticLevelGeneratorRouteFoundation() {
     assert.deepEqual(firstValues, [secondStream.float(), secondStream.float(), secondStream.float()], "named random streams should reproduce exactly");
     assert.notDeepEqual(firstValues, [encounterStream.float(), encounterStream.float(), encounterStream.float()], "different generator stages should use independent named streams");
 
-    const enemyIds = ["enemy_001", "enemy_010", "enemy_011", "enemy_020"];
+    const enemyIds = ["enemy_001", "enemy_010", "enemy_011", "enemy_012", "enemy_020"];
     const selection = parseEnemySelection("1-20,!10,!19", enemyIds);
     assert.equal(selection.valid, true, "enemy range and exclusion syntax should parse");
-    assert.deepEqual(selection.resolvedIds, ["enemy_001", "enemy_011", "enemy_020"], "enemy selection should resolve only catalog entries and exclusions");
+    assert.deepEqual(selection.resolvedIds, ["enemy_001", "enemy_011", "enemy_012", "enemy_020"], "enemy selection should resolve only catalog entries and exclusions");
     assert.equal(parseEnemySelection("5-2", enemyIds).valid, false, "backwards enemy ranges should be rejected visibly");
 
     const settings = {
@@ -5380,7 +5514,7 @@ function testAutomaticLevelGeneratorRouteFoundation() {
     assert.equal(firstRun.validation.valid, true, "the selected route should pass validation");
     assert.ok(firstRun.validation.qualityScore >= 75, `the default Horizontal route should clear its visual-quality floor, got ${firstRun.validation.qualityScore}`);
     assert.ok(firstRun.attemptsTried >= 8 && firstRun.attempt >= 1, "the generator should evaluate deterministic candidates and record the selected attempt");
-    assert.deepEqual(firstRun.resolvedEnemyIds, ["enemy_001", "enemy_011", "enemy_020"], "generation provenance should store the resolved enemy filter");
+    assert.deepEqual(firstRun.resolvedEnemyIds, ["enemy_001", "enemy_011", "enemy_012", "enemy_020"], "generation provenance should store the resolved enemy filter");
 
     const route = firstRun.route;
     const exit = route.nodes.find((node) => node.id === route.exitNodeId);
@@ -7871,10 +8005,10 @@ function testRocketPowerUpArsenal() {
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 331<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 332<\/small>/, "the Level Editor should display the packaged revision");
     assert.ok(editorSource.includes("createWebGL2RendererBackend") && editorSource.includes("paintEditorFrameWebGL") && editorSource.includes("editorTransientOverlayCache"), "the Level Editor should prefer a WebGL2 compositor for cached static scenes and transient overlays");
     assert.ok(editorSource.includes("probeEditorWebGL2Support") && editorSource.includes("editorCanvas2D !== canvas"), "the Level Editor must probe on a disposable canvas and retain a true Canvas 2D fallback");
-    assert.match(bootstrapSource, /const GAME_REVISION = "331";/, "the game debug revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "332";/, "the game debug revision should match the packaged revision");
     assert.match(editorSource, /<button id="fit-content-view">Fit<\/button>/, "the Level Editor should expose one concise Fit button");
     assert.equal(editorSource.includes('id="fit-view"'), false, "the removed Fit World control should not remain in the Level Editor");
     assert.equal(editorSource.includes('id="fit-cave-view"'), false, "the removed Fit Cave control should not remain in the Level Editor");
@@ -8342,15 +8476,21 @@ function testNumberedEnemy001Assets() {
 
     const goblinFireballCharacter = JSON.parse(readFileSync("./assets/ct_char_enemy_010.json", "utf8"));
     const goblinMusketCharacter = JSON.parse(readFileSync("./assets/ct_char_enemy_011.json", "utf8"));
+    const goblinTriFireballCharacter = JSON.parse(readFileSync("./assets/ct_char_enemy_012.json", "utf8"));
     const goblinFireballRig = JSON.parse(readFileSync("./assets/ct_rig_enemy_010.json", "utf8"));
     const goblinMusketRig = JSON.parse(readFileSync("./assets/ct_rig_enemy_011.json", "utf8"));
+    const goblinTriFireballRig = JSON.parse(readFileSync("./assets/ct_rig_enemy_012.json", "utf8"));
     const goblinAtlas = JSON.parse(readFileSync("./assets/ct_atlas_enemy_010.json", "utf8"));
     assert.equal(goblinFireballCharacter.characterId, "ct_char_enemy_010", "fireball goblin character ID should follow numbered enemy convention");
     assert.equal(goblinMusketCharacter.characterId, "ct_char_enemy_011", "musket goblin character ID should follow numbered enemy convention");
+    assert.equal(goblinTriFireballCharacter.characterId, "ct_char_enemy_012", "tri-fireball goblin character ID should follow numbered enemy convention");
     assert.equal(goblinFireballCharacter.rig, "ct_rig_enemy_010.json", "Fireball Goblin should reference its dedicated rig");
     assert.equal(goblinMusketCharacter.rig, "ct_rig_enemy_011.json", "Musket Goblin should reference its dedicated rig");
+    assert.equal(goblinTriFireballCharacter.rig, "ct_rig_enemy_012.json", "Tri-fireball Goblin should reference its copied dedicated rig");
     assert.equal(goblinFireballRig.rigId, "ct_rig_enemy_010", "Fireball Goblin rig should use the numbered rig filename");
     assert.equal(goblinMusketRig.rigId, "ct_rig_enemy_011", "Musket Goblin rig should use the numbered rig filename");
+    assert.equal(goblinTriFireballRig.rigId, "ct_rig_enemy_012", "Tri-fireball Goblin rig should use the numbered rig filename");
+    assert.equal(goblinTriFireballRig.atlasId, "ct_atlas_enemy_010", "Tri-fireball Goblin should share the existing goblin atlas");
     assert.equal(goblinAtlas.atlasId, "ct_atlas_enemy_010", "shared goblin atlas should use the next numbered atlas filename");
     assert.ok(goblinAtlas.frames.fireball, "goblin atlas should include the fireball projectile frame");
     assert.ok(goblinAtlas.frames.cannonball, "goblin atlas should include the cannonball projectile frame");
@@ -8368,12 +8508,15 @@ function testNumberedEnemy001Assets() {
     assert.equal("rigPivotOverrides" in goblinMusketCharacter, false, "Musket Goblin character data should not contain pivot overrides");
     assert.equal(goblinFireballCharacter.projectilePart, "fireball", "Fireball Goblin should select the fireball projectile part");
     assert.equal(goblinMusketCharacter.projectilePart, "cannonball", "Musket Goblin should select the cannonball projectile part");
+    assert.equal(goblinTriFireballCharacter.projectilePart, "fireball", "Tri-fireball Goblin should select the copied fireball projectile part");
     assert.deepEqual(goblinFireballRig.drawOrder, ["leftArm", "leftArmClosed", "leftLeg", "rightLeg", "head", "torso", "weapon", "rightArm", "cannonball", "fireball"], "Fireball Goblin draw order should preserve the accepted user-authored depth order including previewable projectile parts");
-    assert.deepEqual(goblinMusketRig.drawOrder, goblinFireballRig.drawOrder, "both dedicated goblin rigs should preserve the accepted depth order");
+    assert.deepEqual(goblinMusketRig.drawOrder, goblinFireballRig.drawOrder, "both original dedicated goblin rigs should preserve the accepted depth order");
+    assert.deepEqual(goblinTriFireballRig.drawOrder, goblinFireballRig.drawOrder, "Tri-fireball Goblin should copy the Fireball Goblin depth order");
     assert.deepEqual(goblinFireballRig.pivots.rightArm, { x: 0.18, y: 0.31 }, "Enemy 010 right-arm pivot should remain authoritative in its rig file");
     assert.deepEqual(goblinMusketRig.pivots.rightArm, { x: 0.17, y: 0.29 }, "Enemy 011 right-arm pivot should remain authoritative in its rig file");
     assert.ok(goblinFireballRig.parts.leftArmClosed && goblinMusketRig.parts.leftArmClosed, "both goblin rigs should retain the alternate closed left arm as an independently animatable part");
     assert.equal(goblinFireballRig.parts.fireball.projectile.launchType, "homing_lo", "fireball rig part should be tagged as low-homing");
+    assert.equal(goblinTriFireballRig.parts.fireball.projectile.launchType, "straight", "Tri-fireball Goblin fireball handoff should be tagged as straight");
     approx(goblinFireballRig.parts.fireball.projectile.releaseTime, 0.372, 0.000001, "fireball rig part should carry an explicit release time");
     assert.equal(goblinMusketRig.parts.cannonball.projectile.launchType, "ballistic", "cannonball rig part should be tagged as ballistic");
     approx(goblinMusketRig.parts.cannonball.projectile.releaseTime, 0.49531814840382643, 0.000001, "cannonball rig part should carry an explicit release time");
@@ -11762,6 +11905,7 @@ const tests = [
     ["character enemy melee attack", testCharacterEnemyMeleeAttack],
     ["terrain shields player from enemy melee", testEnemyMeleeBlockedByTerrain],
     ["fireball goblin projectile attack", testFireballGoblinProjectileAttack],
+    ["tri-fireball goblin uses any clear volley trajectory", testTriFireballGoblinVolleyUsesAnyClearTrajectory],
     ["ranged enemies fire beyond preferred attack range", testRangedEnemiesFireBeyondPreferredAttackRange],
     ["ranged enemies require clear projectile lane", testRangedEnemiesRequireClearProjectileLane],
     ["ranged shot lane revalidated at release", testRangedShotLaneRevalidatedAtRelease],
