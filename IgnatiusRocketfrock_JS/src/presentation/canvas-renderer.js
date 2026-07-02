@@ -3456,6 +3456,16 @@ class RocketfrockRenderer {
         if (trailEnabled) {
             drew = this.drawEnemyFireballParticlesWebGL(projectile, state, view) || drew;
         }
+        const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_010", projectile.frameId || "fireball") ||
+            this.getCharacterAtlasFrame("ct_char_enemy_010", "fireball");
+        if (asset && !asset.missing) {
+            const targetHeight = Math.max(8, Number(projectile.radius) || 10) * 2 * view.zoom;
+            drew = this.queueWebGLAssetSprite(asset, p.x, p.y, targetHeight, angle) || drew;
+            return drew;
+        }
+
+        // Match the Canvas renderer: the circular glow is only a missing-art fallback.
+        // Drawing it behind the authored teardrop sprite rounds off the tail into a fuzzy orange bulb.
         const glowSprite = this.getWebGLParticleSpriteCanvas("softGlow");
         const fallbackRadius = Math.max(2, Number(projectile.radius) || 10) * view.zoom;
         if (glowSprite) {
@@ -3463,18 +3473,12 @@ class RocketfrockRenderer {
                 source: glowSprite,
                 centerX: p.x,
                 centerY: p.y,
-                width: fallbackRadius * 2.4,
-                height: fallbackRadius * 2.4,
+                width: fallbackRadius * 2,
+                height: fallbackRadius * 2,
                 tint: this.fireballHeatTint(0.72),
                 alpha: 0.78,
                 blendMode: "additive"
             }) || drew;
-        }
-        const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_010", projectile.frameId || "fireball") ||
-            this.getCharacterAtlasFrame("ct_char_enemy_010", "fireball");
-        if (asset && !asset.missing) {
-            const targetHeight = Math.max(8, Number(projectile.radius) || 10) * 2 * view.zoom;
-            drew = this.queueWebGLAssetSprite(asset, p.x, p.y, targetHeight, angle) || drew;
         }
         return drew;
     }

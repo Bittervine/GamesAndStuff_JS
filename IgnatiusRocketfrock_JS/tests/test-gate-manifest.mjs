@@ -83,6 +83,7 @@ export const TEST_SHARDS = Object.freeze({
             "goblin runtime character projects",
             "bat frame-swap projects and flying locomotion",
             "flying bomber drops projectile",
+            "bombing bat drops only with plausible clear hit",
             "flying bomber uses curved approach"
     ]),
     "game-2": Object.freeze([
@@ -129,6 +130,9 @@ export const TEST_SHARDS = Object.freeze({
             "character enemy melee attack",
             "terrain shields player from enemy melee",
             "fireball goblin projectile attack",
+            "ranged enemies fire beyond preferred attack range",
+            "ranged enemies require clear projectile lane",
+            "ranged shot lane revalidated at release",
             "musket goblin projectile attack",
             "player zero-health spark death animation",
             "player damage invulnerability",

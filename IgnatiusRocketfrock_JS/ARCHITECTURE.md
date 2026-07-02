@@ -1295,3 +1295,15 @@ Enemy catalogs are sparse-key maps rather than numeric arrays, so missing number
 Enemy catalog IDs are sparse keyed identifiers, not array positions. Revision 329 formalizes family ranges without changing catalog lookup semantics: skeleton variants occupy `001-009`, goblin variants occupy `010-019`, and bat variants occupy `020-029`. The active projects are `enemy_001`, `enemy_010`, `enemy_011`, and `enemy_020`. Selection expressions continue to resolve by the numeric suffix of actual catalog keys, so holes are valid and do not create placeholder enemies.
 
 A family migration must update the catalog ID, character ID, rig ID, animation IDs, atlas ID and image filename, explicit renderer preloads, editor project tables, generator special cases, level placements, numeric spawn filters, and tests as one atomic change. Revision 329 does this with no legacy aliases. The two goblins share `ct_atlas_enemy_010` while retaining separate `ct_rig_enemy_010` and `ct_rig_enemy_011` geometry.
+
+
+## Revision 330 ranged attack permission model
+
+For projectile attackers, authored `attackRange` and `preferredAttackRange` describe tactical positioning rather than a hard maximum firing distance. Actual fire permission is simulation-owned and requires a current `characterEnemyCanNoticePlayer` result, which enforces awareness range and facing cone, plus a projectile-specific reach and trajectory check. Awareness memory may sustain pursuit but cannot authorize a shot.
+
+`characterEnemyProjectilePathClearFromPoint` is the common trajectory validator. Straight and homing projectiles test lifetime and a swept direct lane; ballistic projectiles solve and sample their arc; dropped projectiles solve vertical flight time, projected horizontal landing position, lifetime, and the sampled fall path. Shot-planning probes include reactive obstacles even though ordinary projectile resolution handles those objects separately. The same validator runs at attack release so a wind-up cannot fire through newly intervening cover.
+
+
+## Revision 331 authored fireball ownership
+
+When an authored enemy-fireball atlas frame is available, that frame owns the projectile body in both rendering backends. The WebGL2 path may draw the simulation-owned emitted particles behind it, but it must not add a separate circular core glow beneath the atlas sprite. The procedural circular body is retained solely as a missing-art fallback, matching Canvas 2D and preserving the authored teardrop silhouette.

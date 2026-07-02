@@ -3296,3 +3296,19 @@ The enemy definition catalog, generator encounter catalog, renderer preload list
 The shared goblin artwork is now `ct_atlas_enemy_010`, used by `ct_rig_enemy_010` and `ct_rig_enemy_011`. The bat project is consistently numbered `020`. The previous live resource files are removed rather than duplicated. Historical planning notes retain their original identifiers where they describe earlier revisions.
 
 This revision is packaged as a full archive by explicit request, including PNG, ICO, XCF, and the other binary assets normally omitted from compact revision downloads.
+
+
+## Revision 330 opportunistic ranged attacks and shot validation
+
+Ranged enemies no longer treat `attackRange` as a hard permission boundary. It remains a preferred tactical distance for navigation and spacing, while a projectile attacker may begin its wind-up from any distance at which Ignatius is freshly inside the enemy's authored awareness range and facing cone. Hunters may interrupt an approach route to shoot, then resume pursuing their preferred position after the attack cycle.
+
+Every projectile attack now validates a plausible shot before wind-up and again at the authored release frame. Straight and homing shots require enough speed and lifetime to reach Ignatius and a clear swept lane through blocking solids, blockable segments, blocking polygons, and reactive obstacles. Ballistic shots solve and sample the actual arc. If Ignatius moves out of the awareness cone, behind cover, or beyond projectile reach during the wind-up, the enemy completes the animation without releasing a projectile.
+
+Bombing bats use a dedicated falling-rock prediction. The simulation solves the time to Ignatius's vertical centre, projects the rock's small inherited horizontal velocity, requires the projected landing lane to overlap Ignatius, checks projectile lifetime, and samples the downward trajectory for obstructions. Bats therefore keep approaching their bombing station but do not drop rocks while horizontally unable to hit or while a platform or other obstacle blocks the fall.
+
+
+## Revision 331 WebGL fireball silhouette parity
+
+Revision 331 removes the fuzzy orange circular bulb that the opt-in `?webgl=1` renderer drew underneath every authored goblin fireball. The Canvas renderer already used its radial fireball glow only when atlas artwork was missing, but the WebGL path always submitted both the circular soft-glow quad and the authored teardrop sprite. That extra additive circle rounded off the narrow rear of the projectile and visibly broke its silhouette.
+
+The direct WebGL fireball path now returns immediately after drawing the resident authored atlas sprite. Its circular soft glow remains available only as the same missing-art fallback used by Canvas. Live emitted trail particles remain unchanged. A renderer regression check verifies that the authored sprite is resolved before the fallback glow and that the fallback is not composited beneath normal fireballs.

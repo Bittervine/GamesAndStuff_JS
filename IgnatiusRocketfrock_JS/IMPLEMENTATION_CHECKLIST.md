@@ -3303,3 +3303,23 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Update renderer preloads, Puppet Forge, Level Editor, generator special cases, helper scripts, and tests.
 - [x] Remove the old live resource filenames instead of adding compatibility aliases.
 - [x] Package revision 329 as a full archive including normally excluded binary assets.
+
+
+## Revision 330 ranged attack opportunities
+
+- [x] Treat ranged `attackRange` as preferred positioning rather than a hard firing limit.
+- [x] Require a fresh awareness-range and facing-cone sighting for every ranged attack.
+- [x] Allow ranged hunters to interrupt an approach with a viable shot and resume pursuit afterward.
+- [x] Validate straight, homing, and ballistic projectile reach, lifetime, and obstacle clearance before wind-up.
+- [x] Revalidate the shot lane at the authored projectile release frame.
+- [x] Predict bombing-bat rock landing lanes and reject horizontally impossible drops.
+- [x] Reject bat drops blocked by platforms or other blocking geometry.
+- [x] Cover long-range firing, blocked shot lanes, and careful bombing drops with regression tests.
+
+
+## Revision 331 WebGL fireball shape
+
+- [x] Remove the unconditional circular soft glow from authored WebGL fireballs.
+- [x] Retain emitted fireball trail particles and the circular missing-art fallback.
+- [x] Keep the Canvas 2D renderer unchanged.
+- [x] Add regression coverage for authored-sprite precedence over the fallback glow.

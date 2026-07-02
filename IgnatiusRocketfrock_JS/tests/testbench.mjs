@@ -2685,7 +2685,9 @@ function testHunterWalksAcrossSlopedBlockableArchAndDrops() {
     enemy.alerted = true;
     enemy.aiState = "pursue";
     enemy.routeRepathTimer = 0;
-    enemy.attackCooldownTimer = 0;
+    // This regression isolates sloped-support traversal. Ranged hunters can now
+    // interrupt an approach with a valid long-range shot, so hold fire here.
+    enemy.attackCooldownTimer = 99;
 
     stepSimulation(state, createInputFrame(), FIXED_DT);
     assert.equal(enemy.currentSupportId, "arch_ruin_001_blockable_5", "the goblin should identify the downward-sloping arch support under its feet");
@@ -6975,6 +6977,12 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     assert.ok(maskSource.includes("gradientVertices") && maskSource.includes("exteriorStencilVertices"), "cave-window data should compile into resident gradient and odd-even exterior meshes");
     assert.ok(rendererSource.includes("drawPlayerRocketsWebGL") && rendererSource.includes("drawProjectileRocketWebGL") && rendererSource.includes("rocketFlame"), "player rocket bodies and flame treatment should also have a direct WebGL2 pass when the GPU backend is active");
     assert.ok(rendererSource.includes("Do not add a separate large soft-glow core at the newest trail sample") && !rendererSource.includes("width: 40 * view.zoom"), "the direct WebGL rocket trail must not add a large sample-snapped orange beacon behind the nozzle flame");
+    const fireballWebGLSource = rendererSource.slice(
+        rendererSource.indexOf("drawProjectileFireballWebGL(projectile, state, view)"),
+        rendererSource.indexOf("drawProjectileMusketBallWebGL(projectile, state, view)")
+    );
+    assert.ok(fireballWebGLSource.includes("the circular glow is only a missing-art fallback"), "the WebGL fireball must keep its circular glow limited to missing-art fallback rendering");
+    assert.ok(fireballWebGLSource.indexOf("const asset =") < fireballWebGLSource.indexOf('getWebGLParticleSpriteCanvas("softGlow")'), "the authored fireball sprite should return before any circular fallback glow is considered");
     assert.ok(rendererSource.includes("hitFlashCanvas") && rendererSource.includes("overlayTintCanvasKey"), "WebGL character rendering should preserve player and enemy hit-flash overlays");
     assert.ok(rendererSource.includes("drawTargetsWebGL") && rendererSource.includes("drawPickupsWebGL") && rendererSource.includes("drawEnemiesWebGL") && rendererSource.includes("drawPlayerWebGL"), "targets, pickups, enemies, and the player rig should use direct WebGL2 presentation paths where practical");
     assert.ok(rendererSource.includes("drawScorePopupsWebGL") && rendererSource.includes("drawPortalIntroGlowWebGL") && rendererSource.includes("getWebGLTextSpriteCanvas"), "score popups and portal glow should use cached direct WebGL2 sprite paths");
@@ -7863,10 +7871,10 @@ function testRocketPowerUpArsenal() {
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 329<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 331<\/small>/, "the Level Editor should display the packaged revision");
     assert.ok(editorSource.includes("createWebGL2RendererBackend") && editorSource.includes("paintEditorFrameWebGL") && editorSource.includes("editorTransientOverlayCache"), "the Level Editor should prefer a WebGL2 compositor for cached static scenes and transient overlays");
     assert.ok(editorSource.includes("probeEditorWebGL2Support") && editorSource.includes("editorCanvas2D !== canvas"), "the Level Editor must probe on a disposable canvas and retain a true Canvas 2D fallback");
-    assert.match(bootstrapSource, /const GAME_REVISION = "329";/, "the game debug revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "331";/, "the game debug revision should match the packaged revision");
     assert.match(editorSource, /<button id="fit-content-view">Fit<\/button>/, "the Level Editor should expose one concise Fit button");
     assert.equal(editorSource.includes('id="fit-view"'), false, "the removed Fit World control should not remain in the Level Editor");
     assert.equal(editorSource.includes('id="fit-cave-view"'), false, "the removed Fit Cave control should not remain in the Level Editor");
@@ -11387,6 +11395,258 @@ function testRocketProjectileRendererExists() {
     assert.match(rendererSource, /this\.drawProjectileRocket\(projectile, state, view\)/);
 }
 
+
+function testRangedEnemiesFireBeyondPreferredAttackRange() {
+    const state = createInitialGameState();
+    applyEditorLevelToWorld(state, {
+        levelId: "long_range_projectile_test",
+        testPlayerStart: { x: 0, y: 600 },
+        bounds: { x: -200, y: 0, w: 1400, h: 800 },
+        entities: [{
+            id: "long_range_fireball_goblin",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_010",
+            x: 700,
+            y: 600,
+            w: 72,
+            h: 148,
+            facing: -1,
+            strategy: "sentry",
+            attackMode: "projectile",
+            attackRange: 120,
+            attackVerticalRange: 80,
+            attackDuration: 0.3,
+            attackHitTime: 0.08,
+            projectileCooldown: 0.6,
+            projectileKind: "fireball",
+            projectileLaunchType: "homing_lo",
+            projectileSpeed: 320,
+            projectileLifetime: 3.5,
+            projectileRadius: 12,
+            projectileDamage: 8,
+            preferredAttackRange: 220,
+            preferredAttackMinRange: 70,
+            awarenessRange: 900,
+            awarenessViewHalfAngle: 70
+        }]
+    });
+    state.world.solids = [];
+    state.world.segments = [{ id: "floor", kind: "walkable", x1: -200, y1: 600, x2: 1200, y2: 600 }];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 0;
+    state.player.y = 600;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+
+    const enemy = state.enemies.find((item) => item.id === "long_range_fireball_goblin");
+    const startX = enemy.x;
+    stepMany(state, 24);
+    assert.ok(
+        state.debug.lastEvents.some((event) => event.type === "ENEMY_ATTACK_STARTED" && event.enemyId === enemy.id),
+        "a ranged enemy should begin winding up while Ignatius is visible even beyond its authored attackRange"
+    );
+    assert.ok(
+        state.projectiles.some((projectile) => projectile.enemyId === enemy.id),
+        "a long-range enemy shot should be released when its lifetime and clear trajectory can reach Ignatius"
+    );
+    assert.ok(Math.abs(startX - state.player.x) > enemy.attackRange * 4, "the regression setup should remain far beyond the old hard attack range");
+    assert.ok(Math.abs(enemy.x - state.player.x) > enemy.attackRange * 3, "the ranged shot should happen while the enemy is still far outside the old hard attack range");
+}
+
+function testRangedEnemiesRequireClearProjectileLane() {
+    const state = createInitialGameState();
+    applyEditorLevelToWorld(state, {
+        levelId: "blocked_projectile_lane_test",
+        testPlayerStart: { x: 0, y: 600 },
+        bounds: { x: -200, y: 0, w: 1200, h: 800 },
+        entities: [{
+            id: "covered_fireball_goblin",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_010",
+            x: 620,
+            y: 600,
+            w: 72,
+            h: 148,
+            facing: -1,
+            strategy: "sentry",
+            attackMode: "projectile",
+            attackRange: 120,
+            attackDuration: 0.3,
+            attackHitTime: 0.08,
+            projectileCooldown: 0.5,
+            projectileKind: "fireball",
+            projectileLaunchType: "homing_lo",
+            projectileSpeed: 320,
+            projectileLifetime: 3.5,
+            projectileRadius: 12,
+            projectileDamage: 8,
+            preferredAttackRange: 220,
+            preferredAttackMinRange: 70,
+            awarenessRange: 900,
+            awarenessViewHalfAngle: 80
+        }]
+    });
+    state.world.solids = [{ id: "shot_blocking_wall", kind: "wall", x: 280, y: 300, w: 48, h: 300 }];
+    state.world.segments = [{ id: "floor", kind: "walkable", x1: -200, y1: 600, x2: 1000, y2: 600 }];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 0;
+    state.player.y = 600;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+
+    const enemy = state.enemies.find((item) => item.id === "covered_fireball_goblin");
+    stepMany(state, 90);
+    assert.equal(
+        state.projectiles.some((projectile) => projectile.enemyId === enemy.id),
+        false,
+        "a ranged enemy should not fire when solid scenery blocks the projectile lane"
+    );
+    assert.equal(
+        state.debug.lastEvents.some((event) => event.type === "ENEMY_ATTACK_STARTED" && event.enemyId === enemy.id),
+        false,
+        "blocked scenery should prevent wasteful ranged wind-ups rather than merely swallowing the projectile"
+    );
+
+    state.world.solids = [];
+    stepMany(state, 45);
+    assert.ok(
+        state.projectiles.some((projectile) => projectile.enemyId === enemy.id),
+        "the same enemy should fire after the obstacle is removed and the shot lane opens"
+    );
+}
+
+
+function testRangedShotLaneRevalidatedAtRelease() {
+    const state = createInitialGameState();
+    applyEditorLevelToWorld(state, {
+        levelId: "ranged_release_revalidation_test",
+        testPlayerStart: { x: 0, y: 600 },
+        bounds: { x: -200, y: 0, w: 900, h: 800 },
+        entities: [{
+            id: "careful_release_goblin",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_010",
+            x: 260,
+            y: 600,
+            w: 72,
+            h: 148,
+            facing: -1,
+            strategy: "sentry",
+            attackMode: "projectile",
+            attackRange: 100,
+            attackDuration: 0.6,
+            attackHitTime: 0.4,
+            projectileCooldown: 0.6,
+            projectileKind: "fireball",
+            projectileLaunchType: "homing_lo",
+            projectileSpeed: 300,
+            projectileLifetime: 3,
+            projectileRadius: 12,
+            projectileDamage: 8,
+            preferredAttackRange: 200,
+            preferredAttackMinRange: 60,
+            awarenessRange: 700,
+            awarenessViewHalfAngle: 70
+        }]
+    });
+    state.world.solids = [];
+    state.world.segments = [{ id: "floor", kind: "walkable", x1: -200, y1: 600, x2: 700, y2: 600 }];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 0;
+    state.player.y = 600;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+
+    const enemy = state.enemies.find((item) => item.id === "careful_release_goblin");
+    stepMany(state, 3);
+    assert.equal(enemy.combatState, "attacking", "the enemy should begin a valid long-range wind-up before cover appears");
+    assert.equal(state.projectiles.length, 0, "the projectile should remain animation-owned before release");
+
+    state.world.solids = [{ id: "late_cover", kind: "wall", x: 110, y: 300, w: 36, h: 300 }];
+    stepMany(state, 30);
+    assert.equal(state.projectiles.length, 0, "new cover appearing during the wind-up should cancel the projectile release");
+    assert.ok(
+        state.debug.lastEvents.some((event) => event.type === "ENEMY_ATTACK_MISSED" && event.enemyId === enemy.id && event.reason === "noClearProjectileShot"),
+        "a cancelled release should emit a deterministic no-clear-shot diagnostic"
+    );
+}
+
+function testBombingBatDropsOnlyWithPlausibleClearHit() {
+    const state = createInitialGameState();
+    applyEditorLevelToWorld(state, {
+        levelId: "bomber_clear_drop_test",
+        testPlayerStart: { x: 500, y: 620 },
+        bounds: { x: 0, y: 0, w: 1000, h: 800 },
+        entities: [{
+            id: "careful_bomber",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_020",
+            x: 300,
+            y: 440,
+            w: 84,
+            h: 66,
+            facing: 1,
+            locomotion: "flying",
+            strategy: "bomber",
+            bomberHorizontalSpeed: 0,
+            bomberHoverHeight: 180,
+            bomberDropTolerance: 300,
+            bomberDropHeightTolerance: 50,
+            bomberInitialDelay: 0,
+            awarenessRange: 900,
+            awarenessViewHalfAngle: 180,
+            projectileLaunchType: "drop",
+            projectileKind: "rock",
+            projectileSpeed: 35,
+            projectileGravity: 900,
+            projectileCooldown: 0.4,
+            projectileLifetime: 4,
+            projectileDamage: 12,
+            projectileRadius: 30,
+            health: 1,
+            animationSlot: "fly"
+        }]
+    });
+    state.world.solids = [
+        { id: "drop_blocking_roof", kind: "wall", x: 240, y: 500, w: 120, h: 8 }
+    ];
+    state.world.segments = [{ id: "floor", kind: "walkable", x1: 0, y1: 620, x2: 1000, y2: 620 }];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 500;
+    state.player.y = 620;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+
+    stepMany(state, 45);
+    assert.equal(state.projectiles.length, 0, "a bat should not drop a nearly vertical rock when Ignatius is far outside its landing lane");
+
+    state.player.x = 300;
+    stepMany(state, 45);
+    assert.equal(state.projectiles.length, 0, "a bat should not drop through a platform or other solid obstacle between it and Ignatius");
+
+    state.world.solids = state.world.solids.filter((solid) => solid.id !== "drop_blocking_roof");
+    state.player.x = 300;
+    state.player.y = 620;
+    state.player.vx = 0;
+    state.player.vy = 0;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    stepMany(state, 45);
+    assert.ok(state.projectiles.some((projectile) => projectile.enemyId === "careful_bomber"), "an aligned bat should drop once its vertical trajectory is clear");
+}
+
 const tests = [
     ["source organization and architecture map", testSourceOrganization],
     ["level editor dense stress fixture", testLevelEditorStressFixture],
@@ -11456,6 +11716,7 @@ const tests = [
     ["goblin runtime character projects", testGoblinRuntimeCharacterProjects],
     ["bat frame-swap projects and flying locomotion", testBatFrameSwapProjectsAndFlight],
     ["flying bomber drops projectile", testFlyingBomberDropsProjectile],
+    ["bombing bat drops only with plausible clear hit", testBombingBatDropsOnlyWithPlausibleClearHit],
     ["flying bomber uses curved approach", testFlyingBomberUsesCurvedApproach],
     ["flying bomber leaves perch platform", testFlyingBomberCanLeavePerchPlatform],
     ["flying bomber notices wizard below and ahead", testFlyingBomberNoticesWizardBelowAndAhead],
@@ -11501,6 +11762,9 @@ const tests = [
     ["character enemy melee attack", testCharacterEnemyMeleeAttack],
     ["terrain shields player from enemy melee", testEnemyMeleeBlockedByTerrain],
     ["fireball goblin projectile attack", testFireballGoblinProjectileAttack],
+    ["ranged enemies fire beyond preferred attack range", testRangedEnemiesFireBeyondPreferredAttackRange],
+    ["ranged enemies require clear projectile lane", testRangedEnemiesRequireClearProjectileLane],
+    ["ranged shot lane revalidated at release", testRangedShotLaneRevalidatedAtRelease],
     ["musket goblin projectile attack", testMusketGoblinProjectileAttack],
     ["player zero-health spark death animation", testPlayerDeathSparkAnimationAtZeroHealth],
     ["player damage invulnerability", testPlayerDamageInvulnerability],

@@ -198,7 +198,7 @@ For visual validation, use a real browser configuration with WebGL2 enabled. Som
 
 ## Revision 324 WebGL effect and cave-mask validation
 
-Open `game.html?webgl=1` and first confirm that the debug panel says `render:webgl2-resident`; a browser that silently falls back to Canvas is not a valid GPU test. Fire a player rocket along a curved route and verify that the smoky, sparkling path and nozzle flame remain visible, with no large fuzzy orange circle snapping between the newest trail samples near the rocket. Detonate both a player rocket and an enemy fireball, then destroy a reactive crate or barrier. The explosion cores, rings or sparks, impact puffs, goblin-fireball trail, and destruction smoke should all be visible.
+Open `game.html?webgl=1` and first confirm that the debug panel says `render:webgl2-resident`; a browser that silently falls back to Canvas is not a valid GPU test. Fire a player rocket along a curved route and verify that the smoky, sparkling path and nozzle flame remain visible, with no large fuzzy orange circle snapping between the newest trail samples near the rocket. Inspect a goblin fireball in both renderer modes: its authored teardrop body should retain the same narrow rear silhouette in WebGL and Canvas, without a circular orange bulb underneath it. Detonate both a player rocket and an enemy fireball, then destroy a reactive crate or barrier. The explosion cores, rings or sparks, impact puffs, goblin-fireball trail, and destruction smoke should all be visible.
 
 On a warmed ordinary frame, the GPU diagnostics should normally read `uploads:0 updates:0 layers:0`. Camera movement should no longer increment `updates`, because the cave opening and feather are resident geometry and the exterior is generated with the stencil buffer. A nonzero `layers` count remains legitimate for mailbox/story presentation, debug or puppet guides, collision-only fallback scenery, or an unsupported residual visual.
 
@@ -219,3 +219,10 @@ These controls deliberately do not modify `ct_enemies_001.json`, level JSON, or 
 The current enemy namespace is grouped by creature family. Skeleton variants use `enemy_001` through `enemy_009`, goblins use `enemy_010` through `enemy_019`, and bats use `enemy_020` through `enemy_029`. The active entries are Skeleton Guard `enemy_001`, Fireball Goblin `enemy_010`, Musket Goblin `enemy_011`, and Bombing Bat `enemy_020`.
 
 The goblins share `ct_atlas_enemy_010.png` but use separate character, rig, and animation stems for `010` and `011`. Bombing Bat uses the `020` stem throughout. Numeric enemy-pool fields refer to these suffixes, so use `10,11` for both ordinary goblins and `20` for the bombing bat. Gaps are valid because catalogs enumerate actual entries. Do not add aliases for the retired live identifiers; update all bundled levels and tools together when a future family migration is intentional.
+
+
+## Ranged attack validation
+
+Ranged enemies may start attacks well outside their authored `attackRange`; that value now guides preferred approach spacing. They still require Ignatius to be inside the current awareness range and facing cone. A remembered last-seen position keeps pursuit alive but never permits firing by itself.
+
+When testing ranged enemies, place solid cover between the enemy and Ignatius and verify that no wind-up begins. Remove the cover and verify that the enemy may attack immediately even from long range, provided the projectile can reach within its lifetime. Move behind cover or out of the awareness cone during the wind-up and verify that no projectile is released. Bombing bats should only drop when their predicted falling-rock lane overlaps Ignatius and no platform or blocking geometry interrupts the descent.

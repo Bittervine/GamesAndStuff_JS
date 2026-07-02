@@ -3997,11 +3997,16 @@ function characterEnemyCanUseProjectile(state, enemy) {
     if (!playerIsAvailableCombatTarget(state)) {
         return false;
     }
+    // Alert memory may keep a ranged enemy pursuing after Ignatius leaves view, but
+    // firing requires a fresh sighting inside the authored awareness range and cone.
+    if (!characterEnemyCanNoticePlayer(state, enemy)) {
+        return false;
+    }
     const horizontalDistance = Math.abs(player.x - enemy.x);
     if (horizontalDistance < Math.max(0, Number(enemy.preferredAttackMinRange) || 0)) {
         return false;
     }
-    return characterEnemyCanAttackFromPoint(state, enemy, { x: enemy.x, y: enemy.y });
+    return characterEnemyProjectilePathClearFromPoint(state, enemy, { x: enemy.x, y: enemy.y });
 }
 
 function enemyProjectileSpawnPointAt(enemy, x, y, facing = enemy.facing) {
@@ -4072,17 +4077,63 @@ function solveCharacterEnemyBallisticVelocity(enemy, origin, target, tuning = DE
 function characterEnemyProjectilePathClearFromPoint(state, enemy, point) {
     const player = state.player;
     const facing = player.x < point.x ? -1 : 1;
-    const origin = enemyProjectileSpawnPointAt(enemy, point.x, point.y, facing);
+    const launchType = String(enemy.projectileLaunchType || (enemy.projectileKind === "musketBall" ? "ballistic" : "homing_lo"));
+    const origin = launchType === "drop"
+        ? {
+            x: point.x,
+            y: point.y + Math.max(4, enemy.height * 0.48)
+        }
+        : enemyProjectileSpawnPointAt(enemy, point.x, point.y, facing);
     const target = {
         x: player.x,
         y: player.y - player.height * 0.56
     };
     const radius = Math.max(1, Number(enemy.projectileRadius) || 1);
-    const launchType = String(enemy.projectileLaunchType || (enemy.projectileKind === "musketBall" ? "ballistic" : "homing_lo"));
+    const lifetime = Math.max(FIXED_DT, Number(enemy.projectileLifetime) || 1);
+
+    if (launchType === "drop") {
+        const gravity = Math.max(1, Number(enemy.projectileGravity) || 900);
+        const initialVy = characterEnemyProjectileSpeed(enemy, state.tuning);
+        const verticalDistance = target.y - origin.y;
+        if (verticalDistance <= 0) {
+            return false;
+        }
+        const discriminant = initialVy * initialVy + 2 * gravity * verticalDistance;
+        const flightTime = (-initialVy + Math.sqrt(Math.max(0, discriminant))) / gravity;
+        if (!Number.isFinite(flightTime) || flightTime <= 0 || flightTime > lifetime) {
+            return false;
+        }
+        const initialVx = finiteNumberOr(enemy.velocityX, 0) * 0.18;
+        const impactX = origin.x + initialVx * flightTime;
+        const hitAllowance = Math.max(4, player.width * 0.5 + radius);
+        if (Math.abs(impactX - player.x) > hitAllowance) {
+            return false;
+        }
+        const sampleCount = Math.max(8, Math.min(80, Math.ceil(verticalDistance / 18)));
+        let previous = origin;
+        for (let index = 1; index <= sampleCount; index += 1) {
+            const time = flightTime * index / sampleCount;
+            const next = {
+                x: origin.x + initialVx * time,
+                y: origin.y + initialVy * time + 0.5 * gravity * time * time,
+                radius
+            };
+            if (findProjectileTerrainImpact(state, next, previous.x, previous.y, { includeReactiveObjects: true })) {
+                return false;
+            }
+            previous = next;
+        }
+        return true;
+    }
 
     if (launchType !== "ballistic") {
+        const speed = characterEnemyProjectileSpeed(enemy, state.tuning);
+        const distance = Math.hypot(target.x - origin.x, target.y - origin.y);
+        if (distance / Math.max(1, speed) > lifetime) {
+            return false;
+        }
         const probe = { x: target.x, y: target.y, radius };
-        return !findProjectileTerrainImpact(state, probe, origin.x, origin.y);
+        return !findProjectileTerrainImpact(state, probe, origin.x, origin.y, { includeReactiveObjects: true });
     }
 
     const ballistic = solveCharacterEnemyBallisticVelocity(enemy, origin, target, state.tuning);
@@ -4090,7 +4141,7 @@ function characterEnemyProjectilePathClearFromPoint(state, enemy, point) {
         return false;
     }
     const flightTime = (target.x - origin.x) / ballistic.x;
-    if (!Number.isFinite(flightTime) || flightTime <= 0) {
+    if (!Number.isFinite(flightTime) || flightTime <= 0 || flightTime > lifetime) {
         return false;
     }
     const sampleCount = Math.max(8, Math.min(80, Math.ceil(Math.abs(target.x - origin.x) / 18)));
@@ -4102,7 +4153,7 @@ function characterEnemyProjectilePathClearFromPoint(state, enemy, point) {
             y: origin.y + ballistic.y * time + 0.5 * ballistic.gravity * time * time,
             radius
         };
-        if (findProjectileTerrainImpact(state, next, previous.x, previous.y)) {
+        if (findProjectileTerrainImpact(state, next, previous.x, previous.y, { includeReactiveObjects: true })) {
             return false;
         }
         previous = next;
@@ -4422,7 +4473,9 @@ function updateCharacterEnemyAttack(state, enemy, dt) {
     if (!enemy.attackHitApplied && previousElapsed <= hitTime && elapsed >= hitTime) {
         enemy.attackHitApplied = true;
         if (enemy.attackMode === "projectile") {
-            const projectile = launchCharacterEnemyProjectile(state, enemy);
+            const projectile = characterEnemyCanUseProjectile(state, enemy)
+                ? launchCharacterEnemyProjectile(state, enemy)
+                : null;
             if (projectile) {
                 addEvent(state, "ENEMY_PROJECTILE_FIRED", {
                     enemyId: enemy.id,
@@ -4434,7 +4487,7 @@ function updateCharacterEnemyAttack(state, enemy, dt) {
                     y: round(projectile.y)
                 });
             } else {
-                addEvent(state, "ENEMY_ATTACK_MISSED", { enemyId: enemy.id, reason: "projectileLaunchFailed" });
+                addEvent(state, "ENEMY_ATTACK_MISSED", { enemyId: enemy.id, reason: "noClearProjectileShot" });
             }
         } else if (characterEnemyCanReachPlayer(state, enemy)) {
             const result = damagePlayer(state, enemy.attackDamage, enemy.id, {
@@ -4999,6 +5052,16 @@ function updateCharacterEnemyLocalGroundPursuit(state, enemy, dt) {
 
 function characterEnemyCanAttackFromPoint(state, enemy, point) {
     const horizontalDistance = Math.abs(state.player.x - point.x);
+    if (enemy.attackMode === "projectile") {
+        const minimumRange = Math.max(0, Number(enemy.preferredAttackMinRange) || 0);
+        if (horizontalDistance < minimumRange * 0.72) {
+            return false;
+        }
+        // Ranged attackRange is a preferred-position hint, not a hard firing limit.
+        // Actual firing is constrained by awareness, projectile lifetime, trajectory,
+        // and terrain clearance.
+        return characterEnemyProjectilePathClearFromPoint(state, enemy, point);
+    }
     const enemyCenterY = point.y - enemy.height * 0.55;
     const playerCenterY = state.player.y - state.player.height * 0.5;
     if (Math.abs(playerCenterY - enemyCenterY) > Math.max(1, Number(enemy.attackVerticalRange) || 1)) {
@@ -5006,13 +5069,6 @@ function characterEnemyCanAttackFromPoint(state, enemy, point) {
     }
     if (horizontalDistance > Math.max(1, Number(enemy.attackRange) || 1)) {
         return false;
-    }
-    if (enemy.attackMode === "projectile") {
-        const minimumRange = Math.max(0, Number(enemy.preferredAttackMinRange) || 0);
-        if (horizontalDistance < minimumRange * 0.72) {
-            return false;
-        }
-        return characterEnemyProjectilePathClearFromPoint(state, enemy, point);
     }
     return !characterEnemyAttackBlockedFromPoint(state, enemy, point.x, point.y);
 }
@@ -5030,8 +5086,12 @@ function characterEnemyAttackCandidateXs(enemy, support, playerX, preferredRange
 
     const attackRange = Math.max(1, Number(enemy.attackRange) || 1);
     const minimumRange = Math.max(0, Number(enemy.preferredAttackMinRange) || 0);
-    const windowMin = Math.max(supportMin, playerX - attackRange);
-    const windowMax = Math.min(supportMax, playerX + attackRange);
+    const windowMin = enemy.attackMode === "projectile"
+        ? supportMin
+        : Math.max(supportMin, playerX - attackRange);
+    const windowMax = enemy.attackMode === "projectile"
+        ? supportMax
+        : Math.min(supportMax, playerX + attackRange);
     if (windowMax < windowMin) {
         return [];
     }
@@ -6118,7 +6178,8 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
         enemy.routeRepathTimer = Math.max(0, (Number(enemy.routeRepathTimer) || 0) - dt);
         const currentSupportId = navigation.current?.support?.id || null;
         const reachedPlannedSupport = !enemy.routeTargetSupportId || enemy.routeTargetSupportId === currentSupportId;
-        if (seesPlayer && enemy.attackCooldownTimer <= 0 && reachedPlannedSupport) {
+        const mayInterruptApproachToFire = enemy.attackMode === "projectile" || reachedPlannedSupport;
+        if (seesPlayer && enemy.attackCooldownTimer <= 0 && mayInterruptApproachToFire) {
             const canAttack = characterEnemyReadyToAttackFromCurrentPosition(state, enemy);
             if (canAttack) {
                 startCharacterEnemyAttack(state, enemy);
@@ -6343,9 +6404,10 @@ function updateFlyingCharacterEnemy(state, enemy, dt) {
             const nearBombingHeight = Math.abs(enemy.y - targetY) <= dropHeightTolerance;
             const verticallyAbove = enemy.y < playerY - 24;
             const dropDx = targetX - enemy.x;
-            if (Math.abs(dropDx) <= tolerance && nearBombingHeight && verticallyAbove && enemy.bomberDropTimer <= 0) {
-                enemy.projectileLaunchType = "drop";
-                enemy.attackMode = "projectile";
+            enemy.projectileLaunchType = "drop";
+            enemy.attackMode = "projectile";
+            const clearDrop = seesPlayer && characterEnemyProjectilePathClearFromPoint(state, enemy, { x: enemy.x, y: enemy.y });
+            if (Math.abs(dropDx) <= tolerance && nearBombingHeight && verticallyAbove && enemy.bomberDropTimer <= 0 && clearDrop) {
                 const projectile = launchCharacterEnemyProjectile(state, enemy);
                 if (projectile) {
                     addEvent(state, "ENEMY_PROJECTILE_FIRED", {
@@ -8392,7 +8454,7 @@ function applyProjectileDamageToEnemy(state, projectile, enemy) {
     };
 }
 
-function findProjectileTerrainImpact(state, projectile, previousX, previousY) {
+function findProjectileTerrainImpact(state, projectile, previousX, previousY, options = {}) {
     const start = { x: previousX, y: previousY };
     const end = { x: projectile.x, y: projectile.y };
     const radius = Math.max(0, projectile.radius || 0);
@@ -8413,7 +8475,7 @@ function findProjectileTerrainImpact(state, projectile, previousX, previousY) {
     }
 
     for (const solid of queryWorldSolids(state.world, terrainQueryBounds)) {
-        if (solid.reactiveObjectId) continue;
+        if (solid.reactiveObjectId && options.includeReactiveObjects !== true) continue;
         const hit = sweptCircleRectImpact(start, end, radius, solid);
         if (hit) {
             record({
