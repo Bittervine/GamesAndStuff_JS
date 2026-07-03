@@ -64,3 +64,12 @@ The Level Editor remains an approved direct-Canvas owner because its grid, colli
 ## Revision 358 Editor 2 scaffold note
 
 `src/tools/level-editor-2.js` is an approved development-only direct Canvas owner. It renders the shared production scene through `src/presentation/canvas-renderer.js`; its five direct calls are limited to the structural comparison layers that clear or draw the same simple grid on either a transparent overlay or the scene canvas. The scaffold owns no authoritative level data, atlas renderer, character renderer, or gameplay presentation path. Its direct Canvas use exists specifically to identify the browser/GPU boundary before full editor functionality is migrated.
+
+## Revision 363 Canvas context ownership note
+
+Delegating the Level Editor scene to `canvas-renderer.js` also delegates the target context transform. The renderer consumes backing-pixel coordinates and now resets its Canvas2D context to identity at the frame boundary. The editor-owned transparent guide canvas retains its own CSS-to-backing transform. This does not add a Canvas owner; it clarifies the contract between the existing presentation owner and the editor overlay owner and prevents fractional-DPR double scaling.
+
+
+## Revision 364 mobile presentation boundary
+
+Both production backends remain compositor-synchronized. `canvas-renderer.js` requests `desynchronized: false` for its Canvas2D surface, and `webgl2-renderer.js` uses the same conservative setting for support probing and the live WebGL2 context. The game shell, rather than viewport-unit CSS on the canvas itself, owns visible sizing. Transient zero-sized client measurements must not reset either visible backing store.

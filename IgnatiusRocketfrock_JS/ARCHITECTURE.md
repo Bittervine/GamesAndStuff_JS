@@ -1442,3 +1442,22 @@ The Level Editor must not retain a complete serialized level inside an editable 
 The Level Editor has no separate Export panel. Its Level panel owns JSON download and browser-copy save/load actions; `serializeLevelJson()` is invoked only by explicit operations and runtime handoffs.
 
 Static tools use `setViewOverride({ x, y, cssZoom })` on the production Canvas renderer. `cssZoom` is converted to backing-space zoom from the renderer's measured `backingWidth / clientWidth`, making the rendered world and CSS-space editor overlay share one camera scale across fractional DPR and browser zoom. Cave parallax remains restricted to cave-window geometry and visuals whose layer is `caveForeground`.
+
+## Revision 362 Level data action layout and active editor render path
+
+`level-editor.html` groups level actions into two explicit boundaries. The shipped-level selector and **Load** action form **Existing Level**. New/import/export and browser-copy persistence form **Level data**. The import file control is hidden behind the dedicated button so native filename chrome does not consume panel width.
+
+The editor base scene is still rendered directly by `src/presentation/canvas-renderer.js` with `preferWebGL2: false` and `setViewOverride`. No editor-owned screen/world tile cache or pan bitmap is active. Keep ordinary renderer resource caches, spatial indexes, colour-map canvases, cave-mask caches, and treated foreground frames distinct from the retired level-tile architecture: they avoid rebuilding reusable source/effect data but do not substitute a tiled image of the viewport while panning.
+
+## Revision 363 Canvas embedding transform contract
+
+The production Canvas renderer owns the complete transform of its target context. Its draw coordinates are backing pixels, including the CSS-zoom-to-backing conversion performed by `computeView()`. Embedding tools may size the canvas backing store, but they must not leave a DPR, CSS, camera, or other transform active on the renderer's 2D context. `renderCanvas2D()` defensively restores identity, normal alpha, source-over composition, and no filter before clearing and drawing.
+
+The Level Editor therefore has asymmetric context ownership: `#stage` stays at identity for `src/presentation/canvas-renderer.js`, while `#stage-overlay` uses its exact backing-width/CSS-width and backing-height/CSS-height transform for editor guides expressed in CSS pixels. This is intentional. Applying the overlay transform to `#stage` double-scales artwork on fractional-DPR displays and causes alignment error that grows away from the upper-left origin.
+
+
+## Revision 364 synchronized mobile canvas presentation
+
+The visible production canvas must use ordinary compositor-synchronized presentation. Do not enable the Canvas or WebGL `desynchronized` context hint for the game surface without a new physical-device validation pass. On affected Android Chromium/driver combinations, low-latency presentation can reveal a Canvas2D buffer while it is incomplete or a WebGL drawing buffer after it has been discarded, appearing respectively as white garbage or black flashes.
+
+`#game-shell` is the viewport owner. `#stage` fills that fixed shell with percentage sizing instead of independently resolving viewport units. `RocketfrockRenderer.resize()` may update backing dimensions only from a usable CSS client box; a transient measurement below two CSS pixels retains the last valid dimensions so browser chrome and fullscreen transitions cannot clear the visible backing store to 1×1.

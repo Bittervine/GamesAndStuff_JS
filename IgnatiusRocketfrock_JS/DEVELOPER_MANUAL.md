@@ -317,3 +317,22 @@ The Export panel now shows only a compact summary. Use `serializeLevelJson()` in
 The Level Editor no longer has an Export panel. Use the three controls in **Level**: **Save Level (json)** downloads the current level, **Save in Browser** stores an on-demand browser copy, and **Load in Browser** restores it. Do not reintroduce Copy JSON, Open JSON in new tab, a JSON summary panel, or any persistent serialized text surface.
 
 For static editor and diagnostic cameras, call `renderer.setViewOverride({ x, y, cssZoom })`. Do not multiply editor zoom by `devicePixelRatio` outside the renderer. The renderer resolves CSS zoom after resize from the exact backing/client ratio, and the editor overlay resolves its own backing transform the same way. Ordinary playing-area guides use the unmodified editor camera. Apply `computeCaveWindowParallaxOffset` only to cave-window geometry and `caveForeground` records.
+
+## Revision 362 Level data controls and renderer-cache terminology
+
+The Level panel has two groups. **Existing Level:** is only for choosing and loading a shipped level. **Level data:** owns New, Import, Export, Load from Browser, and Save in Browser. Import uses a hidden file input triggered by the visible button; clear its value before opening the picker so importing the same filename twice still fires `change`.
+
+Do not describe the current Level Editor as tiled. The retired editor tile cache, zoom tiers, WebGL editor backend, and translated pan snapshots are absent from the active path. The production Canvas renderer still keeps normal resource and derived-effect caches, including loaded atlas images, recoloured atlas surfaces, treated cave-foreground frames, cave masks, and spatial-query data. Those caches are expected and should not be removed merely to make the renderer “uncached”; they are not screen-space tiles and panning still redraws the visible viewport directly.
+
+## Revision 363 editor context transforms
+
+The Level Editor's two visible canvases deliberately use different context matrices. The production scene canvas must remain at identity because `canvas-renderer.js` calculates and draws in backing pixels. The guide overlay draws in CSS-pixel editor coordinates, so it uses `overlay.width / viewport.width` and `overlay.height / viewport.height` as its context scale. Do not copy the overlay transform onto the scene context.
+
+This distinction matters on fractional display scaling. At DPR 1.1, pre-scaling the scene context and then supplying renderer backing coordinates enlarges the scene by another ten percent while guides remain correct. The apparent error grows toward the lower-right corner. Use `devel/benchmark_level_editor_playwright.py --device-scale-factor 1.1` when changing canvas sizing or renderer embedding; `stageContextTransform` must remain identity after a rendered frame.
+
+
+## Revision 364 Android presentation stability
+
+The production game does not request low-latency desynchronized canvas presentation. Keep `desynchronized: false` for both the visible Canvas2D context and the WebGL2 backend. This is deliberate: Android Chromium-family browsers may otherwise expose incomplete Canvas pixels or a discarded WebGL buffer as white or black flashes.
+
+The stage fills `#game-shell` with percentage dimensions. The renderer ignores transient client measurements below two pixels and keeps the previous valid backing size. When investigating future mobile resize problems, do not “fix” this by resetting the canvas on every reported viewport transition; assigning `canvas.width` or `canvas.height` clears the backing store immediately.

@@ -285,9 +285,13 @@ export async function createRenderer(canvas, options = {}) {
     if (webglBackend) {
         renderCanvas = ownerDocument.createElement("canvas");
     }
+    // Keep production presentation synchronized with the browser compositor.
+    // Chromium on Android may expose partially reset or still-rasterizing canvas
+    // buffers when the low-latency desynchronized hint is enabled, producing
+    // white Canvas2D flashes or black WebGL presentation frames.
     const ctx = renderCanvas.getContext("2d", {
         alpha: Boolean(webglBackend),
-        desynchronized: true
+        desynchronized: false
     });
     if (!ctx) {
         throw new Error("Could not create the renderer's Canvas 2D drawing context.");
@@ -698,9 +702,21 @@ class RocketfrockRenderer {
     }
 
     resize() {
+        // Mobile browser chrome and fullscreen transitions can briefly report a
+        // zero-sized client box. Resizing a visible canvas to 1x1 clears its
+        // backing store immediately, so retain the last valid CSS dimensions
+        // until the layout reports a usable size again.
+        const measuredClientWidth = Number(this.displayCanvas.clientWidth) || 0;
+        const measuredClientHeight = Number(this.displayCanvas.clientHeight) || 0;
+        const clientWidth = measuredClientWidth >= 2
+            ? measuredClientWidth
+            : Math.max(1, Number(this.viewport.clientW) || Number(this.displayCanvas.width) || 1);
+        const clientHeight = measuredClientHeight >= 2
+            ? measuredClientHeight
+            : Math.max(1, Number(this.viewport.clientH) || Number(this.displayCanvas.height) || 1);
         const metrics = computeResponsiveViewportMetrics(
-            this.displayCanvas.clientWidth,
-            this.displayCanvas.clientHeight,
+            clientWidth,
+            clientHeight,
             typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1
         );
         if (this.displayCanvas.width !== metrics.backingWidth || this.displayCanvas.height !== metrics.backingHeight) {
@@ -922,6 +938,7 @@ class RocketfrockRenderer {
         this.resize();
         this.updatePhase(state, dt);
         const view = this.computeView(state);
+        this.lastComputedView = { ...view };
         this.lastCharacterDraws = [];
         this.frameVisualCounters = this.createVisualCounters();
         this.framePlayerRocketTransform = null;
@@ -941,6 +958,13 @@ class RocketfrockRenderer {
     renderCanvas2D(state, inputFrame, dt) {
         const frameStart = rendererNowMs();
         const view = this.prepareFrame(state, dt, frameStart);
+
+        // The renderer works entirely in backing-pixel coordinates. Consumers
+        // may have acquired the visible 2D context first, so never inherit a CSS/DPR transform.
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+        this.ctx.globalAlpha = 1;
+        this.ctx.globalCompositeOperation = "source-over";
+        this.ctx.filter = "none";
 
         this.clear(view);
         this.drawBackdrop(view);
@@ -1167,6 +1191,10 @@ class RocketfrockRenderer {
 
     getViewportMetrics() {
         return { ...this.viewport };
+    }
+
+    getLastComputedView() {
+        return this.lastComputedView ? { ...this.lastComputedView } : null;
     }
 
     setViewOverride(view = null) {

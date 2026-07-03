@@ -210,6 +210,40 @@
             gap: 8px;
         }
 
+        .level-section-label {
+            margin: 4px 0 5px;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .level-section-label.level-data-heading {
+            margin-top: 13px;
+        }
+
+        .level-load-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 8px;
+            align-items: stretch;
+        }
+
+        .level-load-row button {
+            width: auto;
+            min-width: 82px;
+        }
+
+        .level-data-primary {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        #level-file {
+            display: none;
+        }
+
         .compact-button-stack {
             display: grid;
             gap: 5px;
@@ -725,21 +759,27 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 361</small></h1>
+        <h1>Level Editor <small>rev 364</small></h1>
 
         <div class="box">
             <h2>Level</h2>
-            <label>Existing level<select id="level-select"></select></label>
-            <div class="row">
-                <button id="load-level">Load level</button>
-                <button id="new-level">New empty level</button>
+            <div class="level-section-label">Existing Level:</div>
+            <div class="level-load-row">
+                <select id="level-select" aria-label="Existing Level"></select>
+                <button id="load-level">Load</button>
             </div>
-            <label>Import level JSON<input id="level-file" type="file" accept="application/json,.json"></label>
+
+            <div class="level-section-label level-data-heading">Level data:</div>
+            <div class="level-data-primary">
+                <button id="new-level">New level</button>
+                <button id="import-level">Import level</button>
+                <button id="download-json">Export level</button>
+            </div>
             <div class="row">
-                <button id="download-json">Save Level (json)</button>
+                <button id="load-local">Load from Browser</button>
                 <button id="save-local">Save in Browser</button>
             </div>
-            <button id="load-local">Load in Browser</button>
+            <input id="level-file" type="file" accept="application/json,.json" aria-label="Import level JSON">
         </div>
 
         <div class="box">
@@ -1767,8 +1807,13 @@ import {
             surface.style.removeProperty("height");
         }
         if (!backingChanged) return;
-        stageCtx?.setTransform(dpr, 0, 0, dpr, 0, 0);
-        overlayCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        // The production renderer draws in backing-pixel coordinates and must
+        // inherit an identity transform. Applying DPR here made the scene pay
+        // the pixel ratio twice while editor guides paid it once.
+        stageCtx?.setTransform(1, 0, 0, 1, 0, 0);
+        const overlayScaleX = overlayCanvas.width / viewport.width;
+        const overlayScaleY = overlayCanvas.height / viewport.height;
+        overlayCtx.setTransform(overlayScaleX, 0, 0, overlayScaleY, 0, 0);
         draw();
     }
 
@@ -4522,10 +4567,6 @@ import {
         } else draw();
     }
 
-    function editorPixelRatio() {
-        return Math.max(1, Number(window.devicePixelRatio) || 1);
-    }
-
     function editorSurfaceScale(surface) {
         const rect = screenSize();
         return {
@@ -4734,9 +4775,12 @@ import {
         const runtimeState = state.editorRuntimeState;
         if (!renderer || !runtimeState) {
             const rect = screenSize();
-            stageCtx.setTransform(editorPixelRatio(), 0, 0, editorPixelRatio(), 0, 0);
+            const scale = editorSurfaceScale(canvas);
+            stageCtx.save();
+            stageCtx.setTransform(scale.x, 0, 0, scale.y, 0, 0);
             stageCtx.fillStyle = "rgb(23, 21, 37)";
             stageCtx.fillRect(0, 0, rect.width, rect.height);
+            stageCtx.restore();
             return null;
         }
         syncEditorRuntimeWorld();
@@ -4809,7 +4853,12 @@ import {
             ...state.editorPerformance,
             renderer: "canvas2d-game",
             diagnostics: diagnostics ? { ...diagnostics } : null,
-            palette: paletteSurfaceDiagnostics()
+            palette: paletteSurfaceDiagnostics(),
+            camera: { ...state.camera },
+            viewport: { ...rect },
+            rendererView: state.editorRuntimeRenderer?.getLastComputedView?.() || null,
+            stageBacking: { width: canvas.width, height: canvas.height },
+            overlayBacking: { width: overlayCanvas.width, height: overlayCanvas.height }
         };
         updateEditorRendererReadout(diagnostics);
     }
@@ -7998,6 +8047,12 @@ import {
         updateJson();
     });
 
+
+    document.getElementById("import-level").addEventListener("click", () => {
+        const fileInput = document.getElementById("level-file");
+        fileInput.value = "";
+        fileInput.click();
+    });
 
     document.getElementById("level-file").addEventListener("change", async (event) => {
         const file = event.target.files?.[0];

@@ -99,7 +99,8 @@ export function canUseWebGL2(canvas) {
             stencil: true,
             premultipliedAlpha: true,
             preserveDrawingBuffer: false,
-            powerPreference: "high-performance"
+            powerPreference: "high-performance",
+            desynchronized: false
         }));
     } catch {
         return false;
@@ -793,7 +794,9 @@ export function createWebGL2RendererBackend(canvas) {
             premultipliedAlpha: true,
             preserveDrawingBuffer: false,
             powerPreference: "high-performance",
-            desynchronized: true
+            // Android Chromium can present discarded/partially rendered buffers
+            // as black flashes when low-latency desynchronization is requested.
+            desynchronized: false
         });
     } catch {
         return null;

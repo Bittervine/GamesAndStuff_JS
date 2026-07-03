@@ -3513,3 +3513,34 @@ Revision 347 re-voices the alternate synthesized tunes rather than applying one 
 - [x] Keep parallax transforms exclusive to cave-window and caveForeground records.
 - [x] Update browser diagnostics and source-contract tests for the removed Export surface.
 - [x] Synchronize game, editor, baseline, Editor 2, tests, architecture, manual, and plan labels to revision 361.
+
+## Revision 362 grouped Level data actions
+
+- [x] Put the shipped-level dropdown and a concise **Load** button under **Existing Level:**.
+- [x] Put **New level**, **Import level**, and **Export level** on one Level-data row.
+- [x] Put **Load from Browser** and **Save in Browser** on the following row with visible spacing.
+- [x] Hide the native file input behind the explicit Import button and allow the same file to be selected again.
+- [x] Keep the active editor on the direct production Canvas2D renderer with no retired level-tile, WebGL-editor, or pan-snapshot path.
+- [x] Update browser diagnostics, tests, documentation, and visible revision labels to revision 362.
+
+## Revision 363 fractional-DPR scene/guide alignment
+
+- [x] Reproduce the Level Editor mismatch in Chromium with a non-integer device scale factor of 1.1.
+- [x] Confirm that the scene context retained a DPR transform while the production renderer supplied backing-pixel coordinates.
+- [x] Keep the Level Editor production scene context at identity and apply backing/CSS scaling only to the transparent guide overlay.
+- [x] Reset Canvas2D renderer context transform, alpha, composition mode, and filter at each frame boundary.
+- [x] Extend the Playwright probe to use configurable fractional DPR and fail on a non-identity production scene transform.
+- [x] Update revision labels, tests, renderer-boundary documentation, and packaging metadata to revision 363.
+
+
+## Revision 364 Android canvas/WebGL flash mitigation
+
+- [x] Identify the shared production presentation option used by both the flashing Canvas2D and WebGL2 paths.
+- [x] Disable `desynchronized` presentation for the production Canvas2D context.
+- [x] Disable `desynchronized` presentation for WebGL2 capability probing and the live backend context.
+- [x] Keep `preserveDrawingBuffer: false`; do not pay its permanent memory/performance cost before testing the compositor synchronization fix.
+- [x] Make the stage inherit the fixed game shell size instead of independently using `100vw` and `100vh`.
+- [x] Retain the previous valid viewport dimensions across transient zero-sized mobile layout measurements.
+- [x] Add source-contract regression coverage for synchronized contexts, shell-owned sizing, and zero-size protection.
+- [x] Record that physical Android verification remains required for both `webgl=0` and `webgl=1`.
+- [x] Synchronize packaged revision labels to 364.

@@ -7191,6 +7191,7 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     const webglSource = readFileSync(new URL("../src/presentation/webgl2-renderer.js", import.meta.url), "utf8");
     const maskSource = readFileSync(new URL("../src/presentation/cave-window-mask.js", import.meta.url), "utf8");
     const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
+    const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
     assert.ok(rendererSource.includes("buildWorldVisualCache") && rendererSource.includes("visualIntersectsViewport"), "Canvas renderer should cache layer organization and cull static scenery before drawing");
     assert.ok(rendererSource.includes("createWebGL2RendererBackend") && rendererSource.includes("renderWebGL2") && rendererSource.includes("renderCanvas2D"), "the game renderer should retain both the opt-in WebGL2 resident-texture path and Canvas 2D renderer");
     assert.ok(rendererSource.includes("probeWebGL2RendererSupport") && rendererSource.includes("const webglProbePassed"), "WebGL2 support should be proven on a scratch canvas before the visible canvas is committed to the GPU context family");
@@ -7219,6 +7220,11 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     assert.ok(rendererSource.includes("drawScorePopupsWebGL") && rendererSource.includes("drawPortalIntroGlowWebGL") && rendererSource.includes("getWebGLTextSpriteCanvas"), "score popups and portal glow should use cached direct WebGL2 sprite paths");
     assert.ok(rendererSource.includes("uploadStagingLayer") && rendererSource.includes("hasStoryOverlay") && rendererSource.includes("hasDebugOverlay"), "rare procedural story and debug overlays should retain an explicit transparent staging fallback without routing the normal actor stack through Canvas 2D");
     assert.ok(webglSource.includes('getContext("webgl2"') && webglSource.includes('powerPreference: "high-performance"'), "the WebGL backend should request a WebGL2 high-performance context");
+    assert.ok(rendererSource.includes("desynchronized: false") && !rendererSource.includes("desynchronized: true"), "the production Canvas2D surface should remain synchronized with the browser compositor on Android");
+    assert.ok((webglSource.match(/desynchronized: false/g) || []).length >= 2 && !webglSource.includes("desynchronized: true"), "WebGL2 support probing and the live backend should both avoid desynchronized Android presentation");
+    assert.ok(rendererSource.includes("measuredClientWidth >= 2") && rendererSource.includes("measuredClientHeight >= 2") && rendererSource.includes("this.viewport.clientW"), "transient zero-sized mobile measurements should retain the last valid renderer viewport instead of clearing to 1x1");
+    const stageCss = gameHtml.slice(gameHtml.indexOf("#stage {"), gameHtml.indexOf("#boss-hud"));
+    assert.ok(stageCss.includes("width: 100%;") && stageCss.includes("height: 100%;") && !stageCss.includes("100vw") && !stageCss.includes("100vh"), "the game stage should inherit the fixed shell size rather than independently resolving mobile viewport units");
     assert.ok(webglSource.includes("bufferSubData") && webglSource.includes("drawArrays") && webglSource.includes("VERTICES_PER_QUAD"), "the WebGL backend should batch textured quads through one dynamic vertex buffer");
     assert.ok(webglSource.includes("sourceWidth == null ? record.width") && webglSource.includes("sourceHeight == null ? record.height"), "procedural full-texture sprites must not collapse to a transparent top-left texel when their source rectangle is omitted");
     assert.ok(webglSource.includes("stencil: true") && webglSource.includes("gl.INVERT") && webglSource.includes("drawCaveMaskGeometry"), "the cave exterior should use the WebGL stencil buffer instead of a CPU-painted mask upload");
@@ -8102,7 +8108,7 @@ function testRocketPowerUpArsenal() {
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 361<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 364<\/small>/, "the Level Editor should display the packaged revision");
     assert.ok(
         editorSource.includes("applyEditorLevelToWorld") &&
         editorSource.includes("createGameCanvasRenderer") &&
@@ -8129,27 +8135,35 @@ function testRocketPowerUpArsenal() {
     const editor2Source = readFileSync(new URL("../src/tools/level-editor-2.js", import.meta.url), "utf8");
     const editorPlaywrightBenchmark = readFileSync(new URL("../devel/benchmark_level_editor_playwright.py", import.meta.url), "utf8");
     assert.ok(editorSource.includes('id="canvas-renderer-baseline"') && editorSource.includes("openCanvasRendererBaseline"), "the Level Editor should expose the isolated Canvas game-renderer baseline");
-    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 361") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the baseline page should identify the packaged revision and load its dedicated tool module");
+    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 364") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the baseline page should identify the packaged revision and load its dedicated tool module");
     assert.ok(baselineSource.includes("applyEditorLevelToWorld") && baselineSource.includes("preferWebGL2: false") && baselineSource.includes("setViewOverride"), "the baseline should convert the authored level and use the ordinary Canvas2D game renderer with an editor camera override");
     assert.ok(editor2Html.includes("Ignatius Level Editor 2 Scaffold") && editor2Html.includes("Stage <select id=\"lab-stage\"") && editor2Html.includes("static full sidebar"), "the Editor 2 scaffold should expose the structural stage ladder from the baseline shell");
-    assert.ok(editor2Html.includes('id="stage-overlay"') && editor2Html.includes("grid on the single scene canvas") && editor2Html.includes("rev 361"), "the Editor 2 scaffold should compare transparent-overlay and single-canvas guide paths under the packaged revision");
+    assert.ok(editor2Html.includes('id="stage-overlay"') && editor2Html.includes("grid on the single scene canvas") && editor2Html.includes("rev 364"), "the Editor 2 scaffold should compare transparent-overlay and single-canvas guide paths under the packaged revision");
     assert.ok(editor2Source.includes("applyEditorLevelToWorld") && editor2Source.includes("preferWebGL2: false") && editor2Source.includes("runStageSweep") && editor2Source.includes("PerformanceObserver"), "the Editor 2 scaffold should retain the production Canvas baseline and provide an in-browser structural sweep");
     assert.ok(editorSource.includes("Editor 2 lab") && baselineHtml.includes("Editor 2 lab"), "both existing rendering surfaces should link to the new scaffold");
     assert.ok(editorPlaywrightBenchmark.includes("benchmark_baseline") && editorPlaywrightBenchmark.includes("benchmark_editor") && editorPlaywrightBenchmark.includes("editorToBaselineCadenceRatio"), "the optional Playwright probe should compare the loaded baseline and editor rather than source-only timings");
     assert.ok(editorPlaywrightBenchmark.includes("bodyScrollWidth") && editorPlaywrightBenchmark.includes("stageBacking") && editorPlaywrightBenchmark.includes("overlayBacking"), "the Playwright probe should detect viewport overflow and stage/overlay size divergence");
+    assert.ok(editorPlaywrightBenchmark.includes("device-scale-factor") && editorPlaywrightBenchmark.includes("stageContextTransform") && editorPlaywrightBenchmark.includes("non-identity Canvas transform"), "the Playwright probe should exercise fractional DPR and reject a pre-scaled production scene context");
     assert.ok(editorPlaywrightBenchmark.includes("level_action_snapshot") && editorPlaywrightBenchmark.includes("obsolete Export panel"), "the Playwright probe should verify that save/load actions live in Level and no obsolete Export surface remains");
     assert.ok(rendererSource.includes("setViewOverride(view = null)") && rendererSource.includes("const override = this.viewOverride"), "the presentation renderer should provide a narrow static-view override for the baseline without changing gameplay camera state");
     assert.ok(rendererSource.includes("backingPixelsPerCssPixel") && rendererSource.includes("override.cssZoom * backingPixelsPerCssPixel") && editorSource.includes("cssZoom: state.camera.zoom"), "editor and runtime artwork should share one CSS-pixel camera scale so guide alignment does not drift across the viewport");
-    assert.match(bootstrapSource, /const GAME_REVISION = "361";/, "the game debug revision should match the packaged revision");
+    assert.ok(rendererSource.includes("this.ctx.setTransform(1, 0, 0, 1, 0, 0)") && rendererSource.includes("never inherit a CSS/DPR transform"), "the production Canvas renderer should reset inherited context transforms before drawing backing-pixel coordinates");
+    assert.ok(editorSource.includes("stageCtx?.setTransform(1, 0, 0, 1, 0, 0)") && !editorSource.includes("stageCtx?.setTransform(dpr"), "the Level Editor must not pre-scale the production scene context by devicePixelRatio");
+    assert.match(bootstrapSource, /const GAME_REVISION = "364";/, "the game debug revision should match the packaged revision");
     assert.ok(
-        editorSource.includes('id="download-json">Save Level (json)</button>')
+        editorSource.includes('<div class="level-section-label">Existing Level:</div>')
+            && editorSource.includes('id="load-level">Load</button>')
+            && editorSource.includes('<div class="level-section-label level-data-heading">Level data:</div>')
+            && editorSource.includes('id="new-level">New level</button>')
+            && editorSource.includes('id="import-level">Import level</button>')
+            && editorSource.includes('id="download-json">Export level</button>')
+            && editorSource.includes('id="load-local">Load from Browser</button>')
             && editorSource.includes('id="save-local">Save in Browser</button>')
-            && editorSource.includes('id="load-local">Load in Browser</button>')
             && editorSource.includes("function serializeLevelJson()")
             && !editorSource.includes('<h2>Export</h2>')
             && !editorSource.includes('id="copy-json"')
             && !editorSource.includes('id="open-json"'),
-        "the Level panel should own the three on-demand save/load actions without a separate Export surface"
+        "the Level panel should group existing-level loading and level-data actions in the requested two-row layout"
     );
     assert.match(editorSource, /<button id="fit-content-view">Fit<\/button>/, "the Level Editor should expose one concise Fit button");
     assert.equal(editorSource.includes('id="fit-view"'), false, "the removed Fit World control should not remain in the Level Editor");

@@ -3452,3 +3452,28 @@ Status: implemented.
 The dedicated Export panel is removed. The Level panel now owns exactly three on-demand actions: **Save Level (json)**, **Save in Browser**, and **Load in Browser**. Copy JSON and Open JSON in new tab are retired. Serialization remains demand-driven and no full-level text is retained in the editor DOM.
 
 The editor/artwork alignment bug is fixed at the renderer boundary. Static editor cameras now pass a CSS-space zoom to the production renderer. The renderer converts that zoom using the canvas's exact backing-pixel-to-CSS-pixel ratio after resize, rather than assuming `devicePixelRatio` is the visible scale. The overlay likewise derives its transform from its actual backing dimensions. Playing-area guides therefore stay on the ordinary camera, while only cave-window and `caveForeground` guides receive the cave parallax offset.
+
+## Revision 362 grouped Level data controls and renderer cleanup confirmation
+
+Status: implemented.
+
+The Level panel now separates campaign loading from level-file/browser actions. **Existing Level:** contains the shipped-level dropdown and one **Load** button. **Level data:** contains **New level**, **Import level**, and **Export level** on the first row, followed by **Load from Browser** and **Save in Browser** on the second row. The JSON file input remains hidden and is opened by the explicit Import button.
+
+The active Level Editor renderer remains the revision 356 production Canvas2D path. It has no world-tile cache, zoom-tier tile atlas, WebGL editor backend, frozen pan snapshot, or compositor-translated scene. Camera movement redraws the current viewport through the game renderer with spatial culling. Normal reusable atlas images, colour-map surfaces, cave-mask data, and treated foreground sprite caches remain because they cache source artwork or derived effects rather than screen-space level tiles.
+
+## Revision 363 fractional-DPR editor alignment
+
+Status: implemented and reproduced at DPR 1.1.
+
+The remaining guide drift was not cave parallax. `resizeCanvas()` pre-scaled both editor contexts by `devicePixelRatio`, but the production game renderer already converts its static-view zoom into backing-pixel coordinates. Because the scene canvas had already acquired its 2D context and its backing size did not change again, the renderer inherited that DPR transform and scaled ordinary artwork a second time. The transparent authoring overlay was scaled once. At DPR 1 the error disappeared, which is why the first automated comparison missed it; at DPR 1.1 the mismatch increased with distance from the canvas origin.
+
+Revision 363 leaves the production scene context at the identity transform and lets only the editor overlay map CSS coordinates into its backing store. `canvas-renderer.js` also resets its 2D context to identity at the start of every Canvas frame so any future embedding surface cannot leak a CSS/DPR transform into backing-pixel drawing. The Playwright diagnostic now defaults to a fractional 1.1 device scale and records the stage context matrix; a non-identity production transform is a failure.
+
+
+## Revision 364 Android presentation-buffer stability
+
+Android Chrome and Opera were reported to show intermittent white garbage in the Canvas2D renderer and black flashes in the WebGL2 renderer even though the same build remained stable on desktop. The two production paths shared the low-latency `desynchronized: true` context hint. That hint permits the browser to decouple canvas presentation from ordinary DOM compositing and can expose a partially reset, still-rasterizing, or discarded buffer on affected mobile compositor/driver combinations.
+
+Revision 364 removes desynchronized presentation from both production Canvas2D and WebGL2 contexts. Rendering remains driven by `requestAnimationFrame`, but completed frames are handed back through the normal browser compositor boundary. The fixed game shell now owns the CSS size and the stage fills it with `width: 100%; height: 100%` rather than independently resolving `100vw` and `100vh`. The renderer also retains its last valid CSS dimensions when a mobile fullscreen or browser-chrome transition briefly reports a zero-sized canvas, avoiding a destructive 1×1 backing-store reset.
+
+This is a targeted fix based on the shared Android failure boundary. Desktop automated tests can verify context options, sizing ownership, and transient-zero protection, but final confirmation of the driver-specific flashes still requires a physical Android retest in both Canvas2D and WebGL2 modes.
