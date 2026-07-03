@@ -123,6 +123,7 @@ import {
     validateRouteGraph
 } from "../src/shared/level-generator-data.js";
 import {
+    cavePolygonSeparation,
     caveSplineSegmentControls,
     caveWindowBounds,
     caveWindowPolygonSeparation,
@@ -6568,11 +6569,18 @@ function testCaveWindowSplineAuthoring() {
         { x: 350, y: 120 }, { x: 450, y: 120 }, { x: 450, y: 180 }, { x: 350, y: 180 }
     ]);
     assert.equal(crossingSeparation.outside, false, "geometry crossing the cave edge should remain intentionally placeable");
-    const outsideSeparation = caveWindowPolygonSeparation(warningCave, [
+    const outsidePolygon = [
         { x: 540, y: 120 }, { x: 640, y: 120 }, { x: 640, y: 180 }, { x: 540, y: 180 }
-    ]);
+    ];
+    const outsideSeparation = caveWindowPolygonSeparation(warningCave, outsidePolygon);
     assert.equal(outsideSeparation.outside, true, "fully exterior gameplay geometry should be classified outside the opening");
     approx(outsideSeparation.distance, 140, 0.0001, "fully exterior geometry should report its nearest cave-edge distance");
+    const sampledWarningCave = sampleClosedCaveSpline(warningCave, 20).slice(0, -1);
+    assert.deepEqual(
+        cavePolygonSeparation(sampledWarningCave, outsidePolygon),
+        outsideSeparation,
+        "pre-sampled cave polygons should preserve the ordinary cave separation result"
+    );
 
     const cornerSquare = [
         { id: "p1", x: 0, y: 0, mode: "corner" },
@@ -6685,14 +6693,17 @@ function testCaveWindowSplineAuthoring() {
     assert.ok(levelEditorHtml.includes('id="cave-gradient-noise-amplitude"') && levelEditorHtml.includes('id="cave-gradient-noise-period"') && levelEditorHtml.includes('min="10" max="500"') && levelEditorHtml.includes('id="cave-gradient-noise-seed"'), "Level Editor should expose gradient waviness amplitude, a 10-500 pixel period, and deterministic seed");
     assert.ok(levelEditorHtml.includes("editorViewportWorldBounds") && levelEditorHtml.includes("placementWorldBounds"), "Level Editor should cull off-screen placements before drawing them");
     assert.ok(levelEditorHtml.includes("entityWorldBounds") && levelEditorHtml.includes("drawEntity(entity, { viewportBounds })"), "Level Editor should cull off-screen entities before expensive preview composition");
-    assert.ok(levelEditorHtml.includes("editorForegroundSpriteCache") && levelEditorHtml.includes("createForegroundSpriteCanvas"), "Level Editor should cache darkened and faded foreground sprite variants");
-    assert.ok(levelEditorHtml.includes("editorCaveForegroundLayerCache") && levelEditorHtml.includes("drawCaveForegroundLayer"), "Level Editor should cache dense cave foreground artwork in a reusable transparent viewport layer");
-    assert.ok(levelEditorHtml.includes("editorForegroundViewportQuery") && levelEditorHtml.includes("queryWorldVisualEntries"), "Level Editor cave foreground should use spatial broad-phase culling instead of scanning every perimeter sprite per camera redraw");
-    assert.match(levelEditorHtml, /visiblePlacements[\s\S]*filter\(generatedCavePlacementVisible\)/, "hidden generated cave foreground should be removed before the artwork pass");
-    assert.ok(levelEditorHtml.includes('id="stage-overlay"') && levelEditorHtml.includes("renderEditorOverlay") && levelEditorHtml.includes("requestAnimationFrame"), "Level Editor should coalesce rendering while drawing guides on a direct transparent Canvas overlay");
-    assert.ok(levelEditorHtml.includes("editorMainLayerTileCache") && levelEditorHtml.includes("editorEntityLayerTileCache") && levelEditorHtml.includes("editorTileResolutionScale"), "Level Editor should keep scenery and entity artwork in reusable world-space tiles with low-zoom resolution tiers");
-    assert.ok(levelEditorHtml.includes("paintEditorTileLayer") && levelEditorHtml.includes("queueSurface") && levelEditorHtml.includes("editorWebGLBackend.queueSurface"), "WebGL editor tiles should remain resident instead of uploading full-window Canvas layers every frame");
-    assert.equal(levelEditorHtml.includes("editorStaticSceneCache"), false, "Level Editor should not rebuild and upload a full-window static scene while panning");
+    assert.ok(levelEditorHtml.includes("editorForegroundSpriteCache") && levelEditorHtml.includes("createForegroundSpriteCanvas"), "Level Editor should retain cached foreground sprite treatment for transient moving-record and placement previews");
+    assert.ok(levelEditorHtml.includes("editorForegroundViewportQuery") && levelEditorHtml.includes("queryWorldVisualEntries"), "Level Editor cave foreground guides should use spatial broad-phase culling instead of scanning every perimeter sprite per camera redraw");
+    assert.ok(levelEditorHtml.includes("applyEditorLevelToWorld") && levelEditorHtml.includes("createGameCanvasRenderer") && levelEditorHtml.includes("paintEditorRuntimeWorld"), "Level Editor should render its base scene through the production Canvas2D game renderer");
+    assert.ok(levelEditorHtml.includes("setViewOverride") && levelEditorHtml.includes("state.camera.zoom * dpr"), "the production renderer should use the editor camera without changing portable gameplay camera state");
+    assert.ok(levelEditorHtml.includes("editorRuntimeLevelSource") && levelEditorHtml.includes("generatedCavePlacementVisible(placement)"), "hidden generated cave foreground should be removed from the runtime editor view without mutating authored data");
+    assert.ok(levelEditorHtml.includes('id="stage-overlay"') && levelEditorHtml.includes("renderEditorOverlay") && levelEditorHtml.includes("requestAnimationFrame"), "Level Editor should coalesce production-scene and transparent-guide rendering in one animation frame");
+    assert.equal(levelEditorHtml.includes('id="stage-pan-layer"'), false, "Level Editor should not retain the failed independently transformed pan layer");
+    assert.ok(levelEditorHtml.includes('if (state.drag.kind === "pan")') && levelEditorHtml.includes("state.camera.x = state.drag.camera.x") && levelEditorHtml.includes("draw();"), "active panning should redraw the production renderer directly at the updated editor camera");
+    assert.ok(levelEditorHtml.includes("contain: paint") && levelEditorHtml.includes("overflow: hidden"), "the editor canvases should remain paint-contained inside the viewport");
+    assert.ok(levelEditorHtml.includes("cadenceFps") && levelEditorHtml.includes("worstCadenceMs") && levelEditorHtml.includes("queueMs"), "Level Editor profiling should report requestAnimationFrame cadence separately from synchronous draw submission time");
+    assert.equal(levelEditorHtml.includes("editorMainLayerTileCache") || levelEditorHtml.includes("paintEditorTileLayer") || levelEditorHtml.includes("editorWebGLBackend"), false, "the retired editor tile/WebGL renderer should not remain in the active editor source");
     const editorScreenSizeFunction = levelEditorHtml.slice(levelEditorHtml.indexOf("    function screenSize()"), levelEditorHtml.indexOf("    function worldToScreen"));
     assert.equal(editorScreenSizeFunction.includes("getBoundingClientRect"), false, "the pan render path should use the resize-cached viewport instead of forcing browser layout every frame");
     assert.ok(levelEditorHtml.includes("editorCanvasClientRect") && levelEditorHtml.includes("function editorCanvasRect()"), "pointer coordinates should reuse the resize-cached canvas client rectangle");
@@ -8082,20 +8093,34 @@ function testRocketPowerUpArsenal() {
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 351<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 356<\/small>/, "the Level Editor should display the packaged revision");
     assert.ok(
-        editorSource.includes("createWebGL2RendererBackend") &&
-        editorSource.includes("editorMainLayerTileCache") &&
-        editorSource.includes('id="stage-overlay"') &&
-        editorSource.includes("editorWebGLBackend.queueSurface"),
-        "the Level Editor should composite resident world tiles in WebGL2 and draw changing guides on a direct Canvas overlay"
+        editorSource.includes("applyEditorLevelToWorld") &&
+        editorSource.includes("createGameCanvasRenderer") &&
+        editorSource.includes("paintEditorRuntimeWorld") &&
+        editorSource.includes('id="stage-overlay"'),
+        "the Level Editor should use the production Canvas2D game renderer beneath a direct transparent guide overlay"
     );
     assert.ok(
-        editorSource.includes("probeEditorWebGL2Support") &&
-        editorSource.includes("const stageCtx = editorWebGLBackend ? null : canvas.getContext"),
-        "the Level Editor must probe on a disposable canvas and retain a true Canvas 2D fallback"
+        editorSource.includes("preferWebGL2: false") &&
+        editorSource.includes("renderer.setViewOverride") &&
+        !editorSource.includes("createWebGL2RendererBackend") &&
+        !editorSource.includes("editorMainLayerTileCache"),
+        "the Level Editor base view should be the plain Canvas2D sanity-check path without the retired tile/WebGL machinery"
     );
-    assert.match(bootstrapSource, /const GAME_REVISION = "342";/, "the game debug revision should match the packaged revision");
+    assert.ok(
+        editorSource.includes("caveGeometryWarningCache") &&
+        editorSource.includes("sampleClosedCaveSpline(cave.points, 20).slice(0, -1)") &&
+        editorSource.includes("cavePolygonSeparation(cache.cavePolygon, placementCorners(placement))"),
+        "the Level Editor should cache cave-warning separation work instead of resampling the cave for every placement and pan frame"
+    );
+    const baselineHtml = readFileSync(new URL("../level-renderer-baseline.html", import.meta.url), "utf8");
+    const baselineSource = readFileSync(new URL("../src/tools/level-renderer-baseline.js", import.meta.url), "utf8");
+    assert.ok(editorSource.includes('id="canvas-renderer-baseline"') && editorSource.includes("openCanvasRendererBaseline"), "the Level Editor should expose the isolated Canvas game-renderer baseline");
+    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 356") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the baseline page should identify the packaged revision and load its dedicated tool module");
+    assert.ok(baselineSource.includes("applyEditorLevelToWorld") && baselineSource.includes("preferWebGL2: false") && baselineSource.includes("setViewOverride"), "the baseline should convert the authored level and use the ordinary Canvas2D game renderer with an editor camera override");
+    assert.ok(rendererSource.includes("setViewOverride(view = null)") && rendererSource.includes("const override = this.viewOverride"), "the presentation renderer should provide a narrow static-view override for the baseline without changing gameplay camera state");
+    assert.match(bootstrapSource, /const GAME_REVISION = "356";/, "the game debug revision should match the packaged revision");
     assert.match(editorSource, /<button id="fit-content-view">Fit<\/button>/, "the Level Editor should expose one concise Fit button");
     assert.equal(editorSource.includes('id="fit-view"'), false, "the removed Fit World control should not remain in the Level Editor");
     assert.equal(editorSource.includes('id="fit-cave-view"'), false, "the removed Fit Cave control should not remain in the Level Editor");

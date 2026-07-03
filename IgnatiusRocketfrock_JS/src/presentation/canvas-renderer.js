@@ -487,6 +487,7 @@ class RocketfrockRenderer {
         this.lastObservedFrameDt = 1 / 60;
         this.lastRenderStartedAtMs = 0;
         this.viewport = { w: canvas.width, h: canvas.height, dpr: 1 };
+        this.viewOverride = null;
         this.lastBounds = null;
         this.lastCharacterDraws = [];
         this.scorePopupState = null;
@@ -1142,7 +1143,8 @@ class RocketfrockRenderer {
         const w = this.viewport.w;
         const h = this.viewport.h;
         const dpr = this.viewport.dpr;
-        const zoom = this.viewport.zoom || dpr;
+        const override = this.viewOverride;
+        const zoom = override?.zoom || this.viewport.zoom || dpr;
         return {
             w,
             h,
@@ -1151,16 +1153,29 @@ class RocketfrockRenderer {
             cssScale: this.viewport.cssScale || 1,
             clientW: this.viewport.clientW || w / dpr,
             clientH: this.viewport.clientH || h / dpr,
-            virtualW: this.viewport.virtualW || w / zoom,
-            virtualH: this.viewport.virtualH || h / zoom,
+            virtualW: w / zoom,
+            virtualH: h / zoom,
             minVirtualW: this.viewport.minVirtualW || MIN_TOUCH_VIEWPORT_WIDTH,
-            x: state.camera.x - w / zoom * 0.5,
-            y: state.camera.y - h / zoom * 0.56
+            x: override ? override.x : state.camera.x - w / zoom * 0.5,
+            y: override ? override.y : state.camera.y - h / zoom * 0.56
         };
     }
 
     getViewportMetrics() {
         return { ...this.viewport };
+    }
+
+    setViewOverride(view = null) {
+        if (!view) {
+            this.viewOverride = null;
+            return;
+        }
+        const zoom = Math.max(0.01, Number(view.zoom) || 1);
+        this.viewOverride = {
+            x: Number(view.x) || 0,
+            y: Number(view.y) || 0,
+            zoom
+        };
     }
 
     worldToScreen(view, x, y) {

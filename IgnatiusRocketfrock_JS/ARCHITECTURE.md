@@ -1231,7 +1231,7 @@ Before revision 317, a failed WebGL2 backend initialization could theoretically 
 
 A renderer instance that already owns a WebGL canvas no longer redirects to `renderCanvas2D` while its context is lost, because that Canvas target is the hidden staging surface. It pauses presentation until restoration recreates GPU resources. This keeps startup compatibility fallback and runtime context restoration as separate, explicit states.
 
-## Revision 351 Level Editor WebGL2 composition boundary
+## Revision 351 Level Editor WebGL2 composition boundary (superseded by revision 356)
 
 The Level Editor uses the shared `src/presentation/webgl2-renderer.js` backend as a resident world-tile compositor. Canvas drawing helpers remain authoritative for producing tile artwork, but the visible WebGL stage receives only static tile textures. The changing authoring overlay is a separate DOM Canvas and is never round-tripped through a full-window GPU texture upload.
 
@@ -1370,3 +1370,38 @@ Revision 345 adds enemy contact damage as a separate damage channel. Overlap dam
 Revision 347 re-voices the alternate synthesized tunes rather than applying one blanket lead transpose. Each melody is placed in Level_001's low register according to its original tessitura, and every true bassoon foundation is kept strictly below the lead to prevent accidental voice crossing. Decorative bell accents remain independent of the bass hierarchy.
 
 Revision 349 gives the Level Editor cave-foreground preview a spatial broad phase. Dense generated perimeter decoration is partitioned into world bins and each camera redraw queries only nearby entries after accounting for cave parallax. Hidden generated foreground is filtered before artwork and detail passes, so a level with more than a thousand perimeter sprites no longer scans and processes the full layer on every pan frame.
+
+## Revision 352 cave-warning geometry cache
+
+The Level Editor's cave-geometry warning pass is camera-independent and must not be recomputed because the camera pans. `gameplayGeometryCaveWarnings()` now owns a two-level cache:
+
+- A cave signature contains enabled state, feather distance, and every authored point's position and smoothing mode. A signature change rebuilds one sampled cave polygon with `sampleClosedCaveSpline(..., 20)`.
+- A `WeakMap` stores each relevant terrain placement's separation result under a transform signature containing position, dimensions, rotation, and angle. Editing one placement invalidates only its entry naturally; replacing a placement object also misses the weak cache safely.
+
+`src/shared/cave-window-data.js` exposes `cavePolygonSeparation(sampledPolygon, polygon)` for callers that already own sampled geometry. `caveWindowPolygonSeparation(points, polygon, steps)` remains the convenience wrapper and preserves its existing contract.
+
+This cache belongs to editor diagnostics rather than the resident tile caches. Camera position, zoom, renderer choice, grid visibility, labels, and guide switches do not affect warning geometry and therefore do not invalidate it.
+
+## Revision 354 editor pan presentation boundary (superseded by revision 356)
+
+Level Editor pan gestures are presentation-only previews. `#stage` and `#stage-overlay` are siblings inside `#stage-pan-layer`, which is paint-contained by `#canvas-wrap`. While a pan is active, camera state follows the pointer but no Canvas or WebGL render frame is submitted. The complete existing scene is translated through one CSS transform, preserving artwork/guide registration and preventing either surface from independently escaping the viewport. The first post-pan render draws the authoritative final camera and then clears the temporary transform before presentation. Authoring data, world-space coordinates, tile caches, cave parallax math, hit testing, and exported levels remain unchanged.
+
+## Revision 355 level-renderer baseline boundary
+
+`level-renderer-baseline.html` is a development-facing root surface whose implementation lives in `src/tools/level-renderer-baseline.js`. The tool owns input, camera inspection, cadence sampling, and diagnostics only. It must render authored levels by calling portable `applyEditorLevelToWorld` and the production `src/presentation/canvas-renderer.js`; it may not grow a second atlas, entity, cave, or layer renderer.
+
+`RocketfrockRenderer.setViewOverride()` is a presentation-only diagnostic seam. The override supplies a top-left world position and backing-pixel zoom to `computeView()`, while normal gameplay continues to derive its view from portable camera state and responsive viewport metrics. The override must never be serialized, copied into simulation state, or used by browser gameplay startup. Passing `null` restores the normal camera path.
+
+
+## Revision 356 shared runtime renderer in the Level Editor
+
+Live browser testing of revision 355 established the clean boundary: the isolated production Canvas2D game renderer panned and zoomed level 002 smoothly, while the Level Editor's tile/WebGL/compositor variants remained slow or visually unstable. Revision 356 therefore removes the editor-specific base renderer rather than adding another cache layer.
+
+`level-editor.html` now owns two presentation surfaces only:
+
+- `#stage` is rendered by the ordinary `src/presentation/canvas-renderer.js` instance with `preferWebGL2: false`. The editor converts its authored level through portable `applyEditorLevelToWorld`, loads the same environment and character resources, and supplies a top-left view through `RocketfrockRenderer.setViewOverride()`.
+- `#stage-overlay` remains an editor-only transparent Canvas for the grid, manifest lines, labels, cave controls, selection, route diagnostics, placement ghosts, and transient moving artwork.
+
+Camera pan and zoom never rebuild portable world data. They change only the view override and submit another production renderer frame. Authored mutations set one runtime-world dirty flag. The next frame reconverts the level, synchronizes cave-window and colour-map presentation state, and then resumes camera-only rendering against the stable runtime arrays and caches. While records are dragged, the runtime snapshot excludes them once and the overlay draws their live artwork until commit, avoiding a full level conversion for every pointer event.
+
+The revision removes the editor's world-tile caches, tile resolution tiers, visible WebGL context, `?webgl` editor selection, and CSS-transformed pan layer. Those were presentation experiments, never authoritative data, and must not be restored alongside the shared runtime path. The standalone baseline remains as a diagnostic page, but it now validates the same base renderer used by the normal editor rather than a competing implementation.

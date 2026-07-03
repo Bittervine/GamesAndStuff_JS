@@ -3363,3 +3363,46 @@ Revision 337 adds `devel/damage-effect-showcase.html` and its module. The page l
 ## Revision 342 completed: adjustable ordinary-jump apex
 
 Ignatius can now trim an ordinary jump by holding Down during ascent. The full jump remains 200 world pixels; an immediate held brake reaches 100 pixels, and later engagement selects an intermediate height. The force is restricted to negative vertical velocity, so descent gravity and green-platform drop-through behavior are unchanged.
+
+## Revision 352 cached cave-geometry warnings
+
+Level 002 profiling showed that the resident world tiles were already inexpensive: both Canvas 2D and WebGL2 spent about 0.5-0.6 ms drawing the world, while the direct Canvas overlay consumed roughly 7.5-10.4 ms. Disabling the grid and manifest guides did not reduce that cost. The dominant hidden expense was `gameplayGeometryCaveWarnings()`, which rebuilt the same approximately 860-point sampled cave polygon separately for every collision-bearing terrain placement on every pan frame. A standalone level-002 benchmark reproduced roughly 4.6-7.5 ms of warmed-up work while finding no warnings.
+
+The editor now samples the cave spline once per cave-shape signature and keeps per-placement separation results in a `WeakMap`, keyed by the placement transform. Panning and zooming therefore reuse the existing warning results. Moving or resizing one terrain placement recalculates only that placement, while changing a cave point, point mode, enabled state, or feather distance resets the sampled cave and placement cache. A new shared `cavePolygonSeparation()` helper accepts an already sampled polygon, while the original `caveWindowPolygonSeparation()` API remains compatible.
+
+This revision deliberately keeps the resident tile renderer, WebGL2 option, parallax preview, zoom, and direct overlay architecture. The measured bottleneck was invariant validation work inside the overlay, not world artwork composition.
+
+## Revision 353 compositor-only guide panning and truthful cadence profiling
+
+The revision 352 retest exposed a decisive mismatch between synchronous timings and visible motion: level 002 reported roughly 11 ms of submitted JavaScript/Canvas work while right-drag panning visibly advanced at only two or three frames per second. The old editor readout labelled submission time as a complete frame, even though Chrome can defer Canvas rasterization, texture transfer, and composition until after the drawing calls return. This is the same diagnostic trap previously isolated by the enemy-hit laboratory.
+
+During active panning, the editor now leaves the transparent guide canvas untouched and translates its already-rendered bitmap with a compositor transform. Resident world tiles continue to redraw at the current camera, so newly exposed scenery remains correct, while the grid, asset guides, labels, cave guides, and warnings move as one temporary snapshot. The exact overlay is rebuilt once when the drag ends. Missing guide strips at newly exposed viewport edges and the small temporary cave-parallax approximation are confined to the drag itself; authored data and the settled preview remain exact.
+
+The profiling readout now distinguishes rolling requestAnimationFrame cadence from synchronous submission cost. It reports average FPS/interval, the worst recent interval, request-to-callback delay, world submission time, and whether the overlay is frozen. A low submission figure can therefore no longer masquerade as smooth presentation.
+
+## Revision 354 corrected whole-scene compositor panning
+
+The first revision 353 pan preview moved only the transparent guide canvas while the WebGL world still waited for requestAnimationFrame redraws. On the reported Chrome machine those callbacks arrived at roughly 1.8 fps with approximately 450 ms of queue delay. Pointer events nevertheless updated the CSS transform immediately, so guides raced ahead of stale artwork, and the independently promoted overlay could temporarily paint beyond the work area. The result was severe guide/art misalignment and apparent sidebar overdraw.
+
+Revision 354 replaces that unsafe split. The world canvas and guide canvas now live inside one paint-contained `stage-pan-layer`. Starting a pan cancels any pending editor draw; pointer movement updates the camera and translates that complete rendered scene as one compositor snapshot; and the regular draw scheduler refuses all world and overlay redraw requests until the drag ends. On release, one exact frame is drawn for the final camera and the temporary transform is removed in the same render callback. Both canvases therefore remain pixel-aligned throughout the drag, and the transformed scene is clipped to the editor viewport. Newly exposed edge strips may show the editor background until release, and cave parallax is intentionally frozen during the gesture, but the settled view remains exact.
+
+The renderer readout now states `pan preview: compositor only` during an active pan instead of presenting stale submission timings as though they described the gesture. The next performance check should focus on whether this single-layer transform tracks the pointer smoothly on level 002; no tile, WebGL, parallax, or overlay redraw work is expected while the button is held.
+
+## Revision 355 direct Canvas game-renderer baseline
+
+The Level Editor profiler proved that a short JavaScript submission time can coexist with very poor visible cadence, and the compositor-only pan preview did not improve that cadence on level 002. That preview remains an optional production experiment, but it is no longer treated as evidence that the underlying renderer is fast. The unresolved editor hitch is recorded for comparison rather than hidden behind another cache layer.
+
+Revision 355 adds `level-renderer-baseline.html`, an isolated diagnostic that converts an authored level through `applyEditorLevelToWorld` and renders it continuously with the ordinary production Canvas2D game renderer. It uses no Level Editor tile caches, no WebGL backend, no frozen overlay, no CSS pan transform, and no duplicate asset drawing implementation. Dragging and wheel zoom only change a presentation view override; the runtime world, authored level data, and gameplay camera remain untouched. The page reports actual requestAnimationFrame cadence beside the production renderer's own world, actor, foreground, mask, culling, and submission timings.
+
+The Level Editor now has a **Canvas baseline** button that stores the current browser copy and opens the diagnostic at the same top-left camera position and CSS zoom. This is a sanity-check surface, not a replacement editor and not an authoritative level serializer. Its result will decide whether the next editor optimization should target browser presentation cadence or the editor's own overlay and interaction pipeline.
+
+
+## Revision 356 production Canvas renderer becomes the Level Editor base
+
+Status: implemented and awaiting live performance confirmation.
+
+The revision 355 sanity check was decisive: level 002 panned and zoomed quickly when rendered through the ordinary production Canvas2D game renderer. The slow path was therefore the Level Editor's separate tile/WebGL/compositor architecture, not the level size, parallax, browser Canvas implementation, or production renderer.
+
+Revision 356 replaces the normal editor's base-scene path with that proven renderer. It removes the active editor WebGL backend, world-space tile caches, low-zoom tile tiers, and CSS pan-preview layer. The editor converts authored data through `applyEditorLevelToWorld`, keeps a stable runtime snapshot across camera-only pan/zoom frames, and marks that snapshot dirty only for authored mutations. Moving records are omitted from the base once and rendered transiently on the overlay until commit. The existing editor guide overlay remains separate and exact.
+
+Next validation: pan and wheel-zoom level 002 with grid, manifest lines, and labels enabled. Capture the revision 356 profile readout. If cadence is still unexpectedly low, isolate the transparent guide overlay by temporarily disabling it; do not reintroduce tiles, WebGL, or transformed snapshots before that measurement.

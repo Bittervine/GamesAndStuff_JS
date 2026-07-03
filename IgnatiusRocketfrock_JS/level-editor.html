@@ -80,6 +80,9 @@
             position: relative;
             min-width: 0;
             overflow: hidden;
+            contain: paint;
+            isolation: isolate;
+            background: #171525;
         }
 
         #stage, #stage-overlay {
@@ -133,6 +136,8 @@
         }
 
         aside {
+            position: relative;
+            z-index: 2;
             overflow: auto;
             border-left: 1px solid var(--line);
             background: var(--panel);
@@ -691,6 +696,7 @@
             <button id="to-front" type="button">To Front</button>
             <button id="to-back" type="button">To Back</button>
             <button id="play-browser-copy" type="button">▶ Play</button>
+            <button id="canvas-renderer-baseline" type="button">Canvas baseline</button>
             <button id="zoom-out">−</button>
             <button id="zoom-in">+</button>
             <button id="fit-content-view">Fit</button>
@@ -709,7 +715,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 351</small></h1>
+        <h1>Level Editor <small>rev 356</small></h1>
 
         <div class="box">
             <h2>Level</h2>
@@ -1207,16 +1213,17 @@ import {
     foregroundWorldOutwardVector
 } from "./src/presentation/foreground-sprite-treatment.js";
 import {
+    cavePolygonSeparation,
     caveSplineSegmentControls,
     caveWindowBounds,
-    caveWindowPolygonSeparation,
     createCaveWindowPointsFromBounds,
     nearestCaveSplineSegment,
     normalizeCaveDecoration,
     normalizeCaveGradientNoise,
     normalizeCaveWindow,
     sampleCaveWindowOutset,
-    sampleCaveWindowPerturbedOutset
+    sampleCaveWindowPerturbedOutset,
+    sampleClosedCaveSpline
 } from "./src/shared/cave-window-data.js";
 import {
     buildCaveDecorationCatalog,
@@ -1235,7 +1242,13 @@ import {
     buildOverlapBlendGroups,
     createOverlapBlendSurface
 } from "./src/presentation/overlap-blend-cache.js";
-import { createWebGL2RendererBackend } from "./src/presentation/webgl2-renderer.js";
+import {
+    applyEditorLevelToWorld,
+    applyEnemyDefinitionCatalog,
+    createInitialGameState,
+    createInputFrame
+} from "./src/core/simulation.js";
+import { createRenderer as createGameCanvasRenderer } from "./src/presentation/canvas-renderer.js";
 import {
     buildWorldVisualCache,
     queryWorldVisualEntries
@@ -1346,7 +1359,6 @@ import {
     const WIZARD_DOOR_FLOOR_ANCHOR_Y_FACTOR = 239 / 263;
     const MIN_EDITOR_ZOOM = 0.02;
     const MAX_EDITOR_ZOOM = 5;
-    const EDITOR_WORLD_TILE_SIZE = 1024;
 
     function atlasIdForIndex(index) {
         return `at_atlas_${String(index).padStart(3, "0")}`;
@@ -1389,32 +1401,7 @@ import {
     const canvas = document.getElementById("stage");
     const overlayCanvas = document.getElementById("stage-overlay");
     const wrap = document.getElementById("canvas-wrap");
-
-    function probeEditorWebGL2Support() {
-        const probeCanvas = document.createElement("canvas");
-        probeCanvas.width = 2;
-        probeCanvas.height = 2;
-        const backend = createWebGL2RendererBackend(probeCanvas);
-        if (!backend) return false;
-        backend.dispose();
-        return true;
-    }
-
-    function shouldPreferEditorWebGL2() {
-        const params = new URLSearchParams(window.location.search || "");
-        const rawValue = params.get("webgl") ?? params.get("webgl2");
-        if (rawValue != null) {
-            const value = String(rawValue).trim().toLowerCase();
-            if (["0", "false", "off", "canvas", "canvas2d", "cpu"].includes(value)) return false;
-            if (["1", "true", "on", "webgl", "webgl2", "gpu"].includes(value)) return true;
-        }
-        return true;
-    }
-
-    const editorWebGLBackend = shouldPreferEditorWebGL2() && probeEditorWebGL2Support()
-        ? createWebGL2RendererBackend(canvas)
-        : null;
-    const stageCtx = editorWebGLBackend ? null : canvas.getContext("2d", {
+    const stageCtx = canvas.getContext("2d", {
         alpha: false,
         desynchronized: true
     });
@@ -1422,16 +1409,10 @@ import {
         alpha: true,
         desynchronized: true
     });
-    if ((!editorWebGLBackend && !stageCtx) || !overlayCtx) {
+    if (!stageCtx || !overlayCtx) {
         throw new Error("Could not create the Level Editor drawing contexts.");
     }
     let ctx = overlayCtx;
-    if (editorWebGLBackend) {
-        canvas.addEventListener("webglcontextrestored", () => {
-            invalidateEditorSceneCache({ caveForeground: true });
-            draw();
-        });
-    }
 
     const els = {
         status: document.getElementById("status"),
@@ -1657,17 +1638,30 @@ import {
         editorForegroundSpriteCache: new Map(),
         editorOverlapBlendCache: null,
         editorWorldVisualCache: null,
-        editorMainLayerTileCache: null,
-        editorEntityLayerTileCache: null,
-        editorCaveForegroundLayerCache: null,
-        editorMainArtworkRevision: 0,
-        editorEntityArtworkRevision: 0,
-        editorCaveForegroundRevision: 0,
-        editorPerformance: { frameMs: 0, worldMs: 0, overlayMs: 0, tilesDrawn: 0, tilesBuilt: 0 },
+        editorRuntimeRenderer: null,
+        editorRuntimeState: null,
+        editorRuntimeWorldDirty: true,
+        editorRuntimeAtlasSignature: "",
+        editorPerformance: {
+            frameMs: 0,
+            syncMs: 0,
+            worldMs: 0,
+            actorsMs: 0,
+            foregroundMs: 0,
+            maskMs: 0,
+            overlayMs: 0,
+            queueMs: 0,
+            cadenceMs: 0,
+            cadenceFps: 0,
+            worstCadenceMs: 0,
+            visualsDrawn: 0,
+            visualsConsidered: 0
+        },
         editorCaveParallaxCache: null,
         editorViewportRect: null,
         editorCanvasClientRect: null,
         caveGeometryWarningText: "",
+        caveGeometryWarningCache: null,
         generatorThemes: new Map(),
         generatorAssetCatalog: normalizeGenerationAssetCatalog(null),
         generatorEnemyCatalog: normalizeEnemyGenerationCatalog(null),
@@ -1678,6 +1672,9 @@ import {
     let colorMapRefreshTimer = null;
     let jsonUpdateTimer = null;
     let editorDrawFrameRequest = null;
+    let editorDrawRequestedAt = 0;
+    let editorLastPaintAt = 0;
+    const editorFrameCadenceSamples = [];
     const editorPerformanceProfileEnabled = (() => {
         const params = new URLSearchParams(window.location.search || "");
         const value = String(params.get("profile") ?? params.get("perf") ?? "").trim().toLowerCase();
@@ -1686,6 +1683,7 @@ import {
     let editorLastRendererReadout = "";
     let editorLastRendererReadoutAt = -Infinity;
     let editorLastCursorReadoutAt = -Infinity;
+    const editorRuntimeInputFrame = createInputFrame();
 
     function cloneData(value) {
         return JSON.parse(JSON.stringify(value));
@@ -1945,9 +1943,47 @@ import {
         return Math.max(96, Math.min(240, finiteEditorNumber(cave?.feather, 0) * 0.5));
     }
 
+    function caveGeometryWarningCaveSignature(cave) {
+        return [
+            cave.enabled ? 1 : 0,
+            finiteEditorNumber(cave.feather, 0),
+            ...cave.points.flatMap((point) => [
+                finiteEditorNumber(point.x, 0),
+                finiteEditorNumber(point.y, 0),
+                point.mode || "smooth"
+            ])
+        ].join("|");
+    }
+
+    function caveGeometryWarningPlacementSignature(placement) {
+        return [
+            finiteEditorNumber(placement.x, 0),
+            finiteEditorNumber(placement.y, 0),
+            finiteEditorNumber(placement.w, 0),
+            finiteEditorNumber(placement.h, 0),
+            finiteEditorNumber(placement.rotation, 0),
+            finiteEditorNumber(placement.angle, 0)
+        ].join("|");
+    }
+
     function gameplayGeometryCaveWarnings() {
         const cave = caveWindowRecord();
-        if (!cave.enabled || cave.points.length < 3) return [];
+        if (!cave.enabled || cave.points.length < 3) {
+            state.caveGeometryWarningCache = null;
+            return [];
+        }
+
+        const caveSignature = caveGeometryWarningCaveSignature(cave);
+        let cache = state.caveGeometryWarningCache;
+        if (!cache || cache.caveSignature !== caveSignature) {
+            cache = {
+                caveSignature,
+                cavePolygon: sampleClosedCaveSpline(cave.points, 20).slice(0, -1),
+                placementSeparations: new WeakMap()
+            };
+            state.caveGeometryWarningCache = cache;
+        }
+
         const warningDistance = caveGeometryWarningDistance(cave);
         const warnings = [];
         for (const placement of state.level.placements || []) {
@@ -1955,7 +1991,17 @@ import {
             if (placement.collisionFromManifest === false) continue;
             const object = objectFor(placement.assetId, placement.atlasId || DEFAULT_ATLAS_ID);
             if (object && !hasRuntimeLines(object)) continue;
-            const separation = caveWindowPolygonSeparation(cave.points, placementCorners(placement));
+
+            const placementSignature = caveGeometryWarningPlacementSignature(placement);
+            let cachedSeparation = cache.placementSeparations.get(placement);
+            if (!cachedSeparation || cachedSeparation.placementSignature !== placementSignature) {
+                cachedSeparation = {
+                    placementSignature,
+                    separation: cavePolygonSeparation(cache.cavePolygon, placementCorners(placement))
+                };
+                cache.placementSeparations.set(placement, cachedSeparation);
+            }
+            const separation = cachedSeparation.separation;
             if (!separation.outside || separation.distance <= warningDistance) continue;
             warnings.push({
                 placement,
@@ -4221,9 +4267,18 @@ import {
         return ids;
     }
 
+    function resetEditorFrameCadence() {
+        editorLastPaintAt = 0;
+        editorFrameCadenceSamples.length = 0;
+        state.editorPerformance.cadenceMs = 0;
+        state.editorPerformance.cadenceFps = 0;
+        state.editorPerformance.worstCadenceMs = 0;
+    }
+
     function startDrag(point, event, forcePan = false) {
         if (forcePan || state.tool === "pan") {
             state.drag = { kind: "pan", sx: event.clientX, sy: event.clientY, camera: { ...state.camera }, pointerId: event.pointerId };
+            resetEditorFrameCadence();
             canvas.classList.add("panning");
             return;
         }
@@ -4275,11 +4330,10 @@ import {
             originals,
             pointerId: event.pointerId
         };
-        // Remove the moving records from their resident world tiles once. They
-        // are drawn on the transparent editor overlay until the drag ends.
-        clearEditorTileLayerCache("editorMainLayerTileCache");
-        clearEditorTileLayerCache("editorEntityLayerTileCache");
-        clearEditorTileLayerCache("editorCaveForegroundLayerCache");
+        // Rebuild the runtime base once without the moving records. Their
+        // live artwork and guides then stay on the transparent overlay until
+        // the drag ends, avoiding a complete world conversion per pointer move.
+        markEditorRuntimeWorldDirty();
         syncInspector();
         draw();
     }
@@ -4287,8 +4341,10 @@ import {
     function updateDrag(point, event) {
         if (!state.drag) return;
         if (state.drag.kind === "pan") {
-            state.camera.x = state.drag.camera.x - (event.clientX - state.drag.sx) / state.camera.zoom;
-            state.camera.y = state.drag.camera.y - (event.clientY - state.drag.sy) / state.camera.zoom;
+            const offsetX = event.clientX - state.drag.sx;
+            const offsetY = event.clientY - state.drag.sy;
+            state.camera.x = state.drag.camera.x - offsetX / state.camera.zoom;
+            state.camera.y = state.drag.camera.y - offsetY / state.camera.zoom;
             draw();
             return;
         }
@@ -4304,6 +4360,7 @@ import {
             const dy = point.y - state.drag.start.y;
             cavePoint.x = snapped(state.drag.original.x + dx);
             cavePoint.y = snapped(state.drag.original.y + dy);
+            markEditorRuntimeWorldDirty();
             refreshCaveWindowUi();
             draw();
             return;
@@ -4388,131 +4445,12 @@ import {
         }
     }
 
-    function editorTileResolutionScale() {
-        const zoom = Math.max(MIN_EDITOR_ZOOM, finiteEditorNumber(state.camera.zoom, 1));
-        if (zoom < 0.12) return 0.125;
-        if (zoom < 0.30) return 0.25;
-        if (zoom < 0.80) return 0.5;
-        return 1;
+    function markEditorRuntimeWorldDirty() {
+        state.editorRuntimeWorldDirty = true;
     }
 
-    function clearEditorTileLayerCache(cacheName) {
-        const cache = state[cacheName];
-        if (!cache?.tiles) return;
-        for (const tile of cache.tiles.values()) editorWebGLBackend?.invalidateTexture(tile.canvas);
-        cache.tiles.clear();
-    }
-
-    function invalidateEditorSceneCache({ caveForeground = true, mainArtwork = true, entities = true } = {}) {
-        if (mainArtwork) {
-            state.editorMainArtworkRevision += 1;
-            clearEditorTileLayerCache("editorMainLayerTileCache");
-        }
-        if (entities) {
-            state.editorEntityArtworkRevision += 1;
-            clearEditorTileLayerCache("editorEntityLayerTileCache");
-        }
-        if (caveForeground) {
-            state.editorCaveForegroundRevision += 1;
-            clearEditorTileLayerCache("editorCaveForegroundLayerCache");
-        }
-    }
-
-    function ensureEditorWorldTileLayerCache(cacheName, tileSize = EDITOR_WORLD_TILE_SIZE) {
-        let cache = state[cacheName];
-        if (!cache) {
-            cache = { tiles: new Map(), tileSize, frame: 0 };
-            state[cacheName] = cache;
-        }
-        cache.tileSize = tileSize;
-        cache.frame += 1;
-        return cache;
-    }
-
-    function editorTileBounds(tileX, tileY, tileSize = EDITOR_WORLD_TILE_SIZE) {
-        return { minX: tileX, minY: tileY, maxX: tileX + tileSize, maxY: tileY + tileSize };
-    }
-
-    function withTemporaryEditorCamera(camera, rect, callback) {
-        const previousCamera = state.camera;
-        const previousViewport = state.editorViewportRect;
-        state.camera = camera;
-        state.editorViewportRect = rect;
-        try {
-            return callback();
-        } finally {
-            state.camera = previousCamera;
-            state.editorViewportRect = previousViewport;
-        }
-    }
-
-    function rebuildEditorWorldTile(cacheName, tileX, tileY, resolutionScale, signature, painter) {
-        const cache = ensureEditorWorldTileLayerCache(cacheName);
-        const key = `${resolutionScale}|${tileX}|${tileY}`;
-        let tile = cache.tiles.get(key);
-        const pixelSize = Math.max(1, Math.round(cache.tileSize * resolutionScale));
-        if (!tile) {
-            const tileCanvas = document.createElement("canvas");
-            tile = {
-                canvas: tileCanvas,
-                context: tileCanvas.getContext("2d", { alpha: true, desynchronized: true }),
-                signature: "",
-                lastUsedFrame: cache.frame
-            };
-            cache.tiles.set(key, tile);
-        }
-        tile.lastUsedFrame = cache.frame;
-        if (tile.canvas.width !== pixelSize || tile.canvas.height !== pixelSize) {
-            tile.canvas.width = pixelSize;
-            tile.canvas.height = pixelSize;
-            tile.signature = "";
-        }
-        if (tile.signature === signature) return { key, tile, built: false };
-        const tileBounds = editorTileBounds(tileX, tileY, cache.tileSize);
-        tile.context.setTransform(resolutionScale, 0, 0, resolutionScale, 0, 0);
-        tile.context.clearRect(0, 0, cache.tileSize, cache.tileSize);
-        withEditorContext(tile.context, () => withTemporaryEditorCamera(
-            { ...state.camera, x: tileX, y: tileY, zoom: 1 },
-            { width: cache.tileSize, height: cache.tileSize },
-            () => painter(tileBounds)
-        ));
-        tile.signature = signature;
-        editorWebGLBackend?.invalidateTexture(tile.canvas);
-        state.editorPerformance.tilesBuilt += 1;
-        return { key, tile, built: true };
-    }
-
-    function pruneEditorTileLayerCache(cacheName, usedKeys, maxTiles = 96) {
-        const cache = state[cacheName];
-        if (!cache?.tiles || cache.tiles.size <= maxTiles) return;
-        const candidates = [...cache.tiles.entries()]
-            .filter(([key]) => !usedKeys.has(key))
-            .sort((a, b) => (a[1].lastUsedFrame || 0) - (b[1].lastUsedFrame || 0));
-        while (cache.tiles.size > maxTiles && candidates.length) {
-            const [key, tile] = candidates.shift();
-            editorWebGLBackend?.invalidateTexture(tile.canvas);
-            cache.tiles.delete(key);
-        }
-    }
-
-    function editorWorldTileRange(bounds, tileSize = EDITOR_WORLD_TILE_SIZE) {
-        return {
-            minTileX: Math.floor(bounds.minX / tileSize) * tileSize,
-            maxTileX: Math.floor((bounds.maxX - 0.0001) / tileSize) * tileSize,
-            minTileY: Math.floor(bounds.minY / tileSize) * tileSize,
-            maxTileY: Math.floor((bounds.maxY - 0.0001) / tileSize) * tileSize
-        };
-    }
-
-    function editorVisibleAuthoredCaveBounds(rect, marginPixels = 96) {
-        const bounds = editorViewportWorldBounds(marginPixels);
-        const offset = editorCaveParallaxOffset(rect);
-        return {
-            minX: bounds.minX + offset.x,
-            minY: bounds.minY + offset.y,
-            maxX: bounds.maxX + offset.x,
-            maxY: bounds.maxY + offset.y
-        };
+    function invalidateEditorSceneCache() {
+        markEditorRuntimeWorldDirty();
     }
 
     function recordIsTransientlyMoving(record) {
@@ -4521,120 +4459,6 @@ import {
             record?.id &&
             Array.isArray(state.drag.ids) &&
             state.drag.ids.includes(record.id)
-        );
-    }
-
-    function paintEditorTileLayer(cacheName, visibleBounds, screenOriginForTile, prepareTile) {
-        const cache = ensureEditorWorldTileLayerCache(cacheName);
-        const resolutionScale = editorTileResolutionScale();
-        const range = editorWorldTileRange(visibleBounds, cache.tileSize);
-        const usedKeys = new Set();
-        const dpr = editorPixelRatio();
-        for (let tileY = range.minTileY; tileY <= range.maxTileY; tileY += cache.tileSize) {
-            for (let tileX = range.minTileX; tileX <= range.maxTileX; tileX += cache.tileSize) {
-                const bounds = editorTileBounds(tileX, tileY, cache.tileSize);
-                const prepared = prepareTile(bounds, resolutionScale);
-                if (!prepared) continue;
-                const { key, tile } = rebuildEditorWorldTile(
-                    cacheName,
-                    tileX,
-                    tileY,
-                    resolutionScale,
-                    prepared.signature,
-                    prepared.paint
-                );
-                usedKeys.add(key);
-                state.editorPerformance.tilesDrawn += 1;
-                const origin = screenOriginForTile(bounds);
-                const drawWidth = cache.tileSize * state.camera.zoom;
-                const drawHeight = cache.tileSize * state.camera.zoom;
-                if (editorWebGLBackend) {
-                    editorWebGLBackend.queueSurface(
-                        tile.canvas,
-                        origin.x * dpr,
-                        origin.y * dpr,
-                        drawWidth * dpr,
-                        drawHeight * dpr,
-                        1,
-                        false
-                    );
-                } else {
-                    stageCtx.drawImage(tile.canvas, origin.x, origin.y, drawWidth, drawHeight);
-                }
-            }
-        }
-        pruneEditorTileLayerCache(cacheName, usedKeys);
-    }
-
-    function paintEditorMainTiles(rect) {
-        const viewportBounds = editorViewportWorldBounds();
-        const allMainPlacements = sortedPlacementGroups().main;
-        paintEditorTileLayer(
-            "editorMainLayerTileCache",
-            viewportBounds,
-            (bounds) => worldToScreen(bounds.minX, bounds.minY),
-            (tileBounds, scale) => {
-                const placements = editorPlacementEntriesForBounds("main", tileBounds).entries
-                    .map((entry) => entry.visual)
-                    .filter((placement) => !recordIsTransientlyMoving(placement));
-                if (!placements.length) return null;
-                return {
-                    signature: [tileBounds.minX, tileBounds.minY, scale, state.colorMapCacheKey, state.editorMainArtworkRevision].join("|"),
-                    paint: () => drawMainPlacementArtworkEntries(placements, tileBounds, allMainPlacements)
-                };
-            }
-        );
-    }
-
-    function paintEditorEntityTiles(rect) {
-        const viewportBounds = editorViewportWorldBounds();
-        paintEditorTileLayer(
-            "editorEntityLayerTileCache",
-            viewportBounds,
-            (bounds) => worldToScreen(bounds.minX, bounds.minY),
-            (tileBounds, scale) => {
-                const entities = state.level.entities.filter((entity) =>
-                    !recordIsTransientlyMoving(entity) && boundsIntersect(entityWorldBounds(entity), tileBounds)
-                );
-                if (!entities.length) return null;
-                return {
-                    signature: [tileBounds.minX, tileBounds.minY, scale, state.colorMapCacheKey, state.editorEntityArtworkRevision].join("|"),
-                    paint: () => {
-                        for (const entity of entities) drawEntity(entity, { viewportBounds: tileBounds, skipDetails: true });
-                    }
-                };
-            }
-        );
-    }
-
-    function paintEditorCaveTiles(rect) {
-        const authoredBounds = editorVisibleAuthoredCaveBounds(rect);
-        const offset = editorCaveParallaxOffset(rect);
-        paintEditorTileLayer(
-            "editorCaveForegroundLayerCache",
-            authoredBounds,
-            (bounds) => worldToScreen(bounds.minX - offset.x, bounds.minY - offset.y),
-            (tileBounds, scale) => {
-                const placements = editorPlacementEntriesForBounds("caveForeground", tileBounds).entries
-                    .map((entry) => entry.visual)
-                    .filter((placement) => generatedCavePlacementVisible(placement) && !recordIsTransientlyMoving(placement));
-                if (!placements.length) return null;
-                return {
-                    signature: [
-                        tileBounds.minX,
-                        tileBounds.minY,
-                        scale,
-                        state.colorMapCacheKey,
-                        state.editorCaveForegroundRevision,
-                        els.caveShowGenerated.checked ? 1 : 0
-                    ].join("|"),
-                    paint: () => {
-                        for (const placement of placements) {
-                            drawPlacement(placement, tileBounds, { skipDetails: true, useDisplayTransform: false });
-                        }
-                    }
-                };
-            }
         );
     }
 
@@ -4710,17 +4534,135 @@ import {
         });
     }
 
+    function editorRuntimeEnemyCatalog() {
+        return {
+            catalogId: "ct_enemies_001",
+            enemies: Object.fromEntries([...state.enemyCatalog.entries()].map(([enemyId, definition]) => [
+                enemyId,
+                cloneData(definition)
+            ]))
+        };
+    }
+
+    function editorRuntimeEnemyCharacterUrls() {
+        return [...new Set([...state.enemyCatalog.values()].map((definition) => {
+            const configured = String(definition?.characterUrl || definition?.characterId || "").trim();
+            if (!configured) return "";
+            const withExtension = configured.endsWith(".json") ? configured : `${configured}.json`;
+            return withExtension.startsWith("assets/") ? withExtension : `assets/${withExtension}`;
+        }).filter(Boolean))];
+    }
+
+    function editorRuntimeManifestUrls() {
+        return [...new Set([...state.atlases.values()]
+            .map((record) => String(record?.manifestUrl || "").trim())
+            .filter(Boolean))];
+    }
+
+    function editorRuntimeLevelSource() {
+        const movingIds = state.drag?.kind === "move" ? new Set(state.drag.ids || []) : null;
+        const placements = (state.level.placements || []).filter((placement) => {
+            if (movingIds?.has(placement?.id)) return false;
+            return generatedCavePlacementVisible(placement);
+        });
+        const entities = movingIds
+            ? (state.level.entities || []).filter((entity) => !movingIds.has(entity?.id))
+            : state.level.entities;
+        const caveWindow = {
+            ...state.level.caveWindow,
+            enabled: Boolean(state.level.caveWindow?.enabled && els.cavePreviewShade.checked)
+        };
+        return {
+            ...state.level,
+            placements,
+            entities,
+            caveWindow
+        };
+    }
+
+    async function initializeEditorRuntimeRenderer() {
+        if (state.editorRuntimeRenderer) return state.editorRuntimeRenderer;
+        const runtimeState = createInitialGameState();
+        applyEnemyDefinitionCatalog(runtimeState, editorRuntimeEnemyCatalog());
+        state.editorRuntimeState = runtimeState;
+        if (els.renderer) els.renderer.textContent = "renderer: loading Canvas2D game renderer";
+        const renderer = await createGameCanvasRenderer(canvas, {
+            preferWebGL2: false,
+            environmentAtlasManifestUrls: editorRuntimeManifestUrls(),
+            enemyCharacterUrls: editorRuntimeEnemyCharacterUrls(),
+            onProgress: ({ progress, label }) => {
+                if (!els.renderer) return;
+                els.renderer.textContent = `renderer: loading ${Math.round(Math.max(0, Math.min(1, Number(progress) || 0)) * 100)}% · ${label}`;
+            }
+        });
+        state.editorRuntimeRenderer = renderer;
+        markEditorRuntimeWorldDirty();
+        return renderer;
+    }
+
+    function syncEditorRuntimeWorld() {
+        const renderer = state.editorRuntimeRenderer;
+        const runtimeState = state.editorRuntimeState;
+        if (!renderer || !runtimeState || !state.editorRuntimeWorldDirty) {
+            state.editorPerformance.syncMs = 0;
+            return false;
+        }
+        const syncStart = performance.now();
+        if (!applyEditorLevelToWorld(runtimeState, editorRuntimeLevelSource())) {
+            throw new Error("The Level Editor could not convert the authored level to runtime world data.");
+        }
+        renderer.syncCaveWindow(runtimeState.world.caveWindow);
+        renderer.syncEnvironmentColorMap(runtimeState.world.colorMap);
+        state.editorRuntimeWorldDirty = false;
+        state.editorPerformance.syncMs = performance.now() - syncStart;
+
+        const manifestUrls = (state.level.atlasRefs || []).map((ref) => String(ref?.manifest || "").trim()).filter(Boolean);
+        const signature = [...new Set(manifestUrls)].sort().join("|");
+        if (signature && signature !== state.editorRuntimeAtlasSignature) {
+            state.editorRuntimeAtlasSignature = signature;
+            renderer.ensureEnvironmentAtlases(manifestUrls).then((changed) => {
+                if (changed) draw();
+            }).catch((error) => {
+                console.warn("Could not extend the Level Editor runtime atlas set.", error);
+            });
+        }
+        return true;
+    }
+
+    function paintEditorRuntimeWorld() {
+        const renderer = state.editorRuntimeRenderer;
+        const runtimeState = state.editorRuntimeState;
+        if (!renderer || !runtimeState) {
+            const rect = screenSize();
+            stageCtx.setTransform(editorPixelRatio(), 0, 0, editorPixelRatio(), 0, 0);
+            stageCtx.fillStyle = "rgb(23, 21, 37)";
+            stageCtx.fillRect(0, 0, rect.width, rect.height);
+            return null;
+        }
+        syncEditorRuntimeWorld();
+        const metrics = renderer.getViewportMetrics?.() || { dpr: editorPixelRatio() };
+        const dpr = Math.max(1, Number(metrics.dpr) || editorPixelRatio());
+        renderer.setViewOverride({
+            x: state.camera.x,
+            y: state.camera.y,
+            zoom: state.camera.zoom * dpr
+        });
+        renderer.render(runtimeState, editorRuntimeInputFrame, 0);
+        return renderer.getPerformanceDiagnostics?.() || null;
+    }
+
     function updateEditorRendererReadout(diagnostics = null) {
         if (!els.renderer) return;
-        const mode = editorWebGLBackend ? "WebGL2 tiles" : "Canvas2D tiles";
         const now = performance.now();
-        let text = `renderer: ${mode}`;
+        let text = "renderer: Canvas2D game renderer";
         if (editorPerformanceProfileEnabled) {
             if (now - editorLastRendererReadoutAt < 250) return;
             const perf = state.editorPerformance;
-            const uploads = diagnostics?.textureUploads ?? 0;
-            const updates = diagnostics?.textureUpdates ?? 0;
-            text += ` · frame ${perf.frameMs.toFixed(1)} ms · world ${perf.worldMs.toFixed(1)} · overlay ${perf.overlayMs.toFixed(1)} · tiles ${perf.tilesDrawn}/${perf.tilesBuilt} · uploads ${uploads + updates}`;
+            const cadence = perf.cadenceFps > 0
+                ? ` · cadence ${perf.cadenceFps.toFixed(1)} fps (${perf.cadenceMs.toFixed(1)} ms, worst ${perf.worstCadenceMs.toFixed(1)})`
+                : "";
+            const sync = perf.syncMs > 0.05 ? ` · sync ${perf.syncMs.toFixed(1)}` : "";
+            text += `${cadence} · submit ${perf.frameMs.toFixed(1)} ms · queue ${perf.queueMs.toFixed(1)}${sync} · world ${perf.worldMs.toFixed(1)} · actors ${perf.actorsMs.toFixed(1)} · foreground ${perf.foregroundMs.toFixed(1)} · mask ${perf.maskMs.toFixed(1)} · guides ${perf.overlayMs.toFixed(1)} ms · visuals ${perf.visualsDrawn}/${perf.visualsConsidered}`;
             editorLastRendererReadoutAt = now;
         }
         if (text === editorLastRendererReadout) return;
@@ -4728,32 +4670,36 @@ import {
         els.renderer.textContent = text;
     }
 
-    function paintEditorFrame() {
+    function updateEditorFrameCadence(frameStart) {
+        if (editorLastPaintAt > 0) {
+            const interval = Math.max(0, frameStart - editorLastPaintAt);
+            editorFrameCadenceSamples.push(interval);
+            if (editorFrameCadenceSamples.length > 30) editorFrameCadenceSamples.shift();
+            const total = editorFrameCadenceSamples.reduce((sum, value) => sum + value, 0);
+            const average = total / editorFrameCadenceSamples.length;
+            state.editorPerformance.cadenceMs = average;
+            state.editorPerformance.cadenceFps = average > 0 ? 1000 / average : 0;
+            state.editorPerformance.worstCadenceMs = Math.max(...editorFrameCadenceSamples);
+        }
+        editorLastPaintAt = frameStart;
+    }
+
+    function paintEditorFrame(requestedAt = 0) {
         const frameStart = performance.now();
+        updateEditorFrameCadence(frameStart);
+        state.editorPerformance.queueMs = requestedAt > 0 ? Math.max(0, frameStart - requestedAt) : 0;
         const rect = screenSize();
         state.editorViewportRect = rect;
-        state.editorPerformance.tilesDrawn = 0;
-        state.editorPerformance.tilesBuilt = 0;
         const viewportBounds = editorViewportWorldBounds();
 
         const worldStart = performance.now();
-        let diagnostics = null;
-        if (editorWebGLBackend) {
-            if (editorWebGLBackend.beginFrame(canvas.width, canvas.height, "rgb(23, 21, 37)")) {
-                paintEditorMainTiles(rect);
-                paintEditorEntityTiles(rect);
-                paintEditorCaveTiles(rect);
-                diagnostics = editorWebGLBackend.endFrame();
-            }
-        } else {
-            stageCtx.setTransform(editorPixelRatio(), 0, 0, editorPixelRatio(), 0, 0);
-            stageCtx.clearRect(0, 0, rect.width, rect.height);
-            withEditorContext(stageCtx, () => drawBackground(rect));
-            paintEditorMainTiles(rect);
-            paintEditorEntityTiles(rect);
-            paintEditorCaveTiles(rect);
-        }
-        state.editorPerformance.worldMs = performance.now() - worldStart;
+        const diagnostics = paintEditorRuntimeWorld();
+        state.editorPerformance.worldMs = Number(diagnostics?.worldMs || (performance.now() - worldStart));
+        state.editorPerformance.actorsMs = Number(diagnostics?.actorsMs || 0);
+        state.editorPerformance.foregroundMs = Number(diagnostics?.foregroundMs || 0);
+        state.editorPerformance.maskMs = Number(diagnostics?.maskMs || 0);
+        state.editorPerformance.visualsDrawn = Number(diagnostics?.visualsDrawn || 0);
+        state.editorPerformance.visualsConsidered = Number(diagnostics?.visualsConsidered || 0);
 
         const overlayStart = performance.now();
         renderEditorOverlay(rect, viewportBounds);
@@ -4761,7 +4707,7 @@ import {
         state.editorPerformance.frameMs = performance.now() - frameStart;
         globalThis.__ignatiusEditorPerformance = {
             ...state.editorPerformance,
-            renderer: editorWebGLBackend ? "webgl2" : "canvas2d",
+            renderer: "canvas2d-game",
             diagnostics: diagnostics ? { ...diagnostics } : null
         };
         updateEditorRendererReadout(diagnostics);
@@ -4772,9 +4718,11 @@ import {
         const requestFrame = globalThis.requestAnimationFrame
             ? globalThis.requestAnimationFrame.bind(globalThis)
             : (callback) => window.setTimeout(callback, 16);
+        editorDrawRequestedAt = performance.now();
         editorDrawFrameRequest = requestFrame(() => {
+            const requestedAt = editorDrawRequestedAt;
             editorDrawFrameRequest = null;
-            paintEditorFrame();
+            paintEditorFrame(requestedAt);
         });
     }
 
@@ -4872,16 +4820,6 @@ import {
         const fullBlackBoundary = cave.points.length >= 3
             ? sampleCaveWindowOutset(cave.points, cave.feather, 20)
             : [];
-
-        if (cave.enabled && cave.points.length >= 3 && els.cavePreviewShade.checked) {
-            ctx.save();
-            ctx.beginPath();
-            ctx.rect(0, 0, rect.width, rect.height);
-            traceCaveWindowPath();
-            ctx.fillStyle = "rgba(0,0,0,0.70)";
-            ctx.fill("evenodd");
-            ctx.restore();
-        }
 
         if (cave.points.length >= 3 && cave.gradientNoise?.amplitude > 0 && els.caveShowBlackBoundary.checked) {
             ctx.save();
@@ -7407,6 +7345,7 @@ import {
     }
 
     function syncMetadataFromUi() {
+        markEditorRuntimeWorldDirty();
         state.level.colorMap = readColorMapControls();
         syncCaveWindowFromUi();
         syncAutoSpawnEnemiesFromUi();
@@ -7537,6 +7476,17 @@ import {
         const minOrder = Math.min(0, ...state.level.placements.map((item) => Number(item.order) || 0));
         selected.record.order = minOrder - 1;
         persistUi();
+    }
+
+    function openCanvasRendererBaseline() {
+        updateJson();
+        localStorage.setItem(STORAGE_KEY, els.levelJson.value);
+        const url = new URL("level-renderer-baseline.html", window.location.href);
+        url.searchParams.set("level", "browser_copy");
+        url.searchParams.set("x", String(state.camera.x));
+        url.searchParams.set("y", String(state.camera.y));
+        url.searchParams.set("zoom", String(state.camera.zoom));
+        window.open(url.href, "_blank");
     }
 
     function playBrowserCopy() {
@@ -7847,6 +7797,7 @@ import {
     document.getElementById("to-front").addEventListener("click", raiseSelectedToTop);
     document.getElementById("to-back").addEventListener("click", lowerSelectedToBottom);
     document.getElementById("play-browser-copy").addEventListener("click", playBrowserCopy);
+    document.getElementById("canvas-renderer-baseline").addEventListener("click", openCanvasRendererBaseline);
     els.buildNavigationGraphs.addEventListener("click", buildPlacedHunterNavigationGraphs);
     els.clearNavigationGraphs.addEventListener("click", () => {
         state.level.navigationGraphs = { version: 2, profiles: [] };
@@ -7886,9 +7837,13 @@ import {
             persistUi();
         });
     });
-    els.cavePreviewShade.addEventListener("change", draw);
+    els.cavePreviewShade.addEventListener("change", () => {
+        markEditorRuntimeWorldDirty();
+        draw();
+    });
     els.caveShowBlackBoundary.addEventListener("change", draw);
     els.caveShowGenerated.addEventListener("change", () => {
+        markEditorRuntimeWorldDirty();
         draw();
         setStatus(els.caveShowGenerated.checked
             ? "Showing generated cave-perimeter assets in the editor."
@@ -8033,6 +7988,7 @@ import {
         await loadAtlasLibrary();
         await loadEntityCatalog();
         await loadEnemyCatalog();
+        await initializeEditorRuntimeRenderer();
         await loadAutomaticGeneratorAssetCatalog();
         await loadAutomaticGeneratorEnemyCatalog();
         await loadAutomaticGeneratorRewardCatalog();

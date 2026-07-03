@@ -14,7 +14,7 @@ Revision 303 records the direct Canvas 2D ownership map immediately before the W
 | `src/presentation/overlap-blend-cache.js` | 5 | Static overlap-composite preparation. |
 | `src/presentation/rocket-glow-baking.js` | 5 | Offline-style glow texture baking. |
 | `src/browser/game-bootstrap.js` | 8 | The small HUD minimap only. Gameplay world rendering must not migrate into browser startup code. |
-| `level-editor.html` | 98 | Level Editor scene, palette thumbnails, offscreen caches, guides, and overlays. |
+| `level-editor.html` | 97 | Level Editor palette/preview canvases and transparent authoring overlay; the base scene is delegated to the production presentation renderer. |
 | `character-editor.html` | 29 | Puppet Forge atlas, stage, rig, and timeline surfaces. |
 | `asset-editor.html` | 12 | Atlas-object authoring surface. |
 
@@ -24,7 +24,7 @@ The counts are lexical audit counts rather than draw calls per frame. They are u
 
 `src/core/` and `src/shared/` contain no approved direct Canvas drawing. They remain portable data, simulation, collision, navigation, and geometry code. WebGL2 must consume their ordinary records and must not make GPU buffers authoritative for gameplay or authored level state.
 
-The game renderer should migrate first behind the existing presentation boundary. The HUD minimap may remain Canvas 2D because it is small, infrequently redrawn, and isolated in `game-bootstrap.js`. The three editors are separate tools and do not need to change backend in the first game-renderer slice. Their Canvas caches may later be replaced independently while preserving the same placements, entities, bounds, layer ordering, and transient overlay split.
+The game renderer should migrate first behind the existing presentation boundary. The HUD minimap may remain Canvas 2D because it is small, infrequently redrawn, and isolated in `game-bootstrap.js`. The three editors are separate tools. Revision 356 makes the Level Editor delegate its base scene to the production Canvas renderer while retaining editor-owned palette/preview canvases and the transparent authoring overlay. Character and asset editors remain standalone Canvas tools.
 
 Texture-producing helpers such as cave masks, colour-map caches, overlap composites, and rocket-glow baking are presentation-owned inputs. A WebGL2 backend may upload their results as textures, replace them with GPU equivalents, or retain Canvas-produced textures during migration. It must not duplicate their gameplay-neutral source data in a second scene model.
 
@@ -32,7 +32,7 @@ Texture-producing helpers such as cave masks, colour-map caches, overlap composi
 
 The first WebGL2 slice should render a static world through a backend interface while Canvas remains available as a fallback. Camera transforms, layer partitions, visible-record queries, character draw commands, and effect records should be backend inputs. Input, simulation, collision, level loading, editor JSON, and generator output stay unchanged.
 
-Do not combine the initial backend switch with gameplay changes, level-format changes, editor rewrites, or a new asset pipeline. Keep the minimap and editor surfaces on Canvas until the game-world backend is stable and the stress fixture has comparable measurements.
+Do not combine the initial backend switch with gameplay changes, level-format changes, or a new asset pipeline. The minimap and editor-owned overlays remain Canvas; the Level Editor base scene now deliberately reuses the stable production Canvas renderer rather than maintaining a separate backend.
 
 ## Revision 323 resident-texture note
 
@@ -55,3 +55,8 @@ The Canvas character-enemy hit flash now uses the presentation-owned prepared `h
 ## Revision 336 diagnostic boundary note
 
 The new HUD-blur comparison is a DOM/CSS diagnostic controlled by a root class and does not enter portable simulation or renderer modules. The laboratory's component sets and outside-draw timing remain development-only. Canvas and WebGL production boundaries are unchanged in this revision.
+
+
+## Revision 356 Level Editor delegation note
+
+The Level Editor remains an approved direct-Canvas owner because its grid, collision/manifest guides, selection graphics, palette thumbnails, and transient placement previews are editor-only drawing. Its scenery, actors, cave foreground, parallax, and cave mask are no longer locally composed: `level-editor.html` delegates that base scene to `src/presentation/canvas-renderer.js` through `applyEditorLevelToWorld` and `setViewOverride`. This reduces renderer duplication without moving authoring state or Canvas ownership into portable modules.

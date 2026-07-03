@@ -75,15 +75,13 @@ Selecting an Asset or Entity palette card activates its placement tool. While th
 
 ## Level Editor rendering performance
 
-Pointer events do not render immediately: redraw requests are coalesced through `requestAnimationFrame`. The editor uses three independently cached world-space artwork layers: ordinary placements, entities, and cave foreground. Each layer is divided into 1024-world-pixel tiles. Empty tiles are never allocated, tiles outside the working set are pruned, and zoomed-out views use lower-resolution tile tiers so a whole-level view does not create a full-resolution bitmap of the entire world.
+The normal editor now uses the production Canvas2D game renderer for the complete base scene. Authored level data is converted through `applyEditorLevelToWorld`; `RocketfrockRenderer.setViewOverride()` supplies the editor's top-left camera and zoom. The separate transparent `#stage-overlay` owns only authoring vectors such as grid lines, collision/manifest guides, labels, cave controls, route diagnostics, selection, and placement previews.
 
-With WebGL2 active, tile canvases are uploaded once and remain resident textures. Panning changes only their quad positions. Do not reintroduce full-window Canvas staging uploads in the pan path; that makes an empty level resolution-bound and can reduce desktop dragging to single-digit frame rates. With Canvas 2D active, the same world tiles are drawn directly onto the stage.
+Redraw requests remain coalesced through `requestAnimationFrame`. Pan and zoom are camera-only operations: they reuse the current runtime world, spatial buckets, overlap composites, foreground treatment cache, cave mask cache, and loaded atlases. Do not mark runtime world data dirty merely because the camera moved. Level loads, placement/entity edits, cave edits, colour-map changes, and relevant visibility controls mark it dirty; the next frame performs one conversion and then returns to cheap camera-only rendering.
 
-Editor-only vectors and controls use the separate transparent `#stage-overlay` Canvas. Grid lines, labels, collision guides, cave controls, route diagnostics, placement ghosts, selections, and marquees are drawn there directly rather than uploaded through WebGL. This also prevents guide flicker in the Canvas fallback. A record being dragged is temporarily omitted from its resident tile and drawn on the overlay until the drag is committed.
+During a placement or entity move, the base runtime snapshot omits the moving records once. Their live artwork and guides are drawn on the overlay until the drag commits, so ordinary pointer movement does not reconvert the complete level. Camera panning does redraw both canvases directly and keeps artwork and guides in one coordinate system. There is no CSS-translated snapshot, independently moving layer, whole-level bitmap, editor WebGL context, or editor tile cache.
 
-`?webgl=1` prefers WebGL2 and `?webgl=0` forces Canvas 2D. Add `?profile=1` or `?perf=1` to expose frame, world-layer, overlay, tile-build, and GPU-upload timings in the editor HUD. The latest values are also available as `globalThis.__ignatiusEditorPerformance` for browser profiling.
-
-These caches contain only rendered editor pixels. Level records, placement ordering, collision, selection, JSON export, and runtime rendering remain authoritative elsewhere.
+The Level Editor deliberately ignores the game's `?webgl=0` / `?webgl=1` selection and always uses Canvas2D for its base scene. Add `?profile=1` or `?perf=1` to expose animation-frame cadence, queue delay, authored-world synchronization cost, production renderer world/actor/foreground/mask timings, guide-overlay cost, and visual culling counts. The latest values are also available as `globalThis.__ignatiusEditorPerformance`.
 
 
 ## Test gates and release testing
@@ -172,11 +170,12 @@ Do not probe WebGL2 by requesting it directly from the visible game canvas and t
 
 Once the visible canvas owns WebGL2, a context-loss interval is not a Canvas fallback opportunity because the renderer's 2D canvas is only the hidden staging surface. Keep presentation idle until `webglcontextrestored` rebuilds the GPU resources.
 
-## Revision 351 Level Editor resident-tile guidance
+## Revision 356 Level Editor renderer guidance
 
-The Level Editor uses WebGL2 as a resident tile compositor, not as a second authoring model. Continue implementing asset and entity composition through the shared Canvas drawing helpers, but bake stable artwork into world tiles. WebGL should receive those tile canvases as static textures. The transparent DOM overlay owns changing editor vectors and must not be uploaded as a full-window texture.
+Treat the production Canvas2D renderer as the only base-scene implementation in the Level Editor. Editor work may add overlay guides or improve dirty-state precision, but it must not fork atlas composition, cave foreground, parallax, actor rendering, or layer ordering into another renderer. Keep the portable conversion seam (`applyEditorLevelToWorld`) and presentation camera seam (`setViewOverride`) narrow and explicit.
 
-When artwork changes, invalidate only the affected tile-layer cache. Camera movement and ordinary redraw scheduling are not artwork invalidations. Never request a 2D context from the visible stage before the disposable WebGL probe has decided the backend. Preserve the Canvas tile path because browsers and embedded runtimes may lack usable WebGL2.
+When adding an authoring mutation, ensure it marks `editorRuntimeWorldDirty`. When adding camera-only interaction, do not mark that flag. If a live manipulation can be represented transiently on the overlay, omit the manipulated records from the base snapshot once and defer reconversion until commit. Preserve the standalone Canvas baseline as a diagnostic control, not as a separate source of rendering truth.
+
 
 ## Revision 319 Overdrive naming guidance
 
@@ -262,3 +261,20 @@ Keep `ordinaryJumpHeight` as the authored full apex. Down is modeled as a full a
 Enemy body contact damage is intentionally independent from ordinary attack invulnerability. Route it through `damagePlayer` with `invulnerabilityTimerKey: "contactInvulnerabilityTimer"`; do not set or consult the ordinary timer for contact hits. This preserves same-frame melee attacks while preventing sustained overlap from applying damage every simulation tick.
 
 Revision 347 re-voices the alternate synthesized tunes rather than applying one blanket lead transpose. Each melody is placed in Level_001's low register according to its original tessitura, and every true bassoon foundation is kept strictly below the lead to prevent accidental voice crossing. Decorative bell accents remain independent of the bass hierarchy.
+
+## Revision 352 cave-warning performance note
+
+Cave geometry warnings depend on authored cave and terrain geometry, not on the camera. The editor therefore caches the sampled cave perimeter and each terrain placement's separation result. Do not invalidate or bypass this cache merely because the viewport pans, zooms, switches renderer, or changes grid/guide visibility. New cave diagnostics should follow the same rule: separate camera-dependent drawing from camera-independent validation.
+
+## Revision 356 Level Editor panning note
+
+Panning changes the editor camera and requests an ordinary production Canvas2D renderer frame. The guide overlay is redrawn in the same animation frame at the same camera, so artwork, boxes, labels, cave controls, and the side panel remain aligned. There is no post-drag catch-up frame and no finite snapshot that can reveal blank edge strips.
+
+
+## Canvas game-renderer baseline
+
+Use the Level Editor's **Canvas baseline** button when editor panning measurements become difficult to interpret. The button saves the current browser copy and opens `level-renderer-baseline.html` at the same top-left camera position and CSS zoom.
+
+This page is intentionally not an editor. It continuously renders the converted level with the production Canvas2D game renderer, including its ordinary spatial culling, environment sprites, runtime entities, actor-front artwork, cave foreground, parallax, and cave mask. It has no editor grid, guides, tile caches, WebGL backend, overlay canvas, or compositor pan preview. Drag anywhere on the canvas to pan, use the wheel to zoom around the pointer, and use **Reset stats** before comparing a representative drag.
+
+Compare its requestAnimationFrame `cadence` and `worst` values with the renderer's synchronous `submit` and layer timings. A smooth baseline with a slow Level Editor points to editor interaction or overlay work. A similarly slow baseline points lower, toward browser rasterization, compositing, driver behavior, or production Canvas rendering at that view and zoom.

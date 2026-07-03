@@ -3398,3 +3398,49 @@ The editor now reuses `computeCaveWindowParallaxOffset` with its own current vie
 - [x] Add enemy contact damage at one quarter of the stronger melee/projectile damage with an independent contact-only invulnerability timer.
 
 Revision 347 re-voices the alternate synthesized tunes rather than applying one blanket lead transpose. Each melody is placed in Level_001's low register according to its original tessitura, and every true bassoon foundation is kept strictly below the lead to prevent accidental voice crossing. Decorative bell accents remain independent of the bass hierarchy.
+
+## Revision 352 Level Editor cave-warning performance
+
+- [x] Confirm that level-002 world-tile drawing is below 1 ms in both Canvas 2D and WebGL2 while the overlay dominates frame cost.
+- [x] Identify the camera-independent cave warning scan as the repeated multi-millisecond operation.
+- [x] Sample the cave polygon once per authored cave-shape signature.
+- [x] Cache each terrain placement's separation result by placement object and transform signature.
+- [x] Recalculate only the edited placement while preserving immediate warning feedback.
+- [x] Add a shared pre-sampled polygon-separation helper while retaining the existing convenience API.
+- [x] Keep parallax preview, zoom, resident tiles, and Canvas fallback unchanged.
+- [x] Add regression coverage for shared separation parity and the editor cache boundary.
+- [x] Synchronize visible game and Level Editor labels to revision 352.
+
+## Revision 354 whole-scene pan preview
+
+- [x] Record that revision 353's overlay-only transform caused stale-world misalignment at low requestAnimationFrame cadence.
+- [x] Wrap the WebGL/Canvas world and transparent guide canvas in one transformable `stage-pan-layer`.
+- [x] Paint-contain the transformed layer inside the editor viewport and keep the side panel above the work surface.
+- [x] Cancel pending editor draws when a pan begins.
+- [x] Suppress all tile, WebGL, and overlay redraw requests while the pointer is held.
+- [x] Translate the complete rendered scene from the pan-start camera so artwork and guides remain aligned.
+- [x] Draw one exact final frame on release and clear the transform in that render callback.
+- [x] Replace the misleading live profiler line during panning with a compositor-only preview status.
+- [x] Synchronize visible game and Level Editor labels to revision 354.
+- [x] Extend editor regression checks for the shared pan layer, draw suppression, and viewport paint containment.
+
+## Revision 355 direct Canvas game-renderer baseline
+
+- [x] Add an isolated baseline page that renders editor levels through `applyEditorLevelToWorld` and the production Canvas2D game renderer.
+- [x] Force the baseline to `preferWebGL2: false`; do not use editor world tiles, frozen overlays, compositor pan transforms, or a duplicate asset renderer.
+- [x] Add a narrow renderer view override so the baseline can pan and zoom without mutating gameplay camera state.
+- [x] Report requestAnimationFrame cadence, worst interval, production submission timing, layer timings, and visual culling counts together.
+- [x] Add a Level Editor button that opens the saved browser copy in the baseline at the current camera and zoom.
+- [x] Keep the baseline development-only and update architecture, packaging, regression assertions, and visible revision labels to revision 355.
+
+
+## Revision 356 production Canvas renderer becomes the Level Editor base
+
+- [x] Replace editor-only tile/WebGL base-scene composition with the production Canvas2D game renderer.
+- [x] Convert authored levels through `applyEditorLevelToWorld` and use the presentation-only top-left camera override.
+- [x] Keep grid, manifest lines, labels, cave controls, route diagnostics, selection, and placement previews on the transparent editor overlay.
+- [x] Reuse runtime world data across camera-only pan and zoom frames; synchronize only after authored changes.
+- [x] Exclude moving records from the runtime snapshot once and render them transiently on the overlay until commit.
+- [x] Remove the active editor WebGL probe/backend, resident tile caches, resolution tiers, and CSS pan-preview layer.
+- [x] Update profile fields, regression contracts, architecture guidance, developer documentation, and visible revision labels to revision 356.
+- [ ] Confirm live level 002 pan and zoom cadence with grid, manifest lines, and labels enabled.

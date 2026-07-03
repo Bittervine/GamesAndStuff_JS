@@ -416,8 +416,7 @@ function segmentSegmentDistanceSquared(a, b, c, d) {
     );
 }
 
-export function caveWindowPolygonSeparation(points, polygon, stepsPerSegment = 20) {
-    const cavePolygon = sampleClosedCaveSpline(points, stepsPerSegment).slice(0, -1);
+export function cavePolygonSeparation(cavePolygon, polygon) {
     const shape = Array.isArray(polygon)
         ? polygon
             .filter((point) => point && Number.isFinite(Number(point.x)) && Number.isFinite(Number(point.y)))
@@ -451,6 +450,11 @@ export function caveWindowPolygonSeparation(points, polygon, stepsPerSegment = 2
         outside: true,
         distance: Math.sqrt(minimumDistanceSquared)
     };
+}
+
+export function caveWindowPolygonSeparation(points, polygon, stepsPerSegment = 20) {
+    const cavePolygon = sampleClosedCaveSpline(points, stepsPerSegment).slice(0, -1);
+    return cavePolygonSeparation(cavePolygon, polygon);
 }
 
 export function nearestCaveSplineSegment(points, point) {

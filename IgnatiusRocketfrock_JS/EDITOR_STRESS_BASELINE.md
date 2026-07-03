@@ -30,6 +30,9 @@ Use the same browser, display scale, window size, and revision for every compari
 4. A normal editing zoom while dragging one terrain placement.
 5. A normal editing zoom while dragging one cave-foreground placement.
 
-Record average frame time, worst visible hitch, and whether input remains visually attached to the pointer. Browser profiling remains a hands-on task because the current virtual environment does not provide a trustworthy loaded-page timing run. The structural fixture and procedure are now fixed, so Canvas and WebGL2 measurements will still be comparable when collected.
+Record average frame time, worst visible hitch, and whether input remains visually attached to the pointer. Browser profiling remains a hands-on task because the current virtual environment does not provide a trustworthy loaded-page timing run. The structural fixture and procedure are now fixed, so the revision-356 production-renderer editor can be compared consistently with the standalone Canvas baseline and with later overlay optimizations.
 
 Do not casually edit this fixture. A deliberate replacement must update the hash, counts, revision marker, regression test, and this document in the same revision.
+
+
+Revision 356 retires the editor-specific Canvas/WebGL tile comparison. The normal editor and the standalone baseline now share the production Canvas2D base renderer; the editor adds its transparent authoring overlay and dirty-state synchronization. For performance investigations, compare the normal editor against the baseline at the same camera and zoom, then disable guide categories one at a time only if the shared base remains smooth.
