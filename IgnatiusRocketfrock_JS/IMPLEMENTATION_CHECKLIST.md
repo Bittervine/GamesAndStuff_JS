@@ -3444,3 +3444,72 @@ Revision 347 re-voices the alternate synthesized tunes rather than applying one 
 - [x] Remove the active editor WebGL probe/backend, resident tile caches, resolution tiers, and CSS pan-preview layer.
 - [x] Update profile fields, regression contracts, architecture guidance, developer documentation, and visible revision labels to revision 356.
 - [ ] Confirm live level 002 pan and zoom cadence with grid, manifest lines, and labels enabled.
+
+
+## Revision 357 Level Editor viewport feedback and active cadence
+
+- [x] Reproduce baseline/editor cadence in loaded Chromium through Playwright.
+- [x] Identify the profiler-HUD intrinsic-width and inline-canvas-size feedback loop.
+- [x] Constrain the workbench, viewport row, and diagnostics HUD to the fixed main grid column.
+- [x] Leave visible canvas dimensions to CSS and update only equal stage/overlay backing stores.
+- [x] Keep direct manipulation on one continuous requestAnimationFrame chain and stop it when idle.
+- [x] Use the resize-cached canvas rectangle for wheel coordinate conversion.
+- [x] Reset cadence sampling at the beginning of a wheel burst.
+- [x] Correct the stale `fitView()` startup call to `fitContentView()`.
+- [x] Add the optional Playwright baseline/editor comparison probe and layout checks.
+- [x] Add regression assertions for the viewport and scheduler boundaries.
+- [x] Synchronize visible game, editor, baseline, tests, architecture, and planning labels to revision 357.
+
+
+## Revision 358 Editor 2 structural ladder
+
+- [x] Record that revision 357 headless/virtual Playwright cadence did not reproduce the target Chrome/Opera stall.
+- [x] Keep the existing Level Editor as the functional reference instead of applying another broad renderer rewrite.
+- [x] Add `level-editor-2.html` from the production Canvas baseline rather than from the old editor.
+- [x] Add a numbered stage selector for static sidebar DOM, editor toolbar/chrome, untouched overlay, overlay clear, overlay grid, and single-canvas grid.
+- [x] Keep the copied sidebar and toolbar inert so the first experiment measures structure and composition only.
+- [x] Add an in-page automated camera sweep with copyable cadence, worst-gap, callback, and long-task results.
+- [x] Keep every stage on `applyEditorLevelToWorld`, `preferWebGL2: false`, and the production Canvas renderer.
+- [x] Link the old editor and standalone baseline to the Editor 2 laboratory.
+- [x] Add regression assertions for the scaffold, stage ladder, single-canvas comparison, and packaged revision.
+- [x] Synchronize visible game, editor, baseline, scaffold, tests, architecture, manual, and plan labels to revision 358.
+- [ ] Run the seven-stage sweep in physical Chrome and Opera and identify the first collapsing stage.
+- [ ] Port the first real editor feature only after the structural boundary is known.
+
+## Revision 359 palette backing-store containment
+
+- [x] Interpret the revision 358 structural sweep correctly: the static sidebar improved cadence by shrinking the scene canvas; it did not cause the full-editor collapse.
+- [x] Count the functional palette surface boundary: 166 level-002 asset cards plus 31 entity/enemy cards can retain roughly 197 canvases.
+- [x] Keep off-screen palette thumbnail canvases at a 1×1 backing size.
+- [x] Allocate and draw a thumbnail only when IntersectionObserver reports that its card is near the physical viewport.
+- [x] Release the thumbnail backing store after it leaves the viewport.
+- [x] Preserve card DOM, two-column layout, search, selection, and placement-tool activation.
+- [x] Report active/total palette canvases and aggregate backing megapixels in profile mode.
+- [x] Avoid resetting the scene and overlay backing stores when ResizeObserver reports unchanged dimensions.
+- [x] Keep the baseline and Editor 2 scaffold available for comparison.
+
+## Revision 360 on-demand Level Editor export JSON
+
+- [x] Reproduce the physical-browser boundary: all panels collapsed remains fast, while expanding only Export collapses cadence.
+- [x] Measure level 002's pretty JSON at roughly 2.5 MB and 60,000 lines.
+- [x] Remove the persistent `#level-json` textarea from the editor DOM.
+- [x] Replace it with a compact placement/entity/atlas summary.
+- [x] Generate JSON only for copy, download, browser-copy save, playtest, Canvas-baseline launch, or explicit preview.
+- [x] Open full JSON in a separate Blob-backed tab rather than inside the editor page.
+- [x] Stop scheduled editor updates from repeatedly calling `JSON.stringify()`.
+- [x] Extend the Playwright probe to expand Export and reject retained textarea content.
+- [x] Add source-contract regression coverage and synchronize revision labels to 360.
+
+## Revision 361 compact Level actions and guide alignment
+
+- [x] Remove the standalone Export panel and its summary surface.
+- [x] Remove Copy JSON and Open JSON in new tab.
+- [x] Move JSON download and browser-copy controls into the Level panel.
+- [x] Rename the controls to Save Level (json), Save in Browser, and Load in Browser.
+- [x] Keep full JSON serialization on demand only.
+- [x] Add a CSS-space view override to the production renderer.
+- [x] Derive the renderer camera scale from the exact backing/client pixel ratio.
+- [x] Derive the guide-overlay transform from its exact backing/client pixel ratio.
+- [x] Keep parallax transforms exclusive to cave-window and caveForeground records.
+- [x] Update browser diagnostics and source-contract tests for the removed Export surface.
+- [x] Synchronize game, editor, baseline, Editor 2, tests, architecture, manual, and plan labels to revision 361.

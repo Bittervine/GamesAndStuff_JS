@@ -60,3 +60,7 @@ The new HUD-blur comparison is a DOM/CSS diagnostic controlled by a root class a
 ## Revision 356 Level Editor delegation note
 
 The Level Editor remains an approved direct-Canvas owner because its grid, collision/manifest guides, selection graphics, palette thumbnails, and transient placement previews are editor-only drawing. Its scenery, actors, cave foreground, parallax, and cave mask are no longer locally composed: `level-editor.html` delegates that base scene to `src/presentation/canvas-renderer.js` through `applyEditorLevelToWorld` and `setViewOverride`. This reduces renderer duplication without moving authoring state or Canvas ownership into portable modules.
+
+## Revision 358 Editor 2 scaffold note
+
+`src/tools/level-editor-2.js` is an approved development-only direct Canvas owner. It renders the shared production scene through `src/presentation/canvas-renderer.js`; its five direct calls are limited to the structural comparison layers that clear or draw the same simple grid on either a transparent overlay or the scene canvas. The scaffold owns no authoritative level data, atlas renderer, character renderer, or gameplay presentation path. Its direct Canvas use exists specifically to identify the browser/GPU boundary before full editor functionality is migrated.

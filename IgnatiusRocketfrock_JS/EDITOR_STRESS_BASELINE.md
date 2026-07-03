@@ -30,9 +30,35 @@ Use the same browser, display scale, window size, and revision for every compari
 4. A normal editing zoom while dragging one terrain placement.
 5. A normal editing zoom while dragging one cave-foreground placement.
 
-Record average frame time, worst visible hitch, and whether input remains visually attached to the pointer. Browser profiling remains a hands-on task because the current virtual environment does not provide a trustworthy loaded-page timing run. The structural fixture and procedure are now fixed, so the revision-356 production-renderer editor can be compared consistently with the standalone Canvas baseline and with later overlay optimizations.
+Record average frame time, worst visible hitch, and whether input remains visually attached to the pointer. Use `devel/benchmark_level_editor_playwright.py` for the first loaded-page comparison when Python Playwright and Chromium are available. Manual browser profiling remains the final visual check, but it is no longer the first diagnostic step. The structural fixture and procedure are fixed so the production-renderer editor can be compared consistently with the standalone Canvas baseline and later overlay changes.
 
 Do not casually edit this fixture. A deliberate replacement must update the hash, counts, revision marker, regression test, and this document in the same revision.
 
 
 Revision 356 retires the editor-specific Canvas/WebGL tile comparison. The normal editor and the standalone baseline now share the production Canvas2D base renderer; the editor adds its transparent authoring overlay and dirty-state synchronization. For performance investigations, compare the normal editor against the baseline at the same camera and zoom, then disable guide categories one at a time only if the shared base remains smooth.
+
+
+## Revision 357 automated comparison
+
+A Chromium run at 1749×926 CSS pixels, DPR 1, level 002, and zoom 0.365 measured 58.1 FPS in the standalone production-renderer baseline and 51.9 FPS in the full editor, including the grid, manifest lines, labels, cave guides, and side panels. The editor/baseline cadence ratio was 0.89. These numbers are comparative rather than universal hardware targets.
+
+The same probe verified that `document.body.scrollWidth === innerWidth`, the stage width equals both the canvas viewport and workbench width, and the stage/overlay backing dimensions match. A failure in those layout checks is more important than a small FPS difference because it indicates the profiler-driven resize loop that caused revision 356 to wobble and fall to roughly 1-2 FPS under automation.
+
+
+## Revision 358 physical-browser structural sweep
+
+The revision 357 Playwright ratio is not a release target. On the target machine, physical Chrome and Opera reported roughly 1.3 FPS in the full editor while the same level and zoom stayed near 40 FPS in the standalone baseline, despite low synchronous submission timings. A headless or virtual-display run can therefore verify layout and JavaScript boundaries while completely missing the relevant raster/compositor stall.
+
+Before asking for repeated manual editor tests, open `level-editor-2.html?level=level_002&stage=0` and use **Run stage sweep** once. Preserve the complete copied report. The seven stages isolate static sidebar DOM, editor chrome, the mere presence of a transparent overlay, clearing that overlay, drawing a grid on it, and drawing the identical grid on the single production canvas. Treat the first large physical-browser cadence drop as the migration stop line.
+
+## Revision 359 palette-surface check
+
+The revision 358 structural sweep showed no large penalty from static sidebar DOM, toolbar chrome, an untouched transparent canvas, or clearing that canvas. The grid cost was measurable but modest and nearly identical on the scene and overlay canvases. The functional editor differs because it populates approximately 197 entity and asset thumbnail canvases for level 002.
+
+Revision 359 virtualizes those backing stores. In profile mode, record the final `palette active/total canvases MP` fields together with cadence. At ordinary sidebar positions, only thumbnails near the physical viewport should have more than a 1×1 backing store. A performance comparison is invalid if nearly all palette canvases are active, because that indicates observer or clipping behavior has regressed.
+
+## Revision 360 expanded-Export check
+
+A physical-browser comparison found that the old Export textarea, not the renderer, caused the catastrophic cadence collapse. Level 002's pretty JSON is approximately 2.5 MB across 60,000 lines. All panels collapsed yielded about 45 FPS; expanding only Export yielded about 1.4 FPS.
+
+For future stress checks, leave Export expanded. The panel must contain only the compact `export-json-summary`; it must contain no textarea and no serialized level text. The Playwright report now includes `exportSurface`, whose textarea and character counts must both be zero. Copying, downloading, saving, playtesting, or opening JSON may briefly serialize the level, but ordinary pan/zoom frames must not retain that string in the editor DOM.

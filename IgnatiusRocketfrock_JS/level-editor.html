@@ -47,8 +47,9 @@
 
         #workbench {
             min-width: 0;
+            overflow: hidden;
             display: grid;
-            grid-template-rows: auto 1fr auto;
+            grid-template-rows: auto minmax(0, 1fr) auto;
         }
 
         #topbar {
@@ -78,7 +79,10 @@
 
         #canvas-wrap {
             position: relative;
+            width: 100%;
+            max-width: 100%;
             min-width: 0;
+            min-height: 0;
             overflow: hidden;
             contain: paint;
             isolation: isolate;
@@ -108,9 +112,11 @@
         }
 
         #hud-strip {
-            display: flex;
+            min-width: 0;
+            overflow: hidden;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) 220px;
             gap: 10px;
-            justify-content: space-between;
             align-items: center;
             padding: 7px 12px;
             border-top: 1px solid var(--line);
@@ -127,11 +133,13 @@
         }
 
         #renderer-readout {
-            flex: 0 0 auto;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         #cursor-readout {
-            flex: 0 0 220px;
+            min-width: 0;
             text-align: right;
         }
 
@@ -268,6 +276,7 @@
             white-space: pre;
             resize: vertical;
         }
+
 
         button {
             cursor: pointer;
@@ -697,6 +706,7 @@
             <button id="to-back" type="button">To Back</button>
             <button id="play-browser-copy" type="button">▶ Play</button>
             <button id="canvas-renderer-baseline" type="button">Canvas baseline</button>
+            <a class="mini-button" href="level-editor-2.html?level=level_002&stage=0" title="Open the clean renderer-to-editor diagnostic ladder">Editor 2 lab</a>
             <button id="zoom-out">−</button>
             <button id="zoom-in">+</button>
             <button id="fit-content-view">Fit</button>
@@ -715,7 +725,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 356</small></h1>
+        <h1>Level Editor <small>rev 361</small></h1>
 
         <div class="box">
             <h2>Level</h2>
@@ -725,6 +735,11 @@
                 <button id="new-level">New empty level</button>
             </div>
             <label>Import level JSON<input id="level-file" type="file" accept="application/json,.json"></label>
+            <div class="row">
+                <button id="download-json">Save Level (json)</button>
+                <button id="save-local">Save in Browser</button>
+            </div>
+            <button id="load-local">Load in Browser</button>
         </div>
 
         <div class="box">
@@ -1153,18 +1168,7 @@
             <label>Notes<input id="inspect-notes" maxlength="240" placeholder="Optional note"></label>
         </div>
 
-        <div class="box">
-            <h2>Export</h2>
-            <div class="row">
-                <button id="copy-json">Copy JSON</button>
-                <button id="download-json">Download JSON</button>
-            </div>
-            <div class="row">
-                <button id="save-local">Save browser copy</button>
-                <button id="load-local">Load browser copy</button>
-            </div>
-            <textarea id="level-json" spellcheck="false"></textarea>
-        </div>
+
     </aside>
 </main>
 
@@ -1601,7 +1605,6 @@ import {
         assetExtraRow: document.getElementById("asset-extra-row"),
         entityTypeRow: document.getElementById("entity-type-row"),
         entityStateRow: document.getElementById("entity-state-row"),
-        levelJson: document.getElementById("level-json"),
         cutSelection: document.getElementById("cut-selection"),
         copySelection: document.getElementById("copy-selection"),
         pasteSelection: document.getElementById("paste-selection"),
@@ -1673,6 +1676,7 @@ import {
     let jsonUpdateTimer = null;
     let editorDrawFrameRequest = null;
     let editorDrawRequestedAt = 0;
+    let editorContinuousDrawUntil = 0;
     let editorLastPaintAt = 0;
     const editorFrameCadenceSamples = [];
     const editorPerformanceProfileEnabled = (() => {
@@ -1749,12 +1753,20 @@ import {
         };
         const width = Math.max(640, Math.floor(viewport.width * dpr));
         const height = Math.max(360, Math.floor(viewport.height * dpr));
+        let backingChanged = false;
         for (const surface of [canvas, overlayCanvas]) {
-            surface.width = width;
-            surface.height = height;
-            surface.style.width = `${viewport.width}px`;
-            surface.style.height = `${viewport.height}px`;
+            if (surface.width !== width || surface.height !== height) {
+                surface.width = width;
+                surface.height = height;
+                backingChanged = true;
+            }
+            // CSS owns the viewport size. Inline pixel widths fed the canvas
+            // back into grid intrinsic sizing and could grow the workbench
+            // underneath the sidebar whenever the profiler text changed.
+            surface.style.removeProperty("width");
+            surface.style.removeProperty("height");
         }
+        if (!backingChanged) return;
         stageCtx?.setTransform(dpr, 0, 0, dpr, 0, 0);
         overlayCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
         draw();
@@ -3417,6 +3429,79 @@ import {
     const paletteOpaqueBoundsCache = new WeakMap();
     const paletteAlphaScratch = document.createElement("canvas");
     const paletteAlphaScratchContext = paletteAlphaScratch.getContext("2d", { willReadFrequently: true });
+    const paletteThumbnailRenderers = new WeakMap();
+    let paletteThumbnailObserver = null;
+
+    function releasePaletteThumbnail(canvas) {
+        if (!(canvas instanceof HTMLCanvasElement)) return;
+        if (canvas.width !== 1 || canvas.height !== 1) {
+            canvas.width = 1;
+            canvas.height = 1;
+        }
+        canvas.dataset.paletteReady = "0";
+    }
+
+    function drawDeferredPaletteThumbnail(canvas) {
+        if (!(canvas instanceof HTMLCanvasElement) || !canvas.isConnected) return;
+        if (canvas.dataset.paletteReady === "1") return;
+        const render = paletteThumbnailRenderers.get(canvas);
+        if (typeof render !== "function") return;
+        canvas.dataset.paletteReady = "1";
+        render();
+    }
+
+    function ensurePaletteThumbnailObserver() {
+        if (paletteThumbnailObserver || typeof IntersectionObserver !== "function") return paletteThumbnailObserver;
+        paletteThumbnailObserver = new IntersectionObserver((entries) => {
+            for (const entry of entries) {
+                const canvas = entry.target;
+                if (!(canvas instanceof HTMLCanvasElement)) continue;
+                if (entry.isIntersecting) {
+                    requestAnimationFrame(() => drawDeferredPaletteThumbnail(canvas));
+                } else {
+                    releasePaletteThumbnail(canvas);
+                }
+            }
+        }, {
+            root: null,
+            rootMargin: "220px 0px",
+            threshold: 0.01
+        });
+        return paletteThumbnailObserver;
+    }
+
+    function deferPaletteThumbnail(canvas, render) {
+        paletteThumbnailRenderers.set(canvas, render);
+        releasePaletteThumbnail(canvas);
+        const observer = ensurePaletteThumbnailObserver();
+        if (observer) observer.observe(canvas);
+        else drawDeferredPaletteThumbnail(canvas);
+    }
+
+    function discardPaletteThumbnails(container) {
+        if (!container) return;
+        for (const canvas of container.querySelectorAll("canvas.palette-thumbnail")) {
+            paletteThumbnailObserver?.unobserve(canvas);
+            releasePaletteThumbnail(canvas);
+        }
+    }
+
+    function paletteSurfaceDiagnostics() {
+        const canvases = [...document.querySelectorAll("canvas.palette-thumbnail")];
+        let active = 0;
+        let pixels = 0;
+        for (const canvas of canvases) {
+            const area = Math.max(0, canvas.width * canvas.height);
+            pixels += area;
+            if (area > 1) active += 1;
+        }
+        return {
+            total: canvases.length,
+            active,
+            pixels,
+            megapixels: pixels / 1_000_000
+        };
+    }
 
     function clearPaletteCanvas(canvas) {
         const pixelRatio = Math.max(1, Math.min(2, Number(globalThis.devicePixelRatio) || 1));
@@ -3726,8 +3811,12 @@ import {
         button.title = title;
         const thumbnail = document.createElement("canvas");
         thumbnail.className = "palette-thumbnail";
-        thumbnail.width = 320;
-        thumbnail.height = 240;
+        // Keep off-screen palette cards at a 1×1 backing store. Physical
+        // Chromium/Opera can otherwise retain almost two hundred independent
+        // 320×240 canvas surfaces and starve the main editor compositor.
+        thumbnail.width = 1;
+        thumbnail.height = 1;
+        thumbnail.dataset.paletteReady = "0";
         thumbnail.setAttribute("aria-hidden", "true");
         const titleLine = document.createElement("span");
         titleLine.className = "palette-card-title";
@@ -3749,6 +3838,7 @@ import {
             const searchable = `${entry.type} ${entry.label} ${entry.category} ${entry.description}`.toLowerCase();
             return !query || searchable.includes(query);
         });
+        discardPaletteThumbnails(els.entityPalette);
         els.entityPalette.innerHTML = "";
         for (const entry of entries) {
             const { button, thumbnail } = createPaletteCard({
@@ -3761,7 +3851,7 @@ import {
             });
             button.dataset.entity = entry.type;
             els.entityPalette.appendChild(button);
-            drawEntityPaletteThumbnail(thumbnail, entry);
+            deferPaletteThumbnail(thumbnail, () => drawEntityPaletteThumbnail(thumbnail, entry));
         }
         if (!entries.length) {
             const empty = document.createElement("div");
@@ -3817,6 +3907,7 @@ import {
             return !query || searchable.includes(query);
         });
         rows.sort((a, b) => a.atlasId.localeCompare(b.atlasId) || a.id.localeCompare(b.id));
+        discardPaletteThumbnails(els.assetList);
         els.assetList.innerHTML = "";
         for (const entry of rows) {
             const { atlasId, id, object, frame } = entry;
@@ -3838,7 +3929,7 @@ import {
             button.dataset.atlasId = atlasId;
             button.dataset.assetId = id;
             els.assetList.appendChild(button);
-            drawAtlasFrameThumbnail(thumbnail, atlasId, frame);
+            deferPaletteThumbnail(thumbnail, () => drawAtlasFrameThumbnail(thumbnail, atlasId, frame));
         }
         if (!rows.length) {
             const empty = document.createElement("div");
@@ -4435,6 +4526,14 @@ import {
         return Math.max(1, Number(window.devicePixelRatio) || 1);
     }
 
+    function editorSurfaceScale(surface) {
+        const rect = screenSize();
+        return {
+            x: Math.max(0.0001, surface.width / Math.max(1, rect.width)),
+            y: Math.max(0.0001, surface.height / Math.max(1, rect.height))
+        };
+    }
+
     function withEditorContext(nextContext, callback) {
         const previousContext = ctx;
         ctx = nextContext;
@@ -4494,7 +4593,8 @@ import {
     }
 
     function renderEditorOverlay(rect, viewportBounds) {
-        overlayCtx.setTransform(editorPixelRatio(), 0, 0, editorPixelRatio(), 0, 0);
+        const overlayScale = editorSurfaceScale(overlayCanvas);
+        overlayCtx.setTransform(overlayScale.x, 0, 0, overlayScale.y, 0, 0);
         overlayCtx.clearRect(0, 0, rect.width, rect.height);
         withEditorContext(overlayCtx, () => {
             if (els.showGrid.checked) drawGrid(rect);
@@ -4640,12 +4740,10 @@ import {
             return null;
         }
         syncEditorRuntimeWorld();
-        const metrics = renderer.getViewportMetrics?.() || { dpr: editorPixelRatio() };
-        const dpr = Math.max(1, Number(metrics.dpr) || editorPixelRatio());
         renderer.setViewOverride({
             x: state.camera.x,
             y: state.camera.y,
-            zoom: state.camera.zoom * dpr
+            cssZoom: state.camera.zoom
         });
         renderer.render(runtimeState, editorRuntimeInputFrame, 0);
         return renderer.getPerformanceDiagnostics?.() || null;
@@ -4662,12 +4760,14 @@ import {
                 ? ` · cadence ${perf.cadenceFps.toFixed(1)} fps (${perf.cadenceMs.toFixed(1)} ms, worst ${perf.worstCadenceMs.toFixed(1)})`
                 : "";
             const sync = perf.syncMs > 0.05 ? ` · sync ${perf.syncMs.toFixed(1)}` : "";
-            text += `${cadence} · submit ${perf.frameMs.toFixed(1)} ms · queue ${perf.queueMs.toFixed(1)}${sync} · world ${perf.worldMs.toFixed(1)} · actors ${perf.actorsMs.toFixed(1)} · foreground ${perf.foregroundMs.toFixed(1)} · mask ${perf.maskMs.toFixed(1)} · guides ${perf.overlayMs.toFixed(1)} ms · visuals ${perf.visualsDrawn}/${perf.visualsConsidered}`;
+            const palette = paletteSurfaceDiagnostics();
+            text += `${cadence} · submit ${perf.frameMs.toFixed(1)} ms · queue ${perf.queueMs.toFixed(1)}${sync} · world ${perf.worldMs.toFixed(1)} · actors ${perf.actorsMs.toFixed(1)} · foreground ${perf.foregroundMs.toFixed(1)} · mask ${perf.maskMs.toFixed(1)} · guides ${perf.overlayMs.toFixed(1)} ms · visuals ${perf.visualsDrawn}/${perf.visualsConsidered} · palette ${palette.active}/${palette.total} canvases ${palette.megapixels.toFixed(2)} MP`;
             editorLastRendererReadoutAt = now;
         }
         if (text === editorLastRendererReadout) return;
         editorLastRendererReadout = text;
         els.renderer.textContent = text;
+        els.renderer.title = text;
     }
 
     function updateEditorFrameCadence(frameStart) {
@@ -4708,9 +4808,20 @@ import {
         globalThis.__ignatiusEditorPerformance = {
             ...state.editorPerformance,
             renderer: "canvas2d-game",
-            diagnostics: diagnostics ? { ...diagnostics } : null
+            diagnostics: diagnostics ? { ...diagnostics } : null,
+            palette: paletteSurfaceDiagnostics()
         };
         updateEditorRendererReadout(diagnostics);
+    }
+
+    function editorInteractionNeedsContinuousFrames() {
+        return Boolean(state.drag && [
+            "pan",
+            "move",
+            "selectionBox",
+            "cavePoint",
+            "movingPlatformEnd"
+        ].includes(state.drag.kind));
     }
 
     function draw(options = null) {
@@ -4723,6 +4834,13 @@ import {
             const requestedAt = editorDrawRequestedAt;
             editorDrawFrameRequest = null;
             paintEditorFrame(requestedAt);
+            // Match the proven baseline scheduler during direct manipulation:
+            // pointer events update camera/object state, while one continuous
+            // requestAnimationFrame chain presents the latest state. Returning
+            // to event-driven drawing when idle avoids needless editor work.
+            if (editorInteractionNeedsContinuousFrames() || performance.now() < editorContinuousDrawUntil) {
+                draw();
+            }
         });
     }
 
@@ -7396,7 +7514,7 @@ import {
         });
     }
 
-    function updateJson() {
+    function prepareLevelForExport() {
         if (jsonUpdateTimer !== null) {
             clearTimeout(jsonUpdateTimer);
             jsonUpdateTimer = null;
@@ -7404,7 +7522,16 @@ import {
         syncMetadataFromUi();
         refreshLevelAtlasRefs();
         els.zoom.value = state.camera.zoom.toFixed(2);
-        els.levelJson.value = JSON.stringify(state.level, null, 4);
+    }
+
+
+    function serializeLevelJson() {
+        prepareLevelForExport();
+        return JSON.stringify(state.level, null, 4);
+    }
+
+    function updateJson() {
+        prepareLevelForExport();
     }
 
     function scheduleJsonUpdate(delay = 140) {
@@ -7479,8 +7606,7 @@ import {
     }
 
     function openCanvasRendererBaseline() {
-        updateJson();
-        localStorage.setItem(STORAGE_KEY, els.levelJson.value);
+        localStorage.setItem(STORAGE_KEY, serializeLevelJson());
         const url = new URL("level-renderer-baseline.html", window.location.href);
         url.searchParams.set("level", "browser_copy");
         url.searchParams.set("x", String(state.camera.x));
@@ -7492,8 +7618,7 @@ import {
     function playBrowserCopy() {
         const graphResult = buildPlacedHunterNavigationGraphs({ silent: true, refreshUi: false });
         refreshNavigationGraphUi();
-        updateJson();
-        localStorage.setItem(STORAGE_KEY, els.levelJson.value);
+        localStorage.setItem(STORAGE_KEY, serializeLevelJson());
         const graphSummary = graphResult.built
             ? ` Rebuilt ${graphResult.profiles} hunter navigation graph${graphResult.profiles === 1 ? "" : "s"} (${graphResult.edges} directed transitions).`
             : " No hunter navigation graphs were needed.";
@@ -7675,13 +7800,16 @@ import {
 
     canvas.addEventListener("wheel", (event) => {
         event.preventDefault();
-        const rect = canvas.getBoundingClientRect();
+        const rect = editorCanvasRect();
         const before = screenToWorld(event.clientX - rect.left, event.clientY - rect.top);
         const factor = event.deltaY < 0 ? 1.12 : 0.89;
         state.camera.zoom = Math.max(MIN_EDITOR_ZOOM, Math.min(MAX_EDITOR_ZOOM, state.camera.zoom * factor));
         const after = screenToWorld(event.clientX - rect.left, event.clientY - rect.top);
         state.camera.x += before.x - after.x;
         state.camera.y += before.y - after.y;
+        const wheelNow = performance.now();
+        if (wheelNow >= editorContinuousDrawUntil) resetEditorFrameCadence();
+        editorContinuousDrawUntil = wheelNow + 140;
         draw();
     }, { passive: false });
 
@@ -7893,27 +8021,21 @@ import {
         }
     });
 
-    document.getElementById("copy-json").addEventListener("click", async () => {
-        updateJson();
-        await navigator.clipboard.writeText(els.levelJson.value);
-        setStatus("Copied level JSON.");
-    });
-
     document.getElementById("download-json").addEventListener("click", () => {
-        updateJson();
-        const blob = new Blob([els.levelJson.value], { type: "application/json" });
+        const blob = new Blob([serializeLevelJson()], { type: "application/json" });
         const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
+        const objectUrl = URL.createObjectURL(blob);
+        a.href = objectUrl;
         a.download = `${state.level.levelId || "level_001"}.json`;
         document.body.appendChild(a);
         a.click();
         a.remove();
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
     });
 
     document.getElementById("save-local").addEventListener("click", () => {
-        updateJson();
-        localStorage.setItem(STORAGE_KEY, els.levelJson.value);
-        setStatus("Saved browser copy.");
+        localStorage.setItem(STORAGE_KEY, serializeLevelJson());
+        setStatus("Saved level in this browser.");
     });
 
     document.getElementById("load-local").addEventListener("click", () => {
@@ -7935,7 +8057,7 @@ import {
             syncMetadataToUi();
             persistUi();
         });
-        setStatus("Loaded browser copy.");
+        setStatus("Loaded level from this browser.");
     });
 
 
@@ -8008,7 +8130,7 @@ import {
             persistUi();
             setStatus("Loaded atlas library. No assets/level_001.json could be auto-detected; created an empty level. Use Import level JSON or add assets/level_001.json.", false);
         }
-        fitView();
+        fitContentView();
     }
 
     setupCollapsiblePanels();

@@ -1405,3 +1405,40 @@ Live browser testing of revision 355 established the clean boundary: the isolate
 Camera pan and zoom never rebuild portable world data. They change only the view override and submit another production renderer frame. Authored mutations set one runtime-world dirty flag. The next frame reconverts the level, synchronizes cave-window and colour-map presentation state, and then resumes camera-only rendering against the stable runtime arrays and caches. While records are dragged, the runtime snapshot excludes them once and the overlay draws their live artwork until commit, avoiding a full level conversion for every pointer event.
 
 The revision removes the editor's world-tile caches, tile resolution tiers, visible WebGL context, `?webgl` editor selection, and CSS-transformed pan layer. Those were presentation experiments, never authoritative data, and must not be restored alongside the shared runtime path. The standalone baseline remains as a diagnostic page, but it now validates the same base renderer used by the normal editor rather than a competing implementation.
+
+## Revision 357 editor viewport and interaction scheduler
+
+Playwright comparison exposed a layout boundary rather than another renderer boundary. The profiling string in `#hud-strip` was a non-shrinking grid item. It enlarged the workbench's implicit grid track beyond the fixed `main` column, and `resizeCanvas()` then copied that oversized width into both canvases as inline CSS. Every changing diagnostic value could therefore resize and clear the canvases, retrigger the `ResizeObserver`, and move the production scene and editor overlay through different transient sizes.
+
+The workbench, canvas row, and HUD are now explicitly shrinkable and overflow-contained. The diagnostics cells ellipsize without changing track width, while the complete string remains in the element title. CSS alone owns the visible `#stage` and `#stage-overlay` dimensions; `resizeCanvas()` updates only their matching backing stores. The cached viewport/client rectangles remain the sole camera and pointer coordinate boundary.
+
+Direct manipulation now uses the same scheduling shape as the successful baseline. Pointer events update camera or authored transient state, while one requestAnimationFrame chain renders the newest state for the duration of a pan, move, marquee, cave-point drag, or moving-platform-handle drag. The chain stops after the gesture and ordinary editor changes remain event-driven. A short wheel deadline keeps rapid zoom input on the same presentation cadence. No CSS scene translation, tile cache, alternate renderer, or authoritative state was introduced.
+
+`devel/benchmark_level_editor_playwright.py` is an optional loaded-page comparison probe. It opens level 002 in the baseline and editor at the same zoom, performs a timed pan, records each page's own cadence diagnostics, verifies that the editor stage does not exceed the workbench, and verifies equal stage/overlay backing dimensions. It is a development aid and not part of the release test gate.
+
+
+## Revision 358 Level Editor 2 migration boundary
+
+`level-editor-2.html` and `src/tools/level-editor-2.js` form a development-facing migration scaffold. They are rooted in the same production Canvas2D renderer and portable `applyEditorLevelToWorld` conversion as `level-renderer-baseline.html`. They must not import the monolithic old editor, duplicate asset rendering, mutate gameplay camera state, or become an alternate authoritative level format.
+
+The scaffold owns a numbered structural ladder: baseline shell, inert full sidebar, inert editor toolbar/chrome, untouched transparent overlay, per-frame transparent clear, transparent-overlay grid, and single-scene-canvas grid. The ladder exists because physical Chrome/Opera results diverged radically from headless Playwright despite similar synchronous draw timings. Its in-page sweep is a presentation/compositor diagnostic, not gameplay simulation.
+
+Migration proceeds only upward from the last stage proven smooth on the target browser. New editor functions should be ported as small editor-only adapters in `src/tools/` and should continue to use portable world conversion and production presentation code. Prefer one scene canvas unless the hardware sweep proves an additional transparent canvas harmless. The existing `level-editor.html` remains the functional reference until Editor 2 reaches parity.
+
+## Revision 359 Level Editor palette-surface boundary
+
+Palette thumbnails are editor presentation resources, not persistent renderer surfaces. `level-editor.html` retains the complete entity and asset card DOM for search, selection, and accessibility, but off-screen thumbnail canvases must use a 1×1 backing store. An IntersectionObserver promotes only cards near the actual browser viewport to their CSS-sized, DPR-aware backing dimensions and redraws their preview; leaving the viewport demotes the backing store again. Do not restore eager per-card canvases or pre-render every loaded atlas frame into independent retained surfaces.
+
+This boundary is intentionally separate from the production scene renderer. The main scene and guide overlay remain fixed viewport canvases. Palette virtualization must not mutate authored level state, runtime visual caches, atlas source images, or palette ordering. The profiler may inspect aggregate palette backing pixels, but diagnostics must not change layout.
+
+## Revision 360 Level Editor export-surface boundary
+
+The Level Editor must not retain a complete serialized level inside an editable DOM control during ordinary editing. Dense authored levels can exceed 2.5 MB and 60,000 pretty-printed lines. On physical Chrome and Opera, merely displaying that text in the Export textarea delayed requestAnimationFrame by hundreds of milliseconds while Canvas submission remained inexpensive.
+
+`level-editor.html` now treats JSON as an ephemeral export artifact. `prepareLevelForExport()` synchronizes metadata and atlas references, `serializeLevelJson()` materializes the string only for an explicit export/playtest operation, and `refreshExportSummary()` keeps a tiny DOM summary. The editor page contains no `#level-json` textarea. Full text inspection opens a separate Blob-backed tab so its text layout and backing surfaces cannot throttle the editing canvas.
+
+## Revision 361 Level Editor action and camera-scale boundary
+
+The Level Editor has no separate Export panel. Its Level panel owns JSON download and browser-copy save/load actions; `serializeLevelJson()` is invoked only by explicit operations and runtime handoffs.
+
+Static tools use `setViewOverride({ x, y, cssZoom })` on the production Canvas renderer. `cssZoom` is converted to backing-space zoom from the renderer's measured `backingWidth / clientWidth`, making the rendered world and CSS-space editor overlay share one camera scale across fractional DPR and browser zoom. Cave parallax remains restricted to cave-window geometry and visuals whose layer is `caveForeground`.

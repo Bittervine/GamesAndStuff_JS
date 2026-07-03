@@ -270,6 +270,14 @@ Cave geometry warnings depend on authored cave and terrain geometry, not on the 
 
 Panning changes the editor camera and requests an ordinary production Canvas2D renderer frame. The guide overlay is redrawn in the same animation frame at the same camera, so artwork, boxes, labels, cave controls, and the side panel remain aligned. There is no post-drag catch-up frame and no finite snapshot that can reveal blank edge strips.
 
+## Revision 357 Level Editor browser-timing note
+
+Do not let diagnostics participate in editor viewport sizing. `#workbench`, `#canvas-wrap`, and `#hud-strip` must remain shrinkable inside the fixed main grid. The full profiler string may be clipped or exposed as a tooltip, but it must not widen the canvas row. Leave the visible canvas size to CSS and update only the backing-store width and height in `resizeCanvas()`. Setting an inline CSS width from `getBoundingClientRect()` recreates the resize feedback loop.
+
+During a direct-manipulation gesture, pointer events should only update the latest camera or transient object state. The active requestAnimationFrame chain owns presentation and continues until the drag ends. Do not return to one render request per pointer event, which can phase-lock input and painting to alternate frames. Once idle, stop the chain so ordinary editor use remains event-driven. Wheel input uses the cached editor canvas rectangle and a short continuation window for the same reason.
+
+For a repeatable functional check, serve the project and run `python devel/benchmark_level_editor_playwright.py`. The optional script requires Python Playwright and Chromium. It remains useful for layout, alignment, event wiring, and gross timing regressions, but revision 358 established that a headless or virtual-display compositor can report a healthy editor while physical Chrome and Opera on the target machine stall near one frame per second. Do not use its FPS ratio as final acceptance for Canvas/compositor work.
+
 
 ## Canvas game-renderer baseline
 
@@ -278,3 +286,34 @@ Use the Level Editor's **Canvas baseline** button when editor panning measuremen
 This page is intentionally not an editor. It continuously renders the converted level with the production Canvas2D game renderer, including its ordinary spatial culling, environment sprites, runtime entities, actor-front artwork, cave foreground, parallax, and cave mask. It has no editor grid, guides, tile caches, WebGL backend, overlay canvas, or compositor pan preview. Drag anywhere on the canvas to pan, use the wheel to zoom around the pointer, and use **Reset stats** before comparing a representative drag.
 
 Compare its requestAnimationFrame `cadence` and `worst` values with the renderer's synchronous `submit` and layer timings. A smooth baseline with a slow Level Editor points to editor interaction or overlay work. A similarly slow baseline points lower, toward browser rasterization, compositing, driver behavior, or production Canvas rendering at that view and zoom.
+
+
+## Revision 358 Level Editor 2 structural ladder
+
+`level-editor-2.html` is the clean migration scaffold. It starts from the continuously rendered production Canvas2D baseline and adds editor structure through explicit numbered stages rather than importing the old editor wholesale. Stage 0 is the baseline shell; stage 1 adds the complete inert sidebar DOM; stage 2 adds the inert editor toolbar and current translucent chrome; stage 3 adds an untouched transparent overlay canvas; stage 4 clears that overlay every frame; stage 5 draws a grid on the overlay; and stage 6 removes the visible overlay again and draws the same grid after the production renderer on the single scene canvas.
+
+Use **Run stage sweep** on the actual target browser and GPU. It moves the camera identically through every stage and reports cadence, worst interval, complete animation callback time, and browser long tasks. The first stage whose cadence collapses is the migration boundary. Keep later Editor 2 work behind the last proven-fast boundary. The old `level-editor.html` remains available and unchanged in behavior while the scaffold is being promoted.
+
+The scaffold sidebar and toolbar are deliberately inert. Do not connect authoring state, palettes, selection, serialization, or inspector behavior until the structural sweep has identified whether DOM chrome, an additional transparent canvas, repeated clears, or guide drawing is the first hardware-specific failure.
+
+## Revision 359 lazy Level Editor palettes
+
+The entity and asset palettes deliberately keep their card text and buttons in the DOM, but their Canvas previews are lazy. Off-screen cards have a 1×1 backing store. When a card approaches the browser viewport, IntersectionObserver invokes the ordinary thumbnail renderer, which sizes the backing store from the card's CSS dimensions and device pixel ratio. When the card leaves, its backing store returns to 1×1.
+
+This is not merely a startup optimization. Physical Chromium-family browsers may retain every populated Canvas as an accelerated surface even when it sits far down a nested scrolling sidebar. Level 002 exposes 197 palette choices, which previously meant more than fifteen million retained thumbnail pixels. Keep palette previews virtualized unless a future replacement uses one shared atlas-backed surface or ordinary image elements with demonstrably lower compositor cost.
+
+With `?profile=1`, the Level Editor readout ends with `palette active/total canvases N.NN MP`. During ordinary map editing, the active count should remain small even though the total card count is large. Scrolling a palette into view may raise it temporarily; moving away should reduce it again.
+
+## Revision 360 Export panel and large-level JSON
+
+Do not add a live full-level textarea back to the Level Editor. Level 002 serializes to roughly 2.5 MB and 60,000 indented lines. Physical Chrome and Opera dropped from about 40-45 FPS to about 1.4 FPS when only the old Export panel was expanded, despite renderer submission remaining below 5 ms.
+
+The Export panel now shows only a compact summary. Use `serializeLevelJson()` inside explicit button actions. Copy, download, browser-copy save, playtest, and Canvas-baseline launch generate the string on demand. **Open JSON in new tab** creates a temporary text Blob in another page. Routine `updateJson()` calls synchronize level metadata and refresh the summary but must not call `JSON.stringify()`.
+
+`devel/benchmark_level_editor_playwright.py` expands the Export panel before measuring and reports `exportSurface.textareaCount` and `textareaCharacters`. Both must remain zero.
+
+## Revision 361 Level actions and editor camera alignment
+
+The Level Editor no longer has an Export panel. Use the three controls in **Level**: **Save Level (json)** downloads the current level, **Save in Browser** stores an on-demand browser copy, and **Load in Browser** restores it. Do not reintroduce Copy JSON, Open JSON in new tab, a JSON summary panel, or any persistent serialized text surface.
+
+For static editor and diagnostic cameras, call `renderer.setViewOverride({ x, y, cssZoom })`. Do not multiply editor zoom by `devicePixelRatio` outside the renderer. The renderer resolves CSS zoom after resize from the exact backing/client ratio, and the editor overlay resolves its own backing transform the same way. Ordinary playing-area guides use the unmodified editor camera. Apply `computeCaveWindowParallaxOffset` only to cave-window geometry and `caveForeground` records.

@@ -3406,3 +3406,49 @@ The revision 355 sanity check was decisive: level 002 panned and zoomed quickly 
 Revision 356 replaces the normal editor's base-scene path with that proven renderer. It removes the active editor WebGL backend, world-space tile caches, low-zoom tile tiers, and CSS pan-preview layer. The editor converts authored data through `applyEditorLevelToWorld`, keeps a stable runtime snapshot across camera-only pan/zoom frames, and marks that snapshot dirty only for authored mutations. Moving records are omitted from the base once and rendered transiently on the overlay until commit. The existing editor guide overlay remains separate and exact.
 
 Next validation: pan and wheel-zoom level 002 with grid, manifest lines, and labels enabled. Capture the revision 356 profile readout. If cadence is still unexpectedly low, isolate the transparent guide overlay by temporarily disabling it; do not reintroduce tiles, WebGL, or transformed snapshots before that measurement.
+
+
+## Revision 357 Level Editor viewport feedback and active-frame cadence
+
+Status: implemented and measured with Playwright.
+
+The revision 356 production renderer was not the remaining failure. Automated Chromium comparison reproduced the user's split: the standalone baseline sustained roughly 58-59 FPS, while the editor could report 1-2 FPS even though synchronous scene and guide submission remained small. The first incremental boundary check found the editor canvas at roughly 1,990-2,106 CSS pixels inside a 1,319-pixel workbench. The long profiling string gave the HUD a large intrinsic width; the workbench grid track expanded under the sidebar, `resizeCanvas()` copied that width back to the canvases as inline CSS, and changing diagnostics repeatedly resized and cleared both surfaces. This explains the wobble, transient misregistration, sidebar intrusion, and the contradiction between low visible cadence and modest draw timings.
+
+Revision 357 constrains the workbench, canvas row, and HUD tracks, ellipsizes diagnostics without changing layout, and leaves visible canvas sizing entirely to CSS. Both backing stores now remain equal to the stable viewport. It also replaces pointer-event-paced rendering during direct manipulation with a temporary continuous requestAnimationFrame chain, matching the proven baseline scheduler while returning to event-driven rendering when idle. Wheel input uses the cached canvas rectangle and briefly keeps the same chain alive. The stale `fitView()` startup call is corrected to `fitContentView()`.
+
+A headless Chromium run at 1749×926, DPR 1, level 002, zoom 0.365 measured the production baseline at 58.1 FPS and the full editor with grid, manifest lines, labels, cave guides, and side panels at 51.9 FPS, an editor/baseline ratio of 0.89. The editor body and stage no longer overflow horizontally, and stage/overlay CSS and backing dimensions remain identical. This is now the automated pre-playtest sanity check; manual testing is reserved for visual feel and browser-specific confirmation rather than first-line diagnosis.
+
+
+## Revision 358 Editor 2 structural bisection scaffold
+
+The revision 357 automated result did not match either Chrome or Opera on the target machine. The full Level Editor still presented at roughly 1.3 FPS with requestAnimationFrame queue delays above one second, while the production Canvas baseline remained around 40 FPS. Synchronous editor submission stayed below 10 ms, and disabling grid and manifest guides did not repair cadence. This invalidates the earlier claim that the loaded Playwright run represented user-visible performance. The likely remaining class is browser/hardware-specific layout, paint, raster, or composition work that the headless/virtual compositor does not reproduce.
+
+Revision 358 begins a clean migration instead of applying another broad optimization to the monolithic editor. `level-editor-2.html` starts from the proven baseline and exposes seven ordered structural stages: baseline; static full sidebar; static editor toolbar and chrome; untouched transparent overlay; per-frame transparent clear; grid on that overlay; and the same grid on the single production canvas. One **Run stage sweep** action moves the camera through every stage and produces a copyable browser/GPU report. This reduces the next user check to one controlled experiment and identifies the first failing boundary before any authoring behavior is ported.
+
+The existing Level Editor remains the functional reference. The next implementation step depends on the sweep: if static DOM/chrome is the first collapse, simplify and virtualize the side panel before porting functionality; if adding or clearing the second canvas collapses cadence, keep Editor 2 single-canvas; if all structural stages remain fast, begin porting grid and selection behavior in small independently benchmarked increments. Playwright remains useful for correctness, dimensions, and regression automation, but physical-browser cadence is authoritative for this compositor fault.
+
+## Revision 359 lazy palette surfaces and physical-compositor hypothesis
+
+The revision 358 physical-browser sweep ruled out the static sidebar, toolbar chrome, the mere presence of a transparent overlay, and overlay clearing as the source of the approximately 1.3 FPS editor collapse. The sidebar reduced the scene canvas area and improved cadence from 25.5 to 29.8 FPS. Drawing the grid cost roughly four FPS on either canvas, but did not approach the production editor failure.
+
+Source inspection found a materially different boundary that the inert scaffold did not reproduce: the functional editor creates one independent thumbnail canvas for every entity and asset palette card. Level 002 loads 166 atlas frames and 31 entity/enemy choices, so the sidebar retained about 197 Canvas elements even when the palette panels were far outside the visible sidebar region. At the old nominal 320×240 backing size this represents more than fifteen million thumbnail pixels, about 60 MB of raw RGBA backing storage before browser/GPU bookkeeping. This matches the physical-browser-only symptom: synchronous scene submission remains near 10 ms while requestAnimationFrame callbacks are delayed hundreds of milliseconds, yet headless Chromium remains healthy.
+
+Revision 359 changes both palettes to lazy backing stores. Every off-screen card keeps only a 1×1 Canvas; an IntersectionObserver allocates and draws a full-resolution preview only when the card approaches the actual browser viewport, then releases it again after it leaves. The card DOM, search, selection, labels, and click behavior remain unchanged. The profiler now reports active/total palette canvases and their aggregate backing megapixels. `resizeCanvas()` also avoids resetting identical scene and overlay backing dimensions when a ResizeObserver callback reports no real size change.
+
+The next physical-browser check should use the normal editor, not another broad scaffold stage. A large cadence recovery with a small active palette count confirms retained thumbnail surfaces as the compositor bottleneck. If cadence remains poor, the new palette metric removes that branch and the next migration step will isolate functional sidebar synchronization and input scheduling.
+
+## Revision 360 on-demand export JSON surface
+
+The physical-browser test isolated the first decisive DOM boundary. With every right-hand panel collapsed, level 002 panned near 40-45 FPS. Expanding only **Export** reduced cadence to roughly 1.4 FPS, even though renderer submission remained below 5 ms. The panel retained the entire pretty-printed level in a live textarea: level 002 is approximately 2.5 MB and 60,000 lines. Chrome and Opera therefore spent hundreds of milliseconds outside the measured JavaScript draw calls maintaining and compositing a huge editable text surface beside the canvas.
+
+Revision 360 removes the persistent JSON textarea. The editor keeps only a short placement/entity/atlas summary in the Export panel and serializes the current level only when Copy JSON, Download JSON, Save browser copy, playtest, the Canvas baseline, or the explicit **Open JSON in new tab** action needs it. The separate tab contains the full text without burdening the editor's canvas page. Scheduled editor updates now refresh metadata and the summary without repeatedly pretty-printing the whole level.
+
+The Playwright comparison explicitly expands the Export panel and records its retained textarea count and character count. Any future live serialized textarea in that panel fails the diagnostic boundary even if headless cadence remains deceptively healthy.
+
+## Revision 361 compact Level actions and CSS-pixel camera alignment
+
+Status: implemented.
+
+The dedicated Export panel is removed. The Level panel now owns exactly three on-demand actions: **Save Level (json)**, **Save in Browser**, and **Load in Browser**. Copy JSON and Open JSON in new tab are retired. Serialization remains demand-driven and no full-level text is retained in the editor DOM.
+
+The editor/artwork alignment bug is fixed at the renderer boundary. Static editor cameras now pass a CSS-space zoom to the production renderer. The renderer converts that zoom using the canvas's exact backing-pixel-to-CSS-pixel ratio after resize, rather than assuming `devicePixelRatio` is the visible scale. The overlay likewise derives its transform from its actual backing dimensions. Playing-area guides therefore stay on the ordinary camera, while only cave-window and `caveForeground` guides receive the cave parallax offset.

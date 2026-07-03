@@ -1144,14 +1144,18 @@ class RocketfrockRenderer {
         const h = this.viewport.h;
         const dpr = this.viewport.dpr;
         const override = this.viewOverride;
-        const zoom = override?.zoom || this.viewport.zoom || dpr;
+        const clientW = this.viewport.clientW || w / dpr;
+        const backingPixelsPerCssPixel = w / Math.max(1, clientW);
+        const zoom = override?.cssZoom
+            ? override.cssZoom * backingPixelsPerCssPixel
+            : (override?.zoom || this.viewport.zoom || dpr);
         return {
             w,
             h,
             dpr,
             zoom,
             cssScale: this.viewport.cssScale || 1,
-            clientW: this.viewport.clientW || w / dpr,
+            clientW,
             clientH: this.viewport.clientH || h / dpr,
             virtualW: w / zoom,
             virtualH: h / zoom,
@@ -1170,11 +1174,13 @@ class RocketfrockRenderer {
             this.viewOverride = null;
             return;
         }
-        const zoom = Math.max(0.01, Number(view.zoom) || 1);
+        const cssZoom = Number(view.cssZoom);
+        const zoom = Number(view.zoom);
         this.viewOverride = {
             x: Number(view.x) || 0,
             y: Number(view.y) || 0,
-            zoom
+            cssZoom: Number.isFinite(cssZoom) && cssZoom > 0 ? Math.max(0.01, cssZoom) : null,
+            zoom: Number.isFinite(zoom) && zoom > 0 ? Math.max(0.01, zoom) : 1
         };
     }
 

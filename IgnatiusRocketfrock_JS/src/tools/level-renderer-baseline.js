@@ -120,9 +120,7 @@ function screenToWorld(clientX, clientY) {
 }
 
 function applyViewOverride() {
-    const metrics = renderer?.getViewportMetrics?.() || { dpr: window.devicePixelRatio || 1 };
-    const dpr = Math.max(1, Number(metrics.dpr) || 1);
-    renderer?.setViewOverride({ x: camera.x, y: camera.y, zoom: camera.zoom * dpr });
+    renderer?.setViewOverride({ x: camera.x, y: camera.y, cssZoom: camera.zoom });
 }
 
 function resetStats() {

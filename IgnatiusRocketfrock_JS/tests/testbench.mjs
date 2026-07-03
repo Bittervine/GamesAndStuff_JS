@@ -6696,7 +6696,7 @@ function testCaveWindowSplineAuthoring() {
     assert.ok(levelEditorHtml.includes("editorForegroundSpriteCache") && levelEditorHtml.includes("createForegroundSpriteCanvas"), "Level Editor should retain cached foreground sprite treatment for transient moving-record and placement previews");
     assert.ok(levelEditorHtml.includes("editorForegroundViewportQuery") && levelEditorHtml.includes("queryWorldVisualEntries"), "Level Editor cave foreground guides should use spatial broad-phase culling instead of scanning every perimeter sprite per camera redraw");
     assert.ok(levelEditorHtml.includes("applyEditorLevelToWorld") && levelEditorHtml.includes("createGameCanvasRenderer") && levelEditorHtml.includes("paintEditorRuntimeWorld"), "Level Editor should render its base scene through the production Canvas2D game renderer");
-    assert.ok(levelEditorHtml.includes("setViewOverride") && levelEditorHtml.includes("state.camera.zoom * dpr"), "the production renderer should use the editor camera without changing portable gameplay camera state");
+    assert.ok(levelEditorHtml.includes("setViewOverride") && levelEditorHtml.includes("cssZoom: state.camera.zoom"), "the production renderer should use the editor camera without changing portable gameplay camera state");
     assert.ok(levelEditorHtml.includes("editorRuntimeLevelSource") && levelEditorHtml.includes("generatedCavePlacementVisible(placement)"), "hidden generated cave foreground should be removed from the runtime editor view without mutating authored data");
     assert.ok(levelEditorHtml.includes('id="stage-overlay"') && levelEditorHtml.includes("renderEditorOverlay") && levelEditorHtml.includes("requestAnimationFrame"), "Level Editor should coalesce production-scene and transparent-guide rendering in one animation frame");
     assert.equal(levelEditorHtml.includes('id="stage-pan-layer"'), false, "Level Editor should not retain the failed independently transformed pan layer");
@@ -6708,6 +6708,15 @@ function testCaveWindowSplineAuthoring() {
     assert.equal(editorScreenSizeFunction.includes("getBoundingClientRect"), false, "the pan render path should use the resize-cached viewport instead of forcing browser layout every frame");
     assert.ok(levelEditorHtml.includes("editorCanvasClientRect") && levelEditorHtml.includes("function editorCanvasRect()"), "pointer coordinates should reuse the resize-cached canvas client rectangle");
     assert.ok(levelEditorHtml.includes("editorLastRendererReadoutAt") && levelEditorHtml.includes("< 250"), "performance diagnostics should be throttled so HUD text does not dirty layout on every frame");
+    assert.ok(levelEditorHtml.includes("grid-template-rows: auto minmax(0, 1fr) auto") && levelEditorHtml.includes("grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) 220px"), "the editor viewport and diagnostics HUD should remain shrinkable inside the fixed workbench column");
+    assert.ok(levelEditorHtml.includes('surface.style.removeProperty("width")') && levelEditorHtml.includes('surface.style.removeProperty("height")'), "resizeCanvas should update backing stores without feeding inline CSS dimensions back into grid sizing");
+    assert.ok(levelEditorHtml.includes("editorInteractionNeedsContinuousFrames") && levelEditorHtml.includes("performance.now() < editorContinuousDrawUntil"), "direct manipulation should keep one animation-frame chain alive until the gesture or wheel burst ends");
+    assert.ok(levelEditorHtml.includes("els.renderer.title = text"), "the full clipped profiler string should remain available without widening the HUD");
+    const editorWheelStart = levelEditorHtml.indexOf('canvas.addEventListener("wheel"');
+    const editorWheelHandler = levelEditorHtml.slice(editorWheelStart, levelEditorHtml.indexOf('document.querySelectorAll("button[data-tool]")', editorWheelStart));
+    assert.ok(editorWheelHandler.includes("const rect = editorCanvasRect()") && editorWheelHandler.includes("resetEditorFrameCadence()"), "wheel zoom should use the cached canvas rectangle and reset burst cadence without forcing layout");
+    assert.equal(levelEditorHtml.includes("fitView();"), false, "the stale removed fitView startup call should not remain");
+    assert.ok(levelEditorHtml.includes("fitContentView();"), "editor startup should invoke the current content-fit helper");
     assert.ok(levelEditorHtml.includes("draw({ reuseScene: true })"), "placement-preview and marquee pointer movement should remain compatible with the coalesced render scheduler");
     assert.ok(levelEditorHtml.includes("buildOverlapBlendGroups") && levelEditorHtml.includes("createOverlapBlendSurface") && levelEditorHtml.includes("drawMainPlacementLayer"), "Level Editor should preview cached seamless overlap composites without deleting individual placements");
     assert.equal(levelEditorHtml.includes("function editorOverlapBlendSignature"), false, "Level Editor should not rebuild a whole-placement overlap signature on every scene render");
@@ -8093,7 +8102,7 @@ function testRocketPowerUpArsenal() {
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 356<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 361<\/small>/, "the Level Editor should display the packaged revision");
     assert.ok(
         editorSource.includes("applyEditorLevelToWorld") &&
         editorSource.includes("createGameCanvasRenderer") &&
@@ -8116,11 +8125,32 @@ function testRocketPowerUpArsenal() {
     );
     const baselineHtml = readFileSync(new URL("../level-renderer-baseline.html", import.meta.url), "utf8");
     const baselineSource = readFileSync(new URL("../src/tools/level-renderer-baseline.js", import.meta.url), "utf8");
+    const editor2Html = readFileSync(new URL("../level-editor-2.html", import.meta.url), "utf8");
+    const editor2Source = readFileSync(new URL("../src/tools/level-editor-2.js", import.meta.url), "utf8");
+    const editorPlaywrightBenchmark = readFileSync(new URL("../devel/benchmark_level_editor_playwright.py", import.meta.url), "utf8");
     assert.ok(editorSource.includes('id="canvas-renderer-baseline"') && editorSource.includes("openCanvasRendererBaseline"), "the Level Editor should expose the isolated Canvas game-renderer baseline");
-    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 356") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the baseline page should identify the packaged revision and load its dedicated tool module");
+    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 361") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the baseline page should identify the packaged revision and load its dedicated tool module");
     assert.ok(baselineSource.includes("applyEditorLevelToWorld") && baselineSource.includes("preferWebGL2: false") && baselineSource.includes("setViewOverride"), "the baseline should convert the authored level and use the ordinary Canvas2D game renderer with an editor camera override");
+    assert.ok(editor2Html.includes("Ignatius Level Editor 2 Scaffold") && editor2Html.includes("Stage <select id=\"lab-stage\"") && editor2Html.includes("static full sidebar"), "the Editor 2 scaffold should expose the structural stage ladder from the baseline shell");
+    assert.ok(editor2Html.includes('id="stage-overlay"') && editor2Html.includes("grid on the single scene canvas") && editor2Html.includes("rev 361"), "the Editor 2 scaffold should compare transparent-overlay and single-canvas guide paths under the packaged revision");
+    assert.ok(editor2Source.includes("applyEditorLevelToWorld") && editor2Source.includes("preferWebGL2: false") && editor2Source.includes("runStageSweep") && editor2Source.includes("PerformanceObserver"), "the Editor 2 scaffold should retain the production Canvas baseline and provide an in-browser structural sweep");
+    assert.ok(editorSource.includes("Editor 2 lab") && baselineHtml.includes("Editor 2 lab"), "both existing rendering surfaces should link to the new scaffold");
+    assert.ok(editorPlaywrightBenchmark.includes("benchmark_baseline") && editorPlaywrightBenchmark.includes("benchmark_editor") && editorPlaywrightBenchmark.includes("editorToBaselineCadenceRatio"), "the optional Playwright probe should compare the loaded baseline and editor rather than source-only timings");
+    assert.ok(editorPlaywrightBenchmark.includes("bodyScrollWidth") && editorPlaywrightBenchmark.includes("stageBacking") && editorPlaywrightBenchmark.includes("overlayBacking"), "the Playwright probe should detect viewport overflow and stage/overlay size divergence");
+    assert.ok(editorPlaywrightBenchmark.includes("level_action_snapshot") && editorPlaywrightBenchmark.includes("obsolete Export panel"), "the Playwright probe should verify that save/load actions live in Level and no obsolete Export surface remains");
     assert.ok(rendererSource.includes("setViewOverride(view = null)") && rendererSource.includes("const override = this.viewOverride"), "the presentation renderer should provide a narrow static-view override for the baseline without changing gameplay camera state");
-    assert.match(bootstrapSource, /const GAME_REVISION = "356";/, "the game debug revision should match the packaged revision");
+    assert.ok(rendererSource.includes("backingPixelsPerCssPixel") && rendererSource.includes("override.cssZoom * backingPixelsPerCssPixel") && editorSource.includes("cssZoom: state.camera.zoom"), "editor and runtime artwork should share one CSS-pixel camera scale so guide alignment does not drift across the viewport");
+    assert.match(bootstrapSource, /const GAME_REVISION = "361";/, "the game debug revision should match the packaged revision");
+    assert.ok(
+        editorSource.includes('id="download-json">Save Level (json)</button>')
+            && editorSource.includes('id="save-local">Save in Browser</button>')
+            && editorSource.includes('id="load-local">Load in Browser</button>')
+            && editorSource.includes("function serializeLevelJson()")
+            && !editorSource.includes('<h2>Export</h2>')
+            && !editorSource.includes('id="copy-json"')
+            && !editorSource.includes('id="open-json"'),
+        "the Level panel should own the three on-demand save/load actions without a separate Export surface"
+    );
     assert.match(editorSource, /<button id="fit-content-view">Fit<\/button>/, "the Level Editor should expose one concise Fit button");
     assert.equal(editorSource.includes('id="fit-view"'), false, "the removed Fit World control should not remain in the Level Editor");
     assert.equal(editorSource.includes('id="fit-cave-view"'), false, "the removed Fit Cave control should not remain in the Level Editor");
@@ -8136,6 +8166,9 @@ function testRocketPowerUpArsenal() {
     assert.ok(editorSource.includes("drawComposedPaletteThumbnail") && editorSource.includes('const scratch = document.createElement("canvas")') && editorSource.includes("return drawComposedPaletteThumbnail(canvas, commands)"), "character palette previews should crop the final composited alpha instead of fitting theoretical rig bounds");
     assert.ok(editorSource.includes("canvas.clientWidth") && editorSource.includes("canvas.clientHeight") && editorSource.includes("devicePixelRatio"), "palette backing canvases should match their displayed aspect ratio instead of stretching a fixed bitmap");
     assert.ok(editorSource.includes("drawAtlasFrameThumbnail") && editorSource.includes("drawEntityPaletteThumbnail"), "both palettes should draw direct card thumbnails");
+    assert.ok(editorSource.includes("paletteThumbnailObserver") && editorSource.includes("deferPaletteThumbnail") && editorSource.includes("releasePaletteThumbnail"), "palette thumbnails should allocate backing stores only near the physical viewport");
+    assert.ok(editorSource.includes('thumbnail.width = 1') && editorSource.includes('thumbnail.height = 1') && editorSource.includes('rootMargin: "220px 0px"'), "off-screen palette cards should remain 1×1 while nearby cards are prefetched");
+    assert.ok(editorSource.includes("paletteSurfaceDiagnostics") && editorSource.includes("palette ${palette.active}/${palette.total} canvases"), "profile mode should expose retained palette surface count and megapixels");
     assert.ok(editorSource.includes("placementPreviewPoint: null") && editorSource.includes("drawPlacementPreview()") && editorSource.includes('id: "__placement_preview__"'), "asset and entity placement tools should maintain a transient cursor-following preview");
     assert.ok(editorSource.includes('drawPlacement(placement, null, { preview: true })') && editorSource.includes('drawEntity(created.record, { preview: true })'), "placement previews should use the actual asset and entity render paths");
     assert.match(editorSource, /if \(state\.tool === "placeEntity"\) \{[\s\S]*?const placed = placeEntity\(point\);[\s\S]*?setTool\("select"\);/, "placing an entity should return to the Select tool just like asset placement");
