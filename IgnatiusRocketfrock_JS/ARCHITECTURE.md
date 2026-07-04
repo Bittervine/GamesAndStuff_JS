@@ -1519,3 +1519,8 @@ Character complexion treatment is rig assembly data, not atlas data. A part may 
 Engine-neutral normalization and the GEGL-compatible byte transformation live in `src/shared/color-exchange-data.js`. Browser Canvas extraction and `ImageData` processing live in `src/presentation/sprite-color-exchange.js`. `src/presentation/character-runtime.js` applies the modifier during project loading, caches identical treated canvases for the project, and exposes them as ordinary character assets. Normal render frames must never read or rewrite sprite pixels. Canvas2D draws the cached canvas directly; WebGL must upload that canvas and must not retain the original atlas image pointer for a treated asset.
 
 Puppet Forge uses the same shared and presentation helpers as runtime, so its preview is not an approximation. Modifier editing rebuilds the current part cache and remains independent of animation tracks, pivots, parent constraints, and draw order. This is intentionally one optional operation per part rather than a general effects graph.
+
+## Revision 372 modular-human sizing contract
+
+The modular human family keeps size authoring in the enemy catalog rather than altering shared rig geometry or animation coordinates. Enemy 030 and descendants cloned from it use catalog `defaultSize`, `renderScale`, and grounded render offsets as one proportional set. Revision 372 establishes the current 1.5× set at 67.5×177 collision dimensions, 1.23 render scale, and a 51-unit vertical artwork offset. This preserves animation reuse and keeps generator/editor placement dimensions truthful without introducing a hidden runtime species multiplier.
+

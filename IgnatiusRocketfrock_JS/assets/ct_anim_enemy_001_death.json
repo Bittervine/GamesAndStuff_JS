@@ -483,13 +483,13 @@
                     "easing": "easeInOut"
                 },
                 {
-                    "time": 0.7831984542171357,
-                    "value": -49.088108846610965,
+                    "time": 0.9686566777262918,
+                    "value": -30.296536411941787,
                     "easing": "easeInOut"
                 },
                 {
-                    "time": 1.0350470770927243,
-                    "value": -45.553196182466024,
+                    "time": 1.18,
+                    "value": -25.210927727029095,
                     "easing": "easeInOut"
                 }
             ],
@@ -510,13 +510,13 @@
                     "easing": "easeInOut"
                 },
                 {
-                    "time": 0.7831984542171357,
-                    "value": -127.75131599145507,
+                    "time": 0.9686566777262918,
+                    "value": -19.303310951738997,
                     "easing": "easeInOut"
                 },
                 {
-                    "time": 1.0350470770927243,
-                    "value": -69.20138679809625,
+                    "time": 1.18,
+                    "value": -3.9499802561328785,
                     "easing": "easeInOut"
                 }
             ],
@@ -537,21 +537,26 @@
                     "easing": "easeInOut"
                 },
                 {
-                    "time": 0.7831984542171357,
-                    "value": -2.2951021713770356,
+                    "time": 0.9686566777262918,
+                    "value": -1.1026109896939413,
                     "easing": "easeInOut"
                 },
                 {
-                    "time": 1.0350470770927243,
-                    "value": -2.141468795326414,
+                    "time": 1.18,
+                    "value": -0.6808312329113835,
                     "easing": "easeInOut"
                 }
             ],
             "scale": [
                 {
                     "time": 0,
-                    "value": 1,
-                    "easing": "linear"
+                    "value": 0.65,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 1.18,
+                    "value": 0.65,
+                    "easing": "easeInOut"
                 }
             ],
             "alpha": [

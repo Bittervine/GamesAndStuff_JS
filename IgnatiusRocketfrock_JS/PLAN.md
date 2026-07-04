@@ -3552,3 +3552,12 @@ Rig parts may now carry an optional `colorExchange` object using the same channe
 Puppet Forge exposes a per-part Color Exchange checkbox, source/destination colour controls, and independent red/green/blue threshold fields. Changing the modifier rebuilds only the in-memory rig-part preview and serializes the modifier in rig JSON. Enemy 031 now applies the screenshot-sampled `#e0945e` to `#8c5126` exchange to both shared arms with all thresholds at `1.0`; Enemy 030 and the atlas remain unchanged.
 
 This revision does not introduce a general filter stack, per-frame processing, shader-only treatment, or atlas expansion. If later art exposes weaknesses in full-range exchange, the existing three thresholds can be tuned without changing the data model.
+
+## Revision 372 enlarged modular humans
+
+Status: implemented.
+
+Enemy 030 and Enemy 031 now use 50-percent larger defaults. Their catalog hitboxes grow exactly from 45×118 to 67.5×177, their character render scale grows from 0.82 to 1.23, and the grounded vertical artwork offset grows from 34 to 51 so the larger figures remain aligned with the same foot position. The Enemy 030 asset builder carries the same defaults so atlas regeneration cannot silently restore the smaller proportions.
+
+Validation note: the supplied revision 371 FULL archive is missing `devel/enemy-hit-effect-lab.html`, `devel/enemy-hit-effect-lab.js`, `level-editor-2.html`, and `src/tools/level-editor-2.js`, although its packaging rules or tests still require them. Revision 372 does not fabricate replacements for those unavailable files; the focused modular-human regression shard passes, while the complete release gate remains blocked by the incomplete input archive.
+

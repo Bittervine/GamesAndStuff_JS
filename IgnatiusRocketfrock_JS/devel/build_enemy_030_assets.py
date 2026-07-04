@@ -554,13 +554,13 @@ def build_animation(slot: str) -> dict:
 def update_enemy_catalog() -> None:
     catalog = json.loads(ENEMIES_JSON.read_text(encoding='utf-8'))
     catalog['meta']['version'] = int(catalog['meta'].get('version', 0)) + 1
-    catalog['meta']['revision'] = 368
-    catalog['meta']['note'] = 'Revision 368 fallback Human Raider catalog entry matching the user-tuned runtime offset.'
+    catalog['meta']['revision'] = 372
+    catalog['meta']['note'] = 'Revision 372 fallback Human Raider catalog entry with the enlarged modular-human defaults.'
     catalog['enemies']['enemy_030'] = {
         'label': 'Human Raider',
         'icon': '⚔',
         'characterId': 'ct_char_enemy_030',
-        'defaultSize': {'w': 45, 'h': 118},
+        'defaultSize': {'w': 67.5, 'h': 177},
         'defaults': {
             'facing': -1,
             'patrolDistance': 250,
@@ -570,7 +570,7 @@ def update_enemy_catalog() -> None:
             'groundSnapDistance': 96,
             'maxStepHeight': 26,
             'maxDropDistance': 34,
-            'renderScale': 0.82,
+            'renderScale': 1.23,
             'health': 95,
             'animationSlot': 'idle',
             'targetAnchor': {'x': 0.54, 'y': 0.38},
@@ -593,7 +593,7 @@ def update_enemy_catalog() -> None:
             'unreachableGlareDuration': 5,
             'awarenessViewHalfAngle': 60,
             'renderOffsetX': 0,
-            'renderOffsetY': 34,
+            'renderOffsetY': 51,
             'locomotion': 'ground',
             'jumpGravity': 1250,
             'maxFallDistance': 520,

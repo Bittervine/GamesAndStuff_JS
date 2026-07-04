@@ -3643,3 +3643,13 @@ Revision 347 re-voices the alternate synthesized tunes rather than applying one 
 - [x] Extend the modular-human variant builder with optional arm complexion arguments.
 - [x] Add regression tests for exact matching, threshold `1.0`, alpha preservation, cache identity, editor controls, and Enemy 031 data.
 - [x] Keep Enemy 030 artwork and animation files unchanged.
+
+## Revision 372 enlarged modular humans
+
+- [x] Increase Enemy 030 and Enemy 031 default hitboxes from 45×118 to 67.5×177.
+- [x] Increase both human render scales from 0.82 to 1.23.
+- [x] Increase the grounded vertical render offset from 34 to 51.
+- [x] Keep the Enemy 030 asset regeneration helper synchronized with the enlarged defaults.
+- [x] Add catalog regression tests covering both modular human variants.
+- [x] Synchronize visible revision labels to 372.
+

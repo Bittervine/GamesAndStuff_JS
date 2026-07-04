@@ -1,8 +1,8 @@
 {
   "meta": {
-    "version": 41,
-    "note": "Revision 371 keeps Enemy 031 on the shared Human Raider animations while its rig applies cached GIMP-compatible complexion exchange to the shared arm frames.",
-    "revision": 371
+    "version": 42,
+    "note": "Revision 372 enlarges every modular human raider by 50 percent, including matching hitboxes and grounded artwork offsets.",
+    "revision": 372
   },
   "catalogId": "ct_enemies_001",
   "enemies": {
@@ -325,8 +325,8 @@
       "icon": "\u2694",
       "characterId": "ct_char_enemy_030",
       "defaultSize": {
-        "w": 45,
-        "h": 118
+        "w": 67.5,
+        "h": 177
       },
       "defaults": {
         "facing": -1,
@@ -337,7 +337,7 @@
         "groundSnapDistance": 96,
         "maxStepHeight": 26,
         "maxDropDistance": 34,
-        "renderScale": 0.82,
+        "renderScale": 1.23,
         "health": 95,
         "animationSlot": "idle",
         "targetAnchor": {
@@ -363,7 +363,7 @@
         "unreachableGlareDuration": 5,
         "awarenessViewHalfAngle": 60,
         "renderOffsetX": 0,
-        "renderOffsetY": 34,
+        "renderOffsetY": 51,
         "locomotion": "ground",
         "jumpGravity": 1250,
         "maxFallDistance": 520,
@@ -377,8 +377,8 @@
       "icon": "\u2694",
       "characterId": "ct_char_enemy_031",
       "defaultSize": {
-        "w": 45,
-        "h": 118
+        "w": 67.5,
+        "h": 177
       },
       "defaults": {
         "facing": -1,
@@ -389,7 +389,7 @@
         "groundSnapDistance": 96,
         "maxStepHeight": 26,
         "maxDropDistance": 34,
-        "renderScale": 0.82,
+        "renderScale": 1.23,
         "health": 95,
         "animationSlot": "idle",
         "targetAnchor": {
@@ -415,7 +415,7 @@
         "unreachableGlareDuration": 5,
         "awarenessViewHalfAngle": 60,
         "renderOffsetX": 0,
-        "renderOffsetY": 34,
+        "renderOffsetY": 51,
         "locomotion": "ground",
         "jumpGravity": 1250,
         "maxFallDistance": 520,

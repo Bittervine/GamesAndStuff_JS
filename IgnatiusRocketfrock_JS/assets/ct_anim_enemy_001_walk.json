@@ -756,94 +756,94 @@
             "x": [
                 {
                     "time": 0,
-                    "value": 2,
+                    "value": 5.632534081453047,
                     "easing": "easeInOut"
                 },
                 {
-                    "time": 0.1,
-                    "value": 2.6,
+                    "time": 0.09803613665929378,
+                    "value": 7.685580970876975,
                     "easing": "easeInOut"
                 },
                 {
-                    "time": 0.2,
-                    "value": 2,
+                    "time": 0.19984289470848463,
+                    "value": 9.26506816290609,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.3,
-                    "value": 1.4,
+                    "value": 10.844555354935112,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.4,
-                    "value": 2,
+                    "value": 12.897602244359135,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.5,
-                    "value": 2.6,
+                    "value": 12.044555354935111,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.6,
-                    "value": 2,
+                    "value": 8.538572432229751,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.7,
-                    "value": 1.4,
+                    "value": 7.212021273482069,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.8,
-                    "value": 2,
+                    "value": 5.632534081453139,
                     "easing": "easeInOut"
                 }
             ],
             "y": [
                 {
                     "time": 0,
-                    "value": -298,
+                    "value": -296.4646669304394,
                     "easing": "easeInOut"
                 },
                 {
-                    "time": 0.1,
+                    "time": 0.09803613665929378,
                     "value": -294,
                     "easing": "easeInOut"
                 },
                 {
-                    "time": 0.2,
+                    "time": 0.19984289470848463,
                     "value": -300,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.3,
-                    "value": -303,
+                    "value": -299.1616819681198,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.4,
-                    "value": -298,
+                    "value": -296.4646669304394,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.5,
-                    "value": -294,
+                    "value": -290.9293338608788,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.6,
-                    "value": -300,
+                    "value": -297.69701503768044,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.7,
-                    "value": -303,
+                    "value": -302.2323188231984,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.8,
-                    "value": -298,
+                    "value": -295.69701503768044,
                     "easing": "easeInOut"
                 }
             ],
@@ -854,12 +854,12 @@
                     "easing": "easeInOut"
                 },
                 {
-                    "time": 0.1,
+                    "time": 0.09803613665929378,
                     "value": 0.03,
                     "easing": "easeInOut"
                 },
                 {
-                    "time": 0.2,
+                    "time": 0.19984289470848463,
                     "value": 0.02,
                     "easing": "easeInOut"
                 },
@@ -897,7 +897,7 @@
             "scale": [
                 {
                     "time": 0,
-                    "value": 1,
+                    "value": 0.65,
                     "easing": "linear"
                 }
             ],
