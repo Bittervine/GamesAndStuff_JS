@@ -610,6 +610,12 @@ def main() -> None:
     groups = classify_components(detect_components(atlas))
     atlas_manifest, parts_manifest = build_atlas_manifest(groups)
     ATLAS_JSON.write_text(json.dumps(atlas_manifest, indent=2) + '\n', encoding='utf-8')
+    # Modular assembly records are authored by build_human_enemy_variant.py.
+    # Preserve them when regenerating atlas geometry from the PNG.
+    if PARTS_JSON.exists():
+        existing_parts = json.loads(PARTS_JSON.read_text(encoding='utf-8'))
+        if isinstance(existing_parts.get('assemblies'), dict):
+            parts_manifest['assemblies'] = existing_parts['assemblies']
     PARTS_JSON.write_text(json.dumps(parts_manifest, indent=2) + '\n', encoding='utf-8')
 
     # Rig, idle, and catalog are user-tuned authoring files. Preserve them on

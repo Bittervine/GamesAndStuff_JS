@@ -2303,7 +2303,12 @@
             "scale": [
                 {
                     "time": 0,
-                    "value": 0.5,
+                    "value": 0.4,
+                    "easing": "linear"
+                },
+                {
+                    "time": 1.25,
+                    "value": 0.4,
                     "easing": "linear"
                 }
             ],

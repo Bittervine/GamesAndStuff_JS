@@ -3615,3 +3615,31 @@ Revision 347 re-voices the alternate synthesized tunes rather than applying one 
 - [x] Preserve the uploaded Human Raider idle and walk animation files unchanged.
 - [x] Add editor tests for chained resolution, inverse point conversion, cycle rejection, and adaptive baking.
 - [x] Synchronize visible revision labels to 369.
+
+
+## Revision 370 modular human variant reuse
+
+- [x] Adopt the latest user-authored Enemy 030 rig, idle, walk, attack, hurt, and death JSON files.
+- [x] Create `ct_rig_enemy_031.json` by cloning Enemy 030 and changing only `torso.frame` to `body_01` and `head.frame` to `head_01`.
+- [x] Create `ct_char_enemy_031.json` and reuse Enemy 030's animation map verbatim.
+- [x] Keep the same shared limbs and sword for Enemy 031.
+- [x] Add Enemy 031 to `ct_enemies_001.json`, Puppet Forge, and the renderer fallback project list.
+- [x] Record Enemy 030 and Enemy 031 assemblies in `ct_human_parts_030.json`.
+- [x] Add `devel/build_human_enemy_variant.py` with atlas-frame existence and equal-dimension validation.
+- [x] Add tests proving that Enemy 031 shares the animation map and changes only the intended head/body frames.
+- [x] Update visible revision labels to 370.
+
+
+## Revision 371 character-part Color Exchange
+
+- [x] Match the GEGL/GIMP Color Exchange channel-threshold convention and additive RGB offset.
+- [x] Preserve alpha exactly and clamp output RGB channels.
+- [x] Store the optional modifier on the rig part that uses it.
+- [x] Generate treated part canvases once while loading a character project.
+- [x] Cache identical frame/modifier combinations within the loaded project.
+- [x] Ensure WebGL uses the treated canvas rather than the original atlas rectangle.
+- [x] Add Puppet Forge controls for source colour, destination colour, and three `0..1` thresholds.
+- [x] Apply full-range complexion exchange to both Enemy 031 arm parts without changing the atlas.
+- [x] Extend the modular-human variant builder with optional arm complexion arguments.
+- [x] Add regression tests for exact matching, threshold `1.0`, alpha preservation, cache identity, editor controls, and Enemy 031 data.
+- [x] Keep Enemy 030 artwork and animation files unchanged.

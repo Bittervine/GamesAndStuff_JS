@@ -1503,3 +1503,19 @@ Constraint mathematics and adaptive X/Y baking live in `src/tools/character-edit
 This is an authoring-only boundary. Runtime character rendering and animation sampling remain unchanged. Before animation JSON is refreshed or downloaded, Puppet Forge replaces constrained child X/Y tracks with ordinary linear keyframes. Adaptive midpoint subdivision adds keys where a rotating or scaling parent would otherwise make straight X/Y interpolation visibly leave the socket. The rig constraint remains the source of truth; baked tracks are disposable runtime-compatible output.
 
 Rig JSON application must reject missing parents and circular links. The parent picker excludes the child and its descendants. Disabling a constraint leaves the most recently baked X/Y tracks as normal editable animation data, providing a non-destructive escape route.
+
+
+## Revision 370 shared-animation modular human variants
+
+The modular human contract now has a proven variant boundary. A visual variant receives a separate rig JSON whose torso and head `frame` fields select different equal-sized atlas cells, while all logical part names, pivots, constraints, and animation tracks remain unchanged. Its character JSON may point directly to another human variant's animation files because animation data addresses rig roles (`torso`, `head`, `leftArm`, and so on), not atlas frame IDs.
+
+`devel/build_human_enemy_variant.py` is the authoring utility for this boundary. It rejects missing or dimension-mismatched body/head frames, clones the source rig and enemy defaults, changes only the selected visual frames and IDs, preserves the shared sword and limb frames, and records the resulting assembly in `ct_human_parts_030.json`. This keeps visual combinatorics out of runtime code and avoids redundant animation JSON.
+
+
+## Revision 371 character sprite Color Exchange boundary
+
+Character complexion treatment is rig assembly data, not atlas data. A part may define `colorExchange` with `fromColor`, `toColor`, and independent `redThreshold`, `greenThreshold`, and `blueThreshold` values. The atlas continues to describe only source rectangles, allowing several characters to reuse one arm frame with different cached treatments.
+
+Engine-neutral normalization and the GEGL-compatible byte transformation live in `src/shared/color-exchange-data.js`. Browser Canvas extraction and `ImageData` processing live in `src/presentation/sprite-color-exchange.js`. `src/presentation/character-runtime.js` applies the modifier during project loading, caches identical treated canvases for the project, and exposes them as ordinary character assets. Normal render frames must never read or rewrite sprite pixels. Canvas2D draws the cached canvas directly; WebGL must upload that canvas and must not retain the original atlas image pointer for a treated asset.
+
+Puppet Forge uses the same shared and presentation helpers as runtime, so its preview is not an approximation. Modifier editing rebuilds the current part cache and remains independent of animation tracks, pivots, parent constraints, and draw order. This is intentionally one optional operation per part rather than a general effects graph.

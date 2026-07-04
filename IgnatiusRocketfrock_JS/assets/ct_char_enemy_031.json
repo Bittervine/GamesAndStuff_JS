@@ -1,0 +1,18 @@
+{
+  "meta": {
+    "version": 4,
+    "note": "Revision 371 modular human variant using body_01/head_01, shared Enemy 030 animations, and rig-authored cached arm Color Exchange."
+  },
+  "characterId": "ct_char_enemy_031",
+  "displayName": "Human Raider II",
+  "rig": "ct_rig_enemy_031.json",
+  "defaultFacing": "right",
+  "mirrorable": true,
+  "animationMap": {
+    "idle": "ct_anim_enemy_030_idle.json",
+    "walk": "ct_anim_enemy_030_walk.json",
+    "attack": "ct_anim_enemy_030_attack.json",
+    "hurt": "ct_anim_enemy_030_hurt.json",
+    "death": "ct_anim_enemy_030_death.json"
+  }
+}

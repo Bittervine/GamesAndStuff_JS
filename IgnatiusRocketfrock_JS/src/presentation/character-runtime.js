@@ -3,6 +3,8 @@ import {
     normalizeAnimationClip,
     sampleAnimationClip
 } from "../shared/animation-data.js";
+import { normalizeColorExchange, colorExchangeCacheKey } from "../shared/color-exchange-data.js";
+import { createColorExchangedSpriteCanvas } from "./sprite-color-exchange.js";
 
 export function characterArtworkOffset(renderOffsetX = 0, renderOffsetY = 0, scale = 1) {
     const safeScale = finitePositive(scale, 1);
@@ -60,6 +62,7 @@ export function normalizeRuntimeCharacterRig(rawRig, label = "character rig") {
         const rawPart = sourceParts[partName] || {};
         const rawPivot = rawRig.pivots?.[partName] || {};
         const rawOffset = rawPart.offset || {};
+        const colorExchange = normalizeColorExchange(rawPart.colorExchange);
         parts[partName] = {
             ...rawPart,
             frame: String(rawPart.frame || partName),
@@ -70,7 +73,8 @@ export function normalizeRuntimeCharacterRig(rawRig, label = "character rig") {
             rotation: rawPart.rotation && typeof rawPart.rotation === "object" ? { ...rawPart.rotation } : {},
             scale: finiteOr(rawPart.scale, 1),
             targetHeight: Math.max(0.0001, finiteOr(rawPart.targetHeight, 1)),
-            alpha: clamp(finiteOr(rawPart.alpha, 1), 0, 1)
+            alpha: clamp(finiteOr(rawPart.alpha, 1), 0, 1),
+            ...(colorExchange ? { colorExchange } : {})
         };
         pivots[partName] = {
             x: finiteOr(rawPivot.x, 0.5),
@@ -393,13 +397,40 @@ export async function loadRuntimeCharacterProject(characterUrl, options = {}) {
     }
 
     const assets = new Map();
+    const colorExchangeCanvasCache = new Map();
     for (const partName of rig.drawOrder) {
         const part = rig.parts[partName];
         const atlasAsset = atlasAssets.get(part.frame);
         if (!atlasAsset) {
             throw new Error(`Character atlas ${atlasManifestUrl} is missing frame "${part.frame}" for rig part "${partName}".`);
         }
-        assets.set(partName, { ...atlasAsset, name: partName });
+        if (!part.colorExchange) {
+            assets.set(partName, { ...atlasAsset, name: partName });
+            continue;
+        }
+        const exchangeKey = `${atlasAsset.source}|${colorExchangeCacheKey(part.colorExchange)}`;
+        let exchanged = colorExchangeCanvasCache.get(exchangeKey);
+        if (!exchanged) {
+            exchanged = createColorExchangedSpriteCanvas(atlasAsset.canvas, part.colorExchange, {
+                createCanvas,
+                width: atlasAsset.width,
+                height: atlasAsset.height
+            });
+            colorExchangeCanvasCache.set(exchangeKey, exchanged);
+        }
+        assets.set(partName, {
+            ...atlasAsset,
+            name: partName,
+            image: null,
+            canvas: exchanged.canvas,
+            sourceX: 0,
+            sourceY: 0,
+            sourceWidth: atlasAsset.width,
+            sourceHeight: atlasAsset.height,
+            source: `${atlasAsset.source}|colorExchange=${exchanged.cacheKey}`,
+            colorExchange: exchanged.modifier,
+            colorExchangeChangedPixelCount: exchanged.changedPixelCount
+        });
     }
 
     const animations = new Map();

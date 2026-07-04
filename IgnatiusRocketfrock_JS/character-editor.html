@@ -662,7 +662,7 @@
         </section>
     </div>
     <aside>
-        <h1>Puppet Forge <small>rev 369</small></h1>
+        <h1>Puppet Forge <small>rev 371</small></h1>
         <p><a href="index.html">Back to tools</a></p>
         <p>
             Atlas-backed rig and keyframe editor. The preview now samples the same animation JSON module as the game, so edits are made in rig-space values rather than a second procedural imitation.
@@ -704,6 +704,7 @@
                     <option value="enemy_012">Enemy 012: Tri-fireball Goblin</option>
                     <option value="enemy_020">Enemy 020: Bombing Bat</option>
                     <option value="enemy_030">Enemy 030: Human Raider</option>
+                    <option value="enemy_031">Enemy 031: Human Raider II</option>
                 </select>
             </label>
             <div class="row">
@@ -917,6 +918,20 @@
                 <label><span>Base scale</span><input id="part-scale" type="number" step="0.01"></label>
                 <label><span>Target height</span><input id="target-height" type="number" step="1"></label>
             </div>
+            <h3>Color Exchange</h3>
+            <label class="check-row"><input id="color-exchange-enabled" type="checkbox"> Apply GIMP-compatible Color Exchange to this part</label>
+            <div id="color-exchange-fields">
+                <div class="row">
+                    <label><span>From color</span><input id="color-exchange-from" type="color" value="#ffffff"></label>
+                    <label><span>To color</span><input id="color-exchange-to" type="color" value="#000000"></label>
+                </div>
+                <div class="row three">
+                    <label><span>Red threshold</span><input id="color-exchange-red-threshold" type="number" min="0" max="1" step="0.001" value="0"></label>
+                    <label><span>Green threshold</span><input id="color-exchange-green-threshold" type="number" min="0" max="1" step="0.001" value="0"></label>
+                    <label><span>Blue threshold</span><input id="color-exchange-blue-threshold" type="number" min="0" max="1" step="0.001" value="0"></label>
+                </div>
+            </div>
+            <p id="color-exchange-help">Threshold 0.0 changes only an exact channel match. Threshold 1.0 accepts the complete channel range. Alpha is preserved, and the recolored sprite is generated once and cached.</p>
             <h3>Parent pivot constraint</h3>
             <label class="check-row"><input id="parent-constraint-enabled" type="checkbox"> Pin this part's pivot to a parent part</label>
             <div id="parent-constraint-fields">
@@ -1057,6 +1072,12 @@ import {
     animationPoseToRuntimeTransforms,
     characterArtworkOffset
 } from "./src/presentation/character-runtime.js";
+import {
+    normalizeColorExchange,
+    normalizeRgbColor,
+    rgbColorToHex
+} from "./src/shared/color-exchange-data.js";
+import { createColorExchangedSpriteCanvas } from "./src/presentation/sprite-color-exchange.js";
 import {
     TRANSFORM_EDIT_PROPERTY,
     canvasPointFromClient,
@@ -1246,6 +1267,14 @@ const els = {
     offsetY: document.getElementById("offset-y"),
     partScale: document.getElementById("part-scale"),
     targetHeight: document.getElementById("target-height"),
+    colorExchangeEnabled: document.getElementById("color-exchange-enabled"),
+    colorExchangeFields: document.getElementById("color-exchange-fields"),
+    colorExchangeFrom: document.getElementById("color-exchange-from"),
+    colorExchangeTo: document.getElementById("color-exchange-to"),
+    colorExchangeRedThreshold: document.getElementById("color-exchange-red-threshold"),
+    colorExchangeGreenThreshold: document.getElementById("color-exchange-green-threshold"),
+    colorExchangeBlueThreshold: document.getElementById("color-exchange-blue-threshold"),
+    colorExchangeHelp: document.getElementById("color-exchange-help"),
     parentConstraintEnabled: document.getElementById("parent-constraint-enabled"),
     parentConstraintFields: document.getElementById("parent-constraint-fields"),
     parentConstraintPart: document.getElementById("parent-constraint-part"),
@@ -1288,7 +1317,8 @@ const KNOWN_PROJECTS = Object.freeze({
     enemy_011: "assets/ct_char_enemy_011.json",
     enemy_012: "assets/ct_char_enemy_012.json",
     enemy_020: "assets/ct_char_enemy_020.json",
-    enemy_030: "assets/ct_char_enemy_030.json"
+    enemy_030: "assets/ct_char_enemy_030.json",
+    enemy_031: "assets/ct_char_enemy_031.json"
 });
 const PANEL_STORAGE_KEY = "ignatiusRocketfrock.characterEditor.collapsedPanels.v1";
 
@@ -2087,6 +2117,7 @@ function buildAssetsFromAtlas(image, atlas, rig, imageUrl) {
     if (!image || !atlas?.frames || !rig?.parts) {
         return result;
     }
+    const exchangeCache = new Map();
     for (const partName of drawOrder()) {
         const part = rig.parts[partName];
         const frameId = part.frame || partName;
@@ -2098,12 +2129,30 @@ function buildAssetsFromAtlas(image, atlas, rig, imageUrl) {
         canvasPart.width = frame.w;
         canvasPart.height = frame.h;
         canvasPart.getContext("2d").drawImage(image, frame.x, frame.y, frame.w, frame.h, 0, 0, frame.w, frame.h);
+        const modifier = normalizeColorExchange(part.colorExchange);
+        let renderedCanvas = canvasPart;
+        let changedPixelCount = 0;
+        if (modifier) {
+            const key = `${frameId}|${JSON.stringify(modifier)}`;
+            let exchanged = exchangeCache.get(key);
+            if (!exchanged) {
+                exchanged = createColorExchangedSpriteCanvas(canvasPart, modifier, {
+                    width: frame.w,
+                    height: frame.h
+                });
+                exchangeCache.set(key, exchanged);
+            }
+            renderedCanvas = exchanged.canvas;
+            changedPixelCount = exchanged.changedPixelCount;
+        }
         result.set(partName, {
-            canvas: canvasPart,
+            canvas: renderedCanvas,
             width: frame.w,
             height: frame.h,
             frameId,
-            source: `${imageUrl}#${frameId}`
+            source: `${imageUrl}#${frameId}`,
+            colorExchange: modifier,
+            colorExchangeChangedPixelCount: changedPixelCount
         });
     }
     return result;
@@ -2887,6 +2936,62 @@ function writeProjectilePartFromUi() {
 }
 
 
+function syncColorExchangeControls(partName = selectedPartName()) {
+    const part = state.rig?.parts?.[partName] || null;
+    const modifier = normalizeColorExchange(part?.colorExchange);
+    const enabled = Boolean(modifier);
+    state.syncing = true;
+    els.colorExchangeEnabled.checked = enabled;
+    els.colorExchangeEnabled.disabled = !part;
+    els.colorExchangeFields.hidden = !enabled;
+    els.colorExchangeFrom.disabled = !enabled;
+    els.colorExchangeTo.disabled = !enabled;
+    els.colorExchangeRedThreshold.disabled = !enabled;
+    els.colorExchangeGreenThreshold.disabled = !enabled;
+    els.colorExchangeBlueThreshold.disabled = !enabled;
+    els.colorExchangeFrom.value = rgbColorToHex(modifier?.fromColor || [255, 255, 255]);
+    els.colorExchangeTo.value = rgbColorToHex(modifier?.toColor || [0, 0, 0]);
+    els.colorExchangeRedThreshold.value = Number(modifier?.redThreshold ?? 0).toFixed(3);
+    els.colorExchangeGreenThreshold.value = Number(modifier?.greenThreshold ?? 0).toFixed(3);
+    els.colorExchangeBlueThreshold.value = Number(modifier?.blueThreshold ?? 0).toFixed(3);
+    const changedPixels = Number(state.assets?.get(partName)?.colorExchangeChangedPixelCount) || 0;
+    els.colorExchangeHelp.textContent = enabled
+        ? `GIMP-compatible channel exchange is active. ${changedPixels.toLocaleString()} source pixels matched. Threshold 0.0 means exact match; 1.0 accepts the complete channel range. Alpha is preserved.`
+        : "Threshold 0.0 changes only an exact channel match. Threshold 1.0 accepts the complete channel range. Alpha is preserved, and the recolored sprite is generated once and cached.";
+    state.syncing = false;
+}
+
+function writeColorExchangeFromUi() {
+    if (state.syncing || !state.rig) {
+        return;
+    }
+    const partName = selectedPartName();
+    const part = state.rig.parts?.[partName];
+    if (!part) {
+        return;
+    }
+    if (!els.colorExchangeEnabled.checked) {
+        delete part.colorExchange;
+    } else {
+        part.colorExchange = normalizeColorExchange({
+            fromColor: normalizeRgbColor(els.colorExchangeFrom.value),
+            toColor: normalizeRgbColor(els.colorExchangeTo.value),
+            redThreshold: Number(els.colorExchangeRedThreshold.value),
+            greenThreshold: Number(els.colorExchangeGreenThreshold.value),
+            blueThreshold: Number(els.colorExchangeBlueThreshold.value)
+        });
+    }
+    state.assets = buildAssetsFromAtlas(state.image, state.atlas, state.rig, state.imageUrl);
+    refreshRigJson();
+    markDirty("rig");
+    syncColorExchangeControls(partName);
+    updateReadouts();
+    setStatus(part.colorExchange
+        ? `${partName} Color Exchange preview rebuilt from ${els.colorExchangeFrom.value} to ${els.colorExchangeTo.value}.`
+        : `${partName} Color Exchange disabled.`);
+}
+
+
 function selectedPartParentConstraint(partName = selectedPartName()) {
     return parentConstraintForPart(state.rig, partName);
 }
@@ -3066,6 +3171,7 @@ function selectPart(name) {
     updateDrawOrderButtons();
     state.syncing = false;
     syncProjectilePartControls(name);
+    syncColorExchangeControls(name);
     syncParentConstraintControls(name);
     state.selectedKeyIndex = -1;
     state.selectedTransformTime = null;
@@ -5030,6 +5136,16 @@ els.propertySelect.addEventListener("change", () => {
 });
 for (const el of [els.pivotX, els.pivotY, els.offsetX, els.offsetY, els.partScale, els.targetHeight]) {
     el.addEventListener("input", writePartFromUi);
+}
+els.colorExchangeEnabled.addEventListener("change", writeColorExchangeFromUi);
+for (const el of [
+    els.colorExchangeFrom,
+    els.colorExchangeTo,
+    els.colorExchangeRedThreshold,
+    els.colorExchangeGreenThreshold,
+    els.colorExchangeBlueThreshold
+]) {
+    el.addEventListener("change", writeColorExchangeFromUi);
 }
 els.parentConstraintEnabled.addEventListener("change", writeParentConstraintFromUi);
 els.parentConstraintPart.addEventListener("change", writeParentConstraintFromUi);

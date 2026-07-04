@@ -88,6 +88,12 @@ import {
     selectiveHueWeight
 } from "../src/shared/level-color-map-data.js";
 import {
+    applyColorExchangeToRgbaBytes,
+    colorExchangeCacheKey,
+    normalizeColorExchange,
+    rgbColorToHex
+} from "../src/shared/color-exchange-data.js";
+import {
     AUTOMATIC_LEVEL_GENERATOR_ID,
     LEVEL_GENERATOR_REGISTRIES,
     LEVEL_GENERATOR_STAGE_ORDER,
@@ -1618,17 +1624,38 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(characterEditorHtml.includes("transform.x += artworkOffset.x"), "Puppet Forge should apply the local X offset before its facing mirror");
     assert.ok(characterEditorHtml.includes('enemy_020: "assets/ct_char_enemy_020.json"'), "Puppet Forge should expose replacement Atlas 020");
     assert.ok(characterEditorHtml.includes('enemy_030: "assets/ct_char_enemy_030.json"'), "Puppet Forge should expose the modular Human Raider project");
+    assert.ok(characterEditorHtml.includes('enemy_031: "assets/ct_char_enemy_031.json"'), "Puppet Forge should expose the second modular Human Raider project");
     assert.ok(characterEditorHtml.includes('<option value="enemy_030">Enemy 030: Human Raider</option>'), "Puppet Forge known-project dropdown should list Human Raider");
+    assert.ok(characterEditorHtml.includes('<option value="enemy_031">Enemy 031: Human Raider II</option>'), "Puppet Forge known-project dropdown should list the second Human Raider");
     assert.ok(characterEditorHtml.includes('inferredCharacterUrlFromProjectJson'), "Puppet Forge should resolve rig and atlas project URLs to matching character definitions");
     for (const discardedSuffix of ["006", "007", "008"]) {
         assert.ok(!characterEditorHtml.includes(`ct_char_enemy_${discardedSuffix}.json`), `Puppet Forge should not expose discarded enemy ${discardedSuffix}`);
     }
-    for (const retainedSuffix of ["020", "030"]) {
+    for (const retainedSuffix of ["020", "030", "031"]) {
         assert.ok(rendererSource.includes(`assets/ct_char_enemy_${retainedSuffix}.json`), `renderer should preload retained enemy ${retainedSuffix}`);
     }
     for (const discardedSuffix of ["006", "007", "008"]) {
         assert.ok(!rendererSource.includes(`assets/ct_char_enemy_${discardedSuffix}.json`), `renderer should not preload discarded enemy ${discardedSuffix}`);
     }
+
+    const human030 = JSON.parse(readFileSync(new URL("../assets/ct_char_enemy_030.json", import.meta.url), "utf8"));
+    const human031 = JSON.parse(readFileSync(new URL("../assets/ct_char_enemy_031.json", import.meta.url), "utf8"));
+    const humanRig030 = JSON.parse(readFileSync(new URL("../assets/ct_rig_enemy_030.json", import.meta.url), "utf8"));
+    const humanRig031 = JSON.parse(readFileSync(new URL("../assets/ct_rig_enemy_031.json", import.meta.url), "utf8"));
+    const humanAtlas = JSON.parse(readFileSync(new URL("../assets/ct_atlas_enemy_030.json", import.meta.url), "utf8"));
+    assert.deepEqual(human031.animationMap, human030.animationMap, "enemy_031 should reuse enemy_030 animations verbatim");
+    assert.equal(humanRig031.parts.torso.frame, "body_01", "enemy_031 should select the second modular torso");
+    assert.equal(humanRig031.parts.head.frame, "head_01", "enemy_031 should select the second modular head");
+    assert.deepEqual(
+        [humanAtlas.frames[humanRig031.parts.torso.frame].w, humanAtlas.frames[humanRig031.parts.torso.frame].h],
+        [humanAtlas.frames[humanRig030.parts.torso.frame].w, humanAtlas.frames[humanRig030.parts.torso.frame].h],
+        "modular torso frames must keep identical dimensions"
+    );
+    assert.deepEqual(
+        [humanAtlas.frames[humanRig031.parts.head.frame].w, humanAtlas.frames[humanRig031.parts.head.frame].h],
+        [humanAtlas.frames[humanRig030.parts.head.frame].w, humanAtlas.frames[humanRig030.parts.head.frame].h],
+        "modular head frames must keep identical dimensions"
+    );
 }
 
 
@@ -4907,6 +4934,55 @@ function testCharacterProjectWorkspace() {
     assert.equal(moveRigPartToBack(project.rig, "leftArm"), false, "moving an already rear-most part should be a no-op");
 }
 
+function testCharacterPartColorExchange() {
+    const exact = normalizeColorExchange({
+        fromColor: [224, 148, 94],
+        toColor: [140, 81, 38],
+        redThreshold: 0,
+        greenThreshold: 0,
+        blueThreshold: 0
+    });
+    assert.deepEqual(exact.fromColor, [224, 148, 94], "Color Exchange should preserve exact source RGB bytes");
+    assert.equal(rgbColorToHex(exact.toColor), "#8c5126", "Color Exchange colors should round-trip through editor hex controls");
+    assert.equal(colorExchangeCacheKey(exact), "224,148,94|140,81,38|0|0|0", "Color Exchange settings should have a stable cache key");
+
+    const exactPixels = new Uint8ClampedArray([
+        224, 148, 94, 137,
+        224, 149, 94, 211
+    ]);
+    assert.equal(applyColorExchangeToRgbaBytes(exactPixels, exact), 1, "zero thresholds should change only an exact RGB match");
+    assert.deepEqual(Array.from(exactPixels), [140, 81, 38, 137, 224, 149, 94, 211], "Color Exchange should add the GIMP channel difference and preserve alpha");
+
+    const fullRange = normalizeColorExchange({
+        fromColor: [224, 148, 94],
+        toColor: [140, 81, 38],
+        redThreshold: 1,
+        greenThreshold: 1,
+        blueThreshold: 1
+    });
+    const fullRangePixel = new Uint8ClampedArray([255, 255, 255, 64]);
+    assert.equal(applyColorExchangeToRgbaBytes(fullRangePixel, fullRange), 1, "threshold 1.0 should accept the complete channel range");
+    assert.deepEqual(Array.from(fullRangePixel), [171, 188, 199, 64], "full-range exchange should clamp the same additive channel shift used by GIMP");
+
+    const rig031 = JSON.parse(readFileSync(new URL("../assets/ct_rig_enemy_031.json", import.meta.url), "utf8"));
+    for (const partName of ["leftArm", "rightArm"]) {
+        assert.deepEqual(rig031.parts[partName].colorExchange.fromColor, [224, 148, 94], `${partName} should use the sampled fair source color`);
+        assert.deepEqual(rig031.parts[partName].colorExchange.toColor, [140, 81, 38], `${partName} should use the sampled darker target color`);
+        assert.equal(rig031.parts[partName].colorExchange.redThreshold, 1, `${partName} should use GIMP full-range red threshold`);
+        assert.equal(rig031.parts[partName].colorExchange.greenThreshold, 1, `${partName} should use GIMP full-range green threshold`);
+        assert.equal(rig031.parts[partName].colorExchange.blueThreshold, 1, `${partName} should use GIMP full-range blue threshold`);
+    }
+
+    const runtimeSource = readFileSync(new URL("../src/presentation/character-runtime.js", import.meta.url), "utf8");
+    assert.ok(runtimeSource.includes("createColorExchangedSpriteCanvas") && runtimeSource.includes("colorExchangeCanvasCache"), "runtime should preprocess and cache treated character-part canvases once");
+    assert.ok(runtimeSource.includes("image: null"), "treated assets should force WebGL to upload the recolored canvas rather than the original atlas rectangle");
+
+    const toolHtml = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
+    assert.ok(toolHtml.includes('id="color-exchange-enabled"'), "Puppet Forge should expose a per-part Color Exchange toggle");
+    assert.ok(toolHtml.includes('id="color-exchange-red-threshold"') && toolHtml.includes('id="color-exchange-blue-threshold"'), "Puppet Forge should expose separate GIMP-style channel thresholds");
+    assert.ok(toolHtml.includes("writeColorExchangeFromUi") && toolHtml.includes("buildAssetsFromAtlas"), "Puppet Forge should rebuild the treated preview when Color Exchange changes");
+}
+
 function testPuppetGuideDebugOverlay() {
     const defaults = createInitialGameState();
     assert.equal(defaults.debug.showPuppetGuide, false, "Puppet Guide should be disabled by default");
@@ -8121,7 +8197,7 @@ function testRocketPowerUpArsenal() {
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 369<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 371<\/small>/, "the Level Editor should display the packaged revision");
     assert.ok(
         editorSource.includes("applyEditorLevelToWorld") &&
         editorSource.includes("createGameCanvasRenderer") &&
@@ -8148,10 +8224,10 @@ function testRocketPowerUpArsenal() {
     const editor2Source = readFileSync(new URL("../src/tools/level-editor-2.js", import.meta.url), "utf8");
     const editorPlaywrightBenchmark = readFileSync(new URL("../devel/benchmark_level_editor_playwright.py", import.meta.url), "utf8");
     assert.ok(editorSource.includes('id="canvas-renderer-baseline"') && editorSource.includes("openCanvasRendererBaseline"), "the Level Editor should expose the isolated Canvas game-renderer baseline");
-    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 369") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the baseline page should identify the packaged revision and load its dedicated tool module");
+    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 371") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the baseline page should identify the packaged revision and load its dedicated tool module");
     assert.ok(baselineSource.includes("applyEditorLevelToWorld") && baselineSource.includes("preferWebGL2: false") && baselineSource.includes("setViewOverride"), "the baseline should convert the authored level and use the ordinary Canvas2D game renderer with an editor camera override");
     assert.ok(editor2Html.includes("Ignatius Level Editor 2 Scaffold") && editor2Html.includes("Stage <select id=\"lab-stage\"") && editor2Html.includes("static full sidebar"), "the Editor 2 scaffold should expose the structural stage ladder from the baseline shell");
-    assert.ok(editor2Html.includes('id="stage-overlay"') && editor2Html.includes("grid on the single scene canvas") && editor2Html.includes("rev 369"), "the Editor 2 scaffold should compare transparent-overlay and single-canvas guide paths under the packaged revision");
+    assert.ok(editor2Html.includes('id="stage-overlay"') && editor2Html.includes("grid on the single scene canvas") && editor2Html.includes("rev 371"), "the Editor 2 scaffold should compare transparent-overlay and single-canvas guide paths under the packaged revision");
     assert.ok(editor2Source.includes("applyEditorLevelToWorld") && editor2Source.includes("preferWebGL2: false") && editor2Source.includes("runStageSweep") && editor2Source.includes("PerformanceObserver"), "the Editor 2 scaffold should retain the production Canvas baseline and provide an in-browser structural sweep");
     assert.ok(editorSource.includes("Editor 2 lab") && baselineHtml.includes("Editor 2 lab"), "both existing rendering surfaces should link to the new scaffold");
     assert.ok(editorPlaywrightBenchmark.includes("benchmark_baseline") && editorPlaywrightBenchmark.includes("benchmark_editor") && editorPlaywrightBenchmark.includes("editorToBaselineCadenceRatio"), "the optional Playwright probe should compare the loaded baseline and editor rather than source-only timings");
@@ -8162,7 +8238,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(rendererSource.includes("backingPixelsPerCssPixel") && rendererSource.includes("override.cssZoom * backingPixelsPerCssPixel") && editorSource.includes("cssZoom: state.camera.zoom"), "editor and runtime artwork should share one CSS-pixel camera scale so guide alignment does not drift across the viewport");
     assert.ok(rendererSource.includes("this.ctx.setTransform(1, 0, 0, 1, 0, 0)") && rendererSource.includes("never inherit a CSS/DPR transform"), "the production Canvas renderer should reset inherited context transforms before drawing backing-pixel coordinates");
     assert.ok(editorSource.includes("stageCtx?.setTransform(1, 0, 0, 1, 0, 0)") && !editorSource.includes("stageCtx?.setTransform(dpr"), "the Level Editor must not pre-scale the production scene context by devicePixelRatio");
-    assert.match(bootstrapSource, /const GAME_REVISION = "369";/, "the game debug revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "371";/, "the game debug revision should match the packaged revision");
     assert.ok(
         editorSource.includes('<div class="level-section-label">Existing Level:</div>')
             && editorSource.includes('id="load-level">Load</button>')
@@ -12352,6 +12428,7 @@ const tests = [
     ["character project dirty tracking", testCharacterDirtyTracking],
     ["character tool direct transform geometry", testCharacterToolDirectTransformGeometry],
     ["character parent pivot constraints", testCharacterParentPivotConstraints],
+    ["character part Color Exchange", testCharacterPartColorExchange],
     ["data-driven wizard run animation", testDataDrivenRunAnimation],
     ["animation editor keyframe operations", testAnimationEditorOperations],
     ["frame-based animation editor workflow", testFrameBasedAnimationEditorWorkflow],

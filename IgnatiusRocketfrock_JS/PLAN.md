@@ -3530,3 +3530,25 @@ Puppet Forge can now pin a rig part's existing pivot to a normalized point on on
 Constrained X/Y controls are read-only. Dragging the constrained part moves its cyan parent point rather than creating child position keys, while corner dragging continues to author rotation. Parent choices are cycle-safe, and applying rig JSON rejects missing parents or circular chains.
 
 The runtime format is unchanged. Animation JSON refresh and download adaptively bake the editor constraint into ordinary X/Y tracks with a 0.25 source-pixel error target. No constraint has been added to the Human Raider rig automatically, so the user-authored idle and walk files remain byte-for-byte unchanged. The new aid is available for the author to apply selectively to the head, arms, or weapons.
+
+
+## Revision 370 modular human frame-swap validation
+
+Revision 370 validates the intended modular-human workflow by creating `enemy_031` / **Human Raider II** from the user-updated Enemy 030 rig and clips. The new enemy has its own character and rig JSON, but the rig differs from Enemy 030 only by selecting `body_01` and `head_01` instead of `body_00` and `head_00`. It keeps the same shared limbs, sword, pivots, parent constraints, offsets, scales, and draw order.
+
+`ct_char_enemy_031.json` deliberately references the existing Enemy 030 idle, walk, attack, hurt, and death files rather than duplicating them. This confirms that animations operate on logical part names and can be reused across atlas-frame variants when replacement body/head frames have identical dimensions and aligned pivots. `devel/build_human_enemy_variant.py` now automates this validation, creates the variant rig/character/catalog records, checks frame compatibility, and records the assembly in `ct_human_parts_030.json`.
+
+Enemy 031 is available in Puppet Forge, the runtime fallback character list, and the enemy catalog. Its procedural-generator metadata remains dormant alongside Enemy 030 until the modular human family is ready for ordinary generated-level weighting.
+
+
+## Revision 371 cached character-part Color Exchange
+
+Status: implemented as a reversible first pass.
+
+Rig parts may now carry an optional `colorExchange` object using the same channel-threshold convention and additive colour-difference operation as GEGL/GIMP Color Exchange. The source and destination colours are RGB bytes; red, green, and blue thresholds each use the GIMP `0.0..1.0` range. A zero threshold accepts only the exact channel value, while `1.0` accepts the complete channel range. Matching pixels receive the destination-minus-source RGB offset with clamping, and alpha is preserved exactly.
+
+`src/shared/color-exchange-data.js` owns normalization, cache keys, and byte-buffer colour mathematics. `src/presentation/sprite-color-exchange.js` owns one-time Canvas processing. Runtime character loading builds and caches treated part canvases during project preparation; ordinary Canvas2D and WebGL drawing then use the cached sprite rather than scanning pixels per frame. Treated WebGL parts deliberately upload their generated canvas instead of sampling the original atlas rectangle.
+
+Puppet Forge exposes a per-part Color Exchange checkbox, source/destination colour controls, and independent red/green/blue threshold fields. Changing the modifier rebuilds only the in-memory rig-part preview and serializes the modifier in rig JSON. Enemy 031 now applies the screenshot-sampled `#e0945e` to `#8c5126` exchange to both shared arms with all thresholds at `1.0`; Enemy 030 and the atlas remain unchanged.
+
+This revision does not introduce a general filter stack, per-frame processing, shader-only treatment, or atlas expansion. If later art exposes weaknesses in full-range exchange, the existing three thresholds can be tuned without changing the data model.

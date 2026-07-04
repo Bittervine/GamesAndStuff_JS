@@ -52,6 +52,7 @@ export const TEST_SHARDS = Object.freeze({
             "character project dirty tracking",
             "character tool direct transform geometry",
             "character parent pivot constraints",
+            "character part Color Exchange",
             "data-driven wizard run animation",
             "animation editor keyframe operations",
             "frame-based animation editor workflow",

@@ -1,7 +1,7 @@
 {
   "meta": {
-    "version": 1,
-    "note": "Revision 365 modular human parts manifest. Stores the uniform head/body frame geometry and identifies the first assembled enemy variant."
+    "version": 4,
+    "note": "Revision 371 records Enemy 031 complexion treatment as a cached GIMP-compatible per-arm Color Exchange modifier."
   },
   "partsManifestId": "ct_human_parts_030",
   "atlasId": "ct_atlas_enemy_030",
@@ -448,5 +448,40 @@
     "Shoulder/neck anchors are a first-pass common placement for the shared limb rig. Fine-tuning per enemy can happen in later rig revisions.",
     "Heads use a common neck pivot. Bodies share one common extraction cell and one common first-pass shoulder/neck placement.",
     "This file is intended to be the future source for swapping body/head variants over the same shared limb rig."
-  ]
+  ],
+  "assemblies": {
+    "enemy_030": {
+      "body": "body_00",
+      "head": "head_00",
+      "rearArm": "arm_00",
+      "frontArm": "arm_01",
+      "rearLeg": "leg_00",
+      "frontLeg": "leg_01",
+      "weapon": "sword"
+    },
+    "enemy_031": {
+      "body": "body_01",
+      "head": "head_01",
+      "rearArm": "arm_00",
+      "frontArm": "arm_01",
+      "rearLeg": "leg_00",
+      "frontLeg": "leg_01",
+      "weapon": "sword",
+      "armColorExchange": {
+        "fromColor": [
+          224,
+          148,
+          94
+        ],
+        "toColor": [
+          140,
+          81,
+          38
+        ],
+        "redThreshold": 1,
+        "greenThreshold": 1,
+        "blueThreshold": 1
+      }
+    }
+  }
 }
