@@ -662,7 +662,7 @@
         </section>
     </div>
     <aside>
-        <h1>Puppet Forge <small>rev 177</small></h1>
+        <h1>Puppet Forge <small>rev 368</small></h1>
         <p><a href="index.html">Back to tools</a></p>
         <p>
             Atlas-backed rig and keyframe editor. The preview now samples the same animation JSON module as the game, so edits are made in rig-space values rather than a second procedural imitation.
@@ -703,6 +703,7 @@
                     <option value="enemy_011">Enemy 011: Musket Goblin</option>
                     <option value="enemy_012">Enemy 012: Tri-fireball Goblin</option>
                     <option value="enemy_020">Enemy 020: Bombing Bat</option>
+                    <option value="enemy_030">Enemy 030: Human Raider</option>
                 </select>
             </label>
             <div class="row">
@@ -710,10 +711,11 @@
                 <button id="new-character" type="button">New character</button>
             </div>
             <label>
-                <span>Character definition URL</span>
+                <span>Project JSON URL</span>
                 <input id="character-url" type="text" value="assets/ct_char_wizard_1.json" spellcheck="false">
             </label>
-            <button id="load-character-url" type="button">Load character URL</button>
+            <button id="load-character-url" type="button">Load project URL</button>
+            <p>Accepts a character definition, rig manifest, or atlas manifest. Rig/atlas URLs resolve to their matching character project when one exists.</p>
             <p id="project-source" class="project-source">URL project: assets/ct_char_wizard_1.json</p>
         </section>
 
@@ -1260,7 +1262,8 @@ const KNOWN_PROJECTS = Object.freeze({
     enemy_010: "assets/ct_char_enemy_010.json",
     enemy_011: "assets/ct_char_enemy_011.json",
     enemy_012: "assets/ct_char_enemy_012.json",
-    enemy_020: "assets/ct_char_enemy_020.json"
+    enemy_020: "assets/ct_char_enemy_020.json",
+    enemy_030: "assets/ct_char_enemy_030.json"
 });
 const PANEL_STORAGE_KEY = "ignatiusRocketfrock.characterEditor.collapsedPanels.v1";
 
@@ -1928,17 +1931,49 @@ function clearLocalFileSelection() {
     setStatus("Cleared selected local files. The currently loaded in-memory data remains available until another project is loaded.");
 }
 
+function inferredCharacterUrlFromProjectJson(url, parsed) {
+    if (parsed && typeof parsed.characterId === "string" && typeof parsed.rig === "string" && parsed.animationMap && typeof parsed.animationMap === "object") {
+        return url;
+    }
+    const atlasId = String(parsed?.atlasId || "").trim();
+    const rigId = String(parsed?.rigId || "").trim();
+    const sourceId = atlasId || rigId;
+    if (!sourceId) {
+        return null;
+    }
+    const characterId = sourceId
+        .replace(/^ct_atlas_/, "ct_char_")
+        .replace(/^ct_rig_/, "ct_char_");
+    return resolveRelativeUrl(url, `${characterId}.json`);
+}
+
+async function resolveCharacterProjectUrl(url) {
+    const parsed = await loadJson(url);
+    const resolvedUrl = inferredCharacterUrlFromProjectJson(url, parsed);
+    if (!resolvedUrl) {
+        throw new Error("Project JSON must be a character definition, rig manifest, or atlas manifest with a character-project naming match.");
+    }
+    if (resolvedUrl === url) {
+        return resolvedUrl;
+    }
+    const character = await loadJson(resolvedUrl);
+    if (!character || typeof character.characterId !== "string" || typeof character.rig !== "string" || !character.animationMap || typeof character.animationMap !== "object") {
+        throw new Error(`Resolved ${resolvedUrl}, but it is not a valid character definition.`);
+    }
+    return resolvedUrl;
+}
+
 async function loadUrlProject(url, label = null) {
     const cleanUrl = String(url || "").trim();
     if (!cleanUrl) {
-        throw new Error("Enter a character-definition URL.");
+        throw new Error("Enter a project JSON URL.");
     }
     revokeLocalObjectUrls();
     state.projectMode = "url";
     state.projectLabel = label || cleanUrl;
-    state.characterUrl = cleanUrl;
     state.localFiles.clear();
     state.localAliases.clear();
+    state.characterUrl = await resolveCharacterProjectUrl(cleanUrl);
     await loadCharacter();
 }
 

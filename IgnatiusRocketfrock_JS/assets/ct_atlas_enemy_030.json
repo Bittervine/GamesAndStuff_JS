@@ -1,0 +1,682 @@
+{
+  "meta": {
+    "version": 1,
+    "note": "Revision 365 modular human enemy atlas. Bodies and heads use uniform extraction rectangles so pivots stay consistent across variants."
+  },
+  "atlasId": "ct_atlas_enemy_030",
+  "image": "ct_atlas_enemy_030.png",
+  "frames": {
+    "body_00": {
+      "x": 20,
+      "y": 19,
+      "w": 555,
+      "h": 1155
+    },
+    "body_01": {
+      "x": 604,
+      "y": 2,
+      "w": 555,
+      "h": 1155
+    },
+    "body_02": {
+      "x": 1185,
+      "y": 6,
+      "w": 555,
+      "h": 1155
+    },
+    "body_03": {
+      "x": 1766,
+      "y": 5,
+      "w": 555,
+      "h": 1155
+    },
+    "body_04": {
+      "x": 2343,
+      "y": 8,
+      "w": 555,
+      "h": 1155
+    },
+    "body_05": {
+      "x": 30,
+      "y": 1187,
+      "w": 555,
+      "h": 1155
+    },
+    "body_06": {
+      "x": 604,
+      "y": 1192,
+      "w": 555,
+      "h": 1155
+    },
+    "body_07": {
+      "x": 1185,
+      "y": 1208,
+      "w": 555,
+      "h": 1155
+    },
+    "body_08": {
+      "x": 1757,
+      "y": 1212,
+      "w": 555,
+      "h": 1155
+    },
+    "body_09": {
+      "x": 2331,
+      "y": 1200,
+      "w": 555,
+      "h": 1155
+    },
+    "head_00": {
+      "x": 57,
+      "y": 2374,
+      "w": 416,
+      "h": 393
+    },
+    "head_01": {
+      "x": 556,
+      "y": 2375,
+      "w": 416,
+      "h": 393
+    },
+    "head_02": {
+      "x": 1063,
+      "y": 2375,
+      "w": 416,
+      "h": 393
+    },
+    "head_03": {
+      "x": 1536,
+      "y": 2374,
+      "w": 416,
+      "h": 393
+    },
+    "head_04": {
+      "x": 2035,
+      "y": 2374,
+      "w": 416,
+      "h": 393
+    },
+    "head_05": {
+      "x": 52,
+      "y": 2832,
+      "w": 416,
+      "h": 393
+    },
+    "head_06": {
+      "x": 553,
+      "y": 2834,
+      "w": 416,
+      "h": 393
+    },
+    "head_07": {
+      "x": 1042,
+      "y": 2833,
+      "w": 416,
+      "h": 393
+    },
+    "head_08": {
+      "x": 1550,
+      "y": 2833,
+      "w": 416,
+      "h": 393
+    },
+    "head_09": {
+      "x": 2034,
+      "y": 2832,
+      "w": 416,
+      "h": 393
+    },
+    "head_10": {
+      "x": 2530,
+      "y": 2832,
+      "w": 416,
+      "h": 393
+    },
+    "head_11": {
+      "x": 55,
+      "y": 3292,
+      "w": 416,
+      "h": 393
+    },
+    "head_12": {
+      "x": 545,
+      "y": 3292,
+      "w": 416,
+      "h": 393
+    },
+    "head_13": {
+      "x": 1044,
+      "y": 3292,
+      "w": 416,
+      "h": 393
+    },
+    "head_14": {
+      "x": 1542,
+      "y": 3292,
+      "w": 416,
+      "h": 393
+    },
+    "head_15": {
+      "x": 2032,
+      "y": 3292,
+      "w": 416,
+      "h": 393
+    },
+    "head_16": {
+      "x": 2536,
+      "y": 3292,
+      "w": 416,
+      "h": 393
+    },
+    "arm_00": {
+      "x": 3055,
+      "y": 69,
+      "w": 366,
+      "h": 773
+    },
+    "arm_01": {
+      "x": 3551,
+      "y": 70,
+      "w": 420,
+      "h": 744
+    },
+    "leg_00": {
+      "x": 3104,
+      "y": 1051,
+      "w": 386,
+      "h": 727
+    },
+    "leg_01": {
+      "x": 3646,
+      "y": 1026,
+      "w": 375,
+      "h": 758
+    },
+    "dagger": {
+      "x": 3388,
+      "y": 2103,
+      "w": 396,
+      "h": 58
+    },
+    "throwingAxe": {
+      "x": 3357,
+      "y": 2354,
+      "w": 426,
+      "h": 184
+    },
+    "bow": {
+      "x": 3239,
+      "y": 2676,
+      "w": 736,
+      "h": 143
+    },
+    "arrow": {
+      "x": 3488,
+      "y": 2991,
+      "w": 383,
+      "h": 63
+    },
+    "sword": {
+      "x": 3147,
+      "y": 3112,
+      "w": 854,
+      "h": 198
+    },
+    "rapier": {
+      "x": 3194,
+      "y": 3348,
+      "w": 772,
+      "h": 166
+    },
+    "crossbow": {
+      "x": 3382,
+      "y": 3560,
+      "w": 563,
+      "h": 512
+    }
+  },
+  "objects": {
+    "body_00": {
+      "id": "body_00",
+      "frame": "body_00",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "torso",
+        "body",
+        "humanVariant"
+      ]
+    },
+    "body_01": {
+      "id": "body_01",
+      "frame": "body_01",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "torso",
+        "body",
+        "humanVariant"
+      ]
+    },
+    "body_02": {
+      "id": "body_02",
+      "frame": "body_02",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "torso",
+        "body",
+        "humanVariant"
+      ]
+    },
+    "body_03": {
+      "id": "body_03",
+      "frame": "body_03",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "torso",
+        "body",
+        "humanVariant"
+      ]
+    },
+    "body_04": {
+      "id": "body_04",
+      "frame": "body_04",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "torso",
+        "body",
+        "humanVariant"
+      ]
+    },
+    "body_05": {
+      "id": "body_05",
+      "frame": "body_05",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "torso",
+        "body",
+        "humanVariant"
+      ]
+    },
+    "body_06": {
+      "id": "body_06",
+      "frame": "body_06",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "torso",
+        "body",
+        "humanVariant"
+      ]
+    },
+    "body_07": {
+      "id": "body_07",
+      "frame": "body_07",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "torso",
+        "body",
+        "humanVariant"
+      ]
+    },
+    "body_08": {
+      "id": "body_08",
+      "frame": "body_08",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "torso",
+        "body",
+        "humanVariant"
+      ]
+    },
+    "body_09": {
+      "id": "body_09",
+      "frame": "body_09",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "torso",
+        "body",
+        "humanVariant"
+      ]
+    },
+    "head_00": {
+      "id": "head_00",
+      "frame": "head_00",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "head",
+        "humanVariant"
+      ]
+    },
+    "head_01": {
+      "id": "head_01",
+      "frame": "head_01",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "head",
+        "humanVariant"
+      ]
+    },
+    "head_02": {
+      "id": "head_02",
+      "frame": "head_02",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "head",
+        "humanVariant"
+      ]
+    },
+    "head_03": {
+      "id": "head_03",
+      "frame": "head_03",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "head",
+        "humanVariant"
+      ]
+    },
+    "head_04": {
+      "id": "head_04",
+      "frame": "head_04",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "head",
+        "humanVariant"
+      ]
+    },
+    "head_05": {
+      "id": "head_05",
+      "frame": "head_05",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "head",
+        "humanVariant"
+      ]
+    },
+    "head_06": {
+      "id": "head_06",
+      "frame": "head_06",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "head",
+        "humanVariant"
+      ]
+    },
+    "head_07": {
+      "id": "head_07",
+      "frame": "head_07",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "head",
+        "humanVariant"
+      ]
+    },
+    "head_08": {
+      "id": "head_08",
+      "frame": "head_08",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "head",
+        "humanVariant"
+      ]
+    },
+    "head_09": {
+      "id": "head_09",
+      "frame": "head_09",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "head",
+        "humanVariant"
+      ]
+    },
+    "head_10": {
+      "id": "head_10",
+      "frame": "head_10",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "head",
+        "humanVariant"
+      ]
+    },
+    "head_11": {
+      "id": "head_11",
+      "frame": "head_11",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "head",
+        "humanVariant"
+      ]
+    },
+    "head_12": {
+      "id": "head_12",
+      "frame": "head_12",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "head",
+        "humanVariant"
+      ]
+    },
+    "head_13": {
+      "id": "head_13",
+      "frame": "head_13",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "head",
+        "humanVariant"
+      ]
+    },
+    "head_14": {
+      "id": "head_14",
+      "frame": "head_14",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "head",
+        "humanVariant"
+      ]
+    },
+    "head_15": {
+      "id": "head_15",
+      "frame": "head_15",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "head",
+        "humanVariant"
+      ]
+    },
+    "head_16": {
+      "id": "head_16",
+      "frame": "head_16",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "head",
+        "humanVariant"
+      ]
+    },
+    "arm_00": {
+      "id": "arm_00",
+      "frame": "arm_00",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "arm",
+        "rear",
+        "closedHand"
+      ]
+    },
+    "arm_01": {
+      "id": "arm_01",
+      "frame": "arm_01",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "arm",
+        "front",
+        "openHand"
+      ]
+    },
+    "leg_00": {
+      "id": "leg_00",
+      "frame": "leg_00",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "leg",
+        "rear"
+      ]
+    },
+    "leg_01": {
+      "id": "leg_01",
+      "frame": "leg_01",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "leg",
+        "front"
+      ]
+    },
+    "dagger": {
+      "id": "dagger",
+      "frame": "dagger",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "weapon",
+        "dagger",
+        "thrown",
+        "equipment"
+      ]
+    },
+    "throwingAxe": {
+      "id": "throwingAxe",
+      "frame": "throwingAxe",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "weapon",
+        "axe",
+        "thrown",
+        "equipment"
+      ]
+    },
+    "bow": {
+      "id": "bow",
+      "frame": "bow",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "weapon",
+        "bow",
+        "equipment"
+      ]
+    },
+    "arrow": {
+      "id": "arrow",
+      "frame": "arrow",
+      "type": "projectileSprite",
+      "layer": "projectile",
+      "mirrorable": true,
+      "tags": [
+        "weapon",
+        "arrow",
+        "projectile"
+      ]
+    },
+    "sword": {
+      "id": "sword",
+      "frame": "sword",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "weapon",
+        "sword",
+        "equipment",
+        "held"
+      ]
+    },
+    "rapier": {
+      "id": "rapier",
+      "frame": "rapier",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "weapon",
+        "rapier",
+        "equipment",
+        "held"
+      ]
+    },
+    "crossbow": {
+      "id": "crossbow",
+      "frame": "crossbow",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "weapon",
+        "crossbow",
+        "equipment",
+        "held"
+      ]
+    }
+  }
+}

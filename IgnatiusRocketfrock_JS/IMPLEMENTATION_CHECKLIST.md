@@ -3544,3 +3544,55 @@ Revision 347 re-voices the alternate synthesized tunes rather than applying one 
 - [x] Add source-contract regression coverage for synchronized contexts, shell-owned sizing, and zero-size protection.
 - [x] Record that physical Android verification remains required for both `webgl=0` and `webgl=1`.
 - [x] Synchronize packaged revision labels to 364.
+
+
+## Revision 365 modular human enemy assembly
+
+- [x] Generate `ct_atlas_enemy_030.json` for the combined human-enemy atlas sheet.
+- [x] Generate `ct_human_parts_030.json` describing the shared body/head extraction geometry and future-swappable variant groups.
+- [x] Keep the shared limb and weapon parts in the same atlas manifest for future human variants.
+- [x] Drop the troublesome original top-right head from the shared-pivot variant list and keep the remaining 17 heads.
+- [x] Assemble the first modular human enemy from the top-left body and top-left head with the shared limbs and sword.
+- [x] Create `ct_rig_enemy_030.json`, `ct_char_enemy_030.json`, and first-pass cloned baseline animations for the new human rig.
+- [x] Add `enemy_030` / Human Raider to `ct_enemies_001.json`.
+- [x] Add a developer regeneration script (`devel/build_enemy_030_assets.py`) for the atlas-derived JSON content.
+- [x] Update visible revision labels and documentation to 365.
+- [x] Leave level-generator integration for a later balancing/content pass.
+
+
+## Revision 366 Human Raider Character Editor integration
+
+- [x] Add Enemy 030: Human Raider to Puppet Forge's known-project dropdown.
+- [x] Add `ct_char_enemy_030.json` to Puppet Forge's known-project URL map.
+- [x] Allow the Project JSON URL field to accept character, rig, or atlas manifests.
+- [x] Resolve `ct_atlas_enemy_030.json` and `ct_rig_enemy_030.json` to `ct_char_enemy_030.json`.
+- [x] Add the Human Raider to the renderer fallback character preload list.
+- [x] Add source-contract regression checks for the dropdown, map, URL resolver, and renderer fallback.
+- [x] Synchronize game, Level Editor, and Puppet Forge revision labels to 366.
+
+
+## Revision 367 Human Raider canonical animation baseline
+
+- [x] Adopt the user-tuned Human Raider rig, including corrected draw order, pivots, and right-arm part scale.
+- [x] Adopt the corrected user-authored idle clip as the canonical Human Raider transform and scale baseline.
+- [x] Preserve the tuned Human Raider runtime vertical offset in `ct_enemies_001.json`.
+- [x] Retarget walk, attack, hurt, and death so every part begins at the corrected idle transform.
+- [x] Preserve animation translation/rotation deltas and proportional scale changes while retargeting.
+- [x] Synchronize each clip's `referencePose` with the canonical idle transforms.
+- [x] Add `devel/retarget_enemy_030_animations.py` as a repeatable authoring utility.
+- [x] Prevent `build_enemy_030_assets.py` from overwriting the user-tuned rig, idle, or enemy catalog.
+- [x] Synchronize game, Level Editor, Puppet Forge, documentation, and package labels to revision 367.
+
+
+## Revision 368 Human Raider authored-motion refinement
+
+- [x] Adopt the uploaded Human Raider walk animation without retargeting or modifying it.
+- [x] Preserve the user-authored idle animation unchanged.
+- [x] Adopt the corrected Human Raider 45×118 collision box.
+- [x] Rebuild the attack from the tuned idle/walk baseline with a readable overhead wind-up, attached sword at contact, visible hit at 0.35 seconds, and exact recovery to the canonical pose.
+- [x] Rebuild the death as a coherent backward collapse with a separate sword release and grounded final pose.
+- [x] Keep the hurt animation unchanged.
+- [x] Prevent atlas regeneration from rewriting existing authored animation clips.
+- [x] Restrict the default Human Raider retarget helper to the hurt clip.
+- [x] Add explicit dormant level-generator metadata for `enemy_030` so the catalog remains structurally complete without ordinary procedural placement.
+- [x] Synchronize game, Level Editor, Puppet Forge, documentation, and package labels to revision 368.

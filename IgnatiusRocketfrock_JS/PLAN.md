@@ -3477,3 +3477,45 @@ Android Chrome and Opera were reported to show intermittent white garbage in the
 Revision 364 removes desynchronized presentation from both production Canvas2D and WebGL2 contexts. Rendering remains driven by `requestAnimationFrame`, but completed frames are handed back through the normal browser compositor boundary. The fixed game shell now owns the CSS size and the stage fills it with `width: 100%; height: 100%` rather than independently resolving `100vw` and `100vh`. The renderer also retains its last valid CSS dimensions when a mobile fullscreen or browser-chrome transition briefly reports a zero-sized canvas, avoiding a destructive 1×1 backing-store reset.
 
 This is a targeted fix based on the shared Android failure boundary. Desktop automated tests can verify context options, sizing ownership, and transient-zero protection, but final confirmation of the driver-specific flashes still requires a physical Android retest in both Canvas2D and WebGL2 modes.
+
+
+## Revision 365 modular human enemy atlas assembly
+
+Status: implemented as a first-pass content assembly.
+
+The new `ct_atlas_enemy_030.png` sheet now has a matching `ct_atlas_enemy_030.json` atlas manifest and a `ct_human_parts_030.json` modular-parts manifest. Bodies are exported as one shared 555×1155 extraction cell and the retained heads are exported as one shared 468×397 extraction cell so future body/head swapping can reuse consistent pivot-relative geometry. The problematic original top-right head was intentionally dropped from the shared variant list, leaving 17 clean head variants.
+
+Revision 365 also assembles the first human enemy using the top-left body and top-left head, plus the shared limbs and sword. `ct_rig_enemy_030.json`, `ct_char_enemy_030.json`, and cloned baseline melee animations now define a first-pass `enemy_030` / **Human Raider** entry in `ct_enemies_001.json`. The new `devel/build_enemy_030_assets.py` script regenerates the atlas/parts/rig/character/animation JSON from the single atlas sheet.
+
+This is intentionally a content-foundation revision rather than a final gameplay balance pass. `enemy_030` is available in the enemy catalog, but it is not yet added to `level-generator-enemies.json`; automatic spawn weighting and any rig fine-tuning can happen once more human variants are assembled from the same atlas.
+
+
+## Revision 366 Human Raider project discovery fix
+
+Status: implemented.
+
+The first Human Raider content existed in revision 365, but Puppet Forge's manually maintained known-project list still ended at enemy 020. As a result, `enemy_030` did not appear in the Character Editor dropdown. The URL field also accepted only a character-definition JSON, so entering the otherwise valid `assets/ct_atlas_enemy_030.json` atlas manifest failed before it could reach the matching character project.
+
+Revision 366 adds **Enemy 030: Human Raider** to the Puppet Forge dropdown and known-project map. The URL loader is now a project-JSON loader: it accepts a character definition directly, or infers the matching `ct_char_*` definition from a `ct_rig_*` or `ct_atlas_*` manifest in the same directory. The Canvas renderer's fallback preload list also includes `ct_char_enemy_030.json`, while normal game/editor startup continues to prefer catalog-derived character URLs.
+
+
+## Revision 367 Human Raider animation retargeting
+
+Status: implemented.
+
+The user-authored `ct_rig_enemy_030.json`, corrected `ct_anim_enemy_030_idle.json`, and Human Raider catalog settings are now authoritative. In particular, the revised rig supplies the corrected arm/head pivots and draw order, while the idle clip supplies the canonical per-part placement, rotation, and scale baseline. The catalog retains the tuned `renderOffsetY: 34` needed to place the assembled human correctly in gameplay.
+
+The walk, attack, hurt, and death clips have been retargeted onto that idle baseline rather than retaining the original Skeleton Guard setup dimensions. For each part, positional and rotational motion remains the same delta curve as before, while scale changes are preserved proportionally around the corrected idle scale. Every non-idle clip now begins with the same transform and scale as the corrected idle pose, preventing part-size and pivot jumps when animation slots change.
+
+`devel/retarget_enemy_030_animations.py` records this operation as a repeatable content-authoring step. `devel/build_enemy_030_assets.py` no longer overwrites the user-tuned rig, idle, or enemy catalog during atlas regeneration; it preserves those authoring files and only retargets the derived non-idle clips.
+
+
+## Revision 368 Human Raider walk, hitbox, attack, and death refinement
+
+Status: implemented.
+
+Revision 368 adopts the user-authored `ct_anim_enemy_030_walk.json` unchanged and keeps the existing user-authored idle clip untouched. The Human Raider collision box in `ct_enemies_001.json` is corrected from 74×166 to 45×118.
+
+The attack and death clips are rebuilt from the tuned idle/walk pose instead of mechanically reusing the Skeleton Guard transforms. The attack remains a 0.46-second overhead sword chop and places the visible impact at the gameplay hit time of 0.35 seconds, with a complete return to the canonical pose at the end. The death keeps the Skeleton Guard's useful idea of releasing the sword, but replaces the loose part scatter with a more coherent backward collapse and grounded final pose.
+
+Atlas regeneration and the default retarget helper now preserve authored idle, walk, attack, and death files. The retarget helper defaults only to the remaining hurt clip so future atlas rebuilds cannot silently erase animation fine-tuning. The level-generator catalog now also carries an explicit, effectively dormant `enemy_030` entry at maximum difficulty, satisfying the one-entry-per-enemy data contract without placing the still-being-tuned Human Raider in ordinary generated caverns.

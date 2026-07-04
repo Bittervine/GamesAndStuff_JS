@@ -78,7 +78,8 @@ const KNOWN_ENEMY_CHARACTER_URLS = [
     "assets/ct_char_enemy_010.json",
     "assets/ct_char_enemy_011.json",
     "assets/ct_char_enemy_012.json",
-    "assets/ct_char_enemy_020.json"
+    "assets/ct_char_enemy_020.json",
+    "assets/ct_char_enemy_030.json"
 ];
 
 const ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES = [

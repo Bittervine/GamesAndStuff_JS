@@ -1,0 +1,217 @@
+{
+    "meta": {
+        "version": 2,
+        "note": "Revision 367 user-tuned Human Raider rig. Draw order, pivots, and part scales are authoritative for the current human enemy animation set."
+    },
+    "rigId": "ct_rig_enemy_030",
+    "atlasId": "ct_atlas_enemy_030",
+    "atlasManifest": "ct_atlas_enemy_030.json",
+    "drawOrder": [
+        "rightArm",
+        "leftLeg",
+        "rightLeg",
+        "torso",
+        "head",
+        "weapon",
+        "leftArm"
+    ],
+    "global": {
+        "scale": 0.5,
+        "lean": 0,
+        "rootX": 0,
+        "rootYOffsetFromGround": 0,
+        "groundOffset": 0,
+        "debugPivots": false
+    },
+    "anchors": {
+        "neck": {
+            "x": 4,
+            "y": -296
+        },
+        "leftShoulder": {
+            "x": -42,
+            "y": -276
+        },
+        "rightShoulder": {
+            "x": 48,
+            "y": -280
+        },
+        "leftHand": {
+            "x": -10,
+            "y": -158
+        },
+        "rightHand": {
+            "x": 54,
+            "y": -152
+        },
+        "leftHip": {
+            "x": -24,
+            "y": -168
+        },
+        "rightHip": {
+            "x": 24,
+            "y": -168
+        },
+        "weaponGrip": {
+            "x": 54,
+            "y": -152
+        }
+    },
+    "pivots": {
+        "leftArm": {
+            "x": 0.355,
+            "y": 0.125
+        },
+        "leftLeg": {
+            "x": 0.52,
+            "y": 0.04
+        },
+        "rightLeg": {
+            "x": 0.52,
+            "y": 0.04
+        },
+        "torso": {
+            "x": 0.5,
+            "y": 0.92
+        },
+        "head": {
+            "x": 0.42,
+            "y": 0.885
+        },
+        "rightArm": {
+            "x": 0.195,
+            "y": 0.11
+        },
+        "weapon": {
+            "x": 0.066,
+            "y": 0.48
+        }
+    },
+    "parts": {
+        "leftArm": {
+            "frame": "arm_00",
+            "role": "leftArm",
+            "tags": [
+                "arm",
+                "rear",
+                "holder"
+            ],
+            "offset": {
+                "x": -36,
+                "y": -276
+            },
+            "scale": 1,
+            "targetHeight": 176,
+            "alpha": 1
+        },
+        "leftLeg": {
+            "frame": "leg_00",
+            "role": "leftLeg",
+            "tags": [
+                "leg",
+                "rear"
+            ],
+            "offset": {
+                "x": -24,
+                "y": -168
+            },
+            "scale": 1,
+            "targetHeight": 188,
+            "alpha": 1
+        },
+        "rightLeg": {
+            "frame": "leg_01",
+            "role": "rightLeg",
+            "tags": [
+                "leg",
+                "front"
+            ],
+            "offset": {
+                "x": 24,
+                "y": -168
+            },
+            "scale": 1,
+            "targetHeight": 188,
+            "alpha": 1
+        },
+        "torso": {
+            "frame": "body_00",
+            "role": "torso",
+            "tags": [
+                "body",
+                "torso",
+                "human"
+            ],
+            "offset": {
+                "x": 0,
+                "y": -166
+            },
+            "scale": 1,
+            "targetHeight": 182,
+            "alpha": 1
+        },
+        "head": {
+            "frame": "head_00",
+            "role": "head",
+            "tags": [
+                "head",
+                "human"
+            ],
+            "offset": {
+                "x": 4,
+                "y": -298
+            },
+            "scale": 1,
+            "targetHeight": 140,
+            "alpha": 1
+        },
+        "rightArm": {
+            "frame": "arm_01",
+            "role": "rightArm",
+            "tags": [
+                "arm",
+                "front",
+                "weaponArm",
+                "holder"
+            ],
+            "offset": {
+                "x": 48,
+                "y": -280
+            },
+            "scale": 0.5,
+            "targetHeight": 176,
+            "alpha": 1
+        },
+        "weapon": {
+            "frame": "sword",
+            "role": "weapon",
+            "tags": [
+                "weapon",
+                "equipment",
+                "held",
+                "sword"
+            ],
+            "offset": {
+                "x": 54,
+                "y": -152
+            },
+            "scale": 1,
+            "targetHeight": 82,
+            "alpha": 1
+        }
+    },
+    "attachments": {
+        "weapon": {
+            "holder": "rightArm",
+            "holderPoint": {
+                "x": 0.72,
+                "y": 0.88
+            },
+            "equipmentPivot": {
+                "x": 0.066,
+                "y": 0.48
+            },
+            "note": "The human enemy uses the shared sword art for its first assembled melee variant. The pivot sits on the handle grip."
+        }
+    }
+}

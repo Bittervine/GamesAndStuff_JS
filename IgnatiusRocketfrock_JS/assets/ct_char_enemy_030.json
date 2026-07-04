@@ -1,0 +1,18 @@
+{
+    "meta": {
+        "version": 2,
+        "note": "Revision 367 Human Raider character definition using the user-tuned rig and idle-canonical retargeted animation set."
+    },
+    "characterId": "ct_char_enemy_030",
+    "displayName": "Human Raider",
+    "rig": "ct_rig_enemy_030.json",
+    "defaultFacing": "right",
+    "mirrorable": true,
+    "animationMap": {
+        "idle": "ct_anim_enemy_030_idle.json",
+        "walk": "ct_anim_enemy_030_walk.json",
+        "attack": "ct_anim_enemy_030_attack.json",
+        "hurt": "ct_anim_enemy_030_hurt.json",
+        "death": "ct_anim_enemy_030_death.json"
+    }
+}

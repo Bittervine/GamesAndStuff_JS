@@ -1461,3 +1461,33 @@ The Level Editor therefore has asymmetric context ownership: `#stage` stays at i
 The visible production canvas must use ordinary compositor-synchronized presentation. Do not enable the Canvas or WebGL `desynchronized` context hint for the game surface without a new physical-device validation pass. On affected Android Chromium/driver combinations, low-latency presentation can reveal a Canvas2D buffer while it is incomplete or a WebGL drawing buffer after it has been discarded, appearing respectively as white garbage or black flashes.
 
 `#game-shell` is the viewport owner. `#stage` fills that fixed shell with percentage sizing instead of independently resolving viewport units. `RocketfrockRenderer.resize()` may update backing dimensions only from a usable CSS client box; a transient measurement below two CSS pixels retains the last valid dimensions so browser chrome and fullscreen transitions cannot clear the visible backing store to 1×1.
+
+
+## Revision 365 modular human enemy atlas contract
+
+`ct_atlas_enemy_030.png` is now treated as a single-source modular character sheet rather than a loose art reference. `ct_atlas_enemy_030.json` defines the runtime extraction rectangles for every retained body, head, limb, and weapon part. `ct_human_parts_030.json` sits one layer higher: it groups those atlas frames into semantic variant families and records the shared extraction geometry used for body/head swapping.
+
+The important boundary is that future human variants should be produced by swapping frame names over the same rig topology, not by baking separate per-enemy atlases. Bodies share one common extraction cell and one first-pass shoulder/neck placement; heads share one common extraction cell and one shared neck pivot contract. Shared arms, legs, and weapons remain single-instance atlas parts reused by every assembled human.
+
+`ct_rig_enemy_030.json` is intentionally a first-pass content rig built on that modular contract. It assembles `body_00` + `head_00` into the initial Human Raider and reuses cloned baseline melee animations. Gameplay weighting and automated level-generation participation are a separate concern: the catalog entry belongs in `ct_enemies_001.json`, while `level-generator-enemies.json` should only be updated after the modular family and combat tuning are ready.
+
+
+## Revision 366 Character Editor project-URL resolution
+
+Puppet Forge's URL entry point is a project resolver, not an atlas-only editor entry. A character definition remains the authoritative project root because it names the rig and animation map. For convenience, the editor may accept a rig or atlas manifest URL when its ID follows the standard `ct_rig_*` / `ct_atlas_*` naming convention; it resolves the sibling `ct_char_*` definition and then loads through the ordinary character-project path. This keeps atlas manifests free of reverse dependencies while making direct atlas URLs useful to authors.
+
+The known-project dropdown remains an explicit curated list, so every newly shipped character project must be added there as part of its integration revision. Renderer startup normally receives catalog-derived enemy character URLs, but its fallback list should include all shipped standalone enemy projects for tools and smoke pages that do not supply a catalog.
+
+
+## Revision 367 Human Raider canonical-pose contract
+
+For modular Human Raider animation, the corrected idle clip is the canonical transform contract. The first key in each idle part track defines that part's baseline x/y placement, rotation, scale, and alpha. Walk, attack, hurt, and death clips may author independent motion curves, but they must be retargeted so their first transform matches the idle baseline. Translation and rotation curves preserve additive deltas; scale curves preserve ratios. This prevents animation changes from silently restoring the original Skeleton Guard proportions.
+
+The Human Raider rig and enemy catalog are user-authored content inputs, not disposable products of atlas extraction. Atlas regeneration may rebuild `ct_atlas_enemy_030.json` and `ct_human_parts_030.json`, but it must preserve the tuned `ct_rig_enemy_030.json`, corrected idle clip, and `enemy_030` runtime settings. `devel/retarget_enemy_030_animations.py` is the repeatable bridge from the canonical idle pose to the derived clips.
+
+
+## Revision 368 Human Raider authored-animation ownership
+
+The Human Raider's idle and walk clips are user-authored source data and must not be regenerated or automatically retargeted. Its attack and death clips are also authored content from revision 368 onward: they share the idle/walk reference pose and scales, but their motion is deliberately designed rather than inherited blindly from the Skeleton Guard.
+
+`devel/build_enemy_030_assets.py` may create a missing fallback animation in a clean checkout, but it must never rewrite an existing Human Raider clip. `devel/retarget_enemy_030_animations.py` defaults only to `hurt`; passing walk, attack, or death must be an explicit destructive authoring choice. Runtime collision remains separate from render geometry, and the Human Raider catalog entry owns the corrected 45×118 gameplay body. The generation catalog includes a maximum-difficulty, minimum-weight metadata record only to maintain catalog completeness while this enemy family is still under authoring.

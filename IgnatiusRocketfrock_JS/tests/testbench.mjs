@@ -1607,10 +1607,13 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(characterEditorHtml.includes("animationPoseToRuntimeTransforms("), "Puppet Forge should use the same pose-to-transform path as the runtime and Level Editor");
     assert.ok(characterEditorHtml.includes("transform.x += artworkOffset.x"), "Puppet Forge should apply the local X offset before its facing mirror");
     assert.ok(characterEditorHtml.includes('enemy_020: "assets/ct_char_enemy_020.json"'), "Puppet Forge should expose replacement Atlas 020");
+    assert.ok(characterEditorHtml.includes('enemy_030: "assets/ct_char_enemy_030.json"'), "Puppet Forge should expose the modular Human Raider project");
+    assert.ok(characterEditorHtml.includes('<option value="enemy_030">Enemy 030: Human Raider</option>'), "Puppet Forge known-project dropdown should list Human Raider");
+    assert.ok(characterEditorHtml.includes('inferredCharacterUrlFromProjectJson'), "Puppet Forge should resolve rig and atlas project URLs to matching character definitions");
     for (const discardedSuffix of ["006", "007", "008"]) {
         assert.ok(!characterEditorHtml.includes(`ct_char_enemy_${discardedSuffix}.json`), `Puppet Forge should not expose discarded enemy ${discardedSuffix}`);
     }
-    for (const retainedSuffix of ["020"]) {
+    for (const retainedSuffix of ["020", "030"]) {
         assert.ok(rendererSource.includes(`assets/ct_char_enemy_${retainedSuffix}.json`), `renderer should preload retained enemy ${retainedSuffix}`);
     }
     for (const discardedSuffix of ["006", "007", "008"]) {
@@ -8108,7 +8111,7 @@ function testRocketPowerUpArsenal() {
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 364<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 368<\/small>/, "the Level Editor should display the packaged revision");
     assert.ok(
         editorSource.includes("applyEditorLevelToWorld") &&
         editorSource.includes("createGameCanvasRenderer") &&
@@ -8135,10 +8138,10 @@ function testRocketPowerUpArsenal() {
     const editor2Source = readFileSync(new URL("../src/tools/level-editor-2.js", import.meta.url), "utf8");
     const editorPlaywrightBenchmark = readFileSync(new URL("../devel/benchmark_level_editor_playwright.py", import.meta.url), "utf8");
     assert.ok(editorSource.includes('id="canvas-renderer-baseline"') && editorSource.includes("openCanvasRendererBaseline"), "the Level Editor should expose the isolated Canvas game-renderer baseline");
-    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 364") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the baseline page should identify the packaged revision and load its dedicated tool module");
+    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 368") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the baseline page should identify the packaged revision and load its dedicated tool module");
     assert.ok(baselineSource.includes("applyEditorLevelToWorld") && baselineSource.includes("preferWebGL2: false") && baselineSource.includes("setViewOverride"), "the baseline should convert the authored level and use the ordinary Canvas2D game renderer with an editor camera override");
     assert.ok(editor2Html.includes("Ignatius Level Editor 2 Scaffold") && editor2Html.includes("Stage <select id=\"lab-stage\"") && editor2Html.includes("static full sidebar"), "the Editor 2 scaffold should expose the structural stage ladder from the baseline shell");
-    assert.ok(editor2Html.includes('id="stage-overlay"') && editor2Html.includes("grid on the single scene canvas") && editor2Html.includes("rev 364"), "the Editor 2 scaffold should compare transparent-overlay and single-canvas guide paths under the packaged revision");
+    assert.ok(editor2Html.includes('id="stage-overlay"') && editor2Html.includes("grid on the single scene canvas") && editor2Html.includes("rev 368"), "the Editor 2 scaffold should compare transparent-overlay and single-canvas guide paths under the packaged revision");
     assert.ok(editor2Source.includes("applyEditorLevelToWorld") && editor2Source.includes("preferWebGL2: false") && editor2Source.includes("runStageSweep") && editor2Source.includes("PerformanceObserver"), "the Editor 2 scaffold should retain the production Canvas baseline and provide an in-browser structural sweep");
     assert.ok(editorSource.includes("Editor 2 lab") && baselineHtml.includes("Editor 2 lab"), "both existing rendering surfaces should link to the new scaffold");
     assert.ok(editorPlaywrightBenchmark.includes("benchmark_baseline") && editorPlaywrightBenchmark.includes("benchmark_editor") && editorPlaywrightBenchmark.includes("editorToBaselineCadenceRatio"), "the optional Playwright probe should compare the loaded baseline and editor rather than source-only timings");
@@ -8149,7 +8152,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(rendererSource.includes("backingPixelsPerCssPixel") && rendererSource.includes("override.cssZoom * backingPixelsPerCssPixel") && editorSource.includes("cssZoom: state.camera.zoom"), "editor and runtime artwork should share one CSS-pixel camera scale so guide alignment does not drift across the viewport");
     assert.ok(rendererSource.includes("this.ctx.setTransform(1, 0, 0, 1, 0, 0)") && rendererSource.includes("never inherit a CSS/DPR transform"), "the production Canvas renderer should reset inherited context transforms before drawing backing-pixel coordinates");
     assert.ok(editorSource.includes("stageCtx?.setTransform(1, 0, 0, 1, 0, 0)") && !editorSource.includes("stageCtx?.setTransform(dpr"), "the Level Editor must not pre-scale the production scene context by devicePixelRatio");
-    assert.match(bootstrapSource, /const GAME_REVISION = "364";/, "the game debug revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "368";/, "the game debug revision should match the packaged revision");
     assert.ok(
         editorSource.includes('<div class="level-section-label">Existing Level:</div>')
             && editorSource.includes('id="load-level">Load</button>')
