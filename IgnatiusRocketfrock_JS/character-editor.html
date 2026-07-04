@@ -662,7 +662,7 @@
         </section>
     </div>
     <aside>
-        <h1>Puppet Forge <small>rev 368</small></h1>
+        <h1>Puppet Forge <small>rev 369</small></h1>
         <p><a href="index.html">Back to tools</a></p>
         <p>
             Atlas-backed rig and keyframe editor. The preview now samples the same animation JSON module as the game, so edits are made in rig-space values rather than a second procedural imitation.
@@ -900,7 +900,7 @@
                 <button id="copy-key" type="button">Copy key</button>
                 <button id="paste-key" type="button">Paste at playhead</button>
             </div>
-            <p>For X, Y and Angle mode, drag inside the selected yellow rectangle to move the part and drag a yellow corner handle to rotate it. The first drag creates transform keys at the playhead. Drag a diamond in the bottom timeline to move its key time; grouped X/Y/Angle diamonds move together. For single properties, edit the numeric value directly; typing at an unkeyed playhead creates a key automatically.</p>
+            <p>For X, Y and Angle mode, drag inside the selected yellow rectangle to move the part and drag a yellow corner handle to rotate it. When a parent pivot constraint is active, dragging inside the part moves its cyan parent point instead; X/Y tracks are read-only and regenerated automatically. Drag a diamond in the bottom timeline to move its editable key time. For single properties, edit the numeric value directly; typing at an unkeyed playhead creates a key automatically.</p>
         </section>
 
         <section class="box mode-panel animation-panel">
@@ -917,6 +917,16 @@
                 <label><span>Base scale</span><input id="part-scale" type="number" step="0.01"></label>
                 <label><span>Target height</span><input id="target-height" type="number" step="1"></label>
             </div>
+            <h3>Parent pivot constraint</h3>
+            <label class="check-row"><input id="parent-constraint-enabled" type="checkbox"> Pin this part's pivot to a parent part</label>
+            <div id="parent-constraint-fields">
+                <label><span>Parent rig part</span><select id="parent-constraint-part"></select></label>
+                <div class="row">
+                    <label><span>Parent point X</span><input id="parent-constraint-x" type="number" step="0.005"></label>
+                    <label><span>Parent point Y</span><input id="parent-constraint-y" type="number" step="0.005"></label>
+                </div>
+            </div>
+            <p id="parent-constraint-help">The selected part's existing pivot is pinned to this normalized point on its parent. X/Y animation tracks are generated automatically; rotation and scale remain independent.</p>
             <div class="row">
                 <button id="part-to-back" type="button">To Back</button>
                 <button id="part-to-front" type="button">To Front</button>
@@ -1082,6 +1092,15 @@ import {
     markCharacterProjectClean,
     markCharacterProjectDirty
 } from "./src/tools/character-editor/character-dirty-state.js";
+import {
+    availableParentConstraintParts,
+    bakeParentConstraintTracks,
+    parentConstraintForPart,
+    parentPointForRigPosition,
+    resolveParentConstrainedPose,
+    validateParentConstraints,
+    wouldCreateParentConstraintCycle
+} from "./src/tools/character-editor/parent-constraint-data.js";
 
 const FALLBACK_DRAW_ORDER = [
     "leftArm",
@@ -1227,6 +1246,12 @@ const els = {
     offsetY: document.getElementById("offset-y"),
     partScale: document.getElementById("part-scale"),
     targetHeight: document.getElementById("target-height"),
+    parentConstraintEnabled: document.getElementById("parent-constraint-enabled"),
+    parentConstraintFields: document.getElementById("parent-constraint-fields"),
+    parentConstraintPart: document.getElementById("parent-constraint-part"),
+    parentConstraintX: document.getElementById("parent-constraint-x"),
+    parentConstraintY: document.getElementById("parent-constraint-y"),
+    parentConstraintHelp: document.getElementById("parent-constraint-help"),
     partToBack: document.getElementById("part-to-back"),
     partToFront: document.getElementById("part-to-front"),
     projectileEnabled: document.getElementById("projectile-enabled"),
@@ -2039,6 +2064,10 @@ function applyRigJson() {
         const parsed = JSON.parse(els.rigJson.value);
         if (!parsed || !parsed.parts || !parsed.pivots || !Array.isArray(parsed.drawOrder)) {
             throw new Error("Rig JSON must contain drawOrder, parts, and pivots.");
+        }
+        const constraintErrors = validateParentConstraints(parsed);
+        if (constraintErrors.length) {
+            throw new Error(constraintErrors[0]);
         }
         state.rig = parsed;
         state.assets = buildAssetsFromAtlas(state.image, state.atlas, state.rig, state.imageUrl);
@@ -2857,6 +2886,165 @@ function writeProjectilePartFromUi() {
     markDirty("rig");
 }
 
+
+function selectedPartParentConstraint(partName = selectedPartName()) {
+    return parentConstraintForPart(state.rig, partName);
+}
+
+function selectedTrackIsConstraintGenerated() {
+    const property = selectedProperty();
+    return Boolean(selectedPartParentConstraint() && (property === "x" || property === "y"));
+}
+
+function editableTransformProperties(partName = selectedPartName()) {
+    return selectedPartParentConstraint(partName) ? ["rotation"] : ["x", "y", "rotation"];
+}
+
+function syncParentConstraintControls(partName = selectedPartName()) {
+    const part = state.rig?.parts?.[partName];
+    const available = availableParentConstraintParts(state.rig, partName);
+    const constraint = parentConstraintForPart(state.rig, partName);
+    state.syncing = true;
+    els.parentConstraintPart.replaceChildren();
+    for (const candidate of available) {
+        const option = document.createElement("option");
+        option.value = candidate;
+        option.textContent = PART_LABELS[candidate] || candidate;
+        els.parentConstraintPart.appendChild(option);
+    }
+    if (constraint && !available.includes(constraint.parentPart)) {
+        const broken = document.createElement("option");
+        broken.value = constraint.parentPart;
+        broken.textContent = `${constraint.parentPart} (invalid)`;
+        els.parentConstraintPart.appendChild(broken);
+    }
+    const enabled = Boolean(constraint);
+    els.parentConstraintEnabled.checked = enabled;
+    els.parentConstraintEnabled.disabled = !part || (!available.length && !enabled);
+    els.parentConstraintPart.disabled = !enabled;
+    els.parentConstraintX.disabled = !enabled;
+    els.parentConstraintY.disabled = !enabled;
+    els.parentConstraintFields.hidden = !enabled;
+    if (constraint) {
+        els.parentConstraintPart.value = constraint.parentPart;
+        els.parentConstraintX.value = Number(constraint.parentPoint.x).toFixed(4);
+        els.parentConstraintY.value = Number(constraint.parentPoint.y).toFixed(4);
+        els.parentConstraintHelp.textContent = `Pinned to ${constraint.parentPart}. X/Y animation values are generated; rotation and scale stay independent.`;
+    } else {
+        els.parentConstraintPart.value = available[0] || "";
+        els.parentConstraintX.value = "0.5000";
+        els.parentConstraintY.value = "0.5000";
+        els.parentConstraintHelp.textContent = "The selected part's existing pivot is pinned to a normalized point on its parent. X/Y animation tracks are generated automatically; rotation and scale remain independent.";
+    }
+    els.offsetX.disabled = enabled;
+    els.offsetY.disabled = enabled;
+    for (const option of els.propertySelect.options) {
+        if (option.value === "x" || option.value === "y") {
+            option.disabled = enabled;
+        }
+    }
+    if (enabled && (selectedProperty() === "x" || selectedProperty() === "y")) {
+        els.propertySelect.value = TRANSFORM_EDIT_PROPERTY;
+    }
+    state.syncing = false;
+    updateKeyButtons();
+}
+
+function writeParentConstraintFromUi() {
+    if (state.syncing || !state.rig) {
+        return;
+    }
+    const childPart = selectedPartName();
+    const part = state.rig.parts?.[childPart];
+    if (!part) {
+        return;
+    }
+    const currentPose = samplePose();
+    if (!els.parentConstraintEnabled.checked) {
+        delete part.parentConstraint;
+        syncParentConstraintControls(childPart);
+        refreshRigJson();
+        markDirty("rig");
+        invalidateAnimation();
+        rebuildTimeline();
+        updateReadouts();
+        setStatus(`${childPart} is no longer pinned to a parent part.`);
+        return;
+    }
+    const parentPart = String(els.parentConstraintPart.value || availableParentConstraintParts(state.rig, childPart)[0] || "");
+    if (!parentPart) {
+        state.syncing = true;
+        els.parentConstraintEnabled.checked = false;
+        state.syncing = false;
+        setStatus(`No valid parent part is available for ${childPart}.`);
+        return;
+    }
+    if (wouldCreateParentConstraintCycle(state.rig, childPart, parentPart)) {
+        setStatus(`Cannot pin ${childPart} to ${parentPart}: that would create a circular hierarchy.`);
+        syncParentConstraintControls(childPart);
+        return;
+    }
+    const existing = parentConstraintForPart(state.rig, childPart);
+    let parentPoint = {
+        x: Number(els.parentConstraintX.value),
+        y: Number(els.parentConstraintY.value)
+    };
+    const parentChanged = !existing || existing.parentPart !== parentPart;
+    if (parentChanged) {
+        const childTransform = currentPose?.[childPart];
+        const parentTransform = currentPose?.[parentPart];
+        if (childTransform && parentTransform) {
+            parentPoint = parentPointForRigPosition(
+                state.rig,
+                parentPart,
+                { x: childTransform.x, y: childTransform.y },
+                parentTransform,
+                state.assets
+            );
+        }
+    }
+    if (!Number.isFinite(parentPoint.x) || !Number.isFinite(parentPoint.y)) {
+        parentPoint = { x: 0.5, y: 0.5 };
+    }
+    part.parentConstraint = {
+        parentPart,
+        parentPoint
+    };
+    const errors = validateParentConstraints(state.rig);
+    if (errors.length) {
+        if (existing) {
+            part.parentConstraint = existing;
+        } else {
+            delete part.parentConstraint;
+        }
+        syncParentConstraintControls(childPart);
+        setStatus(errors[0]);
+        return;
+    }
+    syncParentConstraintControls(childPart);
+    refreshRigJson();
+    markDirty("rig");
+    invalidateAnimation();
+    rebuildTimeline();
+    updateReadouts();
+    setStatus(`${childPart} pivot is pinned to ${parentPart} at (${parentPoint.x.toFixed(3)}, ${parentPoint.y.toFixed(3)}).`);
+}
+
+function bakeCurrentParentConstraintTracks() {
+    if (!state.animation || !state.rig) {
+        return { changed: false, parts: [], keyCount: 0 };
+    }
+    const result = bakeParentConstraintTracks(state.animation, state.rig, state.assets, {
+        label: `${state.animation.animationId || "animation"} parent constraints`,
+        tolerance: 0.25
+    });
+    if (result.changed) {
+        state.normalizedAnimation = null;
+        state.animationCache.set(currentAnimationDirtyKey(), state.animation);
+    }
+    return result;
+}
+
 function selectPart(name) {
     if (!state.rig || !name) {
         return;
@@ -2878,6 +3066,7 @@ function selectPart(name) {
     updateDrawOrderButtons();
     state.syncing = false;
     syncProjectilePartControls(name);
+    syncParentConstraintControls(name);
     state.selectedKeyIndex = -1;
     state.selectedTransformTime = null;
     rebuildTimeline();
@@ -2933,8 +3122,10 @@ function writePartFromUi() {
     part.offset = part.offset || { x: 0, y: 0 };
     pivot.x = Number(els.pivotX.value);
     pivot.y = Number(els.pivotY.value);
-    part.offset.x = Number(els.offsetX.value);
-    part.offset.y = Number(els.offsetY.value);
+    if (!parentConstraintForPart(state.rig, name)) {
+        part.offset.x = Number(els.offsetX.value);
+        part.offset.y = Number(els.offsetY.value);
+    }
     part.scale = Number(els.partScale.value);
     part.targetHeight = Number(els.targetHeight.value);
     refreshRigJson();
@@ -2974,7 +3165,7 @@ function rigSetupTransform(partName) {
     };
 }
 
-function samplePose() {
+function sampleUnconstrainedPose() {
     const clip = normalizedAnimation();
     if (!clip || !state.rig) {
         return null;
@@ -2987,6 +3178,19 @@ function samplePose() {
         pose[partName] = authored ? { ...setup, ...authored } : setup;
     }
     return pose;
+}
+
+function samplePose() {
+    const pose = sampleUnconstrainedPose();
+    if (!pose || !state.rig) {
+        return pose;
+    }
+    try {
+        return resolveParentConstrainedPose(state.rig, pose, state.assets);
+    } catch (error) {
+        setStatus(error.message);
+        return pose;
+    }
 }
 
 function syncAnimationControls() {
@@ -3279,7 +3483,7 @@ function updateReadouts() {
 
 function transformTrackTimes(partName = selectedPartName()) {
     const times = new Set();
-    for (const property of ["x", "y", "rotation"]) {
+    for (const property of editableTransformProperties(partName)) {
         const track = getAnimationTrack(state.animation, partName, property, false) || [];
         for (const key of track) {
             times.add(Number(key.time));
@@ -3425,9 +3629,12 @@ function rebuildTimeline() {
     if (isTransformEditMode()) {
         const partName = selectedPartName();
         const times = transformTrackTimes(partName);
-        els.trackSummary.textContent = `${partName}.X/Y/Angle: ${times.length} authored times`;
+        const constrained = Boolean(selectedPartParentConstraint(partName));
+        els.trackSummary.textContent = constrained
+            ? `${partName}.Angle: ${times.length} authored times · X/Y generated by parent constraint`
+            : `${partName}.X/Y/Angle: ${times.length} authored times`;
         for (const time of times) {
-            const properties = ["x", "y", "rotation"].filter((property) => findKeyframeIndex(state.animation, partName, property, time) >= 0);
+            const properties = editableTransformProperties(partName).filter((property) => findKeyframeIndex(state.animation, partName, property, time) >= 0);
             createTimelineMarker(
                 time,
                 `${time.toFixed(3)} s · ${properties.join(", ")}`,
@@ -3463,7 +3670,7 @@ function selectTransformTime(time) {
     state.selectedKeyIndex = -1;
     state.time = Number(time);
     const partName = selectedPartName();
-    const firstKey = ["x", "y", "rotation"]
+    const firstKey = editableTransformProperties(partName)
         .map((property) => {
             const track = getAnimationTrack(state.animation, partName, property, false) || [];
             return track[findKeyframeIndex(state.animation, partName, property, time)];
@@ -3504,14 +3711,15 @@ function selectKey(index) {
 
 function updateKeyButtons() {
     const transformMode = isTransformEditMode();
+    const generated = selectedTrackIsConstraintGenerated();
     const selected = state.selectedKeyIndex >= 0;
-    els.addKey.disabled = !state.animation;
-    els.keyTime.disabled = transformMode;
-    els.keyValue.disabled = transformMode;
-    els.applyKey.disabled = transformMode || !selected;
-    els.deleteKey.disabled = transformMode ? state.selectedTransformTime === null : !selected;
-    els.copyKey.disabled = transformMode || !selected;
-    els.pasteKey.disabled = transformMode || !state.copiedKey;
+    els.addKey.disabled = !state.animation || generated;
+    els.keyTime.disabled = transformMode || generated;
+    els.keyValue.disabled = transformMode || generated;
+    els.applyKey.disabled = transformMode || generated || !selected;
+    els.deleteKey.disabled = generated || (transformMode ? state.selectedTransformTime === null : !selected);
+    els.copyKey.disabled = transformMode || generated || !selected;
+    els.pasteKey.disabled = transformMode || generated || !state.copiedKey;
 }
 
 function ensureTransformKeysAtPlayhead(partName, pose = null) {
@@ -3520,7 +3728,7 @@ function ensureTransformKeysAtPlayhead(partName, pose = null) {
         throw new Error(`No sampled transform is available for ${partName}.`);
     }
     const indices = {};
-    for (const property of ["x", "y", "rotation"]) {
+    for (const property of editableTransformProperties(partName)) {
         let index = findKeyframeIndex(state.animation, partName, property, state.time);
         if (index < 0) {
             index = upsertAnimationKeyframe(state.animation, partName, property, {
@@ -3539,12 +3747,17 @@ function ensureTransformKeysAtPlayhead(partName, pose = null) {
 
 function addKeyAtPlayhead() {
     try {
+        if (selectedTrackIsConstraintGenerated()) {
+            setStatus(`${selectedPartName()}.${selectedProperty()} is generated by its parent constraint.`);
+            return;
+        }
         if (isTransformEditMode()) {
             ensureTransformKeysAtPlayhead(selectedPartName());
             invalidateAnimation();
             rebuildTimeline();
             selectTransformTime(state.time);
-            setStatus(`Added X, Y and angle keys for ${selectedPartName()} at ${state.time.toFixed(3)} s.`);
+            const label = selectedPartParentConstraint() ? "angle key" : "X, Y and angle keys";
+            setStatus(`Added ${label} for ${selectedPartName()} at ${state.time.toFixed(3)} s.`);
             return;
         }
         const pose = samplePose();
@@ -3567,7 +3780,7 @@ function addKeyAtPlayhead() {
 }
 
 function applySelectedKey(announce = true) {
-    if (isTransformEditMode()) {
+    if (isTransformEditMode() || selectedTrackIsConstraintGenerated()) {
         return;
     }
     try {
@@ -3597,7 +3810,7 @@ function applySelectedKey(announce = true) {
 }
 
 function previewSelectedKeyValue() {
-    if (state.syncing || isTransformEditMode() || !state.animation) {
+    if (state.syncing || isTransformEditMode() || selectedTrackIsConstraintGenerated() || !state.animation) {
         return;
     }
     const value = Number(els.keyValue.value);
@@ -3637,13 +3850,17 @@ function previewSelectedKeyValue() {
 
 function deleteSelectedKey() {
     try {
+        if (selectedTrackIsConstraintGenerated()) {
+            setStatus(`${selectedPartName()}.${selectedProperty()} is generated by its parent constraint.`);
+            return;
+        }
         if (isTransformEditMode()) {
             if (state.selectedTransformTime === null) {
                 return;
             }
             const partName = selectedPartName();
             const removals = [];
-            for (const property of ["x", "y", "rotation"]) {
+            for (const property of editableTransformProperties(partName)) {
                 const track = getAnimationTrack(state.animation, partName, property, false) || [];
                 const index = findKeyframeIndex(state.animation, partName, property, state.selectedTransformTime);
                 if (index >= 0) {
@@ -3689,7 +3906,7 @@ function copySelectedKey() {
 }
 
 function pasteKeyAtPlayhead() {
-    if (isTransformEditMode() || !state.copiedKey) {
+    if (isTransformEditMode() || selectedTrackIsConstraintGenerated() || !state.copiedKey) {
         return;
     }
     try {
@@ -3714,7 +3931,7 @@ function beginTransformKeyDrag(event, time) {
     event.preventDefault();
     event.stopPropagation();
     const partName = selectedPartName();
-    const properties = ["x", "y", "rotation"].filter((property) =>
+    const properties = editableTransformProperties(partName).filter((property) =>
         findKeyframeIndex(state.animation, partName, property, time) >= 0
     );
     if (!properties.length) {
@@ -3785,7 +4002,7 @@ function endTransformKeyDrag(event) {
 }
 
 function beginKeyDrag(event, index) {
-    if (isTransformEditMode()) {
+    if (isTransformEditMode() || selectedTrackIsConstraintGenerated()) {
         return;
     }
     event.preventDefault();
@@ -3957,6 +4174,7 @@ function refreshAnimationJson() {
         return;
     }
     try {
+        bakeCurrentParentConstraintTracks();
         els.animationJson.value = JSON.stringify(serializeEditableAnimationClip(state.animation), null, 4);
     } catch (error) {
         setStatus(error.message);
@@ -4242,6 +4460,28 @@ function drawSelectionOverlay(pose) {
         ctx.lineTo(center.x, center.y + 4 * pixelScale);
         ctx.stroke();
     }
+    const constraint = selectedPartParentConstraint();
+    if (constraint) {
+        const parentGeometry = partCanvasGeometry(constraint.parentPart, pose);
+        const joint = geometry.canvasGeometry.pivot;
+        if (parentGeometry) {
+            ctx.strokeStyle = "rgba(78, 226, 255, 0.92)";
+            ctx.fillStyle = "rgba(78, 226, 255, 0.98)";
+            ctx.lineWidth = 1.5 * pixelScale;
+            ctx.setLineDash([5 * pixelScale, 4 * pixelScale]);
+            ctx.beginPath();
+            ctx.moveTo(parentGeometry.canvasGeometry.center.x, parentGeometry.canvasGeometry.center.y);
+            ctx.lineTo(joint.x, joint.y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.arc(joint.x, joint.y, 8 * pixelScale, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(joint.x, joint.y, 3 * pixelScale, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
     ctx.restore();
 }
 
@@ -4334,29 +4574,51 @@ function beginPartTransformDrag(event) {
         return;
     }
     event.preventDefault();
-    pauseForDirectEditing();
     const partName = selectedPartName();
-    const sampledPart = samplePose()?.[partName];
+    pauseForDirectEditing();
+    const sampledPose = samplePose();
+    const sampledPart = sampledPose?.[partName];
     if (!sampledPart) {
         return;
     }
     try {
-        const indices = ensureTransformKeysAtPlayhead(partName, sampledPart);
         const view = currentViewTransform();
         const pointerPreview = canvasToPreviewPoint(hit.canvasPoint, view);
-        state.partDrag = {
-            pointerId: event.pointerId,
-            mode: hit.mode,
-            partName,
-            indices,
-            startPointerPreview: pointerPreview,
-            pivotPreview: { x: hit.geometry.transform.x, y: hit.geometry.transform.y },
-            startValues: {
-                x: Number(sampledPart.x),
-                y: Number(sampledPart.y),
-                rotation: Number(sampledPart.rotation)
+        const constraint = selectedPartParentConstraint(partName);
+        if (hit.mode === "move" && constraint) {
+            const parentTransform = sampledPose?.[constraint.parentPart];
+            if (!parentTransform) {
+                throw new Error(`Cannot edit ${partName} parent point because ${constraint.parentPart} has no sampled transform.`);
             }
-        };
+            state.partDrag = {
+                pointerId: event.pointerId,
+                mode: "constraint",
+                partName,
+                parentPart: constraint.parentPart,
+                parentTransform: { ...parentTransform },
+                startPointerPreview: pointerPreview,
+                startValues: {
+                    x: Number(sampledPart.x),
+                    y: Number(sampledPart.y),
+                    rotation: Number(sampledPart.rotation)
+                }
+            };
+        } else {
+            const indices = ensureTransformKeysAtPlayhead(partName, sampledPart);
+            state.partDrag = {
+                pointerId: event.pointerId,
+                mode: hit.mode,
+                partName,
+                indices,
+                startPointerPreview: pointerPreview,
+                pivotPreview: { x: hit.geometry.transform.x, y: hit.geometry.transform.y },
+                startValues: {
+                    x: Number(sampledPart.x),
+                    y: Number(sampledPart.y),
+                    rotation: Number(sampledPart.rotation)
+                }
+            };
+        }
         canvas.setPointerCapture?.(event.pointerId);
         canvas.style.cursor = hit.mode === "move" ? "grabbing" : "crosshair";
         rebuildTimeline();
@@ -4374,7 +4636,27 @@ function dragPartTransform(event) {
     const canvasPoint = clientPointOnCanvas(event.clientX, event.clientY);
     const pointerPreview = canvasToPreviewPoint(canvasPoint, currentViewTransform());
     try {
-        if (drag.mode === "move") {
+        if (drag.mode === "constraint") {
+            const scale = Math.max(0.000001, animationPreviewScale());
+            const desired = {
+                x: drag.startValues.x + (pointerPreview.x - drag.startPointerPreview.x) / scale,
+                y: drag.startValues.y + (pointerPreview.y - drag.startPointerPreview.y) / scale
+            };
+            const parentPoint = parentPointForRigPosition(
+                state.rig,
+                drag.parentPart,
+                desired,
+                drag.parentTransform,
+                state.assets
+            );
+            state.rig.parts[drag.partName].parentConstraint.parentPoint = parentPoint;
+            state.syncing = true;
+            els.parentConstraintX.value = Number(parentPoint.x).toFixed(4);
+            els.parentConstraintY.value = Number(parentPoint.y).toFixed(4);
+            state.syncing = false;
+            refreshRigJson();
+            markDirty("rig");
+        } else if (drag.mode === "move") {
             const scale = Math.max(0.000001, animationPreviewScale());
             const x = drag.startValues.x + (pointerPreview.x - drag.startPointerPreview.x) / scale;
             const y = drag.startValues.y + (pointerPreview.y - drag.startPointerPreview.y) / scale;
@@ -4395,7 +4677,9 @@ function dragPartTransform(event) {
                 { value: rotation }
             );
         }
-        invalidateAnimation(false);
+        if (drag.mode !== "constraint") {
+            invalidateAnimation(false);
+        }
         updateReadouts();
     } catch (error) {
         setStatus(error.message);
@@ -4412,8 +4696,13 @@ function endPartTransformDrag(event) {
     canvas.style.cursor = "default";
     invalidateAnimation();
     rebuildTimeline();
-    const action = drag.mode === "move" ? "Moved" : "Rotated";
-    setStatus(`${action} ${drag.partName} at ${state.time.toFixed(3)} s. X, Y and angle keys are now authored at this playhead.`);
+    if (drag.mode === "constraint") {
+        setStatus(`Moved ${drag.partName}'s parent point on ${drag.parentPart}; X/Y tracks were regenerated.`);
+    } else {
+        const action = drag.mode === "move" ? "Moved" : "Rotated";
+        const detail = drag.mode === "move" ? "X, Y and angle keys" : "angle key";
+        setStatus(`${action} ${drag.partName} at ${state.time.toFixed(3)} s. ${detail} are now authored at this playhead.`);
+    }
 }
 
 function updateStageCursor(event) {
@@ -4734,10 +5023,18 @@ els.partToFront.addEventListener("click", () => moveSelectedPartInDrawOrder("fro
 els.propertySelect.addEventListener("change", () => {
     state.selectedKeyIndex = -1;
     state.selectedTransformTime = null;
+    if (selectedTrackIsConstraintGenerated()) {
+        setStatus(`${selectedPartName()}.${selectedProperty()} is generated from its parent constraint and is read-only.`);
+    }
     rebuildTimeline();
 });
 for (const el of [els.pivotX, els.pivotY, els.offsetX, els.offsetY, els.partScale, els.targetHeight]) {
     el.addEventListener("input", writePartFromUi);
+}
+els.parentConstraintEnabled.addEventListener("change", writeParentConstraintFromUi);
+els.parentConstraintPart.addEventListener("change", writeParentConstraintFromUi);
+for (const el of [els.parentConstraintX, els.parentConstraintY]) {
+    el.addEventListener("change", writeParentConstraintFromUi);
 }
 els.projectileEnabled.addEventListener("change", () => {
     if (els.projectileEnabled.checked && !els.projectileReleaseTime.value) {
@@ -4892,9 +5189,11 @@ els.applyAnimationJson.addEventListener("click", applyAnimationJson);
 els.refreshAnimationJson.addEventListener("click", refreshAnimationJson);
 els.downloadAnimationJson.addEventListener("click", () => {
     try {
+        const baked = bakeCurrentParentConstraintTracks();
         downloadJson(animationFilename(), serializeEditableAnimationClip(state.animation));
         markClean("animation");
-        setStatus(`Downloaded ${animationFilename()}.`);
+        const detail = baked.changed ? ` with generated X/Y tracks for ${baked.parts.join(", ")}` : "";
+        setStatus(`Downloaded ${animationFilename()}${detail}.`);
     } catch (error) {
         setStatus(error.message);
     }

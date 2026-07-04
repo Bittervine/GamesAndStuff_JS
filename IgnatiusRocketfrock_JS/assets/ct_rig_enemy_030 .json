@@ -102,7 +102,14 @@
             },
             "scale": 1,
             "targetHeight": 176,
-            "alpha": 1
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "torso",
+                "parentPoint": {
+                    "x": 0.17145299870112346,
+                    "y": 0.2650148920743526
+                }
+            }
         },
         "leftLeg": {
             "frame": "leg_00",
@@ -163,7 +170,14 @@
             },
             "scale": 1,
             "targetHeight": 140,
-            "alpha": 1
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "torso",
+                "parentPoint": {
+                    "x": 0.4404701164229112,
+                    "y": 0.10336108547100564
+                }
+            }
         },
         "rightArm": {
             "frame": "arm_01",
@@ -180,7 +194,14 @@
             },
             "scale": 0.5,
             "targetHeight": 176,
-            "alpha": 1
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "torso",
+                "parentPoint": {
+                    "x": 0.655,
+                    "y": 0.2083
+                }
+            }
         },
         "weapon": {
             "frame": "sword",
@@ -197,7 +218,14 @@
             },
             "scale": 1,
             "targetHeight": 82,
-            "alpha": 1
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "leftArm",
+                "parentPoint": {
+                    "x": 0.695,
+                    "y": 0.9076
+                }
+            }
         }
     },
     "attachments": {

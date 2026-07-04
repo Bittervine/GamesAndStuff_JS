@@ -336,3 +336,12 @@ This distinction matters on fractional display scaling. At DPR 1.1, pre-scaling 
 The production game does not request low-latency desynchronized canvas presentation. Keep `desynchronized: false` for both the visible Canvas2D context and the WebGL2 backend. This is deliberate: Android Chromium-family browsers may otherwise expose incomplete Canvas pixels or a discarded WebGL buffer as white or black flashes.
 
 The stage fills `#game-shell` with percentage dimensions. The renderer ignores transient client measurements below two pixels and keeps the previous valid backing size. When investigating future mobile resize problems, do not “fix” this by resetting the canvas on every reported viewport transition; assigning `canvas.width` or `canvas.height` clears the backing store immediately.
+
+
+## Parent pivot constraints in Puppet Forge
+
+In **Base rig / setup values**, enable **Pin this part's pivot to a parent part** to keep the selected part's existing pivot fixed to a point on another rig part. Choose the parent and edit the normalized parent-point X/Y values, or drag inside the selected constrained part in the preview. The cyan marker shows the resulting joint. Dragging a yellow corner still edits the child's rotation.
+
+A constrained part's X/Y animation tracks are read-only because Puppet Forge calculates them from the parent. Refreshing or downloading animation JSON bakes the calculated positions into ordinary X/Y keys for the game. Rotation and scale remain independent. Disable the constraint to return to ordinary X/Y editing; the latest baked positions remain available as normal keys.
+
+Each child may have only one parent constraint. Puppet Forge prevents self-links and circular chains such as torso to arm to torso.

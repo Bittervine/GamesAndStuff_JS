@@ -3519,3 +3519,14 @@ Revision 368 adopts the user-authored `ct_anim_enemy_030_walk.json` unchanged an
 The attack and death clips are rebuilt from the tuned idle/walk pose instead of mechanically reusing the Skeleton Guard transforms. The attack remains a 0.46-second overhead sword chop and places the visible impact at the gameplay hit time of 0.35 seconds, with a complete return to the canonical pose at the end. The death keeps the Skeleton Guard's useful idea of releasing the sword, but replaces the loose part scatter with a more coherent backward collapse and grounded final pose.
 
 Atlas regeneration and the default retarget helper now preserve authored idle, walk, attack, and death files. The retarget helper defaults only to the remaining hurt clip so future atlas rebuilds cannot silently erase animation fine-tuning. The level-generator catalog now also carries an explicit, effectively dormant `enemy_030` entry at maximum difficulty, satisfying the one-entry-per-enemy data contract without placing the still-being-tuned Human Raider in ordinary generated caverns.
+
+
+## Revision 369 parent pivot constraints in Puppet Forge
+
+Status: implemented as a deliberately small editor aid.
+
+Puppet Forge can now pin a rig part's existing pivot to a normalized point on one parent part. The constraint is stored on the child in the rig JSON, with no separate parent anchor registry. The first implementation is positional only: parent rotation and scale move the socket location, while the child keeps independently authored rotation and scale.
+
+Constrained X/Y controls are read-only. Dragging the constrained part moves its cyan parent point rather than creating child position keys, while corner dragging continues to author rotation. Parent choices are cycle-safe, and applying rig JSON rejects missing parents or circular chains.
+
+The runtime format is unchanged. Animation JSON refresh and download adaptively bake the editor constraint into ordinary X/Y tracks with a 0.25 source-pixel error target. No constraint has been added to the Human Raider rig automatically, so the user-authored idle and walk files remain byte-for-byte unchanged. The new aid is available for the author to apply selectively to the head, arms, or weapons.

@@ -268,6 +268,15 @@ import {
     markCharacterProjectDirty
 } from "../src/tools/character-editor/character-dirty-state.js";
 import {
+    availableParentConstraintParts,
+    bakeParentConstraintTracks,
+    parentConstraintRigPoint,
+    parentPointForRigPosition,
+    resolveParentConstrainedPose,
+    validateParentConstraints,
+    wouldCreateParentConstraintCycle
+} from "../src/tools/character-editor/parent-constraint-data.js";
+import {
     TRANSFORM_EDIT_PROPERTY,
     canvasToPreviewPoint,
     characterViewTransform,
@@ -427,6 +436,7 @@ function testSourceOrganization() {
         "../src/tools/character-editor/character-dirty-state.js",
         "../src/tools/character-editor/character-editor-view.js",
         "../src/tools/character-editor/dopesheet-data.js",
+        "../src/tools/character-editor/parent-constraint-data.js",
         "../src/tools/character-editor/character-project.js"
     ];
     for (const relativePath of expectedFiles) {
@@ -8111,7 +8121,7 @@ function testRocketPowerUpArsenal() {
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 368<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 369<\/small>/, "the Level Editor should display the packaged revision");
     assert.ok(
         editorSource.includes("applyEditorLevelToWorld") &&
         editorSource.includes("createGameCanvasRenderer") &&
@@ -8138,10 +8148,10 @@ function testRocketPowerUpArsenal() {
     const editor2Source = readFileSync(new URL("../src/tools/level-editor-2.js", import.meta.url), "utf8");
     const editorPlaywrightBenchmark = readFileSync(new URL("../devel/benchmark_level_editor_playwright.py", import.meta.url), "utf8");
     assert.ok(editorSource.includes('id="canvas-renderer-baseline"') && editorSource.includes("openCanvasRendererBaseline"), "the Level Editor should expose the isolated Canvas game-renderer baseline");
-    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 368") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the baseline page should identify the packaged revision and load its dedicated tool module");
+    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 369") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the baseline page should identify the packaged revision and load its dedicated tool module");
     assert.ok(baselineSource.includes("applyEditorLevelToWorld") && baselineSource.includes("preferWebGL2: false") && baselineSource.includes("setViewOverride"), "the baseline should convert the authored level and use the ordinary Canvas2D game renderer with an editor camera override");
     assert.ok(editor2Html.includes("Ignatius Level Editor 2 Scaffold") && editor2Html.includes("Stage <select id=\"lab-stage\"") && editor2Html.includes("static full sidebar"), "the Editor 2 scaffold should expose the structural stage ladder from the baseline shell");
-    assert.ok(editor2Html.includes('id="stage-overlay"') && editor2Html.includes("grid on the single scene canvas") && editor2Html.includes("rev 368"), "the Editor 2 scaffold should compare transparent-overlay and single-canvas guide paths under the packaged revision");
+    assert.ok(editor2Html.includes('id="stage-overlay"') && editor2Html.includes("grid on the single scene canvas") && editor2Html.includes("rev 369"), "the Editor 2 scaffold should compare transparent-overlay and single-canvas guide paths under the packaged revision");
     assert.ok(editor2Source.includes("applyEditorLevelToWorld") && editor2Source.includes("preferWebGL2: false") && editor2Source.includes("runStageSweep") && editor2Source.includes("PerformanceObserver"), "the Editor 2 scaffold should retain the production Canvas baseline and provide an in-browser structural sweep");
     assert.ok(editorSource.includes("Editor 2 lab") && baselineHtml.includes("Editor 2 lab"), "both existing rendering surfaces should link to the new scaffold");
     assert.ok(editorPlaywrightBenchmark.includes("benchmark_baseline") && editorPlaywrightBenchmark.includes("benchmark_editor") && editorPlaywrightBenchmark.includes("editorToBaselineCadenceRatio"), "the optional Playwright probe should compare the loaded baseline and editor rather than source-only timings");
@@ -8152,7 +8162,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(rendererSource.includes("backingPixelsPerCssPixel") && rendererSource.includes("override.cssZoom * backingPixelsPerCssPixel") && editorSource.includes("cssZoom: state.camera.zoom"), "editor and runtime artwork should share one CSS-pixel camera scale so guide alignment does not drift across the viewport");
     assert.ok(rendererSource.includes("this.ctx.setTransform(1, 0, 0, 1, 0, 0)") && rendererSource.includes("never inherit a CSS/DPR transform"), "the production Canvas renderer should reset inherited context transforms before drawing backing-pixel coordinates");
     assert.ok(editorSource.includes("stageCtx?.setTransform(1, 0, 0, 1, 0, 0)") && !editorSource.includes("stageCtx?.setTransform(dpr"), "the Level Editor must not pre-scale the production scene context by devicePixelRatio");
-    assert.match(bootstrapSource, /const GAME_REVISION = "368";/, "the game debug revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "369";/, "the game debug revision should match the packaged revision");
     assert.ok(
         editorSource.includes('<div class="level-section-label">Existing Level:</div>')
             && editorSource.includes('id="load-level">Load</button>')
@@ -8844,6 +8854,109 @@ function testCharacterToolDirectTransformGeometry() {
     assert.ok(toolHtml.includes("function rigSetupTransform(partName)"), "character tool should synthesize setup transforms for rig parts missing from an animation clip");
     assert.ok(toolHtml.includes("authored ? { ...setup, ...authored } : setup"), "missing animation parts should remain selectable and movable from their rig setup pose");
     assert.ok(toolHtml.includes("els.applyPreviewAlpha.checked"), "sprite drawing should switch between edit visibility and effective alpha preview");
+}
+
+
+function testCharacterParentPivotConstraints() {
+    const rig = {
+        drawOrder: ["torso", "arm", "weapon"],
+        global: { scale: 1 },
+        pivots: {
+            torso: { x: 0.5, y: 0.5 },
+            arm: { x: 0.5, y: 0.1 },
+            weapon: { x: 0.1, y: 0.5 }
+        },
+        parts: {
+            torso: { frame: "torso", targetHeight: 100, scale: 1, offset: { x: 0, y: 0 } },
+            arm: {
+                frame: "arm",
+                targetHeight: 100,
+                scale: 1,
+                offset: { x: 0, y: 0 },
+                parentConstraint: {
+                    parentPart: "torso",
+                    parentPoint: { x: 1, y: 0.5 }
+                }
+            },
+            weapon: {
+                frame: "weapon",
+                targetHeight: 100,
+                scale: 1,
+                offset: { x: 0, y: 0 },
+                parentConstraint: {
+                    parentPart: "arm",
+                    parentPoint: { x: 1, y: 0.1 }
+                }
+            }
+        }
+    };
+    const assets = new Map([
+        ["torso", { width: 100, height: 100 }],
+        ["arm", { width: 100, height: 100 }],
+        ["weapon", { width: 100, height: 100 }]
+    ]);
+    const pose = {
+        torso: { x: 10, y: 20, rotation: Math.PI / 2, scale: 1, alpha: 1 },
+        arm: { x: -999, y: -999, rotation: 0, scale: 1, alpha: 1 },
+        weapon: { x: -999, y: -999, rotation: 0, scale: 1, alpha: 1 }
+    };
+    const resolved = resolveParentConstrainedPose(rig, pose, assets);
+    approx(resolved.arm.x, 10, 0.000001, "torso rotation should move the shoulder socket x");
+    approx(resolved.arm.y, 70, 0.000001, "torso rotation should move the shoulder socket y");
+    approx(resolved.weapon.x, 60, 0.000001, "weapon should resolve after its constrained arm parent");
+    approx(resolved.weapon.y, 70, 0.000001, "weapon chain should retain parent y");
+    approx(resolved.arm.rotation, 0, 0.000001, "child rotation should remain independent");
+
+    const point = parentConstraintRigPoint(rig, "torso", { x: 1, y: 0.5 }, pose.torso, assets);
+    const recovered = parentPointForRigPosition(rig, "torso", point, pose.torso, assets);
+    approx(recovered.x, 1, 0.000001, "parent-point inverse should recover x");
+    approx(recovered.y, 0.5, 0.000001, "parent-point inverse should recover y");
+
+    assert.equal(wouldCreateParentConstraintCycle(rig, "torso", "weapon"), true, "ancestor-to-descendant links must be rejected");
+    assert.deepEqual(validateParentConstraints(rig), [], "valid parent chains should pass validation");
+    assert.ok(!availableParentConstraintParts(rig, "torso").includes("weapon"), "descendants should be absent from parent choices");
+
+    const clip = {
+        animationId: "constraint_bake_test",
+        duration: 1,
+        loop: false,
+        referencePose: {
+            torso: { x: 10, y: 20, rotation: 0, scale: 1, alpha: 1 },
+            arm: { x: -500, y: -500, rotation: 0.2, scale: 1, alpha: 1 },
+            weapon: { x: -500, y: -500, rotation: -0.1, scale: 1, alpha: 1 }
+        },
+        tracks: {
+            torso: {
+                rotation: [
+                    { time: 0, value: 0, easing: "linear" },
+                    { time: 1, value: Math.PI / 2, easing: "linear" }
+                ]
+            },
+            arm: {
+                x: [{ time: 0, value: -500, easing: "linear" }],
+                y: [{ time: 0, value: -500, easing: "linear" }],
+                rotation: [{ time: 0, value: 0.2, easing: "linear" }]
+            },
+            weapon: {
+                x: [{ time: 0, value: -500, easing: "linear" }],
+                y: [{ time: 0, value: -500, easing: "linear" }],
+                rotation: [{ time: 0, value: -0.1, easing: "linear" }]
+            }
+        }
+    };
+    const baked = bakeParentConstraintTracks(clip, rig, assets, { tolerance: 0.1 });
+    assert.equal(baked.changed, true, "constraint baking should report generated tracks");
+    assert.ok(clip.tracks.arm.x.length > 2, "rotating parent anchors should receive adaptive intermediate X keys");
+    assert.equal(clip.tracks.arm.x.length, clip.tracks.arm.y.length, "generated X/Y tracks should share key times");
+    assert.equal(clip.tracks.arm.rotation[0].value, 0.2, "constraint baking must not alter child rotation tracks");
+    approx(clip.tracks.arm.x[0].value, 60, 0.000001, "baked arm should begin at the torso socket x");
+    approx(clip.tracks.arm.y.at(-1).value, 70, 0.000001, "baked arm should end at the rotated socket y");
+
+    const toolHtml = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
+    assert.ok(toolHtml.includes('id="parent-constraint-enabled"'), "Puppet Forge should expose parent pivot constraints");
+    assert.ok(toolHtml.includes("bakeCurrentParentConstraintTracks"), "animation JSON export should bake constrained X/Y tracks");
+    assert.ok(toolHtml.includes("wouldCreateParentConstraintCycle"), "Puppet Forge should reject circular parent links");
+    assert.ok(toolHtml.includes("rotation and scale remain independent"), "the first constraint version should stay positional only");
 }
 
 function testDataDrivenRunAnimation() {
@@ -12238,6 +12351,7 @@ const tests = [
     ["numbered enemy_001 authored assets", testNumberedEnemy001Assets],
     ["character project dirty tracking", testCharacterDirtyTracking],
     ["character tool direct transform geometry", testCharacterToolDirectTransformGeometry],
+    ["character parent pivot constraints", testCharacterParentPivotConstraints],
     ["data-driven wizard run animation", testDataDrivenRunAnimation],
     ["animation editor keyframe operations", testAnimationEditorOperations],
     ["frame-based animation editor workflow", testFrameBasedAnimationEditorWorkflow],

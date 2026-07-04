@@ -1,8 +1,8 @@
 {
     "meta": {
-        "version": 39,
-        "note": "Revision 368 adopts the user-corrected Human Raider hitbox and walk clip, and rebuilds its attack and death animations from the tuned idle/walk baseline.",
-        "revision": 368
+        "version": 38,
+        "note": "Revision 367 adopts the user-tuned Human Raider rig, idle pose, and runtime vertical offset; the remaining Human Raider clips are retargeted to that idle baseline.",
+        "revision": 367
     },
     "catalogId": "ct_enemies_001",
     "enemies": {

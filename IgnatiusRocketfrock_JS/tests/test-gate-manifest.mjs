@@ -51,6 +51,7 @@ export const TEST_SHARDS = Object.freeze({
             "numbered enemy_001 authored assets",
             "character project dirty tracking",
             "character tool direct transform geometry",
+            "character parent pivot constraints",
             "data-driven wizard run animation",
             "animation editor keyframe operations",
             "frame-based animation editor workflow",

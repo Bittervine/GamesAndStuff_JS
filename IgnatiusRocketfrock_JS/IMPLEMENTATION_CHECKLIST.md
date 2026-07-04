@@ -3596,3 +3596,22 @@ Revision 347 re-voices the alternate synthesized tunes rather than applying one 
 - [x] Restrict the default Human Raider retarget helper to the hurt clip.
 - [x] Add explicit dormant level-generator metadata for `enemy_030` so the catalog remains structurally complete without ordinary procedural placement.
 - [x] Synchronize game, Level Editor, Puppet Forge, documentation, and package labels to revision 368.
+
+
+## Revision 369 Puppet Forge parent pivot constraints
+
+- [x] Store one optional positional parent constraint on the child rig part.
+- [x] Reuse the child's existing pivot as the child-side joint point.
+- [x] Store the parent-side point as normalized X/Y coordinates in the parent frame.
+- [x] Exclude self and descendants from the parent picker and reject circular rig JSON.
+- [x] Resolve parent chains in parent-first order for editor preview.
+- [x] Apply parent translation, rotation, target-height scale, and animation scale to the socket position.
+- [x] Keep child rotation and child scale independent; do not implement rotational inheritance.
+- [x] Disable direct X/Y key editing while a parent constraint is active.
+- [x] Let an interior canvas drag reposition the parent point while corner dragging still authors rotation.
+- [x] Draw a cyan joint marker and parent-to-joint guide for the selected constrained part.
+- [x] Adaptively bake constrained X/Y positions into ordinary animation tracks before JSON refresh/download.
+- [x] Leave runtime character animation and rendering code unchanged.
+- [x] Preserve the uploaded Human Raider idle and walk animation files unchanged.
+- [x] Add editor tests for chained resolution, inverse point conversion, cycle rejection, and adaptive baking.
+- [x] Synchronize visible revision labels to 369.

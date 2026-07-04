@@ -68,7 +68,8 @@ IgnatiusRocketfrock_JS/
 │           ├── character-dirty-state.js
 │           ├── character-editor-view.js
 │           ├── character-project.js
-│           └── dopesheet-data.js
+│           ├── dopesheet-data.js
+│           └── parent-constraint-data.js
 ├── tests/
 │   └── testbench.mjs
 ├── assets/
@@ -1491,3 +1492,14 @@ The Human Raider rig and enemy catalog are user-authored content inputs, not dis
 The Human Raider's idle and walk clips are user-authored source data and must not be regenerated or automatically retargeted. Its attack and death clips are also authored content from revision 368 onward: they share the idle/walk reference pose and scales, but their motion is deliberately designed rather than inherited blindly from the Skeleton Guard.
 
 `devel/build_enemy_030_assets.py` may create a missing fallback animation in a clean checkout, but it must never rewrite an existing Human Raider clip. `devel/retarget_enemy_030_animations.py` defaults only to `hurt`; passing walk, attack, or death must be an explicit destructive authoring choice. Runtime collision remains separate from render geometry, and the Human Raider catalog entry owns the corrected 45×118 gameplay body. The generation catalog includes a maximum-difficulty, minimum-weight metadata record only to maintain catalog completeness while this enemy family is still under authoring.
+
+
+## Revision 369 editor-only parent pivot constraints
+
+Puppet Forge supports one optional positional parent constraint on each rig part. The relationship is stored on the child part as `parts.<child>.parentConstraint`, containing `parentPart` and a normalized `parentPoint` in the parent sprite frame. The child side of the relationship is always the child's existing rig pivot. This keeps the model small: a child has zero or one positional parent, the parent has no separately managed anchor list, and parent chains must remain acyclic.
+
+Constraint mathematics and adaptive X/Y baking live in `src/tools/character-editor/parent-constraint-data.js`. The editor evaluates parent chains in parent-first order. Parent translation, rotation, target-height scaling, and animation scale move the socket point. Child rotation and child scale remain independent and are not inherited. The editor greys out direct X/Y authoring for constrained parts, permits ordinary rotation editing, and lets an interior canvas drag move the normalized parent point instead of writing child position keys.
+
+This is an authoring-only boundary. Runtime character rendering and animation sampling remain unchanged. Before animation JSON is refreshed or downloaded, Puppet Forge replaces constrained child X/Y tracks with ordinary linear keyframes. Adaptive midpoint subdivision adds keys where a rotating or scaling parent would otherwise make straight X/Y interpolation visibly leave the socket. The rig constraint remains the source of truth; baked tracks are disposable runtime-compatible output.
+
+Rig JSON application must reject missing parents and circular links. The parent picker excludes the child and its descendants. Disabling a constraint leaves the most recently baked X/Y tracks as normal editable animation data, providing a non-destructive escape route.
