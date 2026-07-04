@@ -49,7 +49,7 @@ The same probe verified that `document.body.scrollWidth === innerWidth`, the sta
 
 The revision 357 Playwright ratio is not a release target. On the target machine, physical Chrome and Opera reported roughly 1.3 FPS in the full editor while the same level and zoom stayed near 40 FPS in the standalone baseline, despite low synchronous submission timings. A headless or virtual-display run can therefore verify layout and JavaScript boundaries while completely missing the relevant raster/compositor stall.
 
-Before asking for repeated manual editor tests, open `level-editor-2.html?level=level_002&stage=0` and use **Run stage sweep** once. Preserve the complete copied report. The seven stages isolate static sidebar DOM, editor chrome, the mere presence of a transparent overlay, clearing that overlay, drawing a grid on it, and drawing the identical grid on the single production canvas. Treat the first large physical-browser cadence drop as the migration stop line.
+The former Editor 2 stage-sweep scaffold has been removed from the active project. For posterity-only renderer comparison, open `level-renderer-baseline.html` directly and compare it with the Level Editor using the existing Playwright benchmark or manual camera movement. The Level Editor no longer links to either diagnostic surface.
 
 ## Revision 359 palette-surface check
 

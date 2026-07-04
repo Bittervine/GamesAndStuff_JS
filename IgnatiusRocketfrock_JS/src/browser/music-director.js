@@ -1,232 +1,160 @@
-import {
-    getMusicTune,
-    musicLoopDurationSeconds,
-    musicSecondsAtBeat,
-    pitchToMidi
-} from "../shared/music-data.js";
+import { getMusicTune, pitchToMidi } from "../shared/music-data.js";
+import { createEmbeddedMusicEngineHost } from "./music-engine-host.js";
 
-const SCHEDULE_AHEAD_SECONDS = 0.45;
-const SCHEDULER_INTERVAL_MS = 80;
+export function noteFrequency(pitch) {
+    const midi = pitchToMidi(pitch);
+    if (!Number.isFinite(midi)) return 0;
+    return 440 * 2 ** ((midi - 69) / 12);
+}
 
 function clamp01(value) {
     return Math.max(0, Math.min(1, Number(value) || 0));
 }
 
-export function noteFrequency(pitch) {
-    const midi = pitchToMidi(pitch);
-    if (!Number.isFinite(midi)) {
-        return 0;
-    }
-    return 440 * 2 ** ((midi - 69) / 12);
-}
-
-function defaultAudioContextFactory() {
-    const Constructor = globalThis.AudioContext || globalThis.webkitAudioContext;
-    return Constructor ? new Constructor() : null;
-}
-
-function instrumentProfile(name) {
-    switch (name) {
-        case "bassoon":
-            return { type: "square", harmonic: "sine", harmonicRatio: 2, cutoff: 1300, attack: 0.025, release: 0.09, level: 0.095, harmonicLevel: 0.12 };
-        case "doubleBass":
-            return { type: "triangle", harmonic: "sine", harmonicRatio: 0.5, cutoff: 520, attack: 0.018, release: 0.17, level: 0.14, harmonicLevel: 0.22 };
-        case "tuba":
-            return { type: "sine", harmonic: "square", harmonicRatio: 2, cutoff: 680, attack: 0.035, release: 0.16, level: 0.125, harmonicLevel: 0.065 };
-        case "pizzicato":
-            return { type: "triangle", harmonic: "square", harmonicRatio: 2, cutoff: 2200, attack: 0.006, release: 0.11, level: 0.082, harmonicLevel: 0.12 };
-        case "strings":
-            return { type: "sawtooth", harmonic: "triangle", harmonicRatio: 1.002, cutoff: 1500, attack: 0.045, release: 0.15, level: 0.055, harmonicLevel: 0.18 };
-        case "bell":
-            return { type: "sine", harmonic: "sine", harmonicRatio: 2.01, cutoff: 5200, attack: 0.004, release: 0.24, level: 0.07, harmonicLevel: 0.12 };
-        default:
-            return { type: "triangle", harmonic: "sine", harmonicRatio: 2, cutoff: 2400, attack: 0.012, release: 0.1, level: 0.07, harmonicLevel: 0.12 };
-    }
-}
-
-export function createMusicDirector({ audioContextFactory = defaultAudioContextFactory, volume = 0.1 } = {}) {
-    let context = null;
-    let masterGain = null;
+export function createMusicDirector({
+    engineHostFactory = createEmbeddedMusicEngineHost,
+    volume = 0.1,
+    // Retained as an ignored compatibility option for older tests and callers.
+    audioContextFactory = undefined
+} = {}) {
+    void audioContextFactory;
+    const host = typeof engineHostFactory === "function" ? engineHostFactory() : null;
     let tuneId = "grieg_mountain_king";
     let currentVolume = clamp01(volume);
     let muted = false;
-    let schedulerTimer = null;
-    let nextCycleIndex = 0;
-    let cycleZeroTime = 0;
-    const liveOscillators = new Set();
+    let unlockRequested = false;
+    let unlocked = false;
+    let disposed = false;
+    let configurationKey = "";
+    let generation = 0;
+    let startAttempt = null;
 
-    function ensureContext() {
-        if (context) return context;
-        context = audioContextFactory?.() || null;
-        if (!context) return null;
-        masterGain = context.createGain();
-        masterGain.gain.value = muted ? 0 : currentVolume;
-        masterGain.connect(context.destination);
-        return context;
+    host?.prepare?.();
+    host?.setVolume?.(currentVolume);
+
+    function activeTune() {
+        return getMusicTune(tuneId);
     }
 
-    function stopScheduledNotes() {
-        for (const oscillator of liveOscillators) {
-            try {
-                oscillator.stop();
-            } catch (error) {
-                // The oscillator may already have ended naturally.
-            }
+    function tuneConfigurationKey(tune) {
+        if (!tune || tune.id === "none") return "none";
+        return `${tune.engineVersion}:${tune.id}:${tune.octave}`;
+    }
+
+    async function configureActiveTune(expectedGeneration) {
+        const tune = activeTune();
+        const key = tuneConfigurationKey(tune);
+        if (key === "none") {
+            host?.stopAll?.();
+            configurationKey = key;
+            unlocked = false;
+            return false;
         }
-        liveOscillators.clear();
-    }
-
-    function clearScheduler() {
-        if (schedulerTimer !== null) {
-            globalThis.clearInterval(schedulerTimer);
-            schedulerTimer = null;
-        }
-        stopScheduledNotes();
-    }
-
-    function oscillatorEnded(event) {
-        liveOscillators.delete(event.currentTarget);
-    }
-
-    function scheduleNote(voice, musicalNote, cycleStart, tune) {
-        if (!context || !masterGain) return;
-        const frequency = noteFrequency(musicalNote.pitch);
-        if (!(frequency > 0)) return;
-        const startTime = cycleStart + musicSecondsAtBeat(tune, musicalNote.beat);
-        const endBeat = musicalNote.beat + Math.max(0.04, Number(musicalNote.duration) || 0.25);
-        const duration = Math.max(0.035, musicSecondsAtBeat(tune, endBeat) - musicSecondsAtBeat(tune, musicalNote.beat));
-        const profile = instrumentProfile(voice.instrument);
-        const velocity = clamp01(musicalNote.velocity ?? 1);
-        const voiceGain = Math.max(0, Number(voice.gain) || 0.5);
-        const amplitude = profile.level * voiceGain * velocity;
-        const attack = Math.min(profile.attack, duration * 0.3);
-        const release = Math.min(profile.release, duration * 0.45);
-        const stopTime = startTime + duration + release + 0.02;
-
-        const filter = context.createBiquadFilter();
-        filter.type = "lowpass";
-        filter.frequency.setValueAtTime(profile.cutoff, startTime);
-        const envelope = context.createGain();
-        envelope.gain.setValueAtTime(0.0001, startTime);
-        envelope.gain.exponentialRampToValueAtTime(Math.max(0.0002, amplitude), startTime + Math.max(0.003, attack));
-        envelope.gain.setValueAtTime(Math.max(0.0002, amplitude * 0.86), Math.max(startTime + attack, startTime + duration - release));
-        envelope.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
-        filter.connect(envelope);
-        envelope.connect(masterGain);
-
-        const base = context.createOscillator();
-        base.type = profile.type;
-        base.frequency.setValueAtTime(frequency, startTime);
-        base.connect(filter);
-        base.addEventListener("ended", oscillatorEnded, { once: true });
-        liveOscillators.add(base);
-        base.start(startTime);
-        base.stop(stopTime);
-
-        if (profile.harmonic) {
-            const harmonicGain = context.createGain();
-            harmonicGain.gain.setValueAtTime(profile.harmonicLevel ?? 0.12, startTime);
-            const harmonic = context.createOscillator();
-            harmonic.type = profile.harmonic;
-            harmonic.frequency.setValueAtTime(frequency * profile.harmonicRatio, startTime);
-            harmonic.connect(harmonicGain);
-            harmonicGain.connect(filter);
-            harmonic.addEventListener("ended", oscillatorEnded, { once: true });
-            liveOscillators.add(harmonic);
-            harmonic.start(startTime);
-            harmonic.stop(stopTime);
-        }
-    }
-
-    function scheduleCycle(cycleStart, tune) {
-        for (const voice of tune.voices || []) {
-            for (const musicalNote of voice.notes || []) {
-                scheduleNote(voice, musicalNote, cycleStart, tune);
-            }
-        }
-    }
-
-    function schedulerTick() {
-        if (!context || context.state !== "running") return;
-        const tune = getMusicTune(tuneId);
-        if (muted || !tune || tune.id === "none" || !tune.voices?.length || currentVolume <= 0) return;
-        const loopDuration = musicLoopDurationSeconds(tune);
-        while (cycleZeroTime + nextCycleIndex * loopDuration < context.currentTime + SCHEDULE_AHEAD_SECONDS) {
-            scheduleCycle(cycleZeroTime + nextCycleIndex * loopDuration, tune);
-            nextCycleIndex += 1;
-        }
-    }
-
-    function restartScheduler() {
-        clearScheduler();
-        if (muted || !context || context.state !== "running") return;
-        cycleZeroTime = context.currentTime + 0.07;
-        nextCycleIndex = 0;
-        schedulerTick();
-        schedulerTimer = globalThis.setInterval(schedulerTick, SCHEDULER_INTERVAL_MS);
-    }
-
-    async function unlock() {
-        const audioContext = ensureContext();
-        if (!audioContext) return false;
-        if (audioContext.state === "suspended") {
-            try {
-                await audioContext.resume();
-            } catch (error) {
-                return false;
-            }
-        }
-        if (audioContext.state !== "running") return false;
-        if (!muted && schedulerTimer === null) restartScheduler();
+        if (configurationKey === key) return true;
+        host?.stopAll?.();
+        const configured = await host?.configure?.(tune.engineVersion, tune.id, tune.octave);
+        if (disposed || expectedGeneration !== generation) return false;
+        if (!configured) return false;
+        configurationKey = key;
+        host?.setVolume?.(muted ? 0 : currentVolume);
         return true;
+    }
+
+    function startActiveTune() {
+        if (disposed) return Promise.resolve(false);
+        unlockRequested = true;
+        const tune = activeTune();
+        const key = tuneConfigurationKey(tune);
+        if (muted || currentVolume <= 0 || tune.id === "none") {
+            return Promise.resolve(false);
+        }
+        if (unlocked && configurationKey === key) {
+            return Promise.resolve(true);
+        }
+
+        const expectedGeneration = generation;
+        if (startAttempt?.generation === expectedGeneration && startAttempt.key === key) {
+            return startAttempt.promise;
+        }
+
+        const attempt = {
+            generation: expectedGeneration,
+            key,
+            promise: null
+        };
+        attempt.promise = (async () => {
+            if (!await configureActiveTune(expectedGeneration)) return false;
+            if (disposed || expectedGeneration !== generation || muted || currentVolume <= 0) return false;
+            host?.setVolume?.(currentVolume);
+            const started = await host?.play?.(tune.engineVersion);
+            if (disposed || expectedGeneration !== generation) return false;
+            unlocked = Boolean(started);
+            return unlocked;
+        })().finally(() => {
+            if (startAttempt === attempt) {
+                startAttempt = null;
+            }
+        });
+        startAttempt = attempt;
+        return attempt.promise;
+    }
+
+    function unlock() {
+        return startActiveTune();
     }
 
     function setTune(nextTuneId) {
         const tune = getMusicTune(nextTuneId);
         if (tune.id === tuneId) return tuneId;
         tuneId = tune.id;
-        if (context?.state === "running") restartScheduler();
+        generation += 1;
+        configurationKey = "";
+        unlocked = false;
+        host?.stopAll?.();
+        if (unlockRequested && !muted && currentVolume > 0 && tune.id !== "none") {
+            void startActiveTune();
+        }
         return tuneId;
     }
 
     function setVolume(nextVolume) {
-        const wasMuted = currentVolume <= 0;
+        const previous = currentVolume;
         currentVolume = clamp01(nextVolume);
-        if (masterGain && context) {
-            masterGain.gain.cancelScheduledValues(context.currentTime);
-            masterGain.gain.setTargetAtTime(muted ? 0 : currentVolume, context.currentTime, 0.03);
-        }
-        if (!muted && context?.state === "running" && currentVolume > 0 && (schedulerTimer === null || wasMuted)) {
-            restartScheduler();
+        host?.setVolume?.(muted ? 0 : currentVolume);
+        if (currentVolume <= 0) {
+            unlocked = false;
+            host?.pauseAll?.();
+        } else if (previous <= 0 && unlockRequested && !muted && activeTune().id !== "none") {
+            void startActiveTune();
         }
         return currentVolume;
     }
 
     function setMuted(nextMuted) {
         const normalized = Boolean(nextMuted);
-        if (normalized === muted) {
-            return muted;
-        }
+        if (normalized === muted) return muted;
         muted = normalized;
-        if (masterGain && context) {
-            masterGain.gain.cancelScheduledValues(context.currentTime);
-            masterGain.gain.setTargetAtTime(muted ? 0 : currentVolume, context.currentTime, 0.02);
-        }
         if (muted) {
-            clearScheduler();
-        } else if (context?.state === "running" && currentVolume > 0) {
-            restartScheduler();
+            unlocked = false;
+            host?.setVolume?.(0);
+            host?.pauseAll?.();
+        } else {
+            host?.setVolume?.(currentVolume);
+            if (unlockRequested && currentVolume > 0 && activeTune().id !== "none") {
+                void startActiveTune();
+            }
         }
         return muted;
     }
 
     function dispose() {
-        clearScheduler();
-        if (context && typeof context.close === "function") {
-            void context.close();
-        }
-        context = null;
-        masterGain = null;
+        if (disposed) return;
+        disposed = true;
+        generation += 1;
+        host?.dispose?.();
+        configurationKey = "";
+        startAttempt = null;
+        unlocked = false;
     }
 
     return Object.freeze({
@@ -239,6 +167,6 @@ export function createMusicDirector({ audioContextFactory = defaultAudioContextF
         getVolume: () => currentVolume,
         getEffectiveVolume: () => muted ? 0 : currentVolume,
         isMuted: () => muted,
-        isUnlocked: () => context?.state === "running"
+        isUnlocked: () => unlocked
     });
 }

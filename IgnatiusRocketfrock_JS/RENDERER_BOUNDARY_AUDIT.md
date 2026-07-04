@@ -46,12 +46,9 @@ Procedural effect stamps are still prepared once inside `canvas-renderer.js`, pi
 
 ## Revision 334 diagnostic-page note
 
-`devel/enemy-hit-effect-lab.html` and `devel/enemy-hit-effect-lab.js` deliberately contain direct Canvas drawing for a standalone performance probe. The audit script excludes the complete `devel/` directory, so this does not add a production Canvas owner or weaken the game-renderer boundary. The lab imports production character-command and WebGL backend seams, but its local effect state, timing graph, and cache controls are diagnostic-only.
+## Enemy-hit flash note
 
-## Revision 335 enemy-hit flash note
-
-The Canvas character-enemy hit flash now uses the presentation-owned prepared `hitFlashCanvas` surfaces instead of changing `ctx.filter` on the live world context. This adds no renderer owner and no authoritative state. The development lab still contains an explicit filter-only button as a diagnostic comparison, but production enemy rendering uses additive prepared surfaces in both Canvas and WebGL modes.
-
+The Canvas character-enemy hit flash uses presentation-owned prepared `hitFlashCanvas` surfaces instead of changing `ctx.filter` on the live world context. This adds no renderer owner and no authoritative state. Production enemy rendering uses additive prepared surfaces in both Canvas and WebGL modes. Revision 380 retires the former standalone enemy-hit laboratory; the renderer-boundary audit continues to cover production ownership directly.
 ## Revision 336 diagnostic boundary note
 
 The new HUD-blur comparison is a DOM/CSS diagnostic controlled by a root class and does not enter portable simulation or renderer modules. The laboratory's component sets and outside-draw timing remain development-only. Canvas and WebGL production boundaries are unchanged in this revision.
@@ -63,7 +60,7 @@ The Level Editor remains an approved direct-Canvas owner because its grid, colli
 
 ## Revision 358 Editor 2 scaffold note
 
-`src/tools/level-editor-2.js` is an approved development-only direct Canvas owner. It renders the shared production scene through `src/presentation/canvas-renderer.js`; its five direct calls are limited to the structural comparison layers that clear or draw the same simple grid on either a transparent overlay or the scene canvas. The scaffold owns no authoritative level data, atlas renderer, character renderer, or gameplay presentation path. Its direct Canvas use exists specifically to identify the browser/GPU boundary before full editor functionality is migrated.
+The former `level-editor-2.html` migration scaffold and `src/tools/level-editor-2.js` have been removed from the active project. They are no longer approved Canvas owners or required packaging inputs. The retained `level-renderer-baseline.html` remains a posterity-only diagnostic and reaches Canvas only through the shared production renderer.
 
 ## Revision 363 Canvas context ownership note
 

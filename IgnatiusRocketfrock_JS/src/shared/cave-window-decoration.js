@@ -1,6 +1,7 @@
 import { normalizeCaveDecoration, sampleClosedCaveSpline } from "./cave-window-data.js";
+import { CAVE_FOREGROUND_LAYER_ID, DEFAULT_FOREGROUND_SCALE, normalizeLayerScale } from "./level-layer-data.js";
 
-export const CAVE_FOREGROUND_LAYER = "caveForeground";
+export const CAVE_FOREGROUND_LAYER = CAVE_FOREGROUND_LAYER_ID;
 export const CAVE_PERIMETER_GENERATOR = "cavePerimeter";
 
 function finiteNumber(value, fallback) {
@@ -261,11 +262,13 @@ export function generateCavePerimeterPlacements({
     firstOrder = 30000,
     protectedRegions = [],
     ownership = null,
-    idPrefix = "cave_fg_auto"
+    idPrefix = "cave_fg_auto",
+    foregroundScale = DEFAULT_FOREGROUND_SCALE
 }) {
     const points = Array.isArray(caveWindow?.points) ? caveWindow.points : [];
     if (points.length < 3) return [];
     const settings = normalizeCaveDecoration(decoration || caveWindow?.decoration);
+    const layerScale = normalizeLayerScale(foregroundScale);
     const protection = (Array.isArray(protectedRegions) ? protectedRegions : [])
         .map(normalizedProtectionRegion)
         .filter(Boolean);
@@ -296,7 +299,7 @@ export function generateCavePerimeterPlacements({
         }
 
         let scaleVariation = 0.86 + randomUnit(settings.seed, index, 2) * 0.28;
-        let scale = settings.scale * candidate.defaultScale * scaleVariation;
+        let scale = layerScale * candidate.defaultScale * scaleVariation;
         let w = candidate.frame.w * scale;
         let h = candidate.frame.h * scale;
         let tangentSpan = probeCategory === "wall" ? h : w;
@@ -316,7 +319,7 @@ export function generateCavePerimeterPlacements({
                 continue;
             }
             scaleVariation = 0.86 + randomUnit(settings.seed, index, 2) * 0.28;
-            scale = settings.scale * candidate.defaultScale * scaleVariation;
+            scale = layerScale * candidate.defaultScale * scaleVariation;
             w = candidate.frame.w * scale;
             h = candidate.frame.h * scale;
             tangentSpan = category === "wall" ? h : w;
@@ -402,6 +405,8 @@ export function generateCavePerimeterPlacements({
             const baseCenterY = primaryCenterY + outward.y * radialOffset;
             const centerX = baseCenterX + outward.x * protectionShift;
             const centerY = baseCenterY + outward.y * protectionShift;
+            const authoredW = w / layerScale;
+            const authoredH = h / layerScale;
             records.push({
                 arcIndex: index,
                 layerIndex,
@@ -409,21 +414,16 @@ export function generateCavePerimeterPlacements({
                     kind: "atlasAsset",
                     atlasId: candidate.atlasId,
                     assetId: candidate.assetId,
-                    x: centerX - w * 0.5,
-                    y: centerY - h * 0.5,
-                    w,
-                    h,
+                    x: centerX - authoredW * 0.5,
+                    y: centerY - authoredH * 0.5,
+                    w: authoredW,
+                    h: authoredH,
                     mirrorX: randomUnit(settings.seed, index, 4 + layerIndex) > 0.5,
                     mirrorY: false,
                     rotation,
                     layer: CAVE_FOREGROUND_LAYER,
                     collisionFromManifest: false,
-                    foregroundBrightness: settings.brightness,
                     foregroundSaturation: settings.saturation,
-                    foregroundOutwardX: outward.x,
-                    foregroundOutwardY: outward.y,
-                    foregroundFadeStart: 0.05,
-                    foregroundFadeEnd: 0.92,
                     generatedBy: CAVE_PERIMETER_GENERATOR,
                     caveCategory: category,
                     caveArcIndex: index,

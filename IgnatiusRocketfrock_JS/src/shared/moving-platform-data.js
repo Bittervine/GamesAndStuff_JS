@@ -57,9 +57,7 @@ export function normalizeMovingPlatform(value, options = {}) {
         ...(options.defaults && typeof options.defaults === "object" ? options.defaults : {})
     };
     const requestedPattern = String(value.pattern || defaults.pattern);
-    const requestedActivation = typeof value.activation === "object"
-        ? String(value.activation.type || defaults.activation)
-        : String(value.activation || defaults.activation);
+    const requestedActivation = String(value.activation || defaults.activation);
     const pattern = MOVING_PLATFORM_PATTERNS.includes(requestedPattern)
         ? requestedPattern
         : defaults.pattern;
@@ -71,12 +69,9 @@ export function normalizeMovingPlatform(value, options = {}) {
         version: 1,
         pattern,
         activation,
-        signalChannel: normalizeSignalChannel(
-            value.signalChannel ?? (typeof value.activation === "object" ? value.activation.channel : undefined),
-            defaults.signalChannel
-        ),
-        endOffsetX: finiteNumber(value.endOffsetX ?? value.endOffset?.x, defaults.endOffsetX),
-        endOffsetY: finiteNumber(value.endOffsetY ?? value.endOffset?.y, defaults.endOffsetY),
+        signalChannel: normalizeSignalChannel(value.signalChannel, defaults.signalChannel),
+        endOffsetX: finiteNumber(value.endOffsetX, defaults.endOffsetX),
+        endOffsetY: finiteNumber(value.endOffsetY, defaults.endOffsetY),
         speed: Math.max(1, finiteNumber(value.speed, defaults.speed)),
         initialDelay: nonNegative(value.initialDelay, defaults.initialDelay),
         triggerDelay: nonNegative(value.triggerDelay, defaults.triggerDelay),

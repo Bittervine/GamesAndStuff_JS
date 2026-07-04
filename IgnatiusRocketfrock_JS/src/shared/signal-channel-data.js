@@ -23,14 +23,14 @@ export function normalizeSignalChannel(value, fallback = DEFAULT_SIGNAL_CHANNEL)
 
 export function isSignalEmitterEntity(entity) {
     if (!entity || typeof entity !== "object") return false;
-    const type = String(entity.type || entity.kind || "");
+    const type = String(entity.type || "");
     const interaction = String(entity.interaction || "");
     return SIGNAL_EMITTER_TYPES.includes(type) || SIGNAL_EMITTER_INTERACTIONS.includes(interaction);
 }
 
 export function isSignalReceiverEntity(entity) {
     if (!entity || typeof entity !== "object") return false;
-    const type = String(entity.type || entity.kind || "");
+    const type = String(entity.type || "");
     return SIGNAL_RECEIVER_TYPES.includes(type) || entity.signalReceiver === true;
 }
 
@@ -42,7 +42,7 @@ export function normalizeSignalReceiver(entity) {
     const collisionHeight = Math.max(1, finiteNumber(entity.collisionHeight, height));
     return {
         id: String(entity.id || ""),
-        type: String(entity.type || entity.kind || "signalReceiver"),
+        type: String(entity.type || "signalReceiver"),
         channel: normalizeSignalChannel(entity.channel),
         x: finiteNumber(entity.x, 0),
         y: finiteNumber(entity.y, 0),
@@ -64,7 +64,7 @@ export function normalizeSignalReceiver(entity) {
 
 export function normalizeSignalEmitter(entity) {
     if (!isSignalEmitterEntity(entity)) return null;
-    const type = String(entity.type || entity.kind || "");
+    const type = String(entity.type || "");
     const interaction = type === "keyholeSwitch" || entity.interaction === "keyhole"
         ? "keyhole"
         : "toggle";

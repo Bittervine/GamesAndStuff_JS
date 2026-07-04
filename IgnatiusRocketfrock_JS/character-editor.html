@@ -662,7 +662,7 @@
         </section>
     </div>
     <aside>
-        <h1>Puppet Forge <small>rev 372</small></h1>
+        <h1>Puppet Forge <small>rev 385</small></h1>
         <p><a href="index.html">Back to tools</a></p>
         <p>
             Atlas-backed rig and keyframe editor. The preview now samples the same animation JSON module as the game, so edits are made in rig-space values rather than a second procedural imitation.
@@ -690,6 +690,33 @@
                 <button id="reset-view" type="button">Reset to 100%</button>
             </div>
             <p>Use the mouse wheel over the canvas to zoom and right-drag to pan the active workspace. In Rig and animation mode, the cyan GROUND · y = 0 guide is the runtime floor; drag its label vertically to reposition the view without changing character data. Each project document is tracked separately; downloading a JSON file marks only that document as saved.</p>
+        </section>
+
+        <section class="box mode-panel animation-panel" id="reference-plate-panel">
+            <h2>Motion reference video</h2>
+            <p>Load a local MP4 behind the rig as a temporary animation reference. The visible video moment follows the animation playhead while playing, pausing, scrubbing, stepping, changing preview speed, and looping. The file and all alignment settings remain only in this browser tab and are never written to character, rig, atlas, or animation JSON.</p>
+            <label><span>MP4 reference clip</span><input id="reference-video-file" type="file" accept="video/mp4,.mp4"></label>
+            <div class="row">
+                <button id="clear-reference" type="button">Clear reference</button>
+                <button id="reset-reference-transform" type="button">Reset alignment</button>
+            </div>
+            <div id="reference-source-status" class="project-source">No motion reference loaded.</div>
+            <label><span>Video time offset (seconds)</span><input id="reference-time-offset" type="number" step="0.001" value="0"></label>
+            <div class="row">
+                <label><span>X offset</span><input id="reference-x" type="number" step="1" value="0"></label>
+                <label><span>Y offset from ground</span><input id="reference-y" type="number" step="1" value="0"></label>
+            </div>
+            <div class="row">
+                <label><span>Width at 100% zoom</span><input id="reference-width" type="number" min="1" step="1" value="320"></label>
+                <label><span>Height at 100% zoom</span><input id="reference-height" type="number" min="1" step="1" value="540"></label>
+            </div>
+            <label>
+                <span class="readout"><span>Opacity</span><span id="reference-opacity-value">45%</span></span>
+                <input id="reference-opacity" type="range" min="0" max="1" step="0.01" value="0.45">
+            </label>
+            <label class="check-row"><input id="show-reference" type="checkbox" checked> Show video behind the rig</label>
+            <label class="check-row"><input id="loop-reference" type="checkbox" checked> Loop video when its end is reached</label>
+            <div id="reference-frame-readout" class="muted-line">The video is bottom-aligned to the cyan ground guide and follows canvas zoom, pan, and facing.</div>
         </section>
 
         <section class="box">
@@ -1069,6 +1096,11 @@ import {
 } from "./src/tools/character-editor/animation-editor.js";
 import { animationDopesheetRows } from "./src/tools/character-editor/dopesheet-data.js";
 import {
+    fittedReferenceSize,
+    normalizeReferencePlateDisplay,
+    referenceTimeAtPlayhead
+} from "./src/tools/character-editor/reference-plate.js";
+import {
     animationPoseToRuntimeTransforms,
     characterArtworkOffset
 } from "./src/presentation/character-runtime.js";
@@ -1159,6 +1191,20 @@ const els = {
     quickToBack: document.getElementById("quick-to-back"),
     quickToFront: document.getElementById("quick-to-front"),
     animationDock: document.getElementById("animation-dock"),
+    referenceVideoFile: document.getElementById("reference-video-file"),
+    clearReference: document.getElementById("clear-reference"),
+    resetReferenceTransform: document.getElementById("reset-reference-transform"),
+    referenceSourceStatus: document.getElementById("reference-source-status"),
+    referenceFrameReadout: document.getElementById("reference-frame-readout"),
+    referenceTimeOffset: document.getElementById("reference-time-offset"),
+    referenceX: document.getElementById("reference-x"),
+    referenceY: document.getElementById("reference-y"),
+    referenceWidth: document.getElementById("reference-width"),
+    referenceHeight: document.getElementById("reference-height"),
+    referenceOpacity: document.getElementById("reference-opacity"),
+    referenceOpacityValue: document.getElementById("reference-opacity-value"),
+    showReference: document.getElementById("show-reference"),
+    loopReference: document.getElementById("loop-reference"),
     projectSelect: document.getElementById("project-select"),
     loadKnownProject: document.getElementById("load-known-project"),
     newCharacter: document.getElementById("new-character"),
@@ -1352,6 +1398,16 @@ const state = {
     animation: null,
     animationUrl: null,
     animationSlot: null,
+    referencePlate: {
+        label: "",
+        objectUrls: new Set(),
+        video: null,
+        sourceWidth: 0,
+        sourceHeight: 0,
+        lastPlayheadTime: null,
+        lastVideoTarget: null,
+        playRejected: false
+    },
     normalizedAnimation: null,
     paused: false,
     showFullDopesheet: false,
@@ -1372,6 +1428,214 @@ const state = {
     viewPanX: 0,
     viewPanY: 0
 };
+
+function revokeReferenceObjectUrls() {
+    for (const url of state.referencePlate.objectUrls) {
+        URL.revokeObjectURL(url);
+    }
+    state.referencePlate.objectUrls.clear();
+}
+
+function clearReferencePlate({ clearInput = true, updateStatus = true } = {}) {
+    const reference = state.referencePlate;
+    reference.video?.pause?.();
+    if (reference.video) {
+        reference.video.removeAttribute("src");
+        reference.video.load?.();
+    }
+    revokeReferenceObjectUrls();
+    reference.label = "";
+    reference.video = null;
+    reference.sourceWidth = 0;
+    reference.sourceHeight = 0;
+    reference.lastPlayheadTime = null;
+    reference.lastVideoTarget = null;
+    reference.playRejected = false;
+    if (clearInput) {
+        els.referenceVideoFile.value = "";
+    }
+    syncReferencePlateControls();
+    if (updateStatus) {
+        setStatus("Cleared the motion reference video. No project data changed.");
+    }
+}
+
+function referenceDisplaySettings() {
+    return normalizeReferencePlateDisplay({
+        x: els.referenceX.value,
+        y: els.referenceY.value,
+        width: els.referenceWidth.value,
+        height: els.referenceHeight.value,
+        opacity: els.referenceOpacity.value
+    });
+}
+
+function resetReferenceTransform() {
+    const reference = state.referencePlate;
+    const fitted = fittedReferenceSize(reference.sourceWidth || 16, reference.sourceHeight || 27, 540);
+    els.referenceX.value = "0";
+    els.referenceY.value = "0";
+    els.referenceWidth.value = fitted.width.toFixed(2);
+    els.referenceHeight.value = fitted.height.toFixed(2);
+    els.referenceOpacity.value = "0.45";
+    syncReferencePlateControls();
+}
+
+function syncReferencePlateControls() {
+    const reference = state.referencePlate;
+    const hasReference = Boolean(reference.video);
+    els.clearReference.disabled = !hasReference;
+    els.resetReferenceTransform.disabled = !hasReference;
+    for (const control of [
+        els.referenceTimeOffset,
+        els.referenceX,
+        els.referenceY,
+        els.referenceWidth,
+        els.referenceHeight,
+        els.referenceOpacity,
+        els.showReference,
+        els.loopReference
+    ]) {
+        control.disabled = !hasReference;
+    }
+    els.referenceOpacityValue.textContent = `${Math.round(Number(els.referenceOpacity.value) * 100)}%`;
+    if (!hasReference) {
+        els.referenceSourceStatus.textContent = "No motion reference loaded.";
+        els.referenceFrameReadout.textContent = "The video is bottom-aligned to the cyan ground guide and follows canvas zoom, pan, and facing.";
+        return;
+    }
+    const duration = Number(reference.video.duration);
+    const durationText = Number.isFinite(duration) ? ` · ${duration.toFixed(3)} s` : "";
+    els.referenceSourceStatus.textContent = `MP4: ${reference.label} · ${reference.sourceWidth}×${reference.sourceHeight}${durationText}`;
+}
+
+async function loadReferenceVideo(file) {
+    if (!file) {
+        return;
+    }
+    clearReferencePlate({ clearInput: false, updateStatus: false });
+    const url = URL.createObjectURL(file);
+    state.referencePlate.objectUrls.add(url);
+    const video = document.createElement("video");
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "auto";
+    video.loop = false;
+    state.referencePlate.label = file.name;
+    state.referencePlate.video = video;
+    video.addEventListener("loadedmetadata", () => {
+        if (state.referencePlate.video !== video) {
+            return;
+        }
+        state.referencePlate.sourceWidth = video.videoWidth;
+        state.referencePlate.sourceHeight = video.videoHeight;
+        resetReferenceTransform();
+        synchronizeReferenceVideo(true);
+        syncReferencePlateControls();
+        setStatus(`Loaded tab-local MP4 reference ${file.name}. It will not be included in any downloaded JSON.`);
+    }, { once: true });
+    video.addEventListener("error", () => {
+        if (state.referencePlate.video === video) {
+            clearReferencePlate({ updateStatus: false });
+            setStatus(`The browser could not decode ${file.name}. Use an H.264 MP4 for the broadest browser support.`);
+        }
+    });
+    video.src = url;
+    video.load();
+    syncReferencePlateControls();
+}
+
+function synchronizeReferenceVideo(force = false) {
+    const reference = state.referencePlate;
+    const video = reference.video;
+    if (!video || !Number.isFinite(video.duration) || video.duration <= 0) {
+        return;
+    }
+    const offset = Number(els.referenceTimeOffset.value) || 0;
+    const target = referenceTimeAtPlayhead(
+        state.time,
+        offset,
+        video.duration,
+        els.loopReference.checked
+    );
+    const previewPlaying = state.editorMode === "animation" && !state.paused;
+    const previewSpeed = Math.max(0.05, Math.min(3, Number(els.speed.value) || 1));
+    const rawReferenceTime = state.time + offset;
+    const sourceCanAdvance = els.loopReference.checked || (rawReferenceTime > 0 && rawReferenceTime < video.duration);
+    const nativePlayback = previewPlaying && previewSpeed >= 0.0625;
+    const wrapped = reference.lastPlayheadTime !== null && state.time + 0.002 < reference.lastPlayheadTime;
+    const tolerance = nativePlayback ? 0.12 : 0.015;
+    if ((force || wrapped || Math.abs(video.currentTime - target) > tolerance) && !video.seeking) {
+        try {
+            video.currentTime = Math.min(Math.max(0, target), Math.max(0, video.duration - 0.0001));
+        } catch (_) {
+            // Metadata may arrive before the first seekable range. The next render retries.
+        }
+    }
+    video.playbackRate = Math.max(0.0625, Math.min(16, previewSpeed));
+    if (nativePlayback && sourceCanAdvance && els.showReference.checked) {
+        if (video.paused && !reference.playRejected) {
+            video.play().catch(() => {
+                reference.playRejected = true;
+                setStatus("The browser blocked automatic reference-video playback. Press PLAY once or scrub the playhead; the paused frame remains usable.");
+            });
+        }
+    } else if (!video.paused) {
+        video.pause();
+    }
+    reference.lastPlayheadTime = state.time;
+    reference.lastVideoTarget = target;
+}
+
+function currentReferenceVisual() {
+    const reference = state.referencePlate;
+    if (!els.showReference.checked || !reference.video) {
+        return null;
+    }
+    synchronizeReferenceVideo();
+    return reference.video.readyState >= 2 ? reference.video : null;
+}
+
+function drawReferencePlate() {
+    const visual = currentReferenceVisual();
+    if (!visual) {
+        return;
+    }
+    const display = referenceDisplaySettings();
+    ctx.save();
+    ctx.globalAlpha = display.opacity;
+    ctx.drawImage(
+        visual,
+        display.x - display.width * 0.5,
+        display.y - display.height,
+        display.width,
+        display.height
+    );
+    ctx.globalAlpha = Math.min(1, display.opacity + 0.25);
+    ctx.strokeStyle = "rgba(139, 214, 255, 0.8)";
+    ctx.lineWidth = 1 / Math.max(0.0001, state.viewZoom);
+    ctx.strokeRect(
+        display.x - display.width * 0.5,
+        display.y - display.height,
+        display.width,
+        display.height
+    );
+    ctx.restore();
+}
+
+function updateReferenceFrameReadout() {
+    const reference = state.referencePlate;
+    if (!reference.video) {
+        return;
+    }
+    const target = referenceTimeAtPlayhead(
+        state.time,
+        Number(els.referenceTimeOffset.value) || 0,
+        Number(reference.video.duration) || 0,
+        els.loopReference.checked
+    );
+    els.referenceFrameReadout.textContent = `Animation ${state.time.toFixed(3)} s → video ${target.toFixed(3)} s. Positive offset looks later in the clip.`;
+}
 
 function currentAnimationDirtyKey() {
     return state.animationSlot || state.animationUrl || "animation";
@@ -1428,6 +1692,7 @@ function setEditorMode(mode) {
     state.previewPanDrag = null;
     state.groundGuideDrag = null;
     canvas.style.cursor = "default";
+    synchronizeReferenceVideo(true);
     updateQuickToolbar();
     updateReadouts();
 }
@@ -3556,6 +3821,7 @@ function updateReadouts() {
     els.zoomValue.textContent = `${Math.round(activeZoom * 100)}%`;
     const playheadPercent = duration > 0 ? state.time / duration * 100 : 0;
     els.timelinePlayhead.style.left = `${playheadPercent}%`;
+    updateReferenceFrameReadout();
     for (const playhead of els.dopesheetRows.querySelectorAll(".dopesheet-playhead")) {
         playhead.style.left = `${playheadPercent}%`;
     }
@@ -4950,6 +5216,7 @@ function render(now) {
         ctx.save();
         ctx.translate(view.originX, view.originY);
         ctx.scale(view.zoom * view.facing, view.zoom);
+        drawReferencePlate();
         if (pose) {
             for (const name of drawOrder()) {
                 drawSprite(name, pose[name]);
@@ -4971,6 +5238,41 @@ function formatValue(value) {
 
 function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
+}
+
+els.referenceVideoFile.addEventListener("change", () => {
+    loadReferenceVideo(els.referenceVideoFile.files?.[0]).catch((error) => {
+        clearReferencePlate({ updateStatus: false });
+        setStatus(error.message);
+    });
+});
+els.clearReference.addEventListener("click", () => clearReferencePlate());
+els.resetReferenceTransform.addEventListener("click", () => {
+    resetReferenceTransform();
+    setStatus("Reset the tab-local reference video to ground-centred alignment. No project data changed.");
+});
+for (const control of [
+    els.referenceTimeOffset,
+    els.referenceX,
+    els.referenceY,
+    els.referenceWidth,
+    els.referenceHeight,
+    els.referenceOpacity,
+    els.showReference,
+    els.loopReference
+]) {
+    control.addEventListener("input", () => {
+        state.referencePlate.playRejected = false;
+        syncReferencePlateControls();
+        synchronizeReferenceVideo(true);
+        updateReferenceFrameReadout();
+    });
+    control.addEventListener("change", () => {
+        state.referencePlate.playRejected = false;
+        syncReferencePlateControls();
+        synchronizeReferenceVideo(true);
+        updateReferenceFrameReadout();
+    });
 }
 
 els.applyEnemyDefaults.addEventListener("click", () => {
@@ -5174,7 +5476,9 @@ els.time.addEventListener("input", () => {
 });
 els.pause.addEventListener("click", () => {
     state.paused = !state.paused;
+    state.referencePlate.playRejected = false;
     updatePlayPauseButton();
+    synchronizeReferenceVideo(true);
 });
 els.showFullDopesheet.addEventListener("change", updateDopesheetVisibility);
 els.trackStepBack.addEventListener("click", () => stepPlayheadOnSelectedTrack(-1));
@@ -5330,6 +5634,7 @@ window.addEventListener("beforeunload", (event) => {
 });
 
 setupCollapsiblePanels();
+syncReferencePlateControls();
 updatePlayPauseButton();
 updateKeyButtons();
 updateProjectSource();

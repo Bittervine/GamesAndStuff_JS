@@ -20,7 +20,9 @@ IgnatiusRocketfrock_JS/
 │   │   ├── game-settings-store.js
 │   │   ├── gamepad-haptics.js
 │   │   ├── hud-panel-layout.js
-│   │   └── music-director.js
+│   │   ├── music-director.js
+│   │   ├── music-engine-host.js
+│   │   └── music-engine-sources.js
 │   ├── presentation/
 │   │   ├── canvas-renderer.js
 │   │   ├── webgl2-renderer.js
@@ -48,6 +50,7 @@ IgnatiusRocketfrock_JS/
 │       └── dopesheet-data.js
 ├── tests/testbench.mjs
 ├── assets/
+│   └── music/ignatius_music_selections.json
 ├── devel/package_update.py
 ├── electron/
 ├── package.json
@@ -65,7 +68,7 @@ The immediate development track is a cave-perimeter and foreground presentation 
 
 The perimeter is completely inert. It is not a collision boundary, not a platform generator, not a navigation surface, and not a substitute for the playing-area layer. Floors, walls, ceilings, hazards, and platforms remain explicitly authored gameplay geometry. A platform can sit just behind the lower perimeter so Ignatius is partly occluded by foreground stalagmites, but gameplay geometry placed far outside the visible opening should be flagged as confusing authoring.
 
-The foreground perimeter and its decorations should scroll with a subtle, configurable parallax offset relative to the playing area. Foreground placements are automatically non-colliding regardless of their atlas manifest. They are rendered darker and may be slightly desaturated, while the outward side of perimeter artwork fades to opaque black so sprite edges disappear into the implied unseen cavern.
+The foreground perimeter and its decorations should scroll with a subtle, configurable parallax offset relative to the playing area. Foreground placements are automatically non-colliding regardless of their atlas manifest. They are rendered darker and may be slightly desaturated. The world-space cave-window mask owns the transparent-to-black perimeter fade; no Foreground or Background asset may carry a sprite-local gradient when moved elsewhere.
 
 Implementation order:
 
@@ -3561,3 +3564,132 @@ Enemy 030 and Enemy 031 now use 50-percent larger defaults. Their catalog hitbox
 
 Validation note: the supplied revision 371 FULL archive is missing `devel/enemy-hit-effect-lab.html`, `devel/enemy-hit-effect-lab.js`, `level-editor-2.html`, and `src/tools/level-editor-2.js`, although its packaging rules or tests still require them. Revision 372 does not fabricate replacements for those unavailable files; the focused modular-human regression shard passes, while the complete release gate remains blocked by the incomplete input archive.
 
+
+
+## Revision 373 accepted long-form jukebox catalog
+
+Status: implemented.
+
+The game soundtrack catalog is replaced by the 18 tunes marked `accept` in the exported selector JSON. Each entry retains its chosen historical engine version and saved whole-octave shift. The two-to-five-minute developed pass, opening-once loop point, repeating-body duration, and section count are measured from the exact selected engine. The Level Editor now offers silence plus only those 18 accepted choices and shows the selected sound style and octave beside each title. Existing levels keep their tune IDs and migrate to music metadata version 2.
+
+Playback now uses the exact version 2, 3, and 4 engines embedded in the long-form selector rather than approximating their arrangements with the game's former short oscillator scheduler. Hidden same-origin `srcdoc` frames preserve local-file compatibility and expose the selector's own `selectTune`, `setOctave`, `setVolume`, `play`, `pause`, and `stop` API. Browser pause/focus muting uses the active engine pause control; resuming invokes the same jukebox play path and therefore begins the selected opening again; level changes stop the previous engine, configure the new accepted version/octave, and begin its opening-once pass.
+
+Regression coverage verifies the exact accepted ID order, representative version/octave choices, long-form timing, level schema migration, hidden-engine host wiring, and director volume/mute behavior. The exact selector export is packaged at `assets/music/ignatius_music_selections.json`, and `MUSIC_SOURCES.md` records the catalog and implementation provenance. Browser verification found that the export timing objects repeat generic values for each version rather than the selected tune's live values; this is fixed in the game catalog by querying the exact embedded engine for every accepted tune.
+
+Revision 373 validation: the focused synthesized-music regression passes, and a headless-browser smoke test loaded the exact version 2, 3, and 4 engines, verified live tune selection, chosen octave, playback state, and tune-specific full-pass/loop timing. Game test shards 2–4 pass. The complete shared/game release gate remains blocked only by four files already absent from the supplied revision 372 archive: `devel/enemy-hit-effect-lab.html`, `devel/enemy-hit-effect-lab.js`, `level-editor-2.html`, and `src/tools/level-editor-2.js`.
+
+
+## Revision 374 idempotent gameplay music unlock
+
+Status: implemented.
+
+Revision 373 kept permanent capture-phase `keydown` and `pointerdown` listeners as browser-autoplay fallbacks. A bug in the new jukebox music director treated every one of those ordinary gameplay gestures as a fresh playback request, so walking, jumping, firing, or clicking called the embedded engine's `play()` method again and restarted the long-form arrangement from its opening.
+
+Revision 374 fixes the bug at the music-director boundary. `unlock()` now returns immediately when the selected engine/tune/octave configuration is already playing, and simultaneous unlock requests for the same configuration share one in-flight start promise. Deliberate playback transitions still work: tune changes stop and reconfigure, while pause, mute, and zero-volume suspension mark playback inactive so a later resume invokes the jukebox play path and begins the opening again as documented.
+
+Validation: the focused synthesized-music regression passes and now asserts that repeated gameplay unlock requests do not add engine `play()` calls. A separate delayed-host smoke test also verifies that concurrent unlock requests coalesce into one configure/play sequence and that explicit pause/resume still produces a second play. The complete shared gate remains blocked by the same four files absent from the supplied project archive: `devel/enemy-hit-effect-lab.html`, `devel/enemy-hit-effect-lab.js`, `level-editor-2.html`, and `src/tools/level-editor-2.js`.
+
+
+## Revision 375 cosmetic Background with reciprocal parallax
+
+Status: implemented.
+
+The existing level-placement value `decorBack` is formalized as the user-facing **Background** layer. Level-owned Background artwork is guaranteed to render before terrain and actors even when its authored stack order is high. It is cosmetic by construction: level conversion and atlas-manifest hydration force collision off and discard moving-platform behavior. Entity-local character parts that use the internal `decorBack` role are explicitly excluded from this global layer and remain attached to their actor.
+
+Foreground remains the user-facing name for `caveForeground`; perimeter refers only to the automatic spline decoration process. The Foreground default is adjusted from 1.10 to 1.08. `level.layerVisuals.background.parallax` defaults to the exact reciprocal, `1 / 1.08` (`0.925925…`), producing a balanced slower Background drift. Authors may set either factor to `1.0` for no relative movement.
+
+The runtime and Level Editor now share `computeWorldParallaxOffset`, anchored at the technical world-bounds centre. The editor exposes level-wide Background parallax, friendly layer labels, and direct Background/Foreground placement tools. Background placement preview, hit testing, dragging, selection outlines, labels, and marquee selection invert the same offset used by gameplay, preserving ordinary authored world coordinates.
+
+Validation covers shared defaults, neutral factor 1.0, reciprocal offset direction, level schema values, Background/main/Foreground cache partitioning, entity-local `decorBack` isolation, direct editor placement controls, cave mask behavior, and Canvas world-visual infrastructure.
+
+
+## Revision 376 unified new-asset layer selection
+
+Status: implemented.
+
+The Level Editor no longer presents separate placement tools for Background and Foreground. The Asset palette now owns one explicit **Layer for new assets** dropdown with **Foreground**, **Terrain**, and **Background**, while the toolbar retains one **Place asset** tool. Selecting an asset card enters that same tool without changing the chosen layer.
+
+Preview and placement share one layer-aware path. Foreground points are converted through the cave parallax inverse, Background points through the reciprocal Background inverse, and Terrain points remain ordinary authored world coordinates. Background and Foreground keep their existing inert collision/platform rules, Foreground keeps its cave-decoration scale and treatment defaults, and the perimeter spline, point editing, population, and generated-art controls remain unchanged.
+
+
+## Revision 377 Puppet Forge MP4 motion reference
+
+Status: implemented.
+
+Puppet Forge now supports a temporary MP4 reference video behind the rig for manual rotoscoping and poor-man's motion capture. Authors may load one local MP4 and set video-time offset, X/Y alignment, independent width and height, opacity, visibility, and source looping. The animation playhead remains authoritative, so scrubbing, key stepping, pause/play, preview speed, and animation looping select the corresponding video moment.
+
+Playback uses a muted local object URL and periodically corrects drift against the editor playhead. Paused and scrubbed states seek directly. The video draws before the rig in the same preview zoom, pan, facing, and local-ground coordinate system. Numbered image bundles are deliberately excluded to keep the workflow and synchronization model small and clear.
+
+The reference video is strictly editor-session state. It is not serialized into character, rig, atlas, animation, enemy-catalog, level, or game data; it does not touch local storage or project dirty flags; and it is not packaged as an asset. `src/tools/character-editor/reference-plate.js` contains only the pure video-time, fit, and display-normalization helpers.
+
+Validation: the focused MP4-reference regression covers video-time wrapping and clamping, aspect-ratio fit sizing, display normalization, MP4-only input, timeline ownership, preview-speed synchronization, behind-rig draw order, object-URL lifecycle, and the non-serialization contract. The complete two-shard editor gate passes all 24 tests. A live Chromium run was attempted with both loopback HTTP and `file:` navigation, but this environment blocks both with `ERR_BLOCKED_BY_ADMINISTRATOR`; module syntax and headless editor contracts were therefore used instead. This revision also updates one stale test assertion that still expected Level Editor revision 374. The complete release gate remains blocked by the same four files absent from the supplied project archive: `devel/enemy-hit-effect-lab.html`, `devel/enemy-hit-effect-lab.js`, `level-editor-2.html`, and `src/tools/level-editor-2.js`.
+
+## Revision 378 Mountain King melody continuity
+
+Status: implemented.
+
+The orchestrated version of **In the Hall of the Mountain King** contained every encoded melody note in its primary cello-pizzicato voice, but its bassoon support copied only alternating notes plus the final long note. Long-form development then treated that bassoon line as ordinary accompaniment and could thin it further. The resulting uneven octave doubling made the melody's timbre jump between instruments and could be perceived as dropped notes.
+
+Revision 378 keeps jukebox engine 2, the existing cello-pizzicato and bassoon instruments, all melody pitches and note starts, the tempo curve, octave selection, full-pass duration, and musical loop point. The bassoon now shadows every primary melody note at a lower gain, and the long-form builder preserves marked melody-support voices while continuing to thin ordinary accompaniment. This is a tune-specific orchestration repair, not an engine-version change.
+
+Regression coverage decodes the packaged engine-2 source and requires full-note Mountain King support, protection from sparse accompaniment development, and absence of the former alternating-note copy. The wider release gate remains subject to the four developer files absent from the supplied project archive.
+
+## Revision 379 harmonized layer visuals and softer Mountain King support
+
+Status: implemented.
+
+The Level Editor removes the obsolete **Canvas baseline** and **Editor 2 lab** links while retaining the baseline files for posterity. Level metadata now owns matching **Foreground** and **Background** groups. Each group exposes Parallax, Brightness, and Scale. Revision 379 initially represented brightness and scale as neutral layer multipliers; revision 381 supersedes that data shape by folding the existing Foreground treatment into the visible values. Foreground parallax defaults to `1.08`, and Background parallax defaults to the exact reciprocal. The cave window panel is narrowed to cave geometry, feathering, spline editing, and perimeter population. Generated perimeter artwork remains Foreground and therefore receives the same layer-wide visual settings.
+
+The grouped `level.layerVisuals` record is authoritative. Runtime conversion bakes layer scale around every placement centre, carries Background brightness into its atlas rendering pass, multiplies Foreground brightness with any per-placement perimeter treatment, and mirrors the parallax values into the legacy Background and cave-window fields for compatibility. Editor rendering, culling, hit testing, dragging, and placement previews use the same scaled bounds and parallax transforms.
+
+Mountain King remains jukebox engine 2 with the same cello, bassoon, notes, octave, tempo curve, full-pass duration, and loop point. Its complete octave-up bassoon support is reduced from gain `0.18` to `0.13` and receives a tune-specific darker cutoff plus slower attack, decay, and release. The intent is to keep the restored melody continuity while removing the hard, short high-register edge.
+
+
+## Revision 380 retire the enemy-hit diagnostic laboratory
+
+The enemy-hit browser laboratory has served its purpose and is now retired. Its HTML/module paths are forbidden from reappearing in compact packages, the packager no longer requires them, and the dedicated testbench contract plus manifest entry are removed. Production enemy-hit flashes and impact behavior remain under the normal Canvas/WebGL renderer and portable-simulation tests. This removes the stale missing-file release-gate failure without deleting any production effect implementation.
+
+
+## Revision 381 make Foreground visual values truthful
+
+The cosmetic-layer panel previously showed Foreground brightness and scale as `1` even though cave-decoration defaults still darkened each placement and authored it at 2× size. This was fixed immediately rather than leaving two competing visual systems. `level.layerVisuals` version 2 now exposes the complete Foreground treatment. Existing shipped levels preserve their exact on-screen rectangles and brightness while showing `0.4 / 2.0` for level 001 and `0.46 / 2.0` for level 002.
+
+Legacy import folds cave-decoration brightness and scale into the visible Foreground controls, converts stored rectangles back to base dimensions around their original centres, and removes per-placement brightness. New manual and generated Foreground records are base-sized. The cave generator still uses effective size for density, protection, and coverage calculations. The explanatory paragraph beneath the controls is removed; native tooltips explain each field without consuming inspector height.
+
+## Revision 382 harmonized Level Editor sidebar
+
+Status: implemented.
+
+The Level Editor right sidebar now follows one deliberate authoring sequence: **Level**, **Metadata**, **Layers**, **Perimeter**, **Colormap**, **Generator**, **Autospawner**, **Navigation graphs**, **Entity palette**, **Asset palette**, **Placed objects**, **Selected object**, and finally **View**. The previous long-form headings are shortened to reduce visual noise while preserving every control and its existing behavior.
+
+Cosmetic-layer controls are no longer nested under Metadata. Foreground and Background Parallax, Brightness, and Scale now occupy their own adjacent **Layers** panel immediately after Metadata. The **Perimeter** panel remains solely responsible for cave-window geometry, spline editing, feathering, gradient behavior, and automatic perimeter decoration. No level schema or runtime behavior changes in this revision.
+
+Validation adds a source-contract regression for the exact panel order, concise headings, dedicated Layers panel, and retirement of the former sidebar labels.
+
+## Revision 383 stable layer controls and scaled Foreground selection
+
+Status: implemented.
+
+The Level Editor was incorrectly feeding the six visible layer controls back through the legacy Foreground migration path without a schema version. Every persistence-triggering action therefore multiplied Foreground brightness by the old cave brightness and Foreground scale by the old cave scale. Repeated perimeter population or clearing drove the visible controls toward their clamps, typically brightness `0.05` and scale `5`. This bug was fixed by committing editor-authored controls as canonical `level.layerVisuals` version 2 values. Revision 384 then removes the old cave-brightness/scale migration entirely; bundled levels are patched rather than translated at load time.
+
+Foreground asset guides and selection outlines also used the authored base rectangle while rendering used the layer-scaled rectangle. Both now use `displayedLayerPlacement`, including its layer scale, parallax offset, centre, and rotation. Hit testing and marquee selection already used this path and remain unchanged. Populate perimeter and Clear generated now change generated records only; they do not alter Foreground or Background parallax, brightness, or scale.
+
+
+## Revision 384 current-level-only schemas and legacy-level cleanup
+
+Status: implemented.
+
+The project now has an explicit current-level-only policy. Every supported campaign level and test fixture is bundled with the repository, so future schema changes must patch those files atomically instead of teaching runtime or editor code to understand historical formats. `AGENTS.md`, the developer manual, and architecture notes now prohibit old field aliases, compatibility mirrors, import migrations, retired entity translations, and strip-on-load branches for level data.
+
+The remaining concrete old-level support found by the audit is removed. Cosmetic layer visuals are canonical only in `level.layerVisuals`; cave-window and generator records no longer strip or translate retired presentation fields; moving platforms accept only the current scalar fields; and the unused `monsterSpawn` and generic `trigger` records are removed from the Level Editor palette because no bundled level uses them and portable runtime has no behavior for them. All bundled levels and the stress fixture are current-schema records.
+
+Obsolete migration tests are removed or converted into negative source-contract guards. Tests now prove canonical bundled data and verify that retired migration code, mirrored visual fields, retired cavern profiles, and unsupported palette records remain absent. Non-level compatibility, including browser settings and retained entry-page redirects, is intentionally outside this rule.
+
+
+## Revision 385 perimeter-owned cave fade
+
+Status: implemented.
+
+Foreground frames previously cached an outward-to-black linear gradient using per-placement `foregroundOutwardX`, `foregroundOutwardY`, `foregroundFadeStart`, and `foregroundFadeEnd`. That treatment followed the sprite when it was moved away from the perimeter, and manual Foreground placement could receive the same baked darkness. The result looked useful at the cave edge but incorrect anywhere else.
+
+Revision 385 removes the sprite-local gradient and all four placement fields from the generator, editor, runtime conversion, shipped levels, and stress fixture. `foreground-sprite-treatment.js` now caches only brightness and saturation. The existing cave-window mask remains after Background, actors, and Foreground in the render order and continues to provide the same broad organic transparent-to-black handover in world space. Assets at the perimeter still fade into darkness, while moved assets immediately render without a gradient attached to them. Tests guard both the clean sprite treatment and the absence of the retired placement fields.

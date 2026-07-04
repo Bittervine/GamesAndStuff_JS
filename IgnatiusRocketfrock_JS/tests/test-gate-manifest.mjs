@@ -26,7 +26,6 @@ export const TEST_SHARDS = Object.freeze({
             "state serialization and cloning",
             "rocket projectile renderer exists",
             "wizard atlas includes dedicated projectile rocket",
-            "enemy hit effect stutter lab",
             "enemy projectile impact fx remain economical",
             "enemy projectile player hit carries small wizard accent flag",
             "enemy projectile visual language renderer contract"
@@ -52,6 +51,7 @@ export const TEST_SHARDS = Object.freeze({
             "character project dirty tracking",
             "character tool direct transform geometry",
             "character parent pivot constraints",
+            "character MP4 motion reference",
             "character part Color Exchange",
             "data-driven wizard run animation",
             "animation editor keyframe operations",

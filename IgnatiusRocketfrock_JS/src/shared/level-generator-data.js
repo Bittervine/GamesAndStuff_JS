@@ -2,6 +2,7 @@ import {
     CAVE_PERIMETER_GENERATOR,
     generateCavePerimeterPlacements
 } from "./cave-window-decoration.js";
+import { normalizeLevelLayerVisuals } from "./level-layer-data.js";
 import { parseEnemySelection } from "./enemy-pool-data.js";
 export { parseEnemySelection } from "./enemy-pool-data.js";
 
@@ -1310,11 +1311,16 @@ function generatedDecorationProtectionRegions({ traversal, endpoints, rewards, t
     return regions;
 }
 
-function rotatedPlacementBounds(placement) {
-    const x = finiteNumber(placement?.x, 0);
-    const y = finiteNumber(placement?.y, 0);
-    const w = Math.max(0, finiteNumber(placement?.w, 0));
-    const h = Math.max(0, finiteNumber(placement?.h, 0));
+function rotatedPlacementBounds(placement, scale = 1) {
+    const authoredX = finiteNumber(placement?.x, 0);
+    const authoredY = finiteNumber(placement?.y, 0);
+    const authoredW = Math.max(0, finiteNumber(placement?.w, 0));
+    const authoredH = Math.max(0, finiteNumber(placement?.h, 0));
+    const normalizedScale = Math.max(0.1, finiteNumber(scale, 1));
+    const w = authoredW * normalizedScale;
+    const h = authoredH * normalizedScale;
+    const x = authoredX + (authoredW - w) * 0.5;
+    const y = authoredY + (authoredH - h) * 0.5;
     const rotation = finiteNumber(placement?.rotation, 0);
     const centerX = x + w * 0.5;
     const centerY = y + h * 0.5;
@@ -1342,6 +1348,7 @@ function buildGeneratedPerimeterDecoration({
     seed,
     stageRevisions,
     runId,
+    foregroundScale,
     requirePerimeter = false
 }) {
     const enabled = theme.decoration.populatePerimeter && implementations.decoration === "perimeter-decoration-v1";
@@ -1384,6 +1391,7 @@ function buildGeneratedPerimeterDecoration({
         firstOrder: 30000,
         protectedRegions,
         idPrefix: `generated_cave_fg_${runId}`,
+        foregroundScale,
         ownership: {
             generatedBy: AUTOMATIC_LEVEL_GENERATOR_ID,
             generationRunId: runId,
@@ -1394,7 +1402,7 @@ function buildGeneratedPerimeterDecoration({
     });
     const strictRegions = protectedRegions.filter((region) => region.strict);
     const placements = generatedPlacements.filter((placement) => {
-        const bounds = rotatedPlacementBounds(placement);
+        const bounds = rotatedPlacementBounds(placement, foregroundScale);
         return !strictRegions.some((region) => boundsOverlapRect(bounds, region));
     });
     return {
@@ -1426,6 +1434,7 @@ export function validateGeneratedCavernPresentation(value = {}) {
     const errors = [];
     const warnings = [];
     const placements = Array.isArray(decoration.placements) ? decoration.placements : [];
+    const foregroundScale = Math.max(0.1, finiteNumber(value.foregroundScale, 1));
     const supportPlacements = Array.isArray(traversal.placements) ? traversal.placements : [];
     const strictRegions = generatedDecorationProtectionRegions({ traversal, endpoints, rewards, theme })
         .filter((region) => region.strict);
@@ -1452,7 +1461,7 @@ export function validateGeneratedCavernPresentation(value = {}) {
     }
 
     for (const placement of placements) {
-        const bounds = rotatedPlacementBounds(placement);
+        const bounds = rotatedPlacementBounds(placement, foregroundScale);
         for (const region of strictRegions) {
             if (!boundsOverlapRect(bounds, region)) continue;
             metrics.strictForegroundOverlapCount += 1;
@@ -1470,7 +1479,7 @@ export function validateGeneratedCavernPresentation(value = {}) {
         };
         const supportArea = Math.max(1, (supportRect.maxX - supportRect.minX) * (supportRect.maxY - supportRect.minY));
         let overlapArea = 0;
-        for (const placement of placements) overlapArea += rectangleIntersectionArea(supportRect, rotatedPlacementBounds(placement));
+        for (const placement of placements) overlapArea += rectangleIntersectionArea(supportRect, rotatedPlacementBounds(placement, foregroundScale));
         const coverage = Math.min(1, overlapArea / supportArea);
         if (coverage > 0.0001) metrics.touchedSupportCount += 1;
         metrics.maximumSupportForegroundCoverage = Math.max(metrics.maximumSupportForegroundCoverage, coverage);
@@ -1737,6 +1746,10 @@ export function generateAutomaticLevelDraft(options = {}) {
     );
     const selected = completeCandidates[0];
     const { routeGeneration, traversal, endpoints, cavern, world, encounters, rewards, validation } = selected;
+    const layerVisuals = normalizeLevelLayerVisuals({
+        version: 2,
+        foreground: { brightness: 0.46 }
+    });
     const decoration = buildGeneratedPerimeterDecoration({
         implementations,
         theme,
@@ -1748,6 +1761,7 @@ export function generateAutomaticLevelDraft(options = {}) {
         seed: routeGeneration.seed,
         stageRevisions: routeGeneration.stageRevisions,
         runId: routeGeneration.runId,
+        foregroundScale: layerVisuals.foreground.scale,
         requirePerimeter: Boolean(options.requirePopulatedPerimeter) && implementations.validation === "the-path74-cavern-validation-v4"
     });
     const presentationValidation = validateGeneratedCavernPresentation({
@@ -1757,6 +1771,7 @@ export function generateAutomaticLevelDraft(options = {}) {
         rewards,
         decoration,
         theme,
+        foregroundScale: layerVisuals.foreground.scale,
         requirePerimeter: Boolean(options.requirePopulatedPerimeter) && implementations.validation === "the-path74-cavern-validation-v4"
     });
     if (!presentationValidation.valid) {
@@ -1847,6 +1862,7 @@ export function generateAutomaticLevelDraft(options = {}) {
         generation,
         placements: placements.map((placement) => JSON.parse(JSON.stringify(placement))),
         entities: [...endpoints.entities, ...encounters.entities, ...rewards.entities].map((entity) => JSON.parse(JSON.stringify(entity))),
+        layerVisuals: JSON.parse(JSON.stringify(layerVisuals)),
         caveWindow: JSON.parse(JSON.stringify(cavern.caveWindow)),
         world: JSON.parse(JSON.stringify(world)),
         requiredAtlasIds: [...new Set([
@@ -5712,7 +5728,6 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
             version: 1,
             enabled: true,
             feather: 200,
-            parallax: 1.08,
             gradientNoise: {
                 seed: hashGeneratorSeed(`${seed}:gradient:${runId}`) % 1000000,
                 amplitude: 50,
@@ -5720,8 +5735,6 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
             },
             decoration: {
                 seed: hashGeneratorSeed(`${seed}:cavern:${runId}`) % 1000000,
-                scale: 2,
-                brightness: 0.46,
                 saturation: 0.68
             },
             points
@@ -6032,9 +6045,7 @@ export function routeGraphBounds(route, padding = 180) {
 
 function normalizeGeneratedCavernRecord(value) {
     if (!value || typeof value !== "object") return undefined;
-    const cavern = JSON.parse(JSON.stringify(value));
-    delete cavern.profile;
-    return cavern;
+    return JSON.parse(JSON.stringify(value));
 }
 
 export function normalizeLevelGeneration(value) {

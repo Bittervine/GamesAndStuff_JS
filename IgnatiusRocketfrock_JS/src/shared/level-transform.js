@@ -1,12 +1,8 @@
 export const LEVEL_BACKGROUND_COLOR = "rgb(6, 6, 12)";
 
-export function normalizeRotationRadians(value, fallbackDegrees = 0) {
+export function normalizeRotationRadians(value) {
     const numeric = Number(value);
-    if (Number.isFinite(numeric)) {
-        return numeric;
-    }
-    const degrees = Number(fallbackDegrees);
-    return Number.isFinite(degrees) ? degrees * Math.PI / 180 : 0;
+    return Number.isFinite(numeric) ? numeric : 0;
 }
 
 export function placementCenter(placement) {
@@ -38,7 +34,7 @@ export function placementLocalToWorld(placement, localX, localY) {
     const center = placementCenter(placement);
     const w = Math.max(0, Number(placement?.w) || 0);
     const h = Math.max(0, Number(placement?.h) || 0);
-    const rotation = normalizeRotationRadians(placement?.rotation, placement?.angle);
+    const rotation = normalizeRotationRadians(placement?.rotation);
     const dx = Number(localX) - w * 0.5;
     const dy = Number(localY) - h * 0.5;
     const cosine = Math.cos(rotation);
@@ -53,7 +49,7 @@ export function worldToPlacementLocal(placement, worldX, worldY) {
     const center = placementCenter(placement);
     const w = Math.max(0, Number(placement?.w) || 0);
     const h = Math.max(0, Number(placement?.h) || 0);
-    const rotation = normalizeRotationRadians(placement?.rotation, placement?.angle);
+    const rotation = normalizeRotationRadians(placement?.rotation);
     const dx = Number(worldX) - center.x;
     const dy = Number(worldY) - center.y;
     const cosine = Math.cos(rotation);

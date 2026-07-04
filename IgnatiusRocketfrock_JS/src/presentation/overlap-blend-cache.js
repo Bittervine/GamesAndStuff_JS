@@ -133,7 +133,7 @@ function drawVisualIntoGroup(layerContext, visual, atlas, frame, groupBounds) {
     layerContext.save();
     layerContext.globalAlpha = finiteNumber(visual.alpha, 1);
     layerContext.translate(localX, localY);
-    layerContext.rotate(normalizeRotationRadians(visual.rotation, visual.angle));
+    layerContext.rotate(normalizeRotationRadians(visual.rotation));
     layerContext.scale(visual.mirrorX ? -1 : 1, visual.mirrorY ? -1 : 1);
     layerContext.drawImage(
         atlas.renderImage || atlas.image,

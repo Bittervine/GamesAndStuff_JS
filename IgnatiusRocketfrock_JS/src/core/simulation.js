@@ -6,6 +6,11 @@ import {
 import { atlasNodeToPlacementWorld, normalizeRotationRadians } from "../shared/level-transform.js";
 import { characterEnemyMeleeAttackRect, enemyProjectileHitbox } from "../shared/actor-geometry.js";
 import { normalizeLevelColorMap } from "../shared/level-color-map-data.js";
+import {
+    BACKGROUND_LAYER,
+    CAVE_FOREGROUND_LAYER_ID,
+    normalizeLevelLayerVisuals
+} from "../shared/level-layer-data.js";
 import { normalizeCaveWindow } from "../shared/cave-window-data.js";
 import {
     deriveCaveFullBlackKillBoundary,
@@ -514,6 +519,7 @@ function createTestArena(tuning) {
         signalChannels: {},
         signalEmitters: [],
         signalReceivers: [],
+        layerVisuals: normalizeLevelLayerVisuals(null),
         caveWindow: normalizeCaveWindow(null),
         caveKillBoundary: deriveCaveFullBlackKillBoundary(null),
         solids,
@@ -536,7 +542,7 @@ export function applyAtlasManifestsToWorld(state, environmentManifests) {
     const visuals = Array.isArray(state.world.visuals) ? state.world.visuals : [];
 
     for (const visual of visuals) {
-        if (visual.kind !== "atlasSprite" || visual.collisionFromManifest === false || visual.layer === "caveForeground") {
+        if (visual.kind !== "atlasSprite" || visual.collisionFromManifest === false || (visual.layer === CAVE_FOREGROUND_LAYER_ID || (visual.layer === BACKGROUND_LAYER && !visual.entityId))) {
             continue;
         }
 
@@ -898,8 +904,6 @@ function editorEntityVisuals(entity) {
     const selected = states ? states[entity.state] || states[Object.keys(states)[0]] : null;
     if (Array.isArray(selected)) return selected;
     if (Array.isArray(selected?.visuals)) return selected.visuals;
-    if (Array.isArray(entity.visuals)) return entity.visuals;
-    if (entity.visual && typeof entity.visual === "object") return [entity.visual];
     return [];
 }
 
@@ -919,19 +923,19 @@ function editorEntityVisualToWorld(entity, visual, index, stateName = entity.sta
         kind: "atlasSprite",
         atlasId: normalizeAtlasId(visual.atlasId || "it_atlas_001"),
         assetId: visual.assetId,
-        frame: visual.frame || visual.assetId,
+        frame: visual.assetId,
         x: (Number(entity.x) || 0) + offsetX - w * 0.5,
         y: (Number(entity.y) || 0) + offsetY - h * floorAnchorYFactor,
         w,
         h,
         mirrorX: Boolean(entity.mirrorX) !== Boolean(visual.mirrorX),
         mirrorY: Boolean(entity.mirrorY) !== Boolean(visual.mirrorY),
-        rotation: normalizeRotationRadians(visual.rotation, visual.angle) + normalizeRotationRadians(entity.rotation, entity.angle),
+        rotation: normalizeRotationRadians(visual.rotation) + normalizeRotationRadians(entity.rotation),
         alpha: Number(visual.alpha ?? 1),
         layer: visual.layer || "decorFront",
         collisionFromManifest: entity.collisionFromManifest !== false && visual.collisionFromManifest !== false,
         entityId: entity.id || "",
-        entityType: entity.type || entity.kind || "",
+        entityType: entity.type || "",
         entityState: stateName || ""
     };
 }
@@ -958,7 +962,7 @@ export function setWorldEntityState(state, entityId, nextState) {
 }
 
 function isReactiveWorldEntity(entity) {
-    const type = String(entity?.type || entity?.kind || "");
+    const type = String(entity?.type || "");
     return entity?.reactiveKind === "destructible" ||
         type === "breakableCrate" ||
         type === "destructibleBarrier";
@@ -1030,11 +1034,11 @@ function setReactiveObjectState(state, object, nextState) {
 }
 
 function isWizardEntryDoor(entity) {
-    return Boolean(entity) && (entity.type === "wizard_entry_door" || entity.kind === "wizard_entry_door");
+    return Boolean(entity) && entity.type === "wizard_entry_door";
 }
 
 function isWizardExitDoor(entity) {
-    return Boolean(entity) && (entity.type === "wizard_exit_door" || entity.kind === "wizard_exit_door");
+    return Boolean(entity) && entity.type === "wizard_exit_door";
 }
 
 function hasLivingBoss(state) {
@@ -1423,9 +1427,9 @@ function updatePortalExit(state, dt) {
 
 function mailboxStoryEntities(entities) {
     return (entities || []).filter((entity) => {
-        const mailbox = (entity.type === "mailbox" || entity.kind === "mailbox")
+        const mailbox = entity.type === "mailbox"
             && (entity.interaction === "editorLetter" || entity.mailboxRole === "editorLetter");
-        const locationThought = (entity.type === "thoughtTrigger" || entity.kind === "thoughtTrigger")
+        const locationThought = entity.type === "thoughtTrigger"
             && entity.interaction === "locationThought";
         return mailbox || locationThought;
     });
@@ -1898,7 +1902,7 @@ function updatePickups(state) {
 }
 
 function treasureChestLike(entity) {
-    const type = String(entity?.type || entity?.kind || "");
+    const type = String(entity?.type || "");
     return type === "treasureChest" || entity?.interaction === "openChest";
 }
 
@@ -2738,7 +2742,9 @@ export function applyEditorLevelToWorld(state, editorLevel) {
     random.levelLoadCount += 1;
     const source = editorLevel.level || editorLevel;
     const autoSpawnEnemies = normalizeAutoSpawnEnemies(source.autoSpawnEnemies);
-    const caveWindow = normalizeCaveWindow(source.caveWindow || source.visuals?.caveWindow);
+    const caveWindow = normalizeCaveWindow(source.caveWindow);
+    const layerVisuals = normalizeLevelLayerVisuals(source.layerVisuals);
+    caveWindow.parallax = layerVisuals.foreground.parallax;
     const caveKillBoundary = deriveCaveFullBlackKillBoundary(caveWindow);
     const placements = Array.isArray(source.placements) ? source.placements : [];
     const entities = Array.isArray(source.entities) ? source.entities : [];
@@ -2771,36 +2777,47 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             continue;
         }
 
-        if (placement.kind !== "atlasAsset" && placement.kind !== "asset") {
+        if (placement.kind !== "atlasAsset") {
             continue;
         }
-        const assetId = placement.assetId || placement.frame;
+        const assetId = placement.assetId;
         if (!assetId) {
             continue;
         }
         const layer = placement.layer || "terrain";
-        const movement = layer === "caveForeground" ? null : normalizeMovingPlatform(placement.movement);
+        const foreground = layer === CAVE_FOREGROUND_LAYER_ID;
+        const background = layer === BACKGROUND_LAYER;
+        const inertCosmetic = background || foreground;
+        const movement = inertCosmetic ? null : normalizeMovingPlatform(placement.movement);
+        const authoredX = Number(placement.x) || 0;
+        const authoredY = Number(placement.y) || 0;
+        const authoredW = Math.max(1, Number(placement.w) || 64);
+        const authoredH = Math.max(1, Number(placement.h) || 64);
+        const layerScale = foreground
+            ? layerVisuals.foreground.scale
+            : background
+                ? layerVisuals.background.scale
+                : 1;
+        const width = authoredW * layerScale;
+        const height = authoredH * layerScale;
         visuals.push({
             id: placement.id || `${assetId}_${visuals.length}`,
             kind: "atlasSprite",
-            atlasId: normalizeAtlasId(placement.atlasId || source.atlasId || "at_atlas_001"),
+            atlasId: normalizeAtlasId(placement.atlasId || "at_atlas_001"),
             assetId,
-            frame: placement.frame || assetId,
-            x: Number(placement.x) || 0,
-            y: Number(placement.y) || 0,
-            w: Math.max(1, Number(placement.w) || 64),
-            h: Math.max(1, Number(placement.h) || 64),
+            frame: assetId,
+            x: authoredX + (authoredW - width) * 0.5,
+            y: authoredY + (authoredH - height) * 0.5,
+            w: width,
+            h: height,
             mirrorX: Boolean(placement.mirrorX),
             mirrorY: Boolean(placement.mirrorY),
-            rotation: normalizeRotationRadians(placement.rotation, placement.angle),
+            rotation: normalizeRotationRadians(placement.rotation),
             layer,
-            collisionFromManifest: layer === "caveForeground" ? false : placement.collisionFromManifest !== false,
-            foregroundBrightness: Number.isFinite(Number(placement.foregroundBrightness)) ? Number(placement.foregroundBrightness) : undefined,
+            collisionFromManifest: inertCosmetic ? false : placement.collisionFromManifest !== false,
+            foregroundBrightness: foreground ? layerVisuals.foreground.brightness : undefined,
             foregroundSaturation: Number.isFinite(Number(placement.foregroundSaturation)) ? Number(placement.foregroundSaturation) : undefined,
-            foregroundOutwardX: Number.isFinite(Number(placement.foregroundOutwardX)) ? Number(placement.foregroundOutwardX) : undefined,
-            foregroundOutwardY: Number.isFinite(Number(placement.foregroundOutwardY)) ? Number(placement.foregroundOutwardY) : undefined,
-            foregroundFadeStart: Number.isFinite(Number(placement.foregroundFadeStart)) ? Number(placement.foregroundFadeStart) : undefined,
-            foregroundFadeEnd: Number.isFinite(Number(placement.foregroundFadeEnd)) ? Number(placement.foregroundFadeEnd) : undefined,
+            backgroundBrightness: background ? layerVisuals.background.brightness : undefined,
             alpha: Number.isFinite(Number(placement.alpha)) ? Number(placement.alpha) : undefined,
             generatedBy: placement.generatedBy || undefined,
             caveCategory: placement.caveCategory || undefined,
@@ -2816,7 +2833,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         });
     }
     const enemySpawners = runtimeEntities
-        .filter((entity) => String(entity?.type || entity?.kind || "") === "enemySpawner")
+        .filter((entity) => String(entity?.type || "") === "enemySpawner")
         .map((entity, index) => {
             const config = normalizeEnemySpawner(entity);
             return {
@@ -2824,8 +2841,8 @@ export function applyEditorLevelToWorld(state, editorLevel) {
                 entityId: String(entity.id || `enemy_spawner_${index + 1}`),
                 x: Number(entity.x) || 0,
                 y: Number(entity.y) || 0,
-                width: Math.max(1, Number(entity.w) || Number(entity.width) || 64),
-                height: Math.max(1, Number(entity.h) || Number(entity.height) || 64),
+                width: Math.max(1, Number(entity.w) || 64),
+                height: Math.max(1, Number(entity.h) || 64),
                 groundSnapDistance: Math.max(24, Number(entity.groundSnapDistance) || 96),
                 disableSignalChannel: entity.disableSignalChannel ? normalizeSignalChannel(entity.disableSignalChannel) : null,
                 ...config,
@@ -2845,19 +2862,20 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         return false;
     }
 
-    const bounds = source.world?.bounds || source.bounds || estimateEditorLevelBounds(visuals, playerStart, entities);
+    const bounds = source.world?.bounds || estimateEditorLevelBounds(visuals, playerStart, entities);
     const atlasManifests = Array.isArray(source.atlasRefs)
         ? source.atlasRefs.map((ref) => ref.manifest).filter(Boolean).map(normalizeAtlasManifestPath)
         : ["assets/at_atlas_001.json"];
     state.world = {
         ...state.world,
-        levelId: source.levelId || source.id || "browser_copy_playtest",
+        levelId: source.levelId || "browser_copy_playtest",
         bounds,
-        resetY: Number(source.world?.resetY ?? source.resetY) || bounds.y + bounds.h + 240,
+        resetY: Number(source.world?.resetY) || bounds.y + bounds.h + 240,
         start: playerStart ? { x: Number(playerStart.x) || 120, y: Number(playerStart.y) || 360 } : state.world.start,
         atlasManifests,
         colorMap: normalizeLevelColorMap(source.colorMap),
         music: normalizeLevelMusic(source.music),
+        layerVisuals,
         autoSpawnEnemies: {
             ...autoSpawnEnemies,
             intervalSeconds: 1,
@@ -2917,7 +2935,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
     configureMailboxStory(state, runtimeEntities);
     configureSignalSystem(state, runtimeEntities);
 
-    const targetLike = (entity) => entity.type === "targetDummy" || entity.kind === "targetDummy";
+    const targetLike = (entity) => entity.type === "targetDummy";
     const targetDummies = runtimeEntities.filter(targetLike).map((entity, index) => {
         const x = Number(entity.x) || 0;
         const y = Number(entity.y) || 0;
@@ -2952,7 +2970,6 @@ export function applyEditorLevelToWorld(state, editorLevel) {
 
     const characterEnemyLike = (entity) =>
         entity.type === "characterEnemy" ||
-        entity.kind === "characterEnemy" ||
         (entity.type === "enemy" && (entity.characterId || entity.characterProject));
     const characterEnemies = runtimeEntities.filter(characterEnemyLike).map((entity, index) =>
         createCharacterEnemyRuntime(state, entity, index)
@@ -2960,7 +2977,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
     state.enemies = [...targetDummies, ...characterEnemies];
 
     const pickupLike = (entity) => {
-        const type = String(entity.type || entity.kind || "");
+        const type = String(entity.type || "");
         return Boolean(entity.pickupKind) || Boolean(entity.effectId) || Array.isArray(entity.randomEffectIds) || [
             "fuel",
             "fuelPickup",
@@ -2977,7 +2994,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         ].includes(type);
     };
     state.pickups = runtimeEntities.filter(pickupLike).map((entity, index) => {
-        const type = String(entity.type || entity.kind || "");
+        const type = String(entity.type || "");
         const randomEffectIds = type === "randomWrenchPickup" || Array.isArray(entity.randomEffectIds)
             ? normalizedRandomEffectPool(entity.randomEffectIds)
             : [];
@@ -2997,10 +3014,10 @@ export function applyEditorLevelToWorld(state, editorLevel) {
                 glowTint: randomEffectIds.length ? undefined : entity.glowTint
             })
             : null;
-        const pickupKind = String(entity.pickupKind || (type === "fuel" ? "fuel" : entity.kind || type || "item"));
+        const pickupKind = String(entity.pickupKind || (type === "fuel" ? "fuel" : type || "item"));
         const kind = powerUp ? "powerUp" : (pickupKind === "fuel" ? "fuel" : "item");
-        const width = Math.max(1, Number(entity.w) || Number(entity.width) || (powerUp ? 96 : 42));
-        const height = Math.max(1, Number(entity.h) || Number(entity.height) || (powerUp ? 96 : 80));
+        const width = Math.max(1, Number(entity.w) || (powerUp ? 96 : 42));
+        const height = Math.max(1, Number(entity.h) || (powerUp ? 96 : 80));
         const respawnSeconds = powerUp
             ? Math.max(0, finiteNumberOr(entity.respawnSeconds, 60))
             : Math.max(0, finiteNumberOr(entity.respawnSeconds, 0));
@@ -3031,8 +3048,8 @@ export function applyEditorLevelToWorld(state, editorLevel) {
 
     state.score = normalizedScore(state);
     state.treasureChests = runtimeEntities.filter(treasureChestLike).map((entity, index) => {
-        const width = Math.max(1, Number(entity.w) || Number(entity.width) || 130);
-        const height = Math.max(1, Number(entity.h) || Number(entity.height) || 150);
+        const width = Math.max(1, Number(entity.w) || 130);
+        const height = Math.max(1, Number(entity.h) || 150);
         const authoredState = String(entity.state || "openLoot");
         const collected = entity.collected === true || authoredState === "openEmpty";
         return {
@@ -3069,11 +3086,11 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             id: entity.id || `reactiveObject_${index + 1}`,
             entityId: entity.id || `reactiveObject_${index + 1}`,
             kind: String(entity.reactiveKind || "destructible"),
-            type: String(entity.type || entity.kind || "reactiveObject"),
+            type: String(entity.type || "reactiveObject"),
             x: Number(entity.x) || 0,
             y: Number(entity.y) || 0,
-            width: Math.max(1, Number(entity.w) || Number(entity.width) || 80),
-            height: Math.max(1, Number(entity.h) || Number(entity.height) || 80),
+            width: Math.max(1, Number(entity.w) || 80),
+            height: Math.max(1, Number(entity.h) || 80),
             health,
             maxHealth,
             state: health <= 0 ? "destroyed" : initialState,

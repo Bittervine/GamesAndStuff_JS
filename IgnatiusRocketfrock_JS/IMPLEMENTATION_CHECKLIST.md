@@ -3653,3 +3653,145 @@ Revision 347 re-voices the alternate synthesized tunes rather than applying one 
 - [x] Add catalog regression tests covering both modular human variants.
 - [x] Synchronize visible revision labels to 372.
 
+
+
+## Revision 373 accepted long-form jukebox music
+
+- [x] Replace the four-tune short-loop catalog with silence plus the 18 JSON-accepted tunes.
+- [x] Preserve each accepted tune's selected engine version and octave, then measure full-pass timing, loop point, repeat duration, and section count from the exact live engine.
+- [x] Embed only jukebox engines 2, 3, and 4 because those are the versions used by accepted entries.
+- [x] Run the exact engines in hidden same-origin `srcdoc` frames so hosted and local-file builds behave the same.
+- [x] Route level changes, game volume, pause/focus mute, resume, silence, and disposal through the engine API.
+- [x] Update authored levels to music metadata version 2 and expose only accepted choices in the Level Editor.
+- [x] Package the exact selector export and update music provenance documentation.
+- [x] Add regression coverage for catalog order, representative version/octave selections, long-form timing, host wiring, and mute/resume controls.
+
+
+## Revision 374 music restart regression
+
+- [x] Keep browser autoplay-recovery gesture listeners without turning movement or jump input into repeated transport commands.
+- [x] Make `musicDirector.unlock()` a no-op when the same configured tune is already playing.
+- [x] Coalesce simultaneous unlock requests for one tune/version/octave into a single configure/play attempt.
+- [x] Mark playback inactive on mute, pause, zero volume, tune change, and disposal.
+- [x] Preserve deliberate pause/resume behavior, where the jukebox engine starts the selected opening again.
+- [x] Add regression coverage proving repeated gameplay gestures do not increase engine `play()` calls.
+- [x] Synchronize visible revision labels to 374.
+
+
+## Revision 375 cosmetic Background and parallax
+
+- [x] Rename user-facing `decorBack` to **Background** and `caveForeground` to **Foreground** without breaking serialized IDs.
+- [x] Add a dedicated Background placement tool and level-wide `backgroundParallax` editor field.
+- [x] Set Foreground default parallax to 1.08 and Background default to the exact reciprocal `1 / 1.08`.
+- [x] Keep 1.0 as the neutral no-parallax value.
+- [x] Render level Background artwork before ordinary terrain regardless of authored stack order.
+- [x] Force Background and Foreground placements to be non-colliding and non-moving during portable level conversion.
+- [x] Keep entity-local `decorBack` character parts in the actor pass rather than the global parallax Background.
+- [x] Reuse one world-bounds-centred parallax formula in gameplay and the Level Editor.
+- [x] Apply inverse parallax to editor placement, hit testing, dragging, guides, labels, and marquee selection.
+- [x] Add focused regression coverage and synchronize visible revision labels to 375.
+
+
+## Revision 376 unified asset placement layer control
+
+- [x] Replace the separate Background and Foreground placement buttons with one **Layer for new assets** dropdown in the Asset palette.
+- [x] Keep one shared **Place asset** tool and make asset-card selection enter that tool without overwriting the dropdown choice.
+- [x] Route preview and committed placement through the same Foreground, Terrain, or Background layer decision.
+- [x] Preserve inverse parallax authoring transforms and inert collision/platform enforcement for cosmetic layers.
+- [x] Leave the complete cave perimeter spline and automatic population workflow unchanged.
+- [x] Update manuals, regression contracts, and visible revision labels to 376.
+
+
+## Revision 377 Puppet Forge MP4 motion reference
+
+- [x] Add one browser-local MP4 reference video behind the rig.
+- [x] Drive video time from the authoritative animation playhead, including scrubbing, stepping, preview speed, pause, offset, and looping.
+- [x] Add session-only X/Y, independent width/height, opacity, visibility, loop, clear, and reset-alignment controls.
+- [x] Keep the MP4 and all reference settings out of project JSON, local storage, dirty tracking, runtime schemas, and packaged assets.
+- [x] Draw the reference before rig parts under the same preview zoom, pan, ground, and facing transform.
+- [x] Restrict the source picker to MP4 and omit image-bundle support.
+- [x] Add pure timing/display helper and editor-contract regression coverage.
+- [x] Synchronize game, Level Editor, Puppet Forge, and renderer-baseline revision labels to 377.
+
+## Revision 378 Mountain King melody continuity
+
+- [x] Keep Mountain King on jukebox engine 2 with the existing orchestrated instrument palette.
+- [x] Preserve every primary cello-pizzicato melody pitch, beat position, tempo, octave, duration envelope, and loop point.
+- [x] Replace the alternating bassoon-note copy with a quieter full-note octave shadow.
+- [x] Mark that bassoon voice as primary-melody support.
+- [x] Prevent long-form sparse accompaniment plans from removing marked melody-support notes.
+- [x] Keep ordinary accompaniment thinning unchanged for other voices and tunes.
+- [x] Document that engine 2 is now a provenance-tracked derivative rather than a byte-identical selector engine.
+- [x] Add a decoded-engine regression contract and synchronize visible revision labels to 378.
+
+## Revision 379 layer visual controls and Mountain King mellowing
+
+- [x] Remove the Level Editor's Canvas baseline and Editor 2 lab links without deleting the retained baseline files.
+- [x] Group Foreground and Background Parallax, Brightness, and Scale controls under Level metadata.
+- [x] Keep cave-window and perimeter controls focused on cave geometry and population only.
+- [x] Add normalized `level.layerVisuals` data with legacy parallax mirrors.
+- [x] Apply layer-wide scale and brightness consistently in editor preview, culling, hit testing, Canvas2D, and WebGL2 presentation.
+- [x] Keep Background and Foreground cosmetic and non-colliding after scaling.
+- [x] Preserve the full Mountain King bassoon melody-support line while lowering its gain and softening its filter/envelope.
+- [x] Update authored campaign levels, documentation, revision labels, and focused regressions.
+
+
+## Revision 380 retire enemy-hit laboratory
+
+- [x] Retire the enemy-hit laboratory HTML and module paths.
+- [x] Remove them from compact-package required files and add them to the retired-file guard.
+- [x] Remove the dedicated enemy-hit laboratory contract test and test-gate manifest entry.
+- [x] Remove obsolete developer instructions while preserving historical architecture notes.
+- [x] Keep production enemy-hit renderer and simulation regressions intact.
+- [x] Synchronize visible revision labels to 380.
+
+
+## Revision 381 visible Foreground visual values
+
+- [x] Upgrade `level.layerVisuals` to version 2 and expose Foreground brightness and scale defaults directly.
+- [x] Migrate legacy cave-decoration scale/brightness into the grouped Foreground controls without changing rendered placement centres, dimensions, or brightness.
+- [x] Remove canonical per-placement `foregroundBrightness` and make layer brightness the sole rendering authority.
+- [x] Store new manual and generated Foreground placements at base size while retaining effective-size perimeter spacing and validation.
+- [x] Update shipped levels to visible Foreground values and remove hidden placement brightness.
+- [x] Remove the persistent defaults paragraph and place concise help in mouse-over tooltips.
+- [x] Add regression coverage for visible defaults, canonical shipped data, tooltip-only help, generator base dimensions, and runtime layer brightness.
+
+## Revision 382 harmonized Level Editor sidebar
+
+- [x] Reorder the right sidebar to Level, Metadata, Layers, Perimeter, Colormap, Generator, Autospawner, Navigation graphs, Entity palette, Asset palette, Placed objects, Selected object, and View.
+- [x] Rename the requested panel headings without changing their controls or data wiring.
+- [x] Move Foreground and Background visual controls out of Metadata into a dedicated Layers panel immediately after it.
+- [x] Keep cave-window and automatic perimeter-decoration controls together under Perimeter.
+- [x] Update the game manual, developer guidance, revision labels, and focused source-contract regression.
+
+## Revision 383 Foreground control stability and selection geometry
+
+- [x] Commit editor layer controls as canonical `level.layerVisuals` version 2 data.
+- [x] Do not apply legacy cave brightness/scale factors unless an import caller explicitly supplies them.
+- [x] Keep Populate perimeter and Clear generated from changing either layer's Parallax, Brightness, or Scale.
+- [x] Draw Foreground selection outlines from layer-scaled, parallax-adjusted display rectangles.
+- [x] Draw selected asset guide rectangles from the same display geometry.
+- [x] Historical revision 383 migration was superseded and removed by revision 384; bundled levels now store visible Foreground values directly.
+- [x] Add regressions for stable versionless editor values, legacy migration, and scaled outline ownership.
+
+
+## Revision 384 current-level-only schemas
+
+- [x] Add an explicit project rule forbidding backwards compatibility for historical level schemas.
+- [x] Require every level-schema change to patch all bundled levels and fixtures in the same revision.
+- [x] Remove cosmetic-layer mirror/migration paths and keep only canonical `level.layerVisuals` version 2 data.
+- [x] Remove retired cavern-profile stripping from generation metadata normalization.
+- [x] Remove unsupported `monsterSpawn` and generic `trigger` records from the Level Editor palette and inspector choices.
+- [x] Remove or rewrite old-level conversion tests while retaining negative guards against retired paths returning.
+- [x] Preserve unrelated browser-settings migration and root-page redirect behavior outside the level-data policy.
+- [x] Synchronize visible revision labels to 384 and run the release gate.
+
+
+## Revision 385 perimeter-owned cave fade
+
+- [x] Remove sprite-local black gradients from cached Foreground frames.
+- [x] Keep layer brightness and perimeter saturation in the cached colour treatment.
+- [x] Make the cave-window mask the sole world-space transparent-to-black fade for both Foreground and Background artwork.
+- [x] Remove `foregroundOutwardX`, `foregroundOutwardY`, `foregroundFadeStart`, and `foregroundFadeEnd` from generator output, editor normalization, runtime visuals, bundled levels, and fixtures.
+- [x] Add regressions proving that moving or rotating a Foreground asset does not change its cached treatment and that the retired fields cannot return.
+- [x] Synchronize visible revision labels to 385 and run the release gate.

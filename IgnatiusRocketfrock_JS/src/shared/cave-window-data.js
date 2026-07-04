@@ -1,5 +1,4 @@
 const DEFAULT_FEATHER = 200;
-const DEFAULT_PARALLAX = 1.1;
 const DEFAULT_POINT_MODE = "smooth";
 const DEFAULT_GRADIENT_NOISE = Object.freeze({
     seed: 278,
@@ -8,8 +7,6 @@ const DEFAULT_GRADIENT_NOISE = Object.freeze({
 });
 const DEFAULT_DECORATION = Object.freeze({
     seed: 138,
-    scale: 2,
-    brightness: 0.36,
     saturation: 0.62,
     inwardFractionMin: 0.3,
     inwardFractionMax: 0.5,
@@ -50,8 +47,6 @@ export function normalizeCaveDecoration(rawDecoration) {
     const source = rawDecoration && typeof rawDecoration === "object" ? rawDecoration : {};
     const result = {
         seed: Math.trunc(finiteNumber(source.seed, DEFAULT_DECORATION.seed)),
-        scale: Math.max(0.5, Math.min(5, finiteNumber(source.scale, DEFAULT_DECORATION.scale))),
-        brightness: Math.max(0.08, Math.min(1, finiteNumber(source.brightness, DEFAULT_DECORATION.brightness))),
         saturation: Math.max(0, Math.min(1.5, finiteNumber(source.saturation, DEFAULT_DECORATION.saturation))),
         inwardFractionMin: Math.max(0.05, Math.min(0.7, finiteNumber(source.inwardFractionMin, DEFAULT_DECORATION.inwardFractionMin))),
         inwardFractionMax: Math.max(0.05, Math.min(0.8, finiteNumber(source.inwardFractionMax, DEFAULT_DECORATION.inwardFractionMax))),
@@ -81,7 +76,6 @@ export function normalizeCaveWindow(rawWindow) {
         version: 1,
         enabled: Boolean(source.enabled),
         feather: Math.max(0, finiteNumber(source.feather, DEFAULT_FEATHER)),
-        parallax: Math.max(1, Math.min(1.25, finiteNumber(source.parallax, DEFAULT_PARALLAX))),
         gradientNoise: normalizeCaveGradientNoise(source.gradientNoise),
         decoration: normalizeCaveDecoration(source.decoration),
         points

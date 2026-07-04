@@ -1,5 +1,5 @@
 export const DEFAULT_LEVEL_MUSIC = Object.freeze({
-    version: 1,
+    version: 2,
     tuneId: "grieg_mountain_king"
 });
 
@@ -44,79 +44,280 @@ export function transposePitch(pitch, semitones) {
     return `${PITCH_NAMES[((shifted % 12) + 12) % 12]}${octave}`;
 }
 
-function note(beat, duration, pitch, velocity = 1) {
-    return Object.freeze({ beat, duration, pitch, velocity });
-}
-
-function phrase(startBeat, pitches, duration = 0.5, velocity = 1) {
-    return pitches.map((pitch, index) => note(startBeat + index * duration, duration, pitch, velocity));
-}
-
-function sequencedPhrase(startBeat, events, velocity = 1, semitones = 0) {
-    let beat = startBeat;
-    return events.map(([pitch, step, soundingDuration = step]) => {
-        const soundingPitch = Number(semitones) === 0 ? pitch : transposePitch(pitch, semitones);
-        const musicalNote = note(beat, soundingDuration, soundingPitch, velocity);
-        beat += step;
-        return musicalNote;
-    });
-}
-
-function bassPulse(startBeat, beats, root, fifth, velocity = 0.72) {
-    const notes = [];
-    for (let beat = 0; beat < beats; beat += 1) {
-        notes.push(note(startBeat + beat, 0.78, beat % 2 === 0 ? root : fifth, velocity));
+// Selection, style and octave come from the accepted export. Timing is measured
+// from the exact embedded engine API because the export's timing fields contain
+// repeated version templates rather than the live tune-specific loop values.
+const ACCEPTED_MUSIC_TUNES = [
+    {
+        "id": "grieg_mountain_king",
+        "title": "In the Hall of the Mountain King",
+        "composer": "Edvard Grieg",
+        "year": 1875,
+        "publicDomain": true,
+        "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1888",
+        "engineVersion": 2,
+        "versionName": "Orchestrated",
+        "octave": 0,
+        "fullPassSeconds": 238.78378130697436,
+        "loopStartSeconds": 20.521013328196183,
+        "repeatSeconds": 218.26276797877816,
+        "sections": 14
+    },
+    {
+        "id": "grieg_march_dwarfs",
+        "title": "March of the Dwarfs",
+        "composer": "Edvard Grieg",
+        "year": 1891,
+        "publicDomain": true,
+        "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=2014",
+        "engineVersion": 3,
+        "versionName": "Natural",
+        "octave": 0,
+        "fullPassSeconds": 252.6315789473684,
+        "loopStartSeconds": 12.631578947368421,
+        "repeatSeconds": 240,
+        "sections": 20
+    },
+    {
+        "id": "mussorgsky_bald_mountain",
+        "title": "Night on Bald Mountain",
+        "composer": "Modest Mussorgsky",
+        "year": 1867,
+        "publicDomain": true,
+        "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1892",
+        "engineVersion": 3,
+        "versionName": "Natural",
+        "octave": 0,
+        "fullPassSeconds": 268.5453212965543,
+        "loopStartSeconds": 14.95087324524261,
+        "repeatSeconds": 253.59444805131153,
+        "sections": 19
+    },
+    {
+        "id": "saint_saens_danse_macabre",
+        "title": "Danse macabre",
+        "composer": "Camille Saint-Saëns",
+        "year": 1874,
+        "publicDomain": true,
+        "source": null,
+        "engineVersion": 2,
+        "versionName": "Orchestrated",
+        "octave": 0,
+        "fullPassSeconds": 232.72727272727272,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 225.45454545454547,
+        "sections": 32
+    },
+    {
+        "id": "saint_saens_fossils",
+        "title": "Fossils",
+        "composer": "Camille Saint-Saëns",
+        "year": 1886,
+        "publicDomain": true,
+        "source": null,
+        "engineVersion": 4,
+        "versionName": "Deep piano",
+        "octave": 0,
+        "fullPassSeconds": 221.53846153846155,
+        "loopStartSeconds": 3.076923076923077,
+        "repeatSeconds": 218.46153846153845,
+        "sections": 72
+    },
+    {
+        "id": "saint_saens_elephant",
+        "title": "The Elephant",
+        "composer": "Camille Saint-Saëns",
+        "year": 1886,
+        "publicDomain": true,
+        "source": null,
+        "engineVersion": 4,
+        "versionName": "Deep piano",
+        "octave": -1,
+        "fullPassSeconds": 281.37931034482756,
+        "loopStartSeconds": 8.275862068965518,
+        "repeatSeconds": 273.1034482758621,
+        "sections": 34
+    },
+    {
+        "id": "saint_saens_lion",
+        "title": "Royal March of the Lion",
+        "composer": "Camille Saint-Saëns",
+        "year": 1886,
+        "publicDomain": true,
+        "source": null,
+        "engineVersion": 2,
+        "versionName": "Orchestrated",
+        "octave": 0,
+        "fullPassSeconds": 286.4516129032258,
+        "loopStartSeconds": 7.741935483870968,
+        "repeatSeconds": 278.7096774193548,
+        "sections": 37
+    },
+    {
+        "id": "tchaikovsky_sugar_plum",
+        "title": "Dance of the Sugar Plum Fairy",
+        "composer": "Pyotr Ilyich Tchaikovsky",
+        "year": 1892,
+        "publicDomain": true,
+        "source": null,
+        "engineVersion": 4,
+        "versionName": "Deep piano",
+        "octave": -1,
+        "fullPassSeconds": 257.14285714285717,
+        "loopStartSeconds": 8.571428571428571,
+        "repeatSeconds": 248.57142857142858,
+        "sections": 30
+    },
+    {
+        "id": "bach_toccata_d_minor",
+        "title": "Toccata and Fugue in D minor",
+        "composer": "Johann Sebastian Bach",
+        "year": 1704,
+        "publicDomain": true,
+        "source": null,
+        "engineVersion": 2,
+        "versionName": "Orchestrated",
+        "octave": -1,
+        "fullPassSeconds": 227.79661016949152,
+        "loopStartSeconds": 8.135593220338983,
+        "repeatSeconds": 219.66101694915255,
+        "sections": 28
+    },
+    {
+        "id": "bach_bourree_e_minor",
+        "title": "Bourrée in E minor",
+        "composer": "Johann Sebastian Bach",
+        "year": 1712,
+        "publicDomain": true,
+        "source": null,
+        "engineVersion": 2,
+        "versionName": "Orchestrated",
+        "octave": -1,
+        "fullPassSeconds": 225.45454545454547,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 218.1818181818182,
+        "sections": 31
+    },
+    {
+        "id": "beethoven_turkish_march",
+        "title": "Turkish March from The Ruins of Athens",
+        "composer": "Ludwig van Beethoven",
+        "year": 1811,
+        "publicDomain": true,
+        "source": null,
+        "engineVersion": 2,
+        "versionName": "Orchestrated",
+        "octave": -1,
+        "fullPassSeconds": 247.27272727272728,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 240,
+        "sections": 34
+    },
+    {
+        "id": "mozart_rondo_alla_turca",
+        "title": "Rondo alla turca",
+        "composer": "Wolfgang Amadeus Mozart",
+        "year": 1783,
+        "publicDomain": true,
+        "source": null,
+        "engineVersion": 2,
+        "versionName": "Orchestrated",
+        "octave": -1,
+        "fullPassSeconds": 240,
+        "loopStartSeconds": 3.3333333333333335,
+        "repeatSeconds": 236.66666666666666,
+        "sections": 72
+    },
+    {
+        "id": "mozart_eine_kleine",
+        "title": "Eine kleine Nachtmusik: Allegro",
+        "composer": "Wolfgang Amadeus Mozart",
+        "year": 1787,
+        "publicDomain": true,
+        "source": null,
+        "engineVersion": 2,
+        "versionName": "Orchestrated",
+        "octave": -1,
+        "fullPassSeconds": 275.29411764705884,
+        "loopStartSeconds": 7.0588235294117645,
+        "repeatSeconds": 268.2352941176471,
+        "sections": 39
+    },
+    {
+        "id": "mozart_queen_night",
+        "title": "Queen of the Night: Vengeance Aria",
+        "composer": "Wolfgang Amadeus Mozart",
+        "year": 1791,
+        "publicDomain": true,
+        "source": null,
+        "engineVersion": 2,
+        "versionName": "Orchestrated",
+        "octave": 0,
+        "fullPassSeconds": 227.3684210526316,
+        "loopStartSeconds": 3.1578947368421053,
+        "repeatSeconds": 224.21052631578948,
+        "sections": 72
+    },
+    {
+        "id": "brahms_hungarian_5",
+        "title": "Hungarian Dance No. 5",
+        "composer": "Johannes Brahms",
+        "year": 1869,
+        "publicDomain": true,
+        "source": null,
+        "engineVersion": 2,
+        "versionName": "Orchestrated",
+        "octave": -1,
+        "fullPassSeconds": 227.3684210526316,
+        "loopStartSeconds": 3.1578947368421053,
+        "repeatSeconds": 224.21052631578948,
+        "sections": 72
+    },
+    {
+        "id": "delibes_pizzicato",
+        "title": "Pizzicato from Sylvia",
+        "composer": "Léo Delibes",
+        "year": 1876,
+        "publicDomain": true,
+        "source": null,
+        "engineVersion": 2,
+        "versionName": "Orchestrated",
+        "octave": -2,
+        "fullPassSeconds": 214.15384615384616,
+        "loopStartSeconds": 7.384615384615385,
+        "repeatSeconds": 206.76923076923077,
+        "sections": 29
+    },
+    {
+        "id": "joplin_entertainer",
+        "title": "The Entertainer",
+        "composer": "Scott Joplin",
+        "year": 1902,
+        "publicDomain": true,
+        "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=263",
+        "engineVersion": 3,
+        "versionName": "Natural",
+        "octave": -1,
+        "fullPassSeconds": 252.6315789473684,
+        "loopStartSeconds": 31.57894736842105,
+        "repeatSeconds": 221.05263157894737,
+        "sections": 8
+    },
+    {
+        "id": "strauss_pizzicato_polka",
+        "title": "Pizzicato Polka",
+        "composer": "Johann Strauss II & Josef Strauss",
+        "year": 1869,
+        "publicDomain": true,
+        "source": null,
+        "engineVersion": 2,
+        "versionName": "Orchestrated",
+        "octave": -1,
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 38
     }
-    return notes;
-}
-
-const mountainKingTheme = Object.freeze([
-    // Measures 1-2: B C# D E F# D F# | E# C# E# E C E
-    ["B2", 0.5, 0.34], ["C#3", 0.5, 0.34], ["D3", 0.5, 0.34], ["E3", 0.5, 0.34],
-    ["F#3", 0.5, 0.34], ["D3", 0.5, 0.34], ["F#3", 1, 0.64],
-    ["E#3", 0.5, 0.34], ["C#3", 0.5, 0.34], ["E#3", 1, 0.64],
-    ["E3", 0.5, 0.34], ["C3", 0.5, 0.34], ["E3", 1, 0.64],
-
-    // Measures 3-4: B C# D E F# D F# B | A F# D F# A
-    ["B2", 0.5, 0.34], ["C#3", 0.5, 0.34], ["D3", 0.5, 0.34], ["E3", 0.5, 0.34],
-    ["F#3", 0.5, 0.34], ["D3", 0.5, 0.34], ["F#3", 0.5, 0.34], ["B3", 0.5, 0.34],
-    ["A3", 0.5, 0.34], ["F#3", 0.5, 0.34], ["D3", 0.5, 0.34], ["F#3", 0.5, 0.34],
-    ["A3", 2, 1.55]
-]);
-
-const mountainKingMelody = [
-    // Preserve Grieg's intervals while placing the lead one octave lower. The
-    // second statement remains a perfect fifth above the first, but now stays
-    // in a contrabass/tuba register instead of climbing into a bright tenor.
-    ...sequencedPhrase(0, mountainKingTheme, 0.88, -12),
-    ...sequencedPhrase(16, mountainKingTheme, 0.96, -5)
-];
-
-// Alternate level themes are re-voiced into the same dark lead register as
-// Level_001, but each tune uses the octave displacement that suits its written
-// tessitura. Bass parts are kept clearly beneath their melodies instead of
-// being left behind when a lead is transposed.
-const dwarfMarchMotifA = [
-    "D4", "A3", "D4", "F4", "E4", "D4", "C#4", "D4",
-    "A3", "D4", "F4", "A4", "G4", "F4", "E4", "D4"
-];
-const dwarfMarchMotifB = [
-    "D4", "F4", "A4", "Bb4", "A4", "G4", "F4", "E4",
-    "D4", "C#4", "D4", "A3", "D4", "E4", "F4", "D4"
-];
-
-const anitraPhraseA = [
-    "E5", "D#5", "E5", "C5", "B4", "A4",
-    "C5", "B4", "A4", "G#4", "A4", "B4"
-];
-const anitraPhraseB = [
-    "C5", "E5", "A5", "G#5", "E5", "C5",
-    "B4", "D5", "G#5", "A5", "E5", "A4"
-];
-
-const baldMountainMotif = [
-    "D4", "Eb4", "F4", "Gb4", "A4", "Gb4", "F4", "Eb4",
-    "D4", "C#4", "D4", "F4", "Eb4", "D4", "C#4", "A3"
 ];
 
 export const MUSIC_TUNES = Object.freeze([
@@ -125,141 +326,15 @@ export const MUSIC_TUNES = Object.freeze([
         title: "No music",
         composer: "",
         publicDomain: true,
-        bpmStart: 120,
-        bpmEnd: 120,
-        loopBeats: 8,
-        voices: Object.freeze([])
+        engineVersion: 0,
+        versionName: "Silence",
+        octave: 0,
+        fullPassSeconds: 0,
+        loopStartSeconds: 0,
+        repeatSeconds: 0,
+        sections: 0
     }),
-    Object.freeze({
-        id: "grieg_mountain_king",
-        title: "In the Hall of the Mountain King",
-        composer: "Edvard Grieg",
-        publicDomain: true,
-        sourceNote: "Opening theme rechecked against Mutopia's public-domain engraving and the independent Edition Peters scan hosted by IMSLP.",
-        bpmStart: 92,
-        bpmEnd: 136,
-        loopBeats: 32,
-        voices: Object.freeze([
-            Object.freeze({
-                instrument: "doubleBass",
-                gain: 0.82,
-                notes: Object.freeze(mountainKingMelody)
-            }),
-            Object.freeze({
-                instrument: "tuba",
-                gain: 0.42,
-                notes: Object.freeze([
-                    ...bassPulse(0, 16, "B1", "F#2", 0.72),
-                    ...bassPulse(16, 16, "F#1", "C#2", 0.8)
-                ])
-            })
-        ])
-    }),
-    Object.freeze({
-        id: "grieg_march_dwarfs",
-        title: "March of the Dwarfs",
-        composer: "Edvard Grieg",
-        publicDomain: true,
-        sourceNote: "Original clockwork arrangement encoded as note data from public-domain score references.",
-        bpmStart: 152,
-        bpmEnd: 152,
-        loopBeats: 32,
-        voices: Object.freeze([
-            Object.freeze({
-                instrument: "pizzicato",
-                gain: 0.66,
-                notes: Object.freeze([
-                    ...phrase(0, dwarfMarchMotifA.map((pitch) => transposePitch(pitch, -12)), 0.5, 0.84),
-                    ...phrase(8, dwarfMarchMotifA.map((pitch) => transposePitch(pitch, -12)), 0.5, 0.88),
-                    ...phrase(16, dwarfMarchMotifB.map((pitch) => transposePitch(pitch, -12)), 0.5, 0.9),
-                    ...phrase(24, dwarfMarchMotifA.map((pitch) => transposePitch(pitch, -12)), 0.5, 0.92)
-                ])
-            }),
-            Object.freeze({
-                instrument: "bassoon",
-                gain: 0.42,
-                notes: Object.freeze([
-                    ...bassPulse(0, 16, "D1", "A1", 0.7),
-                    ...bassPulse(16, 8, "Bb1", "F2", 0.68),
-                    ...bassPulse(24, 8, "D1", "A1", 0.78)
-                ])
-            })
-        ])
-    }),
-    Object.freeze({
-        id: "grieg_anitra_dance",
-        title: "Anitra's Dance",
-        composer: "Edvard Grieg",
-        publicDomain: true,
-        sourceNote: "Original clockwork arrangement encoded as note data from public-domain score references.",
-        bpmStart: 104,
-        bpmEnd: 104,
-        loopBeats: 24,
-        voices: Object.freeze([
-            Object.freeze({
-                instrument: "pizzicato",
-                gain: 0.62,
-                notes: Object.freeze([
-                    ...phrase(0, anitraPhraseA.map((pitch) => transposePitch(pitch, -24)), 0.5, 0.82),
-                    ...phrase(6, anitraPhraseA.map((pitch) => transposePitch(pitch, -24)), 0.5, 0.86),
-                    ...phrase(12, anitraPhraseB.map((pitch) => transposePitch(pitch, -24)), 0.5, 0.88),
-                    ...phrase(18, anitraPhraseA.map((pitch) => transposePitch(pitch, -24)), 0.5, 0.9)
-                ])
-            }),
-            Object.freeze({
-                instrument: "bell",
-                gain: 0.18,
-                notes: Object.freeze([
-                    note(0, 0.7, "A2", 0.5), note(3, 0.7, "E3", 0.48),
-                    note(6, 0.7, "A2", 0.52), note(9, 0.7, "E3", 0.5),
-                    note(12, 0.7, "C3", 0.55), note(15, 0.7, "E3", 0.52),
-                    note(18, 0.7, "A2", 0.58), note(21, 0.7, "E3", 0.55)
-                ])
-            }),
-            Object.freeze({
-                instrument: "bassoon",
-                gain: 0.28,
-                notes: Object.freeze([
-                    note(0, 2.5, "A1", 0.55), note(3, 2.5, "E2", 0.48),
-                    note(6, 2.5, "A1", 0.55), note(9, 2.5, "E2", 0.48),
-                    note(12, 2.5, "C2", 0.55), note(15, 2.5, "E2", 0.48),
-                    note(18, 2.5, "A1", 0.58), note(21, 2.5, "E2", 0.5)
-                ])
-            })
-        ])
-    }),
-    Object.freeze({
-        id: "mussorgsky_bald_mountain",
-        title: "Night on Bald Mountain",
-        composer: "Modest Mussorgsky",
-        publicDomain: true,
-        sourceNote: "Original clockwork arrangement encoded as note data from public-domain score references.",
-        bpmStart: 128,
-        bpmEnd: 144,
-        loopBeats: 32,
-        voices: Object.freeze([
-            Object.freeze({
-                instrument: "strings",
-                gain: 0.58,
-                notes: Object.freeze([
-                    ...phrase(0, baldMountainMotif.map((pitch) => transposePitch(pitch, -12)), 0.5, 0.82),
-                    ...phrase(8, baldMountainMotif.map((pitch) => transposePitch(pitch, -12)), 0.5, 0.86),
-                    ...phrase(16, baldMountainMotif.map((pitch) => transposePitch(pitch, -12)), 0.5, 0.9),
-                    ...phrase(24, baldMountainMotif.map((pitch) => transposePitch(pitch, -12)), 0.5, 0.94)
-                ])
-            }),
-            Object.freeze({
-                instrument: "bassoon",
-                gain: 0.48,
-                notes: Object.freeze([
-                    ...bassPulse(0, 8, "D1", "A1", 0.74),
-                    ...bassPulse(8, 8, "G1", "D2", 0.74),
-                    ...bassPulse(16, 8, "D1", "A1", 0.82),
-                    ...bassPulse(24, 8, "D1", "A1", 0.9)
-                ])
-            })
-        ])
-    })
+    ...ACCEPTED_MUSIC_TUNES.map((tune) => Object.freeze(tune))
 ]);
 
 const TUNE_BY_ID = new Map(MUSIC_TUNES.map((tune) => [tune.id, tune]));
@@ -282,20 +357,7 @@ export function normalizeLevelMusic(value = {}) {
     };
 }
 
-export function musicSecondsAtBeat(tuneOrId, beat) {
-    const tune = typeof tuneOrId === "string" ? getMusicTune(tuneOrId) : tuneOrId;
-    const clampedBeat = Math.max(0, Number(beat) || 0);
-    const start = Math.max(1, Number(tune?.bpmStart) || 120);
-    const end = Math.max(1, Number(tune?.bpmEnd) || start);
-    const totalBeats = Math.max(1, Number(tune?.loopBeats) || 1);
-    const slope = (end - start) / totalBeats;
-    if (Math.abs(slope) < 0.000001) {
-        return clampedBeat * 60 / start;
-    }
-    return 60 / slope * Math.log((start + slope * clampedBeat) / start);
-}
-
 export function musicLoopDurationSeconds(tuneOrId) {
     const tune = typeof tuneOrId === "string" ? getMusicTune(tuneOrId) : tuneOrId;
-    return musicSecondsAtBeat(tune, tune?.loopBeats || 1);
+    return Math.max(0, Number(tune?.fullPassSeconds) || 0);
 }

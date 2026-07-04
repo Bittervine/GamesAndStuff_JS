@@ -23,6 +23,7 @@ import {
     colorMapCacheKey,
     normalizeLevelColorMap
 } from "../shared/level-color-map-data.js";
+import { normalizeBackgroundParallax, normalizeLayerBrightness } from "../shared/level-layer-data.js";
 import {
     POWER_UP_EFFECT_IDS,
     WRENCH_POWER_UP_EFFECT_IDS,
@@ -37,16 +38,17 @@ import {
     drawCaveWindowMask
 } from "./cave-window-mask.js";
 import {
-    caveWindowCenter,
     createForegroundSpriteCanvas,
     foregroundTreatmentCacheKey
 } from "./foreground-sprite-treatment.js";
 import {
     buildWorldVisualCache,
+    isWorldBackgroundVisual,
     queryWorldVisualEntries,
     visualIntersectsViewport,
     visualWorldBounds
 } from "./world-visual-cache.js";
+import { computeWorldParallaxOffset } from "./world-parallax.js";
 import {
     buildOverlapBlendGroups,
     createOverlapBlendSurface
@@ -434,7 +436,6 @@ class RocketfrockRenderer {
         this.environmentColorMap = normalizeLevelColorMap(null);
         this.environmentColorMapKey = "";
         this.caveWindow = null;
-        this.caveWindowCenter = null;
         this.caveWindowMaskCanvas = null;
         this.caveWindowMaskKey = "";
         this.caveWindowGpuMaskGeometry = null;
@@ -447,10 +448,12 @@ class RocketfrockRenderer {
             memberToGroup: new Map()
         };
         this.foregroundSpriteCache = new Map();
+        this.layerBrightnessCache = new Map();
         this.powerUpTintCache = new Map();
         this.smokeStampCache = new Map();
         this.webglParticleSpriteCache = new Map();
         this.webglTextSpriteCache = new Map();
+        this.frameBackgroundOffset = { x: 0, y: 0 };
         this.frameForegroundOffset = { x: 0, y: 0 };
         this.frameEntityVisibility = { collectedPickups: new Set(), defeatedEnemies: new Set() };
         this.framePlayerRocketTransform = null;
@@ -642,7 +645,6 @@ class RocketfrockRenderer {
 
     syncCaveWindow(caveWindow) {
         this.caveWindow = caveWindow && typeof caveWindow === "object" ? caveWindow : null;
-        this.caveWindowCenter = caveWindowCenter(this.caveWindow);
         this.caveWindowMaskKey = "";
         this.caveWindowGpuMaskGeometry = buildCaveWindowGpuMaskGeometry(this.caveWindow);
         for (const surface of this.foregroundSpriteCache.values()) {
@@ -673,6 +675,8 @@ class RocketfrockRenderer {
         }
         this.environmentColorMapKey = "";
         this.foregroundSpriteCache.clear();
+        for (const surface of this.layerBrightnessCache.values()) this.webglBackend?.invalidateTexture(surface);
+        this.layerBrightnessCache.clear();
         this.overlapBlendCache.source = null;
         this.syncEnvironmentColorMap(this.environmentColorMap);
         return loaded.size > 0;
@@ -691,6 +695,8 @@ class RocketfrockRenderer {
         this.environmentColorMap = colorMap;
         this.environmentColorMapKey = cacheKey;
         this.foregroundSpriteCache.clear();
+        for (const surface of this.layerBrightnessCache.values()) this.webglBackend?.invalidateTexture(surface);
+        this.layerBrightnessCache.clear();
         this.overlapBlendCache.source = null;
         for (const atlas of this.environmentAtlases.values()) {
             if (!atlas?.image) {
@@ -948,6 +954,12 @@ class RocketfrockRenderer {
             collectedPickups: new Set((state.pickups || []).filter((item) => item?.collected).map((item) => item.id)),
             defeatedEnemies: new Set((state.enemies || []).filter((item) => Number(item?.health) <= 0).map((item) => item.id))
         };
+        this.frameBackgroundOffset = computeWorldParallaxOffset(
+            view,
+            state.world?.bounds,
+            normalizeBackgroundParallax(state.world?.layerVisuals?.background?.parallax),
+            { min: 0.25, max: 1 }
+        );
         this.frameForegroundOffset = computeCaveWindowParallaxOffset(
             view,
             state.world?.bounds,
@@ -970,6 +982,7 @@ class RocketfrockRenderer {
 
         this.clear(view);
         this.drawBackdrop(view);
+        this.drawBackgroundVisuals(state, view);
         this.drawWorld(state, view);
         this.drawPortalIntroGlow(state, view);
         const worldEnd = rendererNowMs();
@@ -1030,6 +1043,7 @@ class RocketfrockRenderer {
             return;
         }
 
+        this.drawBackgroundVisualsWebGL(state, view);
         const visualResult = this.drawOrderedWorldVisualsWebGL(state, view, false);
         const needsWorldCanvasLayer = Boolean(
             state.debug.showCollision ||
@@ -1485,6 +1499,25 @@ class RocketfrockRenderer {
         return queued;
     }
 
+    drawBackgroundVisualsWebGL(state, view) {
+        const cache = this.getWorldVisualCache(state);
+        const query = queryWorldVisualEntries(
+            cache,
+            "background",
+            view,
+            this.frameBackgroundOffset,
+            VISUAL_CULL_MARGIN_PX
+        );
+        this.frameVisualCounters.spatialCulled += query.spatialCulled;
+        let drewAny = false;
+        for (const { visual, bounds } of query.entries) {
+            if (visual.kind === "atlasSprite" && this.queueAtlasSpriteVisualWebGL(visual, view, state, bounds)) {
+                drewAny = true;
+            }
+        }
+        return drewAny;
+    }
+
     drawCaveForegroundVisualsWebGL(state, view) {
         const cache = this.getWorldVisualCache(state);
         const query = queryWorldVisualEntries(
@@ -1530,9 +1563,12 @@ class RocketfrockRenderer {
         }
         this.frameVisualCounters.considered += 1;
         const caveForeground = visual.layer === "caveForeground";
-        const foregroundOffset = caveForeground ? this.frameForegroundOffset : null;
+        const worldBackground = isWorldBackgroundVisual(visual);
+        const parallaxOffset = caveForeground
+            ? this.frameForegroundOffset
+            : (worldBackground ? this.frameBackgroundOffset : null);
         const bounds = cachedBounds || visualWorldBounds(visual);
-        if (!visualIntersectsViewport(bounds, view, foregroundOffset, VISUAL_CULL_MARGIN_PX)) {
+        if (!visualIntersectsViewport(bounds, view, parallaxOffset, VISUAL_CULL_MARGIN_PX)) {
             this.frameVisualCounters.culled += 1;
             return false;
         }
@@ -1544,14 +1580,17 @@ class RocketfrockRenderer {
         const centerWorld = placementCenter(visual);
         const center = this.worldToScreen(
             view,
-            centerWorld.x - (foregroundOffset?.x || 0),
-            centerWorld.y - (foregroundOffset?.y || 0)
+            centerWorld.x - (parallaxOffset?.x || 0),
+            centerWorld.y - (parallaxOffset?.y || 0)
         );
         let source = atlas.renderImage || atlas.image;
         let sourceX = frame.x;
         let sourceY = frame.y;
         let sourceWidth = frame.w;
         let sourceHeight = frame.h;
+        if (worldBackground) {
+            source = this.getLayerBrightnessAtlas(atlas, visual.backgroundBrightness, "background");
+        }
         if (caveForeground) {
             source = this.getForegroundSpriteCanvas(atlas, frameName, frame, visual);
             sourceX = 0;
@@ -1569,7 +1608,7 @@ class RocketfrockRenderer {
             centerY: center.y,
             width: visual.w * view.zoom,
             height: visual.h * view.zoom,
-            rotation: normalizeRotationRadians(visual.rotation, visual.angle),
+            rotation: normalizeRotationRadians(visual.rotation),
             mirrorX: Boolean(visual.mirrorX),
             mirrorY: Boolean(visual.mirrorY),
             alpha: visual.alpha ?? 1
@@ -1627,6 +1666,25 @@ class RocketfrockRenderer {
         this.ctx.drawImage(group.canvas, topLeft.x, topLeft.y, width, height);
         this.frameVisualCounters.drawn += 1;
         return true;
+    }
+
+    drawBackgroundVisuals(state, view) {
+        const cache = this.getWorldVisualCache(state);
+        const query = queryWorldVisualEntries(
+            cache,
+            "background",
+            view,
+            this.frameBackgroundOffset,
+            VISUAL_CULL_MARGIN_PX
+        );
+        this.frameVisualCounters.spatialCulled += query.spatialCulled;
+        let drewAny = false;
+        for (const { visual, bounds } of query.entries) {
+            if (visual.kind === "atlasSprite" && this.drawAtlasSpriteVisual(visual, view, state, bounds)) {
+                drewAny = true;
+            }
+        }
+        return drewAny;
     }
 
     drawCaveForegroundVisuals(state, view) {
@@ -1691,9 +1749,12 @@ class RocketfrockRenderer {
 
         this.frameVisualCounters.considered += 1;
         const caveForeground = visual.layer === "caveForeground";
-        const foregroundOffset = caveForeground ? this.frameForegroundOffset : null;
+        const worldBackground = isWorldBackgroundVisual(visual);
+        const parallaxOffset = caveForeground
+            ? this.frameForegroundOffset
+            : (worldBackground ? this.frameBackgroundOffset : null);
         const bounds = cachedBounds || visualWorldBounds(visual);
-        if (!visualIntersectsViewport(bounds, view, foregroundOffset, VISUAL_CULL_MARGIN_PX)) {
+        if (!visualIntersectsViewport(bounds, view, parallaxOffset, VISUAL_CULL_MARGIN_PX)) {
             this.frameVisualCounters.culled += 1;
             return false;
         }
@@ -1711,21 +1772,23 @@ class RocketfrockRenderer {
         const centerWorld = placementCenter(visual);
         const center = this.worldToScreen(
             view,
-            centerWorld.x - (foregroundOffset?.x || 0),
-            centerWorld.y - (foregroundOffset?.y || 0)
+            centerWorld.x - (parallaxOffset?.x || 0),
+            centerWorld.y - (parallaxOffset?.y || 0)
         );
         const w = visual.w * view.zoom;
         const h = visual.h * view.zoom;
         ctx.save();
         ctx.globalAlpha *= visual.alpha ?? 1;
         ctx.translate(center.x, center.y);
-        ctx.rotate(normalizeRotationRadians(visual.rotation, visual.angle));
+        ctx.rotate(normalizeRotationRadians(visual.rotation));
         ctx.scale(visual.mirrorX ? -1 : 1, visual.mirrorY ? -1 : 1);
         if (caveForeground) {
             const cachedSprite = this.getForegroundSpriteCanvas(atlas, frameName, frame, visual);
             ctx.drawImage(cachedSprite, -w * 0.5, -h * 0.5, w, h);
         } else {
-            const renderImage = atlas.renderImage || atlas.image;
+            const renderImage = worldBackground
+                ? this.getLayerBrightnessAtlas(atlas, visual.backgroundBrightness, "background")
+                : (atlas.renderImage || atlas.image);
             ctx.drawImage(renderImage, frame.x, frame.y, frame.w, frame.h, -w * 0.5, -h * 0.5, w, h);
         }
         ctx.restore();
@@ -1733,13 +1796,42 @@ class RocketfrockRenderer {
         return true;
     }
 
+    getLayerBrightnessAtlas(atlas, brightnessValue, layerName = "layer") {
+        const source = atlas?.renderImage || atlas?.image;
+        if (!source) return source;
+        const brightness = normalizeLayerBrightness(brightnessValue);
+        if (Math.abs(brightness - 1) < 0.000001) return source;
+        const cacheKey = `${layerName}|${atlas.atlasId || atlas.id || "atlas"}|${this.environmentColorMapKey}|${brightness.toFixed(4)}`;
+        const cached = this.layerBrightnessCache.get(cacheKey);
+        if (cached) return cached;
+        const cachePrefix = `${layerName}|${atlas.atlasId || atlas.id || "atlas"}|${this.environmentColorMapKey}|`;
+        for (const [existingKey, existingSurface] of this.layerBrightnessCache) {
+            if (existingKey === cacheKey || !existingKey.startsWith(cachePrefix)) continue;
+            this.webglBackend?.invalidateTexture(existingSurface);
+            this.layerBrightnessCache.delete(existingKey);
+        }
+        const ownerDocument = this.canvas?.ownerDocument || (typeof document !== "undefined" ? document : null);
+        if (!ownerDocument?.createElement) return source;
+        const width = Math.max(1, Number(source.naturalWidth || source.videoWidth || source.width) || 1);
+        const height = Math.max(1, Number(source.naturalHeight || source.videoHeight || source.height) || 1);
+        const surface = ownerDocument.createElement("canvas");
+        surface.width = width;
+        surface.height = height;
+        const context = surface.getContext("2d");
+        if (!context) return source;
+        context.filter = `brightness(${brightness})`;
+        context.drawImage(source, 0, 0, width, height);
+        context.filter = "none";
+        this.layerBrightnessCache.set(cacheKey, surface);
+        return surface;
+    }
+
     getForegroundSpriteCanvas(atlas, frameName, frame, visual) {
         const cacheKey = foregroundTreatmentCacheKey({
             atlasId: atlas.atlasId || visual.atlasId || "atlas",
             frameName,
             colorMapKey: this.environmentColorMapKey,
-            visual,
-            fallbackCenter: this.caveWindowCenter
+            visual
         });
         const cached = this.foregroundSpriteCache.get(cacheKey);
         if (cached) {
@@ -1752,8 +1844,7 @@ class RocketfrockRenderer {
             ownerDocument,
             sourceImage: atlas.renderImage || atlas.image,
             frame,
-            visual,
-            fallbackCenter: this.caveWindowCenter
+            visual
         });
         this.foregroundSpriteCache.set(cacheKey, surface);
         this.frameVisualCounters.foregroundCacheMisses += 1;
@@ -2045,7 +2136,7 @@ class RocketfrockRenderer {
             const visualH = visual.h * view.zoom;
             ctx.save();
             ctx.translate(center.x, center.y);
-            ctx.rotate(normalizeRotationRadians(visual.rotation, visual.angle));
+            ctx.rotate(normalizeRotationRadians(visual.rotation));
             ctx.strokeStyle = "rgba(86, 230, 255, 0.72)";
             ctx.lineWidth = 1.5 * view.zoom;
             ctx.setLineDash([5 * view.zoom, 4 * view.zoom]);

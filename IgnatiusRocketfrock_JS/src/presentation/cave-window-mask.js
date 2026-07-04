@@ -4,6 +4,7 @@ import {
     sampleCaveWindowOutset,
     sampleCaveWindowPerturbedOutset
 } from "../shared/cave-window-data.js";
+import { computeWorldParallaxOffset } from "./world-parallax.js";
 
 const OPAQUE_BLACK = "rgb(0, 0, 0)";
 export const CAVE_GRADIENT_BAND_COUNT = 24;
@@ -28,20 +29,7 @@ function normalizedWorldBounds(worldBounds) {
 }
 
 export function computeCaveWindowParallaxOffset(view, worldBounds, parallax = 1) {
-    const zoom = Math.max(0.0001, finiteNumber(view?.zoom, 1));
-    const virtualWidth = Math.max(1, finiteNumber(view?.virtualW, finiteNumber(view?.w, 1) / zoom));
-    const virtualHeight = Math.max(1, finiteNumber(view?.virtualH, finiteNumber(view?.h, 1) / zoom));
-    const cameraX = finiteNumber(view?.x, 0) + virtualWidth * 0.5;
-    const cameraY = finiteNumber(view?.y, 0) + virtualHeight * 0.56;
-    const bounds = normalizedWorldBounds(worldBounds);
-    const anchorX = bounds.x + bounds.w * 0.5;
-    const anchorY = bounds.y + bounds.h * 0.5;
-    const factor = Math.max(1, Math.min(1.25, finiteNumber(parallax, 1)));
-    const extraScroll = factor - 1;
-    return {
-        x: (cameraX - anchorX) * extraScroll,
-        y: (cameraY - anchorY) * extraScroll
-    };
+    return computeWorldParallaxOffset(view, worldBounds, parallax, { min: 1, max: 1.25 });
 }
 
 function screenPoint(view, parallaxOffset, point) {

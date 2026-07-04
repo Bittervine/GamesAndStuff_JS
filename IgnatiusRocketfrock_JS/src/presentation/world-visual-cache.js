@@ -1,4 +1,5 @@
 import { normalizeRotationRadians, placementCenter } from "../shared/level-transform.js";
+import { BACKGROUND_LAYER, CAVE_FOREGROUND_LAYER_ID } from "../shared/level-layer-data.js";
 
 const DEFAULT_CULL_MARGIN_PX = 96;
 const DEFAULT_SPATIAL_BIN_SIZE = 768;
@@ -6,6 +7,10 @@ const DEFAULT_SPATIAL_BIN_SIZE = 768;
 function finiteNumber(value, fallback = 0) {
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;
+}
+
+export function isWorldBackgroundVisual(visual) {
+    return visual?.layer === BACKGROUND_LAYER && !visual?.entityId;
 }
 
 export function visualSortKey(visual, index = 0) {
@@ -36,7 +41,7 @@ export function visualWorldBounds(visual) {
     }
 
     const center = placementCenter(visual || {});
-    const rotation = normalizeRotationRadians(visual?.rotation, visual?.angle);
+    const rotation = normalizeRotationRadians(visual?.rotation);
     const cosine = Math.abs(Math.cos(rotation));
     const sine = Math.abs(Math.sin(rotation));
     const extentX = cosine * width * 0.5 + sine * height * 0.5;
@@ -115,26 +120,32 @@ function buildSpatialPartition(entries, binSize = DEFAULT_SPATIAL_BIN_SIZE) {
 
 export function buildWorldVisualCache(visuals = [], options = {}) {
     const source = Array.isArray(visuals) ? visuals : [];
+    const boundsForVisual = typeof options.boundsForVisual === "function"
+        ? options.boundsForVisual
+        : visualWorldBounds;
     const entries = source.map((visual, index) => ({
         visual,
         index,
-        bounds: visualWorldBounds(visual),
+        bounds: boundsForVisual(visual),
         sortKey: visualSortKey(visual, index)
     }));
     entries.sort((a, b) => a.sortKey - b.sortKey || a.index - b.index);
 
-    const main = entries.filter(({ visual }) => visual?.layer !== "actorFront" && visual?.layer !== "caveForeground");
+    const background = entries.filter(({ visual }) => isWorldBackgroundVisual(visual));
+    const main = entries.filter(({ visual }) => !isWorldBackgroundVisual(visual) && visual?.layer !== "actorFront" && visual?.layer !== CAVE_FOREGROUND_LAYER_ID);
     const actorFront = entries.filter(({ visual }) => visual?.layer === "actorFront");
-    const caveForeground = entries.filter(({ visual }) => visual?.layer === "caveForeground");
+    const caveForeground = entries.filter(({ visual }) => visual?.layer === CAVE_FOREGROUND_LAYER_ID);
     const binSize = options.binSize || DEFAULT_SPATIAL_BIN_SIZE;
 
     return {
         source,
         sourceLength: source.length,
+        background,
         main,
         actorFront,
         caveForeground,
         spatial: {
+            background: buildSpatialPartition(background, binSize),
             main: buildSpatialPartition(main, binSize),
             actorFront: buildSpatialPartition(actorFront, binSize),
             caveForeground: buildSpatialPartition(caveForeground, binSize)

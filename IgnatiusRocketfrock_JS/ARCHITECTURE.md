@@ -34,7 +34,9 @@ IgnatiusRocketfrock_JS/
 │   │   ├── hud-panel-layout.js
 │   │   ├── gamepad-haptics.js
 │   │   ├── game-settings-store.js
-│   │   └── music-director.js
+│   │   ├── music-director.js
+│   │   ├── music-engine-host.js
+│   │   └── music-engine-sources.js
 │   ├── presentation/
 │   │   ├── canvas-renderer.js
 │   │   ├── webgl2-renderer.js
@@ -69,10 +71,13 @@ IgnatiusRocketfrock_JS/
 │           ├── character-editor-view.js
 │           ├── character-project.js
 │           ├── dopesheet-data.js
-│           └── parent-constraint-data.js
+│           ├── parent-constraint-data.js
+│           └── reference-plate.js
 ├── tests/
 │   └── testbench.mjs
 ├── assets/
+│   ├── music/
+│   │   └── ignatius_music_selections.json
 │   └── level-generator-themes/
 ├── devel/
 ├── package.json
@@ -138,6 +143,7 @@ Revision 135 removed the last documented core-to-presentation dependency. Colour
 | `src/shared/auto-spawn-enemy-data.js` | SHARED DATA / MATH | Normalized level-owned auto-spawn settings, placeable enemy-spawner settings, enemy-catalog normalization, shared pool resolution, and construction of plain catalog-backed enemy entity records. |
 | `src/shared/level-generator-data.js` | SHARED DATA / MATH | Versioned generator settings, named deterministic random streams, implementation registries, shared enemy-pool parsing, abstract route candidate generation, validation, quality selection, provenance, and generated-state normalization. It creates no Canvas objects or playable cave geometry. |
 | `src/shared/game-settings-data.js` | SHARED DATA / MATH | Versioned game-facing settings defaults, preset normalization, incoming-damage scale, and visual particle-density scale without browser storage or DOM objects. |
+| `src/shared/level-layer-data.js` | SHARED DATA / MATH | Canonical user-facing level-layer IDs, inert cosmetic-layer classification, and shared Foreground/Background parallax defaults. |
 | `src/shared/cave-window-data.js` | SHARED DATA / MATH | Inert cave-window schema normalization, decoration and gradient-noise settings, closed smooth/corner spline sampling, deterministic perturbed-outset sampling, point-insertion lookup, and authoring bounds. It contains no collision or navigation generation. |
 | `src/shared/cave-kill-boundary-data.js` | SHARED DATA / MATH | Portable derivation of the player lethal loop from the same sampled cave full-black outset, plus camera-independent polygon/actor overlap tests. It creates no collision or navigation geometry. |
 | `src/shared/power-up-data.js` | SHARED DATA / MATH | Versioned power-up definitions, duration/permanence, refresh/extend/ignore stacking rules, active-effect normalization, HUD composition metadata, and deterministic rocket multipliers. |
@@ -153,13 +159,14 @@ Revision 135 removed the last documented core-to-presentation dependency. Colour
 | `src/presentation/rocket-glow-baking.js` | PRESENTATION ONLY | Separable alpha dilation, Gaussian blur, and padded tinted-surface construction retained for offline powered-rocket atlas preparation and deterministic kernel tests. Runtime rendering does not import this module. |
 | `src/presentation/canvas-renderer.js` | PRESENTATION ONLY | Canvas world rendering, camera presentation, rig drawing, visual effects, cave-mask composition, story overlays, and debug overlays. It caches 64×64 neutral or wrench-tinted smoke stamps for scaled `drawImage` reuse and avoids per-puff impact sparkle loops. |
 | `src/presentation/webgl2-renderer.js` | PRESENTATION ONLY | WebGL2 context, shader, sprite-batch, texture-cache, Canvas-layer upload, blend, context-recovery, and GPU diagnostic ownership for the visible game canvas. |
+| `src/presentation/world-parallax.js` | PRESENTATION ONLY | World-bounds-centred parallax offset shared by the ordinary cosmetic Background and the cave Foreground wrapper. |
 | `src/presentation/cave-window-mask.js` | PRESENTATION ONLY | Reduced-resolution reusable offscreen black cave mask, stable render keys, spline-to-screen tracing, deterministic wavy opacity bands inside the feather, exact full-black clamping, and camera-relative foreground parallax. |
 | `src/presentation/foreground-sprite-treatment.js` | PRESENTATION ONLY | Cached Canvas preparation for dark/desaturated cave foreground frames, world-to-local outward vectors, and a linear handover to opaque black at the sprite's exterior edge. |
 | `src/presentation/character-runtime.js` | PRESENTATION ONLY | Browser-side character project loading, rig normalization, animation selection, projectile-release transform compilation, and ordered draw commands. |
 | `src/presentation/level-color-map-cache.js` | PRESENTATION ONLY | Offscreen Canvas generation and image-pixel application for cached environment-atlas recolouring. |
 | `src/presentation/world-visual-cache.js` | PRESENTATION ONLY | Cached static-layer partitioning/sort keys, conservative rotated world bounds, parallax-aware viewport bounds, and Canvas draw rejection helpers. |
 | `src/presentation/overlap-blend-cache.js` | PRESENTATION ONLY | Detection of consecutive overlapping static atlas visuals and one-time off-screen bitmap composition with a central-half transparency crossfade. Runtime and Level Editor reuse the cached bitmap through ordinary `drawImage`; collision records remain separate and unchanged. |
-| `src/tools/character-editor/*` | EDITOR ONLY | Reusable Puppet Forge project, animation, atlas, dirty-state, view, and dopesheet operations. |
+| `src/tools/character-editor/*` | EDITOR ONLY | Reusable Puppet Forge project, animation, atlas, dirty-state, view, dopesheet, and tab-local motion-reference operations. |
 | `tests/testbench.mjs` | TEST ONLY | Headless simulation tests, data tests, source-boundary checks, and browser-entry integration checks. |
 
 
@@ -171,7 +178,7 @@ The cave perimeter is deliberately not gameplay geometry. Revision 136 adds a cl
 
 `src/shared/cave-window-data.js` owns schema, decoration settings, and curve mathematics so the Level Editor and renderer share deterministic points. `src/shared/cave-window-decoration.js` samples that spline by arc length, classifies inward normals as floor, wall, or ceiling, and selects tagged atlas assets deterministically from the authored seed. It returns ordinary explicit placement records on the `caveForeground` layer; it does not mutate gameplay geometry. `src/presentation/cave-window-mask.js` owns Canvas composition, outward feathering, and camera-relative parallax anchored around the technical world bounds. Revision 211 adds one deliberately narrow gameplay use through `src/shared/cave-kill-boundary-data.js`: portable core derives a lethal player loop from the same full-black outset. That loop is a defeat threshold only. It never becomes collision, a support, navigation, projectile geometry, or an editable second spline.
 
-Foreground cave placements are presentation records drawn after actors and before the black cave mask. Runtime and editor both force manifest collision off for this layer, even when a malformed level requests collision. The renderer applies the same cave parallax and uses cached darkened/desaturated frame canvases, avoiding an expensive Canvas filter for every placement on every frame. Revision 333 makes the Level Editor consume the renderer's `computeCaveWindowParallaxOffset` calculation for its viewport preview as well: the spline, feather guides, full-black boundary, and foreground placements move together as the editor camera pans. Editor pointer operations invert that display offset before writing coordinates, so the JSON remains ordinary authored world data. Revision 140 moves that preparation into `src/presentation/foreground-sprite-treatment.js`, which rotates each authored world-outward vector back into sprite-local space and bakes a transparent-to-black eased multi-stop overlay into the cached frame. Generated records are marked `generatedBy: "cavePerimeter"`; regeneration replaces only those records, leaving manual foreground formations untouched. The per-sprite fade reaches black before the reduced-resolution cave mask becomes fully opaque, so the rock frame hands over continuously to unseen darkness rather than exposing sprite rectangles. The editor should warn when authoritative platforms are placed so far outside the visible opening that their gameplay purpose would be hidden.
+Foreground cave placements are presentation records drawn after actors and before the black cave mask. Runtime and editor both force manifest collision off for this layer, even when a malformed level requests collision. The renderer applies the same cave parallax and uses cached darkened/desaturated frame canvases, avoiding an expensive Canvas filter for every placement on every frame. Revision 333 makes the Level Editor consume the renderer's `computeCaveWindowParallaxOffset` calculation for its viewport preview as well: the spline, feather guides, full-black boundary, and foreground placements move together as the editor camera pans. Editor pointer operations invert that display offset before writing coordinates, so the JSON remains ordinary authored world data. Revision 385 makes `src/presentation/foreground-sprite-treatment.js` colour-only: it caches brightness and saturation but never bakes a black gradient into a sprite. The world-space cave-window mask, drawn after every Foreground and Background asset, is the sole transparent-to-black handover. Therefore the fade stays attached to the authored perimeter when an asset is moved. Generated records are marked `generatedBy: "cavePerimeter"`; regeneration replaces only those records, leaving manual foreground formations untouched. The editor should warn when authoritative platforms are placed so far outside the visible opening that their gameplay purpose would be hidden.
 
 Revision 139 adds a presentation-only performance boundary around dense cave scenery. `src/presentation/world-visual-cache.js` partitions and sorts the static visual list only when the array identity changes, precomputes conservative rotated bounds, and culls terrain, actor-front, cutout-mask, and cave-foreground records before Canvas state changes or image submission. Cave-foreground culling includes the authored parallax offset. The renderer also conservatively culls off-screen targets, pickups, enemies, smoke puffs, and projectiles, with projectile trails included in their bounds. `src/presentation/cave-window-mask.js` renders its blur at 35% linear resolution, reuses the result while all render inputs remain unchanged, and upscales during final composition. The debug panel reports renderer stage timings, real render-to-render FPS, static/dynamic draw-cull counts, foreground-cache activity, and cave-mask reuse. These caches and bounds remain useful if a later WebGL2 backend is required.
 
@@ -705,7 +712,7 @@ Each suitable horizontal edge may also own one `recoveryLane` record. The lane i
 
 Moving-platform visual identity is data-driven. `assets/level-generator-platforms.json` reserves `rubble_long` exclusively for the `movingPlatform` role. Mandatory vertical edges select that role but retain ordinary landing-support traversal semantics, automatic shuttle movement, and complete travel-shaft cave stamps. Static branch bridges use a separate catalog role and cannot accidentally acquire the thin moving-platform visual.
 
-`src/shared/cave-window-decoration.js` now builds perimeter catalogs only from entries tagged `stalactite` or `stalagmite`. Floor normals select stalagmites, ceiling normals select stalactites, and side-wall normals may rotate either family. The generated foreground remains inert presentation data with the same protection, radial stacking, ownership, and fade contracts; only the admitted visual vocabulary changed.
+`src/shared/cave-window-decoration.js` now builds perimeter catalogs only from entries tagged `stalactite` or `stalagmite`. Floor normals select stalagmites, ceiling normals select stalactites, and side-wall normals may rotate either family. The generated foreground remains inert presentation data with the same protection, radial stacking, ownership, and world-space perimeter-mask fade contract; only the admitted visual vocabulary changed.
 
 ## Revision 246 Atlas 004 platform-manifest architecture
 
@@ -1418,13 +1425,9 @@ Direct manipulation now uses the same scheduling shape as the successful baselin
 `devel/benchmark_level_editor_playwright.py` is an optional loaded-page comparison probe. It opens level 002 in the baseline and editor at the same zoom, performs a timed pan, records each page's own cadence diagnostics, verifies that the editor stage does not exceed the workbench, and verifies equal stage/overlay backing dimensions. It is a development aid and not part of the release test gate.
 
 
-## Revision 358 Level Editor 2 migration boundary
+## Revision 358 Level Editor 2 migration boundary (retired)
 
-`level-editor-2.html` and `src/tools/level-editor-2.js` form a development-facing migration scaffold. They are rooted in the same production Canvas2D renderer and portable `applyEditorLevelToWorld` conversion as `level-renderer-baseline.html`. They must not import the monolithic old editor, duplicate asset rendering, mutate gameplay camera state, or become an alternate authoritative level format.
-
-The scaffold owns a numbered structural ladder: baseline shell, inert full sidebar, inert editor toolbar/chrome, untouched transparent overlay, per-frame transparent clear, transparent-overlay grid, and single-scene-canvas grid. The ladder exists because physical Chrome/Opera results diverged radically from headless Playwright despite similar synchronous draw timings. Its in-page sweep is a presentation/compositor diagnostic, not gameplay simulation.
-
-Migration proceeds only upward from the last stage proven smooth on the target browser. New editor functions should be ported as small editor-only adapters in `src/tools/` and should continue to use portable world conversion and production presentation code. Prefer one scene canvas unless the hardware sweep proves an additional transparent canvas harmless. The existing `level-editor.html` remains the functional reference until Editor 2 reaches parity.
+The former `level-editor-2.html` and `src/tools/level-editor-2.js` migration scaffold has been removed from the active project. It is not an authoritative surface, required package file, renderer-audit owner, or supported link target. Historical notes remain useful context for the physical-browser compositor investigation, while current editor architecture is defined by `level-editor.html`, portable `applyEditorLevelToWorld`, and the shared production Canvas renderer.
 
 ## Revision 359 Level Editor palette-surface boundary
 
@@ -1524,3 +1527,92 @@ Puppet Forge uses the same shared and presentation helpers as runtime, so its pr
 
 The modular human family keeps size authoring in the enemy catalog rather than altering shared rig geometry or animation coordinates. Enemy 030 and descendants cloned from it use catalog `defaultSize`, `renderScale`, and grounded render offsets as one proportional set. Revision 372 establishes the current 1.5× set at 67.5×177 collision dimensions, 1.23 render scale, and a 51-unit vertical artwork offset. This preserves animation reuse and keeps generator/editor placement dimensions truthful without introducing a hidden runtime species multiplier.
 
+
+
+## Revision 373 accepted jukebox music boundary
+
+Level music schema version 2 keeps the portable authored surface intentionally small: a level stores only `music.version` and one accepted `music.tuneId`. `src/shared/music-data.js` now owns the immutable 18-tune accepted catalog plus silence, including the chosen jukebox engine version and saved whole-octave shift. Full-pass duration, loop point, repeating-body duration, and developed-section count are measured from that exact live engine API. Rejected and unreviewed selector entries are not editor choices and unknown legacy IDs normalize to the default Mountain King selection.
+
+`src/browser/music-director.js` remains the browser-facing control boundary, but revision 373 supersedes its original short-loop oscillator scheduler. It now coordinates tune changes, persisted volume, transient pause/focus muting, and resume state through `src/browser/music-engine-host.js`. The host mounts only the three historical engines actually used by accepted tunes, versions 2, 3, and 4. Their exact HTML sources are embedded as base64 in `src/browser/music-engine-sources.js` and loaded into hidden same-origin `srcdoc` frames. This preserves the jukebox's own synthesizers, instrument renderers, long-form arrangement development, opening-once pass, and musical return point even when the project runs from local files.
+
+The selected source-of-truth export is retained at `assets/music/ignatius_music_selections.json`. Its accepted IDs, versions, and octave choices are authoritative. Its timing objects contain repeated per-version template values, so revision 373 records the tune-specific values reported by the embedded engine instead of copying those stale templates. The browser host calls each engine's existing API in this order: select the tune, apply the saved octave, apply the current effective game volume, then play. Pause/focus mute calls the engine pause operation. The embedded jukebox player resets its long-form phase on pause, so resuming through `play` begins the selected opening again exactly as the selector does. Tune changes and the explicit silence choice stop all engines. No iframe, AudioContext, or scheduling object enters portable core state.
+
+
+## Revision 374 music unlock idempotency boundary
+
+The browser may keep broad user-gesture listeners for autoplay recovery, but ordinary gameplay input must never become a transport command. `src/browser/music-director.js` owns this distinction. For one active engine/tune/octave configuration, repeated `unlock()` calls are idempotent and concurrent calls share one start attempt. The host's `play()` method may be called again only after playback has deliberately become inactive through tune change, pause/mute, zero volume, disposal, or a failed prior start.
+
+Treat the director's `unlocked` flag as active playback state, not merely proof that audio succeeded once in the past. Pause and zero-volume paths clear it without discarding the configured tune, allowing resume to reuse configuration while following the embedded jukebox's opening-restart behavior. Tune changes also clear it and invalidate older asynchronous starts through the generation token. Do not solve autoplay restrictions by removing all fallback gesture listeners or by letting browser input code inspect iframe engine state directly.
+
+
+## Revision 375 cosmetic Background and reciprocal parallax boundary
+
+Level-authored `decorBack` placements are now the explicit **Background** layer. This classification applies only to ordinary level placements. Character and entity visuals may still use the internal `decorBack` draw role inside their own assembled actor and remain in the ordinary non-parallax world pass while following their entity state. `src/presentation/world-visual-cache.js` distinguishes the two through the absence or presence of `entityId`, preventing an enemy's rear arm or equipment from drifting with level parallax.
+
+Background placements are presentation-only records. Portable conversion strips moving-platform behavior and forces manifest collision off even when imported JSON asks for either. Presentation partitions them before terrain, cutout masks, entities, and actor-front artwork, so a high authored stack order cannot pull Background art into the playable scenery. The dedicated partition is spatially culled with its own camera offset in both Canvas2D and WebGL2 paths.
+
+`src/shared/level-layer-data.js` owns the layer constants and defaults. Foreground now defaults to `1.08`; Background defaults to the exact reciprocal, `1 / 1.08` (`0.925925…`). `1.0` is neutral for either direction. `src/presentation/world-parallax.js` computes both offsets around the technical world-bounds centre. Factors above one move faster than the playing layer; factors below one move more slowly. The Level Editor uses that same helper and inverse transform for preview, placement, hit testing, dragging, labels, guides, and marquee selection. A level stores both factors only in `level.layerVisuals`; Background uses `layerVisuals.background.parallax` and Foreground uses `layerVisuals.foreground.parallax`.
+
+
+## Revision 376 Level Editor placement-layer UI boundary
+
+The Level Editor uses one placement tool for atlas assets. `state.newAssetLayer` and the Asset palette's `#new-asset-layer` control select `caveForeground`, `terrain`, or `decorBack`; they are editor UI state and are not serialized as level metadata. A placed record still stores its ordinary `layer` field.
+
+Preview and commit must both call the same layer-aware placement constructor. The selected layer decides the inverse display-to-authored transform before snapping: Foreground uses the cave-window transform, Background uses the world Background transform, and Terrain uses the unshifted world point. Keep these decisions in the editor and continue to rely on shared layer normalization and renderer partitions at runtime. Separate `placeBackground` or `placeCaveForeground` tools would duplicate this decision and should not be reintroduced.
+
+
+## Revision 377 Puppet Forge MP4 motion reference
+
+Puppet Forge may load one browser-local MP4 reference video behind the rig. `src/tools/character-editor/reference-plate.js` owns pure playhead-to-video-time mapping, aspect-ratio fit sizing, and display normalization. DOM file access, object URLs, MP4 decoding, seeking, playback, and Canvas drawing remain editor-only inside `character-editor.html`.
+
+The animation playhead is authoritative. Scrubbing, key stepping, preview speed, pause, animation looping, video-time offset, and optional video looping all resolve the displayed reference moment. The video is muted and drawn before rig parts in the same zoom, pan, facing, and local-ground transform, with independent X/Y, width/height, opacity, visibility, clear, and reset-alignment controls.
+
+The MP4 file and all reference settings are deliberately tab-session state. They never enter character, rig, atlas, animation, enemy-catalog, local-storage, level, or game-runtime schemas and must not affect any project dirty flag. Numbered image bundles are intentionally not supported.
+
+## Revision 378 embedded-music arrangement correction boundary
+
+`src/browser/music-engine-sources.js` remains the browser-owned package of synthesized jukebox engines. Engines 3 and 4 are unchanged selector exports. Engine 2 is now a documented derivative: its Mountain King arrangement retains the same synthesis profiles, instrument set, score pitches, beat positions, tempo curve, and loop timing, while correcting melody-support routing.
+
+A voice may set `followsPrimaryMelody: true` inside an embedded engine arrangement. Long-form development treats voice zero and any such marked voice as melody material: it never applies sparse accompaniment omission to them and applies register-development shifts consistently. This marker is private to the embedded browser engine and must not enter portable level, simulation, or shared music metadata.
+
+## Revision 379 grouped cosmetic-layer presentation data
+
+`level.layerVisuals` is the sole level-wide presentation record for the two inert cosmetic layers. Version 2 has `background` and `foreground` objects, each containing normalized `parallax`, `brightness`, and `scale`. `src/shared/level-layer-data.js` owns defaults and clamps. Top-level Background parallax, cave-window parallax, and cave-decoration brightness/scale mirrors are unsupported.
+
+Scale is applied around each authored placement centre during runtime level conversion and through the editor's display-placement path, so spatial culling, selection, guides, dragging, and rendering agree. Background brightness is represented on runtime visuals and rendered through cached brightness-adjusted atlas surfaces in both Canvas2D and WebGL2. Foreground brightness is taken directly from the grouped layer record; there is no second per-placement brightness multiplier. Neither visual multiplier changes collision because both layers remain inert by construction.
+
+The cave-window subsystem owns only the opening, feather, gradient noise, spline, lethal full-black boundary, and perimeter generator. Perimeter-generated placements are ordinary Foreground records and inherit the Foreground layer visual settings rather than maintaining a second user-facing scale or brightness control.
+
+Engine 2 may define a non-percussion voice-local `timbre` object. The scheduler merges it over the selected instrument profile for that voice only, preserving instrument identity and global profile behavior. Revision 379 uses this narrow hook solely for Mountain King's octave-up bassoon support.
+
+
+## Revision 380 retired enemy-hit laboratory
+
+The standalone `devel/enemy-hit-effect-lab.html` and `devel/enemy-hit-effect-lab.js` diagnostic paths are retired and listed as forbidden retired files by the compact packager. Their dedicated source-contract test and test-gate manifest entry are removed. This does not remove or weaken production enemy-hit behavior: prepared additive hit-flash surfaces, projectile-impact effects, damage awareness, and Canvas/WebGL parity remain covered by the ordinary simulation and renderer regressions.
+
+
+## Revision 381 visible Foreground visual authority
+
+`src/shared/level-layer-data.js` defines grouped cosmetic-layer schema version 2. Foreground defaults are `brightness: 0.36` and `scale: 2`; Background remains neutral at `1` for both fields. Foreground rectangles are authored at base size and transformed once by the visible layer values. No version-1 level migration exists.
+
+Manual placement and `src/shared/cave-window-decoration.js` now author Foreground records at base dimensions. The perimeter generator still calculates spacing, protection, overlap, and radial depth from effective scaled dimensions, but emits base rectangles. Generator validation receives the visible Foreground scale when calculating bounds. Per-placement `foregroundBrightness` is retired from canonical level data; `src/core/simulation.js` and the editor pass only the layer-wide brightness to `foreground-sprite-treatment.js`. Cave-decoration scale and brightness are synchronized compatibility/generation mirrors and are not a second rendering stage.
+
+## Revision 382 Level Editor sidebar information architecture
+
+The Level Editor sidebar order is a UI contract: **Level**, **Metadata**, **Layers**, **Perimeter**, **Colormap**, **Generator**, **Autospawner**, **Navigation graphs**, **Entity palette**, **Asset palette**, **Placed objects**, **Selected object**, **View**. Keep this sequence unless an explicit editor-information-architecture change supersedes it.
+
+`level.layerVisuals` remains the authoritative data source, but its six controls live in a dedicated **Layers** panel rather than inside Metadata. The **Perimeter** panel owns only cave-window and perimeter-generation controls. This revision changes presentation structure and labels only; element IDs, serialization paths, generator behavior, and runtime data remain unchanged.
+
+## Revision 383 canonical layer-control commits
+
+`level.layerVisuals` version 2 is the sole canonical representation of Background and Foreground parallax, brightness, and scale. Editor control commits include that schema version. `normalizeLevelLayerVisuals` clamps only the current grouped fields and contains no historical conversion branch. This prevents unrelated editor actions from multiplying visible layer settings.
+
+All asset overlay geometry must follow the same display pipeline as artwork. For Background and Foreground records, selection outlines, asset guides, hit testing, marquee bounds, and culling use `displayedLayerPlacement`, which applies layer-wide scale around the authored centre and then the matching parallax transform. Never mix a displayed centre with authored width and height.
+
+
+
+## Revision 384 current-level-only data architecture
+
+All supported levels and level fixtures ship in this repository. The portable loader, Level Editor, and automatic-generator metadata normalizer read only the current schema. Schema changes are atomic repository migrations: patch every bundled level and fixture, then remove the former fields and conversion code in the same revision. Do not preserve old aliases, compatibility mirrors, retired entity palette records, or strip-on-import branches.
+
+This policy does not forbid ordinary validation, clamping, defaults for newly created records, or compatibility outside level data such as the old root-page redirect and browser-settings migration. Regression tests for old-level conversion are obsolete. Keep negative source-contract tests that ensure retired fields and migration branches do not return.

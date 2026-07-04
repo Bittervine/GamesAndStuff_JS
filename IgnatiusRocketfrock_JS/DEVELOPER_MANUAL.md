@@ -40,7 +40,7 @@ Encounter rerolls preserve route, platforms, endpoints, and rewards. Reward rero
 
 The cyan loop is the cave opening. Feather controls the transparent-to-black width. The dashed magenta outset is the exact full-black boundary. Gradient waviness perturbs opacity contours without moving collision, navigation, decoration normals, or the lethal boundary.
 
-Cave foreground is inert presentation. It renders after actors with cave parallax, uses depth treatment, fades outward into black, and never has atlas collision. Automatic population derives dense overlap from rendered formation size and covers through the full-black boundary. Manual population intentionally has no gameplay-clearance protection, allowing foreground formations to overlap platforms, doors, actors, and other playable space. The Level Editor applies the same world-bounds-anchored camera offset to the cave opening, its gradient guides, and every `caveForeground` placement. Pan and zoom the editor to the camera region being authored before judging whether a door, platform, or actor remains inside the visible opening.
+Foreground is inert presentation. It renders after actors with cave parallax, uses depth treatment, fades outward into black, and never has atlas collision. Automatic population derives dense overlap from rendered formation size and covers through the full-black boundary. Manual population intentionally has no gameplay-clearance protection, allowing foreground formations to overlap platforms, doors, actors, and other playable space. The Level Editor applies the same world-bounds-anchored camera offset to the cave opening, its gradient guides, and every `caveForeground` placement. Pan and zoom the editor to the camera region being authored before judging whether a door, platform, or actor remains inside the visible opening.
 
 ## Level colour map
 
@@ -239,19 +239,9 @@ Projectile enemies may author `projectileVolleyCount` (1-15, default 1) and `pro
 
 The cave window is not fixed to ordinary world geometry when `parallax` is above 1. Runtime anchors the effect at the technical world-bounds centre and shifts the opening and cave-foreground artwork according to the current camera centre. The Level Editor now calls the same `computeCaveWindowParallaxOffset` helper, so panning to a room previews the mask position that gameplay will use there. Cave-point and foreground-asset hit testing, placement, dragging, labels, guides, and marquee selection operate on the displayed position while preserving authored world coordinates in level JSON.
 
-## Enemy-hit effect stutter lab
+## Retired enemy-hit laboratory (revision 380)
 
-Serve the project through a local web server and open `devel/enemy-hit-effect-lab.html`. The page cannot load character JSON, atlas images, or `level_002.json` reliably from a `file://` URL.
-
-Begin with one effect copy and allow the moving ruler to settle. Each button waits for at least 24 recent requestAnimationFrame samples, then begins on a frame boundary. The table reports the recent baseline median, the worst frame delay above that baseline, synchronous renderer draw time, one-shot trigger action time, late-frame count, browser long tasks, and WebGL texture uploads. A hidden tab, focus loss, or frame gap of 250 ms or more marks the result invalid. Do not diagnose an effect from a crossed-out row.
-
-Use **No-effect baseline** first. If the baseline itself has large positive spikes, solve the browser, display, recording, power-saving, or tab-scheduling problem before comparing effects. **Canvas filter flash** intentionally retains the retired filter primitive as a comparison. **Runtime hit flash** and **Complete enemy hit** use the current prepared-overlay production approach in both renderers.
-
-For WebGL2, press **Reset WebGL textures**, trigger a visual component, then repeat it without resetting. A first-use-only excess paired with texture uploads indicates lazy residency. **Prewarm hit textures** should remove that difference. Zero uploads means texture creation is not the cause of that run.
-
-The production-pipeline buttons run one real fixed step against the supplied `level_002` collision and navigation data without rendering the whole game scene. Compare **Fixed step, no hit** with **Sentry hit**, **Unalerted hunter hit**, and **Alerted hunter hit**. A hunter-only action-time jump points toward navigation or awareness work. **Rocket expiry only** isolates portable impact-smoke and explosion state creation without enemy damage.
-
-Increase **Effect copies** only after testing the ordinary single-hit case. It amplifies visual submission cost but does not multiply production simulation probes. **Run all tests** executes the valid controls sequentially. The lab narrows the suspect list; Chrome Performance recordings of the complete game remain the final confirmation.
+The standalone enemy-hit timing laboratory and its dedicated test have been retired. Enemy-hit presentation remains covered by the ordinary Canvas/WebGL renderer and simulation regressions.
 
 
 ### Ordinary-jump height trimming
@@ -281,20 +271,16 @@ For a repeatable functional check, serve the project and run `python devel/bench
 
 ## Canvas game-renderer baseline
 
-Use the Level Editor's **Canvas baseline** button when editor panning measurements become difficult to interpret. The button saves the current browser copy and opens `level-renderer-baseline.html` at the same top-left camera position and CSS zoom.
+`level-renderer-baseline.html` is retained for posterity and can be opened directly when editor panning measurements become difficult to interpret. The Level Editor no longer links to this diagnostic page; save a browser copy first when the baseline should load current authored data.
 
 This page is intentionally not an editor. It continuously renders the converted level with the production Canvas2D game renderer, including its ordinary spatial culling, environment sprites, runtime entities, actor-front artwork, cave foreground, parallax, and cave mask. It has no editor grid, guides, tile caches, WebGL backend, overlay canvas, or compositor pan preview. Drag anywhere on the canvas to pan, use the wheel to zoom around the pointer, and use **Reset stats** before comparing a representative drag.
 
 Compare its requestAnimationFrame `cadence` and `worst` values with the renderer's synchronous `submit` and layer timings. A smooth baseline with a slow Level Editor points to editor interaction or overlay work. A similarly slow baseline points lower, toward browser rasterization, compositing, driver behavior, or production Canvas rendering at that view and zoom.
 
 
-## Revision 358 Level Editor 2 structural ladder
+## Revision 358 Level Editor 2 structural ladder (retired)
 
-`level-editor-2.html` is the clean migration scaffold. It starts from the continuously rendered production Canvas2D baseline and adds editor structure through explicit numbered stages rather than importing the old editor wholesale. Stage 0 is the baseline shell; stage 1 adds the complete inert sidebar DOM; stage 2 adds the inert editor toolbar and current translucent chrome; stage 3 adds an untouched transparent overlay canvas; stage 4 clears that overlay every frame; stage 5 draws a grid on the overlay; and stage 6 removes the visible overlay again and draws the same grid after the production renderer on the single scene canvas.
-
-Use **Run stage sweep** on the actual target browser and GPU. It moves the camera identically through every stage and reports cadence, worst interval, complete animation callback time, and browser long tasks. The first stage whose cadence collapses is the migration boundary. Keep later Editor 2 work behind the last proven-fast boundary. The old `level-editor.html` remains available and unchanged in behavior while the scaffold is being promoted.
-
-The scaffold sidebar and toolbar are deliberately inert. Do not connect authoring state, palettes, selection, serialization, or inspector behavior until the structural sweep has identified whether DOM chrome, an additional transparent canvas, repeated clears, or guide drawing is the first hardware-specific failure.
+The former `level-editor-2.html` and `src/tools/level-editor-2.js` scaffold was a temporary compositor diagnostic. It has been removed from the active project and must not be treated as a required page, package input, or Canvas owner. Historical revision notes describe its seven-stage experiment, but current editor work uses `level-editor.html` plus the retained posterity-only Canvas baseline.
 
 ## Revision 359 lazy Level Editor palettes
 
@@ -316,7 +302,7 @@ The Export panel now shows only a compact summary. Use `serializeLevelJson()` in
 
 The Level Editor no longer has an Export panel. Use the three controls in **Level**: **Save Level (json)** downloads the current level, **Save in Browser** stores an on-demand browser copy, and **Load in Browser** restores it. Do not reintroduce Copy JSON, Open JSON in new tab, a JSON summary panel, or any persistent serialized text surface.
 
-For static editor and diagnostic cameras, call `renderer.setViewOverride({ x, y, cssZoom })`. Do not multiply editor zoom by `devicePixelRatio` outside the renderer. The renderer resolves CSS zoom after resize from the exact backing/client ratio, and the editor overlay resolves its own backing transform the same way. Ordinary playing-area guides use the unmodified editor camera. Apply `computeCaveWindowParallaxOffset` only to cave-window geometry and `caveForeground` records.
+For static editor and diagnostic cameras, call `renderer.setViewOverride({ x, y, cssZoom })`. Do not multiply editor zoom by `devicePixelRatio` outside the renderer. The renderer resolves CSS zoom after resize from the exact backing/client ratio, and the editor overlay resolves its own backing transform the same way. Ordinary playing-area guides use the unmodified editor camera. Apply `computeCaveWindowParallaxOffset` only to cave-window geometry and `caveForeground` records. Apply `computeWorldParallaxOffset` with `level.layerVisuals.background.parallax` only to level-owned Background placements; entity-local `decorBack` parts remain attached to their actor.
 
 ## Revision 362 Level data controls and renderer-cache terminology
 
@@ -345,3 +331,84 @@ In **Base rig / setup values**, enable **Pin this part's pivot to a parent part*
 A constrained part's X/Y animation tracks are read-only because Puppet Forge calculates them from the parent. Refreshing or downloading animation JSON bakes the calculated positions into ordinary X/Y keys for the game. Rotation and scale remain independent. Disable the constraint to return to ordinary X/Y editing; the latest baked positions remain available as normal keys.
 
 Each child may have only one parent constraint. Puppet Forge prevents self-links and circular chains such as torso to arm to torso.
+
+
+## Revision 373 music integration
+
+The runtime music catalog is generated from `assets/music/ignatius_music_selections.json`. Do not hand-add a tune to the Level Editor without adding an accepted selection record containing its engine version and whole-octave setting. Measure full-pass duration, loop start, repeat duration, and section count from the selected engine API; do not trust the selector export's repeated timing templates. `src/shared/music-data.js` is the editor/runtime metadata catalog; it is not an alternative score engine.
+
+The exact selector engines live in `src/browser/music-engine-sources.js` and are hosted by `src/browser/music-engine-host.js`. Keep them browser-only. The frames use `srcdoc` deliberately because relative iframe pages can become cross-origin under `file://`, preventing the game from calling the engine API. The host must remain the only code that reaches `frame.contentWindow.__IGNATIUS_ENGINE_API__`.
+
+When changing playback state, preserve the distinction between stopping and pausing. A level/tune change calls `stop`, selects the new tune, applies its saved octave, and starts its opening. Pause-menu, focus-loss, and zero-volume suspension call `pause`. The selector engines reset their long-form phase when paused, so the next `play` begins the selected opening again. Preserve that behavior unless the jukebox engine itself is deliberately changed. Never copy the embedded engine's AudioContext or scheduling state into simulation data.
+
+
+## Revision 374 music gesture handling
+
+`game-bootstrap.js` intentionally listens for broad `keydown` and `pointerdown` gestures because browser autoplay policy can reject an earlier non-gesture start. Those listeners may call `musicDirector.unlock()` many times during normal play. Never make `unlock()` directly synonymous with “restart playback.”
+
+The director must first compare the active engine/tune/octave configuration with its playback state. If that configuration is already playing, return success without calling the host. If a start for the same configuration is still pending, return the same promise so key repeat and nearly simultaneous pointer/keyboard input cannot schedule duplicate starts. Clear active playback state when pausing, muting, setting music volume to zero, changing tune, or disposing. This keeps intentional resume behavior distinct from ordinary movement and jump gestures.
+
+
+### Background and Foreground layers (revisions 375-376)
+
+The Level Editor presents four authoring names: **Background**, **Terrain**, **Decoration**, and **Foreground**. The serialized IDs are `decorBack`, `terrain`, `decorFront`, and `caveForeground`. Do not describe `caveForeground` as the perimeter layer in user-facing controls. The perimeter is one generator that happens to create Foreground records; manually placed Foreground artwork uses the same layer without generator provenance.
+
+The Asset palette has one **Layer for new assets** dropdown with **Foreground**, **Terrain**, and **Background**, plus one shared **Place asset** tool. Selecting an asset card also enters that same placement mode. Do not restore separate Background and Foreground placement tools: preview and placement must read the dropdown and route through the matching authored-coordinate transform.
+
+Choose **Background** for distant cosmetic scenery. Background records never receive atlas collision and cannot be moving platforms. They render in a dedicated pass before all ordinary world artwork regardless of stack order. `level.layerVisuals.background.parallax` controls the entire layer. Its default is the exact reciprocal of the Foreground default: `1 / 1.08`, approximately `0.925926`. Set it to `1.0` when a level should have no Background drift. The allowed editor range is `0.25` through `1.0`.
+
+Choose **Foreground** for inert artwork in front of actors. `level.layerVisuals.foreground.parallax` defaults to `1.08`; `1.0` disables its relative movement. Foreground treatment, the cave opening, feather contours, and generated perimeter art share that offset. Choose **Terrain** for ordinary placed artwork whose atlas collision may remain active.
+
+Both layers use world-bounds-centred offsets from `src/presentation/world-parallax.js`. Editor pointer operations add the active offset before storing authored coordinates, while drawing subtracts it. Never save camera-relative coordinates into the level. When adding new editor operations for these layers, pass records through `displayedLayerPlacement` or the equivalent shared transform so selection and rendering remain aligned.
+
+
+## MP4 motion reference in Puppet Forge (revision 377)
+
+Open **Motion reference video** in Rig and animation mode and choose a local MP4. H.264 video in an MP4 container has the broadest browser support. The video is muted and loaded through a temporary object URL; no reference media is copied into the project.
+
+The animation playhead drives the visible video moment. Scrubbing, stepping, pausing, preview speed, and animation looping keep the MP4 aligned. **Video time offset** adds to animation time, so a positive value looks later in the clip. Use X/Y to align the person, Width/Height for independent scale, Opacity to ghost the plate, and `1.0` animation preview speed when checking source timing most literally. **Reset alignment** preserves the source aspect ratio, centres the video on local X, and bottom-aligns it to local `y = 0`. The plate follows preview zoom, pan, and facing.
+
+The MP4 and its controls are intentionally temporary. They do not mark any project document dirty and are never included in character, rig, atlas, animation, enemy-catalog, or level JSON. Reloading or closing the tab discards them. Puppet Forge does not support image bundles as motion references.
+
+## Mountain King orchestration correction (revision 378)
+
+The embedded orchestrated engine marks Mountain King's quiet bassoon octave double with `followsPrimaryMelody: true`. The long-form arranger must preserve every note in marked voices just as it preserves voice zero. Do not replace this with an alternating `accentedCopy(..., 2)` or allow sparse accompaniment plans to thin it; either change recreates the audible impression that melody notes are missing or being reassigned between instruments.
+
+## Foreground and Background visual groups (revision 379)
+
+Open **Layers** to configure the two inert cosmetic layers. Foreground and Background each expose **Parallax**, **Brightness**, and **Scale**. Parallax `1.0` follows the world. Brightness and scale `1.0` preserve source colour and authored size, but the Foreground defaults intentionally show its complete cave treatment directly: brightness `0.36` and scale `2.0`. Foreground parallax starts at `1.08`; Background starts at `1 / 1.08`, with neutral brightness and scale. These values affect every placement in the layer, including cave-perimeter assets because those are Foreground records.
+
+The **Perimeter** panel is intentionally limited to cave geometry, feather and gradient behavior, spline point editing, population seed, inward coverage, and generated-art management. Do not restore duplicate Foreground scale, brightness, or parallax controls there. `level.layerVisuals` version 2 is the sole level representation of both cosmetic layers; top-level parallax mirrors and cave-decoration brightness/scale fields are unsupported.
+
+Background and Foreground remain inert presentation. They never have atlas collision or moving-platform behavior. Layer scale must be applied around the authored placement centre, and editor culling and pointer geometry must use the same scaled display bounds as rendering.
+
+## Mountain King upper voice treatment (revision 379)
+
+The full bassoon octave double introduced by the revision 378 continuity correction remains marked `followsPrimaryMelody`. Do not thin or alternate it. Its voice-local timbre override lowers the cutoff, slows the envelope, reduces breath noise, extends release, and lowers gain while retaining the bassoon instrument and all note events. Tune-specific timbre overrides belong inside the embedded browser engine and must not enter portable level or shared music schemas.
+
+
+## Visible Foreground treatment (revision 381)
+
+Foreground artwork is stored at base size. Runtime and editor rendering apply only `level.layerVisuals.foreground.scale`, and foreground sprite treatment receives the layer brightness plus the perimeter decoration saturation. The shipped levels expose their complete treatment directly: level 001 uses brightness `0.4` and scale `2.0`; level 002 uses brightness `0.46` and scale `2.0`. Per-placement brightness, scale, outward-vector, and fade-interval fields are unsupported. The cave-window mask owns the only spatial fade, so moving an asset away from the perimeter immediately reveals its clean colour-treated frame.
+
+The Layers panel contains no persistent defaults paragraph; explanatory copy belongs in native mouse-over tooltips on the controls.
+
+## Level Editor sidebar order (revision 382)
+
+The right sidebar is arranged as **Level**, **Metadata**, **Layers**, **Perimeter**, **Colormap**, **Generator**, **Autospawner**, **Navigation graphs**, **Entity palette**, **Asset palette**, **Placed objects**, **Selected object**, and **View**. This puts file-level actions and compact level identity first, world-construction tools next, object catalogs and inspection after them, and viewport preferences last.
+
+Do not move the six cosmetic-layer fields back into Metadata. **Layers** is the sole user-facing home for Foreground and Background Parallax, Brightness, and Scale. **Perimeter** is reserved for the cave-window spline, mask, feather, gradient, and automatic perimeter decoration workflow.
+
+## Stable layer controls and scaled outlines (revision 383)
+
+**Populate perimeter** and **Clear generated** are record-management commands. They must not modify any value in **Layers**. When reading the layer controls, commit a canonical `level.layerVisuals` version 2 object. There is no cave-decoration migration path; old levels must be patched to current data before they enter the project.
+
+Foreground and Background artwork is stored at base size, then transformed for display. Selection outlines and asset-guide boxes must use the transformed record returned by `displayedLayerPlacement` for centre, width, height, rotation, and parallax position. Using the transformed centre with the unscaled authored dimensions produces the small displaced boxes fixed in this revision.
+
+
+
+## Current-level-only schema policy (revision 384)
+
+The repository contains every supported level. Runtime, Level Editor, generator normalization, and tests therefore target only the current bundled schema. When a level format changes, update all shipped levels and fixtures in the same revision. Do not add aliases, mirror fields, import migrations, retired entity translations, or silent old-record stripping. A stale external level may fail validation or lose unsupported records; preserving it is not a project requirement.
+
+Normal current-schema validation, numeric clamping, and defaults used while creating a new level remain appropriate. The prohibition is against alternate historical field names and conversion branches. Tests should verify the canonical schema and guard that retired paths stay absent, not exercise conversions from unsupported old levels.

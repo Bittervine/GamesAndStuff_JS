@@ -1,0 +1,1452 @@
+{
+  "format": "ignatius-rocketfrock-music-selection",
+  "schemaVersion": 2,
+  "exportedAt": "2026-07-04T11:04:38.828Z",
+  "playback": {
+    "arrangementLength": "two to five minutes where source material permits",
+    "maximumFullPassSeconds": 300,
+    "loopPolicy": "play opening once, then return to the stored musical loop point indefinitely"
+  },
+  "versions": [
+    {
+      "version": 1,
+      "name": "Original",
+      "description": "The first compact synth arrangements. Extended to a developed 2–5 minute pass with a musical return point."
+    },
+    {
+      "version": 2,
+      "name": "Orchestrated",
+      "description": "The broad, colourful orchestral treatment. Extended to a developed 2–5 minute pass with a musical return point."
+    },
+    {
+      "version": 3,
+      "name": "Natural",
+      "description": "Melody-first arrangements with more restrained orchestration. Extended to a developed 2–5 minute pass with a musical return point."
+    },
+    {
+      "version": 4,
+      "name": "Deep piano",
+      "description": "Deeper register and rendered piano-focused instruments. Extended to a developed 2–5 minute pass with a musical return point."
+    },
+    {
+      "version": 5,
+      "name": "Piano + double bass",
+      "description": "The piano-and-double-bass duo treatment. Extended to a developed 2–5 minute pass with a musical return point."
+    }
+  ],
+  "accepted": [
+    {
+      "id": "grieg_mountain_king",
+      "title": "In the Hall of the Mountain King",
+      "composer": "Edvard Grieg",
+      "year": 1875,
+      "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1888",
+      "status": "accept",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 14
+      }
+    },
+    {
+      "id": "grieg_march_dwarfs",
+      "title": "March of the Dwarfs",
+      "composer": "Edvard Grieg",
+      "year": 1891,
+      "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=2014",
+      "status": "accept",
+      "version": 3,
+      "versionName": "Natural",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 20
+      }
+    },
+    {
+      "id": "mussorgsky_bald_mountain",
+      "title": "Night on Bald Mountain",
+      "composer": "Modest Mussorgsky",
+      "year": 1867,
+      "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1892",
+      "status": "accept",
+      "version": 3,
+      "versionName": "Natural",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 19
+      }
+    },
+    {
+      "id": "saint_saens_danse_macabre",
+      "title": "Danse macabre",
+      "composer": "Camille Saint-Saëns",
+      "year": 1874,
+      "source": null,
+      "status": "accept",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 32
+      }
+    },
+    {
+      "id": "saint_saens_fossils",
+      "title": "Fossils",
+      "composer": "Camille Saint-Saëns",
+      "year": 1886,
+      "source": null,
+      "status": "accept",
+      "version": 4,
+      "versionName": "Deep piano",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 210.73170731707316,
+        "loopStartSeconds": 2.926829268292683,
+        "repeatSeconds": 207.8048780487805,
+        "sections": 72
+      }
+    },
+    {
+      "id": "saint_saens_elephant",
+      "title": "The Elephant",
+      "composer": "Camille Saint-Saëns",
+      "year": 1886,
+      "source": null,
+      "status": "accept",
+      "version": 4,
+      "versionName": "Deep piano",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 210.73170731707316,
+        "loopStartSeconds": 2.926829268292683,
+        "repeatSeconds": 207.8048780487805,
+        "sections": 34
+      }
+    },
+    {
+      "id": "saint_saens_lion",
+      "title": "Royal March of the Lion",
+      "composer": "Camille Saint-Saëns",
+      "year": 1886,
+      "source": null,
+      "status": "accept",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 37
+      }
+    },
+    {
+      "id": "tchaikovsky_sugar_plum",
+      "title": "Dance of the Sugar Plum Fairy",
+      "composer": "Pyotr Ilyich Tchaikovsky",
+      "year": 1892,
+      "source": null,
+      "status": "accept",
+      "version": 4,
+      "versionName": "Deep piano",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 210.73170731707316,
+        "loopStartSeconds": 2.926829268292683,
+        "repeatSeconds": 207.8048780487805,
+        "sections": 30
+      }
+    },
+    {
+      "id": "bach_toccata_d_minor",
+      "title": "Toccata and Fugue in D minor",
+      "composer": "Johann Sebastian Bach",
+      "year": 1704,
+      "source": null,
+      "status": "accept",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 28
+      }
+    },
+    {
+      "id": "bach_bourree_e_minor",
+      "title": "Bourrée in E minor",
+      "composer": "Johann Sebastian Bach",
+      "year": 1712,
+      "source": null,
+      "status": "accept",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 31
+      }
+    },
+    {
+      "id": "beethoven_turkish_march",
+      "title": "Turkish March from The Ruins of Athens",
+      "composer": "Ludwig van Beethoven",
+      "year": 1811,
+      "source": null,
+      "status": "accept",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 34
+      }
+    },
+    {
+      "id": "mozart_rondo_alla_turca",
+      "title": "Rondo alla turca",
+      "composer": "Wolfgang Amadeus Mozart",
+      "year": 1783,
+      "source": null,
+      "status": "accept",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 72
+      }
+    },
+    {
+      "id": "mozart_eine_kleine",
+      "title": "Eine kleine Nachtmusik: Allegro",
+      "composer": "Wolfgang Amadeus Mozart",
+      "year": 1787,
+      "source": null,
+      "status": "accept",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 39
+      }
+    },
+    {
+      "id": "mozart_queen_night",
+      "title": "Queen of the Night: Vengeance Aria",
+      "composer": "Wolfgang Amadeus Mozart",
+      "year": 1791,
+      "source": null,
+      "status": "accept",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 72
+      }
+    },
+    {
+      "id": "brahms_hungarian_5",
+      "title": "Hungarian Dance No. 5",
+      "composer": "Johannes Brahms",
+      "year": 1869,
+      "source": null,
+      "status": "accept",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 72
+      }
+    },
+    {
+      "id": "delibes_pizzicato",
+      "title": "Pizzicato from Sylvia",
+      "composer": "Léo Delibes",
+      "year": 1876,
+      "source": null,
+      "status": "accept",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": -2,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 29
+      }
+    },
+    {
+      "id": "joplin_entertainer",
+      "title": "The Entertainer",
+      "composer": "Scott Joplin",
+      "year": 1902,
+      "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=263",
+      "status": "accept",
+      "version": 3,
+      "versionName": "Natural",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 8
+      }
+    },
+    {
+      "id": "strauss_pizzicato_polka",
+      "title": "Pizzicato Polka",
+      "composer": "Johann Strauss II & Josef Strauss",
+      "year": 1869,
+      "source": null,
+      "status": "accept",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 38
+      }
+    }
+  ],
+  "decisions": [
+    {
+      "id": "grieg_mountain_king",
+      "title": "In the Hall of the Mountain King",
+      "composer": "Edvard Grieg",
+      "year": 1875,
+      "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1888",
+      "status": "accept",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 14
+      }
+    },
+    {
+      "id": "grieg_march_dwarfs",
+      "title": "March of the Dwarfs",
+      "composer": "Edvard Grieg",
+      "year": 1891,
+      "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=2014",
+      "status": "accept",
+      "version": 3,
+      "versionName": "Natural",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 20
+      }
+    },
+    {
+      "id": "grieg_anitra_dance",
+      "title": "Anitra's Dance",
+      "composer": "Edvard Grieg",
+      "year": 1875,
+      "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=281",
+      "status": "reject",
+      "version": 1,
+      "versionName": "Original",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 203.2941176470588,
+        "loopStartSeconds": 2.823529411764706,
+        "repeatSeconds": 200.47058823529412,
+        "sections": 20
+      }
+    },
+    {
+      "id": "mussorgsky_bald_mountain",
+      "title": "Night on Bald Mountain",
+      "composer": "Modest Mussorgsky",
+      "year": 1867,
+      "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1892",
+      "status": "accept",
+      "version": 3,
+      "versionName": "Natural",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 19
+      }
+    },
+    {
+      "id": "saint_saens_danse_macabre",
+      "title": "Danse macabre",
+      "composer": "Camille Saint-Saëns",
+      "year": 1874,
+      "source": null,
+      "status": "accept",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 32
+      }
+    },
+    {
+      "id": "saint_saens_fossils",
+      "title": "Fossils",
+      "composer": "Camille Saint-Saëns",
+      "year": 1886,
+      "source": null,
+      "status": "accept",
+      "version": 4,
+      "versionName": "Deep piano",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 210.73170731707316,
+        "loopStartSeconds": 2.926829268292683,
+        "repeatSeconds": 207.8048780487805,
+        "sections": 72
+      }
+    },
+    {
+      "id": "saint_saens_aquarium",
+      "title": "Aquarium",
+      "composer": "Camille Saint-Saëns",
+      "year": 1886,
+      "source": null,
+      "status": "reject",
+      "version": 1,
+      "versionName": "Original",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 203.2941176470588,
+        "loopStartSeconds": 2.823529411764706,
+        "repeatSeconds": 200.47058823529412,
+        "sections": 21
+      }
+    },
+    {
+      "id": "saint_saens_elephant",
+      "title": "The Elephant",
+      "composer": "Camille Saint-Saëns",
+      "year": 1886,
+      "source": null,
+      "status": "accept",
+      "version": 4,
+      "versionName": "Deep piano",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 210.73170731707316,
+        "loopStartSeconds": 2.926829268292683,
+        "repeatSeconds": 207.8048780487805,
+        "sections": 34
+      }
+    },
+    {
+      "id": "saint_saens_lion",
+      "title": "Royal March of the Lion",
+      "composer": "Camille Saint-Saëns",
+      "year": 1886,
+      "source": null,
+      "status": "accept",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 37
+      }
+    },
+    {
+      "id": "dukas_sorcerer_apprentice",
+      "title": "The Sorcerer's Apprentice",
+      "composer": "Paul Dukas",
+      "year": 1897,
+      "source": null,
+      "status": "reject",
+      "version": 4,
+      "versionName": "Deep piano",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 210.73170731707316,
+        "loopStartSeconds": 2.926829268292683,
+        "repeatSeconds": 207.8048780487805,
+        "sections": 46
+      }
+    },
+    {
+      "id": "rimsky_bumblebee",
+      "title": "Flight of the Bumblebee",
+      "composer": "Nikolai Rimsky-Korsakov",
+      "year": 1900,
+      "source": null,
+      "status": "reject",
+      "version": 1,
+      "versionName": "Original",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 203.2941176470588,
+        "loopStartSeconds": 2.823529411764706,
+        "repeatSeconds": 200.47058823529412,
+        "sections": 72
+      }
+    },
+    {
+      "id": "tchaikovsky_sugar_plum",
+      "title": "Dance of the Sugar Plum Fairy",
+      "composer": "Pyotr Ilyich Tchaikovsky",
+      "year": 1892,
+      "source": null,
+      "status": "accept",
+      "version": 4,
+      "versionName": "Deep piano",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 210.73170731707316,
+        "loopStartSeconds": 2.926829268292683,
+        "repeatSeconds": 207.8048780487805,
+        "sections": 30
+      }
+    },
+    {
+      "id": "tchaikovsky_trepak",
+      "title": "Trepak (Russian Dance)",
+      "composer": "Pyotr Ilyich Tchaikovsky",
+      "year": 1892,
+      "source": null,
+      "status": "reject",
+      "version": 1,
+      "versionName": "Original",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 203.2941176470588,
+        "loopStartSeconds": 2.823529411764706,
+        "repeatSeconds": 200.47058823529412,
+        "sections": 72
+      }
+    },
+    {
+      "id": "tchaikovsky_nutcracker_march",
+      "title": "March from The Nutcracker",
+      "composer": "Pyotr Ilyich Tchaikovsky",
+      "year": 1892,
+      "source": null,
+      "status": "reject",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": -2,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 35
+      }
+    },
+    {
+      "id": "tchaikovsky_swan_lake",
+      "title": "Swan Lake: Scene",
+      "composer": "Pyotr Ilyich Tchaikovsky",
+      "year": 1876,
+      "source": null,
+      "status": "reject",
+      "version": 1,
+      "versionName": "Original",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 203.2941176470588,
+        "loopStartSeconds": 2.823529411764706,
+        "repeatSeconds": 200.47058823529412,
+        "sections": 23
+      }
+    },
+    {
+      "id": "bach_toccata_d_minor",
+      "title": "Toccata and Fugue in D minor",
+      "composer": "Johann Sebastian Bach",
+      "year": 1704,
+      "source": null,
+      "status": "accept",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 28
+      }
+    },
+    {
+      "id": "bach_badinerie",
+      "title": "Badinerie",
+      "composer": "Johann Sebastian Bach",
+      "year": 1730,
+      "source": null,
+      "status": "reject",
+      "version": 4,
+      "versionName": "Deep piano",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 210.73170731707316,
+        "loopStartSeconds": 2.926829268292683,
+        "repeatSeconds": 207.8048780487805,
+        "sections": 72
+      }
+    },
+    {
+      "id": "bach_bourree_e_minor",
+      "title": "Bourrée in E minor",
+      "composer": "Johann Sebastian Bach",
+      "year": 1712,
+      "source": null,
+      "status": "accept",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 31
+      }
+    },
+    {
+      "id": "beethoven_symphony_5",
+      "title": "Symphony No. 5: Opening",
+      "composer": "Ludwig van Beethoven",
+      "year": 1808,
+      "source": null,
+      "status": "reject",
+      "version": 4,
+      "versionName": "Deep piano",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 210.73170731707316,
+        "loopStartSeconds": 2.926829268292683,
+        "repeatSeconds": 207.8048780487805,
+        "sections": 24
+      }
+    },
+    {
+      "id": "beethoven_turkish_march",
+      "title": "Turkish March from The Ruins of Athens",
+      "composer": "Ludwig van Beethoven",
+      "year": 1811,
+      "source": null,
+      "status": "accept",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 34
+      }
+    },
+    {
+      "id": "beethoven_rage_penny",
+      "title": "Rage Over a Lost Penny",
+      "composer": "Ludwig van Beethoven",
+      "year": 1795,
+      "source": null,
+      "status": "reject",
+      "version": 1,
+      "versionName": "Original",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 203.2941176470588,
+        "loopStartSeconds": 2.823529411764706,
+        "repeatSeconds": 200.47058823529412,
+        "sections": 72
+      }
+    },
+    {
+      "id": "mozart_rondo_alla_turca",
+      "title": "Rondo alla turca",
+      "composer": "Wolfgang Amadeus Mozart",
+      "year": 1783,
+      "source": null,
+      "status": "accept",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 72
+      }
+    },
+    {
+      "id": "mozart_eine_kleine",
+      "title": "Eine kleine Nachtmusik: Allegro",
+      "composer": "Wolfgang Amadeus Mozart",
+      "year": 1787,
+      "source": null,
+      "status": "accept",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 39
+      }
+    },
+    {
+      "id": "mozart_queen_night",
+      "title": "Queen of the Night: Vengeance Aria",
+      "composer": "Wolfgang Amadeus Mozart",
+      "year": 1791,
+      "source": null,
+      "status": "accept",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 72
+      }
+    },
+    {
+      "id": "mozart_musical_joke",
+      "title": "A Musical Joke",
+      "composer": "Wolfgang Amadeus Mozart",
+      "year": 1787,
+      "source": null,
+      "status": "reject",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 36
+      }
+    },
+    {
+      "id": "offenbach_can_can",
+      "title": "Can-Can (Infernal Galop)",
+      "composer": "Jacques Offenbach",
+      "year": 1858,
+      "source": null,
+      "status": "reject",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 72
+      }
+    },
+    {
+      "id": "rossini_william_tell",
+      "title": "William Tell Overture: Finale",
+      "composer": "Gioachino Rossini",
+      "year": 1829,
+      "source": null,
+      "status": "reject",
+      "version": 5,
+      "versionName": "Piano + double bass",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 72
+      }
+    },
+    {
+      "id": "rossini_barber_seville",
+      "title": "The Barber of Seville: Overture",
+      "composer": "Gioachino Rossini",
+      "year": 1816,
+      "source": null,
+      "status": "reject",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": -2,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 72
+      }
+    },
+    {
+      "id": "rossini_thieving_magpie",
+      "title": "The Thieving Magpie: Overture",
+      "composer": "Gioachino Rossini",
+      "year": 1817,
+      "source": null,
+      "status": "reject",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 37
+      }
+    },
+    {
+      "id": "brahms_hungarian_5",
+      "title": "Hungarian Dance No. 5",
+      "composer": "Johannes Brahms",
+      "year": 1869,
+      "source": null,
+      "status": "accept",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 72
+      }
+    },
+    {
+      "id": "ponchielli_dance_hours",
+      "title": "Dance of the Hours",
+      "composer": "Amilcare Ponchielli",
+      "year": 1876,
+      "source": null,
+      "status": "reject",
+      "version": 4,
+      "versionName": "Deep piano",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 210.73170731707316,
+        "loopStartSeconds": 2.926829268292683,
+        "repeatSeconds": 207.8048780487805,
+        "sections": 35
+      }
+    },
+    {
+      "id": "gounod_marionette",
+      "title": "Funeral March of a Marionette",
+      "composer": "Charles Gounod",
+      "year": 1872,
+      "source": null,
+      "status": "reject",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 33
+      }
+    },
+    {
+      "id": "delibes_pizzicato",
+      "title": "Pizzicato from Sylvia",
+      "composer": "Léo Delibes",
+      "year": 1876,
+      "source": null,
+      "status": "accept",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": -2,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 29
+      }
+    },
+    {
+      "id": "mussorgsky_gnomus",
+      "title": "Gnomus",
+      "composer": "Modest Mussorgsky",
+      "year": 1874,
+      "source": null,
+      "status": "reject",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 61
+      }
+    },
+    {
+      "id": "mussorgsky_chicks",
+      "title": "Ballet of the Unhatched Chicks",
+      "composer": "Modest Mussorgsky",
+      "year": 1874,
+      "source": null,
+      "status": "reject",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": -2,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 72
+      }
+    },
+    {
+      "id": "mussorgsky_baba_yaga",
+      "title": "The Hut on Fowl’s Legs (Baba Yaga)",
+      "composer": "Modest Mussorgsky",
+      "year": 1874,
+      "source": null,
+      "status": "reject",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 72
+      }
+    },
+    {
+      "id": "smetana_comedians",
+      "title": "Dance of the Comedians",
+      "composer": "Bedřich Smetana",
+      "year": 1866,
+      "source": null,
+      "status": "reject",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": -2,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 72
+      }
+    },
+    {
+      "id": "joplin_entertainer",
+      "title": "The Entertainer",
+      "composer": "Scott Joplin",
+      "year": 1902,
+      "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=263",
+      "status": "accept",
+      "version": 3,
+      "versionName": "Natural",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 8
+      }
+    },
+    {
+      "id": "joplin_maple_leaf",
+      "title": "Maple Leaf Rag",
+      "composer": "Scott Joplin",
+      "year": 1899,
+      "source": null,
+      "status": "reject",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 62
+      }
+    },
+    {
+      "id": "joplin_pine_apple",
+      "title": "Pine Apple Rag",
+      "composer": "Scott Joplin",
+      "year": 1908,
+      "source": null,
+      "status": "reject",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 51
+      }
+    },
+    {
+      "id": "strauss_tritsch_tratsch",
+      "title": "Tritsch-Tratsch-Polka",
+      "composer": "Johann Strauss II",
+      "year": 1858,
+      "source": null,
+      "status": "reject",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 72
+      }
+    },
+    {
+      "id": "strauss_thunder_lightning",
+      "title": "Thunder and Lightning Polka",
+      "composer": "Johann Strauss II",
+      "year": 1868,
+      "source": null,
+      "status": "reject",
+      "version": 4,
+      "versionName": "Deep piano",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 210.73170731707316,
+        "loopStartSeconds": 2.926829268292683,
+        "repeatSeconds": 207.8048780487805,
+        "sections": 72
+      }
+    },
+    {
+      "id": "strauss_pizzicato_polka",
+      "title": "Pizzicato Polka",
+      "composer": "Johann Strauss II & Josef Strauss",
+      "year": 1869,
+      "source": null,
+      "status": "accept",
+      "version": 2,
+      "versionName": "Orchestrated",
+      "octave": -1,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 38
+      }
+    },
+    {
+      "id": "strauss_radetzky",
+      "title": "Radetzky March",
+      "composer": "Johann Strauss I",
+      "year": 1848,
+      "source": null,
+      "status": "unreviewed",
+      "version": 5,
+      "versionName": "Piano + double bass",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 35
+      }
+    },
+    {
+      "id": "handel_queen_sheba",
+      "title": "Arrival of the Queen of Sheba",
+      "composer": "George Frideric Handel",
+      "year": 1749,
+      "source": null,
+      "status": "unreviewed",
+      "version": 5,
+      "versionName": "Piano + double bass",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 72
+      }
+    },
+    {
+      "id": "handel_rejouissance",
+      "title": "La Réjouissance",
+      "composer": "George Frideric Handel",
+      "year": 1749,
+      "source": null,
+      "status": "unreviewed",
+      "version": 5,
+      "versionName": "Piano + double bass",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 40
+      }
+    },
+    {
+      "id": "schubert_erlkonig",
+      "title": "Erlkönig",
+      "composer": "Franz Schubert",
+      "year": 1815,
+      "source": null,
+      "status": "unreviewed",
+      "version": 5,
+      "versionName": "Piano + double bass",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 72
+      }
+    },
+    {
+      "id": "chopin_minute_waltz",
+      "title": "Minute Waltz",
+      "composer": "Frédéric Chopin",
+      "year": 1847,
+      "source": null,
+      "status": "unreviewed",
+      "version": 5,
+      "versionName": "Piano + double bass",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 72
+      }
+    },
+    {
+      "id": "mendelssohn_scherzo",
+      "title": "A Midsummer Night's Dream: Scherzo",
+      "composer": "Felix Mendelssohn",
+      "year": 1842,
+      "source": null,
+      "status": "unreviewed",
+      "version": 5,
+      "versionName": "Piano + double bass",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 72
+      }
+    },
+    {
+      "id": "grieg_morning_mood",
+      "title": "Morning Mood",
+      "composer": "Edvard Grieg",
+      "year": 1875,
+      "source": null,
+      "status": "unreviewed",
+      "version": 5,
+      "versionName": "Piano + double bass",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 20
+      }
+    },
+    {
+      "id": "holst_mars",
+      "title": "Mars, the Bringer of War",
+      "composer": "Gustav Holst",
+      "year": 1918,
+      "source": null,
+      "status": "unreviewed",
+      "version": 5,
+      "versionName": "Piano + double bass",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 38
+      }
+    },
+    {
+      "id": "bizet_toreador",
+      "title": "Toreador Song",
+      "composer": "Georges Bizet",
+      "year": 1875,
+      "source": null,
+      "status": "unreviewed",
+      "version": 5,
+      "versionName": "Piano + double bass",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 30
+      }
+    },
+    {
+      "id": "bizet_habanera",
+      "title": "Habanera from Carmen",
+      "composer": "Georges Bizet",
+      "year": 1875,
+      "source": null,
+      "status": "unreviewed",
+      "version": 5,
+      "versionName": "Piano + double bass",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 29
+      }
+    },
+    {
+      "id": "ravel_bolero",
+      "title": "Boléro",
+      "composer": "Maurice Ravel",
+      "year": 1928,
+      "source": null,
+      "status": "unreviewed",
+      "version": 5,
+      "versionName": "Piano + double bass",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 31
+      }
+    },
+    {
+      "id": "sousa_liberty_bell",
+      "title": "The Liberty Bell",
+      "composer": "John Philip Sousa",
+      "year": 1893,
+      "source": null,
+      "status": "unreviewed",
+      "version": 5,
+      "versionName": "Piano + double bass",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 31
+      }
+    },
+    {
+      "id": "wagner_valkyries",
+      "title": "Ride of the Valkyries",
+      "composer": "Richard Wagner",
+      "year": 1870,
+      "source": null,
+      "status": "unreviewed",
+      "version": 5,
+      "versionName": "Piano + double bass",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 41
+      }
+    },
+    {
+      "id": "berlioz_witches_sabbath",
+      "title": "Dream of a Witches’ Sabbath",
+      "composer": "Hector Berlioz",
+      "year": 1830,
+      "source": null,
+      "status": "unreviewed",
+      "version": 5,
+      "versionName": "Piano + double bass",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 37
+      }
+    },
+    {
+      "id": "liszt_hungarian_rhapsody_2",
+      "title": "Hungarian Rhapsody No. 2: Friska",
+      "composer": "Franz Liszt",
+      "year": 1847,
+      "source": null,
+      "status": "unreviewed",
+      "version": 5,
+      "versionName": "Piano + double bass",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 72
+      }
+    },
+    {
+      "id": "suppe_light_cavalry",
+      "title": "Light Cavalry Overture",
+      "composer": "Franz von Suppé",
+      "year": 1866,
+      "source": null,
+      "status": "unreviewed",
+      "version": 5,
+      "versionName": "Piano + double bass",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 72
+      }
+    },
+    {
+      "id": "falla_ritual_fire",
+      "title": "Ritual Fire Dance",
+      "composer": "Manuel de Falla",
+      "year": 1915,
+      "source": null,
+      "status": "unreviewed",
+      "version": 5,
+      "versionName": "Piano + double bass",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 72
+      }
+    },
+    {
+      "id": "rachmaninoff_csharp_prelude",
+      "title": "Prelude in C-sharp minor",
+      "composer": "Sergei Rachmaninoff",
+      "year": 1892,
+      "source": null,
+      "status": "unreviewed",
+      "version": 5,
+      "versionName": "Piano + double bass",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 20
+      }
+    },
+    {
+      "id": "vivaldi_summer_storm",
+      "title": "Summer: Presto (Storm)",
+      "composer": "Antonio Vivaldi",
+      "year": 1725,
+      "source": null,
+      "status": "unreviewed",
+      "version": 5,
+      "versionName": "Piano + double bass",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 72
+      }
+    },
+    {
+      "id": "rameau_tambourin",
+      "title": "Tambourin",
+      "composer": "Jean-Philippe Rameau",
+      "year": 1724,
+      "source": null,
+      "status": "unreviewed",
+      "version": 5,
+      "versionName": "Piano + double bass",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 72
+      }
+    },
+    {
+      "id": "purcell_abdelazer",
+      "title": "Rondeau from Abdelazer",
+      "composer": "Henry Purcell",
+      "year": 1695,
+      "source": null,
+      "status": "unreviewed",
+      "version": 5,
+      "versionName": "Piano + double bass",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 34
+      }
+    },
+    {
+      "id": "haydn_clock",
+      "title": "Symphony No. 101 “The Clock”",
+      "composer": "Joseph Haydn",
+      "year": 1794,
+      "source": null,
+      "status": "unreviewed",
+      "version": 5,
+      "versionName": "Piano + double bass",
+      "octave": 0,
+      "timing": {
+        "fullPassSeconds": 276.3636363636364,
+        "loopStartSeconds": 7.2727272727272725,
+        "repeatSeconds": 269.09090909090907,
+        "sections": 32
+      }
+    }
+  ]
+}
