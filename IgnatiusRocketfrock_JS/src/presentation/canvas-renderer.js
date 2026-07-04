@@ -23,7 +23,11 @@ import {
     colorMapCacheKey,
     normalizeLevelColorMap
 } from "../shared/level-color-map-data.js";
-import { normalizeBackgroundParallax, normalizeLayerBrightness } from "../shared/level-layer-data.js";
+import {
+    normalizeBackgroundParallax,
+    normalizeForegroundParallax,
+    normalizeLayerBrightness
+} from "../shared/level-layer-data.js";
 import {
     POWER_UP_EFFECT_IDS,
     WRENCH_POWER_UP_EFFECT_IDS,
@@ -61,6 +65,11 @@ import {
     loadRuntimeCharacterProject,
     sampleRuntimeCharacterPose
 } from "./character-runtime.js";
+import {
+    actorGroundPoint,
+    actorHasGroundContact,
+    advanceActorShadowOpacity
+} from "./actor-shadow.js";
 import { createWebGL2RendererBackend } from "./webgl2-renderer.js";
 
 const FIXED_DRAW_ORDER = [
@@ -454,6 +463,7 @@ class RocketfrockRenderer {
         this.webglParticleSpriteCache = new Map();
         this.webglTextSpriteCache = new Map();
         this.frameBackgroundOffset = { x: 0, y: 0 };
+        this.frameForegroundParallax = normalizeForegroundParallax(undefined);
         this.frameForegroundOffset = { x: 0, y: 0 };
         this.frameEntityVisibility = { collectedPickups: new Set(), defeatedEnemies: new Set() };
         this.framePlayerRocketTransform = null;
@@ -503,6 +513,7 @@ class RocketfrockRenderer {
         this.scorePopups = [];
         this.processedScoreEventKeys = new Set();
         this.processedScoreEventOrder = [];
+        this.actorShadowOpacity = new WeakMap();
     }
 
     getEnvironmentManifests() {
@@ -954,16 +965,20 @@ class RocketfrockRenderer {
             collectedPickups: new Set((state.pickups || []).filter((item) => item?.collected).map((item) => item.id)),
             defeatedEnemies: new Set((state.enemies || []).filter((item) => Number(item?.health) <= 0).map((item) => item.id))
         };
+        this.updateActorShadowOpacity(state, this.lastRenderDt);
         this.frameBackgroundOffset = computeWorldParallaxOffset(
             view,
             state.world?.bounds,
             normalizeBackgroundParallax(state.world?.layerVisuals?.background?.parallax),
             { min: 0.25, max: 1 }
         );
+        this.frameForegroundParallax = normalizeForegroundParallax(
+            state.world?.layerVisuals?.foreground?.parallax
+        );
         this.frameForegroundOffset = computeCaveWindowParallaxOffset(
             view,
             state.world?.bounds,
-            this.caveWindow?.parallax
+            this.frameForegroundParallax
         );
         this.getWorldVisualCache(state);
         return view;
@@ -1288,7 +1303,8 @@ class RocketfrockRenderer {
             previousRenderKey: this.caveWindowMaskKey,
             caveWindow: this.caveWindow,
             view,
-            worldBounds: state.world?.bounds
+            worldBounds: state.world?.bounds,
+            parallax: this.frameForegroundParallax
         });
         this.caveWindowMaskCanvas = result.maskCanvas;
         this.caveWindowMaskKey = result.renderKey || "";
@@ -1305,7 +1321,7 @@ class RocketfrockRenderer {
             const parallaxOffset = computeCaveWindowParallaxOffset(
                 view,
                 state.world?.bounds,
-                this.caveWindow?.parallax
+                this.frameForegroundParallax
             );
             const drawn = backend.drawCaveMaskGeometry({
                 geometry,
@@ -1332,6 +1348,7 @@ class RocketfrockRenderer {
             caveWindow: this.caveWindow,
             view,
             worldBounds: state.world?.bounds,
+            parallax: this.frameForegroundParallax,
             drawToTarget: false
         });
         this.caveWindowMaskCanvas = result.maskCanvas;
@@ -2214,16 +2231,40 @@ class RocketfrockRenderer {
         return this.worldToScreen(view, world.x, world.y);
     }
 
-    queueShadowWebGL(x, groundY, zoom, actorScale = 1) {
+    updateActorShadowOpacity(state, elapsedSeconds) {
+        const update = (actor) => {
+            if (!actor || typeof actor !== "object") return;
+            const opacity = advanceActorShadowOpacity(
+                this.actorShadowOpacity.get(actor),
+                actorHasGroundContact(actor),
+                elapsedSeconds
+            );
+            this.actorShadowOpacity.set(actor, opacity);
+        };
+        update(state?.player);
+        for (const enemy of state?.enemies || []) {
+            if (enemy?.kind === "characterEnemy") update(enemy);
+        }
+    }
+
+    groundShadowOpacity(actor) {
+        const opacity = this.actorShadowOpacity.get(actor);
+        return Number.isFinite(Number(opacity))
+            ? clamp(Number(opacity), 0, 1)
+            : (actorHasGroundContact(actor) ? 1 : 0);
+    }
+
+    queueShadowWebGL(x, groundY, zoom, actorScale = 1, opacity = 1) {
+        const shadowAlpha = clamp(Number(opacity) || 0, 0, 1);
         const shadow = this.getWebGLParticleSpriteCanvas("shadow");
-        if (!shadow || !this.webglBackend?.available) return false;
+        if (shadowAlpha <= 0 || !shadow || !this.webglBackend?.available) return false;
         return this.webglBackend.queueSprite({
             source: shadow,
             centerX: x,
             centerY: groundY + 4 * zoom * actorScale,
             width: 92 * zoom * actorScale,
             height: 24 * zoom * actorScale,
-            alpha: 0.46,
+            alpha: 0.46 * shadowAlpha,
             blendMode: "alpha"
         });
     }
@@ -2451,13 +2492,21 @@ class RocketfrockRenderer {
         const facing = Number(enemy.facing) < 0 ? -1 : 1;
         const artworkOrigin = characterArtworkOrigin(enemy);
         const screen = this.worldToScreen(view, artworkOrigin.x, artworkOrigin.y);
+        const groundPoint = actorGroundPoint(enemy);
+        const groundScreen = this.worldToScreen(view, groundPoint.x, groundPoint.y);
         const requestedSlot = enemy.animationSlot || enemy.state || "idle";
         const time = Number.isFinite(Number(enemy.animationTime)) ? Number(enemy.animationTime) : state.clock.time + (Number(enemy.animationTimeOffset) || 0);
         const sampled = sampleRuntimeCharacterPose(project, requestedSlot, time);
         const transforms = animationPoseToRuntimeTransforms(sampled.pose, project.rig, view.zoom, actorScale);
         applyRuntimeProjectileHandoffVisibility(project, sampled.slot, time, transforms);
         const bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
-        if (enemy.locomotion !== "flying") this.queueShadowWebGL(screen.x, screen.y, view.zoom, actorScale * 0.72);
+        this.queueShadowWebGL(
+            groundScreen.x,
+            groundScreen.y,
+            view.zoom,
+            actorScale * 0.72,
+            this.groundShadowOpacity(enemy) * renderOpacity
+        );
         const flashDuration = Math.max(0.001, Number(enemy.hitFlashDuration) || state.tuning.enemyHitFlashSeconds || 0.16);
         const flash = clamp((Number(enemy.hitFlashTimer) || 0) / flashDuration, 0, 1);
         this.queueCharacterProjectPoseWebGL(project, screen.x, screen.y, facing, transforms, bounds, {
@@ -2686,6 +2735,8 @@ class RocketfrockRenderer {
         const facing = Number(enemy.facing) < 0 ? -1 : 1;
         const artworkOrigin = characterArtworkOrigin(enemy);
         const screen = this.worldToScreen(view, artworkOrigin.x, artworkOrigin.y);
+        const groundPoint = actorGroundPoint(enemy);
+        const groundScreen = this.worldToScreen(view, groundPoint.x, groundPoint.y);
         const requestedSlot = enemy.animationSlot || enemy.state || "idle";
         const time = Number.isFinite(Number(enemy.animationTime))
             ? Number(enemy.animationTime)
@@ -2699,9 +2750,12 @@ class RocketfrockRenderer {
         const flash = clamp((Number(enemy.hitFlashTimer) || 0) / flashDuration, 0, 1);
         this.ctx.save();
         this.ctx.globalAlpha *= renderOpacity;
-        if (enemy.locomotion !== "flying") {
-            this.drawShadow(screen.x, screen.y, view.zoom * actorScale * 0.72);
-        }
+        this.drawShadow(
+            groundScreen.x,
+            groundScreen.y,
+            view.zoom * actorScale * 0.72,
+            this.groundShadowOpacity(enemy)
+        );
         // Chrome may defer Canvas filter work until compositing, making the cost show
         // up as a later requestAnimationFrame hitch rather than inside this draw call.
         // Reuse the already prepared white sprite surfaces, matching the WebGL path,
@@ -4717,9 +4771,16 @@ class RocketfrockRenderer {
             this.framePlayerRocketTransform = null;
             return false;
         }
-        const point = this.worldToScreen(view, state.player.x, state.player.y);
+        const groundPoint = actorGroundPoint(state.player);
+        const point = this.worldToScreen(view, groundPoint.x, groundPoint.y);
         const renderScale = Math.max(0.05, Number(state.player.renderScale) || 1);
-        this.queueShadowWebGL(point.x, point.y, view.zoom, renderScale);
+        this.queueShadowWebGL(
+            point.x,
+            point.y,
+            view.zoom,
+            renderScale,
+            this.groundShadowOpacity(state.player)
+        );
         const targetPose = this.computeRigPose(state, view.zoom);
         const pose = this.blendRigPose(targetPose, state, view.zoom);
         const renderedTransforms = scalePoseTransforms(pose.transforms, renderScale);
@@ -4910,9 +4971,15 @@ class RocketfrockRenderer {
             this.lastBounds = null;
             return;
         }
-        const p = this.worldToScreen(view, state.player.x, state.player.y);
+        const groundPoint = actorGroundPoint(state.player);
+        const p = this.worldToScreen(view, groundPoint.x, groundPoint.y);
         const renderScale = Math.max(0.05, Number(state.player.renderScale) || 1);
-        this.drawShadow(p.x, p.y, view.zoom * renderScale);
+        this.drawShadow(
+            p.x,
+            p.y,
+            view.zoom * renderScale,
+            this.groundShadowOpacity(state.player)
+        );
         const hitFlash = getPlayerHitFlash(state);
         const bounds = this.drawWizardRig(p.x, p.y, state.player.facing, state, view.zoom, renderScale, {
             overlayTintAlpha: hitFlash * 0.72,
@@ -4921,11 +4988,13 @@ class RocketfrockRenderer {
         this.lastBounds = bounds;
     }
 
-    drawShadow(x, groundY, zoom) {
+    drawShadow(x, groundY, zoom, opacity = 1) {
+        const shadowAlpha = clamp(Number(opacity) || 0, 0, 1);
+        if (shadowAlpha <= 0) return;
         const ctx = this.ctx;
         ctx.save();
         ctx.translate(x, groundY + 4 * zoom);
-        ctx.globalAlpha = 0.26;
+        ctx.globalAlpha *= 0.26 * shadowAlpha;
         ctx.fillStyle = "#000";
         ctx.beginPath();
         ctx.ellipse(0, 0, 46 * zoom, 8 * zoom, 0, 0, Math.PI * 2);

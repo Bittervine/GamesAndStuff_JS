@@ -324,6 +324,12 @@ import {
     sampleRuntimeCharacterPose
 } from "../src/presentation/character-runtime.js";
 import {
+    ACTOR_SHADOW_FADE_SECONDS,
+    actorGroundPoint,
+    actorHasGroundContact,
+    advanceActorShadowOpacity
+} from "../src/presentation/actor-shadow.js";
+import {
     bakeEnemyNavigationGraph,
     buildEnemyNavigationEdges,
     buildEnemyNavigationSupports,
@@ -1450,6 +1456,41 @@ function testPlaceableEnemySpawner() {
     assert.equal(dormant.spawnCount, 1, "the newly visible one-hundred-percent spawner should then teleport in one enemy");
 }
 
+function testGroundShadowAnchoringAndFade() {
+    assert.equal(ACTOR_SHADOW_FADE_SECONDS, 0.2, "actor shadows should use the requested two-tenths-second transition");
+
+    const human = {
+        x: 100,
+        y: 200,
+        facing: 1,
+        renderOffsetX: -11,
+        renderOffsetY: 51,
+        airborne: false,
+        locomotion: "ground"
+    };
+    assert.deepEqual(actorGroundPoint(human), { x: 100, y: 200 }, "the shadow anchor should remain the authoritative physical foot point");
+    assert.deepEqual(characterArtworkOrigin(human), { x: 89, y: 251 }, "character artwork may retain an independent local render offset");
+    assert.equal(actorHasGroundContact(human), true, "a grounded character enemy should receive a shadow");
+    assert.equal(actorHasGroundContact({ ...human, airborne: true }), false, "a jumping or falling enemy should not target a visible shadow");
+    assert.equal(actorHasGroundContact({ ...human, locomotion: "flying", airborne: false }), false, "flying locomotion should never create a ground shadow");
+    assert.equal(actorHasGroundContact({ x: 0, y: 0, onGround: true }), true, "a grounded player should receive a shadow");
+    assert.equal(actorHasGroundContact({ x: 0, y: 0, onGround: false }), false, "an airborne player should not target a visible shadow");
+
+    assert.equal(advanceActorShadowOpacity(undefined, true, 0), 1, "a newly seen grounded actor should begin with a stable full shadow");
+    assert.equal(advanceActorShadowOpacity(undefined, false, 0), 0, "a newly seen airborne actor should begin without a shadow");
+    approx(advanceActorShadowOpacity(1, false, 0.05), 0.75, 0.000001, "takeoff should fade the shadow out linearly");
+    approx(advanceActorShadowOpacity(0.75, false, 0.15), 0, 0.000001, "takeoff fade should complete within 0.2 seconds");
+    approx(advanceActorShadowOpacity(0, true, 0.1), 0.5, 0.000001, "landing should fade the shadow back in linearly");
+    approx(advanceActorShadowOpacity(0.5, true, 0.1), 1, 0.000001, "landing fade should complete within 0.2 seconds");
+
+    const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
+    assert.ok(rendererSource.includes("const groundPoint = actorGroundPoint(enemy);") && rendererSource.includes("const groundScreen = this.worldToScreen(view, groundPoint.x, groundPoint.y);"), "enemy shadows should project the physical ground point instead of the artwork origin");
+    assert.equal(rendererSource.includes("this.drawShadow(screen.x, screen.y"), false, "Canvas enemy shadows must not inherit character artwork offsets");
+    assert.equal(rendererSource.includes("this.queueShadowWebGL(screen.x, screen.y"), false, "WebGL enemy shadows must not inherit character artwork offsets");
+    assert.ok(rendererSource.includes("ctx.globalAlpha *= 0.26 * shadowAlpha"), "Canvas shadows should preserve parent corpse opacity while applying the grounded fade");
+    assert.ok(rendererSource.includes("this.groundShadowOpacity(enemy) * renderOpacity"), "WebGL corpse shadows should fade with both ground contact and corpse opacity");
+}
+
 function testUnifiedEnemyScaling() {
     assert.equal(normalizeEnemyScale(0, 1), 0.05, "enemy scale should retain a small positive lower bound");
     assert.deepEqual(
@@ -1990,21 +2031,24 @@ function testHunterRangedAttackPositionSelection() {
 
 function testLevelOneUsesBakedHunterNavigationGraphs() {
     const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
-    assert.equal(level.navigationGraphs?.profiles?.length, 1, "level_001 should contain one shared baked profile for the identically tuned hunter goblins");
+    assert.equal(level.navigationGraphs?.profiles?.length, 2, "level_001 should contain one shared baked profile for the goblin hunters and one for the taller human hunters");
     for (const graph of level.navigationGraphs.profiles) {
         assert.ok(graph.supportSignature, "each baked graph should include a geometry signature");
-        assert.equal(graph.profile.runSpeed, 200, "the baked hunter profile should match the authored run speed");
-        assert.equal(graph.profile.bodyWidth, 70, "the baked hunter profile should match the authored body width");
-        assert.equal(graph.profile.bodyHeight, 105, "the baked hunter profile should match the authored body height");
-        assert.equal(graph.profile.maxFallDistance, 600, "the baked hunter profile should permit the authored long ledge descent");
-        assert.ok(graph.edges.some((edge) => edge.type === "jump"), "the baked graph should retain jump transitions");
+        assert.ok(graph.edges.some((edge) => edge.type === "jump"), "each baked graph should retain jump transitions");
         assert.ok(
             graph.edges.some((edge) => edge.type === "drop" && edge.walkOff === true),
-            "the baked graph should retain deliberate walk-off drops"
+            "each baked graph should retain deliberate walk-off drops"
         );
     }
 
-    const graph = level.navigationGraphs.profiles[0];
+    const graph = level.navigationGraphs.profiles.find((candidate) => candidate.profile.bodyWidth === 70 && candidate.profile.bodyHeight === 105);
+    assert.ok(graph, "level_001 should retain the goblin hunter mobility profile");
+    assert.equal(graph.profile.runSpeed, 200, "the baked goblin hunter profile should match the authored run speed");
+    assert.equal(graph.profile.maxFallDistance, 600, "the baked goblin hunter profile should permit the authored long ledge descent");
+    const humanGraph = level.navigationGraphs.profiles.find((candidate) => candidate.profile.bodyWidth === 67.5 && candidate.profile.bodyHeight === 177);
+    assert.ok(humanGraph, "level_001 should include the distinct tall-human hunter mobility profile");
+    assert.equal(humanGraph.profile.runSpeed, 152, "the baked human hunter profile should match the authored run speed");
+    assert.equal(humanGraph.profile.maxFallDistance, 520, "the baked human hunter profile should match the authored fall distance");
     const pillarRoute = planEnemyNavigationRoute(
         graph.supports,
         "floor_cold_platform_001_blockable_2_nav_2",
@@ -2041,8 +2085,9 @@ function testLevelOneUsesBakedHunterNavigationGraphs() {
     state.story.mailboxEvent = null;
     stepSimulation(state, createInputFrame(), FIXED_DT);
     const hunters = state.enemies.filter((enemy) => enemy.strategy === "hunter");
-    assert.ok(hunters.length >= 2, "level_001 should instantiate both hunter goblins");
-    assert.ok(hunters.every((enemy) => enemy.navigationGraphSource === "baked"), "hunters with matching mobility and geometry should consume the pre-baked graph");
+    assert.ok(hunters.length >= 4, "level_001 should instantiate both goblin hunters and both human hunters");
+    assert.ok(hunters.every((enemy) => enemy.navigationGraphSource === "baked"), "hunters with matching mobility and geometry should consume their pre-baked graph");
+    assert.equal(new Set(hunters.map((enemy) => enemy.navigationGraphId)).size, 2, "the two hunter body and mobility profiles should resolve to two distinct baked graphs");
 }
 
 
@@ -6817,11 +6862,16 @@ function testCaveWindowSplineAuthoring() {
 
     const levelOne = JSON.parse(readFileSync(new URL("../assets/level_001.json", import.meta.url), "utf8"));
     assert.equal(levelOne.caveWindow.enabled, true, "level_001 should preserve the user's authored cave window");
-    assert.deepEqual(levelOne.layerVisuals, {
+    assert.deepEqual({
+        version: levelOne.layerVisuals.version,
+        background: { brightness: levelOne.layerVisuals.background.brightness, scale: levelOne.layerVisuals.background.scale },
+        foreground: levelOne.layerVisuals.foreground
+    }, {
         version: 2,
-        background: { parallax: DEFAULT_BACKGROUND_PARALLAX, brightness: 1, scale: 1 },
+        background: { brightness: 1, scale: 1 },
         foreground: { parallax: DEFAULT_FOREGROUND_PARALLAX, brightness: 0.4, scale: 2 }
     }, "level_001 should expose the complete Background and Foreground visual treatment in grouped controls");
+    approx(levelOne.layerVisuals.background.parallax, DEFAULT_BACKGROUND_PARALLAX, 0.000001, "level_001 should store the reciprocal Background parallax to normal JSON precision");
     assert.equal("backgroundParallax" in levelOne, false, "level_001 should not retain a legacy Background parallax mirror");
     assert.equal("parallax" in levelOne.caveWindow, false, "level_001 should not retain a legacy Foreground parallax mirror");
     assert.equal("scale" in levelOne.caveWindow.decoration || "brightness" in levelOne.caveWindow.decoration, false, "level_001 should keep layer scale and brightness only in layerVisuals");
@@ -6857,9 +6907,12 @@ function testCaveWindowSplineAuthoring() {
     assert.ok(actorFrontIndex >= 0 && caveForegroundIndex > actorFrontIndex && caveMaskIndex > caveForegroundIndex, "dark cave foreground assets should render after actors and before the feathered black mask");
     assert.ok(storyOverlayIndex > caveMaskIndex, "story overlays should remain readable above the cave foreground mask");
     assert.ok(rendererSource.includes("drawCaveWindowMask") && rendererSource.includes("caveWindowMaskCanvas"), "runtime should render the cave opening through a reusable offscreen black mask");
+    assert.ok(rendererSource.includes("state.world?.layerVisuals?.foreground?.parallax") && rendererSource.includes("parallax: this.frameForegroundParallax"), "runtime Foreground artwork and the cave mask should consume the authoritative grouped layer parallax every frame");
+    assert.equal(rendererSource.includes("this.caveWindow?.parallax"), false, "runtime must not fall back to a retired cave-window parallax mirror");
     const caveMaskSource = readFileSync(new URL("../src/presentation/cave-window-mask.js", import.meta.url), "utf8");
     assert.ok(caveMaskSource.includes("sampleCaveWindowOutset") && caveMaskSource.includes('maskContext.fill("evenodd")'), "runtime should clamp the feathered handover to opaque black at the same derived outset shown by the editor");
     assert.ok(caveMaskSource.includes("drawOrganicGradientBands") && caveMaskSource.includes("sampleCaveWindowPerturbedOutset") && caveMaskSource.includes("caveGradientOpacityAtProgress"), "runtime should construct the complete feather from deterministic wavy opacity contours");
+    assert.ok(caveMaskSource.includes("normalizeForegroundParallax(parallax)"), "the shared cave-mask path should normalize the explicit Foreground layer factor rather than reading cave geometry data");
     assert.equal(caveMaskSource.includes("shadowBlur = featherPixels"), false, "the cave fade should no longer bury its waviness beneath a smooth Canvas shadow blur");
     assert.equal(caveGradientOpacityAtProgress(0), 0, "the cave feather should remain fully transparent at the authored perimeter");
     assert.equal(caveGradientOpacityAtProgress(1), 1, "the cave feather should reach fully opaque black at the authored outset");
@@ -7382,6 +7435,11 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     const worldBounds = { x: 0, y: 0, w: 800, h: 600 };
     const maskKey = caveWindowMaskRenderKey(cave, view, worldBounds, DEFAULT_CAVE_MASK_RENDER_SCALE);
     assert.equal(maskKey, caveWindowMaskRenderKey(cave, { ...view }, { ...worldBounds }, DEFAULT_CAVE_MASK_RENDER_SCALE), "stationary cave masks should have a reusable render key");
+    assert.notEqual(
+        maskKey,
+        caveWindowMaskRenderKey(cave, view, worldBounds, DEFAULT_CAVE_MASK_RENDER_SCALE, 1.15),
+        "changing the authoritative Foreground parallax should invalidate the cave-mask cache"
+    );
     assert.notEqual(maskKey, caveWindowMaskRenderKey(cave, { ...view, x: 5 }, worldBounds, DEFAULT_CAVE_MASK_RENDER_SCALE), "camera movement should invalidate the cave mask cache");
     assert.notEqual(maskKey, caveWindowMaskRenderKey({ ...cave, gradientNoise: { ...cave.gradientNoise, amplitude: cave.gradientNoise.amplitude + 4 } }, view, worldBounds, DEFAULT_CAVE_MASK_RENDER_SCALE), "changing gradient waviness should invalidate the cave mask cache");
     assert.notEqual(maskKey, caveWindowMaskRenderKey({ ...cave, gradientNoise: { ...cave.gradientNoise, period: cave.gradientNoise.period + 10 } }, view, worldBounds, DEFAULT_CAVE_MASK_RENDER_SCALE), "changing gradient period should invalidate the cave mask cache");
@@ -7584,7 +7642,7 @@ function testEditorLevelTransformRuntime() {
     assert.equal(state.world.colorMap.enabled, true, "level colour-map settings should survive level loading");
     assert.equal(state.world.colorMap.rotation, 45, "level hue rotation should survive level loading");
     assert.equal(state.world.layerVisuals.background.parallax, 0.8, "grouped Background parallax should remain authoritative during level loading");
-    assert.equal(state.world.caveWindow.parallax, 1.15, "grouped Foreground parallax should drive the cave-window presentation offset");
+    assert.equal("parallax" in state.world.caveWindow, false, "runtime cave geometry should not duplicate the authoritative Foreground parallax");
     const backgroundVisual = state.world.visuals.find((item) => item.id === "background_asset");
     assert.equal(backgroundVisual.collisionFromManifest, false, "Background placements should remain cosmetic even when imported collision is enabled");
     assert.equal(backgroundVisual.movement, undefined, "Background placements should discard moving-platform behavior");
@@ -8362,14 +8420,24 @@ function testRocketPowerUpArsenal() {
     const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
     const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
     assert.ok(gameHtml.includes('id="power-text"') && gameHtml.includes('id="power-time"') && gameHtml.includes('id="power-fill"'), "the top-left HUD should include a dedicated Power bar");
+    const debugPanelStyle = gameHtml.match(/#debug\s*\{([\s\S]*?)\}/)?.[1] || "";
+    assert.ok(
+        debugPanelStyle.includes("white-space: pre-wrap;")
+            && debugPanelStyle.includes("overflow-wrap: anywhere;")
+            && debugPanelStyle.includes("font: 10px/1.3")
+            && debugPanelStyle.includes("overflow: auto;"),
+        "the debug panel should use compact wrapped text and scrolling rather than clipping diagnostics"
+    );
     assert.ok(gameHtml.indexOf('id="health-text"') < gameHtml.indexOf('id="fuel-text"') && gameHtml.indexOf('id="fuel-text"') < gameHtml.indexOf('id="power-text"'), "HUD bars should be ordered health, rocket fuel, then Power");
     assert.ok(bootstrapSource.includes('powerText.textContent = "Powerup:"') && bootstrapSource.includes("prioritizedActivePowerUpEffect"), "the empty Power bar should omit the word None and use shared effect priority");
     assert.ok(bootstrapSource.includes("browserRandomSeed"), "browser level starts should supply a fresh random seed to portable pickup rolls");
     assert.ok(!bootstrapSource.includes("grounded recharge") && !bootstrapSource.includes("regen in"), "main HUD labels should omit developer recharge and regeneration annotations");
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    const characterEditorSource = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 385<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 388<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(characterEditorSource, /Puppet Forge <small>rev 388<\/small>/, "Puppet Forge should display the packaged revision");
     assert.ok(editorSource.includes("state.level.layerVisuals = normalizeLevelLayerVisuals({\n            version: 2,"), "editor metadata commits should retain the canonical layer-visual schema instead of reapplying legacy Foreground factors");
     assert.ok(editorSource.includes("const w = displayRecord.w * state.camera.zoom") && editorSource.includes("const w = displayPlacement.w * state.camera.zoom"), "Foreground selection and asset-guide outlines should use the same layer-scaled display dimensions as rendered artwork");
     assert.ok(
@@ -8398,7 +8466,7 @@ function testRocketPowerUpArsenal() {
     assert.equal(editorSource.includes('id="canvas-renderer-baseline"'), false, "the Level Editor should no longer advertise the posterity-only Canvas baseline");
     assert.equal(editorSource.includes("openCanvasRendererBaseline"), false, "the removed baseline link should leave no dormant click handler");
     assert.equal(editorSource.includes("Editor 2 lab"), false, "the Level Editor should not link to the removed Editor 2 lab");
-    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 385") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
+    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 388") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
     assert.ok(baselineSource.includes("applyEditorLevelToWorld") && baselineSource.includes("preferWebGL2: false") && baselineSource.includes("setViewOverride"), "the retained baseline should still convert the authored level and use the ordinary Canvas2D game renderer with an editor camera override");
     assert.ok(editorPlaywrightBenchmark.includes("benchmark_baseline") && editorPlaywrightBenchmark.includes("benchmark_editor") && editorPlaywrightBenchmark.includes("editorToBaselineCadenceRatio"), "the optional Playwright probe should compare the loaded baseline and editor rather than source-only timings");
     assert.ok(editorPlaywrightBenchmark.includes("bodyScrollWidth") && editorPlaywrightBenchmark.includes("stageBacking") && editorPlaywrightBenchmark.includes("overlayBacking"), "the Playwright probe should detect viewport overflow and stage/overlay size divergence");
@@ -8408,7 +8476,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(rendererSource.includes("backingPixelsPerCssPixel") && rendererSource.includes("override.cssZoom * backingPixelsPerCssPixel") && editorSource.includes("cssZoom: state.camera.zoom"), "editor and runtime artwork should share one CSS-pixel camera scale so guide alignment does not drift across the viewport");
     assert.ok(rendererSource.includes("this.ctx.setTransform(1, 0, 0, 1, 0, 0)") && rendererSource.includes("never inherit a CSS/DPR transform"), "the production Canvas renderer should reset inherited context transforms before drawing backing-pixel coordinates");
     assert.ok(editorSource.includes("stageCtx?.setTransform(1, 0, 0, 1, 0, 0)") && !editorSource.includes("stageCtx?.setTransform(dpr"), "the Level Editor must not pre-scale the production scene context by devicePixelRatio");
-    assert.match(bootstrapSource, /const GAME_REVISION = "385";/, "the game debug revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "388";/, "the game debug revision should match the packaged revision");
     assert.ok(
         editorSource.includes('<div class="level-section-label">Existing Level:</div>')
             && editorSource.includes('id="load-level">Load</button>')
@@ -11982,7 +12050,7 @@ function testSynthesizedLevelMusicSystem() {
         assert.match(gameHtml, /id="music-volume"/, "the compact settings dialog should retain live music volume control");
         assert.match(levelEditorSource, /id="level-music"/, "the Level Editor should expose the accepted soundtrack selector");
         assert.match(levelEditorSource, /MUSIC_TUNES/, "the Level Editor should populate its soundtrack choices from the shared accepted catalog");
-        assert.equal(levelOne.music.tuneId, "grieg_mountain_king", "level_001 should explicitly select Mountain King");
+        assert.equal(levelOne.music.tuneId, "joplin_entertainer", "level_001 should explicitly select The Entertainer");
         assert.equal(levelOne.music.version, 2, "authored levels should carry the current music metadata version");
 
         const state = createInitialGameState();
@@ -12592,6 +12660,7 @@ const tests = [
     ["flying bomber notices wizard below and ahead", testFlyingBomberNoticesWizardBelowAndAhead],
     ["automatic enemy spawning", testAutomaticEnemySpawning],
     ["placeable on-screen enemy spawner", testPlaceableEnemySpawner],
+    ["ground shadows use physical foot anchors and grounded fades", testGroundShadowAnchoringAndFade],
     ["unified enemy scaling", testUnifiedEnemyScaling],
     ["Level Editor multi-selection and all-atlas palette", testLevelEditorMultiSelectionAndPaletteWorkflow],
     ["enemy catalog and Level Editor integration", testEnemyCatalogAndLevelEditorIntegration],

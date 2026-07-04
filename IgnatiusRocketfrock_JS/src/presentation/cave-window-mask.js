@@ -4,6 +4,7 @@ import {
     sampleCaveWindowOutset,
     sampleCaveWindowPerturbedOutset
 } from "../shared/cave-window-data.js";
+import { normalizeForegroundParallax } from "../shared/level-layer-data.js";
 import { computeWorldParallaxOffset } from "./world-parallax.js";
 
 const OPAQUE_BLACK = "rgb(0, 0, 0)";
@@ -28,8 +29,13 @@ function normalizedWorldBounds(worldBounds) {
     return { x, y, w, h };
 }
 
-export function computeCaveWindowParallaxOffset(view, worldBounds, parallax = 1) {
-    return computeWorldParallaxOffset(view, worldBounds, parallax, { min: 1, max: 1.25 });
+export function computeCaveWindowParallaxOffset(view, worldBounds, parallax) {
+    return computeWorldParallaxOffset(
+        view,
+        worldBounds,
+        normalizeForegroundParallax(parallax),
+        { min: 1, max: 1.25 }
+    );
 }
 
 function screenPoint(view, parallaxOffset, point) {
@@ -271,7 +277,13 @@ function rounded(value, digits = 3) {
     return finiteNumber(value, 0).toFixed(digits);
 }
 
-export function caveWindowMaskRenderKey(caveWindow, view, worldBounds, renderScale = DEFAULT_CAVE_MASK_RENDER_SCALE) {
+export function caveWindowMaskRenderKey(
+    caveWindow,
+    view,
+    worldBounds,
+    renderScale = DEFAULT_CAVE_MASK_RENDER_SCALE,
+    parallax
+) {
     const cave = normalizeCaveWindow(caveWindow);
     const bounds = normalizedWorldBounds(worldBounds);
     const points = cave.points
@@ -280,7 +292,7 @@ export function caveWindowMaskRenderKey(caveWindow, view, worldBounds, renderSca
     return [
         cave.enabled ? 1 : 0,
         rounded(cave.feather, 2),
-        rounded(cave.parallax, 4),
+        rounded(normalizeForegroundParallax(parallax), 4),
         cave.gradientNoise.seed,
         rounded(cave.gradientNoise.amplitude, 2),
         rounded(cave.gradientNoise.period, 2),
@@ -306,6 +318,7 @@ export function drawCaveWindowMask({
     view,
     worldBounds,
     renderScale = DEFAULT_CAVE_MASK_RENDER_SCALE,
+    parallax,
     drawToTarget = true
 }) {
     const cave = normalizeCaveWindow(caveWindow);
@@ -326,9 +339,10 @@ export function drawCaveWindowMask({
     const width = Math.max(1, Math.ceil(targetWidth * scale));
     const height = Math.max(1, Math.ceil(targetHeight * scale));
     const surface = prepareMaskCanvas(maskCanvas, targetContext?.canvas, width, height);
-    const renderKey = caveWindowMaskRenderKey(cave, view, worldBounds, scale);
+    const foregroundParallax = normalizeForegroundParallax(parallax);
+    const renderKey = caveWindowMaskRenderKey(cave, view, worldBounds, scale, foregroundParallax);
     const reused = renderKey === previousRenderKey && surface.width === width && surface.height === height;
-    const parallaxOffset = computeCaveWindowParallaxOffset(view, worldBounds, cave.parallax);
+    const parallaxOffset = computeCaveWindowParallaxOffset(view, worldBounds, foregroundParallax);
     const gradientGeometry = caveGradientGeometry(cave);
 
     if (!reused) {

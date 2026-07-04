@@ -158,10 +158,11 @@ Revision 135 removed the last documented core-to-presentation dependency. Colour
 | `electron/main.cjs` / `electron/preload.cjs` | DESKTOP HOST | Optional native window, secure preload boundary, desktop quit, and fullscreen IPC. No gameplay ownership. |
 | `src/presentation/rocket-glow-baking.js` | PRESENTATION ONLY | Separable alpha dilation, Gaussian blur, and padded tinted-surface construction retained for offline powered-rocket atlas preparation and deterministic kernel tests. Runtime rendering does not import this module. |
 | `src/presentation/canvas-renderer.js` | PRESENTATION ONLY | Canvas world rendering, camera presentation, rig drawing, visual effects, cave-mask composition, story overlays, and debug overlays. It caches 64×64 neutral or wrench-tinted smoke stamps for scaled `drawImage` reuse and avoids per-puff impact sparkle loops. |
+| `src/presentation/actor-shadow.js` | PRESENTATION ONLY | Physical actor-foot shadow anchors, grounded-contact classification, and renderer-time 0.2-second opacity transitions shared by Canvas and WebGL drawing. |
 | `src/presentation/webgl2-renderer.js` | PRESENTATION ONLY | WebGL2 context, shader, sprite-batch, texture-cache, Canvas-layer upload, blend, context-recovery, and GPU diagnostic ownership for the visible game canvas. |
 | `src/presentation/world-parallax.js` | PRESENTATION ONLY | World-bounds-centred parallax offset shared by the ordinary cosmetic Background and the cave Foreground wrapper. |
 | `src/presentation/cave-window-mask.js` | PRESENTATION ONLY | Reduced-resolution reusable offscreen black cave mask, stable render keys, spline-to-screen tracing, deterministic wavy opacity bands inside the feather, exact full-black clamping, and camera-relative foreground parallax. |
-| `src/presentation/foreground-sprite-treatment.js` | PRESENTATION ONLY | Cached Canvas preparation for dark/desaturated cave foreground frames, world-to-local outward vectors, and a linear handover to opaque black at the sprite's exterior edge. |
+| `src/presentation/foreground-sprite-treatment.js` | PRESENTATION ONLY | Cached Canvas preparation for brightness and saturation treatment of cave foreground frames. Spatial fading belongs exclusively to the cave-window mask. |
 | `src/presentation/character-runtime.js` | PRESENTATION ONLY | Browser-side character project loading, rig normalization, animation selection, projectile-release transform compilation, and ordered draw commands. |
 | `src/presentation/level-color-map-cache.js` | PRESENTATION ONLY | Offscreen Canvas generation and image-pixel application for cached environment-atlas recolouring. |
 | `src/presentation/world-visual-cache.js` | PRESENTATION ONLY | Cached static-layer partitioning/sort keys, conservative rotated world bounds, parallax-aware viewport bounds, and Canvas draw rejection helpers. |
@@ -441,6 +442,8 @@ Flying locomotion and bomber strategy remain separate portable gameplay qualifie
 ## Revision 190 unified character artwork placement
 
 Character-enemy `renderOffsetX` is a character-local offset from the gameplay hitbox anchor, so it mirrors with facing; `renderOffsetY` remains downward-positive. The hitbox itself always remains at the authoritative entity position. `src/presentation/character-runtime.js` owns the offset and render-origin calculations. Runtime and Level Editor use the same `characterArtworkOrigin()` helper, while Puppet Forge uses the same local offset helper and the same `animationPoseToRuntimeTransforms()` path as runtime. Preview zoom and Puppet Forge's display-only world scale multiply artwork, offsets, and hitbox dimensions together, preserving both aspect ratio and artwork-to-hitbox alignment in either facing direction.
+
+Revision 386 separates that artwork origin from ground-shadow placement. `src/presentation/actor-shadow.js` reads the authoritative actor foot point directly from `x / y`, derives contact from `player.onGround` or `enemy.airborne`, rejects flying locomotion, and advances a renderer-owned opacity toward the contact target over 0.2 seconds. `canvas-renderer.js` updates every character actor each prepared frame, so culling cannot freeze a transition. Both Canvas and WebGL draw at the physical foot point, and corpse opacity multiplies rather than replaces the contact fade. No shadow state enters portable simulation or level data.
 
 ## Revision 194 bomber approach and release altitude
 
@@ -1616,3 +1619,23 @@ All asset overlay geometry must follow the same display pipeline as artwork. For
 All supported levels and level fixtures ship in this repository. The portable loader, Level Editor, and automatic-generator metadata normalizer read only the current schema. Schema changes are atomic repository migrations: patch every bundled level and fixture, then remove the former fields and conversion code in the same revision. Do not preserve old aliases, compatibility mirrors, retired entity palette records, or strip-on-import branches.
 
 This policy does not forbid ordinary validation, clamping, defaults for newly created records, or compatibility outside level data such as the old root-page redirect and browser-settings migration. Regression tests for old-level conversion are obsolete. Keep negative source-contract tests that ensure retired fields and migration branches do not return.
+
+## Revision 386 physical grounded character shadows
+
+Status: implemented.
+
+The Human Raider exposed a presentation-boundary error rather than a bad character asset. Enemy shadows were positioned at `characterArtworkOrigin()`, which intentionally includes character-local `renderOffsetX / renderOffsetY`. The Human Raider's required 51-unit downward artwork correction therefore moved its shadow 51 world units below the authoritative collision feet. The same renderer path also drew shadows for every non-flying enemy regardless of jump state, and the player shadow was unconditional.
+
+Revision 386 introduces `src/presentation/actor-shadow.js` as the single presentation helper for physical foot anchors, grounded-contact classification, and the 0.2-second opacity transition. Canvas and WebGL now draw the player and character-enemy shadow at actor `x / y`, never at the shifted artwork origin. `player.onGround`, `enemy.airborne`, and flying locomotion determine the target opacity. Renderer-time state is updated for all actors before culling, preserving smooth transitions when an actor leaves and re-enters the viewport. Canvas global alpha and WebGL sprite alpha both multiply the contact fade by corpse opacity, repairing the previously inconsistent defeated-enemy behavior without adding simulation or level fields.
+
+## Revision 387 canonical runtime Foreground parallax
+
+Status: implemented.
+
+Foreground parallax worked in the Level Editor but not in gameplay because the two surfaces no longer read the same owner. Revision 384 correctly removed the retired `caveWindow.parallax` field from level data, and the editor already read `level.layerVisuals.foreground.parallax`. Runtime level conversion briefly copied the grouped value onto `state.world.caveWindow`, but browser presentation synchronization passed the renderer a separately normalized cave-window record made from the raw level. That normalization strips unsupported fields. The renderer then asked its cave-window copy for parallax, received `undefined`, and the generic world-parallax helper fell back to neutral `1.0`. Background continued to work because its pass read `state.world.layerVisuals.background.parallax` directly.
+
+The fix removes the duplicate runtime cave-window property rather than restoring another mirror. `CanvasGameRenderer.prepareFrame` now normalizes `state.world.layerVisuals.foreground.parallax` once and stores one frame value. Foreground spatial queries, Canvas drawing, WebGL drawing, the Canvas cave mask, the geometric WebGL cave mask, and its Canvas fallback all use the resulting offset. `cave-window-mask.js` accepts the factor explicitly, normalizes it through `level-layer-data.js`, and includes it in the reusable mask key so changing the Layers control cannot reuse a mask rendered at the old offset. Regression coverage proves the renderer no longer reads `this.caveWindow.parallax`, runtime cave geometry has no parallax mirror, and custom Foreground values invalidate mask caching.
+
+## Revision 388 debug-panel overflow policy
+
+The browser debug surface remains a presentation-only `<pre>` inside the fixed HUD stack. Diagnostic producers continue to emit newline-delimited plain text through `updateDebugText`; layout responsibility stays in `game.html`. The panel uses compact 10px monospace text, `pre-wrap`, arbitrary-token wrapping, and scrollable overflow under its 46vh cap. Do not solve future diagnostic-width growth by deleting fields or truncating producer strings when CSS wrapping can preserve the complete data.

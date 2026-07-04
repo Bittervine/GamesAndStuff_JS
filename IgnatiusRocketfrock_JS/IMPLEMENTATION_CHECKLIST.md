@@ -1182,7 +1182,7 @@ Goal: grow the game beyond isolated prototype levels.
 
 - [x] Add a reusable offscreen black mask that clears the authored spline opening and feathers outward into opaque black.
 - [x] Render the mask after actors and actor-front scenery, while leaving story overlays and debug information readable above it.
-- [x] Apply camera-relative foreground parallax from the authored `caveWindow.parallax` value.
+- [x] Apply camera-relative foreground parallax directly from `level.layerVisuals.foreground.parallax`.
 - [x] Keep cave-window data out of portable gameplay and synchronize it in `src/browser/game-bootstrap.js`.
 - [x] Reuse one resized mask canvas instead of allocating a new surface every frame.
 - [x] Add regression coverage for parallax math, render order, startup/transition synchronization, and the core/presentation boundary.
@@ -3336,7 +3336,7 @@ Shot validation evaluates the actual trajectory of every straight volley member 
 
 ## Revision 333 camera-relative cave preview
 
-Revision 333 fixes a Level Editor/runtime mismatch in cave-window authoring. Runtime shifts the cave opening and `caveForeground` artwork around the technical world-bounds centre when `caveWindow.parallax` is greater than 1, but the editor previously displayed those records at unshifted world coordinates. In long levels this could make a door appear safely inside the cave in the editor while the play camera shifted the black mask hundreds of world units over it.
+Revision 333 fixes a Level Editor/runtime mismatch in cave-window authoring. Runtime shifts the cave opening and `caveForeground` artwork around the technical world-bounds centre when the Foreground parallax factor is greater than 1, but the editor previously displayed those records at unshifted world coordinates. In long levels this could make a door appear safely inside the cave in the editor while the play camera shifted the black mask hundreds of world units over it.
 
 The editor now reuses `computeCaveWindowParallaxOffset` with its own current viewport and camera. Panning and zooming therefore move the cave spline, gradient contours, full-black boundary, point handles, and foreground artwork exactly as gameplay would from the corresponding camera region. Cave-point insertion, foreground placement, hit testing, dragging, guides, labels, selection outlines, and box selection convert correctly between displayed and authored coordinates, leaving level JSON camera-independent.
 
@@ -3795,3 +3795,35 @@ Revision 347 re-voices the alternate synthesized tunes rather than applying one 
 - [x] Remove `foregroundOutwardX`, `foregroundOutwardY`, `foregroundFadeStart`, and `foregroundFadeEnd` from generator output, editor normalization, runtime visuals, bundled levels, and fixtures.
 - [x] Add regressions proving that moving or rotating a Foreground asset does not change its cached treatment and that the retired fields cannot return.
 - [x] Synchronize visible revision labels to 385 and run the release gate.
+
+
+## Revision 386 physical grounded character shadows
+
+- [x] Diagnose the Human Raider shadow against its collision feet, artwork origin, rig, and catalog offsets before changing data.
+- [x] Keep `renderOffsetX / renderOffsetY` as artwork-only placement and anchor shadows to authoritative actor `x / y`.
+- [x] Add a presentation-only shared helper for physical foot anchors, grounded-contact classification, and a 0.2-second opacity transition.
+- [x] Fade player shadows out during jump, fall, and hover, then back in after landing.
+- [x] Fade ground-enemy shadows out during jumps, drops, falls, and airborne death, while keeping flying enemies shadowless.
+- [x] Update shadow transitions for off-screen actors before dynamic culling.
+- [x] Multiply both Canvas and WebGL shadows by defeated-enemy presentation opacity.
+- [x] Add focused regressions for Human Raider offsets, contact states, transition timing, backend anchor ownership, and corpse fading.
+- [x] Synchronize visible revision labels to 386 and run the release gate.
+
+## Revision 387 canonical runtime Foreground parallax
+
+- [x] Diagnose why Background parallax worked in gameplay while Foreground parallax remained terrain-locked.
+- [x] Read Foreground parallax directly from canonical `state.world.layerVisuals.foreground.parallax` during frame preparation.
+- [x] Reuse one normalized factor and offset for Foreground culling, Canvas/WebGL sprite drawing, and Canvas/WebGL cave masks.
+- [x] Include the explicit Foreground factor in cave-mask cache keys.
+- [x] Remove the duplicate runtime `state.world.caveWindow.parallax` property rather than reviving a retired level-field mirror.
+- [x] Add regression coverage for source ownership, custom mask-key invalidation, and mirror absence.
+- [x] Synchronize visible revision labels to 387 and run the release gate.
+
+## Revision 388 readable debug panel
+
+- [x] Reduce the in-game debug panel font from 12px to 10px.
+- [x] Preserve explicit diagnostic line breaks while wrapping lines that exceed the panel width.
+- [x] Permit long unspaced tokens to wrap instead of forcing horizontal clipping.
+- [x] Replace hidden overflow with scrollable overflow beneath the existing viewport-height cap.
+- [x] Add a focused source-contract regression and synchronize visible revision labels to 388.
+- [x] Run the release gate and package the compact update without PNG or XCF artwork.

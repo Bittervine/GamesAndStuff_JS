@@ -2744,7 +2744,6 @@ export function applyEditorLevelToWorld(state, editorLevel) {
     const autoSpawnEnemies = normalizeAutoSpawnEnemies(source.autoSpawnEnemies);
     const caveWindow = normalizeCaveWindow(source.caveWindow);
     const layerVisuals = normalizeLevelLayerVisuals(source.layerVisuals);
-    caveWindow.parallax = layerVisuals.foreground.parallax;
     const caveKillBoundary = deriveCaveFullBlackKillBoundary(caveWindow);
     const placements = Array.isArray(source.placements) ? source.placements : [];
     const entities = Array.isArray(source.entities) ? source.entities : [];

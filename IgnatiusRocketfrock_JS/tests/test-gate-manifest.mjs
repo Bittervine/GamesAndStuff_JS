@@ -22,6 +22,7 @@ export const TEST_SHARDS = Object.freeze({
             "Canvas world-visual performance infrastructure",
             "interactive item atlas and entity visuals",
             "cached wrench rocket glow kernels",
+            "ground shadows use physical foot anchors and grounded fades",
             "unified enemy scaling",
             "state serialization and cloning",
             "rocket projectile renderer exists",

@@ -3328,7 +3328,7 @@ Shot validation evaluates the actual trajectory of every straight volley member 
 
 ## Revision 333 camera-relative cave preview
 
-Revision 333 fixes a Level Editor/runtime mismatch in cave-window authoring. Runtime shifts the cave opening and `caveForeground` artwork around the technical world-bounds centre when `caveWindow.parallax` is greater than 1, but the editor previously displayed those records at unshifted world coordinates. In long levels this could make a door appear safely inside the cave in the editor while the play camera shifted the black mask hundreds of world units over it.
+Revision 333 fixes a Level Editor/runtime mismatch in cave-window authoring. Runtime shifts the cave opening and `caveForeground` artwork around the technical world-bounds centre when the Foreground parallax factor is greater than 1, but the editor previously displayed those records at unshifted world coordinates. In long levels this could make a door appear safely inside the cave in the editor while the play camera shifted the black mask hundreds of world units over it.
 
 The editor now reuses `computeCaveWindowParallaxOffset` with its own current viewport and camera. Panning and zooming therefore move the cave spline, gradient contours, full-black boundary, point handles, and foreground artwork exactly as gameplay would from the corresponding camera region. Cave-point insertion, foreground placement, hit testing, dragging, guides, labels, selection outlines, and box selection convert correctly between displayed and authored coordinates, leaving level JSON camera-independent.
 
@@ -3693,3 +3693,30 @@ Status: implemented.
 Foreground frames previously cached an outward-to-black linear gradient using per-placement `foregroundOutwardX`, `foregroundOutwardY`, `foregroundFadeStart`, and `foregroundFadeEnd`. That treatment followed the sprite when it was moved away from the perimeter, and manual Foreground placement could receive the same baked darkness. The result looked useful at the cave edge but incorrect anywhere else.
 
 Revision 385 removes the sprite-local gradient and all four placement fields from the generator, editor, runtime conversion, shipped levels, and stress fixture. `foreground-sprite-treatment.js` now caches only brightness and saturation. The existing cave-window mask remains after Background, actors, and Foreground in the render order and continues to provide the same broad organic transparent-to-black handover in world space. Assets at the perimeter still fade into darkness, while moved assets immediately render without a gradient attached to them. Tests guard both the clean sprite treatment and the absence of the retired placement fields.
+
+
+## Revision 386 physical grounded character shadows
+
+Status: implemented.
+
+The Human Raider's low shadow was diagnosed before changing its catalog dimensions or rig. Its collision feet were already correct. The renderer computed `characterArtworkOrigin(enemy)` for the composited rig and then reused that shifted point for the shadow. Human enemies currently need `renderOffsetY: 51` to align their artwork with their hitbox, so the shadow inherited the same 51-unit downward shift. This was an origin-ownership bug, not a malformed animation, platform, collision body, or level placement.
+
+The audit found two related defects in the same subsystem. Player shadows were drawn unconditionally, and ground-enemy shadows were suppressed only for `locomotion: "flying"`, not while hunter jumps, drops, falls, or airborne deaths were active. The old defeated-enemy promise was also incomplete: Canvas `drawShadow()` replaced the parent global alpha with `0.26`, while WebGL queued a fixed shadow alpha, so neither backend reliably multiplied the shadow by corpse fade. These were fixed immediately rather than papering over Human Raider data.
+
+`src/presentation/actor-shadow.js` now owns three narrow presentation operations: resolve the physical foot point directly from actor `x / y`, classify ground contact from `player.onGround` or `enemy.airborne` while rejecting flying locomotion, and advance opacity linearly toward the contact target over 0.2 seconds. The renderer updates this state for every character actor during frame preparation, including off-screen actors, then uses the same values in Canvas and WebGL. Artwork offsets continue to move only artwork. Grounded idle, walking, running, attacking, hurt, and grounded death poses retain a shadow; jumping, falling, hovering, flying, and airborne death poses fade it out. Landing fades it back in. Corpse opacity multiplies the contact fade in both backends.
+
+Regression coverage verifies the independent artwork and ground origins, the exact 0.2-second transition, player/enemy/flying contact classification, absence of artwork-origin shadow calls, and corpse-alpha multiplication. No level data, legacy handling, physics state, or character assets changed.
+
+## Revision 387 canonical runtime Foreground parallax
+
+Status: implemented.
+
+Foreground parallax worked in the Level Editor but not in gameplay because the two surfaces no longer read the same owner. Revision 384 correctly removed the retired `caveWindow.parallax` field from level data, and the editor already read `level.layerVisuals.foreground.parallax`. Runtime level conversion briefly copied the grouped value onto `state.world.caveWindow`, but browser presentation synchronization passed the renderer a separately normalized cave-window record made from the raw level. That normalization strips unsupported fields. The renderer then asked its cave-window copy for parallax, received `undefined`, and the generic world-parallax helper fell back to neutral `1.0`. Background continued to work because its pass read `state.world.layerVisuals.background.parallax` directly.
+
+The fix removes the duplicate runtime cave-window property rather than restoring another mirror. `CanvasGameRenderer.prepareFrame` now normalizes `state.world.layerVisuals.foreground.parallax` once and stores one frame value. Foreground spatial queries, Canvas drawing, WebGL drawing, the Canvas cave mask, the geometric WebGL cave mask, and its Canvas fallback all use the resulting offset. `cave-window-mask.js` accepts the factor explicitly, normalizes it through `level-layer-data.js`, and includes it in the reusable mask key so changing the Layers control cannot reuse a mask rendered at the old offset. Regression coverage proves the renderer no longer reads `this.caveWindow.parallax`, runtime cave geometry has no parallax mirror, and custom Foreground values invalidate mask caching.
+
+## Revision 388 readable wrapping debug panel
+
+Status: implemented.
+
+The in-game debug panel no longer treats every diagnostic line as an unbreakable strip. Its monospace text is reduced from 12px to 10px, preserves authored line breaks while wrapping long renderer and gameplay-stat lines, and may break unusually long tokens when necessary. The existing 46vh ceiling remains so the panel cannot consume the whole viewport, but overflow now scrolls instead of clipping the remaining diagnostics. Pointer and overscroll handling are enabled only on the visible debug card so the developer can reach all output without changing the underlying debug data or update cadence.
