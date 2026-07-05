@@ -794,7 +794,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 420</small></h1>
+        <h1>Level Editor <small>rev 421</small></h1>
 
         <div class="box">
             <h2>Level</h2>
@@ -7449,9 +7449,10 @@ import {
         } else {
             const metrics = validation?.metrics || {};
             const routeMetrics = route?.validation?.metrics || {};
+            const routePlannerLabel = LEVEL_GENERATOR_REGISTRIES.route.find((entry) => entry.id === generation.implementations?.route)?.label || "Unknown";
             els.generatorStatus.textContent = [
                 `${generation.runId} · ${generation.themeId} · seed “${generation.seed}”`,
-                `${routeMetrics.mainNodeCount || 0} route nodes in the selected ${generation.implementations?.route === "mostly-horizontal-route-v1" ? "Horizontal" : "Standard"} planner`,
+                `${routeMetrics.mainNodeCount || 0} route nodes in the selected ${routePlannerLabel} planner`,
                 `${metrics.platformCount || 0} generated platforms, ${metrics.mandatoryTransitionCount || 0} mandatory transitions, ${metrics.selectedPerchCount || 0} treasure perch${metrics.selectedPerchCount === 1 ? "" : "es"}, 2 supported doors, ${metrics.cavePointCount || 0} cave controls`,
                 `${metrics.encounterCount || 0} encounter${metrics.encounterCount === 1 ? "" : "s"}, ${metrics.enemyCount || 0} enem${metrics.enemyCount === 1 ? "y" : "ies"}, ${metrics.bombingBatGroups || 0} bat group${metrics.bombingBatGroups === 1 ? "" : "s"}, ${metrics.hunterCount || 0} hunter${metrics.hunterCount === 1 ? "" : "s"}`,
                 `${metrics.rewardCount || 0} reward${metrics.rewardCount === 1 ? "" : "s"}: ${metrics.chestCount || 0} upper-perch chest${metrics.chestCount === 1 ? "" : "es"}, ${metrics.powerUpCount || 0} power-up${metrics.powerUpCount === 1 ? "" : "s"}, ${metrics.utilityCount || 0} fuel cache${metrics.utilityCount === 1 ? "" : "s"}, ${metrics.thoughtCount || 0} location thought${metrics.thoughtCount === 1 ? "" : "s"}`,

@@ -4104,3 +4104,15 @@ Revision 399 keeps the shipped Enemy 032 death clip unchanged but replaces the t
 - [x] Cap upper-perch treasure allocation and distribute remaining chests across the whole route.
 - [x] Add regressions for first-screen enemies, last-screen enemies, endpoint metadata, and both endpoint-platform chests.
 - [x] Increment generator schema to 35 and packaged revision labels to 420.
+
+## Revision 421 rising snake generator route
+
+- [x] Add Rising Snake as a separate automatic route choice.
+- [x] Build the exact right, up, horizontal left-or-right, up, right macro sequence in screen-scaled units.
+- [x] Limit each horizontal run to one through four screens and each climb to one through two screens.
+- [x] Make the generated cavern perimeter follow the route footprint instead of expanding into the standard broad dome.
+- [x] Support elevator-only, green one-way-platform, and mixed vertical shafts.
+- [x] Preserve the existing Horizontal and Standard route contracts.
+- [x] Add route, cavern, traversal-style, and theme regression coverage.
+- [x] Increment generator schema to 36 and packaged revision labels to 421.
+

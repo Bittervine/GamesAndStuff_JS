@@ -6,7 +6,7 @@ import { normalizeLevelLayerVisuals } from "./level-layer-data.js";
 import { parseEnemySelection } from "./enemy-pool-data.js";
 export { parseEnemySelection } from "./enemy-pool-data.js";
 
-export const AUTOMATIC_LEVEL_GENERATOR_VERSION = 35;
+export const AUTOMATIC_LEVEL_GENERATOR_VERSION = 36;
 export const AUTOMATIC_LEVEL_GENERATOR_ID = "automatic-level-generator-9";
 
 const GENERATED_PLAYER_BODY_WIDTH = 34;
@@ -32,7 +32,8 @@ export const LEVEL_GENERATOR_STAGE_ORDER = Object.freeze([
 export const LEVEL_GENERATOR_REGISTRIES = Object.freeze({
     route: Object.freeze([
         Object.freeze({ id: "mostly-horizontal-route-v1", label: "Horizontal" }),
-        Object.freeze({ id: "the-path74-route-v4", label: "Standard" })
+        Object.freeze({ id: "the-path74-route-v4", label: "Standard" }),
+        Object.freeze({ id: "rising-snake-route-v1", label: "Rising Snake" })
     ]),
     cavern: Object.freeze([
         Object.freeze({ id: "wide-upper-contour-cavern-v1", label: "Domed" }),
@@ -399,7 +400,7 @@ function collectAutomaticLevelRouteCandidates(options = {}) {
     const theme = normalizeGeneratorTheme(options.theme);
     const settings = normalizeGeneratorSettings(options.settings, theme.defaults);
     const implementations = normalizeGeneratorImplementations(options.implementations || theme.implementations);
-    if (!["the-path74-route-v4", "mostly-horizontal-route-v1"].includes(implementations.route)) {
+    if (!["the-path74-route-v4", "mostly-horizontal-route-v1", "rising-snake-route-v1"].includes(implementations.route)) {
         throw new Error(`Unsupported route generator “${implementations.route}”.`);
     }
     const seed = String(options.seed ?? "0").trim() || "0";
@@ -424,7 +425,9 @@ function collectAutomaticLevelRouteCandidates(options = {}) {
         try {
             graph = implementations.route === "mostly-horizontal-route-v1"
                 ? buildMostlyHorizontalRouteCandidate({ theme, settings, rng, attempt })
-                : buildThePath74RouteCandidate({ theme, settings, rng, attempt });
+                : implementations.route === "rising-snake-route-v1"
+                    ? buildRisingSnakeRouteCandidate({ theme, settings, rng, attempt })
+                    : buildThePath74RouteCandidate({ theme, settings, rng, attempt });
         } catch (error) {
             if (rejected.length < 10) rejected.push({ attempt, reasons: [String(error?.message || error)] });
             continue;
@@ -3358,32 +3361,65 @@ export function validatePlayableEmptyCavern(value = {}) {
             if (vertical) {
                 const movingSupports = edgeSupports.filter((support) => support.moving && support.movementAxis === "vertical");
                 const staticSupports = edgeSupports.filter((support) => !support.moving);
+                const allEdgeTransitions = transitions.filter((transition) => transition.routeEdgeId === edge.id);
+                const risingSnakeTraversal = route?.generatorId === "rising-snake-route-v1" || route?.macro?.patternId === "rising-snake";
                 metrics.verticalMovingPlatformCount += movingSupports.length;
                 metrics.staticVerticalIntermediateCount += staticSupports.length;
-                if (movingSupports.length !== 1 || staticSupports.length) {
-                    errors.push(`Vertical route edge “${edge.id}” must use exactly one moving platform and no static staircase supports.`);
-                }
-                const movingSupport = movingSupports[0];
-                const placement = movingSupport ? placementById.get(movingSupport.placementId) : null;
                 const fromNode = routeNodeById.get(edge.from);
                 const toNode = routeNodeById.get(edge.to);
                 const expectedOffsetY = finiteNumber(bySupportId.get(edge.to ? `support_${edge.to}` : "")?.surfaceY, finiteNumber(toNode?.y, 0))
                     - finiteNumber(bySupportId.get(edge.from ? `support_${edge.from}` : "")?.surfaceY, finiteNumber(fromNode?.y, 0));
-                
-                    const movingAsset = movingSupport ? catalogByAsset.get(`${movingSupport.atlasId}:${movingSupport.assetId}`) : null;
+                const validateMovingSupport = () => {
+                    if (movingSupports.length !== 1) {
+                        errors.push(`Vertical route edge “${edge.id}” must use exactly one moving platform for its elevator path.`);
+                        return;
+                    }
+                    const movingSupport = movingSupports[0];
+                    const placement = placementById.get(movingSupport.placementId);
+                    const movingAsset = catalogByAsset.get(`${movingSupport.atlasId}:${movingSupport.assetId}`);
                     if (!movingAsset?.roles.includes("movingPlatform")) {
                         metrics.movingThinAssetViolationCount += 1;
                         errors.push(`Vertical route edge “${edge.id}” does not use the reserved thin moving-platform style.`);
                     }
-                
-                if (!placement?.movement || placement.movement.pattern !== "shuttle") {
-                    errors.push(`Vertical route edge “${edge.id}” is missing its automatic shuttle movement.`);
+                    if (!placement?.movement || placement.movement.pattern !== "shuttle") {
+                        errors.push(`Vertical route edge “${edge.id}” is missing its automatic shuttle movement.`);
+                    } else {
+                        if (Math.abs(finiteNumber(placement.movement.endOffsetX, 0)) > 0.5) errors.push(`Vertical route edge “${edge.id}” moves sideways instead of remaining a vertical lift.`);
+                        if (Math.abs(finiteNumber(placement.movement.endOffsetY, 0) - expectedOffsetY) > 1) errors.push(`Vertical route edge “${edge.id}” does not span the complete planned climb or drop.`);
+                    }
+                    const movingTransfers = edgeTransitions.filter((transition) => transition.movingPlatformTransfer);
+                    if (movingTransfers.length !== 2) errors.push(`Vertical route edge “${edge.id}” must expose start and end moving-platform transfers.`);
+                };
+                if (risingSnakeTraversal) {
+                    const recordedStyle = String(traversal?.verticalTraversalStyles?.[edge.id] || "");
+                    const verticalTraversalStyle = recordedStyle || (movingSupports.length && staticSupports.length ? "mix" : movingSupports.length ? "elevator" : "platforms");
+                    if (staticSupports.some((support) => support.collisionMode !== "oneWay" || !support.verticalClimbPlatform)) {
+                        errors.push(`Rising Snake edge “${edge.id}” uses a static vertical support without a green one-way climbing line.`);
+                    }
+                    if (verticalTraversalStyle === "elevator") {
+                        if (staticSupports.length) errors.push(`Rising Snake elevator edge “${edge.id}” contains unexpected static climbing platforms.`);
+                        validateMovingSupport();
+                    } else if (verticalTraversalStyle === "platforms") {
+                        if (movingSupports.length) errors.push(`Rising Snake platform edge “${edge.id}” contains an unexpected elevator.`);
+                        if (!staticSupports.length) errors.push(`Rising Snake platform edge “${edge.id}” contains no green climbing platforms.`);
+                        if (edgeTransitions.length !== staticSupports.length + 1 || edgeTransitions.some((transition) => !transition.verticalPlatformClimb)) {
+                            errors.push(`Rising Snake platform edge “${edge.id}” does not expose one mandatory jump transition for every climbing step.`);
+                        }
+                    } else if (verticalTraversalStyle === "mix") {
+                        validateMovingSupport();
+                        if (!staticSupports.length) errors.push(`Rising Snake mixed edge “${edge.id}” contains no green alternative platforms.`);
+                        const greenAlternatives = allEdgeTransitions.filter((transition) => !transition.mandatory && transition.verticalPlatformClimb);
+                        if (greenAlternatives.length !== staticSupports.length + 1) {
+                            errors.push(`Rising Snake mixed edge “${edge.id}” does not provide a complete optional green-platform alternative.`);
+                        }
+                    } else {
+                        errors.push(`Rising Snake edge “${edge.id}” has unknown vertical traversal style “${verticalTraversalStyle}”.`);
+                    }
                 } else {
-                    if (Math.abs(finiteNumber(placement.movement.endOffsetX, 0)) > 0.5) errors.push(`Vertical route edge “${edge.id}” moves sideways instead of remaining a vertical lift.`);
-                    if (Math.abs(finiteNumber(placement.movement.endOffsetY, 0) - expectedOffsetY) > 1) errors.push(`Vertical route edge “${edge.id}” does not span the complete planned climb or drop.`);
-                }
-                if (edgeTransitions.length !== 2 || edgeTransitions.some((transition) => !transition.movingPlatformTransfer)) {
-                    errors.push(`Vertical route edge “${edge.id}” must expose start and end moving-platform transfers.`);
+                    if (movingSupports.length !== 1 || staticSupports.length) {
+                        errors.push(`Vertical route edge “${edge.id}” must use exactly one moving platform and no static staircase supports.`);
+                    }
+                    validateMovingSupport();
                 }
                 continue;
             }
@@ -3447,6 +3483,7 @@ export function validatePlayableEmptyCavern(value = {}) {
         const routeBoundsForSecondaryCoverage = routeGraphBounds(route, 0);
         metrics.secondaryPlatformCoverageRatio = roundCoordinate(secondaryCoverageWidth / Math.max(1, finiteNumber(routeBoundsForSecondaryCoverage?.w, 1)));
         const mostlyHorizontalRoute = route?.generatorId === "mostly-horizontal-route-v1" || route?.macro?.patternId === "mostly-horizontal";
+        const risingSnakeRoute = route?.generatorId === "rising-snake-route-v1" || route?.macro?.patternId === "rising-snake";
         if (mostlyHorizontalRoute) {
             for (const support of supports.filter((candidate) => candidate.secondaryPlatform)) {
                 const groundParent = bySupportId.get(String(support.groundParentSupportId || ""));
@@ -3535,10 +3572,10 @@ export function validatePlayableEmptyCavern(value = {}) {
         
         if (!Number.isFinite(metrics.minimumHorizontalJumpGap)) metrics.minimumHorizontalJumpGap = 0;
         if (!Number.isFinite(metrics.minimumOrganicHeightDelta)) metrics.minimumOrganicHeightDelta = 0;
-        if (metrics.staticVerticalIntermediateCount > 0) errors.push("ThePath74 vertical traversal still contains static staircase supports.");
+        if (!risingSnakeRoute && metrics.staticVerticalIntermediateCount > 0) errors.push("ThePath74 vertical traversal still contains static staircase supports.");
         if (metrics.horizontalJumpGapCount > 0 && metrics.maximumHorizontalRouteOffset < 72) warnings.push("Horizontal platform sequences remained unusually close to the abstract route height.");
         if (metrics.organicSameHeightAdjacentCount > 0) errors.push("The organic upper route still contains a same-height platform row.");
-        if (metrics.mainStaticPlatformCount >= 3 && metrics.longPlatformShare < 0.4) errors.push("The Standard traversal did not use long platforms for enough of the main route.");
+        if (!risingSnakeRoute && metrics.mainStaticPlatformCount >= 3 && metrics.longPlatformShare < 0.4) errors.push("The Standard traversal did not use long platforms for enough of the main route.");
         if (mostlyHorizontalRoute && metrics.secondaryPlatformCoverageRatio < 0.355) errors.push(`The Horizontal upper lane covers only ${roundCoordinate(metrics.secondaryPlatformCoverageRatio * 100)}% of the route span.`);
      else if (!Number.isFinite(metrics.minimumHorizontalJumpGap)) {
         metrics.minimumHorizontalJumpGap = 0;
@@ -3743,6 +3780,13 @@ function buildStandardTraversal({
     const mandatoryEdgeChains = new Map();
     let order = 1000;
     const useRunAndGunRoute = implementations.route === "mostly-horizontal-route-v1";
+    const useRisingSnakeRoute = implementations.route === "rising-snake-route-v1" || route?.macro?.patternId === "rising-snake";
+    const verticalTraversalStyles = new Map();
+    if (useRisingSnakeRoute) {
+        for (const edge of edges.filter((candidate) => candidate.mandatory !== false && (candidate.intendedDirection === "climb" || candidate.intendedDirection === "descend"))) {
+            verticalTraversalStyles.set(edge.id, rng.pick(["elevator", "platforms", "mix"]));
+        }
+    }
     let movingVerticalEdgeCount = 0;
 
     const addSupport = (spec) => {
@@ -4356,7 +4400,111 @@ function buildStandardTraversal({
         return chain;
     };
 
-    const buildMovingVerticalEdge = (edge) => {
+    const buildStaticVerticalEdge = (edge, { mandatory = true, side = 1, verticalTraversalStyle = "platforms" } = {}) => {
+        const startSupport = nodeSupport.get(edge.from);
+        const endSupport = nodeSupport.get(edge.to);
+        if (!startSupport || !endSupport) throw new Error(`Vertical edge “${edge.id}” is missing a landing support.`);
+        const verticalSpan = Math.abs(endSupport.surfaceY - startSupport.surfaceY);
+        const minimumTransitions = Math.max(2, Math.ceil(verticalSpan / theme.traversal.mandatoryRise));
+        const maximumTransitions = Math.max(minimumTransitions, Math.floor(verticalSpan / 90));
+        let transitionCount = minimumTransitions % 2 === 0 ? minimumTransitions : minimumTransitions + 1;
+        if (transitionCount > maximumTransitions) transitionCount = maximumTransitions % 2 === 0 ? maximumTransitions : maximumTransitions - 1;
+        if (transitionCount < minimumTransitions || transitionCount < 2 || transitionCount % 2 !== 0) {
+            throw new Error(`Vertical edge “${edge.id}” cannot fit a green-platform switchback within the jump envelope.`);
+        }
+        const intermediateCount = transitionCount - 1;
+        const selections = [];
+        for (let index = 0; index < intermediateCount; index += 1) {
+            const targetWidth = rng.range(232, 286);
+            const selection = selectGenerationAsset(
+                assetCatalog,
+                "landingPlatform",
+                targetWidth,
+                rng,
+                false,
+                320,
+                { collisionMode: "oneWay" }
+            );
+            if (!selection) throw new Error(`Vertical edge “${edge.id}” cannot find a green one-way climbing platform.`);
+            selections.push(selection);
+        }
+        const baseCenterX = roundCoordinate((startSupport.centerX + endSupport.centerX) * 0.5);
+        const selectionWalkableBounds = (selection, centerX) => ({
+            left: centerX - selection.width * 0.5 + selection.width * selection.asset.walkableLeftInsetRatio,
+            right: centerX + selection.width * 0.5 - selection.width * selection.asset.walkableRightInsetRatio
+        });
+        const supportWalkableBounds = (support) => ({
+            left: finiteNumber(support.walkableLeftX, support.centerX - support.width * 0.5),
+            right: finiteNumber(support.walkableRightX, support.centerX + support.width * 0.5)
+        });
+        const innerBoundsForStep = (stepIndex) => {
+            if (stepIndex <= 0) return supportWalkableBounds(startSupport);
+            if (stepIndex >= transitionCount) return supportWalkableBounds(endSupport);
+            return selectionWalkableBounds(selections[stepIndex - 1], baseCenterX);
+        };
+        const staticSupports = [];
+        const gap = roundCoordinate(rng.range(46, 62));
+        for (let stepIndex = 1; stepIndex < transitionCount; stepIndex += 1) {
+            const selection = selections[stepIndex - 1];
+            const outerColumn = stepIndex % 2 === 1;
+            let centerX = baseCenterX;
+            if (outerColumn) {
+                const previousInner = innerBoundsForStep(stepIndex - 1);
+                const nextInner = innerBoundsForStep(stepIndex + 1);
+                if (side > 0) {
+                    const desiredLeft = Math.max(previousInner.right, nextInner.right) + gap;
+                    centerX = desiredLeft + selection.width * 0.5 - selection.width * selection.asset.walkableLeftInsetRatio;
+                } else {
+                    const desiredRight = Math.min(previousInner.left, nextInner.left) - gap;
+                    centerX = desiredRight - selection.width * 0.5 + selection.width * selection.asset.walkableRightInsetRatio;
+                }
+            }
+            const surfaceY = lerp(startSupport.surfaceY, endSupport.surfaceY, stepIndex / transitionCount);
+            const support = addSupport({
+                id: `support_${edge.id}_green_${String(stepIndex).padStart(2, "0")}`,
+                role: "landingPlatform",
+                targetWidth: selection.width,
+                maximumWidth: 320,
+                selection,
+                centerX,
+                surfaceY,
+                mandatory,
+                routeEdgeId: edge.id,
+                requiredCollisionMode: "oneWay",
+                mirrorX: false
+            });
+            support.verticalClimbPlatform = true;
+            support.verticalTraversalStyle = verticalTraversalStyle;
+            support.platformSpacingStyle = mandatory ? "risingSnakeGreenClimb" : "risingSnakeMixedGreenAlternative";
+            const placement = placements.find((candidate) => candidate.id === support.placementId);
+            if (placement) {
+                placement.generationRole = "verticalGreenPlatform";
+                placement.verticalTraversalStyle = verticalTraversalStyle;
+            }
+            staticSupports.push(support);
+        }
+        const chain = [startSupport, ...staticSupports, endSupport];
+        const edgeSpec = mandatory ? edge : { ...edge, mandatory: false };
+        const edgeTransitions = [];
+        for (let index = 1; index < chain.length; index += 1) {
+            const transition = classifyTraversalTransition(chain[index - 1], chain[index], edgeSpec, theme);
+            transition.spacingStyle = mandatory ? "risingSnakeGreenClimb" : "risingSnakeMixedGreenAlternative";
+            transition.verticalPlatformClimb = true;
+            transition.verticalTraversalStyle = verticalTraversalStyle;
+            if (!transition.valid) {
+                throw new Error(`Vertical edge “${edge.id}” green-platform climb is not traversable between ${chain[index - 1].id} and ${chain[index].id} (gap ${transition.gap}, rise ${transition.rise}, drop ${transition.drop}).`);
+            }
+            edgeTransitions.push(transition);
+        }
+        transitions.push(...edgeTransitions);
+        if (mandatory) {
+            edgeSupportIds.set(edge.id, staticSupports.map((support) => support.id));
+            mandatoryEdgeChains.set(edge.id, chain);
+        }
+        return chain;
+    };
+
+    const buildMovingVerticalEdge = (edge, verticalTraversalStyle = "elevator") => {
         const startSupport = nodeSupport.get(edge.from);
         const endSupport = nodeSupport.get(edge.to);
         if (!startSupport || !endSupport) throw new Error(`Vertical edge “${edge.id}” is missing a landing support.`);
@@ -4447,6 +4595,7 @@ function buildStandardTraversal({
         }
         support.moving = true;
         support.movementAxis = "vertical";
+        support.verticalTraversalStyle = verticalTraversalStyle;
         support.movementStartSupportId = startSupport.id;
         support.movementEndSupportId = endSupport.id;
         support.movementDistance = roundCoordinate(endSupport.surfaceY - startSupport.surfaceY);
@@ -4471,6 +4620,7 @@ function buildStandardTraversal({
         };
         placement.generationRole = "verticalMovingPlatform";
         placement.routeEdgeDirection = edge.intendedDirection;
+        placement.verticalTraversalStyle = verticalTraversalStyle;
         if (support.movementShaft) {
             placement.movementShaft = { ...support.movementShaft };
             placement.movementSafetyEnvelope = { ...support.movementShaft };
@@ -4502,6 +4652,23 @@ function buildStandardTraversal({
 
     const processEdge = (edge) => {
         if (edge.intendedDirection === "climb" || edge.intendedDirection === "descend") {
+            if (useRisingSnakeRoute) {
+                const verticalTraversalStyle = verticalTraversalStyles.get(edge.id) || "elevator";
+                if (verticalTraversalStyle === "platforms") {
+                    const side = movingVerticalEdgeCount % 2 === 0 ? 1 : -1;
+                    movingVerticalEdgeCount += 1;
+                    return buildStaticVerticalEdge(edge, { mandatory: true, side, verticalTraversalStyle });
+                }
+                if (verticalTraversalStyle === "mix") {
+                    const movingChain = buildMovingVerticalEdge(edge, verticalTraversalStyle);
+                    const movingSupport = movingChain[1];
+                    const baseCenterX = (nodeSupport.get(edge.from)?.centerX + nodeSupport.get(edge.to)?.centerX) * 0.5;
+                    const side = movingSupport?.centerX >= baseCenterX ? -1 : 1;
+                    buildStaticVerticalEdge(edge, { mandatory: false, side, verticalTraversalStyle });
+                    return movingChain;
+                }
+                return buildMovingVerticalEdge(edge, verticalTraversalStyle);
+            }
             return buildMovingVerticalEdge(edge);
         }
         if (edge.intendedDirection === "left" || edge.intendedDirection === "right") {
@@ -5397,6 +5564,7 @@ function buildStandardTraversal({
         recoveryLanes,
         secondaryPlatformIds: secondaryPlatforms.map((support) => support.id),
         upperAccessPlatformIds: upperAccessPlatforms.map((support) => support.id),
+        verticalTraversalStyles: Object.fromEntries(verticalTraversalStyles),
         placements
     };
 }
@@ -5779,7 +5947,8 @@ function traceCavernOccupancyContour(stamps, theme) {
 }
 
 function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, runId, generatorId }) {
-    const wideUpperCavern = generatorId === "wide-upper-contour-cavern-v1";
+    const risingSnakeCavern = route?.macro?.patternId === "rising-snake";
+    const wideUpperCavern = generatorId === "wide-upper-contour-cavern-v1" && !risingSnakeCavern;
     const nodeById = new Map((route?.nodes || []).map((node) => [node.id, node]));
     const endpointSupportIds = new Set([traversal.startSupportId, traversal.exitSupportId]);
     const rooms = [];
@@ -5866,7 +6035,7 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
             kind: "movingPlatformShaft"
         });
     }
-    if (["the-path74", "mostly-horizontal"].includes(route?.macro?.patternId)) {
+    if (["the-path74", "mostly-horizontal", "rising-snake"].includes(route?.macro?.patternId)) {
         const pathCellSizeX = finiteNumber(route.macro.cellSizeX, theme.route.nodeSpacing * 0.42);
         const pathCellSizeY = finiteNumber(route.macro.cellSizeY, theme.route.verticalStep * 1.35);
         for (const room of route.macro.rooms || []) {
@@ -6145,7 +6314,8 @@ export function validateRouteGraph(graph, context = {}) {
             if (!reverseReachable.has(node.id)) errors.push(`Route node “${node.id}” cannot rejoin the route before the exit.`);
         }
         const rightmostX = Math.max(...nodes.map((node) => Number(node.x) || 0));
-        if (exit.x < rightmostX - 1) errors.push("The exit is not the rightmost route node.");
+        const risingSnakeCandidate = graph?.generatorId === "rising-snake-route-v1" || graph?.macro?.patternId === "rising-snake";
+        if (!risingSnakeCandidate && exit.x < rightmostX - 1) errors.push("The exit is not the rightmost route node.");
         if (exit.x <= start.x) errors.push("The route exit must be to the right of its entrance.");
     }
 
@@ -6156,6 +6326,7 @@ export function validateRouteGraph(graph, context = {}) {
     }
     if (!Number.isFinite(metrics.minNodeDistance)) metrics.minNodeDistance = 0;
     const mostlyHorizontalCandidate = graph?.macro?.patternId === "mostly-horizontal";
+    const risingSnakeCandidate = graph?.macro?.patternId === "rising-snake";
     const minimumReadableNodeDistance = mostlyHorizontalCandidate ? 84 : 135;
     const warningNodeDistance = mostlyHorizontalCandidate ? 118 : 190;
     if (metrics.minNodeDistance < minimumReadableNodeDistance) errors.push("Two route nodes are too close to read or build independently.");
@@ -6229,23 +6400,28 @@ export function validateRouteGraph(graph, context = {}) {
         metrics.occupiedLaneCount = laneCount;
     }
     const mostlyHorizontalRoute = graph?.generatorId === "mostly-horizontal-route-v1" || graph?.macro?.patternId === "mostly-horizontal";
-    const thePath74Route = graph?.generatorId === "the-path74-route-v4" || graph?.macro?.patternId === "the-path74" || mostlyHorizontalRoute;
+    const risingSnakeRoute = graph?.generatorId === "rising-snake-route-v1" || graph?.macro?.patternId === "rising-snake";
+    const thePath74Route = graph?.generatorId === "the-path74-route-v4" || graph?.macro?.patternId === "the-path74" || mostlyHorizontalRoute || risingSnakeRoute;
     const maximumRouteEdgeLength = thePath74Route
         ? finiteNumber(graph?.macro?.maximumEdgeLength, theme.route.nodeSpacing * 3.2)
         : theme.route.nodeSpacing * 2.25;
     if (metrics.maxEdgeLength > maximumRouteEdgeLength) errors.push("A route connection is too long for a useful chamber-to-chamber plan.");
     const maxBacktracks = mostlyHorizontalRoute
         ? 0
+        : risingSnakeRoute
+            ? 1
         : thePath74Route
             ? Math.max(2, Math.ceil((mainNodes.length - 1) * 0.62))
             : Math.max(1, Math.ceil((mainNodes.length - 1) * (0.05 + settings.winding * 0.16)));
     if (metrics.backtrackEdges > maxBacktracks) errors.push("The route backtracks too often for the selected macro pattern.");
-    const foldedRoute = !mostlyHorizontalRoute && (graph?.version >= 3 || Array.isArray(graph?.macro?.spatialAnchors));
+    const foldedRoute = !mostlyHorizontalRoute && !risingSnakeRoute && (graph?.version >= 3 || Array.isArray(graph?.macro?.spatialAnchors));
     if (foldedRoute && settings.length !== "compact" && settings.winding >= 0.2 && metrics.backtrackEdges === 0) {
         errors.push("The folded route contains no mandatory leftward phase.");
     }
     const maximumAspectRatio = mostlyHorizontalRoute
         ? (settings.length === "compact" ? 40 : 100)
+        : risingSnakeRoute
+            ? 6
         : thePath74Route
             ? (settings.length === "compact" ? 12 : 10)
             : settings.length === "compact" ? 8.5 : settings.length === "grand" ? 4.8 : 5.2;
@@ -6253,6 +6429,26 @@ export function validateRouteGraph(graph, context = {}) {
     else if (foldedRoute && settings.length !== "compact" && metrics.aspectRatio > maximumAspectRatio * 0.86) warnings.push("The route remains close to the maximum wide-corridor aspect ratio.");
     if (foldedRoute && settings.length !== "compact" && metrics.horizontalDirectionChanges < 2) warnings.push("The route has too little horizontal rhythm for a folded cavern.");
     if (foldedRoute && settings.verticality >= 0.45 && metrics.occupiedLaneCount < 2) errors.push("The route does not occupy multiple vertically separated lanes.");
+    if (risingSnakeRoute) {
+        const routeSegments = Array.isArray(graph?.macro?.segments) ? graph.macro.segments : [];
+        const expectedDirections = ["right", "up", null, "up", "right"];
+        if (routeSegments.length !== expectedDirections.length) {
+            errors.push("Rising Snake routes must contain exactly five macro segments.");
+        } else {
+            for (let index = 0; index < expectedDirections.length; index += 1) {
+                const segment = routeSegments[index];
+                const direction = String(segment?.direction || "");
+                const length = finiteNumber(segment?.length, 0);
+                if (expectedDirections[index] && direction !== expectedDirections[index]) errors.push(`Rising Snake segment ${index + 1} must travel ${expectedDirections[index]}.`);
+                if (index === 2 && !["left", "right"].includes(direction)) errors.push("The middle Rising Snake segment must travel left or right.");
+                if (direction === "up" && (length < 1 || length > 2)) errors.push("Rising Snake climbs must be one or two vertical screens tall.");
+                if (["left", "right"].includes(direction) && (length < 1 || length > 4)) errors.push("Rising Snake horizontal runs must be one to four screens long.");
+            }
+        }
+        if (metrics.verticalTravel < 1440 - 1) errors.push("Rising Snake routes must climb twice before the exit.");
+        if (metrics.backtrackEdges > 1) errors.push("Rising Snake routes may contain only the single optional middle leftward run.");
+    }
+
     if (mostlyHorizontalRoute) {
         const verticalSegments = Array.isArray(graph?.macro?.segments)
             ? graph.macro.segments.filter((segment) => segment.direction === "up" || segment.direction === "down")
@@ -6300,12 +6496,15 @@ export function validateRouteGraph(graph, context = {}) {
     } else if (mostlyHorizontalRoute) {
         qualityScore -= Math.max(0, metrics.verticalTravel * 6 - metrics.horizontalTravel) / Math.max(1, theme.route.nodeSpacing) * 4;
         qualityScore -= Math.max(0, 1 - metrics.verticalDirectionChanges) * 2;
+    } else if (risingSnakeRoute) {
+        qualityScore -= Math.max(0, 1440 - metrics.verticalTravel) / 180;
+        qualityScore -= Math.max(0, metrics.backtrackEdges - 1) * 8;
     } else if (settings.winding > 0.7 && metrics.backtrackEdges === 0) {
         qualityScore -= 4;
     }
     if (settings.verticality > 0.55 && longestFlatRun(mainNodes, theme.route.verticalStep * 0.22) > 4 && !graph?.macro?.patternId?.startsWith("l-")) qualityScore -= 7;
     if (graph?.macro?.patternId) {
-        const expectedRooms = thePath74Route ? 3 : desiredMacroRoomCount(settings.length);
+        const expectedRooms = risingSnakeRoute ? 2 : thePath74Route ? 3 : desiredMacroRoomCount(settings.length);
         qualityScore -= Math.abs(metrics.macroRoomCount - expectedRooms) * 4;
         if (metrics.macroRoomCount === 0) errors.push("The macro route did not reserve any large cavern room.");
         if (metrics.largestRoomWidthScreens < 1.1 || metrics.largestRoomHeightScreens < 1.05) warnings.push("The largest reserved room is barely larger than one screen.");
@@ -6614,6 +6813,53 @@ function buildMostlyHorizontalGridPlan({ settings, rng }) {
     };
 }
 
+function buildRisingSnakeGridPlan({ rng }) {
+    for (let reroll = 0; reroll < 120; reroll += 1) {
+        const firstHorizontalLength = rng.int(1, 4);
+        const firstVerticalLength = rng.int(1, 2);
+        const middleDirection = rng.chance(0.5) ? "left" : "right";
+        const middleHorizontalLength = rng.int(1, 4);
+        const secondVerticalLength = rng.int(1, 2);
+        const finalHorizontalLength = rng.int(1, 4);
+        const path = [{ gx: 0, gy: 0 }];
+        const segments = [];
+        const appendSegment = (direction, length) => {
+            const startPathIndex = path.length - 1;
+            for (let step = 0; step < length; step += 1) path.push(thePath74MovedCell(path.at(-1), direction));
+            segments.push({
+                direction,
+                requestedLength: length,
+                length,
+                startPathIndex,
+                endPathIndex: path.length - 1
+            });
+        };
+        appendSegment("right", firstHorizontalLength);
+        appendSegment("up", firstVerticalLength);
+        appendSegment(middleDirection, middleHorizontalLength);
+        appendSegment("up", secondVerticalLength);
+        appendSegment("right", finalHorizontalLength);
+        if (path.at(-1).gx <= 0) continue;
+        const xs = path.map((cell) => cell.gx);
+        const ys = path.map((cell) => cell.gy);
+        return {
+            version: 1,
+            path,
+            segments,
+            leftwardSegments: middleDirection === "left" ? 1 : 0,
+            horizontalDirectionChanges: middleDirection === "left" ? 2 : 0,
+            verticalDirectionChanges: 0,
+            bounds: {
+                minGX: Math.min(...xs),
+                maxGX: Math.max(...xs),
+                minGY: Math.min(...ys),
+                maxGY: Math.max(...ys)
+            }
+        };
+    }
+    throw new Error("Rising Snake could not find a route that finishes to the right of its entrance.");
+}
+
 function buildThePath74BoundaryLabels(path) {
     const pathKeys = new Set(path.map(thePath74CellKey));
     const boundary = new Map();
@@ -6866,6 +7112,111 @@ function buildMostlyHorizontalRouteCandidate({ theme, settings, rng, attempt }) 
             runAndGunGround: true
         },
         nodes,
+        edges
+    };
+}
+
+function buildRisingSnakeRouteCandidate({ theme, settings, rng, attempt }) {
+    const gridPlan = buildRisingSnakeGridPlan({ settings, rng });
+    const cellSizeX = 1280;
+    const cellSizeY = 720;
+    const segmentEnds = gridPlan.segments.map((segment) => segment.endPathIndex);
+    const roomPathIndices = [segmentEnds[1], segmentEnds[3]];
+    const rooms = roomPathIndices.map((pathIndex, index) => {
+        const cell = gridPlan.path[pathIndex];
+        return {
+            id: `macro_room_${String(index + 1).padStart(2, "0")}`,
+            pathIndex,
+            label: pathIndex + 1,
+            anchorSource: "path",
+            gx: cell.gx,
+            gy: cell.gy,
+            semiAxisX: rng.int(1, 2),
+            semiAxisY: 1
+        };
+    });
+    const roomByPathIndex = new Map(rooms.map((room) => [room.pathIndex, room]));
+    const anchorIndices = [0, ...segmentEnds];
+    const mainNodes = anchorIndices.map((pathIndex, index) => {
+        const cell = gridPlan.path[pathIndex];
+        const room = roomByPathIndex.get(pathIndex);
+        return {
+            id: `route_main_${String(index).padStart(3, "0")}`,
+            kind: index === 0 ? "entrance" : index === anchorIndices.length - 1 ? "exit" : room ? "chamber" : "traversal",
+            x: roundCoordinate(theme.route.startX + cell.gx * cellSizeX),
+            y: roundCoordinate(theme.route.baselineY + cell.gy * cellSizeY),
+            progress: index,
+            mandatory: true,
+            label: index === 0 ? "Entrance" : index === anchorIndices.length - 1 ? "Exit" : room ? `Rising chamber ${room.id.split("_").at(-1)}` : `Rising turn ${index}`,
+            macroPatternId: "rising-snake",
+            spatialLane: cell.gy,
+            pathCellIndex: pathIndex
+        };
+    });
+    const nodeByPathIndex = new Map(mainNodes.map((node) => [node.pathCellIndex, node]));
+    const enrichedRooms = rooms.map((room) => ({
+        ...room,
+        nodeId: nodeByPathIndex.get(room.pathIndex)?.id,
+        centerX: roundCoordinate(theme.route.startX + room.gx * cellSizeX),
+        centerY: roundCoordinate(theme.route.baselineY + room.gy * cellSizeY),
+        widthScreens: roundCoordinate(clamp(room.semiAxisX * 1.35, 1.35, 2.7)),
+        heightScreens: 2,
+        rareLargeRoom: false
+    }));
+    const edges = [];
+    for (let index = 0; index < mainNodes.length - 1; index += 1) {
+        const from = mainNodes[index];
+        const to = mainNodes[index + 1];
+        const segment = gridPlan.segments[index];
+        edges.push({
+            id: `route_main_edge_${String(index).padStart(3, "0")}`,
+            from: from.id,
+            to: to.id,
+            mandatory: true,
+            intendedDirection: segment.direction === "up" ? "climb" : segment.direction
+        });
+    }
+    const spacings = mainNodes.slice(1).map((node, index) => distance(mainNodes[index], node));
+    const worldCellPath = gridPlan.path.map((cell, pathIndex) => ({
+        pathIndex,
+        gx: cell.gx,
+        gy: cell.gy,
+        x: roundCoordinate(theme.route.startX + cell.gx * cellSizeX),
+        y: roundCoordinate(theme.route.baselineY + cell.gy * cellSizeY)
+    }));
+    const xs = mainNodes.map((node) => node.x);
+    const ys = mainNodes.map((node) => node.y);
+    const routeWidth = Math.max(...xs) - Math.min(...xs);
+    const routeHeight = Math.max(...ys) - Math.min(...ys);
+    return {
+        version: 1,
+        attempt,
+        startNodeId: mainNodes[0].id,
+        exitNodeId: mainNodes.at(-1).id,
+        macro: {
+            version: 1,
+            patternId: "rising-snake",
+            patternLabel: "Rising Snake five-segment route",
+            cellSizeX,
+            cellSizeY,
+            cellPath: worldCellPath,
+            segments: gridPlan.segments.map((segment, segmentIndex) => ({ ...segment, id: `rising_snake_segment_${String(segmentIndex + 1).padStart(2, "0")}` })),
+            rooms: enrichedRooms,
+            bounds: gridPlan.bounds,
+            leftwardSegments: gridPlan.leftwardSegments,
+            horizontalDirectionChanges: gridPlan.horizontalDirectionChanges,
+            verticalDirectionChanges: 0,
+            targetVerticalSpan: roundCoordinate(routeHeight),
+            targetAspectRatio: roundCoordinate(routeWidth / Math.max(1, routeHeight)),
+            targetAverageNodeSpacing: roundCoordinate(average(spacings)),
+            maximumEdgeLength: roundCoordinate(Math.max(cellSizeX * 4, cellSizeY * 2) + 1),
+            verticalSegmentMinimum: 1,
+            verticalSegmentMaximum: 2,
+            horizontalSegmentMinimum: 1,
+            horizontalSegmentMaximum: 4,
+            risingSnake: true
+        },
+        nodes: mainNodes,
         edges
     };
 }

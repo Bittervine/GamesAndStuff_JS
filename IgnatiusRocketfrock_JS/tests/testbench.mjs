@@ -1385,6 +1385,43 @@ function testAutomaticEnemySpawning() {
         "automatic spawning should share the level generator enemy-pool expression format"
     );
 
+    const risingStylesSeen = new Set();
+    for (const seed of ["snake-a", "snake-b", "snake-e"]) {
+        const draft = generateAutomaticLevelDraft({
+            theme: earthTheme,
+            assetCatalog,
+            seed,
+            settings: { ...earthTheme.defaults, length: "grand", safety: 1 },
+            implementations: {
+                ...earthTheme.implementations,
+                route: "rising-snake-route-v1",
+                encounters: "not-generated-yet",
+                rewards: "not-generated-yet",
+                validation: "the-path74-cavern-validation-v4"
+            },
+            availableEnemyIds: enemyIds,
+            destinationLevel: "level_002"
+        });
+        assert.equal(draft.generation.validation.valid, true, `Rising Snake cavern ${seed} should validate: ${draft.generation.validation.errors.join(" ")}`);
+        assert.equal(draft.generation.cavern.macroPatternId, "rising-snake", "Rising Snake cave generation should retain the route pattern");
+        assert.ok(draft.generation.cavern.bounds.h > 2400, "Rising Snake cave perimeter should span the two upward screen sections");
+        assert.ok(draft.generation.cavern.stamps.every((stamp) => stamp.kind !== "wideUpperRoom" && stamp.kind !== "domedCeilingExpansion"), "Rising Snake should use a route-following contour instead of the default broad dome expansion");
+        const styles = Object.values(draft.generation.traversal.verticalTraversalStyles || {});
+        assert.equal(styles.length, 2, "Rising Snake should assign a traversal style to both upward shafts");
+        styles.forEach((style) => risingStylesSeen.add(style));
+        const greenSupports = draft.generation.traversal.supports.filter((support) => support.verticalClimbPlatform);
+        assert.ok(greenSupports.every((support) => support.collisionMode === "oneWay"), "Rising Snake climbing platforms should always use green one-way collision lines");
+        for (const [edgeId, style] of Object.entries(draft.generation.traversal.verticalTraversalStyles || {})) {
+            const edgeSupports = draft.generation.traversal.supports.filter((support) => support.routeEdgeId === edgeId);
+            const moving = edgeSupports.filter((support) => support.moving && support.movementAxis === "vertical");
+            const green = edgeSupports.filter((support) => support.verticalClimbPlatform);
+            if (style === "elevator") assert.equal(moving.length, 1, "elevator shafts should contain one moving platform");
+            if (style === "platforms") assert.ok(!moving.length && green.length >= 5, "platform shafts should use a complete green switchback and no elevator");
+            if (style === "mix") assert.ok(moving.length === 1 && green.length >= 5, "mixed shafts should contain both an elevator and a green switchback");
+        }
+    }
+    assert.deepEqual([...risingStylesSeen].sort(), ["elevator", "mix", "platforms"], "Rising Snake sample seeds should cover elevator, platform, and mixed vertical shafts");
+
     const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     assert.ok(editorHtml.includes('id="auto-spawn-enemies-enabled"'), "Level Editor should expose the automatic enemy spawn switch");
     assert.ok(editorHtml.includes('id="auto-spawn-enemies-probability"'), "Level Editor should expose the per-second percentage");
@@ -6111,8 +6148,9 @@ function testAutomaticLevelGeneratorRouteFoundation() {
     assert.ok(Object.values(rawRewardCatalog.rewards || {}).every((reward) => !(reward.contexts || []).some((context) => context === "branchDestination" || context === "branchBonus")), "the reward catalog should not retain retired branch-only contexts");
     assert.deepEqual(LEVEL_GENERATOR_REGISTRIES.route, [
         { id: "mostly-horizontal-route-v1", label: "Horizontal" },
-        { id: "the-path74-route-v4", label: "Standard" }
-    ], "the route selector should expose Horizontal as the default and retain Standard as the alternate planner");
+        { id: "the-path74-route-v4", label: "Standard" },
+        { id: "rising-snake-route-v1", label: "Rising Snake" }
+    ], "the route selector should expose Horizontal by default and retain Standard plus Rising Snake as alternate planners");
     assert.deepEqual(LEVEL_GENERATOR_REGISTRIES.cavern, [
         { id: "wide-upper-contour-cavern-v1", label: "Domed" },
         { id: "the-path74-contour-cavern-v4", label: "Standard" }
@@ -6201,6 +6239,31 @@ function testAutomaticLevelGeneratorRouteFoundation() {
     const normalized = normalizeLevelGeneration(firstRun);
     assert.equal(normalized.runId, firstRun.runId, "level generation metadata should survive level normalization");
     assert.equal(normalized.route.nodes.length, firstRun.route.nodes.length, "route nodes should survive level normalization");
+
+    const risingImplementations = { ...earthTheme.implementations, route: "rising-snake-route-v1" };
+    const risingMiddleDirections = new Set();
+    for (const seed of ["snake-a", "snake-b", "snake-c", "snake-d"]) {
+        const rising = generateAutomaticLevelRoute({
+            theme: earthTheme,
+            seed,
+            settings: { ...earthTheme.defaults, length: "grand" },
+            implementations: risingImplementations,
+            availableEnemyIds: enemyIds
+        });
+        assert.equal(rising.validation.valid, true, `Rising Snake route ${seed} should validate: ${rising.validation.errors.join(" ")}`);
+        assert.equal(rising.route.macro.patternId, "rising-snake", "Rising Snake should retain its route identity in generation metadata");
+        assert.equal(rising.route.macro.cellSizeX, 1280, "Rising Snake horizontal cells should equal one screen width");
+        assert.equal(rising.route.macro.cellSizeY, 720, "Rising Snake vertical cells should equal one screen height");
+        const segments = rising.route.macro.segments;
+        assert.equal(segments.length, 5, "Rising Snake should contain exactly five macro segments");
+        assert.deepEqual([segments[0].direction, segments[1].direction, segments[3].direction, segments[4].direction], ["right", "up", "up", "right"], "Rising Snake should follow right, up, middle, up, right");
+        assert.ok(["left", "right"].includes(segments[2].direction), "Rising Snake middle run should choose left or right");
+        risingMiddleDirections.add(segments[2].direction);
+        for (const segment of segments.filter((entry) => entry.direction === "up")) assert.ok(segment.length >= 1 && segment.length <= 2, "Rising Snake climbs should be one or two screens tall");
+        for (const segment of segments.filter((entry) => entry.direction === "left" || entry.direction === "right")) assert.ok(segment.length >= 1 && segment.length <= 4, "Rising Snake horizontal runs should be one to four screens long");
+        assert.ok(rising.route.nodes.at(-1).y <= rising.route.nodes[0].y - 1440, "Rising Snake should finish at least two screens above its entrance");
+    }
+    assert.deepEqual([...risingMiddleDirections].sort(), ["left", "right"], "Rising Snake seeds should exercise both middle-run directions");
 
     const stressSettings = [
         { length: "compact", verticality: 0, winding: 0, },

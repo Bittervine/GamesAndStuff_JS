@@ -1799,3 +1799,10 @@ A support is no longer a single encounter slot. Long walkable supports expose mu
 The encounter calm-zone contract protects immediate portal footing only and is independent of actor awareness. Candidate selection keeps deterministic global distribution, then prioritizes several nearest candidates at each endpoint before the remaining route order. This gives the encounter builder local retries when a reward reservation or enemy-fit rule rejects the nominal endpoint seat without weakening collision or spacing checks.
 
 Reward generation treats door supports as ordinary mandatory route surfaces outside the portal exclusion radius. Endpoint chests are placed at the far walkable edge, preferred upper perches are capped to a share of the treasure target, and the residual target is allocated over the entire route-progress interval. Generator schema version 35 identifies these endpoint-coordinate and content-distribution changes.
+
+## Revision 421 rising snake generator route
+
+`src/shared/level-generator-data.js` owns the Rising Snake route as a distinct automatic-generator topology. The route planner records five screen-scaled segments in the fixed pattern right, up, horizontal left-or-right, up, right. Its cavern stamps and contour sampling follow that route footprint rather than applying the ordinary broad domed expansion.
+
+Vertical route edges own a deterministic `verticalTraversalStyle` of `elevator`, `platforms`, or `mix`. Elevator shafts reuse the existing moving-platform contract. Platform shafts build alternating green one-way supports within the player movement envelope. Mixed shafts keep the elevator as the mandatory path and add a complete optional green-platform chain. The shared validator recognizes all three styles while preserving the older Standard-route elevator rules unchanged.
+
