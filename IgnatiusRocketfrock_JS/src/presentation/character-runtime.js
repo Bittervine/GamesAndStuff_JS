@@ -1,3 +1,4 @@
+import { createPixmapPyramid } from "./pixmap-pyramid.js";
 import {
     defaultAnimationTransform,
     normalizeAnimationClip,
@@ -280,6 +281,7 @@ export async function loadRuntimeCharacterProject(characterUrl, options = {}) {
     const loadImage = options.loadImage || defaultLoadImage;
     const createCanvas = options.createCanvas || defaultCreateCanvas;
     const onProgress = typeof options.onProgress === "function" ? options.onProgress : () => {};
+    const usePixmapPyramids = options.usePixmapPyramids !== false;
     const progressParts = {
         character: 0,
         rig: 0,
@@ -391,7 +393,8 @@ export async function loadRuntimeCharacterProject(characterUrl, options = {}) {
                 atlasEntry.imageUrl,
                 atlasEntry.manifest.atlasId,
                 createCanvas,
-                objectMeta
+                objectMeta,
+                usePixmapPyramids
             ));
         }
     }
@@ -485,7 +488,7 @@ export function resolveRelativeUrl(baseUrl, relativeUrl) {
     return slash >= 0 ? `${base.slice(0, slash + 1)}${relative}` : relative;
 }
 
-function makeRuntimeAtlasFrameAsset(image, frame, partName, frameId, imageUrl, atlasId, createCanvas, objectMeta = null) {
+function makeRuntimeAtlasFrameAsset(image, frame, partName, frameId, imageUrl, atlasId, createCanvas, objectMeta = null, usePixmapPyramids = true) {
     const x = finiteOr(frame.x, 0);
     const y = finiteOr(frame.y, 0);
     const width = Math.max(1, finiteOr(frame.w, 1));
@@ -498,6 +501,7 @@ function makeRuntimeAtlasFrameAsset(image, frame, partName, frameId, imageUrl, a
     ctx.drawImage(image, x, y, width, height, 0, 0, width, height);
     return {
         canvas,
+        pixmapPyramid: usePixmapPyramids ? createPixmapPyramid(canvas, { createCanvas }) : null,
         image,
         sourceX: x,
         sourceY: y,

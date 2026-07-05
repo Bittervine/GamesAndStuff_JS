@@ -2,6 +2,7 @@
 export const TEST_SHARDS = Object.freeze({
     "shared-1": Object.freeze([
             "source organization and architecture map",
+            "CSS shadow effects remain extinct across every shipped interface",
             "game settings persistence and menu shell",
             "synthesized level music system",
             "fullscreen Electron bridge contract",
@@ -83,6 +84,7 @@ export const TEST_SHARDS = Object.freeze({
             "one-shot location thought trigger",
             "scripted portal entrance",
             "scripted portal exit",
+            "scale-aware pixmap pyramid",
             "generic runtime character project",
             "goblin runtime character projects",
             "bat frame-swap projects and flying locomotion",

@@ -3720,3 +3720,25 @@ The fix removes the duplicate runtime cave-window property rather than restoring
 Status: implemented.
 
 The in-game debug panel no longer treats every diagnostic line as an unbreakable strip. Its monospace text is reduced from 12px to 10px, preserves authored line breaks while wrapping long renderer and gameplay-stat lines, and may break unusually long tokens when necessary. The existing 46vh ceiling remains so the panel cannot consume the whole viewport, but overflow now scrolls instead of clipping the remaining diagnostics. Pointer and overscroll handling are enabled only on the visible debug card so the developer can reach all output without changing the underlying debug data or update cadence.
+
+## Revision 389 scale-aware pixmap pyramids
+
+Revision 389 adds a small first-party presentation helper in `src/presentation/pixmap-pyramid.js`; no external dependency or licence is required. Runtime character atlas frames are already isolated into individual canvases, so the loader now prepares half-width and half-height copies of each part until the dimensions become negligible. The complete chain approaches only four-thirds of the original pixel area and therefore stays comfortably below the agreed two-times memory ceiling.
+
+Canvas character, projectile, powered-rocket, hit-flash, shield, and low-health sprite draws now use one scale-aware quad-copy routine. It measures the effective destination size after the current Canvas transform and selects the smallest cached level that remains at least two times larger than the destination in both dimensions. Thus a 330×330 part drawn at 28×28 uses the 83×83 level rather than either the original or the barely larger 42×42 level. The chosen source is still drawn into the original logical rectangle, so pivots, rotations, mirroring, rig geometry, and collision remain unchanged.
+
+Packed environment atlases are intentionally not downsampled by this helper yet. Their neighbouring frames need explicit edge padding before reduced atlas levels can be sampled without colour bleeding. The resident WebGL path likewise keeps its existing atlas-texture route for now; this revision targets the repeated large-to-small Canvas character-part sampling that motivated the change. Focused tests cover halving, the memory ceiling, two-times oversampling selection, transformed drawing, loader preparation, and the updated runtime draw paths.
+
+## Revision 390 renderer preference checkboxes and constant-time pyramid selection
+
+Revision 390 adds persisted Settings checkboxes for **Use hardware rendering** and **Use pixmap pyramids**. Hardware rendering now follows the saved preference on ordinary web pages, while explicit `?webgl=0` and `?webgl=1` URL switches remain authoritative. Both renderer choices are startup decisions and therefore take effect after reloading. Disabling pixmap pyramids prevents their reduced canvases from being constructed and restores direct drawing from the original isolated pixmap.
+
+Pixmap level choice no longer scans every level. It estimates the correct half-resolution index directly with a base-2 ratio calculation, then performs only bounded correction for odd-dimension rounding. The two-times source oversampling rule is unchanged.
+
+## Revision 391 exhaustive pixmap-selection regression coverage
+
+Revision 391 strengthens the pixmap-pyramid contract with broad property-style regression coverage across square, odd-sized, highly rectangular, and tiny sources; fractional and oversized destinations; and several oversampling margins. The test now proves that the selector always returns the smallest available level that is still large enough in both axes, or the original image when no level can satisfy the requested margin.
+
+## Revision 392 CSS shadow extinction
+
+Revision 392 removes the CSS shadow family from every shipped game and editor surface. Box shadows, text shadows, and filter drop shadows are forbidden across gameplay, loading, title, menus, manuals, editors, renderer tools, and the offline jukebox. A regression test scans every interface so the faint rounded halos cannot quietly return.

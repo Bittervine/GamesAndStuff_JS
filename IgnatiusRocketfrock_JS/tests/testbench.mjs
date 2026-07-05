@@ -324,6 +324,11 @@ import {
     sampleRuntimeCharacterPose
 } from "../src/presentation/character-runtime.js";
 import {
+    choosePixmapLevel,
+    createPixmapPyramid,
+    drawPixmap
+} from "../src/presentation/pixmap-pyramid.js";
+import {
     ACTOR_SHADOW_FADE_SECONDS,
     actorGroundPoint,
     actorHasGroundContact,
@@ -777,6 +782,76 @@ function testThoughtBubbleTailAndResponsiveTypography() {
 
 
 
+
+function testPixmapPyramidSelection() {
+    const canvases = [];
+    const createCanvas = (width, height) => {
+        const drawCalls = [];
+        const canvas = {
+            width,
+            height,
+            drawCalls,
+            getContext: () => ({
+                imageSmoothingEnabled: false,
+                imageSmoothingQuality: "low",
+                clearRect() {},
+                drawImage: (...args) => drawCalls.push(args)
+            })
+        };
+        canvases.push(canvas);
+        return canvas;
+    };
+    const source = { width: 330, height: 330 };
+    const pyramid = createPixmapPyramid(source, { createCanvas });
+    assert.deepEqual(pyramid.levels.map((level) => level.width).slice(0, 5), [330, 165, 83, 42, 21], "pixmap pyramid should halve dimensions with integer-safe rounding");
+    const totalPixels = pyramid.levels.reduce((sum, level) => sum + level.width * level.height, 0);
+    assert.ok(totalPixels < 330 * 330 * 2, "pixmap pyramid should remain below the promised two-times pixel-memory ceiling");
+    assert.equal(choosePixmapLevel(pyramid, 28, 28).width, 83, "selection should keep roughly two source pixels per destination pixel");
+    assert.equal(choosePixmapLevel(pyramid, 100, 100).width, 330, "selection should retain the original when the next level undersamples the target");
+
+    const assertSafeSelection = (testPyramid, targetWidth, targetHeight, oversample = 2) => {
+        const requiredWidth = targetWidth * oversample;
+        const requiredHeight = targetHeight * oversample;
+        const eligible = testPyramid.levels.filter((level) => level.width >= requiredWidth && level.height >= requiredHeight);
+        const expected = eligible.length ? eligible[eligible.length - 1] : testPyramid.levels[0];
+        const actual = choosePixmapLevel(testPyramid, targetWidth, targetHeight, oversample);
+        assert.equal(actual, expected, `selection for ${testPyramid.width}x${testPyramid.height} -> ${targetWidth}x${targetHeight} at ${oversample}x should choose the smallest safe level`);
+        if (eligible.length) {
+            assert.ok(actual.width >= requiredWidth && actual.height >= requiredHeight, "a reduced source must remain at least the requested oversample in both axes");
+            const nextIndex = testPyramid.levels.indexOf(actual) + 1;
+            const next = testPyramid.levels[nextIndex];
+            if (next) {
+                assert.ok(next.width < requiredWidth || next.height < requiredHeight, "the next smaller level must be unsafe in at least one axis");
+            }
+        } else {
+            assert.equal(actual, testPyramid.levels[0], "when even the original is below the requested margin, selection must use the largest available source");
+        }
+    };
+
+    const sourceSizes = [[330, 330], [331, 329], [640, 96], [97, 641], [17, 9], [3, 2]];
+    for (const [sourceWidth, sourceHeight] of sourceSizes) {
+        const testPyramid = createPixmapPyramid({ width: sourceWidth, height: sourceHeight }, { createCanvas });
+        for (let targetWidth = 0.5; targetWidth <= sourceWidth * 1.2; targetWidth *= 1.31) {
+            for (let targetHeight = 0.5; targetHeight <= sourceHeight * 1.2; targetHeight *= 1.37) {
+                assertSafeSelection(testPyramid, targetWidth, targetHeight, 2);
+            }
+        }
+        for (const oversample of [1, 1.5, 2, 3]) {
+            assertSafeSelection(testPyramid, sourceWidth / 7.25, sourceHeight / 5.75, oversample);
+        }
+    }
+
+    const rendered = [];
+    const context = {
+        getTransform: () => ({ a: 1, b: 0, c: 0, d: 1 }),
+        drawImage: (...args) => rendered.push(args)
+    };
+    const chosen = drawPixmap(context, pyramid, 10, 20, 28, 28);
+    assert.equal(chosen.width, 83, "draw helper should choose the same safe level from destination size");
+    assert.equal(rendered[0][5], 10, "draw helper should preserve destination coordinates");
+    assert.equal(rendered[0][7], 28, "draw helper should preserve destination dimensions");
+}
+
 async function testGenericRuntimeCharacterProject() {
     const jsonByUrl = new Map();
     for (const filename of [
@@ -815,7 +890,8 @@ async function testGenericRuntimeCharacterProject() {
     assert.ok(loadingProgress.every((entry, index) => index === 0 || entry.progress >= loadingProgress[index - 1].progress), "runtime character loading progress should never move backwards");
     assert.equal(project.rig.drawOrder.length, 8, "generic runtime rig should preserve every enemy part");
     assert.equal(project.animations.size, 5, "runtime loader should load all mapped enemy animations");
-    assert.equal(drawCalls.length, 8, "runtime loader should crop one atlas frame for every rig part");
+    assert.equal(drawCalls.filter((args) => args[0]?.url).length, 8, "runtime loader should crop one atlas frame for every rig part");
+    assert.ok(project.assets.get("head")?.pixmapPyramid?.levels?.length > 1, "runtime character parts should prepare reusable reduced pixmaps while loading");
     assert.equal(resolveRuntimeAnimationSlot(project, "attack"), "attack", "requested mapped animation should resolve directly");
     assert.equal(resolveRuntimeAnimationSlot(project, "missing"), "idle", "missing slots should fall back to idle");
 
@@ -7473,7 +7549,7 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     assert.ok(rendererSource.includes("buildWorldVisualCache") && rendererSource.includes("visualIntersectsViewport"), "Canvas renderer should cache layer organization and cull static scenery before drawing");
     assert.ok(rendererSource.includes("createWebGL2RendererBackend") && rendererSource.includes("renderWebGL2") && rendererSource.includes("renderCanvas2D"), "the game renderer should retain both the opt-in WebGL2 resident-texture path and Canvas 2D renderer");
     assert.ok(rendererSource.includes("probeWebGL2RendererSupport") && rendererSource.includes("const webglProbePassed"), "WebGL2 support should be proven on a scratch canvas before the visible canvas is committed to the GPU context family");
-    assert.ok(bootstrapSource.includes("shouldPreferWebGL2Renderer") && bootstrapSource.includes('params.get("webgl")') && bootstrapSource.includes('"webgl2"') && bootstrapSource.includes("return Boolean(electronWindowBridge)") && bootstrapSource.includes("preferWebGL2: preferWebGL2Renderer"), "ordinary webpages should default to Canvas 2D while Electron defaults to WebGL2 and explicit URL switches remain supported");
+    assert.ok(bootstrapSource.includes("shouldPreferWebGL2Renderer") && bootstrapSource.includes('params.get("webgl")') && bootstrapSource.includes('"webgl2"') && bootstrapSource.includes("gameState.settings?.useHardwareRendering") && bootstrapSource.includes("preferWebGL2: preferWebGL2Renderer"), "the persisted hardware-rendering preference should supply the default while Electron and explicit URL switches remain supported");
     assert.ok(rendererSource.includes("if (this.webglBackend) {") && rendererSource.includes("wait for webglcontextrestored"), "a lost WebGL context should not incorrectly redirect rendering into the invisible staging canvas");
     assert.ok(rendererSource.includes("drawOrderedWorldVisualsWebGL") && rendererSource.includes("queueAtlasSpriteVisualWebGL"), "static world, actor-front, and cave-foreground atlas visuals should use direct GPU sprite batches");
     assert.ok(rendererSource.includes("drawWorldEffectsWebGL") && rendererSource.includes("drawProjectileExplosionEffectsWebGL") && rendererSource.includes("drawPlayerDeathCoverWebGL"), "rocket trails, projectile explosions, and Ignatius death particles should have direct WebGL2 effect passes");
@@ -8436,8 +8512,8 @@ function testRocketPowerUpArsenal() {
     const characterEditorSource = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 388<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(characterEditorSource, /Puppet Forge <small>rev 388<\/small>/, "Puppet Forge should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 392<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(characterEditorSource, /Puppet Forge <small>rev 389<\/small>/, "Puppet Forge should display the packaged revision");
     assert.ok(editorSource.includes("state.level.layerVisuals = normalizeLevelLayerVisuals({\n            version: 2,"), "editor metadata commits should retain the canonical layer-visual schema instead of reapplying legacy Foreground factors");
     assert.ok(editorSource.includes("const w = displayRecord.w * state.camera.zoom") && editorSource.includes("const w = displayPlacement.w * state.camera.zoom"), "Foreground selection and asset-guide outlines should use the same layer-scaled display dimensions as rendered artwork");
     assert.ok(
@@ -8466,7 +8542,7 @@ function testRocketPowerUpArsenal() {
     assert.equal(editorSource.includes('id="canvas-renderer-baseline"'), false, "the Level Editor should no longer advertise the posterity-only Canvas baseline");
     assert.equal(editorSource.includes("openCanvasRendererBaseline"), false, "the removed baseline link should leave no dormant click handler");
     assert.equal(editorSource.includes("Editor 2 lab"), false, "the Level Editor should not link to the removed Editor 2 lab");
-    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 388") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
+    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 389") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
     assert.ok(baselineSource.includes("applyEditorLevelToWorld") && baselineSource.includes("preferWebGL2: false") && baselineSource.includes("setViewOverride"), "the retained baseline should still convert the authored level and use the ordinary Canvas2D game renderer with an editor camera override");
     assert.ok(editorPlaywrightBenchmark.includes("benchmark_baseline") && editorPlaywrightBenchmark.includes("benchmark_editor") && editorPlaywrightBenchmark.includes("editorToBaselineCadenceRatio"), "the optional Playwright probe should compare the loaded baseline and editor rather than source-only timings");
     assert.ok(editorPlaywrightBenchmark.includes("bodyScrollWidth") && editorPlaywrightBenchmark.includes("stageBacking") && editorPlaywrightBenchmark.includes("overlayBacking"), "the Playwright probe should detect viewport overflow and stage/overlay size divergence");
@@ -8476,7 +8552,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(rendererSource.includes("backingPixelsPerCssPixel") && rendererSource.includes("override.cssZoom * backingPixelsPerCssPixel") && editorSource.includes("cssZoom: state.camera.zoom"), "editor and runtime artwork should share one CSS-pixel camera scale so guide alignment does not drift across the viewport");
     assert.ok(rendererSource.includes("this.ctx.setTransform(1, 0, 0, 1, 0, 0)") && rendererSource.includes("never inherit a CSS/DPR transform"), "the production Canvas renderer should reset inherited context transforms before drawing backing-pixel coordinates");
     assert.ok(editorSource.includes("stageCtx?.setTransform(1, 0, 0, 1, 0, 0)") && !editorSource.includes("stageCtx?.setTransform(dpr"), "the Level Editor must not pre-scale the production scene context by devicePixelRatio");
-    assert.match(bootstrapSource, /const GAME_REVISION = "388";/, "the game debug revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "392";/, "the game debug revision should match the packaged revision");
     assert.ok(
         editorSource.includes('<div class="level-section-label">Existing Level:</div>')
             && editorSource.includes('id="load-level">Load</button>')
@@ -8670,7 +8746,7 @@ function testCachedWrenchRocketGlowKernels() {
     assert.ok(rendererSource.includes(`getCharacterAtlasFrame("ct_char_wizard_1", frameId)`), "startup preflight should verify the authored wizard powered-rocket frames instead of generating them lazily");
     assert.ok(rendererSource.includes("Checking wrench powered-rocket atlas"), "loading feedback should mention authored glow-atlas checks rather than runtime glow baking");
     assert.ok(rendererSource.includes("const drawAsset = poweredAsset?.canvas ? poweredAsset : baseAsset"), "powered rockets should switch to the authored combined atlas frame when one exists");
-    assert.ok(rendererSource.includes("ctx.drawImage(drawAsset.canvas, drawOffsetX, drawOffsetY);"), "powered rockets should render from the combined atlas in a single sprite draw");
+    assert.ok(rendererSource.includes("drawRuntimePixmap(ctx, drawAsset, drawOffsetX, drawOffsetY);"), "powered rockets should render the combined atlas frame through the scale-aware pixmap path");
     assert.ok(!rendererSource.includes("glowAsset?.canvas"), "combined powered-rocket frames should no longer branch into a separate glow draw path each frame");
     assert.ok(runtimeSource.includes("character.supplementalAtlases") && runtimeSource.includes("supplemental character atlas manifest"), "runtime character loading should support supplemental atlas manifests");
     assert.ok(bakingSource.includes("dilateAlphaSeparable") && bakingSource.includes("gaussianBlurAlphaSeparable"), "the glow-baking utility should remain available for offline atlas baking and tests");
@@ -10593,7 +10669,7 @@ function testEnemyProjectileVisualLanguageRendererContract() {
     assert.match(fireballSource, /if \(trailEnabled\) \{\s*this\.drawEnemyFireballParticles\(projectile, state, view\);\s*\}/, "Medium and High quality should draw emitted fire particles");
     assert.match(fireballSource, /this\.getCharacterAtlasFrame\(projectile\.characterId \|\| "ct_char_enemy_010", projectile\.frameId \|\| "fireball"\)/, "the authored fireball sprite should remain the projectile body at every quality");
     assert.doesNotMatch(rendererSource, /Jump to continue|scrolls automatically/, "story overlays should no longer explain skip controls");
-    assert.match(fireballSource, /ctx\.drawImage\(asset\.canvas/, "the fireball renderer should draw the authored sprite");
+    assert.match(fireballSource, /drawRuntimePixmap\(ctx, asset/, "the fireball renderer should draw the authored sprite through the scale-aware pixmap path");
     assert.match(rendererSource, /const radius = Math\.max\(0\.15 \* view\.zoom, Number\(particle\.radius \|\| 2\) \* fade \* view\.zoom\);/, "emitted circles should shrink linearly with remaining lifetime");
     assert.ok(rendererSource.includes('projectile.impactKind === "player"'), "only enemy projectile impacts on Ignatius should receive a magical accent");
     assert.ok(rendererSource.includes('puff.kind === "enemyProjectileImpactPuff"'), "enemy impact smoke should have a dedicated dark renderer branch");
@@ -12585,8 +12661,29 @@ function testBombingBatDropsOnlyWithPlausibleClearHit() {
     assert.ok(state.projectiles.some((projectile) => projectile.enemyId === "careful_bomber"), "an aligned bat should drop once its vertical trajectory is clear");
 }
 
+
+function testCssShadowEffectsRemainExtinct() {
+    const roots = [
+        "game.html",
+        "level-editor.html",
+        "character-editor.html",
+        "asset-editor.html",
+        "GameManual.html",
+        "renderer-smoke.html",
+        "level-renderer-baseline.html",
+        "devel/renderer-sprite-bench.html",
+        "devel/ignatius_public_domain_jukebox_v7_long_form_loops.html",
+    ];
+    for (const relativePath of roots) {
+        const source = readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
+        assert.doesNotMatch(source, /(?:box-shadow|text-shadow)\s*:/i, `${relativePath} must not reintroduce CSS shadows`);
+        assert.doesNotMatch(source, /drop-shadow\s*\(/i, `${relativePath} must not reintroduce filter drop shadows`);
+    }
+}
+
 const tests = [
     ["source organization and architecture map", testSourceOrganization],
+    ["CSS shadow effects remain extinct across every shipped interface", testCssShadowEffectsRemainExtinct],
     ["level editor dense stress fixture", testLevelEditorStressFixture],
     ["game settings persistence and menu shell", testGameSettingsSchemaPersistenceAndMenuShell],
     ["synthesized level music system", testSynthesizedLevelMusicSystem],
@@ -12650,6 +12747,7 @@ const tests = [
     ["scripted portal exit", testPortalExitSequence],
     ["editor dropdown contrast", testEditorDropdownContrast],
     ["editor collapsible inspector panels", testEditorCollapsiblePanels],
+    ["scale-aware pixmap pyramid", testPixmapPyramidSelection],
     ["generic runtime character project", testGenericRuntimeCharacterProject],
     ["goblin runtime character projects", testGoblinRuntimeCharacterProjects],
     ["bat frame-swap projects and flying locomotion", testBatFrameSwapProjectsAndFlight],

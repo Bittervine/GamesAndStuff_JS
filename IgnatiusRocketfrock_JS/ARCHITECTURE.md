@@ -1639,3 +1639,25 @@ The fix removes the duplicate runtime cave-window property rather than restoring
 ## Revision 388 debug-panel overflow policy
 
 The browser debug surface remains a presentation-only `<pre>` inside the fixed HUD stack. Diagnostic producers continue to emit newline-delimited plain text through `updateDebugText`; layout responsibility stays in `game.html`. The panel uses compact 10px monospace text, `pre-wrap`, arbitrary-token wrapping, and scrollable overflow under its 46vh cap. Do not solve future diagnostic-width growth by deleting fields or truncating producer strings when CSS wrapping can preserve the complete data.
+
+## Revision 389 scale-aware pixmap pyramids
+
+Revision 389 adds a small first-party presentation helper in `src/presentation/pixmap-pyramid.js`; no external dependency or licence is required. Runtime character atlas frames are already isolated into individual canvases, so the loader now prepares half-width and half-height copies of each part until the dimensions become negligible. The complete chain approaches only four-thirds of the original pixel area and therefore stays comfortably below the agreed two-times memory ceiling.
+
+Canvas character, projectile, powered-rocket, hit-flash, shield, and low-health sprite draws now use one scale-aware quad-copy routine. It measures the effective destination size after the current Canvas transform and selects the smallest cached level that remains at least two times larger than the destination in both dimensions. Thus a 330×330 part drawn at 28×28 uses the 83×83 level rather than either the original or the barely larger 42×42 level. The chosen source is still drawn into the original logical rectangle, so pivots, rotations, mirroring, rig geometry, and collision remain unchanged.
+
+Packed environment atlases are intentionally not downsampled by this helper yet. Their neighbouring frames need explicit edge padding before reduced atlas levels can be sampled without colour bleeding. The resident WebGL path likewise keeps its existing atlas-texture route for now; this revision targets the repeated large-to-small Canvas character-part sampling that motivated the change. Focused tests cover halving, the memory ceiling, two-times oversampling selection, transformed drawing, loader preparation, and the updated runtime draw paths.
+
+## Revision 390 renderer preference ownership
+
+Persisted renderer preferences live in `src/shared/game-settings-data.js` and are read before `createRenderer` is called. `useHardwareRendering` supplies the ordinary default, but explicit `webgl`/`webgl2` URL parameters override it. `usePixmapPyramids` controls both character-frame pyramid construction and Canvas draw selection, so disabling it avoids the extra bitmap memory rather than merely bypassing selection. These are startup-only presentation choices and do not enter simulation or level data.
+
+`src/presentation/pixmap-pyramid.js` selects a level by direct base-2 index estimation from the original-to-required size ratio, with bounded correction only for rounded odd dimensions. It must not restore a per-draw linear walk through all levels.
+
+## Revision 391 pixmap selection invariant
+
+`choosePixmapLevel()` is regression-tested against its semantic invariant rather than only a few examples: it returns the smallest pyramid level whose width and height both meet the requested source-to-destination margin. If the original itself cannot meet that margin, it remains the safest available fallback. This coverage includes odd rounding and strongly non-square assets, where checking only one dimension would be incorrect.
+
+## Revision 392 flat interface rendering rule
+
+All HTML interfaces now use borders, solid or gradient fills, and explicit outlines for separation. CSS `box-shadow`, `text-shadow`, and `filter: drop-shadow(...)` are prohibited because their large soft compositor footprints created visible halos around panels. This is a project-wide visual invariant rather than a component-specific exception.

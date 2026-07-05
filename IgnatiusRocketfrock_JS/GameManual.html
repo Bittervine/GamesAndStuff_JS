@@ -44,8 +44,7 @@
             border-radius: 18px;
             padding: clamp(18px, 3vw, 30px);
             background: rgba(23, 17, 32, 0.94);
-            box-shadow: 0 28px 80px rgba(0, 0, 0, 0.48);
-        }
+}
 
         h1, h2, h3 {
             margin: 0 0 10px;
@@ -239,7 +238,7 @@
 
         <h2>Menu</h2>
         <ul>
-            <li><strong>Settings</strong> adjusts effects volume, music volume, difficulty, rendering quality, minimap visibility, and browser fullscreen policy.</li>
+            <li><strong>Settings</strong> adjusts effects volume, music volume, difficulty, rendering quality, minimap visibility, renderer preferences, and browser fullscreen policy.</li>
             <li><strong>Restart level</strong> restarts the current level and resumes play.</li>
             <li><strong>Exit to Title</strong> appears while the game is running and returns to the title card.</li>
             <li><strong>Exit to desktop</strong> appears only in the Electron build.</li>
@@ -251,6 +250,8 @@
             <li>Music volume controls the synthesized level music. Levels choose from the 18 accepted long-form classical arrangements; each plays its opening once and then returns to its saved musical loop point.</li>
             <li>Difficulty currently changes only incoming damage to Ignatius.</li>
             <li>Rendering quality changes visual particle density without changing gameplay timing or collision.</li>
+            <li><strong>Use hardware rendering</strong> selects WebGL2 by default after the next reload. An explicit <code>?webgl=0</code> or <code>?webgl=1</code> URL option overrides the saved preference.</li>
+            <li><strong>Use pixmap pyramids</strong> enables prefiltered reduced copies of isolated character artwork after the next reload. Disable it to compare direct drawing from the original full-size pixmaps.</li>
             <li>Show minimap controls whether the upper-right minimap is visible.</li>
         </ul>
 

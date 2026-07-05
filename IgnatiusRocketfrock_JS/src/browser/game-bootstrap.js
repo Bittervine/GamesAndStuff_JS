@@ -100,8 +100,10 @@ const renderingQualityButtons = [...document.querySelectorAll("[data-rendering-q
 const autoFullscreenRow = document.getElementById("auto-fullscreen-row");
 const autoFullscreenInput = document.getElementById("auto-fullscreen");
 const showMinimapInput = document.getElementById("show-minimap");
+const useHardwareRenderingInput = document.getElementById("use-hardware-rendering");
+const usePixmapPyramidsInput = document.getElementById("use-pixmap-pyramids");
 
-const GAME_REVISION = "388";
+const GAME_REVISION = "392";
 
 let displayedLoadingProgress = 0;
 let activeCaveWindow = normalizeCaveWindow(null);
@@ -143,6 +145,7 @@ setLoadingProgress(0.1, "Level data ready");
 try {
     renderer = await createRenderer(canvas, {
         preferWebGL2: preferWebGL2Renderer,
+        usePixmapPyramids: gameState.settings.usePixmapPyramids,
         environmentAtlasManifestUrls: gameState.world.atlasManifests,
         enemyCharacterUrls: enemyCharacterProjectUrls,
         onProgress: ({ progress, label }) => {
@@ -211,7 +214,7 @@ function shouldPreferWebGL2Renderer() {
     }
     // Desktop builds opt into the GPU renderer by default. An ordinary web page
     // remains Canvas 2D unless webgl=1 (or an equivalent value) is requested.
-    return Boolean(electronWindowBridge);
+    return Boolean(gameState.settings?.useHardwareRendering || electronWindowBridge);
 }
 
 function setLoadingProgress(progress, label = "Loading game assets") {
@@ -862,6 +865,12 @@ function setupGameMenuAndSettings() {
     showMinimapInput?.addEventListener("change", () => {
         updatePersistentGameSettings({ showMinimap: showMinimapInput.checked });
     });
+    useHardwareRenderingInput?.addEventListener("change", () => {
+        updatePersistentGameSettings({ useHardwareRendering: useHardwareRenderingInput.checked });
+    });
+    usePixmapPyramidsInput?.addEventListener("change", () => {
+        updatePersistentGameSettings({ usePixmapPyramids: usePixmapPyramidsInput.checked });
+    });
     for (const button of difficultyButtons) {
         button.addEventListener("click", () => updatePersistentGameSettings({
             difficulty: button.dataset.difficulty
@@ -1253,6 +1262,8 @@ function syncGameSettingsUi() {
     if (musicVolumeInput) musicVolumeInput.value = String(settings.musicVolume);
     if (autoFullscreenInput) autoFullscreenInput.checked = Boolean(settings.autoFullscreen);
     if (showMinimapInput) showMinimapInput.checked = Boolean(settings.showMinimap);
+    if (useHardwareRenderingInput) useHardwareRenderingInput.checked = Boolean(settings.useHardwareRendering);
+    if (usePixmapPyramidsInput) usePixmapPyramidsInput.checked = Boolean(settings.usePixmapPyramids);
     if (minimapPanel) minimapPanel.hidden = !settings.showMinimap;
     syncHudPanelsToViewport();
     if (settings.showMinimap) {

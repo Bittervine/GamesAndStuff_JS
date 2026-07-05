@@ -71,6 +71,33 @@ import {
     advanceActorShadowOpacity
 } from "./actor-shadow.js";
 import { createWebGL2RendererBackend } from "./webgl2-renderer.js";
+import { createPixmapPyramid, drawPixmap } from "./pixmap-pyramid.js";
+
+const transientPixmapPyramids = new WeakMap();
+let pixmapPyramidsEnabled = true;
+
+function pixmapPyramidFor(source) {
+    if (!source) return null;
+    let pyramid = transientPixmapPyramids.get(source);
+    if (!pyramid) {
+        pyramid = createPixmapPyramid(source);
+        transientPixmapPyramids.set(source, pyramid);
+    }
+    return pyramid;
+}
+
+function drawRuntimePixmap(context, assetOrSource, dx, dy, dw, dh) {
+    const source = assetOrSource?.canvas || assetOrSource;
+    if (!source) return null;
+    const sourceWidth = assetOrSource?.width || source.width || source.naturalWidth || 1;
+    const sourceHeight = assetOrSource?.height || source.height || source.naturalHeight || 1;
+    if (!pixmapPyramidsEnabled) {
+        context.drawImage(source, 0, 0, sourceWidth, sourceHeight, dx, dy, dw ?? sourceWidth, dh ?? sourceHeight);
+        return null;
+    }
+    const pyramid = assetOrSource?.pixmapPyramid || pixmapPyramidFor(source);
+    return drawPixmap(context, pyramid, dx, dy, dw ?? pyramid.width, dh ?? pyramid.height);
+}
 
 const FIXED_DRAW_ORDER = [
     "leftArm",
@@ -291,6 +318,7 @@ export function probeWebGL2RendererSupport(ownerDocument) {
 
 export async function createRenderer(canvas, options = {}) {
     const preferWebGL2 = options.preferWebGL2 === true;
+    pixmapPyramidsEnabled = options.usePixmapPyramids !== false;
     const ownerDocument = canvas?.ownerDocument || (typeof document !== "undefined" ? document : null);
     const webglProbePassed = preferWebGL2 && probeWebGL2RendererSupport(ownerDocument);
     const webglBackend = webglProbePassed ? createWebGL2RendererBackend(canvas) : null;
@@ -356,6 +384,7 @@ export async function createRenderer(canvas, options = {}) {
     const projectJobs = projectSpecs.map(async (spec) => {
         try {
             const project = await loadRuntimeCharacterProject(spec.url, {
+                usePixmapPyramids: pixmapPyramidsEnabled,
                 onProgress: ({ progress, label }) => reportTaskProgress(spec.key, progress, label)
             });
             reportTaskProgress(spec.key, 1, `Prepared ${project.displayName}`);
@@ -388,9 +417,12 @@ export async function createRenderer(canvas, options = {}) {
         if (!result.project) continue;
         for (const asset of result.project.assets.values()) {
             asset.hitFlashCanvas = makeTintedSpriteCanvas(asset.canvas, "#ffffff");
+            pixmapPyramidFor(asset.hitFlashCanvas);
             if (result.project === playerProject) {
                 asset.lowHealthCanvas = makeTintedSpriteCanvas(asset.canvas, "#f04b45");
                 asset.shieldCanvas = makeTintedSpriteCanvas(asset.canvas, "#008cff");
+                pixmapPyramidFor(asset.lowHealthCanvas);
+                pixmapPyramidFor(asset.shieldCanvas);
             }
         }
         characterProjects.set(result.project.characterId, result.project);
@@ -4088,7 +4120,7 @@ class RocketfrockRenderer {
         ctx.translate(p.x, p.y);
         ctx.rotate(angle);
         ctx.scale(spriteScale, spriteScale);
-        ctx.drawImage(drawAsset.canvas, drawOffsetX, drawOffsetY);
+        drawRuntimePixmap(ctx, drawAsset, drawOffsetX, drawOffsetY);
         drawRocketFlameLocal(ctx, baseAsset, pivot, state.clock.time + projectile.age * 11, 0.55, projectile.id.length * 13);
         ctx.restore();
     }
@@ -4106,7 +4138,7 @@ class RocketfrockRenderer {
             ctx.translate(p.x, p.y);
             ctx.rotate((Number(projectile.age) || 0) * 5 + projectile.x * 0.01);
             ctx.scale(spriteScale, spriteScale);
-            ctx.drawImage(asset.canvas, -asset.width * 0.5, -asset.height * 0.5);
+            drawRuntimePixmap(ctx, asset, -asset.width * 0.5, -asset.height * 0.5);
             ctx.restore();
             return;
         }
@@ -4238,7 +4270,7 @@ class RocketfrockRenderer {
             ctx.translate(p.x, p.y);
             ctx.rotate(angle);
             ctx.scale(spriteScale, spriteScale);
-            ctx.drawImage(asset.canvas, -asset.width * 0.5, -asset.height * 0.5);
+            drawRuntimePixmap(ctx, asset, -asset.width * 0.5, -asset.height * 0.5);
             ctx.restore();
             return;
         }
@@ -4271,7 +4303,7 @@ class RocketfrockRenderer {
             ctx.translate(p.x, p.y);
             ctx.rotate(projectile.age * 8);
             ctx.scale(spriteScale, spriteScale);
-            ctx.drawImage(asset.canvas, -asset.width * 0.5, -asset.height * 0.5);
+            drawRuntimePixmap(ctx, asset, -asset.width * 0.5, -asset.height * 0.5);
             ctx.restore();
             return;
         }
@@ -5071,12 +5103,12 @@ class RocketfrockRenderer {
         ctx.translate(transform.x, transform.y);
         ctx.rotate(transform.angle);
         ctx.scale(spriteScale, spriteScale);
-        ctx.drawImage(asset.canvas, drawX, drawY);
+        drawRuntimePixmap(ctx, asset, drawX, drawY);
         const tintCanvas = asset[tintCanvasKey] || asset.lowHealthCanvas;
         if (tintAlpha > 0 && tintCanvas) {
             const baseAlpha = ctx.globalAlpha;
             ctx.globalAlpha = baseAlpha * tintAlpha;
-            ctx.drawImage(tintCanvas, drawX, drawY);
+            drawRuntimePixmap(ctx, tintCanvas, drawX, drawY);
             ctx.globalAlpha = baseAlpha;
         }
         const overlayTintAlpha = clamp(Number(options.overlayTintAlpha) || 0, 0, 1);
@@ -5086,7 +5118,7 @@ class RocketfrockRenderer {
             const baseComposite = ctx.globalCompositeOperation;
             ctx.globalCompositeOperation = "lighter";
             ctx.globalAlpha = baseAlpha * overlayTintAlpha;
-            ctx.drawImage(overlayTintCanvas, drawX, drawY);
+            drawRuntimePixmap(ctx, overlayTintCanvas, drawX, drawY);
             ctx.globalAlpha = baseAlpha;
             ctx.globalCompositeOperation = baseComposite;
         }

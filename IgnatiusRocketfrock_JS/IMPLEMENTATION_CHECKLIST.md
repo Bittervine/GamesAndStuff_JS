@@ -3827,3 +3827,34 @@ Revision 347 re-voices the alternate synthesized tunes rather than applying one 
 - [x] Replace hidden overflow with scrollable overflow beneath the existing viewport-height cap.
 - [x] Add a focused source-contract regression and synchronize visible revision labels to 388.
 - [x] Run the release gate and package the compact update without PNG or XCF artwork.
+
+## Revision 389 scale-aware pixmap pyramids
+
+Revision 389 adds a small first-party presentation helper in `src/presentation/pixmap-pyramid.js`; no external dependency or licence is required. Runtime character atlas frames are already isolated into individual canvases, so the loader now prepares half-width and half-height copies of each part until the dimensions become negligible. The complete chain approaches only four-thirds of the original pixel area and therefore stays comfortably below the agreed two-times memory ceiling.
+
+Canvas character, projectile, powered-rocket, hit-flash, shield, and low-health sprite draws now use one scale-aware quad-copy routine. It measures the effective destination size after the current Canvas transform and selects the smallest cached level that remains at least two times larger than the destination in both dimensions. Thus a 330×330 part drawn at 28×28 uses the 83×83 level rather than either the original or the barely larger 42×42 level. The chosen source is still drawn into the original logical rectangle, so pivots, rotations, mirroring, rig geometry, and collision remain unchanged.
+
+Packed environment atlases are intentionally not downsampled by this helper yet. Their neighbouring frames need explicit edge padding before reduced atlas levels can be sampled without colour bleeding. The resident WebGL path likewise keeps its existing atlas-texture route for now; this revision targets the repeated large-to-small Canvas character-part sampling that motivated the change. Focused tests cover halving, the memory ceiling, two-times oversampling selection, transformed drawing, loader preparation, and the updated runtime draw paths.
+
+## Revision 390 renderer settings and pyramid lookup
+
+- [x] Add persisted **Use hardware rendering** and **Use pixmap pyramids** checkboxes.
+- [x] Keep explicit `?webgl=0` / `?webgl=1` URL choices authoritative over the saved hardware preference.
+- [x] Treat both choices as startup settings and label reload behavior in the menu.
+- [x] Skip pyramid allocation and draw from the original pixmap when pyramids are disabled.
+- [x] Replace linear pyramid traversal with direct logarithmic index selection plus bounded odd-size correction.
+- [x] Keep the two-times oversampling threshold unchanged.
+
+## Revision 391 pixmap selection boundary coverage
+
+- [x] Exercise pixmap selection across odd, rectangular, tiny, fractional-target, and oversized-target dimensions.
+- [x] Verify the chosen source is at least the requested oversampling margin in both axes whenever such a source exists.
+- [x] Verify the immediately smaller level is rejected and the original is used when no level can meet the margin.
+
+## Revision 392 shadow-removal audit
+
+- [x] Remove loading-card and general panel shadows.
+- [x] Remove title artwork drop shadow and title/HUD/menu text shadows.
+- [x] Remove button, meter, dialog, editor, manual, benchmark, and jukebox box shadows, including inset variants.
+- [x] Remove obsolete shadow transitions and custom properties.
+- [x] Add a source-level regression test covering every shipped interface.
