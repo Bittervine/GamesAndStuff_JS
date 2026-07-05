@@ -197,6 +197,7 @@ import {
 import {
     DEFAULT_AUTO_SPAWN_ENEMIES,
     DEFAULT_ENEMY_SPAWNER,
+    enemyEntityFromDefinition,
     normalizeAutoSpawnEnemies,
     normalizeEnemySpawner,
     resolveAutoSpawnEnemyIds
@@ -890,7 +891,7 @@ async function testGenericRuntimeCharacterProject() {
     assert.ok(loadingProgress.every((entry, index) => index === 0 || entry.progress >= loadingProgress[index - 1].progress), "runtime character loading progress should never move backwards");
     assert.equal(project.rig.drawOrder.length, 8, "generic runtime rig should preserve every enemy part");
     assert.equal(project.animations.size, 5, "runtime loader should load all mapped enemy animations");
-    assert.equal(drawCalls.filter((args) => args[0]?.url).length, 8, "runtime loader should crop one atlas frame for every rig part");
+    assert.equal(drawCalls.filter((args) => args[0]?.url).length, 9, "runtime loader should crop the eight guard parts plus the shared undeath projectile frame");
     assert.ok(project.assets.get("head")?.pixmapPyramid?.levels?.length > 1, "runtime character parts should prepare reusable reduced pixmaps while loading");
     assert.equal(resolveRuntimeAnimationSlot(project, "attack"), "attack", "requested mapped animation should resolve directly");
     assert.equal(resolveRuntimeAnimationSlot(project, "missing"), "idle", "missing slots should fall back to idle");
@@ -1378,7 +1379,7 @@ function testAutomaticEnemySpawning() {
     assert.deepEqual(normalizeAutoSpawnEnemies(null), DEFAULT_AUTO_SPAWN_ENEMIES, "automatic enemy spawning should default to disabled, zero percent, and enemies 001-999");
     assert.deepEqual(
         resolveAutoSpawnEnemyIds({ enabled: true, probabilityPercent: 25, enemyPool: "1-20,!10,!19" }, JSON.parse(readFileSync("./assets/ct_enemies_001.json", "utf8"))).resolvedIds,
-        ["enemy_001", "enemy_011", "enemy_012", "enemy_020"],
+        ["enemy_001", "enemy_002", "enemy_011", "enemy_012", "enemy_020"],
         "automatic spawning should share the level generator enemy-pool expression format"
     );
 
@@ -1656,6 +1657,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(catalog.enemies.enemy_011.defaults.strategy, "hunter", "Musket Goblin should use the hunter strategy");
     assert.equal(catalog.enemies.enemy_012.defaults.strategy, "hunter", "Tri-fireball Goblin should use the hunter strategy");
     assert.equal(skeleton.defaults.health, 90, "Skeleton Guard should default to 90 HP");
+    assert.equal(skeleton.defaults.attackDamage, 50, "Skeleton Guard melee should deal 50 HP before difficulty scaling");
     assert.equal(catalog.enemies.enemy_010.defaults.health, 60, "Fireball Goblin should default to 60 HP");
     assert.equal(catalog.enemies.enemy_011.defaults.health, 60, "Musket Goblin should default to 60 HP");
     assert.equal(catalog.enemies.enemy_012.defaults.health, 60, "Tri-fireball Goblin should copy the Fireball Goblin health");
@@ -1664,6 +1666,17 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(catalog.enemies.enemy_012.defaults.projectileVolleyHalfAngle, 15, "Tri-fireball Goblin should use a +/-15 degree fan");
     assert.equal(catalog.enemies.enemy_012.defaults.projectileRadius, 12, "Tri-fireball Goblin fireballs should be slightly smaller than the ordinary radius-14 fireball");
     assert.equal(catalog.enemies.enemy_012.defaults.projectileDamage, catalog.enemies.enemy_010.defaults.projectileDamage, "each tri-fireball shot should deal the ordinary homing fireball damage");
+    const skeletonCaster = catalog.enemies?.enemy_002;
+    assert.ok(skeletonCaster, "enemy catalog should register the Skeleton Caster as enemy_002");
+    assert.equal(skeletonCaster.characterId, "ct_char_enemy_002", "Skeleton Caster should use its independent character project");
+    assert.equal(skeletonCaster.defaults.projectileLaunchType, "pathing_lo", "Skeleton Caster should keep the obstacle-aware pathing launch type");
+    assert.equal(skeletonCaster.defaults.hunterPursuePlayerSupport, true, "Skeleton Caster should pursue Ignatius onto his current support before settling into a firing position");
+    assert.equal(skeletonCaster.defaults.projectileSpeed, catalog.enemies.enemy_010.defaults.projectileSpeed, "undeath orb should now match the Fireball Goblin projectile speed");
+    assert.equal(skeletonCaster.defaults.projectileHomingStrength, catalog.enemies.enemy_010.defaults.projectileHomingStrength, "undeath orb should now match the Fireball Goblin steering strength");
+    assert.equal(skeletonCaster.defaults.projectileDamage, 50, "undeath orb should deal 50 HP of damage");
+    assert.equal(skeletonCaster.defaults.projectileCooldown, 3, "Skeleton Caster should cast once every three seconds");
+    assert.equal(skeletonCaster.defaults.projectileLifetime, catalog.enemies.enemy_010.defaults.projectileLifetime * 2, "undeath orb should retain twice the Fireball Goblin travel lifetime");
+    assert.equal(skeletonCaster.defaults.projectileRadius, 24, "live undeath orb should match the enlarged authored cast");
     for (const enemyId of ["enemy_020"]) {
         const bat = catalog.enemies[enemyId];
         assert.ok(bat, `${enemyId} should register a retained bat candidate`);
@@ -1686,6 +1699,22 @@ function testEnemyCatalogAndLevelEditorIntegration() {
         assert.equal(human.defaults.renderOffsetY, 51, `${humanId} grounded artwork offset should scale with the actor`);
         assert.equal(human.defaults.maxFallDistance, 600, `${humanId} should escape the authored tall ledges`);
     }
+    const casterAttack = JSON.parse(readFileSync("./assets/ct_anim_enemy_002_attack.json", "utf8"));
+    assert.equal(casterAttack.animationId, "ct_anim_enemy_002_attack", "the supplied caster attack should retain its independent animation identity");
+    assert.ok(casterAttack.tracks.undeathOrb.scale.some((key) => key.value >= 1), "the refined attack should grow the held undeath orb to full authored scale");
+    const simulationSource = readFileSync("./src/core/simulation.js", "utf8");
+    assert.ok(simulationSource.includes("UNDEATH_TRAIL_EMIT_COUNT = 3"), "undeath trail should retain its revision 410 base emission count");
+    assert.ok(simulationSource.includes("UNDEATH_TRAIL_DENSITY_SCALE = 0.9375"), "undeath trail should emit twenty-five percent fewer bubbles than revision 413");
+    assert.ok(simulationSource.includes("undeathTrailEmissionRemainder"), "fractional undeath density should use deterministic accumulated emission rather than nondeterministic frame chance");
+    assert.ok(simulationSource.includes("UNDEATH_TRAIL_LIFETIME_SCALE = 2"), "undeath bubbles should persist twice as long");
+    assert.ok(simulationSource.includes("UNDEATH_TRAIL_RADIUS_SCALE = 2"), "undeath bubbles should retain their doubled base size");
+    assert.ok(simulationSource.includes("UNDEATH_TRAIL_SIZE_VARIATION = 0.25") && simulationSource.includes("sizeVariation"), "each undeath bubble should vary uniformly within plus or minus twenty-five percent");
+    assert.ok(simulationSource.includes("UNDEATH_TRAIL_MAX_PARTICLES = 158"), "undeath particle capacity should shrink proportionally with the reduced trail density");
+    assert.ok(simulationSource.includes("orbitAngle") && simulationSource.includes("orbitDistance"), "undeath bubbles should spawn around the invisible projectile center rather than only behind it");
+    assert.ok(simulationSource.includes("UNDEATH_TRAIL_WIDTH_SCALE = 0.6") && simulationSource.includes("* UNDEATH_TRAIL_WIDTH_SCALE"), "undeath trail spread and drift should be narrowed to sixty percent");
+    const projectileRendererSource = readFileSync("./src/presentation/canvas-renderer.js", "utf8");
+    assert.ok(projectileRendererSource.includes('getWebGLParticleSpriteCanvas("undeathBubble")'), "undeath trail should use a cached dark black-green bubble stamp");
+    assert.ok(projectileRendererSource.includes("if (!undeath)") && projectileRendererSource.includes("const trailEnabled = undeath || state.settings?.renderingQuality !== \"low\";"), "undeath should render as a bubble-only projectile at every quality while ordinary fire retains its sprite");
     const characterEditorDefaultsHtml = readFileSync("./character-editor.html", "utf8");
     assert.ok(characterEditorDefaultsHtml.includes("<h2>Metadata</h2>"), "Puppet Forge should expose enemy metadata");
     assert.ok(characterEditorDefaultsHtml.includes('id="apply-enemy-defaults" type="button">Apply</button>'), "Puppet Forge should use the compact Apply label for enemy metadata");
@@ -1768,6 +1797,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(placed, "level_001 should include the first placed Skeleton Guard");
     assert.equal(placed.type, "characterEnemy", "placed Skeleton Guard should use the generic runtime entity type");
     assert.equal(placed.strategy, "simple_patrol", "placed Skeleton Guard should use the canonical patrol strategy");
+    assert.equal(placed.attackDamage, 50, "bundled Skeleton Guard placement should carry the current 50 HP pre-scaling melee damage");
     assert.equal(placed.behavior, undefined, "current level data should not retain the legacy behavior alias");
     assert.equal(placed.chaseSpeed, undefined, "current level data should not retain the legacy chaseSpeed alias");
     assert.equal(placed.awarenessVerticalRange, undefined, "current level data should not retain unused vertical awareness");
@@ -2615,6 +2645,59 @@ function testHunterJumpsOntoLevelOneArchWithLargeAuthoredJump() {
     assert.equal(glaredBeforeJump, false, "hunter should not glare while a valid side-entry jump route exists");
     assert.equal(sawAirborne, true, "a 555 px jump setting should make the goblin launch toward the level_001 arch");
     assert.equal(landedOnArch, true, "hunter should land on the arch instead of colliding with its wall and abandoning the route");
+}
+
+function testSkeletonCasterPursuesOntoLevelOneRuin() {
+    const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
+    const catalog = JSON.parse(readFileSync("./assets/ct_enemies_001.json", "utf8"));
+    level.autoSpawnEnemies = { enabled: false, probabilityPercent: 0, enemyPool: "1-999" };
+    level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy");
+    level.entities.push(enemyEntityFromDefinition(catalog, "enemy_002", {
+        id: "skeleton_caster_ruin_test",
+        x: 2860,
+        y: 844.55,
+        homeX: 2860,
+        homeY: 844.55,
+        facing: 1
+    }));
+
+    const state = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply for the Skeleton Caster ruin-pursuit regression test");
+    const manifests = new Map();
+    for (const ref of level.atlasRefs || []) {
+        const path = String(ref.manifest || "").replace(/^assets\//, "./assets/");
+        manifests.set(ref.atlasId, { manifest: JSON.parse(readFileSync(path, "utf8")) });
+    }
+    assert.equal(applyAtlasManifestsToWorld(state, manifests), true, "level collision should apply for the Skeleton Caster ruin-pursuit regression test");
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 3310;
+    state.player.y = 683;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    state.player.visible = true;
+
+    const enemy = state.enemies.find((item) => item.id === "skeleton_caster_ruin_test");
+    assert.ok(enemy, "the regression should instantiate the Skeleton Caster");
+    enemy.awarenessRange = 2000;
+    enemy.facing = 1;
+
+    let plannedPlayerSupport = false;
+    let launchedTowardRuin = false;
+    let landedOnRuin = false;
+    for (let frame = 0; frame < 260; frame += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        plannedPlayerSupport ||= enemy.routePurpose === "pursue" && enemy.routeTargetSupportId === "arch_ruin_001_blockable_4";
+        launchedTowardRuin ||= enemy.airborne && enemy.route?.[enemy.routeIndex]?.to === "arch_ruin_001_blockable_1";
+        landedOnRuin ||= launchedTowardRuin && !enemy.airborne && String(enemy.currentSupportId || "").startsWith("arch_ruin_001_blockable_");
+        if (landedOnRuin) break;
+    }
+
+    assert.equal(plannedPlayerSupport, true, "the pathing caster should plan toward Ignatius's actual ruin support instead of treating the lower floor as a permanent firing position");
+    assert.equal(launchedTowardRuin, true, "the Skeleton Caster should commit to the jump onto the ruin");
+    assert.equal(landedOnRuin, true, "the Skeleton Caster should land on the ruin and continue the hunt");
+    assert.equal(enemy.navigationFailureCount, 0, "the valid ruin approach should not register navigation failures");
 }
 
 function testHunterFindsReachableFiringFallbackBeforeGlare() {
@@ -8758,10 +8841,10 @@ function testRocketPowerUpArsenal() {
     const characterEditorSource = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 408<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(characterEditorSource, /Puppet Forge <small>rev 408<\/small>/, "Puppet Forge should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 415<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(characterEditorSource, /Puppet Forge <small>rev 415<\/small>/, "Puppet Forge should display the packaged revision");
     const assetEditorSource = readFileSync(new URL("../asset-editor.html", import.meta.url), "utf8");
-    assert.match(assetEditorSource, /Asset Tool <small>rev 408<\/small>/, "Asset Tool should display the packaged revision");
+    assert.match(assetEditorSource, /Asset Tool <small>rev 415<\/small>/, "Asset Tool should display the packaged revision");
     assert.ok(editorSource.includes("state.level.layerVisuals = normalizeLevelLayerVisuals({\n            version: 2,"), "editor metadata commits should retain the canonical layer-visual schema instead of reapplying legacy Foreground factors");
     assert.ok(editorSource.includes("const w = displayRecord.w * state.camera.zoom") && editorSource.includes("const w = displayPlacement.w * state.camera.zoom"), "Foreground selection and asset-guide outlines should use the same layer-scaled display dimensions as rendered artwork");
     assert.ok(
@@ -8790,7 +8873,7 @@ function testRocketPowerUpArsenal() {
     assert.equal(editorSource.includes('id="canvas-renderer-baseline"'), false, "the Level Editor should no longer advertise the posterity-only Canvas baseline");
     assert.equal(editorSource.includes("openCanvasRendererBaseline"), false, "the removed baseline link should leave no dormant click handler");
     assert.equal(editorSource.includes("Editor 2 lab"), false, "the Level Editor should not link to the removed Editor 2 lab");
-    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 408") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
+    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 415") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
     assert.ok(baselineSource.includes("applyEditorLevelToWorld") && baselineSource.includes("preferWebGL2: false") && baselineSource.includes("setViewOverride"), "the retained baseline should still convert the authored level and use the ordinary Canvas2D game renderer with an editor camera override");
     assert.ok(editorPlaywrightBenchmark.includes("benchmark_baseline") && editorPlaywrightBenchmark.includes("benchmark_editor") && editorPlaywrightBenchmark.includes("editorToBaselineCadenceRatio"), "the optional Playwright probe should compare the loaded baseline and editor rather than source-only timings");
     assert.ok(editorPlaywrightBenchmark.includes("bodyScrollWidth") && editorPlaywrightBenchmark.includes("stageBacking") && editorPlaywrightBenchmark.includes("overlayBacking"), "the Playwright probe should detect viewport overflow and stage/overlay size divergence");
@@ -8800,7 +8883,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(rendererSource.includes("backingPixelsPerCssPixel") && rendererSource.includes("override.cssZoom * backingPixelsPerCssPixel") && editorSource.includes("cssZoom: state.camera.zoom"), "editor and runtime artwork should share one CSS-pixel camera scale so guide alignment does not drift across the viewport");
     assert.ok(rendererSource.includes("this.ctx.setTransform(1, 0, 0, 1, 0, 0)") && rendererSource.includes("never inherit a CSS/DPR transform"), "the production Canvas renderer should reset inherited context transforms before drawing backing-pixel coordinates");
     assert.ok(editorSource.includes("stageCtx?.setTransform(1, 0, 0, 1, 0, 0)") && !editorSource.includes("stageCtx?.setTransform(dpr"), "the Level Editor must not pre-scale the production scene context by devicePixelRatio");
-    assert.match(bootstrapSource, /const GAME_REVISION = "408";/, "the game debug revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "415";/, "the game debug revision should match the packaged revision");
     assert.ok(
         editorSource.includes('<div class="level-section-label">Existing Level:</div>')
             && editorSource.includes('id="load-level">Load</button>')
@@ -9308,7 +9391,8 @@ function testNumberedEnemy001Assets() {
         ["leftLeg", "leftArm", "rightLeg", "torso", "head", "sword", "rightArm", "shield"],
         "enemy_001 should preserve the user-authored back-to-front layer order"
     );
-    assert.equal(Object.keys(atlas.frames).length, 8, "enemy_001 atlas should use semantic frame IDs for all parts");
+    assert.equal(Object.keys(atlas.frames).length, 9, "shared skeleton atlas should contain the eight guard parts plus the undeath-orb projectile");
+    assert.equal(atlas.objects.undeathOrb.type, "projectileSprite", "shared skeleton atlas should classify the undeath orb as a projectile resource");
     for (const partName of rig.drawOrder) {
         assert.ok(rig.parts[partName], `enemy_001 rig should define ${partName}`);
         assert.ok(atlas.frames[rig.parts[partName].frame], `enemy_001 rig part ${partName} should reference an atlas frame`);
@@ -10329,6 +10413,41 @@ function testRocketTargetPrefersClosestEnemyInFacingDirection() {
     assert.equal(state.projectiles[0].targetId, "rear_near", "rocket should fall back to the closest target behind Ignatius only when no forward target remains");
 }
 
+function testRocketTargetPrioritizesLineOfSight() {
+    const makeState = () => {
+        const state = createInitialGameState();
+        settleOnGround(state);
+        state.player.x = 0;
+        state.player.y = 600;
+        state.player.facing = 1;
+        state.world.solids = [{ id: "rocket_target_wall", kind: "wall", x: 60, y: 490, w: 40, h: 130 }];
+        state.world.segments = [];
+        state.world.collisionPolygons = [];
+        state.targets = [
+            { id: "hidden_near", enemyId: "hidden_near_enemy", x: 160, y: 540, radius: 12, state: "active" },
+            { id: "visible_far", enemyId: "visible_far_enemy", x: 300, y: 250, radius: 12, state: "active" }
+        ];
+        return state;
+    };
+
+    const homingState = makeState();
+    stepSimulation(homingState, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    assert.equal(homingState.projectiles[0].targetId, "visible_far", "homing rockets should prefer a farther line-of-sight target over a nearer target hidden by terrain");
+
+    const aimedState = makeState();
+    const definition = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.WRENCH_BURST);
+    aimedState.statusEffects.active[POWER_UP_EFFECT_IDS.WRENCH_BURST] = {
+        id: POWER_UP_EFFECT_IDS.WRENCH_BURST,
+        definition,
+        remainingSeconds: definition.durationSeconds,
+        sourceId: "test",
+        activatedAt: 0,
+        refreshCount: 0
+    };
+    stepSimulation(aimedState, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    assert.equal(aimedState.projectiles[0].targetId, "visible_far", "monster-aimed straight rockets should use the same line-of-sight-first target ordering");
+}
+
 function testRocketTrailTracksCurvedPathAndPersistsAfterExplosion() {
     const state = createInitialGameState();
     settleOnGround(state);
@@ -10867,6 +10986,44 @@ function testEnemyProjectileImpactFxRemainEconomical() {
     assert.ok(puffs.length <= 8, "enemy projectile impacts should stay intentionally lightweight");
     assert.ok(puffs.every((puff) => puff.radius <= 7.1), "enemy projectile impact puffs should stay compact");
     assert.ok(puffs.every((puff) => puff.impactWizardAccent === false), "ordinary enemy impacts must not request wizard-technology accents");
+
+    const lingeringState = createInitialGameState();
+    lingeringState.story.portalIntro = null;
+    lingeringState.story.portalExit = null;
+    lingeringState.story.mailboxEvent = null;
+    lingeringState.projectiles = [{
+        id: "undeath_lingering_trail",
+        owner: "enemy",
+        enemyId: "enemy_002_test",
+        kind: "enemyFireball",
+        visualStyle: "undeath",
+        projectileKind: "undeathOrb",
+        state: "exploding",
+        x: 120,
+        y: 120,
+        vx: 0,
+        vy: 0,
+        radius: 24,
+        age: 0,
+        lifetime: 4,
+        explosionTimer: FIXED_DT * 0.5,
+        trail: [{
+            x: 118,
+            y: 121,
+            vx: 3,
+            vy: -2,
+            birth: lingeringState.clock.time,
+            lifetime: 0.24,
+            radius: 8,
+            bubble: true,
+            hue: 0.6
+        }]
+    }];
+    stepSimulation(lingeringState, createInputFrame(), FIXED_DT);
+    assert.equal(lingeringState.projectiles[0]?.state, "trailFading", "spent undeath projectiles should remain as trail-only carriers while bubbles are alive");
+    assert.equal(lingeringState.projectiles[0]?.trail.length, 1, "impact should stop emission without deleting already-created undeath bubbles");
+    stepMany(lingeringState, 20, () => createInputFrame());
+    assert.equal(lingeringState.projectiles.length, 0, "trail-only undeath carriers should be removed after the final bubble finishes fading");
 }
 
 function testEnemyProjectilePlayerHitCarriesSmallWizardAccentFlag() {
@@ -10913,11 +11070,15 @@ function testEnemyProjectileVisualLanguageRendererContract() {
     const fireballStart = rendererSource.indexOf("    drawProjectileFireball(projectile, state, view) {");
     const fireballEnd = rendererSource.indexOf("    drawFireballTrailOverlay(projectile, state, view, fireballCoreRadius = 0) {", fireballStart);
     const fireballSource = rendererSource.slice(fireballStart, fireballEnd);
-    assert.match(fireballSource, /const trailEnabled = state\.settings\?\.renderingQuality !== "low";/, "the animated fireball trail should be enabled on Medium and High graphics quality");
-    assert.match(fireballSource, /if \(trailEnabled\) \{\s*this\.drawEnemyFireballParticles\(projectile, state, view\);\s*\}/, "Medium and High quality should draw emitted fire particles");
-    assert.match(fireballSource, /this\.getCharacterAtlasFrame\(projectile\.characterId \|\| "ct_char_enemy_010", projectile\.frameId \|\| "fireball"\)/, "the authored fireball sprite should remain the projectile body at every quality");
+    assert.match(fireballSource, /const trailEnabled = undeath \|\| state\.settings\?\.renderingQuality !== "low";/, "ordinary fire trails should remain quality-gated while the bubble-only undeath projectile stays visible at every quality");
+    const simulationSource = readFileSync("./src/core/simulation.js", "utf8");
+    assert.ok(simulationSource.includes("UNDEATH_TRAIL_LOW_QUALITY_DENSITY_SCALE = 0.75"), "Low quality should retain the visible undeath cloud with a modest twenty-five-percent density reduction");
+    assert.ok(simulationSource.includes('projectile.state = projectile.visualStyle === "undeath" && projectile.trail?.length') && simulationSource.includes('"trailFading"'), "undeath impacts should preserve emitted bubbles in a non-colliding trail-fading state");
+    assert.match(fireballSource, /if \(trailEnabled && !undeath\) \{\s*this\.drawEnemyFireballParticles\(projectile, state, view\);\s*\}/, "Medium and High quality should draw ordinary emitted fire particles behind the projectile");
+    assert.match(fireballSource, /if \(trailEnabled && undeath\) \{\s*this\.drawEnemyFireballParticles\(projectile, state, view\);\s*\}/, "the undeath projectile should draw its bubble body at every graphics quality");
+    assert.match(fireballSource, /if \(!undeath\) \{\s*const asset = this\.getCharacterAtlasFrame\(projectile\.characterId \|\| "ct_char_enemy_010", projectile\.frameId \|\| "fireball"\)/, "only ordinary fireballs should draw an authored projectile sprite");
     assert.doesNotMatch(rendererSource, /Jump to continue|scrolls automatically/, "story overlays should no longer explain skip controls");
-    assert.match(fireballSource, /drawRuntimePixmap\(ctx, asset/, "the fireball renderer should draw the authored sprite through the scale-aware pixmap path");
+    assert.match(fireballSource, /drawRuntimePixmap\(ctx, asset/, "ordinary fireballs should still draw the authored sprite through the scale-aware pixmap path");
     assert.match(rendererSource, /const radius = Math\.max\(0\.15 \* view\.zoom, Number\(particle\.radius \|\| 2\) \* fade \* view\.zoom\);/, "emitted circles should shrink linearly with remaining lifetime");
     assert.ok(rendererSource.includes('projectile.impactKind === "player"'), "only enemy projectile impacts on Ignatius should receive a magical accent");
     assert.ok(rendererSource.includes('puff.kind === "enemyProjectileImpactPuff"'), "enemy impact smoke should have a dedicated dark renderer branch");
@@ -13029,6 +13190,7 @@ const tests = [
     ["human hunter escapes level_001 left ledge", testHumanHunterEscapesLevelOneLeftLedge],
     ["hunter climbs level_001 pillar from the left", testHunterClimbsLevelOnePillarFromLeftWithoutWallClipping],
     ["hunter jumps onto level_001 arch", testHunterJumpsOntoLevelOneArchWithLargeAuthoredJump],
+    ["Skeleton Caster pursues onto level_001 ruin", testSkeletonCasterPursuesOntoLevelOneRuin],
     ["hunter obstacle-clear jump run-up", testHunterJumpUsesObstacleClearRunUp],
     ["hunter reverse jump backs away for run-up", testHunterJumpBacksAwayForReverseRunUp],
     ["hunter drop uses ordinary collision geometry", testHunterDropLandsOnOrdinaryCollisionGeometry],
@@ -13093,6 +13255,7 @@ const tests = [
     ["rocket initial turn clears jump-height platform", testRocketInitialTurnClearsJumpHeightPlatform],
     ["standard rocket one-HP secondary splash", testStandardRocketSecondarySplash],
     ["rocket target prioritizes facing direction", testRocketTargetPrefersClosestEnemyInFacingDirection],
+    ["rocket target prioritizes line of sight", testRocketTargetPrioritizesLineOfSight],
     ["rocket trail tracks curved path and persists", testRocketTrailTracksCurvedPathAndPersistsAfterExplosion],
     ["attached boost smoke and visual power", testAttachedRocketSmokeAndVisualPower],
     ["attached smoke down speed tuning", testAttachedSmokeDownSpeedTuning],

@@ -21,6 +21,25 @@
       "requiresNavigation": true,
       "notes": "A jumping close-range hunter that can leave raised combat perches and pursue Ignatius."
     },
+    "enemy_002": {
+      "placementClass": "groundRanged",
+      "groupMin": 1,
+      "groupMax": 1,
+      "difficultyCost": 3.8,
+      "weight": 0.92,
+      "minDifficulty": 0.28,
+      "maxDifficulty": 1,
+      "minWalkableWidth": 360,
+      "edgeClearance": 62,
+      "landingBuffer": 150,
+      "headroom": 190,
+      "patrolRoom": 240,
+      "minGroupSpacing": 98,
+      "preferredProgressMin": 0.24,
+      "preferredProgressMax": 0.95,
+      "requiresNavigation": true,
+      "notes": "A hunter skeleton caster that actively reaches Ignatius's support before settling into its three-second pathing-orb attack rhythm."
+    },
     "enemy_010": {
       "placementClass": "groundRanged",
       "groupMin": 1,

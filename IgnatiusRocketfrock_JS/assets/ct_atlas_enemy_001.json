@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 4,
-        "note": "Enemy 001 character atlas with semantic frame names. Renamed from skeleton_1 in revision 077."
+        "version": 5,
+        "note": "Enemy 001 character atlas with semantic frame names. Renamed from skeleton_1 in revision 077. Revision 409 adds the caster undeath-orb projectile frame."
     },
     "atlasId": "ct_atlas_enemy_001",
     "image": "ct_atlas_enemy_001.png",
@@ -53,6 +53,12 @@
             "y": 427,
             "w": 163,
             "h": 374
+        },
+        "undeathOrb": {
+            "x": 1599,
+            "y": 19,
+            "w": 383,
+            "h": 358
         }
     },
     "objects": {
@@ -149,6 +155,19 @@
             "tags": [
                 "leftArm",
                 "arm"
+            ]
+        },
+        "undeathOrb": {
+            "id": "undeathOrb",
+            "frame": "undeathOrb",
+            "type": "projectileSprite",
+            "layer": "projectile",
+            "mirrorable": true,
+            "tags": [
+                "projectile",
+                "undeath",
+                "orb",
+                "green"
             ]
         }
     }

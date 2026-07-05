@@ -1734,3 +1734,36 @@ The right-side DOM order now follows authoring flow while retaining all existing
 Walk-off baking and runtime collision share both clearance factors. Vertical source forgiveness remains capped by `ENEMY_DROP_SOURCE_CLEARANCE_HEIGHT_FACTOR`; the horizontal-body cap is now `ENEMY_DROP_SOURCE_CLEARANCE_WIDTH_FACTOR` at 0.9. The broader cap is still bounded by the one-second departure window, requires nonzero outward velocity, and ignores only the authored source obstacle until the complete body clears it. It does not permit falling through the middle of one-way platforms.
 
 The articulated human family uses a 600-pixel `maxFallDistance`. This is gameplay mobility data shared by Enemies 030-033 and is reproduced by `devel/build_enemy_030_assets.py`. Level 001 carries an exact rebake for that profile, including both the left jump to the starter platform and the right walk-off to the lower floor.
+
+
+## Revision 411 undeath trail layering
+
+Undeath trail particles remain simulation-owned records in `projectile.trail`. Presentation classifies the projectile by `visualStyle`, then uses a cached procedural `undeathBubble` sprite. The sprite is alpha blended rather than additive so its black-green core survives compositing. Render ordering is style-specific: ordinary fire particles precede the projectile core, while undeath particles follow it in both Canvas and WebGL queues.
+
+Skeleton damage remains ordinary authored combat data. Enemy 001 melee and Enemy 002 projectile damage are both 50 before the shared difficulty scaling function is applied.
+
+
+## Revision 412 fractional undeath-trail emission
+
+Undeath trail density remains simulation-owned. A per-projectile fractional remainder accumulates the 3.75-bubble target per fixed update and emits integer counts in a deterministic 3/4/4/4 cadence. This gives an exact 25 percent long-run density increase over the revision 411 base count of three without using nondeterministic random calls.
+
+Bubble size variation is hash-derived from the existing stable particle seed. The multiplier spans 0.75 through 1.25, so replays and tests remain deterministic while the cloud avoids visibly uniform bubble sizing.
+
+## Revision 413 target-priority and pathing-hunter policy
+
+Hunter navigation keeps physical reachability in `src/core/enemy-navigation.js`, while tactical destination choice remains in `chooseCharacterEnemyAttackPlan`. The runtime flag `hunterPursuePlayerSupport` tells a hunter to prefer the player's exact support whenever a route exists. Pathing projectile launch types enable this policy automatically, and Enemy 002 authors it explicitly in the catalog. This avoids special-case geometry while preventing obstacle-aware ranged attacks from making a hunter camp indefinitely below its target.
+
+Rocket target ordering remains centralized in `orderedHomingTargets` and `orderedForwardTargets`. A zero-radius terrain visibility query classifies each target from Ignatius's launch origin. Sorting then uses line-of-sight first, forward-facing status second where applicable, distance third, and stable target ID as the deterministic tie-breaker. The same ordering feeds initial homing assignments, separate-target volleys, aimed straight rockets, and later homing retargets.
+
+## Revision 414 bubble-only undeath presentation
+
+Simulation continues to own the undeath projectile as a normal collidable pathing projectile. Presentation suppresses only its atlas-backed core when `visualStyle` is `undeath`; Canvas and WebGL render the procedural bubble records as the complete visible body. This preserves gameplay geometry while making the visual experiment easy to revert. Undeath particles bypass the ordinary Low-quality trail suppression because hiding them would make the hazard invisible.
+
+`UNDEATH_TRAIL_WIDTH_SCALE` controls both radial spawn distance and outward drift, keeping trail width independent from individual bubble radius. Fractional deterministic emission remains simulation-owned.
+
+
+## Revision 415 undeath trail lifecycle
+
+Undeath particles remain owned by their projectile record. On impact the projectile leaves the collision simulation and transitions from `exploding` to `trailFading` while its particle array remains renderable. `pruneEnemyFireballTrail` is shared by active, exploding, and fading states, separating particle expiry from particle emission. Canvas and WebGL accept the fading state for undeath rendering, while gameplay collision continues to process only `launched` projectiles.
+
+Low-quality density is simulation-owned through `UNDEATH_TRAIL_LOW_QUALITY_DENSITY_SCALE`, preserving deterministic fractional emission and avoiding an invisible bubble-only missile.

@@ -3823,3 +3823,44 @@ The supplied `level_001.json` is now authoritative. It adds Enemy 033 to the lef
 The `hunter:stranded_patrol` report exposed two coupled navigation assumptions. Enemies 030-033 still carried a 520-pixel fall limit, while the left-ledge-to-lower-floor descent is roughly 550 pixels. Even after correcting that authored capability, the right-hand walk-off was rejected because the source-departure window capped horizontal body clearance at 0.8 body widths, a few pixels too strict for the 67.5-pixel human at 152 px/s. Downward jumps also launched from an ordinary interior inset and required a full-body landing fit, which discarded the physically valid left jump to the starter platform.
 
 The articulated-human catalog and current level records now use a 600-pixel fall limit. The shared navigation core permits source departure for committed jumps, uses a slightly broader 0.9-width walk-off clearance window in both baking and runtime collision, launches downward jumps beside the true obstacle edge, and accepts a stable majority-overlap landing. Level 001 is rebaked with a left jump from `left_step_blockable_1` to `start_ground_blockable_2` and a right controlled walk-off to the lower floor. Regression coverage executes the exact Enemy 033 left-jump escape and requires the alternate right-hand drop edge.
+
+
+## Revision 411 skeleton damage parity and front-layer undeath bubbles
+
+Status: implemented.
+
+Skeleton Guard melee and Skeleton Caster undeath-orb impact now both author 50 HP of base damage before the existing difficulty multiplier is applied. Bundled level data is patched directly so no compatibility path is needed.
+
+The undeath bubble cloud keeps the revision 410 density, scale, and lifetime. Its presentation now uses a cached black-green bubble stamp with a dark core, acid-green rim, and restrained highlight instead of the pale additive glow. Canvas and WebGL both render ordinary fireball particles behind their projectile, while undeath bubbles are deliberately queued after the orb so they can partially obscure it.
+
+
+## Revision 412 denser varied undeath bubbles and faster casting
+
+Status: implemented.
+
+Skeleton Caster projectile cooldown is reduced from five seconds to three seconds. The undeath trail emits 25 percent more bubbles than revision 411 through a deterministic fractional emitter, producing an exact long-run average without frame-random density flicker.
+
+Each bubble receives an independent deterministic size multiplier uniformly distributed from 0.75 to 1.25. Lifetime, base scale, black-green presentation, and front-layer rendering remain unchanged. The trail particle cap rises proportionally from 168 to 210 so the additional emission is not silently clipped.
+
+## Revision 413 assertive pathing caster and line-of-sight rocket targeting
+
+Status: implemented.
+
+Pathing-projectile hunters now prefer a route to Ignatius's actual navigation support when one exists instead of treating a lower support as a permanent firing position merely because their projectile can steer around cover. Enemy 002 opts into this behavior explicitly and also inherits it from its `pathing_lo` projectile profile, so the Skeleton Caster runs up and jumps onto the Level 001 ruin before settling into its firing rhythm.
+
+Wizard rockets now rank active targets by clear line of sight before facing and distance. Homing rockets and monster-aimed straight rockets therefore choose a visible enemy over a closer enemy hidden behind terrain. The cyan horizontal dart remains unaffected because it does not select a monster target.
+
+## Revision 414 bubble-only undeath projectile trial
+
+The live Skeleton Caster projectile keeps its existing collision, damage, lifetime, speed, steering, and obstacle-aware pathing, but its authored orb sprite is no longer drawn. The moving hazard is represented only by the cached black-green bubble particles. Because those particles are now the projectile body, they remain visible even when rendering quality is Low.
+
+The bubble cloud's radial spawn spread and outward drift are multiplied by 0.6, narrowing the trail without shrinking the individual bubbles. Emission density is reduced by 25 percent from revision 413, from 3.75 to 2.8125 bubbles per fixed update through the same deterministic fractional accumulator. The particle cap falls proportionally from 210 to 158.
+
+
+## Revision 415 lingering undeath bubbles
+
+Status: implemented.
+
+The bubble-only undeath projectile now retains its already-emitted particles after impact, terrain collision, or lifetime expiry. The physical projectile becomes a non-colliding `trailFading` carrier after its short impact phase; it emits nothing new, prunes particles only as their authored lifetimes end, and removes itself after the final bubble fades.
+
+Low rendering quality continues to show the projectile, but uses 75 percent of the normal undeath emission density. This keeps the hazard readable while modestly reducing particle load.

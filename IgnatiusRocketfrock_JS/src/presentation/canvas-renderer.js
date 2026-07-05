@@ -113,6 +113,7 @@ const FIXED_DRAW_ORDER = [
 const DEFAULT_CHARACTER_URL = "assets/ct_char_wizard_1.json";
 const KNOWN_ENEMY_CHARACTER_URLS = [
     "assets/ct_char_enemy_001.json",
+    "assets/ct_char_enemy_002.json",
     "assets/ct_char_enemy_010.json",
     "assets/ct_char_enemy_011.json",
     "assets/ct_char_enemy_012.json",
@@ -1990,6 +1991,25 @@ class RocketfrockRenderer {
             context.beginPath();
             context.arc(cx, cy, size * 0.34, 0, Math.PI * 2);
             context.stroke();
+        } else if (key === "undeathBubble") {
+            const gradient = context.createRadialGradient(cx - size * 0.08, cy - size * 0.10, size * 0.03, cx, cy, size * 0.48);
+            gradient.addColorStop(0, "rgba(6, 18, 0, 0.98)");
+            gradient.addColorStop(0.34, "rgba(2, 8, 0, 0.98)");
+            gradient.addColorStop(0.56, "rgba(43, 126, 4, 0.96)");
+            gradient.addColorStop(0.72, "rgba(104, 224, 8, 0.82)");
+            gradient.addColorStop(0.86, "rgba(18, 70, 0, 0.68)");
+            gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+            context.fillStyle = gradient;
+            context.fillRect(0, 0, size, size);
+            context.strokeStyle = "rgba(74, 184, 4, 0.54)";
+            context.lineWidth = size * 0.035;
+            context.beginPath();
+            context.arc(cx, cy, size * 0.34, 0, Math.PI * 2);
+            context.stroke();
+            context.fillStyle = "rgba(154, 255, 28, 0.48)";
+            context.beginPath();
+            context.arc(cx - size * 0.13, cy - size * 0.14, size * 0.055, 0, Math.PI * 2);
+            context.fill();
         } else if (key === "musketBall") {
             context.fillStyle = "rgba(42, 44, 49, 0.98)";
             context.beginPath();
@@ -3596,6 +3616,30 @@ class RocketfrockRenderer {
         }
     }
 
+    isUndeathProjectile(projectile) {
+        return projectile?.visualStyle === "undeath" || projectile?.projectileKind === "undeathOrb" || projectile?.frameId === "undeathOrb";
+    }
+
+    undeathTint(strength = 0.6) {
+        const glow = clamp(Number(strength) || 0.6, 0, 1);
+        return [
+            (34 + glow * 52) / 255,
+            (112 + glow * 105) / 255,
+            (4 + glow * 22) / 255,
+            1
+        ];
+    }
+
+    undeathPalette(strength = 0.6) {
+        const glow = clamp(Number(strength) || 0.6, 0, 1);
+        return [
+            `rgba(${Math.round(18 + glow * 24)}, ${Math.round(42 + glow * 38)}, 3, 1)`,
+            `rgba(${Math.round(38 + glow * 42)}, ${Math.round(116 + glow * 92)}, ${Math.round(4 + glow * 18)}, 0.98)`,
+            `rgba(${Math.round(14 + glow * 18)}, ${Math.round(64 + glow * 62)}, 2, 0.82)`,
+            "rgba(0, 0, 0, 0)"
+        ];
+    }
+
     fireballHeatTint(heat) {
         if (heat > 0.78) {
             return [1, 240 / 255, 165 / 255, 1];
@@ -3644,8 +3688,9 @@ class RocketfrockRenderer {
 
     drawEnemyFireballParticlesWebGL(projectile, state, view) {
         const backend = this.webglBackend;
-        const glowSprite = this.getWebGLParticleSpriteCanvas("softGlow");
-        if (!backend?.available || !glowSprite) {
+        const undeath = this.isUndeathProjectile(projectile);
+        const particleSprite = this.getWebGLParticleSpriteCanvas(undeath ? "undeathBubble" : "softGlow");
+        if (!backend?.available || !particleSprite) {
             return false;
         }
         let drew = false;
@@ -3661,18 +3706,18 @@ class RocketfrockRenderer {
             const worldY = Number(particle.y || 0) + Number(particle.vy || 0) * age;
             const screen = this.worldToScreen(view, worldX, worldY);
             const radius = Math.max(0.15 * view.zoom, Number(particle.radius || 2) * fade * view.zoom);
-            const heatBase = Number(particle.heat ?? 0.5);
-            const cooledHeat = clamp(heatBase * (0.45 + fade * 0.55), 0, 1);
-            const tint = this.fireballHeatTint(cooledHeat);
+            const tint = undeath
+                ? [1, 1, 1, 1]
+                : this.fireballHeatTint(clamp((Number(particle.heat ?? 0.5)) * (0.45 + fade * 0.55), 0, 1));
             const queued = backend.queueSprite({
-                source: glowSprite,
+                source: particleSprite,
                 centerX: screen.x,
                 centerY: screen.y,
-                width: radius * 2.8,
-                height: radius * 2.8,
+                width: radius * (undeath ? 2.45 : 2.8),
+                height: radius * (undeath ? 2.45 : 2.8),
                 tint,
-                alpha: Math.min(1, fade * 1.08),
-                blendMode: "additive"
+                alpha: Math.min(1, undeath ? fade * 0.92 : fade * 1.08),
+                blendMode: undeath ? "alpha" : "additive"
             });
             drew = queued || drew;
         }
@@ -3687,34 +3732,38 @@ class RocketfrockRenderer {
         const p = this.worldToScreen(view, projectile.x, projectile.y);
         const speed = Math.hypot(projectile.vx, projectile.vy) || 1;
         const angle = Math.atan2(projectile.vy / speed, projectile.vx / speed);
-        const trailEnabled = state.settings?.renderingQuality !== "low";
+        const undeath = this.isUndeathProjectile(projectile);
+        const trailEnabled = undeath || state.settings?.renderingQuality !== "low";
         let drew = false;
-        if (trailEnabled) {
+        if (trailEnabled && !undeath) {
             drew = this.drawEnemyFireballParticlesWebGL(projectile, state, view) || drew;
         }
-        const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_010", projectile.frameId || "fireball") ||
-            this.getCharacterAtlasFrame("ct_char_enemy_010", "fireball");
-        if (asset && !asset.missing) {
-            const targetHeight = Math.max(8, Number(projectile.radius) || 10) * 2 * view.zoom;
-            drew = this.queueWebGLAssetSprite(asset, p.x, p.y, targetHeight, angle) || drew;
-            return drew;
+        if (!undeath) {
+            const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_010", projectile.frameId || "fireball") ||
+                this.getCharacterAtlasFrame("ct_char_enemy_010", "fireball");
+            if (asset && !asset.missing) {
+                const targetHeight = Math.max(8, Number(projectile.radius) || 10) * 2 * view.zoom;
+                drew = this.queueWebGLAssetSprite(asset, p.x, p.y, targetHeight, angle) || drew;
+            } else {
+                // the circular glow is only a missing-art fallback for ordinary fireballs.
+                const glowSprite = this.getWebGLParticleSpriteCanvas("softGlow");
+                const fallbackRadius = Math.max(2, Number(projectile.radius) || 10) * view.zoom;
+                if (glowSprite) {
+                    drew = backend.queueSprite({
+                        source: glowSprite,
+                        centerX: p.x,
+                        centerY: p.y,
+                        width: fallbackRadius * 2,
+                        height: fallbackRadius * 2,
+                        tint: this.fireballHeatTint(0.72),
+                        alpha: 0.78,
+                        blendMode: "additive"
+                    }) || drew;
+                }
+            }
         }
-
-        // Match the Canvas renderer: the circular glow is only a missing-art fallback.
-        // Drawing it behind the authored teardrop sprite rounds off the tail into a fuzzy orange bulb.
-        const glowSprite = this.getWebGLParticleSpriteCanvas("softGlow");
-        const fallbackRadius = Math.max(2, Number(projectile.radius) || 10) * view.zoom;
-        if (glowSprite) {
-            drew = backend.queueSprite({
-                source: glowSprite,
-                centerX: p.x,
-                centerY: p.y,
-                width: fallbackRadius * 2,
-                height: fallbackRadius * 2,
-                tint: this.fireballHeatTint(0.72),
-                alpha: 0.78,
-                blendMode: "additive"
-            }) || drew;
+        if (trailEnabled && undeath) {
+            drew = this.drawEnemyFireballParticlesWebGL(projectile, state, view) || drew;
         }
         return drew;
     }
@@ -4015,7 +4064,9 @@ class RocketfrockRenderer {
             return handled;
         }
         for (const projectile of state.projectiles || []) {
-            if (projectile.state !== "launched" || projectile.owner !== "enemy") {
+            const lingeringUndeath = this.isUndeathProjectile(projectile) &&
+                (projectile.state === "exploding" || projectile.state === "trailFading");
+            if ((projectile.state !== "launched" && !lingeringUndeath) || projectile.owner !== "enemy") {
                 continue;
             }
             if (!WEBGL_DIRECT_ENEMY_PROJECTILE_KINDS.has(projectile.kind)) {
@@ -4047,10 +4098,10 @@ class RocketfrockRenderer {
         const skipExploding = options.skipExploding === true;
         const skipProjectileIds = options.skipProjectileIds instanceof Set ? options.skipProjectileIds : null;
         for (const projectile of state.projectiles || []) {
-            if (projectile.state !== "exploding" && projectile.state !== "launched") {
+            if (projectile.state !== "exploding" && projectile.state !== "launched" && projectile.state !== "trailFading") {
                 continue;
             }
-            if (skipExploding && projectile.state === "exploding") {
+            if (skipExploding && (projectile.state === "exploding" || projectile.state === "trailFading")) {
                 continue;
             }
             if (skipProjectileIds?.has(projectile.id)) {
@@ -4059,7 +4110,17 @@ class RocketfrockRenderer {
             if (!this.dynamicBoundsVisible(this.projectileRenderBounds(projectile), view, 96)) {
                 continue;
             }
+            if (projectile.state === "trailFading") {
+                if (this.isUndeathProjectile(projectile)) {
+                    this.drawEnemyFireballParticles(projectile, state, view);
+                    this.markDynamicDrawn();
+                }
+                continue;
+            }
             if (projectile.state === "exploding") {
+                if (this.isUndeathProjectile(projectile)) {
+                    this.drawEnemyFireballParticles(projectile, state, view);
+                }
                 const p = this.worldToScreen(view, projectile.x, projectile.y);
                 ctx.save();
                 if (projectile.owner !== "enemy") {
@@ -4272,8 +4333,10 @@ class RocketfrockRenderer {
         if (!particles.length) {
             return;
         }
+        const undeath = this.isUndeathProjectile(projectile);
+        const undeathBubble = undeath ? this.getWebGLParticleSpriteCanvas("undeathBubble") : null;
         ctx.save();
-        ctx.globalCompositeOperation = "lighter";
+        ctx.globalCompositeOperation = undeath ? "source-over" : "lighter";
         for (const particle of particles) {
             const age = state.clock.time - Number(particle.birth || 0);
             const lifetime = Math.max(0.0001, Number(particle.lifetime) || 0.2);
@@ -4285,10 +4348,16 @@ class RocketfrockRenderer {
             const worldY = Number(particle.y || 0) + Number(particle.vy || 0) * age;
             const screen = this.worldToScreen(view, worldX, worldY);
             const radius = Math.max(0.15 * view.zoom, Number(particle.radius || 2) * fade * view.zoom);
-            const heatBase = Number(particle.heat ?? 0.5);
-            const cooledHeat = clamp(heatBase * (0.45 + fade * 0.55), 0, 1);
-            const palette = this.fireballHeatPalette(cooledHeat);
-            this.drawFireballGlowCircle(ctx, screen.x, screen.y, radius, palette, fade * 0.92);
+            if (undeath && undeathBubble) {
+                const diameter = radius * 2.45;
+                ctx.save();
+                ctx.globalAlpha = fade * 0.92;
+                ctx.drawImage(undeathBubble, screen.x - diameter * 0.5, screen.y - diameter * 0.5, diameter, diameter);
+                ctx.restore();
+                continue;
+            }
+            const cooledHeat = clamp((Number(particle.heat ?? 0.5)) * (0.45 + fade * 0.55), 0, 1);
+            this.drawFireballGlowCircle(ctx, screen.x, screen.y, radius, this.fireballHeatPalette(cooledHeat), fade * 0.92);
         }
         ctx.restore();
     }
@@ -4298,31 +4367,37 @@ class RocketfrockRenderer {
         const p = this.worldToScreen(view, projectile.x, projectile.y);
         const speed = Math.hypot(projectile.vx, projectile.vy) || 1;
         const angle = Math.atan2(projectile.vy / speed, projectile.vx / speed);
-        const trailEnabled = state.settings?.renderingQuality !== "low";
+        const undeath = this.isUndeathProjectile(projectile);
+        const trailEnabled = undeath || state.settings?.renderingQuality !== "low";
 
-        if (trailEnabled) {
+        if (trailEnabled && !undeath) {
             this.drawEnemyFireballParticles(projectile, state, view);
         }
 
-        const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_010", projectile.frameId || "fireball") ||
-            this.getCharacterAtlasFrame("ct_char_enemy_010", "fireball");
-        if (asset && !asset.missing) {
-            const targetHeight = Math.max(8, Number(projectile.radius) || 10) * 2 * view.zoom;
-            const spriteScale = targetHeight / Math.max(1, asset.height);
-            ctx.save();
-            ctx.translate(p.x, p.y);
-            ctx.rotate(angle);
-            ctx.scale(spriteScale, spriteScale);
-            drawRuntimePixmap(ctx, asset, -asset.width * 0.5, -asset.height * 0.5);
-            ctx.restore();
-            return;
+        if (!undeath) {
+            const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_010", projectile.frameId || "fireball") ||
+                this.getCharacterAtlasFrame("ct_char_enemy_010", "fireball");
+            if (asset && !asset.missing) {
+                const targetHeight = Math.max(8, Number(projectile.radius) || 10) * 2 * view.zoom;
+                const spriteScale = targetHeight / Math.max(1, asset.height);
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate(angle);
+                ctx.scale(spriteScale, spriteScale);
+                drawRuntimePixmap(ctx, asset, -asset.width * 0.5, -asset.height * 0.5);
+                ctx.restore();
+            } else {
+                const fallbackRadius = Math.max(2, Number(projectile.radius) || 10) * view.zoom;
+                ctx.save();
+                ctx.globalCompositeOperation = "lighter";
+                this.drawFireballGlowCircle(ctx, p.x, p.y, fallbackRadius, this.fireballHeatPalette(0.72), 0.96);
+                ctx.restore();
+            }
         }
 
-        const fallbackRadius = Math.max(2, Number(projectile.radius) || 10) * view.zoom;
-        ctx.save();
-        ctx.globalCompositeOperation = "lighter";
-        this.drawFireballGlowCircle(ctx, p.x, p.y, fallbackRadius, this.fireballHeatPalette(0.72), 0.96);
-        ctx.restore();
+        if (trailEnabled && undeath) {
+            this.drawEnemyFireballParticles(projectile, state, view);
+        }
     }
 
     drawFireballTrailOverlay(projectile, state, view, fireballCoreRadius = 0) {

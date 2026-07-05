@@ -103,7 +103,7 @@ const showMinimapInput = document.getElementById("show-minimap");
 const useHardwareRenderingInput = document.getElementById("use-hardware-rendering");
 const usePixmapPyramidsInput = document.getElementById("use-pixmap-pyramids");
 
-const GAME_REVISION = "408";
+const GAME_REVISION = "415";
 
 let displayedLoadingProgress = 0;
 let activeCaveWindow = normalizeCaveWindow(null);

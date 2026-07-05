@@ -2585,6 +2585,7 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         facing,
         strategy,
         locomotion,
+        hunterPursuePlayerSupport: entity.hunterPursuePlayerSupport === true || String(entity.projectileLaunchType || "").startsWith("pathing_"),
         aiState: health <= 0 ? "dead" : (locomotion === "flying" ? "fly" : (strategy === "hunter" ? "patrol" : strategy)),
         engaged: false,
         patrolDistance,
@@ -2697,6 +2698,7 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         projectileDamage: Math.max(0, finiteNumberOr(entity.projectileDamage, state.tuning.enemyDefaultProjectileDamage)),
         projectileCooldown: Math.max(0, finiteNumberOr(entity.projectileCooldown, state.tuning.enemyDefaultProjectileCooldown)),
         projectileHomingStrength: Math.max(0, finiteNumberOr(entity.projectileHomingStrength, state.tuning.enemyDefaultProjectileHomingStrength)),
+        projectilePathMargin: Math.max(0, finiteNumberOr(entity.projectilePathMargin, 0)),
         projectileVolleyCount: clamp(Math.round(finiteNumberOr(entity.projectileVolleyCount, 1)), 1, 15),
         projectileVolleyHalfAngle: clamp(finiteNumberOr(entity.projectileVolleyHalfAngle, 0), 0, 180),
         projectileKnockbackX: Math.max(0, finiteNumberOr(entity.projectileKnockbackX, state.tuning.enemyDefaultProjectileKnockbackX)),
@@ -3152,6 +3154,9 @@ function applyCharacterCombatProfileToEnemy(state, enemy) {
     enemy.attackHitTime = releaseTime;
     enemy.projectileReleaseTime = releaseTime;
     enemy.projectileLaunchType = String(projectile.launchType || enemy.projectileLaunchType || "straight");
+    if (enemy.projectileLaunchType.startsWith("pathing_")) {
+        enemy.hunterPursuePlayerSupport = true;
+    }
     enemy.projectilePartName = projectile.partName ? String(projectile.partName) : enemy.projectilePartName;
     enemy.projectileFrameId = projectile.frameId ? String(projectile.frameId) : enemy.projectileFrameId;
     enemy.projectileKind = String(projectile.projectileKind || enemy.projectileKind || "fireball");
@@ -4179,6 +4184,13 @@ function characterEnemyProjectilePathClearFromPoint(state, enemy, point) {
 
     if (launchType !== "ballistic") {
         const speed = characterEnemyProjectileSpeed(enemy, state.tuning);
+        const straightRange = speed * lifetime;
+        if (launchType === "pathing_lo" || launchType === "pathing_hi") {
+            const dx = target.x - origin.x;
+            const dy = target.y - origin.y;
+            const distance = Math.hypot(dx, dy);
+            return distance <= straightRange + Math.max(48, Number(enemy.projectilePathMargin) || 0);
+        }
         const baseAim = normalizeVector({ x: target.x - origin.x, y: target.y - origin.y });
         return characterEnemyProjectileVolleyAngleOffsets(enemy).some((angleOffset) =>
             characterEnemyStraightProjectileCanHitPlayer(
@@ -4217,6 +4229,90 @@ function characterEnemyProjectilePathClearFromPoint(state, enemy, point) {
         previous = next;
     }
     return true;
+}
+
+function addPathingAvoidanceFromPoint(projectile, point, clearance, accumulator) {
+    const dx = projectile.x - point.x;
+    const dy = projectile.y - point.y;
+    const distance = Math.hypot(dx, dy);
+    const limit = clearance + Math.max(0, Number(projectile.radius) || 0);
+    if (distance > limit) {
+        return;
+    }
+    const weight = clamp(1 - distance / Math.max(1, limit), 0, 1);
+    let awayX = dx;
+    let awayY = dy;
+    if (distance < 0.0001) {
+        awayX = (Number(projectile.vx) || 1);
+        awayY = (Number(projectile.vy) || 0);
+        const awayLength = Math.hypot(awayX, awayY) || 1;
+        awayX /= awayLength;
+        awayY /= awayLength;
+    } else {
+        awayX /= distance;
+        awayY /= distance;
+    }
+    accumulator.x += awayX * weight;
+    accumulator.y += awayY * weight;
+}
+
+function pathingProjectileDesiredDirection(state, projectile, target) {
+    const currentSpeed = Math.hypot(Number(projectile.vx) || 0, Number(projectile.vy) || 0) || Math.max(1, Number(projectile.projectileSpeed) || 1);
+    const currentDir = normalizeVector({ x: Number(projectile.vx) || 0, y: Number(projectile.vy) || 0 });
+    const targetDir = normalizeVector({ x: target.x - projectile.x, y: target.y - projectile.y });
+    const clearance = Math.max(Math.max(0, Number(projectile.pathMargin) || 0), Math.max(10, Number(projectile.radius) || 0) + 4);
+    const queryBounds = {
+        minX: projectile.x - clearance,
+        minY: projectile.y - clearance,
+        maxX: projectile.x + clearance,
+        maxY: projectile.y + clearance
+    };
+    const avoidance = { x: 0, y: 0 };
+
+    for (const solid of queryWorldSolids(state.world, queryBounds)) {
+        const closest = closestPointOnRect(projectile, solid);
+        addPathingAvoidanceFromPoint(projectile, closest, clearance, avoidance);
+    }
+    for (const segment of queryWorldSegments(state.world, queryBounds)) {
+        if (segment.kind === "walkable" || !isSolidSegmentKind(segment.kind)) {
+            continue;
+        }
+        const closest = closestPointOnSegment(projectile, { x: segment.x1, y: segment.y1 }, { x: segment.x2, y: segment.y2 });
+        addPathingAvoidanceFromPoint(projectile, closest, clearance, avoidance);
+    }
+    for (const polygon of queryWorldCollisionPolygons(state.world, queryBounds)) {
+        if (!isAreaBlockingSegmentKind(polygon.kind)) {
+            continue;
+        }
+        const points = Array.isArray(polygon.points) ? polygon.points : [];
+        for (let index = 0; index < points.length; index += 1) {
+            const a = points[index];
+            const b = points[(index + 1) % points.length];
+            if (!a || !b) continue;
+            const closest = closestPointOnSegment(projectile, a, b);
+            addPathingAvoidanceFromPoint(projectile, closest, clearance, avoidance);
+        }
+    }
+
+    const lookahead = Math.max(clearance * 1.35, currentSpeed * 0.9);
+    const forward = {
+        x: projectile.x + currentDir.x * lookahead,
+        y: projectile.y + currentDir.y * lookahead,
+        radius: Math.max(1, Number(projectile.radius) || 1) + clearance * 0.55
+    };
+    const forwardImpact = findProjectileTerrainImpact(state, forward, projectile.x, projectile.y, { includeReactiveObjects: true });
+    if (forwardImpact) {
+        addPathingAvoidanceFromPoint(projectile, { x: forwardImpact.x, y: forwardImpact.y }, clearance * 1.1, avoidance);
+    }
+
+    const desired = normalizeVector({
+        x: targetDir.x + avoidance.x * 1.9,
+        y: targetDir.y + avoidance.y * 1.9
+    });
+    if ((Math.abs(desired.x) < 0.00001 && Math.abs(desired.y) < 0.00001)) {
+        return currentDir;
+    }
+    return desired;
 }
 
 function launchCharacterEnemyProjectile(state, enemy, angleOffset = 0, volley = null) {
@@ -4272,9 +4368,13 @@ function launchCharacterEnemyProjectile(state, enemy, angleOffset = 0, volley = 
         vx = aim.x * tunedProjectileSpeed;
         vy = aim.y * tunedProjectileSpeed;
         gravity = 0;
-        if (launchType === "homing_hi" || launchType === "pathing_hi") {
+        if (launchType === "pathing_hi") {
+            homingStrength = Math.max(0.8, Number(enemy.projectileHomingStrength) || 0);
+        } else if (launchType === "pathing_lo") {
+            homingStrength = Math.max(0.2, Number(enemy.projectileHomingStrength) || 0);
+        } else if (launchType === "homing_hi") {
             homingStrength = Math.max(2.4, Number(enemy.projectileHomingStrength) || 0);
-        } else if (launchType === "homing_lo" || launchType === "pathing_lo") {
+        } else if (launchType === "homing_lo") {
             homingStrength = Math.max(0.65, Number(enemy.projectileHomingStrength) || 0);
         } else {
             homingStrength = 0;
@@ -4315,6 +4415,10 @@ function launchCharacterEnemyProjectile(state, enemy, angleOffset = 0, volley = 
         knockbackX,
         knockbackY,
         trail: projectileKind === "throwingKnife" ? [] : trail,
+        projectileKind,
+        visualStyle: projectileKind === "undeathOrb" ? "undeath" : null,
+        pathMargin: Math.max(0, Number(enemy.projectilePathMargin) || 0),
+        projectileSpeed: tunedProjectileSpeed,
         volleyId: volley?.id || null,
         volleyIndex: Number.isFinite(Number(volley?.index)) ? Number(volley.index) : 0,
         volleyCount: Math.max(1, Math.round(finiteNumberOr(volley?.count, 1))),
@@ -5251,6 +5355,45 @@ function chooseCharacterEnemyAttackPlan(state, enemy, navigation) {
 
     const playerSupport = characterEnemyPlayerSupport(state, enemy, navigation.supports);
     if (playerSupport) {
+        let routeToPlayer = characterEnemyRoute(
+            state,
+            enemy,
+            navigation.supports,
+            startSupport.id,
+            playerSupport.support.id,
+            edgeMap
+        );
+
+        if (enemy.hunterPursuePlayerSupport === true && routeToPlayer) {
+            const exactSupportPlan = bestAttackPositionOnSupport(playerSupport.support, routeToPlayer);
+            if (exactSupportPlan) {
+                return exactSupportPlan;
+            }
+            const approachSide = enemy.x <= player.x ? -1 : 1;
+            const approach = supportPoint(
+                playerSupport.support,
+                player.x + approachSide * Math.max(12, Math.min(preferredRange, Number(enemy.attackRange) * 0.82)),
+                Math.max(4, enemy.width * 0.35)
+            );
+            routeToPlayer = characterEnemyRoute(
+                state,
+                enemy,
+                navigation.supports,
+                startSupport.id,
+                playerSupport.support.id,
+                edgeMap,
+                approach.x
+            ) || routeToPlayer;
+            return {
+                kind: "pursue",
+                supportId: playerSupport.support.id,
+                targetX: approach.x,
+                targetY: approach.y,
+                route: routeToPlayer,
+                score: routeToPlayer.cost + Math.abs(approach.x - player.x)
+            };
+        }
+
         const targetRegionIds = new Set([playerSupport.support.id]);
         const pending = [playerSupport.support.id];
         while (pending.length) {
@@ -5265,18 +5408,16 @@ function chooseCharacterEnemyAttackPlan(state, enemy, navigation) {
         }
 
         let targetRegionPlan = null;
-        let routeToPlayer = null;
         for (const supportId of targetRegionIds) {
             const support = navigationSupportById(navigation.supports, supportId);
             if (!support) {
                 continue;
             }
-            const route = characterEnemyRoute(state, enemy, navigation.supports, startSupport.id, support.id, edgeMap);
+            const route = support.id === playerSupport.support.id
+                ? routeToPlayer
+                : characterEnemyRoute(state, enemy, navigation.supports, startSupport.id, support.id, edgeMap);
             if (!route) {
                 continue;
-            }
-            if (support.id === playerSupport.support.id) {
-                routeToPlayer = route;
             }
             const candidate = bestAttackPositionOnSupport(support, route);
             if (candidate && (!targetRegionPlan || candidate.score < targetRegionPlan.score)) {
@@ -7325,16 +7466,62 @@ function deterministicRocketLaunchAngleJitterDegrees(state, volleyId, maximumDeg
     return (unit * 2 - 1) * magnitude;
 }
 
-function sortTargetsByDistance(targets, originX, originY) {
-    return targets.slice().sort((left, right) => {
-        const leftDx = Number(left.x) - originX;
-        const leftDy = Number(left.y) - originY;
-        const rightDx = Number(right.x) - originX;
-        const rightDy = Number(right.y) - originY;
-        const distanceDifference = (leftDx * leftDx + leftDy * leftDy) - (rightDx * rightDx + rightDy * rightDy);
-        if (Math.abs(distanceDifference) > 0.0001) return distanceDifference;
-        return String(left.id).localeCompare(String(right.id));
-    });
+function rocketTargetHasLineOfSight(state, origin, target) {
+    const start = { x: Number(origin.x) || 0, y: Number(origin.y) || 0 };
+    const end = { x: Number(target.x) || 0, y: Number(target.y) || 0 };
+    const terrainQueryBounds = {
+        minX: Math.min(start.x, end.x),
+        minY: Math.min(start.y, end.y),
+        maxX: Math.max(start.x, end.x),
+        maxY: Math.max(start.y, end.y)
+    };
+    for (const solid of queryWorldSolids(state.world, terrainQueryBounds)) {
+        if (segmentRectIntersection(start, end, solid)) {
+            return false;
+        }
+    }
+    for (const segment of queryWorldSegments(state.world, terrainQueryBounds)) {
+        if (!isAreaBlockingSegmentKind(segment.kind) && segment.kind !== "walkable") {
+            continue;
+        }
+        if (segmentSegmentIntersection(start, end, { x: segment.x1, y: segment.y1 }, { x: segment.x2, y: segment.y2 })) {
+            return false;
+        }
+    }
+    for (const polygon of queryWorldCollisionPolygons(state.world, terrainQueryBounds)) {
+        if (!isAreaBlockingSegmentKind(polygon.kind)) {
+            continue;
+        }
+        if (pointInPolygon(start, polygon) || pointInPolygon(end, polygon) || firstSegmentPolygonBoundaryIntersection(start, end, polygon)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function sortRocketTargets(state, targets, originX, originY, facing, options = {}) {
+    const origin = { x: originX, y: originY };
+    const requireForward = options.requireForward === true;
+    return targets
+        .filter((target) => !requireForward || (Number(target.x) - originX) * facing >= -0.001)
+        .map((target) => {
+            const dx = Number(target.x) - originX;
+            const dy = Number(target.y) - originY;
+            return {
+                target,
+                hasLineOfSight: rocketTargetHasLineOfSight(state, origin, target),
+                isForward: dx * facing >= -0.001,
+                distanceSquared: dx * dx + dy * dy
+            };
+        })
+        .sort((left, right) => {
+            if (left.hasLineOfSight !== right.hasLineOfSight) return left.hasLineOfSight ? -1 : 1;
+            if (!requireForward && left.isForward !== right.isForward) return left.isForward ? -1 : 1;
+            const distanceDifference = left.distanceSquared - right.distanceSquared;
+            if (Math.abs(distanceDifference) > 0.0001) return distanceDifference;
+            return String(left.target.id).localeCompare(String(right.target.id));
+        })
+        .map((entry) => entry.target);
 }
 
 function orderedForwardTargets(state) {
@@ -7344,23 +7531,17 @@ function orderedForwardTargets(state) {
     const facing = player.facing < 0 ? -1 : 1;
     const originX = Number(player.x) || 0;
     const originY = (Number(player.y) || 0) - (Number(player.height) || 0) * 0.72;
-    return sortTargetsByDistance(
-        activeTargets.filter((target) => (Number(target.x) - originX) * facing >= -0.001),
-        originX,
-        originY
-    );
+    return sortRocketTargets(state, activeTargets, originX, originY, facing, { requireForward: true });
 }
 
 function orderedHomingTargets(state) {
     const activeTargets = (state.targets || []).filter((target) => target.state === "active");
     if (!activeTargets.length) return [];
     const player = state.player || { x: 0, y: 0, height: 0, facing: 1 };
+    const facing = player.facing < 0 ? -1 : 1;
     const originX = Number(player.x) || 0;
     const originY = (Number(player.y) || 0) - (Number(player.height) || 0) * 0.72;
-    const forwardTargets = orderedForwardTargets(state);
-    return forwardTargets.length
-        ? forwardTargets
-        : sortTargetsByDistance(activeTargets, originX, originY);
+    return sortRocketTargets(state, activeTargets, originX, originY, facing);
 }
 
 function activeRocketProfile(state) {
@@ -7698,8 +7879,21 @@ function updateProjectiles(state, dt) {
 
         projectile.age += dt;
         if (projectile.state === "exploding") {
+            if (projectile.visualStyle === "undeath") {
+                pruneEnemyFireballTrail(state, projectile);
+            }
             projectile.explosionTimer -= dt;
             if (projectile.explosionTimer <= 0) {
+                projectile.state = projectile.visualStyle === "undeath" && projectile.trail?.length
+                    ? "trailFading"
+                    : "spent";
+            }
+            continue;
+        }
+
+        if (projectile.state === "trailFading") {
+            pruneEnemyFireballTrail(state, projectile);
+            if (!projectile.trail?.length) {
                 projectile.state = "spent";
             }
             continue;
@@ -7758,7 +7952,9 @@ function updateProjectiles(state, dt) {
             const playerTarget = state.player.visible === false ? null : { x: state.player.x, y: state.player.y - state.player.height * 0.56 };
             if (playerTarget) {
                 const speed = Math.hypot(projectile.vx, projectile.vy) || Math.max(1, Number(projectile.projectileSpeed) || 1);
-                const desired = normalizeVector({ x: playerTarget.x - projectile.x, y: playerTarget.y - projectile.y });
+                const desired = projectile.launchType === "pathing_lo" || projectile.launchType === "pathing_hi"
+                    ? pathingProjectileDesiredDirection(state, projectile, playerTarget)
+                    : normalizeVector({ x: playerTarget.x - projectile.x, y: playerTarget.y - projectile.y });
                 const desiredVx = desired.x * speed;
                 const desiredVy = desired.y * speed;
                 const blend = clamp((Number(projectile.homingStrength) || 0) * dt, 0, 1);
@@ -7782,7 +7978,7 @@ function updateProjectiles(state, dt) {
         if (projectile.isRocket) {
             recordProjectileTrail(state, projectile);
         } else if (projectile.kind === "enemyFireball") {
-            if (state.settings?.renderingQuality !== "low") {
+            if (projectile.visualStyle === "undeath" || state.settings?.renderingQuality !== "low") {
                 recordEnemyFireballTrail(state, projectile);
             } else if (Array.isArray(projectile.trail) && projectile.trail.length) {
                 projectile.trail.length = 0;
@@ -8045,6 +8241,15 @@ function rocketTrailDurationScale(state, projectile) {
     return clamp(standardSpeed / projectileSpeed, 0.25, 2.5);
 }
 
+const UNDEATH_TRAIL_EMIT_COUNT = 3;
+const UNDEATH_TRAIL_DENSITY_SCALE = 0.9375;
+const UNDEATH_TRAIL_LOW_QUALITY_DENSITY_SCALE = 0.75;
+const UNDEATH_TRAIL_LIFETIME_SCALE = 2;
+const UNDEATH_TRAIL_RADIUS_SCALE = 2;
+const UNDEATH_TRAIL_SIZE_VARIATION = 0.25;
+const UNDEATH_TRAIL_WIDTH_SCALE = 0.6;
+const UNDEATH_TRAIL_MAX_PARTICLES = 158;
+
 function recordEnemyFireballTrail(state, projectile) {
     if (!Array.isArray(projectile.trail)) {
         projectile.trail = [];
@@ -8055,7 +8260,17 @@ function recordEnemyFireballTrail(state, projectile) {
     const lateralX = -tailY;
     const lateralY = tailX;
     const radius = Math.max(2, Number(projectile.radius) || 10);
-    const emitCount = 3;
+    const undeath = projectile.visualStyle === "undeath";
+    let emitCount = 3;
+    if (undeath) {
+        const qualityDensityScale = state.settings?.renderingQuality === "low"
+            ? UNDEATH_TRAIL_LOW_QUALITY_DENSITY_SCALE
+            : 1;
+        const exactEmitCount = UNDEATH_TRAIL_EMIT_COUNT * UNDEATH_TRAIL_DENSITY_SCALE * qualityDensityScale;
+        const accumulatedEmitCount = Math.max(0, Number(projectile.undeathTrailEmissionRemainder) || 0) + exactEmitCount;
+        emitCount = Math.floor(accumulatedEmitCount);
+        projectile.undeathTrailEmissionRemainder = accumulatedEmitCount - emitCount;
+    }
     const idSeed = String(projectile.id || projectile.enemyId || "enemy_fireball")
         .split("")
         .reduce((acc, ch, index) => (acc + ch.charCodeAt(0) * (index + 17)) % 1000003, 0);
@@ -8067,6 +8282,27 @@ function recordEnemyFireballTrail(state, projectile) {
         const heat = hash01(seed + 47);
         const spawnBack = radius * (0.18 + backwardNoise * 0.4);
         const spawnSide = lateralNoise * radius * (0.12 + heat * 0.48);
+        if (undeath) {
+            const orbitAngle = hash01(seed + 19) * Math.PI * 2;
+            const orbitDistance = radius * (0.18 + hash01(seed + 37) * 0.82) * UNDEATH_TRAIL_WIDTH_SCALE;
+            const outwardSpeed = (5 + hash01(seed + 61) * 13) * UNDEATH_TRAIL_WIDTH_SCALE;
+            const driftJitter = 4 * UNDEATH_TRAIL_WIDTH_SCALE;
+            const orbitX = Math.cos(orbitAngle);
+            const orbitY = Math.sin(orbitAngle);
+            const sizeVariation = 1 - UNDEATH_TRAIL_SIZE_VARIATION + hash01(seed + 239) * UNDEATH_TRAIL_SIZE_VARIATION * 2;
+            projectile.trail.push({
+                x: round(projectile.x + orbitX * orbitDistance),
+                y: round(projectile.y + orbitY * orbitDistance),
+                vx: round(orbitX * outwardSpeed + (hash01(seed + 79) * 2 - 1) * driftJitter),
+                vy: round(orbitY * outwardSpeed + (hash01(seed + 97) * 2 - 1) * driftJitter),
+                birth: Number(state.clock.time.toFixed(4)),
+                lifetime: Number(((0.22 + heat * 0.18 + hash01(seed + 173) * 0.08) * UNDEATH_TRAIL_LIFETIME_SCALE).toFixed(4)),
+                radius: Number(((radius * (0.11 + heat * 0.09) + hash01(seed + 211) * 0.45) * UNDEATH_TRAIL_RADIUS_SCALE * sizeVariation).toFixed(3)),
+                bubble: true,
+                hue: Number((0.45 + heat * 0.35).toFixed(4))
+            });
+            continue;
+        }
         const colorBand = heat > 0.82 ? "yellow" : heat > 0.4 ? "orange" : "red";
         projectile.trail.push({
             x: round(projectile.x + tailX * spawnBack + lateralX * spawnSide),
@@ -8084,15 +8320,31 @@ function recordEnemyFireballTrail(state, projectile) {
         });
     }
 
-    const cutoff = state.clock.time - 0.42;
+    pruneEnemyFireballTrail(state, projectile);
+}
+
+function pruneEnemyFireballTrail(state, projectile) {
+    if (!Array.isArray(projectile.trail)) {
+        projectile.trail = [];
+        return;
+    }
+    const undeath = projectile.visualStyle === "undeath";
+    const cutoff = state.clock.time - (undeath ? 1.12 : 0.42);
     while (projectile.trail.length > 0) {
-        const age = state.clock.time - (projectile.trail[0].birth ?? state.clock.time);
-        if (projectile.trail[0].birth >= cutoff && age <= (projectile.trail[0].lifetime ?? 0.3)) {
+        const particle = projectile.trail[0];
+        const birth = Number(particle.birth);
+        const lifetime = Number(particle.lifetime);
+        if (!Number.isFinite(birth) || !Number.isFinite(lifetime)) {
+            projectile.trail.shift();
+            continue;
+        }
+        const age = state.clock.time - birth;
+        if (birth >= cutoff && age <= lifetime) {
             break;
         }
         projectile.trail.shift();
     }
-    while (projectile.trail.length > 48) {
+    while (projectile.trail.length > (undeath ? UNDEATH_TRAIL_MAX_PARTICLES : 48)) {
         projectile.trail.shift();
     }
 }
@@ -8297,28 +8549,7 @@ function hash01(seed) {
 }
 
 function findHomingTarget(state) {
-    const activeTargets = (state.targets || []).filter((target) => target.state === "active");
-    if (!activeTargets.length) {
-        return null;
-    }
-
-    const player = state.player || { x: 0, y: 0, height: 0, facing: 1 };
-    const facing = player.facing < 0 ? -1 : 1;
-    const originX = Number(player.x) || 0;
-    const originY = (Number(player.y) || 0) - (Number(player.height) || 0) * 0.72;
-    const forwardTargets = activeTargets.filter((target) => (Number(target.x) - originX) * facing >= -0.001);
-    const candidates = forwardTargets.length ? forwardTargets : activeTargets;
-
-    return candidates.reduce((best, target) => {
-        const dx = Number(target.x) - originX;
-        const dy = Number(target.y) - originY;
-        const distanceSquared = dx * dx + dy * dy;
-        if (!best || distanceSquared < best.distanceSquared - 0.0001 ||
-            (Math.abs(distanceSquared - best.distanceSquared) <= 0.0001 && String(target.id) < String(best.target.id))) {
-            return { target, distanceSquared };
-        }
-        return best;
-    }, null)?.target || null;
+    return orderedHomingTargets(state)[0] || null;
 }
 
 function findTargetById(state, id) {

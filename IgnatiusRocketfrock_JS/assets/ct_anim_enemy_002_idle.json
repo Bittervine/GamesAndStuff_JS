@@ -1,0 +1,449 @@
+{
+    "meta": {
+        "version": 4,
+        "note": "Enemy 001 editable idle animation, preserving the user-authored revision 077 pose and layer-compatible transforms."
+    },
+    "animationId": "ct_anim_enemy_002_idle",
+    "duration": 1.2,
+    "loop": true,
+    "mirrorable": true,
+    "playback": {
+        "idleThreshold": 0.04,
+        "baseCyclesPerSecond": 0.833333,
+        "speedCyclesPerSecond": 0.833333,
+        "maxSpeedRatio": 1
+    },
+    "rootMotion": {
+        "enabled": false,
+        "xTrack": null,
+        "yTrack": null
+    },
+    "referencePose": {
+        "leftArm": {
+            "x": -48,
+            "y": -278,
+            "rotation": -0.16,
+            "scale": 1,
+            "alpha": 1
+        },
+        "rightLeg": {
+            "x": -24,
+            "y": -170,
+            "rotation": 0.02,
+            "scale": 1,
+            "alpha": 1
+        },
+        "leftLeg": {
+            "x": 24,
+            "y": -170,
+            "rotation": -0.02,
+            "scale": 1,
+            "alpha": 1
+        },
+        "torso": {
+            "x": 0,
+            "y": -166,
+            "rotation": 0,
+            "scale": 1,
+            "alpha": 1
+        },
+        "head": {
+            "x": 2,
+            "y": -298,
+            "rotation": 0.02,
+            "scale": 1,
+            "alpha": 1
+        },
+        "rightArm": {
+            "x": 50,
+            "y": -280,
+            "rotation": 0.1,
+            "scale": 1,
+            "alpha": 1
+        },
+        "undeathOrb": {
+            "x": 53.699025,
+            "y": -148.734935,
+            "rotation": 0.125,
+            "scale": 0.55,
+            "alpha": 0
+        }
+    },
+    "tracks": {
+        "rightArm": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": -48,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -278,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": -281,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 1.2,
+                    "value": -278,
+                    "easing": "easeInOut"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": -0.16,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": -0.12,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 1.2,
+                    "value": -0.16,
+                    "easing": "easeInOut"
+                }
+            ],
+            "scale": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "rightLeg": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": -24,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -170,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": -171,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 1.2,
+                    "value": -170,
+                    "easing": "easeInOut"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": 0.02,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": 0.012,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 1.2,
+                    "value": 0.02,
+                    "easing": "easeInOut"
+                }
+            ],
+            "scale": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "leftLeg": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": 24,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -170,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": -171,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 1.2,
+                    "value": -170,
+                    "easing": "easeInOut"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": -0.02,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": -0.012,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 1.2,
+                    "value": -0.02,
+                    "easing": "easeInOut"
+                }
+            ],
+            "scale": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "torso": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": 0,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -166,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": -169,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 1.2,
+                    "value": -166,
+                    "easing": "easeInOut"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": 0,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": 0.018,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 1.2,
+                    "value": 0,
+                    "easing": "easeInOut"
+                }
+            ],
+            "scale": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "head": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": 8.53857243222975,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": 12.171106513682796,
+                    "easing": "easeInOut"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -295.69701503768044,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": -299.4646669304394,
+                    "easing": "easeInOut"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": 0.02,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": -0.012,
+                    "easing": "easeInOut"
+                }
+            ],
+            "scale": [
+                {
+                    "time": 0,
+                    "value": 0.65,
+                    "easing": "linear"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "leftArm": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": 50,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -280,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": -283,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 1.2,
+                    "value": -280,
+                    "easing": "easeInOut"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": 0.1,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": 0.145,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 1.2,
+                    "value": 0.1,
+                    "easing": "easeInOut"
+                }
+            ],
+            "scale": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "undeathOrb": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": 53.699025,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -148.734935,
+                    "easing": "linear"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": 0,
+                    "easing": "linear"
+                }
+            ],
+            "scale": [
+                {
+                    "time": 0,
+                    "value": 0.55,
+                    "easing": "linear"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 0,
+                    "easing": "linear"
+                }
+            ]
+        }
+    },
+    "name": "Skeleton Caster Idle"
+}

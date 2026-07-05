@@ -3993,3 +3993,55 @@ Revision 399 keeps the shipped Enemy 032 death clip unchanged but replaces the t
 - [x] Rebake Level 001 with a left jump to the starter platform and a right controlled walk-off from the reported ledge.
 - [x] Add a full-simulation Enemy 033 regression for the screenshot ledge and require the alternate right-hand drop edge.
 - [x] Synchronize visible game and editor revision labels to 408.
+
+
+## Revision 411 skeleton damage parity and front-layer undeath bubbles
+
+- [x] Keep the Skeleton Caster orb at 50 HP before difficulty scaling.
+- [x] Raise Skeleton Guard melee damage to 50 HP before difficulty scaling.
+- [x] Patch bundled Skeleton Guard level records directly.
+- [x] Replace the pale additive undeath trail with a cached black-green alpha-blended bubble stamp.
+- [x] Render undeath bubbles after the orb in Canvas and WebGL so they may partially obscure it.
+- [x] Preserve the revision 410 trail density, initial size, and lifetime.
+- [x] Synchronize visible game and editor revision labels to 411.
+
+
+## Revision 412 denser varied undeath bubbles and faster casting
+
+- [x] Reduce Skeleton Caster projectile cooldown from five seconds to three seconds.
+- [x] Increase undeath bubble emission by exactly 25 percent over revision 411.
+- [x] Use deterministic fractional emission so density is stable and reproducible.
+- [x] Vary each undeath bubble's initial size uniformly by +/-25 percent.
+- [x] Raise the undeath particle cap from 168 to 210.
+- [x] Preserve the existing dark palette, lifetime, base scale, and front-layer ordering.
+
+## Revision 413 caster pursuit and rocket line-of-sight priority
+
+- [x] Make pathing-projectile hunters prefer Ignatius's actual support when a valid route exists.
+- [x] Mark Enemy 002 as an assertive support-pursuing hunter.
+- [x] Preserve ordinary ranged-hunter positioning for non-pathing goblins and humans.
+- [x] Add a Level 001 regression proving the Skeleton Caster plans and completes the ruin jump.
+- [x] Rank wizard rocket targets by line of sight before facing and distance.
+- [x] Apply the same target order to homing rockets and monster-aimed straight rockets.
+- [x] Leave the cyan horizontal dart unchanged because it has no monster-target selection.
+- [x] Add regression coverage for a visible farther target beating a nearer occluded target.
+- [x] Synchronize catalog revision metadata to 413.
+
+## Revision 414 bubble-only undeath trial
+
+- [x] Suppress the live undeath-orb sprite without changing projectile collision or pathing.
+- [x] Keep undeath bubbles visible on Low rendering quality because they are now the projectile body.
+- [x] Narrow radial spawn spread and outward bubble drift to 60 percent.
+- [x] Reduce deterministic bubble emission and particle capacity by 25 percent.
+- [x] Preserve bubble size, lifetime, color, damage, speed, steering, and cooldown.
+
+
+## Revision 415 lingering undeath bubbles
+
+- [x] Preserve emitted undeath bubbles after projectile impact or expiry.
+- [x] Stop all new bubble emission after the projectile leaves the launched state.
+- [x] Keep a non-colliding trail-only carrier until the final bubble expires.
+- [x] Render fading bubbles in both Canvas and WebGL paths.
+- [x] Retain visibility on Low quality with a 25 percent emission reduction.
+- [x] Add regression coverage for the trail-fading lifecycle.
+- [x] Synchronize packaged revision labels and catalog metadata to 415.
