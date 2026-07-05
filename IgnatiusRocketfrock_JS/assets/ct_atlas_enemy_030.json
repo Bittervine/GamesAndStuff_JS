@@ -1,7 +1,7 @@
 {
   "meta": {
-    "version": 4,
-    "note": "Revision 405 modular human atlas. Enemies 030 and 031 now use the split articulated limbs with their original body/head pairs; Enemy 032 uses previously unused body_02/head_02 and throws three copies of the dagger frame."
+    "version": 5,
+    "note": "Revision 406 modular human atlas. Enemy 033 now consumes the existing body_03/head_03 frames; no new bitmap data is required. Enemies 032/033 share the side-facing dagger frame."
   },
   "atlasId": "ct_atlas_enemy_030",
   "image": "ct_atlas_enemy_030.png",

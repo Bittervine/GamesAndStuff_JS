@@ -1,7 +1,7 @@
 {
   "meta": {
-    "version": 4,
-    "note": "Revision 405 modular human manifest. Enemies 030 and 031 now use the articulated split-limb sword rig, while Enemy 032 uses body_02/head_02 and the dagger projectile without a held sword."
+    "version": 5,
+    "note": "Revision 406 modular human manifest. Enemies 032 and 033 are articulated knife throwers using body/head pairs 02 and 03 respectively; both share the dagger projectile and no held sword."
   },
   "partsManifestId": "ct_human_parts_030",
   "atlasId": "ct_atlas_enemy_030",
@@ -539,6 +539,21 @@
     "enemy_032": {
       "body": "body_02",
       "head": "head_02",
+      "leftArmUpper": "arm_upper_01",
+      "leftArmLower": "arm_lower_01",
+      "rightArmUpper": "arm_upper_00",
+      "rightArmLower": "arm_lower_00",
+      "leftLegUpper": "leg_upper_01",
+      "leftLegLower": "leg_lower_01",
+      "leftFoot": "foot_01",
+      "rightLegUpper": "leg_upper_00",
+      "rightLegLower": "leg_lower_00",
+      "rightFoot": "foot_00",
+      "projectile": "dagger"
+    },
+    "enemy_033": {
+      "body": "body_03",
+      "head": "head_03",
       "leftArmUpper": "arm_upper_01",
       "leftArmLower": "arm_lower_01",
       "rightArmUpper": "arm_upper_00",

@@ -155,6 +155,25 @@
       "preferredProgressMax": 0.96,
       "requiresNavigation": true,
       "notes": "Dormant metadata for the articulated Human Knife Thrower. It uses body_02/head_02 and releases a three-knife ranged fan; it remains excluded from ordinary generated levels until the human family is tuned."
+    },
+    "enemy_033": {
+      "placementClass": "groundRanged",
+      "groupMin": 1,
+      "groupMax": 1,
+      "difficultyCost": 3.4,
+      "weight": 0.05,
+      "minDifficulty": 1,
+      "maxDifficulty": 1,
+      "minWalkableWidth": 360,
+      "edgeClearance": 58,
+      "landingBuffer": 138,
+      "headroom": 190,
+      "patrolRoom": 260,
+      "minGroupSpacing": 92,
+      "preferredProgressMin": 0.95,
+      "preferredProgressMax": 0.96,
+      "requiresNavigation": true,
+      "notes": "Dormant metadata for Human Knife Thrower II. It uses body_03/head_03 and shares Enemy 032's three-knife +/-5 degree point-first volley; it remains excluded from ordinary generated levels until the human family is tuned."
     }
   }
 }

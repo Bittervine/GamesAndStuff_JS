@@ -3950,3 +3950,46 @@ Revision 399 keeps the shipped Enemy 032 death clip unchanged but replaces the t
 - [x] Launch three non-homing dagger projectiles in a narrow fan.
 - [x] Add dedicated Canvas and WebGL dagger projectile rendering.
 - [x] Remove the obsolete death showcase, ragdoll traces, and superseded Enemy 032 animation builders.
+
+## Revision 406 point-first knife volleys and Enemy 033
+
+- [x] Remove age-based dagger spin from Canvas and WebGL knife rendering.
+- [x] Align every thrown dagger point-first with its velocity vector.
+- [x] Narrow Enemy 032's three-knife spread to ±5 degrees.
+- [x] Patch the bundled current-level Enemy 032 record to the new spread.
+- [x] Add Enemy 033 as a separate character project using `body_03` and `head_03`.
+- [x] Copy the current user-authored Enemy 032 rig behavior and all five animations exactly to Enemy 033.
+- [x] Register Enemy 033 in the catalog, human manifest, generator metadata, runtime preload list, and Puppet Forge.
+- [x] Add a repeatable Enemy 033 cloning utility that does not rebuild Enemy 032's throwing animation.
+- [x] Add regression coverage for the ±5-degree volley, non-spinning renderer paths, fresh artwork pair, and exact animation copy.
+- [x] Synchronize visible game and editor revision labels to 406.
+- [x] Replace stale `level_001` Musket Goblin placement assumptions with checks against the current Tri-fireball Goblin roster.
+
+## Revision 407 Puppet Forge panel order and changed-document exports
+
+- [x] Reorder the right-hand panels around the requested Character, Metadata, Animation, Keyframe, Rigging, file-loading, JSON, and Reference workflow.
+- [x] Retain the omitted Atlas parts, Rig JSON, and Status panels in logical positions.
+- [x] Rename Character project, Enemy type defaults, Animation preview, Animation track, Base rig / setup values, Local project files, and Motion reference video.
+- [x] Rename Apply enemy defaults to Apply.
+- [x] Remove the visible Metadata hitbox explanation and expose its guidance through field tooltips.
+- [x] Replace the visible Workspace instruction paragraph with focused tooltips.
+- [x] Make changed Workspace document tiles download Character, Atlas, Rig, and Enemy Catalog JSON.
+- [x] Download every changed cached animation clip from one Animations-tile click, preserving mapped filenames and baking constraints.
+- [x] Mark only successfully queued document downloads clean.
+- [x] Synchronize visible game and editor revision labels to 407.
+- [x] Skip the automated test suite for this revision at the user's explicit request.
+
+
+
+## Revision 408 tall-human ledge escape
+
+- [x] Adopt the supplied Level 001 edit, including Enemy 033 on the left ledge and Enemy 031 on the lower floor.
+- [x] Raise Enemies 030-033 from a 520-pixel to a 600-pixel authored fall limit.
+- [x] Keep the human-family regeneration utility aligned with the new fall capability.
+- [x] Permit committed downward jumps to depart beside the true source obstacle edge.
+- [x] Use stable majority overlap instead of a full-body target fit for downward-jump landing candidates.
+- [x] Permit source-obstacle departure during validated jump trajectories while the actor remains above the source surface.
+- [x] Share a 0.9-body-width walk-off clearance cap between graph baking and runtime collision.
+- [x] Rebake Level 001 with a left jump to the starter platform and a right controlled walk-off from the reported ledge.
+- [x] Add a full-simulation Enemy 033 regression for the screenshot ledge and require the alternate right-hand drop edge.
+- [x] Synchronize visible game and editor revision labels to 408.

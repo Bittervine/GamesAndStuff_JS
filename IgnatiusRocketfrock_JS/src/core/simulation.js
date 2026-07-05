@@ -58,6 +58,7 @@ import {
 import {
     buildEnemyNavigationEdges,
     ENEMY_DROP_SOURCE_CLEARANCE_HEIGHT_FACTOR,
+    ENEMY_DROP_SOURCE_CLEARANCE_WIDTH_FACTOR,
     buildEnemyNavigationSupports,
     enemyNavigationEdgeMapFromFlat,
     enemyNavigationProfileKey,
@@ -5628,7 +5629,7 @@ function updateCharacterEnemyAirTraversal(state, enemy, dt, supports) {
             6,
             Math.min(
                 enemy.height * ENEMY_DROP_SOURCE_CLEARANCE_HEIGHT_FACTOR,
-                enemy.width * 0.8
+                enemy.width * ENEMY_DROP_SOURCE_CLEARANCE_WIDTH_FACTOR
             )
         );
         if (Math.abs(Number(enemy.velocityX) || 0) <= 0.001) {

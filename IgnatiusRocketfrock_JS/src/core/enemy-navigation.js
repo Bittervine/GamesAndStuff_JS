@@ -1,6 +1,7 @@
 const EPSILON = 0.001;
 
 export const ENEMY_DROP_SOURCE_CLEARANCE_HEIGHT_FACTOR = 0.45;
+export const ENEMY_DROP_SOURCE_CLEARANCE_WIDTH_FACTOR = 0.9;
 
 function finite(value, fallback = 0) {
     const number = Number(value);
@@ -248,10 +249,11 @@ function transitionTrajectoryClear(edge, options = {}) {
         // collision with that polygon made wall-clipping arcs look valid to
         // the baker even though runtime horizontal collision stopped them.
         const sourceDrop = isSource && edge.type === "drop";
-        const allowedMin = sourceDrop && Number.isFinite(Number(endpointSupport.obstacleXMin))
+        const sourceDeparture = isSource && (edge.type === "drop" || edge.type === "jump");
+        const allowedMin = sourceDeparture && Number.isFinite(Number(endpointSupport.obstacleXMin))
             ? Number(endpointSupport.obstacleXMin) - halfWidth - 2
             : endpointSupport.xMin;
-        const allowedMax = sourceDrop && Number.isFinite(Number(endpointSupport.obstacleXMax))
+        const allowedMax = sourceDeparture && Number.isFinite(Number(endpointSupport.obstacleXMax))
             ? Number(endpointSupport.obstacleXMax) + halfWidth + 2
             : endpointSupport.xMax;
         if (x < allowedMin - EPSILON || x > allowedMax + EPSILON) {
@@ -602,7 +604,7 @@ function physicsGuidedDropCandidates(from, to, options = {}) {
         // modest run speeds physically incapable of stepping off a ledge.
         const verticalAllowance = Math.max(
             6,
-            Math.min(bodyHeight * ENEMY_DROP_SOURCE_CLEARANCE_HEIGHT_FACTOR, bodyWidth * 0.8)
+            Math.min(bodyHeight * ENEMY_DROP_SOURCE_CLEARANCE_HEIGHT_FACTOR, bodyWidth * ENEMY_DROP_SOURCE_CLEARANCE_WIDTH_FACTOR)
         );
         const clearanceTime = Math.sqrt(2 * verticalAllowance / gravity);
         const minimumClearSpeed = Math.abs(clearCenterX - launchX) / Math.max(EPSILON, clearanceTime);
@@ -648,6 +650,7 @@ function physicsGuidedDownwardJumpCandidates(from, to, options = {}) {
     const inset = Math.max(4, finite(options.edgeInset, 10));
     const bodyWidth = Math.max(8, finite(options.bodyWidth, 48));
     const halfWidth = bodyWidth * 0.5;
+    const edgeNudge = Math.max(0.75, Math.min(2.5, inset * 0.12));
     const jumpHeight = Math.max(0, finite(options.jumpHeight, 0));
     const gravity = Math.max(1, finite(options.gravity, 1200));
     const runSpeed = Math.max(1, finite(options.runSpeed, 1));
@@ -658,12 +661,18 @@ function physicsGuidedDownwardJumpCandidates(from, to, options = {}) {
         return candidates;
     }
 
+    // Downward jumps are committed ledge exits. Launch beside the actual
+    // obstacle wall rather than an ordinary interior edge inset; narrow ledges
+    // otherwise waste enough horizontal range to make a physically possible
+    // retreat look unreachable. The landing requires a stable majority body
+    // overlap, not a full-body fit, matching ordinary collision recovery.
     const launchX = targetLeft
-        ? clamp(from.xMin + inset, from.xMin, from.xMax)
-        : clamp(from.xMax - inset, from.xMin, from.xMax);
+        ? clamp(sourceEdge + edgeNudge, from.xMin, from.xMax)
+        : clamp(sourceEdge - edgeNudge, from.xMin, from.xMax);
     const launchY = supportYAt(from, launchX);
+    const majorityLandingInset = Math.max(4, Math.min(inset, bodyWidth * 0.07 + 1));
     const safeInset = Math.min(
-        Math.max(inset, halfWidth + 2),
+        majorityLandingInset,
         Math.max(0, (to.xMax - to.xMin) * 0.45)
     );
     const safeMin = to.xMin + safeInset;

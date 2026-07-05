@@ -434,13 +434,37 @@ touch-action: none;
 
         .dirty-item {
             display: flex;
+            width: 100%;
             justify-content: space-between;
             gap: 8px;
+            margin: 0;
             padding: 7px 8px;
             border: 1px solid var(--line);
             border-radius: 9px;
             color: var(--muted);
             background: rgba(0, 0, 0, 0.18);
+            cursor: default;
+            font-weight: 400;
+            text-align: left;
+        }
+
+        .dirty-item.changed {
+            border-color: rgba(255, 211, 119, 0.62);
+            color: var(--ink);
+            cursor: pointer;
+        }
+
+        .dirty-item.changed:hover {
+            background: rgba(255, 211, 119, 0.1);
+        }
+
+        .dirty-item:not(.changed):hover {
+            background: rgba(0, 0, 0, 0.18);
+        }
+
+        .dirty-item:focus-visible {
+            outline: 2px solid var(--accent-strong);
+            outline-offset: 2px;
         }
 
         .dirty-item strong {
@@ -657,65 +681,36 @@ touch-action: none;
         </section>
     </div>
     <aside>
-        <h1>Puppet Forge <small>rev 405</small></h1>
+        <h1>Puppet Forge <small>rev 408</small></h1>
         <p><a href="index.html">Back to tools</a></p>
         <p>
             Atlas-backed rig and keyframe editor. The preview now samples the same animation JSON module as the game, so edits are made in rig-space values rather than a second procedural imitation.
         </p>
 
 
-        <section class="box">
+        <section class="box" title="Mouse-wheel zooms the canvas; right-drag pans. In Rig and animation mode, drag the cyan GROUND label vertically to move the view without changing character data. Changed document buttons export their files.">
             <h2>Workspace</h2>
-            <label>
+            <label title="Switch between rig/animation editing and atlas-frame editing.">
                 <span>Editor mode</span>
                 <select id="editor-mode">
                     <option value="animation">Rig and animation</option>
                     <option value="atlas">Atlas parts</option>
                 </select>
             </label>
-            <div class="dirty-grid" aria-label="Unsaved change status">
-                <div class="dirty-item"><span>Character</span><strong id="dirty-character">saved</strong></div>
-                <div class="dirty-item"><span>Atlas</span><strong id="dirty-atlas">saved</strong></div>
-                <div class="dirty-item"><span>Rig</span><strong id="dirty-rig">saved</strong></div>
-                <div class="dirty-item"><span>Animations</span><strong id="dirty-animations">saved</strong></div>
-                <div class="dirty-item"><span>Enemy catalog</span><strong id="dirty-enemy-catalog">saved</strong></div>
+            <div class="dirty-grid" aria-label="Project document save status">
+                <button class="dirty-item" type="button" data-dirty-export="character" aria-disabled="true"><span>Character</span><strong id="dirty-character">saved</strong></button>
+                <button class="dirty-item" type="button" data-dirty-export="atlas" aria-disabled="true"><span>Atlas</span><strong id="dirty-atlas">saved</strong></button>
+                <button class="dirty-item" type="button" data-dirty-export="rig" aria-disabled="true"><span>Rig</span><strong id="dirty-rig">saved</strong></button>
+                <button class="dirty-item" type="button" data-dirty-export="animation" aria-disabled="true"><span>Animations</span><strong id="dirty-animations">saved</strong></button>
+                <button class="dirty-item" type="button" data-dirty-export="enemyCatalog" aria-disabled="true"><span>Enemy catalog</span><strong id="dirty-enemy-catalog">saved</strong></button>
             </div>
             <div class="inline-readout">
                 <span>View zoom: <strong id="zoom-value">100%</strong></span>
                 <button id="reset-view" type="button">Reset to 100%</button>
             </div>
-            <p>Use the mouse wheel over the canvas to zoom and right-drag to pan the active workspace. In Rig and animation mode, the cyan GROUND · y = 0 guide is the runtime floor; drag its label vertically to reposition the view without changing character data. Each project document is tracked separately; downloading a JSON file marks only that document as saved.</p>
         </section>
-
-        <section class="box mode-panel animation-panel" id="reference-plate-panel">
-            <h2>Motion reference video</h2>
-            <p>Load a local MP4 behind the rig as a temporary animation reference. The visible video moment follows the animation playhead while playing, pausing, scrubbing, stepping, changing preview speed, and looping. The file and all alignment settings remain only in this browser tab and are never written to character, rig, atlas, or animation JSON.</p>
-            <label><span>MP4 reference clip</span><input id="reference-video-file" type="file" accept="video/mp4,.mp4"></label>
-            <div class="row">
-                <button id="clear-reference" type="button">Clear reference</button>
-                <button id="reset-reference-transform" type="button">Reset alignment</button>
-            </div>
-            <div id="reference-source-status" class="project-source">No motion reference loaded.</div>
-            <label><span>Video time offset (seconds)</span><input id="reference-time-offset" type="number" step="0.001" value="0"></label>
-            <div class="row">
-                <label><span>X offset</span><input id="reference-x" type="number" step="1" value="0"></label>
-                <label><span>Y offset from ground</span><input id="reference-y" type="number" step="1" value="0"></label>
-            </div>
-            <div class="row">
-                <label><span>Width at 100% zoom</span><input id="reference-width" type="number" min="1" step="1" value="320"></label>
-                <label><span>Height at 100% zoom</span><input id="reference-height" type="number" min="1" step="1" value="540"></label>
-            </div>
-            <label>
-                <span class="readout"><span>Opacity</span><span id="reference-opacity-value">45%</span></span>
-                <input id="reference-opacity" type="range" min="0" max="1" step="0.01" value="0.45">
-            </label>
-            <label class="check-row"><input id="show-reference" type="checkbox" checked> Show video behind the rig</label>
-            <label class="check-row"><input id="loop-reference" type="checkbox" checked> Loop video when its end is reached</label>
-            <div id="reference-frame-readout" class="muted-line">The video is bottom-aligned to the cyan ground guide and follows canvas zoom, pan, and facing.</div>
-        </section>
-
         <section class="box">
-            <h2>Character project</h2>
+            <h2>Character</h2>
             <label>
                 <span>Known project</span>
                 <select id="project-select">
@@ -728,6 +723,7 @@ touch-action: none;
                     <option value="enemy_030">Enemy 030: Human Raider</option>
                     <option value="enemy_031">Enemy 031: Human Raider II</option>
                     <option value="enemy_032">Enemy 032: Human Knife Thrower</option>
+                    <option value="enemy_033">Enemy 033: Human Knife Thrower II</option>
                 </select>
             </label>
             <div class="row">
@@ -742,66 +738,35 @@ touch-action: none;
             <p>Accepts a character definition, rig manifest, or atlas manifest. Rig/atlas URLs resolve to their matching character project when one exists.</p>
             <p id="project-source" class="project-source">URL project: assets/ct_char_wizard_1.json</p>
         </section>
-
-
-
-        <section class="box" id="enemy-type-panel">
-            <h2>Enemy type defaults</h2>
-            <p id="enemy-type-help">Load a known enemy project to edit its entry in <code>ct_enemies_001.json</code>. These are type-wide defaults, not one placed level instance.</p>
+        <section class="box" id="enemy-type-panel" title="Type-wide defaults for the selected known enemy in ct_enemies_001.json. These values do not edit one placed level instance.">
+            <h2>Metadata</h2>
             <div class="row">
                 <label><span>Label</span><input id="enemy-label" type="text"></label>
                 <label><span>Icon</span><input id="enemy-icon" type="text" maxlength="4"></label>
             </div>
             <label><span>Description</span><textarea id="enemy-description" rows="3"></textarea></label>
             <div class="row">
-                <label><span>Default hitbox width</span><input id="enemy-default-width" type="number" min="1" step="1"></label>
-                <label><span>Default hitbox height</span><input id="enemy-default-height" type="number" min="1" step="1"></label>
+                <label title="Width of the cyan default gameplay hitbox in the preview."><span>Default hitbox width</span><input id="enemy-default-width" type="number" min="1" step="1"></label>
+                <label title="Height of the cyan default gameplay hitbox in the preview."><span>Default hitbox height</span><input id="enemy-default-height" type="number" min="1" step="1"></label>
             </div>
             <div class="row">
                 <label><span>Default render scale</span><input id="enemy-render-scale" type="number" min="0.01" step="0.01"></label>
                 <label><span>Health</span><input id="enemy-health" type="number" min="0" step="1"></label>
             </div>
             <div class="row">
-                <label><span>Artwork offset X</span><input id="enemy-render-offset-x" type="number" step="1"></label>
-                <label><span>Artwork offset Y</span><input id="enemy-render-offset-y" type="number" step="1"></label>
+                <label title="Moves rendered artwork horizontally relative to the hitbox without changing animation keys. Positive X is character-local and mirrors with facing."><span>Artwork offset X</span><input id="enemy-render-offset-x" type="number" step="1"></label>
+                <label title="Moves rendered artwork vertically relative to the hitbox without changing animation keys. Positive Y moves the artwork downward."><span>Artwork offset Y</span><input id="enemy-render-offset-y" type="number" step="1"></label>
             </div>
-            <p>The cyan rectangle in the preview is the default gameplay hitbox. Artwork offset X/Y moves the rendered puppet relative to that box without changing animation keys. Artwork offset X is measured in character-local space and mirrors with facing; positive Y moves the artwork downward.</p>
             <div class="row">
                 <label><span>Locomotion</span><select id="enemy-locomotion"><option value="ground">Ground</option><option value="flying">Flying</option></select></label>
-                <label><span>AI strategy</span><select id="enemy-strategy"><option value="simple_patrol">Simple patrol</option><option value="sentry">Sentry</option><option value="hunter">Hunter</option><option value="bomber">Bomber</option></select></label>
+                <label title="Bomber-specific tuning remains available in All defaults JSON, including hover height, drop tolerance, projectile cooldown, speed, gravity, damage, and radius."><span>AI strategy</span><select id="enemy-strategy"><option value="simple_patrol">Simple patrol</option><option value="sentry">Sentry</option><option value="hunter">Hunter</option><option value="bomber">Bomber</option></select></label>
             </div>
             <label><span>All defaults JSON</span><textarea id="enemy-defaults-json" rows="16" spellcheck="false"></textarea></label>
             <div class="row">
-                <button id="apply-enemy-defaults" type="button">Apply enemy defaults</button>
+                <button id="apply-enemy-defaults" type="button">Apply</button>
                 <button id="refresh-enemy-defaults" type="button">Refresh fields</button>
             </div>
-            <p>Bomber enemies wait at their placed perch until Ignatius enters their awareness cone, then fly overhead, drop a rock, and return after losing him. Useful fields include <code>bomberHorizontalSpeed</code>, <code>bomberHoverHeight</code>, <code>bomberDropTolerance</code>, <code>projectileCooldown</code>, <code>projectileSpeed</code>, <code>projectileGravity</code>, <code>projectileDamage</code>, and <code>projectileRadius</code>.</p>
         </section>
-
-        <section class="box">
-            <h2>Local project files</h2>
-            <p>Select a complete folder or a portable group of files. Puppet Forge resolves the references inside the character, rig, atlas, and animation JSON in memory; browsers never grant silent folder access.</p>
-            <label>
-                <span>Project files</span>
-                <input id="project-files" type="file" accept=".json,.png,application/json,image/png" multiple>
-            </label>
-            <label>
-                <span>Project directory, where supported</span>
-                <input id="project-directory" type="file" accept=".json,.png,application/json,image/png" multiple webkitdirectory directory>
-            </label>
-            <div class="file-grid">
-                <label><span>Character JSON</span><input id="character-file" type="file" accept=".json,application/json"></label>
-                <label><span>Rig JSON</span><input id="rig-file" type="file" accept=".json,application/json"></label>
-                <label><span>Atlas JSON</span><input id="atlas-file" type="file" accept=".json,application/json"></label>
-                <label><span>Atlas PNG</span><input id="atlas-image-file" type="file" accept=".png,image/png"></label>
-            </div>
-            <label><span>Animation JSON files</span><input id="animation-files" type="file" accept=".json,application/json" multiple></label>
-            <div class="row">
-                <button id="load-project-files" type="button">Load selected files</button>
-                <button id="clear-project-files" type="button">Clear local files</button>
-            </div>
-        </section>
-
         <section class="box mode-panel atlas-panel" hidden>
             <h2>Atlas parts</h2>
             <p>At 100% zoom, one atlas image pixel equals one preview-canvas pixel. Drag empty image space to draw a frame, drag inside a frame to move it, and drag a selected corner to resize it. Shift-drag, middle-drag, or right-drag pans the atlas.</p>
@@ -836,9 +801,8 @@ touch-action: none;
             </div>
             <div id="atlas-validation" class="atlas-validation"></div>
         </section>
-
         <section class="box mode-panel animation-panel">
-            <h2>Animation preview</h2>
+            <h2>Animation</h2>
             <label>
                 <span>Animation slot</span>
                 <select id="animation-select"></select>
@@ -881,9 +845,8 @@ touch-action: none;
             </div>
             <p>Duplicate current creates a new in-memory animation file and adds its slot to the character definition. Download both changed JSON files to keep the new clip.</p>
         </section>
-
         <section class="box mode-panel animation-panel">
-            <h2>Animation track</h2>
+            <h2>Keyframe</h2>
             <label>
                 <span>Rig part</span>
                 <select id="part-select"></select>
@@ -926,9 +889,8 @@ touch-action: none;
             </div>
             <p>For X, Y and Angle mode, drag inside the selected yellow rectangle to move the part and drag a yellow corner handle to rotate it. When a parent pivot constraint is active, dragging inside the part moves its cyan parent point instead; X/Y tracks are read-only and regenerated automatically. Drag a diamond in the bottom timeline to move its editable key time. For single properties, edit the numeric value directly; typing at an unkeyed playhead creates a key automatically.</p>
         </section>
-
         <section class="box mode-panel animation-panel">
-            <h2>Base rig / setup values</h2>
+            <h2>Rigging</h2>
             <div class="row">
                 <label><span>Pivot X</span><input id="pivot-x" type="number" step="0.005"></label>
                 <label><span>Pivot Y</span><input id="pivot-y" type="number" step="0.005"></label>
@@ -997,8 +959,29 @@ touch-action: none;
             <p>Draw order runs from back to front. The first part is drawn lowest; the last part is drawn on top.</p>
             <p>Pivot and target height define shared sprite geometry. Setup offsets and base scale are still used by the current procedural airborne poses and as rig defaults, but a data-driven clip such as Run supplies its own absolute X, Y, and scale values while that clip is playing.</p>
         </section>
-
-
+        <section class="box">
+            <h2>Load project files</h2>
+            <p>Select a complete folder or a portable group of files. Puppet Forge resolves the references inside the character, rig, atlas, and animation JSON in memory; browsers never grant silent folder access.</p>
+            <label>
+                <span>Project files</span>
+                <input id="project-files" type="file" accept=".json,.png,application/json,image/png" multiple>
+            </label>
+            <label>
+                <span>Project directory, where supported</span>
+                <input id="project-directory" type="file" accept=".json,.png,application/json,image/png" multiple webkitdirectory directory>
+            </label>
+            <div class="file-grid">
+                <label><span>Character JSON</span><input id="character-file" type="file" accept=".json,application/json"></label>
+                <label><span>Rig JSON</span><input id="rig-file" type="file" accept=".json,application/json"></label>
+                <label><span>Atlas JSON</span><input id="atlas-file" type="file" accept=".json,application/json"></label>
+                <label><span>Atlas PNG</span><input id="atlas-image-file" type="file" accept=".png,image/png"></label>
+            </div>
+            <label><span>Animation JSON files</span><input id="animation-files" type="file" accept=".json,application/json" multiple></label>
+            <div class="row">
+                <button id="load-project-files" type="button">Load selected files</button>
+                <button id="clear-project-files" type="button">Clear local files</button>
+            </div>
+        </section>
         <section class="box" id="enemy-catalog-json-panel">
             <h2>Enemy Catalog JSON</h2>
             <p>This is the complete <code>ct_enemies_001.json</code> document. The visual enemy-default controls above edit the selected entry in this JSON.</p>
@@ -1009,7 +992,6 @@ touch-action: none;
                 <button id="download-enemy-catalog" type="button">Download</button>
             </div>
         </section>
-
         <section class="box">
             <h2>Character JSON</h2>
             <textarea id="character-json" spellcheck="false"></textarea>
@@ -1019,7 +1001,15 @@ touch-action: none;
                 <button id="download-character-json" type="button">Download</button>
             </div>
         </section>
-
+        <section class="box">
+            <h2>Rig JSON</h2>
+            <textarea id="rig-json" spellcheck="false"></textarea>
+            <div class="row three">
+                <button id="apply-rig-json" type="button">Apply JSON</button>
+                <button id="refresh-rig-json" type="button">Refresh</button>
+                <button id="download-rig-json" type="button">Download</button>
+            </div>
+        </section>
         <section class="box">
             <h2>Atlas JSON</h2>
             <textarea id="atlas-json" spellcheck="false"></textarea>
@@ -1030,7 +1020,6 @@ touch-action: none;
             </div>
             <p>Use Atlas parts mode to author frame rectangles directly over the selected PNG. The JSON remains available for exact inspection and advanced edits.</p>
         </section>
-
         <section class="box">
             <h2>Animation JSON</h2>
             <textarea id="animation-json" spellcheck="false"></textarea>
@@ -1040,17 +1029,32 @@ touch-action: none;
                 <button id="download-animation-json" type="button">Download</button>
             </div>
         </section>
-
-        <section class="box">
-            <h2>Rig JSON</h2>
-            <textarea id="rig-json" spellcheck="false"></textarea>
-            <div class="row three">
-                <button id="apply-rig-json" type="button">Apply JSON</button>
-                <button id="refresh-rig-json" type="button">Refresh</button>
-                <button id="download-rig-json" type="button">Download</button>
+        <section class="box mode-panel animation-panel" id="reference-plate-panel">
+            <h2>Reference</h2>
+            <p>Load a local MP4 behind the rig as a temporary animation reference. The visible video moment follows the animation playhead while playing, pausing, scrubbing, stepping, changing preview speed, and looping. The file and all alignment settings remain only in this browser tab and are never written to character, rig, atlas, or animation JSON.</p>
+            <label><span>MP4 reference clip</span><input id="reference-video-file" type="file" accept="video/mp4,.mp4"></label>
+            <div class="row">
+                <button id="clear-reference" type="button">Clear reference</button>
+                <button id="reset-reference-transform" type="button">Reset alignment</button>
             </div>
+            <div id="reference-source-status" class="project-source">No motion reference loaded.</div>
+            <label><span>Video time offset (seconds)</span><input id="reference-time-offset" type="number" step="0.001" value="0"></label>
+            <div class="row">
+                <label><span>X offset</span><input id="reference-x" type="number" step="1" value="0"></label>
+                <label><span>Y offset from ground</span><input id="reference-y" type="number" step="1" value="0"></label>
+            </div>
+            <div class="row">
+                <label><span>Width at 100% zoom</span><input id="reference-width" type="number" min="1" step="1" value="320"></label>
+                <label><span>Height at 100% zoom</span><input id="reference-height" type="number" min="1" step="1" value="540"></label>
+            </div>
+            <label>
+                <span class="readout"><span>Opacity</span><span id="reference-opacity-value">45%</span></span>
+                <input id="reference-opacity" type="range" min="0" max="1" step="0.01" value="0.45">
+            </label>
+            <label class="check-row"><input id="show-reference" type="checkbox" checked> Show video behind the rig</label>
+            <label class="check-row"><input id="loop-reference" type="checkbox" checked> Loop video when its end is reached</label>
+            <div id="reference-frame-readout" class="muted-line">The video is bottom-aligned to the cyan ground guide and follows canvas zoom, pan, and facing.</div>
         </section>
-
         <section class="box">
             <h2>Status</h2>
             <div id="status"></div>
@@ -1361,7 +1365,8 @@ const KNOWN_PROJECTS = Object.freeze({
     enemy_020: "assets/ct_char_enemy_020.json",
     enemy_030: "assets/ct_char_enemy_030.json",
     enemy_031: "assets/ct_char_enemy_031.json",
-    enemy_032: "assets/ct_char_enemy_032.json"
+    enemy_032: "assets/ct_char_enemy_032.json",
+    enemy_033: "assets/ct_char_enemy_033.json"
 });
 const PANEL_STORAGE_KEY = "ignatiusRocketfrock.characterEditor.collapsedPanels.v1";
 
@@ -1640,18 +1645,30 @@ function currentAnimationDirtyKey() {
 
 function updateDirtySummary() {
     const summary = characterProjectDirtySummary(state.dirty);
-    const set = (element, dirty, text = null) => {
+    const set = (element, dirty, text = null, exportLabel = "this JSON file") => {
         element.textContent = text || (dirty ? "changed" : "saved");
         element.classList.toggle("changed", dirty);
+        const item = element.closest(".dirty-item");
+        item?.classList.toggle("changed", dirty);
+        item?.setAttribute("aria-disabled", dirty ? "false" : "true");
+        if (item) {
+            item.title = dirty
+                ? `Changed. Click to download ${exportLabel}.`
+                : `Saved. This becomes a download button after ${exportLabel} changes.`;
+        }
     };
-    set(els.dirtyCharacter, summary.character);
-    set(els.dirtyAtlas, summary.atlas);
-    set(els.dirtyRig, summary.rig);
-    set(els.dirtyEnemyCatalog, summary.enemyCatalog);
+    set(els.dirtyCharacter, summary.character, null, "the Character JSON");
+    set(els.dirtyAtlas, summary.atlas, null, "the Atlas JSON");
+    set(els.dirtyRig, summary.rig, null, "the Rig JSON");
+    set(els.dirtyEnemyCatalog, summary.enemyCatalog, null, "the Enemy Catalog JSON");
+    const animationCount = summary.animations.length;
     set(
         els.dirtyAnimations,
-        summary.animations.length > 0,
-        summary.animations.length ? `${summary.animations.length} changed` : "saved"
+        animationCount > 0,
+        animationCount ? `${animationCount} changed` : "saved",
+        animationCount > 1
+            ? `all ${animationCount} changed Animation JSON files; the browser may ask permission for multiple downloads`
+            : "the changed Animation JSON file"
     );
 }
 
@@ -4592,6 +4609,97 @@ function animationFilename() {
     return state.animationUrl?.split("/").pop() || `${state.animation?.animationId || "animation"}.json`;
 }
 
+function animationFilenameForSlot(slot, animation = null) {
+    const mappedReference = state.character?.animationMap?.[slot];
+    if (mappedReference) {
+        const withoutQuery = String(mappedReference).split(/[?#]/, 1)[0];
+        const mappedFilename = withoutQuery.split(/[\\/]/).pop();
+        if (mappedFilename) {
+            return mappedFilename;
+        }
+    }
+    if (state.animationSlot === slot && state.animationUrl) {
+        return state.animationUrl.split("/").pop();
+    }
+    return animationFilenameForCharacterSlot(state.character, slot)
+        || `${animation?.animationId || slot || "animation"}.json`;
+}
+
+function downloadDirtyAnimations() {
+    const dirtySlots = characterProjectDirtySummary(state.dirty).animations;
+    if (!dirtySlots.length) {
+        return;
+    }
+    const downloaded = [];
+    const unavailable = [];
+    const bakedParts = new Set();
+    for (const slot of dirtySlots) {
+        const animation = state.animationCache.get(slot)
+            || (state.animationSlot === slot ? state.animation : null);
+        if (!animation) {
+            unavailable.push(slot);
+            continue;
+        }
+        const baked = bakeParentConstraintTracks(animation, state.rig, state.assets, {
+            label: `${animation.animationId || slot} parent constraints`,
+            tolerance: 0.25
+        });
+        if (baked.changed) {
+            for (const part of baked.parts) {
+                bakedParts.add(part);
+            }
+            if (animation === state.animation) {
+                state.normalizedAnimation = null;
+                refreshAnimationJson();
+            }
+        }
+        state.animationCache.set(slot, animation);
+        const filename = animationFilenameForSlot(slot, animation);
+        downloadJson(filename, serializeEditableAnimationClip(animation));
+        markCharacterProjectClean(state.dirty, "animation", slot);
+        downloaded.push(filename);
+    }
+    updateDirtySummary();
+    const lines = [];
+    if (downloaded.length) {
+        lines.push(`Downloaded ${downloaded.length} changed animation file${downloaded.length === 1 ? "" : "s"}: ${downloaded.join(", ")}.`);
+        if (downloaded.length > 1) {
+            lines.push("Your browser may ask you to allow multiple downloads.");
+        }
+    }
+    if (bakedParts.size) {
+        lines.push(`Generated parent-constraint X/Y tracks for ${[...bakedParts].join(", ")}.`);
+    }
+    if (unavailable.length) {
+        lines.push(`Could not export unloaded changed animation slot${unavailable.length === 1 ? "" : "s"}: ${unavailable.join(", ")}.`);
+    }
+    setStatus(lines.join("\n"));
+}
+
+function exportDirtyWorkspaceDocument(kind) {
+    const summary = characterProjectDirtySummary(state.dirty);
+    if (kind === "animation") {
+        if (summary.animations.length) {
+            try {
+                downloadDirtyAnimations();
+            } catch (error) {
+                setStatus(error.stack || error.message);
+            }
+        }
+        return;
+    }
+    const actionByKind = {
+        character: [summary.character, els.downloadCharacterJson],
+        atlas: [summary.atlas, els.downloadAtlasJson],
+        rig: [summary.rig, els.downloadRigJson],
+        enemyCatalog: [summary.enemyCatalog, els.downloadEnemyCatalog]
+    };
+    const [dirty, button] = actionByKind[kind] || [];
+    if (dirty && button) {
+        button.click();
+    }
+}
+
 function characterFilename() {
     return state.characterUrl?.split("/").pop() || `${state.character?.characterId || "character"}.json`;
 }
@@ -5621,6 +5729,9 @@ els.downloadRigJson.addEventListener("click", () => {
     markClean("rig");
     setStatus(`Downloaded ${rigFilename()}.`);
 });
+for (const item of document.querySelectorAll("[data-dirty-export]")) {
+    item.addEventListener("click", () => exportDirtyWorkspaceDocument(item.dataset.dirtyExport));
+}
 
 window.addEventListener("beforeunload", (event) => {
     if (!characterProjectHasUnsavedChanges(state.dirty)) {

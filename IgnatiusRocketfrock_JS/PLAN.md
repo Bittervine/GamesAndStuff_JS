@@ -3793,3 +3793,33 @@ Revision 404 copies temporary showcase candidate **06 · Goblin-style collapse**
 Revision 405 completes the modular-human articulation pass. The user-refined Enemy 032 death clip is conservatively cleaned with a zero-error linear simplifier: 700 mathematically redundant keys are removed while preserving the sampled motion exactly. That refined split-limb rig and all five sword animations are then backported to Enemy 030 and Enemy 031. Enemy 030 keeps body_00/head_00, Enemy 031 keeps body_01/head_01, and both retain the sword. Their authored hitbox height and the baked level_001 navigation profile are updated to 194 pixels.
 
 Enemy 032 now becomes **Human Knife Thrower**. It uses previously unused body_02/head_02 artwork, removes the held sword from every animation, keeps a hidden hand launch marker, and replaces the sword attack with an articulated throwing motion. At 0.34 seconds it releases three straight dagger projectiles in a narrow fan. Canvas and WebGL both render the shared atlas dagger frame as a spinning knife. The temporary death-showcase page, its 24 clips, ragdoll traces, and superseded builders are removed now that the refined death has become authoritative.
+
+## Revision 406 point-first knife volleys and Enemy 033
+
+Revision 406 keeps the user-replaced Enemy 032 throwing animation authoritative. Thrown daggers no longer add age-based rotation in either Canvas or WebGL; the side-facing dagger frame is rotated only to `atan2(vy, vx)`, so its point remains aligned with its actual movement. The three-projectile fan is narrowed from ±8 degrees to ±5 degrees in the enemy catalog and in the bundled Enemy 032 level record. No compatibility fallback is retained for the old spread.
+
+Enemy 033, **Human Knife Thrower II**, is added as an independent character project derived from the current Enemy 032 rig and all five current animations. It selects the previously unused `body_03` and `head_03` frames while retaining the articulated limbs, invisible throwing-knife launch marker, release timing, and projectile behavior. The new variant is registered in the enemy catalog, shared human-parts manifest, dormant generator metadata, runtime preload list, and Puppet Forge. `devel/add_enemy_033_variant.mjs` can rebuild the variant from the current Enemy 032 assets without replacing or regenerating the user-authored throw animation. The shared atlas bitmap is unchanged.
+
+The release gate also exposed three pre-existing tests that still required the Musket Goblin to be placed in `level_001`, although the current bundled level contains the Tri-fireball Goblin instead. The tests are updated to follow the authoritative current level: the roster assertion and arch-navigation fixture use Enemy 012, while the health test continues to validate Enemy 011's catalog balance without falsely requiring a level placement.
+
+## Revision 407 compact Puppet Forge workflow and workspace exports
+
+Status: implemented. Tests intentionally skipped at the user's request.
+
+Puppet Forge's right-hand panels now follow the editing workflow: Workspace, Character, Metadata, the mode-specific Atlas parts panel, Animation, Keyframe, Rigging, Load project files, the JSON documents, Reference, and Status. The shorter panel names replace the older project/default/preview/track/setup/reference wording. The three panels omitted from the requested list, Atlas parts, Rig JSON, and Status, remain available in their logical groups rather than being silently removed.
+
+The Metadata hitbox and artwork-offset explanation no longer consumes panel space. Its guidance, together with the type-wide enemy-default and bomber-field notes, is available through native mouse-over tooltips. The Workspace help paragraph is likewise replaced by focused tooltips.
+
+Each Workspace document-status tile is now an export control only while that document is changed. Character, Atlas, Rig, and Enemy catalog dispatch their existing JSON downloads. Animations export every changed cached slot in one user action, preserving each mapped filename and baking parent-constraint X/Y tracks before serialization. Browsers may ask permission when several animation files are downloaded at once. A successful export marks only the exported document or animation slots clean.
+
+
+
+## Revision 408 tall-human ledge escape and supplied Level 001 update
+
+Status: implemented.
+
+The supplied `level_001.json` is now authoritative. It adds Enemy 033 to the left ledge and moves Enemy 031 to the lower training floor. The bundled navigation graphs are rebuilt after the gameplay fix rather than preserving the stale supplied bake.
+
+The `hunter:stranded_patrol` report exposed two coupled navigation assumptions. Enemies 030-033 still carried a 520-pixel fall limit, while the left-ledge-to-lower-floor descent is roughly 550 pixels. Even after correcting that authored capability, the right-hand walk-off was rejected because the source-departure window capped horizontal body clearance at 0.8 body widths, a few pixels too strict for the 67.5-pixel human at 152 px/s. Downward jumps also launched from an ordinary interior inset and required a full-body landing fit, which discarded the physically valid left jump to the starter platform.
+
+The articulated-human catalog and current level records now use a 600-pixel fall limit. The shared navigation core permits source departure for committed jumps, uses a slightly broader 0.9-width walk-off clearance window in both baking and runtime collision, launches downward jumps beside the true obstacle edge, and accepts a stable majority-overlap landing. Level 001 is rebaked with a left jump from `left_step_blockable_1` to `start_ground_blockable_2` and a right controlled walk-off to the lower floor. Regression coverage executes the exact Enemy 033 left-jump escape and requires the alternate right-hand drop edge.

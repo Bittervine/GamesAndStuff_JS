@@ -644,7 +644,7 @@ def update_enemy_catalog() -> None:
             'renderOffsetY': 51,
             'locomotion': 'ground',
             'jumpGravity': 1250,
-            'maxFallDistance': 520,
+            'maxFallDistance': 600,
             'routeRepathInterval': 0.34,
             'homeRetryInterval': 4,
         },

@@ -108,6 +108,7 @@ export const TEST_SHARDS = Object.freeze({
             "hunter crosses and descends level_001 central pillar",
             "engaged hunter immediately leaves pillar for last seen player",
             "hunter walks off level_001 left ledge",
+            "human hunter escapes level_001 left ledge",
             "hunter climbs level_001 pillar from the left",
             "hunter jumps onto level_001 arch",
             "hunter obstacle-clear jump run-up",

@@ -119,7 +119,8 @@ const KNOWN_ENEMY_CHARACTER_URLS = [
     "assets/ct_char_enemy_020.json",
     "assets/ct_char_enemy_030.json",
     "assets/ct_char_enemy_031.json",
-    "assets/ct_char_enemy_032.json"
+    "assets/ct_char_enemy_032.json",
+    "assets/ct_char_enemy_033.json"
 ];
 
 const ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES = [
@@ -3774,8 +3775,7 @@ class RocketfrockRenderer {
         }
         const p = this.worldToScreen(view, projectile.x, projectile.y);
         const travelAngle = Math.atan2(Number(projectile.vy) || 0, Number(projectile.vx) || 1);
-        const spinDirection = Number(projectile.volleyIndex) % 2 === 0 ? 1 : -1;
-        const rotation = travelAngle + (Number(projectile.age) || 0) * 14 * spinDirection;
+        const rotation = travelAngle;
         const targetHeight = Math.max(5, Number(projectile.radius) || 5) * 1.45 * view.zoom;
         const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_032", projectile.frameId || "dagger") ||
             this.getCharacterAtlasFrame("ct_char_enemy_032", "dagger");
@@ -4158,8 +4158,7 @@ class RocketfrockRenderer {
             return;
         }
         const travelAngle = Math.atan2(Number(projectile.vy) || 0, Number(projectile.vx) || 1);
-        const spinDirection = Number(projectile.volleyIndex) % 2 === 0 ? 1 : -1;
-        const rotation = travelAngle + (Number(projectile.age) || 0) * 14 * spinDirection;
+        const rotation = travelAngle;
         const targetHeight = Math.max(5, Number(projectile.radius) || 5) * 1.45 * view.zoom;
         const spriteScale = targetHeight / Math.max(1, asset.height);
         ctx.save();

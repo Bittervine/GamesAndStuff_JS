@@ -1712,3 +1712,25 @@ The human family now shares one articulated limb contract across Enemy 030, Enem
 Enemy 032 demonstrates a ranged variant without a visible held projectile. Its rig contains an alpha-zero `throwingKnife` launch marker tagged with projectile metadata. `compileRuntimeCharacterProjectiles()` samples that marker at the authored release time and supplies the local launch point to simulation. The simulation emits a three-member `enemyKnife` volley, while Canvas and WebGL resolve `frameId: dagger` from the character atlas and draw the projectile through dedicated knife paths.
 
 Dense baked animation tracks may be cleaned only by the zero-error simplifier in `devel/clean_animation_keyframes.mjs`; it removes a key only when the remaining linear segment reproduces its value within floating-point epsilon.
+
+## Revision 406 velocity-aligned knife rendering and cloned human variant
+
+`enemyKnife` presentation now has one orientation rule across both renderer backends: the authored right-facing dagger frame rotates to the projectile velocity angle and receives no time-based spin. Simulation continues to own velocity and the three-member volley offsets; presentation does not maintain an independent projectile angle or angular velocity.
+
+Enemy 033 is a separate character-project identity, not a runtime skin alias. `ct_char_enemy_033.json`, `ct_rig_enemy_033.json`, and the five `ct_anim_enemy_033_*` clips are complete self-contained project data. Their motion is an exact copy of the current Enemy 032 assets, while the rig selects `body_03` and `head_03` from the existing shared human atlas. This preserves the generic character loader and lets either thrower be edited independently later without adding variant branches to simulation or rendering.
+
+## Revision 407 Puppet Forge document-export surface
+
+Puppet Forge continues to use `src/tools/character-editor/character-dirty-state.js` as the document-change authority. The root editor surface now presents those states as conditional export buttons: saved records are inert, while changed Character, Atlas, Rig, and Enemy catalog records delegate to their canonical JSON download actions. The Animations record enumerates the dirty-slot set, serializes every corresponding editable clip from `state.animationCache`, bakes parent constraints through the existing editor helper, and downloads each clip under its character-map filename. This remains editor-only browser behavior and introduces no runtime or portable-core dependency.
+
+The right-side DOM order now follows authoring flow while retaining all existing panels. Atlas parts remains mode-specific, Rig JSON remains a first-class document alongside the other JSON editors, and Status remains the final feedback surface. Instructional copy removed from Workspace and Metadata is represented by native `title` tooltips rather than additional persistent UI state.
+
+
+
+## Revision 408 committed ledge-departure navigation
+
+`src/core/enemy-navigation.js` remains the sole source of hunter ledge reachability. Downward jumps are treated as committed edge departures: their takeoff point is sampled beside the source obstacle wall rather than at the ordinary interior edge inset, and the target requires stable majority overlap rather than a complete-body fit at first contact. Trajectory validation permits the jumping body to move just beyond its source support while its feet remain above the source surface, matching the runtime's committed traversal instead of falsely classifying the first horizontal substep as wall penetration.
+
+Walk-off baking and runtime collision share both clearance factors. Vertical source forgiveness remains capped by `ENEMY_DROP_SOURCE_CLEARANCE_HEIGHT_FACTOR`; the horizontal-body cap is now `ENEMY_DROP_SOURCE_CLEARANCE_WIDTH_FACTOR` at 0.9. The broader cap is still bounded by the one-second departure window, requires nonzero outward velocity, and ignores only the authored source obstacle until the complete body clears it. It does not permit falling through the middle of one-way platforms.
+
+The articulated human family uses a 600-pixel `maxFallDistance`. This is gameplay mobility data shared by Enemies 030-033 and is reproduced by `devel/build_enemy_030_assets.py`. Level 001 carries an exact rebake for that profile, including both the left jump to the starter platform and the right walk-off to the lower floor.

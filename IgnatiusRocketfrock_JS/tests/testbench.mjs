@@ -1677,16 +1677,18 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(catalog.enemies.enemy_020.defaults.bomberHoverHeight, 280, "Bombing Bat should aim for the revised high bombing station");
     assert.ok(catalog.enemies.enemy_020.defaults.bomberApproachArcHeight > 0, "Bombing Bat should author a curved approach arc");
     assert.ok(catalog.enemies.enemy_020.defaults.bomberDropHeightTolerance > 0, "Bombing Bat should author a release-height tolerance");
-    for (const humanId of ["enemy_030", "enemy_031", "enemy_032"]) {
+    for (const humanId of ["enemy_030", "enemy_031", "enemy_032", "enemy_033"]) {
         const human = catalog.enemies[humanId];
         assert.ok(human, `${humanId} should register a modular human raider`);
         assert.equal(human.defaultSize.w, 67.5, `${humanId} should use the 50-percent wider default hitbox`);
         assert.equal(human.defaultSize.h, 194, `${humanId} should use the articulated modular-human height`);
         assert.equal(human.defaults.renderScale, 1.23, `${humanId} artwork should be 50 percent larger`);
         assert.equal(human.defaults.renderOffsetY, 51, `${humanId} grounded artwork offset should scale with the actor`);
+        assert.equal(human.defaults.maxFallDistance, 600, `${humanId} should escape the authored tall ledges`);
     }
     const characterEditorDefaultsHtml = readFileSync("./character-editor.html", "utf8");
-    assert.ok(characterEditorDefaultsHtml.includes("Enemy type defaults"), "Puppet Forge should expose enemy type defaults");
+    assert.ok(characterEditorDefaultsHtml.includes("<h2>Metadata</h2>"), "Puppet Forge should expose enemy metadata");
+    assert.ok(characterEditorDefaultsHtml.includes('id="apply-enemy-defaults" type="button">Apply</button>'), "Puppet Forge should use the compact Apply label for enemy metadata");
     assert.ok(characterEditorDefaultsHtml.includes("enemy-catalog-json"), "Puppet Forge should expose the full enemy catalog JSON beside the other JSON editors");
     assert.ok(characterEditorDefaultsHtml.includes("apply-enemy-catalog-json"), "Puppet Forge should apply edited enemy catalog JSON");
     assert.ok(characterEditorDefaultsHtml.includes("refresh-enemy-catalog-json"), "Puppet Forge should reset the enemy catalog JSON editor");
@@ -1718,13 +1720,13 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(skeleton.defaults.attackCooldown < 0.25, "Skeleton Guard should chain rapid sword chops");
     const levelOne = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
     assert.ok(levelOne.entities.some((entity) => entity.characterId === "ct_char_enemy_010"), "level_001 should contain a Fireball Goblin");
-    assert.ok(levelOne.entities.some((entity) => entity.characterId === "ct_char_enemy_011"), "level_001 should contain a Musket Goblin");
+    assert.ok(levelOne.entities.some((entity) => entity.characterId === "ct_char_enemy_012"), "level_001 should contain a Tri-fireball Goblin");
     const levelOneBat = levelOne.entities.find((entity) => entity.characterId === "ct_char_enemy_020");
     assert.ok(levelOneBat, "level_001 should retain the Bombing Bat");
     assert.equal(levelOneBat.bomberHoverHeight, 280, "level_001 Bombing Bat should use the revised high attack altitude");
     assert.equal(levelOneBat.bomberDropHeightTolerance, 20, "level_001 Bombing Bat should wait until it reaches the high release band");
     assert.equal(levelOneBat.bomberApproachArcHeight, 72, "level_001 Bombing Bat should use the authored curved approach");
-    for (const goblin of levelOne.entities.filter((entity) => entity.characterId === "ct_char_enemy_010" || entity.characterId === "ct_char_enemy_011")) {
+    for (const goblin of levelOne.entities.filter((entity) => entity.characterId === "ct_char_enemy_010" || entity.characterId === "ct_char_enemy_012")) {
         assert.equal(goblin.runSpeed, 200, `${goblin.id} should use the baked 200 px/s run profile`);
         assert.equal(goblin.jumpHeight, 200, `${goblin.id} should use the baked 200 px jump profile`);
         assert.equal(goblin.awarenessViewHalfAngle, 60, `${goblin.id} should use the authored ±60 degree awareness cone`);
@@ -1778,15 +1780,17 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(characterEditorHtml.includes('enemy_020: "assets/ct_char_enemy_020.json"'), "Puppet Forge should expose replacement Atlas 020");
     assert.ok(characterEditorHtml.includes('enemy_030: "assets/ct_char_enemy_030.json"'), "Puppet Forge should expose the modular Human Raider project");
     assert.ok(characterEditorHtml.includes('enemy_031: "assets/ct_char_enemy_031.json"'), "Puppet Forge should expose the second modular Human Raider project");
-    assert.ok(characterEditorHtml.includes('enemy_032: "assets/ct_char_enemy_032.json"'), "Puppet Forge should expose the split-limb Human Raider project");
+    assert.ok(characterEditorHtml.includes('enemy_032: "assets/ct_char_enemy_032.json"'), "Puppet Forge should expose the first Human Knife Thrower project");
+    assert.ok(characterEditorHtml.includes('enemy_033: "assets/ct_char_enemy_033.json"'), "Puppet Forge should expose the second Human Knife Thrower project");
     assert.ok(characterEditorHtml.includes('<option value="enemy_030">Enemy 030: Human Raider</option>'), "Puppet Forge known-project dropdown should list Human Raider");
     assert.ok(characterEditorHtml.includes('<option value="enemy_031">Enemy 031: Human Raider II</option>'), "Puppet Forge known-project dropdown should list the second Human Raider");
-    assert.ok(characterEditorHtml.includes('<option value="enemy_032">Enemy 032: Human Knife Thrower</option>'), "Puppet Forge known-project dropdown should list the split-limb Human Raider");
+    assert.ok(characterEditorHtml.includes('<option value="enemy_032">Enemy 032: Human Knife Thrower</option>'), "Puppet Forge known-project dropdown should list the first knife thrower");
+    assert.ok(characterEditorHtml.includes('<option value="enemy_033">Enemy 033: Human Knife Thrower II</option>'), "Puppet Forge known-project dropdown should list the second knife thrower");
     assert.ok(characterEditorHtml.includes('inferredCharacterUrlFromProjectJson'), "Puppet Forge should resolve rig and atlas project URLs to matching character definitions");
     for (const discardedSuffix of ["006", "007", "008"]) {
         assert.ok(!characterEditorHtml.includes(`ct_char_enemy_${discardedSuffix}.json`), `Puppet Forge should not expose discarded enemy ${discardedSuffix}`);
     }
-    for (const retainedSuffix of ["020", "030", "031", "032"]) {
+    for (const retainedSuffix of ["020", "030", "031", "032", "033"]) {
         assert.ok(rendererSource.includes(`assets/ct_char_enemy_${retainedSuffix}.json`), `renderer should preload retained enemy ${retainedSuffix}`);
     }
     for (const discardedSuffix of ["006", "007", "008"]) {
@@ -1796,9 +1800,11 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     const human030 = JSON.parse(readFileSync(new URL("../assets/ct_char_enemy_030.json", import.meta.url), "utf8"));
     const human031 = JSON.parse(readFileSync(new URL("../assets/ct_char_enemy_031.json", import.meta.url), "utf8"));
     const human032 = JSON.parse(readFileSync(new URL("../assets/ct_char_enemy_032.json", import.meta.url), "utf8"));
+    const human033 = JSON.parse(readFileSync(new URL("../assets/ct_char_enemy_033.json", import.meta.url), "utf8"));
     const humanRig030 = JSON.parse(readFileSync(new URL("../assets/ct_rig_enemy_030.json", import.meta.url), "utf8"));
     const humanRig031 = JSON.parse(readFileSync(new URL("../assets/ct_rig_enemy_031.json", import.meta.url), "utf8"));
     const humanRig032 = JSON.parse(readFileSync(new URL("../assets/ct_rig_enemy_032.json", import.meta.url), "utf8"));
+    const humanRig033 = JSON.parse(readFileSync(new URL("../assets/ct_rig_enemy_033.json", import.meta.url), "utf8"));
     const humanAtlas = JSON.parse(readFileSync(new URL("../assets/ct_atlas_enemy_030.json", import.meta.url), "utf8"));
 
     assert.equal(humanRig030.parts.torso.frame, "body_00", "enemy_030 should retain its original torso artwork");
@@ -1822,16 +1828,22 @@ function testEnemyCatalogAndLevelEditorIntegration() {
         assert.deepEqual(Object.keys(clip031.referencePose).sort(), Object.keys(humanRig031.parts).sort(), `enemy_031 ${slot} should animate every articulated part`);
     }
 
-    assert.equal(human032.displayName, "Human Knife Thrower", "enemy_032 should expose its new ranged role");
+    assert.equal(human032.displayName, "Human Knife Thrower", "enemy_032 should expose its ranged role");
+    assert.equal(human033.displayName, "Human Knife Thrower II", "enemy_033 should expose the second ranged human role");
     assert.equal(humanRig032.parts.torso.frame, "body_02", "enemy_032 should use the previously unused green torso");
     assert.equal(humanRig032.parts.head.frame, "head_02", "enemy_032 should use the previously unused blonde head");
+    assert.equal(humanRig033.parts.torso.frame, "body_03", "enemy_033 should use a fresh unused torso");
+    assert.equal(humanRig033.parts.head.frame, "head_03", "enemy_033 should use a fresh unused head");
     assert.equal(humanRig032.parts.weapon, undefined, "enemy_032 should no longer carry a sword part");
+    assert.equal(humanRig033.parts.weapon, undefined, "enemy_033 should inherit the weapon-free throwing rig");
     assert.equal(humanRig032.drawOrder.includes("weapon"), false, "enemy_032 draw order should contain no held sword");
     assert.equal(humanRig032.parts.throwingKnife.frame, "dagger", "enemy_032 hidden launch marker should use the throwing-knife atlas frame");
     assert.equal(humanRig032.parts.throwingKnife.alpha, 0, "the authored knife launch marker should stay invisible on the character");
     assert.equal(humanRig032.parts.throwingKnife.projectile.releaseTime, 0.34, "the throwing attack should release at the authored hand-extension frame");
     assert.equal(humanRig032.parts.throwingKnife.projectile.projectileKind, "throwingKnife", "the hidden marker should compile a throwing-knife projectile profile");
     assert.equal(human032.projectilePart, "throwingKnife", "the character definition should select only the hidden knife projectile marker");
+    assert.equal(human033.projectilePart, "throwingKnife", "enemy_033 should select the same hidden knife marker");
+    assert.deepEqual(humanRig033.drawOrder, humanRig032.drawOrder, "enemy_033 should retain the exact articulated knife-thrower draw order");
     for (const partName of ["leftUpperArm", "leftLowerArm", "rightUpperArm", "rightLowerArm"]) {
         assert.equal(humanRig032.parts[partName].colorExchange, undefined, `${partName} should retain the fair source skin for body_02/head_02`);
     }
@@ -1854,10 +1866,14 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(Math.abs(human032Walk.tracks.leftUpperLeg.rotation[0].value - 0.6204162955478825) < 1e-9, "the anatomical left leg should retain the user-authored trailing stance");
     for (const slot of ["idle", "walk", "attack", "hurt", "death"]) {
         const clip = JSON.parse(readFileSync(new URL(`../assets/ct_anim_enemy_032_${slot}.json`, import.meta.url), "utf8"));
+        const clip033 = JSON.parse(readFileSync(new URL(`../assets/ct_anim_enemy_033_${slot}.json`, import.meta.url), "utf8"));
         assert.deepEqual(Object.keys(clip.referencePose).sort(), Object.keys(humanRig032.parts).sort(), `enemy_032 ${slot} should animate every current knife-thrower rig part`);
         assert.deepEqual(Object.keys(clip.tracks).sort(), Object.keys(humanRig032.parts).sort(), `enemy_032 ${slot} tracks should contain no retired sword part`);
         assert.equal(clip.referencePose.weapon, undefined, `enemy_032 ${slot} should remove the sword reference pose`);
         assert.equal(clip.tracks.throwingKnife.alpha[0].value, 0, `enemy_032 ${slot} should keep the launch marker invisible`);
+        assert.deepEqual(clip033.referencePose, clip.referencePose, `enemy_033 ${slot} should copy Enemy 032's current pose exactly`);
+        assert.deepEqual(clip033.tracks, clip.tracks, `enemy_033 ${slot} should copy Enemy 032's current motion exactly`);
+        assert.equal(clip033.animationId, `ct_anim_enemy_033_${slot}`, `enemy_033 ${slot} should keep its own animation identity`);
     }
     const throwUpperArm = human032Attack.tracks.rightUpperArm.rotation.map((key) => key.value);
     const throwLowerArm = human032Attack.tracks.rightLowerArm.rotation.map((key) => key.value);
@@ -1885,11 +1901,20 @@ function testEnemyCatalogAndLevelEditorIntegration() {
 
     const cleanupSource = readFileSync(new URL("../devel/clean_animation_keyframes.mjs", import.meta.url), "utf8");
     const migrationSource = readFileSync(new URL("../devel/migrate_human_enemy_articulation.mjs", import.meta.url), "utf8");
+    const enemy033BuilderSource = readFileSync(new URL("../devel/add_enemy_033_variant.mjs", import.meta.url), "utf8");
     assert.ok(cleanupSource.includes("zero-error linear simplification") && cleanupSource.includes("maximumError <= epsilon"), "the final keyframe cleanup should remain reproducible and zero-error");
-    assert.ok(migrationSource.includes("body_02") && migrationSource.includes("projectileVolleyCount") && migrationSource.includes("throwingKnife"), "the articulated backport and knife-thrower conversion should remain reproducible");
+    assert.ok(migrationSource.includes("body_02") && migrationSource.includes("projectileVolleyCount") && migrationSource.includes("throwingKnife"), "the articulated backport and first knife-thrower conversion should remain reproducible");
+    assert.ok(enemy033BuilderSource.includes("body_03") && enemy033BuilderSource.includes("head_03") && enemy033BuilderSource.includes("ct_anim_enemy_033"), "the second knife thrower should be reproducible from the current Enemy 032 assets");
     assert.equal(existsSync(new URL("../enemy-032-death-showcase.html", import.meta.url)), false, "the temporary death showcase should be removed after the final death choice");
     assert.equal(readdirSync(new URL("../assets", import.meta.url)).some((name) => name.includes("death_showcase")), false, "temporary death showcase clips should not remain in the release");
     assert.ok(rendererSource.includes("enemyKnife") && rendererSource.includes("drawProjectileKnife") && rendererSource.includes("drawProjectileKnifeWebGL"), "Canvas and WebGL should render the actual dagger atlas frame for thrown knives");
+    const webglKnifeStart = rendererSource.indexOf("    drawProjectileKnifeWebGL(projectile");
+    const canvasKnifeStart = rendererSource.indexOf("    drawProjectileKnife(projectile");
+    const webglKnifeMethod = rendererSource.slice(webglKnifeStart, rendererSource.indexOf("    drawRocketPathTrailWebGL(projectile", webglKnifeStart));
+    const canvasKnifeMethod = rendererSource.slice(canvasKnifeStart, rendererSource.indexOf("    drawProjectileRock(projectile", canvasKnifeStart));
+    assert.ok(webglKnifeMethod.includes("const rotation = travelAngle;") && canvasKnifeMethod.includes("const rotation = travelAngle;"), "both knife renderers should point the dagger along its velocity");
+    assert.equal(webglKnifeMethod.includes("projectile.age"), false, "WebGL knives should not spin with projectile age");
+    assert.equal(canvasKnifeMethod.includes("projectile.age"), false, "Canvas knives should not spin with projectile age");
     assert.equal(characterEditorHtml.includes('leftFoot: "Left leg sprite"'), false, "Puppet Forge should retire the incorrect left leg-sprite label");
     assert.equal(characterEditorHtml.includes('rightFoot: "Right leg sprite"'), false, "Puppet Forge should retire the incorrect right leg-sprite label");
     assert.ok(characterEditorHtml.includes('leftFoot: "Left foot"') && characterEditorHtml.includes('rightFoot: "Right foot"'), "Puppet Forge should label foot parts as feet");
@@ -2208,7 +2233,15 @@ function testLevelOneUsesBakedHunterNavigationGraphs() {
     const humanGraph = level.navigationGraphs.profiles.find((candidate) => candidate.profile.bodyWidth === 67.5 && candidate.profile.bodyHeight === 194);
     assert.ok(humanGraph, "level_001 should include the distinct tall-human hunter mobility profile");
     assert.equal(humanGraph.profile.runSpeed, 152, "the baked human hunter profile should match the authored run speed");
-    assert.equal(humanGraph.profile.maxFallDistance, 520, "the baked human hunter profile should match the authored fall distance");
+    assert.equal(humanGraph.profile.maxFallDistance, 600, "the baked human hunter profile should permit the authored tall-ledge exits");
+    assert.ok(
+        humanGraph.edges.some((edge) => edge.from === "left_step_blockable_1" && edge.to === "start_ground_blockable_2" && edge.type === "jump" && edge.direction === "left"),
+        "the tall-human graph should include the screenshot ledge jump back to the starter platform"
+    );
+    assert.ok(
+        humanGraph.edges.some((edge) => edge.from === "left_step_blockable_1" && edge.type === "drop" && edge.direction === "right" && edge.walkOff === true),
+        "the tall-human graph should also include a controlled right-hand walk-off from the screenshot ledge"
+    );
     const pillarRoute = planEnemyNavigationRoute(
         graph.supports,
         "floor_cold_platform_001_blockable_2_nav_2",
@@ -2418,6 +2451,62 @@ function testHunterWalksOffLevelOneLeftLedge() {
 }
 
 
+function testHumanHunterEscapesLevelOneLeftLedge() {
+    const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
+    level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_033_001");
+
+    const state = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply for the tall-human ledge regression test");
+    const manifests = new Map();
+    for (const ref of level.atlasRefs || []) {
+        const path = String(ref.manifest || "").replace(/^assets\//, "./assets/");
+        manifests.set(ref.atlasId, { manifest: JSON.parse(readFileSync(path, "utf8")) });
+    }
+    assert.equal(applyAtlasManifestsToWorld(state, manifests), true, "level collision should apply for the tall-human ledge regression test");
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 380;
+    state.player.y = 495;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    state.player.visible = true;
+
+    const enemy = state.enemies.find((item) => item.id === "enemy_033_001");
+    assert.ok(enemy, "the supplied Level 001 edit should place Enemy 033 on the left ledge");
+    enemy.x = 896;
+    enemy.y = 290.4453929718081;
+    enemy.spawnX = enemy.x;
+    enemy.spawnY = enemy.y;
+    enemy.homeSupportId = "left_step_blockable_1";
+    enemy.currentSupportId = "left_step_blockable_1";
+    enemy.facing = -1;
+    enemy.awarenessRange = 2000;
+    enemy.engaged = true;
+    enemy.alerted = true;
+    enemy.aiState = "pursue";
+    enemy.routeRepathTimer = 0;
+    enemy.attackCooldownTimer = 99;
+
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    const firstEdge = enemy.route?.[enemy.routeIndex];
+    assert.equal(firstEdge?.type, "jump", "the tall human should choose the physically valid leftward jump instead of stranded patrol");
+    assert.equal(firstEdge?.direction, "left", "the ledge escape jump should head toward Ignatius");
+    assert.equal(firstEdge?.to, "start_ground_blockable_2", "the jump should land on the starter platform");
+
+    let sawJump = false;
+    let landed = false;
+    for (let frame = 1; frame < 240; frame += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        sawJump ||= enemy.airborne && enemy.aiState === "jump";
+        landed ||= sawJump && !enemy.airborne && enemy.currentSupportId === "start_ground_blockable_2";
+        if (landed) break;
+    }
+    assert.equal(sawJump, true, "the tall human should commit to the ledge escape jump");
+    assert.equal(landed, true, "the tall human should land on the starter platform without clipping the ledge wall");
+    assert.equal(enemy.navigationFailureCount, 0, "the valid escape should not count as a navigation failure");
+}
+
 function testHunterClimbsLevelOnePillarFromLeftWithoutWallClipping() {
     const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
     level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_010_001");
@@ -2480,13 +2569,17 @@ function testHunterClimbsLevelOnePillarFromLeftWithoutWallClipping() {
 
 function testHunterJumpsOntoLevelOneArchWithLargeAuthoredJump() {
     const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
-    const musketGoblin = level.entities.find((entity) => entity.id === "enemy_011_001");
-    assert.ok(musketGoblin, "level_001 should contain the Musket Goblin used by the arch regression test");
-    musketGoblin.jumpHeight = 555;
-    musketGoblin.facing = 1;
-    musketGoblin.awarenessRange = 800;
-    musketGoblin.attackDamage = 0;
-    musketGoblin.projectileDamage = 0;
+    const archGoblin = level.entities.find((entity) => entity.id === "enemy_012_001");
+    assert.ok(archGoblin, "level_001 should contain the Tri-fireball Goblin used by the arch regression test");
+    archGoblin.x = 2860;
+    archGoblin.y = 844.55;
+    archGoblin.homeX = 2860;
+    archGoblin.homeY = 844.55;
+    archGoblin.jumpHeight = 555;
+    archGoblin.facing = 1;
+    archGoblin.awarenessRange = 800;
+    archGoblin.attackDamage = 0;
+    archGoblin.projectileDamage = 0;
 
     const state = createInitialGameState();
     assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply for the hunter arch regression test");
@@ -2506,7 +2599,7 @@ function testHunterJumpsOntoLevelOneArchWithLargeAuthoredJump() {
     state.player.wasOnGround = true;
     state.player.visible = true;
 
-    const enemy = state.enemies.find((item) => item.id === "enemy_011_001");
+    const enemy = state.enemies.find((item) => item.id === "enemy_012_001");
     let sawAirborne = false;
     let landedOnArch = false;
     let glaredBeforeJump = false;
@@ -2960,7 +3053,7 @@ function testHunterWalkOffDropClearsSourcePillar() {
 
 function testHunterWalksAcrossSlopedBlockableArchAndDrops() {
     const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
-    level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_011_001");
+    level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_012_001");
 
     const state = createInitialGameState();
     assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply for the sloped blockable arch regression test");
@@ -2979,8 +3072,8 @@ function testHunterWalksAcrossSlopedBlockableArchAndDrops() {
     state.player.wasOnGround = true;
     state.player.visible = true;
 
-    const enemy = state.enemies.find((item) => item.id === "enemy_011_001");
-    assert.ok(enemy, "level_001 should instantiate the musket goblin used by the sloped arch regression test");
+    const enemy = state.enemies.find((item) => item.id === "enemy_012_001");
+    assert.ok(enemy, "level_001 should instantiate the Tri-fireball Goblin used by the sloped arch regression test");
     enemy.x = 3330;
     enemy.y = 706.462;
     enemy.spawnX = enemy.x;
@@ -3974,7 +4067,8 @@ function testRebalancedEnemyHealthAndRocketHits() {
     const profiles = [
         { id: "enemy_001", characterId: "ct_char_enemy_001", expectedHealth: 90, expectedHits: 3 },
         { id: "enemy_010", characterId: "ct_char_enemy_010", expectedHealth: 60, expectedHits: 2 },
-        { id: "enemy_011", characterId: "ct_char_enemy_011", expectedHealth: 60, expectedHits: 2 },
+        { id: "enemy_011", characterId: "ct_char_enemy_011", expectedHealth: 60, expectedHits: 2, placedInLevelOne: false },
+        { id: "enemy_012", characterId: "ct_char_enemy_012", expectedHealth: 60, expectedHits: 2 },
         { id: "enemy_020", characterId: "ct_char_enemy_020", expectedHealth: 1, expectedHits: 1 }
     ];
 
@@ -3982,8 +4076,10 @@ function testRebalancedEnemyHealthAndRocketHits() {
         const catalogHealth = catalog.enemies[profile.id].defaults.health;
         assert.equal(catalogHealth, profile.expectedHealth, `${profile.id} catalog health should match the revision-220 balance`);
         const placed = levelOne.entities.find((entity) => entity.characterId === profile.characterId);
-        assert.ok(placed, `level_001 should contain ${profile.characterId}`);
-        assert.equal(placed.health, profile.expectedHealth, `${placed.id} should bake the same health as its catalog default`);
+        if (profile.placedInLevelOne !== false) {
+            assert.ok(placed, `level_001 should contain ${profile.characterId}`);
+            assert.equal(placed.health, profile.expectedHealth, `${placed.id} should bake the same health as its catalog default`);
+        }
     }
 
     for (const profile of profiles.filter((entry) => entry.id !== "enemy_020")) {
@@ -4687,7 +4783,7 @@ function testHumanKnifeThrowerVolley() {
 
     const fired = state.debug.lastEvents.filter((event) => event.type === "ENEMY_PROJECTILE_FIRED" && event.enemyId === "human_knife_thrower");
     assert.equal(fired.length, 3, "Human Knife Thrower should release exactly three knives in one attack");
-    assert.deepEqual(fired.map((event) => event.volleyAngleOffsetDegrees), [-8, 0, 8], "the three knives should use the authored narrow fan");
+    assert.deepEqual(fired.map((event) => event.volleyAngleOffsetDegrees), [-5, 0, 5], "the three knives should use the authored +/-5 degree fan");
     assert.ok(fired.every((event) => event.projectileKind === "enemyKnife"), "throwing-knife projectiles should use their dedicated simulation/render kind");
     assert.ok(fired.every((event) => event.projectilePartName === "throwingKnife"), "the volley should be attributed to the hidden hand launch marker");
     const knifeProjectiles = state.projectiles.filter((projectile) => projectile.enemyId === "human_knife_thrower");
@@ -4695,6 +4791,12 @@ function testHumanKnifeThrowerVolley() {
     assert.ok(knifeProjectiles.every((projectile) => projectile.kind === "enemyKnife" && projectile.frameId === "dagger"), "every in-flight knife should render the dagger frame");
     assert.ok(knifeProjectiles.every((projectile) => projectile.launchType === "straight" && projectile.homingStrength === 0), "the knife fan should fly straight without homing");
     assert.ok(knifeProjectiles.every((projectile) => projectile.radius === Math.max(6, state.enemies[0].projectileRadius) && projectile.damage === 8), "each knife should retain the scale-adjusted compact hitbox and balanced damage");
+    assert.equal(definition.defaults.projectileVolleyHalfAngle, 5, "Enemy 032 catalog data should own the +/-5 degree spread");
+    assert.equal(catalog.enemies.enemy_033.defaults.projectileVolleyHalfAngle, 5, "Enemy 033 should inherit the same +/-5 degree spread");
+    assert.equal(catalog.enemies.enemy_033.characterId, "ct_char_enemy_033", "Enemy 033 should use its independent character project");
+    const bundledLevel = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
+    const placedKnifeThrower = bundledLevel.entities.find((entity) => entity.enemyCatalogId === "enemy_032");
+    assert.equal(placedKnifeThrower.projectileVolleyHalfAngle, 5, "bundled current-level data should be patched to the new spread instead of relying on catalog fallback");
 }
 
 function testMusketGoblinProjectileAttack() {
@@ -5154,7 +5256,7 @@ function testCharacterProjectWorkspace() {
     );
 
     const toolHtml = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
-    assert.ok(toolHtml.includes("Character project"), "character tool should expose project selection");
+    assert.ok(toolHtml.includes("<h2>Character</h2>"), "character tool should expose project selection in the Character panel");
     assert.ok(toolHtml.includes("New character"), "character tool should expose blank project creation");
     assert.ok(toolHtml.includes("project-directory"), "character tool should expose directory selection where supported");
     assert.ok(toolHtml.includes("atlas-image-file"), "character tool should expose an explicit atlas PNG picker");
@@ -5188,7 +5290,7 @@ function testCharacterProjectWorkspace() {
     assert.ok(toolHtml.includes("PANEL_STORAGE_KEY") && toolHtml.includes("setupCollapsiblePanels") && toolHtml.includes("localStorage.setItem"), "right-side panels should collapse and remember their state in local storage");
     assert.ok(toolHtml.includes("selectPartFromCanvas") && toolHtml.includes('setAnimationTool("adjust")'), "canvas Select mode should choose a rig box and return to Adjust mode");
     assert.ok(toolHtml.includes("toggleSelectedPartVisibility"), "quick toolbar should author visible/hidden alpha keys");
-    assert.ok(toolHtml.includes("Unsaved change status"), "character tool should expose independent dirty-state status");
+    assert.ok(toolHtml.includes('data-dirty-export="character"') && toolHtml.includes('data-dirty-export="animation"'), "character tool should expose independent dirty-document export status");
     assert.ok(toolHtml.includes("part-to-back"), "character tool should expose a selected-part To Back control");
     assert.ok(toolHtml.includes("part-to-front"), "character tool should expose a selected-part To Front control");
 
@@ -8656,10 +8758,10 @@ function testRocketPowerUpArsenal() {
     const characterEditorSource = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 405<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(characterEditorSource, /Puppet Forge <small>rev 405<\/small>/, "Puppet Forge should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 408<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(characterEditorSource, /Puppet Forge <small>rev 408<\/small>/, "Puppet Forge should display the packaged revision");
     const assetEditorSource = readFileSync(new URL("../asset-editor.html", import.meta.url), "utf8");
-    assert.match(assetEditorSource, /Asset Tool <small>rev 405<\/small>/, "Asset Tool should display the packaged revision");
+    assert.match(assetEditorSource, /Asset Tool <small>rev 408<\/small>/, "Asset Tool should display the packaged revision");
     assert.ok(editorSource.includes("state.level.layerVisuals = normalizeLevelLayerVisuals({\n            version: 2,"), "editor metadata commits should retain the canonical layer-visual schema instead of reapplying legacy Foreground factors");
     assert.ok(editorSource.includes("const w = displayRecord.w * state.camera.zoom") && editorSource.includes("const w = displayPlacement.w * state.camera.zoom"), "Foreground selection and asset-guide outlines should use the same layer-scaled display dimensions as rendered artwork");
     assert.ok(
@@ -8688,7 +8790,7 @@ function testRocketPowerUpArsenal() {
     assert.equal(editorSource.includes('id="canvas-renderer-baseline"'), false, "the Level Editor should no longer advertise the posterity-only Canvas baseline");
     assert.equal(editorSource.includes("openCanvasRendererBaseline"), false, "the removed baseline link should leave no dormant click handler");
     assert.equal(editorSource.includes("Editor 2 lab"), false, "the Level Editor should not link to the removed Editor 2 lab");
-    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 405") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
+    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 408") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
     assert.ok(baselineSource.includes("applyEditorLevelToWorld") && baselineSource.includes("preferWebGL2: false") && baselineSource.includes("setViewOverride"), "the retained baseline should still convert the authored level and use the ordinary Canvas2D game renderer with an editor camera override");
     assert.ok(editorPlaywrightBenchmark.includes("benchmark_baseline") && editorPlaywrightBenchmark.includes("benchmark_editor") && editorPlaywrightBenchmark.includes("editorToBaselineCadenceRatio"), "the optional Playwright probe should compare the loaded baseline and editor rather than source-only timings");
     assert.ok(editorPlaywrightBenchmark.includes("bodyScrollWidth") && editorPlaywrightBenchmark.includes("stageBacking") && editorPlaywrightBenchmark.includes("overlayBacking"), "the Playwright probe should detect viewport overflow and stage/overlay size divergence");
@@ -8698,7 +8800,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(rendererSource.includes("backingPixelsPerCssPixel") && rendererSource.includes("override.cssZoom * backingPixelsPerCssPixel") && editorSource.includes("cssZoom: state.camera.zoom"), "editor and runtime artwork should share one CSS-pixel camera scale so guide alignment does not drift across the viewport");
     assert.ok(rendererSource.includes("this.ctx.setTransform(1, 0, 0, 1, 0, 0)") && rendererSource.includes("never inherit a CSS/DPR transform"), "the production Canvas renderer should reset inherited context transforms before drawing backing-pixel coordinates");
     assert.ok(editorSource.includes("stageCtx?.setTransform(1, 0, 0, 1, 0, 0)") && !editorSource.includes("stageCtx?.setTransform(dpr"), "the Level Editor must not pre-scale the production scene context by devicePixelRatio");
-    assert.match(bootstrapSource, /const GAME_REVISION = "405";/, "the game debug revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "408";/, "the game debug revision should match the packaged revision");
     assert.ok(
         editorSource.includes('<div class="level-section-label">Existing Level:</div>')
             && editorSource.includes('id="load-level">Load</button>')
@@ -9418,9 +9520,9 @@ function testCharacterToolDirectTransformGeometry() {
     const toolHtml = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     assert.ok(toolHtml.includes("X, Y and Angle (drag)"), "character tool should expose combined transform editing");
     assert.ok(toolHtml.includes("beginPartTransformDrag"), "character tool should wire direct part dragging");
-    assert.ok(toolHtml.includes("Use the mouse wheel over the canvas"), "character tool should document direct wheel preview zooming");
+    assert.ok(toolHtml.includes("Mouse-wheel zooms the canvas"), "character tool should document direct wheel preview zooming in a tooltip");
     assert.ok(!toolHtml.includes("if (!event.ctrlKey)"), "character preview zoom should not require Ctrl");
-    assert.ok(toolHtml.includes("Base rig / setup values"), "character tool should distinguish base rig values from animation keys");
+    assert.ok(toolHtml.includes("<h2>Rigging</h2>"), "character tool should distinguish base rig values from animation keys");
     assert.ok(toolHtml.includes("keyValue.disabled = transformMode"), "combined transform mode should disable the scalar value field");
     assert.ok(toolHtml.includes("function rigSetupTransform(partName)"), "character tool should synthesize setup transforms for rig parts missing from an animation clip");
     assert.ok(toolHtml.includes("authored ? { ...setup, ...authored } : setup"), "missing animation parts should remain selectable and movable from their rig setup pose");
@@ -9644,7 +9746,7 @@ function testAnimationEditorOperations() {
     normalizeAnimationClip(serialized, "round-tripped editor animation");
 
     const toolHtml = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
-    assert.ok(toolHtml.includes("Animation track"), "character tool should expose animation track editing");
+    assert.ok(toolHtml.includes("<h2>Keyframe</h2>"), "character tool should expose keyframe-track editing");
     assert.ok(toolHtml.includes("Add at playhead"), "character tool should expose keyframe creation");
     assert.ok(toolHtml.includes("Drag a diamond") || toolHtml.includes("drag a yellow corner"), "character tool should explain direct keyframe manipulation");
     assert.ok(toolHtml.includes("previewSelectedKeyValue"), "numeric key values should preview and commit directly");
@@ -10825,6 +10927,11 @@ function testEnemyProjectileVisualLanguageRendererContract() {
 
 function testRocketLaunchDoesNotFalseHitUnrelatedAtlasArea() {
     const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
+    // This regression isolates player-rocket launch geometry. The supplied
+    // Level 001 now places a knife thrower close enough to fire during the
+    // settling window, so remove combat actors rather than counting unrelated
+    // enemy projectiles as player rockets.
+    level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy");
     const atlas = JSON.parse(readFileSync("./assets/at_atlas_001.json", "utf8"));
     const state = createInitialGameState();
     assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply");
@@ -12919,6 +13026,7 @@ const tests = [
     ["hunter crosses and descends level_001 central pillar", testHunterCrossesLevelOneCentralPillarAndJumpsDown],
     ["engaged hunter immediately leaves pillar for last seen player", testEngagedHunterImmediatelyLeavesPillarForLastSeenPlayer],
     ["hunter walks off level_001 left ledge", testHunterWalksOffLevelOneLeftLedge],
+    ["human hunter escapes level_001 left ledge", testHumanHunterEscapesLevelOneLeftLedge],
     ["hunter climbs level_001 pillar from the left", testHunterClimbsLevelOnePillarFromLeftWithoutWallClipping],
     ["hunter jumps onto level_001 arch", testHunterJumpsOntoLevelOneArchWithLargeAuthoredJump],
     ["hunter obstacle-clear jump run-up", testHunterJumpUsesObstacleClearRunUp],
