@@ -3864,3 +3864,43 @@ Status: implemented.
 The bubble-only undeath projectile now retains its already-emitted particles after impact, terrain collision, or lifetime expiry. The physical projectile becomes a non-colliding `trailFading` carrier after its short impact phase; it emits nothing new, prunes particles only as their authored lifetimes end, and removes itself after the final bubble fades.
 
 Low rendering quality continues to show the projectile, but uses 75 percent of the normal undeath emission density. This keeps the hazard readable while modestly reducing particle load.
+
+
+## Revision 416 richer automatic-generator branches
+
+Status: implemented.
+
+The automatic generator now uses substantially more of the cave ceiling. Horizontal routes distribute reachable second-tier branches across at least 36 percent of the playable span. Standard routes place more detached first-tier platforms and extend selected branches into a higher second tier. Branch roles cycle between combat positions, ordinary reward perches, and dedicated power-up detours, allowing generated monsters and pickups to occupy optional routes rather than clustering on the main path.
+
+Overdrive is deliberately reserved for dedicated upper detours before ordinary reward slots are filled. The generated power-up pool changes from 50/25/25 to 60 percent random wrench, 30 percent Overdrive, and 10 percent Shield. Reward-only rerolls keep fixed safe seats so anchored encounter composition remains unchanged. Generator schema version 32 and reward catalog version 3 record the new behavior.
+
+The release gate also repaired two stale revision-415 contracts in the bundled Level 001 data and tests: the placed Skeleton Guard now carries the catalog-authoritative 50 damage, and navigation coverage recognizes the already-baked third hunter profile used by the Skeleton Caster.
+
+## Revision 417 empty-level runtime conversion
+
+Status: implemented.
+
+Creating a new empty level in the Level Editor previously caused `applyEditorLevelToWorld` to reject the document because it contained no placements, entities, or entry door. The editor then threw on its next production-renderer synchronization frame. An explicitly authored, finite, positive world bounds rectangle is now sufficient to create an empty runtime world. Truly content-free payloads without usable bounds remain invalid, and the Level Editor's intentional atlas and numbered-level discovery probes remain unchanged.
+
+## Revision 418 denser generated encounters and fewer power-ups
+
+Status: implemented.
+
+Generated encounter density is now horizontal-span based. At each theme's default Enemy density, the generator targets one monster per 500 horizontal route units. The density control scales that target, zero still disables encounters, and the upper scale is capped at twice the default rate. Long supports are divided into several deterministic encounter seats, so two or more separately paced encounters may occupy the same platform when body clearance, reward exclusion, endpoint calm zones, and minimum encounter spacing remain valid. Encounter metadata version 2 records the target, horizontal span, and target spacing.
+
+Generated power-ups are reduced to one third of revision 417 by changing their route-scaled target from one per 1,000 mandatory-route pixels to one per 3,000. The 60/30/10 random-wrench, Overdrive, and Shield mix remains unchanged, including dedicated upper Overdrive detours. Generator schema version 33 records the new population behavior.
+
+
+## Revision 419 increased generated monster density
+
+Status: implemented.
+
+At each theme's default Enemy density, automatic generation now targets one monster per 300 horizontal route units instead of one per 500. The existing density scaling, zero-density behavior, long-platform multi-seat placement, endpoint calm zones, reward exclusion, cavern fit, body clearance, and moving-platform shaft protection remain unchanged. Generator schema version 34 records the denser population rule.
+
+## Revision 420 populated endpoint screens
+
+Status: implemented.
+
+Generated endpoint screens were being left mostly empty by several overlapping restrictions. Encounter calm space was expanded to the largest allowed enemy awareness range plus a safety buffer, producing roughly 980-1020 units of exclusion at each end. Active enemy metadata also refused the earliest route progress, physical rewards excluded 760-800 units around endpoints, and endpoint metadata omitted the actual door coordinates so several systems measured from the middle of the door platform instead. Reward-perch placement could then consume the treasure budget before open-route and late-route seats were considered.
+
+Generator schema version 35 stores the actual entrance and exit coordinates. Encounter calm zones now protect portal footing rather than whole awareness ranges: 520 units for Earth and 540 for Ice. The earliest active enemy can use the first transition support, endpoint-local fallback candidates keep grouped encounters from consuming the population quota before a late seat is tried, and both first and last screens are covered while the portal approach remains clear. Physical rewards may use the full route-progress range. A safely offset treasure chest is placed on each door support when rewards are enabled, upper perches retain a capped share of the treasure budget, and remaining chests are distributed across the complete route instead of filling from the start forward. Reward exclusion is 300 units for Earth and 320 for Ice, measured from the actual portal positions.

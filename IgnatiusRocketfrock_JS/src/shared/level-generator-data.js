@@ -6,7 +6,7 @@ import { normalizeLevelLayerVisuals } from "./level-layer-data.js";
 import { parseEnemySelection } from "./enemy-pool-data.js";
 export { parseEnemySelection } from "./enemy-pool-data.js";
 
-export const AUTOMATIC_LEVEL_GENERATOR_VERSION = 31;
+export const AUTOMATIC_LEVEL_GENERATOR_VERSION = 35;
 export const AUTOMATIC_LEVEL_GENERATOR_ID = "automatic-level-generator-9";
 
 const GENERATED_PLAYER_BODY_WIDTH = 34;
@@ -14,7 +14,8 @@ const GENERATED_STATIC_HEADROOM = 112;
 export const GENERATED_MINIMUM_VERTICAL_PLATFORM_SEPARATION = 180;
 export const GENERATED_MOVING_PLATFORM_RIDER_CLEARANCE = 180;
 export const GENERATED_TREASURE_CHEST_SPACING_PX = 500;
-export const GENERATED_POWER_UP_SPACING_PX = 1000;
+export const GENERATED_POWER_UP_SPACING_PX = 3000;
+export const GENERATED_MONSTER_SPACING_PX = 300;
 export const DOMED_CAVERN_UPWARD_EXPANSION_FACTOR = 1.5;
 
 export const LEVEL_GENERATOR_STAGE_ORDER = Object.freeze([
@@ -132,14 +133,14 @@ const DEFAULT_THEME = Object.freeze({
         calmDistance: 300
     }),
     encounters: Object.freeze({
-        calmDistance: 980,
+        calmDistance: 520,
         minimumEncounterSpacing: 700,
         landingBuffer: 132,
         spawnSafetyBuffer: 150,
         maximumEncounterShare: 0.72
     }),
     rewards: Object.freeze({
-        endpointExclusionDistance: 760,
+        endpointExclusionDistance: 300,
         minimumRewardSpacing: 480,
         treasureChestScore: 100,
         maximumContextualPowerUps: 3,
@@ -237,14 +238,14 @@ export function normalizeGeneratorTheme(value) {
             calmDistance: clampNumber(endpointsSource.calmDistance, 220, 520, DEFAULT_THEME.endpoints.calmDistance)
         },
         encounters: {
-            calmDistance: clampNumber(encountersSource.calmDistance, 760, 1400, DEFAULT_THEME.encounters.calmDistance),
+            calmDistance: clampNumber(encountersSource.calmDistance, 300, 900, DEFAULT_THEME.encounters.calmDistance),
             minimumEncounterSpacing: clampNumber(encountersSource.minimumEncounterSpacing, 420, 1200, DEFAULT_THEME.encounters.minimumEncounterSpacing),
             landingBuffer: clampNumber(encountersSource.landingBuffer, 80, 220, DEFAULT_THEME.encounters.landingBuffer),
             spawnSafetyBuffer: clampNumber(encountersSource.spawnSafetyBuffer, 80, 260, DEFAULT_THEME.encounters.spawnSafetyBuffer),
             maximumEncounterShare: clampNumber(encountersSource.maximumEncounterShare, 0.35, 0.9, DEFAULT_THEME.encounters.maximumEncounterShare)
         },
         rewards: {
-            endpointExclusionDistance: clampNumber(rewardsSource.endpointExclusionDistance, 420, 1400, DEFAULT_THEME.rewards.endpointExclusionDistance),
+            endpointExclusionDistance: clampNumber(rewardsSource.endpointExclusionDistance, 240, 900, DEFAULT_THEME.rewards.endpointExclusionDistance),
             minimumRewardSpacing: clampNumber(rewardsSource.minimumRewardSpacing, 240, 1000, DEFAULT_THEME.rewards.minimumRewardSpacing),
             treasureChestScore: Math.round(clampNumber(rewardsSource.treasureChestScore, 25, 1000, DEFAULT_THEME.rewards.treasureChestScore)),
             maximumContextualPowerUps: Math.round(clampNumber(rewardsSource.maximumContextualPowerUps, 0, 8, DEFAULT_THEME.rewards.maximumContextualPowerUps)),
@@ -668,6 +669,59 @@ function generatedMandatoryRouteDistance(route) {
     return Math.max(0, routeDistance);
 }
 
+function generatedHorizontalRouteSpan(route) {
+    const xs = (route?.nodes || [])
+        .filter((node) => node?.mandatory !== false)
+        .map((node) => finiteNumber(node?.x, NaN))
+        .filter(Number.isFinite);
+    if (xs.length < 2) return 0;
+    return Math.max(0, Math.max(...xs) - Math.min(...xs));
+}
+
+function distributedSlotOrder(count) {
+    const total = Math.max(0, Math.floor(Number(count) || 0));
+    if (total <= 1) return total ? [0] : [];
+    const remaining = new Set(Array.from({ length: total }, (_, index) => index));
+    const ordered = [];
+    const take = (index) => {
+        if (!remaining.has(index)) return;
+        remaining.delete(index);
+        ordered.push(index);
+    };
+    take(0);
+    take(total - 1);
+    while (remaining.size) {
+        let bestIndex = -1;
+        let bestDistance = -1;
+        for (const index of remaining) {
+            const nearest = Math.min(...ordered.map((used) => Math.abs(index - used)));
+            if (nearest > bestDistance || (nearest === bestDistance && index < bestIndex)) {
+                bestDistance = nearest;
+                bestIndex = index;
+            }
+        }
+        take(bestIndex);
+    }
+    return ordered;
+}
+
+export function generatedMonsterTargetForRoute(
+    route,
+    settings = {},
+    defaultEnemyDensity = DEFAULT_GENERATOR_SETTINGS.enemyDensity
+) {
+    const enemyDensity = clamp01(settings.enemyDensity ?? defaultEnemyDensity);
+    if (enemyDensity <= 0.001) return 0;
+    const horizontalSpan = generatedHorizontalRouteSpan(route);
+    const baselineTarget = Math.max(1, Math.round(horizontalSpan / GENERATED_MONSTER_SPACING_PX));
+    const densityScale = clamp(
+        enemyDensity / Math.max(0.001, clamp01(defaultEnemyDensity)),
+        0.25,
+        2
+    );
+    return Math.max(1, Math.round(baselineTarget * densityScale));
+}
+
 function generatedRouteScaledRewardTarget(route, settings, spacingPx, maximumDensityScale = 1.5) {
     const rewardDensity = clamp01(settings.rewardDensity ?? DEFAULT_GENERATOR_SETTINGS.rewardDensity);
     if (rewardDensity <= 0.001) return 0;
@@ -816,6 +870,7 @@ function buildBasicRewards({
     const occupiedPositions = [];
     const selectedPerchSupportIds = [];
     const treasureChestTarget = Math.max(0, Math.floor(Number(rewardPlan?.treasureTarget) || 0));
+    const guaranteedPowerUpTarget = Math.max(0, Math.floor(Number(rewardPlan?.powerUpTarget) || 0));
     const endpointXs = [
         finiteNumber(endpoints?.entrance?.x, supportById.get(traversal.startSupportId)?.centerX || 0),
         finiteNumber(endpoints?.exit?.x, supportById.get(traversal.exitSupportId)?.centerX || 0)
@@ -846,10 +901,11 @@ function buildBasicRewards({
         const scored = available.map((metadata) => ({
             metadata,
             deficit: ((placedCount + 1) * Math.max(0, metadata.weight) / powerUpWeightTotal)
-                - (counts.get(metadata.entityType) || 0),
-            randomOrder: rng.float()
-        })).sort((left, right) => right.deficit - left.deficit || left.randomOrder - right.randomOrder);
-        return scored[0]?.metadata || null;
+                - (counts.get(metadata.entityType) || 0)
+        }));
+        const bestDeficit = Math.max(...scored.map((entry) => entry.deficit));
+        const nearBest = scored.filter((entry) => entry.deficit >= bestDeficit - 0.24);
+        return rng.pick(nearBest)?.metadata || null;
     };
     const thoughtMetadata = metadataByType.get("thoughtTrigger");
     const thoughtReservedSupport = rewardPlan.allowThoughts && thoughtMetadata && entityCatalog.has("thoughtTrigger")
@@ -951,15 +1007,75 @@ function buildBasicRewards({
         return entity;
     };
 
+    const dedicatedPowerUpPerches = supports.filter((support) =>
+        support.secondaryPlatform
+        && support.rewardPerch
+        && support.powerUpPerch
+        && !support.moving
+    ).sort((left, right) =>
+        finiteNumber(right.secondaryTier, 1) - finiteNumber(left.secondaryTier, 1)
+        || left.surfaceY - right.surfaceY
+        || supportProgress(left, routeNodeById, routeEdgeById) - supportProgress(right, routeNodeById, routeEdgeById)
+        || left.id.localeCompare(right.id)
+    );
+    const placeSelectedReward = ({ metadata, support, context, routeNodeId = "", x = null, overrides = {}, reserveSupport = true }) => {
+        if (!metadata) return null;
+        return addReward({
+            type: metadata.entityType,
+            support,
+            context,
+            routeNodeId,
+            x,
+            overrides,
+            reserveSupport
+        });
+    };
+
     if (treasureChestTarget > 0 && treasureMetadata && treasureDefinition) {
+        // The door supports are real walkable space. Seat one chest on the far
+        // side of each endpoint platform when the route budget permits it,
+        // leaving the portal approach itself protected by endpoint distance.
+        const endpointTreasureSupports = [
+            { support: supportById.get(traversal.startSupportId), side: "right", role: "entrance" },
+            { support: supportById.get(traversal.exitSupportId), side: "left", role: "exit" }
+        ];
+        const endpointChestOutset = finiteNumber(treasureMetadata.edgeClearance, 0)
+            + finiteNumber(treasureDefinition.defaultSize?.w, 96) * 0.5;
+        for (const endpoint of endpointTreasureSupports) {
+            if (rewards.filter((reward) => reward.category === "treasure").length >= treasureChestTarget) break;
+            const support = endpoint.support;
+            if (!support) continue;
+            const x = endpoint.side === "right"
+                ? support.walkableRightX - endpointChestOutset
+                : support.walkableLeftX + endpointChestOutset;
+            addReward({
+                type: "treasureChest",
+                support,
+                x,
+                context: "openRoute",
+                routeNodeId: support.routeNodeId,
+                overrides: { scoreValue: theme.rewards.treasureChestScore },
+                reserveSupport: false
+            });
+        }
+
         const preferredPerches = supports.filter((support) =>
             support.secondaryPlatform
             && support.rewardPerch
+            && !support.powerUpPerch
             && support.id !== thoughtReservedSupport?.id
         ).sort((left, right) => supportProgress(left, routeNodeById, routeEdgeById)
             - supportProgress(right, routeNodeById, routeEdgeById)
             || left.id.localeCompare(right.id));
-        for (const support of preferredPerches) {
+        // Upper perches remain valuable detours, but must not greedily consume
+        // the complete treasure budget before endpoint and open-route seats are considered.
+        const preferredPerchTarget = Math.min(
+            preferredPerches.length,
+            Math.max(1, Math.round(treasureChestTarget * 0.55))
+        );
+        for (const perchIndex of distributedSlotOrder(preferredPerches.length)) {
+            if (selectedPerchSupportIds.length >= preferredPerchTarget) break;
+            const support = preferredPerches[perchIndex];
             const entity = addReward({
                 type: "treasureChest",
                 support,
@@ -972,15 +1088,31 @@ function buildBasicRewards({
         }
     }
 
+    const overdriveMetadata = metadataByType.get("overdrivePickup");
+    const detourOverdriveTarget = overdriveMetadata && guaranteedPowerUpTarget > 0
+        ? Math.min(dedicatedPowerUpPerches.length, Math.max(1, Math.round(guaranteedPowerUpTarget * 0.3)))
+        : 0;
+    let detourOverdriveCount = 0;
+    for (const support of dedicatedPowerUpPerches) {
+        if (detourOverdriveCount >= detourOverdriveTarget) break;
+        const entity = addReward({
+            type: "overdrivePickup",
+            support,
+            context: "detourUpperPerch",
+            routeNodeId: support.routeNodeId
+        });
+        if (entity) detourOverdriveCount += 1;
+    }
+
     const mainSupportCandidates = supports.filter((support) =>
-        ((support.mandatory && ["routeFloor", "landingPlatform", "runAndGunGround", "recoveryPlatform"].includes(support.role) && (support.routeNodeId || support.routeEdgeId))
+        ((support.mandatory && ["routeFloor", "landingPlatform", "runAndGunGround", "recoveryPlatform", "doorSupport"].includes(support.role) && (support.routeNodeId || support.routeEdgeId))
             || (support.secondaryPlatform && support.rewardPerch))
     ).map((support) => ({
         support,
         progress: supportProgress(support, routeNodeById, routeEdgeById)
     })).filter((candidate) => {
         const normalizedProgress = candidate.progress / Math.max(1, (route?.nodes || []).filter((node) => node.mandatory).length - 1);
-        return normalizedProgress >= 0.16 && normalizedProgress <= 0.88;
+        return normalizedProgress >= 0 && normalizedProgress <= 1;
     });
 
     const contextual = [];
@@ -1004,8 +1136,8 @@ function buildBasicRewards({
             ? selectPowerUpMetadata(metadataCandidates.map((entry) => entry.metadata))
             : weightedRandomChoice(metadataCandidates, rng)?.metadata;
         if (!selectedMetadata) continue;
-        const entity = addReward({
-            type: selectedMetadata.entityType,
+        const entity = placeSelectedReward({
+            metadata: selectedMetadata,
             support: candidate.support,
             context: candidate.context,
             routeNodeId: candidate.support.routeNodeId
@@ -1029,8 +1161,8 @@ function buildBasicRewards({
             const pool = unused.length ? unused : powerUpMetadata;
             const selectedMetadata = selectPowerUpMetadata(pool);
             if (!selectedMetadata) break;
-            const entity = addReward({
-                type: selectedMetadata.entityType,
+            const entity = placeSelectedReward({
+                metadata: selectedMetadata,
                 support,
                 context: support.secondaryPlatform ? "openUpperPerch" : "openRoute",
                 routeNodeId: support.routeNodeId
@@ -1042,7 +1174,6 @@ function buildBasicRewards({
         }
     }
 
-    const guaranteedPowerUpTarget = Math.max(0, Math.floor(Number(rewardPlan?.powerUpTarget) || 0));
     let powerUpCount = rewards.filter((reward) => reward.category === "powerUp").length;
     if (powerUpCount < guaranteedPowerUpTarget) {
         // Keep the route-scaled guarantee owned entirely by the reward stream.
@@ -1057,8 +1188,8 @@ function buildBasicRewards({
             if (powerUpCount >= guaranteedPowerUpTarget) break;
             const selectedMetadata = selectPowerUpMetadata(powerUpMetadata);
             if (!selectedMetadata) break;
-            const entity = addReward({
-                type: selectedMetadata.entityType,
+            const entity = placeSelectedReward({
+                metadata: selectedMetadata,
                 support,
                 context: support.secondaryPlatform ? "openUpperPerch" : "openRoute",
                 routeNodeId: support.routeNodeId
@@ -1069,7 +1200,7 @@ function buildBasicRewards({
             }
         }
 
-        // A one-per-1,000-pixel route can legitimately need more pickups than
+        // Dense reward settings can legitimately need more pickups than
         // there are distinct supports. Long platforms may therefore host
         // additional pickups, but only at ordinary reward-spacing intervals.
         if (powerUpCount < guaranteedPowerUpTarget) {
@@ -1078,7 +1209,6 @@ function buildBasicRewards({
             const candidateStep = Math.max(40, slotSpacing / 4);
             const repeatableSupports = supports.filter((support) =>
                 !support.moving
-                && support.role !== "doorSupport"
                 && support.id !== thoughtReservedSupport?.id
                 && (support.routeNodeId || support.routeEdgeId)
             ).sort((left, right) => supportProgress(left, routeNodeById, routeEdgeById)
@@ -1114,8 +1244,8 @@ function buildBasicRewards({
                 if (powerUpCount >= guaranteedPowerUpTarget) break;
                 const selectedMetadata = selectPowerUpMetadata(powerUpMetadata);
                 if (!selectedMetadata) break;
-                const entity = addReward({
-                    type: selectedMetadata.entityType,
+                const entity = placeSelectedReward({
+                    metadata: selectedMetadata,
                     support: slot.support,
                     x: slot.x,
                     context: slot.support.secondaryPlatform ? "openUpperPerch" : "openRoute",
@@ -1163,11 +1293,10 @@ function buildBasicRewards({
             const chestSlots = [];
             const eligibleSupports = supports.filter((support) =>
                 !support.moving
-                && support.role !== "doorSupport"
                 && support.id !== thoughtReservedSupport?.id
                 && (support.routeNodeId || support.routeEdgeId)
                 && (
-                    (support.mandatory && ["routeFloor", "landingPlatform", "runAndGunGround"].includes(support.role))
+                    (support.mandatory && ["routeFloor", "landingPlatform", "runAndGunGround", "doorSupport"].includes(support.role))
                     || support.role === "recoveryPlatform"
                     || support.role === "upperAccessPlatform"
                     || (support.secondaryPlatform && !support.rewardPerch)
@@ -1196,8 +1325,9 @@ function buildBasicRewards({
             }
 
             const unusedSlots = new Set(chestSlots.map((_, index) => index));
-            for (let targetIndex = 0; targetIndex < treasureChestTarget && treasureChestCount < treasureChestTarget; targetIndex += 1) {
-                const desiredProgress = (targetIndex + 0.5) / treasureChestTarget;
+            const remainingTreasureTarget = Math.max(0, treasureChestTarget - treasureChestCount);
+            for (let targetIndex = 0; targetIndex < remainingTreasureTarget && treasureChestCount < treasureChestTarget; targetIndex += 1) {
+                const desiredProgress = (targetIndex + 0.5) / Math.max(1, remainingTreasureTarget);
                 const ordered = [...unusedSlots].sort((leftIndex, rightIndex) => {
                     const left = chestSlots[leftIndex];
                     const right = chestSlots[rightIndex];
@@ -1904,13 +2034,17 @@ function generatedEnemyOverlapsRewardReservations(entity, reservations) {
 
 function emptyEncounterPopulation(runId, implementationId = "not-generated-yet") {
     return {
-        version: 1,
+        version: 2,
         generatorId: String(implementationId || "not-generated-yet"),
         runId: String(runId || ""),
         budget: 0,
         spentBudget: 0,
         calmDistance: 0,
         minimumEncounterSpacing: 0,
+        maximumEncounters: 0,
+        monsterTarget: 0,
+        horizontalSpan: 0,
+        targetMonsterSpacing: GENERATED_MONSTER_SPACING_PX,
         encounters: [],
         entities: []
     };
@@ -1939,38 +2073,44 @@ function buildDifficultyBudgetedEncounters({
         finiteNumber(endpoints?.entrance?.x, traversal?.supports?.find((support) => support.id === traversal?.startSupportId)?.centerX || 0),
         finiteNumber(endpoints?.exit?.x, traversal?.supports?.find((support) => support.id === traversal?.exitSupportId)?.centerX || 0)
     ];
-    const maximumAwareness = Math.max(0, ...allowed.map((enemyId) => finiteNumber(enemyCatalog.get(enemyId)?.defaults?.awarenessRange, 0)));
-    const calmDistance = Math.max(theme.encounters.calmDistance, maximumAwareness + theme.encounters.spawnSafetyBuffer);
-    const spacing = theme.encounters.minimumEncounterSpacing * (0.9 + settings.safety * 0.18);
+    const horizontalSpan = generatedHorizontalRouteSpan(route);
+    const monsterTarget = generatedMonsterTargetForRoute(route, settings, theme?.defaults?.enemyDensity);
+    // Endpoint calm space protects the portal animation and immediate footing only.
+    // Enemy awareness must not reserve entire screens of otherwise usable level space.
+    const calmDistance = Math.max(theme.endpoints.calmDistance, theme.encounters.calmDistance);
+    const targetMonsterSpacing = monsterTarget > 0
+        ? Math.max(1, horizontalSpan / monsterTarget)
+        : GENERATED_MONSTER_SPACING_PX;
+    const spacing = clamp(
+        targetMonsterSpacing * (0.46 + settings.safety * 0.1),
+        180,
+        theme.encounters.minimumEncounterSpacing
+    );
     const encounterSupports = (traversal?.supports || []).filter((support) => (
         !support.moving
         && (support.routeNodeId || support.routeEdgeId)
         && ((support.mandatory && ["routeFloor", "landingPlatform", "recoveryPlatform", "runAndGunGround"].includes(support.role))
             || (support.secondaryPlatform && support.combatPerch))
     ));
-    const budget = settings.enemyDensity <= 0.001 ? 0 : Math.max(1, Math.round(
-        encounterSupports.length
-        * settings.enemyDensity
-        * (2.15 + settings.difficulty * 1.55)
-        * (0.88 + (1 - settings.safety) * 0.12)
-    ));
-    const maximumEncounters = settings.enemyDensity <= 0.001 ? 0 : Math.max(1, Math.round(
-        encounterSupports.length
-        * theme.encounters.maximumEncounterShare
-        * settings.enemyDensity
-        * (0.78 + settings.difficulty * 0.34)
-    ));
+    const maximumUnitCost = Math.max(1, ...allowed.map((enemyId) => finiteNumber(metadataById.get(enemyId)?.difficultyCost, 1)));
+    const budget = monsterTarget > 0 ? Math.ceil(monsterTarget * maximumUnitCost) : 0;
+    const maximumEncounters = monsterTarget;
     if (!allowed.length || !budget || !maximumEncounters) {
         return {
             ...emptyEncounterPopulation(runId, "difficulty-budgeted-encounters-v1"),
             budget,
             calmDistance: roundCoordinate(calmDistance),
             minimumEncounterSpacing: roundCoordinate(spacing),
+            maximumEncounters,
+            monsterTarget,
+            horizontalSpan: roundCoordinate(horizontalSpan),
+            targetMonsterSpacing: roundCoordinate(targetMonsterSpacing),
             allowedEnemyIds: allowed
         };
     }
 
-    const candidates = rng.shuffle(encounterSupports).map((support) => {
+    const rawCandidates = [];
+    for (const support of encounterSupports) {
         const node = routeNodes.get(support.routeNodeId);
         const routeEdge = routeEdgesById.get(support.routeEdgeId);
         const fromNode = routeNodes.get(routeEdge?.from);
@@ -1979,37 +2119,106 @@ function buildDifficultyBudgetedEncounters({
             ? finiteNumber(node.progress, 0)
             : (finiteNumber(fromNode?.progress, 0) + finiteNumber(toNode?.progress, 0)) * 0.5;
         const progress = clamp01(progressValue / maxProgress);
-        const vertical = cavernVerticalRangeAt(cavern, support.centerX, support.surfaceY);
-        const headroom = vertical ? support.surfaceY - vertical.top : 0;
-        const endpointDistance = Math.min(...endpointX.map((x) => Math.abs(support.centerX - x)));
-        return {
-            support,
-            progress,
-            headroom,
-            cavern,
-            endpointDistance,
-            order: (support.combatPerch ? -0.75 : progress) + rng.range(-0.08, 0.08)
-        };
-    }).filter((candidate) => candidate.endpointDistance >= calmDistance)
-        .sort((a, b) => a.order - b.order);
+        const seatCount = support.secondaryPlatform
+            ? 1
+            : Math.max(1, Math.ceil(
+                finiteNumber(support.walkableWidth, 0)
+                / Math.max(280, targetMonsterSpacing * 0.68)
+            ));
+        const walkableLeft = finiteNumber(support.walkableLeftX, support.centerX - support.walkableWidth * 0.5);
+        const walkableRight = finiteNumber(support.walkableRightX, support.centerX + support.walkableWidth * 0.5);
+        const inset = Math.min(190, Math.max(42, finiteNumber(support.walkableWidth, 0) * 0.18));
+        const firstX = Math.min(walkableRight, walkableLeft + inset);
+        const lastX = Math.max(walkableLeft, walkableRight - Math.max(42, inset * 0.62));
+        for (let seatIndex = 0; seatIndex < seatCount; seatIndex += 1) {
+            const seatX = seatCount <= 1
+                ? clamp(finiteNumber(support.centerX, (walkableLeft + walkableRight) * 0.5), firstX, lastX)
+                : firstX + (lastX - firstX) * seatIndex / (seatCount - 1);
+            const vertical = cavernVerticalRangeAt(cavern, seatX, support.surfaceY);
+            const headroom = vertical ? support.surfaceY - vertical.top : 0;
+            const endpointDistance = Math.min(...endpointX.map((x) => Math.abs(seatX - x)));
+            if (endpointDistance < calmDistance) continue;
+            rawCandidates.push({
+                support,
+                progress,
+                headroom,
+                cavern,
+                endpointDistance,
+                seatX: roundCoordinate(seatX),
+                seatIndex,
+                tieBreaker: rng.float()
+            });
+        }
+    }
+
+    const candidates = [];
+    const remainingCandidates = rng.shuffle(rawCandidates);
+    const playableLeft = Math.min(...endpointX) + calmDistance;
+    const playableRight = Math.max(...endpointX) - calmDistance;
+    const desiredSlotCount = Math.max(1, monsterTarget);
+    while (remainingCandidates.length) {
+        let selectedThisPass = 0;
+        for (const slotIndex of distributedSlotOrder(desiredSlotCount)) {
+            if (!remainingCandidates.length) break;
+            const desiredX = playableRight > playableLeft
+                ? playableLeft + (playableRight - playableLeft) * (slotIndex + 0.5) / desiredSlotCount
+                : (endpointX[0] + endpointX[1]) * 0.5;
+            let bestIndex = 0;
+            let bestScore = Infinity;
+            for (let index = 0; index < remainingCandidates.length; index += 1) {
+                const candidate = remainingCandidates[index];
+                const combatPerchBonus = candidate.support.combatPerch ? targetMonsterSpacing * 0.18 : 0;
+                const score = Math.abs(candidate.seatX - desiredX) - combatPerchBonus + candidate.tieBreaker * 0.001;
+                if (score < bestScore) {
+                    bestScore = score;
+                    bestIndex = index;
+                }
+            }
+            candidates.push(remainingCandidates.splice(bestIndex, 1)[0]);
+            selectedThisPass += 1;
+        }
+        if (!selectedThisPass) break;
+    }
+
+    const endpointPriority = [];
+    const prioritizedCandidates = new Set();
+    const endpointFallbackCount = 6;
+    const addEndpointFallbacks = (endpoint) => {
+        const nearest = candidates
+            .filter((candidate) => !prioritizedCandidates.has(candidate))
+            .sort((left, right) => Math.abs(left.seatX - endpoint) - Math.abs(right.seatX - endpoint)
+                || left.tieBreaker - right.tieBreaker)
+            .slice(0, endpointFallbackCount);
+        for (const candidate of nearest) {
+            prioritizedCandidates.add(candidate);
+            endpointPriority.push(candidate);
+        }
+    };
+    addEndpointFallbacks(endpointX[0]);
+    addEndpointFallbacks(endpointX[1]);
+    const orderedCandidates = [
+        ...endpointPriority,
+        ...candidates.filter((candidate) => !prioritizedCandidates.has(candidate))
+    ];
 
     const encounters = [];
     const entities = [];
     let spentBudget = 0;
     let lastEnemyId = "";
     let hunterPlaced = false;
-    const hunterRequired = settings.enemyDensity >= 0.45
+    const hunterRequired = settings.enemyDensity >= theme.defaults.enemyDensity
         && settings.difficulty >= 0.34
         && allowed.some((enemyId) => metadataById.get(enemyId)?.requiresNavigation);
-    for (const candidate of candidates) {
-        if (encounters.length >= maximumEncounters) break;
+    for (const candidate of orderedCandidates) {
+        if (encounters.length >= maximumEncounters || entities.length >= monsterTarget) break;
         if (spentBudget >= budget) break;
-        if (encounters.some((encounter) => Math.abs(encounter.x - candidate.support.centerX) < spacing)) continue;
+        if (encounters.some((encounter) => Math.abs(encounter.x - candidate.seatX) < spacing)) continue;
         const remaining = budget - spentBudget;
+        const remainingMonsterTarget = monsterTarget - entities.length;
         const fitting = allowed.map((enemyId) => {
             const metadata = metadataById.get(enemyId);
             const definition = enemyCatalog.get(enemyId);
-            const groupSize = encounterGroupSize(metadata, settings, remaining, rng);
+            const groupSize = encounterGroupSize(metadata, settings, remaining, remainingMonsterTarget, rng);
             const totalCost = metadata.difficultyCost * groupSize;
             if (groupSize < metadata.groupMin || totalCost > remaining + 0.001) return null;
             if (settings.difficulty < metadata.minDifficulty || settings.difficulty > metadata.maxDifficulty) return null;
@@ -2042,6 +2251,11 @@ function buildDifficultyBudgetedEncounters({
         if (built.entities.some((entity) => endpointX.some((x) => Math.abs(finiteNumber(entity?.x, 0) - x) < calmDistance))) continue;
         if (built.entities.some((entity) => generatedEnemyOverlapsRewardReservations(entity, rewardReservations))) continue;
         if (encounters.some((encounter) => Math.abs(encounter.x - built.encounter.x) < spacing)) continue;
+        const overlapsExistingEnemy = built.entities.some((entity) => entities.some((existing) => (
+            Math.abs(finiteNumber(entity.x, 0) - finiteNumber(existing.x, 0)) < (finiteNumber(entity.w, 0) + finiteNumber(existing.w, 0)) * 0.62
+            && Math.abs(finiteNumber(entity.y, 0) - finiteNumber(existing.y, 0)) < Math.max(finiteNumber(entity.h, 0), finiteNumber(existing.h, 0)) * 0.65
+        )));
+        if (overlapsExistingEnemy) continue;
         encounters.push(built.encounter);
         entities.push(...built.entities);
         spentBudget += selected.totalCost;
@@ -2050,7 +2264,7 @@ function buildDifficultyBudgetedEncounters({
     }
 
     return {
-        version: 1,
+        version: 2,
         generatorId: "difficulty-budgeted-encounters-v1",
         runId,
         budget,
@@ -2058,15 +2272,18 @@ function buildDifficultyBudgetedEncounters({
         calmDistance: roundCoordinate(calmDistance),
         minimumEncounterSpacing: roundCoordinate(spacing),
         maximumEncounters,
+        monsterTarget,
+        horizontalSpan: roundCoordinate(horizontalSpan),
+        targetMonsterSpacing: roundCoordinate(targetMonsterSpacing),
         allowedEnemyIds: allowed,
         encounters,
         entities
     };
 }
 
-function encounterGroupSize(metadata, settings, remainingBudget, rng) {
+function encounterGroupSize(metadata, settings, remainingBudget, remainingMonsterTarget, rng) {
     const affordableMax = Math.floor((remainingBudget + 1e-6) / metadata.difficultyCost);
-    const maximum = Math.min(metadata.groupMax, affordableMax);
+    const maximum = Math.min(metadata.groupMax, affordableMax, Math.max(0, remainingMonsterTarget));
     if (maximum < metadata.groupMin) return 0;
     if (metadata.placementClass === "flyingBomber") {
         return maximum >= 3 && rng.chance(0.28 + settings.difficulty * 0.42) ? 3 : 2;
@@ -2106,11 +2323,11 @@ function weightedRandomChoice(values, rng) {
 }
 
 function instantiateGeneratedEncounter({ encounterId, candidate, selected, theme, supports, rng, runId }) {
-    const { support, progress, headroom } = candidate;
+    const { support, progress, headroom, seatX } = candidate;
     const { enemyId, metadata, definition, groupSize, totalCost } = selected;
     const entities = metadata.placementClass === "flyingBomber"
-        ? instantiateFlyingEnemyGroup({ encounterId, support, supports, cavern: candidate.cavern, headroom, enemyId, metadata, definition, groupSize, rng, runId })
-        : instantiateGroundEnemyGroup({ encounterId, support, supports, enemyId, metadata, definition, groupSize, theme, rng, runId });
+        ? instantiateFlyingEnemyGroup({ encounterId, support, supports, cavern: candidate.cavern, headroom, preferredX: seatX, enemyId, metadata, definition, groupSize, rng, runId })
+        : instantiateGroundEnemyGroup({ encounterId, support, supports, preferredX: seatX, enemyId, metadata, definition, groupSize, theme, rng, runId });
     return {
         encounter: {
             id: encounterId,
@@ -2244,7 +2461,7 @@ function generatedGroundEnemyClearsPlatforms({ x, y, definition, assignedSupport
     return true;
 }
 
-function instantiateGroundEnemyGroup({ encounterId, support, supports, enemyId, metadata, definition, groupSize, theme, rng, runId }) {
+function instantiateGroundEnemyGroup({ encounterId, support, supports, preferredX, enemyId, metadata, definition, groupSize, theme, rng, runId }) {
     const bodyWidth = definition.defaultSize.w;
     const landingBuffer = Math.max(metadata.landingBuffer, theme.encounters.landingBuffer);
     const left = support.walkableLeftX + metadata.edgeClearance + landingBuffer;
@@ -2257,7 +2474,7 @@ function instantiateGroundEnemyGroup({ encounterId, support, supports, enemyId, 
     const maximumCenter = right - groupWidth * 0.5;
     if (maximumCenter < minimumCenter - 0.01) return [];
 
-    const preferredCenter = maximumCenter - rng.range(0, Math.max(0, Math.min(36, maximumCenter - minimumCenter)));
+    const preferredCenter = clamp(finiteNumber(preferredX, maximumCenter), minimumCenter, maximumCenter);
     const centerCandidates = [preferredCenter];
     const candidateSteps = 14;
     for (let index = 0; index <= candidateSteps; index += 1) {
@@ -2347,7 +2564,7 @@ function generatedFlyingEnemyFitsCavern({ x, y, definition, cavern }) {
     return body.top >= range.top + 12 && body.bottom <= range.bottom - 12;
 }
 
-function instantiateFlyingEnemyGroup({ encounterId, support, supports, cavern, headroom, enemyId, metadata, definition, groupSize, rng, runId }) {
+function instantiateFlyingEnemyGroup({ encounterId, support, supports, cavern, headroom, preferredX, enemyId, metadata, definition, groupSize, rng, runId }) {
     const bodyHeight = definition.defaultSize.h;
     const bodyWidth = definition.defaultSize.w;
     const spacing = Math.max(metadata.minGroupSpacing, Math.min(104, bodyWidth * 1.45));
@@ -2361,9 +2578,10 @@ function instantiateFlyingEnemyGroup({ encounterId, support, supports, cavern, h
 
     const groupWidth = bodyWidth + spacing * Math.max(0, groupSize - 1);
     const centerRoom = Math.max(0, support.walkableWidth - groupWidth - metadata.edgeClearance * 2);
-    const centerCandidates = [support.centerX];
+    const preferredCenter = clamp(finiteNumber(preferredX, support.centerX), support.centerX - centerRoom * 0.5, support.centerX + centerRoom * 0.5);
+    const centerCandidates = [preferredCenter];
     for (const factor of rng.shuffle([-0.5, 0.5, -0.25, 0.25, -0.75, 0.75])) {
-        centerCandidates.push(support.centerX + factor * centerRoom);
+        centerCandidates.push(preferredCenter + factor * centerRoom);
     }
     const heightCandidates = [desiredHeight];
     const heightRange = Math.max(0, maximumHeight - metadata.spawnHeightMin);
@@ -2477,6 +2695,9 @@ export function validateGeneratedEncounters(value = {}) {
         minimumEncounterSpacing: Infinity,
         budget: Math.max(0, finiteNumber(encounters.budget, 0)),
         spentBudget: Math.max(0, finiteNumber(encounters.spentBudget, 0)),
+        monsterTarget: Math.max(0, Math.floor(finiteNumber(encounters.monsterTarget, 0))),
+        horizontalSpan: Math.max(0, finiteNumber(encounters.horizontalSpan, 0)),
+        targetMonsterSpacing: Math.max(0, finiteNumber(encounters.targetMonsterSpacing, GENERATED_MONSTER_SPACING_PX)),
         invalidSpawnCount: 0,
         platformEnemyIntrusionCount: 0,
         movingShaftEnemyIntrusionCount: 0,
@@ -2606,9 +2827,15 @@ export function validateGeneratedEncounters(value = {}) {
     if (!Number.isFinite(metrics.minimumEncounterSpacing)) metrics.minimumEncounterSpacing = 0;
     if (metrics.spentBudget > metrics.budget + 0.01) errors.push("Encounter population exceeded its deterministic difficulty budget.");
     if (settings.enemyDensity > 0.15 && resolved.size && !entities.length) warnings.push("Enemy density requested encounters, but no allowed enemy fit the generated route safely.");
-    if (metrics.budget > 0 && metrics.spentBudget < metrics.budget * 0.36 && entities.length) warnings.push("Encounter population used less than 36% of its available difficulty budget.");
+    const targetShortfall = Math.max(0, metrics.monsterTarget - metrics.enemyCount);
+    if (targetShortfall > 0 && metrics.monsterTarget > 0) {
+        warnings.push(`Generated encounters placed ${metrics.enemyCount} monsters against a horizontal-span target of ${metrics.monsterTarget}.`);
+    }
+    metrics.monsterTargetAchievement = metrics.monsterTarget > 0
+        ? Math.round(metrics.enemyCount / metrics.monsterTarget * 10000) / 10000
+        : 1;
     let qualityScore = 100 - errors.length * 45 - warnings.length * 2;
-    if (metrics.budget > 0) qualityScore -= Math.max(0, 0.52 - metrics.spentBudget / metrics.budget) * 18;
+    qualityScore -= Math.max(0, 1 - metrics.monsterTargetAchievement) * 20;
     qualityScore = clamp(Math.round(qualityScore * 10) / 10, 0, 100);
     return { valid: errors.length === 0, qualityScore, errors, warnings, metrics };
 }
@@ -2651,8 +2878,8 @@ export function validateGeneratedRewards(value = {}) {
     const rewardIds = new Set();
     const rewardRecords = Array.isArray(rewards.rewards) ? rewards.rewards : [];
     const recordByEntityId = new Map(rewardRecords.map((record) => [record.entityId, record]));
-    const entranceX = supports.get(traversal.startSupportId)?.centerX || 0;
-    const exitX = supports.get(traversal.exitSupportId)?.centerX || 0;
+    const entranceX = finiteNumber(endpoints?.entrance?.x, supports.get(traversal.startSupportId)?.centerX || 0);
+    const exitX = finiteNumber(endpoints?.exit?.x, supports.get(traversal.exitSupportId)?.centerX || 0);
 
     for (let first = 0; first < entities.length; first += 1) {
         const entity = entities[first];
@@ -2694,7 +2921,7 @@ export function validateGeneratedRewards(value = {}) {
                 if (!support.secondaryPlatform || !support.rewardPerch) errors.push(`Treasure chest “${entity.id}” is not seated on an authored secondary reward perch.`);
                 metrics.rewardedPerchCount += 1;
             } else if (entity.generationContext === "openRoute") {
-                if (!support.mandatory || !["routeFloor", "landingPlatform", "runAndGunGround", "recoveryPlatform"].includes(support.role)) {
+                if (!support.mandatory || !["routeFloor", "landingPlatform", "runAndGunGround", "recoveryPlatform", "doorSupport"].includes(support.role)) {
                     errors.push(`Treasure chest “${entity.id}” is not attached to a supported mandatory-route surface.`);
                 }
             } else if (entity.generationContext === "upperAccess") {
@@ -2936,13 +3163,16 @@ export function buildAutomaticLevelValidationOverlay(generationValue) {
             role: String(support.role || "support"),
         })),
         transitions,
-        calmZones: endpointSupports.map((support, index) => ({
-            id: index === 0 ? "entrance-calm-zone" : "exit-calm-zone",
-            x: finiteNumber(support.centerX, 0),
-            y: finiteNumber(support.surfaceY, 0),
-            radius: calmDistance,
-            role: index === 0 ? "entrance" : "exit"
-        })),
+        calmZones: endpointSupports.map((support, index) => {
+            const endpoint = index === 0 ? generation.endpoints?.entrance : generation.endpoints?.exit;
+            return {
+                id: index === 0 ? "entrance-calm-zone" : "exit-calm-zone",
+                x: finiteNumber(endpoint?.x, finiteNumber(support.centerX, 0)),
+                y: finiteNumber(endpoint?.y, finiteNumber(support.surfaceY, 0)),
+                radius: calmDistance,
+                role: index === 0 ? "entrance" : "exit"
+            };
+        }),
         encounters: (generation.encounters?.encounters || []).map((encounter) => ({
             id: String(encounter.id || ""),
             x: finiteNumber(encounter.x, 0),
@@ -3309,7 +3539,7 @@ export function validatePlayableEmptyCavern(value = {}) {
         if (metrics.horizontalJumpGapCount > 0 && metrics.maximumHorizontalRouteOffset < 72) warnings.push("Horizontal platform sequences remained unusually close to the abstract route height.");
         if (metrics.organicSameHeightAdjacentCount > 0) errors.push("The organic upper route still contains a same-height platform row.");
         if (metrics.mainStaticPlatformCount >= 3 && metrics.longPlatformShare < 0.4) errors.push("The Standard traversal did not use long platforms for enough of the main route.");
-        if (mostlyHorizontalRoute && metrics.secondaryPlatformCoverageRatio < 0.245) errors.push(`The Horizontal upper lane covers only ${roundCoordinate(metrics.secondaryPlatformCoverageRatio * 100)}% of the route span.`);
+        if (mostlyHorizontalRoute && metrics.secondaryPlatformCoverageRatio < 0.355) errors.push(`The Horizontal upper lane covers only ${roundCoordinate(metrics.secondaryPlatformCoverageRatio * 100)}% of the route span.`);
      else if (!Number.isFinite(metrics.minimumHorizontalJumpGap)) {
         metrics.minimumHorizontalJumpGap = 0;
     }
@@ -4336,7 +4566,7 @@ function buildStandardTraversal({
         }
         return false;
     };
-    const addSecondaryPlatform = ({ parent, selection, centerX, surfaceY, combatPerch, tier = 1 }) => {
+    const addSecondaryPlatform = ({ parent, selection, centerX, surfaceY, combatPerch, powerUpPerch = false, tier = 1 }) => {
         const support = addSupport({
             id: `support_secondary_${String(secondaryPlatforms.length + 1).padStart(2, "0")}_${parent.id}`,
             role: "landingPlatform",
@@ -4352,11 +4582,16 @@ function buildStandardTraversal({
         support.secondaryPlatform = true;
         support.combatPerch = combatPerch;
         support.rewardPerch = !combatPerch;
+        support.powerUpPerch = !combatPerch && Boolean(powerUpPerch);
         support.parentSupportId = parent.id;
         support.groundParentSupportId = parent.groundParentSupportId || parent.parentSupportId || parent.id;
         support.accessSupportId = parent.upperAccessPlatform ? parent.id : undefined;
         support.secondaryTier = tier;
-        support.platformSpacingStyle = combatPerch ? "detachedSecondaryCombatPerch" : "detachedSecondaryRewardPerch";
+        support.platformSpacingStyle = combatPerch
+            ? "detachedSecondaryCombatPerch"
+            : support.powerUpPerch
+                ? "detachedSecondaryPowerUpPerch"
+                : "detachedSecondaryRewardPerch";
         const placement = placements.find((candidate) => candidate.id === support.placementId);
         if (placement) {
             placement.generationRole = "secondaryPlatform";
@@ -4364,6 +4599,7 @@ function buildStandardTraversal({
             placement.secondaryTier = tier;
             placement.rewardPerch = support.rewardPerch;
             placement.combatPerch = support.combatPerch;
+            placement.powerUpPerch = support.powerUpPerch;
         }
         const edgeId = tier === 1 ? `secondary_${parent.id}` : `secondary_tier_${tier}_${parent.id}`;
         const up = classifyTraversalTransition(parent, support, { id: edgeId, mandatory: false }, theme);
@@ -4446,10 +4682,10 @@ function buildStandardTraversal({
         const routeLeft = Math.min(...groundParents.map((support) => support.walkableLeftX));
         const routeRight = Math.max(...groundParents.map((support) => support.walkableRightX));
         const routeSpan = Math.max(1, routeRight - routeLeft);
-        const targetCoverage = routeSpan * 0.25;
+        const targetCoverage = routeSpan * 0.36;
         const desiredCount = Math.max(
-            settings.length === "grand" ? 8 : settings.length === "extended" ? 6 : settings.length === "standard" ? 5 : 3,
-            Math.ceil(targetCoverage / 520)
+            settings.length === "grand" ? 12 : settings.length === "extended" ? 9 : settings.length === "standard" ? 7 : 4,
+            Math.ceil(targetCoverage / 470)
         );
         const targetPositions = Array.from({ length: desiredCount }, (_, index) => (
             routeLeft + routeSpan * ((index + 0.5) / desiredCount)
@@ -4478,7 +4714,9 @@ function buildStandardTraversal({
                     .sort((left, right) => Math.abs(left.centerX - targetX) - Math.abs(right.centerX - targetX));
                 let placed = false;
                 for (const parent of parentCandidates.slice(0, 8)) {
-                    const combatPerch = secondaryPlatforms.length % 4 !== 3;
+                    const branchRole = secondaryPlatforms.length % 4;
+                    const combatPerch = branchRole === 0 || branchRole === 2;
+                    const powerUpPerch = branchRole === 3;
                     const targetWidth = combatPerch
                         ? clamp(parent.walkableWidth * rng.range(0.48, 0.66), 380, 620)
                         : clamp(parent.walkableWidth * rng.range(0.34, 0.5), 260, 480);
@@ -4530,7 +4768,15 @@ function buildStandardTraversal({
                         removeOptionalSupport(accessSupport);
                         continue;
                     }
-                    const support = addSecondaryPlatform({ parent: accessSupport, selection, centerX, surfaceY, combatPerch, tier: 2 });
+                    const support = addSecondaryPlatform({
+                        parent: accessSupport,
+                        selection,
+                        centerX,
+                        surfaceY,
+                        combatPerch,
+                        powerUpPerch,
+                        tier: 2
+                    });
                     if (!support) {
                         removeOptionalSupport(accessSupport);
                         continue;
@@ -4551,10 +4797,10 @@ function buildStandardTraversal({
             }
         }
         if (coveredWidth() < targetCoverage - 1) {
-            throw new Error(`Horizontal upper lane covers only ${roundCoordinate(coveredWidth() / routeSpan * 100)}% of the playable span; 25% is required.`);
+            throw new Error(`Horizontal upper lane covers only ${roundCoordinate(coveredWidth() / routeSpan * 100)}% of the playable span; 36% is required.`);
         }
     } else {
-        const baseSecondaryLimit = settings.length === "grand" ? 8 : settings.length === "extended" ? 6 : settings.length === "standard" ? 5 : 3;
+        const baseSecondaryLimit = settings.length === "grand" ? 11 : settings.length === "extended" ? 8 : settings.length === "standard" ? 6 : 4;
         const secondaryLimit = baseSecondaryLimit + (wideUpperCavern ? 2 : 0);
         const secondaryParents = supports.filter((support) => support.mandatory
             && !support.moving
@@ -4564,7 +4810,9 @@ function buildStandardTraversal({
         const candidates = rng.shuffle(wideUpperCavern ? [...secondaryParents, ...secondaryParents] : secondaryParents);
         for (const parent of candidates) {
             if (secondaryPlatforms.length >= secondaryLimit) break;
-            const combatPerch = secondaryPlatforms.length % 2 === 1;
+            const branchRole = secondaryPlatforms.length % 4;
+            const combatPerch = branchRole === 1 || branchRole === 2;
+            const powerUpPerch = branchRole === 3;
             const targetWidth = combatPerch
                 ? clamp(parent.walkableWidth * rng.range(0.46, 0.64), 410, 580)
                 : clamp(parent.walkableWidth * rng.range(0.3, 0.48), 220, 460);
@@ -4584,7 +4832,50 @@ function buildStandardTraversal({
                 }
             }
             if (!Number.isFinite(centerX)) continue;
-            addSecondaryPlatform({ parent, selection, centerX, surfaceY, combatPerch });
+            addSecondaryPlatform({ parent, selection, centerX, surfaceY, combatPerch, powerUpPerch });
+        }
+
+        // Standard routes used to stop after one shallow side ledge. Extend a
+        // subset of those ledges into a second tier so the large upper cavern
+        // volume becomes an optional branch rather than empty scenery.
+        const extensionTarget = (settings.length === "grand" ? 4 : settings.length === "extended" ? 3 : settings.length === "standard" ? 2 : 1)
+            + (wideUpperCavern ? 1 : 0);
+        let extensionCount = 0;
+        const extensionParents = rng.shuffle(secondaryPlatforms.filter((support) => support.secondaryTier === 1));
+        for (const parent of extensionParents) {
+            if (extensionCount >= extensionTarget || secondaryPlatforms.length >= secondaryLimit + extensionTarget) break;
+            const branchRole = secondaryPlatforms.length % 4;
+            const combatPerch = branchRole === 0 || branchRole === 2;
+            const powerUpPerch = branchRole === 3;
+            const targetWidth = combatPerch
+                ? clamp(parent.walkableWidth * rng.range(0.82, 1.12), 340, 520)
+                : clamp(parent.walkableWidth * rng.range(0.62, 0.92), 240, 430);
+            const maximumWidth = combatPerch ? 560 : 470;
+            const selection = selectGenerationAsset(assetCatalog, "landingPlatform", targetWidth, rng, false, maximumWidth, { collisionMode: "oneWay" });
+            if (!selection) continue;
+            const surfaceY = roundCoordinate(parent.surfaceY - rng.range(132, 178));
+            let centerX = null;
+            for (const side of rng.shuffle([-1, 1])) {
+                const overhang = rng.range(42, 72);
+                const candidateCenterX = side < 0
+                    ? parent.walkableLeftX - overhang - selection.width * 0.5
+                    : parent.walkableRightX + overhang + selection.width * 0.5;
+                if (!secondaryPlacementConflicts(selection, candidateCenterX, surfaceY, parent)) {
+                    centerX = roundCoordinate(candidateCenterX);
+                    break;
+                }
+            }
+            if (!Number.isFinite(centerX)) continue;
+            const extension = addSecondaryPlatform({
+                parent,
+                selection,
+                centerX,
+                surfaceY,
+                combatPerch,
+                powerUpPerch,
+                tier: 2
+            });
+            if (extension) extensionCount += 1;
         }
     }
 
@@ -5261,10 +5552,10 @@ function buildSafeEndpoints({ route, traversal, theme, implementations, rng, run
     const entrance = makeDoor("entrance", entranceSupport, `generated_entry_${runId}`);
     const exit = makeDoor("exit", exitSupport, `generated_exit_${runId}`);
     return {
-        version: 1,
+        version: 2,
         generatorId: implementations.endpoints,
-        entrance: { nodeId: route.startNodeId, supportId: entranceSupport.id, entityId: entrance.id },
-        exit: { nodeId: route.exitNodeId, supportId: exitSupport.id, entityId: exit.id },
+        entrance: { nodeId: route.startNodeId, supportId: entranceSupport.id, entityId: entrance.id, x: entrance.x, y: entrance.y },
+        exit: { nodeId: route.exitNodeId, supportId: exitSupport.id, entityId: exit.id, x: exit.x, y: exit.y },
         entities,
         calmDistance: theme.endpoints.calmDistance,
         variation: rng.float()

@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "catalogId": "cavern-reward-generation-v1",
   "rewards": {
     "treasureChest": {
@@ -16,23 +16,24 @@
       "minimumSupportWidth": 180,
       "edgeClearance": 40,
       "verticalOffset": 0,
-      "minimumProgress": 0.12,
-      "maximumProgress": 0.92
+      "minimumProgress": 0,
+      "maximumProgress": 1
     },
     "overdrivePickup": {
       "entityType": "overdrivePickup",
       "category": "powerUp",
       "contexts": [
+        "detourUpperPerch",
         "beforeBatEncounter",
         "beforeRangedEncounter",
         "beforeLargeEncounter"
       ],
-      "weight": 1,
+      "weight": 3,
       "minimumSupportWidth": 220,
       "edgeClearance": 64,
       "verticalOffset": 0,
-      "minimumProgress": 0.12,
-      "maximumProgress": 0.92
+      "minimumProgress": 0,
+      "maximumProgress": 1
     },
     "shieldPickup": {
       "entityType": "shieldPickup",
@@ -45,8 +46,8 @@
       "minimumSupportWidth": 220,
       "edgeClearance": 64,
       "verticalOffset": 0,
-      "minimumProgress": 0.12,
-      "maximumProgress": 0.92
+      "minimumProgress": 0,
+      "maximumProgress": 1
     },
     "randomWrenchPickup": {
       "entityType": "randomWrenchPickup",
@@ -54,12 +55,12 @@
       "contexts": [
         "beforeLargeEncounter"
       ],
-      "weight": 2,
+      "weight": 6,
       "minimumSupportWidth": 220,
       "edgeClearance": 64,
       "verticalOffset": 0,
-      "minimumProgress": 0.12,
-      "maximumProgress": 0.92
+      "minimumProgress": 0,
+      "maximumProgress": 1
     },
     "fuel": {
       "entityType": "fuel",
@@ -71,8 +72,8 @@
       "minimumSupportWidth": 220,
       "edgeClearance": 62,
       "verticalOffset": 70,
-      "minimumProgress": 0.18,
-      "maximumProgress": 0.9
+      "minimumProgress": 0.04,
+      "maximumProgress": 0.98
     },
     "thoughtTrigger": {
       "entityType": "thoughtTrigger",

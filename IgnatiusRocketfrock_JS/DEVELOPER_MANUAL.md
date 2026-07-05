@@ -30,9 +30,11 @@ The editor builds one navigation profile for each distinct hunter body size and 
 
 ## Automatic Level Generator
 
-Horizontal is the run-and-gun route. It advances steadily toward the exit, favors solid overlapping ground pieces with level walking surfaces, uses only occasional height changes, and reserves elevated combat perches with open space for homing rockets. Thin one-way platforms remain separate and serve raised positions rather than pretending to form a continuous floor.
+Horizontal is the run-and-gun route. It advances steadily toward the exit, favors solid overlapping ground pieces with level walking surfaces, and uses only occasional height changes. A distributed two-step upper lane now covers at least 36 percent of the playable span. Each destination has its own one-way access step and is classified as a combat perch, ordinary reward perch, or dedicated power-up detour. Thin one-way platforms remain separate and never pretend to form a continuous floor.
 
-Standard remains the folded route with broad upper traversal, a nearly continuous lower recovery path, and occasional upper reward or combat positions. Domed caverns keep the lower perimeter close to the route while expanding ceiling volume. Rewarded levels target roughly one real power-up per 1,000 route pixels at default density, split between random wrenches, Shield, and Overdrive plus contextual rewards.
+Standard remains the folded route with broad upper traversal and a nearly continuous lower recovery path. It now creates more detached first-tier side platforms and extends a subset into second-tier branches, using otherwise empty ceiling volume for monsters and rewards. Domed caverns keep the lower perimeter close to the route while expanding that upper volume.
+
+Rewarded levels target roughly one real power-up per 3,000 route pixels at default density. The generated pool is 60 percent random wrench, 30 percent Overdrive, and 10 percent Shield. Dedicated second-tier power-up perches receive Overdrive before ordinary reward slots are filled, so the speed reward is visibly off the main path. Reward-only rerolls retain fixed safe seats and anchored encounters while varying the pickup mix.
 
 Encounter rerolls preserve route, platforms, endpoints, and rewards. Reward rerolls preserve route and terrain while replacing generated rewards and retaining anchored encounters. Validation reports the current generated records. Generator locks prevent direct editing but regeneration still replaces generator-owned records. Converting a generated object to manual ownership detaches it from generator clear and regeneration operations.
 
@@ -412,3 +414,35 @@ Foreground and Background artwork is stored at base size, then transformed for d
 The repository contains every supported level. Runtime, Level Editor, generator normalization, and tests therefore target only the current bundled schema. When a level format changes, update all shipped levels and fixtures in the same revision. Do not add aliases, mirror fields, import migrations, retired entity translations, or silent old-record stripping. A stale external level may fail validation or lose unsupported records; preserving it is not a project requirement.
 
 Normal current-schema validation, numeric clamping, and defaults used while creating a new level remain appropriate. The prohibition is against alternate historical field names and conversion branches. Tests should verify the canonical schema and guard that retired paths stay absent, not exercise conversions from unsupported old levels.
+
+
+## Automatic generator upper branches and reward mix (revision 416)
+
+Generator schema version 34 retains the optional secondary supports introduced by version 32 with `secondaryTier` and `powerUpPerch`. Horizontal routes use a two-step ceiling lane with at least 36 percent span coverage. Standard routes create more first-tier branches and extend selected branches into a second tier. Encounter generation may seat monsters on combat perches at either tier.
+
+The reward catalog is version 3. Power-up weights are `randomWrenchPickup: 6`, `overdrivePickup: 3`, and `shieldPickup: 1`. A generated Overdrive with context `detourUpperPerch` must reference an optional second-tier `powerUpPerch`. Fixed seating remains important because encounter reservations are built from reward envelopes before the encounter stage; reward rerolls may change types but must not move those seats.
+
+Level 001 has three baked hunter profiles: goblin, tall human, and Skeleton Caster. Keep the caster profile separate because its 72 by 164 body and movement values do not match either other family. The placed Skeleton Guard should mirror the catalog melee damage of 50.
+
+## Empty Level Editor documents (revision 417)
+
+The **New level** command creates a bounded but otherwise empty authored level. The production runtime converter accepts that document so the editor can render the blank world immediately. Do not add hidden placeholder assets or entities to make the preview work. A payload with neither authored content nor finite positive world bounds is still invalid. The editor continues to discover atlas and numbered-level files through ordinary URL probes, so expected 404 responses at the end of those scans are not conversion failures.
+
+## Generated population density (revision 418)
+
+At a theme's default **Enemy density**, generated levels target one monster per 500 horizontal route units. This is based on left-to-right span rather than winding path length. Long platforms can hold several independently spaced encounters, matching ordinary authored levels; the generator still protects incoming landings, endpoint calm zones, rewards, moving-platform shafts, and unrelated platform artwork. The Enemy density control scales the target and zero disables all generated encounters.
+
+Generated power-ups now target one pickup per 3,000 mandatory-route pixels, one third of the revision 417 count. Their type mix remains 60 percent random wrench, 30 percent Overdrive, and 10 percent Shield, with Overdrive still preferentially assigned to dedicated upper detours. Generator schema version 33 stores the new behavior.
+
+
+## Generated monster density (revision 419)
+
+At a theme's default **Enemy density**, generated levels now target one monster per 300 horizontal route units. The target remains based on mandatory-route left-to-right span, and the existing Enemy density control still scales it from zero up to the capped double-density rate. Long-support multi-seat placement and all existing calm-zone, reward, collision, cavern-fit, landing, and moving-shaft protections remain active. Generator schema version 34 identifies this denser population contract.
+
+## Revision 420 endpoint population contract
+
+Generator schema version 35 records exact `endpoints.entrance.x/y` and `endpoints.exit.x/y` coordinates. Encounter and reward exclusion must use those portal coordinates, not the centre of the supporting platform.
+
+Endpoint protection is intentionally local. Earth encounters preserve 520 world units around each portal and Ice encounters preserve 540. Do not expand this distance to the largest enemy awareness range; doing so wastes one or more complete screens. Encounter candidate ordering uses a distributed route order and explicit endpoint-local fallback seats so bat groups or a blocked preferred seat cannot exhaust the monster target before the final screen is considered.
+
+Physical rewards may use the complete route progress range. When treasure generation is enabled, the far side of each door platform receives one chest if it clears the theme's endpoint exclusion distance. Earth uses 300 units and Ice uses 320. Upper reward perches may consume only a bounded share of the chest target; all remaining chest targets are spread over the full normalized route range. Reward-only rerolls must preserve the endpoint and encounter streams exactly.

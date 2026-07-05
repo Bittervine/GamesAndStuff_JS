@@ -1767,3 +1767,35 @@ Simulation continues to own the undeath projectile as a normal collidable pathin
 Undeath particles remain owned by their projectile record. On impact the projectile leaves the collision simulation and transitions from `exploding` to `trailFading` while its particle array remains renderable. `pruneEnemyFireballTrail` is shared by active, exploding, and fading states, separating particle expiry from particle emission. Canvas and WebGL accept the fading state for undeath rendering, while gameplay collision continues to process only `launched` projectiles.
 
 Low-quality density is simulation-owned through `UNDEATH_TRAIL_LOW_QUALITY_DENSITY_SCALE`, preserving deterministic fractional emission and avoiding an invisible bubble-only missile.
+
+
+## Revision 416 optional upper-branch topology
+
+Traversal generation now records `secondaryTier` on optional branch supports and marks dedicated reward branches with `powerUpPerch`. Mostly-horizontal routes build each upper destination through an intermediate `upperAccessPlatform`, producing a two-step detour while preserving the continuous ground route. Standard routes may chain a tier-two one-way platform from an existing tier-one secondary support. Combat and reward classifications remain mutually exhaustive; power-up perches are a specialized reward-perch subset.
+
+Reward generation selects dedicated tier-two power-up perches before ordinary contextual placement and seats Overdrive there with `generationContext: "detourUpperPerch"`. The catalog weights are 6:3:1 for random wrench, Overdrive, and Shield. Pickup type variation uses fixed support seats so reward-stage rerolls do not perturb the reward exclusion envelopes already used by encounter generation.
+
+Level 001 currently owns three exact hunter navigation profiles: goblin, tall human, and Skeleton Caster. The caster profile is not redundant with the goblin profile because its body dimensions and movement values differ. The placed Skeleton Guard is patched to the same 50-damage value as the current enemy catalog.
+
+## Revision 417 bounded empty editor worlds
+
+`src/core/simulation.js` treats explicit finite positive `world.bounds` as enough structural data for `applyEditorLevelToWorld` to construct a runtime world even when placements and entities are still empty. This supports the Level Editor's New level workflow without editor-only placeholder geometry. Payloads with no renderable content and no usable bounds still fail conversion.
+
+## Revision 418 horizontal-span encounter targets
+
+Encounter population remains portable in `src/shared/level-generator-data.js`. `generatedMonsterTargetForRoute()` measures only the mandatory route's horizontal span and targets one monster per 500 units at the selected theme's default Enemy density. The density slider scales that target up or down, while the placement pass still enforces calm endpoint zones, reward reservations, cavern fit, platform-body clearance, and deterministic spacing.
+
+A support is no longer a single encounter slot. Long walkable supports expose multiple deterministic seat candidates, and each accepted encounter retains its own support ID and anchor. Ground and flying group placement receives the selected seat as its preferred center, allowing several encounters on one platform without overlapping bodies. Power-up planning now uses a one-per-3,000-route-pixel target. Generator schema version 33 and encounter record version 2 identify this contract.
+
+
+## Revision 419 denser horizontal-span encounter targets
+
+`generatedMonsterTargetForRoute()` now uses a 300-unit baseline at each theme's default Enemy density. The density slider continues to scale relative to that baseline, with zero disabling encounters and the upper multiplier capped at two. The existing long-support seat subdivision supplies the additional candidates; encounter placement still applies deterministic minimum spacing, endpoint calm zones, reward reservations, cavern fit, body clearance, and moving-shaft safety. Generator schema version 34 identifies the revised target.
+
+## Revision 420 generated endpoint coordinates and population
+
+`src/shared/level-generator-data.js` now treats generated portal positions as authoritative endpoint coordinates. `buildSafeEndpoints()` emits endpoint record version 2 with `x` and `y` values for both doors. Encounter population, reward population, standalone validators, and the editor validation overlay all read those coordinates with support-centre fallback only for older normalized records.
+
+The encounter calm-zone contract protects immediate portal footing only and is independent of actor awareness. Candidate selection keeps deterministic global distribution, then prioritizes several nearest candidates at each endpoint before the remaining route order. This gives the encounter builder local retries when a reward reservation or enemy-fit rule rejects the nominal endpoint seat without weakening collision or spacing checks.
+
+Reward generation treats door supports as ordinary mandatory route surfaces outside the portal exclusion radius. Endpoint chests are placed at the far walkable edge, preferred upper perches are capped to a share of the treasure target, and the residual target is allocated over the entire route-progress interval. Generator schema version 35 identifies these endpoint-coordinate and content-distribution changes.

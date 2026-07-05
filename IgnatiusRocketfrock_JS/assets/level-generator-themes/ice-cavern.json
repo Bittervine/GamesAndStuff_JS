@@ -81,14 +81,14 @@
     "calmDistance": 300
   },
   "encounters": {
-    "calmDistance": 1020,
+    "calmDistance": 540,
     "minimumEncounterSpacing": 740,
     "landingBuffer": 140,
     "spawnSafetyBuffer": 150,
     "maximumEncounterShare": 0.68
   },
   "rewards": {
-    "endpointExclusionDistance": 800,
+    "endpointExclusionDistance": 320,
     "minimumRewardSpacing": 520,
     "treasureChestScore": 125,
     "maximumContextualPowerUps": 3,

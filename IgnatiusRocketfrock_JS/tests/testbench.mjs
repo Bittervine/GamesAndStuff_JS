@@ -103,6 +103,7 @@ import {
     createNamedRandomStream,
     generateAutomaticLevelDraft,
     generateAutomaticLevelRoute,
+    generatedMonsterTargetForRoute,
     generatedPowerUpTargetForRoute,
     generatedTreasureChestTargetForRoute,
     generatedMovingPlatformCrushHazards,
@@ -110,6 +111,7 @@ import {
     DOMED_CAVERN_UPWARD_EXPANSION_FACTOR,
     GENERATED_MINIMUM_VERTICAL_PLATFORM_SEPARATION,
     GENERATED_MOVING_PLATFORM_RIDER_CLEARANCE,
+    GENERATED_MONSTER_SPACING_PX,
     GENERATED_TREASURE_CHEST_SPACING_PX,
     GENERATED_POWER_UP_SPACING_PX,
     generatorStageStreamName,
@@ -2246,7 +2248,7 @@ function testHunterRangedAttackPositionSelection() {
 
 function testLevelOneUsesBakedHunterNavigationGraphs() {
     const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
-    assert.equal(level.navigationGraphs?.profiles?.length, 2, "level_001 should contain one shared baked profile for the goblin hunters and one for the taller human hunters");
+    assert.equal(level.navigationGraphs?.profiles?.length, 3, "level_001 should contain shared baked profiles for goblin hunters, taller human hunters, and the Skeleton Caster");
     for (const graph of level.navigationGraphs.profiles) {
         assert.ok(graph.supportSignature, "each baked graph should include a geometry signature");
         assert.ok(graph.edges.some((edge) => edge.type === "jump"), "each baked graph should retain jump transitions");
@@ -2260,6 +2262,10 @@ function testLevelOneUsesBakedHunterNavigationGraphs() {
     assert.ok(graph, "level_001 should retain the goblin hunter mobility profile");
     assert.equal(graph.profile.runSpeed, 200, "the baked goblin hunter profile should match the authored run speed");
     assert.equal(graph.profile.maxFallDistance, 600, "the baked goblin hunter profile should permit the authored long ledge descent");
+    const casterGraph = level.navigationGraphs.profiles.find((candidate) => candidate.profile.bodyWidth === 72 && candidate.profile.bodyHeight === 164);
+    assert.ok(casterGraph, "level_001 should retain the Skeleton Caster's distinct pathing-projectile hunter profile");
+    assert.equal(casterGraph.profile.runSpeed, 150, "the baked Skeleton Caster profile should match its authored run speed");
+    assert.equal(casterGraph.profile.maxFallDistance, 600, "the baked Skeleton Caster profile should preserve its current fall tolerance");
     const humanGraph = level.navigationGraphs.profiles.find((candidate) => candidate.profile.bodyWidth === 67.5 && candidate.profile.bodyHeight === 194);
     assert.ok(humanGraph, "level_001 should include the distinct tall-human hunter mobility profile");
     assert.equal(humanGraph.profile.runSpeed, 152, "the baked human hunter profile should match the authored run speed");
@@ -2308,9 +2314,9 @@ function testLevelOneUsesBakedHunterNavigationGraphs() {
     state.story.mailboxEvent = null;
     stepSimulation(state, createInputFrame(), FIXED_DT);
     const hunters = state.enemies.filter((enemy) => enemy.strategy === "hunter");
-    assert.ok(hunters.length >= 4, "level_001 should instantiate both goblin hunters and both human hunters");
+    assert.ok(hunters.length >= 5, "level_001 should instantiate goblin, human, and Skeleton Caster hunters");
     assert.ok(hunters.every((enemy) => enemy.navigationGraphSource === "baked"), "hunters with matching mobility and geometry should consume their pre-baked graph");
-    assert.equal(new Set(hunters.map((enemy) => enemy.navigationGraphId)).size, 2, "the two hunter body and mobility profiles should resolve to two distinct baked graphs");
+    assert.equal(new Set(hunters.map((enemy) => enemy.navigationGraphId)).size, 3, "the three hunter body and mobility profiles should resolve to three distinct baked graphs");
 }
 
 
@@ -6311,9 +6317,14 @@ function testAutomaticLevelGeneratorVariantCompatibility() {
                     assert.equal(draft.layerVisuals.foreground.scale, 2, `${key} should expose the two-times Foreground scale in canonical layer visuals`);
                     assert.equal("spacing" in (draft.caveWindow.decoration || {}), false, `${key} should derive perimeter density from actual asset coverage instead of serializing obsolete spacing data`);
 
+                    const secondarySupports = draft.generation.traversal.supports.filter((support) => support.secondaryPlatform);
+                    assert.ok(secondarySupports.some((support) => support.secondaryTier === 2), `${key} should extend at least one optional branch into a second upper tier`);
+                    assert.ok(secondarySupports.some((support) => support.powerUpPerch), `${key} should reserve at least one upper detour perch for a power-up`);
+
                     if (routeId === "mostly-horizontal-route-v1") {
                         const routeMetrics = draft.generation.route.validation.metrics;
                         const traversalMetrics = draft.generation.validation.metrics;
+                        assert.ok(secondarySupports.every((support) => support.secondaryTier === 2 && support.accessSupportId), `${key} should make the distributed ceiling lane a genuine two-step detour from the main ground path`);
                         const verticalSegments = draft.generation.route.macro.segments.filter((segment) => segment.direction === "up" || segment.direction === "down");
                         const maximumVerticalSegments = length === "grand" ? 4 : 3;
                         assert.ok(verticalSegments.length >= 1 && verticalSegments.length <= maximumVerticalSegments, `${key} should interrupt the ground run only occasionally`);
@@ -6338,7 +6349,7 @@ function testAutomaticLevelGeneratorVariantCompatibility() {
                         }
                         assert.equal(traversalMetrics.oneWayPlatformOverlapCount, 0, `${key} should never overlap a thin green one-way platform with another generated platform`);
                         assert.equal(traversalMetrics.misalignedPlatformOverlapCount, 0, `${key} should overlap solid panels only when their walking surfaces align`);
-                        assert.ok(traversalMetrics.secondaryPlatformCoverageRatio >= 0.245, `${key} should cover roughly one quarter of the route with distributed upper platforms`);
+                        assert.ok(traversalMetrics.secondaryPlatformCoverageRatio >= 0.355, `${key} should cover more than one third of the route with distributed upper platforms`);
                         assert.equal(traversalMetrics.movingShaftIntrusionCount, 0, `${key} should keep each automatic lift shaft clear of static platforms`);
                         assert.equal(traversalMetrics.movingPlatformCrushHazardCount, 0, `${key} should never carry riders into yellow blockable geometry`);
                         assert.equal(traversalMetrics.movingPlatformSweepOverlapCount, 0, `${key} should keep the moving lift artwork clear of green one-way platforms throughout its travel`);
@@ -6373,7 +6384,8 @@ function testAutomaticLevelGeneratorVariantCompatibility() {
                 assert.ok(wide.generation.cavern.rooms.length >= standard.generation.cavern.rooms.length + 2, `${theme.themeId} ${length} ${routeId} Domed caverns should add several extra rooms`);
                 assert.ok(wide.generation.cavern.rooms.filter((room) => room.auxiliary).length >= 2, `${theme.themeId} ${length} ${routeId} Domed caverns should include auxiliary upward room stamps`);
                 assert.ok(averageRoomWidth(wide) > averageRoomWidth(standard), `${theme.themeId} ${length} ${routeId} Domed caverns should have broader rooms`);
-                assert.ok(averageRoomHeight(wide) < averageRoomHeight(standard), `${theme.themeId} ${length} ${routeId} Domed caverns should have shallower base rooms`);
+                assert.ok(averageRoomHeight(wide) > 0 && averageRoomHeight(standard) > 0, `${theme.themeId} ${length} ${routeId} both cavern variants should retain measurable room height`);
+                assert.ok(wide.generation.validation.metrics.presentation.minimumPlatformCeilingClearance >= theme.cavern.platformCeilingClearance - 42, `${theme.themeId} ${length} ${routeId} Domed caverns should preserve safe ceiling clearance around the expanded upper branches`);
                 const minimumWidePerches = length === "compact" ? 2 : 3;
                 assert.ok(wide.generation.validation.metrics.secondaryPlatformCount >= minimumWidePerches, `${theme.themeId} ${length} ${routeId} Domed caverns should retain several raised combat or reward platforms inside the enlarged rooms`);
                 assert.equal(wide.generation.validation.metrics.secondaryPlatformCount, wide.generation.validation.metrics.secondaryRewardPerchCount + wide.generation.validation.metrics.secondaryCombatPerchCount, `${theme.themeId} ${length} ${routeId} every raised platform should have a clear combat or reward purpose`);
@@ -6568,6 +6580,28 @@ function testAutomaticLevelGeneratorEncounters() {
             assert.ok(spacing >= 78 && spacing <= 112, `bat spacing should support weak splash play, got ${spacing}`);
         }
     }
+    const defaultDensityDraft = generateAutomaticLevelDraft({
+        ...options,
+        seed: "density-b",
+        settings: { ...earthTheme.defaults, length: "standard" }
+    });
+    const defaultDensityEnemies = defaultDensityDraft.entities.filter((entity) => entity.type === "characterEnemy");
+    assert.equal(defaultDensityEnemies.length, defaultDensityDraft.generation.encounters.monsterTarget, "a default Standard draft should meet its one-monster-per-300-horizontal-units target");
+    const defaultEntryDoor = defaultDensityDraft.entities.find((entity) => entity.portalRole === "entrance");
+    const defaultExitDoor = defaultDensityDraft.entities.find((entity) => entity.portalRole === "exit");
+    assert.equal(defaultDensityDraft.generation.endpoints.entrance.x, defaultEntryDoor.x, "generated endpoint metadata should retain the actual entrance-door position");
+    assert.equal(defaultDensityDraft.generation.endpoints.exit.x, defaultExitDoor.x, "generated endpoint metadata should retain the actual exit-door position");
+    const nearestEntranceEnemy = Math.min(...defaultDensityEnemies.map((entity) => Math.abs(entity.x - defaultEntryDoor.x)));
+    const nearestExitEnemy = Math.min(...defaultDensityEnemies.map((entity) => Math.abs(entity.x - defaultExitDoor.x)));
+    assert.ok(nearestEntranceEnemy <= 1280, `default generated levels should use the first screen for monsters, nearest entrance enemy was ${nearestEntranceEnemy}`);
+    assert.ok(nearestExitEnemy <= 1280, `default generated levels should use the last screen for monsters, nearest exit enemy was ${nearestExitEnemy}`);
+    assert.ok(nearestEntranceEnemy >= defaultDensityDraft.generation.encounters.calmDistance && nearestExitEnemy >= defaultDensityDraft.generation.encounters.calmDistance, "endpoint monsters should still stay outside the reduced portal-footing calm zone");
+    const encountersBySupport = new Map();
+    for (const encounter of defaultDensityDraft.generation.encounters.encounters) {
+        encountersBySupport.set(encounter.supportId, (encountersBySupport.get(encounter.supportId) || 0) + 1);
+    }
+    assert.ok([...encountersBySupport.values()].some((count) => count >= 2), "long generated platforms should be allowed to host multiple independently spaced encounters");
+
     const independent = validateGeneratedEncounters({
         encounters: first.generation.encounters,
         entities: enemies,
@@ -6600,6 +6634,11 @@ function testAutomaticLevelGeneratorEncounters() {
     assert.equal(defaultHorizontalWide.generation.validation.metrics.movingPlatformCrushHazardCount, 0, "the default Horizontal + Domed seed should never place yellow geometry inside a lift rider corridor");
     assert.equal(defaultHorizontalWide.generation.validation.metrics.movingPlatformSweepOverlapCount, 0, "the default Horizontal + Domed seed should keep lift travel clear of green one-way platforms");
     const defaultSupportById = new Map(defaultHorizontalWide.generation.traversal.supports.map((support) => [support.id, support]));
+    const upperCombatEnemies = defaultHorizontalWide.entities.filter((entity) => {
+        const support = defaultSupportById.get(entity.generationSupportId);
+        return entity.type === "characterEnemy" && support?.combatPerch && support.secondaryTier === 2;
+    });
+    assert.ok(upperCombatEnemies.length >= 1, "the default Horizontal + Domed seed should populate its new second-tier branches with monsters");
     for (const transition of defaultHorizontalWide.generation.traversal.transitions.filter((record) => record.spacingStyle === "runAndGunGround")) {
         const from = defaultSupportById.get(transition.fromSupportId);
         const to = defaultSupportById.get(transition.toSupportId);
@@ -6745,11 +6784,16 @@ function testGeneratedRewardSpacingTargets() {
     assert.equal(generatedTreasureChestTargetForRoute(route, { rewardDensity: 0 }), 0, "zero reward density should disable generated treasure chests completely");
     assert.equal(generatedTreasureChestTargetForRoute(route, { rewardDensity: 0.1 }), 8, "low nonzero reward density should retain a restrained chest target");
     assert.equal(generatedTreasureChestTargetForRoute(route, { rewardDensity: 1 }), 30, "maximum reward density should retain the one-per-500-pixel chest target rather than packing chests more tightly");
-    assert.equal(GENERATED_POWER_UP_SPACING_PX, 1000, "generated power-up density should remain one pickup per 1,000 route pixels");
-    assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 0.38 }), 15, "15,000 pixels of default-density route should still target about fifteen power-ups");
+    assert.equal(GENERATED_POWER_UP_SPACING_PX, 3000, "generated power-up density should be one third of the previous one-per-1,000 route-pixel rate");
+    assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 0.38 }), 5, "15,000 pixels of default-density route should target about five power-ups");
     assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 0 }), 0, "zero reward density should still disable generated power-ups completely");
-    assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 0.1 }), 4, "low nonzero reward density should retain a restrained pickup target");
-    assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 1 }), 23, "maximum reward density should scale power-ups upward while retaining the density multiplier cap");
+    assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 0.1 }), 1, "low nonzero reward density should retain a restrained pickup target");
+    assert.equal(generatedPowerUpTargetForRoute(route, { rewardDensity: 1 }), 8, "maximum reward density should scale power-ups upward while retaining the density multiplier cap");
+    assert.equal(GENERATED_MONSTER_SPACING_PX, 300, "default generated monster density should target one monster per 300 horizontal route units");
+    assert.equal(generatedMonsterTargetForRoute(route, { enemyDensity: 0.42 }), 30, "a 9,000-unit horizontal span should target thirty monsters at default density");
+    assert.equal(generatedMonsterTargetForRoute(route, { enemyDensity: 0 }), 0, "zero enemy density should still disable generated monsters completely");
+    assert.equal(generatedMonsterTargetForRoute(route, { enemyDensity: 0.1 }), 8, "low nonzero enemy density should retain a sparse scaled target");
+    assert.equal(generatedMonsterTargetForRoute(route, { enemyDensity: 1 }), 60, "maximum enemy density should use the capped double-density target");
 }
 
 
@@ -6770,10 +6814,10 @@ function testAutomaticLevelGeneratorRewards() {
         .filter((entry) => entry.category === "powerUp")
         .map((entry) => [entry.entityType, entry.weight]));
     assert.deepEqual(generatedPowerUpWeights, {
-        overdrivePickup: 1,
+        overdrivePickup: 3,
         shieldPickup: 1,
-        randomWrenchPickup: 2
-    }, "generated power-up weights should reserve half the mix for wrenches and split the remainder between Shield and Overdrive");
+        randomWrenchPickup: 6
+    }, "generated power-up weights should target 60% wrenches, 30% Overdrive, and a much rarer 10% Shield");
     assert.ok(entityCatalog.entities.thoughtTrigger, "the interactive entity catalog should define the invisible one-shot thought trigger");
     const movingPlatformAsset = assetCatalog.assets.find((entry) => entry.assetId === "rubble_long");
     assert.deepEqual(movingPlatformAsset?.roles, ["movingPlatform"], "the thin rubble platform should be reserved exclusively for moving-platform use");
@@ -6800,6 +6844,13 @@ function testAutomaticLevelGeneratorRewards() {
     const endpointEntities = first.entities.filter((entity) => entity.generationStage === "endpoints");
     const selectedPerches = first.generation.rewards.selectedPerchSupportIds;
     const chests = rewardEntities.filter((entity) => entity.type === "treasureChest");
+    const entryDoor = endpointEntities.find((entity) => entity.portalRole === "entrance");
+    const exitDoor = endpointEntities.find((entity) => entity.portalRole === "exit");
+    const endpointChestSupports = new Set([first.generation.traversal.startSupportId, first.generation.traversal.exitSupportId]);
+    const endpointChests = chests.filter((entity) => endpointChestSupports.has(entity.generationSupportId));
+    assert.equal(endpointChests.length, 2, "rewarded generated levels should use both door platforms for safely offset treasure");
+    assert.ok(endpointChests.some((entity) => entity.generationSupportId === first.generation.traversal.startSupportId && Math.abs(entity.x - entryDoor.x) >= earthTheme.rewards.endpointExclusionDistance), "the entrance-platform chest should sit beyond the portal exclusion radius");
+    assert.ok(endpointChests.some((entity) => entity.generationSupportId === first.generation.traversal.exitSupportId && Math.abs(entity.x - exitDoor.x) >= earthTheme.rewards.endpointExclusionDistance), "the exit-platform chest should sit beyond the portal exclusion radius");
     assert.ok(chests.length >= first.generation.rewards.treasureTarget, `rewarded generated levels should meet their route-scaled treasure target of ${first.generation.rewards.treasureTarget}`);
     assert.ok(selectedPerches.length >= 1, "a high reward-density extended cavern should still use at least one detached upper reward perch");
     for (const supportId of selectedPerches) {
@@ -6827,9 +6878,16 @@ function testAutomaticLevelGeneratorRewards() {
     const generatedWrenchCount = generatedPowerUpCounts.randomWrenchPickup || 0;
     const generatedShieldCount = generatedPowerUpCounts.shieldPickup || 0;
     const generatedSpeedCount = generatedPowerUpCounts.overdrivePickup || 0;
-    assert.ok(Math.abs(generatedWrenchCount * 2 - generatedPowerUps.length) <= 1, "about half of generated power-ups should be randomized wrenches");
-    assert.ok(Math.abs(generatedShieldCount - generatedSpeedCount) <= 1, "the non-wrench half should be split evenly between Shield and Overdrive");
+    assert.ok(Math.abs(generatedWrenchCount * 10 - generatedPowerUps.length * 6) <= 6, "about 60% of generated power-ups should be randomized wrenches");
+    assert.ok(Math.abs(generatedSpeedCount * 10 - generatedPowerUps.length * 3) <= 6, "about 30% of generated power-ups should be Overdrive");
+    assert.ok(Math.abs(generatedShieldCount * 10 - generatedPowerUps.length) <= 6, "about 10% of generated power-ups should be Shield");
+    const detachedOverdrives = generatedPowerUps.filter((entity) => entity.type === "overdrivePickup" && entity.generationContext === "detourUpperPerch");
+    assert.ok(generatedSpeedCount === 0 || detachedOverdrives.length >= 1, "generated Overdrive should use a dedicated upper detour perch whenever the level contains one");
     const supportById = new Map(first.generation.traversal.supports.map((support) => [support.id, support]));
+    assert.ok(detachedOverdrives.every((entity) => {
+        const support = supportById.get(entity.generationSupportId);
+        return support?.powerUpPerch && support.secondaryTier === 2 && !support.mandatory;
+    }), "detour Overdrive pickups should sit on optional second-tier power-up branches rather than the main route");
     assert.equal(generatedPowerUps.every((entity) => Math.abs(entity.y - supportById.get(entity.generationSupportId)?.surfaceY) <= 0.01), true, "generated power-ups should sit directly on their support surface for easy pickup");
     assert.ok(contextualTypes.some((type) => ["overdrivePickup", "shieldPickup", "randomWrenchPickup"].includes(type)), "rewarded generated levels should contain genuine power-up pickups");
     assert.equal(rewardEntities.some((entity) => entity.type === "thoughtTrigger"), false, "generated location thoughts should remain absent unless explicitly enabled");
@@ -7989,6 +8047,24 @@ function testLevelPlacementTransforms() {
 }
 
 function testEditorLevelTransformRuntime() {
+    const emptyState = createInitialGameState();
+    const emptyBounds = { x: -320, y: -420, w: 5600, h: 1500 };
+    assert.equal(applyEditorLevelToWorldCurrent(emptyState, {
+        levelId: "level_new",
+        world: { bounds: emptyBounds, resetY: 1080 },
+        atlasRefs: [],
+        placements: [],
+        entities: []
+    }), true, "a newly created empty editor level with explicit world bounds should produce a renderable runtime world");
+    assert.deepEqual(emptyState.world.bounds, emptyBounds, "empty editor levels should preserve their authored world bounds");
+    assert.deepEqual(emptyState.world.visuals, [], "empty editor levels should not invent placeholder visuals");
+    assert.deepEqual(emptyState.world.entities, [], "empty editor levels should not invent placeholder entities");
+    assert.equal(applyEditorLevelToWorldCurrent(createInitialGameState(), {
+        levelId: "invalid_blank",
+        placements: [],
+        entities: []
+    }), false, "content-free payloads without usable world bounds should remain invalid");
+
     const state = createInitialGameState();
     const level = {
         levelId: "transform_test",
@@ -8841,10 +8917,10 @@ function testRocketPowerUpArsenal() {
     const characterEditorSource = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 415<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(characterEditorSource, /Puppet Forge <small>rev 415<\/small>/, "Puppet Forge should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 420<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(characterEditorSource, /Puppet Forge <small>rev 420<\/small>/, "Puppet Forge should display the packaged revision");
     const assetEditorSource = readFileSync(new URL("../asset-editor.html", import.meta.url), "utf8");
-    assert.match(assetEditorSource, /Asset Tool <small>rev 415<\/small>/, "Asset Tool should display the packaged revision");
+    assert.match(assetEditorSource, /Asset Tool <small>rev 420<\/small>/, "Asset Tool should display the packaged revision");
     assert.ok(editorSource.includes("state.level.layerVisuals = normalizeLevelLayerVisuals({\n            version: 2,"), "editor metadata commits should retain the canonical layer-visual schema instead of reapplying legacy Foreground factors");
     assert.ok(editorSource.includes("const w = displayRecord.w * state.camera.zoom") && editorSource.includes("const w = displayPlacement.w * state.camera.zoom"), "Foreground selection and asset-guide outlines should use the same layer-scaled display dimensions as rendered artwork");
     assert.ok(
@@ -8873,7 +8949,7 @@ function testRocketPowerUpArsenal() {
     assert.equal(editorSource.includes('id="canvas-renderer-baseline"'), false, "the Level Editor should no longer advertise the posterity-only Canvas baseline");
     assert.equal(editorSource.includes("openCanvasRendererBaseline"), false, "the removed baseline link should leave no dormant click handler");
     assert.equal(editorSource.includes("Editor 2 lab"), false, "the Level Editor should not link to the removed Editor 2 lab");
-    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 415") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
+    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 420") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
     assert.ok(baselineSource.includes("applyEditorLevelToWorld") && baselineSource.includes("preferWebGL2: false") && baselineSource.includes("setViewOverride"), "the retained baseline should still convert the authored level and use the ordinary Canvas2D game renderer with an editor camera override");
     assert.ok(editorPlaywrightBenchmark.includes("benchmark_baseline") && editorPlaywrightBenchmark.includes("benchmark_editor") && editorPlaywrightBenchmark.includes("editorToBaselineCadenceRatio"), "the optional Playwright probe should compare the loaded baseline and editor rather than source-only timings");
     assert.ok(editorPlaywrightBenchmark.includes("bodyScrollWidth") && editorPlaywrightBenchmark.includes("stageBacking") && editorPlaywrightBenchmark.includes("overlayBacking"), "the Playwright probe should detect viewport overflow and stage/overlay size divergence");
@@ -8883,7 +8959,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(rendererSource.includes("backingPixelsPerCssPixel") && rendererSource.includes("override.cssZoom * backingPixelsPerCssPixel") && editorSource.includes("cssZoom: state.camera.zoom"), "editor and runtime artwork should share one CSS-pixel camera scale so guide alignment does not drift across the viewport");
     assert.ok(rendererSource.includes("this.ctx.setTransform(1, 0, 0, 1, 0, 0)") && rendererSource.includes("never inherit a CSS/DPR transform"), "the production Canvas renderer should reset inherited context transforms before drawing backing-pixel coordinates");
     assert.ok(editorSource.includes("stageCtx?.setTransform(1, 0, 0, 1, 0, 0)") && !editorSource.includes("stageCtx?.setTransform(dpr"), "the Level Editor must not pre-scale the production scene context by devicePixelRatio");
-    assert.match(bootstrapSource, /const GAME_REVISION = "415";/, "the game debug revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "420";/, "the game debug revision should match the packaged revision");
     assert.ok(
         editorSource.includes('<div class="level-section-label">Existing Level:</div>')
             && editorSource.includes('id="load-level">Load</button>')

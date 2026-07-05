@@ -4474,7 +4474,7 @@
             },
             "showTargetMarker": false,
             "notes": "First runtime Skeleton Guard patrol. It rushes Ignatius inside its patrol area and uses a rapid close-range sword combo.",
-            "attackDamage": 24,
+            "attackDamage": 50,
             "attackRange": 66,
             "attackVerticalRange": 104,
             "attackDuration": 0.44,

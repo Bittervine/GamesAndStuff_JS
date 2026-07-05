@@ -4045,3 +4045,62 @@ Revision 399 keeps the shipped Enemy 032 death clip unchanged but replaces the t
 - [x] Retain visibility on Low quality with a 25 percent emission reduction.
 - [x] Add regression coverage for the trail-fading lifecycle.
 - [x] Synchronize packaged revision labels and catalog metadata to 415.
+
+
+## Revision 416 richer generated branches and rarer Shield
+
+- [x] Raise Horizontal upper-lane coverage from roughly 25 percent to at least 36 percent.
+- [x] Increase optional platform counts across Compact, Standard, Extended, and Grand routes.
+- [x] Extend selected Standard-route side branches into reachable second-tier platforms.
+- [x] Classify upper branches as combat, ordinary reward, or dedicated power-up perches.
+- [x] Let encounter generation populate second-tier combat perches with monsters.
+- [x] Reserve dedicated second-tier detours for generated Overdrive pickups.
+- [x] Change generated power-up weights to 60 percent random wrench, 30 percent Overdrive, and 10 percent Shield.
+- [x] Preserve fixed reward seats and anchored encounters during reward-only rerolls.
+- [x] Add regressions for branch tiers, upper monsters, Overdrive detours, reward rerolls, and the new power-up mix.
+- [x] Increment generator schema to 32, reward catalog to 3, and packaged revision labels to 416.
+- [x] Patch the stale Level 001 Skeleton Guard placement from 24 to the catalog-authoritative 50 melee damage.
+- [x] Update the Level 001 navigation regression to account for the existing Skeleton Caster hunter profile.
+
+## Revision 417 empty-level editor rendering
+
+- [x] Accept an otherwise empty authored level when it supplies finite positive world bounds.
+- [x] Preserve the authored bounds without inventing placeholder visuals or entities.
+- [x] Continue rejecting blank payloads that supply neither content nor usable bounds.
+- [x] Add regression coverage for the New level conversion path.
+- [x] Keep atlas and numbered-level discovery 404 probes unchanged.
+- [x] Increment packaged revision labels to 417.
+
+## Revision 418 generated population rebalance
+
+- [x] Target one generated monster per 500 horizontal route units at each theme's default Enemy density.
+- [x] Scale the target through the existing Enemy density control while preserving zero-density empty levels.
+- [x] Divide long supports into multiple deterministic encounter seats.
+- [x] Allow several independently spaced encounters on one platform.
+- [x] Preserve reward exclusion, endpoint calm zones, body clearance, cavern fit, and moving-shaft safety.
+- [x] Reduce generated power-up targets from one per 1,000 route pixels to one per 3,000.
+- [x] Retain the 60/30/10 wrench, Overdrive, and Shield mix.
+- [x] Add regression coverage for the default density target, multiple encounters per support, and reduced power-up targets.
+- [x] Increment generator schema to 33, encounter metadata to 2, and packaged revision labels to 418.
+
+
+## Revision 419 generated monster density
+
+- [x] Raise the default generated encounter target from one monster per 500 horizontal units to one per 300.
+- [x] Preserve the existing Enemy density scaling, including zero-density empty levels and the capped double-density maximum.
+- [x] Retain long-platform multi-seat placement and all encounter safety exclusions.
+- [x] Update density regressions and packaged revision labels.
+- [x] Increment generator schema to 34 and packaged revision labels to 419.
+
+## Revision 420 populated generated endpoints
+
+- [x] Store actual generated entrance and exit coordinates in endpoint metadata version 2.
+- [x] Measure encounter and reward exclusions from the doors rather than support centres.
+- [x] Replace awareness-range-sized calm zones with local 520/540-unit portal-footing zones.
+- [x] Permit active enemies on the earliest and latest route progress ranges.
+- [x] Use distributed encounter candidate order with endpoint-local fallback seats.
+- [x] Permit physical rewards across the full route progress range.
+- [x] Place one safely offset treasure chest on each door platform when rewards are enabled.
+- [x] Cap upper-perch treasure allocation and distribute remaining chests across the whole route.
+- [x] Add regressions for first-screen enemies, last-screen enemies, endpoint metadata, and both endpoint-platform chests.
+- [x] Increment generator schema to 35 and packaged revision labels to 420.

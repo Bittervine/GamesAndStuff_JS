@@ -2860,11 +2860,28 @@ export function applyEditorLevelToWorld(state, editorLevel) {
 
     visuals.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-    if (!visuals.length && !playerStart && !entities.length) {
+    const authoredBounds = source.world?.bounds;
+    const hasAuthoredBounds = Boolean(
+        authoredBounds &&
+        Number.isFinite(Number(authoredBounds.x)) &&
+        Number.isFinite(Number(authoredBounds.y)) &&
+        Number.isFinite(Number(authoredBounds.w)) &&
+        Number.isFinite(Number(authoredBounds.h)) &&
+        Number(authoredBounds.w) > 0 &&
+        Number(authoredBounds.h) > 0
+    );
+    if (!visuals.length && !playerStart && !entities.length && !hasAuthoredBounds) {
         return false;
     }
 
-    const bounds = source.world?.bounds || estimateEditorLevelBounds(visuals, playerStart, entities);
+    const bounds = hasAuthoredBounds
+        ? {
+            x: Number(authoredBounds.x),
+            y: Number(authoredBounds.y),
+            w: Number(authoredBounds.w),
+            h: Number(authoredBounds.h)
+        }
+        : estimateEditorLevelBounds(visuals, playerStart, entities);
     const atlasManifests = Array.isArray(source.atlasRefs)
         ? source.atlasRefs.map((ref) => ref.manifest).filter(Boolean).map(normalizeAtlasManifestPath)
         : ["assets/at_atlas_001.json"];

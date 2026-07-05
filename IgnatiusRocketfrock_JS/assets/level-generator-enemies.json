@@ -16,8 +16,8 @@
       "headroom": 210,
       "patrolRoom": 220,
       "minGroupSpacing": 92,
-      "preferredProgressMin": 0.12,
-      "preferredProgressMax": 0.96,
+      "preferredProgressMin": 0.02,
+      "preferredProgressMax": 0.99,
       "requiresNavigation": true,
       "notes": "A jumping close-range hunter that can leave raised combat perches and pursue Ignatius."
     },
@@ -35,8 +35,8 @@
       "headroom": 190,
       "patrolRoom": 240,
       "minGroupSpacing": 98,
-      "preferredProgressMin": 0.24,
-      "preferredProgressMax": 0.95,
+      "preferredProgressMin": 0.08,
+      "preferredProgressMax": 0.99,
       "requiresNavigation": true,
       "notes": "A hunter skeleton caster that actively reaches Ignatius's support before settling into its three-second pathing-orb attack rhythm."
     },
@@ -54,8 +54,8 @@
       "headroom": 175,
       "patrolRoom": 210,
       "minGroupSpacing": 96,
-      "preferredProgressMin": 0.22,
-      "preferredProgressMax": 0.94,
+      "preferredProgressMin": 0.08,
+      "preferredProgressMax": 0.99,
       "requiresNavigation": true,
       "notes": "A hunter with homing fireballs and enough room to leave its home platform."
     },
@@ -73,8 +73,8 @@
       "headroom": 175,
       "patrolRoom": 220,
       "minGroupSpacing": 104,
-      "preferredProgressMin": 0.34,
-      "preferredProgressMax": 0.94,
+      "preferredProgressMin": 0.14,
+      "preferredProgressMax": 0.99,
       "requiresNavigation": true,
       "notes": "A later-route ballistic hunter with a longer protected player approach."
     },
@@ -92,8 +92,8 @@
       "headroom": 175,
       "patrolRoom": 210,
       "minGroupSpacing": 96,
-      "preferredProgressMin": 0.22,
-      "preferredProgressMax": 0.94,
+      "preferredProgressMin": 0.08,
+      "preferredProgressMax": 0.99,
       "requiresNavigation": true,
       "notes": "A hunter that fires three smaller straight fireballs across a +/-15 degree fan when any shot has a clear chance to hit."
     },
@@ -113,8 +113,8 @@
       "minGroupSpacing": 78,
       "spawnHeightMin": 165,
       "spawnHeightMax": 245,
-      "preferredProgressMin": 0.18,
-      "preferredProgressMax": 0.92,
+      "preferredProgressMin": 0.06,
+      "preferredProgressMax": 0.98,
       "requiresNavigation": false,
       "notes": "Always generated as a compact two- or three-bat bombing group within weak splash range."
     },
@@ -133,7 +133,7 @@
       "patrolRoom": 220,
       "minGroupSpacing": 92,
       "preferredProgressMin": 0.95,
-      "preferredProgressMax": 0.96,
+      "preferredProgressMax": 0.99,
       "requiresNavigation": true,
       "notes": "Explicit dormant metadata for the first modular Human Raider. Kept out of ordinary generated levels until the human family is tuned."
     },
@@ -152,7 +152,7 @@
       "patrolRoom": 220,
       "minGroupSpacing": 92,
       "preferredProgressMin": 0.95,
-      "preferredProgressMax": 0.96,
+      "preferredProgressMax": 0.99,
       "requiresNavigation": true,
       "notes": "Dormant metadata for Human Raider II. It shares the human sword animation set and remains excluded from ordinary generated levels until the human family is tuned."
     },
@@ -171,7 +171,7 @@
       "patrolRoom": 260,
       "minGroupSpacing": 92,
       "preferredProgressMin": 0.95,
-      "preferredProgressMax": 0.96,
+      "preferredProgressMax": 0.99,
       "requiresNavigation": true,
       "notes": "Dormant metadata for the articulated Human Knife Thrower. It uses body_02/head_02 and releases a three-knife ranged fan; it remains excluded from ordinary generated levels until the human family is tuned."
     },
@@ -190,7 +190,7 @@
       "patrolRoom": 260,
       "minGroupSpacing": 92,
       "preferredProgressMin": 0.95,
-      "preferredProgressMax": 0.96,
+      "preferredProgressMax": 0.99,
       "requiresNavigation": true,
       "notes": "Dormant metadata for Human Knife Thrower II. It uses body_03/head_03 and shares Enemy 032's three-knife +/-5 degree point-first volley; it remains excluded from ordinary generated levels until the human family is tuned."
     }
