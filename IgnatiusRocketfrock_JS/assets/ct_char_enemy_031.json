@@ -1,7 +1,7 @@
 {
   "meta": {
-    "version": 4,
-    "note": "Revision 371 modular human variant using body_01/head_01, shared Enemy 030 animations, and rig-authored cached arm Color Exchange."
+    "version": 3,
+    "note": "Revision 405 Human Raider II with fully articulated split limbs and its own exact copies of the refined sword animation set."
   },
   "characterId": "ct_char_enemy_031",
   "displayName": "Human Raider II",
@@ -9,10 +9,10 @@
   "defaultFacing": "right",
   "mirrorable": true,
   "animationMap": {
-    "idle": "ct_anim_enemy_030_idle.json",
-    "walk": "ct_anim_enemy_030_walk.json",
-    "attack": "ct_anim_enemy_030_attack.json",
-    "hurt": "ct_anim_enemy_030_hurt.json",
-    "death": "ct_anim_enemy_030_death.json"
+    "idle": "ct_anim_enemy_031_idle.json",
+    "walk": "ct_anim_enemy_031_walk.json",
+    "attack": "ct_anim_enemy_031_attack.json",
+    "hurt": "ct_anim_enemy_031_hurt.json",
+    "death": "ct_anim_enemy_031_death.json"
   }
 }

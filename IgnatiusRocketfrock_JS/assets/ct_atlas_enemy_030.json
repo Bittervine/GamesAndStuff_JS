@@ -1,7 +1,7 @@
 {
   "meta": {
-    "version": 1,
-    "note": "Revision 365 modular human enemy atlas. Bodies and heads use uniform extraction rectangles so pivots stay consistent across variants."
+    "version": 4,
+    "note": "Revision 405 modular human atlas. Enemies 030 and 031 now use the split articulated limbs with their original body/head pairs; Enemy 032 uses previously unused body_02/head_02 and throws three copies of the dagger frame."
   },
   "atlasId": "ct_atlas_enemy_030",
   "image": "ct_atlas_enemy_030.png",
@@ -233,6 +233,66 @@
       "y": 3560,
       "w": 563,
       "h": 512
+    },
+    "arm_upper_00": {
+      "x": 4116,
+      "y": 81,
+      "w": 212,
+      "h": 405
+    },
+    "arm_upper_01": {
+      "x": 4512,
+      "y": 90,
+      "w": 166,
+      "h": 386
+    },
+    "arm_lower_00": {
+      "x": 4109,
+      "y": 512,
+      "w": 371,
+      "h": 490
+    },
+    "arm_lower_01": {
+      "x": 4492,
+      "y": 522,
+      "w": 395,
+      "h": 464
+    },
+    "leg_upper_00": {
+      "x": 4116,
+      "y": 1096,
+      "w": 344,
+      "h": 422
+    },
+    "leg_upper_01": {
+      "x": 4522,
+      "y": 1104,
+      "w": 339,
+      "h": 407
+    },
+    "leg_lower_00": {
+      "x": 4167,
+      "y": 1553,
+      "w": 271,
+      "h": 493
+    },
+    "leg_lower_01": {
+      "x": 4582,
+      "y": 1572,
+      "w": 266,
+      "h": 493
+    },
+    "foot_00": {
+      "x": 4119,
+      "y": 2100,
+      "w": 376,
+      "h": 300
+    },
+    "foot_01": {
+      "x": 4558,
+      "y": 2119,
+      "w": 388,
+      "h": 293
     }
   },
   "objects": {
@@ -676,6 +736,124 @@
         "crossbow",
         "equipment",
         "held"
+      ]
+    },
+    "arm_upper_00": {
+      "id": "arm_upper_00",
+      "frame": "arm_upper_00",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "arm",
+        "upper",
+        "closedHandSide"
+      ]
+    },
+    "arm_upper_01": {
+      "id": "arm_upper_01",
+      "frame": "arm_upper_01",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "arm",
+        "upper",
+        "openHandSide"
+      ]
+    },
+    "arm_lower_00": {
+      "id": "arm_lower_00",
+      "frame": "arm_lower_00",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "arm",
+        "lower",
+        "closedHand"
+      ]
+    },
+    "arm_lower_01": {
+      "id": "arm_lower_01",
+      "frame": "arm_lower_01",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "arm",
+        "lower",
+        "openHand"
+      ]
+    },
+    "leg_upper_00": {
+      "id": "leg_upper_00",
+      "frame": "leg_upper_00",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "leg",
+        "upper",
+        "rear"
+      ]
+    },
+    "leg_upper_01": {
+      "id": "leg_upper_01",
+      "frame": "leg_upper_01",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "leg",
+        "upper",
+        "front"
+      ]
+    },
+    "leg_lower_00": {
+      "id": "leg_lower_00",
+      "frame": "leg_lower_00",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "leg",
+        "lower",
+        "rear"
+      ]
+    },
+    "leg_lower_01": {
+      "id": "leg_lower_01",
+      "frame": "leg_lower_01",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "leg",
+        "lower",
+        "front"
+      ]
+    },
+    "foot_00": {
+      "id": "foot_00",
+      "frame": "foot_00",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "foot",
+        "rear"
+      ]
+    },
+    "foot_01": {
+      "id": "foot_01",
+      "frame": "foot_01",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "foot",
+        "front"
       ]
     }
   }

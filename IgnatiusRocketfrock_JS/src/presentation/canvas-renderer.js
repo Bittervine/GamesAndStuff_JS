@@ -118,7 +118,8 @@ const KNOWN_ENEMY_CHARACTER_URLS = [
     "assets/ct_char_enemy_012.json",
     "assets/ct_char_enemy_020.json",
     "assets/ct_char_enemy_030.json",
-    "assets/ct_char_enemy_031.json"
+    "assets/ct_char_enemy_031.json",
+    "assets/ct_char_enemy_032.json"
 ];
 
 const ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES = [
@@ -159,7 +160,7 @@ const WEBGL_DIRECT_WORLD_EFFECT_KINDS = new Set([
     "enemyTeleportFlash",
     "enemyTeleportSpark"
 ]);
-const WEBGL_DIRECT_ENEMY_PROJECTILE_KINDS = new Set(["enemyFireball", "enemyMusketBall", "enemyRock"]);
+const WEBGL_DIRECT_ENEMY_PROJECTILE_KINDS = new Set(["enemyFireball", "enemyMusketBall", "enemyRock", "enemyKnife"]);
 
 function rendererNowMs() {
     if (typeof performance !== "undefined" && typeof performance.now === "function") {
@@ -3766,6 +3767,24 @@ class RocketfrockRenderer {
         }));
     }
 
+    drawProjectileKnifeWebGL(projectile, state, view) {
+        const backend = this.webglBackend;
+        if (!backend?.available) {
+            return false;
+        }
+        const p = this.worldToScreen(view, projectile.x, projectile.y);
+        const travelAngle = Math.atan2(Number(projectile.vy) || 0, Number(projectile.vx) || 1);
+        const spinDirection = Number(projectile.volleyIndex) % 2 === 0 ? 1 : -1;
+        const rotation = travelAngle + (Number(projectile.age) || 0) * 14 * spinDirection;
+        const targetHeight = Math.max(5, Number(projectile.radius) || 5) * 1.45 * view.zoom;
+        const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_032", projectile.frameId || "dagger") ||
+            this.getCharacterAtlasFrame("ct_char_enemy_032", "dagger");
+        if (asset && !asset.missing) {
+            return this.queueWebGLAssetSprite(asset, p.x, p.y, targetHeight, rotation);
+        }
+        return false;
+    }
+
     drawRocketPathTrailWebGL(projectile, state, view) {
         const backend = this.webglBackend;
         if (!backend?.available) return false;
@@ -4012,6 +4031,8 @@ class RocketfrockRenderer {
                 drew = this.drawProjectileMusketBallWebGL(projectile, state, view);
             } else if (projectile.kind === "enemyRock") {
                 drew = this.drawProjectileRockWebGL(projectile, state, view);
+            } else if (projectile.kind === "enemyKnife") {
+                drew = this.drawProjectileKnifeWebGL(projectile, state, view);
             }
             if (drew) {
                 handled.add(projectile.id);
@@ -4080,6 +4101,8 @@ class RocketfrockRenderer {
                 this.drawProjectileMusketBall(projectile, state, view);
             } else if (projectile.kind === "enemyRock") {
                 this.drawProjectileRock(projectile, state, view);
+            } else if (projectile.kind === "enemyKnife") {
+                this.drawProjectileKnife(projectile, state, view);
             } else {
                 this.drawProjectileRocket(projectile, state, view);
             }
@@ -4125,6 +4148,27 @@ class RocketfrockRenderer {
         ctx.restore();
     }
 
+
+    drawProjectileKnife(projectile, state, view) {
+        const ctx = this.ctx;
+        const p = this.worldToScreen(view, projectile.x, projectile.y);
+        const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_032", projectile.frameId || "dagger") ||
+            this.getCharacterAtlasFrame("ct_char_enemy_032", "dagger");
+        if (!asset || asset.missing) {
+            return;
+        }
+        const travelAngle = Math.atan2(Number(projectile.vy) || 0, Number(projectile.vx) || 1);
+        const spinDirection = Number(projectile.volleyIndex) % 2 === 0 ? 1 : -1;
+        const rotation = travelAngle + (Number(projectile.age) || 0) * 14 * spinDirection;
+        const targetHeight = Math.max(5, Number(projectile.radius) || 5) * 1.45 * view.zoom;
+        const spriteScale = targetHeight / Math.max(1, asset.height);
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(rotation);
+        ctx.scale(spriteScale, spriteScale);
+        drawRuntimePixmap(ctx, asset, -asset.width * 0.5, -asset.height * 0.5);
+        ctx.restore();
+    }
 
     drawProjectileRock(projectile, state, view) {
         const ctx = this.ctx;

@@ -4839,7 +4839,7 @@
             "x": 1488,
             "y": 95.07588771674777,
             "w": 67.5,
-            "h": 177,
+            "h": 194,
             "scale": 1,
             "health": 95,
             "facing": -1,
@@ -4881,7 +4881,7 @@
             "maxFallDistance": 520,
             "routeRepathInterval": 0.34,
             "homeRetryInterval": 4,
-            "notes": "A first assembled modular human melee enemy based on the shared body/head atlas parts."
+            "notes": "A modular human sword enemy using body_00/head_00 with the fully articulated split-limb rig and refined animation set."
         },
         {
             "id": "enemy_031_001",
@@ -4891,7 +4891,7 @@
             "x": 832,
             "y": 291.4086159123895,
             "w": 67.5,
-            "h": 177,
+            "h": 194,
             "scale": 1,
             "health": 95,
             "facing": -1,
@@ -4933,7 +4933,7 @@
             "maxFallDistance": 520,
             "routeRepathInterval": 0.34,
             "homeRetryInterval": 4,
-            "notes": "A modular human sword enemy using body_01 and head_01, with the shared enemy_030 animation set."
+            "notes": "A modular human sword enemy using body_01/head_01 with an exact articulated copy of the refined sword animation set."
         }
     ],
     "navigationGraphs": {
@@ -7656,11 +7656,11 @@
             },
             {
                 "version": 2,
-                "id": "w67.5_h177_r152_a950_j196_g1250_f520_s26_q21.6",
-                "label": "Run 152, jump 196, body 67.5×177",
+                "id": "w67.5_h194_r152_a950_j196_g1250_f520_s26_q21.6",
+                "label": "Run 152, jump 196, body 67.5×194",
                 "profile": {
                     "bodyWidth": 67.5,
-                    "bodyHeight": 177,
+                    "bodyHeight": 194,
                     "runSpeed": 152,
                     "groundAcceleration": 950,
                     "jumpHeight": 196,
@@ -7855,6 +7855,19 @@
                         "obstacleXMax": 4942.714285714285
                     },
                     {
+                        "id": "rubble_skull_001_walkable_1",
+                        "kind": "walkable",
+                        "x1": 730,
+                        "y1": -254,
+                        "x2": 938,
+                        "y2": -252,
+                        "xMin": 730,
+                        "xMax": 938,
+                        "sourcePolygonId": null,
+                        "obstacleXMin": null,
+                        "obstacleXMax": null
+                    },
+                    {
                         "id": "object_036_001_blockable_1",
                         "kind": "blockable",
                         "x1": 1496,
@@ -7957,19 +7970,6 @@
                         "sourcePolygonId": "arch_ruin_001_area_8",
                         "obstacleXMin": 3054,
                         "obstacleXMax": 3417
-                    },
-                    {
-                        "id": "rubble_skull_001_walkable_1",
-                        "kind": "walkable",
-                        "x1": 730,
-                        "y1": -254,
-                        "x2": 938,
-                        "y2": -252,
-                        "xMin": 730,
-                        "xMax": 938,
-                        "sourcePolygonId": null,
-                        "obstacleXMin": null,
-                        "obstacleXMax": null
                     }
                 ],
                 "supportSignature": "arch_ruin_001_blockable_1:3056:713:3109:697:arch_ruin_001_area_8|arch_ruin_001_blockable_2:3109:697:3177:682:arch_ruin_001_area_8|arch_ruin_001_blockable_3:3177:682:3256:684:arch_ruin_001_area_8|arch_ruin_001_blockable_4:3256:684:3316:700:arch_ruin_001_area_8|arch_ruin_001_blockable_5:3316:700:3368:724:arch_ruin_001_area_8|arch_ruin_001_blockable_6:3368:724:3416:760:arch_ruin_001_area_8|exit_ground_blockable_1:4436.526:507.409:5111.614:509.693:exit_ground_area_5|exit_ground_blockable_3:5120.737:548.523:5175.474:571.364:exit_ground_area_5|floor_cold_platform_001_blockable_2_nav_1:473.733:844.07:1473.75:844.278:floor_cold_platform_001_area_6|floor_cold_platform_001_blockable_2_nav_2:1636.25:844.312:3031.75:844.602:floor_cold_platform_001_area_6|floor_cold_platform_001_blockable_2_nav_3:3439.25:844.687:4942.714:845:floor_cold_platform_001_area_6|left_step_blockable_1:650.759:294.136:1007.138:288.773:left_step_area_1|object_036_001_blockable_1:1496:658:1612:659:object_036_001_area_7|object_036_001_blockable_5:1596:804:1613:816:object_036_001_area_7|right_gallery_blockable_13:4012.764:294.967:3981.466:290.016:right_gallery_area_4|right_gallery_blockable_1:3493.886:240.504:3709.673:250.407:right_gallery_area_4|right_gallery_blockable_2:3709.673:250.407:3981.466:290.016:right_gallery_area_4|right_gallery_blockable_4:3493.886:240.504:3467.531:252.057:right_gallery_area_4|rubble_skull_001_walkable_1:730:-254:938:-252:|start_ground_blockable_2:451.483:503.099:282.586:483.831:start_ground_area_0|start_ground_blockable_3:282.586:483.831:-119.345:490.254:start_ground_area_0|upper_step_blockable_1:1284.448:95.753:1693.269:94.393:upper_step_area_2|upper_step_blockable_2:1284.448:95.753:1265.433:107.989:upper_step_area_2",
@@ -9567,29 +9567,6 @@
                     },
                     {
                         "id": "nav_edge_77",
-                        "type": "jump",
-                        "direction": "right",
-                        "from": "arch_ruin_001_blockable_4",
-                        "to": "floor_cold_platform_001_blockable_2_nav_3",
-                        "launchX": 3301.15,
-                        "launchY": 696.04,
-                        "landingX": 3486.281,
-                        "landingY": 844.697,
-                        "vx": 142.125,
-                        "vy": -700,
-                        "flightTime": 1.302598,
-                        "fromObstacleId": "arch_ruin_001_area_8",
-                        "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 389.796,
-                        "runUpX": 3270.85,
-                        "runUpY": 687.96,
-                        "runUpDistance": 30.3,
-                        "requiredLaunchSpeed": 142.125,
-                        "groundAcceleration": 950,
-                        "blockerIds": []
-                    },
-                    {
-                        "id": "nav_edge_78",
                         "type": "step",
                         "direction": "overlap",
                         "from": "arch_ruin_001_blockable_4",
@@ -9607,7 +9584,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_79",
+                        "id": "nav_edge_78",
                         "type": "step",
                         "direction": "overlap",
                         "from": "arch_ruin_001_blockable_4",
@@ -9625,7 +9602,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_80",
+                        "id": "nav_edge_79",
                         "type": "step",
                         "direction": "overlap",
                         "from": "arch_ruin_001_blockable_5",
@@ -9643,7 +9620,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_81",
+                        "id": "nav_edge_80",
                         "type": "step",
                         "direction": "overlap",
                         "from": "arch_ruin_001_blockable_5",
@@ -9661,7 +9638,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_82",
+                        "id": "nav_edge_81",
                         "type": "drop",
                         "direction": "right",
                         "from": "arch_ruin_001_blockable_6",
@@ -9680,7 +9657,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_83",
+                        "id": "nav_edge_82",
                         "type": "step",
                         "direction": "overlap",
                         "from": "arch_ruin_001_blockable_6",
@@ -9702,7 +9679,7 @@
                 "build": {
                     "method": "ballistic_graph_with_run_up",
                     "samplesPerSecond": 60,
-                    "generatedBy": "Ignatius Rocketfrock Level Editor"
+                    "generatedBy": "Revision 405 articulated human backport"
                 }
             }
         ]

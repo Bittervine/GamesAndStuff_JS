@@ -1,7 +1,7 @@
 {
   "meta": {
     "version": 1,
-    "note": "Revision 405 Human Raider articulated hurt clip. Backported from the refined Enemy 032 split-limb animation set while retaining this enemy's own body and head artwork and the sword.",
+    "note": "Revision 405 Human Raider II articulated hurt clip. Backported from the refined Enemy 032 split-limb animation set while retaining this enemy's own body and head artwork and the sword.",
     "bakedParentConstraintParts": [
       "leftUpperArm",
       "leftLowerArm",
@@ -18,7 +18,7 @@
     ],
     "bakedPositionKeyCount": 120
   },
-  "animationId": "ct_anim_enemy_030_hurt",
+  "animationId": "ct_anim_enemy_031_hurt",
   "duration": 0.48,
   "loop": true,
   "mirrorable": true,

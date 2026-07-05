@@ -1677,11 +1677,11 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(catalog.enemies.enemy_020.defaults.bomberHoverHeight, 280, "Bombing Bat should aim for the revised high bombing station");
     assert.ok(catalog.enemies.enemy_020.defaults.bomberApproachArcHeight > 0, "Bombing Bat should author a curved approach arc");
     assert.ok(catalog.enemies.enemy_020.defaults.bomberDropHeightTolerance > 0, "Bombing Bat should author a release-height tolerance");
-    for (const humanId of ["enemy_030", "enemy_031"]) {
+    for (const humanId of ["enemy_030", "enemy_031", "enemy_032"]) {
         const human = catalog.enemies[humanId];
         assert.ok(human, `${humanId} should register a modular human raider`);
         assert.equal(human.defaultSize.w, 67.5, `${humanId} should use the 50-percent wider default hitbox`);
-        assert.equal(human.defaultSize.h, 177, `${humanId} should use the 50-percent taller default hitbox`);
+        assert.equal(human.defaultSize.h, 194, `${humanId} should use the articulated modular-human height`);
         assert.equal(human.defaults.renderScale, 1.23, `${humanId} artwork should be 50 percent larger`);
         assert.equal(human.defaults.renderOffsetY, 51, `${humanId} grounded artwork offset should scale with the actor`);
     }
@@ -1778,13 +1778,15 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(characterEditorHtml.includes('enemy_020: "assets/ct_char_enemy_020.json"'), "Puppet Forge should expose replacement Atlas 020");
     assert.ok(characterEditorHtml.includes('enemy_030: "assets/ct_char_enemy_030.json"'), "Puppet Forge should expose the modular Human Raider project");
     assert.ok(characterEditorHtml.includes('enemy_031: "assets/ct_char_enemy_031.json"'), "Puppet Forge should expose the second modular Human Raider project");
+    assert.ok(characterEditorHtml.includes('enemy_032: "assets/ct_char_enemy_032.json"'), "Puppet Forge should expose the split-limb Human Raider project");
     assert.ok(characterEditorHtml.includes('<option value="enemy_030">Enemy 030: Human Raider</option>'), "Puppet Forge known-project dropdown should list Human Raider");
     assert.ok(characterEditorHtml.includes('<option value="enemy_031">Enemy 031: Human Raider II</option>'), "Puppet Forge known-project dropdown should list the second Human Raider");
+    assert.ok(characterEditorHtml.includes('<option value="enemy_032">Enemy 032: Human Knife Thrower</option>'), "Puppet Forge known-project dropdown should list the split-limb Human Raider");
     assert.ok(characterEditorHtml.includes('inferredCharacterUrlFromProjectJson'), "Puppet Forge should resolve rig and atlas project URLs to matching character definitions");
     for (const discardedSuffix of ["006", "007", "008"]) {
         assert.ok(!characterEditorHtml.includes(`ct_char_enemy_${discardedSuffix}.json`), `Puppet Forge should not expose discarded enemy ${discardedSuffix}`);
     }
-    for (const retainedSuffix of ["020", "030", "031"]) {
+    for (const retainedSuffix of ["020", "030", "031", "032"]) {
         assert.ok(rendererSource.includes(`assets/ct_char_enemy_${retainedSuffix}.json`), `renderer should preload retained enemy ${retainedSuffix}`);
     }
     for (const discardedSuffix of ["006", "007", "008"]) {
@@ -1793,22 +1795,104 @@ function testEnemyCatalogAndLevelEditorIntegration() {
 
     const human030 = JSON.parse(readFileSync(new URL("../assets/ct_char_enemy_030.json", import.meta.url), "utf8"));
     const human031 = JSON.parse(readFileSync(new URL("../assets/ct_char_enemy_031.json", import.meta.url), "utf8"));
+    const human032 = JSON.parse(readFileSync(new URL("../assets/ct_char_enemy_032.json", import.meta.url), "utf8"));
     const humanRig030 = JSON.parse(readFileSync(new URL("../assets/ct_rig_enemy_030.json", import.meta.url), "utf8"));
     const humanRig031 = JSON.parse(readFileSync(new URL("../assets/ct_rig_enemy_031.json", import.meta.url), "utf8"));
+    const humanRig032 = JSON.parse(readFileSync(new URL("../assets/ct_rig_enemy_032.json", import.meta.url), "utf8"));
     const humanAtlas = JSON.parse(readFileSync(new URL("../assets/ct_atlas_enemy_030.json", import.meta.url), "utf8"));
-    assert.deepEqual(human031.animationMap, human030.animationMap, "enemy_031 should reuse enemy_030 animations verbatim");
-    assert.equal(humanRig031.parts.torso.frame, "body_01", "enemy_031 should select the second modular torso");
-    assert.equal(humanRig031.parts.head.frame, "head_01", "enemy_031 should select the second modular head");
+
+    assert.equal(humanRig030.parts.torso.frame, "body_00", "enemy_030 should retain its original torso artwork");
+    assert.equal(humanRig030.parts.head.frame, "head_00", "enemy_030 should retain its original head artwork");
+    assert.equal(humanRig031.parts.torso.frame, "body_01", "enemy_031 should retain the second modular torso");
+    assert.equal(humanRig031.parts.head.frame, "head_01", "enemy_031 should retain the second modular head");
+    for (const [enemyId, rig] of [["030", humanRig030], ["031", humanRig031]]) {
+        assert.ok(rig.drawOrder.includes("leftLowerArm") && rig.drawOrder.includes("rightFoot"), `enemy_${enemyId} should use the articulated split-limb rig`);
+        assert.ok(rig.drawOrder.includes("weapon") && rig.parts.weapon.frame === "sword", `enemy_${enemyId} should retain the sword`);
+        assert.equal(rig.parts.leftLowerArm.parentConstraint.parentPart, "leftUpperArm", `enemy_${enemyId} lower left arm should remain connected`);
+        assert.equal(rig.parts.rightFoot.parentConstraint.parentPart, "rightLowerLeg", `enemy_${enemyId} right foot should remain connected`);
+    }
+    assert.equal(human030.animationMap.idle, "ct_anim_enemy_030_idle.json", "enemy_030 should use its dedicated articulated clips");
+    assert.equal(human031.animationMap.idle, "ct_anim_enemy_031_idle.json", "enemy_031 should use its own copied articulated clips");
+    for (const slot of ["idle", "walk", "attack", "hurt", "death"]) {
+        const clip030 = JSON.parse(readFileSync(new URL(`../assets/ct_anim_enemy_030_${slot}.json`, import.meta.url), "utf8"));
+        const clip031 = JSON.parse(readFileSync(new URL(`../assets/ct_anim_enemy_031_${slot}.json`, import.meta.url), "utf8"));
+        assert.deepEqual(clip031.referencePose, clip030.referencePose, `enemy_031 ${slot} should be a pure articulated pose copy of enemy_030`);
+        assert.deepEqual(clip031.tracks, clip030.tracks, `enemy_031 ${slot} should be a pure articulated track copy of enemy_030`);
+        assert.deepEqual(Object.keys(clip030.referencePose).sort(), Object.keys(humanRig030.parts).sort(), `enemy_030 ${slot} should animate every articulated part`);
+        assert.deepEqual(Object.keys(clip031.referencePose).sort(), Object.keys(humanRig031.parts).sort(), `enemy_031 ${slot} should animate every articulated part`);
+    }
+
+    assert.equal(human032.displayName, "Human Knife Thrower", "enemy_032 should expose its new ranged role");
+    assert.equal(humanRig032.parts.torso.frame, "body_02", "enemy_032 should use the previously unused green torso");
+    assert.equal(humanRig032.parts.head.frame, "head_02", "enemy_032 should use the previously unused blonde head");
+    assert.equal(humanRig032.parts.weapon, undefined, "enemy_032 should no longer carry a sword part");
+    assert.equal(humanRig032.drawOrder.includes("weapon"), false, "enemy_032 draw order should contain no held sword");
+    assert.equal(humanRig032.parts.throwingKnife.frame, "dagger", "enemy_032 hidden launch marker should use the throwing-knife atlas frame");
+    assert.equal(humanRig032.parts.throwingKnife.alpha, 0, "the authored knife launch marker should stay invisible on the character");
+    assert.equal(humanRig032.parts.throwingKnife.projectile.releaseTime, 0.34, "the throwing attack should release at the authored hand-extension frame");
+    assert.equal(humanRig032.parts.throwingKnife.projectile.projectileKind, "throwingKnife", "the hidden marker should compile a throwing-knife projectile profile");
+    assert.equal(human032.projectilePart, "throwingKnife", "the character definition should select only the hidden knife projectile marker");
+    for (const partName of ["leftUpperArm", "leftLowerArm", "rightUpperArm", "rightLowerArm"]) {
+        assert.equal(humanRig032.parts[partName].colorExchange, undefined, `${partName} should retain the fair source skin for body_02/head_02`);
+    }
+    assert.equal(humanAtlas.frames.dagger.w > humanAtlas.frames.dagger.h, true, "the shared atlas should retain the side-facing throwing knife");
+    assert.equal(humanAtlas.frames.arm_upper_00.h > 0 && humanAtlas.frames.foot_01.w > 0, true, "split-limb atlas frames should remain available to all three humans");
     assert.deepEqual(
-        [humanAtlas.frames[humanRig031.parts.torso.frame].w, humanAtlas.frames[humanRig031.parts.torso.frame].h],
+        [humanAtlas.frames[humanRig032.parts.torso.frame].w, humanAtlas.frames[humanRig032.parts.torso.frame].h],
         [humanAtlas.frames[humanRig030.parts.torso.frame].w, humanAtlas.frames[humanRig030.parts.torso.frame].h],
-        "modular torso frames must keep identical dimensions"
+        "all modular torso choices must retain matching extraction dimensions"
     );
-    assert.deepEqual(
-        [humanAtlas.frames[humanRig031.parts.head.frame].w, humanAtlas.frames[humanRig031.parts.head.frame].h],
-        [humanAtlas.frames[humanRig030.parts.head.frame].w, humanAtlas.frames[humanRig030.parts.head.frame].h],
-        "modular head frames must keep identical dimensions"
-    );
+
+    const human032Idle = JSON.parse(readFileSync(new URL("../assets/ct_anim_enemy_032_idle.json", import.meta.url), "utf8"));
+    const human032Walk = JSON.parse(readFileSync(new URL("../assets/ct_anim_enemy_032_walk.json", import.meta.url), "utf8"));
+    const human032Attack = JSON.parse(readFileSync(new URL("../assets/ct_anim_enemy_032_attack.json", import.meta.url), "utf8"));
+    const human032Hurt = JSON.parse(readFileSync(new URL("../assets/ct_anim_enemy_032_hurt.json", import.meta.url), "utf8"));
+    const human032Death = JSON.parse(readFileSync(new URL("../assets/ct_anim_enemy_032_death.json", import.meta.url), "utf8"));
+    assert.ok(human032Idle.referencePose.leftLowerArm && human032Idle.referencePose.rightFoot, "enemy_032 idle should retain the articulated limbs");
+    assert.equal(human032Walk.referencePose.weapon, undefined, "enemy_032 walk should contain no sword pose");
+    assert.ok(Math.abs(human032Walk.tracks.rightUpperLeg.rotation[0].value - 0.07185089676653811) < 1e-9, "the anatomical right leg should retain the user-authored lead stance");
+    assert.ok(Math.abs(human032Walk.tracks.leftUpperLeg.rotation[0].value - 0.6204162955478825) < 1e-9, "the anatomical left leg should retain the user-authored trailing stance");
+    for (const slot of ["idle", "walk", "attack", "hurt", "death"]) {
+        const clip = JSON.parse(readFileSync(new URL(`../assets/ct_anim_enemy_032_${slot}.json`, import.meta.url), "utf8"));
+        assert.deepEqual(Object.keys(clip.referencePose).sort(), Object.keys(humanRig032.parts).sort(), `enemy_032 ${slot} should animate every current knife-thrower rig part`);
+        assert.deepEqual(Object.keys(clip.tracks).sort(), Object.keys(humanRig032.parts).sort(), `enemy_032 ${slot} tracks should contain no retired sword part`);
+        assert.equal(clip.referencePose.weapon, undefined, `enemy_032 ${slot} should remove the sword reference pose`);
+        assert.equal(clip.tracks.throwingKnife.alpha[0].value, 0, `enemy_032 ${slot} should keep the launch marker invisible`);
+    }
+    const throwUpperArm = human032Attack.tracks.rightUpperArm.rotation.map((key) => key.value);
+    const throwLowerArm = human032Attack.tracks.rightLowerArm.rotation.map((key) => key.value);
+    assert.ok(Math.max(...throwUpperArm) - Math.min(...throwUpperArm) > 1.5, "the throwing shoulder should visibly cock and snap forward");
+    assert.ok(Math.max(...throwLowerArm) - Math.min(...throwLowerArm) > 2, "the throwing elbow should lead an anatomical extension and follow-through");
+    assert.equal(human032Attack.duration, 0.62, "the throwing animation should match the ranged attack duration");
+    assert.ok(Number.isFinite(human032Attack.tracks.throwingKnife.x[0].value) && human032Attack.tracks.throwingKnife.y[0].value < -250, "the three knives should spawn from the raised throwing hand");
+
+    const hurtTorsoRotations = human032Hurt.tracks.torso.rotation.map((key) => key.value);
+    const hurtHeadRotations = human032Hurt.tracks.head.rotation.map((key) => key.value);
+    assert.ok(Math.max(...hurtTorsoRotations) - Math.min(...hurtTorsoRotations) < 0.032, "Enemy 032 hurt torso response should remain a subtle twitch");
+    assert.ok(Math.max(...hurtHeadRotations) - Math.min(...hurtHeadRotations) < 0.045, "Enemy 032 hurt head response should remain restrained");
+    assert.ok(Math.abs(human032Death.tracks.torso.x[0].value - human032Walk.tracks.torso.x[0].value) < 1e-5, "refined death should start at the authoritative walk torso X");
+    assert.ok(Math.abs(human032Death.tracks.torso.y[0].value - human032Walk.tracks.torso.y[0].value) < 1e-5, "refined death should start at the authoritative walk torso height");
+    assert.ok(human032Death.tracks.torso.rotation.at(-1).value < -1.4, "refined death should complete a clear backward collapse");
+    assert.equal(human032Death.meta.keyframeCleanup.method, "zero-error linear simplification", "the final death cleanup should only remove mathematically redundant linear keys");
+    assert.equal(human032Death.meta.keyframeCleanup.before, 2348, "the cleanup metadata should record the supplied dense key count");
+    assert.equal(human032Death.meta.keyframeCleanup.after, 1648, "the cleanup metadata should record the conservative cleaned key count");
+    assert.equal(human032Death.meta.keyframeCleanup.removed, 700, "the cleanup should remove exactly the zero-error redundant keys");
+    const human030Death = JSON.parse(readFileSync(new URL("../assets/ct_anim_enemy_030_death.json", import.meta.url), "utf8"));
+    const human031Death = JSON.parse(readFileSync(new URL("../assets/ct_anim_enemy_031_death.json", import.meta.url), "utf8"));
+    assert.ok(human030Death.referencePose.weapon && human031Death.referencePose.weapon, "the sword enemies should retain the refined death's sword pose");
+    assert.deepEqual(human031Death.tracks, human030Death.tracks, "enemy_031 should receive the exact refined articulated death tracks used by enemy_030");
+    assert.equal(human032Death.referencePose.weapon, undefined, "the knife thrower should remove the sword from the refined death");
+
+    const cleanupSource = readFileSync(new URL("../devel/clean_animation_keyframes.mjs", import.meta.url), "utf8");
+    const migrationSource = readFileSync(new URL("../devel/migrate_human_enemy_articulation.mjs", import.meta.url), "utf8");
+    assert.ok(cleanupSource.includes("zero-error linear simplification") && cleanupSource.includes("maximumError <= epsilon"), "the final keyframe cleanup should remain reproducible and zero-error");
+    assert.ok(migrationSource.includes("body_02") && migrationSource.includes("projectileVolleyCount") && migrationSource.includes("throwingKnife"), "the articulated backport and knife-thrower conversion should remain reproducible");
+    assert.equal(existsSync(new URL("../enemy-032-death-showcase.html", import.meta.url)), false, "the temporary death showcase should be removed after the final death choice");
+    assert.equal(readdirSync(new URL("../assets", import.meta.url)).some((name) => name.includes("death_showcase")), false, "temporary death showcase clips should not remain in the release");
+    assert.ok(rendererSource.includes("enemyKnife") && rendererSource.includes("drawProjectileKnife") && rendererSource.includes("drawProjectileKnifeWebGL"), "Canvas and WebGL should render the actual dagger atlas frame for thrown knives");
+    assert.equal(characterEditorHtml.includes('leftFoot: "Left leg sprite"'), false, "Puppet Forge should retire the incorrect left leg-sprite label");
+    assert.equal(characterEditorHtml.includes('rightFoot: "Right leg sprite"'), false, "Puppet Forge should retire the incorrect right leg-sprite label");
+    assert.ok(characterEditorHtml.includes('leftFoot: "Left foot"') && characterEditorHtml.includes('rightFoot: "Right foot"'), "Puppet Forge should label foot parts as feet");
 }
 
 
@@ -2121,7 +2205,7 @@ function testLevelOneUsesBakedHunterNavigationGraphs() {
     assert.ok(graph, "level_001 should retain the goblin hunter mobility profile");
     assert.equal(graph.profile.runSpeed, 200, "the baked goblin hunter profile should match the authored run speed");
     assert.equal(graph.profile.maxFallDistance, 600, "the baked goblin hunter profile should permit the authored long ledge descent");
-    const humanGraph = level.navigationGraphs.profiles.find((candidate) => candidate.profile.bodyWidth === 67.5 && candidate.profile.bodyHeight === 177);
+    const humanGraph = level.navigationGraphs.profiles.find((candidate) => candidate.profile.bodyWidth === 67.5 && candidate.profile.bodyHeight === 194);
     assert.ok(humanGraph, "level_001 should include the distinct tall-human hunter mobility profile");
     assert.equal(humanGraph.profile.runSpeed, 152, "the baked human hunter profile should match the authored run speed");
     assert.equal(humanGraph.profile.maxFallDistance, 520, "the baked human hunter profile should match the authored fall distance");
@@ -4557,6 +4641,62 @@ function testTriFireballGoblinVolleyUsesAnyClearTrajectory() {
     assert.equal(blockedState.debug.lastEvents.some((event) => event.type === "ENEMY_ATTACK_STARTED"), false, "the Tri-fireball Goblin should not wind up when all three trajectories are blocked");
 }
 
+
+function testHumanKnifeThrowerVolley() {
+    const catalog = JSON.parse(readFileSync("./assets/ct_enemies_001.json", "utf8"));
+    const definition = catalog.enemies.enemy_032;
+    const state = createInitialGameState({
+        tuning: {
+            playerDamageInvulnerabilitySeconds: 0.1,
+            healthRegenDelay: 99,
+            maxDebugEvents: 200
+        }
+    });
+    applyEditorLevelToWorld(state, {
+        levelId: "human_knife_thrower_test",
+        testPlayerStart: { x: 80, y: 600 },
+        bounds: { x: 0, y: 0, w: 800, h: 800 },
+        entities: [{
+            id: "human_knife_thrower",
+            type: "characterEnemy",
+            enemyCatalogId: "enemy_032",
+            characterId: definition.characterId,
+            x: 300,
+            y: 600,
+            w: definition.defaultSize.w,
+            h: definition.defaultSize.h,
+            facing: -1,
+            ...definition.defaults,
+            strategy: "sentry",
+            awarenessRange: 900,
+            awarenessViewHalfAngle: 90
+        }]
+    });
+    state.world.segments = [{ id: "floor", kind: "walkable", x1: -100, y1: 600, x2: 700, y2: 600 }];
+    state.world.solids = [];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 80;
+    state.player.y = 600;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+
+    stepMany(state, 55);
+
+    const fired = state.debug.lastEvents.filter((event) => event.type === "ENEMY_PROJECTILE_FIRED" && event.enemyId === "human_knife_thrower");
+    assert.equal(fired.length, 3, "Human Knife Thrower should release exactly three knives in one attack");
+    assert.deepEqual(fired.map((event) => event.volleyAngleOffsetDegrees), [-8, 0, 8], "the three knives should use the authored narrow fan");
+    assert.ok(fired.every((event) => event.projectileKind === "enemyKnife"), "throwing-knife projectiles should use their dedicated simulation/render kind");
+    assert.ok(fired.every((event) => event.projectilePartName === "throwingKnife"), "the volley should be attributed to the hidden hand launch marker");
+    const knifeProjectiles = state.projectiles.filter((projectile) => projectile.enemyId === "human_knife_thrower");
+    assert.ok(knifeProjectiles.length > 0, "at least one thrown knife should remain in flight after release");
+    assert.ok(knifeProjectiles.every((projectile) => projectile.kind === "enemyKnife" && projectile.frameId === "dagger"), "every in-flight knife should render the dagger frame");
+    assert.ok(knifeProjectiles.every((projectile) => projectile.launchType === "straight" && projectile.homingStrength === 0), "the knife fan should fly straight without homing");
+    assert.ok(knifeProjectiles.every((projectile) => projectile.radius === Math.max(6, state.enemies[0].projectileRadius) && projectile.damage === 8), "each knife should retain the scale-adjusted compact hitbox and balanced damage");
+}
+
 function testMusketGoblinProjectileAttack() {
     const state = createInitialGameState({
         tuning: {
@@ -5144,12 +5284,16 @@ function testCharacterPartColorExchange() {
     assert.deepEqual(Array.from(fullRangePixel), [171, 188, 199, 64], "full-range exchange should clamp the same additive channel shift used by GIMP");
 
     const rig031 = JSON.parse(readFileSync(new URL("../assets/ct_rig_enemy_031.json", import.meta.url), "utf8"));
-    for (const partName of ["leftArm", "rightArm"]) {
+    const rig032 = JSON.parse(readFileSync(new URL("../assets/ct_rig_enemy_032.json", import.meta.url), "utf8"));
+    for (const partName of ["leftUpperArm", "leftLowerArm", "rightUpperArm", "rightLowerArm"]) {
         assert.deepEqual(rig031.parts[partName].colorExchange.fromColor, [224, 148, 94], `${partName} should use the sampled fair source color`);
         assert.deepEqual(rig031.parts[partName].colorExchange.toColor, [140, 81, 38], `${partName} should use the sampled darker target color`);
         assert.equal(rig031.parts[partName].colorExchange.redThreshold, 1, `${partName} should use GIMP full-range red threshold`);
         assert.equal(rig031.parts[partName].colorExchange.greenThreshold, 1, `${partName} should use GIMP full-range green threshold`);
         assert.equal(rig031.parts[partName].colorExchange.blueThreshold, 1, `${partName} should use GIMP full-range blue threshold`);
+    }
+    for (const partName of ["leftUpperArm", "leftLowerArm", "rightUpperArm", "rightLowerArm"]) {
+        assert.equal(rig032.parts[partName].colorExchange, undefined, `${partName} should keep its fair source skin for the body_02/head_02 knife thrower`);
     }
 
     const runtimeSource = readFileSync(new URL("../src/presentation/character-runtime.js", import.meta.url), "utf8");
@@ -8512,8 +8656,10 @@ function testRocketPowerUpArsenal() {
     const characterEditorSource = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 392<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(characterEditorSource, /Puppet Forge <small>rev 389<\/small>/, "Puppet Forge should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 405<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(characterEditorSource, /Puppet Forge <small>rev 405<\/small>/, "Puppet Forge should display the packaged revision");
+    const assetEditorSource = readFileSync(new URL("../asset-editor.html", import.meta.url), "utf8");
+    assert.match(assetEditorSource, /Asset Tool <small>rev 405<\/small>/, "Asset Tool should display the packaged revision");
     assert.ok(editorSource.includes("state.level.layerVisuals = normalizeLevelLayerVisuals({\n            version: 2,"), "editor metadata commits should retain the canonical layer-visual schema instead of reapplying legacy Foreground factors");
     assert.ok(editorSource.includes("const w = displayRecord.w * state.camera.zoom") && editorSource.includes("const w = displayPlacement.w * state.camera.zoom"), "Foreground selection and asset-guide outlines should use the same layer-scaled display dimensions as rendered artwork");
     assert.ok(
@@ -8542,7 +8688,7 @@ function testRocketPowerUpArsenal() {
     assert.equal(editorSource.includes('id="canvas-renderer-baseline"'), false, "the Level Editor should no longer advertise the posterity-only Canvas baseline");
     assert.equal(editorSource.includes("openCanvasRendererBaseline"), false, "the removed baseline link should leave no dormant click handler");
     assert.equal(editorSource.includes("Editor 2 lab"), false, "the Level Editor should not link to the removed Editor 2 lab");
-    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 389") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
+    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 405") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
     assert.ok(baselineSource.includes("applyEditorLevelToWorld") && baselineSource.includes("preferWebGL2: false") && baselineSource.includes("setViewOverride"), "the retained baseline should still convert the authored level and use the ordinary Canvas2D game renderer with an editor camera override");
     assert.ok(editorPlaywrightBenchmark.includes("benchmark_baseline") && editorPlaywrightBenchmark.includes("benchmark_editor") && editorPlaywrightBenchmark.includes("editorToBaselineCadenceRatio"), "the optional Playwright probe should compare the loaded baseline and editor rather than source-only timings");
     assert.ok(editorPlaywrightBenchmark.includes("bodyScrollWidth") && editorPlaywrightBenchmark.includes("stageBacking") && editorPlaywrightBenchmark.includes("overlayBacking"), "the Playwright probe should detect viewport overflow and stage/overlay size divergence");
@@ -8552,7 +8698,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(rendererSource.includes("backingPixelsPerCssPixel") && rendererSource.includes("override.cssZoom * backingPixelsPerCssPixel") && editorSource.includes("cssZoom: state.camera.zoom"), "editor and runtime artwork should share one CSS-pixel camera scale so guide alignment does not drift across the viewport");
     assert.ok(rendererSource.includes("this.ctx.setTransform(1, 0, 0, 1, 0, 0)") && rendererSource.includes("never inherit a CSS/DPR transform"), "the production Canvas renderer should reset inherited context transforms before drawing backing-pixel coordinates");
     assert.ok(editorSource.includes("stageCtx?.setTransform(1, 0, 0, 1, 0, 0)") && !editorSource.includes("stageCtx?.setTransform(dpr"), "the Level Editor must not pre-scale the production scene context by devicePixelRatio");
-    assert.match(bootstrapSource, /const GAME_REVISION = "392";/, "the game debug revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "405";/, "the game debug revision should match the packaged revision");
     assert.ok(
         editorSource.includes('<div class="level-section-label">Existing Level:</div>')
             && editorSource.includes('id="load-level">Load</button>')
@@ -12801,6 +12947,7 @@ const tests = [
     ["terrain shields player from enemy melee", testEnemyMeleeBlockedByTerrain],
     ["fireball goblin projectile attack", testFireballGoblinProjectileAttack],
     ["tri-fireball goblin uses any clear volley trajectory", testTriFireballGoblinVolleyUsesAnyClearTrajectory],
+    ["human knife thrower releases three dagger projectiles", testHumanKnifeThrowerVolley],
     ["ranged enemies fire beyond preferred attack range", testRangedEnemiesFireBeyondPreferredAttackRange],
     ["ranged enemies require clear projectile lane", testRangedEnemiesRequireClearProjectileLane],
     ["ranged shot lane revalidated at release", testRangedShotLaneRevalidatedAtRelease],

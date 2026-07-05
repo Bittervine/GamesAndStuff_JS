@@ -32,6 +32,23 @@ HUMAN_ANIMS = {
     for slot in ['idle', 'walk', 'attack', 'hurt', 'death']
 }
 
+# Revision 394: the user-expanded atlas keeps its original 4096px-wide content on the
+# left and appends articulated human limbs to the right. These rectangles are authored
+# data, not rediscovered from connected-component heuristics.
+LEGACY_ATLAS_WIDTH = 4096
+SPLIT_LIMB_FRAMES = {
+    'arm_upper_00': {'x': 4116, 'y': 81, 'w': 212, 'h': 405},
+    'arm_upper_01': {'x': 4512, 'y': 90, 'w': 166, 'h': 386},
+    'arm_lower_00': {'x': 4109, 'y': 512, 'w': 371, 'h': 490},
+    'arm_lower_01': {'x': 4492, 'y': 522, 'w': 395, 'h': 464},
+    'leg_upper_00': {'x': 4116, 'y': 1096, 'w': 344, 'h': 422},
+    'leg_upper_01': {'x': 4522, 'y': 1104, 'w': 339, 'h': 407},
+    'leg_lower_00': {'x': 4167, 'y': 1553, 'w': 271, 'h': 493},
+    'leg_lower_01': {'x': 4582, 'y': 1572, 'w': 266, 'h': 493},
+    'foot_00': {'x': 4119, 'y': 2100, 'w': 376, 'h': 300},
+    'foot_01': {'x': 4558, 'y': 2119, 'w': 388, 'h': 293},
+}
+
 
 def alpha_bbox(image: np.ndarray) -> tuple[int, int, int, int]:
     mask = image[:, :, 3] > 10
@@ -97,6 +114,8 @@ def classify_components(components: list[dict]) -> dict[str, list[dict]]:
     weapons = []
     for comp in components:
         x0, y0, x1, y1 = comp['bbox']
+        if x0 >= LEGACY_ATLAS_WIDTH:
+            continue
         area = comp['area']
         w = comp['w']
         h = comp['h']
@@ -300,6 +319,29 @@ def build_atlas_manifest(groups: dict[str, list[dict]]) -> tuple[dict, dict]:
             'tags': tags,
         }
 
+    split_tags = {
+        'arm_upper_00': ['arm', 'upper', 'closedHandSide'],
+        'arm_upper_01': ['arm', 'upper', 'openHandSide'],
+        'arm_lower_00': ['arm', 'lower', 'closedHand'],
+        'arm_lower_01': ['arm', 'lower', 'openHand'],
+        'leg_upper_00': ['leg', 'upper', 'rear'],
+        'leg_upper_01': ['leg', 'upper', 'front'],
+        'leg_lower_00': ['leg', 'lower', 'rear'],
+        'leg_lower_01': ['leg', 'lower', 'front'],
+        'foot_00': ['foot', 'rear'],
+        'foot_01': ['foot', 'front'],
+    }
+    for frame_id, frame in SPLIT_LIMB_FRAMES.items():
+        frame_map[frame_id] = dict(frame)
+        object_map[frame_id] = {
+            'id': frame_id,
+            'frame': frame_id,
+            'type': 'characterPart',
+            'layer': 'character',
+            'mirrorable': True,
+            'tags': split_tags[frame_id],
+        }
+
     weapon_names = [
         ('dagger', weapons[0], ['weapon', 'dagger', 'thrown', 'equipment']),
         ('throwingAxe', weapons[1], ['weapon', 'axe', 'thrown', 'equipment']),
@@ -323,8 +365,8 @@ def build_atlas_manifest(groups: dict[str, list[dict]]) -> tuple[dict, dict]:
 
     atlas_manifest = {
         'meta': {
-            'version': 1,
-            'note': 'Revision 365 modular human enemy atlas. Bodies and heads use uniform extraction rectangles so pivots stay consistent across variants.',
+            'version': 3,
+            'note': 'Revision 394 modular human enemy atlas. Legacy body/head/whole-limb frames are detected in the original sheet area and authored split-limb rectangles are preserved in the expanded right-side area.',
         },
         'atlasId': 'ct_atlas_enemy_030',
         'image': 'ct_atlas_enemy_030.png',
@@ -334,8 +376,8 @@ def build_atlas_manifest(groups: dict[str, list[dict]]) -> tuple[dict, dict]:
 
     parts_manifest = {
         'meta': {
-            'version': 1,
-            'note': 'Revision 365 modular human parts manifest. Stores the uniform head/body frame geometry and identifies the first assembled enemy variant.',
+            'version': 3,
+            'note': 'Revision 394 modular human parts manifest with preserved split upper/lower arms, legs, and separate feet.',
         },
         'partsManifestId': 'ct_human_parts_030',
         'atlasId': 'ct_atlas_enemy_030',
@@ -378,6 +420,12 @@ def build_atlas_manifest(groups: dict[str, list[dict]]) -> tuple[dict, dict]:
                 'frontArm': {'frame': 'arm_01'},
                 'rearLeg': {'frame': 'leg_00'},
                 'frontLeg': {'frame': 'leg_01'},
+            },
+            'splitLimbs': {
+                'rearArm': {'upper': {'frame': 'arm_upper_00'}, 'lower': {'frame': 'arm_lower_00'}},
+                'frontArm': {'upper': {'frame': 'arm_upper_01'}, 'lower': {'frame': 'arm_lower_01'}},
+                'rearLeg': {'upper': {'frame': 'leg_upper_00'}, 'lower': {'frame': 'leg_lower_00'}, 'foot': {'frame': 'foot_00'}},
+                'frontLeg': {'upper': {'frame': 'leg_upper_01'}, 'lower': {'frame': 'leg_lower_01'}, 'foot': {'frame': 'foot_01'}},
             },
             'weapons': [{'frame': name} for name, _item, _tags in weapon_names],
         },

@@ -1,7 +1,7 @@
 {
   "meta": {
     "version": 4,
-    "note": "Revision 371 records Enemy 031 complexion treatment as a cached GIMP-compatible per-arm Color Exchange modifier."
+    "note": "Revision 405 modular human manifest. Enemies 030 and 031 now use the articulated split-limb sword rig, while Enemy 032 uses body_02/head_02 and the dagger projectile without a held sword."
   },
   "partsManifestId": "ct_human_parts_030",
   "atlasId": "ct_atlas_enemy_030",
@@ -14,12 +14,12 @@
         "h": 1155
       },
       "primaryShoulderAnchor": {
-        "x": 112.0,
-        "y": 329.0
+        "x": 112,
+        "y": 329
       },
       "neckAnchor": {
-        "x": 166.0,
-        "y": 200.0
+        "x": 166,
+        "y": 200
       },
       "variants": [
         {
@@ -131,7 +131,7 @@
       },
       "neckAnchor": {
         "x": 228.5,
-        "y": 382.0
+        "y": 382
       },
       "variants": [
         {
@@ -161,7 +161,7 @@
           },
           "anchor": {
             "x": 216.5,
-            "y": 382.0
+            "y": 382
           }
         },
         {
@@ -176,7 +176,7 @@
           },
           "anchor": {
             "x": 228.5,
-            "y": 381.0
+            "y": 381
           }
         },
         {
@@ -190,7 +190,7 @@
             "h": 393
           },
           "anchor": {
-            "x": 217.0,
+            "x": 217,
             "y": 381.5
           }
         },
@@ -251,7 +251,7 @@
           },
           "anchor": {
             "x": 220.5,
-            "y": 381.0
+            "y": 381
           }
         },
         {
@@ -265,8 +265,8 @@
             "h": 393
           },
           "anchor": {
-            "x": 216.0,
-            "y": 380.0
+            "x": 216,
+            "y": 380
           }
         },
         {
@@ -280,8 +280,8 @@
             "h": 393
           },
           "anchor": {
-            "x": 212.0,
-            "y": 380.0
+            "x": 212,
+            "y": 380
           }
         },
         {
@@ -311,7 +311,7 @@
           },
           "anchor": {
             "x": 183.5,
-            "y": 380.0
+            "y": 380
           }
         },
         {
@@ -356,7 +356,7 @@
           },
           "anchor": {
             "x": 218.5,
-            "y": 381.0
+            "y": 381
           }
         },
         {
@@ -433,7 +433,47 @@
       {
         "frame": "crossbow"
       }
-    ]
+    ],
+    "splitLimbs": {
+      "rearArm": {
+        "upper": {
+          "frame": "arm_upper_00"
+        },
+        "lower": {
+          "frame": "arm_lower_00"
+        }
+      },
+      "frontArm": {
+        "upper": {
+          "frame": "arm_upper_01"
+        },
+        "lower": {
+          "frame": "arm_lower_01"
+        }
+      },
+      "rearLeg": {
+        "upper": {
+          "frame": "leg_upper_00"
+        },
+        "lower": {
+          "frame": "leg_lower_00"
+        },
+        "foot": {
+          "frame": "foot_00"
+        }
+      },
+      "frontLeg": {
+        "upper": {
+          "frame": "leg_upper_01"
+        },
+        "lower": {
+          "frame": "leg_lower_01"
+        },
+        "foot": {
+          "frame": "foot_01"
+        }
+      }
+    }
   },
   "firstAssembly": {
     "body": "body_00",
@@ -447,25 +487,38 @@
   "notes": [
     "Shoulder/neck anchors are a first-pass common placement for the shared limb rig. Fine-tuning per enemy can happen in later rig revisions.",
     "Heads use a common neck pivot. Bodies share one common extraction cell and one common first-pass shoulder/neck placement.",
-    "This file is intended to be the future source for swapping body/head variants over the same shared limb rig."
+    "This file is intended to be the future source for swapping body/head variants over the same shared limb rig.",
+    "Revision 394 replaces Enemy 032 rear/front assembly aliases with corrected anatomical left/right names; no legacy aliases are retained."
   ],
   "assemblies": {
     "enemy_030": {
       "body": "body_00",
       "head": "head_00",
-      "rearArm": "arm_00",
-      "frontArm": "arm_01",
-      "rearLeg": "leg_00",
-      "frontLeg": "leg_01",
+      "leftArmUpper": "arm_upper_01",
+      "leftArmLower": "arm_lower_01",
+      "rightArmUpper": "arm_upper_00",
+      "rightArmLower": "arm_lower_00",
+      "leftLegUpper": "leg_upper_01",
+      "leftLegLower": "leg_lower_01",
+      "leftFoot": "foot_01",
+      "rightLegUpper": "leg_upper_00",
+      "rightLegLower": "leg_lower_00",
+      "rightFoot": "foot_00",
       "weapon": "sword"
     },
     "enemy_031": {
       "body": "body_01",
       "head": "head_01",
-      "rearArm": "arm_00",
-      "frontArm": "arm_01",
-      "rearLeg": "leg_00",
-      "frontLeg": "leg_01",
+      "leftArmUpper": "arm_upper_01",
+      "leftArmLower": "arm_lower_01",
+      "rightArmUpper": "arm_upper_00",
+      "rightArmLower": "arm_lower_00",
+      "leftLegUpper": "leg_upper_01",
+      "leftLegLower": "leg_lower_01",
+      "leftFoot": "foot_01",
+      "rightLegUpper": "leg_upper_00",
+      "rightLegLower": "leg_lower_00",
+      "rightFoot": "foot_00",
       "weapon": "sword",
       "armColorExchange": {
         "fromColor": [
@@ -482,6 +535,21 @@
         "greenThreshold": 1,
         "blueThreshold": 1
       }
+    },
+    "enemy_032": {
+      "body": "body_02",
+      "head": "head_02",
+      "leftArmUpper": "arm_upper_01",
+      "leftArmLower": "arm_lower_01",
+      "rightArmUpper": "arm_upper_00",
+      "rightArmLower": "arm_lower_00",
+      "leftLegUpper": "leg_upper_01",
+      "leftLegLower": "leg_lower_01",
+      "leftFoot": "foot_01",
+      "rightLegUpper": "leg_upper_00",
+      "rightLegLower": "leg_lower_00",
+      "rightFoot": "foot_00",
+      "projectile": "dagger"
     }
   }
 }

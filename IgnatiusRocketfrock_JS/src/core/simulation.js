@@ -4290,11 +4290,13 @@ function launchCharacterEnemyProjectile(state, enemy, angleOffset = 0, volley = 
         frameId: enemy.projectileFrameId,
         projectilePartName: enemy.projectilePartName,
         launchType,
-        kind: projectileKind === "musketBall" || launchType === "ballistic"
-            ? "enemyMusketBall"
-            : projectileKind === "rock" || projectileKind === "bomb"
-                ? "enemyRock"
-                : "enemyFireball",
+        kind: projectileKind === "throwingKnife"
+            ? "enemyKnife"
+            : projectileKind === "musketBall" || launchType === "ballistic"
+                ? "enemyMusketBall"
+                : projectileKind === "rock" || projectileKind === "bomb"
+                    ? "enemyRock"
+                    : "enemyFireball",
         state: "launched",
         x: origin.x,
         y: origin.y,
@@ -4311,7 +4313,7 @@ function launchCharacterEnemyProjectile(state, enemy, angleOffset = 0, volley = 
         damage,
         knockbackX,
         knockbackY,
-        trail,
+        trail: projectileKind === "throwingKnife" ? [] : trail,
         volleyId: volley?.id || null,
         volleyIndex: Number.isFinite(Number(volley?.index)) ? Number(volley.index) : 0,
         volleyCount: Math.max(1, Math.round(finiteNumberOr(volley?.count, 1))),

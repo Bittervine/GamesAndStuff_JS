@@ -657,7 +657,7 @@ touch-action: none;
         </section>
     </div>
     <aside>
-        <h1>Puppet Forge <small>rev 389</small></h1>
+        <h1>Puppet Forge <small>rev 405</small></h1>
         <p><a href="index.html">Back to tools</a></p>
         <p>
             Atlas-backed rig and keyframe editor. The preview now samples the same animation JSON module as the game, so edits are made in rig-space values rather than a second procedural imitation.
@@ -727,6 +727,7 @@ touch-action: none;
                     <option value="enemy_020">Enemy 020: Bombing Bat</option>
                     <option value="enemy_030">Enemy 030: Human Raider</option>
                     <option value="enemy_031">Enemy 031: Human Raider II</option>
+                    <option value="enemy_032">Enemy 032: Human Knife Thrower</option>
                 </select>
             </label>
             <div class="row">
@@ -1163,9 +1164,9 @@ const FALLBACK_DRAW_ORDER = [
 
 const PART_LABELS = {
     leftArm: "Left arm",
-    leftFoot: "Left leg sprite",
+    leftFoot: "Left foot",
     rocket: "Rocket",
-    rightFoot: "Right leg sprite",
+    rightFoot: "Right foot",
     robe: "Robe / body",
     head: "Head",
     hat: "Hat",
@@ -1359,7 +1360,8 @@ const KNOWN_PROJECTS = Object.freeze({
     enemy_012: "assets/ct_char_enemy_012.json",
     enemy_020: "assets/ct_char_enemy_020.json",
     enemy_030: "assets/ct_char_enemy_030.json",
-    enemy_031: "assets/ct_char_enemy_031.json"
+    enemy_031: "assets/ct_char_enemy_031.json",
+    enemy_032: "assets/ct_char_enemy_032.json"
 });
 const PANEL_STORAGE_KEY = "ignatiusRocketfrock.characterEditor.collapsedPanels.v1";
 

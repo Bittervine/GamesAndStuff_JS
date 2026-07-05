@@ -1,9 +1,9 @@
 {
   "meta": {
     "version": 2,
-    "note": "Revision 405 Human Raider articulated idle clip. Backported from the refined Enemy 032 split-limb animation set while retaining this enemy's own body and head artwork and the sword."
+    "note": "Revision 405 Human Raider II articulated idle clip. Backported from the refined Enemy 032 split-limb animation set while retaining this enemy's own body and head artwork and the sword."
   },
-  "animationId": "ct_anim_enemy_030_idle",
+  "animationId": "ct_anim_enemy_031_idle",
   "duration": 1.2,
   "loop": true,
   "mirrorable": true,

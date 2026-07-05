@@ -1,7 +1,7 @@
 {
   "meta": {
     "version": 1,
-    "note": "Revision 405 Human Raider articulated death clip. Backported from the refined Enemy 032 split-limb animation set while retaining this enemy's own body and head artwork and the sword.",
+    "note": "Revision 405 Human Raider II articulated death clip. Backported from the refined Enemy 032 split-limb animation set while retaining this enemy's own body and head artwork and the sword.",
     "showcaseVariant": {
       "concept": 6,
       "label": "06 · Goblin-style collapse",
@@ -199,7 +199,7 @@
       ]
     }
   },
-  "animationId": "ct_anim_enemy_030_death",
+  "animationId": "ct_anim_enemy_031_death",
   "duration": 1.46,
   "loop": false,
   "mirrorable": true,

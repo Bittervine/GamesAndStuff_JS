@@ -1,7 +1,7 @@
 {
   "meta": {
     "version": 1,
-    "note": "Revision 405 Human Raider articulated hurt clip. Backported from the refined Enemy 032 split-limb animation set while retaining this enemy's own body and head artwork and the sword.",
+    "note": "Revision 405 Human Knife Thrower hurt clip. Derived from the refined articulated human animation, with the held sword removed and a hidden throwing-knife launch marker retained only for the ranged combat profile.",
     "bakedParentConstraintParts": [
       "leftUpperArm",
       "leftLowerArm",
@@ -18,7 +18,7 @@
     ],
     "bakedPositionKeyCount": 120
   },
-  "animationId": "ct_anim_enemy_030_hurt",
+  "animationId": "ct_anim_enemy_032_hurt",
   "duration": 0.48,
   "loop": true,
   "mirrorable": true,
@@ -104,13 +104,6 @@
       "scale": 0.4,
       "alpha": 1
     },
-    "weapon": {
-      "x": -18.29272590481927,
-      "y": -226.8148548131742,
-      "rotation": -0.4871655750585744,
-      "scale": 0.4,
-      "alpha": 1
-    },
     "rightUpperArm": {
       "x": -30.675817023489305,
       "y": -318.40398065134275,
@@ -124,6 +117,13 @@
       "rotation": 0.1,
       "scale": 0.6,
       "alpha": 1
+    },
+    "throwingKnife": {
+      "x": -42.15136103555573,
+      "y": -279.52407648053423,
+      "rotation": 0,
+      "scale": 0.22,
+      "alpha": 0
     }
   },
   "tracks": {
@@ -1000,103 +1000,6 @@
         }
       ]
     },
-    "weapon": {
-      "rotation": [
-        {
-          "time": 0,
-          "value": -0.487166,
-          "easing": "easeInOut"
-        },
-        {
-          "time": 0.1,
-          "value": -0.472166,
-          "easing": "easeInOut"
-        },
-        {
-          "time": 0.22,
-          "value": -0.481166,
-          "easing": "easeInOut"
-        },
-        {
-          "time": 0.34,
-          "value": -0.487166,
-          "easing": "easeInOut"
-        },
-        {
-          "time": 0.48,
-          "value": -0.487166,
-          "easing": "easeInOut"
-        }
-      ],
-      "scale": [
-        {
-          "time": 0,
-          "value": 0.4,
-          "easing": "linear"
-        }
-      ],
-      "alpha": [
-        {
-          "time": 0,
-          "value": 1,
-          "easing": "linear"
-        }
-      ],
-      "x": [
-        {
-          "time": 0,
-          "value": -18.29272590481927,
-          "easing": "linear"
-        },
-        {
-          "time": 0.1,
-          "value": -26.55483277342167,
-          "easing": "linear"
-        },
-        {
-          "time": 0.22,
-          "value": -21.747854248539554,
-          "easing": "linear"
-        },
-        {
-          "time": 0.34,
-          "value": -17.502677315299948,
-          "easing": "linear"
-        },
-        {
-          "time": 0.48,
-          "value": -18.292725904819275,
-          "easing": "linear"
-        }
-      ],
-      "y": [
-        {
-          "time": 0,
-          "value": -226.8148548131742,
-          "easing": "linear"
-        },
-        {
-          "time": 0.1,
-          "value": -225.4659865645741,
-          "easing": "linear"
-        },
-        {
-          "time": 0.22,
-          "value": -226.22677711636118,
-          "easing": "linear"
-        },
-        {
-          "time": 0.34,
-          "value": -226.97487033542322,
-          "easing": "linear"
-        },
-        {
-          "time": 0.48,
-          "value": -226.8148548131742,
-          "easing": "linear"
-        }
-      ]
-    },
     "head": {
       "rotation": [
         {
@@ -1384,6 +1287,43 @@
         {
           "time": 0.48,
           "value": -279.52407215987796,
+          "easing": "linear"
+        }
+      ]
+    },
+    "throwingKnife": {
+      "x": [
+        {
+          "time": 0,
+          "value": -42.15136103555573,
+          "easing": "linear"
+        }
+      ],
+      "y": [
+        {
+          "time": 0,
+          "value": -279.52407648053423,
+          "easing": "linear"
+        }
+      ],
+      "rotation": [
+        {
+          "time": 0,
+          "value": 0,
+          "easing": "linear"
+        }
+      ],
+      "scale": [
+        {
+          "time": 0,
+          "value": 0.22,
+          "easing": "linear"
+        }
+      ],
+      "alpha": [
+        {
+          "time": 0,
+          "value": 0,
           "easing": "linear"
         }
       ]
