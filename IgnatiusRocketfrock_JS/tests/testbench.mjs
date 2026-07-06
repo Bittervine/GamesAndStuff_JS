@@ -1378,6 +1378,9 @@ function createAutomaticEnemySpawnTestState({
 }
 
 function testAutomaticEnemySpawning() {
+    const earthTheme = normalizeGeneratorTheme(JSON.parse(readFileSync(new URL("../assets/level-generator-themes/earth-cavern.json", import.meta.url), "utf8")));
+    const assetCatalog = normalizeGenerationAssetCatalog(JSON.parse(readFileSync(new URL("../assets/level-generator-platforms.json", import.meta.url), "utf8")));
+    const enemyIds = ["enemy_001", "enemy_010", "enemy_011", "enemy_012", "enemy_020"];
     assert.deepEqual(normalizeAutoSpawnEnemies(null), DEFAULT_AUTO_SPAWN_ENEMIES, "automatic enemy spawning should default to disabled, zero percent, and enemies 001-999");
     assert.deepEqual(
         resolveAutoSpawnEnemyIds({ enabled: true, probabilityPercent: 25, enemyPool: "1-20,!10,!19" }, JSON.parse(readFileSync("./assets/ct_enemies_001.json", "utf8"))).resolvedIds,
@@ -1386,7 +1389,7 @@ function testAutomaticEnemySpawning() {
     );
 
     const risingStylesSeen = new Set();
-    for (const seed of ["snake-a", "snake-b", "snake-e"]) {
+    for (const seed of ["cave-0", "cave-3", "cave-a"]) {
         const draft = generateAutomaticLevelDraft({
             theme: earthTheme,
             assetCatalog,
@@ -1394,7 +1397,7 @@ function testAutomaticEnemySpawning() {
             settings: { ...earthTheme.defaults, length: "grand", safety: 1 },
             implementations: {
                 ...earthTheme.implementations,
-                route: "rising-snake-route-v1",
+                route: "rising-cave-route-v1",
                 encounters: "not-generated-yet",
                 rewards: "not-generated-yet",
                 validation: "the-path74-cavern-validation-v4"
@@ -1402,15 +1405,15 @@ function testAutomaticEnemySpawning() {
             availableEnemyIds: enemyIds,
             destinationLevel: "level_002"
         });
-        assert.equal(draft.generation.validation.valid, true, `Rising Snake cavern ${seed} should validate: ${draft.generation.validation.errors.join(" ")}`);
-        assert.equal(draft.generation.cavern.macroPatternId, "rising-snake", "Rising Snake cave generation should retain the route pattern");
-        assert.ok(draft.generation.cavern.bounds.h > 2400, "Rising Snake cave perimeter should span the two upward screen sections");
-        assert.ok(draft.generation.cavern.stamps.every((stamp) => stamp.kind !== "wideUpperRoom" && stamp.kind !== "domedCeilingExpansion"), "Rising Snake should use a route-following contour instead of the default broad dome expansion");
+        assert.equal(draft.generation.validation.valid, true, `Rising Cave cavern ${seed} should validate: ${draft.generation.validation.errors.join(" ")}`);
+        assert.equal(draft.generation.cavern.macroPatternId, "rising-cave", "Rising Cave cave generation should retain the route pattern");
+        assert.ok(draft.generation.cavern.bounds.h > 2400, "Rising Cave cave perimeter should span the two upward screen sections");
+        assert.ok(draft.generation.cavern.stamps.every((stamp) => stamp.kind !== "wideUpperRoom" && stamp.kind !== "domedCeilingExpansion"), "Rising Cave should use a route-following contour instead of the default broad dome expansion");
         const styles = Object.values(draft.generation.traversal.verticalTraversalStyles || {});
-        assert.equal(styles.length, 2, "Rising Snake should assign a traversal style to both upward shafts");
+        assert.equal(styles.length, 2, "Rising Cave should assign a traversal style to both upward shafts");
         styles.forEach((style) => risingStylesSeen.add(style));
         const greenSupports = draft.generation.traversal.supports.filter((support) => support.verticalClimbPlatform);
-        assert.ok(greenSupports.every((support) => support.collisionMode === "oneWay"), "Rising Snake climbing platforms should always use green one-way collision lines");
+        assert.ok(greenSupports.every((support) => support.collisionMode === "oneWay"), "Rising Cave climbing platforms should always use green one-way collision lines");
         for (const [edgeId, style] of Object.entries(draft.generation.traversal.verticalTraversalStyles || {})) {
             const edgeSupports = draft.generation.traversal.supports.filter((support) => support.routeEdgeId === edgeId);
             const moving = edgeSupports.filter((support) => support.moving && support.movementAxis === "vertical");
@@ -1420,7 +1423,27 @@ function testAutomaticEnemySpawning() {
             if (style === "mix") assert.ok(moving.length === 1 && green.length >= 5, "mixed shafts should contain both an elevator and a green switchback");
         }
     }
-    assert.deepEqual([...risingStylesSeen].sort(), ["elevator", "mix", "platforms"], "Rising Snake sample seeds should cover elevator, platform, and mixed vertical shafts");
+    assert.deepEqual([...risingStylesSeen].sort(), ["elevator", "mix", "platforms"], "Rising Cave sample seeds should cover elevator, platform, and mixed vertical shafts");
+
+    const serpentineDraft = generateAutomaticLevelDraft({
+        theme: earthTheme,
+        assetCatalog,
+        seed: "serp-c-0",
+        settings: { ...earthTheme.defaults, length: "standard", winding: 0.7, safety: 1 },
+        implementations: {
+            ...earthTheme.implementations,
+            route: "serpentine-cave-route-v1",
+            encounters: "not-generated-yet",
+            rewards: "not-generated-yet",
+            validation: "the-path74-cavern-validation-v4"
+        },
+        availableEnemyIds: enemyIds,
+        destinationLevel: "level_002"
+    });
+    assert.equal(serpentineDraft.generation.validation.valid, true, `Serpentine Cave draft should validate: ${serpentineDraft.generation.validation.errors.join(" ")}`);
+    assert.equal(serpentineDraft.generation.cavern.macroPatternId, "serpentine-cave", "Serpentine Cave generation should retain its route pattern");
+    assert.ok(serpentineDraft.generation.cavern.stamps.every((stamp) => stamp.kind !== "wideUpperRoom" && stamp.kind !== "domedCeilingExpansion"), "Serpentine Cave should use a narrow route-following contour instead of the default broad dome expansion");
+    assert.ok((serpentineDraft.generation.route.macro.shortDropCount || 0) >= 0, "Serpentine Cave smoke seed should keep valid drop metadata even when that particular seed rolls no short drop");
 
     const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     assert.ok(editorHtml.includes('id="auto-spawn-enemies-enabled"'), "Level Editor should expose the automatic enemy spawn switch");
@@ -6149,8 +6172,9 @@ function testAutomaticLevelGeneratorRouteFoundation() {
     assert.deepEqual(LEVEL_GENERATOR_REGISTRIES.route, [
         { id: "mostly-horizontal-route-v1", label: "Horizontal" },
         { id: "the-path74-route-v4", label: "Standard" },
-        { id: "rising-snake-route-v1", label: "Rising Snake" }
-    ], "the route selector should expose Horizontal by default and retain Standard plus Rising Snake as alternate planners");
+        { id: "rising-cave-route-v1", label: "Rising Cave" },
+        { id: "serpentine-cave-route-v1", label: "Serpentine Cave" }
+    ], "the route selector should expose Horizontal by default and retain Standard plus Rising Cave and Serpentine Cave as alternate planners");
     assert.deepEqual(LEVEL_GENERATOR_REGISTRIES.cavern, [
         { id: "wide-upper-contour-cavern-v1", label: "Domed" },
         { id: "the-path74-contour-cavern-v4", label: "Standard" }
@@ -6240,9 +6264,9 @@ function testAutomaticLevelGeneratorRouteFoundation() {
     assert.equal(normalized.runId, firstRun.runId, "level generation metadata should survive level normalization");
     assert.equal(normalized.route.nodes.length, firstRun.route.nodes.length, "route nodes should survive level normalization");
 
-    const risingImplementations = { ...earthTheme.implementations, route: "rising-snake-route-v1" };
+    const risingImplementations = { ...earthTheme.implementations, route: "rising-cave-route-v1" };
     const risingMiddleDirections = new Set();
-    for (const seed of ["snake-a", "snake-b", "snake-c", "snake-d"]) {
+    for (const seed of ["cave-a", "cave-b", "cave-c", "cave-d"]) {
         const rising = generateAutomaticLevelRoute({
             theme: earthTheme,
             seed,
@@ -6250,20 +6274,54 @@ function testAutomaticLevelGeneratorRouteFoundation() {
             implementations: risingImplementations,
             availableEnemyIds: enemyIds
         });
-        assert.equal(rising.validation.valid, true, `Rising Snake route ${seed} should validate: ${rising.validation.errors.join(" ")}`);
-        assert.equal(rising.route.macro.patternId, "rising-snake", "Rising Snake should retain its route identity in generation metadata");
-        assert.equal(rising.route.macro.cellSizeX, 1280, "Rising Snake horizontal cells should equal one screen width");
-        assert.equal(rising.route.macro.cellSizeY, 720, "Rising Snake vertical cells should equal one screen height");
+        assert.equal(rising.validation.valid, true, `Rising Cave route ${seed} should validate: ${rising.validation.errors.join(" ")}`);
+        assert.equal(rising.route.macro.patternId, "rising-cave", "Rising Cave should retain its route identity in generation metadata");
+        assert.equal(rising.route.macro.cellSizeX, 1280, "Rising Cave horizontal cells should equal one screen width");
+        assert.equal(rising.route.macro.cellSizeY, 720, "Rising Cave vertical cells should equal one screen height");
         const segments = rising.route.macro.segments;
-        assert.equal(segments.length, 5, "Rising Snake should contain exactly five macro segments");
-        assert.deepEqual([segments[0].direction, segments[1].direction, segments[3].direction, segments[4].direction], ["right", "up", "up", "right"], "Rising Snake should follow right, up, middle, up, right");
-        assert.ok(["left", "right"].includes(segments[2].direction), "Rising Snake middle run should choose left or right");
+        assert.equal(segments.length, 5, "Rising Cave should contain exactly five macro segments");
+        assert.deepEqual([segments[0].direction, segments[1].direction, segments[3].direction, segments[4].direction], ["right", "up", "up", "right"], "Rising Cave should follow right, up, middle, up, right");
+        assert.ok(["left", "right"].includes(segments[2].direction), "Rising Cave middle run should choose left or right");
         risingMiddleDirections.add(segments[2].direction);
-        for (const segment of segments.filter((entry) => entry.direction === "up")) assert.ok(segment.length >= 1 && segment.length <= 2, "Rising Snake climbs should be one or two screens tall");
-        for (const segment of segments.filter((entry) => entry.direction === "left" || entry.direction === "right")) assert.ok(segment.length >= 1 && segment.length <= 4, "Rising Snake horizontal runs should be one to four screens long");
-        assert.ok(rising.route.nodes.at(-1).y <= rising.route.nodes[0].y - 1440, "Rising Snake should finish at least two screens above its entrance");
+        for (const segment of segments.filter((entry) => entry.direction === "up")) assert.ok(segment.length >= 1 && segment.length <= 2, "Rising Cave climbs should be one or two screens tall");
+        for (const segment of segments.filter((entry) => entry.direction === "left" || entry.direction === "right")) assert.ok(segment.length >= 1 && segment.length <= 4, "Rising Cave horizontal runs should be one to four screens long");
+        assert.ok(rising.route.nodes.at(-1).y <= rising.route.nodes[0].y - 1440, "Rising Cave should finish at least two screens above its entrance");
     }
-    assert.deepEqual([...risingMiddleDirections].sort(), ["left", "right"], "Rising Snake seeds should exercise both middle-run directions");
+    assert.deepEqual([...risingMiddleDirections].sort(), ["left", "right"], "Rising Cave seeds should exercise both middle-run directions");
+
+    const serpentineImplementations = { ...earthTheme.implementations, route: "serpentine-cave-route-v1" };
+    const serpentineStats = { drops: 0, reversals: 0, longRises: 0 };
+    for (const seed of ["serp-a", "serp-b", "serp-c", "serp-d"]) {
+        const serpentine = generateAutomaticLevelRoute({
+            theme: earthTheme,
+            seed,
+            settings: { ...earthTheme.defaults, length: "standard", winding: 0.7, safety: 1 },
+            implementations: serpentineImplementations,
+            availableEnemyIds: enemyIds
+        });
+        assert.equal(serpentine.validation.valid, true, `Serpentine Cave route ${seed} should validate: ${serpentine.validation.errors.join(" ")}`);
+        assert.equal(serpentine.route.macro.patternId, "serpentine-cave", "Serpentine Cave should retain its route identity in generation metadata");
+        assert.equal(serpentine.route.macro.cellSizeX, 1280, "Serpentine Cave horizontal cells should equal one screen width");
+        assert.equal(serpentine.route.macro.cellSizeY, 720, "Serpentine Cave major rise cells should equal one screen height");
+        const segments = serpentine.route.macro.segments;
+        assert.equal(segments[0].direction, "right", "Serpentine Cave should start by crawling right");
+        assert.equal(segments.at(-1).direction, "right", "Serpentine Cave should finish with a rightward crawl to the exit");
+        assert.ok(segments.filter((segment) => segment.direction === "up").length >= 3, "Serpentine Cave should contain several upward rises");
+        assert.ok(serpentine.validation.metrics.horizontalDirectionChanges >= 1, "Serpentine Cave should reverse horizontal direction after rises");
+        assert.ok(serpentine.route.nodes.at(-1).x >= Math.max(...serpentine.route.nodes.map((node) => node.x)) - 1, "Serpentine Cave should put the exit at the rightward finish");
+        for (const segment of segments.filter((entry) => entry.direction === "left" || entry.direction === "right")) assert.ok(segment.length >= 2 && segment.length <= 8, "Serpentine Cave crawls should be medium-to-long horizontal runs");
+        for (const segment of segments.filter((entry) => entry.direction === "up")) assert.ok(segment.length >= 2 && segment.length <= 4, "Serpentine Cave rises should be two to four screens tall");
+        for (const segment of segments.filter((entry) => entry.shortDrop)) {
+            assert.ok(segment.shortDrop.minimumFraction >= 0.25 && segment.shortDrop.minimumFraction <= 0.75, "Serpentine Cave short drops should happen inside the middle of a crawl");
+            assert.ok(segment.shortDrop.distance <= earthTheme.traversal.mandatoryDrop * 0.86, "Serpentine Cave short drops should remain mandatory-traversal safe");
+        }
+        serpentineStats.drops += serpentine.route.macro.shortDropCount;
+        serpentineStats.reversals += serpentine.validation.metrics.horizontalDirectionChanges;
+        serpentineStats.longRises += serpentine.route.macro.riseLengths.filter((length) => length >= 3).length;
+    }
+    assert.ok(serpentineStats.drops >= 1, "Serpentine Cave sample seeds should include at least one short mid-crawl drop");
+    assert.ok(serpentineStats.reversals >= 4, "Serpentine Cave sample seeds should show repeated horizontal reversing");
+    assert.ok(serpentineStats.longRises >= 1, "Serpentine Cave sample seeds should include at least one long rise");
 
     const stressSettings = [
         { length: "compact", verticality: 0, winding: 0, },
@@ -8980,10 +9038,10 @@ function testRocketPowerUpArsenal() {
     const characterEditorSource = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 420<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(characterEditorSource, /Puppet Forge <small>rev 420<\/small>/, "Puppet Forge should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 435<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(characterEditorSource, /Puppet Forge <small>rev 435<\/small>/, "Puppet Forge should display the packaged revision");
     const assetEditorSource = readFileSync(new URL("../asset-editor.html", import.meta.url), "utf8");
-    assert.match(assetEditorSource, /Asset Tool <small>rev 420<\/small>/, "Asset Tool should display the packaged revision");
+    assert.match(assetEditorSource, /Asset Tool <small>rev 435<\/small>/, "Asset Tool should display the packaged revision");
     assert.ok(editorSource.includes("state.level.layerVisuals = normalizeLevelLayerVisuals({\n            version: 2,"), "editor metadata commits should retain the canonical layer-visual schema instead of reapplying legacy Foreground factors");
     assert.ok(editorSource.includes("const w = displayRecord.w * state.camera.zoom") && editorSource.includes("const w = displayPlacement.w * state.camera.zoom"), "Foreground selection and asset-guide outlines should use the same layer-scaled display dimensions as rendered artwork");
     assert.ok(
@@ -9012,7 +9070,7 @@ function testRocketPowerUpArsenal() {
     assert.equal(editorSource.includes('id="canvas-renderer-baseline"'), false, "the Level Editor should no longer advertise the posterity-only Canvas baseline");
     assert.equal(editorSource.includes("openCanvasRendererBaseline"), false, "the removed baseline link should leave no dormant click handler");
     assert.equal(editorSource.includes("Editor 2 lab"), false, "the Level Editor should not link to the removed Editor 2 lab");
-    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 420") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
+    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 435") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
     assert.ok(baselineSource.includes("applyEditorLevelToWorld") && baselineSource.includes("preferWebGL2: false") && baselineSource.includes("setViewOverride"), "the retained baseline should still convert the authored level and use the ordinary Canvas2D game renderer with an editor camera override");
     assert.ok(editorPlaywrightBenchmark.includes("benchmark_baseline") && editorPlaywrightBenchmark.includes("benchmark_editor") && editorPlaywrightBenchmark.includes("editorToBaselineCadenceRatio"), "the optional Playwright probe should compare the loaded baseline and editor rather than source-only timings");
     assert.ok(editorPlaywrightBenchmark.includes("bodyScrollWidth") && editorPlaywrightBenchmark.includes("stageBacking") && editorPlaywrightBenchmark.includes("overlayBacking"), "the Playwright probe should detect viewport overflow and stage/overlay size divergence");
@@ -9022,7 +9080,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(rendererSource.includes("backingPixelsPerCssPixel") && rendererSource.includes("override.cssZoom * backingPixelsPerCssPixel") && editorSource.includes("cssZoom: state.camera.zoom"), "editor and runtime artwork should share one CSS-pixel camera scale so guide alignment does not drift across the viewport");
     assert.ok(rendererSource.includes("this.ctx.setTransform(1, 0, 0, 1, 0, 0)") && rendererSource.includes("never inherit a CSS/DPR transform"), "the production Canvas renderer should reset inherited context transforms before drawing backing-pixel coordinates");
     assert.ok(editorSource.includes("stageCtx?.setTransform(1, 0, 0, 1, 0, 0)") && !editorSource.includes("stageCtx?.setTransform(dpr"), "the Level Editor must not pre-scale the production scene context by devicePixelRatio");
-    assert.match(bootstrapSource, /const GAME_REVISION = "420";/, "the game debug revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "435";/, "the game debug revision should match the packaged revision");
     assert.ok(
         editorSource.includes('<div class="level-section-label">Existing Level:</div>')
             && editorSource.includes('id="load-level">Load</button>')

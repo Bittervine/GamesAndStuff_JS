@@ -34,8 +34,6 @@ Horizontal is the run-and-gun route. It advances steadily toward the exit, favor
 
 Standard remains the folded route with broad upper traversal and a nearly continuous lower recovery path. It now creates more detached first-tier side platforms and extends a subset into second-tier branches, using otherwise empty ceiling volume for monsters and rewards. Domed caverns keep the lower perimeter close to the route while expanding that upper volume.
 
-Rising Snake is a five-segment route measured in full screens: right for one to four screens, up for one or two, left or right for one to four, up for one or two, then right for one to four. Its cave contour follows the routed supports instead of applying the broad Domed ceiling expansion. Each upward shaft deterministically chooses an elevator, a green one-way switchback, or both. Green switchbacks alternate between two columns so adjacent steps remain separate while every second platform keeps the required vertical clearance.
-
 Rewarded levels target roughly one real power-up per 3,000 route pixels at default density. The generated pool is 60 percent random wrench, 30 percent Overdrive, and 10 percent Shield. Dedicated second-tier power-up perches receive Overdrive before ordinary reward slots are filled, so the speed reward is visibly off the main path. Reward-only rerolls retain fixed safe seats and anchored encounters while varying the pickup mix.
 
 Encounter rerolls preserve route, platforms, endpoints, and rewards. Reward rerolls preserve route and terrain while replacing generated rewards and retaining anchored encounters. Validation reports the current generated records. Generator locks prevent direct editing but regeneration still replaces generator-owned records. Converting a generated object to manual ownership detaches it from generator clear and regeneration operations.
@@ -441,6 +439,11 @@ Generated power-ups now target one pickup per 3,000 mandatory-route pixels, one 
 
 At a theme's default **Enemy density**, generated levels now target one monster per 300 horizontal route units. The target remains based on mandatory-route left-to-right span, and the existing Enemy density control still scales it from zero up to the capped double-density rate. Long-support multi-seat placement and all existing calm-zone, reward, collision, cavern-fit, landing, and moving-shaft protections remain active. Generator schema version 34 identifies this denser population contract.
 
+## Revision 435 420-base level-generator backport
+- Rebased the project on the original revision 420 codebase while backporting the revision 432 automatic level-generator implementation.
+- Retained the Rising Cave rename, Serpentine Cave route, same-flow diagonal Serpentine rise support, and generated horizontal floor-layer logic from the generator line.
+- Deliberately excluded cave-window, full-black perimeter, editor rendering, and arc-rounded perimeter experiments after revision 420.
+
 ## Revision 420 endpoint population contract
 
 Generator schema version 35 records exact `endpoints.entrance.x/y` and `endpoints.exit.x/y` coordinates. Encounter and reward exclusion must use those portal coordinates, not the centre of the supporting platform.
@@ -448,10 +451,3 @@ Generator schema version 35 records exact `endpoints.entrance.x/y` and `endpoint
 Endpoint protection is intentionally local. Earth encounters preserve 520 world units around each portal and Ice encounters preserve 540. Do not expand this distance to the largest enemy awareness range; doing so wastes one or more complete screens. Encounter candidate ordering uses a distributed route order and explicit endpoint-local fallback seats so bat groups or a blocked preferred seat cannot exhaust the monster target before the final screen is considered.
 
 Physical rewards may use the complete route progress range. When treasure generation is enabled, the far side of each door platform receives one chest if it clears the theme's endpoint exclusion distance. Earth uses 300 units and Ice uses 320. Upper reward perches may consume only a bounded share of the chest target; all remaining chest targets are spread over the full normalized route range. Reward-only rerolls must preserve the endpoint and encounter streams exactly.
-
-
-## Revision 421 Rising Snake route
-
-Generator schema version 36 adds `rising-snake-route-v1`. The route always uses the five-segment right, up, horizontal, up, right pattern with 1280 by 720 world-unit screen cells. The middle horizontal direction is selected with equal left/right probability. Horizontal and vertical segment lengths remain within one to four and one to two screens respectively.
-
-Rising Snake vertical edges record `verticalTraversalStyles` as `elevator`, `platforms`, or `mix`. Elevator paths use the reserved thin shuttle. Platform paths use only one-way green collision assets in a validated switchback. Mixed paths retain the elevator as the mandatory route and add a complete optional green switchback. The cave builder suppresses broad Domed expansions for this route and traces the perimeter from its route, platforms, and lift shafts.

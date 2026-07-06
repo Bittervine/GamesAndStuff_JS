@@ -3897,6 +3897,11 @@ Status: implemented.
 
 At each theme's default Enemy density, automatic generation now targets one monster per 300 horizontal route units instead of one per 500. The existing density scaling, zero-density behavior, long-platform multi-seat placement, endpoint calm zones, reward exclusion, cavern fit, body clearance, and moving-platform shaft protection remain unchanged. Generator schema version 34 records the denser population rule.
 
+## Revision 435 420-base level-generator backport
+- Rebased the project on the original revision 420 codebase while backporting the revision 432 automatic level-generator implementation.
+- Retained the Rising Cave rename, Serpentine Cave route, same-flow diagonal Serpentine rise support, and generated horizontal floor-layer logic from the generator line.
+- Deliberately excluded cave-window, full-black perimeter, editor rendering, and arc-rounded perimeter experiments after revision 420.
+
 ## Revision 420 populated endpoint screens
 
 Status: implemented.
@@ -3904,12 +3909,3 @@ Status: implemented.
 Generated endpoint screens were being left mostly empty by several overlapping restrictions. Encounter calm space was expanded to the largest allowed enemy awareness range plus a safety buffer, producing roughly 980-1020 units of exclusion at each end. Active enemy metadata also refused the earliest route progress, physical rewards excluded 760-800 units around endpoints, and endpoint metadata omitted the actual door coordinates so several systems measured from the middle of the door platform instead. Reward-perch placement could then consume the treasure budget before open-route and late-route seats were considered.
 
 Generator schema version 35 stores the actual entrance and exit coordinates. Encounter calm zones now protect portal footing rather than whole awareness ranges: 520 units for Earth and 540 for Ice. The earliest active enemy can use the first transition support, endpoint-local fallback candidates keep grouped encounters from consuming the population quota before a late seat is tried, and both first and last screens are covered while the portal approach remains clear. Physical rewards may use the full route-progress range. A safely offset treasure chest is placed on each door support when rewards are enabled, upper perches retain a capped share of the treasure budget, and remaining chests are distributed across the complete route instead of filling from the start forward. Reward exclusion is 300 units for Earth and 320 for Ice, measured from the actual portal positions.
-
-
-## Revision 421 rising snake generator route
-
-Status: implemented.
-
-The Generator route selector now includes **Rising Snake**. It creates exactly five screen-scaled macro segments: one to four screens right, one to two screens up, one to four screens left or right with equal probability, another one to two screens up, and a final one to four screens right. The cave contour follows this routed support network rather than receiving the broad Domed ceiling expansion, so the opening visibly snakes around both horizontal runs and vertical shafts.
-
-Each upward shaft deterministically selects one of three traversal treatments: a thin automatic elevator, a validated switchback of green one-way platforms, or a mixed shaft containing both. Mixed shafts keep the elevator on the mandatory path and provide the green platforms as a complete optional alternative. Generator schema version 36 records the new route and per-edge `verticalTraversalStyles`.

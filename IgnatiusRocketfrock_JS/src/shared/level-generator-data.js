@@ -6,7 +6,7 @@ import { normalizeLevelLayerVisuals } from "./level-layer-data.js";
 import { parseEnemySelection } from "./enemy-pool-data.js";
 export { parseEnemySelection } from "./enemy-pool-data.js";
 
-export const AUTOMATIC_LEVEL_GENERATOR_VERSION = 36;
+export const AUTOMATIC_LEVEL_GENERATOR_VERSION = 38;
 export const AUTOMATIC_LEVEL_GENERATOR_ID = "automatic-level-generator-9";
 
 const GENERATED_PLAYER_BODY_WIDTH = 34;
@@ -33,7 +33,8 @@ export const LEVEL_GENERATOR_REGISTRIES = Object.freeze({
     route: Object.freeze([
         Object.freeze({ id: "mostly-horizontal-route-v1", label: "Horizontal" }),
         Object.freeze({ id: "the-path74-route-v4", label: "Standard" }),
-        Object.freeze({ id: "rising-snake-route-v1", label: "Rising Snake" })
+        Object.freeze({ id: "rising-cave-route-v1", label: "Rising Cave" }),
+        Object.freeze({ id: "serpentine-cave-route-v1", label: "Serpentine Cave" })
     ]),
     cavern: Object.freeze([
         Object.freeze({ id: "wide-upper-contour-cavern-v1", label: "Domed" }),
@@ -400,7 +401,7 @@ function collectAutomaticLevelRouteCandidates(options = {}) {
     const theme = normalizeGeneratorTheme(options.theme);
     const settings = normalizeGeneratorSettings(options.settings, theme.defaults);
     const implementations = normalizeGeneratorImplementations(options.implementations || theme.implementations);
-    if (!["the-path74-route-v4", "mostly-horizontal-route-v1", "rising-snake-route-v1"].includes(implementations.route)) {
+    if (!["the-path74-route-v4", "mostly-horizontal-route-v1", "rising-cave-route-v1", "serpentine-cave-route-v1"].includes(implementations.route)) {
         throw new Error(`Unsupported route generator “${implementations.route}”.`);
     }
     const seed = String(options.seed ?? "0").trim() || "0";
@@ -425,9 +426,11 @@ function collectAutomaticLevelRouteCandidates(options = {}) {
         try {
             graph = implementations.route === "mostly-horizontal-route-v1"
                 ? buildMostlyHorizontalRouteCandidate({ theme, settings, rng, attempt })
-                : implementations.route === "rising-snake-route-v1"
-                    ? buildRisingSnakeRouteCandidate({ theme, settings, rng, attempt })
-                    : buildThePath74RouteCandidate({ theme, settings, rng, attempt });
+                : implementations.route === "rising-cave-route-v1"
+                    ? buildRisingCaveRouteCandidate({ theme, settings, rng, attempt })
+                    : implementations.route === "serpentine-cave-route-v1"
+                        ? buildSerpentineCaveRouteCandidate({ theme, settings, rng, attempt })
+                        : buildThePath74RouteCandidate({ theme, settings, rng, attempt });
         } catch (error) {
             if (rejected.length < 10) rejected.push({ attempt, reasons: [String(error?.message || error)] });
             continue;
@@ -1641,14 +1644,24 @@ export function validateGeneratedCavernPresentation(value = {}) {
     }
 
     const wideUpperCavern = cavern.generatorId === "wide-upper-contour-cavern-v1";
+    const serpentineCave = cavern.macroPatternId === "serpentine-cave";
     const tolerance = 42;
-    if (metrics.minimumPlatformWallClearance < theme.cavern.platformWallClearanceX - 1) {
+    const requiredPlatformWallClearance = serpentineCave
+        ? theme.cavern.platformWallClearanceX * 0.62
+        : theme.cavern.platformWallClearanceX;
+    const requiredPlatformCeilingClearance = serpentineCave
+        ? 218
+        : theme.cavern.platformCeilingClearance - tolerance;
+    const requiredPlatformFloorClearance = serpentineCave
+        ? 168
+        : theme.cavern.platformFloorClearance - tolerance;
+    if (metrics.minimumPlatformWallClearance < requiredPlatformWallClearance - 1) {
         errors.push(`A traversal platform has only ${roundCoordinate(metrics.minimumPlatformWallClearance)} units of horizontal cave-wall clearance.`);
     }
-    if (metrics.minimumPlatformCeilingClearance < theme.cavern.platformCeilingClearance - tolerance) {
+    if (metrics.minimumPlatformCeilingClearance < requiredPlatformCeilingClearance) {
         errors.push(`A traversal platform has only ${roundCoordinate(metrics.minimumPlatformCeilingClearance)} units of ceiling clearance.`);
     }
-    if (metrics.minimumPlatformFloorClearance < theme.cavern.platformFloorClearance - tolerance) {
+    if (metrics.minimumPlatformFloorClearance < requiredPlatformFloorClearance) {
         errors.push(`A traversal platform has only ${roundCoordinate(metrics.minimumPlatformFloorClearance)} units of floor clearance.`);
     }
 
@@ -1663,7 +1676,8 @@ export function validateGeneratedCavernPresentation(value = {}) {
             metrics.minimumEndpointSideClearance = Math.min(metrics.minimumEndpointSideClearance, sideClearance);
         }
     }
-    if (metrics.minimumEndpointSideClearance < theme.cavern.endpointSideClearance - 20) {
+    const requiredEndpointSideClearance = serpentineCave ? theme.cavern.endpointSideClearance * 0.72 : theme.cavern.endpointSideClearance - 20;
+    if (metrics.minimumEndpointSideClearance < requiredEndpointSideClearance) {
         errors.push(`An endpoint door is only ${roundCoordinate(metrics.minimumEndpointSideClearance)} units from the dark cave boundary.`);
     }
     if (metrics.maximumDoorFloorError > 2) errors.push(`An endpoint doorway floats ${roundCoordinate(metrics.maximumDoorFloorError)} units above or below its support.`);
@@ -3351,7 +3365,11 @@ export function validatePlayableEmptyCavern(value = {}) {
 
     if (!Number.isFinite(metrics.minimumTransitionGap)) metrics.minimumTransitionGap = 0;
 
-    
+        const mostlyHorizontalRoute = route?.generatorId === "mostly-horizontal-route-v1" || route?.macro?.patternId === "mostly-horizontal";
+        const caveVerticalRoute = ["rising-cave-route-v1", "serpentine-cave-route-v1"].includes(route?.generatorId)
+            || ["rising-cave", "serpentine-cave"].includes(route?.macro?.patternId);
+        const serpentineCaveRoute = route?.generatorId === "serpentine-cave-route-v1" || route?.macro?.patternId === "serpentine-cave";
+
         const routeNodeById = new Map((route?.nodes || []).map((node) => [node.id, node]));
         const routeEdges = (route?.edges || []).filter((edge) => edge.mandatory !== false);
         for (const edge of routeEdges) {
@@ -3362,7 +3380,9 @@ export function validatePlayableEmptyCavern(value = {}) {
                 const movingSupports = edgeSupports.filter((support) => support.moving && support.movementAxis === "vertical");
                 const staticSupports = edgeSupports.filter((support) => !support.moving);
                 const allEdgeTransitions = transitions.filter((transition) => transition.routeEdgeId === edge.id);
-                const risingSnakeTraversal = route?.generatorId === "rising-snake-route-v1" || route?.macro?.patternId === "rising-snake";
+                const caveVerticalTraversal = ["rising-cave-route-v1", "serpentine-cave-route-v1"].includes(route?.generatorId)
+                    || ["rising-cave", "serpentine-cave"].includes(route?.macro?.patternId);
+                const caveRouteLabel = route?.macro?.patternId === "serpentine-cave" ? "Serpentine Cave" : "Rising Cave";
                 metrics.verticalMovingPlatformCount += movingSupports.length;
                 metrics.staticVerticalIntermediateCount += staticSupports.length;
                 const fromNode = routeNodeById.get(edge.from);
@@ -3390,30 +3410,42 @@ export function validatePlayableEmptyCavern(value = {}) {
                     const movingTransfers = edgeTransitions.filter((transition) => transition.movingPlatformTransfer);
                     if (movingTransfers.length !== 2) errors.push(`Vertical route edge “${edge.id}” must expose start and end moving-platform transfers.`);
                 };
-                if (risingSnakeTraversal) {
+                if (caveVerticalTraversal) {
                     const recordedStyle = String(traversal?.verticalTraversalStyles?.[edge.id] || "");
                     const verticalTraversalStyle = recordedStyle || (movingSupports.length && staticSupports.length ? "mix" : movingSupports.length ? "elevator" : "platforms");
-                    if (staticSupports.some((support) => support.collisionMode !== "oneWay" || !support.verticalClimbPlatform)) {
-                        errors.push(`Rising Snake edge “${edge.id}” uses a static vertical support without a green one-way climbing line.`);
+                    const serpentineStructuredSupports = staticSupports.every((support) => (
+                        support.verticalTraversalSupport && (support.collisionMode === "oneWay" || support.verticalTraversalSegmentMode === "stair")
+                    ) || (support.collisionMode === "oneWay" && support.verticalClimbPlatform));
+                    if (serpentineCaveRoute) {
+                        if (!serpentineStructuredSupports && staticSupports.length) {
+                            errors.push(`Serpentine Cave edge “${edge.id}” contains a static vertical support that is not tagged as a generated climb step.`);
+                        }
+                    } else if (staticSupports.some((support) => support.collisionMode !== "oneWay" || !support.verticalClimbPlatform)) {
+                        errors.push(`${caveRouteLabel} edge “${edge.id}” uses a static vertical support without a green one-way climbing line.`);
                     }
                     if (verticalTraversalStyle === "elevator") {
-                        if (staticSupports.length) errors.push(`Rising Snake elevator edge “${edge.id}” contains unexpected static climbing platforms.`);
+                        if (staticSupports.length) errors.push(`${caveRouteLabel} elevator edge “${edge.id}” contains unexpected static climbing platforms.`);
                         validateMovingSupport();
                     } else if (verticalTraversalStyle === "platforms") {
-                        if (movingSupports.length) errors.push(`Rising Snake platform edge “${edge.id}” contains an unexpected elevator.`);
-                        if (!staticSupports.length) errors.push(`Rising Snake platform edge “${edge.id}” contains no green climbing platforms.`);
-                        if (edgeTransitions.length !== staticSupports.length + 1 || edgeTransitions.some((transition) => !transition.verticalPlatformClimb)) {
-                            errors.push(`Rising Snake platform edge “${edge.id}” does not expose one mandatory jump transition for every climbing step.`);
+                        if (movingSupports.length) errors.push(`${caveRouteLabel} platform edge “${edge.id}” contains an unexpected elevator.`);
+                        if (!staticSupports.length) errors.push(`${caveRouteLabel} platform edge “${edge.id}” contains no climbing platforms.`);
+                        const validStaticPath = serpentineCaveRoute
+                            ? edgeTransitions.length === staticSupports.length + 1 && edgeTransitions.every((transition) => transition.verticalTraversalGenerated || transition.verticalPlatformClimb)
+                            : edgeTransitions.length === staticSupports.length + 1 && edgeTransitions.every((transition) => transition.verticalPlatformClimb);
+                        if (!validStaticPath) {
+                            errors.push(`${caveRouteLabel} platform edge “${edge.id}” does not expose one mandatory jump transition for every climbing step.`);
                         }
                     } else if (verticalTraversalStyle === "mix") {
                         validateMovingSupport();
-                        if (!staticSupports.length) errors.push(`Rising Snake mixed edge “${edge.id}” contains no green alternative platforms.`);
-                        const greenAlternatives = allEdgeTransitions.filter((transition) => !transition.mandatory && transition.verticalPlatformClimb);
-                        if (greenAlternatives.length !== staticSupports.length + 1) {
-                            errors.push(`Rising Snake mixed edge “${edge.id}” does not provide a complete optional green-platform alternative.`);
+                        if (!staticSupports.length) errors.push(`${caveRouteLabel} mixed edge “${edge.id}” contains no alternative climbing platforms.`);
+                        const alternativeTransitions = serpentineCaveRoute
+                            ? allEdgeTransitions.filter((transition) => !transition.mandatory && (transition.verticalTraversalGenerated || transition.verticalPlatformClimb))
+                            : allEdgeTransitions.filter((transition) => !transition.mandatory && transition.verticalPlatformClimb);
+                        if (alternativeTransitions.length !== staticSupports.length + 1) {
+                            errors.push(`${caveRouteLabel} mixed edge “${edge.id}” does not provide a complete optional climbing alternative.`);
                         }
                     } else {
-                        errors.push(`Rising Snake edge “${edge.id}” has unknown vertical traversal style “${verticalTraversalStyle}”.`);
+                        errors.push(`${caveRouteLabel} edge “${edge.id}” has unknown vertical traversal style “${verticalTraversalStyle}”.`);
                     }
                 } else {
                     if (movingSupports.length !== 1 || staticSupports.length) {
@@ -3482,8 +3514,6 @@ export function validatePlayableEmptyCavern(value = {}) {
         if (activeSecondarySpan) secondaryCoverageWidth += activeSecondarySpan.right - activeSecondarySpan.left;
         const routeBoundsForSecondaryCoverage = routeGraphBounds(route, 0);
         metrics.secondaryPlatformCoverageRatio = roundCoordinate(secondaryCoverageWidth / Math.max(1, finiteNumber(routeBoundsForSecondaryCoverage?.w, 1)));
-        const mostlyHorizontalRoute = route?.generatorId === "mostly-horizontal-route-v1" || route?.macro?.patternId === "mostly-horizontal";
-        const risingSnakeRoute = route?.generatorId === "rising-snake-route-v1" || route?.macro?.patternId === "rising-snake";
         if (mostlyHorizontalRoute) {
             for (const support of supports.filter((candidate) => candidate.secondaryPlatform)) {
                 const groundParent = bySupportId.get(String(support.groundParentSupportId || ""));
@@ -3563,7 +3593,7 @@ export function validatePlayableEmptyCavern(value = {}) {
                 }
             }
             if (!recoveryLanes.length && settings.safety >= 0.5) warnings.push("The layered traversal produced no staggered recovery floor.");
-            if (metrics.recoveryRequiredGapCount !== metrics.horizontalJumpGapCount) errors.push("Not every upper-route jump gap has a dedicated recovery platform below it.");
+            if (!serpentineCaveRoute && metrics.recoveryRequiredGapCount !== metrics.horizontalJumpGapCount) errors.push("Not every upper-route jump gap has a dedicated recovery platform below it.");
             if (metrics.layeredNetworkLaneCount !== recoveryLanes.length) errors.push("A recovery lane was not materialized as a complete upper/lower safety network.");
             if (metrics.recoveryBacktrackReachableCount !== metrics.layeredNetworkLaneCount) errors.push("One or more lower recovery routes cannot return the player to the upper route.");
             if (metrics.protectedLowerGapCount !== metrics.recoveryLaneGapCount) errors.push("One or more lower-route gaps lack tertiary recovery.");
@@ -3572,10 +3602,10 @@ export function validatePlayableEmptyCavern(value = {}) {
         
         if (!Number.isFinite(metrics.minimumHorizontalJumpGap)) metrics.minimumHorizontalJumpGap = 0;
         if (!Number.isFinite(metrics.minimumOrganicHeightDelta)) metrics.minimumOrganicHeightDelta = 0;
-        if (!risingSnakeRoute && metrics.staticVerticalIntermediateCount > 0) errors.push("ThePath74 vertical traversal still contains static staircase supports.");
+        if (!caveVerticalRoute && metrics.staticVerticalIntermediateCount > 0) errors.push("ThePath74 vertical traversal still contains static staircase supports.");
         if (metrics.horizontalJumpGapCount > 0 && metrics.maximumHorizontalRouteOffset < 72) warnings.push("Horizontal platform sequences remained unusually close to the abstract route height.");
         if (metrics.organicSameHeightAdjacentCount > 0) errors.push("The organic upper route still contains a same-height platform row.");
-        if (!risingSnakeRoute && metrics.mainStaticPlatformCount >= 3 && metrics.longPlatformShare < 0.4) errors.push("The Standard traversal did not use long platforms for enough of the main route.");
+        if (!caveVerticalRoute && metrics.mainStaticPlatformCount >= 3 && metrics.longPlatformShare < 0.4) errors.push("The Standard traversal did not use long platforms for enough of the main route.");
         if (mostlyHorizontalRoute && metrics.secondaryPlatformCoverageRatio < 0.355) errors.push(`The Horizontal upper lane covers only ${roundCoordinate(metrics.secondaryPlatformCoverageRatio * 100)}% of the route span.`);
      else if (!Number.isFinite(metrics.minimumHorizontalJumpGap)) {
         metrics.minimumHorizontalJumpGap = 0;
@@ -3780,11 +3810,37 @@ function buildStandardTraversal({
     const mandatoryEdgeChains = new Map();
     let order = 1000;
     const useRunAndGunRoute = implementations.route === "mostly-horizontal-route-v1";
-    const useRisingSnakeRoute = implementations.route === "rising-snake-route-v1" || route?.macro?.patternId === "rising-snake";
+    const useScreenScaledCaveRoute = ["rising-cave-route-v1", "serpentine-cave-route-v1"].includes(implementations.route)
+        || ["rising-cave", "serpentine-cave"].includes(route?.macro?.patternId);
+    const useSerpentineCaveRoute = implementations.route === "serpentine-cave-route-v1" || route?.macro?.patternId === "serpentine-cave";
     const verticalTraversalStyles = new Map();
-    if (useRisingSnakeRoute) {
+    const verticalTraversalPatterns = new Map();
+    const weightedPick = (entries, fallback) => {
+        const total = entries.reduce((sum, entry) => sum + Math.max(0, finiteNumber(entry?.weight, 0)), 0);
+        if (!(total > 0)) return fallback;
+        let cursor = rng.range(0, total);
+        for (const entry of entries) {
+            cursor -= Math.max(0, finiteNumber(entry?.weight, 0));
+            if (cursor <= 0) return entry.value;
+        }
+        return entries.at(-1)?.value ?? fallback;
+    };
+    const pickSerpentineVerticalTraversalStyle = () => weightedPick([
+        { value: "elevator", weight: 0.22 },
+        { value: "platforms", weight: 0.36 },
+        { value: "mix", weight: 0.42 }
+    ], "mix");
+    const pickSerpentineVerticalTraversalPattern = () => "switchback";
+    if (useScreenScaledCaveRoute) {
         for (const edge of edges.filter((candidate) => candidate.mandatory !== false && (candidate.intendedDirection === "climb" || candidate.intendedDirection === "descend"))) {
-            verticalTraversalStyles.set(edge.id, rng.pick(["elevator", "platforms", "mix"]));
+            const diagonalSerpentineRise = useSerpentineCaveRoute && edge.serpentineDiagonalRise;
+            const style = useSerpentineCaveRoute
+                ? (diagonalSerpentineRise ? "platforms" : pickSerpentineVerticalTraversalStyle())
+                : rng.pick(["elevator", "platforms", "mix"]);
+            verticalTraversalStyles.set(edge.id, style);
+            if (useSerpentineCaveRoute && style !== "elevator") {
+                verticalTraversalPatterns.set(edge.id, diagonalSerpentineRise ? "organicDiagonal" : pickSerpentineVerticalTraversalPattern());
+            }
         }
     }
     let movingVerticalEdgeCount = 0;
@@ -3901,6 +3957,7 @@ function buildStandardTraversal({
     const supportRoleForNode = (node) => {
         if (node.kind === "entrance" || node.kind === "exit") return "doorSupport";
         if (useRunAndGunRoute) return "runAndGunGround";
+        if (useSerpentineCaveRoute) return "routeFloor";
         if (verticalLandingNodeIds.has(node.id)) return "landingPlatform";
         return node.kind === "chamber" || node.kind === "recovery" ? "routeFloor" : "landingPlatform";
     };
@@ -3932,7 +3989,11 @@ function buildStandardTraversal({
             routeNodeId: node.id,
             endpointRole: role === "doorSupport" ? node.kind : undefined,
             mirrorX: role === "doorSupport" ? node.kind === "exit" : undefined,
-            requiredCollisionMode: useRunAndGunRoute && role === "runAndGunGround" ? "blockable" : undefined
+            requiredCollisionMode: useRunAndGunRoute && role === "runAndGunGround"
+                ? "blockable"
+                : useSerpentineCaveRoute && role !== "doorSupport"
+                    ? "blockable"
+                    : undefined
         });
         nodeSupport.set(node.id, support);
     }
@@ -4043,6 +4104,110 @@ function buildStandardTraversal({
     }
 
     const transitions = [];
+
+    const buildSerpentineHorizontalFloorEdge = (edge) => {
+        const startSupport = nodeSupport.get(edge.from);
+        const endSupport = nodeSupport.get(edge.to);
+        if (!startSupport || !endSupport) return null;
+        const direction = Math.sign(endSupport.centerX - startSupport.centerX) || 1;
+        const startVisual = generatedSupportVisualRect(startSupport);
+        const endVisual = generatedSupportVisualRect(endSupport);
+        const startEdgeX = direction > 0 ? startVisual.right : startVisual.left;
+        const endEdgeX = direction > 0 ? endVisual.left : endVisual.right;
+        const span = Math.max(0, direction * (endEdgeX - startEdgeX));
+        const direct = classifyTraversalTransition(startSupport, endSupport, edge, theme);
+        if (span < 380 && direct.valid) {
+            direct.routeEdgeDirection = edge.intendedDirection;
+            direct.spacingStyle = "serpentineFloorLayer";
+            edgeSupportIds.set(edge.id, []);
+            transitions.push(direct);
+            const chain = [startSupport, endSupport];
+            mandatoryEdgeChains.set(edge.id, chain);
+            return chain;
+        }
+        const supportSnapshot = supports.length;
+        const placementSnapshot = placements.length;
+        const transitionSnapshot = transitions.length;
+        const intermediate = [];
+        const edgeTransitions = [];
+        const averageY = (startSupport.surfaceY + endSupport.surfaceY) * 0.5;
+        const verticalDelta = Math.abs(endSupport.surfaceY - startSupport.surfaceY);
+        const interiorLowerOffset = clamp(18 + span / 220 + rng.range(-4, 12), 18, verticalDelta > 120 ? 34 : 52);
+        let cursor = startEdgeX;
+        for (let index = 0; index < 24; index += 1) {
+            const remaining = Math.max(0, direction * (endEdgeX - cursor));
+            if (remaining < 320) break;
+            const gap = roundCoordinate(rng.range(46, Math.min(110, theme.traversal.mandatoryGap * 0.52)));
+            const availableWidth = remaining - gap - 112;
+            if (availableWidth < 360) break;
+            const requestedWidth = clamp(Math.min(availableWidth, remaining * rng.range(0.36, 0.58)), 360, Math.min(1280, availableWidth));
+            const maximumWidth = Math.max(360, Math.min(1500, availableWidth, requestedWidth + 360));
+            const selection = selectGenerationAsset(assetCatalog, "routeFloor", requestedWidth, rng, false, maximumWidth, { collisionMode: "blockable" })
+                || selectGenerationAsset(assetCatalog, "landingPlatform", requestedWidth, rng, false, maximumWidth, { collisionMode: "blockable" });
+            if (!selection || selection.width > availableWidth) break;
+            const nextStart = cursor + direction * gap;
+            const centerX = direction > 0
+                ? nextStart + selection.width * 0.5
+                : nextStart - selection.width * 0.5;
+            const progress = clamp((direction * (centerX - startSupport.centerX)) / Math.max(1, direction * (endSupport.centerX - startSupport.centerX)), 0.06, 0.94);
+            const routeSurfaceY = lerp(startSupport.surfaceY, endSupport.surfaceY, progress);
+            const lowerArc = Math.sin(Math.PI * progress) * interiorLowerOffset;
+            const surfaceY = roundCoordinate(routeSurfaceY + lowerArc + rng.range(-6, 6));
+            const support = addSupport({
+                id: `support_${edge.id}_floor_${String(index + 1).padStart(2, "0")}`,
+                role: "routeFloor",
+                targetWidth: selection.width,
+                selection,
+                centerX,
+                surfaceY,
+                mandatory: true,
+                routeEdgeId: edge.id,
+                requiredCollisionMode: "blockable",
+                mirrorX: false
+            });
+            support.serpentineFloorLayer = true;
+            support.routeOffsetY = roundCoordinate(support.surfaceY - routeSurfaceY);
+            support.platformSpacingStyle = "serpentineFloorLayer";
+            support.platformHeightStyle = "serpentineLowerFloor";
+            const placement = placements.find((candidate) => candidate.id === support.placementId);
+            if (placement) {
+                placement.generationRole = "serpentineFloorLayer";
+                placement.routeEdgeDirection = edge.intendedDirection;
+            }
+            const nextEdge = direction > 0 ? support.walkableRightX : support.walkableLeftX;
+            if (direction * (nextEdge - cursor) < 160) {
+                supports.splice(supports.indexOf(support), 1);
+                if (placement) placements.splice(placements.indexOf(placement), 1);
+                break;
+            }
+            intermediate.push(support);
+            cursor = nextEdge;
+            if (direction * (endEdgeX - cursor) < 420) break;
+        }
+        if (!intermediate.length) {
+            supports.splice(supportSnapshot);
+            placements.splice(placementSnapshot);
+            transitions.splice(transitionSnapshot);
+            return null;
+        }
+        const chain = [startSupport, ...intermediate, endSupport];
+        for (let index = 1; index < chain.length; index += 1) {
+            const transition = classifyTraversalTransition(chain[index - 1], chain[index], edge, theme);
+            transition.routeEdgeDirection = edge.intendedDirection;
+            transition.spacingStyle = "serpentineFloorLayer";
+            if (!transition.valid) {
+                supports.splice(supportSnapshot);
+                placements.splice(placementSnapshot);
+                transitions.splice(transitionSnapshot);
+                return null;
+            }
+            edgeTransitions.push(transition);
+        }
+        transitions.push(...edgeTransitions);
+        edgeSupportIds.set(edge.id, intermediate.map((support) => support.id));
+        mandatoryEdgeChains.set(edge.id, chain);
+        return chain;
+    };
 
     const buildOrganicHorizontalEdge = (edge) => {
         const startSupport = nodeSupport.get(edge.from);
@@ -4400,7 +4565,7 @@ function buildStandardTraversal({
         return chain;
     };
 
-    const buildStaticVerticalEdge = (edge, { mandatory = true, side = 1, verticalTraversalStyle = "platforms" } = {}) => {
+    const buildStaticVerticalEdge = (edge, { mandatory = true, side = 1, verticalTraversalStyle = "platforms", pattern = "switchback" } = {}) => {
         const startSupport = nodeSupport.get(edge.from);
         const endSupport = nodeSupport.get(edge.to);
         if (!startSupport || !endSupport) throw new Error(`Vertical edge “${edge.id}” is missing a landing support.`);
@@ -4413,10 +4578,352 @@ function buildStandardTraversal({
             throw new Error(`Vertical edge “${edge.id}” cannot fit a green-platform switchback within the jump envelope.`);
         }
         const intermediateCount = transitionCount - 1;
-        const selections = [];
-        for (let index = 0; index < intermediateCount; index += 1) {
-            const targetWidth = rng.range(232, 286);
-            const selection = selectGenerationAsset(
+        const baseCenterX = roundCoordinate((startSupport.centerX + endSupport.centerX) * 0.5);
+        if (useSerpentineCaveRoute) {
+            const supportLength = supports.length;
+            const placementLength = placements.length;
+            const transitionLength = transitions.length;
+            const staticSupports = [];
+            const edgeTransitions = [];
+            const edgeSpec = mandatory ? edge : { ...edge, mandatory: false };
+            const verticalSign = Math.sign(endSupport.surfaceY - startSupport.surfaceY) || -1;
+            const routeLeft = Math.min(startSupport.centerX, endSupport.centerX, baseCenterX) - 720;
+            const routeRight = Math.max(startSupport.centerX, endSupport.centerX, baseCenterX) + 720;
+            const clearGeneratedOrganicAttempt = () => {
+                supports.splice(supportLength);
+                placements.splice(placementLength);
+                transitions.splice(transitionLength);
+            };
+            const pickOrganicSelection = (mode) => {
+                const targetWidth = mode === "stair" ? rng.range(176, 228) : rng.range(218, 292);
+                if (mode === "stair") {
+                    return selectGenerationAsset(assetCatalog, "landingPlatform", targetWidth, rng, false, 256, { collisionMode: "blockable" })
+                        || selectGenerationAsset(assetCatalog, "routeFloor", targetWidth, rng, false, 256, { collisionMode: "blockable" })
+                        || selectGenerationAsset(assetCatalog, "landingPlatform", targetWidth, rng, false, 292, { collisionMode: "oneWay" });
+                }
+                return selectGenerationAsset(assetCatalog, "landingPlatform", targetWidth, rng, false, 320, { collisionMode: "oneWay" });
+            };
+            const selectionToCandidate = (selection, centerX, surfaceY, id, mode) => {
+                const width = roundCoordinate(selection.width);
+                const leftInsetRatio = selection.asset.walkableLeftInsetRatio;
+                const rightInsetRatio = selection.asset.walkableRightInsetRatio;
+                const walkableLeftInset = roundCoordinate(width * leftInsetRatio);
+                const walkableRightInset = roundCoordinate(width * rightInsetRatio);
+                return {
+                    id,
+                    role: mode === "stair" ? "routeFloor" : "landingPlatform",
+                    mandatory,
+                    routeEdgeId: edge.id,
+                    centerX: roundCoordinate(centerX),
+                    surfaceY: roundCoordinate(surfaceY),
+                    width,
+                    height: roundCoordinate(selection.height),
+                    walkableLeftInset,
+                    walkableRightInset,
+                    walkableLeftX: roundCoordinate(centerX - width * 0.5 + walkableLeftInset),
+                    walkableRightX: roundCoordinate(centerX + width * 0.5 - walkableRightInset),
+                    walkableWidth: roundCoordinate(width - walkableLeftInset - walkableRightInset),
+                    atlasId: selection.asset.atlasId,
+                    assetId: selection.asset.assetId,
+                    surfaceYRatio: selection.asset.surfaceYRatio,
+                    collisionMode: selection.asset.collisionMode,
+                    verticalTraversalSupport: true,
+                    verticalTraversalSegmentMode: mode
+                };
+            };
+            const horizontalOverlapAmount = (first, second) => Math.min(first.right, second.right) - Math.max(first.left, second.left);
+            const candidateHasBodyClearance = (candidate, chain) => {
+                const candidateVisual = generatedSupportVisualRect(candidate);
+                for (const other of chain) {
+                    if (!other || other.id === candidate.id) continue;
+                    const otherVisual = generatedSupportVisualRect(other);
+                    const overlapX = horizontalOverlapAmount(candidateVisual, otherVisual);
+                    if (overlapX <= 24) continue;
+                    const overlapY = Math.min(candidateVisual.bottom, otherVisual.bottom) - Math.max(candidateVisual.top, otherVisual.top);
+                    if (overlapY > 1 && (candidate.collisionMode === "oneWay" || other.collisionMode === "oneWay")) return false;
+                    const surfaceSeparation = Math.abs(candidate.surfaceY - other.surfaceY);
+                    if (surfaceSeparation > 1 && surfaceSeparation < GENERATED_MINIMUM_VERTICAL_PLATFORM_SEPARATION) return false;
+                    const upper = candidate.surfaceY <= other.surfaceY ? candidate : other;
+                    const lower = upper === candidate ? other : candidate;
+                    const upperBottom = upper.surfaceY + upper.height * (1 - upper.surfaceYRatio);
+                    if (lower.surfaceY - upperBottom < GENERATED_MINIMUM_VERTICAL_PLATFORM_SEPARATION * 0.62) return false;
+                }
+                return true;
+            };
+            const candidateCenterForSide = (from, selection, stepSide, gap) => {
+                const width = selection.width;
+                const fromVisual = generatedSupportVisualRect(from);
+                if (stepSide > 0) {
+                    const desiredVisualLeft = fromVisual.right + gap;
+                    return desiredVisualLeft + width * 0.5;
+                }
+                const desiredVisualRight = fromVisual.left - gap;
+                return desiredVisualRight - width * 0.5;
+            };
+            const routePullSide = (from) => {
+                const targetDelta = endSupport.centerX - from.centerX;
+                if (Math.abs(targetDelta) > 92) return Math.sign(targetDelta);
+                const baseDelta = baseCenterX - from.centerX;
+                if (Math.abs(baseDelta) > 260) return Math.sign(baseDelta);
+                return rng.chance(0.5) ? 1 : -1;
+            };
+            const addOrganicSupport = (candidate, selection, index, mode) => {
+                const support = addSupport({
+                    id: candidate.id,
+                    role: mode === "stair" ? "routeFloor" : "landingPlatform",
+                    targetWidth: selection.width,
+                    maximumWidth: mode === "stair" ? 256 : 320,
+                    selection,
+                    centerX: candidate.centerX,
+                    surfaceY: candidate.surfaceY,
+                    mandatory,
+                    routeEdgeId: edge.id,
+                    requiredCollisionMode: mode === "stair" ? selection.asset.collisionMode : "oneWay",
+                    mirrorX: false
+                });
+                support.verticalClimbPlatform = support.collisionMode === "oneWay";
+                support.verticalTraversalSupport = true;
+                support.verticalTraversalStyle = verticalTraversalStyle;
+                support.verticalTraversalPattern = "organicFootholds";
+                support.verticalTraversalSegmentMode = mode;
+                support.platformSpacingStyle = mandatory ? "screenCaveOrganicFootholds" : "screenCaveMixedOrganicFootholds";
+                const placement = placements.find((candidatePlacement) => candidatePlacement.id === support.placementId);
+                if (placement) {
+                    placement.generationRole = mode === "stair" ? "verticalOrganicStair" : "verticalOrganicPlatform";
+                    placement.verticalTraversalStyle = verticalTraversalStyle;
+                    placement.verticalTraversalPattern = "organicFootholds";
+                    placement.verticalTraversalSegmentMode = mode;
+                }
+                return support;
+            };
+            const plannedCount = Math.max(2, Math.ceil(verticalSpan / (theme.traversal.mandatoryRise * 0.92)));
+            const organicAscentPlan = edge.serpentineDiagonalRise
+                ? "diagonal"
+                : weightedPick([
+                    { value: "slant", weight: 0.56 },
+                    { value: "slantMix", weight: 0.26 },
+                    { value: "zipper", weight: 0.18 }
+                ], "slant");
+            const organicPreferredSide = routePullSide(startSupport);
+            const organicSpreadLimit = roundCoordinate(clamp(verticalSpan * rng.range(0.18, 0.24), 196, 408));
+            let current = startSupport;
+            let lastSide = organicPreferredSide;
+            let plannedFailed = false;
+            for (let stepIndex = 1; stepIndex < plannedCount; stepIndex += 1) {
+                const progress = stepIndex / plannedCount;
+                const candidateY = roundCoordinate(lerp(startSupport.surfaceY, endSupport.surfaceY, progress));
+                const finalFoothold = stepIndex === plannedCount - 1;
+                let accepted = null;
+                for (let attempt = 0; attempt < 72 && !accepted; attempt += 1) {
+                    const candidateMode = rng.chance(finalFoothold ? 0.08 : 0.24) ? "stair" : "jump";
+                    const selection = pickOrganicSelection(candidateMode);
+                    if (!selection) continue;
+                    let stepSide = routePullSide(current);
+                    if (organicAscentPlan !== "zipper") {
+                        stepSide = organicAscentPlan === "diagonal" ? Math.sign(endSupport.centerX - startSupport.centerX) || organicPreferredSide : organicPreferredSide;
+                        if (organicAscentPlan === "slantMix" && attempt > 36 && rng.chance(0.18)) stepSide *= -1;
+                    } else if (!finalFoothold && attempt < 16 && rng.chance(0.52)) {
+                        stepSide = -lastSide;
+                    }
+                    if (current.centerX < routeLeft + 320) stepSide = 1;
+                    if (current.centerX > routeRight - 320) stepSide = -1;
+                    let centerX;
+                    if (organicAscentPlan === "diagonal") {
+                        const targetCenter = lerp(startSupport.centerX, endSupport.centerX, progress);
+                        centerX = roundCoordinate(targetCenter + rng.range(-36, 36));
+                    } else if (finalFoothold) {
+                        const sideFromEnd = organicAscentPlan === "zipper"
+                            ? (attempt % 2 === 0 ? routePullSide(endSupport) : -routePullSide(endSupport))
+                            : organicPreferredSide;
+                        const gapFromEnd = roundCoordinate(rng.range(8, Math.min(theme.traversal.mandatoryGap * 0.42, 78)));
+                        centerX = candidateCenterForSide(endSupport, selection, -sideFromEnd, gapFromEnd);
+                    } else if (organicAscentPlan === "zipper") {
+                        const minimumGap = candidateMode === "stair" ? rng.range(8, 24) : rng.range(10, 34);
+                        const maximumGap = candidateMode === "stair" ? Math.min(theme.traversal.mandatoryGap * 0.42, 76) : Math.min(theme.traversal.mandatoryGap * 0.5, 92);
+                        const gap = roundCoordinate(rng.range(minimumGap, Math.max(minimumGap + 8, maximumGap)));
+                        centerX = candidateCenterForSide(current, selection, stepSide, gap);
+                    } else {
+                        const wave = organicAscentPlan === "slantMix"
+                            ? Math.sin(progress * Math.PI * 0.92)
+                            : progress;
+                        const targetOffset = organicPreferredSide * organicSpreadLimit * Math.max(0.24, wave);
+                        const targetCenter = roundCoordinate(baseCenterX + targetOffset);
+                        centerX = roundCoordinate(clamp(targetCenter + rng.range(-34, 34), routeLeft + selection.width * 0.5, routeRight - selection.width * 0.5));
+                    }
+                    centerX = roundCoordinate(clamp(centerX + rng.range(-18, 18), routeLeft, routeRight));
+                    const minThrowDistance = organicAscentPlan === "diagonal" ? 36 : (candidateMode === "stair" ? 72 : 94);
+                    const maxThrowDistance = organicAscentPlan === "diagonal"
+                        ? Math.min(theme.traversal.mandatoryGap * 0.98, 338)
+                        : candidateMode === "stair"
+                            ? Math.min(theme.traversal.mandatoryGap * 0.72, 244)
+                            : Math.min(theme.traversal.mandatoryGap * 0.92, 316);
+                    const horizontalThrowDistance = Math.abs(centerX - current.centerX);
+                    if (!finalFoothold && (horizontalThrowDistance < minThrowDistance || horizontalThrowDistance > maxThrowDistance)) continue;
+                    const candidate = selectionToCandidate(selection, centerX, candidateY, `support_${edge.id}_organic_${String(stepIndex).padStart(2, "0")}`, candidateMode);
+                    const incoming = classifyTraversalTransition(current, candidate, edgeSpec, theme);
+                    if (!incoming.valid) continue;
+                    const clearanceSet = [current, ...staticSupports.slice(-2)];
+                    if (!candidateHasBodyClearance(candidate, clearanceSet)) continue;
+                    let outgoing = null;
+                    if (finalFoothold) {
+                        outgoing = classifyTraversalTransition(candidate, endSupport, edgeSpec, theme);
+                        if (!outgoing.valid) continue;
+                    }
+                    accepted = { candidate, selection, incoming, outgoing, mode: candidateMode, stepSide };
+                }
+                if (!accepted) {
+                    plannedFailed = true;
+                    break;
+                }
+                accepted.incoming.spacingStyle = mandatory ? "screenCaveOrganicFootholds" : "screenCaveMixedOrganicFootholds";
+                accepted.incoming.verticalTraversalGenerated = true;
+                accepted.incoming.verticalTraversalPattern = "organicFootholds";
+                accepted.incoming.verticalPlatformClimb = accepted.mode !== "stair";
+                accepted.incoming.verticalStairClimb = accepted.mode === "stair";
+                edgeTransitions.push(accepted.incoming);
+                const support = addOrganicSupport(accepted.candidate, accepted.selection, stepIndex, accepted.mode);
+                staticSupports.push(support);
+                current = support;
+                lastSide = accepted.stepSide;
+                if (accepted.outgoing) {
+                    accepted.outgoing.spacingStyle = mandatory ? "screenCaveOrganicFootholds" : "screenCaveMixedOrganicFootholds";
+                    accepted.outgoing.verticalTraversalGenerated = true;
+                    accepted.outgoing.verticalTraversalPattern = "organicFootholds";
+                    accepted.outgoing.verticalPlatformClimb = true;
+                    edgeTransitions.push(accepted.outgoing);
+                }
+            }
+            if (!plannedFailed && staticSupports.length) {
+                const chain = [startSupport, ...staticSupports, endSupport];
+                transitions.push(...edgeTransitions);
+                if (mandatory) {
+                    edgeSupportIds.set(edge.id, staticSupports.map((support) => support.id));
+                    mandatoryEdgeChains.set(edge.id, chain);
+                }
+                return chain;
+            }
+            clearGeneratedOrganicAttempt();
+        }
+        if (!useSerpentineCaveRoute || pattern === "switchback" || pattern === "organicDiagonal") {
+            const selections = [];
+            for (let index = 0; index < intermediateCount; index += 1) {
+                const targetWidth = rng.range(232, 286);
+                const selection = selectGenerationAsset(
+                    assetCatalog,
+                    "landingPlatform",
+                    targetWidth,
+                    rng,
+                    false,
+                    320,
+                    { collisionMode: "oneWay" }
+                );
+                if (!selection) throw new Error(`Vertical edge “${edge.id}” cannot find a green one-way climbing platform.`);
+                selections.push(selection);
+            }
+            const selectionWalkableBounds = (selection, centerX) => ({
+                left: centerX - selection.width * 0.5 + selection.width * selection.asset.walkableLeftInsetRatio,
+                right: centerX + selection.width * 0.5 - selection.width * selection.asset.walkableRightInsetRatio
+            });
+            const supportWalkableBounds = (support) => ({
+                left: finiteNumber(support.walkableLeftX, support.centerX - support.width * 0.5),
+                right: finiteNumber(support.walkableRightX, support.centerX + support.width * 0.5)
+            });
+            const innerBoundsForStep = (stepIndex) => {
+                if (stepIndex <= 0) return supportWalkableBounds(startSupport);
+                if (stepIndex >= transitionCount) return supportWalkableBounds(endSupport);
+                return selectionWalkableBounds(selections[stepIndex - 1], baseCenterX);
+            };
+            const staticSupports = [];
+            const gap = roundCoordinate(rng.range(46, 62));
+            for (let stepIndex = 1; stepIndex < transitionCount; stepIndex += 1) {
+                const selection = selections[stepIndex - 1];
+                const outerColumn = stepIndex % 2 === 1;
+                let centerX = baseCenterX;
+                if (outerColumn) {
+                    const previousInner = innerBoundsForStep(stepIndex - 1);
+                    const nextInner = innerBoundsForStep(stepIndex + 1);
+                    if (side > 0) {
+                        const desiredLeft = Math.max(previousInner.right, nextInner.right) + gap;
+                        centerX = desiredLeft + selection.width * 0.5 - selection.width * selection.asset.walkableLeftInsetRatio;
+                    } else {
+                        const desiredRight = Math.min(previousInner.left, nextInner.left) - gap;
+                        centerX = desiredRight - selection.width * 0.5 + selection.width * selection.asset.walkableRightInsetRatio;
+                    }
+                }
+                const surfaceY = lerp(startSupport.surfaceY, endSupport.surfaceY, stepIndex / transitionCount);
+                const support = addSupport({
+                    id: `support_${edge.id}_green_${String(stepIndex).padStart(2, "0")}`,
+                    role: "landingPlatform",
+                    targetWidth: selection.width,
+                    maximumWidth: 320,
+                    selection,
+                    centerX,
+                    surfaceY,
+                    mandatory,
+                    routeEdgeId: edge.id,
+                    requiredCollisionMode: "oneWay",
+                    mirrorX: false
+                });
+                support.verticalClimbPlatform = true;
+                support.verticalTraversalStyle = verticalTraversalStyle;
+                support.platformSpacingStyle = mandatory ? "screenCaveGreenClimb" : "screenCaveMixedGreenAlternative";
+                const placement = placements.find((candidate) => candidate.id === support.placementId);
+                if (placement) {
+                    placement.generationRole = "verticalGreenPlatform";
+                    placement.verticalTraversalStyle = verticalTraversalStyle;
+                }
+                staticSupports.push(support);
+            }
+            const chain = [startSupport, ...staticSupports, endSupport];
+            const edgeSpec = mandatory ? edge : { ...edge, mandatory: false };
+            const edgeTransitions = [];
+            for (let index = 1; index < chain.length; index += 1) {
+                const transition = classifyTraversalTransition(chain[index - 1], chain[index], edgeSpec, theme);
+                transition.spacingStyle = mandatory ? "screenCaveGreenClimb" : "screenCaveMixedGreenAlternative";
+                transition.verticalPlatformClimb = true;
+                transition.verticalTraversalStyle = verticalTraversalStyle;
+                if (!transition.valid) {
+                    throw new Error(`Vertical edge “${edge.id}” green-platform climb is not traversable between ${chain[index - 1].id} and ${chain[index].id} (gap ${transition.gap}, rise ${transition.rise}, drop ${transition.drop}).`);
+                }
+                edgeTransitions.push(transition);
+            }
+            transitions.push(...edgeTransitions);
+            if (mandatory) {
+                edgeSupportIds.set(edge.id, staticSupports.map((support) => support.id));
+                mandatoryEdgeChains.set(edge.id, chain);
+            }
+            return chain;
+        }
+        const selectVerticalSelection = (mode) => {
+            const targetWidth = mode === "stair" ? rng.range(176, 218) : rng.range(232, 286);
+            if (mode === "stair") {
+                return selectGenerationAsset(
+                    assetCatalog,
+                    "landingPlatform",
+                    targetWidth,
+                    rng,
+                    false,
+                    248,
+                    { collisionMode: "blockable" }
+                ) || selectGenerationAsset(
+                    assetCatalog,
+                    "routeFloor",
+                    targetWidth,
+                    rng,
+                    false,
+                    248,
+                    { collisionMode: "blockable" }
+                ) || selectGenerationAsset(
+                    assetCatalog,
+                    "landingPlatform",
+                    targetWidth,
+                    rng,
+                    false,
+                    248,
+                    { collisionMode: "oneWay" }
+                );
+            }
+            return selectGenerationAsset(
                 assetCatalog,
                 "landingPlatform",
                 targetWidth,
@@ -4425,83 +4932,122 @@ function buildStandardTraversal({
                 320,
                 { collisionMode: "oneWay" }
             );
-            if (!selection) throw new Error(`Vertical edge “${edge.id}” cannot find a green one-way climbing platform.`);
-            selections.push(selection);
-        }
-        const baseCenterX = roundCoordinate((startSupport.centerX + endSupport.centerX) * 0.5);
-        const selectionWalkableBounds = (selection, centerX) => ({
-            left: centerX - selection.width * 0.5 + selection.width * selection.asset.walkableLeftInsetRatio,
-            right: centerX + selection.width * 0.5 - selection.width * selection.asset.walkableRightInsetRatio
-        });
-        const supportWalkableBounds = (support) => ({
-            left: finiteNumber(support.walkableLeftX, support.centerX - support.width * 0.5),
-            right: finiteNumber(support.walkableRightX, support.centerX + support.width * 0.5)
-        });
-        const innerBoundsForStep = (stepIndex) => {
-            if (stepIndex <= 0) return supportWalkableBounds(startSupport);
-            if (stepIndex >= transitionCount) return supportWalkableBounds(endSupport);
-            return selectionWalkableBounds(selections[stepIndex - 1], baseCenterX);
         };
-        const staticSupports = [];
-        const gap = roundCoordinate(rng.range(46, 62));
-        for (let stepIndex = 1; stepIndex < transitionCount; stepIndex += 1) {
-            const selection = selections[stepIndex - 1];
-            const outerColumn = stepIndex % 2 === 1;
-            let centerX = baseCenterX;
-            if (outerColumn) {
-                const previousInner = innerBoundsForStep(stepIndex - 1);
-                const nextInner = innerBoundsForStep(stepIndex + 1);
-                if (side > 0) {
-                    const desiredLeft = Math.max(previousInner.right, nextInner.right) + gap;
-                    centerX = desiredLeft + selection.width * 0.5 - selection.width * selection.asset.walkableLeftInsetRatio;
-                } else {
-                    const desiredRight = Math.min(previousInner.left, nextInner.left) - gap;
-                    centerX = desiredRight - selection.width * 0.5 + selection.width * selection.asset.walkableRightInsetRatio;
+        const buildModesForPattern = (patternId) => {
+            if (patternId === "jumpColumn") return Array.from({ length: intermediateCount }, () => "column");
+            if (patternId === "switchback") return Array.from({ length: intermediateCount }, () => "switchback");
+            const modes = Array.from({ length: intermediateCount }, () => "column");
+            const openingStairCount = Math.min(Math.max(2, Math.round(intermediateCount * 0.25)), Math.max(0, intermediateCount - 2));
+            for (let index = 0; index < openingStairCount; index += 1) modes[index] = "stair";
+            let cursor = openingStairCount;
+            while (cursor < intermediateCount - 2) {
+                const remaining = intermediateCount - 2 - cursor;
+                const mode = weightedPick([
+                    { value: "column", weight: 0.42 },
+                    { value: "switchback", weight: 0.33 },
+                    { value: "stair", weight: 0.25 }
+                ], "column");
+                const chunk = Math.min(remaining, mode === "stair" ? Math.round(rng.range(2, 4)) : Math.round(rng.range(2, 5)));
+                for (let step = 0; step < chunk; step += 1) modes[cursor + step] = mode;
+                cursor += chunk;
+            }
+            for (let index = Math.max(0, intermediateCount - 2); index < intermediateCount; index += 1) modes[index] = "column";
+            return modes;
+        };
+        const tryPattern = (patternId) => {
+            const supportLength = supports.length;
+            const placementLength = placements.length;
+            const transitionLength = transitions.length;
+            const staticSupports = [];
+            const edgeTransitions = [];
+            const stepModes = buildModesForPattern(patternId);
+            const stairMaximumOffset = roundCoordinate(rng.range(214, 286));
+            const switchbackOuterOffset = roundCoordinate(rng.range(164, 214));
+            const switchbackInnerOffset = roundCoordinate(rng.range(22, 54));
+            let runningOffset = 0;
+            let switchbackOuter = false;
+            for (let stepIndex = 1; stepIndex < transitionCount; stepIndex += 1) {
+                const mode = stepModes[stepIndex - 1] || "switchback";
+                const selection = selectVerticalSelection(mode);
+                if (!selection) {
+                    supports.splice(supportLength);
+                    placements.splice(placementLength);
+                    transitions.splice(transitionLength);
+                    return null;
                 }
+                if (mode === "stair") {
+                    runningOffset = clamp(
+                        runningOffset + side * roundCoordinate(rng.range(178, 214)),
+                        Math.min(0, -stairMaximumOffset),
+                        Math.max(0, stairMaximumOffset)
+                    );
+                } else if (mode === "column") {
+                    const targetOffset = patternId === "jumpColumn"
+                        ? side * roundCoordinate(rng.range(-12, 26))
+                        : clamp(runningOffset * 0.45, -96, 96);
+                    runningOffset = roundCoordinate(lerp(runningOffset, targetOffset, 0.72) + rng.range(-10, 10));
+                } else {
+                    switchbackOuter = !switchbackOuter;
+                    runningOffset = switchbackOuter ? side * switchbackOuterOffset : side * switchbackInnerOffset;
+                }
+                const support = addSupport({
+                    id: `support_${edge.id}_${mandatory ? "green" : "alt"}_${String(stepIndex).padStart(2, "0")}`,
+                    role: "landingPlatform",
+                    targetWidth: selection.width,
+                    maximumWidth: mode === "stair" ? 248 : 320,
+                    selection,
+                    centerX: baseCenterX + runningOffset,
+                    surfaceY: lerp(startSupport.surfaceY, endSupport.surfaceY, stepIndex / transitionCount),
+                    mandatory,
+                    routeEdgeId: edge.id,
+                    requiredCollisionMode: mode === "stair" ? "blockable" : "oneWay",
+                    mirrorX: false
+                });
+                support.verticalClimbPlatform = support.collisionMode === "oneWay";
+                support.verticalTraversalSupport = true;
+                support.verticalTraversalPattern = patternId;
+                support.verticalTraversalSegmentMode = mode;
+                support.platformSpacingStyle = mandatory ? `screenCave_${patternId}` : `screenCaveMixed_${patternId}`;
+                const placement = placements.find((candidate) => candidate.id === support.placementId);
+                if (placement) {
+                    placement.generationRole = mode === "stair" ? "verticalStairPlatform" : "verticalGreenPlatform";
+                    placement.verticalTraversalStyle = verticalTraversalStyle;
+                    placement.verticalTraversalPattern = patternId;
+                    placement.verticalTraversalSegmentMode = mode;
+                }
+                staticSupports.push(support);
             }
-            const surfaceY = lerp(startSupport.surfaceY, endSupport.surfaceY, stepIndex / transitionCount);
-            const support = addSupport({
-                id: `support_${edge.id}_green_${String(stepIndex).padStart(2, "0")}`,
-                role: "landingPlatform",
-                targetWidth: selection.width,
-                maximumWidth: 320,
-                selection,
-                centerX,
-                surfaceY,
-                mandatory,
-                routeEdgeId: edge.id,
-                requiredCollisionMode: "oneWay",
-                mirrorX: false
-            });
-            support.verticalClimbPlatform = true;
-            support.verticalTraversalStyle = verticalTraversalStyle;
-            support.platformSpacingStyle = mandatory ? "risingSnakeGreenClimb" : "risingSnakeMixedGreenAlternative";
-            const placement = placements.find((candidate) => candidate.id === support.placementId);
-            if (placement) {
-                placement.generationRole = "verticalGreenPlatform";
-                placement.verticalTraversalStyle = verticalTraversalStyle;
+            const chain = [startSupport, ...staticSupports, endSupport];
+            const edgeSpec = mandatory ? edge : { ...edge, mandatory: false };
+            for (let index = 1; index < chain.length; index += 1) {
+                const transition = classifyTraversalTransition(chain[index - 1], chain[index], edgeSpec, theme);
+                transition.spacingStyle = mandatory ? `screenCave_${patternId}` : `screenCaveMixed_${patternId}`;
+                transition.verticalTraversalStyle = verticalTraversalStyle;
+                transition.verticalTraversalPattern = patternId;
+                transition.verticalTraversalGenerated = true;
+                transition.verticalPlatformClimb = chain[index].collisionMode === "oneWay" || chain[index - 1].collisionMode === "oneWay";
+                transition.verticalStairClimb = chain[index].verticalTraversalSegmentMode === "stair" || chain[index - 1].verticalTraversalSegmentMode === "stair";
+                if (!transition.valid) {
+                    supports.splice(supportLength);
+                    placements.splice(placementLength);
+                    transitions.splice(transitionLength);
+                    return null;
+                }
+                edgeTransitions.push(transition);
             }
-            staticSupports.push(support);
-        }
-        const chain = [startSupport, ...staticSupports, endSupport];
-        const edgeSpec = mandatory ? edge : { ...edge, mandatory: false };
-        const edgeTransitions = [];
-        for (let index = 1; index < chain.length; index += 1) {
-            const transition = classifyTraversalTransition(chain[index - 1], chain[index], edgeSpec, theme);
-            transition.spacingStyle = mandatory ? "risingSnakeGreenClimb" : "risingSnakeMixedGreenAlternative";
-            transition.verticalPlatformClimb = true;
-            transition.verticalTraversalStyle = verticalTraversalStyle;
-            if (!transition.valid) {
-                throw new Error(`Vertical edge “${edge.id}” green-platform climb is not traversable between ${chain[index - 1].id} and ${chain[index].id} (gap ${transition.gap}, rise ${transition.rise}, drop ${transition.drop}).`);
+            transitions.push(...edgeTransitions);
+            if (mandatory) {
+                edgeSupportIds.set(edge.id, staticSupports.map((support) => support.id));
+                mandatoryEdgeChains.set(edge.id, chain);
             }
-            edgeTransitions.push(transition);
+            return chain;
+        };
+        const patternsToTry = [pattern, pattern === "stairBlend" ? "jumpColumn" : null, "switchback"].filter((value, index, array) => value && array.indexOf(value) === index);
+        for (const candidatePattern of patternsToTry) {
+            const chain = tryPattern(candidatePattern);
+            if (chain) return chain;
         }
-        transitions.push(...edgeTransitions);
-        if (mandatory) {
-            edgeSupportIds.set(edge.id, staticSupports.map((support) => support.id));
-            mandatoryEdgeChains.set(edge.id, chain);
-        }
-        return chain;
+        throw new Error(`Vertical edge “${edge.id}” cannot realize a traversable ${pattern} climbing layout within the jump envelope.`);
     };
 
     const buildMovingVerticalEdge = (edge, verticalTraversalStyle = "elevator") => {
@@ -4652,19 +5198,20 @@ function buildStandardTraversal({
 
     const processEdge = (edge) => {
         if (edge.intendedDirection === "climb" || edge.intendedDirection === "descend") {
-            if (useRisingSnakeRoute) {
+            if (useScreenScaledCaveRoute) {
                 const verticalTraversalStyle = verticalTraversalStyles.get(edge.id) || "elevator";
+                const verticalTraversalPattern = verticalTraversalPatterns.get(edge.id) || "switchback";
                 if (verticalTraversalStyle === "platforms") {
                     const side = movingVerticalEdgeCount % 2 === 0 ? 1 : -1;
                     movingVerticalEdgeCount += 1;
-                    return buildStaticVerticalEdge(edge, { mandatory: true, side, verticalTraversalStyle });
+                    return buildStaticVerticalEdge(edge, { mandatory: true, side, verticalTraversalStyle, pattern: verticalTraversalPattern });
                 }
                 if (verticalTraversalStyle === "mix") {
                     const movingChain = buildMovingVerticalEdge(edge, verticalTraversalStyle);
                     const movingSupport = movingChain[1];
                     const baseCenterX = (nodeSupport.get(edge.from)?.centerX + nodeSupport.get(edge.to)?.centerX) * 0.5;
                     const side = movingSupport?.centerX >= baseCenterX ? -1 : 1;
-                    buildStaticVerticalEdge(edge, { mandatory: false, side, verticalTraversalStyle });
+                    buildStaticVerticalEdge(edge, { mandatory: false, side, verticalTraversalStyle, pattern: verticalTraversalPattern });
                     return movingChain;
                 }
                 return buildMovingVerticalEdge(edge, verticalTraversalStyle);
@@ -4676,6 +5223,10 @@ function buildStandardTraversal({
                 const groundChain = buildRunAndGunHorizontalEdge(edge);
                 if (groundChain) return groundChain;
                 throw new Error(`Horizontal route edge “${edge.id}” could not realize a continuous run-and-gun ground path.`);
+            }
+            if (useSerpentineCaveRoute && !edge.serpentineDiagonalRise) {
+                const floorChain = buildSerpentineHorizontalFloorEdge(edge);
+                if (floorChain) return floorChain;
             }
             const spacedChain = buildOrganicHorizontalEdge(edge);
             if (spacedChain) return spacedChain;
@@ -4691,6 +5242,81 @@ function buildStandardTraversal({
     } else {
         for (const edge of edges) processEdge(edge);
     }
+
+    const optionalSerpentineFloorConflicts = (selection, centerX, surfaceY) => {
+        const candidate = {
+            left: centerX - selection.width * 0.5,
+            right: centerX + selection.width * 0.5,
+            top: surfaceY - selection.height * selection.asset.surfaceYRatio,
+            bottom: surfaceY + selection.height * (1 - selection.asset.surfaceYRatio)
+        };
+        for (const other of supports) {
+            const otherRect = generatedSupportVisualRect(other);
+            const overlapX = Math.min(candidate.right, otherRect.right) - Math.max(candidate.left, otherRect.left);
+            if (overlapX <= 24) continue;
+            const surfaceSeparation = Math.abs(surfaceY - other.surfaceY);
+            if (surfaceSeparation > 1 && surfaceSeparation < GENERATED_MINIMUM_VERTICAL_PLATFORM_SEPARATION) return true;
+            const overlapY = Math.min(candidate.bottom, otherRect.bottom) - Math.max(candidate.top, otherRect.top);
+            if (overlapY > 1 && (selection.asset.collisionMode === "oneWay" || other.collisionMode === "oneWay")) return true;
+        }
+        return false;
+    };
+    const addOptionalSerpentineFloorLayer = (edge) => {
+        if (!useSerpentineCaveRoute || edge.serpentineDiagonalRise || !["left", "right"].includes(edge.intendedDirection)) return;
+        if (supports.some((support) => support.routeEdgeId === edge.id && support.serpentineFloorLayer)) return;
+        const startSupport = nodeSupport.get(edge.from);
+        const endSupport = nodeSupport.get(edge.to);
+        if (!startSupport || !endSupport) return;
+        const direction = Math.sign(endSupport.centerX - startSupport.centerX) || 1;
+        const startVisual = generatedSupportVisualRect(startSupport);
+        const endVisual = generatedSupportVisualRect(endSupport);
+        let cursor = direction > 0 ? startVisual.right : startVisual.left;
+        const endEdgeX = direction > 0 ? endVisual.left : endVisual.right;
+        let added = 0;
+        for (let index = 0; index < 18; index += 1) {
+            const remaining = direction * (endEdgeX - cursor);
+            if (remaining < 520) break;
+            const gap = roundCoordinate(rng.range(58, 126));
+            const availableWidth = remaining - gap - 112;
+            if (availableWidth < 360) break;
+            const requestedWidth = clamp(Math.min(availableWidth, rng.range(620, 1180)), 360, Math.min(1180, availableWidth));
+            const selection = selectGenerationAsset(assetCatalog, "routeFloor", requestedWidth, rng, false, Math.max(360, Math.min(availableWidth, 1320)), { collisionMode: "blockable" })
+                || selectGenerationAsset(assetCatalog, "landingPlatform", requestedWidth, rng, false, Math.max(360, Math.min(availableWidth, 1320)), { collisionMode: "blockable" });
+            if (!selection || selection.width > availableWidth) break;
+            const visualStart = cursor + direction * gap;
+            const centerX = direction > 0 ? visualStart + selection.width * 0.5 : visualStart - selection.width * 0.5;
+            const progress = clamp((direction * (centerX - startSupport.centerX)) / Math.max(1, direction * (endSupport.centerX - startSupport.centerX)), 0, 1);
+            const surfaceY = roundCoordinate(lerp(startSupport.surfaceY, endSupport.surfaceY, progress) + rng.range(-4, 4));
+            if (optionalSerpentineFloorConflicts(selection, centerX, surfaceY)) {
+                cursor += direction * Math.max(180, gap + selection.width * 0.42);
+                continue;
+            }
+            const support = addSupport({
+                id: `support_${edge.id}_floor_accent_${String(index + 1).padStart(2, "0")}`,
+                role: "routeFloor",
+                targetWidth: selection.width,
+                selection,
+                centerX,
+                surfaceY,
+                mandatory: false,
+                routeEdgeId: edge.id,
+                requiredCollisionMode: "blockable",
+                mirrorX: false
+            });
+            support.serpentineFloorLayer = true;
+            support.serpentineFloorAccent = true;
+            support.platformSpacingStyle = "serpentineFloorLayerAccent";
+            const placement = placements.find((candidate) => candidate.id === support.placementId);
+            if (placement) {
+                placement.generationRole = "serpentineFloorLayerAccent";
+                placement.routeEdgeDirection = edge.intendedDirection;
+            }
+            added += 1;
+            cursor = direction > 0 ? generatedSupportVisualRect(support).right : generatedSupportVisualRect(support).left;
+        }
+        return added;
+    };
+    for (const edge of edges) addOptionalSerpentineFloorLayer(edge);
 
     const secondaryPlatforms = [];
     const upperAccessPlatforms = [];
@@ -5225,7 +5851,8 @@ function buildStandardTraversal({
         return support;
     };
 
-    
+
+    if (!useSerpentineCaveRoute) {
         const horizontalEdgeCandidates = edges.filter((edge) => edge.mandatory !== false
             && (edge.intendedDirection === "left" || edge.intendedDirection === "right"))
             .map((edge) => ({ edge, chain: mandatoryEdgeChains.get(edge.id) || [] }))
@@ -5549,9 +6176,8 @@ function buildStandardTraversal({
                 tertiarySupportIds: lowerGaps.map((gap) => gap.recoverySupportId)
             });
         }
-    
+    }
 
-    
 
     return {
         version: 1,
@@ -5565,6 +6191,7 @@ function buildStandardTraversal({
         secondaryPlatformIds: secondaryPlatforms.map((support) => support.id),
         upperAccessPlatformIds: upperAccessPlatforms.map((support) => support.id),
         verticalTraversalStyles: Object.fromEntries(verticalTraversalStyles),
+        verticalTraversalPatterns: Object.fromEntries(verticalTraversalPatterns),
         placements
     };
 }
@@ -5831,7 +6458,7 @@ function simplifyClosedContour(points, tolerance) {
     return simplified;
 }
 
-function traceCavernOccupancyContour(stamps, theme) {
+function traceCavernOccupancyContour(stamps, theme, options = {}) {
     const cellSize = clamp(theme.cavern.sampleStep * 0.72, 82, 112);
     const rawMinX = Math.min(...stamps.map((stamp) => stamp.x - stamp.rx)) - cellSize * 2;
     const rawMinY = Math.min(...stamps.map((stamp) => stamp.y - stamp.ry)) - cellSize * 2;
@@ -5843,10 +6470,13 @@ function traceCavernOccupancyContour(stamps, theme) {
     const rows = Math.ceil((rawMaxY - originY) / cellSize);
     const occupied = new Set();
     const key = (column, row) => `${column},${row}`;
-    const expansion = cellSize * 0.9;
+    const expansionScale = Number.isFinite(options.expansionScale) ? options.expansionScale : 0.9;
+    const expansion = cellSize * expansionScale;
     for (const stamp of stamps) {
-        const expandedRx = stamp.rx + expansion;
-        const expandedRy = stamp.ry + expansion;
+        const stampExpansionScale = Number.isFinite(stamp.contourExpansionScale) ? stamp.contourExpansionScale : expansionScale;
+        const stampExpansion = cellSize * stampExpansionScale;
+        const expandedRx = stamp.rx + stampExpansion;
+        const expandedRy = stamp.ry + stampExpansion;
         const minimumColumn = Math.max(0, Math.floor((stamp.x - expandedRx - originX) / cellSize));
         const maximumColumn = Math.min(columns - 1, Math.ceil((stamp.x + expandedRx - originX) / cellSize));
         const minimumRow = Math.max(0, Math.floor((stamp.y - expandedRy - originY) / cellSize));
@@ -5862,6 +6492,27 @@ function traceCavernOccupancyContour(stamps, theme) {
             }
         }
     }
+    const protectedBands = Array.isArray(options.protectedBands) ? options.protectedBands : [];
+    if (protectedBands.length) {
+        for (const band of protectedBands) {
+            const minColumn = Math.max(0, Math.floor((band.minX - originX) / cellSize));
+            const maxColumn = Math.min(columns - 1, Math.ceil((band.maxX - originX) / cellSize));
+            const minRow = Math.max(0, Math.floor((band.minY - originY) / cellSize));
+            const maxRow = Math.min(rows - 1, Math.ceil((band.maxY - originY) / cellSize));
+            for (let row = minRow; row <= maxRow; row += 1) {
+                const centerY = originY + (row + 0.5) * cellSize;
+                if (centerY < band.minY || centerY > band.maxY) continue;
+                for (let column = minColumn; column <= maxColumn; column += 1) {
+                    const centerX = originX + (column + 0.5) * cellSize;
+                    if (centerX < band.minX || centerX > band.maxX) continue;
+                    const opening = (band.openings || []).some((hole) => Math.abs(centerX - hole.x) <= hole.radius && centerY >= hole.minY && centerY <= hole.maxY);
+                    if (opening) continue;
+                    occupied.delete(key(column, row));
+                }
+            }
+        }
+    }
+
     if (!occupied.size) throw new Error("Contour cavern occupancy mask is empty.");
 
     const remaining = new Set(occupied);
@@ -5946,9 +6597,82 @@ function traceCavernOccupancyContour(stamps, theme) {
     };
 }
 
+function buildSerpentineProtectedBands(route, traversal) {
+    const macro = route?.macro || {};
+    if (macro.patternId !== "serpentine-cave") return [];
+    const cellPath = Array.isArray(macro.cellPath) ? macro.cellPath : [];
+    const segments = Array.isArray(macro.segments) ? macro.segments : [];
+    const horizontalSegments = (index) => {
+        const segment = segments[index];
+        if (!segment || !["left", "right"].includes(segment.direction)) return null;
+        const a = cellPath[segment.startPathIndex];
+        const b = cellPath[segment.endPathIndex];
+        if (!a || !b) return null;
+        return {
+            minX: Math.min(a.x, b.x),
+            maxX: Math.max(a.x, b.x),
+            averageY: (a.y + b.y) * 0.5,
+            start: a,
+            end: b,
+            direction: segment.direction
+        };
+    };
+    const bands = [];
+    for (let index = 1; index < segments.length - 1; index += 1) {
+        const rise = segments[index];
+        if (rise?.direction !== "up") continue;
+        const before = horizontalSegments(index - 1);
+        const after = horizontalSegments(index + 1);
+        const riseStart = cellPath[rise.startPathIndex];
+        const riseEnd = cellPath[rise.endPathIndex];
+        if (!before || !after || !riseStart || !riseEnd) continue;
+        const overlapMinX = Math.max(before.minX, after.minX) + 170;
+        const overlapMaxX = Math.min(before.maxX, after.maxX) - 170;
+        if (overlapMaxX - overlapMinX < 420) continue;
+        const upperY = Math.min(before.averageY, after.averageY);
+        const lowerY = Math.max(before.averageY, after.averageY);
+        if (lowerY - upperY < 1160) continue;
+        const centerY = (upperY + lowerY) * 0.5;
+        const thickness = clamp((lowerY - upperY) * 0.14, 190, 320);
+        const shaftX = (riseStart.x + riseEnd.x) * 0.5;
+        bands.push({
+            id: `serpentine_wall_band_${String(index).padStart(3, "0")}`,
+            minX: roundCoordinate(overlapMinX),
+            maxX: roundCoordinate(overlapMaxX),
+            minY: roundCoordinate(centerY - thickness * 0.5),
+            maxY: roundCoordinate(centerY + thickness * 0.5),
+            openings: [{
+                x: roundCoordinate(shaftX),
+                radius: 620,
+                minY: roundCoordinate(upperY - 360),
+                maxY: roundCoordinate(lowerY + 360)
+            }]
+        });
+    }
+    const supports = Array.isArray(traversal?.supports) ? traversal.supports : [];
+    for (const band of bands) {
+        for (const support of supports) {
+            const supportY = finiteNumber(support.surfaceY, NaN);
+            if (!Number.isFinite(supportY)) continue;
+            if (supportY < band.minY - 420 || supportY > band.maxY + 420) continue;
+            const supportX = finiteNumber(support.centerX, NaN);
+            if (!Number.isFinite(supportX) || supportX < band.minX - 760 || supportX > band.maxX + 760) continue;
+            band.openings.push({
+                x: roundCoordinate(supportX),
+                radius: roundCoordinate(Math.max(420, finiteNumber(support.width, 320) * 0.5 + 310)),
+                minY: roundCoordinate(band.minY - 480),
+                maxY: roundCoordinate(band.maxY + 480)
+            });
+        }
+    }
+    return bands;
+}
+
 function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, runId, generatorId }) {
-    const risingSnakeCavern = route?.macro?.patternId === "rising-snake";
-    const wideUpperCavern = generatorId === "wide-upper-contour-cavern-v1" && !risingSnakeCavern;
+    const risingCaveCavern = route?.macro?.patternId === "rising-cave";
+    const serpentineCaveCavern = route?.macro?.patternId === "serpentine-cave";
+    const routeFollowingCavern = risingCaveCavern || serpentineCaveCavern;
+    const wideUpperCavern = generatorId === "wide-upper-contour-cavern-v1" && !routeFollowingCavern;
     const nodeById = new Map((route?.nodes || []).map((node) => [node.id, node]));
     const endpointSupportIds = new Set([traversal.startSupportId, traversal.exitSupportId]);
     const rooms = [];
@@ -5979,14 +6703,32 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
             rx = Math.min(theme.cavern.roomRadiusXMax * 1.35, rx * (endpoint ? 1.18 : room ? 1.34 : 1.24));
             ry *= endpoint ? 0.78 : room ? 0.68 : 0.72;
         }
-        rx = Math.max(rx, support.width * 0.5 + theme.cavern.platformWallClearanceX);
+        if (serpentineCaveCavern) {
+            const mood = String(node?.serpentineWidthMood || (endpoint ? "openTunnel" : "tightTunnel"));
+            const moodScale = mood === "smallChamber" ? 1.02 : mood === "openTunnel" ? 0.88 : 0.72;
+            rx = endpoint
+                ? theme.cavern.endpointRadiusX * 0.66
+                : theme.cavern.corridorRadiusX * moodScale;
+            ry = endpoint
+                ? theme.cavern.endpointRadiusY * 0.58
+                : theme.cavern.corridorRadiusY * (mood === "smallChamber" ? 0.78 : mood === "openTunnel" ? 0.62 : 0.50);
+        }
+        const wallClearanceX = serpentineCaveCavern ? theme.cavern.platformWallClearanceX * 0.64 : theme.cavern.platformWallClearanceX;
+        rx = Math.max(rx, support.width * 0.5 + wallClearanceX);
         const platformDepth = support.height * (1 - support.surfaceYRatio);
+        const serpentineMood = String(node?.serpentineWidthMood || (endpoint ? "openTunnel" : "tightTunnel"));
+        const serpentineCeilingClearance = serpentineMood === "smallChamber" ? 360 : serpentineMood === "openTunnel" ? 335 : 310;
+        const serpentineFloorClearance = serpentineMood === "smallChamber" ? 320 : serpentineMood === "openTunnel" ? 292 : 268;
         const desiredTop = wideUpperCavern
             ? support.surfaceY - Math.max(440, theme.cavern.platformCeilingClearance * 1.34)
-            : support.surfaceY - theme.cavern.platformCeilingClearance;
+            : serpentineCaveCavern
+                ? support.surfaceY - serpentineCeilingClearance
+                : support.surfaceY - theme.cavern.platformCeilingClearance;
         const desiredBottom = wideUpperCavern
             ? support.surfaceY + platformDepth + Math.max(240, theme.cavern.platformFloorClearance * 0.92)
-            : support.surfaceY + platformDepth + theme.cavern.platformFloorClearance;
+            : serpentineCaveCavern
+                ? support.surfaceY + platformDepth + serpentineFloorClearance
+                : support.surfaceY + platformDepth + theme.cavern.platformFloorClearance;
         const minimumHalfHeight = (desiredBottom - desiredTop) * 0.5;
         const supportHalfWidth = support.width * 0.5;
         const supportEdgeRatio = clamp(supportHalfWidth / Math.max(1, rx), 0, 0.92);
@@ -5999,6 +6741,7 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
             y: centerY,
             rx,
             ry,
+            contourExpansionScale: serpentineCaveCavern ? (endpoint ? 0.46 : 0.34) : undefined,
             sourceSupportId: support.id,
             routeNodeId: support.routeNodeId || undefined,
             kind: endpoint ? "endpointChamber" : room ? "macroRoom" : node?.kind === "chamber" || node?.kind === "recovery" ? "chamber" : "tunnel"
@@ -6032,23 +6775,28 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
             ry: Math.abs(offsetY) * 0.5 + Math.max(theme.cavern.platformCeilingClearance, theme.cavern.platformFloorClearance) + support.height * 0.35,
             sourceSupportId: support.id,
             routeEdgeId: support.routeEdgeId || undefined,
-            kind: "movingPlatformShaft"
+            kind: "movingPlatformShaft",
+            contourExpansionScale: serpentineCaveCavern ? 0.28 : undefined
         });
     }
-    if (["the-path74", "mostly-horizontal", "rising-snake"].includes(route?.macro?.patternId)) {
+    if (["the-path74", "mostly-horizontal", "rising-cave", "serpentine-cave"].includes(route?.macro?.patternId)) {
         const pathCellSizeX = finiteNumber(route.macro.cellSizeX, theme.route.nodeSpacing * 0.42);
         const pathCellSizeY = finiteNumber(route.macro.cellSizeY, theme.route.verticalStep * 1.35);
         for (const room of route.macro.rooms || []) {
-            let rx = clamp(
-                finiteNumber(room.semiAxisX, 3) * pathCellSizeX,
-                theme.cavern.roomRadiusXMin,
-                wideUpperCavern ? theme.cavern.roomRadiusXMax * 1.35 : theme.cavern.roomRadiusXMax
-            );
-            let ry = clamp(
-                finiteNumber(room.semiAxisY, 3) * pathCellSizeY,
-                wideUpperCavern ? theme.cavern.roomRadiusYMin * 0.68 : theme.cavern.roomRadiusYMin,
-                wideUpperCavern ? theme.cavern.roomRadiusYMax * 0.78 : theme.cavern.roomRadiusYMax
-            );
+            let rx = serpentineCaveCavern
+                ? clamp(finiteNumber(room.widthScreens, 1.1) * 1280 * 0.5, 520, 980)
+                : clamp(
+                    finiteNumber(room.semiAxisX, 3) * pathCellSizeX,
+                    theme.cavern.roomRadiusXMin,
+                    wideUpperCavern ? theme.cavern.roomRadiusXMax * 1.35 : theme.cavern.roomRadiusXMax
+                );
+            let ry = serpentineCaveCavern
+                ? clamp(finiteNumber(room.heightScreens, 0.9) * 720 * 0.5, 260, 560)
+                : clamp(
+                    finiteNumber(room.semiAxisY, 3) * pathCellSizeY,
+                    wideUpperCavern ? theme.cavern.roomRadiusYMin * 0.68 : theme.cavern.roomRadiusYMin,
+                    wideUpperCavern ? theme.cavern.roomRadiusYMax * 0.78 : theme.cavern.roomRadiusYMax
+                );
             if (wideUpperCavern) {
                 rx = Math.min(theme.cavern.roomRadiusXMax * 1.35, rx * 1.22);
                 ry *= 0.82;
@@ -6057,7 +6805,9 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
             const routeCenterY = finiteNumber(room.centerY, theme.route.baselineY);
             const centerY = wideUpperCavern
                 ? routeCenterY + Math.max(170, theme.cavern.platformFloorClearance * 0.72) - ry
-                : routeCenterY - theme.cavern.floorOffsetY;
+                : serpentineCaveCavern
+                    ? routeCenterY - Math.min(90, theme.cavern.floorOffsetY * 0.7)
+                    : routeCenterY - theme.cavern.floorOffsetY;
             const stamp = {
                 id: `cavern_stamp_${room.id}`,
                 x: centerX,
@@ -6065,7 +6815,7 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
                 rx,
                 ry,
                 routeNodeId: room.nodeId || undefined,
-                kind: "thePathRoom"
+                kind: serpentineCaveCavern ? "serpentineChamber" : "thePathRoom"
             };
             stamps.push(stamp);
             rooms.push({
@@ -6155,7 +6905,10 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
 
     if (!stamps.length) throw new Error("Room-and-tunnel cavern builder received no traversal supports.");
 
-    const contourResult = traceCavernOccupancyContour(stamps, theme);
+    const contourOptions = serpentineCaveCavern
+        ? { expansionScale: 0.34, protectedBands: buildSerpentineProtectedBands(route, traversal) }
+        : undefined;
+    const contourResult = traceCavernOccupancyContour(stamps, theme, contourOptions);
     const rawPoints = contourResult.points;
     const pointMode = "smooth";
     const points = rawPoints.map((point, index) => ({
@@ -6314,8 +7067,9 @@ export function validateRouteGraph(graph, context = {}) {
             if (!reverseReachable.has(node.id)) errors.push(`Route node “${node.id}” cannot rejoin the route before the exit.`);
         }
         const rightmostX = Math.max(...nodes.map((node) => Number(node.x) || 0));
-        const risingSnakeCandidate = graph?.generatorId === "rising-snake-route-v1" || graph?.macro?.patternId === "rising-snake";
-        if (!risingSnakeCandidate && exit.x < rightmostX - 1) errors.push("The exit is not the rightmost route node.");
+        const risingCaveCandidate = graph?.generatorId === "rising-cave-route-v1" || graph?.macro?.patternId === "rising-cave";
+        const serpentineCaveCandidate = graph?.generatorId === "serpentine-cave-route-v1" || graph?.macro?.patternId === "serpentine-cave";
+        if (!risingCaveCandidate && !serpentineCaveCandidate && exit.x < rightmostX - 1) errors.push("The exit is not the rightmost route node.");
         if (exit.x <= start.x) errors.push("The route exit must be to the right of its entrance.");
     }
 
@@ -6326,7 +7080,8 @@ export function validateRouteGraph(graph, context = {}) {
     }
     if (!Number.isFinite(metrics.minNodeDistance)) metrics.minNodeDistance = 0;
     const mostlyHorizontalCandidate = graph?.macro?.patternId === "mostly-horizontal";
-    const risingSnakeCandidate = graph?.macro?.patternId === "rising-snake";
+    const risingCaveCandidate = graph?.macro?.patternId === "rising-cave";
+    const serpentineCaveCandidate = graph?.macro?.patternId === "serpentine-cave";
     const minimumReadableNodeDistance = mostlyHorizontalCandidate ? 84 : 135;
     const warningNodeDistance = mostlyHorizontalCandidate ? 118 : 190;
     if (metrics.minNodeDistance < minimumReadableNodeDistance) errors.push("Two route nodes are too close to read or build independently.");
@@ -6400,27 +7155,28 @@ export function validateRouteGraph(graph, context = {}) {
         metrics.occupiedLaneCount = laneCount;
     }
     const mostlyHorizontalRoute = graph?.generatorId === "mostly-horizontal-route-v1" || graph?.macro?.patternId === "mostly-horizontal";
-    const risingSnakeRoute = graph?.generatorId === "rising-snake-route-v1" || graph?.macro?.patternId === "rising-snake";
-    const thePath74Route = graph?.generatorId === "the-path74-route-v4" || graph?.macro?.patternId === "the-path74" || mostlyHorizontalRoute || risingSnakeRoute;
+    const risingCaveRoute = graph?.generatorId === "rising-cave-route-v1" || graph?.macro?.patternId === "rising-cave";
+    const serpentineCaveRoute = graph?.generatorId === "serpentine-cave-route-v1" || graph?.macro?.patternId === "serpentine-cave";
+    const thePath74Route = graph?.generatorId === "the-path74-route-v4" || graph?.macro?.patternId === "the-path74" || mostlyHorizontalRoute || risingCaveRoute || serpentineCaveRoute;
     const maximumRouteEdgeLength = thePath74Route
         ? finiteNumber(graph?.macro?.maximumEdgeLength, theme.route.nodeSpacing * 3.2)
         : theme.route.nodeSpacing * 2.25;
     if (metrics.maxEdgeLength > maximumRouteEdgeLength) errors.push("A route connection is too long for a useful chamber-to-chamber plan.");
     const maxBacktracks = mostlyHorizontalRoute
         ? 0
-        : risingSnakeRoute
+        : risingCaveRoute
             ? 1
         : thePath74Route
             ? Math.max(2, Math.ceil((mainNodes.length - 1) * 0.62))
             : Math.max(1, Math.ceil((mainNodes.length - 1) * (0.05 + settings.winding * 0.16)));
     if (metrics.backtrackEdges > maxBacktracks) errors.push("The route backtracks too often for the selected macro pattern.");
-    const foldedRoute = !mostlyHorizontalRoute && !risingSnakeRoute && (graph?.version >= 3 || Array.isArray(graph?.macro?.spatialAnchors));
+    const foldedRoute = !mostlyHorizontalRoute && !risingCaveRoute && !serpentineCaveRoute && (graph?.version >= 3 || Array.isArray(graph?.macro?.spatialAnchors));
     if (foldedRoute && settings.length !== "compact" && settings.winding >= 0.2 && metrics.backtrackEdges === 0) {
         errors.push("The folded route contains no mandatory leftward phase.");
     }
     const maximumAspectRatio = mostlyHorizontalRoute
         ? (settings.length === "compact" ? 40 : 100)
-        : risingSnakeRoute
+        : risingCaveRoute
             ? 6
         : thePath74Route
             ? (settings.length === "compact" ? 12 : 10)
@@ -6429,24 +7185,61 @@ export function validateRouteGraph(graph, context = {}) {
     else if (foldedRoute && settings.length !== "compact" && metrics.aspectRatio > maximumAspectRatio * 0.86) warnings.push("The route remains close to the maximum wide-corridor aspect ratio.");
     if (foldedRoute && settings.length !== "compact" && metrics.horizontalDirectionChanges < 2) warnings.push("The route has too little horizontal rhythm for a folded cavern.");
     if (foldedRoute && settings.verticality >= 0.45 && metrics.occupiedLaneCount < 2) errors.push("The route does not occupy multiple vertically separated lanes.");
-    if (risingSnakeRoute) {
+    if (risingCaveRoute) {
         const routeSegments = Array.isArray(graph?.macro?.segments) ? graph.macro.segments : [];
         const expectedDirections = ["right", "up", null, "up", "right"];
         if (routeSegments.length !== expectedDirections.length) {
-            errors.push("Rising Snake routes must contain exactly five macro segments.");
+            errors.push("Rising Cave routes must contain exactly five macro segments.");
         } else {
             for (let index = 0; index < expectedDirections.length; index += 1) {
                 const segment = routeSegments[index];
                 const direction = String(segment?.direction || "");
                 const length = finiteNumber(segment?.length, 0);
-                if (expectedDirections[index] && direction !== expectedDirections[index]) errors.push(`Rising Snake segment ${index + 1} must travel ${expectedDirections[index]}.`);
-                if (index === 2 && !["left", "right"].includes(direction)) errors.push("The middle Rising Snake segment must travel left or right.");
-                if (direction === "up" && (length < 1 || length > 2)) errors.push("Rising Snake climbs must be one or two vertical screens tall.");
-                if (["left", "right"].includes(direction) && (length < 1 || length > 4)) errors.push("Rising Snake horizontal runs must be one to four screens long.");
+                if (expectedDirections[index] && direction !== expectedDirections[index]) errors.push(`Rising Cave segment ${index + 1} must travel ${expectedDirections[index]}.`);
+                if (index === 2 && !["left", "right"].includes(direction)) errors.push("The middle Rising Cave segment must travel left or right.");
+                if (direction === "up" && (length < 1 || length > 2)) errors.push("Rising Cave climbs must be one or two vertical screens tall.");
+                if (["left", "right"].includes(direction) && (length < 1 || length > 4)) errors.push("Rising Cave horizontal runs must be one to four screens long.");
             }
         }
-        if (metrics.verticalTravel < 1440 - 1) errors.push("Rising Snake routes must climb twice before the exit.");
-        if (metrics.backtrackEdges > 1) errors.push("Rising Snake routes may contain only the single optional middle leftward run.");
+        if (metrics.verticalTravel < 1440 - 1) errors.push("Rising Cave routes must climb twice before the exit.");
+        if (metrics.backtrackEdges > 1) errors.push("Rising Cave routes may contain only the single optional middle leftward run.");
+    }
+
+    if (serpentineCaveRoute) {
+        const routeSegments = Array.isArray(graph?.macro?.segments) ? graph.macro.segments : [];
+        const horizontalSegments = routeSegments.filter((segment) => segment.direction === "left" || segment.direction === "right");
+        const verticalSegments = routeSegments.filter((segment) => segment.direction === "up");
+        const shortDropSegments = routeSegments.filter((segment) => segment.shortDrop);
+        if (routeSegments.length < 7) errors.push("Serpentine Cave routes must contain several crawl-and-rise waves plus the final exit crawl.");
+        if (routeSegments[0]?.direction !== "right") errors.push("Serpentine Cave routes must start by crawling right.");
+        if (routeSegments.at(-1)?.direction !== "right") errors.push("Serpentine Cave routes must finish with a final rightward crawl.");
+        for (let index = 0; index < routeSegments.length - 1; index += 2) {
+            const horizontal = routeSegments[index];
+            const vertical = routeSegments[index + 1];
+            if (!horizontal || !["left", "right"].includes(horizontal.direction)) errors.push(`Serpentine Cave segment ${index + 1} must be a horizontal crawl.`);
+            if (vertical && vertical.direction !== "up") errors.push(`Serpentine Cave segment ${index + 2} must be an upward rise after its crawl.`);
+        }
+        for (const segment of horizontalSegments) {
+            const length = finiteNumber(segment.length, 0);
+            if (length < 2 || length > 8) errors.push("Serpentine Cave horizontal crawls must be medium-to-long, between two and eight screens.");
+            const drop = segment.shortDrop;
+            if (drop) {
+                const fraction = finiteNumber(drop.minimumFraction, 0);
+                const distance = finiteNumber(drop.distance, 0);
+                if (fraction < 0.24 || fraction > 0.76) errors.push("Serpentine Cave short drops must sit inside the middle half of a horizontal crawl.");
+                if (distance <= 0 || distance > theme.traversal.mandatoryDrop * 0.86) errors.push("Serpentine Cave short drops must remain below the normal mandatory drop limit.");
+            }
+        }
+        for (const segment of verticalSegments) {
+            const length = finiteNumber(segment.length, 0);
+            if (length < 2 || length > 4) errors.push("Serpentine Cave rises must be two to four vertical screens tall so stacked floors keep rock between them.");
+            if (segment.storyRise && length < 2) errors.push("Serpentine Cave turn rises must be tall enough for a separated story.");
+        }
+        if (routeSegments.some((segment) => segment.direction === "down")) errors.push("Serpentine Cave may use local short drops, but not full downward route segments.");
+        if (settings.length !== "compact" && metrics.horizontalDirectionChanges < 1) errors.push("Serpentine Cave routes should reverse horizontal direction after at least one rise.");
+        if (["extended", "grand"].includes(settings.length) && metrics.horizontalDirectionChanges < 2) errors.push("Long Serpentine Cave routes should wind through at least two horizontal reversals.");
+        if (metrics.verticalTravel < 2880 - 1) errors.push("Serpentine Cave routes must climb enough to read as a multi-story upward cave.");
+        if (shortDropSegments.length && metrics.maxMandatoryDrop > theme.traversal.mandatoryDrop) errors.push("A Serpentine Cave short drop became too tall for mandatory traversal.");
     }
 
     if (mostlyHorizontalRoute) {
@@ -6496,18 +7289,22 @@ export function validateRouteGraph(graph, context = {}) {
     } else if (mostlyHorizontalRoute) {
         qualityScore -= Math.max(0, metrics.verticalTravel * 6 - metrics.horizontalTravel) / Math.max(1, theme.route.nodeSpacing) * 4;
         qualityScore -= Math.max(0, 1 - metrics.verticalDirectionChanges) * 2;
-    } else if (risingSnakeRoute) {
+    } else if (risingCaveRoute) {
         qualityScore -= Math.max(0, 1440 - metrics.verticalTravel) / 180;
         qualityScore -= Math.max(0, metrics.backtrackEdges - 1) * 8;
     } else if (settings.winding > 0.7 && metrics.backtrackEdges === 0) {
         qualityScore -= 4;
     }
     if (settings.verticality > 0.55 && longestFlatRun(mainNodes, theme.route.verticalStep * 0.22) > 4 && !graph?.macro?.patternId?.startsWith("l-")) qualityScore -= 7;
-    if (graph?.macro?.patternId) {
-        const expectedRooms = risingSnakeRoute ? 2 : thePath74Route ? 3 : desiredMacroRoomCount(settings.length);
+    if (graph?.macro?.patternId && !serpentineCaveRoute) {
+        const expectedRooms = risingCaveRoute ? 2 : thePath74Route ? 3 : desiredMacroRoomCount(settings.length);
         qualityScore -= Math.abs(metrics.macroRoomCount - expectedRooms) * 4;
         if (metrics.macroRoomCount === 0) errors.push("The macro route did not reserve any large cavern room.");
         if (metrics.largestRoomWidthScreens < 1.1 || metrics.largestRoomHeightScreens < 1.05) warnings.push("The largest reserved room is barely larger than one screen.");
+    } else if (serpentineCaveRoute) {
+        qualityScore -= Math.max(0, 1 - metrics.horizontalDirectionChanges) * 5;
+        qualityScore -= Math.max(0, 1440 - metrics.verticalTravel) / 220;
+        qualityScore -= Math.max(0, metrics.backtrackEdges - Math.max(2, metrics.horizontalDirectionChanges + 1)) * 3;
     }
     qualityScore -= errors.length * 40;
     qualityScore -= warnings.length * 1.5;
@@ -6562,7 +7359,10 @@ export function normalizeLevelGeneration(value) {
         roomWidthScreens: Number.isFinite(Number(node?.roomWidthScreens)) ? Number(node.roomWidthScreens) : undefined,
         roomHeightScreens: Number.isFinite(Number(node?.roomHeightScreens)) ? Number(node.roomHeightScreens) : undefined,
         rareLargeRoom: node?.rareLargeRoom ? true : undefined,
-        pathCellIndex: Number.isFinite(Number(node?.pathCellIndex)) ? Number(node.pathCellIndex) : undefined
+        pathCellIndex: Number.isFinite(Number(node?.pathCellIndex)) ? Number(node.pathCellIndex) : undefined,
+        serpentineWidthMood: node?.serpentineWidthMood ? String(node.serpentineWidthMood) : undefined,
+        serpentineShortDrop: node?.serpentineShortDrop ? true : undefined,
+        serpentineRiseLanding: node?.serpentineRiseLanding ? true : undefined
     })) : [];
     const ids = new Set(nodes.map((node) => node.id));
     const edges = Array.isArray(route.edges) ? route.edges
@@ -6813,7 +7613,7 @@ function buildMostlyHorizontalGridPlan({ settings, rng }) {
     };
 }
 
-function buildRisingSnakeGridPlan({ rng }) {
+function buildRisingCaveGridPlan({ rng }) {
     for (let reroll = 0; reroll < 120; reroll += 1) {
         const firstHorizontalLength = rng.int(1, 4);
         const firstVerticalLength = rng.int(1, 2);
@@ -6857,7 +7657,202 @@ function buildRisingSnakeGridPlan({ rng }) {
             }
         };
     }
-    throw new Error("Rising Snake could not find a route that finishes to the right of its entrance.");
+    throw new Error("Rising Cave could not find a route that finishes to the right of its entrance.");
+}
+
+
+const SERPENTINE_CAVE_HORIZONTAL_COUNTS = Object.freeze({ compact: 3, standard: 4, extended: 5, grand: 6 });
+
+function chooseSerpentineHorizontalDirections({ horizontalCount, settings, rng }) {
+    for (let reroll = 0; reroll < 160; reroll += 1) {
+        const directions = ["right"];
+        let gx = 0;
+        for (let index = 1; index < horizontalCount; index += 1) {
+            let next = directions.at(-1);
+            const shouldTurn = rng.chance(0.66 + settings.winding * 0.22);
+            if (shouldTurn) next = next === "right" ? "left" : "right";
+            if (gx <= -2) next = "right";
+            if (gx >= 7 + index && rng.chance(0.82)) next = "left";
+            directions.push(next);
+            gx += next === "left" ? -1 : 1;
+        }
+        let directionChanges = 0;
+        for (let index = 1; index < directions.length; index += 1) if (directions[index] !== directions[index - 1]) directionChanges += 1;
+        if (settings.length !== "compact" && directionChanges < 1) continue;
+        if (["extended", "grand"].includes(settings.length) && directionChanges < 2) continue;
+        return { directions, directionChanges };
+    }
+    return { directions: ["right", "left", "right", "left", "right", "left"].slice(0, horizontalCount), directionChanges: Math.max(0, horizontalCount - 1) };
+}
+
+function chooseSerpentineRiseLength({ storyRise, settings, rng }) {
+    if (storyRise) {
+        if (settings.length === "compact") return rng.chance(0.64) ? 2 : rng.int(3, 4);
+        return rng.chance(0.72) ? rng.int(3, 4) : 2;
+    }
+    return rng.chance(settings.length === "compact" ? 0.78 : 0.62) ? 2 : rng.int(3, 4);
+}
+
+function buildSerpentineCaveGridPlan({ theme, settings, rng }) {
+    const horizontalCount = SERPENTINE_CAVE_HORIZONTAL_COUNTS[settings.length] || SERPENTINE_CAVE_HORIZONTAL_COUNTS.standard;
+    const maximumRequiredDrop = Math.min(theme.traversal.mandatoryDrop * 0.84, 228);
+    const minimumRequiredDrop = Math.min(154, maximumRequiredDrop - 24);
+    for (let reroll = 0; reroll < 520; reroll += 1) {
+        const directionPlan = chooseSerpentineHorizontalDirections({ horizontalCount, settings, rng });
+        const horizontalPlan = directionPlan.directions;
+        const path = [{ gx: 0, gy: 0, worldY: 0, mood: "openTunnel", story: 0 }];
+        const segments = [];
+        let gx = 0;
+        let worldY = 0;
+        let story = 0;
+        const horizontalDirections = [];
+        const dropIndices = [];
+        const riseLengths = [];
+        const storyRiseLengths = [];
+        const appendPoint = (extra = {}) => {
+            path.push({
+                gx,
+                gy: roundCoordinate(worldY / 720),
+                worldY: roundCoordinate(worldY),
+                story,
+                ...extra
+            });
+            return path.length - 1;
+        };
+        const appendHorizontal = ({ direction, final = false } = {}) => {
+            const previousMaxGX = Math.max(...path.map((point) => point.gx));
+            const baseMinimum = final ? Math.max(2, previousMaxGX - gx + rng.int(1, 3)) : 2;
+            const baseMaximum = final ? Math.max(baseMinimum, 7) : (settings.length === "grand" && rng.chance(0.34) ? 7 : 6);
+            if (baseMinimum > 8) return false;
+            const length = final
+                ? rng.int(baseMinimum, Math.min(8, Math.max(baseMinimum, baseMaximum)))
+                : rng.int(baseMinimum, baseMaximum);
+            const startPathIndex = path.length - 1;
+            const directionSign = direction === "left" ? -1 : 1;
+            const dropEligible = !final && length >= 3 && maximumRequiredDrop >= minimumRequiredDrop;
+            const hasShortDrop = dropEligible && rng.chance(0.12 + settings.winding * 0.14);
+            const firstDropStep = Math.max(1, Math.ceil(length * 0.25));
+            const lastDropStep = Math.max(firstDropStep, Math.min(length - 1, Math.floor(length * 0.75)));
+            const dropStep = hasShortDrop ? rng.int(firstDropStep, lastDropStep) : -1;
+            const dropDistance = hasShortDrop ? roundCoordinate(rng.range(minimumRequiredDrop, maximumRequiredDrop)) : 0;
+            let dropPathIndex = -1;
+            for (let step = 1; step <= length; step += 1) {
+                gx += directionSign;
+                if (step === dropStep) {
+                    worldY += dropDistance;
+                    dropPathIndex = appendPoint({ mood: "openTunnel", shortDrop: true });
+                } else {
+                    appendPoint({ mood: final ? "openTunnel" : "tightTunnel" });
+                }
+            }
+            if (dropPathIndex >= 0) dropIndices.push(dropPathIndex);
+            segments.push({
+                direction,
+                requestedLength: length,
+                length,
+                startPathIndex,
+                endPathIndex: path.length - 1,
+                serpentinePhase: final ? "exit-crawl" : "horizontal-crawl",
+                shortDrop: dropPathIndex >= 0 ? {
+                    pathIndex: dropPathIndex,
+                    step: dropStep,
+                    distance: dropDistance,
+                    minimumFraction: roundCoordinate(dropStep / length)
+                } : undefined
+            });
+            if (!final) horizontalDirections.push(direction);
+            return true;
+        };
+        const appendRise = ({ currentDirection, nextDirection }) => {
+            const startPathIndex = path.length - 1;
+            const storyRise = currentDirection !== nextDirection;
+            const length = chooseSerpentineRiseLength({ storyRise, settings, rng });
+            const sameFlowRise = currentDirection === nextDirection;
+            const diagonalEligible = sameFlowRise && length >= 2;
+            const diagonalRise = diagonalEligible && rng.chance(settings.length === "compact" ? 0.58 : 0.76);
+            let lateralDirection = currentDirection === "left" ? -1 : 1;
+            const diagonalStepCells = 2;
+            if (gx + lateralDirection * length * diagonalStepCells < -5) lateralDirection = 1;
+            if (gx + lateralDirection * length * diagonalStepCells > 16 + horizontalCount * 2) lateralDirection = -1;
+            const diagonalCells = diagonalRise ? length * diagonalStepCells : 0;
+            const diagonalSteps = diagonalRise
+                ? new Set(Array.from({ length }, (_, index) => index + 1))
+                : new Set();
+            riseLengths.push(length);
+            if (storyRise) storyRiseLengths.push(length);
+            story += 1;
+            for (let step = 1; step <= length; step += 1) {
+                worldY -= 720;
+                if (diagonalSteps.has(step)) gx += lateralDirection * diagonalStepCells;
+                appendPoint({
+                    mood: step === length
+                        ? (storyRise ? "tightTunnel" : (rng.chance(0.18) ? "smallChamber" : "openTunnel"))
+                        : "tightTunnel",
+                    riseLanding: step === length,
+                    storyRise,
+                    diagonalRise,
+                    diagonalStep: diagonalSteps.has(step) || undefined
+                });
+            }
+            segments.push({
+                direction: "up",
+                requestedLength: length,
+                length,
+                startPathIndex,
+                endPathIndex: path.length - 1,
+                serpentinePhase: diagonalRise ? "diagonal-rise" : "vertical-rise",
+                storyRise,
+                sameFlowRise,
+                diagonalRise: diagonalRise || undefined,
+                lateralDirection: diagonalRise ? (lateralDirection < 0 ? "left" : "right") : undefined,
+                lateralLength: diagonalCells || undefined
+            });
+        };
+        for (let index = 0; index < horizontalCount; index += 1) {
+            const currentDirection = horizontalPlan[index] || (index % 2 ? "left" : "right");
+            if (!appendHorizontal({ direction: currentDirection })) continue;
+            const nextDirection = index + 1 < horizontalCount ? horizontalPlan[index + 1] : "right";
+            appendRise({ currentDirection, nextDirection });
+        }
+        if (!appendHorizontal({ direction: "right", final: true })) continue;
+        const xs = path.map((point) => point.gx);
+        const ys = path.map((point) => point.worldY / 720);
+        const finalPoint = path.at(-1);
+        if (finalPoint.gx <= 0 || finalPoint.gx < Math.max(...xs) - 0.01) continue;
+        if (!path.some((point) => point.mood === "smallChamber")) {
+            const chamberCandidates = path.filter((point, index) => point.riseLanding && index > 0 && index < path.length - 1);
+            const chamber = chamberCandidates[Math.floor(chamberCandidates.length * 0.5)];
+            if (chamber) chamber.mood = "smallChamber";
+        }
+        let horizontalDirectionChanges = 0;
+        for (let index = 1; index < horizontalDirections.length; index += 1) {
+            if (horizontalDirections[index] !== horizontalDirections[index - 1]) horizontalDirectionChanges += 1;
+        }
+        if (settings.length !== "compact" && horizontalDirectionChanges < 1) continue;
+        if (["extended", "grand"].includes(settings.length) && horizontalDirectionChanges < 2) continue;
+        if (Math.abs(Math.min(...ys)) < 4.0) continue;
+        return {
+            version: 2,
+            path,
+            segments,
+            dropIndices,
+            shortDropCount: dropIndices.length,
+            maximumShortDrop: segments.reduce((max, segment) => Math.max(max, finiteNumber(segment.shortDrop?.distance, 0)), 0),
+            riseLengths,
+            storyRiseLengths,
+            minimumStoryRiseLength: storyRiseLengths.length ? Math.min(...storyRiseLengths) : 0,
+            leftwardSegments: horizontalDirections.filter((direction) => direction === "left").length,
+            horizontalDirectionChanges,
+            verticalDirectionChanges: 0,
+            bounds: {
+                minGX: Math.min(...xs),
+                maxGX: Math.max(...xs),
+                minGY: Math.min(...ys),
+                maxGY: Math.max(...ys)
+            }
+        };
+    }
+    throw new Error("Serpentine Cave could not find a right-finishing winding route.");
 }
 
 function buildThePath74BoundaryLabels(path) {
@@ -6978,12 +7973,16 @@ function buildThePath74RouteCandidate({ theme, settings, rng, attempt }) {
         const intendedDirection = Math.abs(dx) >= Math.abs(dy)
             ? (dx < 0 ? "left" : "right")
             : (dy < 0 ? "climb" : "descend");
+        const segment = gridPlan.segments[index];
         edges.push({
             id: `route_main_edge_${String(index).padStart(3, "0")}`,
             from: from.id,
             to: to.id,
             mandatory: true,
-            intendedDirection
+            intendedDirection: segment?.direction === "up" && !segment?.diagonalRise ? "climb" : intendedDirection,
+            serpentineDiagonalRise: Boolean(segment?.diagonalRise),
+            serpentineLateralDirection: segment?.lateralDirection || undefined,
+            serpentineLateralLength: segment?.lateralLength || undefined
         });
     }
     const spacings = mainNodes.slice(1).map((node, index) => distance(mainNodes[index], node));
@@ -7116,8 +8115,8 @@ function buildMostlyHorizontalRouteCandidate({ theme, settings, rng, attempt }) 
     };
 }
 
-function buildRisingSnakeRouteCandidate({ theme, settings, rng, attempt }) {
-    const gridPlan = buildRisingSnakeGridPlan({ settings, rng });
+function buildRisingCaveRouteCandidate({ theme, settings, rng, attempt }) {
+    const gridPlan = buildRisingCaveGridPlan({ settings, rng });
     const cellSizeX = 1280;
     const cellSizeY = 720;
     const segmentEnds = gridPlan.segments.map((segment) => segment.endPathIndex);
@@ -7148,7 +8147,7 @@ function buildRisingSnakeRouteCandidate({ theme, settings, rng, attempt }) {
             progress: index,
             mandatory: true,
             label: index === 0 ? "Entrance" : index === anchorIndices.length - 1 ? "Exit" : room ? `Rising chamber ${room.id.split("_").at(-1)}` : `Rising turn ${index}`,
-            macroPatternId: "rising-snake",
+            macroPatternId: "rising-cave",
             spatialLane: cell.gy,
             pathCellIndex: pathIndex
         };
@@ -7195,12 +8194,12 @@ function buildRisingSnakeRouteCandidate({ theme, settings, rng, attempt }) {
         exitNodeId: mainNodes.at(-1).id,
         macro: {
             version: 1,
-            patternId: "rising-snake",
-            patternLabel: "Rising Snake five-segment route",
+            patternId: "rising-cave",
+            patternLabel: "Rising Cave five-segment route",
             cellSizeX,
             cellSizeY,
             cellPath: worldCellPath,
-            segments: gridPlan.segments.map((segment, segmentIndex) => ({ ...segment, id: `rising_snake_segment_${String(segmentIndex + 1).padStart(2, "0")}` })),
+            segments: gridPlan.segments.map((segment, segmentIndex) => ({ ...segment, id: `rising_cave_segment_${String(segmentIndex + 1).padStart(2, "0")}` })),
             rooms: enrichedRooms,
             bounds: gridPlan.bounds,
             leftwardSegments: gridPlan.leftwardSegments,
@@ -7214,7 +8213,166 @@ function buildRisingSnakeRouteCandidate({ theme, settings, rng, attempt }) {
             verticalSegmentMaximum: 2,
             horizontalSegmentMinimum: 1,
             horizontalSegmentMaximum: 4,
-            risingSnake: true
+            risingCave: true
+        },
+        nodes: mainNodes,
+        edges
+    };
+}
+
+
+function buildSerpentineCaveRouteCandidate({ theme, settings, rng, attempt }) {
+    const gridPlan = buildSerpentineCaveGridPlan({ theme, settings, rng });
+    const cellSizeX = 1280;
+    const cellSizeY = 720;
+    const diagonalStepIndices = gridPlan.path
+        .map((point, index) => point.diagonalStep ? index : -1)
+        .filter((index) => index >= 0);
+    const anchorIndices = new Set([0, gridPlan.path.length - 1, ...gridPlan.segments.map((segment) => segment.endPathIndex), ...gridPlan.dropIndices, ...diagonalStepIndices]);
+    const orderedAnchorIndices = [...anchorIndices].sort((a, b) => a - b);
+    const smallChamberIndices = orderedAnchorIndices.filter((pathIndex) => gridPlan.path[pathIndex]?.mood === "smallChamber");
+    const rooms = smallChamberIndices.map((pathIndex, index) => {
+        const point = gridPlan.path[pathIndex];
+        return {
+            id: `macro_room_${String(index + 1).padStart(2, "0")}`,
+            pathIndex,
+            label: pathIndex + 1,
+            anchorSource: "path",
+            gx: point.gx,
+            gy: point.gy,
+            worldY: point.worldY,
+            semiAxisX: rng.range(0.55, 0.88),
+            semiAxisY: rng.range(0.42, 0.72),
+            serpentineSmallChamber: true
+        };
+    });
+    const roomByPathIndex = new Map(rooms.map((room) => [room.pathIndex, room]));
+    const mainNodes = orderedAnchorIndices.map((pathIndex, index) => {
+        const point = gridPlan.path[pathIndex];
+        const room = roomByPathIndex.get(pathIndex);
+        const endpoint = index === 0 || index === orderedAnchorIndices.length - 1;
+        const shortDrop = Boolean(point.shortDrop);
+        const riseLanding = Boolean(point.riseLanding);
+        const kind = index === 0
+            ? "entrance"
+            : index === orderedAnchorIndices.length - 1
+                ? "exit"
+                : room
+                    ? "chamber"
+                    : riseLanding && rng.chance(0.22)
+                        ? "recovery"
+                        : "traversal";
+        return {
+            id: `route_main_${String(index).padStart(3, "0")}`,
+            kind,
+            x: roundCoordinate(theme.route.startX + point.gx * cellSizeX),
+            y: roundCoordinate(theme.route.baselineY + point.worldY),
+            progress: index,
+            mandatory: true,
+            label: endpoint
+                ? (index === 0 ? "Entrance" : "Exit")
+                : shortDrop
+                    ? `Serpentine dip ${index}`
+                    : room
+                        ? `Serpentine chamber ${room.id.split("_").at(-1)}`
+                        : riseLanding
+                            ? `Serpentine rise ${index}`
+                            : `Serpentine crawl ${index}`,
+            macroPatternId: "serpentine-cave",
+            spatialLane: roundCoordinate(point.worldY / cellSizeY),
+            pathCellIndex: pathIndex,
+            serpentineWidthMood: point.mood || (endpoint ? "openTunnel" : "tightTunnel"),
+            serpentineShortDrop: shortDrop || undefined,
+            serpentineRiseLanding: riseLanding || undefined
+        };
+    });
+    const nodeByPathIndex = new Map(mainNodes.map((node) => [node.pathCellIndex, node]));
+    const enrichedRooms = rooms.map((room) => {
+        const node = nodeByPathIndex.get(room.pathIndex);
+        return {
+            ...room,
+            nodeId: node?.id,
+            centerX: roundCoordinate(theme.route.startX + room.gx * cellSizeX),
+            centerY: roundCoordinate(theme.route.baselineY + room.worldY),
+            widthScreens: roundCoordinate(clamp(room.semiAxisX * 2, 0.8, 1.75)),
+            heightScreens: roundCoordinate(clamp(room.semiAxisY * 2, 0.55, 1.35)),
+            rareLargeRoom: false
+        };
+    });
+    const edges = [];
+    for (let index = 0; index < mainNodes.length - 1; index += 1) {
+        const from = mainNodes[index];
+        const to = mainNodes[index + 1];
+        const segment = gridPlan.segments.find((candidate) => (
+            from.pathCellIndex >= candidate.startPathIndex
+            && to.pathCellIndex <= candidate.endPathIndex
+        ));
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const intendedDirection = Math.abs(dx) >= Math.abs(dy)
+            ? (dx < 0 ? "left" : "right")
+            : (dy < 0 ? "climb" : "descend");
+        edges.push({
+            id: `route_main_edge_${String(index).padStart(3, "0")}`,
+            from: from.id,
+            to: to.id,
+            mandatory: true,
+            intendedDirection: segment?.direction === "up" && !segment?.diagonalRise ? "climb" : intendedDirection,
+            serpentineDiagonalRise: Boolean(segment?.diagonalRise),
+            serpentineLateralDirection: segment?.lateralDirection || undefined,
+            serpentineLateralLength: segment?.lateralLength || undefined
+        });
+    }
+    const spacings = mainNodes.slice(1).map((node, index) => distance(mainNodes[index], node));
+    const worldCellPath = gridPlan.path.map((point, pathIndex) => ({
+        pathIndex,
+        gx: point.gx,
+        gy: point.gy,
+        worldY: point.worldY,
+        x: roundCoordinate(theme.route.startX + point.gx * cellSizeX),
+        y: roundCoordinate(theme.route.baselineY + point.worldY),
+        mood: point.mood || undefined,
+        shortDrop: point.shortDrop || undefined,
+        riseLanding: point.riseLanding || undefined,
+        story: Number.isFinite(point.story) ? point.story : undefined,
+        storyRise: point.storyRise || undefined
+    }));
+    const xs = mainNodes.map((node) => node.x);
+    const ys = mainNodes.map((node) => node.y);
+    const routeWidth = Math.max(...xs) - Math.min(...xs);
+    const routeHeight = Math.max(...ys) - Math.min(...ys);
+    return {
+        version: 1,
+        attempt,
+        startNodeId: mainNodes[0].id,
+        exitNodeId: mainNodes.at(-1).id,
+        macro: {
+            version: 1,
+            patternId: "serpentine-cave",
+            patternLabel: "Serpentine Cave winding tunnel route",
+            cellSizeX,
+            cellSizeY,
+            cellPath: worldCellPath,
+            segments: gridPlan.segments.map((segment, segmentIndex) => ({ ...segment, id: `serpentine_cave_segment_${String(segmentIndex + 1).padStart(2, "0")}` })),
+            rooms: enrichedRooms,
+            bounds: gridPlan.bounds,
+            leftwardSegments: gridPlan.leftwardSegments,
+            horizontalDirectionChanges: gridPlan.horizontalDirectionChanges,
+            verticalDirectionChanges: 0,
+            shortDropCount: gridPlan.shortDropCount,
+            maximumShortDrop: roundCoordinate(gridPlan.maximumShortDrop),
+            riseLengths: [...gridPlan.riseLengths],
+            storyRiseLengths: [...(gridPlan.storyRiseLengths || [])],
+            minimumStoryRiseLength: gridPlan.minimumStoryRiseLength || 0,
+            targetVerticalSpan: roundCoordinate(routeHeight),
+            targetAspectRatio: roundCoordinate(routeWidth / Math.max(1, routeHeight)),
+            targetAverageNodeSpacing: roundCoordinate(average(spacings)),
+            maximumEdgeLength: roundCoordinate(Math.max(cellSizeX * 8, cellSizeY * 4) + 1),
+            verticalSegmentMinimum: 1,
+            verticalSegmentMaximum: 4,
+            horizontalSegmentMinimum: 2,
+            horizontalSegmentMaximum: 8,
+            serpentineCave: true
         },
         nodes: mainNodes,
         edges

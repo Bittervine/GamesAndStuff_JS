@@ -1792,6 +1792,11 @@ A support is no longer a single encounter slot. Long walkable supports expose mu
 
 `generatedMonsterTargetForRoute()` now uses a 300-unit baseline at each theme's default Enemy density. The density slider continues to scale relative to that baseline, with zero disabling encounters and the upper multiplier capped at two. The existing long-support seat subdivision supplies the additional candidates; encounter placement still applies deterministic minimum spacing, endpoint calm zones, reward reservations, cavern fit, body clearance, and moving-shaft safety. Generator schema version 34 identifies the revised target.
 
+## Revision 435 420-base level-generator backport
+- Rebased the project on the original revision 420 codebase while backporting the revision 432 automatic level-generator implementation.
+- Retained the Rising Cave rename, Serpentine Cave route, same-flow diagonal Serpentine rise support, and generated horizontal floor-layer logic from the generator line.
+- Deliberately excluded cave-window, full-black perimeter, editor rendering, and arc-rounded perimeter experiments after revision 420.
+
 ## Revision 420 generated endpoint coordinates and population
 
 `src/shared/level-generator-data.js` now treats generated portal positions as authoritative endpoint coordinates. `buildSafeEndpoints()` emits endpoint record version 2 with `x` and `y` values for both doors. Encounter population, reward population, standalone validators, and the editor validation overlay all read those coordinates with support-centre fallback only for older normalized records.
@@ -1799,10 +1804,3 @@ A support is no longer a single encounter slot. Long walkable supports expose mu
 The encounter calm-zone contract protects immediate portal footing only and is independent of actor awareness. Candidate selection keeps deterministic global distribution, then prioritizes several nearest candidates at each endpoint before the remaining route order. This gives the encounter builder local retries when a reward reservation or enemy-fit rule rejects the nominal endpoint seat without weakening collision or spacing checks.
 
 Reward generation treats door supports as ordinary mandatory route surfaces outside the portal exclusion radius. Endpoint chests are placed at the far walkable edge, preferred upper perches are capped to a share of the treasure target, and the residual target is allocated over the entire route-progress interval. Generator schema version 35 identifies these endpoint-coordinate and content-distribution changes.
-
-## Revision 421 rising snake generator route
-
-`src/shared/level-generator-data.js` owns the Rising Snake route as a distinct automatic-generator topology. The route planner records five screen-scaled segments in the fixed pattern right, up, horizontal left-or-right, up, right. Its cavern stamps and contour sampling follow that route footprint rather than applying the ordinary broad domed expansion.
-
-Vertical route edges own a deterministic `verticalTraversalStyle` of `elevator`, `platforms`, or `mix`. Elevator shafts reuse the existing moving-platform contract. Platform shafts build alternating green one-way supports within the player movement envelope. Mixed shafts keep the elevator as the mandatory path and add a complete optional green-platform chain. The shared validator recognizes all three styles while preserving the older Standard-route elevator rules unchanged.
-
