@@ -34,9 +34,7 @@ IgnatiusRocketfrock_JS/
 │   │   ├── hud-panel-layout.js
 │   │   ├── gamepad-haptics.js
 │   │   ├── game-settings-store.js
-│   │   ├── music-director.js
-│   │   ├── music-engine-host.js
-│   │   └── music-engine-sources.js
+│   │   └── music-director.js
 │   ├── presentation/
 │   │   ├── canvas-renderer.js
 │   │   ├── webgl2-renderer.js
@@ -76,8 +74,8 @@ IgnatiusRocketfrock_JS/
 ├── tests/
 │   └── testbench.mjs
 ├── assets/
-│   ├── music/
-│   │   └── ignatius_music_selections.json
+│   ├── music.json
+│   ├── music_001.ogg, music_002.ogg, ...
 │   └── level-generator-themes/
 ├── devel/
 ├── package.json
@@ -348,7 +346,7 @@ Portable simulation owns the kinematic state machine, translated collision geome
 
 The menu is browser UI, not gameplay state. Opening it sets the existing simulation pause flag and records the prior pause state; closing it restores that prior state. Settings data itself is plain and serializable so the portable simulation can consume the two values that currently matter: incoming damage scale and visual particle-density scale. Difficulty is intentionally centralized in `damagePlayer`; outgoing weapon damage and enemy behaviour remain unchanged. Explicit kill semantics can opt out of scaling with `bypassDifficulty`.
 
-Rendering quality currently changes smoke-particle generation for homing-rocket trails and impact explosions. It must not alter fixed-step timing or collision. Volume sliders are persisted browser preferences. Music defaults to 10% and effects to 80%; pause muting is transient and must not rewrite those values. The synthesized classical-music system uses authored note events rather than packaged recordings, since a public-domain composition does not automatically make every performance public domain.
+Rendering quality currently changes smoke-particle generation for homing-rocket trails and impact explosions. It must not alter fixed-step timing or collision. Volume sliders are persisted browser preferences. Music defaults to 10% and effects to 80%; pause muting is transient and must not rewrite those values. The current music system plays imported OGG tracks listed in `assets/music.json`; only the browser adapter owns audio playback.
 
 The Electron shell is optional. `game.html` runs unchanged in normal browsers. In Electron, `preload.cjs` exposes an immutable `electronWindow` object through `contextBridge`; the game reveals Exit to desktop and routes fullscreen through IPC. The renderer process has no Node integration and cannot access Electron directly.
 
@@ -360,7 +358,15 @@ The Electron host is fullscreen-only and therefore does not expose this preferen
 
 Keyboard menu handling remains browser-owned. The adapter enumerates only visible, enabled controls in the active dialog view and provides wrapped traversal, slider and option adjustment, activation, and back navigation. It clears gameplay input when opening and closing the dialog so menu keystrokes cannot leak into the next simulation frame.
 
-## Revision 151 synthesized music boundary
+## Revision 454 OGG music reset
+
+Level soundtrack choice remains ordinary authored data, but the current schema is `music.version: 3` plus `music.trackId`. The shared `src/shared/music-data.js` module normalizes only numbered OGG track IDs such as `music_001` and the explicit `none` option. Older synthesized `tuneId` values normalize to the first imported track rather than silently restoring the retired catalog.
+
+`assets/music.json` is the sole runtime metadata catalog. It lists the numbered `.ogg` files stored beside it in `assets/`, including display titles and import provenance. The Level Editor fetches this catalog to populate the music selector, and browser bootstrap fetches it before handing the catalog to `src/browser/music-director.js`. Portable simulation stores the normalized track metadata in `state.world.music` but never creates audio elements, decodes files, or advances music time.
+
+`src/browser/music-director.js` now wraps a normal looping HTML audio element. It handles selected track changes, persisted music volume, pause/focus muting, user-gesture autoplay unlocking, and cleanup. The retired embedded jukebox path is removed: no hidden engine host, source bundle, accepted-selection JSON, score-source notes, oscillator scheduler, or iframe API is part of the active architecture.
+
+## Revision 151 retired synthesized music boundary
 
 Level soundtrack choice is ordinary authored data: `music.version` and `music.tuneId`. `src/shared/music-data.js` owns normalization and the immutable catalog, so the Level Editor and browser runtime present the same IDs and labels. Portable simulation retains normalized music metadata in `state.world.music` but never creates audio nodes or advances musical time.
 
@@ -1532,7 +1538,7 @@ The modular human family keeps size authoring in the enemy catalog rather than a
 
 
 
-## Revision 373 accepted jukebox music boundary
+## Revision 373 retired accepted jukebox music boundary
 
 Level music schema version 2 keeps the portable authored surface intentionally small: a level stores only `music.version` and one accepted `music.tuneId`. `src/shared/music-data.js` now owns the immutable 18-tune accepted catalog plus silence, including the chosen jukebox engine version and saved whole-octave shift. Full-pass duration, loop point, repeating-body duration, and developed-section count are measured from that exact live engine API. Rejected and unreviewed selector entries are not editor choices and unknown legacy IDs normalize to the default Mountain King selection.
 
@@ -1804,3 +1810,8 @@ A support is no longer a single encounter slot. Long walkable supports expose mu
 The encounter calm-zone contract protects immediate portal footing only and is independent of actor awareness. Candidate selection keeps deterministic global distribution, then prioritizes several nearest candidates at each endpoint before the remaining route order. This gives the encounter builder local retries when a reward reservation or enemy-fit rule rejects the nominal endpoint seat without weakening collision or spacing checks.
 
 Reward generation treats door supports as ordinary mandatory route surfaces outside the portal exclusion radius. Endpoint chests are placed at the far walkable edge, preferred upper perches are capped to a share of the treasure target, and the residual target is allocated over the entire route-progress interval. Generator schema version 35 identifies these endpoint-coordinate and content-distribution changes.
+
+
+## Revision 454 OGG music reset release note
+
+Revision 454 removes the failed synthesized/jukebox music path from the active source tree and switches levels, editor selection, runtime playback, and regression coverage to the numbered OGG tracks described by `assets/music.json`. Packaged update archives now exclude OGG files alongside PNG and XCF assets.

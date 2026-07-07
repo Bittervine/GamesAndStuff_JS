@@ -335,13 +335,17 @@ A constrained part's X/Y animation tracks are read-only because Puppet Forge cal
 Each child may have only one parent constraint. Puppet Forge prevents self-links and circular chains such as torso to arm to torso.
 
 
-## Revision 373 music integration
+## Revision 454 OGG music workflow
 
-The runtime music catalog is generated from `assets/music/ignatius_music_selections.json`. Do not hand-add a tune to the Level Editor without adding an accepted selection record containing its engine version and whole-octave setting. Measure full-pass duration, loop start, repeat duration, and section count from the selected engine API; do not trust the selector export's repeated timing templates. `src/shared/music-data.js` is the editor/runtime metadata catalog; it is not an alternative score engine.
+`assets/music.json` is the active music catalog. Add numbered files such as `music_006.ogg` beside it in `assets/`, then add a matching metadata record with an ID, file name, and title. Levels store only `music.version: 3` and `music.trackId`; the Level Editor populates its selector from this catalog. Runtime playback belongs to `src/browser/music-director.js`, which wraps a looping HTML audio element and obeys pause/focus muting and the persistent music-volume slider. Do not restore the embedded jukebox engines, score-source catalog, or synthesized tune data.
 
-The exact selector engines live in `src/browser/music-engine-sources.js` and are hosted by `src/browser/music-engine-host.js`. Keep them browser-only. The frames use `srcdoc` deliberately because relative iframe pages can become cross-origin under `file://`, preventing the game from calling the engine API. The host must remain the only code that reaches `frame.contentWindow.__IGNATIUS_ENGINE_API__`.
+## Revision 373 retired music integration
 
-When changing playback state, preserve the distinction between stopping and pausing. A level/tune change calls `stop`, selects the new tune, applies its saved octave, and starts its opening. Pause-menu, focus-loss, and zero-volume suspension call `pause`. The selector engines reset their long-form phase when paused, so the next `play` begins the selected opening again. Preserve that behavior unless the jukebox engine itself is deliberately changed. Never copy the embedded engine's AudioContext or scheduling state into simulation data.
+This historical note described the retired synthesized/jukebox catalog. The active workflow is the revision 454 OGG catalog above.
+
+The selector engines and hidden iframe host have been removed.
+
+When changing playback state, preserve the distinction between track changes and pause/focus muting. Track changes select a new OGG source and reset playback; pause/focus muting pauses the audio element without modifying persisted settings. Never copy browser audio state into simulation data.
 
 
 ## Revision 374 music gesture handling

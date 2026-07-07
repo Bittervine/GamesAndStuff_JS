@@ -25,7 +25,7 @@ import {
     normalizeGameSettings
 } from "../shared/game-settings-data.js";
 import { loadStoredGameSettings, saveStoredGameSettings } from "./game-settings-store.js";
-import { normalizeLevelMusic } from "../shared/music-data.js";
+import { normalizeLevelMusic, normalizeMusicCatalog } from "../shared/music-data.js";
 import { prioritizedActivePowerUpEffect } from "../shared/power-up-data.js";
 import { createMusicDirector } from "./music-director.js";
 import {
@@ -103,7 +103,7 @@ const showMinimapInput = document.getElementById("show-minimap");
 const useHardwareRenderingInput = document.getElementById("use-hardware-rendering");
 const usePixmapPyramidsInput = document.getElementById("use-pixmap-pyramids");
 
-const GAME_REVISION = "435";
+const GAME_REVISION = "454";
 
 let displayedLoadingProgress = 0;
 let activeCaveWindow = normalizeCaveWindow(null);
@@ -111,6 +111,7 @@ let renderer;
 const electronWindowBridge = detectElectronWindowBridge(window);
 let gameState = createInitialGameState({ settings: loadStoredGameSettings(), randomSeed: browserRandomSeed() });
 const musicDirector = createMusicDirector({ volume: gameState.settings.musicVolume });
+let musicCatalog = normalizeMusicCatalog(null);
 let activeLevelMusic = normalizeLevelMusic(null);
 let gameMenuView = "menu";
 let gameMenuPreviousPause = false;
@@ -137,6 +138,7 @@ const gamepadHaptics = new GamepadHaptics();
 gamepadHaptics.prime(gameState.debug.lastEvents);
 showLoadingScreen("Loading level data", 0.02);
 await loadEnemyDefinitionCatalog();
+await loadMusicCatalog();
 const loadedBrowserCopy = maybeApplyBrowserCopyLevel();
 if (!loadedBrowserCopy) {
     await applyRequiredDefaultLevel();
@@ -318,6 +320,24 @@ function maybeApplyBrowserCopyLevel() {
     }
 }
 
+async function loadMusicCatalog() {
+    const url = "assets/music.json";
+    try {
+        const response = await fetch(url, { cache: "no-store" });
+        if (!response.ok) {
+            console.warn(`Music catalog could not be loaded: ${url} (${response.status}).`);
+            musicDirector.setCatalog(musicCatalog);
+            return musicCatalog;
+        }
+        musicCatalog = normalizeMusicCatalog(await response.json());
+    } catch (error) {
+        console.warn(`Music catalog could not be loaded: ${url}.`, error);
+        musicCatalog = normalizeMusicCatalog(null);
+    }
+    musicDirector.setCatalog(musicCatalog);
+    return musicCatalog;
+}
+
 async function applyRequiredDefaultLevel() {
     const url = "assets/level_001.json";
     let response;
@@ -348,7 +368,7 @@ function syncPresentationLevelData(level) {
     activeCaveWindow = normalizeCaveWindow(level?.caveWindow || level?.visuals?.caveWindow);
     activeLevelMusic = normalizeLevelMusic(level?.music);
     renderer?.syncCaveWindow(activeCaveWindow);
-    musicDirector.setTune(activeLevelMusic.tuneId);
+    musicDirector.setTrack(activeLevelMusic.trackId);
 }
 
 function normalizedLevelId(value, fallback = "level_001") {
@@ -1657,7 +1677,7 @@ function updateDebugText() {
 
     debugEl.textContent = [
         `rev:${GAME_REVISION}  hudBlur:${hudBackdropBlurDisabled ? "off" : "on"}  ${gameState.debug.paused ? "PAUSED" : "RUNNING"}  tick:${gameState.clock.tick}  t:${gameState.clock.time.toFixed(2)}`,
-        `difficulty:${gameState.settings?.difficulty || "normal"} damageScale:${gameDifficultyPreset(gameState.settings).damageScale.toFixed(2)} quality:${gameState.settings?.renderingQuality || "medium"} particleScale:${gameRenderingQualityPreset(gameState.settings).particleScale.toFixed(2)} music:${Math.round((gameState.settings?.musicVolume ?? 0.1) * 100)}% sfx:${Math.round(effectiveSfxVolume * 100)}% tune:${activeLevelMusic.tuneId} audio:${isGameAudioMuted() ? "muted" : (musicDirector.isUnlocked() ? "on" : "locked")}`,
+        `difficulty:${gameState.settings?.difficulty || "normal"} damageScale:${gameDifficultyPreset(gameState.settings).damageScale.toFixed(2)} quality:${gameState.settings?.renderingQuality || "medium"} particleScale:${gameRenderingQualityPreset(gameState.settings).particleScale.toFixed(2)} music:${Math.round((gameState.settings?.musicVolume ?? 0.1) * 100)}% sfx:${Math.round(effectiveSfxVolume * 100)}% track:${activeLevelMusic.trackId} audio:${isGameAudioMuted() ? "muted" : (musicDirector.isUnlocked() ? "on" : "locked")}`,
         viewText,
         performanceText,
         gpuPerformanceText,

@@ -47,8 +47,8 @@
         "atlasIds": []
     },
     "music": {
-        "version": 2,
-        "tuneId": "joplin_entertainer"
+        "version": 3,
+        "trackId": "music_001"
     },
     "layerVisuals": {
         "version": 2,

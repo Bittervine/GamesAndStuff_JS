@@ -1,95 +1,126 @@
-import { getMusicTune, pitchToMidi } from "../shared/music-data.js";
-import { createEmbeddedMusicEngineHost } from "./music-engine-host.js";
-
-export function noteFrequency(pitch) {
-    const midi = pitchToMidi(pitch);
-    if (!Number.isFinite(midi)) return 0;
-    return 440 * 2 ** ((midi - 69) / 12);
-}
+import { DEFAULT_LEVEL_MUSIC, NO_MUSIC_TRACK, getMusicTrack, normalizeMusicCatalog, normalizeLevelMusic } from "../shared/music-data.js";
 
 function clamp01(value) {
     return Math.max(0, Math.min(1, Number(value) || 0));
 }
 
+function defaultAudioElementFactory() {
+    if (typeof globalThis.Audio !== "function") {
+        return null;
+    }
+    return new globalThis.Audio();
+}
+
+function trackSourceUrl(track, baseUrl) {
+    if (!track || track.id === NO_MUSIC_TRACK.id || !track.file) return "";
+    if (/^(?:https?:|data:|blob:|\/)/i.test(track.file)) return track.file;
+    const base = String(baseUrl || "assets/");
+    return `${base}${track.file}`;
+}
+
 export function createMusicDirector({
-    engineHostFactory = createEmbeddedMusicEngineHost,
     volume = 0.1,
-    // Retained as an ignored compatibility option for older tests and callers.
-    audioContextFactory = undefined
+    audioElementFactory = defaultAudioElementFactory,
+    baseUrl = "assets/"
 } = {}) {
-    void audioContextFactory;
-    const host = typeof engineHostFactory === "function" ? engineHostFactory() : null;
-    let tuneId = "grieg_mountain_king";
+    const audio = typeof audioElementFactory === "function" ? audioElementFactory() : null;
+    let catalog = normalizeMusicCatalog(null);
+    let trackId = DEFAULT_LEVEL_MUSIC.trackId;
     let currentVolume = clamp01(volume);
     let muted = false;
     let unlockRequested = false;
     let unlocked = false;
     let disposed = false;
-    let configurationKey = "";
-    let generation = 0;
+    let configuredSrc = "";
     let startAttempt = null;
 
-    host?.prepare?.();
-    host?.setVolume?.(currentVolume);
-
-    function activeTune() {
-        return getMusicTune(tuneId);
+    if (audio) {
+        audio.loop = true;
+        audio.preload = "auto";
+        audio.volume = currentVolume;
     }
 
-    function tuneConfigurationKey(tune) {
-        if (!tune || tune.id === "none") return "none";
-        return `${tune.engineVersion}:${tune.id}:${tune.octave}`;
+    function activeTrack() {
+        return getMusicTrack(trackId, catalog);
     }
 
-    async function configureActiveTune(expectedGeneration) {
-        const tune = activeTune();
-        const key = tuneConfigurationKey(tune);
-        if (key === "none") {
-            host?.stopAll?.();
-            configurationKey = key;
-            unlocked = false;
+    function setAudioVolume() {
+        if (audio) {
+            audio.volume = muted ? 0 : currentVolume;
+        }
+    }
+
+    function stopAudio({ clearSource = false } = {}) {
+        audio?.pause?.();
+        try {
+            if (audio && Number.isFinite(Number(audio.currentTime))) {
+                audio.currentTime = 0;
+            }
+        } catch (error) {
+            // Some fake or browser audio elements can reject currentTime writes before metadata is loaded.
+        }
+        if (clearSource && audio) {
+            configuredSrc = "";
+            if (typeof audio.removeAttribute === "function") {
+                audio.removeAttribute("src");
+            } else {
+                audio.src = "";
+            }
+            audio.load?.();
+        }
+        unlocked = false;
+        startAttempt = null;
+    }
+
+    function configureActiveTrack() {
+        if (!audio || disposed) return false;
+        const track = activeTrack();
+        const nextSrc = trackSourceUrl(track, baseUrl);
+        if (!nextSrc) {
+            stopAudio({ clearSource: true });
             return false;
         }
-        if (configurationKey === key) return true;
-        host?.stopAll?.();
-        const configured = await host?.configure?.(tune.engineVersion, tune.id, tune.octave);
-        if (disposed || expectedGeneration !== generation) return false;
-        if (!configured) return false;
-        configurationKey = key;
-        host?.setVolume?.(muted ? 0 : currentVolume);
+        if (configuredSrc === nextSrc) return true;
+        stopAudio();
+        configuredSrc = nextSrc;
+        audio.src = nextSrc;
+        audio.loop = true;
+        audio.preload = "auto";
+        setAudioVolume();
+        audio.load?.();
         return true;
     }
 
-    function startActiveTune() {
+    function startActiveTrack() {
         if (disposed) return Promise.resolve(false);
         unlockRequested = true;
-        const tune = activeTune();
-        const key = tuneConfigurationKey(tune);
-        if (muted || currentVolume <= 0 || tune.id === "none") {
+        const track = activeTrack();
+        if (!audio || muted || currentVolume <= 0 || track.id === NO_MUSIC_TRACK.id) {
             return Promise.resolve(false);
         }
-        if (unlocked && configurationKey === key) {
+        if (unlocked && configuredSrc === trackSourceUrl(track, baseUrl) && audio.paused === false) {
             return Promise.resolve(true);
         }
-
-        const expectedGeneration = generation;
-        if (startAttempt?.generation === expectedGeneration && startAttempt.key === key) {
+        const expectedSrc = trackSourceUrl(track, baseUrl);
+        if (startAttempt?.src === expectedSrc) {
             return startAttempt.promise;
         }
-
         const attempt = {
-            generation: expectedGeneration,
-            key,
+            src: expectedSrc,
             promise: null
         };
         attempt.promise = (async () => {
-            if (!await configureActiveTune(expectedGeneration)) return false;
-            if (disposed || expectedGeneration !== generation || muted || currentVolume <= 0) return false;
-            host?.setVolume?.(currentVolume);
-            const started = await host?.play?.(tune.engineVersion);
-            if (disposed || expectedGeneration !== generation) return false;
-            unlocked = Boolean(started);
-            return unlocked;
+            if (!configureActiveTrack()) return false;
+            if (disposed || muted || currentVolume <= 0 || configuredSrc !== expectedSrc) return false;
+            setAudioVolume();
+            try {
+                await audio.play?.();
+            } catch (error) {
+                return false;
+            }
+            if (disposed || muted || configuredSrc !== expectedSrc) return false;
+            unlocked = true;
+            return true;
         })().finally(() => {
             if (startAttempt === attempt) {
                 startAttempt = null;
@@ -99,33 +130,41 @@ export function createMusicDirector({
         return attempt.promise;
     }
 
-    function unlock() {
-        return startActiveTune();
+    function setCatalog(nextCatalog) {
+        catalog = normalizeMusicCatalog(nextCatalog);
+        if (!catalog.tracks.some((track) => track.id === trackId)) {
+            trackId = DEFAULT_LEVEL_MUSIC.trackId;
+            stopAudio({ clearSource: true });
+        }
+        if (unlockRequested && !muted && currentVolume > 0 && activeTrack().id !== NO_MUSIC_TRACK.id) {
+            void startActiveTrack();
+        }
+        return catalog;
     }
 
-    function setTune(nextTuneId) {
-        const tune = getMusicTune(nextTuneId);
-        if (tune.id === tuneId) return tuneId;
-        tuneId = tune.id;
-        generation += 1;
-        configurationKey = "";
-        unlocked = false;
-        host?.stopAll?.();
-        if (unlockRequested && !muted && currentVolume > 0 && tune.id !== "none") {
-            void startActiveTune();
+    function unlock() {
+        return startActiveTrack();
+    }
+
+    function setTrack(nextTrackId) {
+        const track = getMusicTrack(normalizeLevelMusic({ trackId: nextTrackId }).trackId, catalog);
+        if (track.id === trackId) return trackId;
+        trackId = track.id;
+        stopAudio({ clearSource: track.id === NO_MUSIC_TRACK.id });
+        if (unlockRequested && !muted && currentVolume > 0 && track.id !== NO_MUSIC_TRACK.id) {
+            void startActiveTrack();
         }
-        return tuneId;
+        return trackId;
     }
 
     function setVolume(nextVolume) {
         const previous = currentVolume;
         currentVolume = clamp01(nextVolume);
-        host?.setVolume?.(muted ? 0 : currentVolume);
+        setAudioVolume();
         if (currentVolume <= 0) {
-            unlocked = false;
-            host?.pauseAll?.();
-        } else if (previous <= 0 && unlockRequested && !muted && activeTune().id !== "none") {
-            void startActiveTune();
+            stopAudio();
+        } else if (previous <= 0 && unlockRequested && !muted && activeTrack().id !== NO_MUSIC_TRACK.id) {
+            void startActiveTrack();
         }
         return currentVolume;
     }
@@ -134,15 +173,12 @@ export function createMusicDirector({
         const normalized = Boolean(nextMuted);
         if (normalized === muted) return muted;
         muted = normalized;
+        setAudioVolume();
         if (muted) {
+            audio?.pause?.();
             unlocked = false;
-            host?.setVolume?.(0);
-            host?.pauseAll?.();
-        } else {
-            host?.setVolume?.(currentVolume);
-            if (unlockRequested && currentVolume > 0 && activeTune().id !== "none") {
-                void startActiveTune();
-            }
+        } else if (unlockRequested && currentVolume > 0 && activeTrack().id !== NO_MUSIC_TRACK.id) {
+            void startActiveTrack();
         }
         return muted;
     }
@@ -150,23 +186,22 @@ export function createMusicDirector({
     function dispose() {
         if (disposed) return;
         disposed = true;
-        generation += 1;
-        host?.dispose?.();
-        configurationKey = "";
-        startAttempt = null;
-        unlocked = false;
+        stopAudio({ clearSource: true });
+        catalog = normalizeMusicCatalog(null);
     }
 
     return Object.freeze({
         unlock,
-        setTune,
+        setCatalog,
+        setTrack,
         setVolume,
         setMuted,
         dispose,
-        getTuneId: () => tuneId,
+        getTrackId: () => trackId,
         getVolume: () => currentVolume,
         getEffectiveVolume: () => muted ? 0 : currentVolume,
         isMuted: () => muted,
-        isUnlocked: () => unlocked
+        isUnlocked: () => unlocked,
+        getActiveTrack: activeTrack
     });
 }

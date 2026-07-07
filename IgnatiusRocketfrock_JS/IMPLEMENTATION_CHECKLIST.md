@@ -4109,3 +4109,14 @@ Revision 399 keeps the shipped Enemy 032 death clip unchanged but replaces the t
 - [x] Cap upper-perch treasure allocation and distribute remaining chests across the whole route.
 - [x] Add regressions for first-screen enemies, last-screen enemies, endpoint metadata, and both endpoint-platform chests.
 - [x] Increment generator schema to 35 and packaged revision labels to 420.
+
+
+## Revision 454 OGG music reset
+
+- [x] Remove the embedded synthesized/jukebox engine host, source bundle, accepted-selection data, and score-source documentation.
+- [x] Replace level music normalization with version 3 `trackId` metadata for numbered OGG files.
+- [x] Convert authored levels to `music_001`.
+- [x] Load `assets/music.json` in the Level Editor and expose its OGG tracks as selectable music.
+- [x] Load `assets/music.json` in browser bootstrap and play selected tracks through the music director.
+- [x] Update regression coverage for the OGG catalog and retired music cleanup.
+- [x] Exclude `.ogg` files from compact update archives alongside `.png` and `.xcf`.

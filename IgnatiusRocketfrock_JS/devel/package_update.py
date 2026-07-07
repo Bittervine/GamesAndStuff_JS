@@ -10,7 +10,7 @@ import sys
 import zipfile
 from pathlib import Path
 
-EXCLUDED_EXTENSIONS = {".png", ".xcf"}
+EXCLUDED_EXTENSIONS = {".png", ".xcf", ".ogg"}
 EXCLUDED_DIRECTORIES = {".git", ".build", "dist", "node_modules", "__pycache__"}
 EXCLUDED_FILENAMES = {".DS_Store"}
 FORBIDDEN_GENERATED_DIRECTORIES = {".nyc_output", ".pytest_cache", "coverage", "playwright-report", "test-results"}
@@ -32,6 +32,12 @@ RETIRED_FILES = {
     "devel/enemy-hit-effect-lab.js",
     "src/presentation/level-color-map.js",
     "src/presentation/rocket-glow-cache.js",
+    "MUSIC_SOURCES.md",
+    "src/browser/music-engine-host.js",
+    "src/browser/music-engine-sources.js",
+    "assets/music/ignatius_music_selections.json",
+    "devel/ignatius_music_selections.json",
+    "devel/ignatius_public_domain_jukebox_v7_long_form_loops.html",
     "devel/old/ct_char_enemy_004.json",
     "generate_level002_temp.mjs",
 }
@@ -62,6 +68,7 @@ REQUIRED_FILES = {
     "tests/testbench.mjs",
     "EDITOR_STRESS_BASELINE.md",
     "RENDERER_BOUNDARY_AUDIT.md",
+    "assets/music.json",
 }
 
 
@@ -281,7 +288,7 @@ def build_archive(project_root: Path, output: Path, revision: int) -> int:
             if Path(name).suffix.lower() in EXCLUDED_EXTENSIONS
         ]
         if forbidden:
-            raise ValueError(f"archive contains excluded artwork: {', '.join(forbidden)}")
+            raise ValueError(f"archive contains excluded binary assets: {', '.join(forbidden)}")
         generated = [
             name for name in names
             if any(part in FORBIDDEN_GENERATED_DIRECTORIES for part in Path(name).parts)
@@ -306,7 +313,7 @@ def main() -> int:
     except (OSError, ValueError, zipfile.BadZipFile) as error:
         print(f"Packaging failed: {error}", file=sys.stderr)
         return 1
-    print(f"Created {output.resolve()} with {file_count} files; PNG and XCF files excluded.")
+    print(f"Created {output.resolve()} with {file_count} files; PNG, XCF, and OGG files excluded.")
     return 0
 
 

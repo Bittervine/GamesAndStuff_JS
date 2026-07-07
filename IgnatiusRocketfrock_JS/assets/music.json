@@ -4,15 +4,15 @@
     {
       "id": "music_001",
       "file": "music_001.ogg",
-      "title": "Fantasy Choir 1",
-      "sourceFileName": "Fantasy Choir 1.wav",
-      "sourceExtension": ".wav",
-      "sourceSha256": "2e1e507276d0058797bfd002768a512fca2a4ccc4f337bdfa49415b95ab623e4",
+      "title": "B4B",
+      "sourceFileName": "42b4b.ogg",
+      "sourceExtension": ".ogg",
+      "sourceSha256": "8ef0ceec4c70e5c2b8fadad32f04e73c6af1ab6365e4d26b9d08712dc869184d",
       "metadataTitle": null,
-      "guessedTitle": "Fantasy Choir 1",
+      "guessedTitle": "B4B",
       "durationSeconds": null,
-      "importedAt": "2026-07-07T05:24:12Z"
-    },
+      "importedAt": "2026-07-07T05:47:10Z"
+    },    
     {
       "id": "music_002",
       "file": "music_002.ogg",
@@ -60,7 +60,19 @@
       "guessedTitle": "Vampires Piano",
       "durationSeconds": null,
       "importedAt": "2026-07-07T05:24:19Z"
-    }
+    },
+    {
+      "id": "music_006",
+      "file": "music_006.ogg",
+      "title": "Fantasy Choir 1",
+      "sourceFileName": "Fantasy Choir 1.wav",
+      "sourceExtension": ".wav",
+      "sourceSha256": "2e1e507276d0058797bfd002768a512fca2a4ccc4f337bdfa49415b95ab623e4",
+      "metadataTitle": null,
+      "guessedTitle": "Fantasy Choir 1",
+      "durationSeconds": null,
+      "importedAt": "2026-07-07T05:24:12Z"
+    },
   ],
-  "updatedAt": "2026-07-07T05:24:19Z"
+  "updatedAt": "2026-07-07T05:47:10Z"
 }

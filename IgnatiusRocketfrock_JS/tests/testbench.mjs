@@ -68,14 +68,12 @@ import {
 } from "../src/browser/game-settings-store.js";
 import {
     DEFAULT_LEVEL_MUSIC,
-    MUSIC_TUNES,
-    getMusicTune,
+    getMusicTrack,
     musicLoopDurationSeconds,
     normalizeLevelMusic,
-    pitchToMidi,
-    transposePitch
+    normalizeMusicCatalog
 } from "../src/shared/music-data.js";
-import { createMusicDirector, noteFrequency } from "../src/browser/music-director.js";
+import { createMusicDirector } from "../src/browser/music-director.js";
 import {
     detectElectronWindowBridge,
     readFullscreenState,
@@ -423,7 +421,6 @@ function testSourceOrganization() {
         "../renderer-smoke.html",
         "../IgnatiusRocketfrock_JS.html",
         "../ARCHITECTURE.md",
-        "../MUSIC_SOURCES.md",
         "../package.json",
         "../EDITOR_STRESS_BASELINE.md",
         "../RENDERER_BOUNDARY_AUDIT.md",
@@ -435,8 +432,6 @@ function testSourceOrganization() {
         "../src/browser/hud-panel-layout.js",
         "../src/browser/game-settings-store.js",
         "../src/browser/music-director.js",
-        "../src/browser/music-engine-host.js",
-        "../src/browser/music-engine-sources.js",
         "../src/browser/electron-window-bridge.js",
         "../src/presentation/canvas-renderer.js",
         "../src/presentation/webgl2-renderer.js",
@@ -460,7 +455,7 @@ function testSourceOrganization() {
         "../src/shared/signal-channel-data.js",
         "../src/shared/game-settings-data.js",
         "../src/shared/music-data.js",
-        "../assets/music/ignatius_music_selections.json",
+        "../assets/music.json",
         "../src/shared/power-up-data.js",
         "../electron/main.cjs",
         "../electron/preload.cjs",
@@ -503,6 +498,12 @@ function testSourceOrganization() {
         "../src/tools/level-editor-2.js",
         "../src/presentation/level-color-map.js",
         "../src/presentation/rocket-glow-cache.js",
+        "../MUSIC_SOURCES.md",
+        "../src/browser/music-engine-host.js",
+        "../src/browser/music-engine-sources.js",
+        "../assets/music/ignatius_music_selections.json",
+        "../devel/ignatius_music_selections.json",
+        "../devel/ignatius_public_domain_jukebox_v7_long_form_loops.html",
         "../devel/old/ct_char_enemy_004.json",
         "../generate_level002_temp.mjs"
     ];
@@ -9038,10 +9039,10 @@ function testRocketPowerUpArsenal() {
     const characterEditorSource = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 435<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(characterEditorSource, /Puppet Forge <small>rev 435<\/small>/, "Puppet Forge should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 454<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(characterEditorSource, /Puppet Forge <small>rev 454<\/small>/, "Puppet Forge should display the packaged revision");
     const assetEditorSource = readFileSync(new URL("../asset-editor.html", import.meta.url), "utf8");
-    assert.match(assetEditorSource, /Asset Tool <small>rev 435<\/small>/, "Asset Tool should display the packaged revision");
+    assert.match(assetEditorSource, /Asset Tool <small>rev 454<\/small>/, "Asset Tool should display the packaged revision");
     assert.ok(editorSource.includes("state.level.layerVisuals = normalizeLevelLayerVisuals({\n            version: 2,"), "editor metadata commits should retain the canonical layer-visual schema instead of reapplying legacy Foreground factors");
     assert.ok(editorSource.includes("const w = displayRecord.w * state.camera.zoom") && editorSource.includes("const w = displayPlacement.w * state.camera.zoom"), "Foreground selection and asset-guide outlines should use the same layer-scaled display dimensions as rendered artwork");
     assert.ok(
@@ -9070,7 +9071,7 @@ function testRocketPowerUpArsenal() {
     assert.equal(editorSource.includes('id="canvas-renderer-baseline"'), false, "the Level Editor should no longer advertise the posterity-only Canvas baseline");
     assert.equal(editorSource.includes("openCanvasRendererBaseline"), false, "the removed baseline link should leave no dormant click handler");
     assert.equal(editorSource.includes("Editor 2 lab"), false, "the Level Editor should not link to the removed Editor 2 lab");
-    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 435") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
+    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 454") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
     assert.ok(baselineSource.includes("applyEditorLevelToWorld") && baselineSource.includes("preferWebGL2: false") && baselineSource.includes("setViewOverride"), "the retained baseline should still convert the authored level and use the ordinary Canvas2D game renderer with an editor camera override");
     assert.ok(editorPlaywrightBenchmark.includes("benchmark_baseline") && editorPlaywrightBenchmark.includes("benchmark_editor") && editorPlaywrightBenchmark.includes("editorToBaselineCadenceRatio"), "the optional Playwright probe should compare the loaded baseline and editor rather than source-only timings");
     assert.ok(editorPlaywrightBenchmark.includes("bodyScrollWidth") && editorPlaywrightBenchmark.includes("stageBacking") && editorPlaywrightBenchmark.includes("overlayBacking"), "the Playwright probe should detect viewport overflow and stage/overlay size divergence");
@@ -9080,7 +9081,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(rendererSource.includes("backingPixelsPerCssPixel") && rendererSource.includes("override.cssZoom * backingPixelsPerCssPixel") && editorSource.includes("cssZoom: state.camera.zoom"), "editor and runtime artwork should share one CSS-pixel camera scale so guide alignment does not drift across the viewport");
     assert.ok(rendererSource.includes("this.ctx.setTransform(1, 0, 0, 1, 0, 0)") && rendererSource.includes("never inherit a CSS/DPR transform"), "the production Canvas renderer should reset inherited context transforms before drawing backing-pixel coordinates");
     assert.ok(editorSource.includes("stageCtx?.setTransform(1, 0, 0, 1, 0, 0)") && !editorSource.includes("stageCtx?.setTransform(dpr"), "the Level Editor must not pre-scale the production scene context by devicePixelRatio");
-    assert.match(bootstrapSource, /const GAME_REVISION = "435";/, "the game debug revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "454";/, "the game debug revision should match the packaged revision");
     assert.ok(
         editorSource.includes('<div class="level-section-label">Existing Level:</div>')
             && editorSource.includes('id="load-level">Load</button>')
@@ -11910,7 +11911,7 @@ function testLevelTwoGoblinBossArenaContract() {
     const level = JSON.parse(readFileSync(new URL("../assets/level_002.json", import.meta.url), "utf8"));
     assert.equal(level.levelId, "level_002", "the authored level should retain its sequential level ID");
     assert.equal(level.generation.seed, "cinder-vault-291-8f6c2b", "the generated foundation should retain its reproducible random seed");
-    assert.ok(getMusicTune(level.music.tuneId), "level_002 should name a real synthesized tune rather than silently falling back");
+    assert.equal(normalizeLevelMusic(level.music).trackId, "music_001", "level_002 should use the first OGG music track");
 
     const enemies = level.entities.filter((entity) => entity.type === "characterEnemy");
     assert.equal(enemies.length, 30, "the updated route and arena should contain twenty-three ground goblins, six bats, and one boss");
@@ -12579,179 +12580,124 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.doesNotMatch(electronMainSource, /webSecurity:\s*false/, "Electron preparation must not disable web security");
 }
 
-function testSynthesizedLevelMusicSystem() {
-    assert.equal(DEFAULT_LEVEL_MUSIC.tuneId, "grieg_mountain_king", "Mountain King should remain the default level tune");
-    assert.equal(DEFAULT_LEVEL_MUSIC.version, 2, "level music metadata should use the accepted-selection schema");
-    assert.equal(MUSIC_TUNES.length, 19, "the game music catalog should contain silence plus the 18 accepted jukebox tunes");
-    assert.deepEqual(
-        MUSIC_TUNES.map((tune) => tune.id),
-        [
-            "none",
-            "grieg_mountain_king",
-            "grieg_march_dwarfs",
-            "mussorgsky_bald_mountain",
-            "saint_saens_danse_macabre",
-            "saint_saens_fossils",
-            "saint_saens_elephant",
-            "saint_saens_lion",
-            "tchaikovsky_sugar_plum",
-            "bach_toccata_d_minor",
-            "bach_bourree_e_minor",
-            "beethoven_turkish_march",
-            "mozart_rondo_alla_turca",
-            "mozart_eine_kleine",
-            "mozart_queen_night",
-            "brahms_hungarian_5",
-            "delibes_pizzicato",
-            "joplin_entertainer",
-            "strauss_pizzicato_polka"
-        ],
-        "the editor-facing catalog should exactly follow the accepted JSON order"
-    );
-    assert.equal(MUSIC_TUNES.some((tune) => tune.id === "grieg_anitra_dance"), false, "rejected tunes should be removed from the game catalog");
-    for (const tune of MUSIC_TUNES.filter((candidate) => candidate.id !== "none")) {
-        assert.equal(tune.publicDomain, true, `${tune.id} should remain marked as a public-domain composition`);
-        assert.ok([2, 3, 4].includes(tune.engineVersion), `${tune.id} should use one of the three selected jukebox engines`);
-        assert.ok(Number.isInteger(tune.octave), `${tune.id} should retain its selected whole-octave adjustment`);
-        assert.ok(tune.fullPassSeconds >= 200 && tune.fullPassSeconds <= 300, `${tune.id} should retain its two-to-five-minute developed pass`);
-        assert.ok(tune.loopStartSeconds > 0 && tune.loopStartSeconds < tune.fullPassSeconds, `${tune.id} should play its opening once before returning to the musical loop point`);
-        assert.ok(tune.repeatSeconds > 200, `${tune.id} should expose the long repeating body exported by the jukebox`);
-        assert.ok(tune.sections > 0, `${tune.id} should retain developed-section metadata`);
-        assert.equal(musicLoopDurationSeconds(tune), tune.fullPassSeconds, `${tune.id} duration helpers should use the exported full pass`);
-    }
-    assert.deepEqual(
-        {
-            engineVersion: getMusicTune("saint_saens_elephant").engineVersion,
-            versionName: getMusicTune("saint_saens_elephant").versionName,
-            octave: getMusicTune("saint_saens_elephant").octave,
-            loopStartSeconds: getMusicTune("saint_saens_elephant").loopStartSeconds
+function createFakeAudioElement(calls) {
+    return {
+        _src: "",
+        loop: false,
+        preload: "",
+        volume: 1,
+        currentTime: 0,
+        paused: true,
+        set src(value) {
+            this._src = String(value || "");
+            calls.push(["src", this._src]);
         },
-        { engineVersion: 4, versionName: "Deep piano", octave: -1, loopStartSeconds: 8.275862068965518 },
-        "The Elephant should preserve the accepted deep-piano version and lowered octave"
-    );
-    assert.deepEqual(
-        {
-            engineVersion: getMusicTune("delibes_pizzicato").engineVersion,
-            octave: getMusicTune("delibes_pizzicato").octave
+        get src() {
+            return this._src;
         },
-        { engineVersion: 2, octave: -2 },
-        "Pizzicato from Sylvia should preserve its orchestrated version and two-octave lowering"
-    );
-    assert.equal(normalizeLevelMusic({ tuneId: "joplin_entertainer" }).tuneId, "joplin_entertainer", "accepted tune ids should survive normalization");
-    assert.equal(normalizeLevelMusic({ tuneId: "grieg_anitra_dance" }).tuneId, DEFAULT_LEVEL_MUSIC.tuneId, "removed tune ids should fall back safely");
-    assert.equal(getMusicTune("none").engineVersion, 0, "the no-music choice should not select an embedded engine");
-    assert.equal(pitchToMidi("A4"), 69, "pitch parsing should retain standard MIDI note numbering");
-    assert.equal(pitchToMidi("E#3"), pitchToMidi("F3"), "enharmonic spellings should retain the correct frequency");
-    assert.equal(transposePitch("B3", 12), "B4", "whole-octave transposition helpers should remain available");
-    assert.ok(Math.abs(noteFrequency("A4") - 440) < 0.000001, "the compatibility frequency helper should tune A4 to 440 Hz");
-
-    const hostCalls = [];
-    const fakeHost = {
-        prepare() { hostCalls.push(["prepare"]); return true; },
-        setVolume(value) { hostCalls.push(["volume", value]); return value; },
-        async configure(version, tuneId, octave) { hostCalls.push(["configure", version, tuneId, octave]); return true; },
-        async play(version) { hostCalls.push(["play", version]); return true; },
-        pauseAll() { hostCalls.push(["pause"]); },
-        stopAll() { hostCalls.push(["stop"]); },
-        dispose() { hostCalls.push(["dispose"]); }
-    };
-    const director = createMusicDirector({ engineHostFactory: () => fakeHost, volume: 0.1 });
-    director.setTune("saint_saens_elephant");
-    return director.unlock().then(async (started) => {
-        assert.equal(started, true, "a selected embedded engine should unlock from the player gesture");
-        assert.ok(hostCalls.some((call) => call[0] === "configure" && call[1] === 4 && call[2] === "saint_saens_elephant" && call[3] === -1), "the director should configure the exact accepted engine, tune, and octave");
-        assert.ok(hostCalls.some((call) => call[0] === "play" && call[1] === 4), "the director should play through the selected jukebox engine");
-        const playCountAfterInitialUnlock = hostCalls.filter((call) => call[0] === "play").length;
-        assert.deepEqual(await Promise.all([director.unlock(), director.unlock()]), [true, true], "repeated gameplay gestures should still report an unlocked active tune");
-        assert.equal(hostCalls.filter((call) => call[0] === "play").length, playCountAfterInitialUnlock, "repeated gameplay gestures must not restart an already playing tune");
-        assert.equal(director.getEffectiveVolume(), 0.1, "configured music volume should be audible while unmuted");
-        director.setMuted(true);
-        assert.equal(director.getEffectiveVolume(), 0, "pause muting should reduce the effective music gain to zero");
-        assert.ok(hostCalls.some((call) => call[0] === "pause"), "pause muting should invoke the embedded jukebox pause path");
-        director.setVolume(0.4);
-        assert.equal(director.getEffectiveVolume(), 0, "changing the slider while paused must not leak music through the mute");
-        director.setMuted(false);
-        assert.equal(director.getEffectiveVolume(), 0.4, "resuming should restore the latest configured music volume");
-        director.setTune("none");
-        assert.equal(director.getTuneId(), "none", "the silent catalog choice should remain selectable");
-        director.dispose();
-        assert.ok(hostCalls.some((call) => call[0] === "dispose"), "disposing the director should remove its hidden jukebox engines");
-
-        const concurrentHostCalls = [];
-        let releaseConcurrentConfigure = null;
-        const concurrentHost = {
-            prepare() { return true; },
-            setVolume() {},
-            configure() {
-                concurrentHostCalls.push("configure");
-                return new Promise((resolve) => {
-                    releaseConcurrentConfigure = () => resolve(true);
-                });
-            },
-            async play() { concurrentHostCalls.push("play"); return true; },
-            pauseAll() {},
-            stopAll() {},
-            dispose() {}
-        };
-        const concurrentDirector = createMusicDirector({ engineHostFactory: () => concurrentHost, volume: 0.1 });
-        concurrentDirector.setTune("saint_saens_elephant");
-        const concurrentStarts = [concurrentDirector.unlock(), concurrentDirector.unlock()];
-        assert.equal(concurrentHostCalls.filter((call) => call === "configure").length, 1, "simultaneous gameplay gestures should share one configure attempt");
-        releaseConcurrentConfigure();
-        assert.deepEqual(await Promise.all(concurrentStarts), [true, true], "coalesced gameplay unlock requests should share the successful result");
-        assert.equal(concurrentHostCalls.filter((call) => call === "play").length, 1, "simultaneous gameplay gestures should schedule only one engine play call");
-        concurrentDirector.dispose();
-
-        const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
-        const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
-        const musicDirectorSource = readFileSync(new URL("../src/browser/music-director.js", import.meta.url), "utf8");
-        const musicHostSource = readFileSync(new URL("../src/browser/music-engine-host.js", import.meta.url), "utf8");
-        const engineSources = readFileSync(new URL("../src/browser/music-engine-sources.js", import.meta.url), "utf8");
-        const levelEditorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
-        const selection = JSON.parse(readFileSync(new URL("../assets/music/ignatius_music_selections.json", import.meta.url), "utf8"));
-        const levelOne = JSON.parse(readFileSync(new URL("../assets/level_001.json", import.meta.url), "utf8"));
-        assert.equal(selection.accepted.length, 18, "the packaged selection source should retain all 18 accepted tunes");
-        for (const accepted of selection.accepted) {
-            const tune = getMusicTune(accepted.id);
-            assert.equal(tune.id, accepted.id, `${accepted.id} should exist in the runtime catalog`);
-            assert.equal(tune.engineVersion, accepted.version, `${accepted.id} should retain its selected jukebox version`);
-            assert.equal(tune.octave, accepted.octave, `${accepted.id} should retain its selected octave`);
+        load() {
+            calls.push(["load", this._src]);
+        },
+        async play() {
+            calls.push(["play", this._src]);
+            this.paused = false;
+        },
+        pause() {
+            calls.push(["pause", this._src]);
+            this.paused = true;
+        },
+        removeAttribute(name) {
+            calls.push(["removeAttribute", name]);
+            if (name === "src") this._src = "";
         }
-        assert.match(bootstrapSource, /createMusicDirector/, "browser bootstrap should own a music director");
-        assert.match(bootstrapSource, /musicDirector\.setTune\(activeLevelMusic\.tuneId\)/, "level loading should switch the selected jukebox tune");
-        assert.match(bootstrapSource, /musicDirector\.setVolume\(settings\.musicVolume\)/, "the existing music slider should control the embedded engine volume");
-        assert.match(bootstrapSource, /unlockMusicFromGesture/, "music should unlock from a player gesture to satisfy browser autoplay rules");
-        assert.match(musicDirectorSource, /createEmbeddedMusicEngineHost/, "the director should delegate playback to the exact embedded jukebox engines");
-        assert.match(musicHostSource, /frame\.srcdoc = decodeBase64Utf8/, "the host should use same-origin srcdoc engines so local-file builds keep working");
-        assert.match(musicHostSource, /api\.setOctave\(Number\(octave\) \|\| 0\)/, "the host should apply each accepted octave before playback");
-        assert.match(engineSources, /Derived from ignatius_public_domain_jukebox_v7_long_form_loops\.html/, "the embedded engine bundle should record its jukebox provenance");
-        const engineTwoMatch = /\n\s*2:\s*"([A-Za-z0-9+/=]+)"/.exec(engineSources);
-        assert.ok(engineTwoMatch, "the orchestrated engine source should remain embedded");
-        const engineTwoSource = Buffer.from(engineTwoMatch[1], "base64").toString("utf8");
-        assert.match(engineTwoSource, /followsPrimaryMelody:true,timbre:\{cutoff:1500,attack:\.09,decay:\.24,sustain:\.78,release:\.34,breath:\.008,reverb:\.34\},notes:accentedCopy\(melody,12,1\)/, "Mountain King should keep the complete bassoon shadow while using its softer tune-specific filter and envelope");
-        assert.match(engineTwoSource, /instrument:'bassoon',gain:\.13,pan:\.15/, "Mountain King's upper bassoon shadow should sit more quietly beneath the cello");
-        assert.match(engineTwoSource, /voice\.timbre&&!baseProfile\.kind\?\{\.\.\.baseProfile,\.\.\.voice\.timbre\}:baseProfile/, "the orchestrated engine should support non-percussion tune-specific timbre overrides without changing instrument identity");
-        assert.match(engineTwoSource, /!followsPrimaryMelody && plan\.sparse/, "long-form development must not thin Mountain King's marked melody-support voice");
-        assert.doesNotMatch(engineTwoSource, /accentedCopy\(melody,12,2\)/, "Mountain King must not restore the alternating-note support copy that fragmented its timbre");
-        assert.doesNotMatch(engineSources, /\.mp3|\.ogg|\.wav|\.mid/i, "the embedded engines should remain synthesized and package no recordings or MIDI files");
-        assert.match(gameHtml, /id="music-volume"/, "the compact settings dialog should retain live music volume control");
-        assert.match(levelEditorSource, /id="level-music"/, "the Level Editor should expose the accepted soundtrack selector");
-        assert.match(levelEditorSource, /MUSIC_TUNES/, "the Level Editor should populate its soundtrack choices from the shared accepted catalog");
-        assert.equal(levelOne.music.tuneId, "joplin_entertainer", "level_001 should explicitly select The Entertainer");
-        assert.equal(levelOne.music.version, 2, "authored levels should carry the current music metadata version");
+    };
+}
 
-        const state = createInitialGameState();
-        assert.equal(applyEditorLevelToWorld(state, {
-            levelId: "music_test",
-            title: "Music Test",
-            music: { tuneId: "strauss_pizzicato_polka" },
-            world: { bounds: { x: 0, y: 0, w: 800, h: 600 }, resetY: 700 },
-            testPlayerStart: { x: 100, y: 300 },
-            placements: [],
-            entities: []
-        }), true, "a level with accepted music metadata should still apply normally");
-        assert.equal(state.world.music.tuneId, "strauss_pizzicato_polka", "portable level loading should retain accepted music metadata");
+async function testOggLevelMusicSystem() {
+    const musicJson = JSON.parse(readFileSync(new URL("../assets/music.json", import.meta.url), "utf8"));
+    const catalog = normalizeMusicCatalog(musicJson);
+    assert.equal(DEFAULT_LEVEL_MUSIC.trackId, "music_001", "the first imported OGG track should be the default level music");
+    assert.equal(DEFAULT_LEVEL_MUSIC.version, 3, "level music metadata should use the OGG-track schema");
+    assert.equal(catalog.tracks.length, 6, "the music catalog should contain silence plus the five imported OGG tracks");
+    assert.deepEqual(
+        catalog.tracks.map((track) => track.id),
+        ["none", "music_001", "music_002", "music_003", "music_004", "music_005"],
+        "the editor-facing catalog should follow assets/music.json order"
+    );
+    for (const track of catalog.tracks.filter((candidate) => candidate.id !== "none")) {
+        assert.match(track.file, /^music_\d{3}\.ogg$/, `${track.id} should point at its OGG file in assets/`);
+        assert.equal(existsSync(new URL(`../assets/${track.file}`, import.meta.url)), true, `${track.file} should exist beside music.json`);
+        assert.ok(track.title.length > 0, `${track.id} should expose a readable title`);
+        assert.equal(musicLoopDurationSeconds(track), Number(track.durationSeconds) || 0, `${track.id} duration helpers should use catalog metadata when present`);
+    }
+    assert.equal(normalizeLevelMusic({ trackId: "music_003" }).trackId, "music_003", "OGG track ids should survive normalization");
+    assert.equal(normalizeLevelMusic({ tuneId: "joplin_entertainer" }).trackId, DEFAULT_LEVEL_MUSIC.trackId, "retired synthesized tune ids should fall back to the first OGG track");
+    assert.equal(getMusicTrack("music_004", catalog).title, "GameMusic ForestTheme 24", "track lookup should use music.json metadata");
+    assert.equal(getMusicTrack("none", catalog).file, "", "the no-music choice should not point at an audio file");
+
+    const audioCalls = [];
+    const director = createMusicDirector({
+        audioElementFactory: () => createFakeAudioElement(audioCalls),
+        volume: 0.1
     });
+    director.setCatalog(catalog);
+    director.setTrack("music_002");
+    assert.equal(director.getTrackId(), "music_002", "the OGG track should remain selectable");
+    assert.equal(await director.unlock(), true, "a selected OGG track should unlock from the player gesture");
+    assert.ok(audioCalls.some((call) => call[0] === "src" && call[1] === "assets/music_002.ogg"), "the director should load the chosen OGG from assets/");
+    assert.ok(audioCalls.some((call) => call[0] === "play" && call[1] === "assets/music_002.ogg"), "the director should play the selected OGG file");
+    const playCountAfterInitialUnlock = audioCalls.filter((call) => call[0] === "play").length;
+    assert.deepEqual(await Promise.all([director.unlock(), director.unlock()]), [true, true], "repeated gameplay gestures should still report an unlocked active track");
+    assert.equal(audioCalls.filter((call) => call[0] === "play").length, playCountAfterInitialUnlock, "repeated gameplay gestures must not restart an already playing track");
+    assert.equal(director.getEffectiveVolume(), 0.1, "configured music volume should be audible while unmuted");
+    director.setMuted(true);
+    assert.equal(director.getEffectiveVolume(), 0, "pause muting should reduce the effective music volume to zero");
+    assert.ok(audioCalls.some((call) => call[0] === "pause"), "pause muting should pause the audio element");
+    director.setVolume(0.4);
+    assert.equal(director.getEffectiveVolume(), 0, "changing the slider while paused must not leak music through the mute");
+    director.setMuted(false);
+    assert.equal(director.getEffectiveVolume(), 0.4, "resuming should restore the latest configured music volume");
+    director.setTrack("none");
+    assert.equal(director.getTrackId(), "none", "the silent catalog choice should remain selectable");
+    director.dispose();
+    assert.ok(audioCalls.some((call) => call[0] === "removeAttribute" && call[1] === "src"), "disposing the director should clear its audio source");
+
+    const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
+    const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
+    const musicDirectorSource = readFileSync(new URL("../src/browser/music-director.js", import.meta.url), "utf8");
+    const levelEditorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    const musicDataSource = readFileSync(new URL("../src/shared/music-data.js", import.meta.url), "utf8");
+    const levelOne = JSON.parse(readFileSync(new URL("../assets/level_001.json", import.meta.url), "utf8"));
+    assert.match(bootstrapSource, /loadMusicCatalog/, "browser bootstrap should load assets/music.json before playing music");
+    assert.match(bootstrapSource, /musicDirector\.setCatalog\(musicCatalog\)/, "browser bootstrap should hand the OGG catalog to the music director");
+    assert.match(bootstrapSource, /musicDirector\.setTrack\(activeLevelMusic\.trackId\)/, "level loading should switch the selected OGG track");
+    assert.match(bootstrapSource, /musicDirector\.setVolume\(settings\.musicVolume\)/, "the existing music slider should control OGG playback volume");
+    assert.match(bootstrapSource, /unlockMusicFromGesture/, "music should unlock from a player gesture to satisfy browser autoplay rules");
+    assert.match(musicDirectorSource, /new globalThis\.Audio\(\)/, "the director should use a normal browser audio element, not a synthesized engine host");
+    assert.doesNotMatch(musicDirectorSource, /Oscillator|AudioContext|srcdoc|music-engine/i, "the retired synthesized engine path should not remain in the director");
+    assert.doesNotMatch(musicDataSource, /grieg_|joplin_|saint_saens|MUSIC_TUNES|pitchToMidi|transposePitch/, "the shared music catalog should not retain the old classical synthesized tune data");
+    assert.equal(existsSync(new URL("../src/browser/music-engine-host.js", import.meta.url)), false, "the old embedded music engine host should be removed");
+    assert.equal(existsSync(new URL("../src/browser/music-engine-sources.js", import.meta.url)), false, "the old embedded music engine source bundle should be removed");
+    assert.equal(existsSync(new URL("../assets/music/ignatius_music_selections.json", import.meta.url)), false, "the old accepted-jukebox data file should be removed");
+    assert.equal(existsSync(new URL("../MUSIC_SOURCES.md", import.meta.url)), false, "the old score-source research file should be removed");
+    assert.match(gameHtml, /id="music-volume"/, "the compact settings dialog should retain live music volume control");
+    assert.match(levelEditorSource, /id="level-music"/, "the Level Editor should expose the soundtrack selector");
+    assert.match(levelEditorSource, /assets\/music\.json/, "the Level Editor should populate soundtrack choices from the OGG metadata file");
+    assert.doesNotMatch(levelEditorSource, /MUSIC_TUNES/, "the Level Editor should not use the retired synthesized catalog");
+    assert.equal(levelOne.music.trackId, "music_001", "level_001 should explicitly select the first imported OGG track");
+    assert.equal(levelOne.music.version, 3, "authored levels should carry the current OGG music metadata version");
+
+    const state = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(state, {
+        levelId: "music_test",
+        title: "Music Test",
+        music: { trackId: "music_005" },
+        world: { bounds: { x: 0, y: 0, w: 800, h: 600 }, resetY: 700 },
+        testPlayerStart: { x: 100, y: 300 },
+        placements: [],
+        entities: []
+    }), true, "a level with OGG music metadata should still apply normally");
+    assert.equal(state.world.music.trackId, "music_005", "portable level loading should retain OGG track metadata");
 }
 
 async function testFullscreenBridgeContract() {
@@ -13283,7 +13229,6 @@ function testCssShadowEffectsRemainExtinct() {
         "renderer-smoke.html",
         "level-renderer-baseline.html",
         "devel/renderer-sprite-bench.html",
-        "devel/ignatius_public_domain_jukebox_v7_long_form_loops.html",
     ];
     for (const relativePath of roots) {
         const source = readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
@@ -13297,7 +13242,7 @@ const tests = [
     ["CSS shadow effects remain extinct across every shipped interface", testCssShadowEffectsRemainExtinct],
     ["level editor dense stress fixture", testLevelEditorStressFixture],
     ["game settings persistence and menu shell", testGameSettingsSchemaPersistenceAndMenuShell],
-    ["synthesized level music system", testSynthesizedLevelMusicSystem],
+    ["OGG level music system", testOggLevelMusicSystem],
     ["fullscreen Electron bridge contract", testFullscreenBridgeContract],
     ["temporary melee and ranged enemy tuning multipliers", testTemporaryEnemyTuningMultipliers],
     ["difficulty scales only incoming damage", testDifficultyScalesOnlyIncomingDamage],

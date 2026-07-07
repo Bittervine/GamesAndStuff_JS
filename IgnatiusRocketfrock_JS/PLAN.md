@@ -20,9 +20,7 @@ IgnatiusRocketfrock_JS/
 │   │   ├── game-settings-store.js
 │   │   ├── gamepad-haptics.js
 │   │   ├── hud-panel-layout.js
-│   │   ├── music-director.js
-│   │   ├── music-engine-host.js
-│   │   └── music-engine-sources.js
+│   │   └── music-director.js
 │   ├── presentation/
 │   │   ├── canvas-renderer.js
 │   │   ├── webgl2-renderer.js
@@ -50,7 +48,8 @@ IgnatiusRocketfrock_JS/
 │       └── dopesheet-data.js
 ├── tests/testbench.mjs
 ├── assets/
-│   └── music/ignatius_music_selections.json
+│   ├── music.json
+│   └── music_001.ogg, music_002.ogg, ...
 ├── devel/package_update.py
 ├── electron/
 ├── package.json
@@ -3909,3 +3908,8 @@ Status: implemented.
 Generated endpoint screens were being left mostly empty by several overlapping restrictions. Encounter calm space was expanded to the largest allowed enemy awareness range plus a safety buffer, producing roughly 980-1020 units of exclusion at each end. Active enemy metadata also refused the earliest route progress, physical rewards excluded 760-800 units around endpoints, and endpoint metadata omitted the actual door coordinates so several systems measured from the middle of the door platform instead. Reward-perch placement could then consume the treasure budget before open-route and late-route seats were considered.
 
 Generator schema version 35 stores the actual entrance and exit coordinates. Encounter calm zones now protect portal footing rather than whole awareness ranges: 520 units for Earth and 540 for Ice. The earliest active enemy can use the first transition support, endpoint-local fallback candidates keep grouped encounters from consuming the population quota before a late seat is tried, and both first and last screens are covered while the portal approach remains clear. Physical rewards may use the full route-progress range. A safely offset treasure chest is placed on each door support when rewards are enabled, upper perches retain a capped share of the treasure budget, and remaining chests are distributed across the complete route instead of filling from the start forward. Reward exclusion is 300 units for Earth and 320 for Ice, measured from the actual portal positions.
+
+
+## Revision 454 OGG music reset
+
+Revision 454 cleans out the retired synthesized/jukebox music path and makes numbered OGG tracks the only game music source. Levels now store `music.version: 3` with `trackId: "music_001"` by default, the Level Editor loads choices from `assets/music.json`, and runtime playback uses a browser-owned looping audio element. Update zips exclude `.png`, `.xcf`, and `.ogg` files.

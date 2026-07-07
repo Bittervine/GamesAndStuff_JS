@@ -794,7 +794,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 435</small></h1>
+        <h1>Level Editor <small>rev 454</small></h1>
 
         <div class="box">
             <h2>Level</h2>
@@ -1363,7 +1363,7 @@ import {
     normalizeMovingPlatform
 } from "./src/shared/moving-platform-data.js";
 import { isSignalEmitterEntity, isSignalReceiverEntity, normalizeSignalChannel } from "./src/shared/signal-channel-data.js";
-import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
+import { DEFAULT_LEVEL_MUSIC, normalizeLevelMusic, normalizeMusicCatalog } from "./src/shared/music-data.js";
 import { normalizeEnemyScale, scaledEnemyDimensions, scaledEnemyRenderScale } from "./src/shared/enemy-scale-data.js";
 import {
     DEFAULT_AUTO_SPAWN_ENEMIES,
@@ -1376,6 +1376,7 @@ import {
     "use strict";
 
     const STORAGE_KEY = "ignatius_level_editor_v2";
+    let musicCatalog = normalizeMusicCatalog(null);
 
     const PANEL_STORAGE_KEY = "ignatiusRocketfrock.levelEditor.collapsedPanels.v1";
 
@@ -7676,19 +7677,47 @@ import {
         }, 140);
     }
 
+    async function loadMusicCatalog() {
+        const url = "assets/music.json";
+        try {
+            const response = await fetch(url, { cache: "no-store" });
+            if (!response.ok) {
+                setStatus(`Music catalog not found at ${url}; keeping the default track selector.`, false);
+                musicCatalog = normalizeMusicCatalog(null);
+                return;
+            }
+            musicCatalog = normalizeMusicCatalog(await response.json());
+        } catch (error) {
+            console.warn(`Could not load ${url}.`, error);
+            setStatus(`Could not load ${url}; keeping the default track selector.`, false);
+            musicCatalog = normalizeMusicCatalog(null);
+        }
+    }
+
+    function musicOptionLabel(track) {
+        if (track.id === "none") return track.title;
+        const source = track.sourceFileName ? ` · ${track.sourceFileName}` : "";
+        return `${track.title} — ${track.id}${source}`;
+    }
+
+    function ensureMusicOption(trackId) {
+        const id = normalizeLevelMusic({ trackId }).trackId;
+        if ([...els.levelMusic.options].some((option) => option.value === id)) return;
+        const option = document.createElement("option");
+        option.value = id;
+        option.textContent = `${id} (missing from assets/music.json)`;
+        els.levelMusic.appendChild(option);
+    }
+
     function populateLevelMusicOptions() {
         els.levelMusic.innerHTML = "";
-        for (const tune of MUSIC_TUNES) {
+        const tracks = musicCatalog.tracks.length > 1
+            ? musicCatalog.tracks
+            : normalizeMusicCatalog({ tracks: [{ id: DEFAULT_LEVEL_MUSIC.trackId, file: `${DEFAULT_LEVEL_MUSIC.trackId}.ogg`, title: "Music 001" }] }).tracks;
+        for (const track of tracks) {
             const option = document.createElement("option");
-            option.value = tune.id;
-            if (!tune.composer) {
-                option.textContent = tune.title;
-            } else {
-                const octaveLabel = tune.octave
-                    ? ` · ${tune.octave > 0 ? "+" : ""}${tune.octave} octave${Math.abs(tune.octave) === 1 ? "" : "s"}`
-                    : "";
-                option.textContent = `${tune.title} — ${tune.composer} · ${tune.versionName}${octaveLabel}`;
-            }
+            option.value = track.id;
+            option.textContent = musicOptionLabel(track);
             els.levelMusic.appendChild(option);
         }
     }
@@ -7700,7 +7729,7 @@ import {
         syncAutoSpawnEnemiesFromUi();
         state.level.levelId = els.levelId.value.trim() || state.level.levelId;
         state.level.title = els.levelTitle.value.trim() || state.level.title;
-        state.level.music = normalizeLevelMusic({ tuneId: els.levelMusic.value });
+        state.level.music = normalizeLevelMusic({ trackId: els.levelMusic.value });
         state.level.layerVisuals = normalizeLevelLayerVisuals({
             version: 2,
             foreground: {
@@ -7721,7 +7750,9 @@ import {
     function syncMetadataToUi() {
         els.levelId.value = state.level.levelId;
         els.levelTitle.value = state.level.title;
-        els.levelMusic.value = normalizeLevelMusic(state.level.music).tuneId;
+        const music = normalizeLevelMusic(state.level.music);
+        ensureMusicOption(music.trackId);
+        els.levelMusic.value = music.trackId;
         els.worldW.value = state.level.world.bounds.w;
         els.worldH.value = state.level.world.bounds.h;
         const layerVisuals = currentLayerVisuals();
@@ -8355,6 +8386,7 @@ import {
     }
 
     async function initializeEditor() {
+        await loadMusicCatalog();
         populateLevelMusicOptions();
         state.level = makeEmptyLevel();
         setNewAssetLayer("terrain");
