@@ -1869,3 +1869,10 @@ Revision 465 extends the save-file-picker export path beyond the Asset Tool. Lev
 
 The Asset Tool also gains a faster line-editing gesture: in Add Node Mode, clicking essentially on an existing feature line inserts the new node into that line, splits the original segment into two same-kind segments, selects the new node, and immediately switches into Move Mode so the node can be dragged into its final position without extra clicks.
 
+## Revision 467 wizard-sized manual doors
+
+Interactive doorway placement remains catalog-driven. The `wizard_entry_door` and `wizard_exit_door` definitions in `assets/it_entities_001.json` now author 125×164 as their default size, aligning manual Level Editor placement with generated endpoint doors while preserving the existing floor-anchor factor and transition behaviour.
+
+## Revision 468 editable thought triggers
+
+Location thoughts remain ordinary `thoughtTrigger` entities with `interaction: "locationThought"` and authored `thoughtText`. The Level Editor inspector treats them as story records alongside editor-letter mailboxes, but exposes only the trigger distance and thought text controls for thought-only triggers. Runtime story handling remains unchanged.

@@ -47,12 +47,12 @@
     "layerVisuals": {
         "version": 2,
         "background": {
-            "parallax": 0.97,
+            "parallax": 0.98,
             "brightness": 0.9,
             "scale": 1
         },
         "foreground": {
-            "parallax": 1.02,
+            "parallax": 1.01,
             "brightness": 1.05,
             "scale": 1
         }
@@ -419,7 +419,7 @@
             "atlasId": "at_atlas_014",
             "assetId": "forest_rock_cave_entrance",
             "x": 4576,
-            "y": 96,
+            "y": 112,
             "w": 1082,
             "h": 400,
             "mirrorX": false,
@@ -427,6 +427,7 @@
             "rotation": 0,
             "layer": "terrain",
             "collisionFromManifest": false,
+            "editorLocked": false,
             "notes": "",
             "order": -1
         }
@@ -498,10 +499,10 @@
             "id": "wizard_exit_door_001",
             "type": "wizard_exit_door",
             "catalogId": "it_entities_001",
-            "x": 5104,
-            "y": 486.35977337110484,
-            "w": 150,
-            "h": 150,
+            "x": 5120,
+            "y": 486.3201133144476,
+            "w": 125,
+            "h": 164,
             "state": "closed",
             "visualStates": {
                 "closed": [
@@ -550,6 +551,31 @@
             "floorAnchorYFactor": 0.908745247148289,
             "wizardInsideScale": 0.84,
             "notes": "The level exit. It is mirrored by default, snaps to nearby ground, opens when Ignatius approaches, and walks him through before loading its destination level."
+        },
+        {
+            "id": "thoughtTrigger_001",
+            "type": "thoughtTrigger",
+            "catalogId": "it_entities_001",
+            "x": 1712,
+            "y": 368,
+            "w": 120,
+            "h": 160,
+            "state": "available",
+            "visualStates": {
+                "available": [],
+                "consumed": []
+            },
+            "stateLabels": {
+                "available": "Available",
+                "consumed": "Consumed"
+            },
+            "interaction": "locationThought",
+            "triggerDistance": 96,
+            "verticalTolerance": 150,
+            "thoughtAtlasId": "it_atlas_001",
+            "thoughtAssetId": "thought_bubble_large",
+            "thoughtText": "I see a little fella over there. I bet we'll be friends!",
+            "notes": "Invisible one-shot region that pauses play and shows an Ignatius thought bubble when entered."
         }
     ],
     "navigationGraphs": {

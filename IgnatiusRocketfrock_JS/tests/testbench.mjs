@@ -8346,12 +8346,16 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     assert.equal(catalog.entities.shieldPickup.defaults.glowTint, "#008cff", "Shield pickups should use the authored blue glow");
     assert.equal(catalog.entities.shieldPickup.defaults.iconFrame, "powerup_icon_shield", "Shield pickups should use the reserved shield emblem");
     assert.ok(catalog.entities.breakableCrate, "interactive catalog should expose the first reactive destructible object");
+    const levelEditorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    assert.ok(levelEditorHtml.includes("function isLocationThoughtTrigger"), "Level Editor should recognize thought-only story triggers as editable story records");
+    assert.match(levelEditorHtml, /isStoryEntity = isMailboxStory \|\| isLocationThought[\s\S]*mailboxStoryRow\.style\.display = isStoryEntity/, "Level Editor should show the story inspector for location thought triggers, not just mailboxes");
+    assert.match(levelEditorHtml, /if \(editingLocationThought\) \{[\s\S]*rec\.thoughtText = els\.inspectMailboxThought\.value\.trim\(\)/, "Level Editor should save edited thought-trigger text back to thoughtText");
     assert.ok(catalog.entities.destructibleBarrier, "interactive catalog should expose the destructible iron barrier");
     assert.deepEqual(Object.keys(catalog.entities.breakableCrate.states), ["intact", "damaged", "destroyed"], "breakable crate should author explicit intact, damaged, and destroyed visuals");
     assert.deepEqual(Object.keys(catalog.entities.destructibleBarrier.states), ["intact", "damaged", "destroyed"], "destructible barrier should use the shared three-state reactive lifecycle");
     assert.equal(catalog.entities.wizard_exit_door.defaults.mirrorX, true, "exit doorway should be mirrored by default");
-    assert.deepEqual(catalog.entities.wizard_entry_door.defaultSize, { w: 75, h: 98.5 }, "new entry doors should use the half-size doorway dimensions");
-    assert.deepEqual(catalog.entities.wizard_exit_door.defaultSize, { w: 75, h: 98.5 }, "new exit doors should use the half-size doorway dimensions");
+    assert.deepEqual(catalog.entities.wizard_entry_door.defaultSize, { w: 125, h: 164 }, "new entry doors should use the full wizard-sized doorway dimensions");
+    assert.deepEqual(catalog.entities.wizard_exit_door.defaultSize, { w: 125, h: 164 }, "new exit doors should use the full wizard-sized doorway dimensions");
     approx(catalog.entities.wizard_entry_door.defaults.floorAnchorYFactor, 239 / 263, 0.0000001, "door floors should align to the bottom of the meeting door leaves rather than the sprite bottom");
     approx(catalog.entities.wizard_entry_door.defaults.wizardInsideScale, 0.84, 0.0000001, "door transitions should use a slightly reduced inside-wizard scale");
     const openPortal = catalog.entities.wizard_entry_door.states.open.visuals;
@@ -8367,11 +8371,11 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     approx(openPortal[1].widthFactor, 114 / 183, 0.0000001, "foreground portal should preserve source-pixel scale");
     approx(openPortal[1].offsetXFactor, -69 / 366, 0.0000001, "foreground portal should keep its left edge aligned");
 
-    const levelOne = JSON.parse(readFileSync(new URL("../assets/level_001.json", import.meta.url), "utf8"));
-    const levelEntryDoor = levelOne.entities.find((entity) => entity.type === "wizard_entry_door");
-    const levelExitDoor = levelOne.entities.find((entity) => entity.type === "wizard_exit_door");
-    assert.deepEqual({ w: levelEntryDoor.w, h: levelEntryDoor.h }, { w: 125, h: 164 }, "level_001 entry doorway should be half its revision-087 size");
-    assert.deepEqual({ w: levelExitDoor.w, h: levelExitDoor.h }, { w: 125, h: 164 }, "level_001 exit doorway should be half its revision-087 size");
+    const generatedLevel = JSON.parse(readFileSync(new URL("../assets/level_002.json", import.meta.url), "utf8"));
+    const generatedEntryDoor = generatedLevel.entities.find((entity) => entity.type === "wizard_entry_door");
+    const generatedExitDoor = generatedLevel.entities.find((entity) => entity.type === "wizard_exit_door");
+    assert.deepEqual({ w: generatedEntryDoor.w, h: generatedEntryDoor.h }, { w: 125, h: 164 }, "generated entry doorway should retain the wizard-sized dimensions");
+    assert.deepEqual({ w: generatedExitDoor.w, h: generatedExitDoor.h }, { w: 125, h: 164 }, "generated exit doorway should retain the wizard-sized dimensions");
 
     const state = createInitialGameState();
     const mailboxDef = catalog.entities.mailbox;
@@ -9040,10 +9044,10 @@ function testRocketPowerUpArsenal() {
     const characterEditorSource = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 465<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(characterEditorSource, /Puppet Forge <small>rev 465<\/small>/, "Puppet Forge should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 468<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(characterEditorSource, /Puppet Forge <small>rev 468<\/small>/, "Puppet Forge should display the packaged revision");
     const assetEditorSource = readFileSync(new URL("../asset-editor.html", import.meta.url), "utf8");
-    assert.match(assetEditorSource, /Asset Tool <small>rev 465<\/small>/, "Asset Tool should display the packaged revision");
+    assert.match(assetEditorSource, /Asset Tool <small>rev 468<\/small>/, "Asset Tool should display the packaged revision");
     assert.match(assetEditorSource, /id="atlas-numbered-select"[\s\S]*id="load-numbered-atlas"[\s\S]*id="load-local"[\s\S]*id="save-local"[\s\S]*id="quick-save-json"/, "Asset Tool should keep atlas loading and save/export controls together in the Files panel");
     assert.ok(!assetEditorSource.includes("Custom atlas image") && !assetEditorSource.includes("Custom JSON"), "Asset Tool should retire the visible custom import pickers from the primary Files panel");
     assert.doesNotMatch(assetEditorSource, /load-default-image|load-default-json/, "Asset Tool should retire the hard-coded at_atlas_001 load buttons");
@@ -9076,7 +9080,7 @@ function testRocketPowerUpArsenal() {
     assert.equal(editorSource.includes('id="canvas-renderer-baseline"'), false, "the Level Editor should no longer advertise the posterity-only Canvas baseline");
     assert.equal(editorSource.includes("openCanvasRendererBaseline"), false, "the removed baseline link should leave no dormant click handler");
     assert.equal(editorSource.includes("Editor 2 lab"), false, "the Level Editor should not link to the removed Editor 2 lab");
-    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 465") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
+    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 468") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
     assert.ok(baselineSource.includes("applyEditorLevelToWorld") && baselineSource.includes("preferWebGL2: false") && baselineSource.includes("setViewOverride"), "the retained baseline should still convert the authored level and use the ordinary Canvas2D game renderer with an editor camera override");
     assert.ok(editorPlaywrightBenchmark.includes("benchmark_baseline") && editorPlaywrightBenchmark.includes("benchmark_editor") && editorPlaywrightBenchmark.includes("editorToBaselineCadenceRatio"), "the optional Playwright probe should compare the loaded baseline and editor rather than source-only timings");
     assert.ok(editorPlaywrightBenchmark.includes("bodyScrollWidth") && editorPlaywrightBenchmark.includes("stageBacking") && editorPlaywrightBenchmark.includes("overlayBacking"), "the Playwright probe should detect viewport overflow and stage/overlay size divergence");
@@ -9086,7 +9090,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(rendererSource.includes("backingPixelsPerCssPixel") && rendererSource.includes("override.cssZoom * backingPixelsPerCssPixel") && editorSource.includes("cssZoom: state.camera.zoom"), "editor and runtime artwork should share one CSS-pixel camera scale so guide alignment does not drift across the viewport");
     assert.ok(rendererSource.includes("this.ctx.setTransform(1, 0, 0, 1, 0, 0)") && rendererSource.includes("never inherit a CSS/DPR transform"), "the production Canvas renderer should reset inherited context transforms before drawing backing-pixel coordinates");
     assert.ok(editorSource.includes("stageCtx?.setTransform(1, 0, 0, 1, 0, 0)") && !editorSource.includes("stageCtx?.setTransform(dpr"), "the Level Editor must not pre-scale the production scene context by devicePixelRatio");
-    assert.match(bootstrapSource, /const GAME_REVISION = "465";/, "the game debug revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "468";/, "the game debug revision should match the packaged revision");
     assert.ok(
         editorSource.includes('<div class="level-section-label">Existing Level:</div>')
             && editorSource.includes('id="load-level">Load</button>')

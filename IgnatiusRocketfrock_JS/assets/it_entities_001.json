@@ -148,8 +148,8 @@
       "description": "The effective level start. It snaps to nearby ground, opens, lets Ignatius walk out behind the foreground door layer, then closes.",
       "defaultState": "closed",
       "defaultSize": {
-        "w": 75,
-        "h": 98.5
+        "w": 125,
+        "h": 164
       },
       "defaults": {
         "interaction": "levelPortal",
@@ -208,8 +208,8 @@
       "description": "The level exit. It is mirrored by default, snaps to nearby ground, opens when Ignatius approaches, and walks him through before loading its destination level.",
       "defaultState": "closed",
       "defaultSize": {
-        "w": 75,
-        "h": 98.5
+        "w": 125,
+        "h": 164
       },
       "defaults": {
         "interaction": "levelPortal",

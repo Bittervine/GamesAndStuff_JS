@@ -794,7 +794,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 465</small></h1>
+        <h1>Level Editor <small>rev 468</small></h1>
 
         <div class="box">
             <h2>Level</h2>
@@ -1147,15 +1147,15 @@
                 <label class="inline"><input id="inspect-gate-blocks-player" type="checkbox" checked> Block Ignatius while closed</label>
             </div>
             <div id="mailbox-story-row" style="display:none">
-                <h3>Mailbox story</h3>
+                <h3 id="story-inspector-heading">Mailbox story</h3>
                 <div class="row">
                     <label>Trigger distance<input id="inspect-mailbox-distance" type="number" min="8" step="1"></label>
-                    <label>Letter seconds<input id="inspect-mailbox-letter-duration" type="number" min="0.25" step="0.25"></label>
+                    <label id="story-letter-duration-label">Letter seconds<input id="inspect-mailbox-letter-duration" type="number" min="0.25" step="0.25"></label>
                 </div>
-                <label>Thought seconds<input id="inspect-mailbox-thought-duration" type="number" min="0.25" step="0.25"></label>
-                <label>Letter title<input id="inspect-mailbox-title"></label>
-                <label>Letter text<textarea id="inspect-mailbox-letter"></textarea></label>
-                <label>Ignatius's thought
+                <label id="story-thought-duration-label">Thought seconds<input id="inspect-mailbox-thought-duration" type="number" min="0.25" step="0.25"></label>
+                <label id="story-letter-title-label">Letter title<input id="inspect-mailbox-title"></label>
+                <label id="story-letter-text-label">Letter text<textarea id="inspect-mailbox-letter"></textarea></label>
+                <label id="story-thought-text-label">Ignatius's thought
                     <textarea id="inspect-mailbox-thought" rows="7" placeholder="Ignatius's response after reading the letter"></textarea>
                 </label>
             </div>
@@ -1649,6 +1649,12 @@ import {
         inspectGateChannel: document.getElementById("inspect-gate-channel"),
         inspectGateBlocksPlayer: document.getElementById("inspect-gate-blocks-player"),
         mailboxStoryRow: document.getElementById("mailbox-story-row"),
+        storyInspectorHeading: document.getElementById("story-inspector-heading"),
+        storyLetterDurationLabel: document.getElementById("story-letter-duration-label"),
+        storyThoughtDurationLabel: document.getElementById("story-thought-duration-label"),
+        storyLetterTitleLabel: document.getElementById("story-letter-title-label"),
+        storyLetterTextLabel: document.getElementById("story-letter-text-label"),
+        storyThoughtTextLabel: document.getElementById("story-thought-text-label"),
         inspectMailboxDistance: document.getElementById("inspect-mailbox-distance"),
         inspectMailboxLetterDuration: document.getElementById("inspect-mailbox-letter-duration"),
         inspectMailboxThoughtDuration: document.getElementById("inspect-mailbox-thought-duration"),
@@ -1798,6 +1804,14 @@ import {
 
     function formatMailboxThoughtText(record) {
         return String(record?.thoughtText || "").trim();
+    }
+
+    function isLocationThoughtTrigger(record) {
+        return Boolean(record) && (
+            record.type === "thoughtTrigger" ||
+            record.kind === "thoughtTrigger" ||
+            record.interaction === "locationThought"
+        );
     }
 
     function makeEmptyLevel() {
@@ -6178,7 +6192,13 @@ import {
             els.movingPlatformRow.style.display = "none";
             els.signalSettingsRow.style.display = "none";
             els.keyholeSettingsRow.style.display = "none";
+            els.mailboxStoryRow.style.display = "none";
+            els.treasureSettingsRow.style.display = "none";
+            els.doorSettingsRow.style.display = "none";
+            els.enemySettingsRow.style.display = "none";
             els.enemySpawnerSettingsRow.style.display = "none";
+            els.gateSettingsRow.style.display = "none";
+            els.reactiveSettingsRow.style.display = "none";
             refreshGeneratorOwnershipUi();
             return;
         }
@@ -6289,6 +6309,8 @@ import {
             els.inspectNotes.value = rec.notes || "";
         }
         const isMailboxStory = selected.kind === "entity" && (rec.type === "mailbox" || rec.interaction === "editorLetter");
+        const isLocationThought = selected.kind === "entity" && isLocationThoughtTrigger(rec);
+        const isStoryEntity = isMailboxStory || isLocationThought;
         const isTreasure = selected.kind === "entity" && isTreasureChest(rec);
         const isDoor = selected.kind === "entity" && isWizardDoor(rec);
         const isEnemy = selectedEnemy;
@@ -6300,7 +6322,14 @@ import {
         els.signalSettingsRow.style.display = isSignalEmitter ? "block" : "none";
         els.gateSettingsRow.style.display = isSignalReceiver ? "block" : "none";
         els.keyholeSettingsRow.style.display = isKeyhole ? "block" : "none";
-        els.mailboxStoryRow.style.display = isMailboxStory ? "block" : "none";
+        els.mailboxStoryRow.style.display = isStoryEntity ? "block" : "none";
+        els.storyInspectorHeading.textContent = isLocationThought ? "Location thought trigger" : "Mailbox story";
+        els.storyLetterDurationLabel.style.display = isLocationThought ? "none" : "grid";
+        els.storyThoughtDurationLabel.style.display = isLocationThought ? "none" : "grid";
+        els.storyLetterTitleLabel.style.display = isLocationThought ? "none" : "grid";
+        els.storyLetterTextLabel.style.display = isLocationThought ? "none" : "grid";
+        els.storyThoughtTextLabel.firstChild.textContent = isLocationThought ? "Thought text" : "Ignatius's thought";
+        els.inspectMailboxThought.placeholder = isLocationThought ? "Thought shown when Ignatius enters the trigger" : "Ignatius's response after reading the letter";
         els.treasureSettingsRow.style.display = isTreasure ? "block" : "none";
         els.doorSettingsRow.style.display = isDoor ? "block" : "none";
         els.enemySettingsRow.style.display = isEnemy ? "block" : "none";
@@ -6483,7 +6512,24 @@ import {
                 rec.signalReceiver = true;
                 rec.collisionFromManifest = false;
             }
-            if (rec.type === "mailbox" || rec.interaction === "editorLetter") {
+            const editingLocationThought = rec.type === "thoughtTrigger" || (changedControlId !== "inspect-entity-type" && isLocationThoughtTrigger(rec));
+            if (changedControlId === "inspect-entity-type" && rec.type !== "thoughtTrigger" && rec.interaction === "locationThought") {
+                delete rec.interaction;
+            }
+            if (editingLocationThought) {
+                rec.type = "thoughtTrigger";
+                rec.interaction = "locationThought";
+                rec.triggerDistance = Math.max(8, Number(els.inspectMailboxDistance.value) || 96);
+                rec.verticalTolerance = Math.max(24, Number(rec.verticalTolerance) || Math.max(24, Number(rec.h) || 160));
+                rec.thoughtText = els.inspectMailboxThought.value.trim();
+                rec.thoughtAtlasId = rec.thoughtAtlasId || "it_atlas_001";
+                rec.thoughtAssetId = rec.thoughtAssetId || "thought_bubble_large";
+                delete rec.letterDuration;
+                delete rec.letterTitle;
+                delete rec.letterText;
+                delete rec.letterAtlasId;
+                delete rec.letterAssetId;
+            } else if (rec.type === "mailbox" || rec.interaction === "editorLetter") {
                 rec.interaction = "editorLetter";
                 rec.triggerDistance = Math.max(8, Number(els.inspectMailboxDistance.value) || 72);
                 rec.letterDuration = Math.max(0.25, Number(els.inspectMailboxLetterDuration.value) || 14);

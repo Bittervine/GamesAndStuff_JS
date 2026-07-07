@@ -4190,3 +4190,15 @@ Revision 465 extends the save-file-picker export path beyond the Asset Tool. Lev
 
 The Asset Tool also gains a faster line-editing gesture: in Add Node Mode, clicking essentially on an existing feature line inserts the new node into that line, splits the original segment into two same-kind segments, selects the new node, and immediately switches into Move Mode so the node can be dragged into its final position without extra clicks.
 
+## Revision 467 wizard-sized manual doors
+
+- [x] Change both wizard doorway catalog default sizes to 125×164.
+- [x] Update regression expectations for new manual doorway defaults while keeping generated doorway dimensions unchanged.
+- [x] Synchronize visible revision labels to 467.
+
+## Revision 468 editable thought triggers
+
+- [x] Show the Level Editor story inspector for selected `thoughtTrigger` records.
+- [x] Hide mailbox letter fields when editing a thought-only trigger.
+- [x] Save edited thought-trigger copy back to `thoughtText` while preserving `interaction: "locationThought"`.
+- [x] Synchronize visible revision labels to 468.

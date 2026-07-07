@@ -3967,3 +3967,10 @@ Revision 465 extends the save-file-picker export path beyond the Asset Tool. Lev
 
 The Asset Tool also gains a faster line-editing gesture: in Add Node Mode, clicking essentially on an existing feature line inserts the new node into that line, splits the original segment into two same-kind segments, selects the new node, and immediately switches into Move Mode so the node can be dragged into its final position without extra clicks.
 
+## Revision 467 wizard-sized manual doors
+
+Revision 467 makes the interactive catalog defaults for `wizard_entry_door` and `wizard_exit_door` match the size used by generated endpoint doors: 125 by 164 world units. Newly placed start and exit doors in the Level Editor therefore fit Ignatius without manual resizing. Existing authored levels keep their saved doorway dimensions.
+
+## Revision 468 editable thought triggers
+
+Revision 468 makes placed `thoughtTrigger` entities editable from the Level Editor inspector. Selecting a location thought trigger now opens the story inspector as a thought-only panel with trigger distance and editable thought text, while mailbox-only letter controls are hidden. Saving the inspector writes the edited value back to `thoughtText` and preserves the trigger as a `locationThought` entity.
