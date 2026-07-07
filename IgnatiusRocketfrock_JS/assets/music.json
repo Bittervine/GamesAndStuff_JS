@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "tracks": [
+    {
+      "id": "music_001",
+      "file": "music_001.ogg",
+      "title": "Fantasy Choir 1",
+      "sourceFileName": "Fantasy Choir 1.wav",
+      "sourceExtension": ".wav",
+      "sourceSha256": "2e1e507276d0058797bfd002768a512fca2a4ccc4f337bdfa49415b95ab623e4",
+      "metadataTitle": null,
+      "guessedTitle": "Fantasy Choir 1",
+      "durationSeconds": null,
+      "importedAt": "2026-07-07T05:24:12Z"
+    },
+    {
+      "id": "music_002",
+      "file": "music_002.ogg",
+      "title": "Fantasy Choir 2",
+      "sourceFileName": "Fantasy Choir 2.wav",
+      "sourceExtension": ".wav",
+      "sourceSha256": "594b5b90d5f51784864c4fe7724e1c6a43e2a0c0d330fe206896681f879a3f05",
+      "metadataTitle": null,
+      "guessedTitle": "Fantasy Choir 2",
+      "durationSeconds": null,
+      "importedAt": "2026-07-07T05:24:14Z"
+    },
+    {
+      "id": "music_003",
+      "file": "music_003.ogg",
+      "title": "Fantasy Choir 3",
+      "sourceFileName": "Fantasy Choir 3.wav",
+      "sourceExtension": ".wav",
+      "sourceSha256": "98002f8f296e192bb8982010d4e31e4b403e471fc414467ec76cc0afd81e282a",
+      "metadataTitle": null,
+      "guessedTitle": "Fantasy Choir 3",
+      "durationSeconds": null,
+      "importedAt": "2026-07-07T05:24:16Z"
+    },
+    {
+      "id": "music_004",
+      "file": "music_004.ogg",
+      "title": "GameMusic ForestTheme 24",
+      "sourceFileName": "GameMusic_ForestTheme_24.mp3",
+      "sourceExtension": ".mp3",
+      "sourceSha256": "c9e83d01741e97a462c44963aff81645a9c2aa3a7a33e5849114a1399d1b0914",
+      "metadataTitle": null,
+      "guessedTitle": "GameMusic ForestTheme 24",
+      "durationSeconds": null,
+      "importedAt": "2026-07-07T05:24:18Z"
+    },
+    {
+      "id": "music_005",
+      "file": "music_005.ogg",
+      "title": "Vampires Piano",
+      "sourceFileName": "vampires_piano.mp3",
+      "sourceExtension": ".mp3",
+      "sourceSha256": "d4f8a4a39bc5557a199c6f39b8924a30cd270f8d4e3eb060d12a05246d892cbc",
+      "metadataTitle": null,
+      "guessedTitle": "Vampires Piano",
+      "durationSeconds": null,
+      "importedAt": "2026-07-07T05:24:19Z"
+    }
+  ],
+  "updatedAt": "2026-07-07T05:24:19Z"
+}
