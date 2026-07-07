@@ -1459,7 +1459,7 @@ function testAutomaticEnemySpawning() {
     assert.ok(bootstrapSource.includes("enemyCharacterProjectUrls"), "browser startup should derive renderable character projects from the enemy catalog");
     assert.ok(rendererSource.includes("options.enemyCharacterUrls"), "renderer startup should accept the catalog-derived enemy character list");
 
-    const authoredLevel = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
+    const authoredLevel = JSON.parse(readFileSync("./assets/level_t01.json", "utf8"));
     assert.deepEqual(authoredLevel.autoSpawnEnemies, DEFAULT_AUTO_SPAWN_ENEMIES, "authored levels should make the disabled defaults explicit");
 
     const rightward = createAutomaticEnemySpawnTestState();
@@ -1811,14 +1811,14 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(skeleton.defaults.chaseSpeed, undefined, "enemy catalog should not duplicate runSpeed with legacy chaseSpeed");
     assert.equal(skeleton.defaults.awarenessVerticalRange, undefined, "unused vertical-awareness data should stay removed from the catalog");
     assert.ok(skeleton.defaults.attackCooldown < 0.25, "Skeleton Guard should chain rapid sword chops");
-    const levelOne = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
-    assert.ok(levelOne.entities.some((entity) => entity.characterId === "ct_char_enemy_010"), "level_001 should contain a Fireball Goblin");
-    assert.ok(levelOne.entities.some((entity) => entity.characterId === "ct_char_enemy_012"), "level_001 should contain a Tri-fireball Goblin");
+    const levelOne = JSON.parse(readFileSync("./assets/level_t01.json", "utf8"));
+    assert.ok(levelOne.entities.some((entity) => entity.characterId === "ct_char_enemy_010"), "level_t01 should contain a Fireball Goblin");
+    assert.ok(levelOne.entities.some((entity) => entity.characterId === "ct_char_enemy_012"), "level_t01 should contain a Tri-fireball Goblin");
     const levelOneBat = levelOne.entities.find((entity) => entity.characterId === "ct_char_enemy_020");
-    assert.ok(levelOneBat, "level_001 should retain the Bombing Bat");
-    assert.equal(levelOneBat.bomberHoverHeight, 280, "level_001 Bombing Bat should use the revised high attack altitude");
-    assert.equal(levelOneBat.bomberDropHeightTolerance, 20, "level_001 Bombing Bat should wait until it reaches the high release band");
-    assert.equal(levelOneBat.bomberApproachArcHeight, 72, "level_001 Bombing Bat should use the authored curved approach");
+    assert.ok(levelOneBat, "level_t01 should retain the Bombing Bat");
+    assert.equal(levelOneBat.bomberHoverHeight, 280, "level_t01 Bombing Bat should use the revised high attack altitude");
+    assert.equal(levelOneBat.bomberDropHeightTolerance, 20, "level_t01 Bombing Bat should wait until it reaches the high release band");
+    assert.equal(levelOneBat.bomberApproachArcHeight, 72, "level_t01 Bombing Bat should use the authored curved approach");
     for (const goblin of levelOne.entities.filter((entity) => entity.characterId === "ct_char_enemy_010" || entity.characterId === "ct_char_enemy_012")) {
         assert.equal(goblin.runSpeed, 200, `${goblin.id} should use the baked 200 px/s run profile`);
         assert.equal(goblin.jumpHeight, 200, `${goblin.id} should use the baked 200 px jump profile`);
@@ -1856,9 +1856,9 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(editorHtml.includes('id="show-navigation-graph"'), "level editor should preview baked directed navigation edges");
     assert.ok(editorHtml.includes("bakeEnemyNavigationGraph"), "level editor should use the shared navigation graph baker rather than a separate approximation");
 
-    const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
+    const level = JSON.parse(readFileSync("./assets/level_t01.json", "utf8"));
     const placed = level.entities.find((entity) => entity.id === "enemy_001_001");
-    assert.ok(placed, "level_001 should include the first placed Skeleton Guard");
+    assert.ok(placed, "level_t01 should include the first placed Skeleton Guard");
     assert.equal(placed.type, "characterEnemy", "placed Skeleton Guard should use the generic runtime entity type");
     assert.equal(placed.strategy, "simple_patrol", "placed Skeleton Guard should use the canonical patrol strategy");
     assert.equal(placed.attackDamage, 50, "bundled Skeleton Guard placement should carry the current 50 HP pre-scaling melee damage");
@@ -2309,8 +2309,8 @@ function testHunterRangedAttackPositionSelection() {
 
 
 function testLevelOneUsesBakedHunterNavigationGraphs() {
-    const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
-    assert.equal(level.navigationGraphs?.profiles?.length, 3, "level_001 should contain shared baked profiles for goblin hunters, taller human hunters, and the Skeleton Caster");
+    const level = JSON.parse(readFileSync("./assets/level_t01.json", "utf8"));
+    assert.equal(level.navigationGraphs?.profiles?.length, 3, "level_t01 should contain shared baked profiles for goblin hunters, taller human hunters, and the Skeleton Caster");
     for (const graph of level.navigationGraphs.profiles) {
         assert.ok(graph.supportSignature, "each baked graph should include a geometry signature");
         assert.ok(graph.edges.some((edge) => edge.type === "jump"), "each baked graph should retain jump transitions");
@@ -2321,15 +2321,15 @@ function testLevelOneUsesBakedHunterNavigationGraphs() {
     }
 
     const graph = level.navigationGraphs.profiles.find((candidate) => candidate.profile.bodyWidth === 70 && candidate.profile.bodyHeight === 105);
-    assert.ok(graph, "level_001 should retain the goblin hunter mobility profile");
+    assert.ok(graph, "level_t01 should retain the goblin hunter mobility profile");
     assert.equal(graph.profile.runSpeed, 200, "the baked goblin hunter profile should match the authored run speed");
     assert.equal(graph.profile.maxFallDistance, 600, "the baked goblin hunter profile should permit the authored long ledge descent");
     const casterGraph = level.navigationGraphs.profiles.find((candidate) => candidate.profile.bodyWidth === 72 && candidate.profile.bodyHeight === 164);
-    assert.ok(casterGraph, "level_001 should retain the Skeleton Caster's distinct pathing-projectile hunter profile");
+    assert.ok(casterGraph, "level_t01 should retain the Skeleton Caster's distinct pathing-projectile hunter profile");
     assert.equal(casterGraph.profile.runSpeed, 150, "the baked Skeleton Caster profile should match its authored run speed");
     assert.equal(casterGraph.profile.maxFallDistance, 600, "the baked Skeleton Caster profile should preserve its current fall tolerance");
     const humanGraph = level.navigationGraphs.profiles.find((candidate) => candidate.profile.bodyWidth === 67.5 && candidate.profile.bodyHeight === 194);
-    assert.ok(humanGraph, "level_001 should include the distinct tall-human hunter mobility profile");
+    assert.ok(humanGraph, "level_t01 should include the distinct tall-human hunter mobility profile");
     assert.equal(humanGraph.profile.runSpeed, 152, "the baked human hunter profile should match the authored run speed");
     assert.equal(humanGraph.profile.maxFallDistance, 600, "the baked human hunter profile should permit the authored tall-ledge exits");
     assert.ok(
@@ -2364,7 +2364,7 @@ function testLevelOneUsesBakedHunterNavigationGraphs() {
     );
 
     const state = createInitialGameState();
-    assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply for baked graph verification");
+    assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for baked graph verification");
     const manifests = new Map();
     for (const ref of level.atlasRefs || []) {
         const path = String(ref.manifest || "").replace(/^assets\//, "./assets/");
@@ -2376,18 +2376,18 @@ function testLevelOneUsesBakedHunterNavigationGraphs() {
     state.story.mailboxEvent = null;
     stepSimulation(state, createInputFrame(), FIXED_DT);
     const hunters = state.enemies.filter((enemy) => enemy.strategy === "hunter");
-    assert.ok(hunters.length >= 5, "level_001 should instantiate goblin, human, and Skeleton Caster hunters");
+    assert.ok(hunters.length >= 5, "level_t01 should instantiate goblin, human, and Skeleton Caster hunters");
     assert.ok(hunters.every((enemy) => enemy.navigationGraphSource === "baked"), "hunters with matching mobility and geometry should consume their pre-baked graph");
     assert.equal(new Set(hunters.map((enemy) => enemy.navigationGraphId)).size, 3, "the three hunter body and mobility profiles should resolve to three distinct baked graphs");
 }
 
 
 function testHunterCrossesLevelOneCentralPillarAndJumpsDown() {
-    const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
+    const level = JSON.parse(readFileSync("./assets/level_t01.json", "utf8"));
     level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_010_001");
 
     const state = createInitialGameState();
-    assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply for the central-pillar traversal regression test");
+    assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for the central-pillar traversal regression test");
     const manifests = new Map();
     for (const ref of level.atlasRefs || []) {
         const path = String(ref.manifest || "").replace(/^assets\//, "./assets/");
@@ -2404,7 +2404,7 @@ function testHunterCrossesLevelOneCentralPillarAndJumpsDown() {
     state.player.visible = true;
 
     const enemy = state.enemies.find((item) => item.id === "enemy_010_001");
-    assert.ok(enemy, "level_001 should instantiate the fireball goblin used by the central-pillar regression test");
+    assert.ok(enemy, "level_t01 should instantiate the fireball goblin used by the central-pillar regression test");
     enemy.awarenessRange = 2000;
     enemy.facing = -1;
 
@@ -2430,11 +2430,11 @@ function testHunterCrossesLevelOneCentralPillarAndJumpsDown() {
 }
 
 function testEngagedHunterImmediatelyLeavesPillarForLastSeenPlayer() {
-    const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
+    const level = JSON.parse(readFileSync("./assets/level_t01.json", "utf8"));
     level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_010_001");
 
     const state = createInitialGameState();
-    assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply for the ledge-exit awareness regression test");
+    assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for the ledge-exit awareness regression test");
     const manifests = new Map();
     for (const ref of level.atlasRefs || []) {
         const path = String(ref.manifest || "").replace(/^assets\//, "./assets/");
@@ -2451,7 +2451,7 @@ function testEngagedHunterImmediatelyLeavesPillarForLastSeenPlayer() {
     state.player.visible = true;
 
     const enemy = state.enemies.find((item) => item.id === "enemy_010_001");
-    assert.ok(enemy, "level_001 should instantiate the fireball goblin used by the ledge-exit regression test");
+    assert.ok(enemy, "level_t01 should instantiate the fireball goblin used by the ledge-exit regression test");
     enemy.x = 1550;
     enemy.y = 658.5;
     enemy.homeX = 1550;
@@ -2491,11 +2491,11 @@ function testEngagedHunterImmediatelyLeavesPillarForLastSeenPlayer() {
 }
 
 function testHunterWalksOffLevelOneLeftLedge() {
-    const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
+    const level = JSON.parse(readFileSync("./assets/level_t01.json", "utf8"));
     level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_010_001");
 
     const state = createInitialGameState();
-    assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply for the long ledge walk-off regression test");
+    assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for the long ledge walk-off regression test");
     const manifests = new Map();
     for (const ref of level.atlasRefs || []) {
         const path = String(ref.manifest || "").replace(/^assets\//, "./assets/");
@@ -2512,7 +2512,7 @@ function testHunterWalksOffLevelOneLeftLedge() {
     state.player.visible = true;
 
     const enemy = state.enemies.find((item) => item.id === "enemy_010_001");
-    assert.ok(enemy, "level_001 should instantiate the fireball goblin used by the long ledge regression test");
+    assert.ok(enemy, "level_t01 should instantiate the fireball goblin used by the long ledge regression test");
     enemy.x = 970;
     enemy.y = 289.33;
     enemy.spawnX = 970;
@@ -2550,11 +2550,11 @@ function testHunterWalksOffLevelOneLeftLedge() {
 
 
 function testHumanHunterEscapesLevelOneLeftLedge() {
-    const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
+    const level = JSON.parse(readFileSync("./assets/level_t01.json", "utf8"));
     level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_033_001");
 
     const state = createInitialGameState();
-    assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply for the tall-human ledge regression test");
+    assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for the tall-human ledge regression test");
     const manifests = new Map();
     for (const ref of level.atlasRefs || []) {
         const path = String(ref.manifest || "").replace(/^assets\//, "./assets/");
@@ -2606,11 +2606,11 @@ function testHumanHunterEscapesLevelOneLeftLedge() {
 }
 
 function testHunterClimbsLevelOnePillarFromLeftWithoutWallClipping() {
-    const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
+    const level = JSON.parse(readFileSync("./assets/level_t01.json", "utf8"));
     level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_010_001");
 
     const state = createInitialGameState();
-    assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply for the left-side pillar regression test");
+    assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for the left-side pillar regression test");
     const manifests = new Map();
     for (const ref of level.atlasRefs || []) {
         const path = String(ref.manifest || "").replace(/^assets\//, "./assets/");
@@ -2627,7 +2627,7 @@ function testHunterClimbsLevelOnePillarFromLeftWithoutWallClipping() {
     state.player.visible = true;
 
     const enemy = state.enemies.find((item) => item.id === "enemy_010_001");
-    assert.ok(enemy, "level_001 should instantiate the fireball goblin used by the left-side pillar regression test");
+    assert.ok(enemy, "level_t01 should instantiate the fireball goblin used by the left-side pillar regression test");
     enemy.x = 1300;
     enemy.y = 844.24;
     enemy.homeX = 1300;
@@ -2666,9 +2666,9 @@ function testHunterClimbsLevelOnePillarFromLeftWithoutWallClipping() {
 }
 
 function testHunterJumpsOntoLevelOneArchWithLargeAuthoredJump() {
-    const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
+    const level = JSON.parse(readFileSync("./assets/level_t01.json", "utf8"));
     const archGoblin = level.entities.find((entity) => entity.id === "enemy_012_001");
-    assert.ok(archGoblin, "level_001 should contain the Tri-fireball Goblin used by the arch regression test");
+    assert.ok(archGoblin, "level_t01 should contain the Tri-fireball Goblin used by the arch regression test");
     archGoblin.x = 2860;
     archGoblin.y = 844.55;
     archGoblin.homeX = 2860;
@@ -2680,7 +2680,7 @@ function testHunterJumpsOntoLevelOneArchWithLargeAuthoredJump() {
     archGoblin.projectileDamage = 0;
 
     const state = createInitialGameState();
-    assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply for the hunter arch regression test");
+    assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for the hunter arch regression test");
     const manifests = new Map();
     for (const atlasId of ["at_atlas_001", "at_atlas_002", "at_atlas_003"]) {
         manifests.set(atlasId, {
@@ -2711,12 +2711,12 @@ function testHunterJumpsOntoLevelOneArchWithLargeAuthoredJump() {
     }
 
     assert.equal(glaredBeforeJump, false, "hunter should not glare while a valid side-entry jump route exists");
-    assert.equal(sawAirborne, true, "a 555 px jump setting should make the goblin launch toward the level_001 arch");
+    assert.equal(sawAirborne, true, "a 555 px jump setting should make the goblin launch toward the level_t01 arch");
     assert.equal(landedOnArch, true, "hunter should land on the arch instead of colliding with its wall and abandoning the route");
 }
 
 function testSkeletonCasterPursuesOntoLevelOneRuin() {
-    const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
+    const level = JSON.parse(readFileSync("./assets/level_t01.json", "utf8"));
     const catalog = JSON.parse(readFileSync("./assets/ct_enemies_001.json", "utf8"));
     level.autoSpawnEnemies = { enabled: false, probabilityPercent: 0, enemyPool: "1-999" };
     level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy");
@@ -2730,7 +2730,7 @@ function testSkeletonCasterPursuesOntoLevelOneRuin() {
     }));
 
     const state = createInitialGameState();
-    assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply for the Skeleton Caster ruin-pursuit regression test");
+    assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for the Skeleton Caster ruin-pursuit regression test");
     const manifests = new Map();
     for (const ref of level.atlasRefs || []) {
         const path = String(ref.manifest || "").replace(/^assets\//, "./assets/");
@@ -3203,11 +3203,11 @@ function testHunterWalkOffDropClearsSourcePillar() {
 }
 
 function testHunterWalksAcrossSlopedBlockableArchAndDrops() {
-    const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
+    const level = JSON.parse(readFileSync("./assets/level_t01.json", "utf8"));
     level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_012_001");
 
     const state = createInitialGameState();
-    assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply for the sloped blockable arch regression test");
+    assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for the sloped blockable arch regression test");
     const manifests = new Map();
     for (const ref of level.atlasRefs || []) {
         const path = String(ref.manifest || "").replace(/^assets\//, "./assets/");
@@ -3224,7 +3224,7 @@ function testHunterWalksAcrossSlopedBlockableArchAndDrops() {
     state.player.visible = true;
 
     const enemy = state.enemies.find((item) => item.id === "enemy_012_001");
-    assert.ok(enemy, "level_001 should instantiate the Tri-fireball Goblin used by the sloped arch regression test");
+    assert.ok(enemy, "level_t01 should instantiate the Tri-fireball Goblin used by the sloped arch regression test");
     enemy.x = 3330;
     enemy.y = 706.462;
     enemy.spawnX = enemy.x;
@@ -4214,7 +4214,7 @@ function addTestRocket(state, overrides = {}) {
 
 function testRebalancedEnemyHealthAndRocketHits() {
     const catalog = JSON.parse(readFileSync(new URL("../assets/ct_enemies_001.json", import.meta.url), "utf8"));
-    const levelOne = JSON.parse(readFileSync(new URL("../assets/level_001.json", import.meta.url), "utf8"));
+    const levelOne = JSON.parse(readFileSync(new URL("../assets/level_t01.json", import.meta.url), "utf8"));
     const profiles = [
         { id: "enemy_001", characterId: "ct_char_enemy_001", expectedHealth: 90, expectedHits: 3 },
         { id: "enemy_010", characterId: "ct_char_enemy_010", expectedHealth: 60, expectedHits: 2 },
@@ -4228,7 +4228,7 @@ function testRebalancedEnemyHealthAndRocketHits() {
         assert.equal(catalogHealth, profile.expectedHealth, `${profile.id} catalog health should match the revision-220 balance`);
         const placed = levelOne.entities.find((entity) => entity.characterId === profile.characterId);
         if (profile.placedInLevelOne !== false) {
-            assert.ok(placed, `level_001 should contain ${profile.characterId}`);
+            assert.ok(placed, `level_t01 should contain ${profile.characterId}`);
             assert.equal(placed.health, profile.expectedHealth, `${placed.id} should bake the same health as its catalog default`);
         }
     }
@@ -4945,7 +4945,7 @@ function testHumanKnifeThrowerVolley() {
     assert.equal(definition.defaults.projectileVolleyHalfAngle, 5, "Enemy 032 catalog data should own the +/-5 degree spread");
     assert.equal(catalog.enemies.enemy_033.defaults.projectileVolleyHalfAngle, 5, "Enemy 033 should inherit the same +/-5 degree spread");
     assert.equal(catalog.enemies.enemy_033.characterId, "ct_char_enemy_033", "Enemy 033 should use its independent character project");
-    const bundledLevel = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
+    const bundledLevel = JSON.parse(readFileSync("./assets/level_t01.json", "utf8"));
     const placedKnifeThrower = bundledLevel.entities.find((entity) => entity.enemyCatalogId === "enemy_032");
     assert.equal(placedKnifeThrower.projectileVolleyHalfAngle, 5, "bundled current-level data should be patched to the new spread instead of relying on catalog fallback");
 }
@@ -7446,8 +7446,8 @@ function testCaveWindowSplineAuthoring() {
     const developerManual = readFileSync(new URL("../DEVELOPER_MANUAL.md", import.meta.url), "utf8");
     assert.ok(developerManual.includes("Foreground is inert presentation") && developerManual.includes("never has atlas collision"), "the developer manual should preserve the cave perimeter and foreground non-gameplay contract");
 
-    const levelOne = JSON.parse(readFileSync(new URL("../assets/level_001.json", import.meta.url), "utf8"));
-    assert.equal(levelOne.caveWindow.enabled, true, "level_001 should preserve the user's authored cave window");
+    const levelOne = JSON.parse(readFileSync(new URL("../assets/level_t01.json", import.meta.url), "utf8"));
+    assert.equal(levelOne.caveWindow.enabled, true, "level_t01 should preserve the user's authored cave window");
     assert.deepEqual({
         version: levelOne.layerVisuals.version,
         background: { brightness: levelOne.layerVisuals.background.brightness, scale: levelOne.layerVisuals.background.scale },
@@ -7456,15 +7456,15 @@ function testCaveWindowSplineAuthoring() {
         version: 2,
         background: { brightness: 1, scale: 1 },
         foreground: { parallax: DEFAULT_FOREGROUND_PARALLAX, brightness: 0.4, scale: 2 }
-    }, "level_001 should expose the complete Background and Foreground visual treatment in grouped controls");
-    approx(levelOne.layerVisuals.background.parallax, DEFAULT_BACKGROUND_PARALLAX, 0.000001, "level_001 should store the reciprocal Background parallax to normal JSON precision");
-    assert.equal("backgroundParallax" in levelOne, false, "level_001 should not retain a legacy Background parallax mirror");
-    assert.equal("parallax" in levelOne.caveWindow, false, "level_001 should not retain a legacy Foreground parallax mirror");
-    assert.equal("scale" in levelOne.caveWindow.decoration || "brightness" in levelOne.caveWindow.decoration, false, "level_001 should keep layer scale and brightness only in layerVisuals");
-    assert.ok(levelOne.caveWindow.points.length >= 3, "level_001 should retain the user's authored closed perimeter");
+    }, "level_t01 should expose the complete Background and Foreground visual treatment in grouped controls");
+    approx(levelOne.layerVisuals.background.parallax, DEFAULT_BACKGROUND_PARALLAX, 0.000001, "level_t01 should store the reciprocal Background parallax to normal JSON precision");
+    assert.equal("backgroundParallax" in levelOne, false, "level_t01 should not retain a legacy Background parallax mirror");
+    assert.equal("parallax" in levelOne.caveWindow, false, "level_t01 should not retain a legacy Foreground parallax mirror");
+    assert.equal("scale" in levelOne.caveWindow.decoration || "brightness" in levelOne.caveWindow.decoration, false, "level_t01 should keep layer scale and brightness only in layerVisuals");
+    assert.ok(levelOne.caveWindow.points.length >= 3, "level_t01 should retain the user's authored closed perimeter");
     const levelOnePerimeter = levelOne.placements.filter((placement) => placement.layer === CAVE_FOREGROUND_LAYER && placement.generatedBy === CAVE_PERIMETER_GENERATOR);
-    assert.ok(levelOnePerimeter.length > 0 && levelOnePerimeter.every((placement) => /^stala(?:ctite|gmite)/.test(placement.assetId)), "level_001 perimeter population should contain only stalactites and stalagmites");
-    assert.ok(levelOnePerimeter.every((placement) => placement.foregroundBrightness === undefined), "level_001 should not retain hidden per-placement Foreground brightness multipliers");
+    assert.ok(levelOnePerimeter.length > 0 && levelOnePerimeter.every((placement) => /^stala(?:ctite|gmite)/.test(placement.assetId)), "level_t01 perimeter population should contain only stalactites and stalagmites");
+    assert.ok(levelOnePerimeter.every((placement) => placement.foregroundBrightness === undefined), "level_t01 should not retain hidden per-placement Foreground brightness multipliers");
     const parallaxView = {
         x: 100,
         y: 200,
@@ -8371,7 +8371,7 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     approx(openPortal[1].widthFactor, 114 / 183, 0.0000001, "foreground portal should preserve source-pixel scale");
     approx(openPortal[1].offsetXFactor, -69 / 366, 0.0000001, "foreground portal should keep its left edge aligned");
 
-    const generatedLevel = JSON.parse(readFileSync(new URL("../assets/level_002.json", import.meta.url), "utf8"));
+    const generatedLevel = JSON.parse(readFileSync(new URL("../assets/level_t02.json", import.meta.url), "utf8"));
     const generatedEntryDoor = generatedLevel.entities.find((entity) => entity.type === "wizard_entry_door");
     const generatedExitDoor = generatedLevel.entities.find((entity) => entity.type === "wizard_exit_door");
     assert.deepEqual({ w: generatedEntryDoor.w, h: generatedEntryDoor.h }, { w: 125, h: 164 }, "generated entry doorway should retain the wizard-sized dimensions");
@@ -8510,10 +8510,10 @@ function testScoreHudAndTreasureChestCollection() {
     assert.match(editorSource, /els\.snap\.value = "16"/, "the Level Editor should initialize its Snap grid to 16 pixels");
     assert.match(editorSource, /Number\(els\.snap\.value\) \|\| 16/, "the grid renderer should use 16 pixels as its fallback Snap size");
 
-    const authored = JSON.parse(readFileSync(new URL("../assets/level_001.json", import.meta.url), "utf8"));
+    const authored = JSON.parse(readFileSync(new URL("../assets/level_t01.json", import.meta.url), "utf8"));
     const authoredChest = authored.entities.find((entity) => entity.id === "treasure_chest_001");
-    assert.equal(authored.title, "The Introductory Cave of Training", "level 1 should use the shorter authored title");
-    assert.ok(authoredChest, "level 1 should contain the requested demonstration treasure chest");
+    assert.equal(authored.title, "The Introductory Cave of Training", "level_t01 should preserve the treasure-chest fixture title");
+    assert.ok(authoredChest, "level_t01 should contain the requested demonstration treasure chest");
     assert.equal(authoredChest.state, "openLoot", "the demonstration chest should begin open with visible treasure");
     assert.equal(authoredChest.w, 68, "the demonstration chest should use the slightly smaller ledge-friendly width");
     assert.equal(authoredChest.h, 80, "the demonstration chest should use the slightly smaller ledge-friendly height");
@@ -8522,7 +8522,7 @@ function testScoreHudAndTreasureChestCollection() {
     assert.equal(authoredChest.x, 4768, "the demonstration chest should use the requested 16-pixel-grid X position");
     assert.equal(authoredChest.y, 512, "the demonstration chest should rest on the exit-platform surface at a 16-pixel-grid Y position");
     const exitGround = authored.placements.find((placement) => placement.id === "exit_ground");
-    assert.ok(exitGround, "level 1 should retain the substantial exit-door support platform");
+    assert.ok(exitGround, "level_t01 should retain the substantial exit-door support platform");
     assert.ok(authoredChest.x - authoredChest.w * 0.5 >= exitGround.x, "the chest left foot should remain over the exit platform artwork");
     assert.ok(authoredChest.x + authoredChest.w * 0.5 <= exitGround.x + exitGround.w, "the chest right foot should remain over the exit platform artwork");
     assert.ok(authoredChest.y >= exitGround.y && authoredChest.y <= exitGround.y + exitGround.h * 0.2, "the chest base should sit near the drawn top of the exit platform rather than float above or sink into it");
@@ -9044,10 +9044,10 @@ function testRocketPowerUpArsenal() {
     const characterEditorSource = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 468<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(characterEditorSource, /Puppet Forge <small>rev 468<\/small>/, "Puppet Forge should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 470<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(characterEditorSource, /Puppet Forge <small>rev 470<\/small>/, "Puppet Forge should display the packaged revision");
     const assetEditorSource = readFileSync(new URL("../asset-editor.html", import.meta.url), "utf8");
-    assert.match(assetEditorSource, /Asset Tool <small>rev 468<\/small>/, "Asset Tool should display the packaged revision");
+    assert.match(assetEditorSource, /Asset Tool <small>rev 470<\/small>/, "Asset Tool should display the packaged revision");
     assert.match(assetEditorSource, /id="atlas-numbered-select"[\s\S]*id="load-numbered-atlas"[\s\S]*id="load-local"[\s\S]*id="save-local"[\s\S]*id="quick-save-json"/, "Asset Tool should keep atlas loading and save/export controls together in the Files panel");
     assert.ok(!assetEditorSource.includes("Custom atlas image") && !assetEditorSource.includes("Custom JSON"), "Asset Tool should retire the visible custom import pickers from the primary Files panel");
     assert.doesNotMatch(assetEditorSource, /load-default-image|load-default-json/, "Asset Tool should retire the hard-coded at_atlas_001 load buttons");
@@ -9080,7 +9080,7 @@ function testRocketPowerUpArsenal() {
     assert.equal(editorSource.includes('id="canvas-renderer-baseline"'), false, "the Level Editor should no longer advertise the posterity-only Canvas baseline");
     assert.equal(editorSource.includes("openCanvasRendererBaseline"), false, "the removed baseline link should leave no dormant click handler");
     assert.equal(editorSource.includes("Editor 2 lab"), false, "the Level Editor should not link to the removed Editor 2 lab");
-    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 468") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
+    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 470") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
     assert.ok(baselineSource.includes("applyEditorLevelToWorld") && baselineSource.includes("preferWebGL2: false") && baselineSource.includes("setViewOverride"), "the retained baseline should still convert the authored level and use the ordinary Canvas2D game renderer with an editor camera override");
     assert.ok(editorPlaywrightBenchmark.includes("benchmark_baseline") && editorPlaywrightBenchmark.includes("benchmark_editor") && editorPlaywrightBenchmark.includes("editorToBaselineCadenceRatio"), "the optional Playwright probe should compare the loaded baseline and editor rather than source-only timings");
     assert.ok(editorPlaywrightBenchmark.includes("bodyScrollWidth") && editorPlaywrightBenchmark.includes("stageBacking") && editorPlaywrightBenchmark.includes("overlayBacking"), "the Playwright probe should detect viewport overflow and stage/overlay size divergence");
@@ -9090,7 +9090,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(rendererSource.includes("backingPixelsPerCssPixel") && rendererSource.includes("override.cssZoom * backingPixelsPerCssPixel") && editorSource.includes("cssZoom: state.camera.zoom"), "editor and runtime artwork should share one CSS-pixel camera scale so guide alignment does not drift across the viewport");
     assert.ok(rendererSource.includes("this.ctx.setTransform(1, 0, 0, 1, 0, 0)") && rendererSource.includes("never inherit a CSS/DPR transform"), "the production Canvas renderer should reset inherited context transforms before drawing backing-pixel coordinates");
     assert.ok(editorSource.includes("stageCtx?.setTransform(1, 0, 0, 1, 0, 0)") && !editorSource.includes("stageCtx?.setTransform(dpr"), "the Level Editor must not pre-scale the production scene context by devicePixelRatio");
-    assert.match(bootstrapSource, /const GAME_REVISION = "468";/, "the game debug revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "470";/, "the game debug revision should match the packaged revision");
     assert.ok(
         editorSource.includes('<div class="level-section-label">Existing Level:</div>')
             && editorSource.includes('id="load-level">Load</button>')
@@ -9181,19 +9181,19 @@ function testRocketPowerUpArsenal() {
     assert.equal(shieldCatalogEntry?.defaults?.durationSeconds, 10, "the entity catalog should default Shield pickups to ten seconds");
     assert.equal(wrenchCatalogEntry?.defaults?.durationSeconds, 20, "the entity catalog should default random wrench pickups to twenty seconds");
 
-    const levelOne = JSON.parse(readFileSync(new URL("../assets/level_001.json", import.meta.url), "utf8"));
+    const levelOne = JSON.parse(readFileSync(new URL("../assets/level_t01.json", import.meta.url), "utf8"));
     const placedOverdrive = levelOne.entities.find((entity) => entity.id === "overdrive_001");
     const placedWrench = levelOne.entities.find((entity) => entity.id === "random_wrench_001");
     const placedShield = levelOne.entities.find((entity) => entity.id === "shield_001");
-    assert.ok(placedOverdrive && placedOverdrive.effectId === "overdrive", "level_001 should include the renamed Overdrive pickup");
+    assert.ok(placedOverdrive && placedOverdrive.effectId === "overdrive", "level_t01 should include the renamed Overdrive pickup");
     assert.equal(placedOverdrive.x, 800, "Overdrive should remain on the early main floor");
     assert.equal(placedOverdrive.durationSeconds, 20, "the authored Overdrive should last twenty seconds");
     assert.equal(placedOverdrive.respawnSeconds, 60, "the authored Overdrive should respawn after sixty seconds");
-    assert.ok(placedWrench && placedWrench.type === "randomWrenchPickup", "level_001 should include one randomized wrench pickup");
+    assert.ok(placedWrench && placedWrench.type === "randomWrenchPickup", "level_t01 should include one randomized wrench pickup");
     assert.deepEqual(placedWrench.randomEffectIds, [...WRENCH_POWER_UP_EFFECT_IDS], "the level wrench should roll across the complete wrench family");
     assert.equal(placedWrench.durationSeconds, 20, "the authored random wrench should grant a twenty-second effect");
     assert.equal(placedWrench.x, 1400, "the playtest wrench should sit farther along the early main floor");
-    assert.ok(placedShield && placedShield.type === "shieldPickup", "level_001 should include the blue Shield pickup");
+    assert.ok(placedShield && placedShield.type === "shieldPickup", "level_t01 should include the blue Shield pickup");
     assert.equal(placedShield.effectId, POWER_UP_EFFECT_IDS.SHIELD, "the placed Shield should activate the shared Shield effect");
     assert.equal(placedShield.durationSeconds, 10, "the placed Shield should last ten seconds");
     assert.equal(placedShield.glowTint, "#008cff", "the placed Shield should glow blue");
@@ -11294,7 +11294,7 @@ function testEnemyProjectileVisualLanguageRendererContract() {
 
 
 function testRocketLaunchDoesNotFalseHitUnrelatedAtlasArea() {
-    const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
+    const level = JSON.parse(readFileSync("./assets/level_t01.json", "utf8"));
     // This regression isolates player-rocket launch geometry. The supplied
     // Level 001 now places a knife thrower close enough to fire during the
     // settling window, so remove combat actors rather than counting unrelated
@@ -11302,7 +11302,7 @@ function testRocketLaunchDoesNotFalseHitUnrelatedAtlasArea() {
     level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy");
     const atlas = JSON.parse(readFileSync("./assets/at_atlas_001.json", "utf8"));
     const state = createInitialGameState();
-    assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply");
+    assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply");
     assert.equal(applyAtlasManifestsToWorld(state, new Map([["at_atlas_001", { manifest: atlas }]])), true, "at_atlas_001 collision should apply");
 
     stepMany(state, 260, () => createInputFrame());
@@ -11917,24 +11917,24 @@ function testLivingBossLocksExitDoor() {
 }
 
 function testLevelTwoGoblinBossArenaContract() {
-    const level = JSON.parse(readFileSync(new URL("../assets/level_002.json", import.meta.url), "utf8"));
-    assert.equal(level.levelId, "level_002", "the authored level should retain its sequential level ID");
+    const level = JSON.parse(readFileSync(new URL("../assets/level_t02.json", import.meta.url), "utf8"));
+    assert.equal(level.levelId, "level_t02", "the testbench boss fixture should retain its reserved test level ID");
     assert.equal(level.generation.seed, "cinder-vault-291-8f6c2b", "the generated foundation should retain its reproducible random seed");
-    assert.equal(normalizeLevelMusic(level.music).trackId, "music_001", "level_002 should use the first OGG music track");
+    assert.equal(normalizeLevelMusic(level.music).trackId, "music_001", "level_t02 should use the first OGG music track");
 
     const enemies = level.entities.filter((entity) => entity.type === "characterEnemy");
     assert.equal(enemies.length, 30, "the updated route and arena should contain twenty-three ground goblins, six bats, and one boss");
     const counts = enemies.reduce((map, enemy) => map.set(enemy.enemyCatalogId, (map.get(enemy.enemyCatalogId) || 0) + 1), new Map());
-    assert.equal(counts.get("enemy_001") || 0, 0, "level_002 should contain no Skeleton Guards");
-    assert.equal(counts.get("enemy_010"), 6, "level_002 should retain Fireball Goblins including the boss");
-    assert.equal(counts.get("enemy_011"), 4, "level_002 should include four Musket Goblins for route variety");
+    assert.equal(counts.get("enemy_001") || 0, 0, "level_t02 should contain no Skeleton Guards");
+    assert.equal(counts.get("enemy_010"), 6, "level_t02 should retain Fireball Goblins including the boss");
+    assert.equal(counts.get("enemy_011"), 4, "level_t02 should include four Musket Goblins for route variety");
     assert.equal(counts.get("enemy_012"), 14, "the updated level should include fourteen Tri-fireball Goblins");
-    assert.equal(counts.get("enemy_020"), 6, "level_002 should include three two-bat groups");
+    assert.equal(counts.get("enemy_020"), 6, "level_t02 should include three two-bat groups");
     const batGroups = new Set(enemies.filter((enemy) => enemy.enemyCatalogId === "enemy_020").map((enemy) => enemy.generationEncounterId));
     assert.equal(batGroups.size, 3, "the six bats should be grouped into three compact encounters");
 
     const boss = enemies.find((enemy) => enemy.isBoss === true);
-    assert.ok(boss, "level_002 should contain one explicitly authored boss");
+    assert.ok(boss, "level_t02 should contain one explicitly authored boss");
     assert.equal(boss.bossName, "Gorblax the Incandescent", "the boss should have a stable HUD name");
     assert.ok(scaledEnemyRenderScale(boss, 1) >= 1.5 && boss.health >= 750, "the compacted boss should remain visibly oversized and substantially tougher than ordinary goblins");
     assert.equal(boss.scale, 2.8, "the boss should use one authored uniform scale rather than separate enlarged hitbox and render values");
@@ -11971,19 +11971,19 @@ function testLevelTwoGoblinBossArenaContract() {
     const exit = level.entities.find((entity) => entity.id === "wizard_exit_door_002");
     assert.equal(gate, undefined, "the revised arena should not hide its exit behind a decorative iron gate");
     assert.ok(exit, "the arena should retain an ordinary wizard exit door");
-    assert.equal(exit.destinationLevel, "level_003", "the level-two exit should point to the next sequential level");
+    assert.equal(exit.destinationLevel, "level_t03", "the testbench boss fixture exit should stay inside the reserved test-level namespace");
 
     const profiles = level.navigationGraphs?.profiles || [];
     assert.equal(profiles.length, 2, "ordinary goblins and the differently sized boss should each have a baked hunter mobility profile");
     assert.ok(profiles.every((profile) => profile.supports.length > 40 && profile.edges.length > 0), "every baked mobility profile should contain the complete route supports and directed edges");
 
     const runtimeState = createInitialGameState();
-    assert.equal(applyEditorLevelToWorld(runtimeState, level), true, "the complete level_002 file should load through the production level path");
+    assert.equal(applyEditorLevelToWorld(runtimeState, level), true, "the complete level_t02 file should load through the production level path");
     const manifestMap = new Map(level.atlasRefs.map((reference) => [
         reference.atlasId,
         { manifest: JSON.parse(readFileSync(new URL(`../${reference.manifest}`, import.meta.url), "utf8")) }
     ]));
-    assert.equal(applyAtlasManifestsToWorld(runtimeState, manifestMap), true, "level_002 should build its production collision world from the referenced manifests");
+    assert.equal(applyAtlasManifestsToWorld(runtimeState, manifestMap), true, "level_t02 should build its production collision world from the referenced manifests");
     assert.equal(runtimeState.enemies.filter((enemy) => enemy.kind === "characterEnemy").length, 30, "runtime loading should retain all authored goblins and bats");
     assert.equal(runtimeState.world.enemySpawners.length, 6, "runtime loading should retain all six arena spawners");
     assert.equal(runtimeState.world.signalReceivers.some((receiver) => receiver.id === "boss_exit_gate_001"), false, "runtime loading should not recreate the removed iron gate");
@@ -12683,7 +12683,7 @@ async function testOggLevelMusicSystem() {
     const musicDirectorSource = readFileSync(new URL("../src/browser/music-director.js", import.meta.url), "utf8");
     const levelEditorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const musicDataSource = readFileSync(new URL("../src/shared/music-data.js", import.meta.url), "utf8");
-    const levelOne = JSON.parse(readFileSync(new URL("../assets/level_001.json", import.meta.url), "utf8"));
+    const levelOne = JSON.parse(readFileSync(new URL("../assets/level_t01.json", import.meta.url), "utf8"));
     assert.match(bootstrapSource, /loadMusicCatalog/, "browser bootstrap should load assets/music.json before playing music");
     assert.match(bootstrapSource, /musicDirector\.setCatalog\(musicCatalog\)/, "browser bootstrap should hand the OGG catalog to the music director");
     assert.match(bootstrapSource, /musicDirector\.setTrack\(activeLevelMusic\.trackId\)/, "level loading should switch the selected OGG track");
@@ -12702,7 +12702,7 @@ async function testOggLevelMusicSystem() {
     assert.ok(levelEditorSource.includes("function musicTrackNumber(trackId)") && levelEditorSource.includes("`${number}: ${track.title}`"), "the Level Editor should label music choices as 001: Title");
     assert.doesNotMatch(levelEditorSource, /sourceFileName \? ` ·/, "the Level Editor music dropdown should not append source filenames");
     assert.doesNotMatch(levelEditorSource, /MUSIC_TUNES/, "the Level Editor should not use the retired synthesized catalog");
-    assert.equal(levelOne.music.trackId, "music_001", "level_001 should explicitly select the first imported OGG track");
+    assert.equal(levelOne.music.trackId, "music_001", "level_t01 should explicitly select the first imported OGG track");
     assert.equal(levelOne.music.version, 3, "authored levels should carry the current OGG music metadata version");
 
     const state = createInitialGameState();
@@ -13295,7 +13295,7 @@ const tests = [
     ["moving-platform schema and Level Editor", testMovingPlatformSchemaAndEditor],
     ["boss defeat signal and iron gate", testBossDefeatSignalGate],
     ["living boss locks ordinary exit doors", testLivingBossLocksExitDoor],
-    ["level_002 goblin boss arena contract", testLevelTwoGoblinBossArenaContract],
+    ["level_t02 goblin boss arena contract", testLevelTwoGoblinBossArenaContract],
     ["automatic shuttle moving platform", testAutomaticShuttleMovingPlatform],
     ["moving-platform crush requires nearest blocked exit for three ticks", testMovingPlatformCrushRequiresThreeTicksAndNearestExit],
     ["two-tick crush recovery emits diagnostics", testCrushWarningReportsTwoTickRecovery],
@@ -13343,14 +13343,14 @@ const tests = [
     ["hunter enemy jump and attack positioning", testHunterEnemyJumpAndAttackPositioning],
     ["hunter deliberate drop traversal", testHunterUsesDeliberateDropTraversal],
     ["hunter ranged attack-position selection", testHunterRangedAttackPositionSelection],
-    ["level_001 baked hunter navigation graphs", testLevelOneUsesBakedHunterNavigationGraphs],
-    ["hunter crosses and descends level_001 central pillar", testHunterCrossesLevelOneCentralPillarAndJumpsDown],
+    ["level_t01 baked hunter navigation graphs", testLevelOneUsesBakedHunterNavigationGraphs],
+    ["hunter crosses and descends level_t01 central pillar", testHunterCrossesLevelOneCentralPillarAndJumpsDown],
     ["engaged hunter immediately leaves pillar for last seen player", testEngagedHunterImmediatelyLeavesPillarForLastSeenPlayer],
-    ["hunter walks off level_001 left ledge", testHunterWalksOffLevelOneLeftLedge],
-    ["human hunter escapes level_001 left ledge", testHumanHunterEscapesLevelOneLeftLedge],
-    ["hunter climbs level_001 pillar from the left", testHunterClimbsLevelOnePillarFromLeftWithoutWallClipping],
-    ["hunter jumps onto level_001 arch", testHunterJumpsOntoLevelOneArchWithLargeAuthoredJump],
-    ["Skeleton Caster pursues onto level_001 ruin", testSkeletonCasterPursuesOntoLevelOneRuin],
+    ["hunter walks off level_t01 left ledge", testHunterWalksOffLevelOneLeftLedge],
+    ["human hunter escapes level_t01 left ledge", testHumanHunterEscapesLevelOneLeftLedge],
+    ["hunter climbs level_t01 pillar from the left", testHunterClimbsLevelOnePillarFromLeftWithoutWallClipping],
+    ["hunter jumps onto level_t01 arch", testHunterJumpsOntoLevelOneArchWithLargeAuthoredJump],
+    ["Skeleton Caster pursues onto level_t01 ruin", testSkeletonCasterPursuesOntoLevelOneRuin],
     ["hunter obstacle-clear jump run-up", testHunterJumpUsesObstacleClearRunUp],
     ["hunter reverse jump backs away for run-up", testHunterJumpBacksAwayForReverseRunUp],
     ["hunter drop uses ordinary collision geometry", testHunterDropLandsOnOrdinaryCollisionGeometry],

@@ -3974,3 +3974,7 @@ Revision 467 makes the interactive catalog defaults for `wizard_entry_door` and 
 ## Revision 468 editable thought triggers
 
 Revision 468 makes placed `thoughtTrigger` entities editable from the Level Editor inspector. Selecting a location thought trigger now opens the story inspector as a thought-only panel with trigger distance and editable thought text, while mailbox-only letter controls are hidden. Saving the inspector writes the edited value back to `thoughtText` and preserves the trigger as a `locationThought` entity.
+
+## Revision 470 testbench level fixtures
+
+Revision 470 reserves the `assets/level_tNN.json` namespace for testbench-only levels. Regression tests should use `level_t01`, `level_t02`, and later `level_t03` through `level_t99` as needed instead of depending on mutable campaign files such as `level_001.json`. These fixtures are intentionally unreachable through normal campaign progression and may be edited as needed for stable tests.

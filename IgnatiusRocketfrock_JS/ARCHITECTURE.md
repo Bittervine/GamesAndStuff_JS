@@ -1876,3 +1876,7 @@ Interactive doorway placement remains catalog-driven. The `wizard_entry_door` an
 ## Revision 468 editable thought triggers
 
 Location thoughts remain ordinary `thoughtTrigger` entities with `interaction: "locationThought"` and authored `thoughtText`. The Level Editor inspector treats them as story records alongside editor-letter mailboxes, but exposes only the trigger distance and thought text controls for thought-only triggers. Runtime story handling remains unchanged.
+
+## Revision 470 testbench level fixtures
+
+Revision 470 stops regression tests from depending on mutable campaign level numbers. The authored-level contracts that previously inspected `assets/level_001.json` and `assets/level_002.json` now read reserved testbench fixtures instead: `assets/level_t01.json` for the old introductory cave/navigation fixture and `assets/level_t02.json` for the goblin boss arena fixture. The `level_tNN` namespace is reserved for tests only; those files may be edited freely to satisfy regression coverage and must not be linked from normal campaign progression.

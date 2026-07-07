@@ -4202,3 +4202,11 @@ The Asset Tool also gains a faster line-editing gesture: in Add Node Mode, click
 - [x] Hide mailbox letter fields when editing a thought-only trigger.
 - [x] Save edited thought-trigger copy back to `thoughtText` while preserving `interaction: "locationThought"`.
 - [x] Synchronize visible revision labels to 468.
+
+## Revision 470 testbench level fixtures
+
+- [x] Add `assets/level_t01.json` as the stable old-introductory-cave test fixture.
+- [x] Add `assets/level_t02.json` as the stable goblin-boss-arena test fixture.
+- [x] Retarget authored-level regression reads away from campaign `level_001` and `level_002`.
+- [x] Reserve `level_tNN` for future testbench levels so normal level rearrangement does not break tests.
+- [x] Synchronize visible revision labels to 470.
