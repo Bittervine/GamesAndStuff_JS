@@ -794,7 +794,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 454</small></h1>
+        <h1>Level Editor <small>rev 458</small></h1>
 
         <div class="box">
             <h2>Level</h2>
@@ -7694,10 +7694,15 @@ import {
         }
     }
 
+    function musicTrackNumber(trackId) {
+        const match = /^music_(\d{3,})$/i.exec(String(trackId || "").trim());
+        return match ? match[1] : "";
+    }
+
     function musicOptionLabel(track) {
         if (track.id === "none") return track.title;
-        const source = track.sourceFileName ? ` · ${track.sourceFileName}` : "";
-        return `${track.title} — ${track.id}${source}`;
+        const number = musicTrackNumber(track.id);
+        return number ? `${number}: ${track.title}` : track.title;
     }
 
     function ensureMusicOption(trackId) {
@@ -7705,7 +7710,8 @@ import {
         if ([...els.levelMusic.options].some((option) => option.value === id)) return;
         const option = document.createElement("option");
         option.value = id;
-        option.textContent = `${id} (missing from assets/music.json)`;
+        const number = musicTrackNumber(id);
+        option.textContent = number ? `${number}: ${id} (missing from assets/music.json)` : `${id} (missing from assets/music.json)`;
         els.levelMusic.appendChild(option);
     }
 

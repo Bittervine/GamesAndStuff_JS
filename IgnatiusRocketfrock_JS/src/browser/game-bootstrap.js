@@ -72,6 +72,7 @@ const loadingBarFill = document.getElementById("loading-bar-fill");
 const loadingDetail = document.getElementById("loading-detail");
 const titleScreen = document.getElementById("title-screen");
 const titleStartButton = document.getElementById("title-start-button");
+const titleResumeButton = document.getElementById("title-resume-button");
 const hudPanelGroup = document.getElementById("hud");
 const metersPanel = document.getElementById("meters");
 const minimapPanel = document.getElementById("game-menu-controls");
@@ -103,7 +104,9 @@ const showMinimapInput = document.getElementById("show-minimap");
 const useHardwareRenderingInput = document.getElementById("use-hardware-rendering");
 const usePixmapPyramidsInput = document.getElementById("use-pixmap-pyramids");
 
-const GAME_REVISION = "454";
+const GAME_REVISION = "458";
+const START_LEVEL_ID = "level_001";
+const RESUME_SAVE_STORAGE_KEY = "ignatius_rocketfrock_resume_v1";
 
 let displayedLoadingProgress = 0;
 let activeCaveWindow = normalizeCaveWindow(null);
@@ -339,7 +342,12 @@ async function loadMusicCatalog() {
 }
 
 async function applyRequiredDefaultLevel() {
-    const url = "assets/level_001.json";
+    return applyRequiredLevel(START_LEVEL_ID);
+}
+
+async function applyRequiredLevel(levelId = START_LEVEL_ID) {
+    const id = normalizedLevelId(levelId, START_LEVEL_ID);
+    const url = `assets/${id}.json`;
     let response;
     try {
         response = await fetch(url, { cache: "no-store" });
@@ -362,6 +370,7 @@ async function applyRequiredDefaultLevel() {
         failStartup(`Required level file could not be applied: ${url}.`);
     }
     syncPresentationLevelData(level);
+    return id;
 }
 
 function syncPresentationLevelData(level) {
@@ -371,10 +380,50 @@ function syncPresentationLevelData(level) {
     musicDirector.setTrack(activeLevelMusic.trackId);
 }
 
-function normalizedLevelId(value, fallback = "level_001") {
+function normalizedLevelId(value, fallback = START_LEVEL_ID) {
     const match = /^level_(\d+)$/i.exec(String(value || "").trim());
     if (!match) return fallback;
     return `level_${match[1].padStart(3, "0")}`;
+}
+
+function storedResumeLevelId() {
+    try {
+        const raw = localStorage.getItem(RESUME_SAVE_STORAGE_KEY);
+        if (!raw) return "";
+        const parsed = JSON.parse(raw);
+        const id = normalizedLevelId(typeof parsed === "string" ? parsed : parsed?.levelId, "");
+        return id || "";
+    } catch (error) {
+        console.warn("Stored resume data could not be read.", error);
+        return "";
+    }
+}
+
+function saveResumeLevelId(levelId) {
+    const id = normalizedLevelId(levelId, "");
+    if (!id) return false;
+    try {
+        localStorage.setItem(RESUME_SAVE_STORAGE_KEY, JSON.stringify({
+            version: 1,
+            levelId: id,
+            savedAt: new Date().toISOString()
+        }));
+        syncTitleScreenUi();
+        addEvent(gameState, "RESUME_LEVEL_SAVED", { levelId: id });
+        return true;
+    } catch (error) {
+        console.warn(`Resume level ${id} could not be saved.`, error);
+        return false;
+    }
+}
+
+function clearStoredResumeLevel() {
+    try {
+        localStorage.removeItem(RESUME_SAVE_STORAGE_KEY);
+    } catch (error) {
+        console.warn("Stored resume data could not be cleared.", error);
+    }
+    syncTitleScreenUi();
 }
 
 async function fetchOptionalLevel(levelId) {
@@ -422,6 +471,7 @@ async function loadRequestedLevel(request) {
             gameState.player.visible = true;
             return false;
         }
+        saveResumeLevelId(loadedLevelId);
         syncPresentationLevelData(level);
         await renderer.ensureEnvironmentAtlases(gameState.world.atlasManifests, {
             onProgress: ({ progress, label }) => {
@@ -476,6 +526,11 @@ function setupTitleScreen() {
         startGameFromTitle();
     });
 
+    titleResumeButton?.addEventListener("click", (event) => {
+        event.preventDefault();
+        void resumeGameFromTitle();
+    });
+
     window.addEventListener("keydown", handleTitleStartKeydown, { capture: true, passive: false });
     window.addEventListener("pointerdown", handleTitleStartPointer, { capture: true, passive: false });
     window.addEventListener("mousedown", handleTitleStartPointer, { capture: true, passive: false });
@@ -523,6 +578,7 @@ function shouldSuppressPostTitleStartInput() {
 function shouldIgnoreTitleStartTarget(target) {
     return Boolean(target instanceof Element && target.closest([
         "#title-manual-link",
+        "#title-resume-button",
         "#game-menu-controls",
         "#game-menu-dialog",
         "input",
@@ -558,6 +614,44 @@ function startGameFromTitle() {
     void applyAutoFullscreenPolicy();
 }
 
+async function resumeGameFromTitle() {
+    if (!titleScreenActive) {
+        return false;
+    }
+    const resumeLevelId = storedResumeLevelId();
+    if (!resumeLevelId) {
+        syncTitleScreenUi();
+        return false;
+    }
+    if (titleResumeButton) {
+        titleResumeButton.disabled = true;
+        titleResumeButton.setAttribute("aria-busy", "true");
+    }
+    void musicDirector.unlock();
+    try {
+        const levelAvailable = Boolean(await fetchOptionalLevel(resumeLevelId));
+        if (!levelAvailable) {
+            clearStoredResumeLevel();
+            return false;
+        }
+        const loaded = await restartCurrentLevel({
+            levelId: resumeLevelId,
+            loadingLabel: "Loading saved level",
+            useBrowserCopy: false
+        });
+        if (!loaded) {
+            return false;
+        }
+        startGameFromTitle();
+        return true;
+    } finally {
+        if (titleResumeButton) {
+            titleResumeButton.removeAttribute("aria-busy");
+        }
+        syncTitleScreenUi();
+    }
+}
+
 function syncTitleScreenUi() {
     if (titleScreen) {
         titleScreen.hidden = !titleScreenActive;
@@ -566,6 +660,12 @@ function syncTitleScreenUi() {
     document.body.classList.toggle("game-running", gameHasStarted && !titleScreenActive);
     if (gameMenuExitTitleButton) {
         gameMenuExitTitleButton.hidden = titleScreenActive;
+    }
+    if (titleResumeButton) {
+        const resumeLevelId = storedResumeLevelId();
+        titleResumeButton.disabled = !resumeLevelId;
+        titleResumeButton.setAttribute("aria-disabled", resumeLevelId ? "false" : "true");
+        titleResumeButton.title = resumeLevelId ? `Resume from ${resumeLevelId.replace("_", " ")}` : "Complete a level to unlock Resume";
     }
     syncGameAudioState();
 }
@@ -1148,7 +1248,10 @@ async function exitToTitleFromMenu() {
 }
 
 async function restartCurrentLevel() {
-    showLoadingScreen("Restarting level", 0.04);
+    const options = arguments[0] && typeof arguments[0] === "object" ? arguments[0] : {};
+    const targetLevelId = normalizedLevelId(options.levelId || START_LEVEL_ID, START_LEVEL_ID);
+    const useBrowserCopy = options.useBrowserCopy !== false;
+    showLoadingScreen(options.loadingLabel || "Restarting level", 0.04);
     setGamePaused(true, { clearInput: true });
     try {
         const preservedSettings = normalizeGameSettings(gameState.settings);
@@ -1158,9 +1261,9 @@ async function restartCurrentLevel() {
         activeCaveWindow = normalizeCaveWindow(null);
         activeLevelMusic = normalizeLevelMusic(null);
         setLoadingProgress(0.12, "Resetting level data");
-        const loadedBrowserCopy = maybeApplyBrowserCopyLevel();
+        const loadedBrowserCopy = useBrowserCopy && maybeApplyBrowserCopyLevel();
         if (!loadedBrowserCopy) {
-            await applyRequiredDefaultLevel();
+            await applyRequiredLevel(targetLevelId);
         }
         setLoadingProgress(0.24, "Level data ready");
         renderer.syncCaveWindow(activeCaveWindow);
@@ -1187,6 +1290,7 @@ async function restartCurrentLevel() {
         updateDebugText();
         setLoadingProgress(1, "Level ready");
         await nextPaint();
+        return true;
     } finally {
         hideLoadingScreen();
     }

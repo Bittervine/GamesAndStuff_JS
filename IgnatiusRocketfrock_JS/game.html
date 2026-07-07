@@ -149,6 +149,12 @@
         }
 
         #title-actions {
+            display: grid;
+            justify-items: center;
+            gap: 8px;
+        }
+
+        .title-action-row {
             display: flex;
             align-items: center;
             justify-content: center;
@@ -169,6 +175,22 @@ text-align: center;
             font-size: 13px;
             font-weight: 850;
             letter-spacing: 0.04em;
+        }
+
+        .title-action-small {
+            min-width: 116px;
+            min-height: 34px;
+            padding: 7px 11px;
+            font-size: 12px;
+            letter-spacing: 0.025em;
+        }
+
+        .title-action:disabled,
+        .title-action[aria-disabled="true"] {
+            cursor: default;
+            opacity: 0.5;
+            border-color: rgba(225, 209, 255, 0.34);
+            background: linear-gradient(180deg, rgba(91, 72, 122, 0.48), rgba(28, 23, 38, 0.84));
         }
 
         .title-action:hover,
@@ -871,8 +893,13 @@ font-size: 14px;
         <div id="title-content">
             <img id="title-card-art" src="assets/title_card.png" alt="Ignatius Rocketfrock">
             <div id="title-actions">
-                <button id="title-start-button" class="title-action" type="button">Start</button>
-                <a id="title-manual-link" class="title-action" href="GameManual.html">Manual</a>
+                <div class="title-action-row title-action-row-primary">
+                    <button id="title-start-button" class="title-action" type="button">Start</button>
+                    <button id="title-resume-button" class="title-action" type="button">Resume</button>
+                </div>
+                <div class="title-action-row title-action-row-secondary">
+                    <a id="title-manual-link" class="title-action title-action-small" href="GameManual.html">Game manual</a>
+                </div>
             </div>
             <div id="title-start-hint">Press jump, click, tap, or press any key</div>
         </div>

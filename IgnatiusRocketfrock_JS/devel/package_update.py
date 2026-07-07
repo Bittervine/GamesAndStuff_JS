@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a compact project update archive without source artwork files."""
+"""Build a compact project update archive without heavyweight binary files."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import sys
 import zipfile
 from pathlib import Path
 
-EXCLUDED_EXTENSIONS = {".png", ".xcf", ".ogg"}
+EXCLUDED_EXTENSIONS = {".png", ".xcf", ".ogg", ".exe"}
 EXCLUDED_DIRECTORIES = {".git", ".build", "dist", "node_modules", "__pycache__"}
 EXCLUDED_FILENAMES = {".DS_Store"}
 FORBIDDEN_GENERATED_DIRECTORIES = {".nyc_output", ".pytest_cache", "coverage", "playwright-report", "test-results"}
@@ -313,7 +313,7 @@ def main() -> int:
     except (OSError, ValueError, zipfile.BadZipFile) as error:
         print(f"Packaging failed: {error}", file=sys.stderr)
         return 1
-    print(f"Created {output.resolve()} with {file_count} files; PNG, XCF, and OGG files excluded.")
+    print(f"Created {output.resolve()} with {file_count} files; PNG, XCF, OGG, and EXE files excluded.")
     return 0
 
 

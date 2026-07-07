@@ -38,7 +38,7 @@ Wrench-modified projectile rockets carry their launch-time wrench effect ID and 
 
 ## UPDATE ARCHIVE RULE ##
 
-Use `devel/package_update.py` for revision handoffs. It verifies the visible game and Level Editor revision labels, checks required project files, excludes PNG and XCF source artwork plus generated build directories, and tests the finished zip before reporting success.
+Use `devel/package_update.py` for revision handoffs. It verifies the visible game and Level Editor revision labels, checks required project files, excludes PNG, XCF, OGG, and EXE heavyweight files plus generated build directories, and tests the finished zip before reporting success.
 
 ## ROCKET IMPACT EFFECT PERFORMANCE RULE ##
 

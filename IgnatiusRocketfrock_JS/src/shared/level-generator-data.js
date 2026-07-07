@@ -5077,18 +5077,51 @@ function buildStandardTraversal({
         });
         let chosenCenterX = null;
         let chosenShaft = null;
+        const movement = {
+            endOffsetX: 0,
+            endOffsetY: roundCoordinate(endSupport.surfaceY - startSupport.surfaceY)
+        };
         if (!useRunAndGunRoute) {
+            const candidateCenters = [];
             const boardingGap = roundCoordinate(rng.range(38, 62));
-            const centerX = preferredSide > 0
+            const originalCenterX = preferredSide > 0
                 ? Math.min(startSupport.walkableRightX, endSupport.walkableRightX) + boardingGap + support.width * 0.5 - support.walkableLeftInset
                 : Math.max(startSupport.walkableLeftX, endSupport.walkableLeftX) - boardingGap - (support.width * 0.5 - support.walkableRightInset);
-            moveSupportCenter(support, centerX);
-            chosenCenterX = support.centerX;
+            candidateCenters.push(originalCenterX);
+            for (const side of [preferredSide, -preferredSide]) {
+                const sharedAnchor = side > 0
+                    ? Math.min(startSupport.walkableRightX, endSupport.walkableRightX) + support.width * 0.5 - support.walkableLeftInset
+                    : Math.max(startSupport.walkableLeftX, endSupport.walkableLeftX) - (support.width * 0.5 - support.walkableRightInset);
+                for (const gap of [38, 50, 62, 78, 96, 118, 144]) {
+                    candidateCenters.push(sharedAnchor + side * gap);
+                }
+            }
+            candidateCenters.push((startSupport.centerX + endSupport.centerX) * 0.5);
+            for (const centerX of [...new Set(candidateCenters.map((value) => roundCoordinate(value)))]) {
+                moveSupportCenter(support, centerX);
+                const platformAtEnd = { ...support, surfaceY: endSupport.surfaceY };
+                const board = classifyTraversalTransition(startSupport, support, edge, theme);
+                const exit = classifyTraversalTransition(platformAtEnd, endSupport, edge, theme);
+                if (!board.valid || !exit.valid
+                    || board.gap > theme.traversal.mandatoryGap
+                    || exit.gap > theme.traversal.mandatoryGap) continue;
+                const visualSweep = generatedMovingPlatformVisualSweepRect(support, movement);
+                const crossesOneWay = supports.some((other) => other.id !== support.id
+                    && !other.moving
+                    && other.collisionMode === "oneWay"
+                    && rectanglesOverlapWithArea(visualSweep, generatedSupportVisualRect(other), 1));
+                if (crossesOneWay) continue;
+                chosenCenterX = support.centerX;
+                break;
+            }
+            if (!Number.isFinite(chosenCenterX)) {
+                const placement = placements.find((candidate) => candidate.id === support.placementId);
+                supports.splice(supports.indexOf(support), 1);
+                if (placement) placements.splice(placements.indexOf(placement), 1);
+                throw new Error(`Vertical edge “${edge.id}” cannot place a moving platform that can be boarded from both landings.`);
+            }
+            moveSupportCenter(support, chosenCenterX);
         } else {
-            const movement = {
-                endOffsetX: 0,
-                endOffsetY: roundCoordinate(endSupport.surfaceY - startSupport.surfaceY)
-            };
             const candidateCenters = [];
             const startVisual = generatedSupportVisualRect(startSupport);
             const endVisual = generatedSupportVisualRect(endSupport);
@@ -7506,22 +7539,29 @@ function buildThePath74GridPlan({ settings, rng }) {
         const xs = path.map((cell) => cell.gx);
         const ys = path.map((cell) => cell.gy);
         const horizontalDirections = segments.filter((segment) => segment.direction === "left" || segment.direction === "right").map((segment) => segment.direction);
+        const verticalDirections = segments.filter((segment) => segment.direction === "up" || segment.direction === "down").map((segment) => segment.direction);
         const leftwardSegments = horizontalDirections.filter((value) => value === "left").length;
         let horizontalDirectionChanges = 0;
         for (let index = 1; index < horizontalDirections.length; index += 1) {
             if (horizontalDirections[index] !== horizontalDirections[index - 1]) horizontalDirectionChanges += 1;
+        }
+        let verticalDirectionChanges = 0;
+        for (let index = 1; index < verticalDirections.length; index += 1) {
+            if (verticalDirections[index] !== verticalDirections[index - 1]) verticalDirectionChanges += 1;
         }
         if (path.length < minimumCells) continue;
         if (new Set(ys).size < minimumRows) continue;
         if (path.at(-1).gx <= 0 || path.at(-1).gx !== Math.max(...xs)) continue;
         if (settings.length !== "compact" && settings.winding >= 0.2 && leftwardSegments < 1) continue;
         if (settings.length !== "compact" && settings.winding >= 0.45 && horizontalDirectionChanges < 2) continue;
+        if (settings.length !== "compact" && settings.verticality >= 0.45 && verticalDirectionChanges < 1) continue;
         return {
             version: 1,
             path,
             segments,
             leftwardSegments,
             horizontalDirectionChanges,
+            verticalDirectionChanges,
             bounds: {
                 minGX: Math.min(...xs),
                 maxGX: Math.max(...xs),
@@ -8010,6 +8050,7 @@ function buildThePath74RouteCandidate({ theme, settings, rng, attempt }) {
             bounds: gridPlan.bounds,
             leftwardSegments: gridPlan.leftwardSegments,
             horizontalDirectionChanges: gridPlan.horizontalDirectionChanges,
+            verticalDirectionChanges: gridPlan.verticalDirectionChanges,
             targetVerticalSpan: roundCoordinate((gridPlan.bounds.maxGY - gridPlan.bounds.minGY) * cellSizeY),
             targetAspectRatio: settings.length === "compact" ? 5.8 : 3.8,
             targetAverageNodeSpacing: roundCoordinate(average(spacings)),

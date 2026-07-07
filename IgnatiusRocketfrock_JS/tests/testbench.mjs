@@ -552,6 +552,7 @@ function testSourceOrganization() {
 
     const packageHelper = readFileSync(new URL("../devel/package_update.py", import.meta.url), "utf8");
     assert.ok(packageHelper.includes("RETIRED_FILES") && packageHelper.includes("src/presentation/rocket-glow-cache.js"), "release packaging should reject known retired files before creating an archive");
+    assert.ok(packageHelper.includes('".exe"'), "compact release packaging should exclude Windows executable helpers along with heavyweight media assets");
     assert.ok(packageHelper.includes("FORBIDDEN_GENERATED_DIRECTORIES") && packageHelper.includes("FORBIDDEN_GENERATED_SUFFIXES"), "release packaging should reject transient test, coverage, backup, log, and temporary artifacts");
     assert.ok(packageHelper.includes("archive contains duplicate member names") && packageHelper.includes("archive contains unsafe member paths"), "release packaging should validate member uniqueness and path safety");
     assert.ok(packageHelper.includes("hunter enemies but no baked navigation profiles"), "release packaging should reject hunter levels that would rebuild navigation edges every simulation tick");
@@ -9039,10 +9040,10 @@ function testRocketPowerUpArsenal() {
     const characterEditorSource = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 454<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(characterEditorSource, /Puppet Forge <small>rev 454<\/small>/, "Puppet Forge should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 458<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(characterEditorSource, /Puppet Forge <small>rev 458<\/small>/, "Puppet Forge should display the packaged revision");
     const assetEditorSource = readFileSync(new URL("../asset-editor.html", import.meta.url), "utf8");
-    assert.match(assetEditorSource, /Asset Tool <small>rev 454<\/small>/, "Asset Tool should display the packaged revision");
+    assert.match(assetEditorSource, /Asset Tool <small>rev 458<\/small>/, "Asset Tool should display the packaged revision");
     assert.ok(editorSource.includes("state.level.layerVisuals = normalizeLevelLayerVisuals({\n            version: 2,"), "editor metadata commits should retain the canonical layer-visual schema instead of reapplying legacy Foreground factors");
     assert.ok(editorSource.includes("const w = displayRecord.w * state.camera.zoom") && editorSource.includes("const w = displayPlacement.w * state.camera.zoom"), "Foreground selection and asset-guide outlines should use the same layer-scaled display dimensions as rendered artwork");
     assert.ok(
@@ -9071,7 +9072,7 @@ function testRocketPowerUpArsenal() {
     assert.equal(editorSource.includes('id="canvas-renderer-baseline"'), false, "the Level Editor should no longer advertise the posterity-only Canvas baseline");
     assert.equal(editorSource.includes("openCanvasRendererBaseline"), false, "the removed baseline link should leave no dormant click handler");
     assert.equal(editorSource.includes("Editor 2 lab"), false, "the Level Editor should not link to the removed Editor 2 lab");
-    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 454") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
+    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 458") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
     assert.ok(baselineSource.includes("applyEditorLevelToWorld") && baselineSource.includes("preferWebGL2: false") && baselineSource.includes("setViewOverride"), "the retained baseline should still convert the authored level and use the ordinary Canvas2D game renderer with an editor camera override");
     assert.ok(editorPlaywrightBenchmark.includes("benchmark_baseline") && editorPlaywrightBenchmark.includes("benchmark_editor") && editorPlaywrightBenchmark.includes("editorToBaselineCadenceRatio"), "the optional Playwright probe should compare the loaded baseline and editor rather than source-only timings");
     assert.ok(editorPlaywrightBenchmark.includes("bodyScrollWidth") && editorPlaywrightBenchmark.includes("stageBacking") && editorPlaywrightBenchmark.includes("overlayBacking"), "the Playwright probe should detect viewport overflow and stage/overlay size divergence");
@@ -9081,7 +9082,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(rendererSource.includes("backingPixelsPerCssPixel") && rendererSource.includes("override.cssZoom * backingPixelsPerCssPixel") && editorSource.includes("cssZoom: state.camera.zoom"), "editor and runtime artwork should share one CSS-pixel camera scale so guide alignment does not drift across the viewport");
     assert.ok(rendererSource.includes("this.ctx.setTransform(1, 0, 0, 1, 0, 0)") && rendererSource.includes("never inherit a CSS/DPR transform"), "the production Canvas renderer should reset inherited context transforms before drawing backing-pixel coordinates");
     assert.ok(editorSource.includes("stageCtx?.setTransform(1, 0, 0, 1, 0, 0)") && !editorSource.includes("stageCtx?.setTransform(dpr"), "the Level Editor must not pre-scale the production scene context by devicePixelRatio");
-    assert.match(bootstrapSource, /const GAME_REVISION = "454";/, "the game debug revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "457";/, "the game debug revision should match the packaged revision");
     assert.ok(
         editorSource.includes('<div class="level-section-label">Existing Level:</div>')
             && editorSource.includes('id="load-level">Load</button>')
@@ -12496,7 +12497,9 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.match(gameHtml, /id="game-menu-exit-desktop"[^>]*hidden/, "desktop exit should start hidden in ordinary browsers");
     assert.match(gameHtml, /id="title-screen"[^>]*hidden/, "the game should contain an initially hidden title overlay shown after loading");
     assert.match(gameHtml, /id="title-card-art"[^>]*src="assets\/title_card\.png"/, "the in-game title screen should use the title card art");
-    assert.match(gameHtml, /id="title-manual-link"[^>]*href="GameManual\.html"/, "the title screen should link to the manual");
+    assert.match(gameHtml, /id="title-start-button"[\s\S]*id="title-resume-button"[\s\S]*id="title-manual-link"/, "the title screen should place Resume beside Start and keep the manual below");
+    assert.match(gameHtml, /id="title-manual-link"[^>]*href="GameManual\.html"[\s\S]*>Game manual<\//, "the title screen should link to the renamed manual action");
+    assert.match(gameHtml, /\.title-action-small\s*\{[^}]*min-height:\s*34px/s, "the manual action should use the smaller second-row button style");
     assert.match(gameHtml, /id="game-menu-settings"[\s\S]*id="game-menu-restart"[\s\S]*id="game-menu-exit-title"/, "the menu should keep Settings, Restart level, and Exit to Title in order");
     assert.match(gameHtml, /id="sfx-volume"[^>]*value="0\.8"/, "the effects slider should visibly default to 80 percent");
     assert.match(gameHtml, /id="music-volume"[^>]*value="0\.1"/, "the music slider should visibly default to 10 percent");
@@ -12537,6 +12540,10 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.match(bootstrapSource, /window\.addEventListener\("keydown", handleTitleStartKeydown, \{ capture: true, passive: false \}\)/, "title key start should capture before gameplay input consumes the gesture");
     assert.match(bootstrapSource, /function titleStartRequested\(inputFrame\)/, "the title screen should accept sampled gameplay input as well as DOM keyboard and pointer gestures");
     assert.match(bootstrapSource, /function startGameFromTitle\(\)/, "the title screen should have a central start transition");
+    assert.match(bootstrapSource, /async function resumeGameFromTitle\(\)/, "the title screen should have a central resume transition");
+    assert.match(bootstrapSource, /RESUME_SAVE_STORAGE_KEY/, "resume progress should use a stable browser-storage key");
+    assert.match(bootstrapSource, /saveResumeLevelId\(loadedLevelId\)/, "level completion should save the loaded destination for Resume");
+    assert.match(bootstrapSource, /restartCurrentLevel\(\{[\s\S]*levelId:\s*resumeLevelId[\s\S]*useBrowserCopy:\s*false/s, "Resume should reload the saved level rather than the default browser-copy path");
     assert.match(bootstrapSource, /void musicDirector\.unlock\(\)/, "starting from the title screen should unlock the music director from that gesture");
     assert.match(bootstrapSource, /function restartCurrentLevel\(\)/, "Restart level should reset the level in-place instead of navigating away");
     assert.match(bootstrapSource, /function exitToTitleFromMenu\(\)/, "Exit to Title should be an in-game menu action");
@@ -12618,10 +12625,10 @@ async function testOggLevelMusicSystem() {
     const catalog = normalizeMusicCatalog(musicJson);
     assert.equal(DEFAULT_LEVEL_MUSIC.trackId, "music_001", "the first imported OGG track should be the default level music");
     assert.equal(DEFAULT_LEVEL_MUSIC.version, 3, "level music metadata should use the OGG-track schema");
-    assert.equal(catalog.tracks.length, 6, "the music catalog should contain silence plus the five imported OGG tracks");
+    assert.equal(catalog.tracks.length, 7, "the music catalog should contain silence plus the six imported OGG tracks");
     assert.deepEqual(
         catalog.tracks.map((track) => track.id),
-        ["none", "music_001", "music_002", "music_003", "music_004", "music_005"],
+        ["none", "music_001", "music_002", "music_003", "music_004", "music_005", "music_006"],
         "the editor-facing catalog should follow assets/music.json order"
     );
     for (const track of catalog.tracks.filter((candidate) => candidate.id !== "none")) {
@@ -12683,6 +12690,8 @@ async function testOggLevelMusicSystem() {
     assert.match(gameHtml, /id="music-volume"/, "the compact settings dialog should retain live music volume control");
     assert.match(levelEditorSource, /id="level-music"/, "the Level Editor should expose the soundtrack selector");
     assert.match(levelEditorSource, /assets\/music\.json/, "the Level Editor should populate soundtrack choices from the OGG metadata file");
+    assert.ok(levelEditorSource.includes("function musicTrackNumber(trackId)") && levelEditorSource.includes("`${number}: ${track.title}`"), "the Level Editor should label music choices as 001: Title");
+    assert.doesNotMatch(levelEditorSource, /sourceFileName \? ` ·/, "the Level Editor music dropdown should not append source filenames");
     assert.doesNotMatch(levelEditorSource, /MUSIC_TUNES/, "the Level Editor should not use the retired synthesized catalog");
     assert.equal(levelOne.music.trackId, "music_001", "level_001 should explicitly select the first imported OGG track");
     assert.equal(levelOne.music.version, 3, "authored levels should carry the current OGG music metadata version");

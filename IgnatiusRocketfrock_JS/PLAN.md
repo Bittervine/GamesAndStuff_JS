@@ -3913,3 +3913,17 @@ Generator schema version 35 stores the actual entrance and exit coordinates. Enc
 ## Revision 454 OGG music reset
 
 Revision 454 cleans out the retired synthesized/jukebox music path and makes numbered OGG tracks the only game music source. Levels now store `music.version: 3` with `trackId: "music_001"` by default, the Level Editor loads choices from `assets/music.json`, and runtime playback uses a browser-owned looping audio element. Update zips exclude `.png`, `.xcf`, and `.ogg` files.
+
+## Revision 456 title resume save
+
+Revision 456 repairs the edited OGG music catalog so the new default `music_001` track loads as valid JSON, keeps all authored levels on the first track, and adds a title-screen Resume flow. The title actions now place Start and Resume on the primary row with a smaller Game manual link below. Completing a level stores the successfully loaded destination level id in browser storage, and the Resume button reloads that saved level before starting play.
+
+## Revision 457 editor music labels and compact package rule
+
+Revision 457 changes the Level Editor music selector to display numbered OGG tracks as `<nnn>: <title>`, for example `001: B4B`, without appending the source filename. The compact update packager now excludes `.exe` files in addition to `.png`, `.xcf`, and `.ogg`, so bundled helper executables cannot slip into the handoff zip.
+
+## Revision 458 generator release gate repair and Windows test runner
+
+Revision 458 fixes the generator regressions that were left blocking the release gate. The Standard ThePath74 macro planner now rejects non-compact high-verticality route candidates that only travel upward or only travel downward, preserving the folded-route contract that requires both climbing and descending phases. Mandatory vertical moving-platform placement now tests candidate lift positions before accepting them and avoids green one-way visual overlap, so the generator no longer commits to an unboardable lift and then fails later during validation.
+
+A root-level `run_full_tests.bat` file has been added for Windows. It runs the complete `npm test` release sequence from the project root, writes the full console transcript to `.build/full-test-output.txt`, and supports `run_full_tests.bat resume` for the fingerprint-safe resume gate.

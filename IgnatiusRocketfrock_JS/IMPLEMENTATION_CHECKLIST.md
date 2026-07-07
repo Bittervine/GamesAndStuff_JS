@@ -4120,3 +4120,29 @@ Revision 399 keeps the shipped Enemy 032 death clip unchanged but replaces the t
 - [x] Load `assets/music.json` in browser bootstrap and play selected tracks through the music director.
 - [x] Update regression coverage for the OGG catalog and retired music cleanup.
 - [x] Exclude `.ogg` files from compact update archives alongside `.png` and `.xcf`.
+
+## Revision 456 title resume save
+
+- [x] Validate and repair `assets/music.json` after the new default OGG track was inserted.
+- [x] Keep all authored levels pointed at `music_001`.
+- [x] Add a title-screen Resume button beside Start.
+- [x] Move the manual link to a smaller second-row Game manual action.
+- [x] Save the loaded destination level id after a completed level transition.
+- [x] Let Resume reload the saved level id before entering gameplay.
+- [x] Update packaged revision labels and regression coverage to 456.
+
+## Revision 457 editor music labels and compact package rule
+
+- [x] Change the Level Editor music dropdown label format to `<nnn>: <title>`.
+- [x] Keep the no-music option readable and preserve missing-track fallback labels.
+- [x] Remove source filenames from the visible music choice labels.
+- [x] Add `.exe` to compact update archive exclusions.
+- [x] Update packaged revision labels and regression coverage to 457.
+
+## Revision 458 generator release gate repair and Windows test runner
+
+- [x] Enforce both climbing and descending phases for non-compact high-verticality ThePath74 macro candidates.
+- [x] Validate mandatory vertical moving-platform boarding geometry before accepting lift placement.
+- [x] Reject vertical lift placements that visually overlap green one-way supports.
+- [x] Add a root `run_full_tests.bat` helper that runs the full release gate and saves `.build/full-test-output.txt`.
+- [x] Update packaged revision labels and regression coverage to 458.

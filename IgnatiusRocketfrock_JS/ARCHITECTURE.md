@@ -1815,3 +1815,17 @@ Reward generation treats door supports as ordinary mandatory route surfaces outs
 ## Revision 454 OGG music reset release note
 
 Revision 454 removes the failed synthesized/jukebox music path from the active source tree and switches levels, editor selection, runtime playback, and regression coverage to the numbered OGG tracks described by `assets/music.json`. Packaged update archives now exclude OGG files alongside PNG and XCF assets.
+
+## Revision 456 title resume save release note
+
+Revision 456 keeps the OGG-only music contract intact while accepting the new `music_001` default track order from `assets/music.json`. The browser shell now owns a tiny resume-save record in `localStorage`, keyed by the next level id reached after a completed portal transition. Title-screen layout is updated with Start and Resume in the primary action row and a smaller Game manual link beneath them.
+
+## Revision 457 editor music labels and package exclusion release note
+
+Revision 457 keeps numbered OGG music as the active music contract but makes the editor-facing selector shorter and stable: tracks display as `<nnn>: <title>` using the numeric suffix from `music_###`. Compact update archives now treat `.exe` as excluded heavyweight tooling alongside `.png`, `.xcf`, and `.ogg`, with the packager validating that forbidden extensions are absent from the final zip.
+
+## Revision 458 generator release gate repair release note
+
+Revision 458 tightens the generator's route-and-traversal contract rather than deleting tests. ThePath74 folded routes now keep their non-compact vertical rhythm by requiring at least one vertical direction change when verticality is active, which makes the macro-room test's climbing-plus-descending assertion part of candidate selection instead of a lucky afterthought. Mandatory lift placement now probes deterministic positions on both usable sides of the paired landings, accepts only positions that are boardable at both endpoints, and skips positions where the moving-platform sweep would overlap green one-way support artwork.
+
+The project root now includes `run_full_tests.bat` for Windows release-gate runs. It invokes the same `npm test` sequence used by the package scripts, captures the complete transcript in `.build/full-test-output.txt`, and can resume passed shards with `run_full_tests.bat resume`.
