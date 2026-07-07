@@ -4496,7 +4496,7 @@
             "type": "wizard_exit_door",
             "catalogId": "it_entities_001",
             "x": 4992,
-            "y": 509.1531439000189,
+            "y": 509,
             "w": 125,
             "h": 164,
             "state": "closed",
@@ -4545,7 +4545,7 @@
             "groundSnapDistance": 72,
             "mirrorX": true,
             "triggerDistance": 96,
-            "destinationLevel": "level_002",
+            "destinationLevel": "level_003",
             "floorAnchorYFactor": 0.908745247148289,
             "wizardInsideScale": 0.84
         },
