@@ -681,7 +681,7 @@ touch-action: none;
         </section>
     </div>
     <aside>
-        <h1>Puppet Forge <small>rev 458</small></h1>
+        <h1>Puppet Forge <small>rev 465</small></h1>
         <p><a href="index.html">Back to tools</a></p>
         <p>
             Atlas-backed rig and keyframe editor. The preview now samples the same animation JSON module as the game, so edits are made in rig-space values rather than a second procedural imitation.
@@ -4595,8 +4595,7 @@ function refreshRigJson() {
     els.rigJson.value = JSON.stringify(state.rig, null, 4);
 }
 
-function downloadJson(filename, value) {
-    const blob = new Blob([JSON.stringify(value, null, 4)], { type: "application/json" });
+function downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
@@ -4605,6 +4604,36 @@ function downloadJson(filename, value) {
     anchor.click();
     anchor.remove();
     URL.revokeObjectURL(url);
+}
+
+async function downloadJson(filename, value) {
+    const blob = new Blob([JSON.stringify(value, null, 4)], { type: "application/json" });
+    if (typeof window.showSaveFilePicker === "function") {
+        try {
+            const handle = await window.showSaveFilePicker({
+                suggestedName: filename,
+                types: [{
+                    description: "JSON files",
+                    accept: { "application/json": [".json"] }
+                }]
+            });
+            const writable = await handle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+            return "file";
+        } catch (error) {
+            if (error && error.name === "AbortError") {
+                return "cancelled";
+            }
+            console.warn("Falling back to download because direct file save failed.", error);
+        }
+    }
+    downloadBlob(blob, filename);
+    return "download";
+}
+
+function exportResultVerb(result) {
+    return result === "file" ? "Saved" : "Downloaded";
 }
 
 function animationFilename() {
@@ -4627,7 +4656,7 @@ function animationFilenameForSlot(slot, animation = null) {
         || `${animation?.animationId || slot || "animation"}.json`;
 }
 
-function downloadDirtyAnimations() {
+async function downloadDirtyAnimations() {
     const dirtySlots = characterProjectDirtySummary(state.dirty).animations;
     if (!dirtySlots.length) {
         return;
@@ -4657,7 +4686,11 @@ function downloadDirtyAnimations() {
         }
         state.animationCache.set(slot, animation);
         const filename = animationFilenameForSlot(slot, animation);
-        downloadJson(filename, serializeEditableAnimationClip(animation));
+        const result = await downloadJson(filename, serializeEditableAnimationClip(animation));
+        if (result === "cancelled") {
+            unavailable.push(`${filename} (cancelled)`);
+            continue;
+        }
         markCharacterProjectClean(state.dirty, "animation", slot);
         downloaded.push(filename);
     }
@@ -4678,12 +4711,12 @@ function downloadDirtyAnimations() {
     setStatus(lines.join("\n"));
 }
 
-function exportDirtyWorkspaceDocument(kind) {
+async function exportDirtyWorkspaceDocument(kind) {
     const summary = characterProjectDirtySummary(state.dirty);
     if (kind === "animation") {
         if (summary.animations.length) {
             try {
-                downloadDirtyAnimations();
+                await downloadDirtyAnimations();
             } catch (error) {
                 setStatus(error.stack || error.message);
             }
@@ -5393,15 +5426,16 @@ els.refreshEnemyCatalogJson.addEventListener("click", () => {
     refreshEnemyCatalogJson();
     setStatus("Reset the Enemy Catalog JSON editor to the currently applied catalog.");
 });
-els.downloadEnemyCatalog.addEventListener("click", () => {
+els.downloadEnemyCatalog.addEventListener("click", async () => {
     if (!state.enemyCatalog) return;
     try {
         if (currentEnemyDefinition()) {
             applyEnemyTypeFields();
         }
-        downloadJson("ct_enemies_001.json", state.enemyCatalog);
+        const result = await downloadJson("ct_enemies_001.json", state.enemyCatalog);
+        if (result === "cancelled") return;
         markClean("enemyCatalog");
-        setStatus("Downloaded ct_enemies_001.json with the current enemy-type fields and JSON edits.");
+        setStatus(`${exportResultVerb(result)} ct_enemies_001.json with the current enemy-type fields and JSON edits.`);
     } catch (error) {
         setStatus(error.stack || error.message);
     }
@@ -5506,23 +5540,27 @@ els.validateAtlas.addEventListener("click", () => {
 });
 els.applyCharacterJson.addEventListener("click", applyCharacterJson);
 els.refreshCharacterJson.addEventListener("click", refreshCharacterJson);
-els.downloadCharacterJson.addEventListener("click", () => {
+els.downloadCharacterJson.addEventListener("click", async () => {
     if (!state.character) {
         return;
     }
-    downloadJson(characterFilename(), state.character);
+    const filename = characterFilename();
+    const result = await downloadJson(filename, state.character);
+    if (result === "cancelled") return;
     markClean("character");
-    setStatus(`Downloaded ${characterFilename()}.`);
+    setStatus(`${exportResultVerb(result)} ${filename}.`);
 });
 els.applyAtlasJson.addEventListener("click", applyAtlasJson);
 els.refreshAtlasJson.addEventListener("click", refreshAtlasJson);
-els.downloadAtlasJson.addEventListener("click", () => {
+els.downloadAtlasJson.addEventListener("click", async () => {
     if (!state.atlas) {
         return;
     }
-    downloadJson(atlasFilename(), state.atlas);
+    const filename = atlasFilename();
+    const result = await downloadJson(filename, state.atlas);
+    if (result === "cancelled") return;
     markClean("atlas");
-    setStatus(`Downloaded ${atlasFilename()}.`);
+    setStatus(`${exportResultVerb(result)} ${filename}.`);
 });
 els.applyRigJson.addEventListener("click", applyRigJson);
 
@@ -5714,25 +5752,31 @@ for (const input of [els.keyTime, els.keyValue]) {
 }
 els.applyAnimationJson.addEventListener("click", applyAnimationJson);
 els.refreshAnimationJson.addEventListener("click", refreshAnimationJson);
-els.downloadAnimationJson.addEventListener("click", () => {
+els.downloadAnimationJson.addEventListener("click", async () => {
     try {
         const baked = bakeCurrentParentConstraintTracks();
-        downloadJson(animationFilename(), serializeEditableAnimationClip(state.animation));
+        const filename = animationFilename();
+        const result = await downloadJson(filename, serializeEditableAnimationClip(state.animation));
+        if (result === "cancelled") return;
         markClean("animation");
         const detail = baked.changed ? ` with generated X/Y tracks for ${baked.parts.join(", ")}` : "";
-        setStatus(`Downloaded ${animationFilename()}${detail}.`);
+        setStatus(`${exportResultVerb(result)} ${filename}${detail}.`);
     } catch (error) {
         setStatus(error.message);
     }
 });
 els.refreshRigJson.addEventListener("click", refreshRigJson);
-els.downloadRigJson.addEventListener("click", () => {
-    downloadJson(rigFilename(), state.rig);
+els.downloadRigJson.addEventListener("click", async () => {
+    const filename = rigFilename();
+    const result = await downloadJson(filename, state.rig);
+    if (result === "cancelled") return;
     markClean("rig");
-    setStatus(`Downloaded ${rigFilename()}.`);
+    setStatus(`${exportResultVerb(result)} ${filename}.`);
 });
 for (const item of document.querySelectorAll("[data-dirty-export]")) {
-    item.addEventListener("click", () => exportDirtyWorkspaceDocument(item.dataset.dirtyExport));
+    item.addEventListener("click", () => {
+        exportDirtyWorkspaceDocument(item.dataset.dirtyExport).catch((error) => setStatus(error.stack || error.message));
+    });
 }
 
 window.addEventListener("beforeunload", (event) => {

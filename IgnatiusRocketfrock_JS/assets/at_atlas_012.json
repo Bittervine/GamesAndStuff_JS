@@ -1,0 +1,1961 @@
+{
+    "meta": {
+        "version": 4,
+        "note": "Atlas 012 castle construction/platform kit. Stone pieces and stairs are blockable, wooden platforms are one-way walkable, lamps and wooden pillars/posts are decoration."
+    },
+    "atlasId": "at_atlas_012",
+    "image": "at_atlas_012.png",
+    "frames": {
+        "castle_stone_wall_panel_large": {
+            "x": 20,
+            "y": 20,
+            "w": 384,
+            "h": 308
+        },
+        "castle_stone_platform_extra_long_top": {
+            "x": 436,
+            "y": 20,
+            "w": 1055,
+            "h": 93
+        },
+        "castle_stone_platform_medium_a": {
+            "x": 1523,
+            "y": 20,
+            "w": 431,
+            "h": 86
+        },
+        "castle_stone_platform_medium_b": {
+            "x": 20,
+            "y": 360,
+            "w": 300,
+            "h": 85
+        },
+        "castle_stone_platform_short_a": {
+            "x": 352,
+            "y": 360,
+            "w": 150,
+            "h": 75
+        },
+        "castle_stone_platform_short_b": {
+            "x": 534,
+            "y": 360,
+            "w": 119,
+            "h": 85
+        },
+        "castle_stone_platform_long_mid": {
+            "x": 685,
+            "y": 360,
+            "w": 839,
+            "h": 90
+        },
+        "castle_stone_platform_short_c": {
+            "x": 1556,
+            "y": 360,
+            "w": 204,
+            "h": 88
+        },
+        "castle_wood_platform_extra_long": {
+            "x": 20,
+            "y": 482,
+            "w": 902,
+            "h": 92
+        },
+        "castle_wood_platform_medium_a": {
+            "x": 954,
+            "y": 482,
+            "w": 295,
+            "h": 85
+        },
+        "castle_wood_platform_short_a": {
+            "x": 1281,
+            "y": 482,
+            "w": 250,
+            "h": 86
+        },
+        "castle_wood_platform_long_a": {
+            "x": 1563,
+            "y": 482,
+            "w": 459,
+            "h": 103
+        },
+        "castle_wood_platform_medium_b": {
+            "x": 20,
+            "y": 617,
+            "w": 348,
+            "h": 87
+        },
+        "castle_wood_platform_short_b": {
+            "x": 400,
+            "y": 617,
+            "w": 239,
+            "h": 88
+        },
+        "castle_wood_platform_tiny_a": {
+            "x": 671,
+            "y": 617,
+            "w": 139,
+            "h": 90
+        },
+        "castle_wood_platform_short_c": {
+            "x": 842,
+            "y": 617,
+            "w": 223,
+            "h": 94
+        },
+        "castle_hanging_candle_chandelier_a": {
+            "x": 1097,
+            "y": 617,
+            "w": 87,
+            "h": 178
+        },
+        "castle_hanging_candle_chandelier_b": {
+            "x": 1216,
+            "y": 617,
+            "w": 76,
+            "h": 177
+        },
+        "castle_hanging_candle_chandelier_c": {
+            "x": 1324,
+            "y": 617,
+            "w": 82,
+            "h": 172
+        },
+        "castle_hanging_lantern_a": {
+            "x": 1438,
+            "y": 617,
+            "w": 64,
+            "h": 182
+        },
+        "castle_hanging_lantern_b": {
+            "x": 1534,
+            "y": 617,
+            "w": 49,
+            "h": 180
+        },
+        "castle_hanging_lantern_c": {
+            "x": 1615,
+            "y": 617,
+            "w": 58,
+            "h": 192
+        },
+        "castle_hanging_lantern_d": {
+            "x": 1705,
+            "y": 617,
+            "w": 62,
+            "h": 154
+        },
+        "castle_hanging_lamp_small_a": {
+            "x": 1799,
+            "y": 617,
+            "w": 53,
+            "h": 150
+        },
+        "castle_hanging_lamp_small_b": {
+            "x": 1884,
+            "y": 617,
+            "w": 85,
+            "h": 141
+        },
+        "castle_wood_pillar_tall_a": {
+            "x": 20,
+            "y": 841,
+            "w": 84,
+            "h": 367
+        },
+        "castle_wood_pillar_tall_b": {
+            "x": 136,
+            "y": 841,
+            "w": 69,
+            "h": 357
+        },
+        "castle_wood_pillar_medium_a": {
+            "x": 237,
+            "y": 841,
+            "w": 67,
+            "h": 319
+        },
+        "castle_wood_pillar_medium_b": {
+            "x": 336,
+            "y": 841,
+            "w": 54,
+            "h": 314
+        },
+        "castle_wood_pillar_thin": {
+            "x": 422,
+            "y": 841,
+            "w": 49,
+            "h": 279
+        },
+        "castle_wood_post_short_a": {
+            "x": 503,
+            "y": 841,
+            "w": 49,
+            "h": 138
+        },
+        "castle_wood_post_short_b": {
+            "x": 584,
+            "y": 841,
+            "w": 49,
+            "h": 144
+        },
+        "castle_wood_post_short_c": {
+            "x": 665,
+            "y": 841,
+            "w": 51,
+            "h": 145
+        },
+        "castle_stone_stairs_wide": {
+            "x": 747,
+            "y": 840,
+            "w": 536,
+            "h": 194
+        },
+        "castle_stone_stairs_narrow": {
+            "x": 1317,
+            "y": 841,
+            "w": 253,
+            "h": 119
+        }
+    },
+    "objects": {
+        "castle_stone_wall_panel_large": {
+            "id": "castle_stone_wall_panel_large",
+            "frame": "castle_stone_wall_panel_large",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "stone",
+                "wall",
+                "panel",
+                "blockable"
+            ],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 3,
+                    "y": 3
+                },
+                {
+                    "id": "n2",
+                    "x": 381,
+                    "y": 3
+                },
+                {
+                    "id": "n3",
+                    "x": 381,
+                    "y": 305
+                },
+                {
+                    "id": "n4",
+                    "x": 3,
+                    "y": 305
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n1",
+                    "tags": []
+                }
+            ]
+        },
+        "castle_stone_platform_extra_long_top": {
+            "id": "castle_stone_platform_extra_long_top",
+            "frame": "castle_stone_platform_extra_long_top",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "stone",
+                "platform",
+                "long",
+                "blockable"
+            ],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 2,
+                    "y": 9
+                },
+                {
+                    "id": "n2",
+                    "x": 1051,
+                    "y": 9
+                },
+                {
+                    "id": "n3",
+                    "x": 1052,
+                    "y": 90
+                },
+                {
+                    "id": "n4",
+                    "x": 3,
+                    "y": 90
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n1",
+                    "tags": []
+                }
+            ]
+        },
+        "castle_stone_platform_medium_a": {
+            "id": "castle_stone_platform_medium_a",
+            "frame": "castle_stone_platform_medium_a",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "stone",
+                "platform",
+                "medium",
+                "blockable"
+            ],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 1,
+                    "y": 10
+                },
+                {
+                    "id": "n2",
+                    "x": 429,
+                    "y": 10
+                },
+                {
+                    "id": "n3",
+                    "x": 428,
+                    "y": 83
+                },
+                {
+                    "id": "n4",
+                    "x": 3,
+                    "y": 83
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n1",
+                    "tags": []
+                }
+            ]
+        },
+        "castle_stone_platform_medium_b": {
+            "id": "castle_stone_platform_medium_b",
+            "frame": "castle_stone_platform_medium_b",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "stone",
+                "platform",
+                "medium",
+                "blockable"
+            ],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 2,
+                    "y": 10
+                },
+                {
+                    "id": "n2",
+                    "x": 297,
+                    "y": 11
+                },
+                {
+                    "id": "n3",
+                    "x": 297,
+                    "y": 82
+                },
+                {
+                    "id": "n4",
+                    "x": 3,
+                    "y": 82
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n1",
+                    "tags": []
+                }
+            ]
+        },
+        "castle_stone_platform_short_a": {
+            "id": "castle_stone_platform_short_a",
+            "frame": "castle_stone_platform_short_a",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "stone",
+                "platform",
+                "short",
+                "blockable"
+            ],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 3,
+                    "y": 10
+                },
+                {
+                    "id": "n2",
+                    "x": 146,
+                    "y": 11
+                },
+                {
+                    "id": "n3",
+                    "x": 147,
+                    "y": 72
+                },
+                {
+                    "id": "n4",
+                    "x": 3,
+                    "y": 72
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n1",
+                    "tags": []
+                }
+            ]
+        },
+        "castle_stone_platform_short_b": {
+            "id": "castle_stone_platform_short_b",
+            "frame": "castle_stone_platform_short_b",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "stone",
+                "platform",
+                "short",
+                "blockable"
+            ],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 4,
+                    "y": 9
+                },
+                {
+                    "id": "n2",
+                    "x": 115,
+                    "y": 10
+                },
+                {
+                    "id": "n3",
+                    "x": 116,
+                    "y": 82
+                },
+                {
+                    "id": "n4",
+                    "x": 3,
+                    "y": 82
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n1",
+                    "tags": []
+                }
+            ]
+        },
+        "castle_stone_platform_long_mid": {
+            "id": "castle_stone_platform_long_mid",
+            "frame": "castle_stone_platform_long_mid",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "stone",
+                "platform",
+                "long",
+                "blockable"
+            ],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 2,
+                    "y": 12
+                },
+                {
+                    "id": "n2",
+                    "x": 836,
+                    "y": 12
+                },
+                {
+                    "id": "n3",
+                    "x": 836,
+                    "y": 87
+                },
+                {
+                    "id": "n4",
+                    "x": 3,
+                    "y": 87
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n1",
+                    "tags": []
+                }
+            ]
+        },
+        "castle_stone_platform_short_c": {
+            "id": "castle_stone_platform_short_c",
+            "frame": "castle_stone_platform_short_c",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "stone",
+                "platform",
+                "short",
+                "blockable"
+            ],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 3,
+                    "y": 10
+                },
+                {
+                    "id": "n2",
+                    "x": 201,
+                    "y": 11
+                },
+                {
+                    "id": "n3",
+                    "x": 201,
+                    "y": 85
+                },
+                {
+                    "id": "n4",
+                    "x": 3,
+                    "y": 85
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n1",
+                    "tags": []
+                }
+            ]
+        },
+        "castle_wood_platform_extra_long": {
+            "id": "castle_wood_platform_extra_long",
+            "frame": "castle_wood_platform_extra_long",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wood",
+                "platform",
+                "long",
+                "walkable"
+            ],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 4,
+                    "y": 11
+                },
+                {
+                    "id": "n2",
+                    "x": 895,
+                    "y": 14
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                }
+            ]
+        },
+        "castle_wood_platform_medium_a": {
+            "id": "castle_wood_platform_medium_a",
+            "frame": "castle_wood_platform_medium_a",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wood",
+                "platform",
+                "medium",
+                "walkable"
+            ],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 5,
+                    "y": 12
+                },
+                {
+                    "id": "n2",
+                    "x": 290,
+                    "y": 11
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                }
+            ]
+        },
+        "castle_wood_platform_short_a": {
+            "id": "castle_wood_platform_short_a",
+            "frame": "castle_wood_platform_short_a",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wood",
+                "platform",
+                "short",
+                "walkable"
+            ],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 5,
+                    "y": 11
+                },
+                {
+                    "id": "n2",
+                    "x": 245,
+                    "y": 11
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                }
+            ]
+        },
+        "castle_wood_platform_long_a": {
+            "id": "castle_wood_platform_long_a",
+            "frame": "castle_wood_platform_long_a",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wood",
+                "platform",
+                "long",
+                "walkable"
+            ],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 4,
+                    "y": 12
+                },
+                {
+                    "id": "n2",
+                    "x": 457,
+                    "y": 12
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                }
+            ]
+        },
+        "castle_wood_platform_medium_b": {
+            "id": "castle_wood_platform_medium_b",
+            "frame": "castle_wood_platform_medium_b",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wood",
+                "platform",
+                "medium",
+                "walkable"
+            ],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 8,
+                    "y": 14
+                },
+                {
+                    "id": "n2",
+                    "x": 342,
+                    "y": 15
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                }
+            ]
+        },
+        "castle_wood_platform_short_b": {
+            "id": "castle_wood_platform_short_b",
+            "frame": "castle_wood_platform_short_b",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wood",
+                "platform",
+                "short",
+                "walkable"
+            ],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 5,
+                    "y": 16
+                },
+                {
+                    "id": "n2",
+                    "x": 236,
+                    "y": 16
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                }
+            ]
+        },
+        "castle_wood_platform_tiny_a": {
+            "id": "castle_wood_platform_tiny_a",
+            "frame": "castle_wood_platform_tiny_a",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wood",
+                "platform",
+                "tiny",
+                "walkable"
+            ],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 6,
+                    "y": 14
+                },
+                {
+                    "id": "n2",
+                    "x": 131,
+                    "y": 13
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                }
+            ]
+        },
+        "castle_wood_platform_short_c": {
+            "id": "castle_wood_platform_short_c",
+            "frame": "castle_wood_platform_short_c",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wood",
+                "platform",
+                "short",
+                "walkable"
+            ],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 7,
+                    "y": 14
+                },
+                {
+                    "id": "n2",
+                    "x": 219,
+                    "y": 14
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                }
+            ]
+        },
+        "castle_hanging_candle_chandelier_a": {
+            "id": "castle_hanging_candle_chandelier_a",
+            "frame": "castle_hanging_candle_chandelier_a",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "lamp",
+                "chandelier",
+                "candle",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_hanging_candle_chandelier_b": {
+            "id": "castle_hanging_candle_chandelier_b",
+            "frame": "castle_hanging_candle_chandelier_b",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "lamp",
+                "chandelier",
+                "candle",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_hanging_candle_chandelier_c": {
+            "id": "castle_hanging_candle_chandelier_c",
+            "frame": "castle_hanging_candle_chandelier_c",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "lamp",
+                "chandelier",
+                "candle",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_hanging_lantern_a": {
+            "id": "castle_hanging_lantern_a",
+            "frame": "castle_hanging_lantern_a",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "lamp",
+                "lantern",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_hanging_lantern_b": {
+            "id": "castle_hanging_lantern_b",
+            "frame": "castle_hanging_lantern_b",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "lamp",
+                "lantern",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_hanging_lantern_c": {
+            "id": "castle_hanging_lantern_c",
+            "frame": "castle_hanging_lantern_c",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "lamp",
+                "lantern",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_hanging_lantern_d": {
+            "id": "castle_hanging_lantern_d",
+            "frame": "castle_hanging_lantern_d",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "lamp",
+                "lantern",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_hanging_lamp_small_a": {
+            "id": "castle_hanging_lamp_small_a",
+            "frame": "castle_hanging_lamp_small_a",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "lamp",
+                "hanging",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_hanging_lamp_small_b": {
+            "id": "castle_hanging_lamp_small_b",
+            "frame": "castle_hanging_lamp_small_b",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "lamp",
+                "hanging",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_wood_pillar_tall_a": {
+            "id": "castle_wood_pillar_tall_a",
+            "frame": "castle_wood_pillar_tall_a",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wood",
+                "pillar",
+                "post",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_wood_pillar_tall_b": {
+            "id": "castle_wood_pillar_tall_b",
+            "frame": "castle_wood_pillar_tall_b",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wood",
+                "pillar",
+                "post",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_wood_pillar_medium_a": {
+            "id": "castle_wood_pillar_medium_a",
+            "frame": "castle_wood_pillar_medium_a",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wood",
+                "pillar",
+                "post",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_wood_pillar_medium_b": {
+            "id": "castle_wood_pillar_medium_b",
+            "frame": "castle_wood_pillar_medium_b",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wood",
+                "pillar",
+                "post",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_wood_pillar_thin": {
+            "id": "castle_wood_pillar_thin",
+            "frame": "castle_wood_pillar_thin",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wood",
+                "pillar",
+                "post",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_wood_post_short_a": {
+            "id": "castle_wood_post_short_a",
+            "frame": "castle_wood_post_short_a",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wood",
+                "post",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_wood_post_short_b": {
+            "id": "castle_wood_post_short_b",
+            "frame": "castle_wood_post_short_b",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wood",
+                "post",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_wood_post_short_c": {
+            "id": "castle_wood_post_short_c",
+            "frame": "castle_wood_post_short_c",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wood",
+                "post",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_stone_stairs_wide": {
+            "id": "castle_stone_stairs_wide",
+            "frame": "castle_stone_stairs_wide",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "stone",
+                "stairs",
+                "blockable"
+            ],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 6,
+                    "y": 186
+                },
+                {
+                    "id": "n2",
+                    "x": 9,
+                    "y": 169
+                },
+                {
+                    "id": "n3",
+                    "x": 523,
+                    "y": 11
+                },
+                {
+                    "id": "n4",
+                    "x": 517,
+                    "y": 57
+                },
+                {
+                    "id": "n5",
+                    "x": 235,
+                    "y": 188
+                },
+                {
+                    "id": "n6",
+                    "x": 473,
+                    "y": 11
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n1",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n3",
+                    "tags": []
+                }
+            ]
+        },
+        "castle_stone_stairs_narrow": {
+            "id": "castle_stone_stairs_narrow",
+            "frame": "castle_stone_stairs_narrow",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "stone",
+                "stairs",
+                "blockable"
+            ],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 6,
+                    "y": 116
+                },
+                {
+                    "id": "n2",
+                    "x": 7,
+                    "y": 98
+                },
+                {
+                    "id": "n3",
+                    "x": 243,
+                    "y": 11
+                },
+                {
+                    "id": "n4",
+                    "x": 245,
+                    "y": 62
+                },
+                {
+                    "id": "n5",
+                    "x": 174,
+                    "y": 115
+                },
+                {
+                    "id": "n6",
+                    "x": 197,
+                    "y": 9
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n1",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n3",
+                    "tags": []
+                }
+            ]
+        }
+    }
+}

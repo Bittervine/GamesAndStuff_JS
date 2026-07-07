@@ -185,6 +185,17 @@ text-align: center;
             letter-spacing: 0.025em;
         }
 
+        .title-manual-action {
+            min-width: 154px;
+            min-height: 30px;
+            border-color: rgba(225, 209, 255, 0.28);
+            border-radius: 999px;
+            color: rgba(242, 237, 248, 0.82);
+            background: rgba(6, 6, 12, 0.34);
+            font-weight: 720;
+            letter-spacing: 0.02em;
+        }
+
         .title-action:disabled,
         .title-action[aria-disabled="true"] {
             cursor: default;
@@ -198,6 +209,15 @@ text-align: center;
             border-color: rgba(255, 255, 255, 0.92);
             background: linear-gradient(180deg, rgba(157, 122, 210, 0.88), rgba(50, 38, 68, 0.98));
             outline: 2px solid rgba(201, 167, 255, 0.78);
+            outline-offset: 2px;
+        }
+
+        .title-manual-action:hover,
+        .title-manual-action:focus-visible {
+            color: #fbf8ff;
+            border-color: rgba(225, 209, 255, 0.64);
+            background: rgba(35, 28, 48, 0.72);
+            outline: 2px solid rgba(201, 167, 255, 0.44);
             outline-offset: 2px;
         }
 
@@ -898,7 +918,7 @@ font-size: 14px;
                     <button id="title-resume-button" class="title-action" type="button">Resume</button>
                 </div>
                 <div class="title-action-row title-action-row-secondary">
-                    <a id="title-manual-link" class="title-action title-action-small" href="GameManual.html">Game manual</a>
+                    <a id="title-manual-link" class="title-action title-action-small title-manual-action" href="GameManual.html">Game manual</a>
                 </div>
             </div>
             <div id="title-start-hint">Press jump, click, tap, or press any key</div>

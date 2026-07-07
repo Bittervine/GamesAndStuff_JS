@@ -96,7 +96,6 @@ function runShard(shard, timeoutMs) {
                 if (!finished) child.kill("SIGKILL");
             }, 2_000).unref();
         }, timeoutMs);
-        timer.unref();
         child.once("error", (error) => {
             if (finished) return;
             finished = true;

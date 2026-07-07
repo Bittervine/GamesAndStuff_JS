@@ -3927,3 +3927,43 @@ Revision 457 changes the Level Editor music selector to display numbered OGG tra
 Revision 458 fixes the generator regressions that were left blocking the release gate. The Standard ThePath74 macro planner now rejects non-compact high-verticality route candidates that only travel upward or only travel downward, preserving the folded-route contract that requires both climbing and descending phases. Mandatory vertical moving-platform placement now tests candidate lift positions before accepting them and avoids green one-way visual overlap, so the generator no longer commits to an unboardable lift and then fails later during validation.
 
 A root-level `run_full_tests.bat` file has been added for Windows. It runs the complete `npm test` release sequence from the project root, writes the full console transcript to `.build/full-test-output.txt`, and supports `run_full_tests.bat resume` for the fingerprint-safe resume gate.
+
+## Revision 459 release-gate revision contract follow-up
+
+Revision 459 repairs the release-gate regression left in the revision 458 handoff: the packaged UI labels, game bootstrap debug revision, and regression expectations now all agree on the same revision. The test-gate runner also keeps its shard timeout timer referenced so a genuinely stuck child process is killed and reported by the gate instead of relying on the parent process staying alive by accident.
+
+
+## Revision 460 castle and forest atlas manifest pass
+
+Revision 460 adds environment manifests for `at_atlas_005` through `at_atlas_014`, covering the newly authored castle, cave-clutter, furniture, bridge, and forest PNG atlases. The manifests focus on searchable asset names and normal editor/runtime metadata rather than locking assets to any particular level. Decorative objects remain inert atlas entries with no collision lines, while the user-marked gameplay assets receive authored walkable or blockable collision metadata: bridges, ladders, planks, wooden platforms, stone ground, crates/hay where appropriate, suits of armor, the cauldron, and ground pieces.
+
+The compact update archive still excludes PNG, OGG, XCF, and EXE files, so the new manifests reference `at_atlas_005.png` through `at_atlas_014.png` without embedding the images in the downloadable zip.
+
+## Revision 461 asset forge atlas loader and title manual button polish
+
+Revision 461 streamlines the Asset Tool file panel for the growing numbered atlas library. The old hard-coded `at_atlas_001` image and JSON buttons are replaced by a numbered atlas selector and a single load action that loads both `assets/at_atlas_<nnn>.json` and its referenced image. The custom PNG and JSON pickers remain underneath for one-off imports. The Asset Tool canvas also now matches the Level Editor navigation feel: holding the right mouse button while dragging pans the viewport, and the mouse wheel zooms around the cursor.
+
+The title screen keeps Start and Resume as the primary actions, while the Game manual link now uses a quieter pill-shaped secondary style so it reads as supporting documentation rather than another main launch button.
+
+## Revision 462 atlas PNG separation and manifest realignment
+
+Revision 462 repacks the authored environment atlases `at_atlas_005` through `at_atlas_014` so the individual sprites no longer crowd or overlap one another inside the atlas images. A helper script, `devel/separate_environment_atlases.py`, finds opaque connected components in each atlas, assigns those components back to the existing manifest frames, crops each asset down to its true occupied pixels, and repacks the results into larger replacement PNGs with clean spacing.
+
+The corresponding JSON manifests are updated in lockstep: each frame rectangle now points at the new packed location, and any authored node coordinates are translated to account for the new crop origin. Decorative assets remain inert, while existing walkable and blockable annotations are preserved. Single-asset atlases such as `at_atlas_009` and `at_atlas_011` are left unchanged because they did not have overlap problems.
+
+## Revision 463 asset forge viewport navigation fix
+
+Revision 463 corrects the Asset Tool viewport sizing and zoom anchoring so large atlases can be inspected and edited comfortably. The left editor pane now owns a bounded scrollable viewport instead of letting the page grow around the canvas, which makes right-mouse panning reach the lower parts of large atlases. Mouse-wheel zoom now preserves the image point under the cursor, and the toolbar zoom controls preserve the viewport center instead of snapping the canvas back toward the top.
+
+## Revision 464 Asset Tool file-panel save polish
+
+Revision 464 reshapes the Asset Tool Files panel so numbered atlas loading and the common save actions live together at the top of the side panel. The panel now presents an atlas selector plus a Load button, followed by Load from Browser, Save in Browser, and Save buttons. The visible custom PNG/JSON import pickers are retired from the primary workflow, while the browser-local save/load loop remains available for quick undo-style checkpoints.
+
+The Asset Tool Save button exports the current manifest JSON from the Files panel. When the browser exposes the File System Access API, Save opens a native save-file picker and writes the selected JSON file directly; otherwise it falls back to the normal browser download flow.
+
+## Revision 465 editor save picker rollout and Asset Tool node splitting
+
+Revision 465 extends the save-file-picker export path beyond the Asset Tool. Level Editor level exports and Puppet Forge JSON exports now try Chromium's File System Access API first, allowing the user to choose and overwrite the file they are actively editing when the browser supports it. Unsupported browsers, cancelled picker operations, or denied writes fall back to the previous download-based export path where appropriate.
+
+The Asset Tool also gains a faster line-editing gesture: in Add Node Mode, clicking essentially on an existing feature line inserts the new node into that line, splits the original segment into two same-kind segments, selects the new node, and immediately switches into Move Mode so the node can be dragged into its final position without extra clicks.
+

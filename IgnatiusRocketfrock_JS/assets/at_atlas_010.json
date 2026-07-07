@@ -1,0 +1,1192 @@
+{
+    "meta": {
+        "version": 4,
+        "note": "Atlas 010 castle wall decorations. Only the two suits of armor are blockable; paintings, windows, banners, shields, tapestry, torch, and candle sconce are decoration."
+    },
+    "atlasId": "at_atlas_010",
+    "image": "at_atlas_010.png",
+    "frames": {
+        "castle_portrait_king_framed": {
+            "x": 20,
+            "y": 20,
+            "w": 255,
+            "h": 419
+        },
+        "castle_landscape_painting": {
+            "x": 307,
+            "y": 20,
+            "w": 334,
+            "h": 226
+        },
+        "castle_portrait_noblewoman_framed": {
+            "x": 673,
+            "y": 20,
+            "w": 144,
+            "h": 249
+        },
+        "castle_gothic_window_tall": {
+            "x": 849,
+            "y": 20,
+            "w": 187,
+            "h": 381
+        },
+        "castle_stained_glass_window_narrow_red": {
+            "x": 1068,
+            "y": 20,
+            "w": 102,
+            "h": 323
+        },
+        "castle_gothic_window_large_triple": {
+            "x": 1202,
+            "y": 20,
+            "w": 188,
+            "h": 377
+        },
+        "castle_window_small_narrow_blue": {
+            "x": 1422,
+            "y": 20,
+            "w": 72,
+            "h": 218
+        },
+        "castle_painting_knight_rider": {
+            "x": 1526,
+            "y": 20,
+            "w": 190,
+            "h": 173
+        },
+        "castle_painting_heraldic_arms_helmet": {
+            "x": 1748,
+            "y": 20,
+            "w": 132,
+            "h": 152
+        },
+        "castle_painting_madonna_child": {
+            "x": 20,
+            "y": 471,
+            "w": 129,
+            "h": 135
+        },
+        "castle_suit_armor_red_plume": {
+            "x": 181,
+            "y": 444,
+            "w": 200,
+            "h": 540
+        },
+        "castle_suit_armor_blue_plume": {
+            "x": 400,
+            "y": 455,
+            "w": 175,
+            "h": 502
+        },
+        "castle_banner_blue_lion": {
+            "x": 609,
+            "y": 471,
+            "w": 154,
+            "h": 465
+        },
+        "castle_banner_red_white_lion": {
+            "x": 795,
+            "y": 471,
+            "w": 151,
+            "h": 464
+        },
+        "castle_shield_quartered_lion_fleur": {
+            "x": 978,
+            "y": 471,
+            "w": 139,
+            "h": 184
+        },
+        "castle_shield_eagle_red": {
+            "x": 1149,
+            "y": 471,
+            "w": 136,
+            "h": 185
+        },
+        "castle_crest_ornate_small": {
+            "x": 1317,
+            "y": 471,
+            "w": 112,
+            "h": 148
+        },
+        "castle_tapestry_royal_lions": {
+            "x": 1461,
+            "y": 471,
+            "w": 421,
+            "h": 258
+        },
+        "castle_wall_torch": {
+            "x": 1914,
+            "y": 471,
+            "w": 89,
+            "h": 237
+        },
+        "castle_candle_sconce_double": {
+            "x": 20,
+            "y": 1016,
+            "w": 141,
+            "h": 223
+        }
+    },
+    "objects": {
+        "castle_portrait_king_framed": {
+            "id": "castle_portrait_king_framed",
+            "frame": "castle_portrait_king_framed",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wall",
+                "portrait",
+                "king",
+                "painting",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_landscape_painting": {
+            "id": "castle_landscape_painting",
+            "frame": "castle_landscape_painting",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wall",
+                "landscape",
+                "painting",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_portrait_noblewoman_framed": {
+            "id": "castle_portrait_noblewoman_framed",
+            "frame": "castle_portrait_noblewoman_framed",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wall",
+                "portrait",
+                "noblewoman",
+                "painting",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_gothic_window_tall": {
+            "id": "castle_gothic_window_tall",
+            "frame": "castle_gothic_window_tall",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wall",
+                "window",
+                "gothic",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_stained_glass_window_narrow_red": {
+            "id": "castle_stained_glass_window_narrow_red",
+            "frame": "castle_stained_glass_window_narrow_red",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wall",
+                "window",
+                "stained-glass",
+                "red",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_gothic_window_large_triple": {
+            "id": "castle_gothic_window_large_triple",
+            "frame": "castle_gothic_window_large_triple",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wall",
+                "window",
+                "gothic",
+                "stained-glass",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_window_small_narrow_blue": {
+            "id": "castle_window_small_narrow_blue",
+            "frame": "castle_window_small_narrow_blue",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wall",
+                "window",
+                "narrow",
+                "blue",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_painting_knight_rider": {
+            "id": "castle_painting_knight_rider",
+            "frame": "castle_painting_knight_rider",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wall",
+                "painting",
+                "knight",
+                "rider",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_painting_heraldic_arms_helmet": {
+            "id": "castle_painting_heraldic_arms_helmet",
+            "frame": "castle_painting_heraldic_arms_helmet",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wall",
+                "painting",
+                "heraldry",
+                "helmet",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_painting_madonna_child": {
+            "id": "castle_painting_madonna_child",
+            "frame": "castle_painting_madonna_child",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wall",
+                "painting",
+                "portrait",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_suit_armor_red_plume": {
+            "id": "castle_suit_armor_red_plume",
+            "frame": "castle_suit_armor_red_plume",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "armor",
+                "suit-of-armor",
+                "red-plume",
+                "blockable"
+            ],
+            "notes": "User marked the two suits of armor as blockable.",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 61,
+                    "y": 109
+                },
+                {
+                    "id": "n2",
+                    "x": 93,
+                    "y": 61
+                },
+                {
+                    "id": "n3",
+                    "x": 186,
+                    "y": 515
+                },
+                {
+                    "id": "n4",
+                    "x": 5,
+                    "y": 462
+                },
+                {
+                    "id": "n5",
+                    "x": 70,
+                    "y": 64
+                },
+                {
+                    "id": "n6",
+                    "x": 113,
+                    "y": 82
+                },
+                {
+                    "id": "n7",
+                    "x": 116,
+                    "y": 126
+                },
+                {
+                    "id": "n8",
+                    "x": 145,
+                    "y": 146
+                },
+                {
+                    "id": "n9",
+                    "x": 160,
+                    "y": 223
+                },
+                {
+                    "id": "n10",
+                    "x": 142,
+                    "y": 253
+                },
+                {
+                    "id": "n11",
+                    "x": 23,
+                    "y": 135
+                },
+                {
+                    "id": "n12",
+                    "x": 14,
+                    "y": 223
+                },
+                {
+                    "id": "n13",
+                    "x": 36,
+                    "y": 250
+                },
+                {
+                    "id": "n14",
+                    "x": 39,
+                    "y": 351
+                },
+                {
+                    "id": "n15",
+                    "x": 38,
+                    "y": 451
+                },
+                {
+                    "id": "n16",
+                    "x": 3,
+                    "y": 514
+                },
+                {
+                    "id": "n17",
+                    "x": 39,
+                    "y": 536
+                },
+                {
+                    "id": "n18",
+                    "x": 183,
+                    "y": 468
+                },
+                {
+                    "id": "n19",
+                    "x": 140,
+                    "y": 429
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n17",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n15",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n7",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_7",
+                    "kind": "blockable",
+                    "from": "n7",
+                    "to": "n8",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_8",
+                    "kind": "blockable",
+                    "from": "n8",
+                    "to": "n9",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_9",
+                    "kind": "blockable",
+                    "from": "n9",
+                    "to": "n10",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_10",
+                    "kind": "blockable",
+                    "from": "n10",
+                    "to": "n19",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_11",
+                    "kind": "blockable",
+                    "from": "n11",
+                    "to": "n1",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_12",
+                    "kind": "blockable",
+                    "from": "n12",
+                    "to": "n11",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_13",
+                    "kind": "blockable",
+                    "from": "n13",
+                    "to": "n12",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_14",
+                    "kind": "blockable",
+                    "from": "n14",
+                    "to": "n13",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_15",
+                    "kind": "blockable",
+                    "from": "n15",
+                    "to": "n14",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_16",
+                    "kind": "blockable",
+                    "from": "n16",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_17",
+                    "kind": "blockable",
+                    "from": "n17",
+                    "to": "n16",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_18",
+                    "kind": "blockable",
+                    "from": "n18",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_19",
+                    "kind": "blockable",
+                    "from": "n19",
+                    "to": "n18",
+                    "tags": []
+                }
+            ]
+        },
+        "castle_suit_armor_blue_plume": {
+            "id": "castle_suit_armor_blue_plume",
+            "frame": "castle_suit_armor_blue_plume",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "armor",
+                "suit-of-armor",
+                "blue-plume",
+                "blockable"
+            ],
+            "notes": "User marked the two suits of armor as blockable.",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 59,
+                    "y": 70
+                },
+                {
+                    "id": "n2",
+                    "x": 105,
+                    "y": 94
+                },
+                {
+                    "id": "n3",
+                    "x": 174,
+                    "y": 483
+                },
+                {
+                    "id": "n4",
+                    "x": 3,
+                    "y": 483
+                },
+                {
+                    "id": "n5",
+                    "x": 73,
+                    "y": 36
+                },
+                {
+                    "id": "n6",
+                    "x": 95,
+                    "y": 45
+                },
+                {
+                    "id": "n7",
+                    "x": 107,
+                    "y": 70
+                },
+                {
+                    "id": "n8",
+                    "x": 17,
+                    "y": 112
+                },
+                {
+                    "id": "n9",
+                    "x": 139,
+                    "y": 120
+                },
+                {
+                    "id": "n10",
+                    "x": 158,
+                    "y": 197
+                },
+                {
+                    "id": "n11",
+                    "x": 7,
+                    "y": 196
+                },
+                {
+                    "id": "n12",
+                    "x": 37,
+                    "y": 220
+                },
+                {
+                    "id": "n13",
+                    "x": 134,
+                    "y": 230
+                },
+                {
+                    "id": "n14",
+                    "x": 125,
+                    "y": 394
+                },
+                {
+                    "id": "n15",
+                    "x": 172,
+                    "y": 443
+                },
+                {
+                    "id": "n16",
+                    "x": 29,
+                    "y": 419
+                },
+                {
+                    "id": "n17",
+                    "x": 6,
+                    "y": 433
+                },
+                {
+                    "id": "n18",
+                    "x": 40,
+                    "y": 502
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n9",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n18",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n17",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n7",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_7",
+                    "kind": "blockable",
+                    "from": "n7",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_8",
+                    "kind": "blockable",
+                    "from": "n8",
+                    "to": "n1",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_9",
+                    "kind": "blockable",
+                    "from": "n9",
+                    "to": "n10",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_10",
+                    "kind": "blockable",
+                    "from": "n10",
+                    "to": "n13",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_11",
+                    "kind": "blockable",
+                    "from": "n11",
+                    "to": "n8",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_12",
+                    "kind": "blockable",
+                    "from": "n12",
+                    "to": "n11",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_13",
+                    "kind": "blockable",
+                    "from": "n13",
+                    "to": "n14",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_14",
+                    "kind": "blockable",
+                    "from": "n14",
+                    "to": "n15",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_15",
+                    "kind": "blockable",
+                    "from": "n15",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_16",
+                    "kind": "blockable",
+                    "from": "n16",
+                    "to": "n12",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_17",
+                    "kind": "blockable",
+                    "from": "n17",
+                    "to": "n16",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_18",
+                    "kind": "blockable",
+                    "from": "n18",
+                    "to": "n4",
+                    "tags": []
+                }
+            ]
+        },
+        "castle_banner_blue_lion": {
+            "id": "castle_banner_blue_lion",
+            "frame": "castle_banner_blue_lion",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wall",
+                "banner",
+                "lion",
+                "blue",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_banner_red_white_lion": {
+            "id": "castle_banner_red_white_lion",
+            "frame": "castle_banner_red_white_lion",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wall",
+                "banner",
+                "lion",
+                "red-white",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_shield_quartered_lion_fleur": {
+            "id": "castle_shield_quartered_lion_fleur",
+            "frame": "castle_shield_quartered_lion_fleur",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wall",
+                "shield",
+                "heraldry",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_shield_eagle_red": {
+            "id": "castle_shield_eagle_red",
+            "frame": "castle_shield_eagle_red",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wall",
+                "shield",
+                "eagle",
+                "heraldry",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_crest_ornate_small": {
+            "id": "castle_crest_ornate_small",
+            "frame": "castle_crest_ornate_small",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wall",
+                "crest",
+                "heraldry",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_tapestry_royal_lions": {
+            "id": "castle_tapestry_royal_lions",
+            "frame": "castle_tapestry_royal_lions",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wall",
+                "tapestry",
+                "royal",
+                "lions",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_wall_torch": {
+            "id": "castle_wall_torch",
+            "frame": "castle_wall_torch",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wall",
+                "torch",
+                "light",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "castle_candle_sconce_double": {
+            "id": "castle_candle_sconce_double",
+            "frame": "castle_candle_sconce_double",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "wall",
+                "candle",
+                "sconce",
+                "light",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        }
+    }
+}

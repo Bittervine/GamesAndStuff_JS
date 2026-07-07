@@ -1,0 +1,772 @@
+{
+    "meta": {
+        "version": 4,
+        "note": "Atlas 007 bridges, graveyard, ruin, siege prop, and cauldron. Only the top rope bridge and ladder are walkable; the cauldron is blockable; all other entries are decoration."
+    },
+    "atlasId": "at_atlas_007",
+    "image": "at_atlas_007.png",
+    "frames": {
+        "rope_bridge_long_walkable": {
+            "x": 20,
+            "y": 20,
+            "w": 1435,
+            "h": 181
+        },
+        "rope_bridge_rickety_decor": {
+            "x": 20,
+            "y": 233,
+            "w": 1435,
+            "h": 173
+        },
+        "ruined_church": {
+            "x": 1487,
+            "y": 233,
+            "w": 476,
+            "h": 517
+        },
+        "grave_celtic_cross": {
+            "x": 20,
+            "y": 782,
+            "w": 146,
+            "h": 175
+        },
+        "grave_cross_headstone": {
+            "x": 198,
+            "y": 782,
+            "w": 152,
+            "h": 168
+        },
+        "grave_diamond_headstone": {
+            "x": 382,
+            "y": 782,
+            "w": 165,
+            "h": 183
+        },
+        "grave_round_headstone": {
+            "x": 579,
+            "y": 782,
+            "w": 153,
+            "h": 169
+        },
+        "grave_cracked_slab": {
+            "x": 764,
+            "y": 782,
+            "w": 170,
+            "h": 175
+        },
+        "rope_ladder_angled_walkable": {
+            "x": 966,
+            "y": 782,
+            "w": 163,
+            "h": 257
+        },
+        "catapult": {
+            "x": 1161,
+            "y": 782,
+            "w": 353,
+            "h": 257
+        },
+        "black_cauldron_blockable": {
+            "x": 1534,
+            "y": 777,
+            "w": 351,
+            "h": 223
+        }
+    },
+    "objects": {
+        "rope_bridge_long_walkable": {
+            "id": "rope_bridge_long_walkable",
+            "frame": "rope_bridge_long_walkable",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "rope",
+                "bridge",
+                "wood",
+                "walkable",
+                "platform"
+            ],
+            "notes": "User marked the top rope bridge as walkable.",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 17,
+                    "y": 111
+                },
+                {
+                    "id": "n2",
+                    "x": 1407,
+                    "y": 103
+                },
+                {
+                    "id": "n3",
+                    "x": 89,
+                    "y": 112
+                },
+                {
+                    "id": "n4",
+                    "x": 245,
+                    "y": 137
+                },
+                {
+                    "id": "n5",
+                    "x": 499,
+                    "y": 157
+                },
+                {
+                    "id": "n6",
+                    "x": 743,
+                    "y": 159
+                },
+                {
+                    "id": "n7",
+                    "x": 871,
+                    "y": 159
+                },
+                {
+                    "id": "n8",
+                    "x": 1018,
+                    "y": 153
+                },
+                {
+                    "id": "n9",
+                    "x": 1162,
+                    "y": 141
+                },
+                {
+                    "id": "n10",
+                    "x": 1342,
+                    "y": 103
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_4",
+                    "kind": "walkable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_5",
+                    "kind": "walkable",
+                    "from": "n6",
+                    "to": "n7",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_6",
+                    "kind": "walkable",
+                    "from": "n7",
+                    "to": "n8",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_7",
+                    "kind": "walkable",
+                    "from": "n8",
+                    "to": "n9",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_8",
+                    "kind": "walkable",
+                    "from": "n9",
+                    "to": "n10",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_9",
+                    "kind": "walkable",
+                    "from": "n10",
+                    "to": "n2",
+                    "tags": []
+                }
+            ]
+        },
+        "rope_bridge_rickety_decor": {
+            "id": "rope_bridge_rickety_decor",
+            "frame": "rope_bridge_rickety_decor",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "rope",
+                "bridge",
+                "rickety",
+                "wood",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 18,
+                    "y": 77
+                },
+                {
+                    "id": "n2",
+                    "x": 1415,
+                    "y": 83
+                },
+                {
+                    "id": "n3",
+                    "x": 721,
+                    "y": 123
+                },
+                {
+                    "id": "n4",
+                    "x": 1092,
+                    "y": 103
+                },
+                {
+                    "id": "n5",
+                    "x": 501,
+                    "y": 115
+                },
+                {
+                    "id": "n6",
+                    "x": 306,
+                    "y": 97
+                },
+                {
+                    "id": "n7",
+                    "x": 870,
+                    "y": 116
+                },
+                {
+                    "id": "n8",
+                    "x": 1236,
+                    "y": 83
+                },
+                {
+                    "id": "n9",
+                    "x": 1367,
+                    "y": 60
+                },
+                {
+                    "id": "n10",
+                    "x": 66,
+                    "y": 58
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n2",
+                    "to": "n9",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n3",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n4",
+                    "to": "n7",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_4",
+                    "kind": "walkable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_5",
+                    "kind": "walkable",
+                    "from": "n6",
+                    "to": "n10",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_6",
+                    "kind": "walkable",
+                    "from": "n7",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_7",
+                    "kind": "walkable",
+                    "from": "n8",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_8",
+                    "kind": "walkable",
+                    "from": "n9",
+                    "to": "n8",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_9",
+                    "kind": "walkable",
+                    "from": "n10",
+                    "to": "n1",
+                    "tags": []
+                }
+            ]
+        },
+        "ruined_church": {
+            "id": "ruined_church",
+            "frame": "ruined_church",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "ruin",
+                "church",
+                "stone",
+                "graveyard",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "grave_celtic_cross": {
+            "id": "grave_celtic_cross",
+            "frame": "grave_celtic_cross",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "grave",
+                "headstone",
+                "cross",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "grave_cross_headstone": {
+            "id": "grave_cross_headstone",
+            "frame": "grave_cross_headstone",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "grave",
+                "headstone",
+                "cross",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "grave_diamond_headstone": {
+            "id": "grave_diamond_headstone",
+            "frame": "grave_diamond_headstone",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "grave",
+                "headstone",
+                "diamond",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "grave_round_headstone": {
+            "id": "grave_round_headstone",
+            "frame": "grave_round_headstone",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "grave",
+                "headstone",
+                "round",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "grave_cracked_slab": {
+            "id": "grave_cracked_slab",
+            "frame": "grave_cracked_slab",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "grave",
+                "headstone",
+                "cracked",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "rope_ladder_angled_walkable": {
+            "id": "rope_ladder_angled_walkable",
+            "frame": "rope_ladder_angled_walkable",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "rope",
+                "ladder",
+                "angled",
+                "walkable",
+                "platform"
+            ],
+            "notes": "User marked the ladder as walkable; the line follows the angled ladder body.",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 13,
+                    "y": 243
+                },
+                {
+                    "id": "n2",
+                    "x": 149,
+                    "y": 5
+                },
+                {
+                    "id": "n3",
+                    "x": 31,
+                    "y": 205
+                },
+                {
+                    "id": "n4",
+                    "x": 129,
+                    "y": 30
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n4",
+                    "to": "n2",
+                    "tags": []
+                }
+            ]
+        },
+        "catapult": {
+            "id": "catapult",
+            "frame": "catapult",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "catapult",
+                "siege",
+                "wood",
+                "decoration"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "black_cauldron_blockable": {
+            "id": "black_cauldron_blockable",
+            "frame": "black_cauldron_blockable",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cauldron",
+                "black",
+                "campfire",
+                "blockable"
+            ],
+            "notes": "User marked the cauldron as blockable.",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 74,
+                    "y": 25
+                },
+                {
+                    "id": "n2",
+                    "x": 280,
+                    "y": 27
+                },
+                {
+                    "id": "n3",
+                    "x": 296,
+                    "y": 96
+                },
+                {
+                    "id": "n4",
+                    "x": 66,
+                    "y": 93
+                },
+                {
+                    "id": "n5",
+                    "x": 80,
+                    "y": 136
+                },
+                {
+                    "id": "n6",
+                    "x": 146,
+                    "y": 161
+                },
+                {
+                    "id": "n7",
+                    "x": 223,
+                    "y": 163
+                },
+                {
+                    "id": "n8",
+                    "x": 271,
+                    "y": 140
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n8",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n1",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_7",
+                    "kind": "blockable",
+                    "from": "n7",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_8",
+                    "kind": "blockable",
+                    "from": "n8",
+                    "to": "n7",
+                    "tags": []
+                }
+            ]
+        }
+    }
+}

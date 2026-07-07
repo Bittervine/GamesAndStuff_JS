@@ -794,7 +794,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 458</small></h1>
+        <h1>Level Editor <small>rev 465</small></h1>
 
         <div class="box">
             <h2>Level</h2>
@@ -7819,6 +7819,43 @@ import {
         return JSON.stringify(state.level, null, 4);
     }
 
+    function downloadBlob(blob, filename) {
+        const objectUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = objectUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+    }
+
+    async function saveTextFile(filename, text, type = "application/json") {
+        const blob = new Blob([text], { type });
+        if (typeof window.showSaveFilePicker === "function") {
+            try {
+                const handle = await window.showSaveFilePicker({
+                    suggestedName: filename,
+                    types: [{
+                        description: "JSON files",
+                        accept: { "application/json": [".json"] }
+                    }]
+                });
+                const writable = await handle.createWritable();
+                await writable.write(blob);
+                await writable.close();
+                return "file";
+            } catch (error) {
+                if (error && error.name === "AbortError") {
+                    return "cancelled";
+                }
+                console.warn("Falling back to download because direct file save failed.", error);
+            }
+        }
+        downloadBlob(blob, filename);
+        return "download";
+    }
+
     function updateJson() {
         prepareLevelForExport();
     }
@@ -8311,16 +8348,14 @@ import {
         }
     });
 
-    document.getElementById("download-json").addEventListener("click", () => {
-        const blob = new Blob([serializeLevelJson()], { type: "application/json" });
-        const a = document.createElement("a");
-        const objectUrl = URL.createObjectURL(blob);
-        a.href = objectUrl;
-        a.download = `${state.level.levelId || "level_001"}.json`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+    document.getElementById("download-json").addEventListener("click", async () => {
+        const filename = `${state.level.levelId || "level_001"}.json`;
+        const result = await saveTextFile(filename, serializeLevelJson());
+        if (result === "file") {
+            setStatus(`Saved ${filename}.`);
+        } else if (result === "download") {
+            setStatus(`Downloaded ${filename}.`);
+        }
     });
 
     document.getElementById("save-local").addEventListener("click", () => {
