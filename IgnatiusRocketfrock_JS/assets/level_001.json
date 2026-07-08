@@ -6028,6 +6028,7 @@
             "rotation": 0,
             "layer": "terrain",
             "collisionFromManifest": true,
+            "editorLocked": false,
             "notes": "",
             "order": 298
         },
@@ -6045,6 +6046,7 @@
             "rotation": 0,
             "layer": "terrain",
             "collisionFromManifest": true,
+            "editorLocked": false,
             "notes": "",
             "order": 299
         },
@@ -6062,6 +6064,7 @@
             "rotation": 0,
             "layer": "terrain",
             "collisionFromManifest": true,
+            "editorLocked": false,
             "notes": "",
             "order": 300
         },
@@ -6079,6 +6082,7 @@
             "rotation": 0,
             "layer": "terrain",
             "collisionFromManifest": true,
+            "editorLocked": false,
             "notes": "",
             "order": 301
         },
@@ -6097,6 +6101,7 @@
             "layer": "caveForeground",
             "collisionFromManifest": false,
             "foregroundSaturation": 0.62,
+            "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 301
         },
@@ -6115,6 +6120,7 @@
             "layer": "caveForeground",
             "collisionFromManifest": false,
             "foregroundSaturation": 0.62,
+            "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 302
         },
@@ -6133,6 +6139,7 @@
             "layer": "caveForeground",
             "collisionFromManifest": false,
             "foregroundSaturation": 0.62,
+            "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 303
         },
@@ -6150,6 +6157,7 @@
             "rotation": 0,
             "layer": "terrain",
             "collisionFromManifest": false,
+            "editorLocked": false,
             "notes": "",
             "order": 304
         },
@@ -6167,6 +6175,7 @@
             "rotation": 0,
             "layer": "terrain",
             "collisionFromManifest": false,
+            "editorLocked": false,
             "notes": "",
             "order": 305
         },
@@ -6184,6 +6193,7 @@
             "rotation": 0,
             "layer": "terrain",
             "collisionFromManifest": false,
+            "editorLocked": false,
             "notes": "",
             "order": 306
         },
@@ -6201,6 +6211,7 @@
             "rotation": 0,
             "layer": "terrain",
             "collisionFromManifest": false,
+            "editorLocked": false,
             "notes": "",
             "order": 307
         },
@@ -6218,6 +6229,7 @@
             "rotation": 0,
             "layer": "terrain",
             "collisionFromManifest": false,
+            "editorLocked": false,
             "notes": "",
             "order": 308
         },
@@ -6236,6 +6248,7 @@
             "layer": "caveForeground",
             "collisionFromManifest": false,
             "foregroundSaturation": 0.62,
+            "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 309
         },
@@ -6254,6 +6267,7 @@
             "layer": "caveForeground",
             "collisionFromManifest": false,
             "foregroundSaturation": 0.62,
+            "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 310
         },
@@ -6272,6 +6286,7 @@
             "layer": "caveForeground",
             "collisionFromManifest": false,
             "foregroundSaturation": 0.62,
+            "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 311
         },
@@ -6289,6 +6304,7 @@
             "rotation": 0,
             "layer": "terrain",
             "collisionFromManifest": false,
+            "editorLocked": false,
             "notes": "",
             "order": 312
         },
@@ -6307,6 +6323,7 @@
             "layer": "caveForeground",
             "collisionFromManifest": false,
             "foregroundSaturation": 0.62,
+            "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 297
         },
@@ -6325,6 +6342,7 @@
             "layer": "caveForeground",
             "collisionFromManifest": false,
             "foregroundSaturation": 0.62,
+            "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 298
         },
@@ -6342,6 +6360,7 @@
             "rotation": 0,
             "layer": "terrain",
             "collisionFromManifest": false,
+            "editorLocked": false,
             "notes": "",
             "order": 299
         },
@@ -6360,6 +6379,7 @@
             "layer": "caveForeground",
             "collisionFromManifest": false,
             "foregroundSaturation": 0.62,
+            "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 300
         },
@@ -6378,6 +6398,7 @@
             "layer": "caveForeground",
             "collisionFromManifest": false,
             "foregroundSaturation": 0.62,
+            "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 301
         },
@@ -6395,6 +6416,7 @@
             "rotation": 0,
             "layer": "terrain",
             "collisionFromManifest": false,
+            "editorLocked": false,
             "notes": "",
             "order": 302
         },
@@ -6412,25 +6434,9 @@
             "rotation": 0,
             "layer": "terrain",
             "collisionFromManifest": false,
+            "editorLocked": false,
             "notes": "",
             "order": 303
-        },
-        {
-            "id": "forest_bush_white_flowers_002",
-            "kind": "atlasAsset",
-            "atlasId": "at_atlas_014",
-            "assetId": "forest_bush_white_flowers",
-            "x": 20608,
-            "y": 416,
-            "w": 176,
-            "h": 121,
-            "mirrorX": false,
-            "mirrorY": false,
-            "rotation": 0,
-            "layer": "terrain",
-            "collisionFromManifest": false,
-            "notes": "",
-            "order": 304
         },
         {
             "id": "forest_grass_clump_008",
@@ -6446,6 +6452,7 @@
             "rotation": 0,
             "layer": "terrain",
             "collisionFromManifest": false,
+            "editorLocked": false,
             "notes": "",
             "order": 305
         },
@@ -6463,6 +6470,7 @@
             "rotation": 0,
             "layer": "terrain",
             "collisionFromManifest": false,
+            "editorLocked": false,
             "notes": "",
             "order": 306
         },
@@ -6481,6 +6489,7 @@
             "layer": "caveForeground",
             "collisionFromManifest": false,
             "foregroundSaturation": 0.62,
+            "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 305
         },
@@ -6498,7 +6507,26 @@
             "rotation": 0,
             "layer": "terrain",
             "collisionFromManifest": false,
+            "editorLocked": false,
             "notes": "",
+            "order": 305
+        },
+        {
+            "id": "forest_bush_white_flowers_002",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_014",
+            "assetId": "forest_bush_white_flowers",
+            "x": 20592,
+            "y": 416,
+            "w": 176,
+            "h": 121,
+            "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "caveForeground",
+            "collisionFromManifest": false,
+            "foregroundSaturation": 0.62,
+            "notes": "Inert manually placed Foreground artwork.",
             "order": 305
         }
     ],
@@ -7227,7 +7255,7 @@
             "enemyCatalogId": "enemy_012",
             "characterId": "ct_char_enemy_012",
             "x": 12432,
-            "y": 321,
+            "y": 320.62295081967216,
             "w": 70,
             "h": 105,
             "scale": 1,
