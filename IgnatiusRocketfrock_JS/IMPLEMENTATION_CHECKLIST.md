@@ -4210,3 +4210,10 @@ The Asset Tool also gains a faster line-editing gesture: in Add Node Mode, click
 - [x] Retarget authored-level regression reads away from campaign `level_001` and `level_002`.
 - [x] Reserve `level_tNN` for future testbench levels so normal level rearrangement does not break tests.
 - [x] Synchronize visible revision labels to 470.
+
+## Revision 471 inspector text persistence
+
+- Added a selected-object inspector precommit handler so focused text fields are saved before pointer-driven object selection changes.
+- Covered the guard with a Level Editor source regression assertion.
+- Imported the latest user-authored `level_001`, `at_atlas_014`, and `it_entities_001` JSON files into the release working tree.
+

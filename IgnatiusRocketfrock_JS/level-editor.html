@@ -794,7 +794,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 470</small></h1>
+        <h1>Level Editor <small>rev 471</small></h1>
 
         <div class="box">
             <h2>Level</h2>
@@ -6647,6 +6647,21 @@ import {
         persistUi();
     }
 
+    function inspectorControlShouldPrecommit(control) {
+        if (!control?.closest || !control.closest("#selected-object-panel")) return false;
+        if (!control.matches?.("input, select, textarea")) return false;
+        if (control.readOnly || control.disabled) return false;
+        if (!control.id || control.id === "inspect-kind" || control.id === "inspect-enemy-render-scale") return false;
+        return Boolean(selectedRecord());
+    }
+
+    function commitFocusedInspectorControlBeforePointer(event = null) {
+        const control = document.activeElement;
+        if (!inspectorControlShouldPrecommit(control)) return;
+        if (event?.target === control) return;
+        applyInspector({ target: control, type: "inspector-precommit" });
+    }
+
     function idExists(id) {
         return state.level.placements.some((item) => item.id === id) || state.level.entities.some((item) => item.id === id);
     }
@@ -8046,6 +8061,8 @@ import {
         state.camera.y += before.y - after.y;
         draw();
     }
+
+    document.addEventListener("pointerdown", commitFocusedInspectorControlBeforePointer, true);
 
     canvas.addEventListener("pointerdown", (event) => {
         const rect = editorCanvasRect();

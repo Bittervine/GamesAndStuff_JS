@@ -1880,3 +1880,8 @@ Location thoughts remain ordinary `thoughtTrigger` entities with `interaction: "
 ## Revision 470 testbench level fixtures
 
 Revision 470 stops regression tests from depending on mutable campaign level numbers. The authored-level contracts that previously inspected `assets/level_001.json` and `assets/level_002.json` now read reserved testbench fixtures instead: `assets/level_t01.json` for the old introductory cave/navigation fixture and `assets/level_t02.json` for the goblin boss arena fixture. The `level_tNN` namespace is reserved for tests only; those files may be edited freely to satisfy regression coverage and must not be linked from normal campaign progression.
+
+## Revision 471 Level Editor inspector precommit
+
+Revision 471 adds a capture-phase pointer precommit around the selected-object inspector. When an editable inspector control has focus and the next pointer action targets another editor surface, the editor calls the same inspector save path before selection state can change and before `syncInspector()` can repaint the controls. This preserves multiline story fields for mailboxes and thought triggers while keeping the existing explicit `change` handlers as the canonical persistence path.
+

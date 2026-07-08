@@ -3978,3 +3978,8 @@ Revision 468 makes placed `thoughtTrigger` entities editable from the Level Edit
 ## Revision 470 testbench level fixtures
 
 Revision 470 reserves the `assets/level_tNN.json` namespace for testbench-only levels. Regression tests should use `level_t01`, `level_t02`, and later `level_t03` through `level_t99` as needed instead of depending on mutable campaign files such as `level_001.json`. These fixtures are intentionally unreachable through normal campaign progression and may be edited as needed for stable tests.
+
+## Revision 471 inspector precommit guard
+
+Revision 471 makes the Level Editor commit the currently focused selected-object inspector control before pointer-driven selection changes. This prevents mailbox letters, mailbox thoughts, and location thought-trigger text from being overwritten by the inspector refresh when the user types text and then clicks another object without first blurring the text field. The release also carries forward the latest authored `level_001`, `at_atlas_014`, and `it_entities_001` data supplied outside the code patch.
+
