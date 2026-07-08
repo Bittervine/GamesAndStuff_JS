@@ -4244,3 +4244,11 @@ The Asset Tool also gains a faster line-editing gesture: in Add Node Mode, click
 - [x] Add regressions for the real `forest_arched_bridge_walkable` placement and for crossed versus uncrossed support transitions.
 - [x] Fold in the latest uploaded `level_001`, `at_atlas_013`, and `at_atlas_014` JSON carried from revision 473.
 - [x] Synchronize visible revision labels to 474.
+
+## Revision 475 hidden debug-panel performance guard
+
+- [x] Import the latest authored `assets/level_001.json`.
+- [x] Return immediately from `updateDebugText()` while the debug panel is hidden.
+- [x] Refresh debug text once when the debug panel is made visible from the menu button or keyboard shortcut.
+- [x] Add a source regression assertion for the hidden-panel guard.
+- [x] Synchronize visible revision labels to 475.

@@ -104,7 +104,7 @@ const showMinimapInput = document.getElementById("show-minimap");
 const useHardwareRenderingInput = document.getElementById("use-hardware-rendering");
 const usePixmapPyramidsInput = document.getElementById("use-pixmap-pyramids");
 
-const GAME_REVISION = "474";
+const GAME_REVISION = "475";
 const START_LEVEL_ID = "level_001";
 const RESUME_SAVE_STORAGE_KEY = "ignatius_rocketfrock_resume_v1";
 
@@ -1523,6 +1523,9 @@ function setupPanelToggleButtons() {
         const visible = !debugEl.hidden;
         debugPanelButton.textContent = `Debug panel: ${visible ? "on" : "off"}`;
         debugPanelButton.setAttribute("aria-pressed", visible ? "true" : "false");
+        if (visible) {
+            updateDebugText();
+        }
     };
 
     const updateGameTuning = () => {
@@ -1670,6 +1673,9 @@ function handleDebugInput(inputFrame) {
             const visible = !debugEl.hidden;
             debugPanelButton.textContent = `Debug panel: ${visible ? "on" : "off"}`;
             debugPanelButton.setAttribute("aria-pressed", visible ? "true" : "false");
+            if (visible) {
+                updateDebugText();
+            }
         }
     }
 }
@@ -1744,6 +1750,9 @@ function updateHud() {
 }
 
 function updateDebugText() {
+    if (!debugEl || debugEl.hidden) {
+        return;
+    }
     const p = gameState.player;
     const fuel = gameState.fuel;
     const inputText = gameState.debug.showInput
