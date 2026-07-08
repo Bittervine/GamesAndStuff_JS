@@ -73,8 +73,8 @@
       "description": "An editor-letter mailbox. Each placed mailbox owns its own trigger distance, letter, thought, and timing metadata, so a level can contain several tutorial letters.",
       "defaultState": "letterAvailable",
       "defaultSize": {
-        "w": 110,
-        "h": 158
+        "w": 55,
+        "h": 80
       },
       "defaults": {
         "interaction": "editorLetter",
