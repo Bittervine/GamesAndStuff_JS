@@ -413,8 +413,27 @@
                 "decoration"
             ],
             "notes": "",
-            "nodes": [],
-            "lines": []
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 59,
+                    "y": 14
+                },
+                {
+                    "id": "n2",
+                    "x": 206,
+                    "y": 17
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                }
+            ]
         },
         "forest_fence_dark_wood": {
             "id": "forest_fence_dark_wood",

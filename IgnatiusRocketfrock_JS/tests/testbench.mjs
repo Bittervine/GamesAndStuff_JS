@@ -9046,10 +9046,10 @@ function testRocketPowerUpArsenal() {
     const characterEditorSource = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 472<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(characterEditorSource, /Puppet Forge <small>rev 472<\/small>/, "Puppet Forge should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 474<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(characterEditorSource, /Puppet Forge <small>rev 474<\/small>/, "Puppet Forge should display the packaged revision");
     const assetEditorSource = readFileSync(new URL("../asset-editor.html", import.meta.url), "utf8");
-    assert.match(assetEditorSource, /Asset Tool <small>rev 472<\/small>/, "Asset Tool should display the packaged revision");
+    assert.match(assetEditorSource, /Asset Tool <small>rev 474<\/small>/, "Asset Tool should display the packaged revision");
     assert.match(assetEditorSource, /id="atlas-numbered-select"[\s\S]*id="load-numbered-atlas"[\s\S]*id="load-local"[\s\S]*id="save-local"[\s\S]*id="quick-save-json"/, "Asset Tool should keep atlas loading and save/export controls together in the Files panel");
     assert.ok(!assetEditorSource.includes("Custom atlas image") && !assetEditorSource.includes("Custom JSON"), "Asset Tool should retire the visible custom import pickers from the primary Files panel");
     assert.doesNotMatch(assetEditorSource, /load-default-image|load-default-json/, "Asset Tool should retire the hard-coded at_atlas_001 load buttons");
@@ -9082,7 +9082,7 @@ function testRocketPowerUpArsenal() {
     assert.equal(editorSource.includes('id="canvas-renderer-baseline"'), false, "the Level Editor should no longer advertise the posterity-only Canvas baseline");
     assert.equal(editorSource.includes("openCanvasRendererBaseline"), false, "the removed baseline link should leave no dormant click handler");
     assert.equal(editorSource.includes("Editor 2 lab"), false, "the Level Editor should not link to the removed Editor 2 lab");
-    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 472") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
+    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 474") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
     assert.ok(baselineSource.includes("applyEditorLevelToWorld") && baselineSource.includes("preferWebGL2: false") && baselineSource.includes("setViewOverride"), "the retained baseline should still convert the authored level and use the ordinary Canvas2D game renderer with an editor camera override");
     assert.ok(editorPlaywrightBenchmark.includes("benchmark_baseline") && editorPlaywrightBenchmark.includes("benchmark_editor") && editorPlaywrightBenchmark.includes("editorToBaselineCadenceRatio"), "the optional Playwright probe should compare the loaded baseline and editor rather than source-only timings");
     assert.ok(editorPlaywrightBenchmark.includes("bodyScrollWidth") && editorPlaywrightBenchmark.includes("stageBacking") && editorPlaywrightBenchmark.includes("overlayBacking"), "the Playwright probe should detect viewport overflow and stage/overlay size divergence");
@@ -9092,7 +9092,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(rendererSource.includes("backingPixelsPerCssPixel") && rendererSource.includes("override.cssZoom * backingPixelsPerCssPixel") && editorSource.includes("cssZoom: state.camera.zoom"), "editor and runtime artwork should share one CSS-pixel camera scale so guide alignment does not drift across the viewport");
     assert.ok(rendererSource.includes("this.ctx.setTransform(1, 0, 0, 1, 0, 0)") && rendererSource.includes("never inherit a CSS/DPR transform"), "the production Canvas renderer should reset inherited context transforms before drawing backing-pixel coordinates");
     assert.ok(editorSource.includes("stageCtx?.setTransform(1, 0, 0, 1, 0, 0)") && !editorSource.includes("stageCtx?.setTransform(dpr"), "the Level Editor must not pre-scale the production scene context by devicePixelRatio");
-    assert.match(bootstrapSource, /const GAME_REVISION = "472";/, "the game debug revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "474";/, "the game debug revision should match the packaged revision");
     assert.ok(
         editorSource.includes('<div class="level-section-label">Existing Level:</div>')
             && editorSource.includes('id="load-level">Load</button>')
@@ -10177,6 +10177,184 @@ function testHeadlessSteppingAndFloorCollision() {
     settleOnGround(state);
     assert.equal(state.player.vy, 0, "vertical velocity should be zero on settled floor");
     assert.ok(state.debug.lastEvents.some((event) => event.type === "PLAYER_LANDED"), "landing should be logged");
+}
+
+function testPlayerFollowsSteepWalkableBridgeRampWhileRunning() {
+    const bridgeManifest = JSON.parse(readFileSync(new URL("../assets/at_atlas_013.json", import.meta.url), "utf8"));
+    const groundManifest = JSON.parse(readFileSync(new URL("../assets/at_atlas_014.json", import.meta.url), "utf8"));
+    const bridge = bridgeManifest.objects?.forest_arched_bridge_walkable;
+    assert.ok(bridge, "the forest bridge fixture should be present");
+    const nodes = new Map((bridge.nodes || []).map((node) => [node.id, node]));
+    const uphill = (bridge.lines || []).find((line) => {
+        const from = nodes.get(line.from);
+        const to = nodes.get(line.to);
+        return line.kind === "walkable" && from && to && to.x > from.x && to.y < from.y;
+    });
+    assert.ok(uphill, "the forest arched bridge should expose a rightward uphill walkable span");
+    const from = nodes.get(uphill.from);
+    const to = nodes.get(uphill.to);
+    const offsetY = 400;
+    const segment = {
+        id: `forest_arched_bridge_walkable_${uphill.id}`,
+        kind: uphill.kind,
+        x1: from.x,
+        y1: from.y + offsetY,
+        x2: to.x,
+        y2: to.y + offsetY
+    };
+    const surfaceYAt = (line, x) => line.y1 + (line.y2 - line.y1) * ((x - line.x1) / (line.x2 - line.x1));
+    const state = createInitialGameState({ spawn: { x: segment.x1 + 5, y: surfaceYAt(segment, segment.x1 + 5) } });
+    state.world.solids = [];
+    state.world.collisionPolygons = [];
+    state.world.segments = [segment];
+    state.world.resetY = 1200;
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.player.x = segment.x1 + 5;
+    state.player.y = surfaceYAt(segment, state.player.x);
+    state.player.vx = state.tuning.maxRunSpeed;
+    state.player.vy = 0;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    state.player.supportId = segment.id;
+
+    stepSimulation(state, createInputFrame({ moveRight: true }), FIXED_DT);
+    assert.equal(state.player.onGround, true, "running onto the steep bridge ramp should keep the player grounded on the first fast step");
+    approx(state.player.y, surfaceYAt(segment, state.player.x), 0.001, "the player should snap to the uphill bridge surface instead of tunneling under it");
+
+    for (let step = 0; step < 10; step += 1) {
+        stepSimulation(state, createInputFrame({ moveRight: true }), FIXED_DT);
+        assert.equal(state.player.onGround, true, `running bridge step ${step + 2} should remain grounded`);
+        approx(state.player.y, surfaceYAt(segment, state.player.x), 0.001, `running bridge step ${step + 2} should follow the ramp`);
+    }
+
+    const overlapped = createInitialGameState();
+    applyEditorLevelToWorldCurrent(overlapped, {
+        world: { bounds: { x: -200, y: -300, w: 18000, h: 1600 }, resetY: 1200 },
+        placements: [
+            { id: "bridge_left_ground", kind: "atlasAsset", atlasId: "at_atlas_014", assetId: "forest_grass_ground_block", x: 12848, y: 464, w: 1423, h: 162, layer: "terrain", collisionFromManifest: true },
+            { id: "bridge_right_ground", kind: "atlasAsset", atlasId: "at_atlas_014", assetId: "forest_grass_ground_block", x: 14896, y: 464, w: 1423, h: 162, layer: "terrain", collisionFromManifest: true },
+            { id: "forest_arched_bridge_walkable_001", kind: "atlasAsset", atlasId: "at_atlas_013", assetId: "forest_arched_bridge_walkable", x: 14160, y: 320, w: 838, h: 210, layer: "terrain", collisionFromManifest: true }
+        ],
+        entities: []
+    });
+    applyAtlasManifestsToWorld(overlapped, new Map([
+        ["at_atlas_013", { manifest: bridgeManifest }],
+        ["at_atlas_014", { manifest: groundManifest }]
+    ]));
+    overlapped.story.portalIntro = null;
+    overlapped.story.portalExit = null;
+    overlapped.world.caveKillBoundary = { source: "disabled", minX: -1e9, minY: -1e9, maxX: 1e9, maxY: 1e9 };
+
+    const bridgeSegments = overlapped.world.segments
+        .filter((item) => item.id.startsWith("forest_arched_bridge_walkable_001_walkable_"))
+        .sort((a, b) => Math.min(a.x1, a.x2) - Math.min(b.x1, b.x2));
+    assert.equal(bridgeSegments.length, 7, "the regression bridge should expose all seven walkable arch spans");
+    const supportAt = (x) => overlapped.world.segments
+        .filter((line) => (line.kind === "walkable" || line.kind === "blockable") && x >= Math.min(line.x1, line.x2) - 0.001 && x <= Math.max(line.x1, line.x2) + 0.001)
+        .map((line) => ({ id: line.id, y: surfaceYAt(line, x), kind: line.kind }))
+        .filter((line) => Number.isFinite(line.y))
+        .sort((a, b) => a.y - b.y)[0] || null;
+    const bridgeYAt = (x) => {
+        const found = bridgeSegments.find((line) => x >= Math.min(line.x1, line.x2) - 0.001 && x <= Math.max(line.x1, line.x2) + 0.001);
+        return found ? surfaceYAt(found, x) : null;
+    };
+    const startX = bridgeSegments[0].x1 + 2;
+    overlapped.player.x = startX;
+    overlapped.player.y = bridgeYAt(startX);
+    overlapped.player.vx = overlapped.tuning.maxRunSpeed;
+    overlapped.player.vy = 0;
+    overlapped.player.onGround = true;
+    overlapped.player.wasOnGround = true;
+    overlapped.player.supportId = bridgeSegments[0].id;
+
+    let bridgeWasUppermost = false;
+    for (let step = 0; step < 55; step += 1) {
+        stepSimulation(overlapped, createInputFrame({ moveRight: true }), FIXED_DT * 3);
+        const expectedSupport = supportAt(overlapped.player.x);
+        if (!expectedSupport) {
+            continue;
+        }
+        assert.equal(overlapped.player.onGround, true, `overlapped bridge fast step ${step + 1} should stay grounded`);
+        assert.equal(overlapped.player.supportId, expectedSupport.id, `overlapped bridge fast step ${step + 1} should use the uppermost support line, got ${overlapped.player.supportId}`);
+        approx(overlapped.player.y, expectedSupport.y, 2, `overlapped bridge fast step ${step + 1} should follow the uppermost authored support line`);
+        if (expectedSupport.id.startsWith("forest_arched_bridge_walkable_001_walkable_")) {
+            bridgeWasUppermost = true;
+        }
+    }
+    assert.equal(bridgeWasUppermost, true, "the regression should cover the bridge line once it becomes the uppermost support");
+}
+
+
+function testSweptSupportUsesUpToDownCrossingNotColourPriority() {
+    const state = createInitialGameState();
+    state.world.solids = [];
+    state.world.collisionPolygons = [];
+    state.world.segments = [
+        { id: "lower_yellow", kind: "blockable", x1: -200, y1: 410, x2: 600, y2: 410 },
+        { id: "upper_green", kind: "walkable", x1: 90, y1: 420, x2: 130, y2: 390 }
+    ];
+    state.world.resetY = 1200;
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.player.x = 100;
+    state.player.y = 410;
+    state.player.vx = 900;
+    state.player.vy = 0;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    state.player.supportId = "lower_yellow";
+
+    stepSimulation(state, createInputFrame({ moveRight: true }), FIXED_DT);
+    assert.equal(state.player.onGround, true, "the player should remain grounded after crossing onto the upper support");
+    assert.equal(state.player.supportId, "upper_green", "a crossed green line above the current support should become the floor");
+    assert.ok(state.player.y < 410, "the player should climb onto the crossed upper support");
+
+    const inverse = createInitialGameState();
+    inverse.world.solids = [];
+    inverse.world.collisionPolygons = [];
+    inverse.world.segments = [
+        { id: "lower_green", kind: "walkable", x1: -200, y1: 410, x2: 600, y2: 410 },
+        { id: "upper_yellow", kind: "blockable", x1: 90, y1: 420, x2: 130, y2: 390 }
+    ];
+    inverse.world.resetY = 1200;
+    inverse.story.portalIntro = null;
+    inverse.story.portalExit = null;
+    inverse.player.x = 100;
+    inverse.player.y = 410;
+    inverse.player.vx = 900;
+    inverse.player.vy = 0;
+    inverse.player.onGround = true;
+    inverse.player.wasOnGround = true;
+    inverse.player.supportId = "lower_green";
+
+    stepSimulation(inverse, createInputFrame({ moveRight: true }), FIXED_DT);
+    assert.equal(inverse.player.onGround, true, "the player should remain grounded after crossing onto the upper blockable support");
+    assert.equal(inverse.player.supportId, "upper_yellow", "a crossed yellow line above the current support should become the floor");
+    assert.ok(inverse.player.y < 410, "support colour should not outrank the crossed upper geometry");
+
+    const underside = createInitialGameState();
+    underside.world.solids = [];
+    underside.world.collisionPolygons = [];
+    underside.world.segments = [
+        { id: "floor", kind: "blockable", x1: -200, y1: 410, x2: 600, y2: 410 },
+        { id: "uncrossed_green", kind: "walkable", x1: 90, y1: 400, x2: 130, y2: 420 }
+    ];
+    underside.world.resetY = 1200;
+    underside.story.portalIntro = null;
+    underside.story.portalExit = null;
+    underside.player.x = 100;
+    underside.player.y = 410;
+    underside.player.vx = 900;
+    underside.player.vy = 0;
+    underside.player.onGround = true;
+    underside.player.wasOnGround = true;
+    underside.player.supportId = "floor";
+
+    stepSimulation(underside, createInputFrame({ moveRight: true }), FIXED_DT);
+    assert.equal(underside.player.onGround, true, "the player should remain on the existing support when the foot sweep does not cross from up to down");
+    assert.equal(underside.player.supportId, "floor", "a one-way support should not catch feet that cross from its down side to its up side");
+    approx(underside.player.y, 410, 0.001, "the player should not teleport onto an uncrossed upper line");
 }
 
 function testLeftRightSymmetry() {
@@ -13410,6 +13588,8 @@ const tests = [
     ["animation easing modes", testAnimationEasingModes],
     ["state serialization and cloning", testStateSerialization],
     ["headless stepping and floor collision", testHeadlessSteppingAndFloorCollision],
+    ["player follows steep walkable bridge ramps while running", testPlayerFollowsSteepWalkableBridgeRampWhileRunning],
+    ["swept support uses up-to-down crossing not colour priority", testSweptSupportUsesUpToDownCrossingNotColourPriority],
     ["left/right movement symmetry", testLeftRightSymmetry],
     ["jump transition", testJumpTransition],
     ["exact gravity-derived ordinary jump height", testOrdinaryJumpHeightIsExactAndGravityDerived],

@@ -152,6 +152,8 @@ export const TEST_SHARDS = Object.freeze({
             "breakable crate reactive object",
             "destructible barrier reactive object",
             "headless stepping and floor collision",
+            "player follows steep walkable bridge ramps while running",
+            "swept support uses up-to-down crossing not colour priority",
             "left/right movement symmetry",
             "jump transition",
             "exact gravity-derived ordinary jump height",

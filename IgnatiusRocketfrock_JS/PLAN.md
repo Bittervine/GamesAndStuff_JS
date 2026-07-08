@@ -3987,3 +3987,13 @@ Revision 471 makes the Level Editor commit the currently focused selected-object
 ## Revision 472 entity atlas palette split
 
 Revision 472 keeps entity-only atlas graphics, currently the `it_atlas_` family, out of the Level Editor's plain Asset palette. Those atlases still load for entity thumbnails and existing authored visuals, but the asset-placement shelf skips them so interactive objects such as mailboxes, portals, chests, switches, and pickups are not accidentally placed as inert decoration. The release also carries forward the newest authored `level_001` supplied after revision 471.
+
+## Revision 473 slope-following walkable ramps
+
+Revision 473 carries forward the latest authored `level_001`, `at_atlas_013`, and `at_atlas_014` JSON supplied after revision 472. It also fixes player traversal on steep green walkable ramp segments such as `at_atlas_013:forest_arched_bridge_walkable`: when Ignatius is already grounded and runs horizontally across a sloped walkable line, the simulation now follows the nearby authored support before gravity is applied, preventing fast steps or poor frame pacing from tunneling beneath the bridge arch.
+
+## Revision 474 swept support-side bridge traversal
+
+Revision 474 replaces the first grounded ramp-only fix with a sturdier support-crossing rule. While Ignatius is grounded and moving horizontally, the player collision pass sweeps old foot samples to their new positions and accepts a support only when the sweep moves from that line's standing/up side to its down side. That catches fast movement over `at_atlas_013:forest_arched_bridge_walkable` without giving green walkables priority over yellow blockables; if several supports are valid, the physically upper line wins.
+
+Green walkables remain one-way: holding Down still opts out of them, and upward/underside crossings are ignored. Vertical landing checks now apply the same side rule, preventing collision-skin fuzz from snapping Ignatius onto a green line from below. A narrow penetration override remains for the current authored green support only when no upper support is present, covering bridge endpoints that overlap grass-ground collision.

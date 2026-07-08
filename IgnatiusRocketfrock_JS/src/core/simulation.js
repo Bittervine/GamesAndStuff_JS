@@ -9108,6 +9108,153 @@ function collisionIdIgnored(id, options = {}) {
     return false;
 }
 
+function supportFamilyId(id) {
+    const value = String(id || "");
+    const match = value.match(/^(.*)_(?:walkable|blockable|damaging|killable)_\d+$/);
+    return match ? match[1] : value;
+}
+
+function findWorldSegmentById(state, id) {
+    if (!id || !Array.isArray(state?.world?.segments)) {
+        return null;
+    }
+    return state.world.segments.find((segment) => segment?.id === id) || null;
+}
+
+function supportPreferenceScore(detail, options = {}) {
+    // Support choice is geometric: the uppermost valid support at the actor's
+    // foot position wins. The previous support is only a sub-pixel tie-breaker
+    // so equal seams do not flicker between neighbouring authored lines.
+    let score = 0;
+    const id = String(detail?.id || "");
+    const preferredId = String(options.preferredSupportId || "");
+    if (preferredId && id) {
+        if (id === preferredId) {
+            score -= 0.001;
+        } else if (supportFamilyId(id) === supportFamilyId(preferredId)) {
+            score -= 0.0005;
+        }
+    }
+    return score;
+}
+
+function currentPlayerSupportIsWalkable(state) {
+    const segment = findWorldSegmentById(state, state?.player?.supportId);
+    return segment?.kind === "walkable";
+}
+
+function segmentSurfaceDeltaAtX(segment, x, y, extrapolate = false) {
+    const dx = Number(segment?.x2) - Number(segment?.x1);
+    if (Math.abs(dx) < 0.001 || !Number.isFinite(x) || !Number.isFinite(y)) {
+        return null;
+    }
+    const t = (x - Number(segment.x1)) / dx;
+    if (!extrapolate && (t < -0.001 || t > 1.001)) {
+        return null;
+    }
+    const surfaceY = Number(segment.y1) + (Number(segment.y2) - Number(segment.y1)) * t;
+    return y - surfaceY;
+}
+
+function findActorSweptGroundSupport(state, actor, previousX, previousY, nextX, options = {}) {
+    if (!state?.world || !actor || !Number.isFinite(previousX) || !Number.isFinite(previousY) || !Number.isFinite(nextX)) {
+        return null;
+    }
+    const stepUp = Math.max(0, Number(options.maxStepUp) || 0);
+    const drop = Math.max(0, Number(options.maxDrop) || 0);
+    const skin = Math.max(2, Number(options.skin) || 3);
+    const samples = [
+        { offset: 0, order: 0 },
+        { offset: -actor.width * 0.42, order: 1 },
+        { offset: actor.width * 0.42, order: 2 }
+    ];
+    const horizontalTravel = Math.abs(nextX - previousX);
+    const maxFootOffset = Math.max(...samples.map((sample) => Math.abs(sample.offset)));
+    const queryBounds = {
+        minX: Math.min(previousX, nextX) - maxFootOffset - skin,
+        minY: previousY - stepUp - horizontalTravel - skin,
+        maxX: Math.max(previousX, nextX) + maxFootOffset + skin,
+        maxY: previousY + drop + horizontalTravel + skin
+    };
+    let best = null;
+
+    for (const segment of queryWorldSegments(state.world, queryBounds)) {
+        if (collisionIdIgnored(segment.id, options) || !isSolidSegmentKind(segment.kind) || Math.abs(segment.x2 - segment.x1) < 0.001) {
+            continue;
+        }
+        if (options.ignoreWalkable && segment.kind === "walkable") {
+            continue;
+        }
+        const dx = Number(segment.x2) - Number(segment.x1);
+        const slope = Math.abs(dx) > 0.001 ? (Number(segment.y2) - Number(segment.y1)) / dx : 0;
+        const slopeTravelAllowance = horizontalTravel * Math.abs(slope);
+
+        for (const sample of samples) {
+            const start = { x: previousX + sample.offset, y: previousY };
+            const end = { x: nextX + sample.offset, y: previousY };
+            const nextSurfaceY = segmentYAtX(segment, end.x);
+            if (nextSurfaceY === null) {
+                continue;
+            }
+            const previousDelta = segmentSurfaceDeltaAtX(segment, start.x, start.y, true);
+            const nextDelta = segmentSurfaceDeltaAtX(segment, end.x, end.y, true);
+            if (previousDelta === null || nextDelta === null) {
+                continue;
+            }
+            // Y grows downward. A support collision happens when a foot sweep
+            // starts on the standing/up side of the line and ends on the
+            // down/pass-through side. This handles the fast-step bridge ramp
+            // without giving green walkables priority over yellow blockables;
+            // colour only controls one-way drop-through behaviour.
+            const upSideTolerance = segment.kind === "walkable" ? 0.5 : skin;
+            const crossedFromUpToDown = previousDelta <= upSideTolerance && nextDelta >= -skin && nextDelta >= previousDelta - 0.0001;
+            if (!crossedFromUpToDown) {
+                continue;
+            }
+            const hit = segmentSegmentIntersection(
+                start,
+                end,
+                { x: segment.x1, y: segment.y1 },
+                { x: segment.x2, y: segment.y2 }
+            );
+            const currentSupportContinuation = options.preferredSupportId && supportFamilyId(segment.id) === supportFamilyId(options.preferredSupportId);
+            const wasAlreadyOnLine = Math.abs(previousDelta) <= skin;
+            if (!hit && !currentSupportContinuation && !wasAlreadyOnLine) {
+                continue;
+            }
+            const delta = nextSurfaceY - previousY;
+            if (delta < -stepUp - slopeTravelAllowance - skin || delta > drop + slopeTravelAllowance + skin) {
+                continue;
+            }
+            // Among physically crossed supports, the uppermost line at the new
+            // foot position is the floor. Previous-support identity only breaks
+            // equal-height seams.
+            const score = sample.order * 100000 + nextSurfaceY + (hit ? Math.max(0, Number(hit.t) || 0) * 0.0001 : 0.0002) + supportPreferenceScore({ id: segment.id, kind: segment.kind }, options);
+            if (!best || score < best.score) {
+                best = {
+                    y: nextSurfaceY,
+                    delta,
+                    score,
+                    id: segment.id,
+                    kind: segment.kind,
+                    source: "segment",
+                    swept: true
+                };
+            }
+        }
+    }
+    return best;
+}
+
+function uppermostSupportCandidate(left, right) {
+    if (!left) return right || null;
+    if (!right) return left;
+    if (Math.abs(left.y - right.y) > 0.000001) {
+        return left.y < right.y ? left : right;
+    }
+    return (left.score || 0) <= (right.score || 0) ? left : right;
+}
+
 function findActorHorizontalSweepCollision(state, actor, previousX, nextX, options = {}) {
     const dx = nextX - previousX;
     if (Math.abs(dx) <= 0.000001) {
@@ -9200,6 +9347,68 @@ function findActorHorizontalSweepCollision(state, actor, previousX, nextX, optio
     return best;
 }
 
+function findActorGroundSupportAtX(state, actor, x, referenceY, maxStepUp, maxDrop, options = {}) {
+    if (!state?.world || !actor || !Number.isFinite(Number(x)) || !Number.isFinite(Number(referenceY))) {
+        return null;
+    }
+    const width = Math.max(1, Number(actor.width) || 1);
+    const samples = [
+        x,
+        x - width * 0.42,
+        x + width * 0.42
+    ];
+    const stepUp = Math.max(0, Number(maxStepUp) || 0);
+    const drop = Math.max(0, Number(maxDrop) || 0);
+    const skin = 3;
+    const queryBounds = {
+        minX: Math.min(...samples) - skin,
+        minY: referenceY - stepUp - skin,
+        maxX: Math.max(...samples) + skin,
+        maxY: referenceY + drop + skin
+    };
+    let best = null;
+    const consider = (surfaceY, detail, sampleIndex) => {
+        if (!Number.isFinite(surfaceY)) {
+            return;
+        }
+        const delta = surfaceY - referenceY;
+        if (delta < -stepUp - skin || delta > drop + skin) {
+            return;
+        }
+        // Smaller Y is physically higher on screen. At the actor's central
+        // foot X, the uppermost valid support wins; side samples are fallback
+        // stability probes and must not pull the center foot up a neighbouring
+        // slope. Kind and colour do not override geometry.
+        const score = sampleIndex * 100000 + surfaceY + supportPreferenceScore(detail, options);
+        if (!best || score < best.score) {
+            best = { y: surfaceY, delta, score, ...detail };
+        }
+    };
+
+    for (const segment of queryWorldSegments(state.world, queryBounds)) {
+        if (collisionIdIgnored(segment.id, options) || !isSolidSegmentKind(segment.kind) || Math.abs(segment.x2 - segment.x1) < 0.001) {
+            continue;
+        }
+        if (options.ignoreWalkable && segment.kind === "walkable") {
+            continue;
+        }
+        if (options.ignoreUncrossedWalkable && segment.kind === "walkable") {
+            const preferredId = String(options.preferredSupportId || "");
+            if (!preferredId || supportFamilyId(segment.id) !== supportFamilyId(preferredId)) {
+                continue;
+            }
+        }
+        for (let sampleIndex = 0; sampleIndex < samples.length; sampleIndex += 1) {
+            const surfaceY = segmentYAtX(segment, samples[sampleIndex]);
+            if (surfaceY !== null) {
+                consider(surfaceY, { id: segment.id, kind: segment.kind, source: "segment" }, sampleIndex);
+            }
+        }
+    }
+
+    return best;
+}
+
 function findActorVerticalSweepCollision(state, actor, previousY, nextY, options = {}) {
     const dy = nextY - previousY;
     if (Math.abs(dy) <= 0.000001) {
@@ -9220,16 +9429,22 @@ function findActorVerticalSweepCollision(state, actor, previousY, nextY, options
         maxY: Math.max(previousTop, currentTop, previousY, nextY) + skin
     };
     let best = null;
-    const consider = (surfaceY, detail, ceiling = false) => {
+    const actorSupportSegment = findWorldSegmentById(state, options.preferredSupportId || actor.supportId);
+    const actorOnWalkableSupport = actorSupportSegment?.kind === "walkable" || options.preferWalkable === true;
+    const consider = (surfaceY, detail, ceiling = false, sampleIndex = 0) => {
         if (!Number.isFinite(surfaceY)) {
             return;
         }
         if (!ceiling) {
+            if (actorOnWalkableSupport && detail?.kind !== "walkable" && previousY > surfaceY + 0.05) {
+                return;
+            }
             if (previousY > surfaceY + skin || nextY < surfaceY - skin) {
                 return;
             }
-            if (!best || surfaceY < best.surfaceY) {
-                best = { surfaceY, y: surfaceY, ceiling: false, ...detail };
+            const score = sampleIndex * 100000 + surfaceY;
+            if (!best || score < best.score) {
+                best = { surfaceY, y: surfaceY, ceiling: false, score, ...detail };
             }
         } else {
             if (previousTop < surfaceY - skin || currentTop > surfaceY + skin) {
@@ -9262,15 +9477,23 @@ function findActorVerticalSweepCollision(state, actor, previousY, nextY, options
         if (options.ignoreWalkable && segment.kind === "walkable") {
             continue;
         }
-        for (const x of samples) {
+        for (let sampleIndex = 0; sampleIndex < samples.length; sampleIndex += 1) {
+            const x = samples[sampleIndex];
             const y = segmentYAtX(segment, x);
             if (y === null) {
                 continue;
             }
             if (dy > 0) {
-                consider(y, { id: segment.id, kind: segment.kind, source: "segment" });
+                if (segment.kind === "walkable") {
+                    const previousDelta = previousY - y;
+                    const nextDelta = nextY - y;
+                    if (previousDelta > 0.5 || nextDelta < -skin) {
+                        continue;
+                    }
+                }
+                consider(y, { id: segment.id, kind: segment.kind, source: "segment" }, false, sampleIndex);
             } else if (segment.kind !== "walkable") {
-                consider(y, { id: segment.id, kind: segment.kind, source: "segment" }, true);
+                consider(y, { id: segment.id, kind: segment.kind, source: "segment" }, true, sampleIndex);
             }
         }
     }
@@ -9279,12 +9502,13 @@ function findActorVerticalSweepCollision(state, actor, previousY, nextY, options
         if (collisionIdIgnored(polygon.id, options) || !isAreaBlockingSegmentKind(polygon.kind)) {
             continue;
         }
-        for (const x of samples) {
+        for (let sampleIndex = 0; sampleIndex < samples.length; sampleIndex += 1) {
+            const x = samples[sampleIndex];
             for (const interval of polygonYIntervalsAtX(polygon, x)) {
                 if (dy > 0) {
-                    consider(interval[0], { id: polygon.id, kind: polygon.kind, source: "polygon" });
+                    consider(interval[0], { id: polygon.id, kind: polygon.kind, source: "polygon" }, false, sampleIndex);
                 } else {
-                    consider(interval[1], { id: polygon.id, kind: polygon.kind, source: "polygon" }, true);
+                    consider(interval[1], { id: polygon.id, kind: polygon.kind, source: "polygon" }, true, sampleIndex);
                 }
             }
         }
@@ -9330,12 +9554,43 @@ function moveAndCollideX(state, dx) {
     const nextX = previousX + dx;
     const collision = findActorHorizontalSweepCollision(state, p, previousX, nextX);
     if (!collision) {
+        const wasSupportedByWalkable = currentPlayerSupportIsWalkable(state);
+        const supportOptions = {
+            ignoreWalkable: (Number(p.dropThroughTimer) || 0) > 0,
+            ignoreUncrossedWalkable: true,
+            preferredSupportId: p.supportId || "",
+            preferWalkable: wasSupportedByWalkable
+        };
+        let sweptSupport = null;
+        if (p.onGround && p.vy >= 0) {
+            sweptSupport = findActorSweptGroundSupport(state, p, previousX, p.y, nextX, {
+                ...supportOptions,
+                maxStepUp: p.height * AUTOMATIC_STEP_HEIGHT_RATIO,
+                maxDrop: p.height * AUTOMATIC_STEP_HEIGHT_RATIO
+            });
+        }
         p.x = nextX;
+        if (p.onGround && p.vy >= 0) {
+            const snappedSupport = findActorGroundSupportAtX(state, p, p.x, p.y, p.height * AUTOMATIC_STEP_HEIGHT_RATIO, p.height * AUTOMATIC_STEP_HEIGHT_RATIO, supportOptions);
+            const slopeFollow = uppermostSupportCandidate(sweptSupport, snappedSupport);
+            if (slopeFollow) {
+                landPlayerOn(state, slopeFollow.y, true, slopeFollow.id, slopeFollow.kind);
+                state.collisions.lastResolution = {
+                    axis: slopeFollow === sweptSupport ? "ground-sweep" : "ground-snap",
+                    id: slopeFollow.id,
+                    kind: slopeFollow.kind,
+                    source: slopeFollow.source,
+                    delta: round(slopeFollow.delta)
+                };
+            }
+        }
         return;
     }
     if (p.onGround && p.vy >= 0) {
         const stepped = tryActorStepUp(state, p, previousX, nextX, p.height * AUTOMATIC_STEP_HEIGHT_RATIO, {
-            ignoreWalkable: (Number(p.dropThroughTimer) || 0) > 0
+            ignoreWalkable: (Number(p.dropThroughTimer) || 0) > 0,
+            preferredSupportId: p.supportId || "",
+            preferWalkable: currentPlayerSupportIsWalkable(state)
         });
         if (stepped) {
             p.x = stepped.x;
@@ -9425,10 +9680,14 @@ function moveAndCollideY(state, dy, wasOnGround) {
     const p = state.player;
     const previousY = p.y;
     const nextY = previousY + dy;
+    const previousSupportId = p.supportId || "";
+    const previousSupportWasWalkable = currentPlayerSupportIsWalkable(state);
     p.onGround = false;
     p.supportId = null;
     const collision = findActorVerticalSweepCollision(state, p, previousY, nextY, {
-        ignoreWalkable: (Number(p.dropThroughTimer) || 0) > 0
+        ignoreWalkable: (Number(p.dropThroughTimer) || 0) > 0,
+        preferredSupportId: previousSupportId,
+        preferWalkable: previousSupportWasWalkable
     });
     p.y = collision ? collision.y : nextY;
     if (!collision) {
@@ -9515,11 +9774,56 @@ function resolvePlayerPenetrations(state, wasOnGround) {
     return false;
 }
 
+function playerWalkableSupportOverride(state) {
+    const player = state?.player;
+    if (!player?.onGround || !player.supportId) {
+        return null;
+    }
+    const segment = findWorldSegmentById(state, player.supportId);
+    if (!segment || segment.kind !== "walkable") {
+        return null;
+    }
+    const supportY = segmentYAtX(segment, player.x);
+    if (supportY === null || Math.abs(supportY - player.y) > 6) {
+        return null;
+    }
+    const uppermost = findActorGroundSupportAtX(
+        state,
+        player,
+        player.x,
+        supportY,
+        player.height * AUTOMATIC_STEP_HEIGHT_RATIO,
+        player.height * AUTOMATIC_STEP_HEIGHT_RATIO,
+        { ignoreWalkable: (Number(player.dropThroughTimer) || 0) > 0, preferredSupportId: player.supportId || "" }
+    );
+    if (uppermost && uppermost.id !== segment.id && uppermost.y < supportY - 0.1) {
+        return null;
+    }
+    return { segment, point: { x: player.x, y: supportY } };
+}
+
+function colliderContainsWalkableSupportPoint(collider, source, support) {
+    if (!support?.point || !collider) {
+        return false;
+    }
+    if (source === "solid") {
+        return pointInRect(support.point, collider);
+    }
+    if (source === "polygon") {
+        return pointInPolygon(support.point, collider);
+    }
+    return false;
+}
+
 function playerPenetrationBlockers(state, rect) {
     const blockers = [];
+    const walkableOverride = playerWalkableSupportOverride(state);
 
     for (const solid of queryWorldSolids(state.world, rect)) {
         if (!rectsOverlap(rect, solid)) {
+            continue;
+        }
+        if (colliderContainsWalkableSupportPoint(solid, "solid", walkableOverride)) {
             continue;
         }
         const detail = collisionBodyDetail(solid, "solid");
@@ -9531,6 +9835,9 @@ function playerPenetrationBlockers(state, rect) {
 
     for (const polygon of queryWorldCollisionPolygons(state.world, rect)) {
         if (!isAreaBlockingSegmentKind(polygon.kind) || !polygonOverlapsRect(polygon, rect)) {
+            continue;
+        }
+        if (colliderContainsWalkableSupportPoint(polygon, "polygon", walkableOverride)) {
             continue;
         }
         const detail = collisionBodyDetail(polygon, "polygon");
@@ -10023,7 +10330,8 @@ function resolveSegmentYCollisions(state, previousY, dy, wasOnGround) {
             continue;
         }
 
-        for (const x of samples) {
+        for (let sampleIndex = 0; sampleIndex < samples.length; sampleIndex += 1) {
+            const x = samples[sampleIndex];
             const y = segmentYAtX(segment, x);
             if (y === null) {
                 continue;

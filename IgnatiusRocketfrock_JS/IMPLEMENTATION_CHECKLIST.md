@@ -4225,3 +4225,22 @@ The Asset Tool also gains a faster line-editing gesture: in Add Node Mode, click
 - [x] Add a source regression assertion for the Asset palette filter.
 - [x] Import the newest user-authored `level_001.json`.
 - [x] Synchronize visible revision labels to 472.
+
+## Revision 473 walkable bridge ramp stability
+
+- [x] Import the latest authored `assets/level_001.json`.
+- [x] Import the latest authored `assets/at_atlas_013.json` and `assets/at_atlas_014.json`.
+- [x] Keep grounded players attached to nearby sloped walkable support after horizontal movement.
+- [x] Add a regression test for running across `forest_arched_bridge_walkable`'s steep uphill line.
+- [x] Synchronize visible revision labels to 473.
+
+## Revision 474 swept support-side bridge stability
+
+- [x] Add grounded old-foot-to-new-foot sweeping for authored support lines.
+- [x] Require one-way green supports to be crossed from the standing/up side to the down side before they catch the player.
+- [x] Keep support selection geometric: among valid crossed supports, the physically upper line wins regardless of walkable/blockable colour.
+- [x] Apply the same one-way-side rule to vertical landing checks so green lines do not catch from below through collision skin.
+- [x] Keep a narrow current-support depenetration guard for bridge endpoints that overlap grass ground.
+- [x] Add regressions for the real `forest_arched_bridge_walkable` placement and for crossed versus uncrossed support transitions.
+- [x] Fold in the latest uploaded `level_001`, `at_atlas_013`, and `at_atlas_014` JSON carried from revision 473.
+- [x] Synchronize visible revision labels to 474.

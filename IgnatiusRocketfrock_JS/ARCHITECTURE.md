@@ -1889,3 +1889,13 @@ Revision 471 adds a capture-phase pointer precommit around the selected-object i
 ## Revision 472 entity-only atlas visibility
 
 The Level Editor distinguishes loaded atlases from atlases that should be presented as plain placeable assets. `it_atlas_` manifests are entity-only: they remain loaded because catalog entities use them for previews and runtime visuals, but `renderAssetList()` filters them with `isAssetPaletteAtlasId()` before building the Asset palette. This preserves entity rendering while preventing editor confusion between functional catalog entities and their decorative source sprites.
+
+## Revision 473 grounded slope following
+
+Revision 473 adds a grounded slope-follow pass to the player collision pipeline. Horizontal movement still resolves walls first, but when no horizontal blocker is found and the player was standing on terrain, the simulation probes the authored support at the new X coordinate and snaps to nearby walkable or blockable segment height within the existing automatic step envelope. This keeps steep segmented walkable platforms stable at run speed while preserving deliberate drop-through behaviour on green lines.
+
+## Revision 474 swept grounded support crossing
+
+Revision 474 extends the player collision pipeline with a grounded swept-foot support pass. Horizontal movement records the previous foot position and tests each sampled old-foot-to-new-foot segment against nearby authored supports. A support catches the player only when the old foot is on the standing/up side of that line and the new foot ends on the down side; smaller screen Y remains the geometric upper support when more than one valid crossed line is available. Green walkable lines are still one-way and are skipped while the player is deliberately dropping through, but they do not receive priority over yellow blockable geometry.
+
+Vertical sweeps now use the same one-way-side rule for green walkables, so a player who is slightly below a green line inside the collision skin is not snapped upward from the underside. The penetration solver keeps a narrow authored-support override only for the line the player is already standing on, and only when no physically upper support supersedes it, preventing bridge endpoints that overlap grass ground from depenetrating Ignatius off the authored ramp.
