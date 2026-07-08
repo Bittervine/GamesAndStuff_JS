@@ -4217,3 +4217,11 @@ The Asset Tool also gains a faster line-editing gesture: in Add Node Mode, click
 - Covered the guard with a Level Editor source regression assertion.
 - Imported the latest user-authored `level_001`, `at_atlas_014`, and `it_entities_001` JSON files into the release working tree.
 
+
+## Revision 472 entity graphics hidden from Asset palette
+
+- [x] Treat `it_atlas_` manifests as entity-only atlases in the Level Editor.
+- [x] Hide entity-only atlas frames from the plain Asset palette while still loading them for entity previews and existing visuals.
+- [x] Add a source regression assertion for the Asset palette filter.
+- [x] Import the newest user-authored `level_001.json`.
+- [x] Synchronize visible revision labels to 472.

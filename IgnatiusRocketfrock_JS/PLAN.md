@@ -3983,3 +3983,7 @@ Revision 470 reserves the `assets/level_tNN.json` namespace for testbench-only l
 
 Revision 471 makes the Level Editor commit the currently focused selected-object inspector control before pointer-driven selection changes. This prevents mailbox letters, mailbox thoughts, and location thought-trigger text from being overwritten by the inspector refresh when the user types text and then clicks another object without first blurring the text field. The release also carries forward the latest authored `level_001`, `at_atlas_014`, and `it_entities_001` data supplied outside the code patch.
 
+
+## Revision 472 entity atlas palette split
+
+Revision 472 keeps entity-only atlas graphics, currently the `it_atlas_` family, out of the Level Editor's plain Asset palette. Those atlases still load for entity thumbnails and existing authored visuals, but the asset-placement shelf skips them so interactive objects such as mailboxes, portals, chests, switches, and pickups are not accidentally placed as inert decoration. The release also carries forward the newest authored `level_001` supplied after revision 471.

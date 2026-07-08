@@ -1885,3 +1885,7 @@ Revision 470 stops regression tests from depending on mutable campaign level num
 
 Revision 471 adds a capture-phase pointer precommit around the selected-object inspector. When an editable inspector control has focus and the next pointer action targets another editor surface, the editor calls the same inspector save path before selection state can change and before `syncInspector()` can repaint the controls. This preserves multiline story fields for mailboxes and thought triggers while keeping the existing explicit `change` handlers as the canonical persistence path.
 
+
+## Revision 472 entity-only atlas visibility
+
+The Level Editor distinguishes loaded atlases from atlases that should be presented as plain placeable assets. `it_atlas_` manifests are entity-only: they remain loaded because catalog entities use them for previews and runtime visuals, but `renderAssetList()` filters them with `isAssetPaletteAtlasId()` before building the Asset palette. This preserves entity rendering while preventing editor confusion between functional catalog entities and their decorative source sprites.

@@ -794,7 +794,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 471</small></h1>
+        <h1>Level Editor <small>rev 472</small></h1>
 
         <div class="box">
             <h2>Level</h2>
@@ -1448,6 +1448,7 @@ import {
     const ATLAS_AUTOLOAD_LIMIT = 20;
     const LEVEL_AUTOLOAD_LIMIT = 20;
     const SPECIAL_ATLAS_IDS = ["it_atlas_001"];
+    const ENTITY_ONLY_ATLAS_ID_PREFIXES = ["it_atlas_"];
     const ENTITY_CATALOG_URL = "assets/it_entities_001.json";
     const ENEMY_CATALOG_URL = "assets/ct_enemies_001.json";
     const WIZARD_EDITOR_WIDTH = 36;
@@ -1466,6 +1467,15 @@ import {
 
     function atlasImageUrl(atlasId) {
         return `assets/${atlasId}.png`;
+    }
+
+    function isEntityOnlyAtlasId(atlasId) {
+        const value = String(atlasId || "");
+        return ENTITY_ONLY_ATLAS_ID_PREFIXES.some((prefix) => value.startsWith(prefix));
+    }
+
+    function isAssetPaletteAtlasId(atlasId) {
+        return !isEntityOnlyAtlasId(atlasId);
     }
 
     const DEFAULT_MANIFEST_URL = atlasManifestUrl(DEFAULT_ATLAS_ID);
@@ -4092,6 +4102,7 @@ import {
         const query = String(els.assetSearch?.value || "").trim().toLowerCase();
         const allRows = [];
         for (const [atlasId, atlas] of state.atlases) {
+            if (!isAssetPaletteAtlasId(atlasId)) continue;
             const frames = atlas?.manifest?.frames || {};
             const objects = atlas?.manifest?.objects || {};
             for (const id of Object.keys(frames)) {
@@ -4136,9 +4147,10 @@ import {
             els.assetList.appendChild(empty);
         }
         if (els.assetPaletteStatus) {
+            const visibleAtlasCount = new Set(allRows.map((entry) => entry.atlasId)).size;
             els.assetPaletteStatus.textContent = query
-                ? `Showing ${rows.length} of ${allRows.length} assets from ${state.atlases.size} atlases.`
-                : `${allRows.length} assets · ${state.atlases.size} loaded atlases.`;
+                ? `Showing ${rows.length} of ${allRows.length} assets from ${visibleAtlasCount} atlas${visibleAtlasCount === 1 ? "" : "es"}.`
+                : `${allRows.length} assets · ${visibleAtlasCount} asset atlas${visibleAtlasCount === 1 ? "" : "es"}.`;
         }
     }
 
