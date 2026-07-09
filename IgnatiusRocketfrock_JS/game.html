@@ -863,7 +863,7 @@ font-size: 14px;
             pointer-events: none;
         }
 
-        body.electron #tool-links {
+        body.electron #tool-links > :not(#toggle-static-bake-renderer) {
             display: none !important;
         }
 
@@ -932,6 +932,8 @@ font-size: 14px;
         <button id="toggle-asset-guides" class="tool-button" type="button">Asset guides: off</button>
         <button id="toggle-puppet-guide" class="tool-button" type="button">Puppet guide: off</button>
         <button id="toggle-debug-panel" class="tool-button" type="button">Debug panel: off</button>
+        <button id="toggle-micro-profiler" class="tool-button" type="button">Profiler: off</button>
+        <button id="toggle-static-bake-renderer" class="tool-button" type="button" hidden>Baked: off</button>
         <button id="toggle-game-tuning" class="tool-button" type="button">Game tuning: off</button>
         <button id="toggle-help-panel" class="tool-button" type="button">Help panel: on</button>
     </div>

@@ -39,6 +39,7 @@ import { createColorMappedCanvas } from "./level-color-map-cache.js";
 import {
     buildCaveWindowGpuMaskGeometry,
     computeCaveWindowParallaxOffset,
+    computeCaveWindowParallaxOffsetInto,
     drawCaveWindowMask
 } from "./cave-window-mask.js";
 import {
@@ -47,12 +48,13 @@ import {
 } from "./foreground-sprite-treatment.js";
 import {
     buildWorldVisualCache,
+    createWorldVisualQueryScratch,
     isWorldBackgroundVisual,
     queryWorldVisualEntries,
     visualIntersectsViewport,
     visualWorldBounds
 } from "./world-visual-cache.js";
-import { computeWorldParallaxOffset } from "./world-parallax.js";
+import { computeWorldParallaxOffsetInto } from "./world-parallax.js";
 import {
     buildOverlapBlendGroups,
     createOverlapBlendSurface
@@ -72,6 +74,7 @@ import {
 } from "./actor-shadow.js";
 import { createWebGL2RendererBackend } from "./webgl2-renderer.js";
 import { createPixmapPyramid, drawPixmap } from "./pixmap-pyramid.js";
+import { ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER } from "../shared/experimental-renderer-flags.js";
 
 const transientPixmapPyramids = new WeakMap();
 let pixmapPyramidsEnabled = true;
@@ -163,6 +166,81 @@ const WEBGL_DIRECT_WORLD_EFFECT_KINDS = new Set([
     "enemyTeleportSpark"
 ]);
 const WEBGL_DIRECT_ENEMY_PROJECTILE_KINDS = new Set(["enemyFireball", "enemyMusketBall", "enemyRock", "enemyKnife"]);
+
+const STATIC_LAYER_BAKE_MEMORY_BUDGET_BYTES = 2 * 1024 * 1024 * 1024;
+const STATIC_LAYER_BAKE_BYTES_PER_PIXEL = 4;
+const STATIC_LAYER_BAKE_CANVAS_COUNT = 3;
+const STATIC_LAYER_BAKE_MAX_DIMENSION = 32767;
+const STATIC_LAYER_BAKE_WEBGL_CHUNK_SIZE = 4096;
+
+function bakedLayerByteEstimate(width, height) {
+    return Math.max(0, Math.ceil(width) * Math.ceil(height) * STATIC_LAYER_BAKE_BYTES_PER_PIXEL * STATIC_LAYER_BAKE_CANVAS_COUNT);
+}
+
+function staticLayerBakeWorldBounds(worldBounds) {
+    const x = Number(worldBounds?.x);
+    const y = Number(worldBounds?.y);
+    const w = Number(worldBounds?.w);
+    const h = Number(worldBounds?.h);
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) {
+        return null;
+    }
+    return {
+        x,
+        y,
+        w: Math.max(1, Math.ceil(w)),
+        h: Math.max(1, Math.ceil(h))
+    };
+}
+
+function staticLayerBakeBoundsKey(bounds) {
+    if (!bounds) return "";
+    return `${bounds.x.toFixed(3)},${bounds.y.toFixed(3)},${bounds.w},${bounds.h}`;
+}
+
+function staticLayerBakeLayerSurfaces(layer) {
+    if (!layer) return [];
+    if (Array.isArray(layer.chunks)) return layer.chunks;
+    return layer.canvas ? [layer] : [];
+}
+
+function staticLayerBakeSurfaceCount(layers) {
+    if (!layers) return 0;
+    let count = 0;
+    for (const layer of Object.values(layers)) {
+        count += staticLayerBakeLayerSurfaces(layer).length;
+    }
+    return count;
+}
+
+function staticLayerBakeChunkSize(webglTextureLimit = 0) {
+    const textureLimit = Math.max(1, Math.floor(Number(webglTextureLimit) || STATIC_LAYER_BAKE_WEBGL_CHUNK_SIZE));
+    return Math.max(256, Math.min(STATIC_LAYER_BAKE_WEBGL_CHUNK_SIZE, STATIC_LAYER_BAKE_MAX_DIMENSION, textureLimit));
+}
+
+const STATIC_LAYER_BAKE_DISABLED_STATUS = "disabled by ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER";
+const STATIC_LAYER_BAKE_VISUAL_CLASSIFICATION = Object.freeze({
+    STATIC: "static",
+    DYNAMIC: "dynamic"
+});
+
+function classifyStaticLayerBakeVisual(visual) {
+    // Conservative attic-gnome rule: this experimental mode may only bake visuals
+    // that are plainly static. Do not reshape the normal renderer or authored
+    // visual schema for this path without asking the project owner first.
+    if (!visual || visual.entityId || visual.dynamicPosition || visual.movement) {
+        return STATIC_LAYER_BAKE_VISUAL_CLASSIFICATION.DYNAMIC;
+    }
+    return STATIC_LAYER_BAKE_VISUAL_CLASSIFICATION.STATIC;
+}
+
+function visualCanBeBakedStatic(visual) {
+    return classifyStaticLayerBakeVisual(visual) === STATIC_LAYER_BAKE_VISUAL_CLASSIFICATION.STATIC;
+}
+
+function visualIsBakedDynamic(visual) {
+    return classifyStaticLayerBakeVisual(visual) === STATIC_LAYER_BAKE_VISUAL_CLASSIFICATION.DYNAMIC;
+}
 
 function rendererNowMs() {
     if (typeof performance !== "undefined" && typeof performance.now === "function") {
@@ -503,6 +581,15 @@ class RocketfrockRenderer {
         this.frameEntityVisibility = { collectedPickups: new Set(), defeatedEnemies: new Set() };
         this.framePlayerRocketTransform = null;
         this.frameVisualCounters = this.createVisualCounters();
+        this.frameRenderBreakdown = this.createRenderBreakdown();
+        this.frameDrawnBlendGroups = new Set();
+        this.frameHandledProjectileIds = new Set();
+        this.worldVisualQueryScratch = {
+            background: createWorldVisualQueryScratch(),
+            main: createWorldVisualQueryScratch(),
+            actorFront: createWorldVisualQueryScratch(),
+            caveForeground: createWorldVisualQueryScratch()
+        };
         this.performanceDiagnostics = {
             backend: this.renderBackend,
             gpuDrawCalls: 0,
@@ -520,6 +607,11 @@ class RocketfrockRenderer {
             foregroundMs: 0,
             maskMs: 0,
             overlayMs: 0,
+            clearBackdropMs: 0,
+            backgroundMs: 0,
+            worldVisualsMs: 0,
+            worldGeometryMs: 0,
+            portalMs: 0,
             observedFps: 0,
             visualsConsidered: 0,
             visualsDrawn: 0,
@@ -530,7 +622,18 @@ class RocketfrockRenderer {
             dynamicConsidered: 0,
             dynamicDrawn: 0,
             dynamicCulled: 0,
-            maskReused: false
+            maskReused: false,
+            staticBakeAvailable: ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER,
+            staticBakeEnabled: false,
+            staticBakeReady: false,
+            staticBakeUsed: false,
+            staticBakeBytes: 0,
+            staticBakeBuildMs: 0,
+            staticBakeDrawMs: 0,
+            staticBakeChunks: 0,
+            staticBakeMode: "off",
+            staticBakeLastInvalidationReason: "",
+            staticBakeStatus: ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER ? "off" : STATIC_LAYER_BAKE_DISABLED_STATUS
         };
         this.phase = 0;
         this.forcePhase = null;
@@ -549,6 +652,20 @@ class RocketfrockRenderer {
         this.processedScoreEventKeys = new Set();
         this.processedScoreEventOrder = [];
         this.actorShadowOpacity = new WeakMap();
+        this.staticLayerBake = {
+            enabled: false,
+            cache: null,
+            key: "",
+            lastError: "",
+            status: ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER ? "off" : STATIC_LAYER_BAKE_DISABLED_STATUS,
+            lastInvalidationReason: "",
+            lastBuildMs: 0,
+            lastDrawMs: 0,
+            lastUsed: false,
+            bytes: 0,
+            chunkCount: 0,
+            mode: "off"
+        };
     }
 
     getEnvironmentManifests() {
@@ -635,6 +752,81 @@ class RocketfrockRenderer {
         };
     }
 
+    createRenderBreakdown() {
+        return {
+            clearBackdropMs: 0,
+            backgroundMs: 0,
+            worldVisualsMs: 0,
+            worldGeometryMs: 0,
+            portalMs: 0
+        };
+    }
+
+    resetRenderBreakdown(breakdown = this.createRenderBreakdown()) {
+        breakdown.clearBackdropMs = 0;
+        breakdown.backgroundMs = 0;
+        breakdown.worldVisualsMs = 0;
+        breakdown.worldGeometryMs = 0;
+        breakdown.portalMs = 0;
+        return breakdown;
+    }
+
+    resetVisualCounters(counters = this.createVisualCounters()) {
+        counters.considered = 0;
+        counters.drawn = 0;
+        counters.culled = 0;
+        counters.spatialCulled = 0;
+        counters.foregroundCacheHits = 0;
+        counters.foregroundCacheMisses = 0;
+        counters.dynamicConsidered = 0;
+        counters.dynamicDrawn = 0;
+        counters.dynamicCulled = 0;
+        counters.maskReused = false;
+        return counters;
+    }
+
+    updateFrameEntityVisibility(state) {
+        const collectedPickups = this.frameEntityVisibility.collectedPickups;
+        const defeatedEnemies = this.frameEntityVisibility.defeatedEnemies;
+        collectedPickups.clear();
+        defeatedEnemies.clear();
+        for (const item of state.pickups || []) {
+            if (item?.collected) collectedPickups.add(item.id);
+        }
+        for (const item of state.enemies || []) {
+            if (Number(item?.health) <= 0) defeatedEnemies.add(item.id);
+        }
+    }
+
+    copyLastComputedView(view) {
+        if (!this.lastComputedView) {
+            this.lastComputedView = { w: 0, h: 0, dpr: 1, zoom: 1, virtualW: 0, virtualH: 0, minVirtualW: 0, x: 0, y: 0 };
+        }
+        this.lastComputedView.w = view.w;
+        this.lastComputedView.h = view.h;
+        this.lastComputedView.dpr = view.dpr;
+        this.lastComputedView.zoom = view.zoom;
+        this.lastComputedView.virtualW = view.virtualW;
+        this.lastComputedView.virtualH = view.virtualH;
+        this.lastComputedView.minVirtualW = view.minVirtualW;
+        this.lastComputedView.x = view.x;
+        this.lastComputedView.y = view.y;
+    }
+
+    worldVisualQueryScratchFor(partitionName) {
+        return this.worldVisualQueryScratch[partitionName] || null;
+    }
+
+    partitionHasRenderableVisuals(partition) {
+        if (!partition) return false;
+        if (partition.hasCutout) return true;
+        for (const atlasId of partition.atlasIds || []) {
+            const atlas = this.environmentAtlases.get(atlasId);
+            if (atlas && !atlas.missing && atlas.image) return true;
+        }
+        return false;
+    }
+
     getPerformanceDiagnostics() {
         return { ...this.performanceDiagnostics };
     }
@@ -697,6 +889,7 @@ class RocketfrockRenderer {
             this.webglBackend?.invalidateTexture(surface);
         }
         this.foregroundSpriteCache.clear();
+        this.invalidateStaticLayerBake("cave window changed");
         return this.caveWindow;
     }
 
@@ -725,7 +918,118 @@ class RocketfrockRenderer {
         this.layerBrightnessCache.clear();
         this.overlapBlendCache.source = null;
         this.syncEnvironmentColorMap(this.environmentColorMap);
+        this.invalidateStaticLayerBake("level atlases changed");
         return loaded.size > 0;
+    }
+
+    prewarmLevelPresentationCaches(world) {
+        const visuals = Array.isArray(world?.visuals) ? world.visuals : [];
+        const warmedBackgroundAtlases = new Set();
+        let backgroundAtlases = 0;
+        for (const visual of visuals) {
+            if (!isWorldBackgroundVisual(visual)) continue;
+            const brightness = normalizeLayerBrightness(visual.backgroundBrightness);
+            if (Math.abs(brightness - 1) < 0.000001) continue;
+            const atlas = this.environmentAtlases.get(visual.atlasId);
+            if (!atlas || atlas.missing || !atlas.image) continue;
+            const key = `${atlas.atlasId || atlas.id || visual.atlasId}|${brightness.toFixed(4)}`;
+            if (warmedBackgroundAtlases.has(key)) continue;
+            warmedBackgroundAtlases.add(key);
+            this.getLayerBrightnessAtlas(atlas, brightness, "background");
+            backgroundAtlases += 1;
+        }
+        return { backgroundAtlases };
+    }
+
+    supportsExperimentalStaticLayerBakeRenderer() {
+        return ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER === true;
+    }
+
+    resetStaticLayerBakeBookkeeping(status = "off") {
+        this.staticLayerBake.cache = null;
+        this.staticLayerBake.key = "";
+        this.staticLayerBake.bytes = 0;
+        this.staticLayerBake.lastBuildMs = 0;
+        this.staticLayerBake.lastDrawMs = 0;
+        this.staticLayerBake.chunkCount = 0;
+        this.staticLayerBake.mode = "off";
+        this.staticLayerBake.lastUsed = false;
+        this.staticLayerBake.status = status;
+    }
+
+    setStaticLayerBakeEnabled(enabled) {
+        if (!ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER) {
+            this.releaseStaticLayerBakeCache();
+            this.staticLayerBake.enabled = false;
+            this.staticLayerBake.lastError = "";
+            this.staticLayerBake.lastInvalidationReason = "";
+            this.resetStaticLayerBakeBookkeeping(STATIC_LAYER_BAKE_DISABLED_STATUS);
+            return this.getStaticLayerBakeStatus();
+        }
+        const nextEnabled = enabled === true;
+        if (this.staticLayerBake.enabled === nextEnabled) {
+            return this.getStaticLayerBakeStatus();
+        }
+        if (!nextEnabled) {
+            this.releaseStaticLayerBakeCache();
+        }
+        this.staticLayerBake.enabled = nextEnabled;
+        this.staticLayerBake.status = nextEnabled ? "enabled; awaiting first bake" : "off";
+        this.staticLayerBake.lastError = "";
+        this.staticLayerBake.lastInvalidationReason = nextEnabled ? "" : "disabled";
+        this.staticLayerBake.lastUsed = false;
+        if (!nextEnabled) {
+            this.resetStaticLayerBakeBookkeeping("off");
+        }
+        return this.getStaticLayerBakeStatus();
+    }
+
+    isStaticLayerBakeEnabled() {
+        return ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER && this.staticLayerBake.enabled === true;
+    }
+
+    releaseStaticLayerBakeCache(cache = this.staticLayerBake.cache) {
+        const layers = cache?.layers || null;
+        if (!layers) return;
+        for (const layer of Object.values(layers)) {
+            for (const surface of staticLayerBakeLayerSurfaces(layer)) {
+                if (!surface?.canvas) continue;
+                this.webglBackend?.invalidateTexture(surface.canvas);
+                // A 1x1 shrink is the strongest practical browser hint that a
+                // discarded full-level or chunk canvas may release its backing store.
+                surface.canvas.width = 1;
+                surface.canvas.height = 1;
+                surface.context = null;
+            }
+        }
+    }
+
+    invalidateStaticLayerBake(reason = "invalidated") {
+        this.releaseStaticLayerBakeCache();
+        const normalizedReason = String(reason || "invalidated");
+        this.staticLayerBake.lastInvalidationReason = normalizedReason;
+        this.resetStaticLayerBakeBookkeeping(this.staticLayerBake.enabled ? normalizedReason : "off");
+    }
+
+    getStaticLayerBakeStatus() {
+        const cache = this.staticLayerBake.cache;
+        return {
+            available: ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER === true,
+            enabled: ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER && this.staticLayerBake.enabled === true,
+            ready: Boolean(cache),
+            used: this.staticLayerBake.lastUsed === true,
+            bytes: Math.max(0, Number(this.staticLayerBake.bytes) || 0),
+            width: Math.max(0, Number(cache?.width) || 0),
+            height: Math.max(0, Number(cache?.height) || 0),
+            buildMs: Math.max(0, Number(this.staticLayerBake.lastBuildMs) || 0),
+            drawMs: Math.max(0, Number(this.staticLayerBake.lastDrawMs) || 0),
+            chunks: Math.max(0, Number(this.staticLayerBake.chunkCount) || 0),
+            mode: this.staticLayerBake.mode || "off",
+            lastInvalidationReason: this.staticLayerBake.lastInvalidationReason || "",
+            status: ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER
+                ? (this.staticLayerBake.lastError || this.staticLayerBake.status || "off")
+                : STATIC_LAYER_BAKE_DISABLED_STATUS
+        };
     }
 
     getRuntimeCharacterProjects() {
@@ -752,6 +1056,7 @@ class RocketfrockRenderer {
             atlas.colorMapCacheKey = cacheKey;
         }
         this.prewarmWebGLTextures();
+        this.invalidateStaticLayerBake("environment colour map changed");
         return true;
     }
 
@@ -992,16 +1297,15 @@ class RocketfrockRenderer {
         this.resize();
         this.updatePhase(state, dt);
         const view = this.computeView(state);
-        this.lastComputedView = { ...view };
+        this.copyLastComputedView(view);
         this.lastCharacterDraws = [];
-        this.frameVisualCounters = this.createVisualCounters();
+        this.resetVisualCounters(this.frameVisualCounters);
+        this.resetRenderBreakdown(this.frameRenderBreakdown);
         this.framePlayerRocketTransform = null;
-        this.frameEntityVisibility = {
-            collectedPickups: new Set((state.pickups || []).filter((item) => item?.collected).map((item) => item.id)),
-            defeatedEnemies: new Set((state.enemies || []).filter((item) => Number(item?.health) <= 0).map((item) => item.id))
-        };
+        this.updateFrameEntityVisibility(state);
         this.updateActorShadowOpacity(state, this.lastRenderDt);
-        this.frameBackgroundOffset = computeWorldParallaxOffset(
+        computeWorldParallaxOffsetInto(
+            this.frameBackgroundOffset,
             view,
             state.world?.bounds,
             normalizeBackgroundParallax(state.world?.layerVisuals?.background?.parallax),
@@ -1010,7 +1314,8 @@ class RocketfrockRenderer {
         this.frameForegroundParallax = normalizeForegroundParallax(
             state.world?.layerVisuals?.foreground?.parallax
         );
-        this.frameForegroundOffset = computeCaveWindowParallaxOffset(
+        computeCaveWindowParallaxOffsetInto(
+            this.frameForegroundOffset,
             view,
             state.world?.bounds,
             this.frameForegroundParallax
@@ -1019,23 +1324,41 @@ class RocketfrockRenderer {
         return view;
     }
 
-    renderCanvas2D(state, inputFrame, dt) {
-        const frameStart = rendererNowMs();
-        const view = this.prepareFrame(state, dt, frameStart);
-
+    resetCanvasContext() {
         // The renderer works entirely in backing-pixel coordinates. Consumers
         // may have acquired the visible 2D context first, so never inherit a CSS/DPR transform.
         this.ctx.setTransform(1, 0, 0, 1, 0, 0);
         this.ctx.globalAlpha = 1;
         this.ctx.globalCompositeOperation = "source-over";
         this.ctx.filter = "none";
+    }
+
+    renderCanvas2D(state, inputFrame, dt) {
+        const frameStart = rendererNowMs();
+        const view = this.prepareFrame(state, dt, frameStart);
+        if (this.isStaticLayerBakeEnabled() && !state.debug.showCollision && !state.debug.showAssetGuides) {
+            const rendered = this.renderCanvas2DStaticBake(state, inputFrame, view, frameStart);
+            if (rendered) return;
+        }
+        this.renderCanvas2DLivePrepared(state, inputFrame, view, frameStart);
+    }
+
+    renderCanvas2DLivePrepared(state, inputFrame, view, frameStart) {
+        this.staticLayerBake.lastUsed = false;
+        this.resetCanvasContext();
 
         this.clear(view);
         this.drawBackdrop(view);
+        const backgroundStart = rendererNowMs();
         this.drawBackgroundVisuals(state, view);
+        const backgroundEnd = rendererNowMs();
         this.drawWorld(state, view);
+        const worldMainEnd = rendererNowMs();
         this.drawPortalIntroGlow(state, view);
         const worldEnd = rendererNowMs();
+        this.frameRenderBreakdown.clearBackdropMs = backgroundStart - frameStart;
+        this.frameRenderBreakdown.backgroundMs = backgroundEnd - backgroundStart;
+        this.frameRenderBreakdown.portalMs = worldEnd - worldMainEnd;
 
         this.drawTargets(state, view);
         this.drawPickups(state, view);
@@ -1067,6 +1390,447 @@ class RocketfrockRenderer {
         });
     }
 
+    renderCanvas2DStaticBake(state, inputFrame, view, frameStart) {
+        const bake = this.ensureStaticLayerBake(state);
+        if (!bake) return false;
+        this.staticLayerBake.lastUsed = true;
+        this.resetCanvasContext();
+
+        this.clear(view);
+        this.drawBackdrop(view);
+        const backgroundStart = rendererNowMs();
+        const backgroundDrawMs = this.drawStaticLayerBakeCanvas(bake.layers.background, view, this.frameBackgroundOffset);
+        this.drawBakedDynamicWorldVisuals(state, view, "background");
+        const backgroundEnd = rendererNowMs();
+
+        const terrainDrawStart = rendererNowMs();
+        const terrainDrawMs = this.drawStaticLayerBakeCanvas(bake.layers.terrain, view, null);
+        this.drawBakedDynamicWorldVisuals(state, view, "main");
+        const worldMainEnd = rendererNowMs();
+        this.drawPortalIntroGlow(state, view);
+        const worldEnd = rendererNowMs();
+        this.frameRenderBreakdown.clearBackdropMs = backgroundStart - frameStart;
+        this.frameRenderBreakdown.backgroundMs = backgroundEnd - backgroundStart;
+        this.frameRenderBreakdown.worldVisualsMs += backgroundDrawMs + terrainDrawMs;
+        this.frameRenderBreakdown.worldGeometryMs += Math.max(0, worldMainEnd - terrainDrawStart - terrainDrawMs);
+        this.frameRenderBreakdown.portalMs = worldEnd - worldMainEnd;
+
+        this.drawTargets(state, view);
+        this.drawPickups(state, view);
+        this.drawEnemies(state, view);
+        this.drawWorldEffects(state, view);
+        this.drawProjectiles(state, view);
+        this.drawPlayer(state, view);
+        this.drawPlayerDeathCover(state, view);
+        this.drawScorePopups(state, view);
+        const actorsEnd = rendererNowMs();
+
+        this.drawBakedDynamicWorldVisuals(state, view, "actorFront");
+        this.drawBakedDynamicWorldVisuals(state, view, "caveForeground");
+        const foregroundBakeStart = rendererNowMs();
+        const foregroundDrawMs = this.drawStaticLayerBakeCanvas(bake.layers.foreground, view, this.frameForegroundOffset);
+        const foregroundEnd = rendererNowMs();
+        this.staticLayerBake.lastDrawMs = backgroundDrawMs + terrainDrawMs + foregroundDrawMs;
+
+        const maskEnd = foregroundEnd;
+        this.frameRenderBreakdown.worldVisualsMs += Math.max(0, foregroundEnd - foregroundBakeStart);
+        this.drawMailboxStoryOverlay(state, view);
+        this.drawDebug(state, view, inputFrame);
+        const frameEnd = rendererNowMs();
+        this.updatePerformanceDiagnostics({
+            frameMs: frameEnd - frameStart,
+            worldMs: worldEnd - frameStart,
+            actorsMs: actorsEnd - worldEnd,
+            foregroundMs: foregroundEnd - actorsEnd,
+            maskMs: maskEnd - foregroundEnd,
+            overlayMs: frameEnd - maskEnd
+        });
+        return true;
+    }
+
+    staticLayerBakeKey(state) {
+        const bounds = staticLayerBakeWorldBounds(state.world?.bounds);
+        const cave = state.world?.caveWindow || null;
+        return [
+            state.world?.levelId || "",
+            staticLayerBakeBoundsKey(bounds),
+            this.environmentColorMapKey || "",
+            Array.isArray(state.world?.visuals) ? state.world.visuals.length : 0,
+            JSON.stringify(state.world?.layerVisuals || null),
+            JSON.stringify(cave)
+        ].join("|");
+    }
+
+    ensureStaticLayerBake(state) {
+        if (!this.isStaticLayerBakeEnabled()) return null;
+        const bounds = staticLayerBakeWorldBounds(state.world?.bounds);
+        if (!bounds) {
+            this.staticLayerBake.status = "no finite world bounds";
+            return null;
+        }
+        const webglTextureLimit = this.webglBackend?.available
+            ? Math.max(1, Number(this.webglBackend.getMaxTextureSize?.()) || 1)
+            : 0;
+        const chunkSize = staticLayerBakeChunkSize(webglTextureLimit || STATIC_LAYER_BAKE_MAX_DIMENSION);
+        const needsChunking = bounds.w > STATIC_LAYER_BAKE_MAX_DIMENSION ||
+            bounds.h > STATIC_LAYER_BAKE_MAX_DIMENSION ||
+            (webglTextureLimit > 0 && (bounds.w > webglTextureLimit || bounds.h > webglTextureLimit));
+        if (!needsChunking && (bounds.w > STATIC_LAYER_BAKE_MAX_DIMENSION || bounds.h > STATIC_LAYER_BAKE_MAX_DIMENSION)) {
+            this.staticLayerBake.status = `world ${bounds.w}x${bounds.h} exceeds single-canvas POC limit ${STATIC_LAYER_BAKE_MAX_DIMENSION}`;
+            return null;
+        }
+        const bytes = bakedLayerByteEstimate(bounds.w, bounds.h);
+        if (bytes > STATIC_LAYER_BAKE_MEMORY_BUDGET_BYTES) {
+            this.staticLayerBake.status = `estimated ${Math.round(bytes / 1048576)} MiB exceeds 2 GiB baked-layer budget`;
+            return null;
+        }
+        const mode = needsChunking ? `chunked-${chunkSize}` : "single";
+        const key = `${this.staticLayerBakeKey(state)}|mode:${mode}`;
+        const visuals = Array.isArray(state.world?.visuals) ? state.world.visuals : [];
+        const cache = this.staticLayerBake.cache;
+        if (cache && this.staticLayerBake.key === key && cache.visualSource === visuals) {
+            this.staticLayerBake.status = cache.chunked
+                ? `ready chunked ${bounds.w}x${bounds.h}, ${Math.round(bytes / 1048576)} MiB, ${cache.chunkCount} chunks`
+                : `ready ${bounds.w}x${bounds.h}, ${Math.round(bytes / 1048576)} MiB`;
+            this.staticLayerBake.chunkCount = cache.chunkCount || 0;
+            this.staticLayerBake.mode = cache.chunked ? "chunked" : "single";
+            return cache;
+        }
+        const buildStart = rendererNowMs();
+        try {
+            const nextCache = this.buildStaticLayerBake(state, bounds, visuals, {
+                chunked: needsChunking,
+                chunkSize
+            });
+            this.releaseStaticLayerBakeCache(this.staticLayerBake.cache);
+            if (this.webglBackend?.available) {
+                this.preloadStaticLayerBakeTextures(nextCache);
+            }
+            const buildEnd = rendererNowMs();
+            this.staticLayerBake.cache = nextCache;
+            this.staticLayerBake.key = key;
+            this.staticLayerBake.bytes = bytes;
+            this.staticLayerBake.lastBuildMs = buildEnd - buildStart;
+            this.staticLayerBake.chunkCount = nextCache.chunkCount || 0;
+            this.staticLayerBake.mode = nextCache.chunked ? "chunked" : "single";
+            this.staticLayerBake.lastError = "";
+            this.staticLayerBake.status = nextCache.chunked
+                ? `ready chunked ${bounds.w}x${bounds.h}, ${Math.round(bytes / 1048576)} MiB, ${nextCache.chunkCount} chunks, built in ${this.staticLayerBake.lastBuildMs.toFixed(1)} ms`
+                : `ready ${bounds.w}x${bounds.h}, ${Math.round(bytes / 1048576)} MiB, built in ${this.staticLayerBake.lastBuildMs.toFixed(1)} ms`;
+            return nextCache;
+        } catch (error) {
+            this.releaseStaticLayerBakeCache(this.staticLayerBake.cache);
+            this.staticLayerBake.cache = null;
+            this.staticLayerBake.key = "";
+            this.staticLayerBake.chunkCount = 0;
+            this.staticLayerBake.mode = "off";
+            this.staticLayerBake.lastError = `bake failed: ${error?.message || error}`;
+            console.warn("Static layer bake failed; falling back to live renderer.", error);
+            return null;
+        }
+    }
+
+    createStaticLayerBakeSurface(width, height, originX = 0, originY = 0) {
+        const ownerDocument = this.canvas?.ownerDocument || (typeof document !== "undefined" ? document : null);
+        if (!ownerDocument?.createElement) {
+            throw new Error("static layer bake requires a browser Canvas document");
+        }
+        const canvas = ownerDocument.createElement("canvas");
+        canvas.width = Math.max(1, Math.ceil(width));
+        canvas.height = Math.max(1, Math.ceil(height));
+        const context = canvas.getContext("2d", { alpha: true, desynchronized: false });
+        if (!context) {
+            throw new Error("could not create a static layer bake canvas context");
+        }
+        context.setTransform(1, 0, 0, 1, 0, 0);
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        return { canvas, context, originX, originY };
+    }
+
+    createStaticLayerBakeLayer(bounds, options = {}) {
+        if (!options.chunked) {
+            return this.createStaticLayerBakeSurface(bounds.w, bounds.h, bounds.x, bounds.y);
+        }
+        const chunkSize = Math.max(256, Math.floor(Number(options.chunkSize) || STATIC_LAYER_BAKE_WEBGL_CHUNK_SIZE));
+        const chunks = [];
+        const maxX = bounds.x + bounds.w;
+        const maxY = bounds.y + bounds.h;
+        for (let y = bounds.y; y < maxY; y += chunkSize) {
+            const h = Math.max(1, Math.min(chunkSize, Math.ceil(maxY - y)));
+            for (let x = bounds.x; x < maxX; x += chunkSize) {
+                const w = Math.max(1, Math.min(chunkSize, Math.ceil(maxX - x)));
+                chunks.push(this.createStaticLayerBakeSurface(w, h, x, y));
+            }
+        }
+        return {
+            chunks,
+            originX: bounds.x,
+            originY: bounds.y,
+            chunkSize
+        };
+    }
+
+    staticLayerBakeSurfaceView(surface) {
+        const width = Math.max(1, Number(surface?.canvas?.width) || 1);
+        const height = Math.max(1, Number(surface?.canvas?.height) || 1);
+        return {
+            w: width,
+            h: height,
+            dpr: 1,
+            zoom: 1,
+            cssScale: 1,
+            clientW: width,
+            clientH: height,
+            virtualW: width,
+            virtualH: height,
+            minVirtualW: width,
+            x: Number(surface?.originX) || 0,
+            y: Number(surface?.originY) || 0
+        };
+    }
+
+    drawIntoStaticLayerBakeSurfaces(layer, drawSurface) {
+        for (const surface of staticLayerBakeLayerSurfaces(layer)) {
+            this.ctx = surface.context;
+            drawSurface(this.staticLayerBakeSurfaceView(surface));
+        }
+    }
+
+    preloadStaticLayerBakeTextures(cache) {
+        const backend = this.webglBackend;
+        if (!backend?.available) return 0;
+        let uploaded = 0;
+        const layers = cache?.layers || null;
+        if (!layers) return 0;
+        for (const layer of Object.values(layers)) {
+            for (const surface of staticLayerBakeLayerSurfaces(layer)) {
+                if (surface?.canvas && backend.cacheTexture?.(surface.canvas)) uploaded += 1;
+            }
+        }
+        return uploaded;
+    }
+
+    buildStaticLayerBake(state, bounds, visuals, options = {}) {
+        const layers = {
+            background: this.createStaticLayerBakeLayer(bounds, options),
+            terrain: this.createStaticLayerBakeLayer(bounds, options),
+            foreground: this.createStaticLayerBakeLayer(bounds, options)
+        };
+
+        const previousContext = this.ctx;
+        const previousBackgroundOffset = { ...this.frameBackgroundOffset };
+        const previousForegroundOffset = { ...this.frameForegroundOffset };
+        const previousMaskCanvas = this.caveWindowMaskCanvas;
+        const previousMaskKey = this.caveWindowMaskKey;
+        this.frameBackgroundOffset.x = 0;
+        this.frameBackgroundOffset.y = 0;
+        this.frameForegroundOffset.x = 0;
+        this.frameForegroundOffset.y = 0;
+        try {
+            this.drawIntoStaticLayerBakeSurfaces(layers.background, (bakeView) => {
+                this.drawStaticWorldVisualPartition(state, bakeView, "background");
+            });
+
+            this.drawIntoStaticLayerBakeSurfaces(layers.terrain, (bakeView) => {
+                const mainResult = this.drawStaticWorldVisualPartition(state, bakeView, "main");
+                this.drawStaticWorldGeometryForBake(state, bakeView, mainResult);
+            });
+
+            this.drawIntoStaticLayerBakeSurfaces(layers.foreground, (bakeView) => {
+                this.drawStaticWorldVisualPartition(state, bakeView, "actorFront");
+                this.drawStaticWorldVisualPartition(state, bakeView, "caveForeground");
+                drawCaveWindowMask({
+                    targetContext: this.ctx,
+                    maskCanvas: null,
+                    previousRenderKey: "",
+                    caveWindow: this.caveWindow,
+                    view: bakeView,
+                    worldBounds: state.world?.bounds,
+                    parallax: this.frameForegroundParallax,
+                    drawToTarget: true,
+                    scrollPaddingPixels: 0
+                });
+            });
+        } finally {
+            this.ctx = previousContext;
+            this.frameBackgroundOffset.x = previousBackgroundOffset.x;
+            this.frameBackgroundOffset.y = previousBackgroundOffset.y;
+            this.frameForegroundOffset.x = previousForegroundOffset.x;
+            this.frameForegroundOffset.y = previousForegroundOffset.y;
+            this.caveWindowMaskCanvas = previousMaskCanvas;
+            this.caveWindowMaskKey = previousMaskKey;
+        }
+
+        const chunkCount = staticLayerBakeSurfaceCount(layers);
+        return {
+            width: bounds.w,
+            height: bounds.h,
+            originX: bounds.x,
+            originY: bounds.y,
+            visualSource: visuals,
+            chunked: Boolean(options.chunked),
+            chunkSize: options.chunked ? Math.max(256, Math.floor(Number(options.chunkSize) || STATIC_LAYER_BAKE_WEBGL_CHUNK_SIZE)) : 0,
+            chunkCount,
+            layers
+        };
+    }
+
+    drawStaticWorldVisualPartition(state, view, partitionName) {
+        const cache = this.getWorldVisualCache(state);
+        const entries = Array.isArray(cache?.[partitionName]) ? cache[partitionName] : [];
+        let drewAny = false;
+        let hasRenderableVisuals = false;
+        for (const { visual, bounds } of entries) {
+            if (!visualCanBeBakedStatic(visual)) continue;
+            if (visual.kind === "atlasSprite") {
+                hasRenderableVisuals = true;
+                if (this.drawAtlasSpriteVisual(visual, view, null, bounds)) drewAny = true;
+            } else if (visual.kind === "cutoutMask") {
+                if (this.drawCutoutMaskVisual(visual, view, bounds)) drewAny = true;
+            }
+        }
+        return { drewAny, hasRenderableVisuals };
+    }
+
+    drawStaticWorldGeometryForBake(state, view, visualResult) {
+        this.drawWorldCanvasGeometry(state, view, {
+            hasRenderableVisuals: Boolean(visualResult?.hasRenderableVisuals)
+        });
+    }
+
+    drawBakedDynamicWorldVisuals(state, view, partitionName) {
+        const cache = this.getWorldVisualCache(state);
+        const parallaxOffset = partitionName === "background"
+            ? this.frameBackgroundOffset
+            : (partitionName === "caveForeground" ? this.frameForegroundOffset : null);
+        const query = queryWorldVisualEntries(
+            cache,
+            partitionName,
+            view,
+            parallaxOffset,
+            VISUAL_CULL_MARGIN_PX,
+            this.worldVisualQueryScratchFor(partitionName)
+        );
+        this.frameVisualCounters.spatialCulled += query.spatialCulled;
+        let drewAny = false;
+        for (const { visual, bounds } of query.entries) {
+            if (!visualIsBakedDynamic(visual)) continue;
+            if (visual.kind === "atlasSprite") {
+                if (this.drawAtlasSpriteVisual(visual, view, state, bounds)) drewAny = true;
+            } else if (visual.kind === "cutoutMask") {
+                if (this.drawCutoutMaskVisual(visual, view, bounds)) drewAny = true;
+            }
+        }
+        return drewAny;
+    }
+
+    drawStaticLayerBakeCanvas(layer, view, parallaxOffset = null) {
+        if (!layer) return 0;
+        const drawStart = rendererNowMs();
+        const zoom = Math.max(0.0001, Number(view?.zoom) || 1);
+        const viewLeft = (Number(view?.x) || 0) + (Number(parallaxOffset?.x) || 0);
+        const viewTop = (Number(view?.y) || 0) + (Number(parallaxOffset?.y) || 0);
+        const sourceWidth = Math.max(1, (Number(view?.w) || 1) / zoom);
+        const sourceHeight = Math.max(1, (Number(view?.h) || 1) / zoom);
+        const viewRight = viewLeft + sourceWidth;
+        const viewBottom = viewTop + sourceHeight;
+        for (const surface of staticLayerBakeLayerSurfaces(layer)) {
+            if (!surface?.canvas) continue;
+            const originX = Number(surface.originX) || 0;
+            const originY = Number(surface.originY) || 0;
+            const surfaceRight = originX + surface.canvas.width;
+            const surfaceBottom = originY + surface.canvas.height;
+            const worldLeft = Math.max(viewLeft, originX);
+            const worldTop = Math.max(viewTop, originY);
+            const worldRight = Math.min(viewRight, surfaceRight);
+            const worldBottom = Math.min(viewBottom, surfaceBottom);
+            const sw = worldRight - worldLeft;
+            const sh = worldBottom - worldTop;
+            if (sw <= 0 || sh <= 0) continue;
+            const sx = worldLeft - originX;
+            const sy = worldTop - originY;
+            this.ctx.drawImage(
+                surface.canvas,
+                sx,
+                sy,
+                sw,
+                sh,
+                (worldLeft - viewLeft) * zoom,
+                (worldTop - viewTop) * zoom,
+                sw * zoom,
+                sh * zoom
+            );
+        }
+        return rendererNowMs() - drawStart;
+    }
+
+    queueStaticLayerBakeCanvasWebGL(layer, view, parallaxOffset = null) {
+        if (!layer || !this.webglBackend?.available) return 0;
+        const drawStart = rendererNowMs();
+        const zoom = Math.max(0.0001, Number(view?.zoom) || 1);
+        const viewLeft = (Number(view?.x) || 0) + (Number(parallaxOffset?.x) || 0);
+        const viewTop = (Number(view?.y) || 0) + (Number(parallaxOffset?.y) || 0);
+        const sourceWidth = Math.max(1, (Number(view?.w) || 1) / zoom);
+        const sourceHeight = Math.max(1, (Number(view?.h) || 1) / zoom);
+        const viewRight = viewLeft + sourceWidth;
+        const viewBottom = viewTop + sourceHeight;
+        for (const surface of staticLayerBakeLayerSurfaces(layer)) {
+            if (!surface?.canvas) continue;
+            const originX = Number(surface.originX) || 0;
+            const originY = Number(surface.originY) || 0;
+            const surfaceRight = originX + surface.canvas.width;
+            const surfaceBottom = originY + surface.canvas.height;
+            const worldLeft = Math.max(viewLeft, originX);
+            const worldTop = Math.max(viewTop, originY);
+            const worldRight = Math.min(viewRight, surfaceRight);
+            const worldBottom = Math.min(viewBottom, surfaceBottom);
+            const sw = worldRight - worldLeft;
+            const sh = worldBottom - worldTop;
+            if (sw <= 0 || sh <= 0) continue;
+            const sx = worldLeft - originX;
+            const sy = worldTop - originY;
+            this.webglBackend.queueSprite({
+                source: surface.canvas,
+                sourceX: sx,
+                sourceY: sy,
+                sourceWidth: sw,
+                sourceHeight: sh,
+                centerX: (worldLeft - viewLeft) * zoom + sw * zoom * 0.5,
+                centerY: (worldTop - viewTop) * zoom + sh * zoom * 0.5,
+                width: sw * zoom,
+                height: sh * zoom,
+                dynamic: false
+            });
+        }
+        return rendererNowMs() - drawStart;
+    }
+
+    drawBakedDynamicWorldVisualsWebGL(state, view, partitionName) {
+        const cache = this.getWorldVisualCache(state);
+        const parallaxOffset = partitionName === "background"
+            ? this.frameBackgroundOffset
+            : (partitionName === "caveForeground" ? this.frameForegroundOffset : null);
+        const query = queryWorldVisualEntries(
+            cache,
+            partitionName,
+            view,
+            parallaxOffset,
+            VISUAL_CULL_MARGIN_PX,
+            this.worldVisualQueryScratchFor(partitionName)
+        );
+        this.frameVisualCounters.spatialCulled += query.spatialCulled;
+        let drewAny = false;
+        for (const { visual, bounds } of query.entries) {
+            if (!visualIsBakedDynamic(visual)) continue;
+            if (visual.kind === "atlasSprite") {
+                if (this.queueAtlasSpriteVisualWebGL(visual, view, state, bounds)) drewAny = true;
+            } else if (visual.kind === "cutoutMask") {
+                if (this.queueCutoutMaskVisualWebGL(visual, view, bounds)) drewAny = true;
+            }
+        }
+        return drewAny;
+    }
+
     clearStagingLayer() {
         const ctx = this.ctx;
         ctx.save();
@@ -1085,11 +1849,127 @@ class RocketfrockRenderer {
         return backend.queueSurface(this.canvas, 0, 0, view.w, view.h, 1, true);
     }
 
+    renderWebGL2StaticBake(state, inputFrame, view, frameStart) {
+        if (state.debug?.showCollision || state.debug?.showAssetGuides) {
+            this.staticLayerBake.status = "disabled while collision/asset-guide debug overlays are visible";
+            return false;
+        }
+        const bake = this.ensureStaticLayerBake(state);
+        if (!bake) return false;
+        const backend = this.webglBackend;
+        if (!backend?.available) return false;
+        this.staticLayerBake.lastUsed = true;
+
+        const backgroundStart = rendererNowMs();
+        const backgroundDrawMs = this.queueStaticLayerBakeCanvasWebGL(bake.layers.background, view, this.frameBackgroundOffset);
+        this.drawBakedDynamicWorldVisualsWebGL(state, view, "background");
+        backend.flush();
+        const backgroundEnd = rendererNowMs();
+
+        const terrainDrawStart = rendererNowMs();
+        const terrainDrawMs = this.queueStaticLayerBakeCanvasWebGL(bake.layers.terrain, view, null);
+        this.drawBakedDynamicWorldVisualsWebGL(state, view, "main");
+        backend.flush();
+        const worldMainEnd = rendererNowMs();
+        this.drawPortalIntroGlowWebGL(state, view);
+        backend.flush();
+        const worldEnd = rendererNowMs();
+        this.frameRenderBreakdown.clearBackdropMs = backgroundStart - frameStart;
+        this.frameRenderBreakdown.backgroundMs = backgroundEnd - backgroundStart;
+        this.frameRenderBreakdown.worldVisualsMs += backgroundDrawMs + terrainDrawMs;
+        this.frameRenderBreakdown.worldGeometryMs += Math.max(0, worldMainEnd - terrainDrawStart - terrainDrawMs);
+        this.frameRenderBreakdown.portalMs = worldEnd - worldMainEnd;
+
+        this.drawTargetsWebGL(state, view);
+        this.drawPickupsWebGL(state, view);
+        this.drawEnemiesWebGL(state, view);
+        this.drawWorldEffectsWebGL(state, view);
+
+        const hasResidualWorldEffects = (state.effects?.smokePuffs || []).some((puff) => (
+            puff.kind !== "wizardDeathCoverSpark" &&
+            !WEBGL_DIRECT_WORLD_EFFECT_KINDS.has(puff.kind)
+        ));
+        if (hasResidualWorldEffects) {
+            this.clearStagingLayer();
+            this.drawWorldEffects(state, view, { skipKinds: WEBGL_DIRECT_WORLD_EFFECT_KINDS });
+            this.uploadStagingLayer(view);
+        }
+
+        this.drawProjectileExplosionEffectsWebGL(state, view);
+        const handledProjectileIds = this.frameHandledProjectileIds;
+        handledProjectileIds.clear();
+        this.drawEnemyProjectilesWebGL(state, view, handledProjectileIds);
+        this.drawPlayerRocketsWebGL(state, view, handledProjectileIds);
+        const hasResidualProjectiles = (state.projectiles || []).some((projectile) => (
+            projectile.state === "launched" &&
+            !handledProjectileIds.has(projectile.id) &&
+            visualIntersectsViewport(this.projectileRenderBounds(projectile), view, null, 96)
+        ));
+        if (hasResidualProjectiles) {
+            this.clearStagingLayer();
+            this.drawProjectiles(state, view, {
+                skipExploding: true,
+                skipProjectileIds: handledProjectileIds
+            });
+            this.uploadStagingLayer(view);
+        }
+
+        this.drawPlayerWebGL(state, view);
+        this.drawPlayerFuelBulbWebGL(state, view);
+        this.drawPlayerDeathCoverWebGL(state, view);
+        this.drawScorePopupsWebGL(state, view);
+        if (state.debug?.showPuppetGuide) {
+            this.clearStagingLayer();
+            this.drawEnemyGuides(state, view);
+            this.uploadStagingLayer(view);
+        }
+        backend.flush();
+        const actorsEnd = rendererNowMs();
+
+        this.drawBakedDynamicWorldVisualsWebGL(state, view, "actorFront");
+        this.drawBakedDynamicWorldVisualsWebGL(state, view, "caveForeground");
+        const foregroundBakeStart = rendererNowMs();
+        const foregroundDrawMs = this.queueStaticLayerBakeCanvasWebGL(bake.layers.foreground, view, this.frameForegroundOffset);
+        backend.flush();
+        const foregroundEnd = rendererNowMs();
+        this.staticLayerBake.lastDrawMs = backgroundDrawMs + terrainDrawMs + foregroundDrawMs;
+
+        const maskEnd = foregroundEnd;
+        this.frameRenderBreakdown.worldVisualsMs += Math.max(0, foregroundEnd - foregroundBakeStart);
+        const story = state.story?.mailboxEvent;
+        const hasStoryOverlay = Boolean(story?.active && (story.phase === "letter" || story.phase === "thought"));
+        const hasDebugOverlay = Boolean(
+            state.debug?.showHitboxes ||
+            state.debug?.showVelocity
+        );
+        if (hasStoryOverlay || hasDebugOverlay) {
+            this.clearStagingLayer();
+            if (hasStoryOverlay) this.drawMailboxStoryOverlay(state, view);
+            if (hasDebugOverlay) this.drawDebug(state, view, inputFrame);
+            this.uploadStagingLayer(view);
+        }
+        const gpuStats = backend.endFrame();
+        const frameEnd = rendererNowMs();
+        this.updatePerformanceDiagnostics({
+            frameMs: frameEnd - frameStart,
+            worldMs: worldEnd - frameStart,
+            actorsMs: actorsEnd - worldEnd,
+            foregroundMs: foregroundEnd - actorsEnd,
+            maskMs: maskEnd - foregroundEnd,
+            overlayMs: frameEnd - maskEnd,
+            gpuStats
+        });
+        return true;
+    }
+
     renderWebGL2(state, inputFrame, dt) {
         const frameStart = rendererNowMs();
         const view = this.prepareFrame(state, dt, frameStart);
         const backend = this.webglBackend;
         if (!backend.beginFrame(view.w, view.h, LEVEL_BACKGROUND_COLOR)) {
+            return;
+        }
+        if (this.isStaticLayerBakeEnabled() && this.renderWebGL2StaticBake(state, inputFrame, view, frameStart)) {
             return;
         }
 
@@ -1126,10 +2006,10 @@ class RocketfrockRenderer {
         }
 
         this.drawProjectileExplosionEffectsWebGL(state, view);
-        const handledProjectileIds = new Set([
-            ...this.drawEnemyProjectilesWebGL(state, view),
-            ...this.drawPlayerRocketsWebGL(state, view)
-        ]);
+        const handledProjectileIds = this.frameHandledProjectileIds;
+        handledProjectileIds.clear();
+        this.drawEnemyProjectilesWebGL(state, view, handledProjectileIds);
+        this.drawPlayerRocketsWebGL(state, view, handledProjectileIds);
         const hasResidualProjectiles = (state.projectiles || []).some((projectile) => (
             projectile.state === "launched" &&
             !handledProjectileIds.has(projectile.id) &&
@@ -1215,6 +2095,11 @@ class RocketfrockRenderer {
             foregroundMs: Math.max(0, Number(timings.foregroundMs) || 0),
             maskMs: Math.max(0, Number(timings.maskMs) || 0),
             overlayMs: Math.max(0, Number(timings.overlayMs) || 0),
+            clearBackdropMs: Math.max(0, Number(this.frameRenderBreakdown.clearBackdropMs) || 0),
+            backgroundMs: Math.max(0, Number(this.frameRenderBreakdown.backgroundMs) || 0),
+            worldVisualsMs: Math.max(0, Number(this.frameRenderBreakdown.worldVisualsMs) || 0),
+            worldGeometryMs: Math.max(0, Number(this.frameRenderBreakdown.worldGeometryMs) || 0),
+            portalMs: Math.max(0, Number(this.frameRenderBreakdown.portalMs) || 0),
             observedFps: this.lastObservedFrameDt > 0 ? 1 / this.lastObservedFrameDt : 0,
             visualsConsidered: this.frameVisualCounters.considered,
             visualsDrawn: this.frameVisualCounters.drawn,
@@ -1225,7 +2110,20 @@ class RocketfrockRenderer {
             dynamicConsidered: this.frameVisualCounters.dynamicConsidered,
             dynamicDrawn: this.frameVisualCounters.dynamicDrawn,
             dynamicCulled: this.frameVisualCounters.dynamicCulled,
-            maskReused: this.frameVisualCounters.maskReused
+            maskReused: this.frameVisualCounters.maskReused,
+            staticBakeAvailable: ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER === true,
+            staticBakeEnabled: this.isStaticLayerBakeEnabled(),
+            staticBakeReady: Boolean(this.staticLayerBake.cache),
+            staticBakeUsed: this.staticLayerBake.lastUsed === true,
+            staticBakeBytes: Math.max(0, Number(this.staticLayerBake.bytes) || 0),
+            staticBakeBuildMs: Math.max(0, Number(this.staticLayerBake.lastBuildMs) || 0),
+            staticBakeDrawMs: Math.max(0, Number(this.staticLayerBake.lastDrawMs) || 0),
+            staticBakeChunks: Math.max(0, Number(this.staticLayerBake.chunkCount) || 0),
+            staticBakeMode: this.staticLayerBake.mode || "off",
+            staticBakeLastInvalidationReason: this.staticLayerBake.lastInvalidationReason || "",
+            staticBakeStatus: ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER
+                ? (this.staticLayerBake.lastError || this.staticLayerBake.status || "off")
+                : STATIC_LAYER_BAKE_DISABLED_STATUS
         };
     }
 
@@ -1397,8 +2295,14 @@ class RocketfrockRenderer {
     }
 
     drawWorld(state, view) {
+        const visualStart = rendererNowMs();
         const visualResult = this.drawOrderedWorldVisuals(state, view, false);
-        return this.drawWorldCanvasGeometry(state, view, visualResult);
+        const geometryStart = rendererNowMs();
+        const result = this.drawWorldCanvasGeometry(state, view, visualResult);
+        const geometryEnd = rendererNowMs();
+        this.frameRenderBreakdown.worldVisualsMs += geometryStart - visualStart;
+        this.frameRenderBreakdown.worldGeometryMs += geometryEnd - geometryStart;
+        return result;
     }
 
     drawWorldCanvasGeometry(state, view, visualResult = { hasRenderableVisuals: false }) {
@@ -1508,16 +2412,13 @@ class RocketfrockRenderer {
         }
         const cache = this.getWorldVisualCache(state);
         const partitionName = actorFrontOnly ? "actorFront" : "main";
-        const query = queryWorldVisualEntries(cache, partitionName, view, null, VISUAL_CULL_MARGIN_PX);
+        const query = queryWorldVisualEntries(cache, partitionName, view, null, VISUAL_CULL_MARGIN_PX, this.worldVisualQueryScratchFor(partitionName));
         this.frameVisualCounters.spatialCulled += query.spatialCulled;
         const partition = query.partition;
-        const hasRenderableVisuals = Boolean(partition?.hasCutout) || [...(partition?.atlasIds || [])]
-            .some((atlasId) => {
-                const atlas = this.environmentAtlases.get(atlasId);
-                return Boolean(atlas && !atlas.missing && atlas.image);
-            });
+        const hasRenderableVisuals = this.partitionHasRenderableVisuals(partition);
         const overlapCache = actorFrontOnly ? null : this.ensureOverlapBlendCache(state);
-        const drawnBlendGroups = new Set();
+        const drawnBlendGroups = this.frameDrawnBlendGroups;
+        drawnBlendGroups.clear();
         let drewAny = false;
         for (const { visual, bounds } of query.entries) {
             const blendGroup = overlapCache?.memberToGroup?.get(visual);
@@ -1558,7 +2459,8 @@ class RocketfrockRenderer {
             "background",
             view,
             this.frameBackgroundOffset,
-            VISUAL_CULL_MARGIN_PX
+            VISUAL_CULL_MARGIN_PX,
+            this.worldVisualQueryScratchFor("background")
         );
         this.frameVisualCounters.spatialCulled += query.spatialCulled;
         let drewAny = false;
@@ -1577,7 +2479,8 @@ class RocketfrockRenderer {
             "caveForeground",
             view,
             this.frameForegroundOffset,
-            VISUAL_CULL_MARGIN_PX
+            VISUAL_CULL_MARGIN_PX,
+            this.worldVisualQueryScratchFor("caveForeground")
         );
         this.frameVisualCounters.spatialCulled += query.spatialCulled;
         let drewAny = false;
@@ -1672,18 +2575,15 @@ class RocketfrockRenderer {
     drawOrderedWorldVisuals(state, view, actorFrontOnly = false) {
         const cache = this.getWorldVisualCache(state);
         const partitionName = actorFrontOnly ? "actorFront" : "main";
-        const query = queryWorldVisualEntries(cache, partitionName, view, null, VISUAL_CULL_MARGIN_PX);
+        const query = queryWorldVisualEntries(cache, partitionName, view, null, VISUAL_CULL_MARGIN_PX, this.worldVisualQueryScratchFor(partitionName));
         const entries = query.entries;
         this.frameVisualCounters.spatialCulled += query.spatialCulled;
         let drewAny = false;
         const partition = query.partition;
-        const hasRenderableVisuals = Boolean(partition?.hasCutout) || [...(partition?.atlasIds || [])]
-            .some((atlasId) => {
-                const atlas = this.environmentAtlases.get(atlasId);
-                return Boolean(atlas && !atlas.missing && atlas.image);
-            });
+        const hasRenderableVisuals = this.partitionHasRenderableVisuals(partition);
         const overlapCache = actorFrontOnly ? null : this.ensureOverlapBlendCache(state);
-        const drawnBlendGroups = new Set();
+        const drawnBlendGroups = this.frameDrawnBlendGroups;
+        drawnBlendGroups.clear();
         for (const { visual, bounds } of entries) {
             const blendGroup = overlapCache?.memberToGroup?.get(visual);
             if (blendGroup) {
@@ -1727,7 +2627,8 @@ class RocketfrockRenderer {
             "background",
             view,
             this.frameBackgroundOffset,
-            VISUAL_CULL_MARGIN_PX
+            VISUAL_CULL_MARGIN_PX,
+            this.worldVisualQueryScratchFor("background")
         );
         this.frameVisualCounters.spatialCulled += query.spatialCulled;
         let drewAny = false;
@@ -1746,7 +2647,8 @@ class RocketfrockRenderer {
             "caveForeground",
             view,
             this.frameForegroundOffset,
-            VISUAL_CULL_MARGIN_PX
+            VISUAL_CULL_MARGIN_PX,
+            this.worldVisualQueryScratchFor("caveForeground")
         );
         this.frameVisualCounters.spatialCulled += query.spatialCulled;
         let drewAny = false;
@@ -4033,9 +4935,8 @@ class RocketfrockRenderer {
         return drew;
     }
 
-    drawPlayerRocketsWebGL(state, view) {
+    drawPlayerRocketsWebGL(state, view, handled = this.frameHandledProjectileIds) {
         const backend = this.webglBackend;
-        const handled = new Set();
         if (!backend?.available) {
             return handled;
         }
@@ -4057,9 +4958,8 @@ class RocketfrockRenderer {
         return handled;
     }
 
-    drawEnemyProjectilesWebGL(state, view) {
+    drawEnemyProjectilesWebGL(state, view, handled = this.frameHandledProjectileIds) {
         const backend = this.webglBackend;
-        const handled = new Set();
         if (!backend?.available) {
             return handled;
         }

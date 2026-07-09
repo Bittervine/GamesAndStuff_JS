@@ -34,6 +34,8 @@ import {
     setFullscreenState
 } from "./electron-window-bridge.js";
 import { calculateHudPanelScale } from "./hud-panel-layout.js";
+import { MicroStutterProfiler } from "./micro-stutter-profiler.js";
+import { ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER } from "../shared/experimental-renderer-flags.js";
 
 const canvas = document.getElementById("stage");
 const fuelText = document.getElementById("fuel-text");
@@ -59,6 +61,8 @@ const puppetGuideButton = document.getElementById("toggle-puppet-guide");
 const debugPanelButton = document.getElementById("toggle-debug-panel");
 const gameTuningButton = document.getElementById("toggle-game-tuning");
 const helpPanelButton = document.getElementById("toggle-help-panel");
+const microProfilerButton = document.getElementById("toggle-micro-profiler");
+const staticBakeRendererButton = document.getElementById("toggle-static-bake-renderer");
 const helpPanel = document.getElementById("help-panel");
 const toolLinks = document.getElementById("tool-links");
 const applyTuningJsonButton = document.getElementById("apply-tuning-json");
@@ -104,7 +108,7 @@ const showMinimapInput = document.getElementById("show-minimap");
 const useHardwareRenderingInput = document.getElementById("use-hardware-rendering");
 const usePixmapPyramidsInput = document.getElementById("use-pixmap-pyramids");
 
-const GAME_REVISION = "481";
+const GAME_REVISION = "488";
 const START_LEVEL_ID = "level_001";
 const RESUME_SAVE_STORAGE_KEY = "ignatius_rocketfrock_resume_v1";
 
@@ -169,6 +173,7 @@ if (!applyLoadedAtlasCollisions()) {
 // render loop only compares the cache key and uses ordinary drawImage calls.
 setLoadingProgress(0.965, preferWebGL2Renderer ? "Uploading persistent renderer textures" : "Preparing environment textures");
 renderer.syncEnvironmentColorMap(gameState.world.colorMap);
+renderer.prewarmLevelPresentationCaches?.(gameState.world);
 setLoadingProgress(0.98, "Preparing the first frame");
 let accumulator = 0;
 let lastNow = performance.now();
@@ -177,6 +182,7 @@ let devSingleStepArmed = false;
 const hudRenderCache = Object.create(null);
 let levelTransitionLoading = false;
 const tuningSliders = new Map();
+const microStutterProfiler = new MicroStutterProfiler();
 
 setupTuningControls();
 setupTuningJsonControls();
@@ -221,6 +227,53 @@ function shouldPreferWebGL2Renderer() {
     // Desktop builds opt into the GPU renderer by default. An ordinary web page
     // remains Canvas 2D unless webgl=1 (or an equivalent value) is requested.
     return Boolean(gameState.settings?.useHardwareRendering || electronWindowBridge);
+}
+
+function microStutterProfilerExtra() {
+    const rendererStats = renderer?.getPerformanceDiagnostics?.() || null;
+    return {
+        revision: GAME_REVISION,
+        levelId: gameState.world?.levelId || START_LEVEL_ID,
+        renderer: rendererStats,
+        settings: {
+            difficulty: gameState.settings?.difficulty || "normal",
+            renderingQuality: gameState.settings?.renderingQuality || "medium",
+            useHardwareRendering: Boolean(gameState.settings?.useHardwareRendering),
+            usePixmapPyramids: Boolean(gameState.settings?.usePixmapPyramids)
+        },
+        camera: {
+            x: Number(gameState.camera?.x) || 0,
+            y: Number(gameState.camera?.y) || 0,
+            viewportWidth: Number(gameState.camera?.viewportWidth) || 0,
+            viewportHeight: Number(gameState.camera?.viewportHeight) || 0
+        }
+    };
+}
+
+function downloadMicroStutterProfile(filename = "") {
+    const text = microStutterProfiler.exportJson(microStutterProfilerExtra());
+    const safeName = String(filename || `ignatius_microstutter_rev${GAME_REVISION}_${Date.now()}.json`).replace(/[^a-z0-9_.-]+/gi, "_");
+    const blob = new Blob([text], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = safeName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    return { filename: safeName, bytes: text.length };
+}
+
+async function copyMicroStutterProfileToClipboard() {
+    const text = microStutterProfiler.exportJson(microStutterProfilerExtra());
+    window.__rocketfrockLastMicroStutterProfile = text;
+    if (!navigator.clipboard?.writeText) {
+        console.log("Micro-stutter profile clipboard export is unavailable; JSON is available as window.__rocketfrockLastMicroStutterProfile.");
+        throw new Error("Clipboard export is not available in this browser context.");
+    }
+    await navigator.clipboard.writeText(text);
+    return { bytes: text.length, samples: microStutterProfiler.status().capturedFrames };
 }
 
 function setLoadingProgress(progress, label = "Loading game assets") {
@@ -484,6 +537,7 @@ async function loadRequestedLevel(request) {
             console.error(`Level transition loaded ${loadedLevelId}, but its atlas collision could not be applied.`);
         }
         renderer.syncEnvironmentColorMap(gameState.world.colorMap);
+        renderer.prewarmLevelPresentationCaches?.(gameState.world);
         accumulator = 0;
         addEvent(gameState, "LEVEL_TRANSITION_COMPLETE", {
             requestedLevelId,
@@ -582,6 +636,7 @@ function shouldIgnoreTitleStartTarget(target) {
         "#title-resume-button",
         "#game-menu-controls",
         "#game-menu-dialog",
+        "#tool-links",
         "input",
         "select",
         "textarea",
@@ -1278,6 +1333,7 @@ async function restartCurrentLevel() {
             console.error("Restarted level, but its atlas collision data could not be applied.");
         }
         renderer.syncEnvironmentColorMap(gameState.world.colorMap);
+        renderer.prewarmLevelPresentationCaches?.(gameState.world);
         accumulator = 0;
         lastNow = performance.now();
         lastInputFrame = createInputFrame();
@@ -1547,6 +1603,46 @@ function setupPanelToggleButtons() {
         helpPanelButton.setAttribute("aria-pressed", visible ? "true" : "false");
     };
 
+    const updateMicroProfilerButton = (message = "") => {
+        if (!microProfilerButton) {
+            return;
+        }
+        const status = microStutterProfiler.status();
+        microProfilerButton.textContent = `Profiler: ${status.enabled ? "on" : "off"}`;
+        microProfilerButton.setAttribute("aria-pressed", status.enabled ? "true" : "false");
+        microProfilerButton.title = message || (status.enabled
+            ? `Recording frame spikes >= ${status.thresholdMs} ms or RAF gaps >= ${status.rafGapMs} ms.`
+            : "Click to record micro-stutter samples; click again to copy the report to the clipboard.");
+    };
+
+    const staticBakeRendererAvailable = () => (
+        ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER &&
+        renderer?.supportsExperimentalStaticLayerBakeRenderer?.() !== false
+    );
+
+    const updateStaticBakeRendererButton = (message = "") => {
+        if (!staticBakeRendererButton) {
+            return;
+        }
+        const available = staticBakeRendererAvailable();
+        staticBakeRendererButton.hidden = !available;
+        if (!available) {
+            staticBakeRendererButton.textContent = "Baked: unavailable";
+            staticBakeRendererButton.setAttribute("aria-pressed", "false");
+            staticBakeRendererButton.title = "Experimental static bake renderer is disabled by build flag.";
+            return;
+        }
+        const status = renderer?.getStaticLayerBakeStatus?.() || { enabled: false, ready: false, status: "renderer unavailable" };
+        staticBakeRendererButton.textContent = `Baked: ${status.enabled ? "on" : "off"}`;
+        staticBakeRendererButton.setAttribute("aria-pressed", status.enabled ? "true" : "false");
+        const memoryText = status.bytes > 0 ? ` · ${Math.round(status.bytes / 1048576)} MiB` : "";
+        const chunkText = status.chunks > 0 ? ` · ${status.chunks} chunks` : "";
+        const invalidationText = status.lastInvalidationReason ? ` Last invalidation: ${status.lastInvalidationReason}.` : "";
+        staticBakeRendererButton.title = message || (status.enabled
+            ? `Experimental static-layer bake mode is enabled${memoryText}${chunkText}. ${status.status || ""}.${invalidationText}`
+            : "Click to enable the experimental static background/terrain/foreground bake renderer.");
+    };
+
     debugEl.hidden = true;
     tuningPanel.hidden = true;
     helpPanel.hidden = true;
@@ -1576,11 +1672,46 @@ function setupPanelToggleButtons() {
         updateHelpPanel();
     });
 
+    staticBakeRendererButton?.addEventListener("click", () => {
+        if (!staticBakeRendererAvailable()) {
+            updateStaticBakeRendererButton("Experimental static-layer bake mode is disabled by build flag.");
+            return;
+        }
+        const status = renderer?.getStaticLayerBakeStatus?.() || { enabled: false };
+        const nextEnabled = !status.enabled;
+        renderer?.setStaticLayerBakeEnabled?.(nextEnabled);
+        updateStaticBakeRendererButton(nextEnabled
+            ? "Experimental static-layer bake mode enabled. First frame may pause while static layers are built."
+            : "Experimental static-layer bake mode disabled; the ordinary renderer is active again.");
+    });
+
+    microProfilerButton?.addEventListener("click", () => {
+        if (!microStutterProfiler.isEnabled()) {
+            microStutterProfiler.start({ label: "button" });
+            updateMicroProfilerButton("Recording micro-stutter samples. Click again to stop and copy JSON to the clipboard.");
+            return;
+        }
+        microStutterProfiler.stop();
+        updateMicroProfilerButton("Copying micro-stutter profile to the clipboard…");
+        copyMicroStutterProfileToClipboard()
+            .then(({ bytes, samples }) => {
+                updateMicroProfilerButton(`Copied ${samples} samples (${bytes} bytes) to the clipboard.`);
+                console.log(`Micro-stutter profile copied to clipboard (${samples} samples, ${bytes} bytes).`);
+            })
+            .catch((error) => {
+                updateMicroProfilerButton("Clipboard copy failed; profile JSON was logged and saved on window.__rocketfrockLastMicroStutterProfile.");
+                console.warn("Micro-stutter profile clipboard copy failed.", error);
+                console.log(window.__rocketfrockLastMicroStutterProfile);
+            });
+    });
+
     updateAssetGuides();
     updatePuppetGuide();
     updateDebugPanel();
     updateGameTuning();
     updateHelpPanel();
+    updateMicroProfilerButton();
+    updateStaticBakeRendererButton();
 }
 
 function applyLoadedAtlasCollisions() {
@@ -1591,8 +1722,18 @@ function applyLoadedAtlasCollisions() {
 }
 
 function frame(now) {
-    const realDt = Math.min(0.08, (now - lastNow) / 1000);
+    const rafGapMs = Math.max(0, now - lastNow);
+    const realDt = Math.min(0.08, rafGapMs / 1000);
     lastNow = now;
+    const profileEnabled = microStutterProfiler.isEnabled();
+    const profileStartMs = profileEnabled ? performance.now() : 0;
+    let profileAfterInputMs = profileStartMs;
+    let profileBeforeSimulationMs = profileStartMs;
+    let profileAfterSimulationMs = profileStartMs;
+    let profileAfterPostSimulationMs = profileStartMs;
+    let profileAfterRenderMs = profileStartMs;
+    let profileAfterHudMs = profileStartMs;
+
     let inputFrame = input.sample({ consumeGameplayEdges: false });
     if (titleScreenActive && !isGameMenuOpen() && titleStartRequested(inputFrame)) {
         startGameFromTitle();
@@ -1611,6 +1752,7 @@ function frame(now) {
         gameState.camera.viewportWidth = Math.max(1, Number(viewportMetrics.virtualW) || gameState.camera.viewportWidth || 1280);
         gameState.camera.viewportHeight = Math.max(1, Number(viewportMetrics.virtualH) || gameState.camera.viewportHeight || 720);
     }
+    if (profileEnabled) profileAfterInputMs = performance.now();
 
     if (!gameState.debug.paused) {
         accumulator += realDt;
@@ -1619,6 +1761,7 @@ function frame(now) {
         devSingleStepArmed = false;
     }
 
+    if (profileEnabled) profileBeforeSimulationMs = performance.now();
     let safety = 0;
     while (accumulator >= FIXED_DT && safety < 8) {
         const stepInput = createSubstepInputFrame(inputFrame, safety);
@@ -1629,13 +1772,46 @@ function frame(now) {
         accumulator -= FIXED_DT;
         safety += 1;
     }
+    if (profileEnabled) profileAfterSimulationMs = performance.now();
 
     lastInputFrame = inputFrame;
     gamepadHaptics.update(gameState, inputFrame);
     processLevelTransitionRequest();
+    if (profileEnabled) profileAfterPostSimulationMs = performance.now();
     renderer.render(gameState, inputFrame, realDt);
+    if (profileEnabled) profileAfterRenderMs = performance.now();
     updateHud();
+    if (profileEnabled) profileAfterHudMs = performance.now();
     updateDebugText();
+    if (profileEnabled) {
+        const profileEndMs = performance.now();
+        const inputMs = profileAfterInputMs - profileStartMs;
+        const simulationMs = profileAfterSimulationMs - profileBeforeSimulationMs;
+        const postSimulationMs = profileAfterPostSimulationMs - profileAfterSimulationMs;
+        const renderMs = profileAfterRenderMs - profileAfterPostSimulationMs;
+        const hudMs = profileAfterHudMs - profileAfterRenderMs;
+        const debugMs = profileEndMs - profileAfterHudMs;
+        const workMs = profileEndMs - profileStartMs;
+        microStutterProfiler.recordFrame({
+            tick: gameState.clock.tick,
+            time: gameState.clock.time,
+            workMs,
+            rafGapMs,
+            realDtMs: realDt * 1000,
+            fixedSteps: safety,
+            accumulatorMs: accumulator * 1000,
+            inputMs,
+            simulationMs,
+            postSimulationMs,
+            renderMs,
+            hudMs,
+            debugMs,
+            otherMs: Math.max(0, workMs - inputMs - simulationMs - postSimulationMs - renderMs - hudMs - debugMs),
+            paused: gameState.debug.paused,
+            titleScreen: titleScreenActive,
+            renderer: renderer.getPerformanceDiagnostics?.() || null
+        });
+    }
     requestAnimationFrame(frame);
 }
 
@@ -1825,6 +2001,12 @@ function updateDebugText() {
     const visualPerformanceText = Number.isFinite(performanceStats.visualsConsidered)
         ? `visuals considered:${performanceStats.visualsConsidered} drawn:${performanceStats.visualsDrawn} culled:${performanceStats.visualsCulled} spatial:${performanceStats.visualsSpatialCulled || 0} dynamic considered:${performanceStats.dynamicConsidered} drawn:${performanceStats.dynamicDrawn} culled:${performanceStats.dynamicCulled} foreground-cache hit:${performanceStats.foregroundCacheHits} miss:${performanceStats.foregroundCacheMisses} mask-cache:${performanceStats.maskReused ? "hit" : "miss"}`
         : "visual diagnostics pending";
+    const profilerStatus = microStutterProfiler.status();
+    const profilerText = profilerStatus.enabled || profilerStatus.capturedFrames
+        ? `microProfiler:${profilerStatus.enabled ? "on" : "off"} samples:${profilerStatus.capturedFrames}/${profilerStatus.totalFrames} threshold:${profilerStatus.thresholdMs}ms gap:${profilerStatus.rafGapMs}ms maxWork:${profilerStatus.summary.maxWorkMs.toFixed(2)} maxGap:${profilerStatus.summary.maxRafGapMs.toFixed(2)} long:${profilerStatus.summary.longFrames}`
+        : "microProfiler:off";
+    const staticBakeStatus = renderer?.getStaticLayerBakeStatus?.() || { enabled: false, ready: false, bytes: 0, chunks: 0, mode: "off", status: "off" };
+    const staticBakeText = `staticBake:${staticBakeStatus.enabled ? "on" : "off"}/${staticBakeStatus.ready ? "ready" : "not-ready"} mode:${staticBakeStatus.mode || "off"} ${Math.round((staticBakeStatus.bytes || 0) / 1048576)}MiB chunks:${staticBakeStatus.chunks || 0} ${staticBakeStatus.status || ""}`;
 
     debugEl.textContent = [
         `rev:${GAME_REVISION}  hudBlur:${hudBackdropBlurDisabled ? "off" : "on"}  ${gameState.debug.paused ? "PAUSED" : "RUNNING"}  tick:${gameState.clock.tick}  t:${gameState.clock.time.toFixed(2)}`,
@@ -1833,6 +2015,8 @@ function updateDebugText() {
         performanceText,
         gpuPerformanceText,
         visualPerformanceText,
+        profilerText,
+        staticBakeText,
         characterText,
         animationText,
         `intro:${gameState.story?.portalIntro?.active ? gameState.story.portalIntro.phase : "complete/off"}  exit:${gameState.story?.portalExit?.active ? gameState.story.portalExit.phase : (gameState.story?.portalExit ? "armed" : "off")}  mailbox:${gameState.story?.mailboxEvent?.active ? gameState.story.mailboxEvent.phase : "armed/off"}  playerVisible:${p.visible !== false}`,
@@ -2117,6 +2301,55 @@ window.__rocketfrockDev = {
     },
     getInputEvents(limit = 20) {
         return input.getRecentEvents(limit);
+    },
+    profiler: {
+        start(options = {}) {
+            return microStutterProfiler.start(options);
+        },
+        stop() {
+            return microStutterProfiler.stop();
+        },
+        clear() {
+            return microStutterProfiler.clear();
+        },
+        status() {
+            return microStutterProfiler.status();
+        },
+        export() {
+            return microStutterProfiler.exportJson(microStutterProfilerExtra());
+        },
+        copy() {
+            return microStutterProfiler.copyToClipboard(microStutterProfilerExtra());
+        },
+        download(filename = "") {
+            return downloadMicroStutterProfile(filename);
+        }
+    },
+    staticBakeRenderer: {
+        isAvailable() {
+            return Boolean(ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER && renderer?.supportsExperimentalStaticLayerBakeRenderer?.() !== false);
+        },
+        enable() {
+            if (!ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER) {
+                return { enabled: false, ready: false, status: "disabled by ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER" };
+            }
+            return renderer?.setStaticLayerBakeEnabled?.(true);
+        },
+        disable() {
+            return renderer?.setStaticLayerBakeEnabled?.(false);
+        },
+        status() {
+            return renderer?.getStaticLayerBakeStatus?.();
+        }
+    },
+    startMicroStutterProfiler(options = {}) {
+        return microStutterProfiler.start(options);
+    },
+    stopMicroStutterProfiler() {
+        return microStutterProfiler.stop();
+    },
+    exportMicroStutterProfile() {
+        return microStutterProfiler.exportJson(microStutterProfilerExtra());
     },
     setInputConsoleLogging(enabled) {
         input.setConsoleLogging(enabled);

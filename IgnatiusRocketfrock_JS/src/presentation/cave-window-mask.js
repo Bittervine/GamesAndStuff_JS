@@ -5,7 +5,7 @@ import {
     sampleCaveWindowPerturbedOutset
 } from "../shared/cave-window-data.js";
 import { normalizeForegroundParallax } from "../shared/level-layer-data.js";
-import { computeWorldParallaxOffset } from "./world-parallax.js";
+import { computeWorldParallaxOffsetInto } from "./world-parallax.js";
 
 const OPAQUE_BLACK = "rgb(0, 0, 0)";
 export const CAVE_GRADIENT_BAND_COUNT = 24;
@@ -15,6 +15,7 @@ const ORGANIC_GRADIENT_PROGRESS = Object.freeze(
 const ORGANIC_GRADIENT_GEOMETRY_CACHE = new Map();
 const ORGANIC_GRADIENT_GEOMETRY_CACHE_LIMIT = 24;
 export const DEFAULT_CAVE_MASK_RENDER_SCALE = 0.35;
+export const DEFAULT_CAVE_MASK_SCROLL_PADDING_PX = 128;
 
 function finiteNumber(value, fallback = 0) {
     const number = Number(value);
@@ -29,13 +30,18 @@ function normalizedWorldBounds(worldBounds) {
     return { x, y, w, h };
 }
 
-export function computeCaveWindowParallaxOffset(view, worldBounds, parallax) {
-    return computeWorldParallaxOffset(
+export function computeCaveWindowParallaxOffsetInto(target, view, worldBounds, parallax) {
+    return computeWorldParallaxOffsetInto(
+        target,
         view,
         worldBounds,
         normalizeForegroundParallax(parallax),
         { min: 1, max: 1.25 }
     );
+}
+
+export function computeCaveWindowParallaxOffset(view, worldBounds, parallax) {
+    return computeCaveWindowParallaxOffsetInto({}, view, worldBounds, parallax);
 }
 
 function screenPoint(view, parallaxOffset, point) {
@@ -310,6 +316,63 @@ export function caveWindowMaskRenderKey(
     ].join("|");
 }
 
+function caveWindowStaticMaskRenderKey(
+    caveWindow,
+    view,
+    worldBounds,
+    renderScale = DEFAULT_CAVE_MASK_RENDER_SCALE,
+    parallax,
+    targetWidth = 1,
+    targetHeight = 1,
+    paddingPixels = DEFAULT_CAVE_MASK_SCROLL_PADDING_PX
+) {
+    const cave = normalizeCaveWindow(caveWindow);
+    const bounds = normalizedWorldBounds(worldBounds);
+    const points = cave.points
+        .map((point) => `${point.id || ""}:${rounded(point.x, 2)},${rounded(point.y, 2)},${point.mode || "smooth"}`)
+        .join(";");
+    return [
+        cave.enabled ? 1 : 0,
+        rounded(cave.feather, 2),
+        rounded(normalizeForegroundParallax(parallax), 4),
+        cave.gradientNoise.seed,
+        rounded(cave.gradientNoise.amplitude, 2),
+        rounded(cave.gradientNoise.period, 2),
+        points,
+        Math.max(1, Math.round(finiteNumber(targetWidth, 1))),
+        Math.max(1, Math.round(finiteNumber(targetHeight, 1))),
+        rounded(view?.zoom, 5),
+        rounded(bounds.x, 2),
+        rounded(bounds.y, 2),
+        rounded(bounds.w, 2),
+        rounded(bounds.h, 2),
+        rounded(renderScale, 3),
+        rounded(paddingPixels, 2)
+    ].join("|");
+}
+
+function encodeScrolledMaskRenderKey(staticKey, originX, originY, paddingPixels) {
+    return [
+        "scrollcache",
+        rounded(originX, 4),
+        rounded(originY, 4),
+        rounded(paddingPixels, 2),
+        staticKey
+    ].join(":");
+}
+
+function parseScrolledMaskRenderKey(value) {
+    const match = /^scrollcache:([^:]+):([^:]+):([^:]+):([\s\S]*)$/.exec(String(value || ""));
+    if (!match) return null;
+    const originX = Number(match[1]);
+    const originY = Number(match[2]);
+    const paddingPixels = Number(match[3]);
+    if (!Number.isFinite(originX) || !Number.isFinite(originY) || !Number.isFinite(paddingPixels)) {
+        return null;
+    }
+    return { originX, originY, paddingPixels, staticKey: match[4] };
+}
+
 export function drawCaveWindowMask({
     targetContext,
     maskCanvas = null,
@@ -319,7 +382,8 @@ export function drawCaveWindowMask({
     worldBounds,
     renderScale = DEFAULT_CAVE_MASK_RENDER_SCALE,
     parallax,
-    drawToTarget = true
+    drawToTarget = true,
+    scrollPaddingPixels = DEFAULT_CAVE_MASK_SCROLL_PADDING_PX
 }) {
     const cave = normalizeCaveWindow(caveWindow);
     if (!cave.enabled || cave.points.length < 3) {
@@ -336,16 +400,56 @@ export function drawCaveWindowMask({
     const targetWidth = Math.max(1, Math.round(finiteNumber(view?.w, targetContext?.canvas?.width || 1)));
     const targetHeight = Math.max(1, Math.round(finiteNumber(view?.h, targetContext?.canvas?.height || 1)));
     const scale = Math.max(0.2, Math.min(1, finiteNumber(renderScale, DEFAULT_CAVE_MASK_RENDER_SCALE)));
-    const width = Math.max(1, Math.ceil(targetWidth * scale));
-    const height = Math.max(1, Math.ceil(targetHeight * scale));
+    const paddingPixels = drawToTarget
+        ? Math.max(0, Math.min(512, finiteNumber(scrollPaddingPixels, DEFAULT_CAVE_MASK_SCROLL_PADDING_PX)))
+        : 0;
+    const zoom = Math.max(0.0001, finiteNumber(view?.zoom, 1));
+    const scaledPadding = Math.ceil(paddingPixels * scale);
+    const width = Math.max(1, Math.ceil((targetWidth + paddingPixels * 2) * scale));
+    const height = Math.max(1, Math.ceil((targetHeight + paddingPixels * 2) * scale));
     const surface = prepareMaskCanvas(maskCanvas, targetContext?.canvas, width, height);
     const foregroundParallax = normalizeForegroundParallax(parallax);
-    const renderKey = caveWindowMaskRenderKey(cave, view, worldBounds, scale, foregroundParallax);
-    const reused = renderKey === previousRenderKey && surface.width === width && surface.height === height;
     const parallaxOffset = computeCaveWindowParallaxOffset(view, worldBounds, foregroundParallax);
+    const effectiveOriginX = finiteNumber(view?.x, 0) + parallaxOffset.x;
+    const effectiveOriginY = finiteNumber(view?.y, 0) + parallaxOffset.y;
+    const staticRenderKey = caveWindowStaticMaskRenderKey(
+        cave,
+        view,
+        worldBounds,
+        scale,
+        foregroundParallax,
+        targetWidth,
+        targetHeight,
+        paddingPixels
+    );
+    const previousCache = parseScrolledMaskRenderKey(previousRenderKey);
+    let cachedOriginX = previousCache?.staticKey === staticRenderKey ? previousCache.originX : effectiveOriginX;
+    let cachedOriginY = previousCache?.staticKey === staticRenderKey ? previousCache.originY : effectiveOriginY;
+    let sourceX = scaledPadding + (effectiveOriginX - cachedOriginX) * zoom * scale;
+    let sourceY = scaledPadding + (effectiveOriginY - cachedOriginY) * zoom * scale;
+    const sourceWidth = targetWidth * scale;
+    const sourceHeight = targetHeight * scale;
+    const sourceEpsilon = 0.25;
+    let reused = Boolean(
+        previousCache &&
+        previousCache.staticKey === staticRenderKey &&
+        Math.abs(previousCache.paddingPixels - paddingPixels) < 0.001 &&
+        surface.width === width &&
+        surface.height === height &&
+        sourceX >= -sourceEpsilon &&
+        sourceY >= -sourceEpsilon &&
+        sourceX + sourceWidth <= width + sourceEpsilon &&
+        sourceY + sourceHeight <= height + sourceEpsilon
+    );
+    let renderKey = previousRenderKey;
     const gradientGeometry = caveGradientGeometry(cave);
 
     if (!reused) {
+        cachedOriginX = effectiveOriginX;
+        cachedOriginY = effectiveOriginY;
+        sourceX = scaledPadding;
+        sourceY = scaledPadding;
+        renderKey = encodeScrolledMaskRenderKey(staticRenderKey, cachedOriginX, cachedOriginY, paddingPixels);
         const maskContext = surface.getContext("2d");
         if (!maskContext) {
             throw new Error("Could not create the cave-window mask context.");
@@ -354,8 +458,11 @@ export function drawCaveWindowMask({
             ...view,
             w: width,
             h: height,
-            zoom: Math.max(0.0001, finiteNumber(view?.zoom, 1)) * scale
+            x: cachedOriginX - paddingPixels / zoom,
+            y: cachedOriginY - paddingPixels / zoom,
+            zoom: zoom * scale
         };
+        const maskParallaxOffset = { x: 0, y: 0 };
         maskContext.save();
         maskContext.setTransform(1, 0, 0, 1, 0, 0);
         maskContext.globalCompositeOperation = "source-over";
@@ -367,7 +474,7 @@ export function drawCaveWindowMask({
         // authored opening, uses the full configured distance, and lets the
         // wavy iso-opacity lines remain visible instead of being buried beneath
         // a smooth, already-dark edge.
-        drawOrganicGradientBands(maskContext, gradientGeometry, maskView, parallaxOffset, width, height);
+        drawOrganicGradientBands(maskContext, gradientGeometry, maskView, maskParallaxOffset, width, height);
 
         // Clamp the layered handover to the authored full-black distance. This
         // makes the Level Editor's outer guide an exact promise: every pixel
@@ -377,7 +484,7 @@ export function drawCaveWindowMask({
         maskContext.fillStyle = OPAQUE_BLACK;
         maskContext.beginPath();
         maskContext.rect(0, 0, width, height);
-        traceSampledClosedPath(maskContext, gradientGeometry.outset, maskView, parallaxOffset);
+        traceSampledClosedPath(maskContext, gradientGeometry.outset, maskView, maskParallaxOffset);
         maskContext.fill("evenodd");
         maskContext.restore();
     }
@@ -387,7 +494,17 @@ export function drawCaveWindowMask({
         targetContext.globalCompositeOperation = "source-over";
         targetContext.globalAlpha = 1;
         targetContext.imageSmoothingEnabled = true;
-        targetContext.drawImage(surface, 0, 0, width, height, 0, 0, targetWidth, targetHeight);
+        targetContext.drawImage(
+            surface,
+            sourceX,
+            sourceY,
+            sourceWidth,
+            sourceHeight,
+            0,
+            0,
+            targetWidth,
+            targetHeight
+        );
         targetContext.restore();
     }
 

@@ -20,7 +20,8 @@ import {
     caveWindowMaskRenderKey,
     computeCaveWindowParallaxOffset,
     CAVE_GRADIENT_BAND_COUNT,
-    DEFAULT_CAVE_MASK_RENDER_SCALE
+    DEFAULT_CAVE_MASK_RENDER_SCALE,
+    DEFAULT_CAVE_MASK_SCROLL_PADDING_PX
 } from "../src/presentation/cave-window-mask.js";
 import {
     buildWorldVisualCache,
@@ -8220,6 +8221,7 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     assert.notEqual(maskKey, caveWindowMaskRenderKey({ ...cave, gradientNoise: { ...cave.gradientNoise, amplitude: cave.gradientNoise.amplitude + 4 } }, view, worldBounds, DEFAULT_CAVE_MASK_RENDER_SCALE), "changing gradient waviness should invalidate the cave mask cache");
     assert.notEqual(maskKey, caveWindowMaskRenderKey({ ...cave, gradientNoise: { ...cave.gradientNoise, period: cave.gradientNoise.period + 10 } }, view, worldBounds, DEFAULT_CAVE_MASK_RENDER_SCALE), "changing gradient period should invalidate the cave mask cache");
     assert.ok(DEFAULT_CAVE_MASK_RENDER_SCALE < 0.5, "soft cave masks should render on a reduced-resolution surface");
+    assert.ok(DEFAULT_CAVE_MASK_SCROLL_PADDING_PX >= 96, "moving Canvas cave masks should retain a padded scroll cache before repainting");
 
     const caveGpuGeometry = buildCaveWindowGpuMaskGeometry(cave);
     assert.ok(caveGpuGeometry.gradientVertices.length > 0, "the cave feather should compile into reusable GPU triangle geometry");
@@ -8297,6 +8299,9 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     assert.ok(overlapBlendSource.includes("destination-in") && overlapBlendSource.includes("OVERLAP_BLEND_CENTRAL_START") && overlapBlendSource.includes("OVERLAP_BLEND_CENTRAL_END"), "the cached composite should crossfade through the central 50 percent of each overlap");
     assert.equal(rendererSource.includes("ctx.filter = `brightness(${brightness})"), false, "the main render context should not apply an expensive filter per foreground placement");
     assert.ok(maskSource.includes("previousRenderKey") && maskSource.includes("DEFAULT_CAVE_MASK_RENDER_SCALE"), "cave mask should reuse stationary frames and render its layered feather at reduced resolution");
+    assert.ok(maskSource.includes("DEFAULT_CAVE_MASK_SCROLL_PADDING_PX") && maskSource.includes("scrollcache") && maskSource.includes("sourceX + sourceWidth <= width"), "Canvas cave masks should scroll a padded cache across small camera movement instead of repainting every frame");
+    assert.ok(rendererSource.includes("prewarmLevelPresentationCaches") && bootstrapSource.includes("renderer.prewarmLevelPresentationCaches?.(gameState.world)"), "level startup should prewarm dimmed background atlas variants before gameplay frames");
+    assert.ok(rendererSource.includes("clearBackdropMs") && rendererSource.includes("worldVisualsMs") && rendererSource.includes("worldGeometryMs"), "renderer diagnostics should split broad world timing into profiler-friendly sub-phases");
     assert.ok(rendererSource.includes("dynamicBoundsVisible") && rendererSource.includes("projectileRenderBounds"), "targets, enemies, effects, and projectile trails should have conservative dynamic culling");
     assert.ok(rendererSource.includes("lastObservedFrameDt") && rendererSource.includes("lastRenderStartedAtMs"), "observed FPS should use real render-to-render time rather than the simulation dt clamp");
     assert.ok(bootstrapSource.includes("getPerformanceDiagnostics") && bootstrapSource.includes("dynamic considered:") && bootstrapSource.includes("gpu draws:"), "debug panel should expose renderer timings, culling counters, and WebGL batch diagnostics");
@@ -9238,14 +9243,31 @@ function testRocketPowerUpArsenal() {
             && bootstrapSource.includes('if (visible) {\n            updateDebugText();\n        }'),
         "hidden debug panels should skip diagnostic string and renderer metric work until made visible"
     );
+    assert.ok(
+        bootstrapSource.includes('const microStutterProfiler = new MicroStutterProfiler();')
+            && !bootstrapSource.includes('configureInitialMicroStutterProfiler')
+            && !bootstrapSource.includes('stutterProfile'),
+        "the micro-stutter profiler should remain disabled by default instead of auto-starting from URL parameters"
+    );
+    assert.ok(
+        bootstrapSource.includes('microProfilerButton?.addEventListener("click"')
+            && bootstrapSource.includes('microStutterProfiler.start({ label: "button" })')
+            && bootstrapSource.includes('copyMicroStutterProfileToClipboard()'),
+        "the game HUD tool strip should start the profiler by button and copy the report when it is stopped"
+    );
+    assert.ok(gameHtml.includes('id="toggle-micro-profiler"') && gameHtml.includes('Profiler: off'), "the lower-right game tool strip should expose a manual profiler toggle that starts off");
+    assert.ok(gameHtml.includes('id="toggle-static-bake-renderer"') && /id="toggle-static-bake-renderer"[^>]*hidden/.test(gameHtml), "the experimental Bake toggle should start hidden until the build flag reveals it");
+    assert.ok(bootstrapSource.includes("ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER") && bootstrapSource.includes("staticBakeRendererAvailable"), "the game bootstrap should gate the Bake toggle behind the shared experimental flag");
+    assert.ok(rendererSource.includes("supportsExperimentalStaticLayerBakeRenderer") && rendererSource.includes("STATIC_LAYER_BAKE_DISABLED_STATUS") && rendererSource.includes("surface.canvas.width = 1"), "the renderer should expose a static-bake availability boundary and aggressively release discarded bake canvases");
+    assert.ok(bootstrapSource.includes('"#tool-links"'), "title-screen pointer handling should ignore lower-right tool buttons instead of treating them as Start gestures");
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const characterEditorSource = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 481<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(characterEditorSource, /Puppet Forge <small>rev 481<\/small>/, "Puppet Forge should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 488<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(characterEditorSource, /Puppet Forge <small>rev 488<\/small>/, "Puppet Forge should display the packaged revision");
     const assetEditorSource = readFileSync(new URL("../asset-editor.html", import.meta.url), "utf8");
-    assert.match(assetEditorSource, /Asset Tool <small>rev 481<\/small>/, "Asset Tool should display the packaged revision");
+    assert.match(assetEditorSource, /Asset Tool <small>rev 488<\/small>/, "Asset Tool should display the packaged revision");
     assert.match(assetEditorSource, /id="atlas-numbered-select"[\s\S]*id="load-numbered-atlas"[\s\S]*id="load-local"[\s\S]*id="save-local"[\s\S]*id="quick-save-json"/, "Asset Tool should keep atlas loading and save/export controls together in the Files panel");
     assert.ok(!assetEditorSource.includes("Custom atlas image") && !assetEditorSource.includes("Custom JSON"), "Asset Tool should retire the visible custom import pickers from the primary Files panel");
     assert.doesNotMatch(assetEditorSource, /load-default-image|load-default-json/, "Asset Tool should retire the hard-coded at_atlas_001 load buttons");
@@ -9278,7 +9300,7 @@ function testRocketPowerUpArsenal() {
     assert.equal(editorSource.includes('id="canvas-renderer-baseline"'), false, "the Level Editor should no longer advertise the posterity-only Canvas baseline");
     assert.equal(editorSource.includes("openCanvasRendererBaseline"), false, "the removed baseline link should leave no dormant click handler");
     assert.equal(editorSource.includes("Editor 2 lab"), false, "the Level Editor should not link to the removed Editor 2 lab");
-    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 481") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
+    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 488") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
     assert.ok(baselineSource.includes("applyEditorLevelToWorld") && baselineSource.includes("preferWebGL2: false") && baselineSource.includes("setViewOverride"), "the retained baseline should still convert the authored level and use the ordinary Canvas2D game renderer with an editor camera override");
     assert.ok(editorPlaywrightBenchmark.includes("benchmark_baseline") && editorPlaywrightBenchmark.includes("benchmark_editor") && editorPlaywrightBenchmark.includes("editorToBaselineCadenceRatio"), "the optional Playwright probe should compare the loaded baseline and editor rather than source-only timings");
     assert.ok(editorPlaywrightBenchmark.includes("bodyScrollWidth") && editorPlaywrightBenchmark.includes("stageBacking") && editorPlaywrightBenchmark.includes("overlayBacking"), "the Playwright probe should detect viewport overflow and stage/overlay size divergence");
@@ -9288,7 +9310,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(rendererSource.includes("backingPixelsPerCssPixel") && rendererSource.includes("override.cssZoom * backingPixelsPerCssPixel") && editorSource.includes("cssZoom: state.camera.zoom"), "editor and runtime artwork should share one CSS-pixel camera scale so guide alignment does not drift across the viewport");
     assert.ok(rendererSource.includes("this.ctx.setTransform(1, 0, 0, 1, 0, 0)") && rendererSource.includes("never inherit a CSS/DPR transform"), "the production Canvas renderer should reset inherited context transforms before drawing backing-pixel coordinates");
     assert.ok(editorSource.includes("stageCtx?.setTransform(1, 0, 0, 1, 0, 0)") && !editorSource.includes("stageCtx?.setTransform(dpr"), "the Level Editor must not pre-scale the production scene context by devicePixelRatio");
-    assert.match(bootstrapSource, /const GAME_REVISION = "481";/, "the game debug revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "488";/, "the game debug revision should match the packaged revision");
     assert.ok(
         editorSource.includes('<div class="level-section-label">Existing Level:</div>')
             && editorSource.includes('id="load-level">Load</button>')
@@ -12901,7 +12923,7 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.match(gameHtml, /id="meters"[^>]*role="button"[^>]*aria-haspopup="dialog"[^>]*data-ignore-game-pointer/, "the top-left meter panel should also be an accessible menu trigger");
     assert.match(gameHtml, /--hud-panel-natural-width:\s*430px;[\s\S]*--hud-panel-scale:\s*1;[\s\S]*#hud\s*\{[^}]*width:\s*var\(--hud-panel-natural-width\)[^}]*transform:\s*scale\(var\(--hud-panel-scale\)\)/s, "the left HUD should retain one natural size and use a shared viewport scale");
     assert.match(gameHtml, /#game-menu-controls\s*\{[^}]*width:\s*auto[^}]*min-width:\s*1px/s, "the minimap panel should be allowed to shrink below the former hard minimum on tiny screens");
-    assert.match(gameHtml, /body\.electron #tool-links\s*\{[^}]*display:\s*none !important/s, "Electron mode should still hide browser debug tool links");
+    assert.match(gameHtml, /body\.electron #tool-links > :not\(#toggle-static-bake-renderer\)\s*\{[^}]*display:\s*none !important/s, "Electron mode should hide browser debug tool links while leaving the experimental Bake toggle reachable");
     assert.match(gameHtml, /id="auto-fullscreen"[^>]*type="checkbox"/, "settings should expose automatic fullscreen as a checkbox rather than an immediate action");
     assert.match(gameHtml, /Automatically switch to fullscreen/, "the automatic fullscreen preference should use the requested wording");
     assert.doesNotMatch(gameHtml, /id="settings-fullscreen-toggle"/, "settings must not contain the obsolete live fullscreen button");

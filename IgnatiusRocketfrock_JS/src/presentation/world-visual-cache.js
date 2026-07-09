@@ -1,4 +1,4 @@
-import { normalizeRotationRadians, placementCenter } from "../shared/level-transform.js";
+import { normalizeRotationRadians } from "../shared/level-transform.js";
 import { BACKGROUND_LAYER, CAVE_FOREGROUND_LAYER_ID } from "../shared/level-layer-data.js";
 
 const DEFAULT_CULL_MARGIN_PX = 96;
@@ -28,45 +28,55 @@ export function visualSortKey(visual, index = 0) {
     return layerOrder + index;
 }
 
-export function visualWorldBounds(visual) {
+export function visualWorldBoundsInto(target, visual) {
+    const output = target && typeof target === "object" ? target : {};
     const width = Math.max(0, finiteNumber(visual?.w, 0));
     const height = Math.max(0, finiteNumber(visual?.h, 0));
     if (visual?.kind === "cutoutMask") {
-        return {
-            minX: finiteNumber(visual.x, 0),
-            minY: finiteNumber(visual.y, 0),
-            maxX: finiteNumber(visual.x, 0) + width,
-            maxY: finiteNumber(visual.y, 0) + height
-        };
+        const x = finiteNumber(visual.x, 0);
+        const y = finiteNumber(visual.y, 0);
+        output.minX = x;
+        output.minY = y;
+        output.maxX = x + width;
+        output.maxY = y + height;
+        return output;
     }
 
-    const center = placementCenter(visual || {});
+    const centerX = finiteNumber(visual?.x, 0) + width * 0.5;
+    const centerY = finiteNumber(visual?.y, 0) + height * 0.5;
     const rotation = normalizeRotationRadians(visual?.rotation);
     const cosine = Math.abs(Math.cos(rotation));
     const sine = Math.abs(Math.sin(rotation));
     const extentX = cosine * width * 0.5 + sine * height * 0.5;
     const extentY = sine * width * 0.5 + cosine * height * 0.5;
-    return {
-        minX: center.x - extentX,
-        minY: center.y - extentY,
-        maxX: center.x + extentX,
-        maxY: center.y + extentY
-    };
+    output.minX = centerX - extentX;
+    output.minY = centerY - extentY;
+    output.maxX = centerX + extentX;
+    output.maxY = centerY + extentY;
+    return output;
 }
 
-export function expandedViewportWorldBounds(view, parallaxOffset = null, marginPixels = DEFAULT_CULL_MARGIN_PX) {
+export function visualWorldBounds(visual) {
+    return visualWorldBoundsInto({}, visual);
+}
+
+export function expandedViewportWorldBoundsInto(target, view, parallaxOffset = null, marginPixels = DEFAULT_CULL_MARGIN_PX) {
+    const output = target && typeof target === "object" ? target : {};
     const zoom = Math.max(0.0001, finiteNumber(view?.zoom, 1));
     const width = Math.max(1, finiteNumber(view?.virtualW, finiteNumber(view?.w, 1) / zoom));
     const height = Math.max(1, finiteNumber(view?.virtualH, finiteNumber(view?.h, 1) / zoom));
     const offsetX = finiteNumber(parallaxOffset?.x, 0);
     const offsetY = finiteNumber(parallaxOffset?.y, 0);
     const margin = Math.max(0, finiteNumber(marginPixels, DEFAULT_CULL_MARGIN_PX)) / zoom;
-    return {
-        minX: finiteNumber(view?.x, 0) + offsetX - margin,
-        minY: finiteNumber(view?.y, 0) + offsetY - margin,
-        maxX: finiteNumber(view?.x, 0) + offsetX + width + margin,
-        maxY: finiteNumber(view?.y, 0) + offsetY + height + margin
-    };
+    output.minX = finiteNumber(view?.x, 0) + offsetX - margin;
+    output.minY = finiteNumber(view?.y, 0) + offsetY - margin;
+    output.maxX = finiteNumber(view?.x, 0) + offsetX + width + margin;
+    output.maxY = finiteNumber(view?.y, 0) + offsetY + height + margin;
+    return output;
+}
+
+export function expandedViewportWorldBounds(view, parallaxOffset = null, marginPixels = DEFAULT_CULL_MARGIN_PX) {
+    return expandedViewportWorldBoundsInto({}, view, parallaxOffset, marginPixels);
 }
 
 export function boundsIntersect(a, b) {
@@ -153,16 +163,39 @@ export function buildWorldVisualCache(visuals = [], options = {}) {
     };
 }
 
+export function createWorldVisualQueryScratch() {
+    return {
+        seen: new Set(),
+        entries: [],
+        viewportBounds: { minX: 0, minY: 0, maxX: 0, maxY: 0 },
+        result: {
+            entries: [],
+            total: 0,
+            spatialCulled: 0,
+            partition: null
+        }
+    };
+}
+
 export function queryWorldVisualEntries(
     cache,
     partitionName,
     view,
     parallaxOffset = null,
-    marginPixels = DEFAULT_CULL_MARGIN_PX
+    marginPixels = DEFAULT_CULL_MARGIN_PX,
+    scratch = null
 ) {
     const partition = cache?.spatial?.[partitionName];
     const fallbackEntries = Array.isArray(cache?.[partitionName]) ? cache[partitionName] : [];
+    const result = scratch?.result || null;
     if (!partition) {
+        if (result) {
+            result.entries = fallbackEntries;
+            result.total = fallbackEntries.length;
+            result.spatialCulled = 0;
+            result.partition = null;
+            return result;
+        }
         return {
             entries: fallbackEntries,
             total: fallbackEntries.length,
@@ -171,11 +204,14 @@ export function queryWorldVisualEntries(
         };
     }
 
-    const viewportBounds = expandedViewportWorldBounds(view, parallaxOffset, marginPixels);
+    const viewportBounds = scratch?.viewportBounds || {};
+    expandedViewportWorldBoundsInto(viewportBounds, view, parallaxOffset, marginPixels);
     const minBin = Math.floor(viewportBounds.minX / partition.binSize);
     const maxBin = Math.floor(viewportBounds.maxX / partition.binSize);
-    const seen = new Set();
-    const candidates = [];
+    const seen = scratch?.seen || new Set();
+    const candidates = scratch?.entries || [];
+    seen.clear();
+    candidates.length = 0;
     for (let bin = minBin; bin <= maxBin; bin += 1) {
         for (const entry of partition.bins.get(bin) || []) {
             if (seen.has(entry)) continue;
@@ -186,12 +222,20 @@ export function queryWorldVisualEntries(
     for (const entry of partition.dynamicEntries) {
         if (seen.has(entry)) continue;
         seen.add(entry);
-        const currentBounds = visualWorldBounds(entry.visual);
-        if (boundsIntersect(currentBounds, viewportBounds)) {
-            candidates.push({ ...entry, bounds: currentBounds });
+        entry.dynamicBounds = visualWorldBoundsInto(entry.dynamicBounds, entry.visual);
+        if (boundsIntersect(entry.dynamicBounds, viewportBounds)) {
+            entry.bounds = entry.dynamicBounds;
+            candidates.push(entry);
         }
     }
     candidates.sort((a, b) => a.sortedIndex - b.sortedIndex);
+    if (result) {
+        result.entries = candidates;
+        result.total = partition.entries.length;
+        result.spatialCulled = Math.max(0, partition.entries.length - candidates.length);
+        result.partition = partition;
+        return result;
+    }
     return {
         entries: candidates,
         total: partition.entries.length,

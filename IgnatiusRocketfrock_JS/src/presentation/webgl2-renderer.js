@@ -115,6 +115,9 @@ export class WebGL2RendererBackend {
         this.stencilAvailable = typeof gl.getContextAttributes !== "function" || gl.getContextAttributes()?.stencil !== false;
         this.available = true;
         this.contextLost = false;
+        this.maxTextureDimension = typeof gl.getParameter === "function"
+            ? Math.max(1, Number(gl.getParameter(gl.MAX_TEXTURE_SIZE)) || 1)
+            : 32767;
         this.textureCache = new WeakMap();
         this.textureRecords = new Set();
         this.pinnedSources = new Set();
@@ -340,6 +343,11 @@ export class WebGL2RendererBackend {
         return Boolean(this.textureRecord(source, false, false));
     }
 
+    cacheTexture(source) {
+        if (!source || !this.available || this.contextLost) return false;
+        return Boolean(this.textureRecord(source, false, false));
+    }
+
     preloadTextures(sources = []) {
         let loaded = 0;
         for (const source of sources) {
@@ -351,6 +359,10 @@ export class WebGL2RendererBackend {
     refreshTexture(source) {
         if (!source || !this.available || this.contextLost) return false;
         return Boolean(this.textureRecord(source, true, true));
+    }
+
+    getMaxTextureSize() {
+        return Math.max(1, Number(this.maxTextureDimension) || 1);
     }
 
     estimatedTextureBytes() {
@@ -573,6 +585,11 @@ export class WebGL2RendererBackend {
         if (!source) return null;
         let record = this.textureCache.get(source);
         const dimensions = sourceDimensions(source);
+        const maxTextureSize = this.getMaxTextureSize();
+        if (dimensions.width > maxTextureSize || dimensions.height > maxTextureSize) {
+            console.warn(`WebGL2 texture source ${dimensions.width}x${dimensions.height} exceeds max texture size ${maxTextureSize}.`);
+            return null;
+        }
         if (!record) {
             const texture = this.gl.createTexture();
             if (!texture) return null;

@@ -1938,3 +1938,39 @@ Hunter recovery now has a small explicit anti-flicker state variable, `unreachab
 ## Revision 481 regular-goblin mobility profile
 
 Revision 481 splits ordinary goblin mobility from human mobility again. Regular goblin enemies use a nimble `runSpeed: 250` and `jumpHeight: 250` profile, while modular humans remain at their authored `runSpeed: 200` and `jumpHeight: 200` profile and the scaled boss goblin retains his custom boss profile. Level navigation graph metadata continues to be an exact contract: every shipped level with regular goblin hunters now carries a baked `w70_h105_r250_a950_j250_g1250_f600_s26_q22.4` graph.
+
+## Revision 482 micro-stutter profiling contract
+
+Revision 482 adds `src/browser/micro-stutter-profiler.js` as a browser orchestration diagnostic, not as simulation state. It records wall-clock frame slices around input, fixed-step simulation, post-simulation services, renderer, HUD, and debug text while preserving the deterministic core boundary. The profiler is opt-in through the lower-right game tool-strip button or `window.__rocketfrockDev.profiler` and exports compact JSON intended for offline review. It is not auto-started from URL parameters, keeping the default runtime path profiler-free.
+
+The renderer hot path now treats frame-local collections as reusable scratch: entity visibility Sets, visual query Sets and candidate arrays, overlap-blend group Sets, projectile skip Sets, visual counters, and parallax offsets are cleared or overwritten instead of recreated on every animation frame. `world-visual-cache.js` exposes reusable query scratch and `Into` bounds helpers for callers that need broadphase culling without feeding the garbage collector.
+
+## Revision 483 profiler activation boundary
+
+Revision 483 makes micro-stutter profiling an explicit user gesture instead of a startup mode. The browser bootstrap owns the lower-right `Profiler: off` button, starts `MicroStutterProfiler` only when that button is clicked, and stops/export-copies the captured JSON on the next click. This keeps ordinary play free from profiler overhead while preserving the diagnostics contract introduced in revision 482. Clipboard failures are surfaced in the console and the latest JSON is kept on `window.__rocketfrockLastMicroStutterProfile` for manual recovery.
+
+## Revision 484 canvas stutter diagnostics and cave-mask scroll cache
+
+Revision 484 keeps the micro-stutter profiler browser-owned, but expands the renderer diagnostics contract. `CanvasGameRenderer` now reports world sub-phase timings for clear/backdrop, background visuals, ordered world visuals, fallback geometry, and portal glow in addition to the existing world/actor/foreground/mask buckets. These fields are presentation diagnostics only and do not cross into the portable simulation core.
+
+The Canvas cave-window mask remains an inert presentation layer. Its CPU path now caches a padded, reduced-resolution mask surface around the viewport and scrolls that surface for small camera movement before rebuilding the organic feather. Cave shape, gradient settings, viewport size, zoom, parallax, or movement beyond the padding still invalidate the cache. The WebGL2 path continues to prefer resident world-space cave-mask geometry.
+
+
+## Revision 485 static-layer bake POC boundary
+
+Revision 485 keeps the static-layer bake experiment inside `src/presentation/canvas-renderer.js`. It is an alternate Canvas2D presentation path, not portable simulation state. The simulation continues to expose the same world visual records, entities, projectiles, enemies, pickups, and effects; the renderer chooses whether eligible static records are replayed each frame or precomposited into background, terrain, and foreground canvases.
+
+The POC is intentionally guarded: it is disabled by default, uses authored world bounds, refuses single canvases above the configured dimension guard, and refuses three RGBA layers whose estimated footprint exceeds 2 GiB. Entity-bound and movement-tagged visual records remain live-rendered so gameplay state changes are not baked into immutable imagery. WebGL resident-texture parity is left for a future chunked implementation because full-level canvases can exceed common GPU texture-size limits.
+
+
+## Revision 486 WebGL static-layer bake boundary
+
+Revision 486 keeps the WebGL static-layer bake behind the existing presentation renderer boundary. The portable simulation and level data remain unchanged: no baked image becomes authoritative gameplay data. The WebGL backend only receives the renderer-owned bake canvases as texture sources, rejects sources larger than the reported `MAX_TEXTURE_SIZE`, and releases stale bake textures when caches are invalidated. This preserves the ordinary WebGL2-resident renderer as the default path while giving the brute-force static-layer experiment a GPU-backed mode for profiling.
+
+## Revision 487 chunked WebGL bake boundary
+
+Revision 487 keeps static-layer chunking inside the presentation renderer. When a baked level exceeds the GPU max texture size, `CanvasGameRenderer` builds renderer-owned chunk canvases for background, terrain, and foreground rather than changing level or simulation data. The WebGL backend treats each chunk canvas as an ordinary resident texture source and the renderer draws only chunks intersecting the current camera view. Cache invalidation releases every chunk texture, preserving the same renderer-boundary contract as the single-texture proof of concept while avoiding the GPU single-texture dimension limit.
+
+## Revision 488 experimental static bake boundary
+
+The static-layer bake renderer is an experimental alternate presentation path, not a supported design constraint for normal rendering. Its shared `ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER` flag hides the game-page toggle and makes the renderer refuse activation when disabled. The mode is allowed to consume ordinary renderer data and accelerate static layers, but future Canvas2D/WebGL features should be implemented cleanly for the normal path first. If baked/chunked compatibility would require extra abstraction, invalidation rules, or special cases, stop and ask before changing the architecture.

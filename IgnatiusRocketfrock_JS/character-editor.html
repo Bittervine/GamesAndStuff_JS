@@ -681,7 +681,7 @@ touch-action: none;
         </section>
     </div>
     <aside>
-        <h1>Puppet Forge <small>rev 481</small></h1>
+        <h1>Puppet Forge <small>rev 488</small></h1>
         <p><a href="index.html">Back to tools</a></p>
         <p>
             Atlas-backed rig and keyframe editor. The preview now samples the same animation JSON module as the game, so edits are made in rig-space values rather than a second procedural imitation.
@@ -5463,7 +5463,9 @@ for (const input of [els.enemyLabel, els.enemyIcon, els.enemyDescription, els.en
             els.enemyDefaultsJson.value = JSON.stringify(defaults, null, 4);
             refreshEnemyCatalogJson();
             markDirty("enemyCatalog");
-        } catch (_) {}
+        } catch (error) {
+            setStatus(`Enemy defaults could not be applied: ${error.message || error}`);
+        }
     });
 }
 

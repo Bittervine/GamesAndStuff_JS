@@ -4294,3 +4294,63 @@ Regression coverage now also exercises the post-glare recovery path: a hunter th
 ## Revision 481 goblin mobility verification
 
 Revision 481 verifies that the active enemy catalog gives `enemy_010`, `enemy_011`, and `enemy_012` `runSpeed: 250` and `jumpHeight: 250`, and that placed non-boss goblins in the shipped campaign/test levels match those defaults. The affected baked hunter graphs were regenerated for the exact regular-goblin `r250/j250` profile while preserving the human `r200/j200`, Skeleton Caster `r150/j190`, and boss-specific `r170/j200` graph profiles.
+
+## Revision 482 stutter diagnostics checklist
+
+Revision 482 verifies that the retired `assets/ct_rig_enemy_030 .json` file is absent, the Character Editor reports malformed enemy defaults JSON instead of silently swallowing it, and renderer frame scratch structures are reused for visibility, world-visual broadphase queries, overlap blend groups, projectile skip IDs, visual counters, and parallax offsets.
+
+Manual profiling workflow: open the game, run `window.__rocketfrockDev.profiler.start({ thresholdMs: 10, rafGapMs: 20, label: "test run" })`, play until a hitch occurs, then run `window.__rocketfrockDev.profiler.download()` or `window.__rocketfrockDev.profiler.copy()`. The exported JSON should include sampled frame timings, renderer phase diagnostics, fixed-step counts, accumulator state, and GPU counters when WebGL2 is active.
+
+## Revision 483 profiler checklist
+
+- [x] Keep `MicroStutterProfiler` constructed but stopped during normal startup.
+- [x] Remove URL-parameter auto-start for the profiler so the default game path is off.
+- [x] Add the lower-right `Profiler: off` tool-strip button to `game.html`.
+- [x] Start profiling on the first button click and stop plus clipboard-copy the JSON report on the second click.
+- [x] Preserve console fallback access to the last profiler JSON if clipboard permissions block the write.
+
+## Revision 484 stutter follow-up checklist
+
+- [x] Interpret the first profiler report as render-bound rather than simulation-bound.
+- [x] Prewarm level background-brightness atlas variants after colour-map synchronization on startup, restart, and level transition.
+- [x] Replace per-camera-pixel Canvas cave-mask repainting with a padded scroll cache for small camera movement.
+- [x] Add renderer diagnostics for clear/backdrop, background, world visual, world geometry, and portal-glow sub-phases.
+- [x] Preserve the profiler button workflow introduced in revision 483.
+
+
+## Revision 485 static-layer bake POC checklist
+
+- Added lower-right `Baked: off` runtime toggle; default remains off.
+- Added Canvas2D static-layer bake cache with background, terrain, and foreground full-level canvases.
+- Guarded the POC with finite world bounds, a single-canvas dimension limit, and a 2 GiB three-layer RGBA estimate.
+- Kept entity-bound and moving visual records on the dynamic draw path.
+- Added renderer/debug diagnostics for bake status, memory estimate, build time, draw time, readiness, and use.
+- Left WebGL full-level texture baking out of the POC pending chunking/max-texture handling.
+
+
+## Revision 486 WebGL static-layer bake POC checklist
+
+- [x] Route the lower-right `Baked` toggle through WebGL2 when hardware rendering is active.
+- [x] Draw baked background, terrain, and foreground canvases as resident WebGL textures instead of replaying static world visuals every frame.
+- [x] Keep dynamic visuals, enemies, pickups, projectiles, smoke/effects, player rendering, story/debug overlays, and residual Canvas staging on live paths.
+- [x] Guard WebGL baking with the GPU max texture size and report when chunked baking is required.
+- [x] Invalidate old baked layer textures when a bake is disabled, rebuilt, or invalidated so the proof of concept does not leak resident GPU memory.
+
+## Revision 487 WebGL chunked bake checklist
+
+- [x] Replace the WebGL full-layer texture refusal with chunked static bake surfaces when world width/height exceeds `MAX_TEXTURE_SIZE`.
+- [x] Keep the 2 GiB three-layer RGBA estimate as the global budget guard.
+- [x] Draw only visible baked chunks for background, terrain, and foreground in both Canvas2D and WebGL baked paths.
+- [x] Pre-cache chunk textures on the first enabled WebGL bake so later camera movement does not upload newly visible chunks mid-run.
+- [x] Invalidate all chunk textures when baked mode is disabled, rebuilt, or invalidated.
+- [x] Extend debug/profiler diagnostics with baked mode and chunk count.
+
+## Revision 488 static bake cleanup checklist
+
+- [x] Add the shared `ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER` kill switch.
+- [x] Hide the `Baked` button when the experimental flag is false.
+- [x] Keep the `Baked` button available in Electron when the experimental flag is true.
+- [x] Make the renderer API refuse static bake activation when the flag is disabled.
+- [x] Track the last static bake invalidation reason in status and profiler diagnostics.
+- [x] Shrink released bake canvases to hint browser memory release.
+- [x] Document that normal renderer features must not become more complicated for the baked/chunked experiment without asking first.

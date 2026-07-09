@@ -4036,3 +4036,41 @@ The blocked-approach glare recovery also now distinguishes a useful reacquisitio
 ## Revision 481 nimble regular goblins
 
 Revision 481 makes ordinary Fireball, Musket, and Tri-fireball Goblins faster and springier: `enemy_010`, `enemy_011`, and `enemy_012` now default to `runSpeed: 250` and `jumpHeight: 250`. Existing regular goblins in `level_001`, `level_002`, `level_003`, `level_t01`, and `level_t02` were updated to the same values. Gorblax the Incandescent keeps his boss-specific 170/200 mobility profile. Affected baked hunter graphs were regenerated so runtime pathing uses exact `r250/j250` goblin profiles instead of falling back to live graph construction.
+
+## Revision 482 micro-stutter instrumentation and hot-loop cleanup
+
+Revision 482 removes the retired spaced Human Raider rig file that had reappeared in the archive, restores a visible Character Editor status error when enemy defaults JSON cannot be applied, and trims avoidable renderer hot-loop garbage. The runtime renderer now reuses per-frame entity visibility Sets, visual counters, overlap-blend tracking Sets, WebGL projectile skip Sets, parallax offset objects, and spatial visual query scratch buffers instead of allocating fresh temporary collections every frame.
+
+A small opt-in micro-stutter profiler is now exposed through `window.__rocketfrockDev.profiler`. It can be started with `window.__rocketfrockDev.profiler.start({ thresholdMs: 10, rafGapMs: 20 })`, stopped with `.stop()`, copied with `.copy()`, downloaded with `.download()`, or exported as JSON text with `.export()`. The profiler records only frames whose measured work time or animation-frame gap crosses the configured thresholds, including simulation, render, HUD, debug-panel, fixed-step count, accumulator, renderer phase diagnostics, and GPU counters when available. Revision 483 moves normal capture to the lower-right `Profiler: off` game button so ordinary startup stays disabled; clicking it again stops capture and copies the JSON report to the clipboard.
+
+## Revision 483 manual profiler toggle
+
+Revision 483 keeps the micro-stutter profiler disabled by default and moves normal use to a lower-right in-game tool button labelled `Profiler: off`. Clicking the button starts sampling with the existing 10 ms work / 20 ms RAF-gap defaults; clicking it again stops the run and copies the JSON report to the clipboard so it can be pasted into a follow-up review. The console API remains available for unusual debugging sessions, but URL parameters no longer auto-start the profiler.
+
+## Revision 484 stutter-profile follow-up
+
+Revision 484 responds to the first button-captured micro-stutter report. The captured hitch was render-bound: the worst sampled frame spent 31.7 ms in rendering, with 29.8 ms under the world phase, while smaller 9-11 ms samples were dominated by cave-window mask misses. Startup and level transitions now prewarm background brightness atlas variants so the first visible draw of a dimmed background layer does not surprise the render loop with a whole-atlas Canvas filter bake.
+
+The Canvas cave-window mask now uses a padded scroll cache. Instead of repainting the organic feather every time the camera moves by a tiny amount, the renderer draws a low-resolution mask surface larger than the viewport and blits the appropriate sub-rectangle while the camera remains inside the padded cache. It still repaints on cave edits, size/zoom/parallax changes, and larger camera moves. Renderer diagnostics now also split the world phase into clear/backdrop, background, world visuals, world geometry, and portal glow so the next profiler JSON can identify the exact world-layer culprit instead of reporting one broad `worldMs` bucket.
+
+
+## Revision 485 static-layer bake proof of concept
+
+Revision 485 adds an off-by-default proof-of-concept renderer mode for the proposed brute-force static-layer experiment. The lower-right game tool strip now includes `Baked: off`; clicking it enables a Canvas2D static bake path that builds three full-level canvases for background, terrain, and foreground when the level fits the 2 GiB RGBA budget and the single-canvas dimension guard. The ordinary renderer remains available by clicking the same button again.
+
+The baked path draws background and terrain canvases before dynamic actors/effects, then draws the foreground canvas after actors. It deliberately excludes entity-bound and moving visual records from the bake so pickups, destructibles, doors, mailbox visuals, target dummies, and moving-platform-like visuals can still update through the ordinary per-frame visual path. The first enabled frame may pause while the three large canvases are built; subsequent frames are intended to test whether three large `drawImage` copies plus dynamic actors reduce the smaller recurring Canvas2D world/mask stutters. Renderer diagnostics and the debug panel now report bake readiness, memory estimate, build time, draw time, and status.
+
+
+## Revision 486 WebGL static-layer bake proof of concept
+
+Revision 486 extends the static-layer bake experiment to hardware rendering. When WebGL2 is active and the user enables `Baked`, the renderer builds the same three full-level Canvas surfaces as revision 485, uploads them as ordinary resident WebGL textures, and draws the static background, terrain, and foreground with three cropped textured quads plus the live dynamic actors/effects/items. The path remains off by default and can still fall back to the ordinary renderer. A GPU max-texture-size guard reports when a level is too wide or tall for the single-texture proof of concept; that case should become a chunked bake if the experiment proves worthwhile.
+
+## Revision 487 WebGL chunked static-layer bake
+
+Revision 487 removes the single-texture limitation from the WebGL static-layer bake proof of concept. When a level exceeds the GPU `MAX_TEXTURE_SIZE` but still fits the 2 GiB three-layer RGBA budget, the baked renderer now splits background, terrain, and foreground into 4096 px chunks, uploads the chunk canvases as resident WebGL textures, and draws only the chunks intersecting the camera view. This lets the current wide test level bake under WebGL hardware whose max texture size is 16384.
+
+The same `Baked` toggle remains off by default and still falls back to the ordinary renderer if baking fails. Static bake diagnostics now report the bake mode and chunk count in addition to readiness, memory estimate, build time, draw time, and status.
+
+## Revision 488 experimental static bake containment cleanup
+
+Revision 488 keeps the chunked static-layer bake renderer as an experimental, off-by-default diagnostic mode while boxing it away from ordinary feature work. A shared `ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER` flag now controls whether the lower-right `Baked` toggle exists at all; when the flag is false, the button remains hidden and the renderer API refuses to enable the mode. When the flag is true, the same toggle remains available in Electron so Canvas2D/WebGL/browser/Electron combinations can all be compared. The renderer now exposes an explicit availability check, tracks the last bake invalidation reason, releases discarded bake canvases more aggressively, and documents the rule that normal renderer features must not be complicated for this experimental path without asking first.

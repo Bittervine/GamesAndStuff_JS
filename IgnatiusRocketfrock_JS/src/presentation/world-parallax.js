@@ -11,10 +11,11 @@ function normalizedWorldBounds(worldBounds) {
     return { x, y, w, h };
 }
 
-export function computeWorldParallaxOffset(view, worldBounds, parallax = 1, {
+export function computeWorldParallaxOffsetInto(target, view, worldBounds, parallax = 1, {
     min = 0.25,
     max = 1.25
 } = {}) {
+    const output = target && typeof target === "object" ? target : {};
     const zoom = Math.max(0.0001, finiteNumber(view?.zoom, 1));
     const virtualWidth = Math.max(1, finiteNumber(view?.virtualW, finiteNumber(view?.w, 1) / zoom));
     const virtualHeight = Math.max(1, finiteNumber(view?.virtualH, finiteNumber(view?.h, 1) / zoom));
@@ -27,8 +28,11 @@ export function computeWorldParallaxOffset(view, worldBounds, parallax = 1, {
     const upper = Math.max(finiteNumber(min, 0.25), finiteNumber(max, 1.25));
     const factor = Math.max(lower, Math.min(upper, finiteNumber(parallax, 1)));
     const extraScroll = factor - 1;
-    return {
-        x: (cameraX - anchorX) * extraScroll,
-        y: (cameraY - anchorY) * extraScroll
-    };
+    output.x = (cameraX - anchorX) * extraScroll;
+    output.y = (cameraY - anchorY) * extraScroll;
+    return output;
+}
+
+export function computeWorldParallaxOffset(view, worldBounds, parallax = 1, options = {}) {
+    return computeWorldParallaxOffsetInto({}, view, worldBounds, parallax, options);
 }
