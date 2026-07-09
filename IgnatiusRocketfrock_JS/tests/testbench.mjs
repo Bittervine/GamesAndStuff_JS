@@ -945,7 +945,7 @@ async function testGenericRuntimeCharacterProject() {
     assert.equal(enemy.characterId, "ct_char_enemy_001", "character enemy should retain its project ID");
     assert.equal(enemy.facing, -1, "character enemy should retain authored facing");
     assert.equal(enemy.animationSlot, "idle", "character enemy should retain authored animation slot");
-    assert.equal(enemy.maxHealth, 60, "character enemy without authored health should use the serializable 60 HP default");
+    assert.equal(enemy.maxHealth, 90, "character enemy without authored health should use the serializable 90 HP default");
     assert.equal(enemy.combatState, "alive", "fresh character enemy should begin alive");
 }
 
@@ -1720,7 +1720,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(catalog.enemies.enemy_010.defaults.strategy, "hunter", "Fireball Goblin should use the hunter strategy");
     assert.equal(catalog.enemies.enemy_011.defaults.strategy, "hunter", "Musket Goblin should use the hunter strategy");
     assert.equal(catalog.enemies.enemy_012.defaults.strategy, "hunter", "Tri-fireball Goblin should use the hunter strategy");
-    assert.equal(skeleton.defaults.health, 90, "Skeleton Guard should default to 90 HP");
+    assert.equal(skeleton.defaults.health, 120, "Skeleton Guard should default to 120 HP");
     assert.equal(skeleton.defaults.attackDamage, 50, "Skeleton Guard melee should deal 50 HP before difficulty scaling");
     assert.equal(catalog.enemies.enemy_010.defaults.health, 60, "Fireball Goblin should default to 60 HP");
     assert.equal(catalog.enemies.enemy_011.defaults.health, 60, "Musket Goblin should default to 60 HP");
@@ -1738,6 +1738,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(skeletonCaster.defaults.projectileSpeed, catalog.enemies.enemy_010.defaults.projectileSpeed, "undeath orb should now match the Fireball Goblin projectile speed");
     assert.equal(skeletonCaster.defaults.projectileHomingStrength, catalog.enemies.enemy_010.defaults.projectileHomingStrength, "undeath orb should now match the Fireball Goblin steering strength");
     assert.equal(skeletonCaster.defaults.projectileDamage, 50, "undeath orb should deal 50 HP of damage");
+    assert.equal(skeletonCaster.defaults.health, 120, "Skeleton Caster should default to 120 HP");
     assert.equal(skeletonCaster.defaults.projectileCooldown, 3, "Skeleton Caster should cast once every three seconds");
     assert.equal(skeletonCaster.defaults.projectileLifetime, catalog.enemies.enemy_010.defaults.projectileLifetime * 2, "undeath orb should retain twice the Fireball Goblin travel lifetime");
     assert.equal(skeletonCaster.defaults.projectileRadius, 24, "live undeath orb should match the enlarged authored cast");
@@ -1762,6 +1763,9 @@ function testEnemyCatalogAndLevelEditorIntegration() {
         assert.equal(human.defaults.renderScale, 1.23, `${humanId} artwork should be 50 percent larger`);
         assert.equal(human.defaults.renderOffsetY, 51, `${humanId} grounded artwork offset should scale with the actor`);
         assert.equal(human.defaults.maxFallDistance, 600, `${humanId} should escape the authored tall ledges`);
+        assert.equal(human.defaults.runSpeed, 200, `${humanId} should keep the authored human 200 px/s run speed`);
+        assert.equal(human.defaults.jumpHeight, 200, `${humanId} should keep the authored human 200 px jump height`);
+        assert.equal(human.defaults.health, 90, `${humanId} should default to the three-standard-rocket human HP balance`);
     }
     const casterAttack = JSON.parse(readFileSync("./assets/ct_anim_enemy_002_attack.json", "utf8"));
     assert.equal(casterAttack.animationId, "ct_anim_enemy_002_attack", "the supplied caster attack should retain its independent animation identity");
@@ -1793,11 +1797,11 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     for (const discardedId of ["enemy_004", "enemy_006", "enemy_007", "enemy_008"]) {
         assert.equal(catalog.enemies[discardedId], undefined, `${discardedId} should be removed from the active enemy catalog`);
     }
-    assert.equal(catalog.enemies.enemy_010.defaults.runSpeed, 200, "Fireball Goblin should default to the authored 200 px/s run speed");
-    assert.equal(catalog.enemies.enemy_011.defaults.runSpeed, 200, "Musket Goblin should default to the authored 200 px/s run speed");
-    assert.equal(catalog.enemies.enemy_012.defaults.runSpeed, 200, "Tri-fireball Goblin should copy the Fireball Goblin run speed");
-    assert.equal(catalog.enemies.enemy_010.defaults.jumpHeight, 200, "Fireball Goblin should default to the playtested 200 px jump height");
-    assert.equal(catalog.enemies.enemy_011.defaults.jumpHeight, 200, "Musket Goblin should default to the playtested 200 px jump height");
+    assert.equal(catalog.enemies.enemy_010.defaults.runSpeed, 250, "Fireball Goblin should default to the nimble 250 px/s run speed");
+    assert.equal(catalog.enemies.enemy_011.defaults.runSpeed, 250, "Musket Goblin should default to the nimble 250 px/s run speed");
+    assert.equal(catalog.enemies.enemy_012.defaults.runSpeed, 250, "Tri-fireball Goblin should copy the Fireball Goblin run speed");
+    assert.equal(catalog.enemies.enemy_010.defaults.jumpHeight, 250, "Fireball Goblin should default to the nimble 250 px jump height");
+    assert.equal(catalog.enemies.enemy_011.defaults.jumpHeight, 250, "Musket Goblin should default to the nimble 250 px jump height");
     assert.equal(skeleton.defaults.awarenessViewHalfAngle, 60, "Skeleton Guard should default to the authored ±60 degree awareness cone");
     assert.equal(catalog.enemies.enemy_010.defaults.awarenessViewHalfAngle, 60, "Fireball Goblin should default to the authored ±60 degree awareness cone");
     assert.equal(catalog.enemies.enemy_011.defaults.awarenessViewHalfAngle, 60, "Musket Goblin should default to the authored ±60 degree awareness cone");
@@ -1820,9 +1824,13 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(levelOneBat.bomberDropHeightTolerance, 20, "level_t01 Bombing Bat should wait until it reaches the high release band");
     assert.equal(levelOneBat.bomberApproachArcHeight, 72, "level_t01 Bombing Bat should use the authored curved approach");
     for (const goblin of levelOne.entities.filter((entity) => entity.characterId === "ct_char_enemy_010" || entity.characterId === "ct_char_enemy_012")) {
-        assert.equal(goblin.runSpeed, 200, `${goblin.id} should use the baked 200 px/s run profile`);
-        assert.equal(goblin.jumpHeight, 200, `${goblin.id} should use the baked 200 px jump profile`);
+        assert.equal(goblin.runSpeed, 250, `${goblin.id} should use the baked 250 px/s run profile`);
+        assert.equal(goblin.jumpHeight, 250, `${goblin.id} should use the baked 250 px jump profile`);
         assert.equal(goblin.awarenessViewHalfAngle, 60, `${goblin.id} should use the authored ±60 degree awareness cone`);
+    }
+    for (const human of levelOne.entities.filter((entity) => /^ct_char_enemy_03/.test(entity.characterId || ""))) {
+        assert.equal(human.runSpeed, 200, `${human.id} should use the authored human 200 px/s run profile`);
+        assert.equal(human.jumpHeight, 200, `${human.id} should use the authored human 200 px jump profile`);
     }
 
     const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
@@ -2322,7 +2330,7 @@ function testLevelOneUsesBakedHunterNavigationGraphs() {
 
     const graph = level.navigationGraphs.profiles.find((candidate) => candidate.profile.bodyWidth === 70 && candidate.profile.bodyHeight === 105);
     assert.ok(graph, "level_t01 should retain the goblin hunter mobility profile");
-    assert.equal(graph.profile.runSpeed, 200, "the baked goblin hunter profile should match the authored run speed");
+    assert.equal(graph.profile.runSpeed, 250, "the baked goblin hunter profile should match the authored nimble run speed");
     assert.equal(graph.profile.maxFallDistance, 600, "the baked goblin hunter profile should permit the authored long ledge descent");
     const casterGraph = level.navigationGraphs.profiles.find((candidate) => candidate.profile.bodyWidth === 72 && candidate.profile.bodyHeight === 164);
     assert.ok(casterGraph, "level_t01 should retain the Skeleton Caster's distinct pathing-projectile hunter profile");
@@ -2330,7 +2338,8 @@ function testLevelOneUsesBakedHunterNavigationGraphs() {
     assert.equal(casterGraph.profile.maxFallDistance, 600, "the baked Skeleton Caster profile should preserve its current fall tolerance");
     const humanGraph = level.navigationGraphs.profiles.find((candidate) => candidate.profile.bodyWidth === 67.5 && candidate.profile.bodyHeight === 194);
     assert.ok(humanGraph, "level_t01 should include the distinct tall-human hunter mobility profile");
-    assert.equal(humanGraph.profile.runSpeed, 152, "the baked human hunter profile should match the authored run speed");
+    assert.equal(humanGraph.profile.runSpeed, 200, "the baked human hunter profile should match the authored human run speed");
+    assert.equal(humanGraph.profile.jumpHeight, 200, "the baked human hunter profile should retain its authored human jump height");
     assert.equal(humanGraph.profile.maxFallDistance, 600, "the baked human hunter profile should permit the authored tall-ledge exits");
     assert.ok(
         humanGraph.edges.some((edge) => edge.from === "left_step_blockable_1" && edge.to === "start_ground_blockable_2" && edge.type === "jump" && edge.direction === "left"),
@@ -2605,6 +2614,182 @@ function testHumanHunterEscapesLevelOneLeftLedge() {
     assert.equal(enemy.navigationFailureCount, 0, "the valid escape should not count as a navigation failure");
 }
 
+function testVisibleHunterApproachesBlockedLevelOnePillarBeforeGlare() {
+    const level = JSON.parse(readFileSync("./assets/level_t01.json", "utf8"));
+    level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_032_001");
+
+    const state = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for the right-side pillar hunter regression test");
+    const manifests = new Map();
+    for (const ref of level.atlasRefs || []) {
+        const path = String(ref.manifest || "").replace(/^assets\//, "./assets/");
+        manifests.set(ref.atlasId, { manifest: JSON.parse(readFileSync(path, "utf8")) });
+    }
+    assert.equal(applyAtlasManifestsToWorld(state, manifests), true, "level collision should apply for the right-side pillar hunter regression test");
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 1200;
+    state.player.y = 844.22;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    state.player.visible = true;
+
+    const enemy = state.enemies.find((item) => item.id === "enemy_032_001");
+    assert.ok(enemy, "level_t01 should instantiate the right-side human knife thrower");
+    enemy.x = 2784;
+    enemy.y = 844.5508804953561;
+    enemy.facing = -1;
+    enemy.awarenessRange = 2000;
+    enemy.engaged = true;
+    enemy.alerted = true;
+    enemy.aiState = "pursue";
+    enemy.routeRepathTimer = 0;
+    enemy.attackCooldownTimer = 99;
+
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.notEqual(enemy.aiState, "unreachable_glare", "a visible hunter should not glare when the updated tall-human graph has a valid pillar route");
+    assert.equal(enemy.routePurpose, "attack_position", "the faster tall-human graph should find a real attack-position route instead of settling for blocked approach");
+    assert.equal(enemy.navigationGraphId, "w67.5_h194_r200_a950_j200_g1250_f600_s26_q21.6", "the human hunter should consume the baked 200 px/s and 200 px jump profile");
+    assert.equal(enemy.route?.[0]?.to, "object_036_001_blockable_1", "the route should first jump onto the central pillar");
+    assert.equal(enemy.route?.[0]?.type, "jump", "the first pillar transition should be a jump, not a stuck walk into the obstacle");
+
+    const startX = enemy.x;
+    let movedLeft = false;
+    for (let frame = 0; frame < 40; frame += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        movedLeft ||= enemy.x < startX - 80;
+        if (movedLeft) {
+            break;
+        }
+    }
+    assert.equal(movedLeft, true, "the human hunter should physically run toward the pillar route");
+}
+
+function testVisibleHunterStopsAtBlockedLevelOnePillarApproach() {
+    const level = JSON.parse(readFileSync("./assets/level_t01.json", "utf8"));
+    level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_032_001");
+
+    const state = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for the human pillar-crossing regression test");
+    const manifests = new Map();
+    for (const ref of level.atlasRefs || []) {
+        const path = String(ref.manifest || "").replace(/^assets\//, "./assets/");
+        manifests.set(ref.atlasId, { manifest: JSON.parse(readFileSync(path, "utf8")) });
+    }
+    assert.equal(applyAtlasManifestsToWorld(state, manifests), true, "level collision should apply for the human pillar-crossing regression test");
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.health.amount = 999;
+    state.health.max = 999;
+    state.player.x = 1200;
+    state.player.y = 844.22;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    state.player.visible = true;
+
+    const enemy = state.enemies.find((item) => item.id === "enemy_032_001");
+    assert.ok(enemy, "level_t01 should instantiate the right-side human knife thrower");
+    enemy.x = 1705;
+    enemy.y = 844.3264008627347;
+    enemy.facing = -1;
+    enemy.awarenessRange = 2000;
+    enemy.engaged = true;
+    enemy.alerted = true;
+    enemy.aiState = "pursue";
+    enemy.routeRepathTimer = 0;
+    enemy.attackCooldownTimer = 99;
+    enemy.projectileDamage = 0;
+
+    let sawJump = false;
+    let landedOnPillar = false;
+    let landedOnLeftFloor = false;
+    let glared = false;
+    for (let frame = 0; frame < 240; frame += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        sawJump ||= enemy.airborne && enemy.aiState === "jump";
+        landedOnPillar ||= !enemy.airborne && enemy.currentSupportId === "object_036_001_blockable_1";
+        landedOnLeftFloor ||= landedOnPillar && !enemy.airborne && enemy.currentSupportId === "floor_cold_platform_001_blockable_2_nav_1";
+        glared ||= enemy.aiState === "unreachable_glare";
+        if (landedOnLeftFloor) break;
+    }
+
+    assert.equal(glared, false, "the faster tall human should not give up at the central pillar");
+    assert.equal(sawJump, true, "the human hunter should commit to the right-side pillar jump");
+    assert.equal(landedOnPillar, true, "the human hunter should land on the pillar top");
+    assert.equal(landedOnLeftFloor, true, "the human hunter should cross the pillar and descend toward Ignatius");
+}
+
+function testHunterReturnHomeCanReengageAfterShortCooldown() {
+    const level = JSON.parse(readFileSync("./assets/level_t01.json", "utf8"));
+    level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_032_001");
+
+    const state = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for the return-home reengagement cooldown regression test");
+    const manifests = new Map();
+    for (const ref of level.atlasRefs || []) {
+        const path = String(ref.manifest || "").replace(/^assets\//, "./assets/");
+        manifests.set(ref.atlasId, { manifest: JSON.parse(readFileSync(path, "utf8")) });
+    }
+    assert.equal(applyAtlasManifestsToWorld(state, manifests), true, "level collision should apply for the return-home reengagement cooldown regression test");
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.visible = true;
+
+    const enemy = state.enemies.find((item) => item.id === "enemy_032_001");
+    assert.ok(enemy, "level_t01 should instantiate the right-side human knife thrower");
+    enemy.x = 2100;
+    enemy.y = 844.409954974282;
+    enemy.spawnX = 2784;
+    enemy.spawnY = 844.5508804953561;
+    enemy.homeSupportId = "floor_cold_platform_001_blockable_2_nav_2";
+    enemy.currentSupportId = "floor_cold_platform_001_blockable_2_nav_2";
+    enemy.facing = 1;
+    enemy.awarenessRange = 2000;
+    enemy.engaged = false;
+    enemy.alerted = false;
+    enemy.aiState = "unreachable_glare";
+    enemy.glareTimer = FIXED_DT;
+    enemy.glareFocusX = enemy.x + 220;
+    enemy.glareFocusY = enemy.y;
+    enemy.routeRepathTimer = 99;
+    enemy.attackCooldownTimer = 99;
+    enemy.projectileDamage = 0;
+    enemy.route = [];
+    enemy.routeIndex = 0;
+    enemy.routeTargetSupportId = null;
+    enemy.routeTargetX = null;
+    enemy.routeTargetY = null;
+    enemy.routePurpose = null;
+
+    state.player.x = enemy.x + 220;
+    state.player.y = enemy.y;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(enemy.aiState, "return_home", "glare expiry should start the return-home recovery");
+
+    for (let frame = 0; frame < 110; frame += 1) {
+        state.player.x = enemy.x + 220;
+        state.player.y = enemy.y;
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        assert.equal(enemy.aiState, "return_home", "the short anti-flicker cooldown should suppress immediate return-home reacquisition");
+    }
+
+    let reengaged = false;
+    for (let frame = 0; frame < 90; frame += 1) {
+        state.player.x = enemy.x + 220;
+        state.player.y = enemy.y;
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        reengaged ||= enemy.aiState === "pursue" || enemy.aiState === "attack";
+        if (reengaged) break;
+    }
+    assert.equal(reengaged, true, "after the two-second cooldown, a returning hunter should re-engage a visible reachable Ignatius instead of ignoring him until home");
+}
+
 function testHunterClimbsLevelOnePillarFromLeftWithoutWallClipping() {
     const level = JSON.parse(readFileSync("./assets/level_t01.json", "utf8"));
     level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_010_001");
@@ -2658,8 +2843,8 @@ function testHunterClimbsLevelOnePillarFromLeftWithoutWallClipping() {
 
     assert.ok(plannedJump, "the hunter should plan an upward jump from the left floor");
     assert.equal(plannedJump.to, "object_036_001_blockable_1", "the upward route should target the pillar top directly instead of a tiny side ledge");
-    assert.ok(plannedJump.launchX <= 1390, `the hunter should launch early enough to clear the left wall, got ${plannedJump.launchX}`);
-    assert.ok(plannedJump.takeoffClearance >= 70, `the early launch should preserve full-body wall clearance, got ${plannedJump.takeoffClearance}`);
+    assert.ok(plannedJump.launchX <= 1430, `the nimble hunter should launch from the valid revised run-up window, got ${plannedJump.launchX}`);
+    assert.ok(plannedJump.takeoffClearance >= 70 * 0.54, `the launch should preserve enough body clearance for the revised nimble arc, got ${plannedJump.takeoffClearance}`);
     assert.equal(jumpStarts, 1, "the left-side pillar climb should succeed on the first jump attempt");
     assert.equal(landedOnPillarTop, true, "the hunter should land on the pillar top instead of clipping the wall and falling back");
     assert.equal(enemy.navigationFailureCount, 0, "the successful left-side climb should not record navigation failures");
@@ -4216,16 +4401,21 @@ function testRebalancedEnemyHealthAndRocketHits() {
     const catalog = JSON.parse(readFileSync(new URL("../assets/ct_enemies_001.json", import.meta.url), "utf8"));
     const levelOne = JSON.parse(readFileSync(new URL("../assets/level_t01.json", import.meta.url), "utf8"));
     const profiles = [
-        { id: "enemy_001", characterId: "ct_char_enemy_001", expectedHealth: 90, expectedHits: 3 },
+        { id: "enemy_001", characterId: "ct_char_enemy_001", expectedHealth: 120, expectedHits: 4 },
+        { id: "enemy_002", characterId: "ct_char_enemy_002", expectedHealth: 120, expectedHits: 4 },
         { id: "enemy_010", characterId: "ct_char_enemy_010", expectedHealth: 60, expectedHits: 2 },
         { id: "enemy_011", characterId: "ct_char_enemy_011", expectedHealth: 60, expectedHits: 2, placedInLevelOne: false },
         { id: "enemy_012", characterId: "ct_char_enemy_012", expectedHealth: 60, expectedHits: 2 },
-        { id: "enemy_020", characterId: "ct_char_enemy_020", expectedHealth: 1, expectedHits: 1 }
+        { id: "enemy_020", characterId: "ct_char_enemy_020", expectedHealth: 1, expectedHits: 1 },
+        { id: "enemy_030", characterId: "ct_char_enemy_030", expectedHealth: 90, expectedHits: 3 },
+        { id: "enemy_031", characterId: "ct_char_enemy_031", expectedHealth: 90, expectedHits: 3 },
+        { id: "enemy_032", characterId: "ct_char_enemy_032", expectedHealth: 90, expectedHits: 3 },
+        { id: "enemy_033", characterId: "ct_char_enemy_033", expectedHealth: 90, expectedHits: 3 }
     ];
 
     for (const profile of profiles) {
         const catalogHealth = catalog.enemies[profile.id].defaults.health;
-        assert.equal(catalogHealth, profile.expectedHealth, `${profile.id} catalog health should match the revision-220 balance`);
+        assert.equal(catalogHealth, profile.expectedHealth, `${profile.id} catalog health should match the revision-478 balance`);
         const placed = levelOne.entities.find((entity) => entity.characterId === profile.characterId);
         if (profile.placedInLevelOne !== false) {
             assert.ok(placed, `level_t01 should contain ${profile.characterId}`);
@@ -4244,8 +4434,8 @@ function testRebalancedEnemyHealthAndRocketHits() {
                 characterId: profile.characterId,
                 x: 180,
                 y: 100,
-                w: profile.id === "enemy_001" ? 72 : 70,
-                h: profile.id === "enemy_001" ? 164 : 105,
+                w: profile.id === "enemy_001" || profile.id === "enemy_002" ? 72 : (profile.id.startsWith("enemy_03") ? 67.5 : 70),
+                h: profile.id === "enemy_001" || profile.id === "enemy_002" ? 164 : (profile.id.startsWith("enemy_03") ? 194 : 105),
                 health: profile.expectedHealth,
                 strategy: "sentry",
                 facing: -1
@@ -4274,7 +4464,7 @@ function testRebalancedEnemyHealthAndRocketHits() {
 
     const fallbackState = createInitialGameState();
     assert.equal(applyEditorLevelToWorld(fallbackState, {
-        levelId: "default_enemy_health_60",
+        levelId: "default_enemy_health_90",
         testPlayerStart: { x: 0, y: 600 },
         entities: [{
             id: "new_monster_without_authored_health",
@@ -4285,15 +4475,15 @@ function testRebalancedEnemyHealthAndRocketHits() {
             strategy: "sentry"
         }]
     }), true, "missing-health enemy test level should apply");
-    assert.equal(fallbackState.enemies[0].health, 60, "new monsters without authored health should default to 60 HP at runtime");
-    assert.equal(fallbackState.enemies[0].maxHealth, 60, "new monsters without authored health should default to 60 maximum HP");
+    assert.equal(fallbackState.enemies[0].health, 90, "new monsters without authored health should default to 90 HP at runtime");
+    assert.equal(fallbackState.enemies[0].maxHealth, 90, "new monsters without authored health should default to 90 maximum HP");
 
     const levelEditorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const characterEditorHtml = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
-    assert.ok(levelEditorHtml.includes("health: 60,"), "new Level Editor enemy placements should start from the 60 HP fallback");
-    assert.ok(levelEditorHtml.includes("finiteEditorNumber(rec.health, 60)"), "Level Editor enemy health inspector should fall back to 60 HP");
-    assert.ok(characterEditorHtml.includes("Number(defaults.health) : 60"), "Puppet Forge should show 60 HP when a catalog entry has no authored health");
-    assert.ok(characterEditorHtml.includes('els.enemyHealth.value.trim() === "" ? 60'), "Puppet Forge should save 60 HP when a new enemy health field is blank");
+    assert.ok(levelEditorHtml.includes("health: 90,"), "new Level Editor enemy placements should start from the 90 HP fallback");
+    assert.ok(levelEditorHtml.includes("finiteEditorNumber(rec.health, 90)"), "Level Editor enemy health inspector should fall back to 90 HP");
+    assert.ok(characterEditorHtml.includes("Number(defaults.health) : 90"), "Puppet Forge should show 90 HP when a catalog entry has no authored health");
+    assert.ok(characterEditorHtml.includes('els.enemyHealth.value.trim() === "" ? 90'), "Puppet Forge should save 90 HP when a new enemy health field is blank");
 }
 
 function testCharacterEnemyRocketCombat() {
@@ -7550,7 +7740,7 @@ function testCaveWindowSplineAuthoring() {
     assert.equal(levelEditorHtml.includes("fitView();"), false, "the stale removed fitView startup call should not remain");
     assert.ok(levelEditorHtml.includes("fitContentView();"), "editor startup should invoke the current content-fit helper");
     assert.ok(levelEditorHtml.includes("draw({ reuseScene: true })"), "placement-preview and marquee pointer movement should remain compatible with the coalesced render scheduler");
-    assert.ok(levelEditorHtml.includes("buildOverlapBlendGroups") && levelEditorHtml.includes("createOverlapBlendSurface") && levelEditorHtml.includes("drawMainPlacementLayer"), "Level Editor should preview cached seamless overlap composites without deleting individual placements");
+    assert.ok(levelEditorHtml.includes("buildOverlapBlendGroups") && levelEditorHtml.includes("createOverlapBlendSurface") && levelEditorHtml.includes("drawMainPlacementArtworkEntries"), "Level Editor should preview cached seamless overlap composites without deleting individual placements");
     assert.equal(levelEditorHtml.includes("function editorOverlapBlendSignature"), false, "Level Editor should not rebuild a whole-placement overlap signature on every scene render");
     const editorDrawFunction = levelEditorHtml.slice(levelEditorHtml.indexOf("    function draw(options = null)"), levelEditorHtml.indexOf("    function drawPlacementPreview()"));
     assert.equal(editorDrawFunction.includes("scheduleJsonUpdate"), false, "the editor render scheduler must not serialize the level document");
@@ -8433,6 +8623,7 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     assert.ok(state.world.visuals.some((visual) => visual.entityId === "fuel_test" && visual.assetId === "rocket_fuel_canister"), "fuel should become an atlas visual");
     assert.equal(state.pickups[0].visualized, true, "atlas-backed fuel should suppress the old debug-circle rendering");
     assert.equal(state.enemies[0].visualized, true, "atlas-backed target dummy should be recognized as artwork-backed");
+    assert.equal(state.enemies[0].maxHealth, 90, "atlas-backed target dummy should use the 90 HP practice-target balance");
     approx(state.targets[0].x, 600, 0.000001, "target dummy homing point should be centered on the bullseye");
     approx(state.targets[0].y, 500 - targetDef.defaultSize.h * 0.5, 0.000001, "target dummy homing point should use the belly bullseye height");
     assert.equal(state.targets[0].showMarker, false, "artwork-backed target dummy should suppress the old dot and pulse marker");
@@ -9039,7 +9230,7 @@ function testRocketPowerUpArsenal() {
         "the debug panel should use compact wrapped text and scrolling rather than clipping diagnostics"
     );
     assert.ok(gameHtml.indexOf('id="health-text"') < gameHtml.indexOf('id="fuel-text"') && gameHtml.indexOf('id="fuel-text"') < gameHtml.indexOf('id="power-text"'), "HUD bars should be ordered health, rocket fuel, then Power");
-    assert.ok(bootstrapSource.includes('powerText.textContent = "Powerup:"') && bootstrapSource.includes("prioritizedActivePowerUpEffect"), "the empty Power bar should omit the word None and use shared effect priority");
+    assert.ok(bootstrapSource.includes('setHudText("powerText", powerText, "Powerup:")') && bootstrapSource.includes("prioritizedActivePowerUpEffect"), "the empty Power bar should omit the word None and use shared effect priority");
     assert.ok(bootstrapSource.includes("browserRandomSeed"), "browser level starts should supply a fresh random seed to portable pickup rolls");
     assert.ok(!bootstrapSource.includes("grounded recharge") && !bootstrapSource.includes("regen in"), "main HUD labels should omit developer recharge and regeneration annotations");
     assert.ok(
@@ -9051,10 +9242,10 @@ function testRocketPowerUpArsenal() {
     const characterEditorSource = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 475<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(characterEditorSource, /Puppet Forge <small>rev 475<\/small>/, "Puppet Forge should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 481<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(characterEditorSource, /Puppet Forge <small>rev 481<\/small>/, "Puppet Forge should display the packaged revision");
     const assetEditorSource = readFileSync(new URL("../asset-editor.html", import.meta.url), "utf8");
-    assert.match(assetEditorSource, /Asset Tool <small>rev 475<\/small>/, "Asset Tool should display the packaged revision");
+    assert.match(assetEditorSource, /Asset Tool <small>rev 481<\/small>/, "Asset Tool should display the packaged revision");
     assert.match(assetEditorSource, /id="atlas-numbered-select"[\s\S]*id="load-numbered-atlas"[\s\S]*id="load-local"[\s\S]*id="save-local"[\s\S]*id="quick-save-json"/, "Asset Tool should keep atlas loading and save/export controls together in the Files panel");
     assert.ok(!assetEditorSource.includes("Custom atlas image") && !assetEditorSource.includes("Custom JSON"), "Asset Tool should retire the visible custom import pickers from the primary Files panel");
     assert.doesNotMatch(assetEditorSource, /load-default-image|load-default-json/, "Asset Tool should retire the hard-coded at_atlas_001 load buttons");
@@ -9087,7 +9278,7 @@ function testRocketPowerUpArsenal() {
     assert.equal(editorSource.includes('id="canvas-renderer-baseline"'), false, "the Level Editor should no longer advertise the posterity-only Canvas baseline");
     assert.equal(editorSource.includes("openCanvasRendererBaseline"), false, "the removed baseline link should leave no dormant click handler");
     assert.equal(editorSource.includes("Editor 2 lab"), false, "the Level Editor should not link to the removed Editor 2 lab");
-    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 475") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
+    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 481") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
     assert.ok(baselineSource.includes("applyEditorLevelToWorld") && baselineSource.includes("preferWebGL2: false") && baselineSource.includes("setViewOverride"), "the retained baseline should still convert the authored level and use the ordinary Canvas2D game renderer with an editor camera override");
     assert.ok(editorPlaywrightBenchmark.includes("benchmark_baseline") && editorPlaywrightBenchmark.includes("benchmark_editor") && editorPlaywrightBenchmark.includes("editorToBaselineCadenceRatio"), "the optional Playwright probe should compare the loaded baseline and editor rather than source-only timings");
     assert.ok(editorPlaywrightBenchmark.includes("bodyScrollWidth") && editorPlaywrightBenchmark.includes("stageBacking") && editorPlaywrightBenchmark.includes("overlayBacking"), "the Playwright probe should detect viewport overflow and stage/overlay size divergence");
@@ -9097,7 +9288,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(rendererSource.includes("backingPixelsPerCssPixel") && rendererSource.includes("override.cssZoom * backingPixelsPerCssPixel") && editorSource.includes("cssZoom: state.camera.zoom"), "editor and runtime artwork should share one CSS-pixel camera scale so guide alignment does not drift across the viewport");
     assert.ok(rendererSource.includes("this.ctx.setTransform(1, 0, 0, 1, 0, 0)") && rendererSource.includes("never inherit a CSS/DPR transform"), "the production Canvas renderer should reset inherited context transforms before drawing backing-pixel coordinates");
     assert.ok(editorSource.includes("stageCtx?.setTransform(1, 0, 0, 1, 0, 0)") && !editorSource.includes("stageCtx?.setTransform(dpr"), "the Level Editor must not pre-scale the production scene context by devicePixelRatio");
-    assert.match(bootstrapSource, /const GAME_REVISION = "475";/, "the game debug revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "481";/, "the game debug revision should match the packaged revision");
     assert.ok(
         editorSource.includes('<div class="level-section-label">Existing Level:</div>')
             && editorSource.includes('id="load-level">Load</button>')
@@ -10975,7 +11166,7 @@ function testPhase1013TuningDefaultsDebugPoseAndFuelBulbFlash() {
     assert.equal(DEFAULT_TUNING.rechargeDelayAfterUse, 1, "Phase 1.015 should bake in the current recharge delay");
     assert.equal(DEFAULT_TUNING.rechargeRate, 52, "Phase 1.015 should bake in the current recharge rate");
     assert.equal(DEFAULT_TUNING.rocketLaunchCost, 30, "Phase 1.015 should bake in the current rocket launch cost");
-    assert.equal(DEFAULT_TUNING.rocketProjectileDamage, 30, "standard rockets should use the three-hit goblin damage value");
+    assert.equal(DEFAULT_TUNING.rocketProjectileDamage, 30, "standard rockets should keep the 30 HP damage value");
     assert.equal(DEFAULT_TUNING.groundAcceleration, 950, "Phase 1.015 should bake in the softer ground acceleration");
     assert.equal(DEFAULT_TUNING.groundFriction, 900, "Phase 1.015 should bake in the softer ground friction");
     assert.equal(DEFAULT_TUNING.attachedBoostSmokePuffInterval, 0.035);
@@ -13539,6 +13730,9 @@ const tests = [
     ["engaged hunter immediately leaves pillar for last seen player", testEngagedHunterImmediatelyLeavesPillarForLastSeenPlayer],
     ["hunter walks off level_t01 left ledge", testHunterWalksOffLevelOneLeftLedge],
     ["human hunter escapes level_t01 left ledge", testHumanHunterEscapesLevelOneLeftLedge],
+    ["human hunter routes over blocked level_t01 pillar", testVisibleHunterApproachesBlockedLevelOnePillarBeforeGlare],
+    ["human hunter crosses level_t01 central pillar", testVisibleHunterStopsAtBlockedLevelOnePillarApproach],
+    ["hunter return-home reengagement cooldown", testHunterReturnHomeCanReengageAfterShortCooldown],
     ["hunter climbs level_t01 pillar from the left", testHunterClimbsLevelOnePillarFromLeftWithoutWallClipping],
     ["hunter jumps onto level_t01 arch", testHunterJumpsOntoLevelOneArchWithLargeAuthoredJump],
     ["Skeleton Caster pursues onto level_t01 ruin", testSkeletonCasterPursuesOntoLevelOneRuin],

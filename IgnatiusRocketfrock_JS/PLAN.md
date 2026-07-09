@@ -4001,3 +4001,38 @@ Green walkables remain one-way: holding Down still opts out of them, and upward/
 ## Revision 475 hidden debug-panel throttling
 
 Revision 475 carries forward the newest authored `assets/level_001.json` supplied after revision 474. It also stops building the game debug diagnostics while the debug panel is hidden. `updateDebugText()` now returns before collecting renderer metrics, animation diagnostics, input history, event strings, or assigning text content when the debug `<pre>` is hidden. Showing the panel through either the menu button or debug shortcut immediately refreshes it once, then resumes ordinary per-frame updates only while visible.
+
+## Revision 476 low-risk cleanup and HUD write coalescing
+
+Revision 476 removes an obsolete duplicate Human Raider rig JSON that carried a stray space before its extension, then adds that exact path to the retired-file guard so future archives reject it if it returns. The Level Editor also drops several unused helper functions left behind by earlier import, preview, cutout, and placement-layer refactors, while keeping the active runtime-renderer editor path intact.
+
+The game HUD now caches the last text, width, title, hidden-state, and class values it wrote to DOM nodes. The render loop still calls `updateHud()` every animation frame, but unchanged labels and meter widths no longer dirty the DOM. The simulation debug input snapshot also avoids a JSON stringify/parse clone each fixed tick and instead copies the small input-frame object directly.
+
+
+## Revision 477 blocked-pillar hunter pursuit fallback
+
+Revision 477 keeps hunter awareness independent from blockable yellow geometry while fixing the visible-but-blocked pursuit decision. When a hunter can see Ignatius but no reachable firing or melee position exists because a pillar, blockable area, or similar obstacle splits the space, the AI now plans toward the nearest reachable support point to Ignatius instead of immediately entering `unreachable_glare`. This makes blocked hunters walk up to investigate the obstruction or last visible approach point rather than freezing in place.
+
+The last-seen planner now shares the same nearest-reachable-support scorer, preserving the existing behaviour while keeping visible pursuit and lost-target investigation aligned. A regression test covers the right-side human knife thrower in the `level_t01`/`level_002` pillar scene shown by the editor debug overlay.
+
+## Revision 478 blocked-approach cleanup and HP rebalance
+
+Revision 478 tidies the hunter behaviour introduced in revision 477: a hunter that can see Ignatius but can only reach a nearby blocked approach point now treats that as a distinct `blocked_approach` route. It still walks toward the useful reachable position, but once it arrives and still has no valid attack lane, it idles into `unreachable_glare` instead of continuing to present as pursuit against a ledge, pillar, or wall.
+
+The enemy-health pass also restores the requested balance: regular goblins remain 60 HP, humans are 90 HP, skeletons are 120 HP, bats remain 1 HP, target dummies are 90 HP, and future uncatalogued character enemies default to 90 HP. The boss goblin remains unchanged.
+
+## Revision 479 human jump rebake and glare retry clamp
+
+Revision 479 moves every modular human hunter default and placed human hunter from the accidental `jumpHeight: 196` value to the intended 200 px jump height, matching goblin mobility. The shipped `level_001`, `level_002`, and `level_t01` baked navigation graphs were regenerated so their tall-human profile now has an exact `j200` match instead of falling back to runtime graph construction.
+
+This revision also stops visible blocked-approach glare from flickering back into one-frame pursuit attempts. While a hunter is already in `unreachable_glare`, a fresh plan that is still only the same nearest-reachable `blocked_approach` fallback is ignored until the player moves to a genuinely actionable route or attack position.
+
+## Revision 480 human run-speed rebake and return-home reacquisition
+
+Revision 480 brings every modular human hunter up to the goblin 200 px/s run-speed class while preserving their 200 px jump height, 90 HP balance, and tall 67.5×194 body profile. The shipped `level_001`, `level_002`, and `level_t01` placed humans were updated and their baked hunter navigation graphs were regenerated, giving the tall-human profile exact `r200/j200` graph matches and restoring pillar-climb arcs that were speed-limited at the old 152 px/s profile.
+
+The blocked-approach glare recovery also now distinguishes a useful reacquisition from a jitter retry. When a glare expires, a hunter starts home recovery with a two-second anti-flicker cooldown; after that cooldown, a visible and genuinely reachable Ignatius can pull the hunter back into pursuit or attack before it has returned all the way to its original patrol spot.
+
+## Revision 481 nimble regular goblins
+
+Revision 481 makes ordinary Fireball, Musket, and Tri-fireball Goblins faster and springier: `enemy_010`, `enemy_011`, and `enemy_012` now default to `runSpeed: 250` and `jumpHeight: 250`. Existing regular goblins in `level_001`, `level_002`, `level_003`, `level_t01`, and `level_t02` were updated to the same values. Gorblax the Incandescent keeps his boss-specific 170/200 mobility profile. Affected baked hunter graphs were regenerated so runtime pathing uses exact `r250/j250` goblin profiles instead of falling back to live graph construction.

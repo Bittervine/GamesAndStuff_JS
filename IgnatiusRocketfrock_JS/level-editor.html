@@ -794,7 +794,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 475</small></h1>
+        <h1>Level Editor <small>rev 481</small></h1>
 
         <div class="box">
             <h2>Level</h2>
@@ -2879,23 +2879,6 @@ import {
         return normalized;
     }
 
-    async function loadDefaultLevelOnly({ applyToEditor = true } = {}) {
-        const level = normalizeLevelDefaults(await loadJsonUrl(DEFAULT_LEVEL_URL));
-        if (applyToEditor) {
-            state.level = level;
-            state.selectedCavePointId = "";
-            selectOnly(level.entities[0]?.id || level.placements[0]?.id || "");
-            await ensureAtlasesForLevel(level);
-            normalizeLoadedLevelPlacements();
-            snapAllWizardDoorsToNearbyGround();
-            snapAllCharacterEnemiesToNearbyGround();
-            refreshColorMappedAtlases({ redraw: false });
-            syncMetadataToUi();
-            persistUi();
-        }
-        return level;
-    }
-
 
     async function scanAvailableLevels() {
         state.availableLevels = [];
@@ -2970,16 +2953,6 @@ import {
                 // Keep the level data even if this atlas cannot be displayed yet.
             }
         }
-    }
-
-    function importManifest(manifest, fileName = "") {
-        const fallbackId = manifest?.atlasId || inferAtlasIdFromName(fileName) || state.activeAtlasId || DEFAULT_ATLAS_ID;
-        const record = registerAtlas(manifest, atlasRecord(fallbackId)?.image || null, {
-            atlasId: fallbackId,
-            manifestUrl: fileName || atlasManifestUrl(fallbackId)
-        });
-        setActiveAtlas(record.atlasId);
-        setStatus(`Imported ${record.atlasId} atlas JSON`);
     }
 
     function frameFor(assetId, atlasId = state.activeAtlasId) {
@@ -3404,22 +3377,6 @@ import {
         ctx.restore();
     }
 
-    function drawPreviewCollisionAreas(pctx, object, x, y, scale) {
-        for (const loop of findClosedCollisionLoops(object)) {
-            if (!loop.points.length) continue;
-            pctx.save();
-            pctx.fillStyle = collisionAreaColor(loop.kind);
-            pctx.beginPath();
-            pctx.moveTo(x + loop.points[0].x * scale, y + loop.points[0].y * scale);
-            for (let i = 1; i < loop.points.length; i += 1) {
-                pctx.lineTo(x + loop.points[i].x * scale, y + loop.points[i].y * scale);
-            }
-            pctx.closePath();
-            pctx.fill();
-            pctx.restore();
-        }
-    }
-
     function drawWorldCollisionArea(points, color) {
         if (!points.length) return;
         const first = worldToScreen(points[0].x, points[0].y);
@@ -3547,7 +3504,7 @@ import {
             w: Math.max(1, Number(definition.defaultSize?.w) || 72),
             h: Math.max(1, Number(definition.defaultSize?.h) || 150),
             scale: 1,
-            health: 60,
+            health: 90,
             ...cloneData(definition.defaults || {}),
             notes: definition.description || definition.label || enemyId
         };
@@ -4321,14 +4278,6 @@ import {
             layer: "mask",
             notes: "Editor/rendering mask. Restores the cave background over visuals drawn before this mask, but does not block later assets or gameplay."
         };
-    }
-
-    function placeCutoutMask(point) {
-        const placement = createCutoutMask(point);
-        state.level.placements.push(placement);
-        selectOnly(placement.id);
-        persistUi();
-        return placement;
     }
 
     function createEntityPlacement(point, { preview = false } = {}) {
@@ -5573,26 +5522,6 @@ import {
         }
     }
 
-    function drawMainPlacementArtworkLayer(placements, viewportBounds) {
-        drawMainPlacementArtworkEntries(placements, viewportBounds, placements);
-    }
-
-    function drawMainPlacementLayer(placements, viewportBounds) {
-        drawMainPlacementArtworkLayer(placements, viewportBounds);
-        const visiblePlacements = editorMainViewportQuery(screenSize()).entries.map((entry) => entry.visual);
-        for (const placement of visiblePlacements) {
-            if (placement?.kind === "cutoutMask") drawPlacement(placement, viewportBounds);
-            else drawPlacementDetails(placement);
-        }
-    }
-
-    function drawCaveForegroundLayer(placements, viewportBounds, rect) {
-        const visiblePlacements = editorForegroundViewportQuery(rect).entries
-            .map((entry) => entry.visual)
-            .filter(generatedCavePlacementVisible);
-        for (const placement of visiblePlacements) drawPlacementDetails(placement);
-    }
-
     function drawPlacement(placement, viewportBounds = null, { skipArtwork = false, skipDetails = false, preview = false, useDisplayTransform = true } = {}) {
         if (!generatedCavePlacementVisible(placement)) return false;
         const displayPlacement = useDisplayTransform ? displayedLayerPlacement(placement) : placement;
@@ -6302,7 +6231,7 @@ import {
             els.inspectEnemyGlareDuration.value = Math.max(0, finiteEditorNumber(rec.unreachableGlareDuration, 5));
             els.inspectEnemyIdleDuration.value = Math.max(0, finiteEditorNumber(rec.idleDuration, 1.1));
             els.inspectEnemyTurnPause.value = Math.max(0, finiteEditorNumber(rec.turnPause, 0.5));
-            els.inspectEnemyHealth.value = Math.max(1, finiteEditorNumber(rec.health, 60));
+            els.inspectEnemyHealth.value = Math.max(1, finiteEditorNumber(rec.health, 90));
             els.inspectEnemyRenderScale.value = normalizeEnemyScale(rec.scale, 1);
             els.inspectEnemyAttackDamage.value = Math.max(0, finiteEditorNumber(rec.attackDamage, 24));
             els.inspectEnemyAttackRange.value = Math.max(1, finiteEditorNumber(rec.attackRange, 66));
@@ -6312,7 +6241,7 @@ import {
             els.inspectEnemyBossSignal.value = String(rec.bossDefeatSignalChannel || "");
             els.inspectGateChannel.value = normalizeSignalChannel(rec.channel);
             els.inspectGateBlocksPlayer.checked = rec.blocksPlayer !== false;
-            const reactiveHealth = Math.max(1, finiteEditorNumber(rec.maxHealth, finiteEditorNumber(rec.health, 60)));
+            const reactiveHealth = Math.max(1, finiteEditorNumber(rec.maxHealth, finiteEditorNumber(rec.health, 90)));
             els.inspectReactiveHealth.value = reactiveHealth;
             els.inspectReactiveDamagedHealth.value = Math.max(0, Math.min(reactiveHealth, finiteEditorNumber(rec.damagedHealthThreshold, reactiveHealth * 0.5)));
             els.inspectReactiveDamageMultiplier.value = Math.max(0, finiteEditorNumber(rec.projectileDamageMultiplier, 1));

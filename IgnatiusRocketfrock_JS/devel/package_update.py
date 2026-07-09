@@ -39,6 +39,7 @@ RETIRED_FILES = {
     "devel/ignatius_music_selections.json",
     "devel/ignatius_public_domain_jukebox_v7_long_form_loops.html",
     "devel/old/ct_char_enemy_004.json",
+    "assets/ct_rig_enemy_030 .json",
     "generate_level002_temp.mjs",
 }
 

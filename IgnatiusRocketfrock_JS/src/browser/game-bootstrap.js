@@ -104,7 +104,7 @@ const showMinimapInput = document.getElementById("show-minimap");
 const useHardwareRenderingInput = document.getElementById("use-hardware-rendering");
 const usePixmapPyramidsInput = document.getElementById("use-pixmap-pyramids");
 
-const GAME_REVISION = "475";
+const GAME_REVISION = "481";
 const START_LEVEL_ID = "level_001";
 const RESUME_SAVE_STORAGE_KEY = "ignatius_rocketfrock_resume_v1";
 
@@ -174,6 +174,7 @@ let accumulator = 0;
 let lastNow = performance.now();
 let lastInputFrame = createInputFrame();
 let devSingleStepArmed = false;
+const hudRenderCache = Object.create(null);
 let levelTransitionLoading = false;
 const tuningSliders = new Map();
 
@@ -1692,16 +1693,56 @@ function activeBossEnemy() {
     return bosses.find((enemy) => enemy.engaged === true || enemy.alerted === true || Number(enemy.health) < Number(enemy.maxHealth)) || null;
 }
 
+function setHudText(cacheKey, element, text) {
+    if (!element || hudRenderCache[cacheKey] === text) {
+        return;
+    }
+    hudRenderCache[cacheKey] = text;
+    element.textContent = text;
+}
+
+function setHudTitle(cacheKey, element, text) {
+    if (!element || hudRenderCache[cacheKey] === text) {
+        return;
+    }
+    hudRenderCache[cacheKey] = text;
+    element.title = text;
+}
+
+function setHudWidth(cacheKey, element, width) {
+    if (!element || hudRenderCache[cacheKey] === width) {
+        return;
+    }
+    hudRenderCache[cacheKey] = width;
+    element.style.width = width;
+}
+
+function setHudHidden(cacheKey, element, hidden) {
+    if (!element || hudRenderCache[cacheKey] === hidden) {
+        return;
+    }
+    hudRenderCache[cacheKey] = hidden;
+    element.hidden = hidden;
+}
+
+function setHudClass(cacheKey, element, className, enabled) {
+    if (!element || hudRenderCache[cacheKey] === enabled) {
+        return;
+    }
+    hudRenderCache[cacheKey] = enabled;
+    element.classList.toggle(className, enabled);
+}
+
 function updateBossHud() {
     if (!bossHud) return;
     const boss = activeBossEnemy();
-    bossHud.hidden = !boss;
+    setHudHidden("bossHidden", bossHud, !boss);
     if (!boss) return;
     const maximum = Math.max(1, Number(boss.maxHealth) || Number(boss.health) || 1);
     const current = Math.max(0, Math.min(maximum, Number(boss.health) || 0));
-    if (bossName) bossName.textContent = String(boss.bossName || "Boss");
-    if (bossHealthText) bossHealthText.textContent = `${Math.round(current)} / ${Math.round(maximum)} HP`;
-    if (bossHealthFill) bossHealthFill.style.width = `${(current / maximum * 100).toFixed(1)}%`;
+    setHudText("bossName", bossName, String(boss.bossName || "Boss"));
+    setHudText("bossHealthText", bossHealthText, `${Math.round(current)} / ${Math.round(maximum)} HP`);
+    setHudWidth("bossHealthWidth", bossHealthFill, `${(current / maximum * 100).toFixed(1)}%`);
 }
 
 function updateHud() {
@@ -1709,35 +1750,32 @@ function updateHud() {
     updateBossHud();
     const levelNumber = displayedLevelNumber(gameState.world?.levelId);
     const levelTitle = String(gameState.story?.levelTitle || "Untitled Cave").trim() || "Untitled Cave";
-    if (levelTitleText) {
-        levelTitleText.textContent = levelNumber === null ? levelTitle : `Level ${levelNumber}: ${levelTitle}`;
-        levelTitleText.title = levelTitleText.textContent;
-    }
-    if (scoreText) {
-        scoreText.textContent = `Score: ${Math.max(0, Math.floor(Number(gameState.score) || 0))}`;
-    }
+    const displayedLevelTitle = levelNumber === null ? levelTitle : `Level ${levelNumber}: ${levelTitle}`;
+    setHudText("levelTitleText", levelTitleText, displayedLevelTitle);
+    setHudTitle("levelTitleTitle", levelTitleText, displayedLevelTitle);
+    setHudText("scoreText", scoreText, `Score: ${Math.max(0, Math.floor(Number(gameState.score) || 0))}`);
 
     const fuelPercent = Math.max(0, Math.min(100, gameState.fuel.amount / Math.max(1, gameState.fuel.max) * 100));
     const healthPercent = Math.max(0, Math.min(100, gameState.health.amount / Math.max(1, gameState.health.max) * 100));
-    fuelFill.style.width = `${fuelPercent.toFixed(1)}%`;
-    healthFill.style.width = `${healthPercent.toFixed(1)}%`;
-    healthFill.classList.toggle("regenerating", gameState.health.regenerating === true);
-    healthFill.classList.toggle("recently-damaged", (Number(gameState.health.invulnerabilityTimer) || 0) > 0);
-    fuelText.textContent = `${Math.round(gameState.fuel.amount)} / ${Math.round(gameState.fuel.max)} %`;
-    healthText.textContent = `${Math.round(gameState.health.amount)} / ${Math.round(gameState.health.max)} HP`;
+    setHudWidth("fuelWidth", fuelFill, `${fuelPercent.toFixed(1)}%`);
+    setHudWidth("healthWidth", healthFill, `${healthPercent.toFixed(1)}%`);
+    setHudClass("healthRegenerating", healthFill, "regenerating", gameState.health.regenerating === true);
+    setHudClass("healthRecentlyDamaged", healthFill, "recently-damaged", (Number(gameState.health.invulnerabilityTimer) || 0) > 0);
+    setHudText("fuelText", fuelText, `${Math.round(gameState.fuel.amount)} / ${Math.round(gameState.fuel.max)} %`);
+    setHudText("healthText", healthText, `${Math.round(gameState.health.amount)} / ${Math.round(gameState.health.max)} HP`);
 
     const displayedEffect = prioritizedActivePowerUpEffect(gameState);
     if (!displayedEffect) {
-        powerText.textContent = "Powerup:";
-        powerTime.textContent = "";
-        powerFill.style.width = "0%";
+        setHudText("powerText", powerText, "Powerup:");
+        setHudText("powerTime", powerTime, "");
+        setHudWidth("powerWidth", powerFill, "0%");
         return;
     }
 
-    powerText.textContent = `Powerup: ${displayedEffect.definition.label}`;
+    setHudText("powerText", powerText, `Powerup: ${displayedEffect.definition.label}`);
     if (displayedEffect.definition.permanent) {
-        powerTime.textContent = "∞";
-        powerFill.style.width = "100%";
+        setHudText("powerTime", powerTime, "∞");
+        setHudWidth("powerWidth", powerFill, "100%");
         return;
     }
 
@@ -1745,8 +1783,8 @@ function updateHud() {
     const remainingSeconds = Math.max(0, Math.min(totalSeconds, Number(displayedEffect.remainingSeconds) || 0));
     const displayedRemaining = remainingSeconds.toFixed(1);
     const displayedTotal = Number.isInteger(totalSeconds) ? totalSeconds.toFixed(0) : totalSeconds.toFixed(1);
-    powerTime.textContent = `${displayedRemaining} / ${displayedTotal} s`;
-    powerFill.style.width = `${(remainingSeconds / totalSeconds * 100).toFixed(1)}%`;
+    setHudText("powerTime", powerTime, `${displayedRemaining} / ${displayedTotal} s`);
+    setHudWidth("powerWidth", powerFill, `${(remainingSeconds / totalSeconds * 100).toFixed(1)}%`);
 }
 
 function updateDebugText() {

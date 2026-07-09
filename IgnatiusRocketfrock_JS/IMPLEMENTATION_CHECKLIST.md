@@ -4252,3 +4252,45 @@ The Asset Tool also gains a faster line-editing gesture: in Add Node Mode, click
 - [x] Refresh debug text once when the debug panel is made visible from the menu button or keyboard shortcut.
 - [x] Add a source regression assertion for the hidden-panel guard.
 - [x] Synchronize visible revision labels to 475.
+
+## Revision 476 safe cleanup and performance polish
+
+- [x] Delete the obsolete `assets/ct_rig_enemy_030 .json` duplicate with the stray filename space.
+- [x] Add that duplicate path to the retired-file packaging guard.
+- [x] Remove unused Level Editor helper functions left from old import, preview, cutout, and placement-layer paths.
+- [x] Update the overlap-composite source regression to track the active helper name.
+- [x] Cache HUD DOM writes so unchanged labels, meter widths, classes, titles, and boss visibility are not reassigned every animation frame.
+- [x] Replace the per-tick debug input JSON clone with a small direct input-frame snapshot.
+- [x] Synchronize visible revision labels to 476.
+
+
+## Revision 477 blocked hunter pursuit fallback
+
+- [x] Add a shared nearest-reachable-support planner for visible pursuit and last-seen investigation.
+- [x] Let visible hunters approach the closest reachable point to Ignatius when no firing or melee position is available.
+- [x] Keep projectile line-of-fire blocking intact so hunters still do not shoot through yellow blockable geometry.
+- [x] Add a regression for the right-side human hunter approaching the central pillar instead of entering `unreachable_glare`.
+- [x] Synchronize visible revision labels to 477.
+
+## Revision 478 blocked-approach and health-balance verification
+
+- Added a dedicated `blocked_approach` hunter route purpose so visible-but-blocked hunters stop cleanly once the nearest reachable approach point is exhausted.
+- Added regression coverage for the level_t01/level_002 pillar case where the tall human hunter can approach the pillar but should not keep walking forever when the tall-human navigation profile has no valid upward route.
+- Rebalanced catalog defaults, placed level enemies, target dummy defaults, runtime fallbacks, Level Editor defaults, generator defaults, and Puppet Forge defaults to the requested 60/90/120/1 HP bands while preserving the boss goblin.
+
+## Revision 479 human jump and blocked-glare verification
+
+- [x] Updated human catalog defaults `enemy_030` through `enemy_033` from `jumpHeight: 196` to `jumpHeight: 200`.
+- [x] Updated placed human hunters in `level_001`, `level_002`, and `level_t01` to the same 200 px jump height.
+- [x] Rebuilt the affected baked navigation graphs so the tall-human profile id is `w67.5_h194_r152_a950_j200_g1250_f600_s26_q21.6`.
+- [x] Added regression coverage that blocked-approach glare remains stable instead of flickering into one-frame pursuit retries.
+
+## Revision 480 human speed and glare recovery verification
+
+Revision 480 verifies that `enemy_030` through `enemy_033` default to `runSpeed: 200`, `jumpHeight: 200`, and 90 HP, and that placed humans in the shipped Level 001/002 test pair carry the same run/jump values. The `level_t01` baked graph test now expects the tall-human graph to resolve as `r200/j200`, and the affected JSON levels were rebuilt so package validation still requires exact baked hunter mobility profiles.
+
+Regression coverage now also exercises the post-glare recovery path: a hunter that gives up on a blocked approach enters `return_home`, ignores reacquisition only during the short anti-flicker cooldown, and then re-engages a visible reachable Ignatius before completing the walk back home.
+
+## Revision 481 goblin mobility verification
+
+Revision 481 verifies that the active enemy catalog gives `enemy_010`, `enemy_011`, and `enemy_012` `runSpeed: 250` and `jumpHeight: 250`, and that placed non-boss goblins in the shipped campaign/test levels match those defaults. The affected baked hunter graphs were regenerated for the exact regular-goblin `r250/j250` profile while preserving the human `r200/j200`, Skeleton Caster `r150/j190`, and boss-specific `r170/j200` graph profiles.

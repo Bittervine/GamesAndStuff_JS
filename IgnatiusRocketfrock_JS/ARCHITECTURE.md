@@ -1903,3 +1903,38 @@ Vertical sweeps now use the same one-way-side rule for green walkables, so a pla
 ## Revision 475 hidden debug diagnostics gate
 
 The browser bootstrap treats the debug panel as an opt-in diagnostics surface. Because the panel starts hidden, `updateDebugText()` performs an early visibility guard before assembling high-churn strings or querying renderer diagnostics. Panel toggle handlers call `updateDebugText()` after making the panel visible so the first visible frame is current, while hidden frames skip the diagnostic path entirely. Gameplay, rendering, physics, and HUD update cadence are unchanged.
+
+## Revision 476 low-churn HUD and cleanup pass
+
+The browser bootstrap keeps HUD rendering on the normal animation-frame cadence, but revision 476 treats DOM writes as change-triggered side effects. `updateHud()` computes the same displayed strings and meter percentages as before, then writes only values that differ from the cached last render. This preserves visible HUD behaviour while avoiding unnecessary per-frame text, title, style-width, hidden, and class updates on machines where DOM churn can show up as micro-stutter.
+
+The fixed-step simulation now records `state.debug.lastInputFrame` with a purpose-built input-frame copy instead of the general JSON deep clone. This keeps the debug state isolated from the live input object without allocating JSON strings every simulation tick. Dead Level Editor helper functions and the obsolete spaced Human Raider rig duplicate are removed from the active project tree; the canonical `assets/ct_rig_enemy_030.json` remains authoritative.
+
+
+## Revision 477 reachable approach plans for blocked hunters
+
+Hunter routing now separates target awareness from attack-position availability more clearly. `chooseCharacterEnemyReachableApproachPlan()` scores every currently reachable navigation support by the support point closest to the target coordinate, then returns a normal `pursue` or `last_seen` plan for that support. The attack planner still prefers exact player-support routes and valid attack positions, but if no shot or melee point is reachable it falls back to this approach plan before glare.
+
+This preserves the collision-aware projectile lane rules: hunters still do not shoot through yellow blockable pillars. The change only affects the state decision after awareness succeeds, ensuring a blocked hunter continues to move toward the best reachable investigating position rather than treating a blocked shot as a globally unreachable target.
+
+## Revision 478 blocked hunter route purpose and health defaults
+
+Revision 478 separates visible-but-blocked hunter movement from ordinary pursuit by recording the nearest-reachable fallback as `blocked_approach`. The simulation still uses the same baked navigation graph and support-point clamping, but arrival at that route now resolves to idle/glare when no projectile or melee lane is available. This keeps awareness terrain-independent without leaving a hunter in a perpetual walk cycle against blocked geometry.
+
+Enemy health defaults are now consistent across catalog, editor, generator, runtime fallback, and authored levels: goblins 60, humans 90, skeletons 120, bats 1, target dummies 90, and uncatalogued future character enemies 90. Boss-authored health remains level data.
+
+## Revision 479 human mobility profiles and blocked-glare stability
+
+Revision 479 treats the modular human raider family as a 200 px jump-height mobility class. The enemy catalog defaults, authored level entities, and baked hunter navigation profiles now agree on `jumpHeight: 200`, preserving the exact-profile lookup contract used by `findBakedEnemyNavigationGraph`.
+
+The hunter glare state now filters out `blocked_approach` fallback plans during its periodic visible-target retry. That keeps the state machine stable after a hunter has already reached the nearest reachable approach point and discovered that terrain still blocks the attack lane, while still allowing reengagement when the planner finds a real attack or pursuit route.
+
+## Revision 480 human run profile and recovery reacquisition
+
+Revision 480 keeps enemy mobility profiles authored, baked, and runtime-matched as a single contract. Modular human enemies now share the goblin `runSpeed: 200` and `jumpHeight: 200` mobility class while retaining their larger body dimensions, so profile keys change from `r152` to `r200` and the affected campaign/test levels ship freshly baked navigation graphs for that exact tall-human shape.
+
+Hunter recovery now has a small explicit anti-flicker state variable, `unreachableReengageCooldownTimer`, used only after an unreachable glare times out into `return_home`. The cooldown prevents immediate blocked-approach retry chatter, but the return-home branch continues checking visible targets and can re-enter pursuit or attack once a non-blocked plan exists.
+
+## Revision 481 regular-goblin mobility profile
+
+Revision 481 splits ordinary goblin mobility from human mobility again. Regular goblin enemies use a nimble `runSpeed: 250` and `jumpHeight: 250` profile, while modular humans remain at their authored `runSpeed: 200` and `jumpHeight: 200` profile and the scaled boss goblin retains his custom boss profile. Level navigation graph metadata continues to be an exact contract: every shipped level with regular goblin hunters now carries a baked `w70_h105_r250_a950_j250_g1250_f600_s26_q22.4` graph.
