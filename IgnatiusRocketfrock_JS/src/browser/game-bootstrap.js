@@ -62,7 +62,6 @@ const debugPanelButton = document.getElementById("toggle-debug-panel");
 const gameTuningButton = document.getElementById("toggle-game-tuning");
 const helpPanelButton = document.getElementById("toggle-help-panel");
 const microProfilerButton = document.getElementById("toggle-micro-profiler");
-const staticBakeRendererButton = document.getElementById("toggle-static-bake-renderer");
 const helpPanel = document.getElementById("help-panel");
 const toolLinks = document.getElementById("tool-links");
 const applyTuningJsonButton = document.getElementById("apply-tuning-json");
@@ -106,9 +105,12 @@ const autoFullscreenRow = document.getElementById("auto-fullscreen-row");
 const autoFullscreenInput = document.getElementById("auto-fullscreen");
 const showMinimapInput = document.getElementById("show-minimap");
 const useHardwareRenderingInput = document.getElementById("use-hardware-rendering");
+const developmentModeInput = document.getElementById("development-mode");
 const usePixmapPyramidsInput = document.getElementById("use-pixmap-pyramids");
+const useBakedLayersRow = document.getElementById("use-baked-layers-row");
+const useBakedLayersInput = document.getElementById("use-baked-layers");
 
-const GAME_REVISION = "488";
+const GAME_REVISION = "492";
 const START_LEVEL_ID = "level_001";
 const RESUME_SAVE_STORAGE_KEY = "ignatius_rocketfrock_resume_v1";
 
@@ -135,6 +137,8 @@ let minimapLastDrawAt = -Infinity;
 let minimapLastSizeKey = "";
 let hudPanelScale = 1;
 let enemyCharacterProjectUrls = [];
+let staticBakeFailureNoticeKey = "";
+let activeNoticeOverlay = null;
 const preferWebGL2Renderer = shouldPreferWebGL2Renderer();
 const hudBackdropBlurDisabled = shouldDisableHudBackdropBlur();
 document.documentElement.classList.toggle("dev-no-hud-blur", hudBackdropBlurDisabled);
@@ -157,6 +161,7 @@ try {
         usePixmapPyramids: gameState.settings.usePixmapPyramids,
         environmentAtlasManifestUrls: gameState.world.atlasManifests,
         enemyCharacterUrls: enemyCharacterProjectUrls,
+        onStaticBakeFailure: handleStaticBakeRendererFailure,
         onProgress: ({ progress, label }) => {
             setLoadingProgress(0.1 + clamp01(progress) * 0.85, label);
         }
@@ -239,7 +244,9 @@ function microStutterProfilerExtra() {
             difficulty: gameState.settings?.difficulty || "normal",
             renderingQuality: gameState.settings?.renderingQuality || "medium",
             useHardwareRendering: Boolean(gameState.settings?.useHardwareRendering),
-            usePixmapPyramids: Boolean(gameState.settings?.usePixmapPyramids)
+            developmentMode: Boolean(gameState.settings?.developmentMode),
+            usePixmapPyramids: Boolean(gameState.settings?.usePixmapPyramids),
+            useBakedLayers: Boolean(gameState.settings?.useBakedLayers)
         },
         camera: {
             x: Number(gameState.camera?.x) || 0,
@@ -573,6 +580,79 @@ function failStartup(message, error) {
     panel.textContent = message;
     document.body.appendChild(panel);
     throw new Error(message);
+}
+
+function showGameNotice(message, options = {}) {
+    if (activeNoticeOverlay?.parentNode) {
+        activeNoticeOverlay.remove();
+    }
+    const overlay = document.createElement("div");
+    activeNoticeOverlay = overlay;
+    overlay.setAttribute("role", "alertdialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.style.position = "fixed";
+    overlay.style.inset = "0";
+    overlay.style.zIndex = "10002";
+    overlay.style.display = "grid";
+    overlay.style.placeItems = "center";
+    overlay.style.padding = "24px";
+    overlay.style.background = "rgba(0, 0, 0, 0.36)";
+    const card = document.createElement("div");
+    card.style.maxWidth = "520px";
+    card.style.minWidth = "min(420px, calc(100vw - 48px))";
+    card.style.padding = "18px 20px 16px";
+    card.style.border = "2px solid rgba(201, 167, 255, 0.72)";
+    card.style.borderRadius = "18px";
+    card.style.background = "rgba(20, 13, 30, 0.97)";
+    card.style.color = "#f7edff";
+    card.style.boxShadow = "0 18px 60px rgba(0, 0, 0, 0.45)";
+    card.style.font = "15px/1.45 system-ui, sans-serif";
+    const body = document.createElement("div");
+    body.textContent = String(message || "Notice");
+    body.style.whiteSpace = "pre-line";
+    body.style.marginBottom = "16px";
+    const buttonRow = document.createElement("div");
+    buttonRow.style.display = "flex";
+    buttonRow.style.justifyContent = "flex-end";
+    const okButton = document.createElement("button");
+    okButton.type = "button";
+    okButton.textContent = options.okText || "OK";
+    okButton.style.padding = "9px 18px";
+    okButton.style.border = "1px solid rgba(247, 237, 255, 0.72)";
+    okButton.style.borderRadius = "12px";
+    okButton.style.background = "rgba(94, 67, 132, 0.92)";
+    okButton.style.color = "#fff";
+    okButton.style.font = "700 13px/1 system-ui, sans-serif";
+    okButton.addEventListener("click", () => {
+        overlay.remove();
+        if (activeNoticeOverlay === overlay) activeNoticeOverlay = null;
+    });
+    overlay.addEventListener("click", (event) => {
+        if (event.target === overlay) okButton.click();
+    });
+    buttonRow.append(okButton);
+    card.append(body, buttonRow);
+    overlay.append(card);
+    document.body.append(overlay);
+    okButton.focus({ preventScroll: true });
+    return overlay;
+}
+
+function handleStaticBakeRendererFailure(payload = {}) {
+    const detail = String(payload.detail || payload.status?.status || "").trim();
+    const message = String(payload.message || "Could not allocate memory for baked layers. Falling back to normal rendering.");
+    const key = `${message}|${detail}`;
+    if (staticBakeFailureNoticeKey === key) return;
+    staticBakeFailureNoticeKey = key;
+    window.setTimeout(() => {
+        gameState.settings = saveStoredGameSettings({
+            ...normalizeGameSettings(gameState.settings),
+            useBakedLayers: false
+        });
+        syncGameSettingsUi();
+        const suffix = detail ? `\n\n${detail}` : "";
+        showGameNotice(`${message}${suffix}`, { okText: "OK" });
+    }, 0);
 }
 
 function setupTitleScreen() {
@@ -945,9 +1025,6 @@ function setupGameMenuAndSettings() {
     if (fullscreenToggleButton) {
         fullscreenToggleButton.hidden = isElectron;
     }
-    if (toolLinks) {
-        toolLinks.hidden = isElectron;
-    }
     if (gameMenuExitTitleButton) {
         gameMenuExitTitleButton.textContent = "Exit to Title";
         gameMenuExitTitleButton.setAttribute("aria-label", "Exit to Title");
@@ -1044,8 +1121,15 @@ function setupGameMenuAndSettings() {
     useHardwareRenderingInput?.addEventListener("change", () => {
         updatePersistentGameSettings({ useHardwareRendering: useHardwareRenderingInput.checked });
     });
+    developmentModeInput?.addEventListener("change", () => {
+        updatePersistentGameSettings({ developmentMode: developmentModeInput.checked });
+    });
     usePixmapPyramidsInput?.addEventListener("change", () => {
         updatePersistentGameSettings({ usePixmapPyramids: usePixmapPyramidsInput.checked });
+    });
+    useBakedLayersInput?.addEventListener("change", () => {
+        if (useBakedLayersInput.checked) staticBakeFailureNoticeKey = "";
+        updatePersistentGameSettings({ useBakedLayers: useBakedLayersInput.checked });
     });
     for (const button of difficultyButtons) {
         button.addEventListener("click", () => updatePersistentGameSettings({
@@ -1444,7 +1528,12 @@ function syncGameSettingsUi() {
     if (autoFullscreenInput) autoFullscreenInput.checked = Boolean(settings.autoFullscreen);
     if (showMinimapInput) showMinimapInput.checked = Boolean(settings.showMinimap);
     if (useHardwareRenderingInput) useHardwareRenderingInput.checked = Boolean(settings.useHardwareRendering);
+    if (developmentModeInput) developmentModeInput.checked = Boolean(settings.developmentMode);
     if (usePixmapPyramidsInput) usePixmapPyramidsInput.checked = Boolean(settings.usePixmapPyramids);
+    if (useBakedLayersInput) useBakedLayersInput.checked = Boolean(settings.useBakedLayers && staticBakeRendererAvailable());
+    if (useBakedLayersRow) useBakedLayersRow.hidden = !ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER;
+    syncDevelopmentToolVisibility();
+    syncStaticBakeRendererSetting();
     if (minimapPanel) minimapPanel.hidden = !settings.showMinimap;
     syncHudPanelsToViewport();
     if (settings.showMinimap) {
@@ -1556,6 +1645,32 @@ function syncFullscreenUi() {
     fullscreenToggleButton.setAttribute("aria-label", fullscreenActive ? "Exit fullscreen" : "Enter fullscreen");
 }
 
+function staticBakeRendererAvailable() {
+    return Boolean(
+        ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER &&
+        renderer?.supportsExperimentalStaticLayerBakeRenderer?.() !== false
+    );
+}
+
+function syncDevelopmentToolVisibility() {
+    if (toolLinks) {
+        toolLinks.hidden = !Boolean(gameState.settings?.developmentMode);
+    }
+}
+
+function syncStaticBakeRendererSetting() {
+    const available = staticBakeRendererAvailable();
+    const shouldEnable = Boolean(gameState.settings?.useBakedLayers && available);
+    if (useBakedLayersInput) {
+        useBakedLayersInput.disabled = !available;
+        useBakedLayersInput.checked = shouldEnable;
+        useBakedLayersInput.title = available
+            ? "Enable the experimental static background/terrain/foreground bake renderer."
+            : "Experimental static-layer baking is disabled by build flag.";
+    }
+    renderer?.setStaticLayerBakeEnabled?.(shouldEnable);
+}
+
 function setupPanelToggleButtons() {
     const updateAssetGuides = () => {
         if (!assetGuidesButton) {
@@ -1615,33 +1730,6 @@ function setupPanelToggleButtons() {
             : "Click to record micro-stutter samples; click again to copy the report to the clipboard.");
     };
 
-    const staticBakeRendererAvailable = () => (
-        ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER &&
-        renderer?.supportsExperimentalStaticLayerBakeRenderer?.() !== false
-    );
-
-    const updateStaticBakeRendererButton = (message = "") => {
-        if (!staticBakeRendererButton) {
-            return;
-        }
-        const available = staticBakeRendererAvailable();
-        staticBakeRendererButton.hidden = !available;
-        if (!available) {
-            staticBakeRendererButton.textContent = "Baked: unavailable";
-            staticBakeRendererButton.setAttribute("aria-pressed", "false");
-            staticBakeRendererButton.title = "Experimental static bake renderer is disabled by build flag.";
-            return;
-        }
-        const status = renderer?.getStaticLayerBakeStatus?.() || { enabled: false, ready: false, status: "renderer unavailable" };
-        staticBakeRendererButton.textContent = `Baked: ${status.enabled ? "on" : "off"}`;
-        staticBakeRendererButton.setAttribute("aria-pressed", status.enabled ? "true" : "false");
-        const memoryText = status.bytes > 0 ? ` · ${Math.round(status.bytes / 1048576)} MiB` : "";
-        const chunkText = status.chunks > 0 ? ` · ${status.chunks} chunks` : "";
-        const invalidationText = status.lastInvalidationReason ? ` Last invalidation: ${status.lastInvalidationReason}.` : "";
-        staticBakeRendererButton.title = message || (status.enabled
-            ? `Experimental static-layer bake mode is enabled${memoryText}${chunkText}. ${status.status || ""}.${invalidationText}`
-            : "Click to enable the experimental static background/terrain/foreground bake renderer.");
-    };
 
     debugEl.hidden = true;
     tuningPanel.hidden = true;
@@ -1672,18 +1760,6 @@ function setupPanelToggleButtons() {
         updateHelpPanel();
     });
 
-    staticBakeRendererButton?.addEventListener("click", () => {
-        if (!staticBakeRendererAvailable()) {
-            updateStaticBakeRendererButton("Experimental static-layer bake mode is disabled by build flag.");
-            return;
-        }
-        const status = renderer?.getStaticLayerBakeStatus?.() || { enabled: false };
-        const nextEnabled = !status.enabled;
-        renderer?.setStaticLayerBakeEnabled?.(nextEnabled);
-        updateStaticBakeRendererButton(nextEnabled
-            ? "Experimental static-layer bake mode enabled. First frame may pause while static layers are built."
-            : "Experimental static-layer bake mode disabled; the ordinary renderer is active again.");
-    });
 
     microProfilerButton?.addEventListener("click", () => {
         if (!microStutterProfiler.isEnabled()) {
@@ -1711,7 +1787,8 @@ function setupPanelToggleButtons() {
     updateGameTuning();
     updateHelpPanel();
     updateMicroProfilerButton();
-    updateStaticBakeRendererButton();
+    syncDevelopmentToolVisibility();
+    syncStaticBakeRendererSetting();
 }
 
 function applyLoadedAtlasCollisions() {
@@ -2006,7 +2083,7 @@ function updateDebugText() {
         ? `microProfiler:${profilerStatus.enabled ? "on" : "off"} samples:${profilerStatus.capturedFrames}/${profilerStatus.totalFrames} threshold:${profilerStatus.thresholdMs}ms gap:${profilerStatus.rafGapMs}ms maxWork:${profilerStatus.summary.maxWorkMs.toFixed(2)} maxGap:${profilerStatus.summary.maxRafGapMs.toFixed(2)} long:${profilerStatus.summary.longFrames}`
         : "microProfiler:off";
     const staticBakeStatus = renderer?.getStaticLayerBakeStatus?.() || { enabled: false, ready: false, bytes: 0, chunks: 0, mode: "off", status: "off" };
-    const staticBakeText = `staticBake:${staticBakeStatus.enabled ? "on" : "off"}/${staticBakeStatus.ready ? "ready" : "not-ready"} mode:${staticBakeStatus.mode || "off"} ${Math.round((staticBakeStatus.bytes || 0) / 1048576)}MiB chunks:${staticBakeStatus.chunks || 0} ${staticBakeStatus.status || ""}`;
+    const staticBakeText = `staticBake:${staticBakeStatus.enabled ? "on" : "off"}/${staticBakeStatus.ready ? "ready" : "not-ready"} mode:${staticBakeStatus.mode || "off"} ${Math.round((staticBakeStatus.bytes || 0) / 1048576)}MiB chunks:${staticBakeStatus.chunks || 0} failures:${staticBakeStatus.failures || 0} ${staticBakeStatus.status || ""}`;
 
     debugEl.textContent = [
         `rev:${GAME_REVISION}  hudBlur:${hudBackdropBlurDisabled ? "off" : "on"}  ${gameState.debug.paused ? "PAUSED" : "RUNNING"}  tick:${gameState.clock.tick}  t:${gameState.clock.time.toFixed(2)}`,

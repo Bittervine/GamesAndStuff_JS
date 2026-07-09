@@ -28,6 +28,7 @@ import {
     normalizeForegroundParallax,
     normalizeLayerBrightness
 } from "../shared/level-layer-data.js";
+import { caveWindowBounds } from "../shared/cave-window-data.js";
 import {
     POWER_UP_EFFECT_IDS,
     WRENCH_POWER_UP_EFFECT_IDS,
@@ -191,6 +192,108 @@ function staticLayerBakeWorldBounds(worldBounds) {
         w: Math.max(1, Math.ceil(w)),
         h: Math.max(1, Math.ceil(h))
     };
+}
+
+function staticLayerBakeIncludeRect(bounds, rect) {
+    if (!bounds || !rect) return bounds;
+    const rx = Number(rect.x);
+    const ry = Number(rect.y);
+    const rw = Number(rect.w);
+    const rh = Number(rect.h);
+    if (![rx, ry, rw, rh].every(Number.isFinite) || rw <= 0 || rh <= 0) return bounds;
+    const minX = Math.min(bounds.x, rx);
+    const minY = Math.min(bounds.y, ry);
+    const maxX = Math.max(bounds.x + bounds.w, rx + rw);
+    const maxY = Math.max(bounds.y + bounds.h, ry + rh);
+    return {
+        x: minX,
+        y: minY,
+        w: Math.max(1, maxX - minX),
+        h: Math.max(1, maxY - minY)
+    };
+}
+
+function staticLayerBakeBoundsIncludeVisuals(bounds, visuals = []) {
+    if (!bounds) return null;
+    let result = { ...bounds };
+    for (const visual of Array.isArray(visuals) ? visuals : []) {
+        if (!visualCanBeBakedStatic(visual)) continue;
+        const visualBounds = visualWorldBounds(visual);
+        const vx0 = Number(visualBounds?.minX);
+        const vy0 = Number(visualBounds?.minY);
+        const vx1 = Number(visualBounds?.maxX);
+        const vy1 = Number(visualBounds?.maxY);
+        if (![vx0, vy0, vx1, vy1].every(Number.isFinite) || vx1 <= vx0 || vy1 <= vy0) continue;
+        result = staticLayerBakeIncludeRect(result, {
+            x: vx0,
+            y: vy0,
+            w: vx1 - vx0,
+            h: vy1 - vy0
+        });
+    }
+    return result;
+}
+
+function staticLayerBakeBoundsIncludeCaveFullBlack(bounds, caveWindow) {
+    if (!bounds || !caveWindow?.enabled || !Array.isArray(caveWindow.points) || caveWindow.points.length < 3) {
+        return bounds;
+    }
+    const feather = Math.max(0, Number(caveWindow.feather) || 0);
+    const fullBlackBounds = caveWindowBounds(caveWindow.points, feather);
+    return staticLayerBakeIncludeRect(bounds, fullBlackBounds);
+}
+
+function staticLayerBakeExpandedForViewportParallax(bounds, state, view) {
+    if (!bounds) return null;
+    const zoom = Math.max(0.0001, Number(view?.zoom) || 1);
+    const viewportW = Math.max(1, Number(view?.virtualW) || ((Number(view?.w) || 1) / zoom));
+    const viewportH = Math.max(1, Number(view?.virtualH) || ((Number(view?.h) || 1) / zoom));
+    const world = staticLayerBakeWorldBounds(state?.world?.bounds) || bounds;
+    const foregroundParallax = normalizeForegroundParallax(state?.world?.layerVisuals?.foreground?.parallax);
+    const backgroundParallax = normalizeBackgroundParallax(state?.world?.layerVisuals?.background?.parallax);
+    const foregroundSlackX = Math.max(0, foregroundParallax - 1) * (world.w * 0.5 + viewportW * 0.5);
+    const foregroundSlackY = Math.max(0, foregroundParallax - 1) * (world.h * 0.5 + viewportH * 0.5);
+    const backgroundSlackX = Math.max(0, 1 - backgroundParallax) * (world.w * 0.5 + viewportW * 0.5);
+    const backgroundSlackY = Math.max(0, 1 - backgroundParallax) * (world.h * 0.5 + viewportH * 0.5);
+
+    // The live cave mask is a viewport overlay and therefore continues beyond
+    // the authored level rectangle when the camera sees outside the playable
+    // area. A finite baked foreground texture must include that safety skirt;
+    // otherwise the absent texture edge shows as a hard rectangle in a slightly
+    // different background color. Keep this in the experimental bake box rather
+    // than making normal render features serve the chunked path.
+    const paddingX = Math.ceil(viewportW + Math.max(foregroundSlackX, backgroundSlackX) + 8);
+    const paddingY = Math.ceil(viewportH + Math.max(foregroundSlackY, backgroundSlackY) + 8);
+    return {
+        x: Math.floor(bounds.x - paddingX),
+        y: Math.floor(bounds.y - paddingY),
+        w: Math.max(1, Math.ceil(bounds.w + paddingX * 2)),
+        h: Math.max(1, Math.ceil(bounds.h + paddingY * 2))
+    };
+}
+
+function staticLayerBakeFinalizeBounds(bounds) {
+    if (!bounds) return null;
+    const margin = 4;
+    const x = Math.floor(bounds.x - margin);
+    const y = Math.floor(bounds.y - margin);
+    const maxX = Math.ceil(bounds.x + bounds.w + margin);
+    const maxY = Math.ceil(bounds.y + bounds.h + margin);
+    return {
+        x,
+        y,
+        w: Math.max(1, maxX - x),
+        h: Math.max(1, maxY - y)
+    };
+}
+
+function staticLayerBakeStateBounds(state, view = null) {
+    const worldBounds = staticLayerBakeWorldBounds(state?.world?.bounds);
+    const visuals = Array.isArray(state?.world?.visuals) ? state.world.visuals : [];
+    const withVisuals = staticLayerBakeBoundsIncludeVisuals(worldBounds, visuals);
+    const withCave = staticLayerBakeBoundsIncludeCaveFullBlack(withVisuals, state?.world?.caveWindow);
+    const withParallaxSkirt = staticLayerBakeExpandedForViewportParallax(withCave, state, view);
+    return staticLayerBakeFinalizeBounds(withParallaxSkirt);
 }
 
 function staticLayerBakeBoundsKey(bounds) {
@@ -517,7 +620,8 @@ export async function createRenderer(canvas, options = {}) {
         [...environmentAtlases.values()].map((atlas) => atlas.manifestUrl).filter(Boolean),
         {
             displayCanvas: canvas,
-            webglBackend
+            webglBackend,
+            onStaticBakeFailure: options.onStaticBakeFailure
         }
     );
     onProgress({ progress: 0.93, label: "Loading wizard powered-rocket atlas" });
@@ -547,6 +651,7 @@ class RocketfrockRenderer {
         this.ctx = ctx;
         this.webglBackend = options.webglBackend || null;
         this.renderBackend = this.webglBackend ? "webgl2-resident" : "canvas2d";
+        this.onStaticBakeFailure = typeof options.onStaticBakeFailure === "function" ? options.onStaticBakeFailure : null;
         this.playerProject = playerProject;
         this.assets = playerProject.assets;
         this.rigConfig = playerProject.rig;
@@ -664,7 +769,8 @@ class RocketfrockRenderer {
             lastUsed: false,
             bytes: 0,
             chunkCount: 0,
-            mode: "off"
+            mode: "off",
+            failureCount: 0
         };
     }
 
@@ -1011,6 +1117,38 @@ class RocketfrockRenderer {
         this.resetStaticLayerBakeBookkeeping(this.staticLayerBake.enabled ? normalizedReason : "off");
     }
 
+    disableStaticLayerBakeAfterFailure(detail = "bake allocation failed", error = null) {
+        const detailText = String(detail || error?.message || error || "bake allocation failed");
+        const userMessage = "Could not allocate memory for baked layers. Falling back to normal rendering.";
+        this.releaseStaticLayerBakeCache(this.staticLayerBake.cache);
+        this.staticLayerBake.enabled = false;
+        this.staticLayerBake.cache = null;
+        this.staticLayerBake.key = "";
+        this.staticLayerBake.bytes = 0;
+        this.staticLayerBake.chunkCount = 0;
+        this.staticLayerBake.mode = "off";
+        this.staticLayerBake.lastBuildMs = 0;
+        this.staticLayerBake.lastDrawMs = 0;
+        this.staticLayerBake.lastUsed = false;
+        this.staticLayerBake.failureCount = (Number(this.staticLayerBake.failureCount) || 0) + 1;
+        this.staticLayerBake.lastInvalidationReason = "disabled after bake failure";
+        this.staticLayerBake.lastError = `${userMessage} ${detailText}`;
+        this.staticLayerBake.status = this.staticLayerBake.lastError;
+        if (this.onStaticBakeFailure) {
+            try {
+                this.onStaticBakeFailure({
+                    message: userMessage,
+                    detail: detailText,
+                    error,
+                    status: this.getStaticLayerBakeStatus()
+                });
+            } catch (callbackError) {
+                console.warn("Static layer bake failure callback failed.", callbackError);
+            }
+        }
+        return null;
+    }
+
     getStaticLayerBakeStatus() {
         const cache = this.staticLayerBake.cache;
         return {
@@ -1025,6 +1163,7 @@ class RocketfrockRenderer {
             drawMs: Math.max(0, Number(this.staticLayerBake.lastDrawMs) || 0),
             chunks: Math.max(0, Number(this.staticLayerBake.chunkCount) || 0),
             mode: this.staticLayerBake.mode || "off",
+            failures: Math.max(0, Number(this.staticLayerBake.failureCount) || 0),
             lastInvalidationReason: this.staticLayerBake.lastInvalidationReason || "",
             status: ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER
                 ? (this.staticLayerBake.lastError || this.staticLayerBake.status || "off")
@@ -1391,7 +1530,7 @@ class RocketfrockRenderer {
     }
 
     renderCanvas2DStaticBake(state, inputFrame, view, frameStart) {
-        const bake = this.ensureStaticLayerBake(state);
+        const bake = this.ensureStaticLayerBake(state, view);
         if (!bake) return false;
         this.staticLayerBake.lastUsed = true;
         this.resetCanvasContext();
@@ -1448,8 +1587,8 @@ class RocketfrockRenderer {
         return true;
     }
 
-    staticLayerBakeKey(state) {
-        const bounds = staticLayerBakeWorldBounds(state.world?.bounds);
+    staticLayerBakeKey(state, view = null) {
+        const bounds = staticLayerBakeStateBounds(state, view);
         const cave = state.world?.caveWindow || null;
         return [
             state.world?.levelId || "",
@@ -1461,9 +1600,9 @@ class RocketfrockRenderer {
         ].join("|");
     }
 
-    ensureStaticLayerBake(state) {
+    ensureStaticLayerBake(state, view = null) {
         if (!this.isStaticLayerBakeEnabled()) return null;
-        const bounds = staticLayerBakeWorldBounds(state.world?.bounds);
+        const bounds = staticLayerBakeStateBounds(state, view);
         if (!bounds) {
             this.staticLayerBake.status = "no finite world bounds";
             return null;
@@ -1481,11 +1620,12 @@ class RocketfrockRenderer {
         }
         const bytes = bakedLayerByteEstimate(bounds.w, bounds.h);
         if (bytes > STATIC_LAYER_BAKE_MEMORY_BUDGET_BYTES) {
-            this.staticLayerBake.status = `estimated ${Math.round(bytes / 1048576)} MiB exceeds 2 GiB baked-layer budget`;
-            return null;
+            const detail = `estimated ${Math.round(bytes / 1048576)} MiB exceeds 2 GiB baked-layer budget`;
+            this.staticLayerBake.status = detail;
+            return this.disableStaticLayerBakeAfterFailure(detail);
         }
         const mode = needsChunking ? `chunked-${chunkSize}` : "single";
-        const key = `${this.staticLayerBakeKey(state)}|mode:${mode}`;
+        const key = `${this.staticLayerBakeKey(state, view)}|mode:${mode}`;
         const visuals = Array.isArray(state.world?.visuals) ? state.world.visuals : [];
         const cache = this.staticLayerBake.cache;
         if (cache && this.staticLayerBake.key === key && cache.visualSource === visuals) {
@@ -1497,12 +1637,21 @@ class RocketfrockRenderer {
             return cache;
         }
         const buildStart = rendererNowMs();
+        let nextCache = null;
         try {
-            const nextCache = this.buildStaticLayerBake(state, bounds, visuals, {
+            // Free the old full-level/chunk surfaces before building replacements.
+            // Keeping old and new bakes alive at once can double the peak memory
+            // pressure and is exactly the sort of attic-gnome footgun this
+            // experimental path must avoid.
+            if (this.staticLayerBake.cache) {
+                this.releaseStaticLayerBakeCache(this.staticLayerBake.cache);
+                this.staticLayerBake.cache = null;
+                this.staticLayerBake.key = "";
+            }
+            nextCache = this.buildStaticLayerBake(state, bounds, visuals, {
                 chunked: needsChunking,
                 chunkSize
             });
-            this.releaseStaticLayerBakeCache(this.staticLayerBake.cache);
             if (this.webglBackend?.available) {
                 this.preloadStaticLayerBakeTextures(nextCache);
             }
@@ -1519,14 +1668,9 @@ class RocketfrockRenderer {
                 : `ready ${bounds.w}x${bounds.h}, ${Math.round(bytes / 1048576)} MiB, built in ${this.staticLayerBake.lastBuildMs.toFixed(1)} ms`;
             return nextCache;
         } catch (error) {
-            this.releaseStaticLayerBakeCache(this.staticLayerBake.cache);
-            this.staticLayerBake.cache = null;
-            this.staticLayerBake.key = "";
-            this.staticLayerBake.chunkCount = 0;
-            this.staticLayerBake.mode = "off";
-            this.staticLayerBake.lastError = `bake failed: ${error?.message || error}`;
+            this.releaseStaticLayerBakeCache(nextCache);
             console.warn("Static layer bake failed; falling back to live renderer.", error);
-            return null;
+            return this.disableStaticLayerBakeAfterFailure(error?.message || error, error);
         }
     }
 
@@ -1604,7 +1748,13 @@ class RocketfrockRenderer {
         if (!layers) return 0;
         for (const layer of Object.values(layers)) {
             for (const surface of staticLayerBakeLayerSurfaces(layer)) {
-                if (surface?.canvas && backend.cacheTexture?.(surface.canvas)) uploaded += 1;
+                if (!surface?.canvas) continue;
+                if (!backend.cacheTexture?.(surface.canvas)) {
+                    const width = Math.max(1, Number(surface.canvas.width) || 1);
+                    const height = Math.max(1, Number(surface.canvas.height) || 1);
+                    throw new Error(backend.lastTextureError || `could not upload baked layer texture ${width}x${height}`);
+                }
+                uploaded += 1;
             }
         }
         return uploaded;
@@ -1646,7 +1796,7 @@ class RocketfrockRenderer {
                     caveWindow: this.caveWindow,
                     view: bakeView,
                     worldBounds: state.world?.bounds,
-                    parallax: this.frameForegroundParallax,
+                    parallax: 1,
                     drawToTarget: true,
                     scrollPaddingPixels: 0
                 });
@@ -1678,10 +1828,22 @@ class RocketfrockRenderer {
     drawStaticWorldVisualPartition(state, view, partitionName) {
         const cache = this.getWorldVisualCache(state);
         const entries = Array.isArray(cache?.[partitionName]) ? cache[partitionName] : [];
+        const overlapCache = partitionName === "main" ? this.ensureOverlapBlendCache(state) : null;
+        const drawnBlendGroups = this.frameDrawnBlendGroups;
+        if (overlapCache) drawnBlendGroups.clear();
         let drewAny = false;
         let hasRenderableVisuals = false;
         for (const { visual, bounds } of entries) {
             if (!visualCanBeBakedStatic(visual)) continue;
+            const blendGroup = overlapCache?.memberToGroup?.get(visual);
+            if (blendGroup) {
+                hasRenderableVisuals = true;
+                if (!drawnBlendGroups.has(blendGroup)) {
+                    drawnBlendGroups.add(blendGroup);
+                    if (this.drawOverlapBlendGroup(blendGroup, view)) drewAny = true;
+                }
+                continue;
+            }
             if (visual.kind === "atlasSprite") {
                 hasRenderableVisuals = true;
                 if (this.drawAtlasSpriteVisual(visual, view, null, bounds)) drewAny = true;
@@ -1765,7 +1927,8 @@ class RocketfrockRenderer {
     }
 
     queueStaticLayerBakeCanvasWebGL(layer, view, parallaxOffset = null) {
-        if (!layer || !this.webglBackend?.available) return 0;
+        const result = { ms: 0, attempted: 0, queued: 0, failed: 0, error: "" };
+        if (!layer || !this.webglBackend?.available) return result;
         const drawStart = rendererNowMs();
         const zoom = Math.max(0.0001, Number(view?.zoom) || 1);
         const viewLeft = (Number(view?.x) || 0) + (Number(parallaxOffset?.x) || 0);
@@ -1789,7 +1952,8 @@ class RocketfrockRenderer {
             if (sw <= 0 || sh <= 0) continue;
             const sx = worldLeft - originX;
             const sy = worldTop - originY;
-            this.webglBackend.queueSprite({
+            result.attempted += 1;
+            const queued = this.webglBackend.queueSprite({
                 source: surface.canvas,
                 sourceX: sx,
                 sourceY: sy,
@@ -1801,8 +1965,22 @@ class RocketfrockRenderer {
                 height: sh * zoom,
                 dynamic: false
             });
+            if (queued) {
+                result.queued += 1;
+            } else {
+                result.failed += 1;
+                result.error ||= this.webglBackend.lastTextureError || `could not queue baked layer texture ${surface.canvas.width}x${surface.canvas.height}`;
+            }
         }
-        return rendererNowMs() - drawStart;
+        result.ms = rendererNowMs() - drawStart;
+        return result;
+    }
+
+    staticLayerBakeWebGLDrawSucceeded(result, label = "layer") {
+        if (!result || result.failed <= 0) return true;
+        const detail = `${label} baked layer texture draw failed (${result.queued}/${result.attempted} chunks queued): ${result.error || "unknown WebGL texture failure"}`;
+        this.disableStaticLayerBakeAfterFailure(detail);
+        return false;
     }
 
     drawBakedDynamicWorldVisualsWebGL(state, view, partitionName) {
@@ -1854,20 +2032,24 @@ class RocketfrockRenderer {
             this.staticLayerBake.status = "disabled while collision/asset-guide debug overlays are visible";
             return false;
         }
-        const bake = this.ensureStaticLayerBake(state);
+        const bake = this.ensureStaticLayerBake(state, view);
         if (!bake) return false;
         const backend = this.webglBackend;
         if (!backend?.available) return false;
         this.staticLayerBake.lastUsed = true;
 
         const backgroundStart = rendererNowMs();
-        const backgroundDrawMs = this.queueStaticLayerBakeCanvasWebGL(bake.layers.background, view, this.frameBackgroundOffset);
+        const backgroundDraw = this.queueStaticLayerBakeCanvasWebGL(bake.layers.background, view, this.frameBackgroundOffset);
+        if (!this.staticLayerBakeWebGLDrawSucceeded(backgroundDraw, "background")) return false;
+        const backgroundDrawMs = backgroundDraw.ms;
         this.drawBakedDynamicWorldVisualsWebGL(state, view, "background");
         backend.flush();
         const backgroundEnd = rendererNowMs();
 
         const terrainDrawStart = rendererNowMs();
-        const terrainDrawMs = this.queueStaticLayerBakeCanvasWebGL(bake.layers.terrain, view, null);
+        const terrainDraw = this.queueStaticLayerBakeCanvasWebGL(bake.layers.terrain, view, null);
+        if (!this.staticLayerBakeWebGLDrawSucceeded(terrainDraw, "terrain")) return false;
+        const terrainDrawMs = terrainDraw.ms;
         this.drawBakedDynamicWorldVisualsWebGL(state, view, "main");
         backend.flush();
         const worldMainEnd = rendererNowMs();
@@ -1929,7 +2111,9 @@ class RocketfrockRenderer {
         this.drawBakedDynamicWorldVisualsWebGL(state, view, "actorFront");
         this.drawBakedDynamicWorldVisualsWebGL(state, view, "caveForeground");
         const foregroundBakeStart = rendererNowMs();
-        const foregroundDrawMs = this.queueStaticLayerBakeCanvasWebGL(bake.layers.foreground, view, this.frameForegroundOffset);
+        const foregroundDraw = this.queueStaticLayerBakeCanvasWebGL(bake.layers.foreground, view, this.frameForegroundOffset);
+        if (!this.staticLayerBakeWebGLDrawSucceeded(foregroundDraw, "foreground")) return false;
+        const foregroundDrawMs = foregroundDraw.ms;
         backend.flush();
         const foregroundEnd = rendererNowMs();
         this.staticLayerBake.lastDrawMs = backgroundDrawMs + terrainDrawMs + foregroundDrawMs;
@@ -2119,6 +2303,7 @@ class RocketfrockRenderer {
             staticBakeBuildMs: Math.max(0, Number(this.staticLayerBake.lastBuildMs) || 0),
             staticBakeDrawMs: Math.max(0, Number(this.staticLayerBake.lastDrawMs) || 0),
             staticBakeChunks: Math.max(0, Number(this.staticLayerBake.chunkCount) || 0),
+            staticBakeFailures: Math.max(0, Number(this.staticLayerBake.failureCount) || 0),
             staticBakeMode: this.staticLayerBake.mode || "off",
             staticBakeLastInvalidationReason: this.staticLayerBake.lastInvalidationReason || "",
             staticBakeStatus: ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER

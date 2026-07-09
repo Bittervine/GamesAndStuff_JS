@@ -90,6 +90,7 @@ const stagedPackage = {
     version: "1.0.0",
     private: true,
     description: "Ignatius Rocketfrock packaged as a standalone Electron desktop game.",
+    author: "CJF",
     main: "main.cjs",
     build: {
         appId: "com.bittervine.ignatiusrocketfrock",
@@ -114,7 +115,7 @@ const stagedPackage = {
                 buildDirOnly ? "dir" : "portable"
             ],
             icon: "favicon.ico",
-            sign: false,
+            signExecutable: false,
             artifactName: "${productName}-${version}-${arch}.${ext}"
         },
         portable: {

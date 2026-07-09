@@ -12,6 +12,22 @@ function clamp01(value) {
     return Math.max(0, Math.min(1, finiteNumber(value, 0)));
 }
 
+function webglErrorName(gl, code) {
+    if (!code || code === gl.NO_ERROR) return "NO_ERROR";
+    const names = [
+        "INVALID_ENUM",
+        "INVALID_VALUE",
+        "INVALID_OPERATION",
+        "INVALID_FRAMEBUFFER_OPERATION",
+        "OUT_OF_MEMORY",
+        "CONTEXT_LOST_WEBGL"
+    ];
+    for (const name of names) {
+        if (gl[name] === code) return name;
+    }
+    return `WebGL error ${code}`;
+}
+
 function parseCssColor(value, fallback = [1, 1, 1, 1]) {
     const text = String(value || "").trim();
     const hex = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.exec(text);
@@ -121,6 +137,7 @@ export class WebGL2RendererBackend {
         this.textureCache = new WeakMap();
         this.textureRecords = new Set();
         this.pinnedSources = new Set();
+        this.lastTextureError = "";
         this.frameId = 0;
         this.currentTextureRecord = null;
         this.quadCapacity = DEFAULT_INITIAL_QUADS;
@@ -586,13 +603,18 @@ export class WebGL2RendererBackend {
         let record = this.textureCache.get(source);
         const dimensions = sourceDimensions(source);
         const maxTextureSize = this.getMaxTextureSize();
+        this.lastTextureError = "";
         if (dimensions.width > maxTextureSize || dimensions.height > maxTextureSize) {
-            console.warn(`WebGL2 texture source ${dimensions.width}x${dimensions.height} exceeds max texture size ${maxTextureSize}.`);
+            this.lastTextureError = `WebGL2 texture source ${dimensions.width}x${dimensions.height} exceeds max texture size ${maxTextureSize}.`;
+            console.warn(this.lastTextureError);
             return null;
         }
         if (!record) {
             const texture = this.gl.createTexture();
-            if (!texture) return null;
+            if (!texture) {
+                this.lastTextureError = "WebGL2 could not allocate a texture object.";
+                return null;
+            }
             record = {
                 texture,
                 source,
@@ -603,13 +625,31 @@ export class WebGL2RendererBackend {
             };
             this.textureCache.set(source, record);
             this.textureRecords.add(record);
-            this.uploadTexture(record, true);
+            try {
+                this.uploadTexture(record, true);
+            } catch (error) {
+                this.lastTextureError = error?.message || String(error || "WebGL2 texture upload failed.");
+                this.textureCache.delete(source);
+                this.textureRecords.delete(record);
+                if (this.currentTextureRecord === record) this.currentTextureRecord = null;
+                this.gl.deleteTexture(texture);
+                return null;
+            }
         } else if (dynamic && (forceUpdate || record.uploadedFrame !== this.frameId)) {
             const resized = record.width !== dimensions.width || record.height !== dimensions.height;
+            const previousWidth = record.width;
+            const previousHeight = record.height;
             record.width = dimensions.width;
             record.height = dimensions.height;
             record.dynamic = true;
-            this.uploadTexture(record, resized);
+            try {
+                this.uploadTexture(record, resized);
+            } catch (error) {
+                this.lastTextureError = error?.message || String(error || "WebGL2 texture update failed.");
+                record.width = previousWidth;
+                record.height = previousHeight;
+                return null;
+            }
         }
         return record;
     }
@@ -634,6 +674,10 @@ export class WebGL2RendererBackend {
             } else {
                 gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, record.source);
                 this.frameDiagnostics.textureUpdates += 1;
+            }
+            const errorCode = typeof gl.getError === "function" ? gl.getError() : gl.NO_ERROR;
+            if (errorCode && errorCode !== gl.NO_ERROR) {
+                throw new Error(`WebGL2 texture ${allocate ? "allocation" : "update"} failed: ${webglErrorName(gl, errorCode)} for ${record.width}x${record.height}.`);
             }
             record.uploadedFrame = this.frameId;
         } finally {

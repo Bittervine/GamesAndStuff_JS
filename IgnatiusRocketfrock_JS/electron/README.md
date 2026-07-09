@@ -38,3 +38,5 @@ Outputs:
 - `electron/dist/win-unpacked/` when running `build.bat dir` for an unpacked smoke build.
 
 The staged app includes only runtime game files: `game.html`, `GameManual.html`, `favicon.ico`, `assets/`, `src/`, `main.cjs`, `preload.cjs`, and a generated package manifest. The shared webpage `favicon.ico` is also used for the live Electron window and the packaged Windows executable. Generated folders (`node_modules/`, `.build/`, and `dist/`) are intentionally ignored by git.
+
+Revision 489 keeps this portable build compatible with electron-builder 26.15.x by using `win.signExecutable: false` in the generated staging manifest. That disables Windows code signing for local unsigned builds while keeping executable resource editing enabled for the shared favicon and app metadata.

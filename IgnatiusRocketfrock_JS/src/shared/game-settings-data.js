@@ -11,7 +11,7 @@ export const GAME_RENDERING_QUALITY_PRESETS = Object.freeze([
 ]);
 
 export const DEFAULT_GAME_SETTINGS = Object.freeze({
-    version: 5,
+    version: 6,
     sfxVolume: 0.8,
     musicVolume: 0.1,
     difficulty: "normal",
@@ -19,7 +19,9 @@ export const DEFAULT_GAME_SETTINGS = Object.freeze({
     autoFullscreen: true,
     showMinimap: true,
     useHardwareRendering: false,
-    usePixmapPyramids: true
+    developmentMode: true,
+    usePixmapPyramids: true,
+    useBakedLayers: false
 });
 
 function clamp01(value, fallback) {
@@ -54,7 +56,9 @@ export function normalizeGameSettings(value = {}) {
         autoFullscreen: normalizedBoolean(source.autoFullscreen, DEFAULT_GAME_SETTINGS.autoFullscreen),
         showMinimap: normalizedBoolean(source.showMinimap, DEFAULT_GAME_SETTINGS.showMinimap),
         useHardwareRendering: normalizedBoolean(source.useHardwareRendering, DEFAULT_GAME_SETTINGS.useHardwareRendering),
-        usePixmapPyramids: normalizedBoolean(source.usePixmapPyramids, DEFAULT_GAME_SETTINGS.usePixmapPyramids)
+        developmentMode: normalizedBoolean(source.developmentMode, DEFAULT_GAME_SETTINGS.developmentMode),
+        usePixmapPyramids: normalizedBoolean(source.usePixmapPyramids, DEFAULT_GAME_SETTINGS.usePixmapPyramids),
+        useBakedLayers: normalizedBoolean(source.useBakedLayers, DEFAULT_GAME_SETTINGS.useBakedLayers)
     };
 }
 

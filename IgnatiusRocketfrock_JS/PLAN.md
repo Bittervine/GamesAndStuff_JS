@@ -4074,3 +4074,26 @@ The same `Baked` toggle remains off by default and still falls back to the ordin
 ## Revision 488 experimental static bake containment cleanup
 
 Revision 488 keeps the chunked static-layer bake renderer as an experimental, off-by-default diagnostic mode while boxing it away from ordinary feature work. A shared `ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER` flag now controls whether the lower-right `Baked` toggle exists at all; when the flag is false, the button remains hidden and the renderer API refuses to enable the mode. When the flag is true, the same toggle remains available in Electron so Canvas2D/WebGL/browser/Electron combinations can all be compared. The renderer now exposes an explicit availability check, tracks the last bake invalidation reason, releases discarded bake canvases more aggressively, and documents the rule that normal renderer features must not be complicated for this experimental path without asking first.
+
+
+## Revision 489 Electron builder Windows signing config
+
+Revision 489 fixes the Windows portable Electron build against electron-builder 26.15.x. The generated staging package now uses the current `win.signExecutable: false` option rather than the older `win.sign: false`, preserving unsigned local builds while still letting electron-builder edit executable resources such as the shared favicon. The staging package also includes the project author metadata to avoid the builder's missing-author warning.
+
+## Revision 490 baked-layer settings and parity fixes
+
+Revision 490 moves the experimental static-layer bake renderer out of the lower-right game tool strip and into the Settings dialog as **Use baked layers**. The shared `ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER` flag still owns availability; when it is false the setting row is hidden and the renderer remains disabled. A new persisted **Development mode** checkbox now controls whether the lower-right development tool strip is visible in both browser and Electron builds, replacing the former hard-coded Electron suppression. The hardware-rendering setting row no longer spends menu space on URL override explanatory text.
+
+The static bake experiment also received two visual parity fixes. Bake bounds now include eligible static visual bounds outside the authored world rectangle so parallaxed foreground/background art is not clipped by the world canvas edge. The baked cave-window mask is drawn in unshifted foreground coordinates and then parallaxed as part of the baked foreground layer, matching the live renderer more closely. Terrain static baking now consumes the same overlap-blend cache used by ordinary rendering so overlapping terrain assets keep their feathered seams instead of being baked as plain overdraw.
+
+
+## Revision 491 baked foreground perimeter skirt
+
+Revision 491 tightens visual parity for the experimental static-layer bake renderer around cave-window/perimeter edges. The finite bake rectangle now includes the cave window's full-black extent as well as eligible static visuals and the authored world rectangle, then adds a viewport/parallax safety skirt. This prevents the baked foreground texture from ending exactly at the world edge when the live renderer would still be drawing the cave feather or full-black exterior over off-level screen space.
+
+The bake key now includes the viewport-aware expanded bounds, so resize/parallax changes rebuild the cache instead of reusing stale perimeter textures. This remains contained inside the experimental renderer path and does not change simulation, collision, or ordinary live rendering.
+
+
+## Revision 492 baked-layer allocation fallback
+
+Revision 492 hardens the experimental static-layer bake renderer against memory pressure. The renderer now frees the old bake cache before building a replacement, checks WebGL texture upload/allocation failures, disables baked layers on hard allocation failure, and reports the fallback through the Settings-facing game UI instead of leaving only dynamic sprites visible on a dark world. The normal live renderer remains the fallback path and the baked experiment stays off unless the persisted Use baked layers setting is enabled.

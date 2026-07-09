@@ -4354,3 +4354,38 @@ Manual profiling workflow: open the game, run `window.__rocketfrockDev.profiler.
 - [x] Track the last static bake invalidation reason in status and profiler diagnostics.
 - [x] Shrink released bake canvases to hint browser memory release.
 - [x] Document that normal renderer features must not become more complicated for the baked/chunked experiment without asking first.
+
+
+## Revision 489 Electron build config checklist
+
+- [x] Replace the staged Windows `win.sign: false` electron-builder option with `win.signExecutable: false` for electron-builder 26.15.x schema compatibility.
+- [x] Keep executable resource editing available so the portable build can still embed the shared favicon.
+- [x] Add author metadata to the staged app package to silence the local Windows builder warning.
+
+## Revision 490 baked settings cleanup checklist
+
+- [x] Remove the lower-right `Baked` tool-strip button.
+- [x] Add persisted Settings checkboxes for **Development mode** and **Use baked layers**.
+- [x] Let Development mode control tool-strip visibility in both browser and Electron builds.
+- [x] Hide the baked-layer setting when `ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER` is false.
+- [x] Remove the hardware-rendering URL override note from the visible Settings row.
+- [x] Expand static bake bounds to include eligible static visuals outside the world rectangle.
+- [x] Bake the cave-window mask in unshifted foreground coordinates so the foreground layer can parallax as one image.
+- [x] Reuse overlap-blend groups while baking static terrain visuals.
+
+
+## Revision 491 baked foreground perimeter checklist
+
+- [x] Include the cave-window full-black bounds in the experimental static bake rectangle.
+- [x] Add viewport/parallax safety padding so finite baked textures still cover off-level screen areas seen by the camera.
+- [x] Include viewport-aware expanded bake bounds in the bake cache key.
+- [x] Keep the fix isolated to the experimental baked renderer; normal renderer feature work still must not be complicated for this path without asking first.
+
+
+## Revision 492 baked allocation fallback checklist
+
+- Release stale static bake canvases/textures before constructing a replacement cache to avoid double memory peaks.
+- Treat WebGL texture allocation/upload failures as bake failures rather than silently drawing an empty static world.
+- Disable Use baked layers and show a small OK notification when a hard bake allocation failure occurs.
+- Keep story/mailbox overlays on the live dynamic path without forcing a static bake rebuild.
+- Preserve the normal renderer as the fallback whenever the experimental baked cache is unavailable.

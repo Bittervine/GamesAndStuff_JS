@@ -1373,7 +1373,7 @@ The laboratory separates synchronous renderer time from the remainder of the req
 
 ## Revision 341 desktop renderer and packaging defaults
 
-The renderer preference remains environment-sensitive rather than globally changing browser behavior. `shouldPreferWebGL2Renderer()` honors an explicit `webgl`/`webgl2` query value first, then chooses WebGL2 when the narrow Electron preload bridge is available and Canvas 2D otherwise. Electron packaging stages the project-root `favicon.ico`, supplies it to both `BrowserWindow` and electron-builder's Windows icon setting, and disables signing through `win.sign: false` so executable resource editing remains available.
+The renderer preference remains environment-sensitive rather than globally changing browser behavior. `shouldPreferWebGL2Renderer()` honors an explicit `webgl`/`webgl2` query value first, then chooses WebGL2 when the narrow Electron preload bridge is available and Canvas 2D otherwise. Electron packaging stages the project-root `favicon.ico`, supplies it to both `BrowserWindow` and electron-builder's Windows icon setting, and disables signing through `win.signExecutable: false` so executable resource editing remains available under electron-builder 26 while still allowing resource editing.
 
 
 ## Revision 342 upward-only ordinary-jump braking
@@ -1974,3 +1974,23 @@ Revision 487 keeps static-layer chunking inside the presentation renderer. When 
 ## Revision 488 experimental static bake boundary
 
 The static-layer bake renderer is an experimental alternate presentation path, not a supported design constraint for normal rendering. Its shared `ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER` flag hides the game-page toggle and makes the renderer refuse activation when disabled. The mode is allowed to consume ordinary renderer data and accelerate static layers, but future Canvas2D/WebGL features should be implemented cleanly for the normal path first. If baked/chunked compatibility would require extra abstraction, invalidation rules, or special cases, stop and ask before changing the architecture.
+
+## Revision 489 Electron builder Windows signing config
+
+Revision 489 updates the portable Electron packaging configuration for electron-builder 26.15.x. The staged app package now uses `win.signExecutable: false` instead of the retired `win.sign: false`, which keeps Windows code signing disabled without disabling executable resource editing for the favicon and metadata. The staged package also declares the project author so the builder does not emit the missing-author warning during local Windows builds.
+
+## Revision 490 development settings and baked renderer containment
+
+Revision 490 makes development-tool visibility a persisted browser setting rather than an Electron build special case. `game-bootstrap.js` reads `settings.developmentMode` to show or hide the lower-right tool strip for every host. The experimental static-layer bake renderer is now toggled by the Settings dialog through `settings.useBakedLayers`; the old game-screen `Baked` button has been removed. The `ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER` flag remains the build-level availability boundary and hides the Settings row when disabled.
+
+The static bake renderer remains presentation-only and experimental. Its bake surface bounds are derived from the authored world bounds plus eligible static visual bounds, preserving parallaxed perimeter artwork without changing simulation or level authority. Terrain baking now reuses the normal overlap-blend cache so visual seam treatment stays downstream of existing renderer data rather than introducing a second blending model.
+
+
+## Revision 491 baked perimeter bounds boundary
+
+Revision 491 keeps the static-layer bake perimeter fix inside the presentation renderer. The ordinary cave-window mask still renders as a viewport overlay; only the experimental baked path expands its finite cache rectangle to include the full-black cave extent plus a viewport/parallax safety skirt. This prevents baked chunks from exposing clear texture edges outside the authored play area without making the simulation or normal renderer aware of baked-layer storage.
+
+
+## Revision 492 baked renderer failure boundary
+
+Revision 492 keeps the experimental baked renderer subordinate to the normal presentation pipeline by adding a hard failure boundary. Static bake allocation, canvas creation, and WebGL texture uploads are treated as optional cache construction; if any of them fail, the renderer releases partial baked resources, disables baked mode, and falls back to live rendering. The browser bootstrap owns the user-facing notification and clears the persisted Use baked layers setting so the renderer does not repeatedly retry after an out-of-memory condition.
