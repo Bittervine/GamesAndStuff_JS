@@ -76,6 +76,20 @@ import {
 import { createWebGL2RendererBackend } from "./webgl2-renderer.js";
 import { createPixmapPyramid, drawPixmap } from "./pixmap-pyramid.js";
 import { ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER } from "../shared/experimental-renderer-flags.js";
+import {
+    STATIC_TILE_GUTTER,
+    STATIC_TILE_SIZE,
+    STATIC_TILE_SLOT_SIZE,
+    normalizeStaticTileBakeMode,
+    staticTileCacheRegions,
+    staticTilePriority,
+    staticTileRangeForRect,
+    staticTileRecordKey,
+    staticTileRect,
+    staticTileRectIntersects,
+    staticTileRectIntersectsAny,
+    staticTileViewRect
+} from "../shared/static-tile-cache-data.js";
 
 const transientPixmapPyramids = new WeakMap();
 let pixmapPyramidsEnabled = true;
@@ -169,16 +183,21 @@ const WEBGL_DIRECT_WORLD_EFFECT_KINDS = new Set([
 const WEBGL_DIRECT_ENEMY_PROJECTILE_KINDS = new Set(["enemyFireball", "enemyMusketBall", "enemyRock", "enemyKnife"]);
 
 const STATIC_LAYER_BAKE_CANVAS2D_MEMORY_BUDGET_BYTES = 1536 * 1024 * 1024;
-// WebGL keeps the baked layers as resident GPU textures. Assume up to 3 GiB
-// of VRAM for the experimental baked renderer, while still keeping allocation
-// failures non-fatal. Canvas2D keeps large CPU-side canvases resident, so it
-// deliberately uses a lower safety budget to avoid browser freezes on very
-// large expanded foreground/perimeter bakes.
-const STATIC_LAYER_BAKE_WEBGL_MEMORY_BUDGET_BYTES = 3 * 1024 * 1024 * 1024;
+// Full baking is deliberately capped at 1.5 GiB of estimated RGBA texture
+// storage. WebGL cannot report a trustworthy VRAM total, so the experiment must
+// leave a broad reserve for atlases, framebuffers, compositor surfaces, and
+// upload staging rather than probing the driver's failure cliff.
+const STATIC_LAYER_BAKE_WEBGL_MEMORY_BUDGET_BYTES = 1536 * 1024 * 1024;
 const STATIC_LAYER_BAKE_BYTES_PER_PIXEL = 4;
 const STATIC_LAYER_BAKE_CANVAS_COUNT = 3;
 const STATIC_LAYER_BAKE_MAX_DIMENSION = 32767;
 const STATIC_LAYER_BAKE_WEBGL_CHUNK_SIZE = 4096;
+const STATIC_TILE_BAKE_WEBGL_MEMORY_BUDGET_BYTES = 1536 * 1024 * 1024;
+const STATIC_TILE_BAKE_CANVAS_MEMORY_BUDGET_BYTES = 512 * 1024 * 1024;
+const STATIC_TILE_BAKE_ATLAS_TARGET_SLOTS = 8;
+const STATIC_TILE_BAKE_MAX_EMPTY_SCAN_PER_FRAME = 12;
+const STATIC_TILE_BAKE_LAYER_ORDER = Object.freeze(["background", "terrain", "foreground"]);
+const STATIC_TILE_BAKE_LAYER_BIAS = Object.freeze({ background: 0, terrain: 0.1, foreground: 0.2 });
 
 function bakedLayerByteEstimate(width, height) {
     return Math.max(0, Math.ceil(width) * Math.ceil(height) * STATIC_LAYER_BAKE_BYTES_PER_PIXEL * STATIC_LAYER_BAKE_CANVAS_COUNT);
@@ -719,6 +738,12 @@ class RocketfrockRenderer {
             actorFront: createWorldVisualQueryScratch(),
             caveForeground: createWorldVisualQueryScratch()
         };
+        this.staticTileQueryScratch = {
+            background: createWorldVisualQueryScratch(),
+            main: createWorldVisualQueryScratch(),
+            actorFront: createWorldVisualQueryScratch(),
+            caveForeground: createWorldVisualQueryScratch()
+        };
         this.performanceDiagnostics = {
             backend: this.renderBackend,
             gpuDrawCalls: 0,
@@ -783,7 +808,9 @@ class RocketfrockRenderer {
         this.actorShadowOpacity = new WeakMap();
         this.staticLayerBake = {
             enabled: false,
+            selectedMode: "off",
             cache: null,
+            tileCache: null,
             key: "",
             lastError: "",
             status: ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER ? "off" : STATIC_LAYER_BAKE_DISABLED_STATUS,
@@ -794,8 +821,18 @@ class RocketfrockRenderer {
             bytes: 0,
             chunkCount: 0,
             mode: "off",
+            fullLayout: "",
             failureCount: 0
         };
+        this.staticTileWorker = null;
+        this.staticTileWorkerGeneration = 1;
+        this.staticTileWorkerBusyTaskId = 0;
+        this.staticTileTaskCounter = 0;
+        this.staticTileSourceCounter = 0;
+        this.staticTileSourceObjectIds = new WeakMap();
+        this.staticTileSourceDescriptors = new Map();
+        this.staticTileRegisteredSources = new Set();
+        this.staticTilePreparationToken = 0;
     }
 
     getEnvironmentManifests() {
@@ -1077,45 +1114,53 @@ class RocketfrockRenderer {
 
     resetStaticLayerBakeBookkeeping(status = "off") {
         this.staticLayerBake.cache = null;
+        this.staticLayerBake.tileCache = null;
         this.staticLayerBake.key = "";
         this.staticLayerBake.bytes = 0;
         this.staticLayerBake.lastBuildMs = 0;
         this.staticLayerBake.lastDrawMs = 0;
         this.staticLayerBake.chunkCount = 0;
-        this.staticLayerBake.mode = "off";
+        this.staticLayerBake.mode = this.staticLayerBake.selectedMode || "off";
+        this.staticLayerBake.fullLayout = "";
         this.staticLayerBake.lastUsed = false;
         this.staticLayerBake.status = status;
     }
 
-    setStaticLayerBakeEnabled(enabled) {
-        if (!ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER) {
-            this.releaseStaticLayerBakeCache();
-            this.staticLayerBake.enabled = false;
-            this.staticLayerBake.lastError = "";
-            this.staticLayerBake.lastInvalidationReason = "";
-            this.resetStaticLayerBakeBookkeeping(STATIC_LAYER_BAKE_DISABLED_STATUS);
+    setStaticLayerBakeMode(mode) {
+        const nextMode = ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER
+            ? normalizeStaticTileBakeMode(mode, "off")
+            : "off";
+        if (this.staticLayerBake.selectedMode === nextMode) {
             return this.getStaticLayerBakeStatus();
         }
-        const nextEnabled = enabled === true;
-        if (this.staticLayerBake.enabled === nextEnabled) {
-            return this.getStaticLayerBakeStatus();
-        }
-        if (!nextEnabled) {
-            this.releaseStaticLayerBakeCache();
-        }
-        this.staticLayerBake.enabled = nextEnabled;
-        this.staticLayerBake.status = nextEnabled ? "enabled; awaiting first bake" : "off";
+        this.releaseStaticLayerBakeCache();
+        this.releaseStaticTileBakeCache();
+        this.staticLayerBake.selectedMode = nextMode;
+        this.staticLayerBake.enabled = nextMode !== "off";
         this.staticLayerBake.lastError = "";
-        this.staticLayerBake.lastInvalidationReason = nextEnabled ? "" : "disabled";
-        this.staticLayerBake.lastUsed = false;
-        if (!nextEnabled) {
-            this.resetStaticLayerBakeBookkeeping("off");
-        }
+        this.staticLayerBake.lastInvalidationReason = nextMode === "off" ? "disabled" : "";
+        this.resetStaticLayerBakeBookkeeping(
+            !ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER
+                ? STATIC_LAYER_BAKE_DISABLED_STATUS
+                : (nextMode === "off" ? "off" : `${nextMode}; awaiting bake`)
+        );
         return this.getStaticLayerBakeStatus();
     }
 
+    setStaticLayerBakeEnabled(enabled) {
+        return this.setStaticLayerBakeMode(enabled === true ? "full" : "off");
+    }
+
     isStaticLayerBakeEnabled() {
-        return ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER && this.staticLayerBake.enabled === true;
+        return ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER && this.staticLayerBake.selectedMode !== "off";
+    }
+
+    isFullStaticLayerBakeEnabled() {
+        return ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER && this.staticLayerBake.selectedMode === "full";
+    }
+
+    isStaticTileBakeEnabled() {
+        return ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER && this.staticLayerBake.selectedMode === "tiles";
     }
 
     releaseStaticLayerBakeCache(cache = this.staticLayerBake.cache) {
@@ -1134,28 +1179,80 @@ class RocketfrockRenderer {
         }
     }
 
+    closeStaticTileBitmap(bitmap) {
+        try {
+            bitmap?.close?.();
+        } catch {
+            // Best-effort release for transferred ImageBitmaps.
+        }
+    }
+
+    resetStaticTileWorkerSources() {
+        this.staticTileWorkerGeneration += 1;
+        this.staticTilePreparationToken += 1;
+        this.staticTileWorkerBusyTaskId = 0;
+        this.staticTileSourceCounter = 0;
+        this.staticTileSourceObjectIds = new WeakMap();
+        this.staticTileSourceDescriptors.clear();
+        this.staticTileRegisteredSources.clear();
+        try {
+            this.staticTileWorker?.postMessage?.({ type: "reset", generation: this.staticTileWorkerGeneration });
+        } catch {
+            // The worker may already have been torn down after an error.
+        }
+    }
+
+    releaseStaticTileBakeCache(cache = this.staticLayerBake.tileCache) {
+        if (!cache) {
+            this.resetStaticTileWorkerSources();
+            return;
+        }
+        for (const record of cache.records?.values?.() || []) {
+            this.closeStaticTileBitmap(record.bitmap);
+            record.bitmap = null;
+        }
+        for (const completed of cache.completed || []) {
+            this.closeStaticTileBitmap(completed?.bitmap);
+        }
+        for (const page of cache.pages || []) {
+            if (page?.source) this.webglBackend?.invalidateTexture(page.source);
+        }
+        cache.records?.clear?.();
+        cache.completed = [];
+        cache.pages = [];
+        this.resetStaticTileWorkerSources();
+    }
+
     invalidateStaticLayerBake(reason = "invalidated") {
         this.releaseStaticLayerBakeCache();
+        this.releaseStaticTileBakeCache();
         const normalizedReason = String(reason || "invalidated");
         this.staticLayerBake.lastInvalidationReason = normalizedReason;
-        this.resetStaticLayerBakeBookkeeping(this.staticLayerBake.enabled ? normalizedReason : "off");
+        this.resetStaticLayerBakeBookkeeping(this.isStaticLayerBakeEnabled() ? normalizedReason : "off");
     }
 
     disableStaticLayerBakeAfterFailure(detail = "bake allocation failed", error = null) {
         const detailText = String(detail || error?.message || error || "bake allocation failed");
-        const userMessage = "Could not allocate memory for baked layers. Falling back to normal rendering.";
+        const failedMode = this.staticLayerBake.selectedMode || "off";
+        const userMessage = failedMode === "tiles"
+            ? "Tile baking could not continue. Falling back to normal rendering."
+            : "Could not allocate memory for full baked layers. Falling back to normal rendering.";
         this.releaseStaticLayerBakeCache(this.staticLayerBake.cache);
+        this.releaseStaticTileBakeCache(this.staticLayerBake.tileCache);
         this.staticLayerBake.enabled = false;
+        this.staticLayerBake.selectedMode = "off";
         this.staticLayerBake.cache = null;
+        this.staticLayerBake.tileCache = null;
         this.staticLayerBake.key = "";
         this.staticLayerBake.bytes = 0;
         this.staticLayerBake.chunkCount = 0;
         this.staticLayerBake.mode = "off";
+        this.staticLayerBake.fullLayout = "";
         this.staticLayerBake.lastBuildMs = 0;
         this.staticLayerBake.lastDrawMs = 0;
         this.staticLayerBake.lastUsed = false;
         this.staticLayerBake.failureCount = (Number(this.staticLayerBake.failureCount) || 0) + 1;
-        this.staticLayerBake.lastInvalidationReason = "disabled after bake failure";
+        this.staticLayerBake.lastInvalidationReason = `disabled after ${failedMode} bake failure`;
         this.staticLayerBake.lastError = `${userMessage} ${detailText}`;
         this.staticLayerBake.status = this.staticLayerBake.lastError;
         if (this.onStaticBakeFailure) {
@@ -1164,6 +1261,7 @@ class RocketfrockRenderer {
                     message: userMessage,
                     detail: detailText,
                     error,
+                    failedMode,
                     status: this.getStaticLayerBakeStatus()
                 });
             } catch (callbackError) {
@@ -1175,10 +1273,17 @@ class RocketfrockRenderer {
 
     getStaticLayerBakeStatus() {
         const cache = this.staticLayerBake.cache;
+        const tileCache = this.staticLayerBake.tileCache;
+        const readyTileCount = tileCache
+            ? [...tileCache.records.values()].filter((record) => record.state === "ready" || record.state === "empty").length
+            : 0;
+        const residentTileCount = tileCache
+            ? [...tileCache.records.values()].filter((record) => record.state === "ready" && !record.empty).length
+            : 0;
         return {
             available: ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER === true,
-            enabled: ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER && this.staticLayerBake.enabled === true,
-            ready: Boolean(cache),
+            enabled: this.isStaticLayerBakeEnabled(),
+            ready: this.staticLayerBake.selectedMode === "tiles" ? readyTileCount > 0 : Boolean(cache),
             used: this.staticLayerBake.lastUsed === true,
             bytes: Math.max(0, Number(this.staticLayerBake.bytes) || 0),
             width: Math.max(0, Number(cache?.width) || 0),
@@ -1186,7 +1291,11 @@ class RocketfrockRenderer {
             buildMs: Math.max(0, Number(this.staticLayerBake.lastBuildMs) || 0),
             drawMs: Math.max(0, Number(this.staticLayerBake.lastDrawMs) || 0),
             chunks: Math.max(0, Number(this.staticLayerBake.chunkCount) || 0),
-            mode: this.staticLayerBake.mode || "off",
+            mode: this.staticLayerBake.selectedMode || "off",
+            fullLayout: this.staticLayerBake.fullLayout || "",
+            tilesReady: readyTileCount,
+            tilesResident: residentTileCount,
+            tilePages: tileCache?.pages?.length || 0,
             failures: Math.max(0, Number(this.staticLayerBake.failureCount) || 0),
             lastInvalidationReason: this.staticLayerBake.lastInvalidationReason || "",
             status: ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER
@@ -1499,9 +1608,14 @@ class RocketfrockRenderer {
     renderCanvas2D(state, inputFrame, dt) {
         const frameStart = rendererNowMs();
         const view = this.prepareFrame(state, dt, frameStart);
-        if (this.isStaticLayerBakeEnabled() && !state.debug.showCollision && !state.debug.showAssetGuides) {
-            const rendered = this.renderCanvas2DStaticBake(state, inputFrame, view, frameStart);
-            if (rendered) return;
+        if (!state.debug.showCollision && !state.debug.showAssetGuides) {
+            if (this.isStaticTileBakeEnabled()) {
+                const rendered = this.renderCanvas2DStaticTiles(state, inputFrame, view, frameStart);
+                if (rendered) return;
+            } else if (this.isFullStaticLayerBakeEnabled()) {
+                const rendered = this.renderCanvas2DStaticBake(state, inputFrame, view, frameStart);
+                if (rendered) return;
+            }
         }
         this.renderCanvas2DLivePrepared(state, inputFrame, view, frameStart);
     }
@@ -1551,6 +1665,803 @@ class RocketfrockRenderer {
             maskMs: maskEnd - foregroundEnd,
             overlayMs: frameEnd - maskEnd
         });
+    }
+
+    ensureStaticTileBakeWorker() {
+        if (this.staticTileWorker) return this.staticTileWorker;
+        if (typeof Worker !== "function" || typeof createImageBitmap !== "function") {
+            return this.disableStaticLayerBakeAfterFailure(
+                "Tile baking requires Worker, OffscreenCanvas, and createImageBitmap support."
+            );
+        }
+        try {
+            const worker = new Worker(new URL("./static-tile-bake-worker.js", import.meta.url), { type: "module" });
+            worker.addEventListener("message", (event) => this.handleStaticTileWorkerMessage(event.data || {}));
+            worker.addEventListener("error", (event) => {
+                this.staticTileWorkerBusyTaskId = 0;
+                try {
+                    worker.terminate();
+                } catch {
+                    // The worker may already have stopped after its fatal error.
+                }
+                if (this.staticTileWorker === worker) this.staticTileWorker = null;
+                this.disableStaticLayerBakeAfterFailure(
+                    event?.message || "Unknown tile-bake worker failure."
+                );
+            });
+            this.staticTileWorker = worker;
+            return worker;
+        } catch (error) {
+            return this.disableStaticLayerBakeAfterFailure(
+                error?.message || "Could not start the tile-bake worker.",
+                error
+            );
+        }
+    }
+
+    handleStaticTileWorkerMessage(message) {
+        const bitmap = message?.bitmap || null;
+        const cache = this.staticLayerBake.tileCache;
+        if (
+            !cache ||
+            Number(message.generation) !== Number(cache.generation) ||
+            Number(message.generation) !== Number(this.staticTileWorkerGeneration)
+        ) {
+            this.closeStaticTileBitmap(bitmap);
+            return;
+        }
+        const taskId = Number(message.taskId) || 0;
+        if (taskId === this.staticTileWorkerBusyTaskId) this.staticTileWorkerBusyTaskId = 0;
+        const record = cache.records.get(String(message.key || ""));
+        if (!record || record.taskId !== taskId) {
+            this.closeStaticTileBitmap(bitmap);
+            return;
+        }
+        if (message.type === "error") {
+            record.state = "queued";
+            record.taskId = 0;
+            this.disableStaticLayerBakeAfterFailure(message.detail || "tile-bake worker failed");
+            return;
+        }
+        if (message.type !== "baked" || !bitmap) return;
+        record.state = "completed";
+        cache.completed.push({
+            key: record.key,
+            taskId,
+            bitmap,
+            buildMs: Math.max(0, Number(message.buildMs) || 0)
+        });
+    }
+
+    staticTileBakeCacheKey(state) {
+        return [
+            state.world?.levelId || "",
+            this.environmentColorMapKey || "",
+            Array.isArray(state.world?.visuals) ? state.world.visuals.length : 0,
+            Array.isArray(state.world?.solids) ? state.world.solids.length : 0,
+            JSON.stringify(state.world?.layerVisuals || null)
+        ].join("|");
+    }
+
+    createStaticTileBakeCache(state, view) {
+        const cache = {
+            key: this.staticTileBakeCacheKey(state),
+            visualSource: state.world?.visuals,
+            solidSource: state.world?.solids,
+            generation: this.staticTileWorkerGeneration,
+            backendGeneration: this.webglBackend?.getResourceGeneration?.() || 0,
+            records: new Map(),
+            pages: [],
+            completed: [],
+            regions: {},
+            frame: 0,
+            nextPageId: 1,
+            velocityX: 0,
+            velocityY: 0,
+            lastViewX: Number(view?.x) || 0,
+            lastViewY: Number(view?.y) || 0,
+            readyVisibleLayers: 0,
+            uploadedTiles: 0,
+            emptyTiles: 0,
+            buildMs: 0,
+            drawMs: 0
+        };
+        this.staticLayerBake.tileCache = cache;
+        this.staticLayerBake.cache = null;
+        this.staticLayerBake.key = cache.key;
+        this.staticLayerBake.mode = "tiles";
+        this.staticLayerBake.fullLayout = "";
+        this.staticLayerBake.bytes = 0;
+        this.staticLayerBake.chunkCount = 0;
+        this.staticLayerBake.lastBuildMs = 0;
+        this.staticLayerBake.lastDrawMs = 0;
+        return cache;
+    }
+
+    staticTileLayerParallaxOffset(layerName) {
+        if (layerName === "background") return this.frameBackgroundOffset;
+        if (layerName === "foreground") return this.frameForegroundOffset;
+        return null;
+    }
+
+    updateStaticTileCameraVelocity(cache, view) {
+        const dt = Math.max(1 / 240, Math.min(0.25, Number(this.lastObservedFrameDt) || Number(this.lastRenderDt) || 1 / 60));
+        const rawX = ((Number(view?.x) || 0) - cache.lastViewX) / dt;
+        const rawY = ((Number(view?.y) || 0) - cache.lastViewY) / dt;
+        const clampVelocity = (value) => Math.max(-10000, Math.min(10000, value));
+        cache.velocityX = cache.velocityX * 0.6 + clampVelocity(rawX) * 0.4;
+        cache.velocityY = cache.velocityY * 0.6 + clampVelocity(rawY) * 0.4;
+        cache.lastViewX = Number(view?.x) || 0;
+        cache.lastViewY = Number(view?.y) || 0;
+    }
+
+    ensureStaticTileBakeCache(state, view) {
+        if (!this.isStaticTileBakeEnabled()) return null;
+        if (!this.ensureStaticTileBakeWorker()) return null;
+        const expectedKey = this.staticTileBakeCacheKey(state);
+        const backendGeneration = this.webglBackend?.getResourceGeneration?.() || 0;
+        let cache = this.staticLayerBake.tileCache;
+        if (
+            !cache ||
+            cache.key !== expectedKey ||
+            cache.visualSource !== state.world?.visuals ||
+            cache.solidSource !== state.world?.solids ||
+            cache.backendGeneration !== backendGeneration
+        ) {
+            this.releaseStaticTileBakeCache(cache);
+            cache = this.createStaticTileBakeCache(state, view);
+        }
+        cache.frame += 1;
+        this.updateStaticTileCameraVelocity(cache, view);
+        this.processOneCompletedStaticTile(cache);
+        this.planStaticTileBakeRecords(cache, state, view);
+        this.evictDistantStaticTiles(cache);
+        this.dispatchNextStaticTileBake(cache, state);
+        this.updateStaticTileBakeDiagnostics(cache);
+        return cache;
+    }
+
+    planStaticTileBakeRecords(cache, state, view) {
+        for (const layerName of STATIC_TILE_BAKE_LAYER_ORDER) {
+            const regions = staticTileCacheRegions(view, {
+                parallaxOffset: this.staticTileLayerParallaxOffset(layerName),
+                velocityX: cache.velocityX,
+                velocityY: cache.velocityY
+            });
+            cache.regions[layerName] = regions;
+            const wantedKeys = new Set();
+            for (const rect of regions.bakeRects) {
+                const range = staticTileRangeForRect(rect, STATIC_TILE_SIZE);
+                for (let tileY = range.minTileY; tileY <= range.maxTileY; tileY += 1) {
+                    for (let tileX = range.minTileX; tileX <= range.maxTileX; tileX += 1) {
+                        const key = staticTileRecordKey(layerName, tileX, tileY);
+                        if (wantedKeys.has(key)) continue;
+                        wantedKeys.add(key);
+                        let record = cache.records.get(key);
+                        if (!record) {
+                            record = {
+                                key,
+                                layerName,
+                                tileX,
+                                tileY,
+                                rect: staticTileRect(tileX, tileY, STATIC_TILE_SIZE),
+                                state: "queued",
+                                empty: false,
+                                bitmap: null,
+                                page: null,
+                                slotIndex: -1,
+                                slotX: 0,
+                                slotY: 0,
+                                taskId: 0,
+                                priority: 0,
+                                wantedFrame: 0,
+                                lastDrawFrame: 0
+                            };
+                            cache.records.set(key, record);
+                        }
+                        record.wantedFrame = cache.frame;
+                        record.priority = staticTilePriority(
+                            record.rect,
+                            regions,
+                            cache.velocityX,
+                            cache.velocityY,
+                            STATIC_TILE_BAKE_LAYER_BIAS[layerName] || 0
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    evictDistantStaticTiles(cache) {
+        for (const record of [...cache.records.values()]) {
+            const retentionRects = cache.regions[record.layerName]?.retentionRects || [];
+            if (staticTileRectIntersectsAny(record.rect, retentionRects)) continue;
+            if (record.state === "preparing" || record.state === "baking" || record.state === "completed") continue;
+            this.evictStaticTileRecord(cache, record);
+        }
+        this.releaseUnusedStaticTileAtlasPages(cache);
+    }
+
+    evictStaticTileRecord(cache, record) {
+        if (!record) return false;
+        this.closeStaticTileBitmap(record.bitmap);
+        record.bitmap = null;
+        if (record.page && record.slotIndex >= 0) {
+            record.page.usedSlots.delete(record.slotIndex);
+            record.page.freeSlots.push(record.slotIndex);
+        }
+        cache.records.delete(record.key);
+        return true;
+    }
+
+    releaseUnusedStaticTileAtlasPages(cache, keepEmptyPages = 1) {
+        if (!this.webglBackend?.available || !Array.isArray(cache.pages)) return;
+        let emptyKept = 0;
+        const retained = [];
+        for (const page of cache.pages) {
+            if (page.usedSlots.size > 0 || emptyKept < keepEmptyPages) {
+                retained.push(page);
+                if (page.usedSlots.size === 0) emptyKept += 1;
+            } else {
+                this.webglBackend.invalidateTexture(page.source);
+            }
+        }
+        cache.pages = retained;
+    }
+
+    staticTilePartitionHasStaticVisuals(cache, partitionName) {
+        for (const entry of cache?.[partitionName] || []) {
+            const visual = entry.visual;
+            if (!visualCanBeBakedStatic(visual)) continue;
+            if (visual.kind === "cutoutMask") return true;
+            if (visual.kind === "atlasSprite" && this.atlasVisualAvailable(visual)) return true;
+        }
+        return false;
+    }
+
+    staticTileSourceDescriptor(source, sourceX, sourceY, sourceWidth, sourceHeight) {
+        if (!source) return null;
+        let objectId = this.staticTileSourceObjectIds.get(source);
+        if (!objectId) {
+            objectId = `source_${++this.staticTileSourceCounter}`;
+            this.staticTileSourceObjectIds.set(source, objectId);
+        }
+        const x = Math.max(0, Math.floor(Number(sourceX) || 0));
+        const y = Math.max(0, Math.floor(Number(sourceY) || 0));
+        const width = Math.max(1, Math.floor(Number(sourceWidth) || Number(source.width) || Number(source.naturalWidth) || 1));
+        const height = Math.max(1, Math.floor(Number(sourceHeight) || Number(source.height) || Number(source.naturalHeight) || 1));
+        const id = `${objectId}:${x}:${y}:${width}:${height}`;
+        if (!this.staticTileSourceDescriptors.has(id)) {
+            this.staticTileSourceDescriptors.set(id, { id, source, x, y, width, height });
+        }
+        return this.staticTileSourceDescriptors.get(id);
+    }
+
+    staticTileImageCommandForVisual(visual) {
+        const atlas = this.environmentAtlases.get(visual?.atlasId);
+        if (!atlas || atlas.missing || !atlas.image) return null;
+        const frameName = visual.frame || visual.assetId;
+        const frame = atlas.frames?.[frameName];
+        if (!frame) return null;
+        const caveForeground = visual.layer === "caveForeground";
+        const worldBackground = isWorldBackgroundVisual(visual);
+        let source = atlas.renderImage || atlas.image;
+        let sourceX = frame.x;
+        let sourceY = frame.y;
+        let sourceWidth = frame.w;
+        let sourceHeight = frame.h;
+        if (worldBackground) {
+            source = this.getLayerBrightnessAtlas(atlas, visual.backgroundBrightness, "background");
+        }
+        if (caveForeground) {
+            source = this.getForegroundSpriteCanvas(atlas, frameName, frame, visual);
+            sourceX = 0;
+            sourceY = 0;
+            sourceWidth = source.width;
+            sourceHeight = source.height;
+        }
+        const descriptor = this.staticTileSourceDescriptor(source, sourceX, sourceY, sourceWidth, sourceHeight);
+        if (!descriptor) return null;
+        const center = placementCenter(visual);
+        return {
+            kind: "image",
+            sourceId: descriptor.id,
+            centerX: center.x,
+            centerY: center.y,
+            width: Number(visual.w) || 0,
+            height: Number(visual.h) || 0,
+            rotation: normalizeRotationRadians(visual.rotation),
+            mirrorX: Boolean(visual.mirrorX),
+            mirrorY: Boolean(visual.mirrorY),
+            alpha: visual.alpha ?? 1
+        };
+    }
+
+    appendStaticTilePartitionCommands(commands, state, partitionName, tileView, drawnGroups) {
+        const visualCache = this.getWorldVisualCache(state);
+        const query = queryWorldVisualEntries(
+            visualCache,
+            partitionName,
+            tileView,
+            null,
+            0,
+            this.staticTileQueryScratch[partitionName]
+        );
+        const overlapCache = partitionName === "main" ? this.ensureOverlapBlendCache(state) : null;
+        for (const { visual } of query.entries) {
+            if (!visualCanBeBakedStatic(visual)) continue;
+            const blendGroup = overlapCache?.memberToGroup?.get(visual);
+            if (blendGroup) {
+                if (drawnGroups.has(blendGroup)) continue;
+                drawnGroups.add(blendGroup);
+                if (!visualIntersectsViewport(blendGroup.bounds, tileView, null, 0)) continue;
+                const descriptor = this.staticTileSourceDescriptor(
+                    blendGroup.canvas,
+                    0,
+                    0,
+                    blendGroup.canvas?.width,
+                    blendGroup.canvas?.height
+                );
+                if (!descriptor) continue;
+                commands.push({
+                    kind: "image",
+                    sourceId: descriptor.id,
+                    centerX: (blendGroup.bounds.minX + blendGroup.bounds.maxX) * 0.5,
+                    centerY: (blendGroup.bounds.minY + blendGroup.bounds.maxY) * 0.5,
+                    width: blendGroup.bounds.maxX - blendGroup.bounds.minX,
+                    height: blendGroup.bounds.maxY - blendGroup.bounds.minY,
+                    rotation: 0,
+                    mirrorX: false,
+                    mirrorY: false,
+                    alpha: 1
+                });
+                continue;
+            }
+            if (visual.kind === "atlasSprite") {
+                const command = this.staticTileImageCommandForVisual(visual);
+                if (command) commands.push(command);
+            } else if (visual.kind === "cutoutMask") {
+                commands.push({
+                    kind: "fill",
+                    color: LEVEL_BACKGROUND_COLOR,
+                    alpha: 1,
+                    x: Number(visual.x) || 0,
+                    y: Number(visual.y) || 0,
+                    width: Number(visual.w) || 0,
+                    height: Number(visual.h) || 0
+                });
+            }
+        }
+    }
+
+    buildStaticTileBakeTask(state, record) {
+        const originX = record.rect.x - STATIC_TILE_GUTTER;
+        const originY = record.rect.y - STATIC_TILE_GUTTER;
+        const tileView = {
+            w: STATIC_TILE_SLOT_SIZE,
+            h: STATIC_TILE_SLOT_SIZE,
+            dpr: 1,
+            zoom: 1,
+            cssScale: 1,
+            clientW: STATIC_TILE_SLOT_SIZE,
+            clientH: STATIC_TILE_SLOT_SIZE,
+            virtualW: STATIC_TILE_SLOT_SIZE,
+            virtualH: STATIC_TILE_SLOT_SIZE,
+            minVirtualW: STATIC_TILE_SLOT_SIZE,
+            x: originX,
+            y: originY
+        };
+        const commands = [];
+        const drawnGroups = new Set();
+        if (record.layerName === "background") {
+            this.appendStaticTilePartitionCommands(commands, state, "background", tileView, drawnGroups);
+        } else if (record.layerName === "terrain") {
+            this.appendStaticTilePartitionCommands(commands, state, "main", tileView, drawnGroups);
+            const visualCache = this.getWorldVisualCache(state);
+            if (!this.staticTilePartitionHasStaticVisuals(visualCache, "main")) {
+                for (const solid of state.world?.solids || []) {
+                    const solidRect = {
+                        x: Number(solid.x) || 0,
+                        y: Number(solid.y) || 0,
+                        w: Math.max(0, Number(solid.w) || 0),
+                        h: Math.max(0, Number(solid.h) || 0)
+                    };
+                    if (!staticTileRectIntersects(solidRect, { x: originX, y: originY, w: STATIC_TILE_SLOT_SIZE, h: STATIC_TILE_SLOT_SIZE })) continue;
+                    commands.push({
+                        kind: "fill",
+                        color: solid.kind === "floor" ? "rgba(122, 104, 149, 0.45)" : "rgba(92, 81, 124, 0.52)",
+                        alpha: 1,
+                        x: solidRect.x,
+                        y: solidRect.y,
+                        width: solidRect.w,
+                        height: solidRect.h
+                    });
+                }
+            }
+        } else {
+            this.appendStaticTilePartitionCommands(commands, state, "actorFront", tileView, drawnGroups);
+            this.appendStaticTilePartitionCommands(commands, state, "caveForeground", tileView, drawnGroups);
+        }
+        return {
+            key: record.key,
+            originX,
+            originY,
+            width: STATIC_TILE_SLOT_SIZE,
+            height: STATIC_TILE_SLOT_SIZE,
+            commands
+        };
+    }
+
+    dispatchNextStaticTileBake(cache, state) {
+        if (this.staticTileWorkerBusyTaskId || cache.completed.length > 0) return;
+        const worker = this.ensureStaticTileBakeWorker();
+        if (!worker) return;
+        let emptyScans = 0;
+        while (emptyScans < STATIC_TILE_BAKE_MAX_EMPTY_SCAN_PER_FRAME) {
+            const record = [...cache.records.values()]
+                .filter((candidate) => candidate.state === "queued" && candidate.wantedFrame === cache.frame)
+                .sort((a, b) => a.priority - b.priority)[0];
+            if (!record) return;
+            const task = this.buildStaticTileBakeTask(state, record);
+            if (!task.commands.length) {
+                record.state = "empty";
+                record.empty = true;
+                record.taskId = 0;
+                cache.emptyTiles += 1;
+                emptyScans += 1;
+                continue;
+            }
+            const taskId = ++this.staticTileTaskCounter;
+            record.state = "preparing";
+            record.taskId = taskId;
+            this.staticTileWorkerBusyTaskId = taskId;
+            const preparationToken = ++this.staticTilePreparationToken;
+            void this.prepareAndPostStaticTileTask(cache, record, task, taskId, preparationToken);
+            return;
+        }
+    }
+
+    async prepareAndPostStaticTileTask(cache, record, task, taskId, preparationToken) {
+        const sourceIds = [...new Set(task.commands.filter((command) => command.kind === "image").map((command) => command.sourceId))];
+        const newSources = [];
+        const transfers = [];
+        try {
+            for (const sourceId of sourceIds) {
+                if (this.staticTileRegisteredSources.has(sourceId)) continue;
+                const descriptor = this.staticTileSourceDescriptors.get(sourceId);
+                if (!descriptor) throw new Error(`Missing source descriptor ${sourceId}.`);
+                const bitmap = await createImageBitmap(
+                    descriptor.source,
+                    descriptor.x,
+                    descriptor.y,
+                    descriptor.width,
+                    descriptor.height
+                );
+                newSources.push({ id: sourceId, bitmap });
+                transfers.push(bitmap);
+            }
+            if (
+                preparationToken !== this.staticTilePreparationToken ||
+                cache !== this.staticLayerBake.tileCache ||
+                cache.generation !== this.staticTileWorkerGeneration ||
+                record.taskId !== taskId
+            ) {
+                for (const entry of newSources) this.closeStaticTileBitmap(entry.bitmap);
+                return;
+            }
+            this.staticTileWorkerBusyTaskId = taskId;
+            record.state = "baking";
+            this.staticTileWorker.postMessage({
+                type: "bake",
+                generation: cache.generation,
+                taskId,
+                key: record.key,
+                originX: task.originX,
+                originY: task.originY,
+                width: task.width,
+                height: task.height,
+                commands: task.commands,
+                sources: newSources,
+                preflipForWebGL: Boolean(this.webglBackend?.available)
+            }, transfers);
+            for (const entry of newSources) this.staticTileRegisteredSources.add(entry.id);
+        } catch (error) {
+            for (const entry of newSources) this.closeStaticTileBitmap(entry.bitmap);
+            if (record.taskId === taskId) {
+                record.state = "queued";
+                record.taskId = 0;
+            }
+            this.staticTileWorkerBusyTaskId = 0;
+            this.disableStaticLayerBakeAfterFailure(error?.message || error, error);
+        }
+    }
+
+    processOneCompletedStaticTile(cache) {
+        const completed = cache.completed.shift();
+        if (!completed) return false;
+        const record = cache.records.get(completed.key);
+        if (!record || record.taskId !== completed.taskId || record.state !== "completed") {
+            this.closeStaticTileBitmap(completed.bitmap);
+            return false;
+        }
+        if (this.webglBackend?.available) {
+            const slot = this.allocateStaticTileAtlasSlot(cache, record);
+            if (!slot) {
+                this.closeStaticTileBitmap(completed.bitmap);
+                record.state = "queued";
+                record.taskId = 0;
+                this.staticLayerBake.status = "tile texture budget reached; distant tiles will be recycled";
+                return false;
+            }
+            const uploaded = this.webglBackend.updateTextureRegion(
+                slot.page.source,
+                completed.bitmap,
+                slot.x,
+                slot.y,
+                { unpackFlipY: false }
+            );
+            this.closeStaticTileBitmap(completed.bitmap);
+            if (!uploaded) {
+                return Boolean(this.disableStaticLayerBakeAfterFailure(
+                    this.webglBackend.lastTextureError || "could not upload a baked tile"
+                ));
+            }
+            record.page = slot.page;
+            record.slotIndex = slot.slotIndex;
+            record.slotX = slot.x;
+            record.slotY = slot.y;
+        } else {
+            const tileBytes = STATIC_TILE_SLOT_SIZE * STATIC_TILE_SLOT_SIZE * STATIC_LAYER_BAKE_BYTES_PER_PIXEL;
+            let residentBytes = [...cache.records.values()].reduce((sum, candidate) => (
+                sum + (candidate.state === "ready" && candidate.bitmap ? tileBytes : 0)
+            ), 0);
+            while (residentBytes + tileBytes > STATIC_TILE_BAKE_CANVAS_MEMORY_BUDGET_BYTES) {
+                const victim = [...cache.records.values()]
+                    .filter((candidate) => candidate !== record && candidate.state === "ready" && candidate.bitmap)
+                    .sort((a, b) => (b.priority || 0) - (a.priority || 0))[0];
+                if (!victim) {
+                    this.closeStaticTileBitmap(completed.bitmap);
+                    record.state = "queued";
+                    record.taskId = 0;
+                    this.staticLayerBake.status = "Canvas tile memory budget reached; waiting for distant tiles to be recycled";
+                    return false;
+                }
+                this.evictStaticTileRecord(cache, victim);
+                residentBytes = Math.max(0, residentBytes - tileBytes);
+            }
+            record.bitmap = completed.bitmap;
+        }
+        record.state = "ready";
+        record.empty = false;
+        record.taskId = 0;
+        cache.uploadedTiles += 1;
+        cache.buildMs = cache.buildMs * 0.9 + completed.buildMs * 0.1;
+        return true;
+    }
+
+    allocateStaticTileAtlasSlot(cache, record) {
+        for (const page of cache.pages) {
+            if (!page.freeSlots.length) continue;
+            const slotIndex = page.freeSlots.pop();
+            page.usedSlots.set(slotIndex, record.key);
+            return {
+                page,
+                slotIndex,
+                x: (slotIndex % page.slotsPerAxis) * STATIC_TILE_SLOT_SIZE,
+                y: Math.floor(slotIndex / page.slotsPerAxis) * STATIC_TILE_SLOT_SIZE
+            };
+        }
+        const maxTextureSize = Math.max(STATIC_TILE_SLOT_SIZE, Number(this.webglBackend?.getMaxTextureSize?.()) || STATIC_TILE_SLOT_SIZE);
+        const slotsPerAxis = Math.max(1, Math.min(STATIC_TILE_BAKE_ATLAS_TARGET_SLOTS, Math.floor(maxTextureSize / STATIC_TILE_SLOT_SIZE)));
+        const dimension = slotsPerAxis * STATIC_TILE_SLOT_SIZE;
+        const pageBytes = dimension * dimension * STATIC_LAYER_BAKE_BYTES_PER_PIXEL;
+        while (this.staticLayerBake.bytes + pageBytes > STATIC_TILE_BAKE_WEBGL_MEMORY_BUDGET_BYTES) {
+            const victim = [...cache.records.values()]
+                .filter((candidate) => candidate !== record && candidate.state === "ready" && candidate.page)
+                .sort((a, b) => (b.priority || 0) - (a.priority || 0))[0];
+            if (!victim) return null;
+            this.evictStaticTileRecord(cache, victim);
+            for (const page of cache.pages) {
+                if (!page.freeSlots.length) continue;
+                const slotIndex = page.freeSlots.pop();
+                page.usedSlots.set(slotIndex, record.key);
+                return {
+                    page,
+                    slotIndex,
+                    x: (slotIndex % page.slotsPerAxis) * STATIC_TILE_SLOT_SIZE,
+                    y: Math.floor(slotIndex / page.slotsPerAxis) * STATIC_TILE_SLOT_SIZE
+                };
+            }
+        }
+        const source = this.webglBackend.createTextureStorage(dimension, dimension);
+        if (!source) return null;
+        const capacity = slotsPerAxis * slotsPerAxis;
+        const page = {
+            id: cache.nextPageId++,
+            source,
+            dimension,
+            slotsPerAxis,
+            bytes: pageBytes,
+            freeSlots: Array.from({ length: capacity }, (_, index) => capacity - 1 - index),
+            usedSlots: new Map()
+        };
+        cache.pages.push(page);
+        const slotIndex = page.freeSlots.pop();
+        page.usedSlots.set(slotIndex, record.key);
+        return { page, slotIndex, x: 0, y: 0 };
+    }
+
+    staticTileVisibleRecords(cache, layerName, view, parallaxOffset = null) {
+        const visible = staticTileViewRect(view, parallaxOffset);
+        const range = staticTileRangeForRect(visible, STATIC_TILE_SIZE);
+        const records = [];
+        let complete = true;
+        for (let tileY = range.minTileY; tileY <= range.maxTileY; tileY += 1) {
+            for (let tileX = range.minTileX; tileX <= range.maxTileX; tileX += 1) {
+                const record = cache.records.get(staticTileRecordKey(layerName, tileX, tileY));
+                if (!record || (record.state !== "ready" && record.state !== "empty")) {
+                    complete = false;
+                    continue;
+                }
+                records.push(record);
+            }
+        }
+        return { complete, visible, records };
+    }
+
+    drawStaticTileLayerCanvas(cache, layerName, view, parallaxOffset = null) {
+        const drawStart = rendererNowMs();
+        const visibleResult = this.staticTileVisibleRecords(cache, layerName, view, parallaxOffset);
+        if (!visibleResult.complete) return { complete: false, ms: rendererNowMs() - drawStart, tiles: 0 };
+        const zoom = Math.max(0.0001, Number(view?.zoom) || 1);
+        let tiles = 0;
+        for (const record of visibleResult.records) {
+            record.lastDrawFrame = cache.frame;
+            if (record.empty || !record.bitmap) continue;
+            const left = Math.max(visibleResult.visible.x, record.rect.x);
+            const top = Math.max(visibleResult.visible.y, record.rect.y);
+            const right = Math.min(visibleResult.visible.x + visibleResult.visible.w, record.rect.x + record.rect.w);
+            const bottom = Math.min(visibleResult.visible.y + visibleResult.visible.h, record.rect.y + record.rect.h);
+            const width = right - left;
+            const height = bottom - top;
+            if (width <= 0 || height <= 0) continue;
+            this.ctx.drawImage(
+                record.bitmap,
+                STATIC_TILE_GUTTER + left - record.rect.x,
+                STATIC_TILE_GUTTER + top - record.rect.y,
+                width,
+                height,
+                (left - visibleResult.visible.x) * zoom,
+                (top - visibleResult.visible.y) * zoom,
+                width * zoom,
+                height * zoom
+            );
+            tiles += 1;
+        }
+        return { complete: true, ms: rendererNowMs() - drawStart, tiles };
+    }
+
+    queueStaticTileLayerWebGL(cache, layerName, view, parallaxOffset = null) {
+        const drawStart = rendererNowMs();
+        const visibleResult = this.staticTileVisibleRecords(cache, layerName, view, parallaxOffset);
+        if (!visibleResult.complete) return { complete: false, ms: rendererNowMs() - drawStart, tiles: 0, failed: 0 };
+        const zoom = Math.max(0.0001, Number(view?.zoom) || 1);
+        const records = visibleResult.records
+            .filter((record) => !record.empty && record.page)
+            .sort((a, b) => a.page.id - b.page.id || a.tileY - b.tileY || a.tileX - b.tileX);
+        let tiles = 0;
+        let failed = 0;
+        for (const record of records) {
+            record.lastDrawFrame = cache.frame;
+            const left = Math.max(visibleResult.visible.x, record.rect.x);
+            const top = Math.max(visibleResult.visible.y, record.rect.y);
+            const right = Math.min(visibleResult.visible.x + visibleResult.visible.w, record.rect.x + record.rect.w);
+            const bottom = Math.min(visibleResult.visible.y + visibleResult.visible.h, record.rect.y + record.rect.h);
+            const width = right - left;
+            const height = bottom - top;
+            if (width <= 0 || height <= 0) continue;
+            const queued = this.webglBackend.queueSprite({
+                source: record.page.source,
+                sourceX: record.slotX + STATIC_TILE_GUTTER + left - record.rect.x,
+                sourceY: record.slotY + STATIC_TILE_GUTTER + top - record.rect.y,
+                sourceWidth: width,
+                sourceHeight: height,
+                centerX: (left - visibleResult.visible.x) * zoom + width * zoom * 0.5,
+                centerY: (top - visibleResult.visible.y) * zoom + height * zoom * 0.5,
+                width: width * zoom,
+                height: height * zoom,
+                dynamic: false
+            });
+            if (queued) tiles += 1;
+            else failed += 1;
+        }
+        return { complete: failed === 0, ms: rendererNowMs() - drawStart, tiles, failed };
+    }
+
+    updateStaticTileBakeDiagnostics(cache) {
+        const ready = [...cache.records.values()].filter((record) => record.state === "ready" || record.state === "empty").length;
+        const resident = [...cache.records.values()].filter((record) => record.state === "ready" && !record.empty).length;
+        const canvasBytes = this.webglBackend?.available ? 0 : resident * STATIC_TILE_SLOT_SIZE * STATIC_TILE_SLOT_SIZE * STATIC_LAYER_BAKE_BYTES_PER_PIXEL;
+        const pageBytes = cache.pages.reduce((sum, page) => sum + (Number(page.bytes) || 0), 0);
+        this.staticLayerBake.bytes = pageBytes + canvasBytes;
+        this.staticLayerBake.chunkCount = resident;
+        this.staticLayerBake.lastBuildMs = cache.buildMs;
+        this.staticLayerBake.mode = "tiles";
+        this.staticLayerBake.fullLayout = "";
+        this.staticLayerBake.status = `tiles: ${ready} ready (${resident} textured), ${cache.pages.length} atlas pages, ${Math.round(this.staticLayerBake.bytes / 1048576)} MiB`;
+    }
+
+    renderCanvas2DStaticTiles(state, inputFrame, view, frameStart) {
+        const cache = this.ensureStaticTileBakeCache(state, view);
+        if (!cache) return false;
+        this.resetCanvasContext();
+        this.clear(view);
+        this.drawBackdrop(view);
+
+        const backgroundStart = rendererNowMs();
+        const backgroundTiles = this.drawStaticTileLayerCanvas(cache, "background", view, this.frameBackgroundOffset);
+        if (backgroundTiles.complete) this.drawBakedDynamicWorldVisuals(state, view, "background");
+        else this.drawBackgroundVisuals(state, view);
+        const backgroundEnd = rendererNowMs();
+
+        const terrainStart = rendererNowMs();
+        const terrainTiles = this.drawStaticTileLayerCanvas(cache, "terrain", view, null);
+        if (terrainTiles.complete) {
+            this.drawBakedDynamicWorldVisuals(state, view, "main");
+        } else {
+            this.drawWorld(state, view);
+        }
+        const worldMainEnd = rendererNowMs();
+        this.drawPortalIntroGlow(state, view);
+        const worldEnd = rendererNowMs();
+        this.frameRenderBreakdown.clearBackdropMs = backgroundStart - frameStart;
+        this.frameRenderBreakdown.backgroundMs = backgroundEnd - backgroundStart;
+        this.frameRenderBreakdown.worldVisualsMs += backgroundTiles.ms + terrainTiles.ms;
+        this.frameRenderBreakdown.worldGeometryMs += Math.max(0, worldMainEnd - terrainStart - terrainTiles.ms);
+        this.frameRenderBreakdown.portalMs = worldEnd - worldMainEnd;
+
+        this.drawTargets(state, view);
+        this.drawPickups(state, view);
+        this.drawEnemies(state, view);
+        this.drawWorldEffects(state, view);
+        this.drawProjectiles(state, view);
+        this.drawPlayer(state, view);
+        this.drawPlayerDeathCover(state, view);
+        this.drawScorePopups(state, view);
+        const actorsEnd = rendererNowMs();
+
+        const foregroundStart = rendererNowMs();
+        const foregroundReady = this.staticTileVisibleRecords(cache, "foreground", view, this.frameForegroundOffset).complete;
+        let foregroundTiles = { complete: false, ms: 0, tiles: 0 };
+        if (foregroundReady) {
+            this.drawBakedDynamicWorldVisuals(state, view, "actorFront");
+            this.drawBakedDynamicWorldVisuals(state, view, "caveForeground");
+            foregroundTiles = this.drawStaticTileLayerCanvas(cache, "foreground", view, this.frameForegroundOffset);
+        } else {
+            this.drawOrderedWorldVisuals(state, view, true);
+            this.drawCaveForegroundVisuals(state, view);
+        }
+        const foregroundEnd = rendererNowMs();
+        this.drawCaveWindow(state, view);
+        const maskEnd = rendererNowMs();
+        this.drawMailboxStoryOverlay(state, view);
+        this.drawDebug(state, view, inputFrame);
+        const frameEnd = rendererNowMs();
+
+        cache.drawMs = backgroundTiles.ms + terrainTiles.ms + foregroundTiles.ms;
+        this.staticLayerBake.lastDrawMs = cache.drawMs;
+        this.staticLayerBake.lastUsed = backgroundTiles.complete || terrainTiles.complete || foregroundTiles.complete;
+        cache.readyVisibleLayers = Number(backgroundTiles.complete) + Number(terrainTiles.complete) + Number(foregroundTiles.complete);
+        this.updatePerformanceDiagnostics({
+            frameMs: frameEnd - frameStart,
+            worldMs: worldEnd - frameStart,
+            actorsMs: actorsEnd - worldEnd,
+            foregroundMs: foregroundEnd - actorsEnd,
+            maskMs: maskEnd - foregroundEnd,
+            overlayMs: frameEnd - maskEnd
+        });
+        return true;
     }
 
     renderCanvas2DStaticBake(state, inputFrame, view, frameStart) {
@@ -1625,7 +2536,7 @@ class RocketfrockRenderer {
     }
 
     ensureStaticLayerBake(state, view = null) {
-        if (!this.isStaticLayerBakeEnabled()) return null;
+        if (!this.isFullStaticLayerBakeEnabled()) return null;
         const bounds = staticLayerBakeStateBounds(state, view);
         if (!bounds) {
             this.staticLayerBake.status = "no finite world bounds";
@@ -1658,7 +2569,8 @@ class RocketfrockRenderer {
                 ? `ready chunked ${bounds.w}x${bounds.h}, ${Math.round(bytes / 1048576)} MiB, ${cache.chunkCount} chunks`
                 : `ready ${bounds.w}x${bounds.h}, ${Math.round(bytes / 1048576)} MiB`;
             this.staticLayerBake.chunkCount = cache.chunkCount || 0;
-            this.staticLayerBake.mode = cache.chunked ? "chunked" : "single";
+            this.staticLayerBake.mode = "full";
+            this.staticLayerBake.fullLayout = cache.chunked ? "chunked" : "single";
             return cache;
         }
         const buildStart = rendererNowMs();
@@ -1687,7 +2599,8 @@ class RocketfrockRenderer {
             this.staticLayerBake.bytes = bytes;
             this.staticLayerBake.lastBuildMs = buildEnd - buildStart;
             this.staticLayerBake.chunkCount = nextCache.chunkCount || 0;
-            this.staticLayerBake.mode = nextCache.chunked ? "chunked" : "single";
+            this.staticLayerBake.mode = "full";
+            this.staticLayerBake.fullLayout = nextCache.chunked ? "chunked" : "single";
             this.staticLayerBake.lastError = "";
             this.staticLayerBake.status = nextCache.chunked
                 ? `ready chunked ${bounds.w}x${bounds.h}, ${Math.round(bytes / 1048576)} MiB, ${nextCache.chunkCount} chunks, built in ${this.staticLayerBake.lastBuildMs.toFixed(1)} ms`
@@ -2086,6 +2999,140 @@ class RocketfrockRenderer {
         return backend.queueSurface(this.canvas, 0, 0, view.w, view.h, 1, true);
     }
 
+    renderWebGL2StaticTiles(state, inputFrame, view, frameStart) {
+        if (state.debug?.showCollision || state.debug?.showAssetGuides) {
+            this.staticLayerBake.status = "tile baking is bypassed while collision/asset-guide overlays are visible";
+            return false;
+        }
+        const cache = this.ensureStaticTileBakeCache(state, view);
+        const backend = this.webglBackend;
+        if (!cache || !backend?.available) return false;
+
+        const backgroundStart = rendererNowMs();
+        const backgroundTiles = this.queueStaticTileLayerWebGL(cache, "background", view, this.frameBackgroundOffset);
+        if (backgroundTiles.complete) {
+            this.drawBakedDynamicWorldVisualsWebGL(state, view, "background");
+        } else {
+            this.drawBackgroundVisualsWebGL(state, view);
+        }
+        backend.flush();
+        const backgroundEnd = rendererNowMs();
+
+        const terrainStart = rendererNowMs();
+        const terrainTiles = this.queueStaticTileLayerWebGL(cache, "terrain", view, null);
+        if (terrainTiles.complete) {
+            this.drawBakedDynamicWorldVisualsWebGL(state, view, "main");
+        } else {
+            const visualResult = this.drawOrderedWorldVisualsWebGL(state, view, false);
+            const needsWorldCanvasLayer = Boolean(!visualResult.hasRenderableVisuals);
+            if (needsWorldCanvasLayer) {
+                this.clearStagingLayer();
+                this.drawBackdrop(view);
+                this.drawWorldCanvasGeometry(state, view, visualResult);
+                this.uploadStagingLayer(view);
+            }
+        }
+        backend.flush();
+        const worldMainEnd = rendererNowMs();
+        this.drawPortalIntroGlowWebGL(state, view);
+        backend.flush();
+        const worldEnd = rendererNowMs();
+        this.frameRenderBreakdown.clearBackdropMs = backgroundStart - frameStart;
+        this.frameRenderBreakdown.backgroundMs = backgroundEnd - backgroundStart;
+        this.frameRenderBreakdown.worldVisualsMs += backgroundTiles.ms + terrainTiles.ms;
+        this.frameRenderBreakdown.worldGeometryMs += Math.max(0, worldMainEnd - terrainStart - terrainTiles.ms);
+        this.frameRenderBreakdown.portalMs = worldEnd - worldMainEnd;
+
+        this.drawTargetsWebGL(state, view);
+        this.drawPickupsWebGL(state, view);
+        this.drawEnemiesWebGL(state, view);
+        this.drawWorldEffectsWebGL(state, view);
+
+        const hasResidualWorldEffects = (state.effects?.smokePuffs || []).some((puff) => (
+            puff.kind !== "wizardDeathCoverSpark" &&
+            !WEBGL_DIRECT_WORLD_EFFECT_KINDS.has(puff.kind)
+        ));
+        if (hasResidualWorldEffects) {
+            this.clearStagingLayer();
+            this.drawWorldEffects(state, view, { skipKinds: WEBGL_DIRECT_WORLD_EFFECT_KINDS });
+            this.uploadStagingLayer(view);
+        }
+
+        this.drawProjectileExplosionEffectsWebGL(state, view);
+        const handledProjectileIds = this.frameHandledProjectileIds;
+        handledProjectileIds.clear();
+        this.drawEnemyProjectilesWebGL(state, view, handledProjectileIds);
+        this.drawPlayerRocketsWebGL(state, view, handledProjectileIds);
+        const hasResidualProjectiles = (state.projectiles || []).some((projectile) => (
+            projectile.state === "launched" &&
+            !handledProjectileIds.has(projectile.id) &&
+            visualIntersectsViewport(this.projectileRenderBounds(projectile), view, null, 96)
+        ));
+        if (hasResidualProjectiles) {
+            this.clearStagingLayer();
+            this.drawProjectiles(state, view, {
+                skipExploding: true,
+                skipProjectileIds: handledProjectileIds
+            });
+            this.uploadStagingLayer(view);
+        }
+
+        this.drawPlayerWebGL(state, view);
+        this.drawPlayerFuelBulbWebGL(state, view);
+        this.drawPlayerDeathCoverWebGL(state, view);
+        this.drawScorePopupsWebGL(state, view);
+        if (state.debug?.showPuppetGuide) {
+            this.clearStagingLayer();
+            this.drawEnemyGuides(state, view);
+            this.uploadStagingLayer(view);
+        }
+        backend.flush();
+        const actorsEnd = rendererNowMs();
+
+        const foregroundReady = this.staticTileVisibleRecords(cache, "foreground", view, this.frameForegroundOffset).complete;
+        let foregroundTiles = { complete: false, ms: 0, tiles: 0, failed: 0 };
+        if (foregroundReady) {
+            this.drawBakedDynamicWorldVisualsWebGL(state, view, "actorFront");
+            this.drawBakedDynamicWorldVisualsWebGL(state, view, "caveForeground");
+            foregroundTiles = this.queueStaticTileLayerWebGL(cache, "foreground", view, this.frameForegroundOffset);
+        } else {
+            this.drawOrderedWorldVisualsWebGL(state, view, true);
+            this.drawCaveForegroundVisualsWebGL(state, view);
+        }
+        backend.flush();
+        const foregroundEnd = rendererNowMs();
+
+        this.drawCaveWindowWebGL(state, view);
+        backend.flush();
+        const maskEnd = rendererNowMs();
+
+        const story = state.story?.mailboxEvent;
+        const hasStoryOverlay = Boolean(story?.active && (story.phase === "letter" || story.phase === "thought"));
+        const hasDebugOverlay = Boolean(state.debug?.showHitboxes || state.debug?.showVelocity);
+        if (hasStoryOverlay || hasDebugOverlay) {
+            this.clearStagingLayer();
+            if (hasStoryOverlay) this.drawMailboxStoryOverlay(state, view);
+            if (hasDebugOverlay) this.drawDebug(state, view, inputFrame);
+            this.uploadStagingLayer(view);
+        }
+        const gpuStats = backend.endFrame();
+        const frameEnd = rendererNowMs();
+        cache.drawMs = backgroundTiles.ms + terrainTiles.ms + foregroundTiles.ms;
+        this.staticLayerBake.lastDrawMs = cache.drawMs;
+        this.staticLayerBake.lastUsed = backgroundTiles.complete || terrainTiles.complete || foregroundTiles.complete;
+        cache.readyVisibleLayers = Number(backgroundTiles.complete) + Number(terrainTiles.complete) + Number(foregroundTiles.complete);
+        this.updatePerformanceDiagnostics({
+            frameMs: frameEnd - frameStart,
+            worldMs: worldEnd - frameStart,
+            actorsMs: actorsEnd - worldEnd,
+            foregroundMs: foregroundEnd - actorsEnd,
+            maskMs: maskEnd - foregroundEnd,
+            overlayMs: frameEnd - maskEnd,
+            gpuStats
+        });
+        return true;
+    }
+
     renderWebGL2StaticBake(state, inputFrame, view, frameStart) {
         if (state.debug?.showCollision || state.debug?.showAssetGuides) {
             this.staticLayerBake.status = "disabled while collision/asset-guide debug overlays are visible";
@@ -2212,7 +3259,10 @@ class RocketfrockRenderer {
         if (!backend.beginFrame(view.w, view.h, LEVEL_BACKGROUND_COLOR)) {
             return;
         }
-        if (this.isStaticLayerBakeEnabled() && this.renderWebGL2StaticBake(state, inputFrame, view, frameStart)) {
+        if (this.isStaticTileBakeEnabled() && this.renderWebGL2StaticTiles(state, inputFrame, view, frameStart)) {
+            return;
+        }
+        if (this.isFullStaticLayerBakeEnabled() && this.renderWebGL2StaticBake(state, inputFrame, view, frameStart)) {
             return;
         }
 
@@ -2356,7 +3406,7 @@ class RocketfrockRenderer {
             maskReused: this.frameVisualCounters.maskReused,
             staticBakeAvailable: ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER === true,
             staticBakeEnabled: this.isStaticLayerBakeEnabled(),
-            staticBakeReady: Boolean(this.staticLayerBake.cache),
+            staticBakeReady: Boolean(this.staticLayerBake.cache || this.staticLayerBake.tileCache),
             staticBakeUsed: this.staticLayerBake.lastUsed === true,
             staticBakeBytes: Math.max(0, Number(this.staticLayerBake.bytes) || 0),
             staticBakeBuildMs: Math.max(0, Number(this.staticLayerBake.lastBuildMs) || 0),

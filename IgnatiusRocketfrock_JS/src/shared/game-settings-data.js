@@ -10,8 +10,14 @@ export const GAME_RENDERING_QUALITY_PRESETS = Object.freeze([
     Object.freeze({ id: "high", label: "High", particleScale: 1.5 })
 ]);
 
+export const GAME_BAKING_MODE_PRESETS = Object.freeze([
+    Object.freeze({ id: "off", label: "Off" }),
+    Object.freeze({ id: "tiles", label: "Tiles" }),
+    Object.freeze({ id: "full", label: "Full" })
+]);
+
 export const DEFAULT_GAME_SETTINGS = Object.freeze({
-    version: 7,
+    version: 8,
     sfxVolume: 0.8,
     musicVolume: 0.1,
     difficulty: "normal",
@@ -21,7 +27,7 @@ export const DEFAULT_GAME_SETTINGS = Object.freeze({
     useHardwareRendering: false,
     developmentMode: true,
     usePixmapPyramids: true,
-    useBakedLayers: false
+    bakingMode: "off"
 });
 
 function clamp01(value, fallback) {
@@ -41,6 +47,13 @@ function presetId(value, presets, fallback) {
     return presets.some((preset) => preset.id === candidate) ? candidate : fallback;
 }
 
+function normalizedBakingMode(source) {
+    const explicit = presetId(source.bakingMode, GAME_BAKING_MODE_PRESETS, "");
+    if (explicit) return explicit;
+    if (typeof source.useBakedLayers === "boolean") return source.useBakedLayers ? "full" : "off";
+    return DEFAULT_GAME_SETTINGS.bakingMode;
+}
+
 export function normalizeGameSettings(value = {}) {
     const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
     return {
@@ -58,7 +71,7 @@ export function normalizeGameSettings(value = {}) {
         useHardwareRendering: normalizedBoolean(source.useHardwareRendering, DEFAULT_GAME_SETTINGS.useHardwareRendering),
         developmentMode: normalizedBoolean(source.developmentMode, DEFAULT_GAME_SETTINGS.developmentMode),
         usePixmapPyramids: normalizedBoolean(source.usePixmapPyramids, DEFAULT_GAME_SETTINGS.usePixmapPyramids),
-        useBakedLayers: normalizedBoolean(source.useBakedLayers, DEFAULT_GAME_SETTINGS.useBakedLayers)
+        bakingMode: normalizedBakingMode(source)
     };
 }
 
@@ -74,6 +87,13 @@ export function gameRenderingQualityPreset(settingsOrId) {
         ? settingsOrId
         : normalizeGameSettings(settingsOrId).renderingQuality;
     return GAME_RENDERING_QUALITY_PRESETS.find((preset) => preset.id === id) || GAME_RENDERING_QUALITY_PRESETS[1];
+}
+
+export function gameBakingModePreset(settingsOrId) {
+    const id = typeof settingsOrId === "string"
+        ? presetId(settingsOrId, GAME_BAKING_MODE_PRESETS, DEFAULT_GAME_SETTINGS.bakingMode)
+        : normalizeGameSettings(settingsOrId).bakingMode;
+    return GAME_BAKING_MODE_PRESETS.find((preset) => preset.id === id) || GAME_BAKING_MODE_PRESETS[0];
 }
 
 export function difficultyDamageScale(settingsOrId) {

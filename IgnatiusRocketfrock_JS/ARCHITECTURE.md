@@ -2020,3 +2020,26 @@ Revision 497 keeps the Settings dialog's reload semantics explicit without reint
 ## Revision 498 renderer-setting state and host parity
 
 Revision 498 keeps renderer selection under the persisted game-settings boundary for every host. Electron no longer changes the renderer preference merely by exposing its window bridge; browser and packaged builds both resolve hardware rendering from `settings.useHardwareRendering`, with explicit URL parameters retained only as a development override. The Settings dialog compares the saved request with the renderer and pixmap-pyramid modes latched during startup, so it can distinguish the active state from a pending reload without attempting to rebuild renderer-owned resources in place.
+
+## Revision 499 static tile-cache architecture
+
+Static scenery reuse now has three explicitly separate renderer modes owned by `CanvasRenderer`: `off`, `tiles`, and `full`. The shared settings schema stores `bakingMode`; revision-8 migration maps the removed `useBakedLayers` boolean to `full` only when it was explicitly true. `game-bootstrap.js` owns the Settings selector, persists changes immediately, and routes renderer failures back to the safe `off` mode for browser and Electron hosts alike.
+
+`src/shared/static-tile-cache-data.js` contains the host-independent tile geometry and scheduling policy: 256×256 logical tiles, one-pixel gutters, one-screen request margins, two-screen retention margins, velocity prediction, sparse keys, rectangle tests, and deterministic priority scoring. `src/presentation/static-tile-bake-worker.js` owns CPU-side rasterization. It caches transferred source crops, draws serial command lists into an `OffscreenCanvas`, and transfers one completed `ImageBitmap` back to the renderer. Only one worker task and one completed-but-not-uploaded tile are allowed at a time, preventing an unbounded RAM queue.
+
+The renderer keeps background, terrain, and foreground caches independent. Completely empty layer tiles are recorded without allocating image or texture storage. Under WebGL2, completed 258×258 guttered tiles are placed into recyclable atlas-page slots through `texSubImage2D`; drawing can therefore batch many logical tiles against a small number of texture pages. Canvas2D stores the transferred ImageBitmap directly. Cache eviction is distance/priority driven and subordinate to a strict memory budget. A layer uses tiled drawing only when all tiles touching the current view are ready or empty; otherwise the existing live layer renderer remains authoritative for that frame. This all-or-live layer boundary avoids alpha doubling and visual cracks during warm-up or invalidation.
+
+The `full` path remains architecturally independent for profiling comparisons and still builds complete/chunked static layers. Both baking paths are optional caches rather than world state: dynamic visuals, actors, effects, cave masks, collision/debug guides, and simulation behavior never depend on them. Releasing or failing a cache must always leave the normal live renderer capable of producing the complete frame.
+
+## Revision 500 transferred tile-atlas orientation
+
+Rolling WebGL tiles remain worker-produced `ImageBitmap` objects packed into reusable atlas pages. Their sub-upload row order differs from the renderer's ordinary image/canvas texture uploads, so `queueStaticTileLayerWebGL` owns the required vertical UV compensation when it queues an atlas-backed tile. Do not move this correction into the general sprite path: ordinary resident textures, dynamic canvases, Full baking, and atlas artwork already use the established top-left source-coordinate convention. The browser Settings UI exposes the same `off | tiles | full` enum through a single select element; renderer ownership and persistence remain unchanged by that presentation choice.
+
+## Revision 501 compact Settings placement
+
+The Baking selector remains owned by `game-bootstrap.js` and the shared `bakingMode` setting. Its Settings card now occupies the second grid column beside **Use pixmap pyramids** rather than spanning both columns. This is presentation-only and does not alter renderer mode ownership, persistence, migration, or resource lifetimes.
+
+## Revision 502 tile-atlas orientation boundary
+
+Worker-baked tiles have one canonical orientation before they enter WebGL atlas storage. `static-tile-bake-worker.js` creates an upload-oriented copy only when the task is destined for WebGL; the complete guttered tile is flipped as one unit so later clipping can use normal top-left source rectangles. `webgl2-renderer.js` accepts an explicit `unpackFlipY` option for subregion uploads, and the tile path disables unpack flipping because the worker has already normalized the bitmap. `queueStaticTileLayerWebGL` no longer owns a special `mirrorY` rule. This keeps clipped edge tiles, full tiles, and ordinary resident textures on one sampling convention without altering Canvas2D or Full baking.
+

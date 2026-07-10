@@ -13,14 +13,16 @@ function migrateStoredGameSettings(value) {
             musicVolume: DEFAULT_GAME_SETTINGS.musicVolume
         };
     }
-    // Revision 496 keeps the experimental baked static-layer renderer available
-    // but restores the safe fresh-profile default to off. Preserve any explicit
-    // stored baked-layer preference while still advancing older settings records
-    // so future migrations do not revisit them.
-    if (version < 7) {
+    // Revision 499 replaces the legacy baked-layer checkbox with an enum.
+    // Explicit old opt-in maps to Full so existing test profiles keep the same
+    // renderer; all other old profiles migrate to the safe Off default.
+    if (version < 8) {
         migrated = {
             ...migrated,
-            version: 7
+            version: 8,
+            bakingMode: typeof source.bakingMode === "string"
+                ? source.bakingMode
+                : (source.useBakedLayers === true ? "full" : "off")
         };
     }
     return migrated;

@@ -4128,3 +4128,26 @@ Revision 498 makes the two startup-latched renderer settings report both the act
 
 The Electron build no longer implicitly forces WebGL merely because it is running inside Electron. It now follows the same saved hardware-rendering setting as the browser build, while still allowing the existing explicit renderer URL override for development diagnostics.
 
+
+## Revision 499 rolling static-tile baking and three-mode setting
+
+Revision 499 replaces the former baked-layer checkbox with a persisted **Baking: Off / Tiles / Full** selector. Stored profiles that explicitly enabled the old checkbox migrate to **Full**, preserving their comparison setup; unchecked and absent legacy preferences migrate to the safe **Off** default. Switching modes releases the previous mode's canvases, ImageBitmaps, atlas pages, and WebGL textures immediately.
+
+**Tiles** is a real rolling cache rather than a label over the old renderer. Static background, terrain, and foreground artwork is divided into sparse 256×256 world tiles with a one-pixel sampling gutter. A module worker rasterizes one tile at a time through `OffscreenCanvas`; the main renderer uploads at most one completed tile at a time. Empty layer tiles allocate no texture. WebGL tiles are packed into recyclable atlas pages, while Canvas2D retains only the individual completed ImageBitmaps. The cache requests tiles within one screen of the view, retains useful tiles out to two screens while the memory budget permits, and adds a two-second velocity-predicted corridor so fast horizontal travel and falls are prepared ahead of the camera.
+
+A static layer is substituted only when every tile intersecting that visible layer is ready or known empty. Until then, that entire layer uses the existing live renderer, preventing seams, duplicated alpha, or half-baked scenery. Dynamic actors, projectiles, pickups, changing entities, cave masking, and story/debug overlays stay live. **Full** remains the independent complete-level/chunked bake experiment, now using a conservative 1.5 GiB WebGL estimate instead of probing the GPU's allocation cliff. Any hard worker, allocation, or upload failure falls back to Off and persists that recovery through the Settings dialog.
+
+## Revision 500 WebGL tiled-bake orientation fix
+
+Revision 500 fixes a WebGL-only rolling-tile regression found during live testing. Tile workers return transferred `ImageBitmap` objects, whose WebGL sub-upload row orientation does not follow the ordinary canvas/image texture path used by the renderer. The packed atlas therefore contained correct tile positions but each tile was sampled vertically inverted. The tiled WebGL draw path now reverses the tile sprite's V coordinates, restoring parity with Off, Full, and the Canvas2D tile path without changing atlas allocation, worker baking, or live fallback behavior. The Settings control for Off / Tiles / Full is also presented as one dropdown rather than three buttons, while preserving the same immediate mode-switch behavior.
+
+## Revision 501 compact baking-setting placement
+
+Revision 501 moves the Baking dropdown from a full-width Settings row into the second-column card directly to the right of **Use pixmap pyramids**. The control remains the same persisted Off / Tiles / Full selector and keeps its immediate renderer-switch behavior; this revision changes only the compact Settings layout.
+
+## Revision 502 tiled WebGL upload orientation normalization
+
+Revision 502 fixes the remaining vertical placement corruption in rolling WebGL tiles. Revision 500 compensated for transferred `ImageBitmap` row order by reversing V coordinates at draw time. That worked for a complete 258×258 tile, but a tile clipped by the top or bottom of the viewport selected the wrong vertically mirrored source subsection, making neighbouring tile rows appear to overlap or display scenery from the wrong height.
+
+WebGL-bound worker results are now vertically normalized once, inside the tile-bake worker, before transfer. The atlas upload stores that preflipped guttered bitmap with `UNPACK_FLIP_Y_WEBGL` disabled, and tiled drawing returns to the renderer's ordinary top-left source-coordinate convention. Canvas2D tiles are transferred unchanged. Off and Full rendering are unaffected.
+

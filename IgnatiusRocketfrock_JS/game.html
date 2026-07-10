@@ -724,6 +724,27 @@ cursor: pointer;
             grid-column: 1 / -1;
         }
 
+        #baking-mode-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            min-height: 48px;
+        }
+
+        #baking-mode-row[hidden] {
+            display: none;
+        }
+
+        #baking-mode-row .settings-label {
+            flex: 1 1 auto;
+        }
+
+        #baking-mode-row .settings-select {
+            flex: 0 1 150px;
+            width: min(150px, 58%);
+        }
+
         .game-menu-view[hidden] {
             display: none !important;
         }
@@ -749,6 +770,7 @@ font-size: 14px;
         .game-menu-action:focus-visible,
         .game-menu-back:focus-visible,
         .settings-choice-grid button:focus-visible,
+        .settings-select:focus-visible,
         .settings-toggle:focus-within,
         .settings-group input[type="range"]:focus-visible {
             border-color: rgba(225, 209, 255, 0.94);
@@ -793,6 +815,29 @@ font-size: 14px;
         .settings-group input[type="range"] {
             width: 100%;
             accent-color: var(--menu-accent);
+        }
+
+        .settings-select {
+            width: 100%;
+            min-height: 38px;
+            border: 1px solid rgba(201, 167, 255, 0.38);
+            border-radius: 10px;
+            padding: 7px 34px 7px 10px;
+            color: #fbf8ff;
+            background: rgba(35, 28, 48, 0.9);
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .settings-select option {
+            color: #fbf8ff;
+            background: #231c30;
+        }
+
+        .settings-select:disabled {
+            cursor: not-allowed;
+            opacity: 0.62;
         }
 
         .settings-choice-grid {
@@ -1039,12 +1084,16 @@ font-size: 14px;
                     <input id="use-pixmap-pyramids" type="checkbox" checked>
                 </label>
 
-                <label id="use-baked-layers-row" class="settings-toggle" for="use-baked-layers" hidden>
-                    <span class="settings-toggle-copy">
-                        <span class="settings-toggle-title">Use baked layers</span>
-                    </span>
-                    <input id="use-baked-layers" type="checkbox">
-                </label>
+                <div id="baking-mode-row" class="settings-group" hidden>
+                    <label class="settings-label" for="baking-mode-select">
+                        <span>Baking</span>
+                    </label>
+                    <select id="baking-mode-select" class="settings-select" aria-label="Static scenery baking mode">
+                        <option value="off">Off</option>
+                        <option value="tiles">Tiles</option>
+                        <option value="full">Full</option>
+                    </select>
+                </div>
             </section>
         </div>
     </dialog>

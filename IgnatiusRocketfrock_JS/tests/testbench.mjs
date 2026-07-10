@@ -15,6 +15,14 @@ import {
 } from "../src/presentation/canvas-renderer.js";
 import { WebGL2RendererBackend } from "../src/presentation/webgl2-renderer.js";
 import {
+    STATIC_TILE_SIZE,
+    normalizeStaticTileBakeMode,
+    staticTileCacheRegions,
+    staticTileRangeForRect,
+    staticTileRecordKey,
+    staticTileRect
+} from "../src/shared/static-tile-cache-data.js";
+import {
     buildCaveWindowGpuMaskGeometry,
     caveGradientOpacityAtProgress,
     caveWindowMaskRenderKey,
@@ -56,9 +64,11 @@ import { calculateHudPanelScale } from "../src/browser/hud-panel-layout.js";
 import { GamepadHaptics, GAMEPAD_HAPTIC_PATTERNS } from "../src/browser/gamepad-haptics.js";
 import {
     DEFAULT_GAME_SETTINGS,
+    GAME_BAKING_MODE_PRESETS,
     GAME_DIFFICULTY_PRESETS,
     GAME_RENDERING_QUALITY_PRESETS,
     difficultyDamageScale,
+    gameBakingModePreset,
     normalizeGameSettings,
     renderingParticleScale
 } from "../src/shared/game-settings-data.js";
@@ -7976,7 +7986,7 @@ function testCaveFullBlackKillBoundary() {
 
 
 function testCanvasWorldVisualPerformanceInfrastructure() {
-    const glCalls = { drawArrays: 0, texImage2D: 0, texSubImage2D: 0 };
+    const glCalls = { drawArrays: 0, texImage2D: 0, texSubImage2D: 0, pixelStore: [] };
     let nextHandle = 1;
     const gl = {
         VERTEX_SHADER: 1,
@@ -8062,7 +8072,7 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
         uniform1f: () => {},
         uniform1i: () => {},
         activeTexture: () => {},
-        pixelStorei: () => {},
+        pixelStorei: (parameter, value) => { glCalls.pixelStore.push([parameter, value]); },
         bufferSubData: () => {},
         clearStencil: () => {},
         stencilMask: () => {},
@@ -8099,6 +8109,44 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     assert.ok(glCalls.texImage2D >= 3, "the WebGL backend should allocate its white, atlas, and staging textures");
     assert.ok(glCalls.texSubImage2D >= 1, "the second staging upload in one frame should update the reusable texture");
     assert.equal(glCalls.drawArrays, gpuDiagnostics.drawCalls, "GPU diagnostics should match actual submitted draw calls");
+
+    const tileAtlasSource = gpu.createTextureStorage(516, 516);
+    assert.ok(tileAtlasSource?.tileTextureStorage, "the WebGL backend should allocate blank texture storage for packed tile atlas pages");
+    const tileUpdateCountBefore = glCalls.texSubImage2D;
+    glCalls.pixelStore.length = 0;
+    assert.equal(
+        gpu.updateTextureRegion(tileAtlasSource, { width: 258, height: 258 }, 258, 258, { unpackFlipY: false }),
+        true,
+        "worker-normalized tile images should upload into atlas subregions without replacing the whole page"
+    );
+    assert.equal(glCalls.texSubImage2D, tileUpdateCountBefore + 1, "one tile atlas upload should issue exactly one texSubImage2D update");
+    assert.deepEqual(
+        glCalls.pixelStore[0],
+        [gl.UNPACK_FLIP_Y_WEBGL, false],
+        "preflipped worker tiles should not be flipped again during atlas upload"
+    );
+    assert.equal(
+        gpu.updateTextureRegion(tileAtlasSource, { width: 258, height: 258 }, 400, 400),
+        false,
+        "tile atlas uploads must reject regions that exceed their allocated page"
+    );
+    gpu.beginFrame(640, 360, "rgb(6, 6, 12)");
+    gpu.queueSprite({
+        source: tileAtlasSource,
+        sourceX: 0,
+        sourceY: 0,
+        sourceWidth: 258,
+        sourceHeight: 258,
+        centerX: 129,
+        centerY: 129,
+        width: 258,
+        height: 258
+    });
+    assert.ok(
+        gpu.vertexData[3] > gpu.vertexData[19],
+        "worker-normalized tile atlas regions should use the ordinary top-left sprite UV convention"
+    );
+    gpu.endFrame();
 
     const proceduralSource = { width: 64, height: 64 };
     gpu.beginFrame(640, 360, "rgb(6, 6, 12)");
@@ -9257,25 +9305,35 @@ function testRocketPowerUpArsenal() {
     );
     assert.ok(gameHtml.includes('id="toggle-micro-profiler"') && gameHtml.includes('Profiler: off'), "the lower-right game tool strip should expose a manual profiler toggle that starts off");
     assert.doesNotMatch(gameHtml, /id="toggle-static-bake-renderer"/, "the experimental Bake toggle should no longer live in the lower-right game tool strip");
-    assert.ok(gameHtml.includes('id="use-baked-layers"') && gameHtml.includes('id="use-baked-layers-row"'), "settings should expose the experimental baked-layer switch instead of a game-screen button");
+    assert.ok(gameHtml.includes('id="baking-mode-row"') && gameHtml.includes('id="baking-mode-select"') && gameHtml.includes('<option value="off">Off</option>') && gameHtml.includes('<option value="tiles">Tiles</option>') && gameHtml.includes('<option value="full">Full</option>'), "settings should expose Off, Tiles, and Full in one baking dropdown instead of a game-screen button");
     assert.ok(
         /for="use-hardware-rendering"[\s\S]*Use hardware rendering[\s\S]*id="use-hardware-rendering-status"/.test(gameHtml)
             && /for="use-pixmap-pyramids"[\s\S]*Use pixmap pyramids[\s\S]*id="use-pixmap-pyramids-status"/.test(gameHtml)
             && bootstrapSource.includes('return requested ? "Reload to enable" : "Reload to disable";')
-            && !/for="use-baked-layers"[\s\S]*Use baked layers[\s\S]*settings-note/.test(gameHtml),
+            && !/id="baking-mode-row"[\s\S]*settings-note/.test(gameHtml),
         "only startup-latched settings should expose active and pending reload status"
     );
-    assert.ok(bootstrapSource.includes("ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER") && bootstrapSource.includes("staticBakeRendererAvailable") && bootstrapSource.includes("syncStaticBakeRendererSetting"), "the game bootstrap should gate the baked-layer setting behind the shared experimental flag");
-    assert.ok(rendererSource.includes("supportsExperimentalStaticLayerBakeRenderer") && rendererSource.includes("STATIC_LAYER_BAKE_DISABLED_STATUS") && rendererSource.includes("surface.canvas.width = 1"), "the renderer should expose a static-bake availability boundary and aggressively release discarded bake canvases");
+    assert.ok(bootstrapSource.includes("ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER") && bootstrapSource.includes("staticBakeRendererAvailable") && bootstrapSource.includes("syncStaticBakeRendererSetting") && bootstrapSource.includes("setStaticLayerBakeMode"), "the game bootstrap should gate the three-way baking setting behind the shared experimental flag");
+    assert.ok(rendererSource.includes("supportsExperimentalStaticLayerBakeRenderer") && rendererSource.includes("STATIC_LAYER_BAKE_DISABLED_STATUS") && rendererSource.includes("renderWebGL2StaticTiles") && rendererSource.includes("surface.canvas.width = 1"), "the renderer should expose full and rolling-tile bake boundaries and aggressively release discarded full-bake canvases");
+    const tileWorkerSource = readFileSync(new URL("../src/presentation/static-tile-bake-worker.js", import.meta.url), "utf8");
+    assert.ok(tileWorkerSource.includes("new OffscreenCanvas") && tileWorkerSource.includes("transferToImageBitmap") && tileWorkerSource.includes('message.type === "reset"'), "tile baking should rasterize off-thread, transfer one result, and release worker source caches on reset");
+    assert.ok(tileWorkerSource.includes("transferBakedBitmap") && tileWorkerSource.includes("preflipForWebGL") && tileWorkerSource.includes('setTransform(1, 0, 0, -1, 0, height)'), "WebGL-bound worker tiles should normalize their complete guttered bitmap before atlas transfer");
+    assert.ok(rendererSource.includes("STATIC_TILE_BAKE_MAX_EMPTY_SCAN_PER_FRAME") && rendererSource.includes("updateTextureRegion") && rendererSource.includes("cache.completed.shift()"), "rolling baking should skip sparse empty tiles, atlas-upload serially, and consume one completed tile at a time");
+    assert.match(rendererSource, /updateTextureRegion\([\s\S]*?\{\s*unpackFlipY:\s*false\s*\}/, "normalized worker tiles should upload without a second Y flip");
+    const tileQueueSource = rendererSource.slice(
+        rendererSource.indexOf("queueStaticTileLayerWebGL"),
+        rendererSource.indexOf("updateStaticTileBakeDiagnostics")
+    );
+    assert.ok(!tileQueueSource.includes("mirrorY: true"), "atlas-backed tile sprites should no longer mirror clipped source rectangles at draw time");
     assert.ok(bootstrapSource.includes('"#tool-links"'), "title-screen pointer handling should ignore lower-right tool buttons instead of treating them as Start gestures");
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const characterEditorSource = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 498<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(characterEditorSource, /Puppet Forge <small>rev 498<\/small>/, "Puppet Forge should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 502<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(characterEditorSource, /Puppet Forge <small>rev 502<\/small>/, "Puppet Forge should display the packaged revision");
     const assetEditorSource = readFileSync(new URL("../asset-editor.html", import.meta.url), "utf8");
-    assert.match(assetEditorSource, /Asset Tool <small>rev 498<\/small>/, "Asset Tool should display the packaged revision");
+    assert.match(assetEditorSource, /Asset Tool <small>rev 502<\/small>/, "Asset Tool should display the packaged revision");
     assert.match(assetEditorSource, /id="atlas-numbered-select"[\s\S]*id="load-numbered-atlas"[\s\S]*id="load-local"[\s\S]*id="save-local"[\s\S]*id="quick-save-json"/, "Asset Tool should keep atlas loading and save/export controls together in the Files panel");
     assert.ok(!assetEditorSource.includes("Custom atlas image") && !assetEditorSource.includes("Custom JSON"), "Asset Tool should retire the visible custom import pickers from the primary Files panel");
     assert.doesNotMatch(assetEditorSource, /load-default-image|load-default-json/, "Asset Tool should retire the hard-coded at_atlas_001 load buttons");
@@ -9308,7 +9366,7 @@ function testRocketPowerUpArsenal() {
     assert.equal(editorSource.includes('id="canvas-renderer-baseline"'), false, "the Level Editor should no longer advertise the posterity-only Canvas baseline");
     assert.equal(editorSource.includes("openCanvasRendererBaseline"), false, "the removed baseline link should leave no dormant click handler");
     assert.equal(editorSource.includes("Editor 2 lab"), false, "the Level Editor should not link to the removed Editor 2 lab");
-    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 498") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
+    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 502") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
     assert.ok(baselineSource.includes("applyEditorLevelToWorld") && baselineSource.includes("preferWebGL2: false") && baselineSource.includes("setViewOverride"), "the retained baseline should still convert the authored level and use the ordinary Canvas2D game renderer with an editor camera override");
     assert.ok(editorPlaywrightBenchmark.includes("benchmark_baseline") && editorPlaywrightBenchmark.includes("benchmark_editor") && editorPlaywrightBenchmark.includes("editorToBaselineCadenceRatio"), "the optional Playwright probe should compare the loaded baseline and editor rather than source-only timings");
     assert.ok(editorPlaywrightBenchmark.includes("bodyScrollWidth") && editorPlaywrightBenchmark.includes("stageBacking") && editorPlaywrightBenchmark.includes("overlayBacking"), "the Playwright probe should detect viewport overflow and stage/overlay size divergence");
@@ -9318,7 +9376,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(rendererSource.includes("backingPixelsPerCssPixel") && rendererSource.includes("override.cssZoom * backingPixelsPerCssPixel") && editorSource.includes("cssZoom: state.camera.zoom"), "editor and runtime artwork should share one CSS-pixel camera scale so guide alignment does not drift across the viewport");
     assert.ok(rendererSource.includes("this.ctx.setTransform(1, 0, 0, 1, 0, 0)") && rendererSource.includes("never inherit a CSS/DPR transform"), "the production Canvas renderer should reset inherited context transforms before drawing backing-pixel coordinates");
     assert.ok(editorSource.includes("stageCtx?.setTransform(1, 0, 0, 1, 0, 0)") && !editorSource.includes("stageCtx?.setTransform(dpr"), "the Level Editor must not pre-scale the production scene context by devicePixelRatio");
-    assert.match(bootstrapSource, /const GAME_REVISION = "498";/, "the game debug  revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "502";/, "the game debug  revision should match the packaged revision");
     assert.ok(
         editorSource.includes('<div class="level-section-label">Existing Level:</div>')
             && editorSource.includes('id="load-level">Load</button>')
@@ -12847,9 +12905,10 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.equal(DEFAULT_GAME_SETTINGS.autoFullscreen, true, "browser play should default to automatic fullscreen transitions");
     assert.equal(DEFAULT_GAME_SETTINGS.showMinimap, true, "the minimap should be visible by default");
     assert.equal(DEFAULT_GAME_SETTINGS.developmentMode, true, "development tools should remain visible by default in development builds");
-    assert.equal(DEFAULT_GAME_SETTINGS.useBakedLayers, false, "baked layers should default off until explicitly enabled");
+    assert.equal(DEFAULT_GAME_SETTINGS.bakingMode, "off", "static baking should default off until explicitly enabled");
     assert.equal(GAME_DIFFICULTY_PRESETS.length, 3, "the initial settings UI should expose three damage presets");
     assert.equal(GAME_RENDERING_QUALITY_PRESETS.length, 3, "the initial settings UI should expose three particle presets");
+    assert.deepEqual(GAME_BAKING_MODE_PRESETS.map((preset) => preset.id), ["off", "tiles", "full"], "the baking setting should expose the three renderer modes");
     assert.equal(difficultyDamageScale("easy"), 0.75, "easy should reduce incoming damage");
     assert.equal(difficultyDamageScale("hard"), 1.5, "hard should increase incoming damage");
     assert.equal(renderingParticleScale("low"), 0.5, "low quality should halve particle density");
@@ -12863,7 +12922,7 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
         autoFullscreen: false,
         showMinimap: false,
         developmentMode: false,
-        useBakedLayers: true
+        bakingMode: "TILES"
     });
     assert.equal(normalized.sfxVolume, 1, "effects volume should clamp to one");
     assert.equal(normalized.musicVolume, 0, "music volume should clamp to zero");
@@ -12872,11 +12931,28 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.equal(normalized.autoFullscreen, false, "the automatic fullscreen preference should normalize as a boolean");
     assert.equal(normalized.showMinimap, false, "the minimap visibility preference should normalize as a boolean");
     assert.equal(normalized.developmentMode, false, "the development tool visibility preference should normalize as a boolean");
-    assert.equal(normalized.useBakedLayers, true, "the baked-layer preference should normalize as a boolean");
+    assert.equal(normalized.bakingMode, "tiles", "the baking mode should normalize case-insensitively");
+    assert.equal(gameBakingModePreset(normalized).label, "Tiles", "the baking preset helper should expose the user-facing label");
+    assert.equal(STATIC_TILE_SIZE, 256, "rolling baking should use sparse 256-pixel logical tiles");
+    assert.equal(normalizeStaticTileBakeMode("FULL"), "full", "renderer baking modes should normalize case-insensitively");
+    assert.equal(staticTileRecordKey("foreground", -2, 3), "foreground:-2:3", "tile cache keys should remain stable across negative world coordinates");
+    assert.deepEqual(staticTileRect(-2, 3), { x: -512, y: 768, w: 256, h: 256 }, "logical tiles should map deterministically into world space");
+    assert.deepEqual(
+        staticTileRangeForRect({ x: 0, y: 0, w: 256, h: 256 }),
+        { minTileX: 0, maxTileX: 0, minTileY: 0, maxTileY: 0 },
+        "a tile-aligned rectangle should not accidentally include its neighboring row or column"
+    );
+    const tileRegions = staticTileCacheRegions(
+        { x: 100, y: 200, virtualW: 1920, virtualH: 1080, zoom: 1 },
+        { velocityX: 360, velocityY: 2500 }
+    );
+    assert.equal(tileRegions.bakeRects.length, 2, "tile scheduling should combine a normal margin with a predicted travel corridor");
+    assert.ok(tileRegions.predictedVisible.x > tileRegions.visible.x && tileRegions.predictedVisible.y > tileRegions.visible.y, "the predictive corridor should follow camera velocity");
     assert.equal(normalizeGameSettings({}).autoFullscreen, true, "older stored settings should migrate to the safe default");
     assert.equal(normalizeGameSettings({}).showMinimap, true, "settings without a minimap preference should default to visible");
     assert.equal(normalizeGameSettings({}).developmentMode, true, "settings without a development-mode preference should default to visible tools");
-    assert.equal(normalizeGameSettings({}).useBakedLayers, false, "settings without a baked-layer preference should default to live rendering");
+    assert.equal(normalizeGameSettings({}).bakingMode, "off", "settings without a baking preference should default to live rendering");
+    assert.equal(normalizeGameSettings({ useBakedLayers: true }).bakingMode, "full", "legacy checked settings should normalize to Full");
 
     const values = new Map();
     const storage = {
@@ -12887,14 +12963,14 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
             values.set(key, String(value));
         }
     };
-    const saved = saveStoredGameSettings({ musicVolume: 0.33, difficulty: "hard", autoFullscreen: false, showMinimap: false, developmentMode: false, useBakedLayers: true }, storage);
+    const saved = saveStoredGameSettings({ musicVolume: 0.33, difficulty: "hard", autoFullscreen: false, showMinimap: false, developmentMode: false, bakingMode: "full" }, storage);
     assert.equal(values.has(GAME_SETTINGS_STORAGE_KEY), true, "settings should use a stable namespaced storage key");
     assert.equal(saved.musicVolume, 0.33, "saved settings should retain authored volume");
     assert.equal(loadStoredGameSettings(storage).difficulty, "hard", "stored difficulty should round-trip");
     assert.equal(loadStoredGameSettings(storage).autoFullscreen, false, "the fullscreen policy should round-trip through storage");
     assert.equal(loadStoredGameSettings(storage).showMinimap, false, "the minimap preference should round-trip through storage");
     assert.equal(loadStoredGameSettings(storage).developmentMode, false, "the development-mode preference should round-trip through storage");
-    assert.equal(loadStoredGameSettings(storage).useBakedLayers, true, "the baked-layer preference should round-trip through storage");
+    assert.equal(loadStoredGameSettings(storage).bakingMode, "full", "the baking mode should round-trip through storage");
 
     const legacyValues = new Map([[GAME_SETTINGS_STORAGE_KEY, JSON.stringify({
         version: 2,
@@ -12914,7 +12990,7 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     };
     const migratedLegacySettings = loadStoredGameSettings(legacyStorage);
     assert.equal(migratedLegacySettings.musicVolume, 0.1, "the former untouched 60 percent default should migrate to the new 10 percent default");
-    assert.equal(migratedLegacySettings.useBakedLayers, false, "legacy stored settings without a baked-layer preference should migrate to the safe off default");
+    assert.equal(migratedLegacySettings.bakingMode, "off", "legacy stored settings without a baking preference should migrate to the safe off default");
 
     const legacyBakedOnValues = new Map([[GAME_SETTINGS_STORAGE_KEY, JSON.stringify({
         version: 6,
@@ -12934,7 +13010,7 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
             legacyBakedOnValues.set(key, String(value));
         }
     };
-    assert.equal(loadStoredGameSettings(legacyBakedOnStorage).useBakedLayers, true, "explicit legacy baked-layer opt-in should remain respected");
+    assert.equal(loadStoredGameSettings(legacyBakedOnStorage).bakingMode, "full", "explicit legacy baked-layer opt-in should migrate to Full");
 
     const fallbackValues = new Map([[GAME_SETTINGS_STORAGE_KEY, JSON.stringify({
         version: 7,
@@ -12954,7 +13030,7 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
             fallbackValues.set(key, String(value));
         }
     };
-    assert.equal(loadStoredGameSettings(fallbackStorage).useBakedLayers, false, "post-493 fallback-disabled profiles should not be re-enabled by migration");
+    assert.equal(loadStoredGameSettings(fallbackStorage).bakingMode, "off", "post-493 fallback-disabled profiles should not be re-enabled by migration");
 
     const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
     const manualHtml = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
@@ -12984,7 +13060,7 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.match(gameHtml, /--hud-panel-natural-width:\s*430px;[\s\S]*--hud-panel-scale:\s*1;[\s\S]*#hud\s*\{[^}]*width:\s*var\(--hud-panel-natural-width\)[^}]*transform:\s*scale\(var\(--hud-panel-scale\)\)/s, "the left HUD should retain one natural size and use a shared viewport scale");
     assert.match(gameHtml, /#game-menu-controls\s*\{[^}]*width:\s*auto[^}]*min-width:\s*1px/s, "the minimap panel should be allowed to shrink below the former hard minimum on tiny screens");
     assert.match(gameHtml, /id="development-mode"[^>]*type="checkbox"/, "settings should expose a Development mode checkbox for browser and Electron tool visibility");
-    assert.match(gameHtml, /id="use-baked-layers"[^>]*type="checkbox"/, "settings should expose baked layers as a checkbox rather than a tool-strip button");
+    assert.match(gameHtml, /id="baking-mode-select"[\s\S]*<option value="off">Off<\/option>[\s\S]*<option value="tiles">Tiles<\/option>[\s\S]*<option value="full">Full<\/option>/, "settings should expose a three-way baking dropdown rather than buttons or a tool-strip control");
     assert.doesNotMatch(gameHtml, /body\.electron #tool-links/, "Electron should no longer hard-code hidden development tool buttons in CSS");
     assert.match(gameHtml, /id="auto-fullscreen"[^>]*type="checkbox"/, "settings should expose automatic fullscreen as a checkbox rather than an immediate action");
     assert.match(gameHtml, /Automatically switch to fullscreen/, "the automatic fullscreen preference should use the requested wording");

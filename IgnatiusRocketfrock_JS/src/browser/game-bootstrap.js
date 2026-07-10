@@ -20,6 +20,7 @@ import { GamepadHaptics } from "./gamepad-haptics.js";
 import { createRenderer } from "../presentation/canvas-renderer.js";
 import { normalizeCaveWindow } from "../shared/cave-window-data.js";
 import {
+    gameBakingModePreset,
     gameDifficultyPreset,
     gameRenderingQualityPreset,
     normalizeGameSettings
@@ -109,10 +110,10 @@ const useHardwareRenderingStatus = document.getElementById("use-hardware-renderi
 const developmentModeInput = document.getElementById("development-mode");
 const usePixmapPyramidsInput = document.getElementById("use-pixmap-pyramids");
 const usePixmapPyramidsStatus = document.getElementById("use-pixmap-pyramids-status");
-const useBakedLayersRow = document.getElementById("use-baked-layers-row");
-const useBakedLayersInput = document.getElementById("use-baked-layers");
+const bakingModeRow = document.getElementById("baking-mode-row");
+const bakingModeSelect = document.getElementById("baking-mode-select");
 
-const GAME_REVISION = "498";
+const GAME_REVISION = "502";
 const START_LEVEL_ID = "level_001";
 const RESUME_SAVE_STORAGE_KEY = "ignatius_rocketfrock_resume_v1";
 
@@ -249,7 +250,7 @@ function microStutterProfilerExtra() {
             useHardwareRendering: Boolean(gameState.settings?.useHardwareRendering),
             developmentMode: Boolean(gameState.settings?.developmentMode),
             usePixmapPyramids: Boolean(gameState.settings?.usePixmapPyramids),
-            useBakedLayers: Boolean(gameState.settings?.useBakedLayers)
+            bakingMode: gameState.settings?.bakingMode || "off"
         },
         camera: {
             x: Number(gameState.camera?.x) || 0,
@@ -650,7 +651,7 @@ function handleStaticBakeRendererFailure(payload = {}) {
     window.setTimeout(() => {
         gameState.settings = saveStoredGameSettings({
             ...normalizeGameSettings(gameState.settings),
-            useBakedLayers: false
+            bakingMode: "off"
         });
         syncGameSettingsUi();
         const suffix = detail ? `\n\n${detail}` : "";
@@ -1130,9 +1131,10 @@ function setupGameMenuAndSettings() {
     usePixmapPyramidsInput?.addEventListener("change", () => {
         updatePersistentGameSettings({ usePixmapPyramids: usePixmapPyramidsInput.checked });
     });
-    useBakedLayersInput?.addEventListener("change", () => {
-        if (useBakedLayersInput.checked) staticBakeFailureNoticeKey = "";
-        updatePersistentGameSettings({ useBakedLayers: useBakedLayersInput.checked });
+    bakingModeSelect?.addEventListener("change", () => {
+        const bakingMode = bakingModeSelect.value || "off";
+        if (bakingMode !== "off") staticBakeFailureNoticeKey = "";
+        updatePersistentGameSettings({ bakingMode });
     });
     for (const button of difficultyButtons) {
         button.addEventListener("click", () => updatePersistentGameSettings({
@@ -1553,8 +1555,9 @@ function syncGameSettingsUi() {
             Boolean(settings.usePixmapPyramids)
         );
     }
-    if (useBakedLayersInput) useBakedLayersInput.checked = Boolean(settings.useBakedLayers && staticBakeRendererAvailable());
-    if (useBakedLayersRow) useBakedLayersRow.hidden = !ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER;
+    const bakingMode = gameBakingModePreset(settings);
+    if (bakingModeSelect) bakingModeSelect.value = bakingMode.id;
+    if (bakingModeRow) bakingModeRow.hidden = !ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER;
     syncDevelopmentToolVisibility();
     syncStaticBakeRendererSetting();
     if (minimapPanel) minimapPanel.hidden = !settings.showMinimap;
@@ -1683,15 +1686,21 @@ function syncDevelopmentToolVisibility() {
 
 function syncStaticBakeRendererSetting() {
     const available = staticBakeRendererAvailable();
-    const shouldEnable = Boolean(gameState.settings?.useBakedLayers && available);
-    if (useBakedLayersInput) {
-        useBakedLayersInput.disabled = !available;
-        useBakedLayersInput.checked = shouldEnable;
-        useBakedLayersInput.title = available
-            ? "Enable the experimental static background/terrain/foreground bake renderer."
-            : "Experimental static-layer baking is disabled by build flag.";
+    const requestedMode = gameBakingModePreset(gameState.settings).id;
+    const activeMode = available ? requestedMode : "off";
+    if (bakingModeSelect) {
+        for (const option of bakingModeSelect.options) {
+            option.disabled = !available && option.value !== "off";
+        }
+        bakingModeSelect.title = available
+            ? (requestedMode === "tiles"
+                ? "Continuously bake and recycle nearby 256-pixel static tiles."
+                : (requestedMode === "full"
+                    ? "Bake the complete static level for renderer comparison testing."
+                    : "Draw static scenery live every frame."))
+            : "Experimental static-layer baking is unavailable; Off remains selectable.";
     }
-    renderer?.setStaticLayerBakeEnabled?.(shouldEnable);
+    renderer?.setStaticLayerBakeMode?.(activeMode);
 }
 
 function setupPanelToggleButtons() {
@@ -2429,14 +2438,17 @@ window.__rocketfrockDev = {
         isAvailable() {
             return Boolean(ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER && renderer?.supportsExperimentalStaticLayerBakeRenderer?.() !== false);
         },
-        enable() {
+        setMode(mode = "off") {
             if (!ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER) {
-                return { enabled: false, ready: false, status: "disabled by ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER" };
+                return { enabled: false, ready: false, mode: "off", status: "disabled by ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER" };
             }
-            return renderer?.setStaticLayerBakeEnabled?.(true);
+            return renderer?.setStaticLayerBakeMode?.(mode);
+        },
+        enable(mode = "full") {
+            return this.setMode(mode);
         },
         disable() {
-            return renderer?.setStaticLayerBakeEnabled?.(false);
+            return this.setMode("off");
         },
         status() {
             return renderer?.getStaticLayerBakeStatus?.();

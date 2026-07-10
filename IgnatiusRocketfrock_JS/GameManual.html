@@ -253,7 +253,7 @@
             <li><strong>Use hardware rendering</strong> selects WebGL2 by default after the next reload. An explicit <code>?webgl=0</code> or <code>?webgl=1</code> URL option overrides the saved preference.</li>
             <li><strong>Development mode</strong> shows or hides the lower-right development tool strip in both browser and Electron builds.</li>
             <li><strong>Use pixmap pyramids</strong> enables prefiltered reduced copies of isolated character artwork after the next reload. Disable it to compare direct drawing from the original full-size pixmaps.</li>
-            <li><strong>Use baked layers</strong> enables the experimental static background, terrain, and foreground bake renderer when that development flag is available.</li>
+            <li><strong>Baking</strong> chooses how static background, terrain, and foreground artwork is reused. <strong>Off</strong> draws static scenery live every frame. <strong>Tiles</strong> continuously bakes nearby 256-pixel tiles in the background, reuses them while they remain near the camera, and falls back to live drawing until a visible layer is ready. <strong>Full</strong> keeps the experimental complete-level bake for renderer comparison testing. A failed bake returns the setting to Off.</li>
             <li>Show minimap controls whether the upper-right minimap is visible.</li>
         </ul>
 

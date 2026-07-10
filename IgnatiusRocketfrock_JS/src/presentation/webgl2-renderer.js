@@ -152,6 +152,7 @@ export class WebGL2RendererBackend {
             contextRestores: 0,
             contextLosses: 0
         };
+        this.resourceGeneration = 1;
         this.initializeResources();
         this.installContextHandlers();
     }
@@ -183,6 +184,7 @@ export class WebGL2RendererBackend {
             this.textureCache = new WeakMap();
             this.textureRecords.clear();
             this.initializeResources();
+            this.resourceGeneration += 1;
             this.available = true;
             for (const source of this.pinnedSources) {
                 this.textureRecord(source, false, false);
@@ -363,6 +365,106 @@ export class WebGL2RendererBackend {
     cacheTexture(source) {
         if (!source || !this.available || this.contextLost) return false;
         return Boolean(this.textureRecord(source, false, false));
+    }
+
+    getResourceGeneration() {
+        return Math.max(1, Number(this.resourceGeneration) || 1);
+    }
+
+    createTextureStorage(width, height) {
+        if (!this.available || this.contextLost) return null;
+        const safeWidth = Math.max(1, Math.floor(finiteNumber(width, 1)));
+        const safeHeight = Math.max(1, Math.floor(finiteNumber(height, 1)));
+        const maxTextureSize = this.getMaxTextureSize();
+        this.lastTextureError = "";
+        if (safeWidth > maxTextureSize || safeHeight > maxTextureSize) {
+            this.lastTextureError = `WebGL2 texture storage ${safeWidth}x${safeHeight} exceeds max texture size ${maxTextureSize}.`;
+            return null;
+        }
+        const gl = this.gl;
+        const texture = gl.createTexture();
+        if (!texture) {
+            this.lastTextureError = "WebGL2 could not allocate a texture object for tile storage.";
+            return null;
+        }
+        const source = { width: safeWidth, height: safeHeight, tileTextureStorage: true };
+        const record = {
+            texture,
+            source,
+            width: safeWidth,
+            height: safeHeight,
+            dynamic: false,
+            uploadedFrame: this.frameId
+        };
+        try {
+            this.flush();
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, safeWidth, safeHeight, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+            const errorCode = typeof gl.getError === "function" ? gl.getError() : gl.NO_ERROR;
+            if (errorCode && errorCode !== gl.NO_ERROR) {
+                throw new Error(`WebGL2 tile texture allocation failed: ${webglErrorName(gl, errorCode)} for ${safeWidth}x${safeHeight}.`);
+            }
+            this.frameDiagnostics.textureUploads += 1;
+            this.textureCache.set(source, record);
+            this.textureRecords.add(record);
+            return source;
+        } catch (error) {
+            this.lastTextureError = error?.message || String(error || "WebGL2 tile texture allocation failed.");
+            gl.deleteTexture(texture);
+            return null;
+        } finally {
+            gl.bindTexture(gl.TEXTURE_2D, null);
+        }
+    }
+
+    updateTextureRegion(source, image, x = 0, y = 0, options = {}) {
+        if (!source || !image || !this.available || this.contextLost) return false;
+        const record = this.textureCache.get(source);
+        if (!record) {
+            this.lastTextureError = "WebGL2 tile texture storage is no longer resident.";
+            return false;
+        }
+        const dimensions = sourceDimensions(image);
+        const safeX = Math.max(0, Math.floor(finiteNumber(x, 0)));
+        const safeY = Math.max(0, Math.floor(finiteNumber(y, 0)));
+        if (safeX + dimensions.width > record.width || safeY + dimensions.height > record.height) {
+            this.lastTextureError = `WebGL2 tile update ${dimensions.width}x${dimensions.height} at ${safeX},${safeY} exceeds ${record.width}x${record.height} storage.`;
+            return false;
+        }
+        const gl = this.gl;
+        this.lastTextureError = "";
+        try {
+            this.flush();
+            gl.bindTexture(gl.TEXTURE_2D, record.texture);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, options.unpackFlipY !== false);
+            gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+            if (gl.UNPACK_COLORSPACE_CONVERSION_WEBGL !== undefined) {
+                gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
+            }
+            const textureY = record.height - safeY - dimensions.height;
+            gl.texSubImage2D(gl.TEXTURE_2D, 0, safeX, textureY, gl.RGBA, gl.UNSIGNED_BYTE, image);
+            const errorCode = typeof gl.getError === "function" ? gl.getError() : gl.NO_ERROR;
+            if (errorCode && errorCode !== gl.NO_ERROR) {
+                throw new Error(`WebGL2 tile texture update failed: ${webglErrorName(gl, errorCode)}.`);
+            }
+            record.uploadedFrame = this.frameId;
+            this.frameDiagnostics.textureUpdates += 1;
+            return true;
+        } catch (error) {
+            this.lastTextureError = error?.message || String(error || "WebGL2 tile texture update failed.");
+            return false;
+        } finally {
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+            gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+            if (gl.UNPACK_COLORSPACE_CONVERSION_WEBGL !== undefined) {
+                gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.BROWSER_DEFAULT_WEBGL);
+            }
+            gl.bindTexture(gl.TEXTURE_2D, null);
+        }
     }
 
     preloadTextures(sources = []) {

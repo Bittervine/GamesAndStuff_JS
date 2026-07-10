@@ -4437,3 +4437,48 @@ Manual profiling workflow: open the game, run `window.__rocketfrockDev.profiler.
 - [x] Make Electron honor the same saved hardware-rendering setting as the browser build.
 - [x] Preserve explicit URL renderer overrides for development diagnostics.
 - [x] Update regression coverage and packaged revision labels.
+
+## Revision 499 rolling tile-bake checklist
+
+- [x] Replace the legacy baked-layer checkbox with persisted Baking: Off / Tiles / Full choices.
+- [x] Migrate explicit legacy baked-layer opt-in to Full and all other legacy profiles to Off.
+- [x] Preserve Full as an independent complete-level/chunked comparison renderer.
+- [x] Add sparse 256×256 logical tiles with a one-pixel sampling gutter.
+- [x] Rasterize tile command lists serially in a module worker using OffscreenCanvas and transferable ImageBitmaps.
+- [x] Keep at most one worker task and one completed upload pending at a time.
+- [x] Skip allocation for layer tiles proven completely empty.
+- [x] Pack WebGL tile images into reusable atlas-page slots and upload through texSubImage2D.
+- [x] Request a one-screen margin, retain up to two screens when budget allows, and extend a velocity-predicted corridor.
+- [x] Substitute a tiled layer only when every currently visible tile is ready or empty; otherwise draw that layer live.
+- [x] Keep dynamic scenery, actors, effects, cave masking, and overlays on their existing live paths.
+- [x] Release old mode resources immediately when switching Off, Tiles, or Full.
+- [x] Fall back to Off and persist the fallback after worker, allocation, or texture-upload failure.
+- [x] Lower the Full WebGL safety estimate to 1.5 GiB rather than probing VRAM exhaustion.
+- [x] Update the manual, architecture notes, tests, and packaged revision labels.
+
+## Revision 500 tiled WebGL orientation checklist
+
+- [x] Reproduce the live symptom as vertically inverted worker-baked atlas tiles while Off/Full remain correctly oriented.
+- [x] Keep worker rasterization and atlas slot placement unchanged.
+- [x] Reverse only the WebGL tile sprite V coordinates when sampling transferred `ImageBitmap` atlas regions.
+- [x] Leave Canvas2D Tiles, Full baking, and ordinary sprite textures untouched.
+- [x] Add a renderer contract assertion for the tile-atlas orientation compensation.
+- [x] Replace the three baking mode buttons with one Off / Tiles / Full dropdown.
+- [x] Synchronize the packaged game revision to 500.
+
+## Revision 501 compact baking-setting checklist
+
+- [x] Place the Baking dropdown directly to the right of Use pixmap pyramids in the two-column Settings grid.
+- [x] Keep the dropdown compact and vertically aligned with the neighbouring toggle card.
+- [x] Preserve the existing Off / Tiles / Full persistence and live mode-switch behavior.
+- [x] Synchronize the packaged game revision to 501.
+
+## Revision 502 tiled WebGL placement checklist
+
+- [x] Remove draw-time V mirroring from atlas-backed tile sprites.
+- [x] Normalize the complete guttered WebGL tile bitmap in the worker before transfer.
+- [x] Upload normalized tile bitmaps without `UNPACK_FLIP_Y_WEBGL`.
+- [x] Preserve unchanged ImageBitmap orientation for Canvas2D Tiles.
+- [x] Keep Off, Full, ordinary sprite textures, and layer ordering unchanged.
+- [x] Synchronize the packaged revision to 502.
+
