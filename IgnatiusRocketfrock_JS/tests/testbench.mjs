@@ -53,6 +53,7 @@ import {
     worldCollisionIndexDiagnostics
 } from "../src/core/world-collision-index.js";
 import { actorBodyRect, characterEnemyMeleeAttackRect, enemyProjectileHitbox } from "../src/shared/actor-geometry.js";
+import { createTransformTriplet } from "../src/shared/presentation-transform-data.js";
 import {
     normalizeEnemyScale,
     scaledEnemyDimensions,
@@ -60,6 +61,7 @@ import {
     scaledEnemyRenderScale
 } from "../src/shared/enemy-scale-data.js";
 import { GAMEPAD_ACTIVITY_TIMEOUT_SECONDS, RocketfrockInput } from "../src/browser/browser-input.js";
+import { MicroStutterProfiler } from "../src/browser/micro-stutter-profiler.js";
 import { calculateHudPanelScale } from "../src/browser/hud-panel-layout.js";
 import { GamepadHaptics, GAMEPAD_HAPTIC_PATTERNS } from "../src/browser/gamepad-haptics.js";
 import {
@@ -362,6 +364,11 @@ import {
     createInputFrame,
     createSubstepInputFrame,
     stepSimulation,
+    snapshotSimulationPresentation,
+    preparePresentationFrame,
+    readPresentationSnapDiagnostics,
+    snapAllPresentationSubjects,
+    snapPresentationSubject,
     cloneGameState,
     serializeGameState,
     restoreGameState,
@@ -407,18 +414,20 @@ function applyEditorLevelToWorld(state, editorLevel) {
     if (state.world.entityStates) delete state.world.entityStates[testDoorId];
     state.story.portalIntro = null;
     state.player.visible = true;
-    state.player.renderScale = 1;
-    state.player.x = Number(testStart.x) || 0;
-    state.player.y = Number(testStart.y) || 0;
-    state.player.spawnX = state.player.x;
-    state.player.spawnY = state.player.y;
+    state.player.currentTransform.scaleX = 1;
+    state.player.currentTransform.scaleY = 1;
+    state.player.currentTransform.x = Number(testStart.x) || 0;
+    state.player.currentTransform.y = Number(testStart.y) || 0;
+    state.player.spawnX = state.player.currentTransform.x;
+    state.player.spawnY = state.player.currentTransform.y;
     state.player.vx = 0;
     state.player.vy = 0;
     state.player.onGround = false;
     state.player.wasOnGround = false;
-    state.camera.x = state.player.x;
-    state.camera.y = state.player.y - 170;
+    state.camera.currentTransform.x = state.player.currentTransform.x;
+    state.camera.currentTransform.y = state.player.currentTransform.y - 170;
     state.debug.lastEvents = state.debug.lastEvents.filter((event) => event.portalId !== testDoorId);
+    snapAllPresentationSubjects(state);
     return true;
 }
 
@@ -701,7 +710,7 @@ function stepMany(state, frames, inputFactory = () => createInputFrame()) {
 function settleOnGround(state) {
     stepMany(state, 90, () => createInputFrame());
     assert.ok(state.player.onGround, "expected player to settle on the floor");
-    approx(state.player.y, 600, 0.001, "floor contact y");
+    approx(state.player.currentTransform.y, 600, 0.001, "floor contact y");
 }
 
 function releaseJumpAfterTakeoff(state) {
@@ -1142,24 +1151,24 @@ async function testBatFrameSwapProjectsAndFlight() {
     const bat = state.enemies.find((enemy) => enemy.id === "bat_candidate_test");
     assert.ok(bat, "flying bat should enter portable simulation state");
     assert.equal(bat.locomotion, "flying", "bat should retain its flying locomotion mode");
-    const startX = bat.x;
-    const startY = bat.y;
+    const startX = bat.currentTransform.x;
+    const startY = bat.currentTransform.y;
     for (let step = 0; step < 60; step += 1) {
         stepSimulation(state, createInputFrame(), FIXED_DT);
     }
-    assert.ok(bat.x < startX - 80, "living bat should patrol horizontally through open air");
-    assert.ok(Math.abs(bat.y - startY) > 2, "living bat should bob around its authored flight height");
+    assert.ok(bat.currentTransform.x < startX - 80, "living bat should patrol horizontally through open air");
+    assert.ok(Math.abs(bat.currentTransform.y - startY) > 2, "living bat should bob around its authored flight height");
     assert.equal(bat.animationSlot, "fly", "living bat should keep the frame-swapped fly loop selected");
     assert.equal(bat.supportId, null, "flying bat should never acquire a ground support");
 
     bat.health = 0;
     bat.combatState = "dead";
-    const deathStartX = bat.x;
-    for (let step = 0; step < 180 && bat.renderOpacity > 0; step += 1) {
+    const deathStartX = bat.currentTransform.x;
+    for (let step = 0; step < 180 && bat.currentTransform.alpha > 0; step += 1) {
         stepSimulation(state, createInputFrame(), FIXED_DT);
     }
-    assert.ok(bat.x > deathStartX + 600, "defeated bat should flee away from Ignatius instead of dropping as a corpse");
-    assert.equal(bat.renderOpacity, 0, "defeated bat should disappear only after completing its fly-off distance");
+    assert.ok(bat.currentTransform.x > deathStartX + 600, "defeated bat should flee away from Ignatius instead of dropping as a corpse");
+    assert.equal(bat.currentTransform.alpha, 0, "defeated bat should disappear only after completing its fly-off distance");
     assert.equal(bat.movementPhase, "death_fly_off", "defeated bat should expose its dedicated fly-off state");
     assert.equal(bat.animationSlot, "fly", "death fly-off should keep flapping rather than requiring a fabricated corpse clip");
 }
@@ -1203,23 +1212,23 @@ function testFlyingBomberDropsProjectile() {
     state.player.onGround = true;
     state.player.wasOnGround = true;
     assert.equal(bomber.strategy, "bomber", "portable enemy state should preserve bomber strategy");
-    const perchX = bomber.x;
-    const perchY = bomber.y;
+    const perchX = bomber.currentTransform.x;
+    const perchY = bomber.currentTransform.y;
     state.player.visible = false;
     for (let step = 0; step < 60; step += 1) {
         stepSimulation(state, createInputFrame(), FIXED_DT);
     }
     assert.equal(bomber.aiState, "perched", "bomber should wait at its authored perch while Ignatius is outside awareness");
-    assert.ok(Math.abs(bomber.x - perchX) < 0.01 && Math.abs(bomber.y - perchY) < 0.01, "perched bomber should remain at its authored position");
+    assert.ok(Math.abs(bomber.currentTransform.x - perchX) < 0.01 && Math.abs(bomber.currentTransform.y - perchY) < 0.01, "perched bomber should remain at its authored position");
     state.player.visible = true;
     bomber.awarenessRange = 800;
-    state.player.x = 500;
+    state.player.currentTransform.x = 500;
     for (let step = 0; step < 240 && state.projectiles.length === 0; step += 1) {
         stepSimulation(state, createInputFrame(), FIXED_DT);
     }
-    assert.ok(Math.abs(bomber.x - state.player.x) <= 30, "bomber should fly over Ignatius before releasing");
+    assert.ok(Math.abs(bomber.currentTransform.x - state.player.currentTransform.x) <= 30, "bomber should fly over Ignatius before releasing");
     assert.ok(state.projectiles.length > 0, "bomber should drop a projectile when horizontally aligned");
-    const releaseHeight = state.player.y - bomber.y;
+    const releaseHeight = state.player.currentTransform.y - bomber.currentTransform.y;
     assert.ok(
         Math.abs(releaseHeight - bomber.bomberHoverHeight) <= bomber.bomberDropHeightTolerance + 8,
         `bomber should reach its authored bombing altitude before releasing, got ${releaseHeight.toFixed(1)} for target ${bomber.bomberHoverHeight}`
@@ -1270,17 +1279,17 @@ function testFlyingBomberUsesCurvedApproach() {
     state.world.solids.push({ id: "curved_bomber_test_floor", kind: "floor", x: 0, y: 700, w: 1400, h: 200 });
     state.player.onGround = true;
     state.player.wasOnGround = true;
-    const startY = bomber.y;
-    let minimumY = bomber.y;
+    const startY = bomber.currentTransform.y;
+    let minimumY = bomber.currentTransform.y;
     let reachedFinalThird = false;
     for (let step = 0; step < 240; step += 1) {
         stepSimulation(state, createInputFrame(), FIXED_DT);
-        minimumY = Math.min(minimumY, bomber.y);
-        reachedFinalThird ||= bomber.x >= 500;
+        minimumY = Math.min(minimumY, bomber.currentTransform.y);
+        reachedFinalThird ||= bomber.currentTransform.x >= 500;
     }
     assert.ok(minimumY < startY - 28, `bomber should arc upward during its approach, minimum y was ${minimumY.toFixed(1)}`);
     assert.equal(reachedFinalThird, true, "curved bomber should still make decisive horizontal progress toward Ignatius");
-    assert.ok(Math.abs(bomber.y - (state.player.y - bomber.bomberHoverHeight)) < 48, "bomber should settle back near its authored bombing height after the approach arc");
+    assert.ok(Math.abs(bomber.currentTransform.y - (state.player.currentTransform.y - bomber.bomberHoverHeight)) < 48, "bomber should settle back near its authored bombing height after the approach arc");
 }
 
 function testFlyingBomberNoticesWizardBelowAndAhead() {
@@ -1350,12 +1359,12 @@ function testFlyingBomberCanLeavePerchPlatform() {
     });
     const bomber = state.enemies.find((enemy) => enemy.id === "perched_bomber");
     state.world.solids.push({ id: "perch_floor", kind: "floor", x: 80, y: 500, w: 360, h: 90 });
-    const startY = bomber.y;
+    const startY = bomber.currentTransform.y;
     for (let step = 0; step < 60; step += 1) {
         stepSimulation(state, createInputFrame(), FIXED_DT);
     }
     assert.equal(bomber.aiState, "bomber", "aware bomber should enter its bombing run");
-    assert.ok(bomber.y < startY - 30, "bomber should lift away from a platform directly beneath its perch");
+    assert.ok(bomber.currentTransform.y < startY - 30, "bomber should lift away from a platform directly beneath its perch");
 }
 
 
@@ -1377,11 +1386,11 @@ function createAutomaticEnemySpawnTestState({
     state.world.solids = [{ id: "spawn_test_floor", kind: "floor", x: -4800, y: 600, w: 9600, h: 120 }];
     state.world.segments = [];
     state.world.collisionPolygons = [];
-    state.player.x = 0;
-    state.player.y = 600;
+    state.player.currentTransform.x = 0;
+    state.player.currentTransform.y = 600;
     state.player.onGround = true;
-    state.camera.x = 0;
-    state.camera.y = 400;
+    state.camera.currentTransform.x = 0;
+    state.camera.currentTransform.y = 400;
     state.camera.viewportWidth = 400;
     state.camera.viewportHeight = 300;
     state.story.portalIntro = null;
@@ -1486,7 +1495,7 @@ function testAutomaticEnemySpawning() {
     assert.equal(firstRightEnemy.strategy, "hunter", "spawned ground enemies should use hunter navigation");
     assert.equal(firstRightEnemy.alerted, true, "spawned enemies should already have noticed the player");
     assert.equal(firstRightEnemy.engaged, true, "spawned enemies should immediately pursue the player");
-    assert.equal(firstRightEnemy.lastSeenPlayerX, rightward.player.x, "spawned hunters should remember the player's current position");
+    assert.equal(firstRightEnemy.lastSeenPlayerX, rightward.player.currentTransform.x, "spawned hunters should remember the player's current position");
 
     const leftward = createAutomaticEnemySpawnTestState({ exitX: -4000, enemyPool: "10", randomSeed: 321 });
     for (let step = 0; step < 62; step += 1) stepSimulation(leftward, createInputFrame(), FIXED_DT);
@@ -1539,11 +1548,11 @@ function createEnemySpawnerTestState({
     state.world.solids = [{ id: "spawner_test_floor", kind: "floor", x: -1100, y: 600, w: 3400, h: 120 }];
     state.world.segments = [];
     state.world.collisionPolygons = [];
-    state.player.x = 0;
-    state.player.y = 600;
+    state.player.currentTransform.x = 0;
+    state.player.currentTransform.y = 600;
     state.player.onGround = true;
-    state.camera.x = 0;
-    state.camera.y = 430;
+    state.camera.currentTransform.x = 0;
+    state.camera.currentTransform.y = 430;
     state.camera.viewportWidth = 400;
     state.camera.viewportHeight = 720;
     state.story.portalIntro = null;
@@ -1599,8 +1608,8 @@ function testPlaceableEnemySpawner() {
     assert.equal(dormant.spawnCount, 0, "an off-screen enemy spawner should never create enemies");
     assert.equal(dormant.timer, 1, "off-screen time should not accumulate toward an immediate spawn");
 
-    offScreen.player.x = 840;
-    offScreen.camera.x = 840;
+    offScreen.player.currentTransform.x = 840;
+    offScreen.camera.currentTransform.x = 840;
     for (let step = 0; step < 30; step += 1) stepSimulation(offScreen, createInputFrame(), FIXED_DT);
     assert.equal(dormant.rollCount, 0, "scrolling a dormant spawner on screen should still require a full visible second");
     for (let step = 0; step < 32; step += 1) stepSimulation(offScreen, createInputFrame(), FIXED_DT);
@@ -1678,7 +1687,7 @@ function testUnifiedEnemyScaling() {
     assert.ok(enemy, "the uniformly scaled enemy should become a runtime actor");
     approx(enemy.width, 100, 0.000001, "runtime hitbox width should use the uniform enemy scale");
     approx(enemy.height, 150, 0.000001, "runtime hitbox height should use the uniform enemy scale");
-    approx(enemy.renderScale, 1.25, 0.000001, "runtime artwork should use the uniform enemy scale");
+    approx(enemy.currentTransform.scaleX, 1.25, 0.000001, "runtime artwork should use the uniform enemy scale");
     approx(enemy.renderOffsetX, 7.5, 0.000001, "runtime local artwork X offset should scale with the enemy");
     approx(enemy.renderOffsetY, -10, 0.000001, "runtime local artwork Y offset should scale with the enemy");
     approx(enemy.projectileRadius, 15, 0.000001, "runtime projectile collision and artwork radius should scale with the enemy");
@@ -2025,7 +2034,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     const canvasKnifeStart = rendererSource.indexOf("    drawProjectileKnife(projectile");
     const webglKnifeMethod = rendererSource.slice(webglKnifeStart, rendererSource.indexOf("    drawRocketPathTrailWebGL(projectile", webglKnifeStart));
     const canvasKnifeMethod = rendererSource.slice(canvasKnifeStart, rendererSource.indexOf("    drawProjectileRock(projectile", canvasKnifeStart));
-    assert.ok(webglKnifeMethod.includes("const rotation = travelAngle;") && canvasKnifeMethod.includes("const rotation = travelAngle;"), "both knife renderers should point the dagger along its velocity");
+    assert.ok(webglKnifeMethod.includes("const rotation = Number(projectile.shownTransform.angle) || 0;") && canvasKnifeMethod.includes("const rotation = Number(projectile.shownTransform.angle) || 0;"), "both knife renderers should use the shown projectile angle maintained from velocity");
     assert.equal(webglKnifeMethod.includes("projectile.age"), false, "WebGL knives should not spin with projectile age");
     assert.equal(canvasKnifeMethod.includes("projectile.age"), false, "Canvas knives should not spin with projectile age");
     assert.equal(characterEditorHtml.includes('leftFoot: "Left leg sprite"'), false, "Puppet Forge should retire the incorrect left leg-sprite label");
@@ -2198,8 +2207,8 @@ function testHunterEnemyJumpAndAttackPositioning() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 190;
-    state.player.y = 500;
+    state.player.currentTransform.x = 190;
+    state.player.currentTransform.y = 500;
     state.player.onGround = true;
     state.player.wasOnGround = true;
 
@@ -2213,7 +2222,7 @@ function testHunterEnemyJumpAndAttackPositioning() {
     assert.equal(enemy.strategy, "hunter", "hunter strategy should survive level deserialization");
     assert.equal(sawAirborne, true, "hunter should perform a single authored jump to a reachable platform");
     assert.equal(enemy.currentSupportId, "high", "hunter should land on the target platform");
-    assert.ok(enemy.y <= 501, "hunter feet should settle on the upper support");
+    assert.ok(enemy.currentTransform.y <= 501, "hunter feet should settle on the upper support");
     assert.ok(["pursue", "attack", "position_for_attack"].includes(enemy.movementPhase), "hunter should continue positioning or attacking after landing");
 }
 
@@ -2256,8 +2265,8 @@ function testHunterUsesDeliberateDropTraversal() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 220;
-    state.player.y = 560;
+    state.player.currentTransform.x = 220;
+    state.player.currentTransform.y = 560;
     state.player.onGround = true;
     state.player.wasOnGround = true;
 
@@ -2312,17 +2321,17 @@ function testHunterRangedAttackPositionSelection() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 40;
-    state.player.y = 600;
+    state.player.currentTransform.x = 40;
+    state.player.currentTransform.y = 600;
     state.player.onGround = true;
     state.player.wasOnGround = true;
 
     const enemy = state.enemies.find((item) => item.id === "ranged_hunter");
     stepMany(state, 20);
-    assert.ok(enemy.x < -30, "ranged hunter should back away from a target that is inside its minimum firing distance");
+    assert.ok(enemy.currentTransform.x < -30, "ranged hunter should back away from a target that is inside its minimum firing distance");
     assert.notEqual(enemy.combatState, "attacking", "ranged hunter should not fire before establishing minimum range");
     stepMany(state, 40);
-    assert.ok(Math.abs(state.player.x - enemy.x) >= 100, "ranged hunter should settle near an authored firing distance rather than the nearest point");
+    assert.ok(Math.abs(state.player.currentTransform.x - enemy.currentTransform.x) >= 100, "ranged hunter should settle near an authored firing distance rather than the nearest point");
     assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_ATTACK_STARTED"), "ranged hunter should attack after reaching a valid firing position");
 }
 
@@ -2417,8 +2426,8 @@ function testHunterCrossesLevelOneCentralPillarAndJumpsDown() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 1200;
-    state.player.y = 844.2;
+    state.player.currentTransform.x = 1200;
+    state.player.currentTransform.y = 844.2;
     state.player.onGround = true;
     state.player.wasOnGround = true;
     state.player.visible = true;
@@ -2464,16 +2473,16 @@ function testEngagedHunterImmediatelyLeavesPillarForLastSeenPlayer() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 1700;
-    state.player.y = 844.35;
+    state.player.currentTransform.x = 1700;
+    state.player.currentTransform.y = 844.35;
     state.player.onGround = true;
     state.player.wasOnGround = true;
     state.player.visible = true;
 
     const enemy = state.enemies.find((item) => item.id === "enemy_010_001");
     assert.ok(enemy, "level_t01 should instantiate the fireball goblin used by the ledge-exit regression test");
-    enemy.x = 1550;
-    enemy.y = 658.5;
+    enemy.currentTransform.x = 1550;
+    enemy.currentTransform.y = 658.5;
     enemy.homeX = 1550;
     enemy.homeY = 658.5;
     enemy.currentSupportId = "object_036_001_blockable_1";
@@ -2482,21 +2491,21 @@ function testEngagedHunterImmediatelyLeavesPillarForLastSeenPlayer() {
     enemy.awarenessRange = 2000;
     enemy.awarenessViewHalfAngle = 45;
     enemy.awarenessTimer = 1.5;
-    enemy.lastSeenPlayerX = state.player.x;
-    enemy.lastSeenPlayerY = state.player.y;
+    enemy.lastSeenPlayerX = state.player.currentTransform.x;
+    enemy.lastSeenPlayerY = state.player.currentTransform.y;
     enemy.lastSeenSupportId = "floor_cold_platform_001_blockable_2_nav_2";
     enemy.engaged = true;
     enemy.alerted = true;
     enemy.aiState = "pursue";
     enemy.routeRepathTimer = 0;
 
-    const startX = enemy.x;
+    const startX = enemy.currentTransform.x;
     stepSimulation(state, createInputFrame(), FIXED_DT);
     const firstEdge = enemy.route?.[enemy.routeIndex];
     assert.equal(enemy.aiState, "investigate_last_seen", "losing the narrow facing cone should begin last-seen pursuit immediately instead of idling through the awareness hold");
     assert.equal(enemy.routePurpose, "last_seen", "the immediate pursuit should use the genuinely remembered player position");
     assert.equal(firstEdge?.to, "floor_cold_platform_001_blockable_2_nav_2", "the remembered lower-floor position should produce an exit route from the pillar");
-    assert.ok(enemy.x > startX, "the short downward-jump run-up should move toward the nearby right edge instead of backing across the whole ledge");
+    assert.ok(enemy.currentTransform.x > startX, "the short downward-jump run-up should move toward the nearby right edge instead of backing across the whole ledge");
 
     let launchFrame = null;
     for (let frame = 1; frame < 90; frame += 1) {
@@ -2525,16 +2534,16 @@ function testHunterWalksOffLevelOneLeftLedge() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 1700;
-    state.player.y = 844.33;
+    state.player.currentTransform.x = 1700;
+    state.player.currentTransform.y = 844.33;
     state.player.onGround = true;
     state.player.wasOnGround = true;
     state.player.visible = true;
 
     const enemy = state.enemies.find((item) => item.id === "enemy_010_001");
     assert.ok(enemy, "level_t01 should instantiate the fireball goblin used by the long ledge regression test");
-    enemy.x = 970;
-    enemy.y = 289.33;
+    enemy.currentTransform.x = 970;
+    enemy.currentTransform.y = 289.33;
     enemy.spawnX = 970;
     enemy.spawnY = 289.33;
     enemy.homeSupportId = "left_step_blockable_1";
@@ -2584,18 +2593,18 @@ function testHumanHunterEscapesLevelOneLeftLedge() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 380;
-    state.player.y = 495;
+    state.player.currentTransform.x = 380;
+    state.player.currentTransform.y = 495;
     state.player.onGround = true;
     state.player.wasOnGround = true;
     state.player.visible = true;
 
     const enemy = state.enemies.find((item) => item.id === "enemy_033_001");
     assert.ok(enemy, "the supplied Level 001 edit should place Enemy 033 on the left ledge");
-    enemy.x = 896;
-    enemy.y = 290.4453929718081;
-    enemy.spawnX = enemy.x;
-    enemy.spawnY = enemy.y;
+    enemy.currentTransform.x = 896;
+    enemy.currentTransform.y = 290.4453929718081;
+    enemy.spawnX = enemy.currentTransform.x;
+    enemy.spawnY = enemy.currentTransform.y;
     enemy.homeSupportId = "left_step_blockable_1";
     enemy.currentSupportId = "left_step_blockable_1";
     enemy.facing = -1;
@@ -2640,16 +2649,16 @@ function testVisibleHunterApproachesBlockedLevelOnePillarBeforeGlare() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 1200;
-    state.player.y = 844.22;
+    state.player.currentTransform.x = 1200;
+    state.player.currentTransform.y = 844.22;
     state.player.onGround = true;
     state.player.wasOnGround = true;
     state.player.visible = true;
 
     const enemy = state.enemies.find((item) => item.id === "enemy_032_001");
     assert.ok(enemy, "level_t01 should instantiate the right-side human knife thrower");
-    enemy.x = 2784;
-    enemy.y = 844.5508804953561;
+    enemy.currentTransform.x = 2784;
+    enemy.currentTransform.y = 844.5508804953561;
     enemy.facing = -1;
     enemy.awarenessRange = 2000;
     enemy.engaged = true;
@@ -2665,11 +2674,11 @@ function testVisibleHunterApproachesBlockedLevelOnePillarBeforeGlare() {
     assert.equal(enemy.route?.[0]?.to, "object_036_001_blockable_1", "the route should first jump onto the central pillar");
     assert.equal(enemy.route?.[0]?.type, "jump", "the first pillar transition should be a jump, not a stuck walk into the obstacle");
 
-    const startX = enemy.x;
+    const startX = enemy.currentTransform.x;
     let movedLeft = false;
     for (let frame = 0; frame < 40; frame += 1) {
         stepSimulation(state, createInputFrame(), FIXED_DT);
-        movedLeft ||= enemy.x < startX - 80;
+        movedLeft ||= enemy.currentTransform.x < startX - 80;
         if (movedLeft) {
             break;
         }
@@ -2694,16 +2703,16 @@ function testVisibleHunterStopsAtBlockedLevelOnePillarApproach() {
     state.story.mailboxEvent = null;
     state.health.amount = 999;
     state.health.max = 999;
-    state.player.x = 1200;
-    state.player.y = 844.22;
+    state.player.currentTransform.x = 1200;
+    state.player.currentTransform.y = 844.22;
     state.player.onGround = true;
     state.player.wasOnGround = true;
     state.player.visible = true;
 
     const enemy = state.enemies.find((item) => item.id === "enemy_032_001");
     assert.ok(enemy, "level_t01 should instantiate the right-side human knife thrower");
-    enemy.x = 1705;
-    enemy.y = 844.3264008627347;
+    enemy.currentTransform.x = 1705;
+    enemy.currentTransform.y = 844.3264008627347;
     enemy.facing = -1;
     enemy.awarenessRange = 2000;
     enemy.engaged = true;
@@ -2751,8 +2760,8 @@ function testHunterReturnHomeCanReengageAfterShortCooldown() {
 
     const enemy = state.enemies.find((item) => item.id === "enemy_032_001");
     assert.ok(enemy, "level_t01 should instantiate the right-side human knife thrower");
-    enemy.x = 2100;
-    enemy.y = 844.409954974282;
+    enemy.currentTransform.x = 2100;
+    enemy.currentTransform.y = 844.409954974282;
     enemy.spawnX = 2784;
     enemy.spawnY = 844.5508804953561;
     enemy.homeSupportId = "floor_cold_platform_001_blockable_2_nav_2";
@@ -2763,8 +2772,8 @@ function testHunterReturnHomeCanReengageAfterShortCooldown() {
     enemy.alerted = false;
     enemy.aiState = "unreachable_glare";
     enemy.glareTimer = FIXED_DT;
-    enemy.glareFocusX = enemy.x + 220;
-    enemy.glareFocusY = enemy.y;
+    enemy.glareFocusX = enemy.currentTransform.x + 220;
+    enemy.glareFocusY = enemy.currentTransform.y;
     enemy.routeRepathTimer = 99;
     enemy.attackCooldownTimer = 99;
     enemy.projectileDamage = 0;
@@ -2775,8 +2784,8 @@ function testHunterReturnHomeCanReengageAfterShortCooldown() {
     enemy.routeTargetY = null;
     enemy.routePurpose = null;
 
-    state.player.x = enemy.x + 220;
-    state.player.y = enemy.y;
+    state.player.currentTransform.x = enemy.currentTransform.x + 220;
+    state.player.currentTransform.y = enemy.currentTransform.y;
     state.player.onGround = true;
     state.player.wasOnGround = true;
 
@@ -2784,16 +2793,16 @@ function testHunterReturnHomeCanReengageAfterShortCooldown() {
     assert.equal(enemy.aiState, "return_home", "glare expiry should start the return-home recovery");
 
     for (let frame = 0; frame < 110; frame += 1) {
-        state.player.x = enemy.x + 220;
-        state.player.y = enemy.y;
+        state.player.currentTransform.x = enemy.currentTransform.x + 220;
+        state.player.currentTransform.y = enemy.currentTransform.y;
         stepSimulation(state, createInputFrame(), FIXED_DT);
         assert.equal(enemy.aiState, "return_home", "the short anti-flicker cooldown should suppress immediate return-home reacquisition");
     }
 
     let reengaged = false;
     for (let frame = 0; frame < 90; frame += 1) {
-        state.player.x = enemy.x + 220;
-        state.player.y = enemy.y;
+        state.player.currentTransform.x = enemy.currentTransform.x + 220;
+        state.player.currentTransform.y = enemy.currentTransform.y;
         stepSimulation(state, createInputFrame(), FIXED_DT);
         reengaged ||= enemy.aiState === "pursue" || enemy.aiState === "attack";
         if (reengaged) break;
@@ -2816,16 +2825,16 @@ function testHunterClimbsLevelOnePillarFromLeftWithoutWallClipping() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 1550;
-    state.player.y = 658.5;
+    state.player.currentTransform.x = 1550;
+    state.player.currentTransform.y = 658.5;
     state.player.onGround = true;
     state.player.wasOnGround = true;
     state.player.visible = true;
 
     const enemy = state.enemies.find((item) => item.id === "enemy_010_001");
     assert.ok(enemy, "level_t01 should instantiate the fireball goblin used by the left-side pillar regression test");
-    enemy.x = 1300;
-    enemy.y = 844.24;
+    enemy.currentTransform.x = 1300;
+    enemy.currentTransform.y = 844.24;
     enemy.homeX = 1300;
     enemy.homeY = 844.24;
     enemy.facing = 1;
@@ -2887,8 +2896,8 @@ function testHunterJumpsOntoLevelOneArchWithLargeAuthoredJump() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 3310;
-    state.player.y = 683;
+    state.player.currentTransform.x = 3310;
+    state.player.currentTransform.y = 683;
     state.player.onGround = true;
     state.player.wasOnGround = true;
     state.player.visible = true;
@@ -2936,8 +2945,8 @@ function testSkeletonCasterPursuesOntoLevelOneRuin() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 3310;
-    state.player.y = 683;
+    state.player.currentTransform.x = 3310;
+    state.player.currentTransform.y = 683;
     state.player.onGround = true;
     state.player.wasOnGround = true;
     state.player.visible = true;
@@ -3023,8 +3032,8 @@ function testHunterFindsReachableFiringFallbackBeforeGlare() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 300;
-    state.player.y = 400;
+    state.player.currentTransform.x = 300;
+    state.player.currentTransform.y = 400;
     state.player.onGround = true;
     state.player.wasOnGround = true;
     state.player.visible = true;
@@ -3034,7 +3043,7 @@ function testHunterFindsReachableFiringFallbackBeforeGlare() {
     enemy.alerted = true;
     enemy.aiState = "pursue";
     enemy.routeRepathTimer = 0;
-    const startX = enemy.x;
+    const startX = enemy.currentTransform.x;
     let attacked = false;
     let glared = false;
     for (let frame = 0; frame < 180 && !attacked; frame += 1) {
@@ -3045,7 +3054,7 @@ function testHunterFindsReachableFiringFallbackBeforeGlare() {
 
     assert.equal(glared, false, "an unreachable target should not trigger glare while a reachable firing position exists");
     assert.equal(attacked, true, "hunter should fire from a fallback support when it cannot reach the wizard's platform");
-    assert.ok(enemy.x > startX + 120, "hunter should deliberately reposition to clear the blocking platform before firing");
+    assert.ok(enemy.currentTransform.x > startX + 120, "hunter should deliberately reposition to clear the blocking platform before firing");
     assert.equal(enemy.airborne, false, "fallback firing should not invent an impossible jump");
 }
 
@@ -3100,8 +3109,8 @@ function testHunterJumpUsesObstacleClearRunUp() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 280;
-    state.player.y = 430;
+    state.player.currentTransform.x = 280;
+    state.player.currentTransform.y = 430;
     state.player.onGround = true;
     state.player.wasOnGround = true;
     state.player.visible = true;
@@ -3182,8 +3191,8 @@ function testHunterJumpBacksAwayForReverseRunUp() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 280;
-    state.player.y = 430;
+    state.player.currentTransform.x = 280;
+    state.player.currentTransform.y = 430;
     state.player.onGround = true;
     state.player.wasOnGround = true;
     state.player.visible = true;
@@ -3195,14 +3204,14 @@ function testHunterJumpBacksAwayForReverseRunUp() {
     assert.ok(Number.isFinite(firstJump.runUpX), "leftward jump should include an explicit run-up start");
     assert.ok(firstJump.runUpX > firstJump.launchX + 80, `leftward jump should first move farther right, run-up ${firstJump.runUpX}, takeoff ${firstJump.launchX}`);
 
-    const startX = enemy.x;
-    let furthestRight = enemy.x;
+    const startX = enemy.currentTransform.x;
+    let furthestRight = enemy.currentTransform.x;
     let jumpStarts = 0;
     let wasAirborne = false;
     let landed = false;
     for (let frame = 0; frame < 300; frame += 1) {
         stepSimulation(state, createInputFrame(), FIXED_DT);
-        if (!enemy.airborne) furthestRight = Math.max(furthestRight, enemy.x);
+        if (!enemy.airborne) furthestRight = Math.max(furthestRight, enemy.currentTransform.x);
         if (enemy.airborne && !wasAirborne) jumpStarts += 1;
         wasAirborne = enemy.airborne;
         landed ||= !enemy.airborne && String(enemy.currentSupportId || "").startsWith("pillar_top");
@@ -3266,8 +3275,8 @@ function testHunterDropLandsOnOrdinaryCollisionGeometry() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 260;
-    state.player.y = 620;
+    state.player.currentTransform.x = 260;
+    state.player.currentTransform.y = 620;
     state.player.onGround = true;
     state.player.wasOnGround = true;
     state.player.visible = true;
@@ -3275,12 +3284,12 @@ function testHunterDropLandsOnOrdinaryCollisionGeometry() {
     const enemy = state.enemies.find((item) => item.id === "collision_drop_hunter");
     let sawDrop = false;
     let landed = false;
-    let deepestY = enemy.y;
+    let deepestY = enemy.currentTransform.y;
     for (let frame = 0; frame < 220; frame += 1) {
         stepSimulation(state, createInputFrame(), FIXED_DT);
         sawDrop ||= enemy.aiState === "drop" && enemy.airborne;
-        deepestY = Math.max(deepestY, enemy.y);
-        landed ||= sawDrop && !enemy.airborne && Math.abs(enemy.y - 620) < 0.1;
+        deepestY = Math.max(deepestY, enemy.currentTransform.y);
+        landed ||= sawDrop && !enemy.airborne && Math.abs(enemy.currentTransform.y - 620) < 0.1;
         if (landed) break;
     }
     assert.equal(sawDrop, true, "hunter should deliberately leave the upper platform");
@@ -3356,8 +3365,8 @@ function testHunterWalkOffDropClearsSourcePillar() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 0;
-    state.player.y = 620;
+    state.player.currentTransform.x = 0;
+    state.player.currentTransform.y = 620;
     state.player.onGround = true;
     state.player.wasOnGround = true;
     state.player.visible = true;
@@ -3390,12 +3399,12 @@ function testHunterWalkOffDropClearsSourcePillar() {
     for (let frame = 0; frame < 180; frame += 1) {
         stepSimulation(state, createInputFrame(), FIXED_DT);
         sawDrop ||= enemy.aiState === "drop" && enemy.airborne;
-        landed ||= sawDrop && !enemy.airborne && Math.abs(enemy.y - 620) < 0.5;
+        landed ||= sawDrop && !enemy.airborne && Math.abs(enemy.currentTransform.y - 620) < 0.5;
         if (landed) break;
     }
     assert.equal(sawDrop, true, "hunter should execute the baked walk-off drop instead of waiting on the pillar");
     assert.equal(landed, true, "hunter should clear the source pillar and land on the offset floor");
-    assert.ok(enemy.x < 170, "hunter should finish the drop on the lower floor rather than re-landing on the pillar");
+    assert.ok(enemy.currentTransform.x < 170, "hunter should finish the drop on the lower floor rather than re-landing on the pillar");
 }
 
 function testHunterWalksAcrossSlopedBlockableArchAndDrops() {
@@ -3413,18 +3422,18 @@ function testHunterWalksAcrossSlopedBlockableArchAndDrops() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 3900;
-    state.player.y = 844.8;
+    state.player.currentTransform.x = 3900;
+    state.player.currentTransform.y = 844.8;
     state.player.onGround = true;
     state.player.wasOnGround = true;
     state.player.visible = true;
 
     const enemy = state.enemies.find((item) => item.id === "enemy_012_001");
     assert.ok(enemy, "level_t01 should instantiate the Tri-fireball Goblin used by the sloped arch regression test");
-    enemy.x = 3330;
-    enemy.y = 706.462;
-    enemy.spawnX = enemy.x;
-    enemy.spawnY = enemy.y;
+    enemy.currentTransform.x = 3330;
+    enemy.currentTransform.y = 706.462;
+    enemy.spawnX = enemy.currentTransform.x;
+    enemy.spawnY = enemy.currentTransform.y;
     enemy.homeSupportId = null;
     enemy.currentSupportId = null;
     enemy.facing = 1;
@@ -3449,7 +3458,7 @@ function testHunterWalksAcrossSlopedBlockableArchAndDrops() {
     let landed = false;
     for (let frame = 1; frame < 180; frame += 1) {
         stepSimulation(state, createInputFrame(), FIXED_DT);
-        crossedSteepSlope ||= !enemy.airborne && enemy.currentSupportId === "arch_ruin_001_blockable_6" && enemy.x > 3378;
+        crossedSteepSlope ||= !enemy.airborne && enemy.currentSupportId === "arch_ruin_001_blockable_6" && enemy.currentTransform.x > 3378;
         sawDrop ||= enemy.airborne && enemy.aiState === "drop";
         landed ||= sawDrop && !enemy.airborne && enemy.currentSupportId === "floor_cold_platform_001_blockable_2_nav_3";
         if (landed || enemy.aiState === "unreachable_glare") {
@@ -3515,8 +3524,8 @@ function testHunterAwarenessIsConsistentBehindOccluder() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 0;
-    state.player.y = 600;
+    state.player.currentTransform.x = 0;
+    state.player.currentTransform.y = 600;
     state.player.onGround = true;
     state.player.wasOnGround = true;
     state.player.visible = true;
@@ -3560,8 +3569,8 @@ function testMonsterAwarenessUsesDistanceAndFacingCone() {
         const angle = forwardAngle + relativeAngleDegrees * Math.PI / 180;
         const dx = Math.cos(angle) * distance;
         const dy = Math.sin(angle) * distance;
-        state.player.x = enemy.x + dx;
-        state.player.y = enemy.y - enemy.height * 0.5 + dy + state.player.height * 0.5;
+        state.player.currentTransform.x = enemy.currentTransform.x + dx;
+        state.player.currentTransform.y = enemy.currentTransform.y - enemy.height * 0.5 + dy + state.player.height * 0.5;
         state.player.onGround = false;
         state.player.wasOnGround = false;
         state.player.visible = true;
@@ -3639,8 +3648,8 @@ function testHunterInvestigatesClosestReachableLastSeenPositionBeforeGlare() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 10;
-    state.player.y = 600;
+    state.player.currentTransform.x = 10;
+    state.player.currentTransform.y = 600;
     state.player.onGround = true;
     state.player.wasOnGround = true;
 
@@ -3661,7 +3670,7 @@ function testHunterInvestigatesClosestReachableLastSeenPositionBeforeGlare() {
         sawInvestigation ||= enemy.aiState === "investigate_last_seen";
         if (enemy.aiState === "unreachable_glare") {
             sawGlare = true;
-            minimumXAtGlare = Math.min(minimumXAtGlare, enemy.x);
+            minimumXAtGlare = Math.min(minimumXAtGlare, enemy.currentTransform.x);
             break;
         }
     }
@@ -3729,8 +3738,8 @@ function testZeroHealthStartsDeathLifecycleAndDisablesTargeting() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 0;
-    state.player.y = 600;
+    state.player.currentTransform.x = 0;
+    state.player.currentTransform.y = 600;
     state.player.onGround = true;
     state.player.wasOnGround = true;
 
@@ -3805,8 +3814,8 @@ function testHunterEnemyStrandedFallback() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 430;
-    state.player.y = 300;
+    state.player.currentTransform.x = 430;
+    state.player.currentTransform.y = 300;
     state.player.onGround = true;
     state.player.wasOnGround = true;
 
@@ -3823,16 +3832,16 @@ function testHunterEnemyStrandedFallback() {
     assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_TARGET_UNREACHABLE"), "unreachable player should produce the glare transition event");
     assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_STRANDED"), "failed return route should produce the stranded fallback event");
 
-    const strandedX = enemy.x;
-    state.player.x = strandedX + 120;
-    state.player.y = 600;
+    const strandedX = enemy.currentTransform.x;
+    state.player.currentTransform.x = strandedX + 120;
+    state.player.currentTransform.y = 600;
     state.player.onGround = true;
     state.player.wasOnGround = true;
     enemy.facing = 1;
     enemy.attackCooldownTimer = 0;
     stepMany(state, 20);
     assert.notEqual(enemy.aiState, "stranded_patrol", "a stranded hunter should immediately re-engage when Ignatius appears on the same physical floor");
-    assert.ok(enemy.x > strandedX + 4 || enemy.combatState === "attacking", "local same-floor pursuit should move or attack instead of ignoring a nearby visible player");
+    assert.ok(enemy.currentTransform.x > strandedX + 4 || enemy.combatState === "attacking", "local same-floor pursuit should move or attack instead of ignoring a nearby visible player");
     assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_REENGAGED_LOCAL"), "local stranded recovery should emit an explicit diagnostic event");
 }
 
@@ -3873,18 +3882,18 @@ function testCharacterEnemyPatrolBehavior() {
     assert.equal(enemy.animationSlot, "walk", "patrolling enemy should switch to its walk animation when idle time expires");
 
     stepMany(state, 20);
-    approx(enemy.x, 120, 0.01, "patrolling enemy should move at its authored walk speed");
-    assert.equal(enemy.y, 600, "patrolling enemy should keep its feet on the support line");
-    approx(target.x, enemy.x, 0.001, "homing target should follow the moving enemy");
+    approx(enemy.currentTransform.x, 120, 0.01, "patrolling enemy should move at its authored walk speed");
+    assert.equal(enemy.currentTransform.y, 600, "patrolling enemy should keep its feet on the support line");
+    approx(target.x, enemy.currentTransform.x, 0.001, "homing target should follow the moving enemy");
 
     stepMany(state, 20);
-    approx(enemy.x, 140, 0.01, "patrolling enemy should stop at the authored patrol limit");
+    approx(enemy.currentTransform.x, 140, 0.01, "patrolling enemy should stop at the authored patrol limit");
     assert.equal(enemy.facing, -1, "patrolling enemy should turn around at the patrol limit");
     assert.equal(enemy.animationSlot, "idle", "turning enemy should enter its idle animation during the pause");
 
     stepSimulation(state, createInputFrame(), FIXED_DT);
     stepSimulation(state, createInputFrame(), FIXED_DT);
-    assert.ok(enemy.x < 140, "enemy should resume walking in the opposite direction after turning");
+    assert.ok(enemy.currentTransform.x < 140, "enemy should resume walking in the opposite direction after turning");
     assert.equal(enemy.animationSlot, "walk", "enemy should return to the walk animation after turning");
 
     const guardState = createInitialGameState();
@@ -3907,7 +3916,7 @@ function testCharacterEnemyPatrolBehavior() {
     guardState.world.solids = [];
     stepMany(guardState, 120);
     const guard = guardState.enemies.find((item) => item.id === "guard_enemy");
-    assert.equal(guard.x, 100, "stand-guard behaviour should not move the enemy");
+    assert.equal(guard.currentTransform.x, 100, "stand-guard behaviour should not move the enemy");
     assert.equal(guard.animationSlot, "idle", "stand-guard behaviour should remain in idle animation");
 }
 
@@ -3947,8 +3956,8 @@ function testGroundEnemyWalksUnderOneWayPlatform() {
 
     stepMany(state, 180);
     const enemy = state.enemies.find((item) => item.id === "one_way_runner");
-    assert.ok(enemy.x > 300, `a grounded monster should walk beneath a green one-way line instead of treating it as a torso-height wall, got x=${enemy.x}`);
-    assert.equal(enemy.y, 600, "walking beneath a one-way platform should keep the monster on its current floor");
+    assert.ok(enemy.currentTransform.x > 300, `a grounded monster should walk beneath a green one-way line instead of treating it as a torso-height wall, got x=${enemy.currentTransform.x}`);
+    assert.equal(enemy.currentTransform.y, 600, "walking beneath a one-way platform should keep the monster on its current floor");
 }
 
 function testGroundEnemyCannotDropThroughOneWayPlatform() {
@@ -4029,7 +4038,7 @@ function testGroundEnemyCannotDropThroughOneWayPlatform() {
 
     stepSimulation(state, createInputFrame(), FIXED_DT);
     assert.equal(enemy.airborne, false, "a malformed direct-drop request should land back on the green support instead of passing through it");
-    assert.equal(enemy.y, 400, "the one-way support should remain authoritative under the monster's feet");
+    assert.equal(enemy.currentTransform.y, 400, "the one-way support should remain authoritative under the monster's feet");
 }
 
 function testHunterDoesNotJumpLoopOnOneWayPlatform() {
@@ -4144,10 +4153,10 @@ function testHunterDoesNotJumpLoopOnOneWayPlatform() {
     assert.equal(launches.includes("jump"), false, "a hunter pursuing a target below must not bounce on its green support");
     assert.deepEqual(launches, ["drop"], "the hunter should leave the green line once through a legal endpoint walk-off");
     assert.equal(enemy.currentSupportId, "lower_yellow", "the hunter should reach the lower floor instead of relanding on the source line");
-    assert.equal(enemy.y, 650, "the hunter should settle on the lower yellow floor");
+    assert.equal(enemy.currentTransform.y, 650, "the hunter should settle on the lower yellow floor");
 
-    state.player.x = enemy.x + 42;
-    state.player.y = 650;
+    state.player.currentTransform.x = enemy.currentTransform.x + 42;
+    state.player.currentTransform.y = 650;
     let jumpedBesidePlayer = false;
     for (let tick = 0; tick < 180; tick += 1) {
         stepSimulation(state, createInputFrame(), FIXED_DT);
@@ -4181,10 +4190,10 @@ function testPlayerCanDropThroughOneWayPlatforms() {
         ordinaryJumpActive: false
     });
     stepSimulation(state, createInputFrame({ dropPressed: true, dropHeld: true }), FIXED_DT);
-    assert.ok(state.player.y > 400, "pressing down while standing on a green line should begin falling through it immediately");
+    assert.ok(state.player.currentTransform.y > 400, "pressing down while standing on a green line should begin falling through it immediately");
     assert.equal(state.player.onGround, false, "the green line should release the player while drop-through is active");
     stepMany(state, 45);
-    approx(state.player.y, 600, 0.001, "a player dropping through green should land on the yellow floor below");
+    approx(state.player.currentTransform.y, 600, 0.001, "a player dropping through green should land on the yellow floor below");
     assert.equal(state.player.supportId, "lower_yellow", "yellow geometry below a drop-through should remain a normal landing support");
 
     Object.assign(state.player, {
@@ -4200,10 +4209,10 @@ function testPlayerCanDropThroughOneWayPlatforms() {
     });
     stepSimulation(state, createInputFrame({ dropPressed: true, dropHeld: true }), FIXED_DT);
     stepMany(state, 10);
-    assert.ok(state.player.y > 405, "pressing down while already falling should carry the player through the next green line");
+    assert.ok(state.player.currentTransform.y > 405, "pressing down while already falling should carry the player through the next green line");
     assert.notEqual(state.player.supportId, "upper_green", "a falling drop-through must not land on the green line");
     stepMany(state, 35);
-    approx(state.player.y, 600, 0.001, "the falling drop-through should still stop at yellow geometry");
+    approx(state.player.currentTransform.y, 600, 0.001, "the falling drop-through should still stop at yellow geometry");
 
     Object.assign(state.player, {
         x: 0,
@@ -4217,7 +4226,7 @@ function testPlayerCanDropThroughOneWayPlatforms() {
         ordinaryJumpActive: false
     });
     stepMany(state, 30, () => createInputFrame({ dropHeld: true }));
-    approx(state.player.y, 600, 0.001, "holding down must never pass through a yellow blocking line");
+    approx(state.player.currentTransform.y, 600, 0.001, "holding down must never pass through a yellow blocking line");
     assert.equal(state.player.supportId, "lower_yellow", "yellow lines remain authoritative even while drop-through input is held");
 
     const input = new RocketfrockInput({ addEventListener() {} });
@@ -4281,13 +4290,13 @@ function testGroundEnemyAutomaticSmallStep() {
     const climbable = createEnemyStepState(29);
     stepMany(climbable, 100);
     const climbingEnemy = climbable.enemies.find((enemy) => enemy.id === "step_enemy");
-    assert.ok(climbingEnemy.x > 150, "a grounded monster should walk over a step below one fifth of its height");
-    assert.equal(climbingEnemy.y, 571, "the grounded monster should follow the raised support without a jump state");
+    assert.ok(climbingEnemy.currentTransform.x > 150, "a grounded monster should walk over a step below one fifth of its height");
+    assert.equal(climbingEnemy.currentTransform.y, 571, "the grounded monster should follow the raised support without a jump state");
 
     const tooTall = createEnemyStepState(31);
     stepMany(tooTall, 100);
     const blockedEnemy = tooTall.enemies.find((enemy) => enemy.id === "step_enemy");
-    assert.equal(blockedEnemy.y, 600, "a monster should not climb a step above one fifth of its height");
+    assert.equal(blockedEnemy.currentTransform.y, 600, "a monster should not climb a step above one fifth of its height");
     assert.equal(blockedEnemy.facing, -1, "a simple patrol monster should turn around at a genuinely blocking step");
 }
 
@@ -4330,25 +4339,25 @@ function testCharacterEnemyAggressiveChaseAndCombo() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 10;
-    state.player.y = 600;
+    state.player.currentTransform.x = 10;
+    state.player.currentTransform.y = 600;
     state.player.onGround = true;
     state.player.wasOnGround = true;
 
     const enemy = state.enemies.find((item) => item.id === "rush_guard");
-    const attackStartX = enemy.x;
+    const attackStartX = enemy.currentTransform.x;
     stepSimulation(state, createInputFrame(), FIXED_DT);
     assert.equal(enemy.alerted, true, "patroller should become alert when Ignatius enters its patrol span");
     assert.equal(enemy.combatState, "attacking", "an alert guard already in sword range should attack immediately");
     assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_ALERTED"), "first awareness should emit an alert event");
 
     stepMany(state, 22);
-    assert.ok(enemy.x < attackStartX - 15, "attack wind-up should lunge the guard close enough for visible sword contact");
+    assert.ok(enemy.currentTransform.x < attackStartX - 15, "attack wind-up should lunge the guard close enough for visible sword contact");
     assert.equal(enemy.attackHitApplied, true, "rapid clip should apply its strike on the visible downstroke");
 
     stepMany(state, 17);
     assert.equal(enemy.combatState, "attacking", "short recovery should already have started the next chop");
-    assert.ok(enemy.animationTime < 0.2, "second chop should restart the authored attack clip rather than lingering in recovery");
+    assert.ok(enemy.animationClock.current < 0.2, "second chop should restart the authored attack clip rather than lingering in recovery");
 
     const chaseState = createInitialGameState();
     applyEditorLevelToWorld(chaseState, {
@@ -4375,14 +4384,14 @@ function testCharacterEnemyAggressiveChaseAndCombo() {
     chaseState.story.portalIntro = null;
     chaseState.story.portalExit = null;
     chaseState.story.mailboxEvent = null;
-    chaseState.player.x = -20;
-    chaseState.player.y = 600;
+    chaseState.player.currentTransform.x = -20;
+    chaseState.player.currentTransform.y = 600;
     chaseState.player.onGround = true;
     chaseState.player.wasOnGround = true;
     const chaser = chaseState.enemies.find((item) => item.id === "chase_guard");
     stepMany(chaseState, 10);
     assert.equal(chaser.movementPhase, "chase", "alert enemy outside sword reach should use the chase phase");
-    assert.ok(chaser.x < 75, "chase movement should be substantially faster than the 40-unit patrol pace");
+    assert.ok(chaser.currentTransform.x < 75, "chase movement should be substantially faster than the 40-unit patrol pace");
     assert.equal(chaser.animationSlot, "walk", "rapid pursuit should reuse the authored walking animation");
 }
 
@@ -4534,6 +4543,9 @@ function testCharacterEnemyRocketCombat() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
+    state.camera.currentTransform.x = 160;
+    state.camera.currentTransform.y = 430;
+    state.camera.viewportWidth = 2000;
 
     const enemy = state.enemies.find((item) => item.id === "combat_guard");
     const target = state.targets.find((item) => item.enemyId === enemy.id);
@@ -4548,8 +4560,8 @@ function testCharacterEnemyRocketCombat() {
     enemy.alerted = false;
     enemy.engaged = false;
     enemy.facing = 1;
-    const impactPlayerX = state.player.x;
-    const impactPlayerY = state.player.y;
+    const impactPlayerX = state.player.currentTransform.x;
+    const impactPlayerY = state.player.currentTransform.y;
     const first = addTestRocket(state, { id: "combat_hit_1" });
     stepSimulation(state, createInputFrame(), FIXED_DT);
 
@@ -4583,27 +4595,31 @@ function testCharacterEnemyRocketCombat() {
     assert.equal(enemy.combatState, "dead", "lethal damage should enter dead combat state");
     assert.equal(enemy.animationSlot, "death", "lethal damage should select the authored death clip");
     assert.equal(enemy.movementPhase, "dead", "defeated guard should stop patrol movement");
-    assert.equal(enemy.renderOpacity, 1, "defeated enemy should initially remain fully opaque");
+    assert.equal(enemy.currentTransform.alpha, 1, "defeated enemy should initially remain fully opaque");
     assert.equal(target.state, "inactive", "defeated enemy should leave the homing target pool");
     assert.equal(reserveTarget.state, "active", "other living enemies should remain targetable");
     assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_DEFEATED" && event.enemyId === enemy.id), "lethal damage should emit a defeat event");
 
     state.projectiles = [];
+    state.camera.currentTransform.x = reserveTarget.x;
+    state.camera.currentTransform.y = reserveTarget.y + 250;
+    state.camera.viewportWidth = 2000;
+    state.camera.viewportHeight = 1200;
     stepSimulation(state, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
-    assert.equal(state.projectiles[0].targetId, reserveTarget.id, "new rockets should retarget the next living enemy");
+    assert.equal(state.projectiles[0].targetId, reserveTarget.id, "new rockets should retarget the next visible living enemy");
 
-    const deadX = enemy.x;
+    const deadX = enemy.currentTransform.x;
     state.projectiles = [];
     stepMany(state, 100);
-    assert.equal(enemy.x, deadX, "defeated enemy should remain stationary");
+    assert.equal(enemy.currentTransform.x, deadX, "defeated enemy should remain stationary");
     assert.equal(enemy.animationSlot, "death", "defeated enemy should remain on its non-looping death presentation");
-    assert.equal(enemy.renderOpacity, 1, "defeated enemy should remain fully opaque for the first two seconds");
+    assert.equal(enemy.currentTransform.alpha, 1, "defeated enemy should remain fully opaque for the first two seconds");
 
     stepMany(state, 90);
-    assert.ok(enemy.renderOpacity > 0.5 && enemy.renderOpacity < 0.75, "defeated enemy should fade gradually after the two-second hold");
+    assert.ok(enemy.currentTransform.alpha > 0.5 && enemy.currentTransform.alpha < 0.75, "defeated enemy should fade gradually after the two-second hold");
 
     stepMany(state, 120);
-    assert.equal(enemy.renderOpacity, 0, "defeated enemy should be fully transparent after the three-second fade");
+    assert.equal(enemy.currentTransform.alpha, 0, "defeated enemy should be fully transparent after the three-second fade");
 }
 
 function testAirborneEnemyDefersDeathUntilLanding() {
@@ -4657,8 +4673,8 @@ function testAirborneEnemyDefersDeathUntilLanding() {
     enemy.movementPhase = "jump";
     enemy.animationSlot = "walk";
 
-    const impactX = enemy.x;
-    const impactY = enemy.y;
+    const impactX = enemy.currentTransform.x;
+    const impactY = enemy.currentTransform.y;
     const rocket = addTestRocket(state, {
         id: "airborne_lethal_hit",
         x: 0,
@@ -4685,8 +4701,8 @@ function testAirborneEnemyDefersDeathUntilLanding() {
     assert.equal(enemy.airborne, true, "the test mob should still be completing its jump shortly after the lethal hit");
     assert.equal(enemy.deathPendingLanding, true, "death should remain pending throughout the airborne arc");
     assert.notEqual(enemy.animationSlot, "death", "the normal locomotion pose should continue through the airborne arc");
-    assert.ok(enemy.x > impactX, "the mob should preserve its horizontal jump momentum after the lethal hit");
-    assert.notEqual(enemy.y, impactY, "the mob should continue its vertical jump trajectory after the lethal hit");
+    assert.ok(enemy.currentTransform.x > impactX, "the mob should preserve its horizontal jump momentum after the lethal hit");
+    assert.notEqual(enemy.currentTransform.y, impactY, "the mob should continue its vertical jump trajectory after the lethal hit");
 
     let landed = false;
     for (let tick = 0; tick < 240; tick += 1) {
@@ -4700,7 +4716,7 @@ function testAirborneEnemyDefersDeathUntilLanding() {
     }
 
     assert.equal(landed, true, "the mortally hit mob should complete the jump and land on ordinary collision geometry");
-    assert.ok(Math.abs(enemy.y - 400) < 0.01, `the mob should land cleanly on the floor before dying (${enemy.y})`);
+    assert.ok(Math.abs(enemy.currentTransform.y - 400) < 0.01, `the mob should land cleanly on the floor before dying (${enemy.currentTransform.y})`);
     assert.equal(enemy.deathPendingLanding, false, "landing should consume the deferred-death state");
     assert.equal(enemy.combatState, "dead", "the mob should become dead only after landing");
     assert.equal(enemy.animationSlot, "death", "landing should start the authored death animation");
@@ -4710,7 +4726,7 @@ function testAirborneEnemyDefersDeathUntilLanding() {
     assert.equal(enemy.supportId, "landing_floor", "the dying mob should retain its landing support identity");
 
     stepMany(state, 100);
-    assert.ok(Math.abs(enemy.y - 400) < 0.01, "the grounded death animation should not be followed by a second corpse drop");
+    assert.ok(Math.abs(enemy.currentTransform.y - 400) < 0.01, "the grounded death animation should not be followed by a second corpse drop");
 }
 
 function testEnemyContactDamageUsesIndependentInvulnerability() {
@@ -4749,8 +4765,8 @@ function testEnemyContactDamageUsesIndependentInvulnerability() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 0;
-    state.player.y = 600;
+    state.player.currentTransform.x = 0;
+    state.player.currentTransform.y = 600;
     state.player.onGround = true;
 
     const before = state.health.amount;
@@ -4812,8 +4828,8 @@ function testCharacterEnemyMeleeAttack() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 0;
-    state.player.y = 600;
+    state.player.currentTransform.x = 0;
+    state.player.currentTransform.y = 600;
     state.player.onGround = true;
     state.player.wasOnGround = true;
 
@@ -4837,8 +4853,8 @@ function testCharacterEnemyMeleeAttack() {
     stepMany(state, 20);
     assert.notEqual(enemy.combatState, "attacking", "guard should leave attack state when the authored clip duration ends");
 
-    state.player.x = -300;
-    state.player.y = 600;
+    state.player.currentTransform.x = -300;
+    state.player.currentTransform.y = 600;
     state.player.vx = 0;
     state.player.vy = 0;
     state.player.onGround = true;
@@ -4876,8 +4892,8 @@ function testEnemyMeleeBlockedByTerrain() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = -20;
-    state.player.y = 600;
+    state.player.currentTransform.x = -20;
+    state.player.currentTransform.y = 600;
     state.player.onGround = true;
     state.player.wasOnGround = true;
 
@@ -4952,8 +4968,8 @@ function testFireballGoblinProjectileAttack() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 0;
-    state.player.y = 600;
+    state.player.currentTransform.x = 0;
+    state.player.currentTransform.y = 600;
     state.player.onGround = true;
     state.player.wasOnGround = true;
 
@@ -5027,8 +5043,8 @@ function testTriFireballGoblinVolleyUsesAnyClearTrajectory() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 80;
-    state.player.y = 600;
+    state.player.currentTransform.x = 80;
+    state.player.currentTransform.y = 600;
     state.player.onGround = true;
     state.player.wasOnGround = true;
 
@@ -5081,8 +5097,8 @@ function testTriFireballGoblinVolleyUsesAnyClearTrajectory() {
     blockedState.story.portalIntro = null;
     blockedState.story.portalExit = null;
     blockedState.story.mailboxEvent = null;
-    blockedState.player.x = 80;
-    blockedState.player.y = 600;
+    blockedState.player.currentTransform.x = 80;
+    blockedState.player.currentTransform.y = 600;
     blockedState.player.onGround = true;
     blockedState.player.wasOnGround = true;
     stepMany(blockedState, 30);
@@ -5126,8 +5142,8 @@ function testHumanKnifeThrowerVolley() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 80;
-    state.player.y = 600;
+    state.player.currentTransform.x = 80;
+    state.player.currentTransform.y = 600;
     state.player.onGround = true;
     state.player.wasOnGround = true;
 
@@ -5211,8 +5227,8 @@ function testMusketGoblinProjectileAttack() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 0;
-    state.player.y = 600;
+    state.player.currentTransform.x = 0;
+    state.player.currentTransform.y = 600;
     state.player.onGround = true;
     state.player.wasOnGround = true;
 
@@ -5318,8 +5334,8 @@ function testDamagingAndKillableSurfaceHazards() {
     state.world.solids = [];
     state.world.collisionPolygons = [];
     state.world.segments = [{ id: "spike_line", kind: "damaging", x1: -100, y1: 600, x2: 100, y2: 600 }];
-    state.player.x = 0;
-    state.player.y = 600;
+    state.player.currentTransform.x = 0;
+    state.player.currentTransform.y = 600;
     state.player.spawnX = 0;
     state.player.spawnY = 600;
     state.player.onGround = true;
@@ -5332,8 +5348,8 @@ function testDamagingAndKillableSurfaceHazards() {
     approx(state.health.amount, 80, 0.001, "damage invulnerability should prevent per-tick hazard shredding");
 
     state.world.segments[0].kind = "killable";
-    state.player.x = 0;
-    state.player.y = 600;
+    state.player.currentTransform.x = 0;
+    state.player.currentTransform.y = 600;
     state.player.vx = 0;
     state.player.vy = 0;
     state.player.onGround = true;
@@ -7951,8 +7967,8 @@ function testCaveFullBlackKillBoundary() {
     };
 
     const safe = createBoundaryState();
-    safe.player.x = 982;
-    safe.player.y = 500;
+    safe.player.currentTransform.x = 982;
+    safe.player.currentTransform.y = 500;
     safe.player.vx = 0;
     safe.player.vy = 0;
     stepSimulation(safe, createInputFrame(), FIXED_DT);
@@ -7964,8 +7980,8 @@ function testCaveFullBlackKillBoundary() {
     cameraA.camera = { x: -5000, y: 7000, zoom: 0.4, mode: "follow" };
     cameraB.camera = { x: 9000, y: -3000, zoom: 3, mode: "follow" };
     for (const state of [cameraA, cameraB]) {
-        state.player.x = 1030;
-        state.player.y = 500;
+        state.player.currentTransform.x = 1030;
+        state.player.currentTransform.y = 500;
         state.player.vx = 0;
         state.player.vy = 0;
         stepSimulation(state, createInputFrame(), FIXED_DT);
@@ -7979,8 +7995,8 @@ function testCaveFullBlackKillBoundary() {
         stepSimulation(cameraA, createInputFrame(), FIXED_DT);
     }
     assert.equal(cameraA.player.combatState, "alive", "full-black death should respawn through the ordinary reset path");
-    assert.equal(cameraA.player.x, cameraA.player.spawnX, "respawn should restore the authored spawn x");
-    assert.equal(cameraA.player.y, cameraA.player.spawnY, "respawn should restore the authored spawn y");
+    assert.equal(cameraA.player.currentTransform.x, cameraA.player.spawnX, "respawn should restore the authored spawn x");
+    assert.equal(cameraA.player.currentTransform.y, cameraA.player.spawnY, "respawn should restore the authored spawn y");
     assert.ok(cameraA.debug.lastEvents.some((event) => event.type === "PLAYER_RESET" && event.reason === "crossedCaveFullBlackBoundary"), "respawn should record the full-black reset reason");
 }
 
@@ -8348,7 +8364,11 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     assert.equal(rendererSource.includes("ctx.filter = `brightness(${brightness})"), false, "the main render context should not apply an expensive filter per foreground placement");
     assert.ok(maskSource.includes("previousRenderKey") && maskSource.includes("DEFAULT_CAVE_MASK_RENDER_SCALE"), "cave mask should reuse stationary frames and render its layered feather at reduced resolution");
     assert.ok(maskSource.includes("DEFAULT_CAVE_MASK_SCROLL_PADDING_PX") && maskSource.includes("scrollcache") && maskSource.includes("sourceX + sourceWidth <= width"), "Canvas cave masks should scroll a padded cache across small camera movement instead of repainting every frame");
-    assert.ok(rendererSource.includes("prewarmLevelPresentationCaches") && bootstrapSource.includes("renderer.prewarmLevelPresentationCaches?.(gameState.world)"), "level startup should prewarm dimmed background atlas variants before gameplay frames");
+    assert.ok(rendererSource.includes("prewarmLevelPresentationCaches") && bootstrapSource.includes("renderer.prewarmLevelPresentationCaches?.(gameState.world)"), "level startup should prewarm derived presentation caches before gameplay frames");
+    assert.ok(rendererSource.includes('visual.layer !== "caveForeground"') && rendererSource.includes("trackFrameCounters: false"), "level prewarming should build each unique treated cave-foreground sprite without polluting gameplay cache-miss diagnostics");
+    assert.ok(rendererSource.includes("derivedTextureSources") && rendererSource.includes("this.webglBackend.cacheTexture(source)"), "prewarmed background and cave-foreground surfaces should be uploaded to WebGL before they enter view");
+    assert.ok(bootstrapSource.includes('setLoadingProgress(0.98, "Prewarming level foreground textures")') && (bootstrapSource.match(/setLoadingProgress\(0\.9, "Prewarming level foreground textures"\)/g) || []).length >= 2, "startup, level transitions, and restarts should perform foreground prewarming while the loading surface is visible");
+    assert.ok(rendererSource.includes("const STATIC_LAYER_BAKE_WEBGL_MEMORY_BUDGET_BYTES = 2 * 1024 * 1024 * 1024") && rendererSource.includes("const STATIC_LAYER_BAKE_CANVAS2D_MEMORY_BUDGET_BYTES = 1536 * 1024 * 1024"), "Full baking should stop at a 2 GiB WebGL ceiling while retaining the conservative Canvas2D RAM limit");
     assert.ok(rendererSource.includes("clearBackdropMs") && rendererSource.includes("worldVisualsMs") && rendererSource.includes("worldGeometryMs"), "renderer diagnostics should split broad world timing into profiler-friendly sub-phases");
     assert.ok(rendererSource.includes("dynamicBoundsVisible") && rendererSource.includes("projectileRenderBounds"), "targets, enemies, effects, and projectile trails should have conservative dynamic culling");
     assert.ok(rendererSource.includes("lastObservedFrameDt") && rendererSource.includes("lastRenderStartedAtMs"), "observed FPS should use real render-to-render time rather than the simulation dt clamp");
@@ -8551,7 +8571,7 @@ function testPlayerStartSnapsToNearbyGround() {
     assert.equal(applyEditorLevelToWorld(nearby, nearbyLevel), true, "nearby-ground level should apply");
     assert.equal(applyAtlasManifestsToWorld(nearby, new Map([["test_atlas", { manifest }]])), true, "nearby platform collision should apply");
     approx(nearby.world.start.y, 106, 0.000001, "playerStart should snap down to nearby support");
-    approx(nearby.player.y, 106, 0.000001, "runtime player should use snapped start height");
+    approx(nearby.player.currentTransform.y, 106, 0.000001, "runtime player should use snapped start height");
     approx(nearby.player.spawnY, 106, 0.000001, "respawn height should use snapped start height");
     assert.equal(nearby.player.onGround, true, "snapped player should begin grounded");
     assert.ok(nearby.debug.lastEvents.some((event) => event.type === "PLAYER_START_SNAPPED_TO_GROUND"), "ground snap should be visible in debug events");
@@ -8920,7 +8940,7 @@ function testRocketPowerUpArsenal() {
         "an Overdrive rocket should spend half fuel while passive recovery continues during the launch step"
     );
 
-    state.player.y = 300;
+    state.player.currentTransform.y = 300;
     state.player.onGround = false;
     state.player.vy = 0;
     state.fuel.amount = 10;
@@ -8941,7 +8961,7 @@ function testRocketPowerUpArsenal() {
     );
 
     state.equipment.rocket.attachedBoosting = false;
-    state.player.y = 600;
+    state.player.currentTransform.y = 600;
     state.player.onGround = true;
     state.player.vy = 0;
     state.fuel.amount = 0;
@@ -8950,8 +8970,8 @@ function testRocketPowerUpArsenal() {
     stepSimulation(state, createInputFrame(), FIXED_DT);
     approx(state.fuel.amount, DEFAULT_TUNING.rechargeRate * FIXED_DT, 0.0001, "ordinary grounded recharge may exceed Overdrive's floor but must not stack additively with it");
 
-    state.player.x = 620;
-    state.player.y = 600;
+    state.player.currentTransform.x = 620;
+    state.player.currentTransform.y = 600;
     state.player.vx = 0;
     state.player.vy = 0;
     stepSimulation(state, createInputFrame(), FIXED_DT);
@@ -8964,9 +8984,9 @@ function testRocketPowerUpArsenal() {
         kind: "powerUp",
         pickupKind: POWER_UP_EFFECT_IDS.WRENCH_DART,
         powerUp: normalizePowerUpPickup({ effectId: POWER_UP_EFFECT_IDS.WRENCH_DART }),
-        x: state.player.x,
-        y: state.player.y,
-        centerY: state.player.y - state.player.height * 0.5,
+        x: state.player.currentTransform.x,
+        y: state.player.currentTransform.y,
+        centerY: state.player.currentTransform.y - state.player.height * 0.5,
         width: 96,
         height: 96,
         radius: 30,
@@ -8983,8 +9003,8 @@ function testRocketPowerUpArsenal() {
     assert.equal(Object.values(state.statusEffects.active).filter((effect) => effect.definition.groupId === POWER_UP_GROUP_IDS.WRENCH).length, 1, "only one wrench effect may remain active");
     assert.ok(activePowerUpEffect(state, POWER_UP_EFFECT_IDS.OVERDRIVE), "replacing a wrench must not cancel Overdrive");
 
-    state.player.x = 900;
-    state.player.y = 600;
+    state.player.currentTransform.x = 900;
+    state.player.currentTransform.y = 600;
     state.player.vx = 0;
     state.player.vy = 0;
     stepSimulation(state, createInputFrame(), FIXED_DT);
@@ -8999,7 +9019,7 @@ function testRocketPowerUpArsenal() {
     const bypassedHit = damagePlayer(state, 5, "explicit_lethal_rule", { bypassInvulnerability: true });
     assert.equal(bypassedHit.damage, 5, "explicit invulnerability bypasses should remain authoritative");
     state.statusEffects.active[POWER_UP_EFFECT_IDS.SHIELD].remainingSeconds = FIXED_DT * 0.5;
-    state.player.x = 1000;
+    state.player.currentTransform.x = 1000;
     stepSimulation(state, createInputFrame(), FIXED_DT);
     assert.equal(activePowerUpEffect(state, POWER_UP_EFFECT_IDS.SHIELD), null, "Shield protection should end when its ten-second effect timer expires");
     state.health.invulnerabilityTimer = 0;
@@ -9007,7 +9027,7 @@ function testRocketPowerUpArsenal() {
     assert.equal(unshieldedHit.damage, 1, "ordinary damage should resume after Shield expires");
 
     wrenchPickup.respawnTimer = FIXED_DT * 0.5;
-    state.player.x = 1000;
+    state.player.currentTransform.x = 1000;
     stepSimulation(state, createInputFrame(), FIXED_DT);
     assert.equal(wrenchPickup.collected, false, "a collected wrench should reappear after its respawn timer");
     assert.equal(wrenchPickup.randomRollCount, 1, "each wrench respawn should advance its random roll counter");
@@ -9016,9 +9036,11 @@ function testRocketPowerUpArsenal() {
 
     function stateWithWrench(effectId, { fuel = 100, targets = [] } = {}) {
         const testState = createInitialGameState();
-        testState.player.x = 300;
-        testState.player.y = 600;
+        testState.player.currentTransform.x = 300;
+        testState.player.currentTransform.y = 600;
         testState.player.facing = 1;
+        testState.camera.currentTransform.x = testState.player.currentTransform.x + 150;
+        testState.camera.currentTransform.y = testState.player.currentTransform.y - 170;
         testState.fuel.amount = fuel;
         testState.targets = targets;
         const definition = powerUpEffectDefinition(effectId);
@@ -9055,7 +9077,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(tripleState.projectiles.every((projectile) => projectile.homing === false), "yellow Fivefold rockets should remain non-homing after launch");
     assert.ok(tripleState.projectiles.every((projectile) => projectile.targetId === "target_a"), "yellow Fivefold should aim its centre line at the nearest forward enemy");
     const expectedOffsets = [-7.5, -3.75, 0, 3.75, 7.5];
-    const tripleOrigin = { x: tripleState.player.x, y: tripleState.player.y - tripleState.player.height * 0.72 };
+    const tripleOrigin = { x: tripleState.player.currentTransform.x, y: tripleState.player.currentTransform.y - tripleState.player.height * 0.72 };
     const tripleAimAngle = Math.atan2(targetSet[0].y - tripleOrigin.y, targetSet[0].x - tripleOrigin.x);
     const tripleAngles = tripleState.projectiles.map(projectileAngle);
     tripleAngles.forEach((angle, index) => {
@@ -9095,7 +9117,7 @@ function testRocketPowerUpArsenal() {
     const targetRocket = targetState.projectiles[0];
     assert.equal(targetRocket.homing, false, "green Target should remain non-homing after its launch direction is chosen");
     assert.equal(targetRocket.targetId, "target_a", "green Target should aim at the nearest forward enemy");
-    const targetOrigin = { x: targetState.player.x, y: targetState.player.y - targetState.player.height * 0.72 };
+    const targetOrigin = { x: targetState.player.currentTransform.x, y: targetState.player.currentTransform.y - targetState.player.height * 0.72 };
     const targetVector = { x: targetSet[0].x - targetOrigin.x, y: targetSet[0].y - targetOrigin.y };
     approx(targetRocket.vx * targetVector.y - targetRocket.vy * targetVector.x, 0, 0.01, "green Target should travel directly along its launch-time target line");
     assert.ok(targetRocket.vx * targetVector.x + targetRocket.vy * targetVector.y > 0, "green Target should travel toward rather than away from the selected enemy");
@@ -9171,8 +9193,8 @@ function testRocketPowerUpArsenal() {
 
     const dartImpactState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_DART);
     dartImpactState.enemies = [
-        { ...dartImpactState.enemies[0], id: "dart_front", x: 430, y: 600, health: 500, maxHealth: 500, combatState: "alive", state: "idle" },
-        { ...dartImpactState.enemies[0], id: "dart_back", x: 500, y: 600, health: 500, maxHealth: 500, combatState: "alive", state: "idle" }
+        { ...dartImpactState.enemies[0], ...createTransformTriplet({ x: 430, y: 600 }), id: "dart_front", health: 500, maxHealth: 500, combatState: "alive", state: "idle" },
+        { ...dartImpactState.enemies[0], ...createTransformTriplet({ x: 500, y: 600 }), id: "dart_back", health: 500, maxHealth: 500, combatState: "alive", state: "idle" }
     ];
     stepSimulation(dartImpactState, createInputFrame({ weaponPressed: true }), FIXED_DT);
     for (let index = 0; index < 120 && dartImpactState.projectiles.some((projectile) => projectile.state === "launched"); index += 1) {
@@ -9187,12 +9209,12 @@ function testRocketPowerUpArsenal() {
             { id: "dummy_002_target", enemyId: "dummy_002", x: 560, y: 530, state: "active" }
         ]
     });
-    bigbombState.enemies[0].x = 480;
-    bigbombState.enemies[0].y = 580;
+    bigbombState.enemies[0].currentTransform.x = 480;
+    bigbombState.enemies[0].currentTransform.y = 580;
     bigbombState.enemies[0].health = 500;
     bigbombState.enemies[0].maxHealth = 500;
-    bigbombState.enemies[1].x = 560;
-    bigbombState.enemies[1].y = 580;
+    bigbombState.enemies[1].currentTransform.x = 560;
+    bigbombState.enemies[1].currentTransform.y = 580;
     bigbombState.enemies[1].health = 500;
     bigbombState.enemies[1].maxHealth = 500;
     stepSimulation(bigbombState, createInputFrame({ weaponPressed: true }), FIXED_DT);
@@ -9205,7 +9227,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(bomb.vx > 0 && Math.abs(bomb.vx) > Math.abs(bomb.vy) * 5, "Bigbomb should leave horizontally in Ignatius's facing direction before homing turns it");
     approx(Math.hypot(bomb.vx, bomb.vy), DEFAULT_TUNING.rocketProjectileSpeed * 0.5, 0.01, "Bigbomb should move at half standard speed");
     approx(bomb.areaDamageRadius, DEFAULT_TUNING.wizardHeight * 1.5, 0.0001, "Bigbomb diameter should span about three wizard heights");
-    assert.equal(bomb.visualScale, 1.7, "Bigbomb should render larger than a standard rocket");
+    assert.equal(bomb.currentTransform.scaleX, 1.7, "Bigbomb should render larger than a standard rocket");
     assert.equal(bomb.wrenchGlowTint, "#ff0000", "Bigbomb should carry the red wrench glow tint");
     for (let index = 0; index < 240 && !bigbombState.debug.lastEvents.some((event) => event.type === "ROCKET_AREA_DAMAGE_APPLIED"); index += 1) {
         stepSimulation(bigbombState, createInputFrame(), FIXED_DT);
@@ -9243,9 +9265,9 @@ function testRocketPowerUpArsenal() {
     }
     const returningBoomerang = blockedBoomerangState.projectiles.find((projectile) => projectile.boomerangMode === "returning");
     assert.ok(returningBoomerang, "a targetless Boomerang should enter its return-to-Ignatius phase");
-    const playerCenterY = blockedBoomerangState.player.y - blockedBoomerangState.player.height * 0.55;
-    const barrierCenterX = (returningBoomerang.x + blockedBoomerangState.player.x) * 0.5;
-    const barrierCenterY = (returningBoomerang.y + playerCenterY) * 0.5;
+    const playerCenterY = blockedBoomerangState.player.currentTransform.y - blockedBoomerangState.player.height * 0.55;
+    const barrierCenterX = (returningBoomerang.currentTransform.x + blockedBoomerangState.player.currentTransform.x) * 0.5;
+    const barrierCenterY = (returningBoomerang.currentTransform.y + playerCenterY) * 0.5;
     blockedBoomerangState.world.solids.push({
         id: "boomerang_return_barrier",
         kind: "blockable",
@@ -9299,7 +9321,8 @@ function testRocketPowerUpArsenal() {
     );
     assert.ok(
         bootstrapSource.includes('microProfilerButton?.addEventListener("click"')
-            && bootstrapSource.includes('microStutterProfiler.start({ label: "button" })')
+            && bootstrapSource.includes('label: "button-all-frames"')
+            && bootstrapSource.includes('thresholdMs: 0')
             && bootstrapSource.includes('copyMicroStutterProfileToClipboard()'),
         "the game HUD tool strip should start the profiler by button and copy the report when it is stopped"
     );
@@ -9330,10 +9353,10 @@ function testRocketPowerUpArsenal() {
     const characterEditorSource = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 502<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(characterEditorSource, /Puppet Forge <small>rev 502<\/small>/, "Puppet Forge should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 510<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(characterEditorSource, /Puppet Forge <small>rev 510<\/small>/, "Puppet Forge should display the packaged revision");
     const assetEditorSource = readFileSync(new URL("../asset-editor.html", import.meta.url), "utf8");
-    assert.match(assetEditorSource, /Asset Tool <small>rev 502<\/small>/, "Asset Tool should display the packaged revision");
+    assert.match(assetEditorSource, /Asset Tool <small>rev 510<\/small>/, "Asset Tool should display the packaged revision");
     assert.match(assetEditorSource, /id="atlas-numbered-select"[\s\S]*id="load-numbered-atlas"[\s\S]*id="load-local"[\s\S]*id="save-local"[\s\S]*id="quick-save-json"/, "Asset Tool should keep atlas loading and save/export controls together in the Files panel");
     assert.ok(!assetEditorSource.includes("Custom atlas image") && !assetEditorSource.includes("Custom JSON"), "Asset Tool should retire the visible custom import pickers from the primary Files panel");
     assert.doesNotMatch(assetEditorSource, /load-default-image|load-default-json/, "Asset Tool should retire the hard-coded at_atlas_001 load buttons");
@@ -9366,7 +9389,7 @@ function testRocketPowerUpArsenal() {
     assert.equal(editorSource.includes('id="canvas-renderer-baseline"'), false, "the Level Editor should no longer advertise the posterity-only Canvas baseline");
     assert.equal(editorSource.includes("openCanvasRendererBaseline"), false, "the removed baseline link should leave no dormant click handler");
     assert.equal(editorSource.includes("Editor 2 lab"), false, "the Level Editor should not link to the removed Editor 2 lab");
-    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 502") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
+    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 510") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
     assert.ok(baselineSource.includes("applyEditorLevelToWorld") && baselineSource.includes("preferWebGL2: false") && baselineSource.includes("setViewOverride"), "the retained baseline should still convert the authored level and use the ordinary Canvas2D game renderer with an editor camera override");
     assert.ok(editorPlaywrightBenchmark.includes("benchmark_baseline") && editorPlaywrightBenchmark.includes("benchmark_editor") && editorPlaywrightBenchmark.includes("editorToBaselineCadenceRatio"), "the optional Playwright probe should compare the loaded baseline and editor rather than source-only timings");
     assert.ok(editorPlaywrightBenchmark.includes("bodyScrollWidth") && editorPlaywrightBenchmark.includes("stageBacking") && editorPlaywrightBenchmark.includes("overlayBacking"), "the Playwright probe should detect viewport overflow and stage/overlay size divergence");
@@ -9376,7 +9399,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(rendererSource.includes("backingPixelsPerCssPixel") && rendererSource.includes("override.cssZoom * backingPixelsPerCssPixel") && editorSource.includes("cssZoom: state.camera.zoom"), "editor and runtime artwork should share one CSS-pixel camera scale so guide alignment does not drift across the viewport");
     assert.ok(rendererSource.includes("this.ctx.setTransform(1, 0, 0, 1, 0, 0)") && rendererSource.includes("never inherit a CSS/DPR transform"), "the production Canvas renderer should reset inherited context transforms before drawing backing-pixel coordinates");
     assert.ok(editorSource.includes("stageCtx?.setTransform(1, 0, 0, 1, 0, 0)") && !editorSource.includes("stageCtx?.setTransform(dpr"), "the Level Editor must not pre-scale the production scene context by devicePixelRatio");
-    assert.match(bootstrapSource, /const GAME_REVISION = "502";/, "the game debug  revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "510";/, "the game debug  revision should match the packaged revision");
     assert.ok(
         editorSource.includes('<div class="level-section-label">Existing Level:</div>')
             && editorSource.includes('id="load-level">Load</button>')
@@ -9624,7 +9647,7 @@ function testMailboxLetterSequence() {
     assert.equal(state.story.mailboxEvent.phase, "letter", "approaching the mailbox should open the letter");
     assert.equal(state.world.entityStates.mailbox_story, "empty", "mailbox should switch to its empty artwork immediately");
     assert.ok(state.world.visuals.some((visual) => visual.entityId === "mailbox_story" && visual.assetId === "mailbox_empty"), "empty mailbox visual should replace the letter state");
-    approx(state.player.x, 192, 0.000001, "mailbox story should lock movement");
+    approx(state.player.currentTransform.x, 192, 0.000001, "mailbox story should lock movement");
     assert.equal(state.projectiles.length, 0, "mailbox story should suppress weapon input");
 
     assert.ok(state.story.mailboxEvent.thoughtText.includes("How kind of him!"), "mailbox story should preserve Ignatius's single thought text");
@@ -9716,7 +9739,7 @@ function testPortalEntranceSequence() {
     assert.equal(applyEditorLevelToWorld(state, level), true, "portal intro level should apply");
     state.world.solids.push({ id: "portal_test_floor", kind: "floor", x: -500, y: 520, w: 2000, h: 100 });
     assert.equal(state.player.visible, false, "wizard should be hidden behind the initially closed portal");
-    approx(state.player.renderScale, 0.84, 0.000001, "wizard should begin the doorway sequence at the reduced inside scale");
+    approx(state.player.currentTransform.scaleX, 0.84, 0.000001, "wizard should begin the doorway sequence at the reduced inside scale");
     assert.equal(state.world.entityStates.entrance_test, "closed", "portal should begin closed");
     const closedVisual = state.world.visuals.find((visual) => visual.entityId === "entrance_test" && visual.assetId === "portal_closed");
     assert.ok(closedVisual, "closed portal visual should be active first");
@@ -9726,14 +9749,14 @@ function testPortalEntranceSequence() {
     assert.equal(state.world.entityStates.entrance_test, "open", "portal should open before the wizard emerges");
     assert.ok(state.world.visuals.some((visual) => visual.entityId === "entrance_test" && visual.layer === "actorFront"), "open portal should add its foreground masking layer");
     assert.equal(state.projectiles.length, 0, "player input should remain locked during the entrance sequence");
-    assert.ok(state.player.renderScale > 0.84 && state.player.renderScale < 1, "wizard should scale toward full height while walking out");
+    assert.ok(state.player.currentTransform.scaleX > 0.84 && state.player.currentTransform.scaleX < 1, "wizard should scale toward full height while walking out");
 
     stepMany(state, 180, () => createInputFrame());
     assert.equal(state.story.portalIntro.active, false, "entrance sequence should finish");
     assert.equal(state.player.visible, true, "wizard should be visible after walking out");
-    approx(state.player.renderScale, 1, 0.000001, "wizard should finish the entrance at full scale");
-    approx(state.player.x, 160, 0.001, "wizard should finish at the entry door's authored emergence distance");
-    approx(state.player.y, 520, 0.001, "wizard should finish on the entry door baseline");
+    approx(state.player.currentTransform.scaleX, 1, 0.000001, "wizard should finish the entrance at full scale");
+    approx(state.player.currentTransform.x, 160, 0.001, "wizard should finish at the entry door's authored emergence distance");
+    approx(state.player.currentTransform.y, 520, 0.001, "wizard should finish on the entry door baseline");
     assert.equal(state.world.entityStates.entrance_test, "closed", "portal should close after the wizard clears it");
     assert.ok(state.debug.lastEvents.some((event) => event.type === "PORTAL_INTRO_COMPLETE"), "sequence should emit a completion event");
 
@@ -9775,12 +9798,12 @@ function testPortalExitSequence() {
     assert.equal(state.story.portalExit.requestedLevelId, "level_012", "explicit destination levels should be preserved");
     stepMany(state, 20, () => createInputFrame());
     assert.ok(state.player.visible, "wizard should remain visible while walking into the exit doorway");
-    assert.ok(state.player.renderScale < 1 && state.player.renderScale > 0.84, "wizard should scale down while entering the exit doorway");
+    assert.ok(state.player.currentTransform.scaleX < 1 && state.player.currentTransform.scaleX > 0.84, "wizard should scale down while entering the exit doorway");
     stepMany(state, 35, () => createInputFrame());
     assert.equal(state.story.levelTransitionRequest.requestedLevelId, "level_012", "walking through the exit should request its destination level");
     assert.equal(state.story.levelTransitionRequest.fallbackLevelId, "level_009", "exit requests should name the current level as fallback");
     assert.equal(state.player.visible, false, "wizard should be hidden after entering the exit door");
-    approx(state.player.renderScale, 1, 0.000001, "hidden player scale should reset before the destination level is applied");
+    approx(state.player.currentTransform.scaleX, 1, 0.000001, "hidden player scale should reset before the destination level is applied");
     assert.equal(defaultNextLevelId("level_009"), "level_010", "default destinations should increment numbered levels");
 }
 
@@ -10456,6 +10479,349 @@ function testStateSerialization() {
     assert.equal(typeof JSON.stringify(state), "string", "gameState should be JSON serializable");
 }
 
+function testPresentationTransformMigration() {
+    const state = createInitialGameState();
+    const player = state.player;
+    const camera = state.camera;
+    const enemy = state.enemies[0];
+    const playerRefs = {
+        previous: player.previousTransform,
+        current: player.currentTransform,
+        shown: player.shownTransform
+    };
+
+    for (const [label, subject] of [["player", player], ["camera", camera], ["hat", state.hat], ["enemy", enemy]]) {
+        assert.ok(subject.previousTransform && subject.currentTransform && subject.shownTransform, `${label} should own a reusable previous/current/shown transform triplet`);
+        for (const legacy of ["x", "y", "angle", "rotation", "scale", "scaleX", "scaleY", "renderScale", "visualScale", "alpha", "renderOpacity", "animationTime"]) {
+            assert.equal(Object.prototype.hasOwnProperty.call(subject, legacy), false, `${label} should not retain legacy ${legacy}`);
+        }
+        for (const field of ["x", "y", "angle", "scaleX", "scaleY", "alpha"]) {
+            assert.equal(Number.isFinite(Number(subject.currentTransform[field])), true, `${label} current transform should contain finite ${field}`);
+        }
+    }
+    snapshotSimulationPresentation(state);
+    assert.ok(enemy.animationClock, "simulation-driven articulated enemies should own a reusable animation clock triplet");
+
+    Object.assign(player.currentTransform, {
+        x: 321,
+        y: 654,
+        angle: 0.4,
+        scaleX: 1.25,
+        scaleY: 0.85,
+        alpha: 0.62
+    });
+    enemy.animationClock.current = 1.75;
+    snapshotSimulationPresentation(state);
+    assert.deepEqual(player.previousTransform, player.currentTransform, "fixed-step snapshot should copy current into previous");
+    assert.equal(enemy.animationClock.previous, 1.75, "fixed-step snapshot should copy the articulated animation clock");
+
+    Object.assign(player.currentTransform, {
+        x: 333,
+        y: 666,
+        angle: 0.7,
+        scaleX: 1.4,
+        scaleY: 0.9,
+        alpha: 0.48
+    });
+    enemy.animationClock.current = 2.25;
+    preparePresentationFrame(state, 1);
+    assert.deepEqual(player.shownTransform, player.currentTransform, "a full presentation blend should expose the current transform exactly");
+    assert.equal(enemy.animationClock.shown, 2.25, "a full presentation blend should expose the current articulated animation time");
+    assert.equal(player.previousTransform.x, 321, "pre-render preparation must not overwrite the previous simulation snapshot");
+    assert.strictEqual(player.previousTransform, playerRefs.previous, "snapshotting should reuse the previous transform object");
+    assert.strictEqual(player.currentTransform, playerRefs.current, "simulation should retain the authoritative current transform object");
+    assert.strictEqual(player.shownTransform, playerRefs.shown, "presentation preparation should reuse the shown transform object");
+
+    state.projectiles.push({
+        id: "legacy_probe_projectile",
+        kind: "homingRocket",
+        owner: "player",
+        state: "launched",
+        x: 10,
+        y: 20,
+        angle: 0.25,
+        visualScale: 1.3,
+        vx: 30,
+        vy: 40,
+        age: 0,
+        lifetime: 2,
+        radius: 4,
+        trail: []
+    });
+    snapshotSimulationPresentation(state);
+    const projectile = state.projectiles.at(-1);
+    assert.equal(Object.prototype.hasOwnProperty.call(projectile, "x"), false, "new projectiles should be migrated away from direct x storage");
+    assert.equal(projectile.currentTransform.x, 10, "projectile migration should preserve x");
+    assert.equal(projectile.currentTransform.y, 20, "projectile migration should preserve y");
+    assert.equal(projectile.currentTransform.angle, 0.25, "projectile migration should preserve angle");
+    assert.equal(projectile.currentTransform.scaleX, 1.3, "projectile migration should preserve visual scale");
+    assert.equal(Object.prototype.hasOwnProperty.call(projectile, "visualScale"), false, "projectile migration should remove legacy visual scale storage");
+
+    const movingState = createMovingPlatformTestState({
+        pattern: "shuttle",
+        activation: "automatic",
+        endOffsetX: 20,
+        endOffsetY: 0,
+        speed: 20
+    });
+    const movingVisual = movingState.world.visuals.find((visual) => visual.dynamicPosition);
+    assert.ok(movingVisual?.currentTransform, "simulation-driven world visuals should use transform triplets");
+    for (const legacy of ["x", "y", "rotation", "alpha"]) {
+        assert.equal(Object.prototype.hasOwnProperty.call(movingVisual, legacy), false, `dynamic visual should not retain legacy ${legacy}`);
+    }
+
+    const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
+    const simulationSource = readFileSync(new URL("../src/core/simulation.js", import.meta.url), "utf8");
+    const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
+    for (const [sourceName, source] of [["renderer", rendererSource], ["simulation", simulationSource], ["bootstrap", bootstrapSource]]) {
+        assert.doesNotMatch(source, /state\.player\.(?:x|y|angle|renderScale|renderOpacity)\b/, `${sourceName} should not access legacy player transform fields`);
+        assert.doesNotMatch(source, /state\.camera\.(?:x|y|angle)\b/, `${sourceName} should not access legacy camera transform fields`);
+    }
+    assert.doesNotMatch(rendererSource, /enemy\.(?:x|y|angle|renderScale|renderOpacity|animationTime)\b/, "renderer should consume enemy shown transforms and shown animation clocks exclusively");
+    assert.doesNotMatch(rendererSource, /projectile\.(?:x|y|angle|visualScale)\b/, "renderer should consume projectile shown transforms exclusively");
+}
+
+function testPresentationTransformInterpolation() {
+    const state = createInitialGameState();
+    const player = state.player;
+    const camera = state.camera;
+    const enemy = state.enemies[0];
+    snapshotSimulationPresentation(state);
+    const shownRef = player.shownTransform;
+    const degrees = (value) => value * Math.PI / 180;
+
+    Object.assign(player.previousTransform, {
+        x: 100,
+        y: 200,
+        angle: degrees(350),
+        scaleX: 1,
+        scaleY: 0.5,
+        alpha: 0.2
+    });
+    Object.assign(player.currentTransform, {
+        x: 140,
+        y: 240,
+        angle: degrees(10),
+        scaleX: 2,
+        scaleY: 1.5,
+        alpha: 1
+    });
+    enemy.animationClock.previous = 1;
+    enemy.animationClock.current = 3;
+
+    preparePresentationFrame(state, 0.25);
+    approx(player.shownTransform.x, 110, 0.000001, "shown x should interpolate between fixed states");
+    approx(player.shownTransform.y, 210, 0.000001, "shown y should interpolate between fixed states");
+    approx(player.shownTransform.angle, degrees(355), 0.000001, "angle interpolation should take the shortest path across the wrap point");
+    approx(player.shownTransform.scaleX, 1.25, 0.000001, "shown horizontal scale should interpolate");
+    approx(player.shownTransform.scaleY, 0.75, 0.000001, "shown vertical scale should interpolate");
+    approx(player.shownTransform.alpha, 0.4, 0.000001, "shown alpha should interpolate");
+    approx(enemy.animationClock.shown, 1.5, 0.000001, "articulated enemy animation time should interpolate");
+    assert.strictEqual(player.shownTransform, shownRef, "interpolation should mutate the reusable shown transform in place");
+    approx(player.currentTransform.x, 140, 0.000001, "presentation interpolation must not write back into simulation state");
+
+    player.previousTransform.scaleX = 1;
+    player.currentTransform.scaleX = -1;
+    preparePresentationFrame(state, 0.5);
+    assert.equal(player.shownTransform.scaleX, -1, "scale sign changes should snap instead of collapsing through zero");
+
+    player.previousTransform.x = 0;
+    player.currentTransform.x = 6;
+    const shownXs = [];
+    for (const blend of [0.2, 0.6, 0.9]) {
+        preparePresentationFrame(state, blend);
+        shownXs.push(player.shownTransform.x);
+    }
+    player.previousTransform.x = 6;
+    player.currentTransform.x = 12;
+    preparePresentationFrame(state, 0.2);
+    shownXs.push(player.shownTransform.x);
+    assert.deepEqual(shownXs.map((value) => Number(value.toFixed(3))), [1.2, 3.6, 5.4, 7.2], "render-only frames and the next fixed step should produce monotonic shown motion");
+
+    camera.previousTransform.x = -400;
+    camera.currentTransform.x = 900;
+    snapAllPresentationSubjects(state);
+    preparePresentationFrame(state, 0.1);
+    assert.equal(camera.shownTransform.x, 900, "snap handling should prevent camera cuts from smearing across frames");
+    assert.equal(camera.previousTransform.x, 900, "snap handling should reset the camera interpolation history");
+
+    const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
+    const profilerSource = readFileSync(new URL("../src/browser/micro-stutter-profiler.js", import.meta.url), "utf8");
+    assert.match(bootstrapSource, /preparePresentationFrame\(gameState, presentationBlend\)/, "the browser frame loop should pass the accumulator blend into presentation");
+    assert.match(bootstrapSource, /label: "button-all-frames"[\s\S]*thresholdMs: 0[\s\S]*rafGapMs: 0/, "the in-game profiler button should retain zero-step and two-step frames");
+    assert.match(profilerSource, /interpolationBlend:/, "micro-stutter samples should record the presentation blend");
+}
+
+function testTiledBakeProfilerDiagnostics() {
+    const profiler = new MicroStutterProfiler({ thresholdMs: 0, rafGapMs: 0, maxSamples: 10 });
+    profiler.start({ label: "tile-diagnostics", thresholdMs: 0, rafGapMs: 0, maxSamples: 10 });
+    const rendererSample = {
+        staticTileDiagnosticsActive: true,
+        staticTileWorkerMessages: 1,
+        staticTileWorkerResultsDiscarded: 0,
+        staticTileTilesCompleted: 1,
+        staticTileTilesAdopted: 1,
+        staticTileTilesUploaded: 1,
+        staticTileUploadBytes: 266256,
+        staticTileTilesEvicted: 2,
+        staticTileDistantEvictions: 2,
+        staticTileBudgetEvictions: 0,
+        staticTileJobsQueued: 3,
+        staticTileJobsStarted: 1,
+        staticTileUploadBurstId: 7,
+        staticTileWorkerCollectMs: 0.1,
+        staticTileCacheEnsureMs: 0.5,
+        staticTileCompletedAdoptionMs: 0.2,
+        staticTilePlanningMs: 0.1,
+        staticTileEvictionMs: 0.05,
+        staticTileJobSchedulingMs: 0.1,
+        staticTileAtlasAllocationMs: 0.02,
+        staticTileTextureUploadMs: 0.12,
+        staticTileDrawMs: 0.08
+    };
+    profiler.recordFrame({ workMs: 1, rafGapMs: 16.7, renderer: rendererSample });
+    profiler.recordFrame({
+        workMs: 1.2,
+        rafGapMs: 16.7,
+        renderer: {
+            ...rendererSample,
+            staticTileWorkerMessages: 0,
+            staticTileTilesCompleted: 0,
+            staticTileTilesEvicted: 0,
+            staticTileDistantEvictions: 0,
+            staticTileJobsQueued: 0,
+            staticTileUploadBytes: 266256,
+            staticTileTextureUploadMs: 0.18
+        }
+    });
+    profiler.stop();
+    const report = profiler.exportData();
+    assert.equal(report.summary.staticTile.diagnosticFrames, 2, "tile diagnostics should summarize every instrumented frame");
+    assert.equal(report.summary.staticTile.tilesUploaded, 2, "tile diagnostics should total atlas uploads");
+    assert.equal(report.summary.staticTile.uploadFrames, 2, "tile diagnostics should count upload-bearing frames");
+    assert.equal(report.summary.staticTile.uploadBursts, 1, "consecutive uploads with one burst id should remain one burst");
+    assert.equal(report.summary.staticTile.uploadBytes, 532512, "tile diagnostics should total uploaded bytes");
+    approx(report.summary.staticTile.maxTextureUploadMs, 0.18, 0.000001, "tile diagnostics should retain the slowest upload call");
+
+    const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
+    const webglSource = readFileSync(new URL("../src/presentation/webgl2-renderer.js", import.meta.url), "utf8");
+    const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
+    assert.match(bootstrapSource, /function startMicroStutterProfiler[\s\S]*setStaticTileDiagnosticsEnabled\?\.\(true\)/, "starting the profiler should enable tile diagnostics");
+    assert.match(bootstrapSource, /function stopMicroStutterProfiler[\s\S]*setStaticTileDiagnosticsEnabled\?\.\(false\)/, "stopping the profiler should disable tile diagnostics without a normal-frame poll");
+    assert.match(rendererSource, /staticTileWorkerCollectMs:[\s\S]*staticTileTextureUploadMs:[\s\S]*staticTileUploadBurstId:/, "renderer diagnostics should expose worker, upload, and burst measurements");
+    assert.match(rendererSource, /cache\.completed\.shift\(\)/, "diagnostics must preserve the one-completed-tile adoption boundary");
+    assert.match(rendererSource, /if \(this\.staticTileWorkerBusyTaskId \|\| cache\.completed\.length > 0\) return;/, "diagnostics must preserve serial tile-worker dispatch");
+    assert.doesNotMatch(`${rendererSource}\n${webglSource}`, /\.finish\(|readPixels\(|fenceSync\(|EXT_disjoint_timer_query/, "diagnostics must not add GPU synchronization or timer-query probes");
+}
+
+
+function testFrameDeliveryDiagnostics() {
+    const profiler = new MicroStutterProfiler({ thresholdMs: 0, rafGapMs: 0, maxSamples: 20 });
+    profiler.start({ label: "frame-delivery", thresholdMs: 0, rafGapMs: 0, maxSamples: 20 });
+    const baseFrame = {
+        workMs: 0.8,
+        rafGapMs: 16.7,
+        callbackEntryGapMs: 16.8,
+        callbackLatenessMs: 0.3,
+        fixedSteps: 1,
+        accumulatorMs: 5,
+        interpolationBlend: 0.3,
+        renderMode: {
+            backend: "canvas2d",
+            bakingMode: "off",
+            hardwareRequested: false
+        },
+        presentationSnap: {
+            sequence: 10,
+            lastReason: "",
+            lastSubject: "",
+            lastKind: ""
+        }
+    };
+    profiler.recordFrame({
+        ...baseFrame,
+        presentation: {
+            playerCurrentX: 6,
+            playerCurrentY: 100,
+            playerShownX: 3,
+            playerShownY: 100,
+            cameraCurrentX: 5,
+            cameraCurrentY: 0,
+            cameraShownX: 2.5,
+            cameraShownY: 0
+        }
+    });
+    profiler.recordFrame({
+        ...baseFrame,
+        callbackEntryGapMs: 17.1,
+        presentation: {
+            playerCurrentX: 12,
+            playerCurrentY: 100,
+            playerShownX: 9,
+            playerShownY: 100,
+            cameraCurrentX: 10,
+            cameraCurrentY: 0,
+            cameraShownX: 7.5,
+            cameraShownY: 0
+        }
+    });
+    profiler.recordFrame({
+        ...baseFrame,
+        callbackEntryGapMs: 24.5,
+        callbackLatenessMs: 7.4,
+        presentationSnap: {
+            sequence: 11,
+            lastReason: "manualReset",
+            lastSubject: "player",
+            lastKind: "transform"
+        },
+        presentation: {
+            playerCurrentX: 18,
+            playerCurrentY: 100,
+            playerShownX: 15,
+            playerShownY: 100,
+            cameraCurrentX: 15,
+            cameraCurrentY: 0,
+            cameraShownX: 12.5,
+            cameraShownY: 0
+        }
+    });
+    profiler.stop();
+
+    const report = profiler.exportData();
+    assert.equal(report.schemaVersion, 2, "frame-delivery diagnostics should use the expanded profiler schema");
+    assert.deepEqual(report.marks, [], "the retired marker field should remain empty for schema compatibility");
+    assert.equal(report.samples[2].renderMode.backend, "canvas2d", "every sample should identify its active renderer");
+    assert.equal(report.samples[2].renderMode.bakingMode, "off", "every sample should identify its active baking mode");
+    approx(report.summary.maxCallbackEntryGapMs, 24.5, 0.000001, "callback-entry gaps should be summarized separately from rAF timestamps");
+    approx(report.summary.maxCallbackLatenessMs, 7.4, 0.000001, "callback lateness should be retained");
+    approx(report.samples[1].presentation.player.shownDeltaX, 6, 0.000001, "shown-player movement should be recorded frame to frame");
+    approx(report.samples[1].presentation.camera.shownDeltaX, 5, 0.000001, "shown-camera movement should be recorded frame to frame");
+    approx(report.samples[1].presentation.playerScreen.deltaX, 1, 0.000001, "screen-relative player movement should distinguish actor and camera motion");
+    assert.equal(report.samples[2].presentation.snap.events, 1, "presentation snaps should be correlated with the affected frame");
+    assert.equal(report.samples[2].presentation.snap.reason, "manualReset", "presentation snap reasons should be retained");
+    assert.equal(report.summary.presentation.snapEvents, 1, "presentation snap events should be summarized");
+
+    const state = createInitialGameState();
+    const beforeSnap = readPresentationSnapDiagnostics().sequence;
+    snapPresentationSubject(state.player, "diagnosticTest", "player");
+    const afterSnap = readPresentationSnapDiagnostics();
+    assert.equal(afterSnap.sequence, beforeSnap + 1, "snap diagnostics should advance without changing transform behavior");
+    assert.equal(afterSnap.lastReason, "diagnosticTest", "snap diagnostics should retain the latest reason");
+
+    const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
+    const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
+    const profilerSource = readFileSync(new URL("../src/browser/micro-stutter-profiler.js", import.meta.url), "utf8");
+    assert.match(bootstrapSource, /callbackEntryGapMs[\s\S]*callbackLatenessMs/, "the browser loop should record actual callback-entry pacing and lateness");
+    assert.match(bootstrapSource, /const callbackArrivalNow = performance\.now\(\);[\s\S]*const realDt = Math\.min\(0\.1, callbackEntryGapMs \/ 1000\)/, "the fixed-step accumulator should use actual callback-arrival time with a 100 ms clamp");
+    assert.match(bootstrapSource, /const rafGapMs = Math\.max\(0, now - lastRafNow\)/, "the rAF timeline should remain available independently for diagnostics");
+    assert.match(bootstrapSource, /playerCurrentX:[\s\S]*playerShownX:[\s\S]*cameraCurrentX:[\s\S]*cameraShownX:/, "the browser loop should record authoritative and shown player/camera positions");
+    assert.match(bootstrapSource, /renderMode:[\s\S]*backend:[\s\S]*bakingMode:/, "each profiler sample should retain renderer and baking mode");
+    assert.doesNotMatch(bootstrapSource, /markStutter|consumeAutoStopRequest|microProfilerMarkButton/, "the browser should expose only the profiler toggle capture workflow");
+    assert.ok(!gameHtml.includes('id="mark-micro-stutter"') && !gameHtml.includes("Mark stutter"), "the development tool strip should not waste space on the retired marker control");
+    assert.doesNotMatch(profilerSource, /markStutter\(|consumeAutoStopRequest\(|activeMark|autoStopRequested/, "the profiler should not retain the retired marker state machine");
+}
+
 function testHeadlessSteppingAndFloorCollision() {
     const state = createInitialGameState();
     settleOnGround(state);
@@ -10494,8 +10860,8 @@ function testPlayerFollowsSteepWalkableBridgeRampWhileRunning() {
     state.world.resetY = 1200;
     state.story.portalIntro = null;
     state.story.portalExit = null;
-    state.player.x = segment.x1 + 5;
-    state.player.y = surfaceYAt(segment, state.player.x);
+    state.player.currentTransform.x = segment.x1 + 5;
+    state.player.currentTransform.y = surfaceYAt(segment, state.player.currentTransform.x);
     state.player.vx = state.tuning.maxRunSpeed;
     state.player.vy = 0;
     state.player.onGround = true;
@@ -10504,12 +10870,12 @@ function testPlayerFollowsSteepWalkableBridgeRampWhileRunning() {
 
     stepSimulation(state, createInputFrame({ moveRight: true }), FIXED_DT);
     assert.equal(state.player.onGround, true, "running onto the steep bridge ramp should keep the player grounded on the first fast step");
-    approx(state.player.y, surfaceYAt(segment, state.player.x), 0.001, "the player should snap to the uphill bridge surface instead of tunneling under it");
+    approx(state.player.currentTransform.y, surfaceYAt(segment, state.player.currentTransform.x), 0.001, "the player should snap to the uphill bridge surface instead of tunneling under it");
 
     for (let step = 0; step < 10; step += 1) {
         stepSimulation(state, createInputFrame({ moveRight: true }), FIXED_DT);
         assert.equal(state.player.onGround, true, `running bridge step ${step + 2} should remain grounded`);
-        approx(state.player.y, surfaceYAt(segment, state.player.x), 0.001, `running bridge step ${step + 2} should follow the ramp`);
+        approx(state.player.currentTransform.y, surfaceYAt(segment, state.player.currentTransform.x), 0.001, `running bridge step ${step + 2} should follow the ramp`);
     }
 
     const overlapped = createInitialGameState();
@@ -10544,8 +10910,8 @@ function testPlayerFollowsSteepWalkableBridgeRampWhileRunning() {
         return found ? surfaceYAt(found, x) : null;
     };
     const startX = bridgeSegments[0].x1 + 2;
-    overlapped.player.x = startX;
-    overlapped.player.y = bridgeYAt(startX);
+    overlapped.player.currentTransform.x = startX;
+    overlapped.player.currentTransform.y = bridgeYAt(startX);
     overlapped.player.vx = overlapped.tuning.maxRunSpeed;
     overlapped.player.vy = 0;
     overlapped.player.onGround = true;
@@ -10555,13 +10921,13 @@ function testPlayerFollowsSteepWalkableBridgeRampWhileRunning() {
     let bridgeWasUppermost = false;
     for (let step = 0; step < 55; step += 1) {
         stepSimulation(overlapped, createInputFrame({ moveRight: true }), FIXED_DT * 3);
-        const expectedSupport = supportAt(overlapped.player.x);
+        const expectedSupport = supportAt(overlapped.player.currentTransform.x);
         if (!expectedSupport) {
             continue;
         }
         assert.equal(overlapped.player.onGround, true, `overlapped bridge fast step ${step + 1} should stay grounded`);
         assert.equal(overlapped.player.supportId, expectedSupport.id, `overlapped bridge fast step ${step + 1} should use the uppermost support line, got ${overlapped.player.supportId}`);
-        approx(overlapped.player.y, expectedSupport.y, 2, `overlapped bridge fast step ${step + 1} should follow the uppermost authored support line`);
+        approx(overlapped.player.currentTransform.y, expectedSupport.y, 2, `overlapped bridge fast step ${step + 1} should follow the uppermost authored support line`);
         if (expectedSupport.id.startsWith("forest_arched_bridge_walkable_001_walkable_")) {
             bridgeWasUppermost = true;
         }
@@ -10581,8 +10947,8 @@ function testSweptSupportUsesUpToDownCrossingNotColourPriority() {
     state.world.resetY = 1200;
     state.story.portalIntro = null;
     state.story.portalExit = null;
-    state.player.x = 100;
-    state.player.y = 410;
+    state.player.currentTransform.x = 100;
+    state.player.currentTransform.y = 410;
     state.player.vx = 900;
     state.player.vy = 0;
     state.player.onGround = true;
@@ -10592,7 +10958,7 @@ function testSweptSupportUsesUpToDownCrossingNotColourPriority() {
     stepSimulation(state, createInputFrame({ moveRight: true }), FIXED_DT);
     assert.equal(state.player.onGround, true, "the player should remain grounded after crossing onto the upper support");
     assert.equal(state.player.supportId, "upper_green", "a crossed green line above the current support should become the floor");
-    assert.ok(state.player.y < 410, "the player should climb onto the crossed upper support");
+    assert.ok(state.player.currentTransform.y < 410, "the player should climb onto the crossed upper support");
 
     const inverse = createInitialGameState();
     inverse.world.solids = [];
@@ -10604,8 +10970,8 @@ function testSweptSupportUsesUpToDownCrossingNotColourPriority() {
     inverse.world.resetY = 1200;
     inverse.story.portalIntro = null;
     inverse.story.portalExit = null;
-    inverse.player.x = 100;
-    inverse.player.y = 410;
+    inverse.player.currentTransform.x = 100;
+    inverse.player.currentTransform.y = 410;
     inverse.player.vx = 900;
     inverse.player.vy = 0;
     inverse.player.onGround = true;
@@ -10615,7 +10981,7 @@ function testSweptSupportUsesUpToDownCrossingNotColourPriority() {
     stepSimulation(inverse, createInputFrame({ moveRight: true }), FIXED_DT);
     assert.equal(inverse.player.onGround, true, "the player should remain grounded after crossing onto the upper blockable support");
     assert.equal(inverse.player.supportId, "upper_yellow", "a crossed yellow line above the current support should become the floor");
-    assert.ok(inverse.player.y < 410, "support colour should not outrank the crossed upper geometry");
+    assert.ok(inverse.player.currentTransform.y < 410, "support colour should not outrank the crossed upper geometry");
 
     const underside = createInitialGameState();
     underside.world.solids = [];
@@ -10627,8 +10993,8 @@ function testSweptSupportUsesUpToDownCrossingNotColourPriority() {
     underside.world.resetY = 1200;
     underside.story.portalIntro = null;
     underside.story.portalExit = null;
-    underside.player.x = 100;
-    underside.player.y = 410;
+    underside.player.currentTransform.x = 100;
+    underside.player.currentTransform.y = 410;
     underside.player.vx = 900;
     underside.player.vy = 0;
     underside.player.onGround = true;
@@ -10638,7 +11004,7 @@ function testSweptSupportUsesUpToDownCrossingNotColourPriority() {
     stepSimulation(underside, createInputFrame({ moveRight: true }), FIXED_DT);
     assert.equal(underside.player.onGround, true, "the player should remain on the existing support when the foot sweep does not cross from up to down");
     assert.equal(underside.player.supportId, "floor", "a one-way support should not catch feet that cross from its down side to its up side");
-    approx(underside.player.y, 410, 0.001, "the player should not teleport onto an uncrossed upper line");
+    approx(underside.player.currentTransform.y, 410, 0.001, "the player should not teleport onto an uncrossed upper line");
 }
 
 function testLeftRightSymmetry() {
@@ -10650,8 +11016,8 @@ function testLeftRightSymmetry() {
     stepMany(right, 30, () => createInputFrame({ moveRight: true }));
     stepMany(left, 30, () => createInputFrame({ moveLeft: true }));
 
-    assert.ok(right.player.x > right.world.start.x + 60, `expected right run to move forward, got x=${right.player.x}`);
-    assert.ok(left.player.x < left.world.start.x - 60, `expected left run to move backward, got x=${left.player.x}`);
+    assert.ok(right.player.currentTransform.x > right.world.start.x + 60, `expected right run to move forward, got x=${right.player.currentTransform.x}`);
+    assert.ok(left.player.currentTransform.x < left.world.start.x - 60, `expected left run to move backward, got x=${left.player.currentTransform.x}`);
     approx(Math.abs(right.player.vx), Math.abs(left.player.vx), 0.001, "mirrored run velocity magnitude");
     assert.equal(right.player.facing, 1, "right run should face right");
     assert.equal(left.player.facing, -1, "left run should face left");
@@ -10678,7 +11044,7 @@ function testOrdinaryJumpHeightIsExactAndGravityDerived() {
     for (const dt of [1 / 30, 1 / 60, 1 / 120]) {
         const state = createInitialGameState({ tuning: { timestep: dt } });
         settleOnGround(state);
-        const launchY = state.player.y;
+        const launchY = state.player.currentTransform.y;
         stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), dt);
         for (let step = 0; step < 240 && !Number.isFinite(state.player.ordinaryJumpApexY); step += 1) {
             stepSimulation(state, createInputFrame(), dt);
@@ -10695,7 +11061,7 @@ function testDownDoublesGravityDuringAscentAndDescent() {
     for (const dt of [1 / 30, 1 / 60, 1 / 120]) {
         const state = createInitialGameState({ tuning: { timestep: dt } });
         settleOnGround(state);
-        const launchY = state.player.y;
+        const launchY = state.player.currentTransform.y;
         stepSimulation(state, createInputFrame({
             jumpPressed: true,
             jumpHeld: true,
@@ -10712,7 +11078,7 @@ function testDownDoublesGravityDuringAscentAndDescent() {
 
     const adjustable = createInitialGameState();
     settleOnGround(adjustable);
-    const adjustableLaunchY = adjustable.player.y;
+    const adjustableLaunchY = adjustable.player.currentTransform.y;
     stepSimulation(adjustable, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
     stepMany(adjustable, 7, () => createInputFrame());
     stepMany(adjustable, 120, () => createInputFrame({ dropHeld: true }));
@@ -10741,16 +11107,16 @@ function testDownDoublesGravityDuringAscentAndDescent() {
         "holding Down during boosted ascent should add one extra gravity quantum each step"
     );
 
-    let minPlainY = boostedPlain.player.y;
-    let minBrakedY = boostedBraked.player.y;
+    let minPlainY = boostedPlain.player.currentTransform.y;
+    let minBrakedY = boostedBraked.player.currentTransform.y;
     for (let step = 0; step < 180 && (boostedPlain.player.vy < 0 || boostedBraked.player.vy < 0); step += 1) {
         stepSimulation(boostedPlain, createInputFrame({ jumpHeld: true }), FIXED_DT);
         stepSimulation(boostedBraked, createInputFrame({ jumpHeld: true, dropHeld: true }), FIXED_DT);
-        minPlainY = Math.min(minPlainY, boostedPlain.player.y);
-        minBrakedY = Math.min(minBrakedY, boostedBraked.player.y);
+        minPlainY = Math.min(minPlainY, boostedPlain.player.currentTransform.y);
+        minBrakedY = Math.min(minBrakedY, boostedBraked.player.currentTransform.y);
     }
-    assert.ok(boostedBraked.player.y >= minBrakedY, "the braked boosted sample should record its peak ascent");
-    assert.ok((boostedPlain.player.y - minPlainY) >= 0, "plain boosted ascent should also record its peak");
+    assert.ok(boostedBraked.player.currentTransform.y >= minBrakedY, "the braked boosted sample should record its peak ascent");
+    assert.ok((boostedPlain.player.currentTransform.y - minPlainY) >= 0, "plain boosted ascent should also record its peak");
     assert.ok(minBrakedY > minPlainY + 5, `boosted ascent should peak lower when Down is held, plain minY=${minPlainY}, braked minY=${minBrakedY}`);
 
     const falling = createInitialGameState();
@@ -10837,7 +11203,7 @@ function testBoostKickCannotBeTapExploited() {
     assert.ok(secondTapVy > beforeSecondTapVy - 80, `rapid second tap should not receive another full kick, before ${beforeSecondTapVy}, after ${secondTapVy}`);
 
     stepSimulation(state, createInputFrame({ jumpReleased: true, jumpHeld: false }), FIXED_DT);
-    state.player.y = 600;
+    state.player.currentTransform.y = 600;
     state.player.vy = 0;
     state.player.onGround = true;
     state.fuel.rechargeDelayTimer = state.tuning.rechargeDelayAfterUse;
@@ -10866,7 +11232,7 @@ function testBoostKickCostsFuelAndRechargesOnLanding() {
     approx(costly.equipment.rocket.boostKickCharge, 0, 0.001, "boost kick charge should be spent by the kick");
 
     stepSimulation(costly, createInputFrame({ jumpReleased: true, jumpHeld: false }), FIXED_DT);
-    costly.player.y = 600;
+    costly.player.currentTransform.y = 600;
     costly.player.vy = 0;
     costly.player.onGround = true;
     costly.fuel.rechargeDelayTimer = costly.tuning.rechargeDelayAfterUse;
@@ -10896,7 +11262,9 @@ function testHomingRocketLaunch() {
     const state = createInitialGameState();
     settleOnGround(state);
     const target = state.targets[0];
-    const startDistance = Math.hypot(target.x - state.player.x, target.y - (state.player.y - state.player.height * 0.72));
+    state.camera.currentTransform.x = (state.player.currentTransform.x + target.x) * 0.5;
+    state.camera.viewportWidth = Math.abs(target.x - state.player.currentTransform.x) + 1000;
+    const startDistance = Math.hypot(target.x - state.player.currentTransform.x, target.y - (state.player.currentTransform.y - state.player.height * 0.72));
     stepSimulation(state, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
     assert.equal(state.projectiles.length, 1, "weapon press should launch one test rocket");
     assert.equal(state.projectiles[0].targetId, target.id, "test rocket should target the homing dot");
@@ -10913,19 +11281,19 @@ function testHomingRocketLaunch() {
     stepMany(state, 95, () => createInputFrame());
     assert.ok(state.projectiles.length >= 1, "rocket should still be inspectable after a short flight");
     const rocket = state.projectiles[0];
-    const flightDistance = Math.hypot(target.x - rocket.x, target.y - rocket.y);
+    const flightDistance = Math.hypot(target.x - rocket.currentTransform.x, target.y - rocket.currentTransform.y);
     assert.ok(flightDistance < startDistance - 430, `homing rocket should close distance to dot after its upward launch, start ${startDistance}, now ${flightDistance}`);
 }
 
 function measuredSingleUnboostedJumpHeight() {
     const state = createInitialGameState();
     settleOnGround(state);
-    const floorY = state.player.y;
+    const floorY = state.player.currentTransform.y;
     stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
-    let sampledApexY = state.player.y;
+    let sampledApexY = state.player.currentTransform.y;
     for (let frame = 0; frame < 120; frame += 1) {
         stepSimulation(state, createInputFrame(), FIXED_DT);
-        sampledApexY = Math.min(sampledApexY, state.player.y);
+        sampledApexY = Math.min(sampledApexY, state.player.currentTransform.y);
         if (Number.isFinite(state.player.ordinaryJumpApexY)) {
             return floorY - state.player.ordinaryJumpApexY;
         }
@@ -10936,14 +11304,16 @@ function measuredSingleUnboostedJumpHeight() {
 function runJumpHeightPlatformRocket(initialHomingStrength) {
     const state = createInitialGameState({ tuning: { rocketProjectileInitialHomingStrength: initialHomingStrength } });
     settleOnGround(state);
-    const platformY = state.player.y - measuredSingleUnboostedJumpHeight();
-    const targetX = state.player.x + state.player.height * 96;
+    const platformY = state.player.currentTransform.y - measuredSingleUnboostedJumpHeight();
+    const targetX = state.player.currentTransform.x + state.player.height * 96;
+    state.camera.currentTransform.x = state.player.currentTransform.x + 150;
+    state.camera.viewportWidth = Math.abs(targetX - state.player.currentTransform.x) * 2 + state.player.height * 4;
     state.enemies = [];
     state.targets = [{
         id: "same_level_distant_enemy",
         kind: "debugHomingDot",
         x: targetX,
-        y: state.player.y - state.player.height * 0.5,
+        y: state.player.currentTransform.y - state.player.height * 0.5,
         radius: 15,
         state: "active"
     }];
@@ -10952,7 +11322,7 @@ function runJumpHeightPlatformRocket(initialHomingStrength) {
         {
             id: "jump_apex_platform",
             kind: "blockable",
-            x1: state.player.x - 20000,
+            x1: state.player.currentTransform.x - 20000,
             y1: platformY,
             x2: targetX + 20000,
             y2: platformY
@@ -10961,12 +11331,12 @@ function runJumpHeightPlatformRocket(initialHomingStrength) {
 
     stepSimulation(state, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
     const rocket = state.projectiles[0];
-    let minimumCenterY = rocket.y;
-    let maximumX = rocket.x;
+    let minimumCenterY = rocket.currentTransform.y;
+    let maximumX = rocket.currentTransform.x;
     for (let frame = 0; frame < 50; frame += 1) {
         stepSimulation(state, createInputFrame(), FIXED_DT);
-        minimumCenterY = Math.min(minimumCenterY, rocket.y);
-        maximumX = Math.max(maximumX, rocket.x);
+        minimumCenterY = Math.min(minimumCenterY, rocket.currentTransform.y);
+        maximumX = Math.max(maximumX, rocket.currentTransform.x);
         if (rocket.state !== "launched") break;
     }
     return {
@@ -10982,7 +11352,7 @@ function testRocketInitialTurnClearsJumpHeightPlatform() {
     assert.equal(tuned.rocket.state, "launched", "the tuned initial turn should remain in flight beneath a platform at the single-jump limit");
     assert.notEqual(tuned.rocket.impactReason, "jump_apex_platform", "the tuned initial turn should not strike the barely jump-reachable platform overhead");
     assert.ok(tuned.clearance >= 0 && tuned.clearance < 1, `the recalibrated launch turn should only just clear the exact 200-pixel platform, clearance=${tuned.clearance}`);
-    assert.ok(tuned.maximumX > tuned.state.player.x + 300, "the rocket should complete meaningful sideways progress toward the same-level target");
+    assert.ok(tuned.maximumX > tuned.state.player.currentTransform.x + 300, "the rocket should complete meaningful sideways progress toward the same-level target");
     assert.equal(tuned.rocket.upLaunchTimer, 0, "the stronger launch steering should expire after the initial turn");
     assert.equal(tuned.rocket.homingStrength, DEFAULT_TUNING.rocketProjectileHomingStrength, "normal mid-flight homing should remain unchanged after the initial turn");
 
@@ -10993,8 +11363,8 @@ function testRocketInitialTurnClearsJumpHeightPlatform() {
 function testStandardRocketSecondarySplash() {
     const state = createInitialGameState();
     settleOnGround(state);
-    state.player.x = 300;
-    state.player.y = 600;
+    state.player.currentTransform.x = 300;
+    state.player.currentTransform.y = 600;
     state.player.facing = 1;
     state.player.vx = 0;
     state.player.vy = 0;
@@ -11003,9 +11373,9 @@ function testStandardRocketSecondarySplash() {
 
     const prototype = state.enemies[0];
     state.enemies = [
-        { ...prototype, id: "splash_direct", x: 500, y: 600, health: 90, maxHealth: 90, state: "idle", combatState: "alive" },
-        { ...prototype, id: "splash_near", x: 550, y: 600, health: 1, maxHealth: 1, state: "idle", combatState: "alive" },
-        { ...prototype, id: "splash_far", x: 750, y: 600, health: 1, maxHealth: 1, state: "idle", combatState: "alive" }
+        { ...prototype, ...createTransformTriplet({ x: 500, y: 600 }), id: "splash_direct", health: 90, maxHealth: 90, state: "idle", combatState: "alive" },
+        { ...prototype, ...createTransformTriplet({ x: 550, y: 600 }), id: "splash_near", health: 1, maxHealth: 1, state: "idle", combatState: "alive" },
+        { ...prototype, ...createTransformTriplet({ x: 750, y: 600 }), id: "splash_far", health: 1, maxHealth: 1, state: "idle", combatState: "alive" }
     ];
     state.targets = [{
         id: "splash_direct_target",
@@ -11070,13 +11440,13 @@ function testStandardRocketSecondarySplash() {
 function testRocketTargetPrefersClosestEnemyInFacingDirection() {
     const state = createInitialGameState();
     settleOnGround(state);
-    state.player.x = 0;
+    state.player.currentTransform.x = 0;
     state.player.facing = 1;
     state.targets = [
-        { id: "rear_near", enemyId: "rear_near_enemy", x: -20, y: state.player.y - 60, radius: 12, state: "active" },
-        { id: "rear_far", enemyId: "rear_far_enemy", x: -120, y: state.player.y - 60, radius: 12, state: "active" },
-        { id: "forward_far", enemyId: "forward_far_enemy", x: 300, y: state.player.y - 60, radius: 12, state: "active" },
-        { id: "forward_near", enemyId: "forward_near_enemy", x: 110, y: state.player.y - 60, radius: 12, state: "active" }
+        { id: "rear_near", enemyId: "rear_near_enemy", x: -20, y: state.player.currentTransform.y - 60, radius: 12, state: "active" },
+        { id: "rear_far", enemyId: "rear_far_enemy", x: -120, y: state.player.currentTransform.y - 60, radius: 12, state: "active" },
+        { id: "forward_far", enemyId: "forward_far_enemy", x: 300, y: state.player.currentTransform.y - 60, radius: 12, state: "active" },
+        { id: "forward_near", enemyId: "forward_near_enemy", x: 110, y: state.player.currentTransform.y - 60, radius: 12, state: "active" }
     ];
 
     stepSimulation(state, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
@@ -11094,8 +11464,8 @@ function testRocketTargetPrioritizesLineOfSight() {
     const makeState = () => {
         const state = createInitialGameState();
         settleOnGround(state);
-        state.player.x = 0;
-        state.player.y = 600;
+        state.player.currentTransform.x = 0;
+        state.player.currentTransform.y = 600;
         state.player.facing = 1;
         state.world.solids = [{ id: "rocket_target_wall", kind: "wall", x: 60, y: 490, w: 40, h: 130 }];
         state.world.segments = [];
@@ -11125,9 +11495,44 @@ function testRocketTargetPrioritizesLineOfSight() {
     assert.equal(aimedState.projectiles[0].targetId, "visible_far", "monster-aimed straight rockets should use the same line-of-sight-first target ordering");
 }
 
+function testHomingRocketTargetsVisibleScreenOnly() {
+    const state = createInitialGameState();
+    settleOnGround(state);
+    state.player.currentTransform.x = 0;
+    state.player.currentTransform.y = 600;
+    state.player.facing = 1;
+    state.camera.currentTransform.x = 0;
+    state.camera.currentTransform.y = 430;
+    state.camera.viewportWidth = 400;
+    state.camera.viewportHeight = 600;
+    state.world.solids = [];
+    state.world.segments = [];
+    state.world.collisionPolygons = [];
+    state.targets = [
+        { id: "offscreen_target", x: 500, y: 540, radius: 12, state: "active" }
+    ];
+
+    stepSimulation(state, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    assert.equal(state.projectiles[0].targetId, null, "a homing rocket should launch unguided when every target is outside the visible screen");
+
+    state.projectiles = [];
+    state.fuel.amount = state.fuel.max;
+    state.targets.push({ id: "visible_target", x: 170, y: 540, radius: 12, state: "active" });
+    stepSimulation(state, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    assert.equal(state.projectiles[0].targetId, "visible_target", "a homing rocket should ignore off-screen candidates and lock onto a visible target");
+
+    state.targets.find((target) => target.id === "visible_target").x = 500;
+    state.targets.push({ id: "replacement_visible_target", x: 150, y: 500, radius: 12, state: "active" });
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(state.projectiles[0].targetId, "replacement_visible_target", "an in-flight homing rocket should release a target that leaves the screen and reacquire a visible one");
+}
+
 function testRocketTrailTracksCurvedPathAndPersistsAfterExplosion() {
     const state = createInitialGameState();
     settleOnGround(state);
+    const target = state.targets[0];
+    state.camera.currentTransform.x = state.player.currentTransform.x + 150;
+    state.camera.viewportWidth = Math.abs(target.x - state.player.currentTransform.x) * 2 + 1000;
     stepSimulation(state, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
     stepMany(state, 75, () => createInputFrame());
     assert.equal(state.projectiles.length, 1, "rocket should still exist while trail is inspected");
@@ -11183,8 +11588,8 @@ function targetImpactSpeedForExtraFallWh(state, extraWizardHeights) {
 }
 
 function forceLandingAtImpactSpeed(state, impactSpeed) {
-    state.player.x = state.world.start.x;
-    state.player.y = 580;
+    state.player.currentTransform.x = state.world.start.x;
+    state.player.currentTransform.y = 580;
     state.player.vy = impactSpeed - state.tuning.gravity * FIXED_DT;
     state.player.onGround = false;
     state.player.wasOnGround = false;
@@ -11237,7 +11642,7 @@ function testFuelRechargeDelayGroundRequirementAndCap() {
     approx(state.fuel.amount, state.fuel.rechargeCap, 0.001, "fuel should recharge only to cap");
 
     const airborne = createInitialGameState();
-    airborne.player.y = -2000;
+    airborne.player.currentTransform.y = -2000;
     airborne.player.vy = 0;
     airborne.player.onGround = false;
     airborne.fuel.amount = 0;
@@ -11355,27 +11760,27 @@ function testDownwardCameraLead() {
     state.world.segments = [];
     state.world.collisionPolygons = [];
     state.world.resetY = 5000;
-    state.player.x = 120;
-    state.player.y = 240;
+    state.player.currentTransform.x = 120;
+    state.player.currentTransform.y = 240;
     state.player.vx = 0;
     state.player.vy = 720;
     state.player.onGround = false;
     state.player.wasOnGround = false;
-    state.camera.x = state.player.x;
-    state.camera.y = state.player.y - 170;
-    const before = state.camera.y;
+    state.camera.currentTransform.x = state.player.currentTransform.x;
+    state.camera.currentTransform.y = state.player.currentTransform.y - 170;
+    const before = state.camera.currentTransform.y;
     stepSimulation(state, createInputFrame(), FIXED_DT);
-    assert.ok(state.camera.y > before + 20, "fast downward movement should pull the camera down early enough to reveal the landing area");
-    assert.ok(state.camera.y < state.player.y + 120, "downward look-ahead should remain bounded rather than abandoning Ignatius");
+    assert.ok(state.camera.currentTransform.y > before + 20, "fast downward movement should pull the camera down early enough to reveal the landing area");
+    assert.ok(state.camera.currentTransform.y < state.player.currentTransform.y + 120, "downward look-ahead should remain bounded rather than abandoning Ignatius");
 }
 
 function testWallCollision() {
     const state = createInitialGameState();
-    state.player.x = -245;
-    state.player.y = 600;
+    state.player.currentTransform.x = -245;
+    state.player.currentTransform.y = 600;
     state.player.onGround = true;
     stepMany(state, 30, () => createInputFrame({ moveLeft: true }));
-    assert.ok(state.player.x >= -243, `left wall should stop player, got x=${state.player.x}`);
+    assert.ok(state.player.currentTransform.x >= -243, `left wall should stop player, got x=${state.player.currentTransform.x}`);
     assert.equal(state.player.vx, 0, "wall collision should zero horizontal velocity");
 }
 
@@ -11389,8 +11794,8 @@ function testAutomaticSmallStepTraversal() {
         ];
         state.world.segments = [];
         state.world.collisionPolygons = [];
-        state.player.x = 100;
-        state.player.y = 600;
+        state.player.currentTransform.x = 100;
+        state.player.currentTransform.y = 600;
         state.player.vx = 0;
         state.player.vy = 0;
         state.player.onGround = true;
@@ -11401,14 +11806,14 @@ function testAutomaticSmallStepTraversal() {
 
     const climbable = createStepState(19);
     stepMany(climbable, 50, () => createInputFrame({ moveRight: true }));
-    assert.ok(climbable.player.x > 300, "Ignatius should walk across a step below one fifth of his height without jumping");
-    assert.equal(climbable.player.y, 581, "automatic step-up should seat Ignatius on the raised surface");
+    assert.ok(climbable.player.currentTransform.x > 300, "Ignatius should walk across a step below one fifth of his height without jumping");
+    assert.equal(climbable.player.currentTransform.y, 581, "automatic step-up should seat Ignatius on the raised surface");
     assert.equal(climbable.player.supportId, "small_step", "automatic step-up should adopt the raised support");
 
     const tooTall = createStepState(21);
     stepMany(tooTall, 50, () => createInputFrame({ moveRight: true }));
-    assert.ok(tooTall.player.x <= 233.1, "a step above one fifth of Ignatius's height should still block ordinary walking");
-    assert.equal(tooTall.player.y, 600, "a too-tall step should not teleport Ignatius upward");
+    assert.ok(tooTall.player.currentTransform.x <= 233.1, "a step above one fifth of Ignatius's height should still block ordinary walking");
+    assert.equal(tooTall.player.currentTransform.y, 600, "a too-tall step should not teleport Ignatius upward");
 }
 
 function testClosedAtlasLoopCreatesCollisionArea() {
@@ -11454,13 +11859,13 @@ function testClosedAtlasLoopCreatesCollisionArea() {
     assert.equal(applyAtlasManifestsToWorld(state, new Map([["test_atlas", { manifest }]])), true, "atlas collision should apply");
     assert.equal(state.world.collisionPolygons.length, 1, "closed blockable loop should become a collision area");
     state.world.solids.push({ id: "test_floor", kind: "floor", x: -1000, y: 600, w: 4000, h: 60 });
-    state.player.x = 240;
-    state.player.y = 600;
+    state.player.currentTransform.x = 240;
+    state.player.currentTransform.y = 600;
     state.player.vx = 360;
     state.player.vy = 0;
     state.player.onGround = true;
     stepMany(state, 80, () => createInputFrame({ moveRight: true }));
-    assert.ok(state.player.x <= 294, `closed blockable area should stop the player before entry, got x=${state.player.x}`);
+    assert.ok(state.player.currentTransform.x <= 294, `closed blockable area should stop the player before entry, got x=${state.player.currentTransform.x}`);
     assert.ok(!state.world.collisionPolygons.some((polygon) => polygon.points.length < 3), "collision areas should be valid polygons");
 }
 
@@ -11478,8 +11883,8 @@ function testCollisionAreaRejectsShallowCornerEntry() {
             { x: 100, y: 300 }
         ]
     }];
-    state.player.x = 84;
-    state.player.y = 108;
+    state.player.currentTransform.x = 84;
+    state.player.currentTransform.y = 108;
     state.player.vx = 360;
     state.player.vy = 0;
     state.player.onGround = false;
@@ -11487,10 +11892,10 @@ function testCollisionAreaRejectsShallowCornerEntry() {
     stepSimulation(state, createInputFrame(), FIXED_DT);
 
     const rect = {
-        left: state.player.x - state.player.width / 2,
-        right: state.player.x + state.player.width / 2,
-        top: state.player.y - state.player.height,
-        bottom: state.player.y
+        left: state.player.currentTransform.x - state.player.width / 2,
+        right: state.player.currentTransform.x + state.player.width / 2,
+        top: state.player.currentTransform.y - state.player.height,
+        bottom: state.player.currentTransform.y
     };
     assert.ok(rect.right <= 100.06, `shallow corner entry should push the wizard back outside, got right=${rect.right}`);
     assert.equal(state.player.vx, 0, "corner rejection should remove velocity into the rock");
@@ -11511,15 +11916,15 @@ function testCollisionAreaPushesEmbeddedPlayerToNearestSide() {
             { x: 100, y: 300 }
         ]
     }];
-    state.player.x = 200;
-    state.player.y = 290;
+    state.player.currentTransform.x = 200;
+    state.player.currentTransform.y = 290;
     state.player.vx = 0;
     state.player.vy = 0;
     state.player.onGround = false;
 
     stepSimulation(state, createInputFrame(), FIXED_DT);
 
-    assert.ok(state.player.y - state.player.height >= 299.94, `embedded wizard should be expelled through the nearer bottom edge, got top=${state.player.y - state.player.height}`);
+    assert.ok(state.player.currentTransform.y - state.player.height >= 299.94, `embedded wizard should be expelled through the nearer bottom edge, got top=${state.player.currentTransform.y - state.player.height}`);
     assert.equal(state.player.onGround, false, "downward recovery should not falsely mark the wizard grounded");
     assert.equal(state.collisions.playerTouching.up, true, "downward recovery should report rock contact above the wizard");
     assert.equal(state.collisions.lastResolution.direction, "down", "nearest-edge recovery should choose the bottom edge");
@@ -11532,8 +11937,8 @@ function testRocketImpactsAtlasCollisionLinesAndAreas() {
         state.world.solids = [];
         state.world.segments = segments;
         state.world.collisionPolygons = collisionPolygons;
-        state.player.x = -1000;
-        state.player.y = -1000;
+        state.player.currentTransform.x = -1000;
+        state.player.currentTransform.y = -1000;
         state.projectiles.push({
             id: `${owner}_geometry_test`,
             kind: owner === "enemy" ? "enemyFireball" : "homingRocket",
@@ -11571,7 +11976,7 @@ function testRocketImpactsAtlasCollisionLinesAndAreas() {
         });
         stepSimulation(walkableState, createInputFrame(), FIXED_DT);
         assert.equal(walkableState.projectiles[0].state, "launched", `${owner} shots should pass through green walkable lines`);
-        assert.ok(walkableState.projectiles[0].x > 100, `${owner} shots should continue beyond the green line`);
+        assert.ok(walkableState.projectiles[0].currentTransform.x > 100, `${owner} shots should continue beyond the green line`);
         const impactEventType = owner === "enemy" ? "ENEMY_PROJECTILE_IMPACTED" : "ROCKET_IMPACTED";
         assert.equal(walkableState.debug.lastEvents.some((event) => event.type === impactEventType), false, `${owner} shots should not emit a hidden impact on green lines`);
 
@@ -11708,8 +12113,8 @@ function testEnemyProjectilePlayerHitCarriesSmallWizardAccentFlag() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 20;
-    state.player.y = 0;
+    state.player.currentTransform.x = 20;
+    state.player.currentTransform.y = 0;
     state.player.width = 40;
     state.player.height = 80;
     state.health.invulnerabilityTimer = 0;
@@ -11794,13 +12199,13 @@ function testRocketLaunchDoesNotFalseHitUnrelatedAtlasArea() {
 
 function testReset() {
     const state = createInitialGameState();
-    state.player.x = 999;
-    state.player.y = 999;
+    state.player.currentTransform.x = 999;
+    state.player.currentTransform.y = 999;
     state.player.vx = 120;
     state.player.vy = 400;
     resetPlayer(state, "test");
-    assert.equal(state.player.x, state.player.spawnX, "reset x");
-    assert.equal(state.player.y, state.player.spawnY, "reset y");
+    assert.equal(state.player.currentTransform.x, state.player.spawnX, "reset x");
+    assert.equal(state.player.currentTransform.y, state.player.spawnY, "reset y");
     assert.equal(state.player.vx, 0, "reset vx");
     assert.equal(state.player.vy, 0, "reset vy");
 }
@@ -12018,8 +12423,8 @@ function placePlayerOnMovingPlatform(state) {
     const platform = state.world.movingPlatforms[0];
     const supportId = platform.segments[0]?.id;
     assert.ok(supportId, "moving platform should own a walkable support");
-    state.player.x = 150;
-    state.player.y = 300;
+    state.player.currentTransform.x = 150;
+    state.player.currentTransform.y = 300;
     state.player.spawnX = 150;
     state.player.spawnY = 300;
     state.player.vx = 0;
@@ -12114,8 +12519,8 @@ function createCrushTestState() {
             h: 50
         }
     );
-    state.player.x = 180;
-    state.player.y = 320;
+    state.player.currentTransform.x = 180;
+    state.player.currentTransform.y = 320;
     state.player.spawnX = 500;
     state.player.spawnY = 320;
     state.player.vx = 0;
@@ -12132,18 +12537,18 @@ function crushEvents(state, type) {
 
 function testMovingPlatformCrushRequiresThreeTicksAndNearestExit() {
     const state = createCrushTestState();
-    const startX = state.player.x;
+    const startX = state.player.currentTransform.x;
 
     stepSimulation(state, createInputFrame(), FIXED_DT);
     assert.equal(state.player.crushCandidateTicks, 1, "the first trapped tick should arm, not kill");
     assert.equal(state.player.visible, true, "the first trapped tick should keep Ignatius visible");
-    approx(state.player.x, startX, 0.000001, "the first trapped tick must not eject Ignatius sideways");
+    approx(state.player.currentTransform.x, startX, 0.000001, "the first trapped tick must not eject Ignatius sideways");
 
     stepSimulation(state, createInputFrame(), FIXED_DT);
     assert.equal(state.player.crushCandidateTicks, 2, "the second trapped tick should remain a warning");
     assert.equal(state.player.visible, true, "the second trapped tick should still not kill");
     assert.equal(crushEvents(state, "PLAYER_CRUSH_WARNING").length, 1, "tick two should emit an explicit crush warning");
-    approx(state.player.x, startX, 0.000001, "the warning tick must not turn Ignatius into a sideways projectile");
+    approx(state.player.currentTransform.x, startX, 0.000001, "the warning tick must not turn Ignatius into a sideways projectile");
 
     stepSimulation(state, createInputFrame(), FIXED_DT);
     assert.equal(state.player.deathPhase, "cover", "the third consecutive trapped tick should start the common spark-cover death phase");
@@ -12155,7 +12560,7 @@ function testMovingPlatformCrushRequiresThreeTicksAndNearestExit() {
         state.effects.smokePuffs.filter((puff) => puff.kind === "wizardDeathCoverSpark").length >= 50,
         "crushing should use the shared yellow/white/purple body-cover spark field"
     );
-    approx(state.player.x, startX, 0.000001, "confirmed crushing must not use a farther horizontal depenetration");
+    approx(state.player.currentTransform.x, startX, 0.000001, "confirmed crushing must not use a farther horizontal depenetration");
 }
 
 function testCrushWarningReportsTwoTickRecovery() {
@@ -12195,8 +12600,8 @@ function testMovingPlatformCrushParticlesRespawnCleanly() {
     stepMany(state, Math.ceil(state.tuning.playerDeathAfterglowSeconds / FIXED_DT) + 3, () => createInputFrame());
     assert.equal(state.player.visible, true, "the ordinary reset should restore the wizard after the post-burst hold");
     assert.equal(state.player.deathPhase, "none", "respawn should clear the death phase");
-    approx(state.player.x, state.player.spawnX, 0.000001, "crush respawn should use the authored spawn X");
-    approx(state.player.y, state.player.spawnY, 0.000001, "crush respawn should use the authored spawn Y");
+    approx(state.player.currentTransform.x, state.player.spawnX, 0.000001, "crush respawn should use the authored spawn X");
+    approx(state.player.currentTransform.y, state.player.spawnY, 0.000001, "crush respawn should use the authored spawn Y");
     assert.equal(state.health.amount, state.health.max, "crush respawn should restore health");
     assert.equal(state.player.crushCandidateTicks, 0, "crush diagnostics should reset with the player");
 }
@@ -12366,8 +12771,8 @@ function testLivingBossLocksExitDoor() {
     }), true, "boss exit-lock test level should apply");
     state.story.portalIntro = null;
     state.story.mailboxEvent = null;
-    state.player.x = 500;
-    state.player.y = 300;
+    state.player.currentTransform.x = 500;
+    state.player.currentTransform.y = 300;
     state.player.onGround = true;
     state.player.wasOnGround = true;
 
@@ -12379,8 +12784,8 @@ function testLivingBossLocksExitDoor() {
     stepSimulation(state, createInputFrame(), FIXED_DT);
     const boss = state.enemies.find((enemy) => enemy.id === "exit_lock_boss");
     assert.equal(boss.health, 0, "the lock test boss should be defeated by the test rocket");
-    state.player.x = 500;
-    state.player.y = 300;
+    state.player.currentTransform.x = 500;
+    state.player.currentTransform.y = 300;
     stepSimulation(state, createInputFrame(), FIXED_DT);
     assert.equal(state.story.portalExit.active, true, "the same exit door should open normally once no living boss remains");
     assert.equal(state.world.entityStates.locked_exit, "open", "boss defeat should allow the ordinary exit opening sequence without a gate");
@@ -12473,12 +12878,12 @@ function testAutomaticShuttleMovingPlatform() {
     const visual = state.world.visuals.find((item) => item.id === platform.visualId);
 
     stepMany(state, 5, () => createInputFrame());
-    approx(visual.x, 100, 0.001, "automatic shuttle should honor its start pause");
-    approx(state.player.x, 150, 0.001, "the rider should remain still during the start pause");
+    approx(visual.currentTransform.x, 100, 0.001, "automatic shuttle should honor its start pause");
+    approx(state.player.currentTransform.x, 150, 0.001, "the rider should remain still during the start pause");
 
     stepMany(state, 20, () => createInputFrame());
-    assert.ok(visual.x > 110, `shuttle should move after its start pause, got ${visual.x}`);
-    approx(state.player.x - 150, visual.x - 100, 0.01, "a grounded rider should receive the platform's exact movement delta");
+    assert.ok(visual.currentTransform.x > 110, `shuttle should move after its start pause, got ${visual.currentTransform.x}`);
+    approx(state.player.currentTransform.x - 150, visual.currentTransform.x - 100, 0.01, "a grounded rider should receive the platform's exact movement delta");
     assert.equal(platform.collisionAttached, true, "ordinary shuttles should keep collision throughout the cycle");
 
     stepMany(state, 160, () => createInputFrame());
@@ -12502,13 +12907,13 @@ function testRiderTriggeredMovingPlatform() {
     const visual = state.world.visuals.find((item) => item.id === platform.visualId);
     stepMany(state, 30, () => createInputFrame());
     assert.equal(platform.phase, "waitForTrigger", "rider platforms should wait indefinitely without a rider");
-    approx(visual.x, 100, 0.001, "waiting rider platforms should not drift");
+    approx(visual.currentTransform.x, 100, 0.001, "waiting rider platforms should not drift");
 
     placePlayerOnMovingPlatform(state);
     stepSimulation(state, createInputFrame(), FIXED_DT);
     assert.notEqual(platform.phase, "waitForTrigger", "standing on the platform should latch its rider trigger");
-    assert.ok(visual.x > 100, "a zero-delay rider trigger should begin movement immediately");
-    assert.ok(state.player.x > 150, "the triggering rider should be carried with the platform");
+    assert.ok(visual.currentTransform.x > 100, "a zero-delay rider trigger should begin movement immediately");
+    assert.ok(state.player.currentTransform.x > 150, "the triggering rider should be carried with the platform");
 }
 
 function testEnemyRiderTriggersAndFollowsMovingPlatform() {
@@ -12540,8 +12945,8 @@ function testEnemyRiderTriggersAndFollowsMovingPlatform() {
 
     stepSimulation(state, createInputFrame(), FIXED_DT);
     assert.notEqual(platform.phase, "waitForTrigger", "a living enemy rider should trigger a rider-activated platform");
-    assert.ok(visual.x > 100, "the enemy-triggered platform should start moving immediately");
-    approx(enemy.x - 150, visual.x - 100, 0.01, "the platform should apply its exact movement delta to an enemy rider");
+    assert.ok(visual.currentTransform.x > 100, "the enemy-triggered platform should start moving immediately");
+    approx(enemy.currentTransform.x - 150, visual.currentTransform.x - 100, 0.01, "the platform should apply its exact movement delta to an enemy rider");
     assert.equal(enemy.ridingPlatformId, platform.id, "the enemy should retain explicit rider identity while carried");
 }
 
@@ -12587,13 +12992,13 @@ function testHunterPlansMovingPlatformRide() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 370;
-    state.player.y = 300;
+    state.player.currentTransform.x = 370;
+    state.player.currentTransform.y = 300;
     state.player.onGround = true;
     state.player.wasOnGround = true;
     const enemy = state.enemies.find((item) => item.id === "lift_hunter");
-    enemy.x = 50;
-    enemy.y = 300;
+    enemy.currentTransform.x = 50;
+    enemy.currentTransform.y = 300;
     enemy.spawnX = 50;
     enemy.spawnY = 300;
     enemy.currentSupportId = null;
@@ -12610,7 +13015,7 @@ function testHunterPlansMovingPlatformRide() {
     });
     assert.equal(sawRideEdge, true, "the hunter route should include an explicit endpoint-to-endpoint ride edge");
     assert.equal(sawRiding, true, "the hunter should board and remain attached while the platform travels");
-    assert.equal(sawDisembarked, true, `the hunter should disembark onto the far dock; final x=${enemy.x} support=${enemy.supportId}`);
+    assert.equal(sawDisembarked, true, `the hunter should disembark onto the far dock; final x=${enemy.currentTransform.x} support=${enemy.supportId}`);
 }
 
 function testVanishingMovingPlatformsAlwaysRecover() {
@@ -12642,9 +13047,9 @@ function testVanishingMovingPlatformsAlwaysRecover() {
         }
         assert.equal(sawDetachedCollision, true, `${pattern} should actually enter its non-colliding hidden sequence`);
         assert.ok(platform.cycleCount >= 1, `${pattern} should restore itself without requiring a player death or level reset`);
-        approx(visual.x, 100, 0.001, `${pattern} should respawn at its authored start X`);
-        approx(visual.y, 300, 0.001, `${pattern} should respawn at its authored start Y`);
-        approx(visual.alpha, 1, 0.001, `${pattern} should finish fully visible`);
+        approx(visual.currentTransform.x, 100, 0.001, `${pattern} should respawn at its authored start X`);
+        approx(visual.currentTransform.y, 300, 0.001, `${pattern} should respawn at its authored start Y`);
+        approx(visual.currentTransform.alpha, 1, 0.001, `${pattern} should finish fully visible`);
         assert.equal(platform.collisionAttached, true, `${pattern} should restore collision after fading in`);
     }
 }
@@ -12676,21 +13081,21 @@ function testSignalTriggeredMovingPlatform() {
     }, [lever]);
     const platform = state.world.movingPlatforms[0];
     const visual = state.world.visuals.find((item) => item.id === platform.visualId);
-    state.player.x = 150;
-    state.player.y = 300;
+    state.player.currentTransform.x = 150;
+    state.player.currentTransform.y = 300;
     state.player.vx = 0;
     state.player.vy = 0;
 
     stepMany(state, 15, () => createInputFrame());
     assert.equal(platform.phase, "waitForTrigger", "signal platforms should wait without a channel emission");
-    approx(visual.x, 100, 0.001, "waiting signal platforms should remain at the start");
+    approx(visual.currentTransform.x, 100, 0.001, "waiting signal platforms should remain at the start");
 
     stepSimulation(state, createInputFrame({ interactPressed: true }), FIXED_DT);
     assert.equal(state.world.entityStates.lever_lift, "on", "nearby interaction should toggle the lever visual state");
     assert.equal(state.world.signalChannels.lift_a.revision, 1, "lever interaction should emit one named-channel revision");
     assert.equal(state.world.signalChannels.lift_a.active, true, "lever on state should be reflected by the channel");
     assert.notEqual(platform.phase, "waitForTrigger", "the matching channel should latch the platform trigger");
-    assert.ok(visual.x > 100, "a zero-delay signal should begin moving the platform immediately");
+    assert.ok(visual.currentTransform.x > 100, "a zero-delay signal should begin moving the platform immediately");
 }
 
 function testKeyholeConsumesKeyAndTriggersPlatform() {
@@ -12734,8 +13139,8 @@ function testKeyholeConsumesKeyAndTriggersPlatform() {
         fadeDuration: 0.05,
         hiddenDuration: 0.1
     }, [key, keyhole]);
-    state.player.x = 150;
-    state.player.y = 300;
+    state.player.currentTransform.x = 150;
+    state.player.currentTransform.y = 300;
     state.player.vx = 0;
     state.player.vy = 0;
 
@@ -13332,8 +13737,8 @@ function testTemporaryEnemyTuningMultipliers() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 0;
-    state.player.y = 600;
+    state.player.currentTransform.x = 0;
+    state.player.currentTransform.y = 600;
     state.player.onGround = true;
     state.player.wasOnGround = true;
 
@@ -13371,14 +13776,14 @@ function testTemporaryEnemyTuningMultipliers() {
         runState.world.segments = [{ id: "floor", kind: "walkable", x1: -1000, y1: 600, x2: 1600, y2: 600 }];
         runState.world.collisionPolygons = [];
         runState.story.portalIntro = null;
-        runState.player.x = 0;
-        runState.player.y = 600;
+        runState.player.currentTransform.x = 0;
+        runState.player.currentTransform.y = 600;
         runState.player.onGround = true;
         runState.player.wasOnGround = true;
         const runner = runState.enemies.find((enemy) => enemy.id === "runner");
-        const startX = runner.x;
+        const startX = runner.currentTransform.x;
         stepMany(runState, 120);
-        return startX - runner.x;
+        return startX - runner.currentTransform.x;
     }
     const normalRun = runMeleeDistance(1);
     const fastRun = runMeleeDistance(2);
@@ -13420,8 +13825,8 @@ function testTemporaryEnemyTuningMultipliers() {
         rangedState.world.segments = [{ id: "floor", kind: "walkable", x1: -1000, y1: 600, x2: 1600, y2: 600 }];
         rangedState.world.collisionPolygons = [];
         rangedState.story.portalIntro = null;
-        rangedState.player.x = 0;
-        rangedState.player.y = 600;
+        rangedState.player.currentTransform.x = 0;
+        rangedState.player.currentTransform.y = 600;
         rangedState.player.onGround = true;
         rangedState.player.wasOnGround = true;
         let firstSpeed = null;
@@ -13568,13 +13973,13 @@ function testRangedEnemiesFireBeyondPreferredAttackRange() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 0;
-    state.player.y = 600;
+    state.player.currentTransform.x = 0;
+    state.player.currentTransform.y = 600;
     state.player.onGround = true;
     state.player.wasOnGround = true;
 
     const enemy = state.enemies.find((item) => item.id === "long_range_fireball_goblin");
-    const startX = enemy.x;
+    const startX = enemy.currentTransform.x;
     stepMany(state, 24);
     assert.ok(
         state.debug.lastEvents.some((event) => event.type === "ENEMY_ATTACK_STARTED" && event.enemyId === enemy.id),
@@ -13584,8 +13989,8 @@ function testRangedEnemiesFireBeyondPreferredAttackRange() {
         state.projectiles.some((projectile) => projectile.enemyId === enemy.id),
         "a long-range enemy shot should be released when its lifetime and clear trajectory can reach Ignatius"
     );
-    assert.ok(Math.abs(startX - state.player.x) > enemy.attackRange * 4, "the regression setup should remain far beyond the old hard attack range");
-    assert.ok(Math.abs(enemy.x - state.player.x) > enemy.attackRange * 3, "the ranged shot should happen while the enemy is still far outside the old hard attack range");
+    assert.ok(Math.abs(startX - state.player.currentTransform.x) > enemy.attackRange * 4, "the regression setup should remain far beyond the old hard attack range");
+    assert.ok(Math.abs(enemy.currentTransform.x - state.player.currentTransform.x) > enemy.attackRange * 3, "the ranged shot should happen while the enemy is still far outside the old hard attack range");
 }
 
 function testRangedEnemiesRequireClearProjectileLane() {
@@ -13627,8 +14032,8 @@ function testRangedEnemiesRequireClearProjectileLane() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 0;
-    state.player.y = 600;
+    state.player.currentTransform.x = 0;
+    state.player.currentTransform.y = 600;
     state.player.onGround = true;
     state.player.wasOnGround = true;
 
@@ -13693,8 +14098,8 @@ function testRangedShotLaneRevalidatedAtRelease() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 0;
-    state.player.y = 600;
+    state.player.currentTransform.x = 0;
+    state.player.currentTransform.y = 600;
     state.player.onGround = true;
     state.player.wasOnGround = true;
 
@@ -13756,21 +14161,21 @@ function testBombingBatDropsOnlyWithPlausibleClearHit() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
-    state.player.x = 500;
-    state.player.y = 620;
+    state.player.currentTransform.x = 500;
+    state.player.currentTransform.y = 620;
     state.player.onGround = true;
     state.player.wasOnGround = true;
 
     stepMany(state, 45);
     assert.equal(state.projectiles.length, 0, "a bat should not drop a nearly vertical rock when Ignatius is far outside its landing lane");
 
-    state.player.x = 300;
+    state.player.currentTransform.x = 300;
     stepMany(state, 45);
     assert.equal(state.projectiles.length, 0, "a bat should not drop through a platform or other solid obstacle between it and Ignatius");
 
     state.world.solids = state.world.solids.filter((solid) => solid.id !== "drop_blocking_roof");
-    state.player.x = 300;
-    state.player.y = 620;
+    state.player.currentTransform.x = 300;
+    state.player.currentTransform.y = 620;
     state.player.vx = 0;
     state.player.vy = 0;
     state.player.onGround = true;
@@ -13947,6 +14352,10 @@ const tests = [
     ["frame-based animation editor workflow", testFrameBasedAnimationEditorWorkflow],
     ["animation easing modes", testAnimationEasingModes],
     ["state serialization and cloning", testStateSerialization],
+    ["presentation transform migration", testPresentationTransformMigration],
+    ["presentation transform interpolation", testPresentationTransformInterpolation],
+    ["tiled bake profiler diagnostics", testTiledBakeProfilerDiagnostics],
+    ["frame-delivery diagnostics", testFrameDeliveryDiagnostics],
     ["headless stepping and floor collision", testHeadlessSteppingAndFloorCollision],
     ["player follows steep walkable bridge ramps while running", testPlayerFollowsSteepWalkableBridgeRampWhileRunning],
     ["swept support uses up-to-down crossing not colour priority", testSweptSupportUsesUpToDownCrossingNotColourPriority],
@@ -13964,6 +14373,7 @@ const tests = [
     ["standard rocket one-HP secondary splash", testStandardRocketSecondarySplash],
     ["rocket target prioritizes facing direction", testRocketTargetPrefersClosestEnemyInFacingDirection],
     ["rocket target prioritizes line of sight", testRocketTargetPrioritizesLineOfSight],
+    ["homing rockets target only visible enemies", testHomingRocketTargetsVisibleScreenOnly],
     ["rocket trail tracks curved path and persists", testRocketTrailTracksCurvedPathAndPersistsAfterExplosion],
     ["attached boost smoke and visual power", testAttachedRocketSmokeAndVisualPower],
     ["attached smoke down speed tuning", testAttachedSmokeDownSpeedTuning],

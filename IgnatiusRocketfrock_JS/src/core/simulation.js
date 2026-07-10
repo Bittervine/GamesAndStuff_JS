@@ -18,6 +18,19 @@ import {
 } from "../shared/cave-kill-boundary-data.js";
 import { normalizeMovingPlatform } from "../shared/moving-platform-data.js";
 import {
+    createAnimationClock,
+    createTransformTriplet,
+    currentTransformOf,
+    ensureAnimationClock,
+    ensureTransformTriplet,
+    showInterpolatedAnimationClock,
+    showInterpolatedTransform,
+    snapAnimationClock,
+    snapTransformTriplet,
+    snapshotAnimationClock,
+    snapshotTransform
+} from "../shared/presentation-transform-data.js";
+import {
     isSignalEmitterEntity,
     isSignalReceiverEntity,
     normalizeSignalChannel,
@@ -72,6 +85,101 @@ import {
 
 export const FIXED_DT = 1 / 60;
 const AUTOMATIC_STEP_HEIGHT_RATIO = 0.2;
+
+const PRESENTATION_SNAP_DIAGNOSTICS = {
+    sequence: 0,
+    total: 0,
+    lastReason: "",
+    lastSubject: "",
+    lastKind: ""
+};
+
+function recordPresentationSnap(reason, subject, kind) {
+    PRESENTATION_SNAP_DIAGNOSTICS.sequence += 1;
+    PRESENTATION_SNAP_DIAGNOSTICS.total += 1;
+    PRESENTATION_SNAP_DIAGNOSTICS.lastReason = String(reason || "unspecified");
+    PRESENTATION_SNAP_DIAGNOSTICS.lastSubject = String(subject || "subject");
+    PRESENTATION_SNAP_DIAGNOSTICS.lastKind = String(kind || "transform");
+}
+
+export function readPresentationSnapDiagnostics() {
+    return {
+        sequence: PRESENTATION_SNAP_DIAGNOSTICS.sequence,
+        total: PRESENTATION_SNAP_DIAGNOSTICS.total,
+        lastReason: PRESENTATION_SNAP_DIAGNOSTICS.lastReason,
+        lastSubject: PRESENTATION_SNAP_DIAGNOSTICS.lastSubject,
+        lastKind: PRESENTATION_SNAP_DIAGNOSTICS.lastKind
+    };
+}
+
+function visitPresentationSubjects(state, callback) {
+    if (!state || typeof callback !== "function") return;
+    callback(ensureTransformTriplet(state.camera), "camera");
+    callback(ensureTransformTriplet(state.player), "player");
+    callback(ensureTransformTriplet(state.hat), "hat");
+    for (const enemy of state.enemies || []) {
+        ensureAnimationClock(enemy);
+        callback(ensureTransformTriplet(enemy), `enemy:${enemy.id || "unknown"}`);
+    }
+    for (const projectile of state.projectiles || []) {
+        callback(ensureTransformTriplet(projectile), `projectile:${projectile.id || "unknown"}`);
+    }
+    for (const visual of state.world?.visuals || []) {
+        if (visual?.dynamicPosition) {
+            callback(initializeDynamicVisualTransform(visual), `visual:${visual.id || "unknown"}`);
+        }
+    }
+}
+
+export function snapshotSimulationPresentation(state) {
+    visitPresentationSubjects(state, (subject) => {
+        snapshotTransform(subject);
+        snapshotAnimationClock(subject?.animationClock);
+    });
+    return state;
+}
+
+export function preparePresentationFrame(state, blend = 1) {
+    const resolvedBlend = clamp(Number(blend) || 0, 0, 1);
+    visitPresentationSubjects(state, (subject) => {
+        showInterpolatedTransform(subject, resolvedBlend);
+        showInterpolatedAnimationClock(subject?.animationClock, resolvedBlend);
+    });
+    return state;
+}
+
+export function snapPresentationSubject(subject, reason = "unspecified", subjectLabel = "subject") {
+    const transformSnapped = snapTransformTriplet(subject);
+    const animationSnapped = snapAnimationClock(subject?.animationClock);
+    if (transformSnapped || animationSnapped) {
+        recordPresentationSnap(
+            reason,
+            subjectLabel,
+            transformSnapped && animationSnapped ? "transform+animation" : (transformSnapped ? "transform" : "animation")
+        );
+    }
+    return subject;
+}
+
+export function snapPresentationAnimationClock(subject, reason = "animationClock", subjectLabel = "subject") {
+    if (snapAnimationClock(subject?.animationClock)) {
+        recordPresentationSnap(reason, subjectLabel, "animation");
+    }
+    return subject;
+}
+
+export function snapAllPresentationSubjects(state, reason = "allPresentationSubjects") {
+    visitPresentationSubjects(state, (subject, subjectLabel) => snapPresentationSubject(subject, reason, subjectLabel));
+    return state;
+}
+
+function setCurrentUniformScale(subject, scale) {
+    const transform = currentTransformOf(subject);
+    const resolved = Math.max(0.0001, Number(scale) || 1);
+    transform.scaleX = resolved;
+    transform.scaleY = resolved;
+    return resolved;
+}
 
 export function ordinaryJumpVelocity(gravity, jumpHeight) {
     const resolvedGravity = Math.max(1, Number(gravity) || 1);
@@ -336,8 +444,7 @@ export function createInitialGameState(overrides = {}) {
         characterCombatProfiles: {},
         world,
         camera: {
-            x: spawn.x,
-            y: spawn.y - 170,
+            ...createTransformTriplet({ x: spawn.x, y: spawn.y - 170 }),
             zoom: 1,
             mode: "follow",
             viewportWidth: 1280,
@@ -345,8 +452,13 @@ export function createInitialGameState(overrides = {}) {
         },
         player: {
             id: "ignatius",
-            x: (spawn || world.start || { x: 120, y: 600 }).x,
-            y: (spawn || world.start || { x: 120, y: 600 }).y,
+            ...createTransformTriplet({
+                x: (spawn || world.start || { x: 120, y: 600 }).x,
+                y: (spawn || world.start || { x: 120, y: 600 }).y,
+                scaleX: 1,
+                scaleY: 1,
+                alpha: 1
+            }),
             spawnX: spawn.x,
             spawnY: spawn.y,
             vx: 0,
@@ -366,7 +478,6 @@ export function createInitialGameState(overrides = {}) {
             ordinaryJumpApexY: null,
             lowHealthPulse: 0,
             visible: true,
-            renderScale: 1,
             supportId: null,
             dropThroughTimer: 0,
             crushCandidateTicks: 0,
@@ -417,8 +528,7 @@ export function createInitialGameState(overrides = {}) {
         },
         hat: {
             state: "worn",
-            x: spawn.x,
-            y: spawn.y - tuning.playerHeight,
+            ...createTransformTriplet({ x: spawn.x, y: spawn.y - tuning.playerHeight }),
             vx: 0,
             vy: 0
         },
@@ -437,8 +547,8 @@ export function createInitialGameState(overrides = {}) {
             { id: "homing_dot", kind: "debugHomingDot", x: 1800, y: 395, radius: 15, state: "active" }
         ],
         enemies: [
-            { id: "dummy_001", kind: "targetDummy", x: 1750, y: 580, width: 42, height: 80, health: 90, state: "idle" },
-            { id: "dummy_002", kind: "targetDummy", x: 3660, y: 580, width: 42, height: 80, health: 90, state: "idle" }
+            { id: "dummy_001", kind: "targetDummy", ...createTransformTriplet({ x: 1750, y: 580 }), width: 42, height: 80, health: 90, state: "idle" },
+            { id: "dummy_002", kind: "targetDummy", ...createTransformTriplet({ x: 3660, y: 580 }), width: 42, height: 80, health: 90, state: "idle" }
         ],
         pickups: [
             { id: "fuel_001", entityId: "fuel_001", kind: "fuel", pickupKind: "fuel", x: 835, y: 315, radius: 14, amount: 40, collected: false },
@@ -718,7 +828,7 @@ export function snapPlayerStartToNearbyGround(state, maxDistance = null) {
 
     start.y = best.y;
     if (state.player) {
-        state.player.y = best.y;
+        state.player.currentTransform.y = best.y;
         state.player.spawnY = best.y;
         state.player.vy = 0;
         state.player.onGround = true;
@@ -1164,17 +1274,17 @@ function applyEntryDoorAsPlayerStart(state, entryDoor, { resetPlayer = false } =
     };
     state.world.start = start;
     if (resetPlayer && state.player) {
-        state.player.x = start.x;
-        state.player.y = start.y;
+        state.player.currentTransform.x = start.x;
+        state.player.currentTransform.y = start.y;
         state.player.spawnX = start.x;
         state.player.spawnY = start.y;
         state.player.vx = 0;
         state.player.vy = 0;
-        state.player.renderScale = 1;
+        setCurrentUniformScale(state.player, 1);
         state.player.onGround = true;
         state.player.wasOnGround = true;
-        state.camera.x = start.x;
-        state.camera.y = start.y - 170;
+        state.camera.currentTransform.x = start.x;
+        state.camera.currentTransform.y = start.y - 170;
     }
     return true;
 }
@@ -1184,7 +1294,7 @@ function configurePortalIntro(state, entities) {
     if (!portal) {
         state.story.portalIntro = null;
         state.player.visible = true;
-        state.player.renderScale = 1;
+        setCurrentUniformScale(state.player, 1);
         return false;
     }
 
@@ -1214,16 +1324,16 @@ function configurePortalIntro(state, entities) {
     };
     setWorldEntityState(state, portal.id, "closed");
     state.player.visible = false;
-    state.player.renderScale = state.story.portalIntro.insideScale;
-    state.player.x = hiddenX;
-    state.player.y = finalY;
+    setCurrentUniformScale(state.player, state.story.portalIntro.insideScale);
+    state.player.currentTransform.x = hiddenX;
+    state.player.currentTransform.y = finalY;
     state.player.vx = 0;
     state.player.vy = 0;
     state.player.facing = direction;
     state.player.onGround = true;
     state.player.wasOnGround = true;
-    state.camera.x = Number(portal.x) || finalX;
-    state.camera.y = finalY - 170;
+    state.camera.currentTransform.x = Number(portal.x) || finalX;
+    state.camera.currentTransform.y = finalY - 170;
     addEvent(state, "PORTAL_INTRO_STARTED", { portalId: portal.id });
     return true;
 }
@@ -1243,9 +1353,9 @@ function advancePortalIntroPhase(state, intro, phase) {
         setWorldEntityState(state, intro.portalId, "closed");
         intro.active = false;
         state.player.visible = true;
-        state.player.renderScale = 1;
-        state.player.x = intro.finalX;
-        state.player.y = intro.groundY;
+        setCurrentUniformScale(state.player, 1);
+        state.player.currentTransform.x = intro.finalX;
+        state.player.currentTransform.y = intro.groundY;
         state.player.vx = 0;
         state.player.vy = 0;
         state.player.onGround = true;
@@ -1271,37 +1381,37 @@ function updatePortalIntro(state, dt) {
 
     if (intro.phase === "closed") {
         p.visible = false;
-        p.renderScale = intro.insideScale;
-        p.x = intro.hiddenX;
+        setCurrentUniformScale(p, intro.insideScale);
+        p.currentTransform.x = intro.hiddenX;
         p.vx = 0;
         if (intro.phaseTime >= intro.closedDuration) advancePortalIntroPhase(state, intro, "opening");
     } else if (intro.phase === "opening") {
         p.visible = false;
-        p.renderScale = intro.insideScale;
-        p.x = intro.hiddenX;
+        setCurrentUniformScale(p, intro.insideScale);
+        p.currentTransform.x = intro.hiddenX;
         p.vx = 0;
         if (intro.phaseTime >= intro.openDuration) advancePortalIntroPhase(state, intro, "emerging");
     } else if (intro.phase === "emerging") {
         const t = clamp(intro.phaseTime / Math.max(0.001, intro.walkDuration), 0, 1);
         const eased = t * t * (3 - 2 * t);
         p.visible = true;
-        p.renderScale = intro.insideScale + (1 - intro.insideScale) * eased;
-        p.x = intro.hiddenX + (intro.finalX - intro.hiddenX) * eased;
-        p.y = intro.groundY;
+        setCurrentUniformScale(p, intro.insideScale + (1 - intro.insideScale) * eased);
+        p.currentTransform.x = intro.hiddenX + (intro.finalX - intro.hiddenX) * eased;
+        p.currentTransform.y = intro.groundY;
         p.vx = (intro.finalX - intro.hiddenX) / Math.max(0.001, intro.walkDuration);
         if (t >= 1) advancePortalIntroPhase(state, intro, "clear");
     } else if (intro.phase === "clear") {
         p.visible = true;
-        p.renderScale = 1;
-        p.x = intro.finalX;
-        p.y = intro.groundY;
+        setCurrentUniformScale(p, 1);
+        p.currentTransform.x = intro.finalX;
+        p.currentTransform.y = intro.groundY;
         p.vx = 0;
         if (intro.phaseTime >= intro.clearDuration) advancePortalIntroPhase(state, intro, "closing");
     } else if (intro.phase === "closing") {
         p.visible = true;
-        p.renderScale = 1;
-        p.x = intro.finalX;
-        p.y = intro.groundY;
+        setCurrentUniformScale(p, 1);
+        p.currentTransform.x = intro.finalX;
+        p.currentTransform.y = intro.groundY;
         p.vx = 0;
         if (intro.phaseTime >= intro.closeDuration * 0.5 && state.world.entityStates?.[intro.portalId] !== "closed") {
             setWorldEntityState(state, intro.portalId, "closed");
@@ -1310,8 +1420,8 @@ function updatePortalIntro(state, dt) {
         if (intro.phaseTime >= intro.closeDuration) advancePortalIntroPhase(state, intro, "complete");
     }
 
-    state.camera.x += (p.x + 80 * intro.direction - state.camera.x) * Math.min(1, dt * 5);
-    state.camera.y += (p.y - 170 - state.camera.y) * Math.min(1, dt * 5);
+    state.camera.currentTransform.x += (p.currentTransform.x + 80 * intro.direction - state.camera.currentTransform.x) * Math.min(1, dt * 5);
+    state.camera.currentTransform.y += (p.currentTransform.y - 170 - state.camera.currentTransform.y) * Math.min(1, dt * 5);
     return true;
 }
 
@@ -1339,7 +1449,7 @@ function configurePortalExit(state, entities) {
         requestedLevelId: requestedDestination || defaultNextLevelId(state.world.levelId),
         approachX: null,
         hiddenX: Number(portal.x || 0) + direction * Math.max(10, Number(portal.w || 150) * 0.10),
-        groundY: Number(portal.y) || state.player.y
+        groundY: Number(portal.y) || state.player.currentTransform.y
     };
     setWorldEntityState(state, portal.id, "closed");
     return true;
@@ -1349,12 +1459,12 @@ function startPortalExit(state, exit) {
     exit.active = true;
     exit.phase = "opening";
     exit.phaseTime = 0;
-    exit.approachX = state.player.x;
-    exit.groundY = Number(worldEntityById(state, exit.portalId)?.y) || state.player.y;
+    exit.approachX = state.player.currentTransform.x;
+    exit.groundY = Number(worldEntityById(state, exit.portalId)?.y) || state.player.currentTransform.y;
     setWorldEntityState(state, exit.portalId, "open");
     state.player.vx = 0;
     state.player.vy = 0;
-    state.player.renderScale = 1;
+    setCurrentUniformScale(state.player, 1);
     addEvent(state, "PORTAL_EXIT_OPENED", { portalId: exit.portalId, destinationLevel: exit.requestedLevelId });
 }
 
@@ -1373,8 +1483,8 @@ function updatePortalExit(state, dt) {
             return false;
         }
         exit.lockedByBoss = false;
-        const horizontalDistance = Math.abs(state.player.x - Number(portal.x || 0));
-        const verticalDistance = Math.abs(state.player.y - Number(portal.y || 0));
+        const horizontalDistance = Math.abs(state.player.currentTransform.x - Number(portal.x || 0));
+        const verticalDistance = Math.abs(state.player.currentTransform.y - Number(portal.y || 0));
         if (horizontalDistance > exit.triggerDistance || verticalDistance > exit.verticalTolerance) return false;
         startPortalExit(state, exit);
     }
@@ -1390,7 +1500,7 @@ function updatePortalExit(state, dt) {
 
     if (exit.phase === "opening") {
         p.vx = 0;
-        p.renderScale = 1;
+        setCurrentUniformScale(p, 1);
         if (exit.phaseTime >= exit.openDuration) {
             exit.phase = "entering";
             exit.phaseTime = 0;
@@ -1401,9 +1511,9 @@ function updatePortalExit(state, dt) {
         const t = clamp(exit.phaseTime / Math.max(0.001, exit.walkDuration), 0, 1);
         const eased = t * t * (3 - 2 * t);
         p.visible = true;
-        p.renderScale = 1 + (exit.insideScale - 1) * eased;
-        p.x = exit.approachX + (exit.hiddenX - exit.approachX) * eased;
-        p.y = exit.groundY;
+        setCurrentUniformScale(p, 1 + (exit.insideScale - 1) * eased);
+        p.currentTransform.x = exit.approachX + (exit.hiddenX - exit.approachX) * eased;
+        p.currentTransform.y = exit.groundY;
         p.vx = (exit.hiddenX - exit.approachX) / Math.max(0.001, exit.walkDuration);
         if (t >= 1) {
             p.visible = false;
@@ -1413,9 +1523,9 @@ function updatePortalExit(state, dt) {
         }
     } else if (exit.phase === "closing") {
         p.visible = false;
-        p.renderScale = exit.insideScale;
-        p.x = exit.hiddenX;
-        p.y = exit.groundY;
+        setCurrentUniformScale(p, exit.insideScale);
+        p.currentTransform.x = exit.hiddenX;
+        p.currentTransform.y = exit.groundY;
         p.vx = 0;
         if (exit.phaseTime >= exit.closeDuration * 0.5 && state.world.entityStates?.[exit.portalId] !== "closed") {
             setWorldEntityState(state, exit.portalId, "closed");
@@ -1423,7 +1533,7 @@ function updatePortalExit(state, dt) {
         if (exit.phaseTime >= exit.closeDuration) {
             exit.phase = "awaitingLevel";
             exit.completed = true;
-            p.renderScale = 1;
+            setCurrentUniformScale(p, 1);
             state.story.levelTransitionRequest = {
                 portalId: exit.portalId,
                 requestedLevelId: exit.requestedLevelId,
@@ -1433,8 +1543,8 @@ function updatePortalExit(state, dt) {
         }
     }
 
-    state.camera.x += (Number(portal.x) - state.camera.x) * Math.min(1, dt * 5);
-    state.camera.y += (exit.groundY - 170 - state.camera.y) * Math.min(1, dt * 5);
+    state.camera.currentTransform.x += (Number(portal.x) - state.camera.currentTransform.x) * Math.min(1, dt * 5);
+    state.camera.currentTransform.y += (exit.groundY - 170 - state.camera.currentTransform.y) * Math.min(1, dt * 5);
     return true;
 }
 
@@ -1542,8 +1652,8 @@ function updateMailboxStory(state, input, dt) {
             if (candidate.completed || candidate.active) continue;
             const mailbox = worldEntityById(state, candidate.mailboxId);
             if (!mailbox) continue;
-            const horizontalDistance = Math.abs(state.player.x - (Number(mailbox.x) || 0));
-            const verticalDistance = Math.abs(state.player.y - (Number(mailbox.y) || 0));
+            const horizontalDistance = Math.abs(state.player.currentTransform.x - (Number(mailbox.x) || 0));
+            const verticalDistance = Math.abs(state.player.currentTransform.y - (Number(mailbox.y) || 0));
             if (horizontalDistance <= candidate.triggerDistance && verticalDistance <= candidate.verticalTolerance) {
                 story = candidate;
                 startMailboxStory(state, story);
@@ -1580,10 +1690,10 @@ function updateMailboxStory(state, input, dt) {
     }
 
     const focusX = story.phase === "thought"
-        ? p.x + 165
-        : (p.x + (Number(mailbox.x) || p.x)) * 0.5;
-    state.camera.x += (focusX - state.camera.x) * Math.min(1, dt * 5);
-    state.camera.y += (p.y - 170 - state.camera.y) * Math.min(1, dt * 5);
+        ? p.currentTransform.x + 165
+        : (p.currentTransform.x + (Number(mailbox.x) || p.currentTransform.x)) * 0.5;
+    state.camera.currentTransform.x += (focusX - state.camera.currentTransform.x) * Math.min(1, dt * 5);
+    state.camera.currentTransform.y += (p.currentTransform.y - 170 - state.camera.currentTransform.y) * Math.min(1, dt * 5);
     return true;
 }
 
@@ -1875,14 +1985,14 @@ function updatePickupRespawns(state, dt) {
 }
 
 function updatePickups(state) {
-    const playerCenterY = state.player.y - state.player.height * 0.5;
+    const playerCenterY = state.player.currentTransform.y - state.player.height * 0.5;
     for (const pickup of state.pickups || []) {
         if (pickup.collected) continue;
         const pickupCenterY = Number.isFinite(Number(pickup.centerY))
             ? Number(pickup.centerY)
             : (Number(pickup.y) || 0) - (Number(pickup.height) || 0) * 0.5;
         const reach = Math.max(1, Number(pickup.radius) || 14) + state.player.width * 0.45;
-        if (Math.hypot(state.player.x - pickup.x, playerCenterY - pickupCenterY) > reach) continue;
+        if (Math.hypot(state.player.currentTransform.x - pickup.x, playerCenterY - pickupCenterY) > reach) continue;
 
         pickup.collected = true;
         pickup.respawnTimer = Math.max(0, Number(pickup.respawnSeconds) || 0);
@@ -2015,12 +2125,12 @@ function updateTreasureChests(state, dt) {
 
 function nearestSignalEmitter(state) {
     let nearest = null;
-    const playerCenterY = state.player.y - state.player.height * 0.5;
+    const playerCenterY = state.player.currentTransform.y - state.player.height * 0.5;
     for (const emitter of state.world?.signalEmitters || []) {
         const entity = worldEntityById(state, emitter.id);
         if (!entity) continue;
         const entityCenterY = (Number(entity.y) || 0) - (Number(entity.h) || 80) * 0.5;
-        const distance = Math.hypot(state.player.x - (Number(entity.x) || 0), playerCenterY - entityCenterY);
+        const distance = Math.hypot(state.player.currentTransform.x - (Number(entity.x) || 0), playerCenterY - entityCenterY);
         if (distance > emitter.triggerDistance) continue;
         if (!nearest || distance < nearest.distance) nearest = { emitter, entity, distance };
     }
@@ -2075,6 +2185,26 @@ function updateSignalEmitters(state, input) {
     return true;
 }
 
+
+function initializeDynamicVisualTransform(visual) {
+    if (!visual?.dynamicPosition || visual.currentTransform) return visual;
+    Object.assign(visual, createTransformTriplet({
+        x: Number(visual.x) || 0,
+        y: Number(visual.y) || 0,
+        angle: normalizeRotationRadians(visual.rotation),
+        alpha: Number.isFinite(Number(visual.alpha)) ? Number(visual.alpha) : 1
+    }));
+    delete visual.x;
+    delete visual.y;
+    delete visual.rotation;
+    delete visual.alpha;
+    return visual;
+}
+
+function initializeDynamicVisualTransforms(visuals = []) {
+    for (const visual of visuals) initializeDynamicVisualTransform(visual);
+    return visuals;
+}
 
 function createMovingPlatformRuntimes(visuals = []) {
     return visuals
@@ -2203,8 +2333,9 @@ function setMovingPlatformPosition(state, platform, x, y) {
     if (!visual) {
         return { dx: 0, dy: 0 };
     }
-    const previousX = Number(visual.x) || 0;
-    const previousY = Number(visual.y) || 0;
+    const visualTransform = currentTransformOf(visual);
+    const previousX = Number(visualTransform.x) || 0;
+    const previousY = Number(visualTransform.y) || 0;
     const nextX = Number(x) || 0;
     const nextY = Number(y) || 0;
     const dx = nextX - previousX;
@@ -2223,18 +2354,18 @@ function setMovingPlatformPosition(state, platform, x, y) {
             movingPlatformOwnsCollisionId(platform, enemy.supportId)
         ))
         : [];
-    visual.x = nextX;
-    visual.y = nextY;
+    visualTransform.x = nextX;
+    visualTransform.y = nextY;
     platform.lastDeltaX = (Number(platform.lastDeltaX) || 0) + dx;
     platform.lastDeltaY = (Number(platform.lastDeltaY) || 0) + dy;
     translateMovingPlatformGeometry(platform, dx, dy);
     if (carryingPlayer) {
-        state.player.x += dx;
-        state.player.y += dy;
+        state.player.currentTransform.x += dx;
+        state.player.currentTransform.y += dy;
     }
     for (const enemy of carryingEnemies) {
-        enemy.x += dx;
-        enemy.y += dy;
+        enemy.currentTransform.x += dx;
+        enemy.currentTransform.y += dy;
         enemy.ridingPlatformId = platform.id;
         syncCharacterEnemyTarget(state, enemy);
     }
@@ -2245,7 +2376,7 @@ function setMovingPlatformOpacity(state, platform, opacity) {
     const visual = movingPlatformVisual(state, platform);
     platform.opacity = clamp(Number(opacity) || 0, 0, 1);
     if (visual) {
-        visual.alpha = platform.baseAlpha * platform.opacity;
+        currentTransformOf(visual).alpha = platform.baseAlpha * platform.opacity;
     }
 }
 
@@ -2326,8 +2457,9 @@ function movePlatformToward(state, platform, targetX, targetY, dt) {
     if (!visual) {
         return true;
     }
-    const dx = targetX - visual.x;
-    const dy = targetY - visual.y;
+    const visualTransform = currentTransformOf(visual);
+    const dx = targetX - visualTransform.x;
+    const dy = targetY - visualTransform.y;
     const distance = Math.hypot(dx, dy);
     if (distance <= 0.0001) {
         setMovingPlatformPosition(state, platform, targetX, targetY);
@@ -2335,7 +2467,7 @@ function movePlatformToward(state, platform, targetX, targetY, dt) {
     }
     const travel = Math.min(distance, platform.movement.speed * Math.max(0, dt));
     const scale = travel / distance;
-    setMovingPlatformPosition(state, platform, visual.x + dx * scale, visual.y + dy * scale);
+    setMovingPlatformPosition(state, platform, visualTransform.x + dx * scale, visualTransform.y + dy * scale);
     return travel >= distance - 0.0001;
 }
 
@@ -2567,6 +2699,8 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
     const tuningBaseMaxHealth = Math.max(0, finiteNumberOr(entity.health, 90));
     const tuningHealthScaleApplied = characterEnemyHealthScale({ attackMode }, state.tuning);
     const health = tuningBaseMaxHealth * tuningHealthScaleApplied;
+    const renderScale = scaledEnemyRenderScale(entity, 1);
+    const animationTime = Number.isFinite(Number(entity.animationTime)) ? Number(entity.animationTime) : 0;
     return {
         id: entity.id || `characterEnemy_${index + 1}`,
         kind: "characterEnemy",
@@ -2578,8 +2712,8 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         enemyDefinitionId: entity.enemyDefinitionId ? String(entity.enemyDefinitionId) : null,
         enemySpawnerId: entity.enemySpawnerId ? String(entity.enemySpawnerId) : null,
         characterId: String(entity.characterId || entity.characterProject || "ct_char_enemy_001"),
-        x,
-        y,
+        ...createTransformTriplet({ x, y, scaleX: renderScale, scaleY: renderScale, alpha: 1 }),
+        animationClock: createAnimationClock(animationTime),
         spawnX: x,
         spawnY: y,
         width,
@@ -2592,7 +2726,6 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         combatState: health > 0 ? "alive" : "dead",
         state: health > 0 ? "idle" : "death",
         animationSlot: health > 0 ? "idle" : "death",
-        animationTime: Number.isFinite(Number(entity.animationTime)) ? Number(entity.animationTime) : 0,
         animationTimeOffset: Number(entity.animationTimeOffset) || 0,
         facing,
         strategy,
@@ -2729,13 +2862,11 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         deathElapsed: 0,
         corpseHoldDuration: Math.max(0, finiteNumberOr(entity.corpseHoldDuration, state.tuning.enemyCorpseHoldSeconds)),
         corpseFadeDuration: Math.max(0, finiteNumberOr(entity.corpseFadeDuration, state.tuning.enemyCorpseFadeSeconds)),
-        renderOpacity: 1,
         hitFlashTimer: 0,
         hitFlashDuration: state.tuning.enemyHitFlashSeconds,
         healthBarTimer: 0,
         lastDamagedAt: null,
         lastHitBy: null,
-        renderScale: scaledEnemyRenderScale(entity, 1),
         renderOffsetX: (Number(entity.renderOffsetX) || 0) * enemyScale,
         renderOffsetY: (Number(entity.renderOffsetY) || 0) * enemyScale,
         visualized: false,
@@ -2940,6 +3071,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         navigationBlockers: deepClone(source.navigationBlockers || []),
         playerStartGroundSnapResolved: false
     };
+    initializeDynamicVisualTransforms(state.world.visuals);
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
@@ -2947,18 +3079,18 @@ export function applyEditorLevelToWorld(state, editorLevel) {
     state.story.levelTransitionRequest = null;
 
     if (playerStart) {
-        state.player.x = state.world.start.x;
-        state.player.y = state.world.start.y;
+        state.player.currentTransform.x = state.world.start.x;
+        state.player.currentTransform.y = state.world.start.y;
         state.player.spawnX = state.world.start.x;
         state.player.spawnY = state.world.start.y;
         state.player.vx = 0;
         state.player.vy = 0;
-        state.player.renderScale = 1;
+        setCurrentUniformScale(state.player, 1);
         state.player.onGround = false;
         state.player.wasOnGround = false;
         state.player.airBoostArmed = false;
-        state.camera.x = state.player.x;
-        state.camera.y = state.player.y - 170;
+        state.camera.currentTransform.x = state.player.currentTransform.x;
+        state.camera.currentTransform.y = state.player.currentTransform.y - 170;
     }
 
     configurePortalIntro(state, runtimeEntities);
@@ -2980,8 +3112,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         return {
             id: entity.id || `targetDummy_${index + 1}`,
             kind: "targetDummy",
-            x,
-            y,
+            ...createTransformTriplet({ x, y }),
             width,
             height,
             health,
@@ -3157,10 +3288,11 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         state: enemy.health > 0 ? "active" : "inactive",
         showMarker: enemy.showTargetMarker
     })) : [
-        { id: "homing_dot", kind: "debugHomingDot", x: state.player.x + 520, y: state.player.y - 160, radius: 15, state: "active", showMarker: true }
+        { id: "homing_dot", kind: "debugHomingDot", x: state.player.currentTransform.x + 520, y: state.player.currentTransform.y - 160, radius: 15, state: "active", showMarker: true }
     ];
 
     state.story.levelTitle = source.title || source.levelTitle || "Ignatius Rocketfrock and the Loaded Level of Reasonable Expectations";
+    snapAllPresentationSubjects(state, "editorLevelApplied");
     addEvent(state, "EDITOR_LEVEL_APPLIED", { placements: visuals.length, entities: entities.length });
     return true;
 }
@@ -3222,10 +3354,10 @@ function estimateEditorLevelBounds(visuals, playerStart, entities) {
     if (playerStart) points.push({ x: Number(playerStart.x) || 0, y: Number(playerStart.y) || 0 });
     for (const entity of entities) points.push({ x: Number(entity.x) || 0, y: Number(entity.y) || 0 });
     if (!points.length) return { x: -320, y: -460, w: 5200, h: 1500 };
-    const minX = Math.min(...points.map((p) => p.x));
-    const minY = Math.min(...points.map((p) => p.y));
-    const maxX = Math.max(...points.map((p) => p.x));
-    const maxY = Math.max(...points.map((p) => p.y));
+    const minX = Math.min(...points.map((point) => point.x));
+    const minY = Math.min(...points.map((point) => point.y));
+    const maxX = Math.max(...points.map((point) => point.x));
+    const maxY = Math.max(...points.map((point) => point.y));
     return {
         x: Math.floor(minX - 520),
         y: Math.floor(minY - 520),
@@ -3264,8 +3396,8 @@ export function addEvent(state, type, detail = {}) {
 export function getPlayerRect(state) {
     const p = state.player;
     return {
-        x: p.x - p.width / 2,
-        y: p.y - p.height,
+        x: p.currentTransform.x - p.width / 2,
+        y: p.currentTransform.y - p.height,
         w: p.width,
         h: p.height
     };
@@ -3374,8 +3506,8 @@ function cameraVisibleWorldRect(state) {
     const width = Math.max(1, Number(camera.viewportWidth) || 1280);
     const height = Math.max(1, Number(camera.viewportHeight) || 720);
     return {
-        x: (Number(camera.x) || Number(state.player?.x) || 0) - width * 0.5,
-        y: (Number(camera.y) || Number(state.player?.y) || 0) - height * 0.56,
+        x: (Number(camera.currentTransform.x) || Number(state.player?.currentTransform.x) || 0) - width * 0.5,
+        y: (Number(camera.currentTransform.y) || Number(state.player?.currentTransform.y) || 0) - height * 0.56,
         w: width,
         h: height
     };
@@ -3393,7 +3525,7 @@ function enemySpawnerOnScreen(state, spawner) {
 }
 
 function expectedAutoSpawnDirection(state) {
-    const playerX = Number(state.player?.x) || 0;
+    const playerX = Number(state.player?.currentTransform.x) || 0;
     const entities = state.world?.entities || [];
     const exitDoor = wizardExitDoorEntity(entities);
     const exitDx = Number(exitDoor?.x) - playerX;
@@ -3409,7 +3541,7 @@ function autoSpawnBand(state, direction, enemyWidth, distanceUnit) {
     const zoom = Math.max(0.1, Number(camera.zoom) || 1);
     const viewportWidth = Math.max(320, Number(camera.viewportWidth) || 1280 / zoom);
     const halfWidth = viewportWidth * 0.5;
-    const edgeX = (Number(camera.x) || Number(state.player?.x) || 0) + direction * halfWidth;
+    const edgeX = (Number(camera.currentTransform.x) || Number(state.player?.currentTransform.x) || 0) + direction * halfWidth;
     const bodyInset = Math.max(4, Math.max(1, Number(enemyWidth) || 1) * 0.52);
     const nearDistance = viewportWidth * 0.1;
     const farDistance = viewportWidth;
@@ -3448,7 +3580,7 @@ function autoSpawnGroundPosition(state, enemy, band) {
             Math.abs((Number(other.y) || 0) - point.y) < Math.max(enemy.height, Number(other.height) || 1)
         );
         if (overlapsEnemy) continue;
-        const score = Math.abs(x - band.desiredX) + Math.abs(point.y - (Number(state.player?.y) || point.y)) * 0.08;
+        const score = Math.abs(x - band.desiredX) + Math.abs(point.y - (Number(state.player?.currentTransform.y) || point.y)) * 0.08;
         if (!best || score < best.score) best = { x, y: point.y, support, score };
     }
     return best;
@@ -3464,7 +3596,7 @@ function autoSpawnFlyingPosition(state, enemy, band, verticalUnit) {
     const camera = state.camera || {};
     const zoom = Math.max(0.1, Number(camera.zoom) || 1);
     const viewportHeight = Math.max(240, Number(camera.viewportHeight) || 720 / zoom);
-    const top = (Number(camera.y) || Number(state.player?.y) || 0) - viewportHeight * 0.5;
+    const top = (Number(camera.currentTransform.y) || Number(state.player?.currentTransform.y) || 0) - viewportHeight * 0.5;
     const bottom = top + viewportHeight;
     const y = clamp(
         top + viewportHeight * (0.25 + clamp(Number(verticalUnit) || 0, 0, 1) * 0.42),
@@ -3490,18 +3622,18 @@ function autoSpawnTargetForEnemy(enemy) {
 
 function activateSpawnedEnemy(state, enemy, position, { flash = false } = {}) {
     const flying = String(enemy.locomotion || "").trim().toLowerCase() === "flying";
-    enemy.x = position.x;
-    enemy.y = position.y;
+    enemy.currentTransform.x = position.x;
+    enemy.currentTransform.y = position.y;
     enemy.spawnX = position.x;
     enemy.spawnY = position.y;
-    enemy.targetX = enemy.x - enemy.width * 0.5 + enemy.targetAnchorX * enemy.width;
-    enemy.targetY = enemy.y - enemy.height + enemy.targetAnchorY * enemy.height;
-    enemy.facing = (Number(state.player?.x) || 0) < enemy.x ? -1 : 1;
+    enemy.targetX = enemy.currentTransform.x - enemy.width * 0.5 + enemy.targetAnchorX * enemy.width;
+    enemy.targetY = enemy.currentTransform.y - enemy.height + enemy.targetAnchorY * enemy.height;
+    enemy.facing = (Number(state.player?.currentTransform.x) || 0) < enemy.currentTransform.x ? -1 : 1;
     enemy.awarenessTimer = Math.max(2, Number(enemy.awarenessHoldDuration) || 0);
     enemy.alerted = true;
     enemy.engaged = true;
-    enemy.lastSeenPlayerX = Number(state.player?.x) || 0;
-    enemy.lastSeenPlayerY = Number(state.player?.y) || 0;
+    enemy.lastSeenPlayerX = Number(state.player?.currentTransform.x) || 0;
+    enemy.lastSeenPlayerY = Number(state.player?.currentTransform.y) || 0;
     enemy.lastSeenAt = Number(state.clock?.time) || 0;
     enemy.routeRepathTimer = 0;
     if (flying) {
@@ -3550,8 +3682,8 @@ function spawnPositionOverlapsActor(state, enemy, x, y) {
 }
 
 function emitEnemySpawnerFlash(state, enemy) {
-    const centerX = Number(enemy.x) || 0;
-    const centerY = (Number(enemy.y) || 0) - Math.max(16, Number(enemy.height) || 80) * 0.48;
+    const centerX = Number(enemy.currentTransform.x) || 0;
+    const centerY = (Number(enemy.currentTransform.y) || 0) - Math.max(16, Number(enemy.height) || 80) * 0.48;
     const baseRadius = Math.max(22, Math.min(54, Math.max(Number(enemy.width) || 0, Number(enemy.height) || 0) * 0.34));
     addSmokePuff(state, {
         kind: "enemyTeleportFlash",
@@ -3599,8 +3731,8 @@ function spawnAutomaticEnemy(state, runtimeConfig) {
     const id = `auto_spawn_enemy_${String(spawnIndex).padStart(4, "0")}`;
     const preliminaryEntity = enemyEntityFromDefinition(state.enemyCatalog, enemyDefinitionId, {
         id,
-        x: Number(state.player?.x) || 0,
-        y: Number(state.player?.y) || 0,
+        x: Number(state.player?.currentTransform.x) || 0,
+        y: Number(state.player?.currentTransform.y) || 0,
         autoSpawned: true,
         enemyDefinitionId
     });
@@ -3631,9 +3763,9 @@ function spawnAutomaticEnemy(state, runtimeConfig) {
         enemyId: enemy.id,
         enemyDefinitionId,
         direction,
-        x: round(enemy.x),
-        y: round(enemy.y),
-        distanceBeyondScreen: round(Math.max(0, Math.abs(enemy.x - band.edgeX) - enemy.width * 0.5))
+        x: round(enemy.currentTransform.x),
+        y: round(enemy.currentTransform.y),
+        distanceBeyondScreen: round(Math.max(0, Math.abs(enemy.currentTransform.x - band.edgeX) - enemy.width * 0.5))
     });
     return enemy;
 }
@@ -3719,8 +3851,8 @@ function spawnEnemyFromSpawner(state, spawner) {
         spawnerId: spawner.id,
         enemyId: enemy.id,
         enemyDefinitionId,
-        x: round(enemy.x),
-        y: round(enemy.y)
+        x: round(enemy.currentTransform.x),
+        y: round(enemy.currentTransform.y)
     });
     return enemy;
 }
@@ -3780,7 +3912,7 @@ function updateAutomaticEnemySpawning(state, dt) {
 
 function pruneFinishedAutomaticEnemies(state) {
     const removedIds = new Set((state.enemies || [])
-        .filter((enemy) => enemy?.autoSpawned === true && Number(enemy.health) <= 0 && Number(enemy.renderOpacity) <= 0)
+        .filter((enemy) => enemy?.autoSpawned === true && Number(enemy.health) <= 0 && Number(enemy.currentTransform.alpha) <= 0)
         .map((enemy) => enemy.id));
     if (!removedIds.size) return;
     state.enemies = (state.enemies || []).filter((enemy) => !removedIds.has(enemy.id));
@@ -3804,8 +3936,8 @@ function snapCharacterEnemiesToNearbyGround(state) {
         }
         const support = findCharacterEnemyGroundSupport(
             state,
-            enemy.x,
-            enemy.y,
+            enemy.currentTransform.x,
+            enemy.currentTransform.y,
             enemy.groundSnapDistance,
             enemy.groundSnapDistance,
             enemy.width
@@ -3813,8 +3945,8 @@ function snapCharacterEnemiesToNearbyGround(state) {
         if (!support) {
             continue;
         }
-        const fromY = enemy.y;
-        enemy.y = support.y;
+        const fromY = enemy.currentTransform.y;
+        enemy.currentTransform.y = support.y;
         enemy.spawnY = support.y;
         setCharacterEnemyGroundSupportIdentity(state, enemy, support);
         syncCharacterEnemyTarget(state, enemy);
@@ -3905,15 +4037,16 @@ function setCharacterEnemyAnimation(enemy, slot) {
     if (enemy.animationSlot !== normalized) {
         enemy.animationSlot = normalized;
         enemy.state = normalized;
-        enemy.animationTime = 0;
+        enemy.animationClock.current = 0;
+        snapPresentationAnimationClock(enemy, "animationSlotChanged", `enemy:${enemy.id || "unknown"}`);
     }
 }
 
 function syncCharacterEnemyTarget(state, enemy) {
     const anchorX = clamp(Number(enemy.targetAnchorX ?? 0.5), 0, 1);
     const anchorY = clamp(Number(enemy.targetAnchorY ?? 0.42), 0, 1);
-    enemy.targetX = enemy.x - enemy.width * 0.5 + anchorX * enemy.width;
-    enemy.targetY = enemy.y - enemy.height + anchorY * enemy.height;
+    enemy.targetX = enemy.currentTransform.x - enemy.width * 0.5 + anchorX * enemy.width;
+    enemy.targetY = enemy.currentTransform.y - enemy.height + anchorY * enemy.height;
     const target = (state.targets || []).find((item) => item.enemyId === enemy.id);
     if (target) {
         target.x = enemy.targetX;
@@ -3990,12 +4123,12 @@ function pauseAndTurnCharacterEnemy(enemy) {
 function characterEnemyAttackBlockedByTerrain(state, enemy) {
     const player = state.player;
     const start = {
-        x: enemy.x,
-        y: enemy.y - enemy.height * 0.5
+        x: enemy.currentTransform.x,
+        y: enemy.currentTransform.y - enemy.height * 0.5
     };
     const end = {
-        x: player.x,
-        y: player.y - player.height * 0.5
+        x: player.currentTransform.x,
+        y: player.currentTransform.y - player.height * 0.5
     };
 
     const terrainQueryBounds = {
@@ -4057,11 +4190,11 @@ function characterEnemyCanUseProjectile(state, enemy) {
     if (!characterEnemyCanNoticePlayer(state, enemy)) {
         return false;
     }
-    const horizontalDistance = Math.abs(player.x - enemy.x);
+    const horizontalDistance = Math.abs(player.currentTransform.x - enemy.currentTransform.x);
     if (horizontalDistance < Math.max(0, Number(enemy.preferredAttackMinRange) || 0)) {
         return false;
     }
-    return characterEnemyProjectilePathClearFromPoint(state, enemy, { x: enemy.x, y: enemy.y });
+    return characterEnemyProjectilePathClearFromPoint(state, enemy, { x: enemy.currentTransform.x, y: enemy.currentTransform.y });
 }
 
 function enemyProjectileSpawnPointAt(enemy, x, y, facing = enemy.facing) {
@@ -4071,7 +4204,7 @@ function enemyProjectileSpawnPointAt(enemy, x, y, facing = enemy.facing) {
     const localY = Number(enemy.projectileOriginLocalY);
     const direction = Number(facing) < 0 ? -1 : 1;
     if (hasAuthoredOrigin && Number.isFinite(localX) && Number.isFinite(localY)) {
-        const authoredScale = Math.max(0.0001, Number(enemy.projectileRigScale) || 1) * Math.max(0.05, Number(enemy.renderScale) || 1);
+        const authoredScale = Math.max(0.0001, Number(enemy.projectileRigScale) || 1) * Math.max(0.05, Number(enemy.currentTransform.scaleX) || 1);
         return {
             x: x + localX * authoredScale * direction,
             y: y + localY * authoredScale
@@ -4084,7 +4217,7 @@ function enemyProjectileSpawnPointAt(enemy, x, y, facing = enemy.facing) {
 }
 
 function enemyProjectileSpawnPoint(enemy) {
-    return enemyProjectileSpawnPointAt(enemy, enemy.x, enemy.y, enemy.facing);
+    return enemyProjectileSpawnPointAt(enemy, enemy.currentTransform.x, enemy.currentTransform.y, enemy.facing);
 }
 
 function solveBallisticLaunchVelocity(origin, target, launchSpeed, gravity) {
@@ -4161,7 +4294,7 @@ function characterEnemyStraightProjectileCanHitPlayer(state, enemy, origin, base
 
 function characterEnemyProjectilePathClearFromPoint(state, enemy, point) {
     const player = state.player;
-    const facing = player.x < point.x ? -1 : 1;
+    const facing = player.currentTransform.x < point.x ? -1 : 1;
     const launchType = String(enemy.projectileLaunchType || (enemy.projectileKind === "musketBall" ? "ballistic" : "homing_lo"));
     const origin = launchType === "drop"
         ? {
@@ -4170,8 +4303,8 @@ function characterEnemyProjectilePathClearFromPoint(state, enemy, point) {
         }
         : enemyProjectileSpawnPointAt(enemy, point.x, point.y, facing);
     const target = {
-        x: player.x,
-        y: player.y - player.height * 0.56
+        x: player.currentTransform.x,
+        y: player.currentTransform.y - player.height * 0.56
     };
     const radius = Math.max(1, Number(enemy.projectileRadius) || 1);
     const lifetime = Math.max(FIXED_DT, Number(enemy.projectileLifetime) || 1);
@@ -4191,7 +4324,7 @@ function characterEnemyProjectilePathClearFromPoint(state, enemy, point) {
         const initialVx = finiteNumberOr(enemy.velocityX, 0) * 0.18;
         const impactX = origin.x + initialVx * flightTime;
         const hitAllowance = Math.max(4, player.width * 0.5 + radius);
-        if (Math.abs(impactX - player.x) > hitAllowance) {
+        if (Math.abs(impactX - player.currentTransform.x) > hitAllowance) {
             return false;
         }
         const sampleCount = Math.max(8, Math.min(80, Math.ceil(verticalDistance / 18)));
@@ -4261,8 +4394,8 @@ function characterEnemyProjectilePathClearFromPoint(state, enemy, point) {
 }
 
 function addPathingAvoidanceFromPoint(projectile, point, clearance, accumulator) {
-    const dx = projectile.x - point.x;
-    const dy = projectile.y - point.y;
+    const dx = projectile.currentTransform.x - point.x;
+    const dy = projectile.currentTransform.y - point.y;
     const distance = Math.hypot(dx, dy);
     const limit = clearance + Math.max(0, Number(projectile.radius) || 0);
     if (distance > limit) {
@@ -4288,13 +4421,13 @@ function addPathingAvoidanceFromPoint(projectile, point, clearance, accumulator)
 function pathingProjectileDesiredDirection(state, projectile, target) {
     const currentSpeed = Math.hypot(Number(projectile.vx) || 0, Number(projectile.vy) || 0) || Math.max(1, Number(projectile.projectileSpeed) || 1);
     const currentDir = normalizeVector({ x: Number(projectile.vx) || 0, y: Number(projectile.vy) || 0 });
-    const targetDir = normalizeVector({ x: target.x - projectile.x, y: target.y - projectile.y });
+    const targetDir = normalizeVector({ x: target.x - projectile.currentTransform.x, y: target.y - projectile.currentTransform.y });
     const clearance = Math.max(Math.max(0, Number(projectile.pathMargin) || 0), Math.max(10, Number(projectile.radius) || 0) + 4);
     const queryBounds = {
-        minX: projectile.x - clearance,
-        minY: projectile.y - clearance,
-        maxX: projectile.x + clearance,
-        maxY: projectile.y + clearance
+        minX: projectile.currentTransform.x - clearance,
+        minY: projectile.currentTransform.y - clearance,
+        maxX: projectile.currentTransform.x + clearance,
+        maxY: projectile.currentTransform.y + clearance
     };
     const avoidance = { x: 0, y: 0 };
 
@@ -4325,11 +4458,11 @@ function pathingProjectileDesiredDirection(state, projectile, target) {
 
     const lookahead = Math.max(clearance * 1.35, currentSpeed * 0.9);
     const forward = {
-        x: projectile.x + currentDir.x * lookahead,
-        y: projectile.y + currentDir.y * lookahead,
+        x: projectile.currentTransform.x + currentDir.x * lookahead,
+        y: projectile.currentTransform.y + currentDir.y * lookahead,
         radius: Math.max(1, Number(projectile.radius) || 1) + clearance * 0.55
     };
-    const forwardImpact = findProjectileTerrainImpact(state, forward, projectile.x, projectile.y, { includeReactiveObjects: true });
+    const forwardImpact = findProjectileTerrainImpact(state, forward, projectile.currentTransform.x, projectile.currentTransform.y, { includeReactiveObjects: true });
     if (forwardImpact) {
         addPathingAvoidanceFromPoint(projectile, { x: forwardImpact.x, y: forwardImpact.y }, clearance * 1.1, avoidance);
     }
@@ -4348,13 +4481,13 @@ function launchCharacterEnemyProjectile(state, enemy, angleOffset = 0, volley = 
     const player = state.player;
     const origin = String(enemy.projectileLaunchType || "") === "drop"
         ? {
-            x: enemy.x,
-            y: enemy.y + Math.max(4, enemy.height * 0.48)
+            x: enemy.currentTransform.x,
+            y: enemy.currentTransform.y + Math.max(4, enemy.height * 0.48)
         }
         : enemyProjectileSpawnPoint(enemy);
     const target = {
-        x: player.x,
-        y: player.y - player.height * 0.56
+        x: player.currentTransform.x,
+        y: player.currentTransform.y - player.height * 0.56
     };
 
     const projectileKind = String(enemy.projectileKind || "fireball");
@@ -4428,8 +4561,7 @@ function launchCharacterEnemyProjectile(state, enemy, angleOffset = 0, volley = 
                     ? "enemyRock"
                     : "enemyFireball",
         state: "launched",
-        x: origin.x,
-        y: origin.y,
+        ...createTransformTriplet({ x: origin.x, y: origin.y, angle: Math.atan2(vy, vx) }),
         vx,
         vy,
         gravity,
@@ -4479,9 +4611,9 @@ function characterEnemyCanNoticePlayer(state, enemy) {
         return false;
     }
 
-    const enemyCenterY = enemy.y - enemy.height * 0.5;
-    const playerCenterY = player.y - player.height * 0.5;
-    const dx = player.x - enemy.x;
+    const enemyCenterY = enemy.currentTransform.y - enemy.height * 0.5;
+    const playerCenterY = player.currentTransform.y - player.height * 0.5;
+    const dx = player.currentTransform.x - enemy.currentTransform.x;
     const dy = playerCenterY - enemyCenterY;
     const awarenessRange = Math.max(0, Number(enemy.awarenessRange) || 0);
     const distance = Math.hypot(dx, dy);
@@ -4537,7 +4669,7 @@ function findCharacterEnemyWalkingSupport(state, enemy, candidateX, direction) {
     const directSupport = findCharacterEnemyGroundSupport(
         state,
         candidateX,
-        enemy.y,
+        enemy.currentTransform.y,
         authoredStepHeight,
         enemy.maxDropDistance,
         enemy.width
@@ -4546,7 +4678,7 @@ function findCharacterEnemyWalkingSupport(state, enemy, candidateX, direction) {
     const steppedSupport = findCharacterEnemyGroundSupport(
         state,
         stepProbeX,
-        enemy.y,
+        enemy.currentTransform.y,
         automaticStepHeight,
         enemy.maxDropDistance,
         enemy.width,
@@ -4576,7 +4708,7 @@ function findCharacterEnemyWalkingSupport(state, enemy, candidateX, direction) {
 }
 
 function moveCharacterEnemyToward(state, enemy, targetX, speed, dt, stopDistance = 0) {
-    const dx = targetX - enemy.x;
+    const dx = targetX - enemy.currentTransform.x;
     const distance = Math.abs(dx);
     const remainingDistance = Math.max(0, distance - Math.max(0, stopDistance));
     if (remainingDistance <= 0.0001 || speed <= 0 || dt <= 0) {
@@ -4584,21 +4716,21 @@ function moveCharacterEnemyToward(state, enemy, targetX, speed, dt, stopDistance
     }
 
     const direction = dx < 0 ? -1 : 1;
-    let candidateX = enemy.x + direction * Math.min(remainingDistance, speed * dt);
+    let candidateX = enemy.currentTransform.x + direction * Math.min(remainingDistance, speed * dt);
     if (enemy.strategy === "simple_patrol" && enemy.patrolDistance > 0) {
         candidateX = clamp(candidateX, enemy.patrolMinX, enemy.patrolMaxX);
     }
-    if (Math.abs(candidateX - enemy.x) <= 0.0001) {
+    if (Math.abs(candidateX - enemy.currentTransform.x) <= 0.0001) {
         return 0;
     }
 
     const support = findCharacterEnemyWalkingSupport(state, enemy, candidateX, direction);
     if (!support) return 0;
 
-    const moved = Math.abs(candidateX - enemy.x);
+    const moved = Math.abs(candidateX - enemy.currentTransform.x);
     enemy.facing = direction;
-    enemy.x = candidateX;
-    enemy.y = support.y;
+    enemy.currentTransform.x = candidateX;
+    enemy.currentTransform.y = support.y;
     setCharacterEnemyGroundSupportIdentity(state, enemy, support);
     return moved;
 }
@@ -4608,7 +4740,7 @@ function advanceCharacterEnemyAttackLunge(state, enemy, dt, elapsed, hitTime) {
         return;
     }
     const player = state.player;
-    const dx = player.x - enemy.x;
+    const dx = player.currentTransform.x - enemy.currentTransform.x;
     if (Math.abs(dx) <= 0.001) {
         return;
     }
@@ -4622,7 +4754,7 @@ function advanceCharacterEnemyAttackLunge(state, enemy, dt, elapsed, hitTime) {
         Math.max(0, Number(enemy.attackLungeSpeed) || 0),
         enemy.attackLungeRemaining / Math.max(FIXED_DT, dt)
     );
-    const moved = moveCharacterEnemyToward(state, enemy, player.x, speed, dt, stopDistance);
+    const moved = moveCharacterEnemyToward(state, enemy, player.currentTransform.x, speed, dt, stopDistance);
     enemy.attackLungeRemaining = Math.max(0, enemy.attackLungeRemaining - moved);
 }
 
@@ -4649,7 +4781,7 @@ function startCharacterEnemyAttack(state, enemy) {
     enemy.attackLungeSpeed = Math.max(0, finiteNumberOr(enemy.attackLungeSpeed, state.tuning.enemyDefaultAttackLungeSpeed));
     enemy.attackKnockbackX = Math.max(0, finiteNumberOr(enemy.attackKnockbackX, state.tuning.enemyDefaultAttackKnockbackX));
     enemy.attackKnockbackY = finiteNumberOr(enemy.attackKnockbackY, state.tuning.enemyDefaultAttackKnockbackY);
-    const dx = state.player.x - enemy.x;
+    const dx = state.player.currentTransform.x - enemy.currentTransform.x;
     if (Math.abs(dx) > 0.001) {
         enemy.facing = dx < 0 ? -1 : 1;
     }
@@ -4698,8 +4830,8 @@ function updateCharacterEnemyAttack(state, enemy, dt) {
                         volleyIndex: projectile.volleyIndex,
                         volleyCount: projectile.volleyCount,
                         volleyAngleOffsetDegrees: round(projectile.volleyAngleOffsetDegrees),
-                        x: round(projectile.x),
-                        y: round(projectile.y)
+                        x: round(projectile.currentTransform.x),
+                        y: round(projectile.currentTransform.y)
                     });
                 }
             } else {
@@ -4741,8 +4873,8 @@ function characterEnemyAttackBlockedFromPoint(state, enemy, originX, originY) {
         y: originY - enemy.height * 0.5
     };
     const end = {
-        x: player.x,
-        y: player.y - player.height * 0.5
+        x: player.currentTransform.x,
+        y: player.currentTransform.y - player.height * 0.5
     };
 
     const terrainQueryBounds = {
@@ -4865,7 +4997,8 @@ function movingPlatformAtEndpoint(state, platform, endpoint, tolerance = 1.5) {
     if (!visual) return false;
     const targetX = endpoint === "end" ? platform.endX : platform.startX;
     const targetY = endpoint === "end" ? platform.endY : platform.startY;
-    return Math.hypot((Number(visual.x) || 0) - targetX, (Number(visual.y) || 0) - targetY) <= tolerance;
+    const transform = currentTransformOf(visual);
+    return Math.hypot((Number(transform.x) || 0) - targetX, (Number(transform.y) || 0) - targetY) <= tolerance;
 }
 
 function movingPlatformNavigationSupports(state) {
@@ -4876,8 +5009,9 @@ function movingPlatformNavigationSupports(state) {
         }
         const visual = movingPlatformVisual(state, platform);
         if (!visual) continue;
-        const currentOffsetX = (Number(visual.x) || 0) - platform.startX;
-        const currentOffsetY = (Number(visual.y) || 0) - platform.startY;
+        const visualTransform = currentTransformOf(visual);
+        const currentOffsetX = (Number(visualTransform.x) || 0) - platform.startX;
+        const currentOffsetY = (Number(visualTransform.y) || 0) - platform.startY;
         const candidates = (platform.segments || [])
             .filter((segment) => ["walkable", "blockable"].includes(segment.kind))
             .map((segment) => {
@@ -5073,8 +5207,9 @@ function translatedRiderNavigationSupport(state, enemy, supports) {
     if (!visual) return null;
     const endpointX = fixed.platformEndpoint === "end" ? platform.endX : platform.startX;
     const endpointY = fixed.platformEndpoint === "end" ? platform.endY : platform.startY;
-    const dx = (Number(visual.x) || 0) - endpointX;
-    const dy = (Number(visual.y) || 0) - endpointY;
+    const transform = currentTransformOf(visual);
+    const dx = (Number(transform.x) || 0) - endpointX;
+    const dy = (Number(transform.y) || 0) - endpointY;
     const support = {
         ...fixed,
         x1: fixed.x1 + dx,
@@ -5084,7 +5219,7 @@ function translatedRiderNavigationSupport(state, enemy, supports) {
         xMin: fixed.xMin + dx,
         xMax: fixed.xMax + dx
     };
-    return { support, x: enemy.x, y: enemy.y, delta: 0, score: -1 };
+    return { support, x: enemy.currentTransform.x, y: enemy.currentTransform.y, delta: 0, score: -1 };
 }
 
 function staticEnemyNavigationBundle(state, options) {
@@ -5144,7 +5279,7 @@ function characterEnemyNavigationContext(state, enemy) {
             .filter((edge) => edge && characterEnemyTraversalAllowedFromSupport(edge, support)));
     }
     const riderCurrent = translatedRiderNavigationSupport(state, enemy, supports);
-    const current = riderCurrent || findEnemyNavigationSupport(supports.filter((support) => movingPlatformSupportAvailable(state, support)), enemy.x, enemy.y, {
+    const current = riderCurrent || findEnemyNavigationSupport(supports.filter((support) => movingPlatformSupportAvailable(state, support)), enemy.currentTransform.x, enemy.currentTransform.y, {
         maxRise: Math.max(8, Number(enemy.maxStepHeight) || 0),
         maxDrop: Math.max(12, Number(enemy.maxDropDistance) || 0),
         width: enemy.width,
@@ -5164,7 +5299,7 @@ function characterEnemyNavigationContext(state, enemy) {
 }
 
 function characterEnemyPlayerSupport(state, enemy, supports) {
-    return findEnemyNavigationSupport(supports.filter((support) => movingPlatformSupportAvailable(state, support)), state.player.x, state.player.y, {
+    return findEnemyNavigationSupport(supports.filter((support) => movingPlatformSupportAvailable(state, support)), state.player.currentTransform.x, state.player.currentTransform.y, {
         maxRise: Math.max(40, Number(enemy.jumpHeight) || 0) + 80,
         maxDrop: Math.max(160, Number(enemy.maxFallDistance) || 0) + 160,
         width: state.player.width
@@ -5179,7 +5314,7 @@ function characterEnemyRoute(state, enemy, supports, startSupportId, targetSuppo
         {
             ...characterEnemyNavigationOptions(enemy, state),
             edgeMap,
-            startX: enemy.x,
+            startX: enemy.currentTransform.x,
             targetX
         }
     );
@@ -5192,7 +5327,7 @@ function characterEnemyReadyToAttackFromCurrentPosition(state, enemy) {
     if (!characterEnemyCanUseProjectile(state, enemy)) {
         return false;
     }
-    const horizontalDistance = Math.abs(state.player.x - enemy.x);
+    const horizontalDistance = Math.abs(state.player.currentTransform.x - enemy.currentTransform.x);
     return horizontalDistance >= Math.max(0, Number(enemy.preferredAttackMinRange) || 0);
 }
 
@@ -5206,21 +5341,21 @@ function characterEnemyCanUseLocalGroundPursuit(state, enemy) {
         Number(enemy.maxStepHeight) || 0,
         automaticStepHeight
     );
-    if (Math.abs((Number(state.player.y) || 0) - (Number(enemy.y) || 0)) > verticalTolerance + 2) {
+    if (Math.abs((Number(state.player.currentTransform.y) || 0) - (Number(enemy.currentTransform.y) || 0)) > verticalTolerance + 2) {
         return false;
     }
     const playerGround = findCharacterEnemyGroundSupport(
         state,
-        Number(state.player.x) || 0,
-        Number(state.player.y) || 0,
+        Number(state.player.currentTransform.x) || 0,
+        Number(state.player.currentTransform.y) || 0,
         verticalTolerance + 2,
         verticalTolerance + 8,
         Math.max(8, Number(state.player.width) || enemy.width)
     );
     const enemyGround = findCharacterEnemyGroundSupport(
         state,
-        Number(enemy.x) || 0,
-        Number(enemy.y) || 0,
+        Number(enemy.currentTransform.x) || 0,
+        Number(enemy.currentTransform.y) || 0,
         verticalTolerance + 2,
         verticalTolerance + 8,
         enemy.width
@@ -5235,7 +5370,7 @@ function updateCharacterEnemyLocalGroundPursuit(state, enemy, dt) {
     if (!characterEnemyCanUseLocalGroundPursuit(state, enemy)) {
         return false;
     }
-    const dx = (Number(state.player.x) || 0) - (Number(enemy.x) || 0);
+    const dx = (Number(state.player.currentTransform.x) || 0) - (Number(enemy.currentTransform.x) || 0);
     if (Math.abs(dx) > 0.001) {
         enemy.facing = dx < 0 ? -1 : 1;
     }
@@ -5255,7 +5390,7 @@ function updateCharacterEnemyLocalGroundPursuit(state, enemy, dt) {
         Math.max(6, Math.abs(dx) - 1)
     ));
     const speed = Math.max(1, characterEnemyRunSpeed(enemy, state.tuning) || Number(enemy.walkSpeed) || 1);
-    const moved = moveCharacterEnemyToward(state, enemy, state.player.x, speed, dt, stopDistance);
+    const moved = moveCharacterEnemyToward(state, enemy, state.player.currentTransform.x, speed, dt, stopDistance);
     if (moved > 0) {
         enemy.movementPhase = "local_pursuit";
         setCharacterEnemyAnimation(enemy, "walk");
@@ -5267,7 +5402,7 @@ function updateCharacterEnemyLocalGroundPursuit(state, enemy, dt) {
 }
 
 function characterEnemyCanAttackFromPoint(state, enemy, point) {
-    const horizontalDistance = Math.abs(state.player.x - point.x);
+    const horizontalDistance = Math.abs(state.player.currentTransform.x - point.x);
     if (enemy.attackMode === "projectile") {
         const minimumRange = Math.max(0, Number(enemy.preferredAttackMinRange) || 0);
         if (horizontalDistance < minimumRange * 0.72) {
@@ -5279,7 +5414,7 @@ function characterEnemyCanAttackFromPoint(state, enemy, point) {
         return characterEnemyProjectilePathClearFromPoint(state, enemy, point);
     }
     const enemyCenterY = point.y - enemy.height * 0.55;
-    const playerCenterY = state.player.y - state.player.height * 0.5;
+    const playerCenterY = state.player.currentTransform.y - state.player.height * 0.5;
     if (Math.abs(playerCenterY - enemyCenterY) > Math.max(1, Number(enemy.attackVerticalRange) || 1)) {
         return false;
     }
@@ -5317,7 +5452,7 @@ function characterEnemyAttackCandidateXs(enemy, support, playerX, preferredRange
         playerX + preferredRange,
         playerX - minimumRange,
         playerX + minimumRange,
-        enemy.x,
+        enemy.currentTransform.x,
         windowMin,
         windowMax,
         (windowMin + windowMax) * 0.5
@@ -5354,9 +5489,9 @@ function chooseCharacterEnemyAttackPlan(state, enemy, navigation) {
     });
 
     const bestAttackPositionOnSupport = (support, route) => {
-        const arrivalX = route.edges.at(-1)?.landingX ?? enemy.x;
+        const arrivalX = route.edges.at(-1)?.landingX ?? enemy.currentTransform.x;
         let best = null;
-        for (const candidateX of characterEnemyAttackCandidateXs(enemy, support, player.x, preferredRange)) {
+        for (const candidateX of characterEnemyAttackCandidateXs(enemy, support, player.currentTransform.x, preferredRange)) {
             const point = supportPoint(support, candidateX, Math.max(4, enemy.width * 0.35));
             if (characterEnemyBodyBlockedAt(state, enemy, point.x, point.y, { groundSlope: characterEnemySupportSlope(support) })) {
                 continue;
@@ -5364,10 +5499,10 @@ function chooseCharacterEnemyAttackPlan(state, enemy, navigation) {
             if (!characterEnemyCanAttackFromPoint(state, enemy, point)) {
                 continue;
             }
-            const horizontalDistance = Math.abs(player.x - point.x);
+            const horizontalDistance = Math.abs(player.currentTransform.x - point.x);
             const rangeError = Math.abs(horizontalDistance - preferredRange);
             const travelDistance = Math.abs(point.x - arrivalX);
-            const score = route.cost + travelDistance + rangeError * 1.6 + Math.abs(point.y - player.y) * 0.18;
+            const score = route.cost + travelDistance + rangeError * 1.6 + Math.abs(point.y - player.currentTransform.y) * 0.18;
             if (!best || score < best.score) {
                 best = {
                     kind: "attack_position",
@@ -5398,10 +5533,10 @@ function chooseCharacterEnemyAttackPlan(state, enemy, navigation) {
             if (exactSupportPlan) {
                 return exactSupportPlan;
             }
-            const approachSide = enemy.x <= player.x ? -1 : 1;
+            const approachSide = enemy.currentTransform.x <= player.currentTransform.x ? -1 : 1;
             const approach = supportPoint(
                 playerSupport.support,
-                player.x + approachSide * Math.max(12, Math.min(preferredRange, Number(enemy.attackRange) * 0.82)),
+                player.currentTransform.x + approachSide * Math.max(12, Math.min(preferredRange, Number(enemy.attackRange) * 0.82)),
                 Math.max(4, enemy.width * 0.35)
             );
             routeToPlayer = characterEnemyRoute(
@@ -5419,7 +5554,7 @@ function chooseCharacterEnemyAttackPlan(state, enemy, navigation) {
                 targetX: approach.x,
                 targetY: approach.y,
                 route: routeToPlayer,
-                score: routeToPlayer.cost + Math.abs(approach.x - player.x)
+                score: routeToPlayer.cost + Math.abs(approach.x - player.currentTransform.x)
             };
         }
 
@@ -5457,10 +5592,10 @@ function chooseCharacterEnemyAttackPlan(state, enemy, navigation) {
             return targetRegionPlan;
         }
         if (routeToPlayer) {
-            const approachSide = enemy.x <= player.x ? -1 : 1;
+            const approachSide = enemy.currentTransform.x <= player.currentTransform.x ? -1 : 1;
             const approach = supportPoint(
                 playerSupport.support,
-                player.x + approachSide * Math.max(12, Math.min(preferredRange, Number(enemy.attackRange) * 0.82)),
+                player.currentTransform.x + approachSide * Math.max(12, Math.min(preferredRange, Number(enemy.attackRange) * 0.82)),
                 Math.max(4, enemy.width * 0.35)
             );
             routeToPlayer = characterEnemyRoute(
@@ -5478,7 +5613,7 @@ function chooseCharacterEnemyAttackPlan(state, enemy, navigation) {
                 targetX: approach.x,
                 targetY: approach.y,
                 route: routeToPlayer,
-                score: routeToPlayer.cost + Math.abs(approach.x - player.x)
+                score: routeToPlayer.cost + Math.abs(approach.x - player.currentTransform.x)
             };
         }
     }
@@ -5508,15 +5643,15 @@ function chooseCharacterEnemyAttackPlan(state, enemy, navigation) {
         state,
         enemy,
         navigation,
-        player.x,
-        player.y,
+        player.currentTransform.x,
+        player.currentTransform.y,
         "blocked_approach"
     );
     const verticalApproachLimit = Math.max(
         80,
         Math.max(0, Number(enemy.jumpHeight) || 0) + Math.max(0, Number(enemy.maxStepHeight) || 0) + 30
     );
-    return approach && Math.abs((Number(approach.targetY) || 0) - (Number(player.y) || 0)) <= verticalApproachLimit
+    return approach && Math.abs((Number(approach.targetY) || 0) - (Number(player.currentTransform.y) || 0)) <= verticalApproachLimit
         ? approach
         : null;
 }
@@ -5541,7 +5676,7 @@ function alertCharacterEnemyFromPlayerDamage(state, enemy) {
     // step, where route planning belongs.
     rememberCharacterEnemyPlayerPosition(state, enemy, null);
 
-    const dx = (Number(state.player.x) || 0) - (Number(enemy.x) || 0);
+    const dx = (Number(state.player.currentTransform.x) || 0) - (Number(enemy.currentTransform.x) || 0);
     if (Math.abs(dx) > 0.001) {
         enemy.facing = dx < 0 ? -1 : 1;
     }
@@ -5565,8 +5700,8 @@ function alertCharacterEnemyFromPlayerDamage(state, enemy) {
 }
 
 function rememberCharacterEnemyPlayerPosition(state, enemy, navigation) {
-    enemy.lastSeenPlayerX = Number(state.player.x) || 0;
-    enemy.lastSeenPlayerY = Number(state.player.y) || 0;
+    enemy.lastSeenPlayerX = Number(state.player.currentTransform.x) || 0;
+    enemy.lastSeenPlayerY = Number(state.player.currentTransform.y) || 0;
     enemy.lastSeenAt = Number(state.clock?.time) || 0;
     const support = navigation
         ? characterEnemyPlayerSupport(state, enemy, navigation.supports)
@@ -5607,7 +5742,7 @@ function chooseCharacterEnemyReachableApproachPlan(state, enemy, navigation, tar
             continue;
         }
         const remainingDistance = Math.hypot(point.x - resolvedTargetX, point.y - resolvedTargetY);
-        const arrivalX = route.edges.at(-1)?.landingX ?? enemy.x;
+        const arrivalX = route.edges.at(-1)?.landingX ?? enemy.currentTransform.x;
         const travelCost = route.cost + Math.abs(point.x - arrivalX);
         const candidate = {
             kind,
@@ -5650,7 +5785,7 @@ function characterEnemyReachedNavigationTarget(enemy, navigation, tolerance = 3)
     const currentSupportId = navigation.current?.support?.id || enemy.currentSupportId;
     return currentSupportId === enemy.routeTargetSupportId &&
         enemy.routeIndex >= (enemy.route?.length || 0) &&
-        Math.abs(enemy.x - Number(enemy.routeTargetX)) <= Math.max(0.5, tolerance);
+        Math.abs(enemy.currentTransform.x - Number(enemy.routeTargetX)) <= Math.max(0.5, tolerance);
 }
 
 function updateCharacterEnemyLastSeenInvestigation(state, enemy, navigation, dt, options = {}) {
@@ -5792,8 +5927,8 @@ function beginCharacterEnemyAirTraversal(enemy, edge) {
     enemy.airTargetSupportId = edge.to;
     enemy.velocityX = Number(edge.vx) || 0;
     enemy.velocityY = Number(edge.vy) || 0;
-    enemy.x = Number(edge.launchX);
-    enemy.y = Number(edge.launchY);
+    enemy.currentTransform.x = Number(edge.launchX);
+    enemy.currentTransform.y = Number(edge.launchY);
     enemy.aiState = edge.type === "drop" ? "drop" : "jump";
     enemy.movementPhase = enemy.aiState;
     if (Math.abs(enemy.velocityX) > 0.001) {
@@ -5810,8 +5945,8 @@ function updateCharacterEnemyAirTraversal(state, enemy, dt, supports) {
     enemy.airTimer = Math.max(0, Number(enemy.airTimer) || 0) + dt;
     enemy.velocityY = (Number(enemy.velocityY) || 0) + Math.max(1, Number(enemy.jumpGravity) || 1) * dt;
 
-    const previousX = enemy.x;
-    const previousY = enemy.y;
+    const previousX = enemy.currentTransform.x;
+    const previousY = enemy.currentTransform.y;
     const nextX = previousX + (Number(enemy.velocityX) || 0) * dt;
     const nextY = previousY + (Number(enemy.velocityY) || 0) * dt;
     const sourceSupport = navigationSupportById(supports, enemy.airSourceSupportId);
@@ -5865,15 +6000,15 @@ function updateCharacterEnemyAirTraversal(state, enemy, dt, supports) {
         nextX,
         { ignoreIds: horizontalIgnoreIds }
     );
-    enemy.x = horizontalCollision ? horizontalCollision.x : nextX;
+    enemy.currentTransform.x = horizontalCollision ? horizontalCollision.x : nextX;
     if (horizontalCollision) {
         enemy.velocityX = 0;
     }
 
-    let departingSource = dropDepartureIgnoresSourceAt(enemy.x, nextY);
+    let departingSource = dropDepartureIgnoresSourceAt(enemy.currentTransform.x, nextY);
     if (!departingSource && enemy.airTraversalType !== "drop" && sourceSupport) {
-        const sourcePoint = supportPoint(sourceSupport, clamp(enemy.x, sourceSupport.xMin, sourceSupport.xMax), 0);
-        const departedHorizontally = enemy.x < sourceSupport.xMin - enemy.width * 0.5 || enemy.x > sourceSupport.xMax + enemy.width * 0.5;
+        const sourcePoint = supportPoint(sourceSupport, clamp(enemy.currentTransform.x, sourceSupport.xMin, sourceSupport.xMax), 0);
+        const departedHorizontally = enemy.currentTransform.x < sourceSupport.xMin - enemy.width * 0.5 || enemy.currentTransform.x > sourceSupport.xMax + enemy.width * 0.5;
         const departedVertically = nextY > sourcePoint.y + Math.max(4, enemy.height * 0.08);
         departingSource = !departedHorizontally && !departedVertically && enemy.airTimer <= 1;
     }
@@ -5885,7 +6020,7 @@ function updateCharacterEnemyAirTraversal(state, enemy, dt, supports) {
         nextY,
         { ignoreIds: verticalIgnoreIds }
     );
-    enemy.y = verticalCollision ? verticalCollision.y : nextY;
+    enemy.currentTransform.y = verticalCollision ? verticalCollision.y : nextY;
 
     if (verticalCollision?.ceiling) {
         enemy.velocityY = 0;
@@ -5896,7 +6031,7 @@ function updateCharacterEnemyAirTraversal(state, enemy, dt, supports) {
         enemy.airTimer = 0;
         enemy.airTraversalType = null;
         const intendedSupportId = enemy.airTargetSupportId;
-        const landedSupport = findEnemyNavigationSupport(supports, enemy.x, enemy.y, {
+        const landedSupport = findEnemyNavigationSupport(supports, enemy.currentTransform.x, enemy.currentTransform.y, {
             maxRise: 5,
             maxDrop: 5,
             width: enemy.width,
@@ -5906,8 +6041,8 @@ function updateCharacterEnemyAirTraversal(state, enemy, dt, supports) {
         enemy.currentSupportId = landedSupport?.support?.id || null;
         const physicalSupport = findCharacterEnemyGroundSupport(
             state,
-            enemy.x,
-            enemy.y,
+            enemy.currentTransform.x,
+            enemy.currentTransform.y,
             Math.max(5, enemy.maxStepHeight),
             Math.max(5, enemy.maxDropDistance),
             enemy.width
@@ -5929,11 +6064,11 @@ function updateCharacterEnemyAirTraversal(state, enemy, dt, supports) {
                 const recoveredSupport = landedSupport.support;
                 const recoveredPoint = supportPoint(
                     recoveredSupport,
-                    enemy.x,
+                    enemy.currentTransform.x,
                     Math.min(Math.max(2, enemy.width * 0.1), Math.max(0, (recoveredSupport.xMax - recoveredSupport.xMin) * 0.4))
                 );
-                enemy.x = recoveredPoint.x;
-                enemy.y = recoveredPoint.y;
+                enemy.currentTransform.x = recoveredPoint.x;
+                enemy.currentTransform.y = recoveredPoint.y;
                 enemy.navigationFailureCount = 0;
                 enemy.aiState = enemy.engaged ? "pursue" : "return_home";
                 enemy.movementPhase = enemy.aiState;
@@ -5964,7 +6099,7 @@ function updateCharacterEnemyAirTraversal(state, enemy, dt, supports) {
     }
 
     const bottom = Number(state.world?.bounds?.y || 0) + Number(state.world?.bounds?.h || 1200) + 500;
-    if (enemy.airTimer > 4 || enemy.y > bottom) {
+    if (enemy.airTimer > 4 || enemy.currentTransform.y > bottom) {
         enemy.airborne = false;
         enemy.velocityX = 0;
         enemy.velocityY = 0;
@@ -6008,7 +6143,7 @@ function followCharacterEnemyJumpRunUp(state, enemy, edge, speed, dt) {
     }
 
     if (enemy.routeTraversalPhase === "approach_run_up") {
-        const distance = Math.abs(enemy.x - runUpX);
+        const distance = Math.abs(enemy.currentTransform.x - runUpX);
         if (distance > arrivalTolerance) {
             const moved = moveCharacterEnemyToward(state, enemy, runUpX, speed, dt, 0);
             if (moved <= 0) {
@@ -6018,16 +6153,16 @@ function followCharacterEnemyJumpRunUp(state, enemy, edge, speed, dt) {
             setCharacterEnemyAnimation(enemy, "walk");
             return true;
         }
-        enemy.x = runUpX;
-        enemy.y = Number.isFinite(Number(edge.runUpY)) ? Number(edge.runUpY) : enemy.y;
+        enemy.currentTransform.x = runUpX;
+        enemy.currentTransform.y = Number.isFinite(Number(edge.runUpY)) ? Number(edge.runUpY) : enemy.currentTransform.y;
         enemy.routeTraversalPhase = "run_up";
         enemy.groundVelocityX = 0;
     }
 
-    const distanceToLaunch = Math.abs(launchX - enemy.x);
+    const distanceToLaunch = Math.abs(launchX - enemy.currentTransform.x);
     if (distanceToLaunch <= arrivalTolerance) {
-        enemy.x = launchX;
-        enemy.y = Number(edge.launchY);
+        enemy.currentTransform.x = launchX;
+        enemy.currentTransform.y = Number(edge.launchY);
         beginCharacterEnemyAirTraversal(enemy, edge);
         return true;
     }
@@ -6043,9 +6178,9 @@ function followCharacterEnemyJumpRunUp(state, enemy, edge, speed, dt) {
     enemy.movementPhase = "run_up";
     setCharacterEnemyAnimation(enemy, "walk");
 
-    if (Math.abs(launchX - enemy.x) <= arrivalTolerance) {
-        enemy.x = launchX;
-        enemy.y = Number(edge.launchY);
+    if (Math.abs(launchX - enemy.currentTransform.x) <= arrivalTolerance) {
+        enemy.currentTransform.x = launchX;
+        enemy.currentTransform.y = Number(edge.launchY);
         beginCharacterEnemyAirTraversal(enemy, edge);
     }
     return true;
@@ -6087,7 +6222,7 @@ function followCharacterEnemyNavigationPlan(state, enemy, navigation, dt) {
             if (visual && nextEdge?.from === edge.to && Number.isFinite(Number(nextEdge.launchX))) {
                 const destinationX = edge.toEndpoint === "end" ? platform.endX : platform.startX;
                 const localExitX = Number(nextEdge.launchX) - destinationX;
-                const movingExitX = (Number(visual.x) || 0) + localExitX;
+                const movingExitX = (Number(currentTransformOf(visual).x) || 0) + localExitX;
                 const moved = moveCharacterEnemyToward(state, enemy, movingExitX, speed, dt, 0);
                 positionedForExit = moved > 0;
             }
@@ -6119,7 +6254,7 @@ function followCharacterEnemyNavigationPlan(state, enemy, navigation, dt) {
                 return true;
             }
         }
-        const distanceToLaunch = Math.abs(enemy.x - edge.launchX);
+        const distanceToLaunch = Math.abs(enemy.currentTransform.x - edge.launchX);
         if (distanceToLaunch > Math.max(2, speed * dt * 1.25)) {
             const moved = moveCharacterEnemyToward(state, enemy, edge.launchX, speed, dt, 0);
             if (moved <= 0) {
@@ -6135,8 +6270,8 @@ function followCharacterEnemyNavigationPlan(state, enemy, navigation, dt) {
             })) {
                 return false;
             }
-            enemy.x = edge.landingX;
-            enemy.y = edge.landingY;
+            enemy.currentTransform.x = edge.landingX;
+            enemy.currentTransform.y = edge.landingY;
             enemy.currentSupportId = edge.to;
             if (landingSupport?.movingPlatformId) {
                 enemy.supportId = landingSupport.collisionId;
@@ -6144,8 +6279,8 @@ function followCharacterEnemyNavigationPlan(state, enemy, navigation, dt) {
             } else {
                 const physicalSupport = findCharacterEnemyGroundSupport(
                     state,
-                    enemy.x,
-                    enemy.y,
+                    enemy.currentTransform.x,
+                    enemy.currentTransform.y,
                     Math.max(4, enemy.maxStepHeight),
                     Math.max(4, enemy.maxDropDistance),
                     enemy.width
@@ -6165,12 +6300,12 @@ function followCharacterEnemyNavigationPlan(state, enemy, navigation, dt) {
     }
 
     const targetSupport = navigationSupportById(navigation.supports, enemy.routeTargetSupportId) || current;
-    const finalPoint = supportPoint(targetSupport, Number(enemy.routeTargetX) || enemy.x, Math.max(4, enemy.width * 0.3));
-    if (Math.abs(enemy.x - finalPoint.x) <= 2) {
-        enemy.x = finalPoint.x;
-        enemy.y = finalPoint.y;
+    const finalPoint = supportPoint(targetSupport, Number(enemy.routeTargetX) || enemy.currentTransform.x, Math.max(4, enemy.width * 0.3));
+    if (Math.abs(enemy.currentTransform.x - finalPoint.x) <= 2) {
+        enemy.currentTransform.x = finalPoint.x;
+        enemy.currentTransform.y = finalPoint.y;
         if (enemy.engaged && (enemy.routePurpose === "attack_position" || enemy.routePurpose === "pursue" || enemy.routePurpose === "blocked_approach")) {
-            const dx = state.player.x - enemy.x;
+            const dx = state.player.currentTransform.x - enemy.currentTransform.x;
             if (Math.abs(dx) > 0.001) {
                 enemy.facing = dx < 0 ? -1 : 1;
             }
@@ -6201,12 +6336,12 @@ function enterCharacterEnemyGlare(state, enemy, options = {}) {
         ? options.focusX
         : (typeof enemy.lastSeenPlayerX === "number" && Number.isFinite(enemy.lastSeenPlayerX)
             ? enemy.lastSeenPlayerX
-            : state.player.x);
+            : state.player.currentTransform.x);
     enemy.glareFocusY = typeof options.focusY === "number" && Number.isFinite(options.focusY)
         ? options.focusY
         : (typeof enemy.lastSeenPlayerY === "number" && Number.isFinite(enemy.lastSeenPlayerY)
             ? enemy.lastSeenPlayerY
-            : state.player.y);
+            : state.player.currentTransform.y);
     enemy.movementPhase = "glare";
     setCharacterEnemyAnimation(enemy, "idle");
     addEvent(state, "ENEMY_TARGET_UNREACHABLE", {
@@ -6220,8 +6355,8 @@ function enterCharacterEnemyStrandedPatrol(state, enemy, navigation) {
     clearCharacterEnemyNavigationPlan(enemy);
     const support = navigation.current?.support;
     const inset = Math.max(4, enemy.width * 0.42);
-    enemy.temporaryPatrolMinX = support ? Math.min(support.xMax, support.xMin + inset) : enemy.x - 40;
-    enemy.temporaryPatrolMaxX = support ? Math.max(support.xMin, support.xMax - inset) : enemy.x + 40;
+    enemy.temporaryPatrolMinX = support ? Math.min(support.xMax, support.xMin + inset) : enemy.currentTransform.x - 40;
+    enemy.temporaryPatrolMaxX = support ? Math.max(support.xMin, support.xMax - inset) : enemy.currentTransform.x + 40;
     enemy.aiState = "stranded_patrol";
     enemy.movementPhase = "idle";
     enemy.phaseTimer = Math.max(0, Number(enemy.turnPause) || 0);
@@ -6249,7 +6384,7 @@ function updateCharacterEnemyPatrolRange(state, enemy, dt, minX, maxX, phase = "
 
     setCharacterEnemyAnimation(enemy, "walk");
     const direction = enemy.facing < 0 ? -1 : 1;
-    const unclampedX = enemy.x + direction * enemy.walkSpeed * dt;
+    const unclampedX = enemy.currentTransform.x + direction * enemy.walkSpeed * dt;
     const candidateX = clamp(unclampedX, minX, maxX);
     const reachedBoundary = Math.abs(candidateX - unclampedX) > 0.0001 ||
         candidateX <= minX + 0.001 || candidateX >= maxX - 0.001;
@@ -6257,7 +6392,7 @@ function updateCharacterEnemyPatrolRange(state, enemy, dt, minX, maxX, phase = "
     const support = findCharacterEnemyGroundSupport(
         state,
         candidateX,
-        enemy.y,
+        enemy.currentTransform.y,
         Math.max(Number(enemy.maxStepHeight) || 0, automaticStepHeight),
         enemy.maxDropDistance,
         enemy.width
@@ -6269,8 +6404,8 @@ function updateCharacterEnemyPatrolRange(state, enemy, dt, minX, maxX, phase = "
         pauseAndTurnCharacterEnemy(enemy);
         return;
     }
-    enemy.x = candidateX;
-    enemy.y = support.y;
+    enemy.currentTransform.x = candidateX;
+    enemy.currentTransform.y = support.y;
     setCharacterEnemyGroundSupportIdentity(state, enemy, support);
     enemy.movementPhase = phase;
     if (reachedBoundary) {
@@ -6328,8 +6463,8 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
     if (enemy.aiState === "unreachable_glare") {
         const focusX = typeof enemy.glareFocusX === "number" && Number.isFinite(enemy.glareFocusX)
             ? enemy.glareFocusX
-            : state.player.x;
-        const dx = focusX - enemy.x;
+            : state.player.currentTransform.x;
+        const dx = focusX - enemy.currentTransform.x;
         if (Math.abs(dx) > 0.001) {
             enemy.facing = dx < 0 ? -1 : 1;
         }
@@ -6410,10 +6545,10 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
                 return;
             }
         }
-        const atHome = enemy.homeSupportId === navigation.current?.support?.id && Math.abs(enemy.x - enemy.spawnX) <= 6;
+        const atHome = enemy.homeSupportId === navigation.current?.support?.id && Math.abs(enemy.currentTransform.x - enemy.spawnX) <= 6;
         if (atHome) {
-            enemy.x = enemy.spawnX;
-            enemy.y = navigation.current?.y ?? enemy.y;
+            enemy.currentTransform.x = enemy.spawnX;
+            enemy.currentTransform.y = navigation.current?.y ?? enemy.currentTransform.y;
             enemy.aiState = "patrol";
             enemy.movementPhase = "idle";
             enemy.phaseTimer = Math.max(0, Number(enemy.idleDuration) || 0);
@@ -6492,8 +6627,8 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
             state,
             enemy,
             dt,
-            finiteNumberOr(enemy.temporaryPatrolMinX, enemy.x - 40),
-            finiteNumberOr(enemy.temporaryPatrolMaxX, enemy.x + 40),
+            finiteNumberOr(enemy.temporaryPatrolMinX, enemy.currentTransform.x - 40),
+            finiteNumberOr(enemy.temporaryPatrolMaxX, enemy.currentTransform.x + 40),
             "stranded_patrol"
         );
         syncCharacterEnemyTarget(state, enemy);
@@ -6545,8 +6680,8 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
                 characterEnemyReachedNavigationTarget(enemy, navigation) &&
                 !characterEnemyReadyToAttackFromCurrentPosition(state, enemy)) {
                 enterCharacterEnemyGlare(state, enemy, {
-                    focusX: state.player.x,
-                    focusY: state.player.y
+                    focusX: state.player.currentTransform.x,
+                    focusY: state.player.currentTransform.y
                 });
             }
         }
@@ -6608,16 +6743,16 @@ function updateFlyingCharacterEnemy(state, enemy, dt) {
             const patrolHalf = patrolDistance * 0.5;
             const patrolMinX = perchX - patrolHalf;
             const patrolMaxX = perchX + patrolHalf;
-            const outsidePerchArea = enemy.x < patrolMinX - 4 || enemy.x > patrolMaxX + 4 || Math.abs(enemy.y - perchY) > 12;
+            const outsidePerchArea = enemy.currentTransform.x < patrolMinX - 4 || enemy.currentTransform.x > patrolMaxX + 4 || Math.abs(enemy.currentTransform.y - perchY) > 12;
             if (outsidePerchArea) {
-                const dxHome = perchX - enemy.x;
-                const dyHome = perchY - enemy.y;
+                const dxHome = perchX - enemy.currentTransform.x;
+                const dyHome = perchY - enemy.currentTransform.y;
                 const distanceHome = Math.hypot(dxHome, dyHome);
                 const step = Math.min(distanceHome, horizontalSpeed * dt);
                 const nx = distanceHome > 0 ? dxHome / distanceHome : 0;
                 const ny = distanceHome > 0 ? dyHome / distanceHome : 0;
-                enemy.x += nx * step;
-                enemy.y += ny * step;
+                enemy.currentTransform.x += nx * step;
+                enemy.currentTransform.y += ny * step;
                 enemy.velocityX = nx * horizontalSpeed;
                 enemy.velocityY = ny * horizontalSpeed;
                 if (Math.abs(dxHome) > 0.001) enemy.facing = dxHome < 0 ? -1 : 1;
@@ -6627,7 +6762,7 @@ function updateFlyingCharacterEnemy(state, enemy, dt) {
             } else if (patrolDistance > 0) {
                 const patrolSpeed = Math.max(0, Number(enemy.walkSpeed) || horizontalSpeed * 0.5);
                 const direction = Number(enemy.facing) < 0 ? -1 : 1;
-                let nextX = enemy.x + direction * patrolSpeed * dt;
+                let nextX = enemy.currentTransform.x + direction * patrolSpeed * dt;
                 if (nextX <= patrolMinX) {
                     nextX = patrolMinX;
                     enemy.facing = 1;
@@ -6635,16 +6770,16 @@ function updateFlyingCharacterEnemy(state, enemy, dt) {
                     nextX = patrolMaxX;
                     enemy.facing = -1;
                 }
-                enemy.x = nextX;
-                enemy.y = perchY + Math.sin(phase) * amplitude;
+                enemy.currentTransform.x = nextX;
+                enemy.currentTransform.y = perchY + Math.sin(phase) * amplitude;
                 enemy.velocityX = (Number(enemy.facing) < 0 ? -1 : 1) * patrolSpeed;
                 enemy.velocityY = 0;
                 enemy.bomberState = "perch_patrol";
                 enemy.movementPhase = "perch_patrol";
                 enemy.aiState = "perch_patrol";
             } else {
-                enemy.x = perchX;
-                enemy.y = perchY;
+                enemy.currentTransform.x = perchX;
+                enemy.currentTransform.y = perchY;
                 enemy.velocityX = 0;
                 enemy.velocityY = 0;
                 enemy.bomberState = "perched";
@@ -6653,17 +6788,17 @@ function updateFlyingCharacterEnemy(state, enemy, dt) {
             }
             enemy.alerted = false;
         } else {
-            const targetX = Number(player?.x) || enemy.x;
-            const playerY = Number(player?.y) || perchY;
+            const targetX = Number(player?.currentTransform.x) || enemy.currentTransform.x;
+            const playerY = Number(player?.currentTransform.y) || perchY;
             const hoverHeight = Math.max(16, Number(enemy.bomberHoverHeight) || 180);
             const desiredHoverY = playerY - hoverHeight;
             const approximateViewportHalfHeight = 270 / Math.max(0.5, Number(state.camera?.zoom) || 1);
-            const screenTop = (Number(state.camera?.y) || desiredHoverY) - approximateViewportHalfHeight;
+            const screenTop = (Number(state.camera?.currentTransform.y) || desiredHoverY) - approximateViewportHalfHeight;
             const topMargin = Math.max(20, Number(enemy.bomberScreenTopMargin) || 72);
             const targetY = Math.max(screenTop + topMargin + enemy.height * 0.5, desiredHoverY);
             const wander = Math.sin(phase * 0.57 + (Number(enemy.flightPhaseOffset) || 0) * 3.1) *
                 Math.max(0, Number(enemy.bomberWanderAmplitude) || 0);
-            const playerDxBeforeSteering = targetX - enemy.x;
+            const playerDxBeforeSteering = targetX - enemy.currentTransform.x;
             const approachDistance = Math.max(140, hoverHeight * 1.35);
             const approachBlend = Math.min(1, Math.abs(playerDxBeforeSteering) / approachDistance);
             // Keep a little lateral life even after the bat reaches its bombing station.
@@ -6689,21 +6824,21 @@ function updateFlyingCharacterEnemy(state, enemy, dt) {
             // Enemy x/y uses a feet-position convention. Terrain probes, however, expect
             // a center point. Probing from the feet made a perched bomber permanently
             // overlap the platform beneath it, so every attempted take-off was rejected.
-            const enemyCenterY = enemy.y - enemy.height * 0.5;
+            const enemyCenterY = enemy.currentTransform.y - enemy.height * 0.5;
             const desiredCenterY = desiredY - enemy.height * 0.5;
             const directProbe = {
                 x: desiredX,
                 y: desiredCenterY,
                 radius: flightProbeRadius
             };
-            const directHit = findProjectileTerrainImpact(state, directProbe, enemy.x, enemyCenterY);
+            const directHit = findProjectileTerrainImpact(state, directProbe, enemy.currentTransform.x, enemyCenterY);
             if (directHit) {
-                const sidestep = enemy.x <= directHit.x ? -1 : 1;
+                const sidestep = enemy.currentTransform.x <= directHit.x ? -1 : 1;
                 desiredX += sidestep * clearance * 1.4;
                 desiredY = Math.min(desiredY, directHit.y - clearance);
             }
-            const dx = desiredX - enemy.x;
-            const dy = desiredY - enemy.y;
+            const dx = desiredX - enemy.currentTransform.x;
+            const dy = desiredY - enemy.currentTransform.y;
             const distance = Math.hypot(dx, dy);
             const nx = distance > 0 ? dx / distance : 0;
             const ny = distance > 0 ? dy / distance : 0;
@@ -6719,16 +6854,16 @@ function updateFlyingCharacterEnemy(state, enemy, dt) {
                 enemy.velocityX = enemy.velocityX / speedNow * horizontalSpeed;
                 enemy.velocityY = enemy.velocityY / speedNow * horizontalSpeed;
             }
-            const nextX = enemy.x + enemy.velocityX * dt;
-            const nextY = enemy.y + enemy.velocityY * dt;
+            const nextX = enemy.currentTransform.x + enemy.velocityX * dt;
+            const nextY = enemy.currentTransform.y + enemy.velocityY * dt;
             const movementProbe = {
                 x: nextX,
                 y: nextY - enemy.height * 0.5,
                 radius: flightProbeRadius
             };
-            if (!findProjectileTerrainImpact(state, movementProbe, enemy.x, enemyCenterY)) {
-                enemy.x = nextX;
-                enemy.y = nextY;
+            if (!findProjectileTerrainImpact(state, movementProbe, enemy.currentTransform.x, enemyCenterY)) {
+                enemy.currentTransform.x = nextX;
+                enemy.currentTransform.y = nextY;
             } else {
                 enemy.velocityX *= -0.35;
                 enemy.velocityY = -Math.abs(enemy.velocityY || horizontalSpeed * 0.35);
@@ -6736,12 +6871,12 @@ function updateFlyingCharacterEnemy(state, enemy, dt) {
             if (Math.abs(dx) > 0.001) enemy.facing = dx < 0 ? -1 : 1;
             enemy.bomberDropTimer = Math.max(0, (Number(enemy.bomberDropTimer) || 0) - dt * characterEnemyAttackRateScale(enemy, state.tuning));
             const dropHeightTolerance = Math.max(4, Number(enemy.bomberDropHeightTolerance) || 36);
-            const nearBombingHeight = Math.abs(enemy.y - targetY) <= dropHeightTolerance;
-            const verticallyAbove = enemy.y < playerY - 24;
-            const dropDx = targetX - enemy.x;
+            const nearBombingHeight = Math.abs(enemy.currentTransform.y - targetY) <= dropHeightTolerance;
+            const verticallyAbove = enemy.currentTransform.y < playerY - 24;
+            const dropDx = targetX - enemy.currentTransform.x;
             enemy.projectileLaunchType = "drop";
             enemy.attackMode = "projectile";
-            const clearDrop = seesPlayer && characterEnemyProjectilePathClearFromPoint(state, enemy, { x: enemy.x, y: enemy.y });
+            const clearDrop = seesPlayer && characterEnemyProjectilePathClearFromPoint(state, enemy, { x: enemy.currentTransform.x, y: enemy.currentTransform.y });
             if (Math.abs(dropDx) <= tolerance && nearBombingHeight && verticallyAbove && enemy.bomberDropTimer <= 0 && clearDrop) {
                 const projectile = launchCharacterEnemyProjectile(state, enemy);
                 if (projectile) {
@@ -6751,8 +6886,8 @@ function updateFlyingCharacterEnemy(state, enemy, dt) {
                         projectileKind: projectile.kind,
                         projectilePartName: projectile.projectilePartName,
                         launchType: projectile.launchType,
-                        x: round(projectile.x),
-                        y: round(projectile.y)
+                        x: round(projectile.currentTransform.x),
+                        y: round(projectile.currentTransform.y)
                     });
                 }
                 enemy.bomberDropTimer = Math.max(0.1, Number(enemy.projectileCooldown) || 1.4);
@@ -6769,7 +6904,7 @@ function updateFlyingCharacterEnemy(state, enemy, dt) {
             const direction = Number(enemy.facing) < 0 ? -1 : 1;
             const patrolMinX = finiteNumberOr(enemy.patrolMinX, enemy.spawnX - patrolDistance * 0.5);
             const patrolMaxX = finiteNumberOr(enemy.patrolMaxX, enemy.spawnX + patrolDistance * 0.5);
-            let nextX = enemy.x + direction * speed * dt;
+            let nextX = enemy.currentTransform.x + direction * speed * dt;
             if (nextX <= patrolMinX) {
                 nextX = patrolMinX;
                 enemy.facing = 1;
@@ -6777,9 +6912,9 @@ function updateFlyingCharacterEnemy(state, enemy, dt) {
                 nextX = patrolMaxX;
                 enemy.facing = -1;
             }
-            enemy.x = nextX;
+            enemy.currentTransform.x = nextX;
         }
-        enemy.y = finiteNumberOr(enemy.flightBaseY, enemy.spawnY) + Math.sin(phase) * amplitude;
+        enemy.currentTransform.y = finiteNumberOr(enemy.flightBaseY, enemy.spawnY) + Math.sin(phase) * amplitude;
         enemy.velocityX = (Number(enemy.facing) < 0 ? -1 : 1) * speed;
         enemy.velocityY = Math.cos(phase) * amplitude * cycles * Math.PI * 2;
         enemy.movementPhase = "fly";
@@ -6794,25 +6929,25 @@ function beginDeadFlyingCharacterEnemy(state, enemy) {
     if (enemy.deathFlightStarted) {
         return;
     }
-    const playerDx = (Number(enemy.x) || 0) - (Number(state.player?.x) || 0);
+    const playerDx = (Number(enemy.currentTransform.x) || 0) - (Number(state.player?.currentTransform.x) || 0);
     const direction = Math.abs(playerDx) > 1
         ? (playerDx < 0 ? -1 : 1)
         : (Number(enemy.facing) < 0 ? -1 : 1);
     enemy.deathFlightStarted = true;
-    enemy.deathFlightStartX = Number(enemy.x) || 0;
-    enemy.deathFlightStartY = Number(enemy.y) || 0;
+    enemy.deathFlightStartX = Number(enemy.currentTransform.x) || 0;
+    enemy.deathFlightStartY = Number(enemy.currentTransform.y) || 0;
     enemy.deathFlightDirection = direction;
     enemy.facing = direction;
     enemy.velocityX = direction * Math.max(1, Number(enemy.deathFlightSpeed) || 520);
     enemy.velocityY = -Math.max(0, Number(enemy.deathFlightLift) || 210);
-    enemy.renderOpacity = 1;
+    enemy.currentTransform.alpha = 1;
 }
 
 function updateDeadFlyingCharacterEnemy(state, enemy, dt) {
     beginDeadFlyingCharacterEnemy(state, enemy);
     enemy.deathElapsed = Math.max(0, Number(enemy.deathElapsed) || 0) + Math.max(0, Number(dt) || 0);
-    enemy.x += (Number(enemy.velocityX) || 0) * dt;
-    enemy.y += (Number(enemy.velocityY) || 0) * dt;
+    enemy.currentTransform.x += (Number(enemy.velocityX) || 0) * dt;
+    enemy.currentTransform.y += (Number(enemy.velocityY) || 0) * dt;
     enemy.velocityY = (Number(enemy.velocityY) || 0) + (Number(enemy.deathFlightGravity) || 0) * dt;
     enemy.movementPhase = "death_fly_off";
     enemy.aiState = "dead";
@@ -6820,10 +6955,10 @@ function updateDeadFlyingCharacterEnemy(state, enemy, dt) {
     setCharacterEnemyAnimation(enemy, "fly");
 
     const distance = Math.hypot(
-        enemy.x - finiteNumberOr(enemy.deathFlightStartX, enemy.spawnX),
-        enemy.y - finiteNumberOr(enemy.deathFlightStartY, enemy.spawnY)
+        enemy.currentTransform.x - finiteNumberOr(enemy.deathFlightStartX, enemy.spawnX),
+        enemy.currentTransform.y - finiteNumberOr(enemy.deathFlightStartY, enemy.spawnY)
     );
-    enemy.renderOpacity = distance >= Math.max(1, Number(enemy.deathFlyOffDistance) || 720) ? 0 : 1;
+    enemy.currentTransform.alpha = distance >= Math.max(1, Number(enemy.deathFlyOffDistance) || 720) ? 0 : 1;
     syncCharacterEnemyTarget(state, enemy);
 }
 
@@ -6844,7 +6979,7 @@ function beginCharacterEnemyDeath(state, enemy) {
         Number(enemy.deathDuration) || state.tuning.enemyDefaultDeathSeconds || 1.18
     );
     enemy.deathElapsed = 0;
-    enemy.renderOpacity = 1;
+    enemy.currentTransform.alpha = 1;
     setCharacterEnemyAnimation(enemy, "death");
 }
 
@@ -6858,7 +6993,7 @@ function deferCharacterEnemyDeathUntilLanding(enemy) {
     enemy.hurtTimer = 0;
     enemy.deathTimer = 0;
     enemy.deathElapsed = 0;
-    enemy.renderOpacity = 1;
+    enemy.currentTransform.alpha = 1;
 }
 
 function updateDeadCharacterEnemyPhysics(state, enemy, dt) {
@@ -6869,14 +7004,14 @@ function updateDeadCharacterEnemyPhysics(state, enemy, dt) {
     if (enemy.airborne !== true) {
         const support = findCharacterEnemyGroundSupport(
             state,
-            enemy.x,
-            enemy.y,
+            enemy.currentTransform.x,
+            enemy.currentTransform.y,
             Math.max(2, Number(enemy.maxStepHeight) || 0),
             Math.max(4, Number(enemy.maxDropDistance) || 0),
             enemy.width
         );
-        if (support && Math.abs(support.y - enemy.y) <= Math.max(4, Number(enemy.maxDropDistance) || 0)) {
-            enemy.y = support.y;
+        if (support && Math.abs(support.y - enemy.currentTransform.y) <= Math.max(4, Number(enemy.maxDropDistance) || 0)) {
+            enemy.currentTransform.y = support.y;
             enemy.velocityX = 0;
             enemy.velocityY = 0;
             setCharacterEnemyGroundSupportIdentity(state, enemy, support);
@@ -6890,18 +7025,18 @@ function updateDeadCharacterEnemyPhysics(state, enemy, dt) {
     enemy.airTimer = Math.max(0, Number(enemy.airTimer) || 0) + dt;
     enemy.velocityY = (Number(enemy.velocityY) || 0) + Math.max(1, Number(enemy.jumpGravity) || 1) * dt;
 
-    const previousX = enemy.x;
-    const previousY = enemy.y;
+    const previousX = enemy.currentTransform.x;
+    const previousY = enemy.currentTransform.y;
     const nextX = previousX + (Number(enemy.velocityX) || 0) * dt;
     const horizontalCollision = findActorHorizontalSweepCollision(state, enemy, previousX, nextX);
-    enemy.x = horizontalCollision ? horizontalCollision.x : nextX;
+    enemy.currentTransform.x = horizontalCollision ? horizontalCollision.x : nextX;
     if (horizontalCollision) {
         enemy.velocityX = 0;
     }
 
     const nextY = previousY + (Number(enemy.velocityY) || 0) * dt;
     const verticalCollision = findActorVerticalSweepCollision(state, enemy, previousY, nextY);
-    enemy.y = verticalCollision ? verticalCollision.y : nextY;
+    enemy.currentTransform.y = verticalCollision ? verticalCollision.y : nextY;
     if (verticalCollision?.ceiling) {
         enemy.velocityY = 0;
     } else if (verticalCollision) {
@@ -6911,8 +7046,8 @@ function updateDeadCharacterEnemyPhysics(state, enemy, dt) {
         enemy.airTimer = 0;
         const support = findCharacterEnemyGroundSupport(
             state,
-            enemy.x,
-            enemy.y,
+            enemy.currentTransform.x,
+            enemy.currentTransform.y,
             Math.max(5, Number(enemy.maxStepHeight) || 0),
             Math.max(5, Number(enemy.maxDropDistance) || 0),
             enemy.width
@@ -6926,14 +7061,14 @@ function updateDeadEnemyPresentation(state, enemy, dt) {
     const fadeDuration = Math.max(0, finiteNumberOr(enemy.corpseFadeDuration, state.tuning.enemyCorpseFadeSeconds));
     enemy.deathElapsed = Math.max(0, Number(enemy.deathElapsed) || 0) + Math.max(0, Number(dt) || 0);
     if (enemy.deathElapsed <= holdDuration) {
-        enemy.renderOpacity = 1;
+        enemy.currentTransform.alpha = 1;
         return;
     }
     if (fadeDuration <= 0) {
-        enemy.renderOpacity = 0;
+        enemy.currentTransform.alpha = 0;
         return;
     }
-    enemy.renderOpacity = clamp(1 - (enemy.deathElapsed - holdDuration) / fadeDuration, 0, 1);
+    enemy.currentTransform.alpha = clamp(1 - (enemy.deathElapsed - holdDuration) / fadeDuration, 0, 1);
 }
 
 function updateCharacterEnemies(state, dt) {
@@ -6957,7 +7092,7 @@ function updateCharacterEnemies(state, dt) {
         const animationDt = (enemy.combatState === ENEMY_COMBAT_STATE.ATTACKING || (Number(enemy.attackTimer) || 0) > 0)
             ? dt * attackRateScale
             : dt;
-        enemy.animationTime = Math.max(0, Number(enemy.animationTime) || 0) + animationDt;
+        enemy.animationClock.current = Math.max(0, Number(enemy.animationClock.current) || 0) + animationDt;
         enemy.attackCooldownTimer = Math.max(0, (Number(enemy.attackCooldownTimer) || 0) - dt * attackRateScale);
 
         if (
@@ -6978,7 +7113,7 @@ function updateCharacterEnemies(state, dt) {
             enemy.attackHitApplied = false;
             enemy.hurtTimer = 0;
             enemy.deathElapsed = 0;
-            enemy.renderOpacity = 1;
+            enemy.currentTransform.alpha = 1;
 
             if (enemy.airborne === true) {
                 const navigation = characterEnemyNavigationContext(state, enemy);
@@ -7016,7 +7151,7 @@ function updateCharacterEnemies(state, dt) {
         }
 
         enemy.deathElapsed = 0;
-        enemy.renderOpacity = 1;
+        enemy.currentTransform.alpha = 1;
 
         if (enemy.locomotion === "flying") {
             updateFlyingCharacterEnemy(state, enemy, dt);
@@ -7053,7 +7188,7 @@ function updateCharacterEnemies(state, dt) {
 
         const alerted = updateCharacterEnemyAwareness(state, enemy, dt);
         if (alerted) {
-            const dx = state.player.x - enemy.x;
+            const dx = state.player.currentTransform.x - enemy.currentTransform.x;
             if (Math.abs(dx) > 0.001) {
                 enemy.facing = dx < 0 ? -1 : 1;
             }
@@ -7073,13 +7208,13 @@ function updateCharacterEnemies(state, dt) {
                     moved = moveCharacterEnemyToward(
                         state,
                         enemy,
-                        state.player.x,
+                        state.player.currentTransform.x,
                         characterEnemyRunSpeed(enemy, state.tuning),
                         dt,
                         Math.max(0, preferredRange)
                     );
                 } else if (horizontalDistance < minRange && preferredRange > 0) {
-                    const desiredX = state.player.x - enemy.facing * preferredRange;
+                    const desiredX = state.player.currentTransform.x - enemy.facing * preferredRange;
                     moved = moveCharacterEnemyToward(
                         state,
                         enemy,
@@ -7113,7 +7248,7 @@ function updateCharacterEnemies(state, dt) {
             const moved = moveCharacterEnemyToward(
                 state,
                 enemy,
-                state.player.x,
+                state.player.currentTransform.x,
                 characterEnemyRunSpeed(enemy, state.tuning),
                 dt,
                 stopDistance
@@ -7150,7 +7285,7 @@ function updateCharacterEnemies(state, dt) {
 
         setCharacterEnemyAnimation(enemy, "walk");
         const direction = enemy.facing < 0 ? -1 : 1;
-        const unclampedX = enemy.x + direction * enemy.walkSpeed * dt;
+        const unclampedX = enemy.currentTransform.x + direction * enemy.walkSpeed * dt;
         const candidateX = clamp(unclampedX, enemy.patrolMinX, enemy.patrolMaxX);
         const reachedBoundary = Math.abs(candidateX - unclampedX) > 0.0001 ||
             candidateX <= enemy.patrolMinX + 0.001 || candidateX >= enemy.patrolMaxX - 0.001;
@@ -7161,8 +7296,8 @@ function updateCharacterEnemies(state, dt) {
             continue;
         }
 
-        enemy.x = candidateX;
-        enemy.y = support.y;
+        enemy.currentTransform.x = candidateX;
+        enemy.currentTransform.y = support.y;
         setCharacterEnemyGroundSupportIdentity(state, enemy, support);
         if (reachedBoundary) {
             pauseAndTurnCharacterEnemy(enemy);
@@ -7184,8 +7319,8 @@ function applyPlayerCaveKillBoundary(state) {
 
     addEvent(state, "PLAYER_CAVE_BLACK_BOUNDARY_CROSSED", {
         boundarySource: boundary.source || "caveFullBlackOutset",
-        x: round(player.x),
-        y: round(player.y),
+        x: round(player.currentTransform.x),
+        y: round(player.currentTransform.y),
         rect: {
             x: round(rect.x),
             y: round(rect.y),
@@ -7225,16 +7360,16 @@ function updatePlayerDeath(state, dt) {
         emitPlayerDeathBurst(state);
         addEvent(state, "PLAYER_DEATH_BURST", {
             sourceId: player.deathSourceId || "unknown",
-            x: round(player.x),
-            y: round(player.y)
+            x: round(player.currentTransform.x),
+            y: round(player.currentTransform.y)
         });
     } else if (player.deathPhase === "burst" && player.deathPhaseTimer <= 0) {
         player.deathPhase = "afterglow";
         player.deathPhaseTimer = Math.max(FIXED_DT, Number(state.tuning.playerDeathAfterglowSeconds) || 2);
         addEvent(state, "PLAYER_DEATH_AFTERGLOW", {
             sourceId: player.deathSourceId || "unknown",
-            x: round(player.x),
-            y: round(player.y)
+            x: round(player.currentTransform.x),
+            y: round(player.currentTransform.y)
         });
     } else if (player.deathPhase === "afterglow" && player.deathPhaseTimer <= 0) {
         resetPlayer(state, player.deathResetReason || "defeated");
@@ -7243,6 +7378,7 @@ function updatePlayerDeath(state, dt) {
 }
 
 export function stepSimulation(state, inputFrame = createInputFrame(), dt = state.clock.fixedDt || FIXED_DT) {
+    snapshotSimulationPresentation(state);
     const input = sanitizeInput(inputFrame);
     const p = state.player;
     const t = state.tuning;
@@ -7335,13 +7471,13 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
         t.jumpVelocity = ordinaryJumpVelocity(t.gravity, t.ordinaryJumpHeight);
         p.vy = t.jumpVelocity;
         p.ordinaryJumpActive = true;
-        p.ordinaryJumpStartY = p.y;
+        p.ordinaryJumpStartY = p.currentTransform.y;
         p.ordinaryJumpApexY = null;
         p.onGround = false;
         p.supportId = null;
         p.airborneTime = 0;
         p.airBoostArmed = false;
-        addEvent(state, "PLAYER_JUMPED", { x: round(p.x), y: round(p.y), vx: round(p.vx), vy: round(p.vy) });
+        addEvent(state, "PLAYER_JUMPED", { x: round(p.currentTransform.x), y: round(p.currentTransform.y), vx: round(p.vx), vy: round(p.vy) });
     } else if ((input.jumpPressed || input.boostPressed) && !wasOnGround && !rocket.attachedBoosting) {
         if (p.airBoostArmed) {
             p.airBoostArmed = false;
@@ -7410,7 +7546,7 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
         p.airborneTime = 0;
     }
 
-    if (p.y > state.world.resetY) {
+    if (p.currentTransform.y > state.world.resetY) {
         resetPlayer(state, "fellOutOfArena");
     }
 
@@ -7638,18 +7774,47 @@ function orderedForwardTargets(state) {
     if (!activeTargets.length) return [];
     const player = state.player || { x: 0, y: 0, height: 0, facing: 1 };
     const facing = player.facing < 0 ? -1 : 1;
-    const originX = Number(player.x) || 0;
-    const originY = (Number(player.y) || 0) - (Number(player.height) || 0) * 0.72;
+    const originX = Number(player.currentTransform.x) || 0;
+    const originY = (Number(player.currentTransform.y) || 0) - (Number(player.height) || 0) * 0.72;
     return sortRocketTargets(state, activeTargets, originX, originY, facing, { requireForward: true });
 }
 
+function homingTargetVisibleOnScreen(state, target, visibleRect = cameraVisibleWorldRect(state)) {
+    if (!target || target.state !== "active") return false;
+
+    const enemyId = String(target.enemyId || "").trim();
+    const enemy = enemyId
+        ? (state.enemies || []).find((candidate) => candidate?.id === enemyId)
+        : null;
+    if (enemy) {
+        if (enemy.visible === false || Number(enemy.health) <= 0) return false;
+        const width = Math.max(1, Number(enemy.width) || Number(target.radius) * 2 || 1);
+        const height = Math.max(1, Number(enemy.height) || Number(target.radius) * 2 || 1);
+        return rectsOverlap(visibleRect, {
+            x: (Number(enemy.currentTransform.x) || 0) - width * 0.5,
+            y: (Number(enemy.currentTransform.y) || 0) - height,
+            w: width,
+            h: height
+        });
+    }
+
+    const radius = Math.max(1, Number(target.radius) || 1);
+    return rectsOverlap(visibleRect, {
+        x: (Number(target.x) || 0) - radius,
+        y: (Number(target.y) || 0) - radius,
+        w: radius * 2,
+        h: radius * 2
+    });
+}
+
 function orderedHomingTargets(state) {
-    const activeTargets = (state.targets || []).filter((target) => target.state === "active");
+    const visibleRect = cameraVisibleWorldRect(state);
+    const activeTargets = (state.targets || []).filter((target) => homingTargetVisibleOnScreen(state, target, visibleRect));
     if (!activeTargets.length) return [];
     const player = state.player || { x: 0, y: 0, height: 0, facing: 1 };
     const facing = player.facing < 0 ? -1 : 1;
-    const originX = Number(player.x) || 0;
-    const originY = (Number(player.y) || 0) - (Number(player.height) || 0) * 0.72;
+    const originX = Number(player.currentTransform.x) || 0;
+    const originY = (Number(player.currentTransform.y) || 0) - (Number(player.height) || 0) * 0.72;
     return sortRocketTargets(state, activeTargets, originX, originY, facing);
 }
 
@@ -7696,8 +7861,8 @@ function launchHomingRocket(state) {
     const projectileCount = Math.max(1, Math.floor(Number(rocketProfile.projectileCount) || 1));
     const targets = orderedHomingTargets(state);
     const launchOrigin = {
-        x: Number(p.x) || 0,
-        y: (Number(p.y) || 0) - (Number(p.height) || 0) * 0.72
+        x: Number(p.currentTransform.x) || 0,
+        y: (Number(p.currentTransform.y) || 0) - (Number(p.height) || 0) * 0.72
     };
     const defaultDirection = rocketProfile.launchMode === "forward"
         ? { x: p.facing < 0 ? -1 : 1, y: 0 }
@@ -7766,8 +7931,13 @@ function launchHomingRocket(state) {
             state: launchDelay > 0 ? "queued" : "launched",
             launchDelay,
             launchFromPlayerOnActivation: launchDelay > 0,
-            x: spawnX,
-            y: spawnY,
+            ...createTransformTriplet({
+                x: spawnX,
+                y: spawnY,
+                angle: Math.atan2(launchDir.y, launchDir.x),
+                scaleX: Math.max(0.1, Number(rocketProfile.visualScale) || 1),
+                scaleY: Math.max(0.1, Number(rocketProfile.visualScale) || 1)
+            }),
             vx: launchDir.x * projectileSpeed,
             vy: launchDir.y * projectileSpeed,
             facing: p.facing,
@@ -7788,7 +7958,6 @@ function launchHomingRocket(state) {
             lifetime: t.rocketProjectileLifetime,
             explosionTimer: 0,
             radius: projectileRadius,
-            visualScale: Math.max(0.1, Number(rocketProfile.visualScale) || 1),
             wrenchEffectId,
             wrenchGlowTint,
             wrenchGlowFrameId,
@@ -7841,10 +8010,10 @@ function beginBoomerangReturn(state, projectile, reason) {
     projectile.upLaunchTimer = 0;
     projectile.boomerangOutboundTimer = 0;
     const target = {
-        x: state.player.x,
-        y: state.player.y - state.player.height * 0.55
+        x: state.player.currentTransform.x,
+        y: state.player.currentTransform.y - state.player.height * 0.55
     };
-    const desired = normalizeVector({ x: target.x - projectile.x, y: target.y - projectile.y });
+    const desired = normalizeVector({ x: target.x - projectile.currentTransform.x, y: target.y - projectile.currentTransform.y });
     const speed = Math.max(1, Number(projectile.projectileSpeed) || state.tuning.rocketProjectileSpeed);
     projectile.vx = desired.x * speed;
     projectile.vy = desired.y * speed;
@@ -7911,7 +8080,7 @@ function applyStandardRocketSecondarySplash(state, projectile, excludedEnemyId =
     const splashProjectile = { ...projectile, damage };
     for (const enemy of state.enemies || []) {
         if (!enemy || enemy.id === excludedEnemyId || enemy.health <= 0 || enemy.combatState === "dead") continue;
-        if (!circleRectOverlap(projectile.x, projectile.y, radius, enemyProjectileHitbox(enemy))) continue;
+        if (!circleRectOverlap(projectile.currentTransform.x, projectile.currentTransform.y, radius, enemyProjectileHitbox(enemy))) continue;
         const result = applyProjectileDamageToEnemy(state, splashProjectile, enemy);
         if (result.damage <= 0) continue;
         enemyIds.push(enemy.id);
@@ -7934,13 +8103,13 @@ function applyPlayerProjectileAreaDamage(state, projectile) {
     const objectIds = [];
     for (const enemy of state.enemies || []) {
         if (!enemy || enemy.health <= 0 || enemy.combatState === "dead") continue;
-        if (!circleRectOverlap(projectile.x, projectile.y, radius, enemyProjectileHitbox(enemy))) continue;
+        if (!circleRectOverlap(projectile.currentTransform.x, projectile.currentTransform.y, radius, enemyProjectileHitbox(enemy))) continue;
         applyProjectileDamageToEnemy(state, projectile, enemy);
         enemyIds.push(enemy.id);
     }
     for (const object of state.reactiveObjects || []) {
         if (!reactiveObjectBlocksProjectiles(object)) continue;
-        if (!circleRectOverlap(projectile.x, projectile.y, radius, reactiveObjectCollisionRect(object))) continue;
+        if (!circleRectOverlap(projectile.currentTransform.x, projectile.currentTransform.y, radius, reactiveObjectCollisionRect(object))) continue;
         applyProjectileDamageToReactiveObject(state, projectile, object);
         objectIds.push(object.id);
     }
@@ -7972,13 +8141,13 @@ function updateProjectiles(state, dt) {
             projectile.launchDelay = Math.max(0, (Number(projectile.launchDelay) || 0) - dt);
             if (projectile.launchDelay > 0) continue;
             if (projectile.launchFromPlayerOnActivation) {
-                projectile.x = state.player.x;
-                projectile.y = state.player.y - state.player.height * 0.72;
+                projectile.currentTransform.x = state.player.currentTransform.x;
+                projectile.currentTransform.y = state.player.currentTransform.y - state.player.height * 0.72;
             }
             projectile.state = "launched";
             projectile.launchFromPlayerOnActivation = false;
             projectile.age = 0;
-            projectile.trail = [{ x: projectile.x, y: projectile.y, time: state.clock.time }];
+            projectile.trail = [{ x: projectile.currentTransform.x, y: projectile.currentTransform.y, time: state.clock.time }];
             addEvent(state, "ROCKET_SEQUENCE_SHOT_LAUNCHED", {
                 id: projectile.id,
                 volleyId: projectile.volleyId || null,
@@ -8017,10 +8186,10 @@ function updateProjectiles(state, dt) {
             projectile.boomerangOutboundTimer = Math.max(0, (projectile.boomerangOutboundTimer ?? 0) - dt);
             if (projectile.boomerangMode === "returning") {
                 const returnTarget = {
-                    x: state.player.x,
-                    y: state.player.y - state.player.height * 0.55
+                    x: state.player.currentTransform.x,
+                    y: state.player.currentTransform.y - state.player.height * 0.55
                 };
-                const desired = normalizeVector({ x: returnTarget.x - projectile.x, y: returnTarget.y - projectile.y });
+                const desired = normalizeVector({ x: returnTarget.x - projectile.currentTransform.x, y: returnTarget.y - projectile.currentTransform.y });
                 const speed = Math.max(1, Number(projectile.projectileSpeed) || t.rocketProjectileSpeed);
                 const desiredVx = desired.x * speed;
                 const desiredVy = desired.y * speed;
@@ -8039,7 +8208,7 @@ function updateProjectiles(state, dt) {
                     if (target) {
                         projectile.targetId = target.id;
                         applyRocketHomingMeander(state, projectile, dt);
-                        const desired = normalizeVector({ x: target.x - projectile.x, y: target.y - projectile.y });
+                        const desired = normalizeVector({ x: target.x - projectile.currentTransform.x, y: target.y - projectile.currentTransform.y });
                         const speed = Math.max(1, Number(projectile.projectileSpeed) || t.rocketProjectileSpeed);
                         const desiredVx = desired.x * speed;
                         const desiredVy = desired.y * speed;
@@ -8058,12 +8227,12 @@ function updateProjectiles(state, dt) {
                 }
             }
         } else if (projectile.kind === "enemyFireball") {
-            const playerTarget = state.player.visible === false ? null : { x: state.player.x, y: state.player.y - state.player.height * 0.56 };
+            const playerTarget = state.player.visible === false ? null : { x: state.player.currentTransform.x, y: state.player.currentTransform.y - state.player.height * 0.56 };
             if (playerTarget) {
                 const speed = Math.hypot(projectile.vx, projectile.vy) || Math.max(1, Number(projectile.projectileSpeed) || 1);
                 const desired = projectile.launchType === "pathing_lo" || projectile.launchType === "pathing_hi"
                     ? pathingProjectileDesiredDirection(state, projectile, playerTarget)
-                    : normalizeVector({ x: playerTarget.x - projectile.x, y: playerTarget.y - projectile.y });
+                    : normalizeVector({ x: playerTarget.x - projectile.currentTransform.x, y: playerTarget.y - projectile.currentTransform.y });
                 const desiredVx = desired.x * speed;
                 const desiredVy = desired.y * speed;
                 const blend = clamp((Number(projectile.homingStrength) || 0) * dt, 0, 1);
@@ -8079,10 +8248,13 @@ function updateProjectiles(state, dt) {
             projectile.vy += (Number(projectile.gravity) || 0) * dt;
         }
 
-        const previousX = projectile.x;
-        const previousY = projectile.y;
-        projectile.x += projectile.vx * dt;
-        projectile.y += projectile.vy * dt;
+        if (Math.hypot(Number(projectile.vx) || 0, Number(projectile.vy) || 0) > 0.000001) {
+            projectile.currentTransform.angle = Math.atan2(Number(projectile.vy) || 0, Number(projectile.vx) || 0);
+        }
+        const previousX = projectile.currentTransform.x;
+        const previousY = projectile.currentTransform.y;
+        projectile.currentTransform.x += projectile.vx * dt;
+        projectile.currentTransform.y += projectile.vy * dt;
 
         if (projectile.isRocket) {
             recordProjectileTrail(state, projectile);
@@ -8096,7 +8268,7 @@ function updateProjectiles(state, dt) {
 
         if (projectile.boomerangMode === "returning") {
             const start = { x: previousX, y: previousY };
-            const end = { x: projectile.x, y: projectile.y };
+            const end = { x: projectile.currentTransform.x, y: projectile.currentTransform.y };
             const radius = Math.max(0, Number(projectile.radius) || 0);
             const catchImpact = sweptCircleRectImpact(start, end, radius, getPlayerRect(state));
             const enemyImpact = findProjectileEnemyImpact(state, projectile, previousX, previousY);
@@ -8115,12 +8287,12 @@ function updateProjectiles(state, dt) {
             const impact = impacts[0] || null;
 
             if (impact?.impactKind === "playerCatch") {
-                projectile.x = impact.x;
-                projectile.y = impact.y;
+                projectile.currentTransform.x = impact.x;
+                projectile.currentTransform.y = impact.y;
                 completeBoomerangReturn(state, projectile);
             } else if (impact?.impactKind === "enemy") {
-                projectile.x = impact.x;
-                projectile.y = impact.y;
+                projectile.currentTransform.x = impact.x;
+                projectile.currentTransform.y = impact.y;
                 const damageResult = applyProjectileDamageToEnemy(state, projectile, impact.enemy);
                 explodeProjectile(state, projectile, impact.enemy.id, {
                     impactKind: "enemy",
@@ -8131,8 +8303,8 @@ function updateProjectiles(state, dt) {
                     boomerangReturning: true
                 });
             } else if (impact?.impactKind === "reactiveObject") {
-                projectile.x = impact.x;
-                projectile.y = impact.y;
+                projectile.currentTransform.x = impact.x;
+                projectile.currentTransform.y = impact.y;
                 const damageResult = applyProjectileDamageToReactiveObject(state, projectile, impact.object);
                 explodeProjectile(state, projectile, impact.object.id, {
                     impactKind: "reactiveObject",
@@ -8144,8 +8316,8 @@ function updateProjectiles(state, dt) {
                     boomerangReturning: true
                 });
             } else if (impact?.impactKind === "terrain") {
-                projectile.x = impact.x;
-                projectile.y = impact.y;
+                projectile.currentTransform.x = impact.x;
+                projectile.currentTransform.y = impact.y;
                 explodeProjectile(state, projectile, impact.id, {
                     impactKind: "terrain",
                     boomerangReturning: true
@@ -8168,8 +8340,8 @@ function updateProjectiles(state, dt) {
             ].filter(Boolean).sort((a, b) => (a.t - b.t) || (a.priority - b.priority));
             const impact = impacts[0] || null;
             if (impact?.impactKind === "player") {
-                projectile.x = impact.x;
-                projectile.y = impact.y;
+                projectile.currentTransform.x = impact.x;
+                projectile.currentTransform.y = impact.y;
                 const damageResult = applyProjectileDamageToPlayer(state, projectile);
                 explodeProjectile(state, projectile, state.player.id || "player", {
                     impactKind: "player",
@@ -8181,8 +8353,8 @@ function updateProjectiles(state, dt) {
                 continue;
             }
             if (impact?.impactKind === "reactiveObject") {
-                projectile.x = impact.x;
-                projectile.y = impact.y;
+                projectile.currentTransform.x = impact.x;
+                projectile.currentTransform.y = impact.y;
                 const damageResult = applyProjectileDamageToReactiveObject(state, projectile, impact.object);
                 explodeProjectile(state, projectile, impact.object.id, {
                     impactKind: "reactiveObject",
@@ -8195,8 +8367,8 @@ function updateProjectiles(state, dt) {
                 continue;
             }
             if (impact?.impactKind === "terrain") {
-                projectile.x = impact.x;
-                projectile.y = impact.y;
+                projectile.currentTransform.x = impact.x;
+                projectile.currentTransform.y = impact.y;
                 explodeProjectile(state, projectile, impact.id, { impactKind: "terrain" });
                 continue;
             }
@@ -8220,8 +8392,8 @@ function updateProjectiles(state, dt) {
         ].filter(Boolean).sort((a, b) => (a.t - b.t) || (a.priority - b.priority));
         const impact = impacts[0] || null;
         if (impact?.impactKind === "enemy") {
-            projectile.x = impact.x;
-            projectile.y = impact.y;
+            projectile.currentTransform.x = impact.x;
+            projectile.currentTransform.y = impact.y;
             if (projectile.areaDamageRadius > 0) {
                 detonatePlayerProjectile(state, projectile, impact.enemy.id, {
                     impactKind: "enemy",
@@ -8252,8 +8424,8 @@ function updateProjectiles(state, dt) {
             continue;
         }
         if (impact?.impactKind === "reactiveObject") {
-            projectile.x = impact.x;
-            projectile.y = impact.y;
+            projectile.currentTransform.x = impact.x;
+            projectile.currentTransform.y = impact.y;
             if (projectile.areaDamageRadius > 0) {
                 detonatePlayerProjectile(state, projectile, impact.object.id, {
                     impactKind: "reactiveObject",
@@ -8280,8 +8452,8 @@ function updateProjectiles(state, dt) {
             continue;
         }
         if (impact?.impactKind === "terrain") {
-            projectile.x = impact.x;
-            projectile.y = impact.y;
+            projectile.currentTransform.x = impact.x;
+            projectile.currentTransform.y = impact.y;
             if (projectile.areaDamageRadius > 0) {
                 detonatePlayerProjectile(state, projectile, impact.id, { impactKind: "terrain" });
             } else {
@@ -8315,10 +8487,10 @@ function recordProjectileTrail(state, projectile) {
 
     const previous = projectile.trail[projectile.trail.length - 1];
     const spacing = 12;
-    if (!previous || Math.hypot(projectile.x - previous.x, projectile.y - previous.y) >= spacing) {
+    if (!previous || Math.hypot(projectile.currentTransform.x - previous.x, projectile.currentTransform.y - previous.y) >= spacing) {
         projectile.trail.push({
-            x: round(projectile.x),
-            y: round(projectile.y),
+            x: round(projectile.currentTransform.x),
+            y: round(projectile.currentTransform.y),
             time: Number(state.clock.time.toFixed(4))
         });
     }
@@ -8326,9 +8498,9 @@ function recordProjectileTrail(state, projectile) {
     const particleScale = renderingParticleScale(state.settings);
     const puffSpacing = Math.max(1, (state.tuning.rocketSmokePuffSpacing ?? 16) / particleScale);
     const previousPuff = projectile.lastSmokePuff || null;
-    if (!previousPuff || Math.hypot(projectile.x - previousPuff.x, projectile.y - previousPuff.y) >= puffSpacing) {
+    if (!previousPuff || Math.hypot(projectile.currentTransform.x - previousPuff.x, projectile.currentTransform.y - previousPuff.y) >= puffSpacing) {
         addRocketSmokePuff(state, projectile);
-        projectile.lastSmokePuff = { x: projectile.x, y: projectile.y };
+        projectile.lastSmokePuff = { x: projectile.currentTransform.x, y: projectile.currentTransform.y };
     }
 
     const maxTrailAge = 0.42 * rocketTrailDurationScale(state, projectile);
@@ -8400,8 +8572,8 @@ function recordEnemyFireballTrail(state, projectile) {
             const orbitY = Math.sin(orbitAngle);
             const sizeVariation = 1 - UNDEATH_TRAIL_SIZE_VARIATION + hash01(seed + 239) * UNDEATH_TRAIL_SIZE_VARIATION * 2;
             projectile.trail.push({
-                x: round(projectile.x + orbitX * orbitDistance),
-                y: round(projectile.y + orbitY * orbitDistance),
+                x: round(projectile.currentTransform.x + orbitX * orbitDistance),
+                y: round(projectile.currentTransform.y + orbitY * orbitDistance),
                 vx: round(orbitX * outwardSpeed + (hash01(seed + 79) * 2 - 1) * driftJitter),
                 vy: round(orbitY * outwardSpeed + (hash01(seed + 97) * 2 - 1) * driftJitter),
                 birth: Number(state.clock.time.toFixed(4)),
@@ -8414,8 +8586,8 @@ function recordEnemyFireballTrail(state, projectile) {
         }
         const colorBand = heat > 0.82 ? "yellow" : heat > 0.4 ? "orange" : "red";
         projectile.trail.push({
-            x: round(projectile.x + tailX * spawnBack + lateralX * spawnSide),
-            y: round(projectile.y + tailY * spawnBack + lateralY * spawnSide),
+            x: round(projectile.currentTransform.x + tailX * spawnBack + lateralX * spawnSide),
+            y: round(projectile.currentTransform.y + tailY * spawnBack + lateralY * spawnSide),
             vx: round(tailX * (18 + hash01(seed + 61) * 36) + lateralX * lateralNoise * (8 + hash01(seed + 79) * 20)),
             vy: round(tailY * (18 + hash01(seed + 97) * 36) + lateralY * lateralNoise * (8 + hash01(seed + 131) * 20)),
             birth: Number(state.clock.time.toFixed(4)),
@@ -8470,14 +8642,14 @@ function addRocketSmokePuff(state, projectile) {
     const durationScale = rocketTrailDurationScale(state, projectile);
     const tailX = -projectile.vx / speed;
     const tailY = -projectile.vy / speed;
-    const seed = Math.floor((projectile.x * 17 + projectile.y * 31 + state.clock.tick * 7) % 100000);
+    const seed = Math.floor((projectile.currentTransform.x * 17 + projectile.currentTransform.y * 31 + state.clock.tick * 7) % 100000);
     const id = state.effects.nextPuffId || 1;
     state.effects.nextPuffId = id + 1;
     state.effects.smokePuffs.push({
         id: `smoke_${String(id).padStart(4, "0")}`,
         kind: "rocketSmokePuff",
-        x: round(projectile.x + tailX * projectile.radius * 0.85),
-        y: round(projectile.y + tailY * projectile.radius * 0.85),
+        x: round(projectile.currentTransform.x + tailX * projectile.radius * 0.85),
+        y: round(projectile.currentTransform.y + tailY * projectile.radius * 0.85),
         vx: round(tailX * 8),
         vy: round(tailY * 8 - 10),
         age: 0,
@@ -8533,8 +8705,8 @@ function addSmokePuff(state, spec) {
 function attachedRocketNozzlePoint(state) {
     const p = state.player;
     return {
-        x: p.x - p.facing * 28,
-        y: p.y - p.height * 0.42
+        x: p.currentTransform.x - p.facing * 28,
+        y: p.currentTransform.y - p.height * 0.42
     };
 }
 
@@ -8610,8 +8782,8 @@ function explodeProjectile(state, projectile, reason, detail = {}) {
     addEvent(state, eventType, {
         id: projectile.id,
         reason,
-        x: round(projectile.x),
-        y: round(projectile.y),
+        x: round(projectile.currentTransform.x),
+        y: round(projectile.currentTransform.y),
         ...detail
     });
 }
@@ -8628,7 +8800,7 @@ function emitProjectileImpactSmoke(state, projectile, detail = {}) {
 
     for (let i = 0; i < count; i += 1) {
         const u = count <= 1 ? 0 : i / (count - 1);
-        const seed = (state.clock.tick * 97 + i * 131 + Math.floor(projectile.x * 3 + projectile.y * 5)) % 10000;
+        const seed = (state.clock.tick * 97 + i * 131 + Math.floor(projectile.currentTransform.x * 3 + projectile.currentTransform.y * 5)) % 10000;
         const angle = incomingAngle + Math.PI + (u - 0.5) * Math.PI * 1.55 + (hash01(seed) - 0.5) * 0.65;
         const speed = 60 + incomingSpeed * (0.08 + hash01(seed + 19) * 0.13) + i * 2.2;
         const offset = 5 + hash01(seed + 41) * 16;
@@ -8636,8 +8808,8 @@ function emitProjectileImpactSmoke(state, projectile, detail = {}) {
         const hitWizard = enemyProjectile && detail.impactKind === "player";
         addSmokePuff(state, {
             kind: enemyProjectile ? "enemyProjectileImpactPuff" : "rocketImpactSmokePuff",
-            x: projectile.x + Math.cos(angle) * offset,
-            y: projectile.y + Math.sin(angle) * offset,
+            x: projectile.currentTransform.x + Math.cos(angle) * offset,
+            y: projectile.currentTransform.y + Math.sin(angle) * offset,
             vx: Math.cos(angle) * speed,
             vy: Math.sin(angle) * speed - 18 + hash01(seed + 73) * 42,
             lifetime: enemyProjectile
@@ -8665,7 +8837,8 @@ function findTargetById(state, id) {
     if (!id) {
         return null;
     }
-    return state.targets.find((target) => target.id === id && target.state === "active") || null;
+    const target = state.targets.find((candidate) => candidate.id === id && candidate.state === "active") || null;
+    return homingTargetVisibleOnScreen(state, target) ? target : null;
 }
 
 function distance(a, b) {
@@ -8685,7 +8858,7 @@ function circleRectOverlap(cx, cy, radius, rect) {
 
 function findProjectileReactiveObjectImpact(state, projectile, previousX, previousY) {
     const start = { x: previousX, y: previousY };
-    const end = { x: projectile.x, y: projectile.y };
+    const end = { x: projectile.currentTransform.x, y: projectile.currentTransform.y };
     const radius = Math.max(0, projectile.radius || 0);
     let best = null;
 
@@ -8752,7 +8925,7 @@ function findProjectilePlayerImpact(state, projectile, previousX, previousY) {
     }
     const hit = sweptCircleRectImpact(
         { x: previousX, y: previousY },
-        { x: projectile.x, y: projectile.y },
+        { x: projectile.currentTransform.x, y: projectile.currentTransform.y },
         Math.max(0, projectile.radius || 0),
         getPlayerRect(state)
     );
@@ -8777,7 +8950,7 @@ function applyProjectileDamageToPlayer(state, projectile) {
 
 function findProjectileEnemyImpact(state, projectile, previousX, previousY) {
     const start = { x: previousX, y: previousY };
-    const end = { x: projectile.x, y: projectile.y };
+    const end = { x: projectile.currentTransform.x, y: projectile.currentTransform.y };
     const radius = Math.max(0, projectile.radius || 0);
     let best = null;
 
@@ -8834,7 +9007,7 @@ function applyProjectileDamageToEnemy(state, projectile, enemy) {
             enemy.hurtTimer = 0;
             enemy.deathTimer = Math.max(FIXED_DT, Number(enemy.deathDuration) || state.tuning.enemyDefaultDeathSeconds || 1.18);
             enemy.deathElapsed = 0;
-            enemy.renderOpacity = 1;
+            enemy.currentTransform.alpha = 1;
         }
     } else {
         enemy.combatState = ENEMY_COMBAT_STATE.HURT;
@@ -8887,7 +9060,8 @@ function applyProjectileDamageToEnemy(state, projectile, enemy) {
 
 function findProjectileTerrainImpact(state, projectile, previousX, previousY, options = {}) {
     const start = { x: previousX, y: previousY };
-    const end = { x: projectile.x, y: projectile.y };
+    const projectileTransform = currentTransformOf(projectile);
+    const end = { x: projectileTransform.x, y: projectileTransform.y };
     const radius = Math.max(0, projectile.radius || 0);
     let best = null;
 
@@ -9348,6 +9522,7 @@ function uppermostSupportCandidate(left, right) {
 }
 
 function findActorHorizontalSweepCollision(state, actor, previousX, nextX, options = {}) {
+    const actorTransform = currentTransformOf(actor);
     const dx = nextX - previousX;
     if (Math.abs(dx) <= 0.000001) {
         return null;
@@ -9356,12 +9531,12 @@ function findActorHorizontalSweepCollision(state, actor, previousX, nextX, optio
     const previousRight = previousX + actor.width / 2;
     const currentLeft = nextX - actor.width / 2;
     const currentRight = nextX + actor.width / 2;
-    const top = actor.y - actor.height;
-    const bottom = actor.y;
+    const top = actorTransform.y - actor.height;
+    const bottom = actorTransform.y;
     const ySamples = [
-        actor.y - actor.height * 0.84,
-        actor.y - actor.height * 0.50,
-        actor.y - actor.height * 0.16
+        actorTransform.y - actor.height * 0.84,
+        actorTransform.y - actor.height * 0.50,
+        actorTransform.y - actor.height * 0.16
     ];
     const skin = 3;
     const collisionQueryBounds = {
@@ -9502,14 +9677,15 @@ function findActorGroundSupportAtX(state, actor, x, referenceY, maxStepUp, maxDr
 }
 
 function findActorVerticalSweepCollision(state, actor, previousY, nextY, options = {}) {
+    const actorTransform = currentTransformOf(actor);
     const dy = nextY - previousY;
     if (Math.abs(dy) <= 0.000001) {
         return null;
     }
     const samples = [
-        actor.x,
-        actor.x - actor.width * 0.42,
-        actor.x + actor.width * 0.42
+        actorTransform.x,
+        actorTransform.x - actor.width * 0.42,
+        actorTransform.x + actor.width * 0.42
     ];
     const previousTop = previousY - actor.height;
     const currentTop = nextY - actor.height;
@@ -9609,31 +9785,32 @@ function findActorVerticalSweepCollision(state, actor, previousY, nextY, options
 }
 
 function tryActorStepUp(state, actor, previousX, nextX, maxStepHeight, options = {}) {
-    const originalX = actor.x;
-    const originalY = actor.y;
+    const actorTransform = currentTransformOf(actor);
+    const originalX = actorTransform.x;
+    const originalY = actorTransform.y;
     const maximum = Math.max(0, Math.floor(Number(maxStepHeight) || 0));
     if (maximum < 1) return null;
 
     const direction = Math.sign(nextX - previousX) || 1;
     const probeX = nextX + direction * Math.min(6, Math.max(2, actor.width * 0.15));
     for (let step = 1; step <= maximum; step += 1) {
-        actor.x = previousX;
-        actor.y = originalY - step;
+        actorTransform.x = previousX;
+        actorTransform.y = originalY - step;
         const horizontalCollision = findActorHorizontalSweepCollision(state, actor, previousX, probeX, options);
         if (horizontalCollision) continue;
 
-        actor.x = probeX;
+        actorTransform.x = probeX;
         const landing = findActorVerticalSweepCollision(state, actor, originalY - step, originalY + 1, options);
         if (!landing || landing.ceiling) continue;
         if (landing.y >= originalY - 0.05 || landing.y < originalY - maximum - 0.5) continue;
 
-        actor.x = originalX;
-        actor.y = originalY;
+        actorTransform.x = originalX;
+        actorTransform.y = originalY;
         return { x: probeX, y: landing.y, height: originalY - landing.y, id: landing.id, kind: landing.kind, source: landing.source };
     }
 
-    actor.x = originalX;
-    actor.y = originalY;
+    actorTransform.x = originalX;
+    actorTransform.y = originalY;
     return null;
 }
 
@@ -9642,7 +9819,7 @@ function moveAndCollideX(state, dx) {
     if (dx === 0) {
         return;
     }
-    const previousX = p.x;
+    const previousX = p.currentTransform.x;
     const nextX = previousX + dx;
     const collision = findActorHorizontalSweepCollision(state, p, previousX, nextX);
     if (!collision) {
@@ -9655,15 +9832,15 @@ function moveAndCollideX(state, dx) {
         };
         let sweptSupport = null;
         if (p.onGround && p.vy >= 0) {
-            sweptSupport = findActorSweptGroundSupport(state, p, previousX, p.y, nextX, {
+            sweptSupport = findActorSweptGroundSupport(state, p, previousX, p.currentTransform.y, nextX, {
                 ...supportOptions,
                 maxStepUp: p.height * AUTOMATIC_STEP_HEIGHT_RATIO,
                 maxDrop: p.height * AUTOMATIC_STEP_HEIGHT_RATIO
             });
         }
-        p.x = nextX;
+        p.currentTransform.x = nextX;
         if (p.onGround && p.vy >= 0) {
-            const snappedSupport = findActorGroundSupportAtX(state, p, p.x, p.y, p.height * AUTOMATIC_STEP_HEIGHT_RATIO, p.height * AUTOMATIC_STEP_HEIGHT_RATIO, supportOptions);
+            const snappedSupport = findActorGroundSupportAtX(state, p, p.currentTransform.x, p.currentTransform.y, p.height * AUTOMATIC_STEP_HEIGHT_RATIO, p.height * AUTOMATIC_STEP_HEIGHT_RATIO, supportOptions);
             const slopeFollow = uppermostSupportCandidate(sweptSupport, snappedSupport);
             if (slopeFollow) {
                 landPlayerOn(state, slopeFollow.y, true, slopeFollow.id, slopeFollow.kind);
@@ -9685,7 +9862,7 @@ function moveAndCollideX(state, dx) {
             preferWalkable: currentPlayerSupportIsWalkable(state)
         });
         if (stepped) {
-            p.x = stepped.x;
+            p.currentTransform.x = stepped.x;
             landPlayerOn(state, stepped.y, true, stepped.id, stepped.kind);
             state.collisions.lastResolution = {
                 axis: "step",
@@ -9697,7 +9874,7 @@ function moveAndCollideX(state, dx) {
             return;
         }
     }
-    p.x = collision.x;
+    p.currentTransform.x = collision.x;
     p.vx = 0;
     if (collision.side === "right") {
         state.collisions.playerTouching.right = true;
@@ -9751,11 +9928,11 @@ function integratePlayerVerticalMotion(state, dt, wasOnGround, doubleGravityHeld
     moveAndCollideY(state, apexDisplacement, wasOnGround);
     if (!p.ordinaryJumpActive || state.collisions.playerTouching.up) return;
 
-    p.ordinaryJumpApexY = p.y;
+    p.ordinaryJumpApexY = p.currentTransform.y;
     addEvent(state, "PLAYER_JUMP_APEX", {
-        x: round(p.x),
-        y: round(p.y),
-        height: round((Number.isFinite(Number(p.ordinaryJumpStartY)) ? Number(p.ordinaryJumpStartY) : p.y) - p.y),
+        x: round(p.currentTransform.x),
+        y: round(p.currentTransform.y),
+        height: round((Number.isFinite(Number(p.ordinaryJumpStartY)) ? Number(p.ordinaryJumpStartY) : p.currentTransform.y) - p.currentTransform.y),
         configuredHeight: round(t.ordinaryJumpHeight),
         brakedHeight: doubleGravityHeld ? round((Number(t.ordinaryJumpHeight) || DEFAULT_TUNING.ordinaryJumpHeight) * 0.5) : null
     });
@@ -9770,7 +9947,7 @@ function integratePlayerVerticalMotion(state, dt, wasOnGround, doubleGravityHeld
 
 function moveAndCollideY(state, dy, wasOnGround) {
     const p = state.player;
-    const previousY = p.y;
+    const previousY = p.currentTransform.y;
     const nextY = previousY + dy;
     const previousSupportId = p.supportId || "";
     const previousSupportWasWalkable = currentPlayerSupportIsWalkable(state);
@@ -9781,7 +9958,7 @@ function moveAndCollideY(state, dy, wasOnGround) {
         preferredSupportId: previousSupportId,
         preferWalkable: previousSupportWasWalkable
     });
-    p.y = collision ? collision.y : nextY;
+    p.currentTransform.y = collision ? collision.y : nextY;
     if (!collision) {
         return;
     }
@@ -9875,14 +10052,14 @@ function playerWalkableSupportOverride(state) {
     if (!segment || segment.kind !== "walkable") {
         return null;
     }
-    const supportY = segmentYAtX(segment, player.x);
-    if (supportY === null || Math.abs(supportY - player.y) > 6) {
+    const supportY = segmentYAtX(segment, player.currentTransform.x);
+    if (supportY === null || Math.abs(supportY - player.currentTransform.y) > 6) {
         return null;
     }
     const uppermost = findActorGroundSupportAtX(
         state,
         player,
-        player.x,
+        player.currentTransform.x,
         supportY,
         player.height * AUTOMATIC_STEP_HEIGHT_RATIO,
         player.height * AUTOMATIC_STEP_HEIGHT_RATIO,
@@ -9891,7 +10068,7 @@ function playerWalkableSupportOverride(state) {
     if (uppermost && uppermost.id !== segment.id && uppermost.y < supportY - 0.1) {
         return null;
     }
-    return { segment, point: { x: player.x, y: supportY } };
+    return { segment, point: { x: player.currentTransform.x, y: supportY } };
 }
 
 function colliderContainsWalkableSupportPoint(collider, source, support) {
@@ -10101,8 +10278,8 @@ function triggerPlayerCrushDeath(state, probe) {
 
     addEvent(state, "PLAYER_CRUSHED", {
         consecutiveTicks: player.crushCandidateTicks,
-        x: round(player.x),
-        y: round(player.y),
+        x: round(player.currentTransform.x),
+        y: round(player.currentTransform.y),
         ...probe
     });
     triggerPlayerDeath(state, {
@@ -10145,8 +10322,8 @@ function triggerPlayerDeath(state, options = {}) {
         sourceId,
         cause,
         phase: "cover",
-        x: round(player.x),
-        y: round(player.y)
+        x: round(player.currentTransform.x),
+        y: round(player.currentTransform.y)
     });
     addEvent(state, "PLAYER_DEFEATED", { sourceId, cause });
     return true;
@@ -10164,8 +10341,8 @@ function emitPlayerDeathCoverSparks(state) {
     const particleScale = renderingParticleScale(state.settings);
     const authoredCount = Math.max(1, Math.round(Number(state.tuning.playerDeathCoverParticleCount) || 72));
     const count = Math.max(30, Math.round(authoredCount * particleScale));
-    const centerX = player.x;
-    const centerY = player.y - player.height * 0.52;
+    const centerX = player.currentTransform.x;
+    const centerY = player.currentTransform.y - player.height * 0.52;
     const coverSeconds = Math.max(FIXED_DT, Number(state.tuning.playerDeathCoverSeconds) || 0.42);
 
     for (let i = 0; i < count; i += 1) {
@@ -10189,8 +10366,8 @@ function emitPlayerDeathBurst(state) {
     const particleScale = renderingParticleScale(state.settings);
     const authoredCount = Math.max(1, Math.round(Number(state.tuning.playerDeathBurstParticleCount) || 64));
     const count = Math.max(28, Math.round(authoredCount * particleScale));
-    const centerX = player.x;
-    const centerY = player.y - player.height * 0.52;
+    const centerX = player.currentTransform.x;
+    const centerY = player.currentTransform.y - player.height * 0.52;
 
     for (let i = 0; i < count; i += 1) {
         const seed = state.clock.tick * 193 + i * 137 + Math.floor(centerX * 7 + centerY * 11);
@@ -10363,8 +10540,8 @@ function polygonOverlapsRect(polygon, rect) {
 
 function applyPlayerDepenetration(state, correction, wasOnGround) {
     const p = state.player;
-    p.x += correction.dx;
-    p.y += correction.dy;
+    p.currentTransform.x += correction.dx;
+    p.currentTransform.y += correction.dy;
 
     if (correction.direction === "left") {
         if (p.vx > 0) p.vx = 0;
@@ -10374,7 +10551,7 @@ function applyPlayerDepenetration(state, correction, wasOnGround) {
         state.collisions.playerTouching.left = true;
     } else if (correction.direction === "up") {
         if (p.vy >= 0) {
-            landPlayerOn(state, p.y, wasOnGround, correction.id, correction.kind);
+            landPlayerOn(state, p.currentTransform.y, wasOnGround, correction.id, correction.kind);
         } else {
             state.collisions.playerTouching.down = true;
         }
@@ -10401,16 +10578,16 @@ function resolveSegmentYCollisions(state, previousY, dy, wasOnGround) {
 
     const p = state.player;
     const samples = [
-        p.x,
-        p.x - p.width * 0.42,
-        p.x + p.width * 0.42
+        p.currentTransform.x,
+        p.currentTransform.x - p.width * 0.42,
+        p.currentTransform.x + p.width * 0.42
     ];
     const skin = 3;
     const collisionQueryBounds = {
         minX: Math.min(...samples) - skin,
-        minY: Math.min(previousY - p.height, p.y - p.height, previousY, p.y) - skin,
+        minY: Math.min(previousY - p.height, p.currentTransform.y - p.height, previousY, p.currentTransform.y) - skin,
         maxX: Math.max(...samples) + skin,
-        maxY: Math.max(previousY - p.height, p.y - p.height, previousY, p.y) + skin
+        maxY: Math.max(previousY - p.height, p.currentTransform.y - p.height, previousY, p.currentTransform.y) + skin
     };
     let best = null;
 
@@ -10430,14 +10607,14 @@ function resolveSegmentYCollisions(state, previousY, dy, wasOnGround) {
             }
 
             if (dy > 0) {
-                if (previousY <= y + skin && p.y >= y - skin) {
+                if (previousY <= y + skin && p.currentTransform.y >= y - skin) {
                     if (!best || y < best.y) {
                         best = { y, segment };
                     }
                 }
             } else if (dy < 0 && segment.kind !== "walkable") {
                 const previousTop = previousY - p.height;
-                const currentTop = p.y - p.height;
+                const currentTop = p.currentTransform.y - p.height;
                 if (previousTop >= y - skin && currentTop <= y + skin) {
                     if (!best || y > best.y) {
                         best = { y, segment, ceiling: true };
@@ -10452,7 +10629,7 @@ function resolveSegmentYCollisions(state, previousY, dy, wasOnGround) {
     }
 
     if (best.ceiling) {
-        p.y = best.y + p.height;
+        p.currentTransform.y = best.y + p.height;
         p.vy = 0;
         state.collisions.playerTouching.up = true;
         state.collisions.lastResolution = { axis: "y", segmentId: best.segment.id, kind: best.segment.kind };
@@ -10470,12 +10647,12 @@ function resolveSegmentXCollisions(state, previousX, dx) {
     const p = state.player;
     const previousLeft = previousX - p.width / 2;
     const previousRight = previousX + p.width / 2;
-    const currentLeft = p.x - p.width / 2;
-    const currentRight = p.x + p.width / 2;
+    const currentLeft = p.currentTransform.x - p.width / 2;
+    const currentRight = p.currentTransform.x + p.width / 2;
     const ySamples = [
-        p.y - p.height * 0.84,
-        p.y - p.height * 0.50,
-        p.y - p.height * 0.16
+        p.currentTransform.y - p.height * 0.84,
+        p.currentTransform.y - p.height * 0.50,
+        p.currentTransform.y - p.height * 0.16
     ];
     const skin = 3;
     const collisionQueryBounds = {
@@ -10519,10 +10696,10 @@ function resolveSegmentXCollisions(state, previousX, dx) {
     }
 
     if (best.side === "right") {
-        p.x = best.x - p.width / 2;
+        p.currentTransform.x = best.x - p.width / 2;
         state.collisions.playerTouching.right = true;
     } else {
-        p.x = best.x + p.width / 2;
+        p.currentTransform.x = best.x + p.width / 2;
         state.collisions.playerTouching.left = true;
     }
     p.vx = 0;
@@ -10537,18 +10714,18 @@ function resolvePolygonYCollisions(state, previousY, dy, wasOnGround) {
 
     const p = state.player;
     const samples = [
-        p.x,
-        p.x - p.width * 0.42,
-        p.x + p.width * 0.42
+        p.currentTransform.x,
+        p.currentTransform.x - p.width * 0.42,
+        p.currentTransform.x + p.width * 0.42
     ];
     const previousTop = previousY - p.height;
-    const currentTop = p.y - p.height;
+    const currentTop = p.currentTransform.y - p.height;
     const skin = 3;
     const collisionQueryBounds = {
         minX: Math.min(...samples) - skin,
-        minY: Math.min(previousTop, currentTop, previousY, p.y) - skin,
+        minY: Math.min(previousTop, currentTop, previousY, p.currentTransform.y) - skin,
         maxX: Math.max(...samples) + skin,
-        maxY: Math.max(previousTop, currentTop, previousY, p.y) + skin
+        maxY: Math.max(previousTop, currentTop, previousY, p.currentTransform.y) + skin
     };
     let best = null;
 
@@ -10561,7 +10738,7 @@ function resolvePolygonYCollisions(state, previousY, dy, wasOnGround) {
             for (const interval of intervals) {
                 if (dy > 0) {
                     const y = interval[0];
-                    if (previousY <= y + skin && p.y >= y - skin) {
+                    if (previousY <= y + skin && p.currentTransform.y >= y - skin) {
                         if (!best || y < best.y) {
                             best = { y, polygon };
                         }
@@ -10583,7 +10760,7 @@ function resolvePolygonYCollisions(state, previousY, dy, wasOnGround) {
     }
 
     if (best.ceiling) {
-        p.y = best.y + p.height;
+        p.currentTransform.y = best.y + p.height;
         p.vy = 0;
         state.collisions.playerTouching.up = true;
         state.collisions.lastResolution = { axis: "y", polygonId: best.polygon.id, kind: best.polygon.kind };
@@ -10601,12 +10778,12 @@ function resolvePolygonXCollisions(state, previousX, dx) {
     const p = state.player;
     const previousLeft = previousX - p.width / 2;
     const previousRight = previousX + p.width / 2;
-    const currentLeft = p.x - p.width / 2;
-    const currentRight = p.x + p.width / 2;
+    const currentLeft = p.currentTransform.x - p.width / 2;
+    const currentRight = p.currentTransform.x + p.width / 2;
     const ySamples = [
-        p.y - p.height * 0.84,
-        p.y - p.height * 0.50,
-        p.y - p.height * 0.16
+        p.currentTransform.y - p.height * 0.84,
+        p.currentTransform.y - p.height * 0.50,
+        p.currentTransform.y - p.height * 0.16
     ];
     const skin = 3;
     const collisionQueryBounds = {
@@ -10648,10 +10825,10 @@ function resolvePolygonXCollisions(state, previousX, dx) {
     }
 
     if (best.side === "right") {
-        p.x = best.x - p.width / 2;
+        p.currentTransform.x = best.x - p.width / 2;
         state.collisions.playerTouching.right = true;
     } else {
-        p.x = best.x + p.width / 2;
+        p.currentTransform.x = best.x + p.width / 2;
         state.collisions.playerTouching.left = true;
     }
     p.vx = 0;
@@ -10702,7 +10879,7 @@ function landPlayerOn(state, y, wasOnGround, id, kind = "blockable") {
     const p = state.player;
     p.ordinaryJumpActive = false;
     const impactVy = Math.max(0, p.vy || 0);
-    p.y = y;
+    p.currentTransform.y = y;
     p.vy = 0;
     p.onGround = true;
     p.supportId = id || null;
@@ -10718,8 +10895,8 @@ function landPlayerOn(state, y, wasOnGround, id, kind = "blockable") {
         addEvent(state, "PLAYER_LANDED", {
             solidId: id,
             kind,
-            x: round(p.x),
-            y: round(p.y),
+            x: round(p.currentTransform.x),
+            y: round(p.currentTransform.y),
             vx: round(p.vx),
             impactVy: round(impactVy),
             fallDamage: round(fallDamage)
@@ -10940,8 +11117,8 @@ function updateBoostKickGroundRecharge(state, dt) {
 
 function enemyContactBodyRect(enemy) {
     return {
-        x: (Number(enemy.x) || 0) - Math.max(1, Number(enemy.width) || 1) * 0.5,
-        y: (Number(enemy.y) || 0) - Math.max(1, Number(enemy.height) || 1),
+        x: (Number(enemy.currentTransform.x) || 0) - Math.max(1, Number(enemy.width) || 1) * 0.5,
+        y: (Number(enemy.currentTransform.y) || 0) - Math.max(1, Number(enemy.height) || 1),
         w: Math.max(1, Number(enemy.width) || 1),
         h: Math.max(1, Number(enemy.height) || 1)
     };
@@ -11015,8 +11192,8 @@ function updateHealth(state, dt) {
 function updateHat(state) {
     const hat = state.hat;
     if (hat.state === "worn") {
-        hat.x = state.player.x;
-        hat.y = state.player.y - state.player.height;
+        hat.currentTransform.x = state.player.currentTransform.x;
+        hat.currentTransform.y = state.player.currentTransform.y - state.player.height;
         hat.vx = state.player.vx;
         hat.vy = state.player.vy;
     }
@@ -11029,12 +11206,12 @@ function updateCameraHint(state, dt) {
     const descendingLead = p.onGround
         ? 0
         : clamp((Math.max(0, p.vy) - 35) * 0.42, 0, 260);
-    const targetX = p.x + lookAhead;
-    const targetY = p.y - 170 + upwardLead + descendingLead;
+    const targetX = p.currentTransform.x + lookAhead;
+    const targetY = p.currentTransform.y - 170 + upwardLead + descendingLead;
     const blendRate = descendingLead > 0 ? 0.00008 : 0.001;
     const blend = 1 - Math.pow(blendRate, dt);
-    state.camera.x += (targetX - state.camera.x) * blend;
-    state.camera.y += (targetY - state.camera.y) * blend;
+    state.camera.currentTransform.x += (targetX - state.camera.currentTransform.x) * blend;
+    state.camera.currentTransform.y += (targetY - state.camera.currentTransform.y) * blend;
 }
 
 export function damagePlayer(state, amount = 34, sourceId = "debug", options = {}) {
@@ -11110,8 +11287,8 @@ export function resetPlayer(state, reason = "manualReset") {
     const p = state.player;
     stopAttachedBoost(state, "reset");
     clearDeathResetPowerUps(state);
-    p.x = p.spawnX;
-    p.y = p.spawnY;
+    p.currentTransform.x = p.spawnX;
+    p.currentTransform.y = p.spawnY;
     p.vx = 0;
     p.vy = 0;
     p.onGround = false;
@@ -11124,7 +11301,7 @@ export function resetPlayer(state, reason = "manualReset") {
     p.ordinaryJumpApexY = null;
     p.facing = 1;
     p.visible = true;
-    p.renderScale = 1;
+    setCurrentUniformScale(p, 1);
     p.crushCandidateTicks = 0;
     p.crushCandidateKey = null;
     p.crushCandidateDetail = null;
@@ -11153,6 +11330,8 @@ export function resetPlayer(state, reason = "manualReset") {
     state.health.contactInvulnerabilityTimer = 0;
     state.health.regenerating = false;
     state.health.low = false;
+    snapPresentationSubject(p, reason, "player");
+    snapPresentationSubject(state.camera, `${reason}:camera`, "camera");
     addEvent(state, "PLAYER_RESET", { reason });
 }
 

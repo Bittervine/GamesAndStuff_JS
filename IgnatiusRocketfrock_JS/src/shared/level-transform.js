@@ -1,3 +1,5 @@
+import { currentTransformOf } from "./presentation-transform-data.js";
+
 export const LEVEL_BACKGROUND_COLOR = "rgb(6, 6, 12)";
 
 export function normalizeRotationRadians(value) {
@@ -5,9 +7,9 @@ export function normalizeRotationRadians(value) {
     return Number.isFinite(numeric) ? numeric : 0;
 }
 
-export function placementCenter(placement) {
-    const x = Number(placement?.x) || 0;
-    const y = Number(placement?.y) || 0;
+export function placementCenter(placement, transform = currentTransformOf(placement)) {
+    const x = Number(transform?.x) || 0;
+    const y = Number(transform?.y) || 0;
     const w = Math.max(0, Number(placement?.w) || 0);
     const h = Math.max(0, Number(placement?.h) || 0);
     return { x: x + w * 0.5, y: y + h * 0.5 };
@@ -30,11 +32,11 @@ export function duplicateLevelPlacement(placement, options = {}) {
     return clone;
 }
 
-export function placementLocalToWorld(placement, localX, localY) {
-    const center = placementCenter(placement);
+export function placementLocalToWorld(placement, localX, localY, transform = currentTransformOf(placement)) {
+    const center = placementCenter(placement, transform);
     const w = Math.max(0, Number(placement?.w) || 0);
     const h = Math.max(0, Number(placement?.h) || 0);
-    const rotation = normalizeRotationRadians(placement?.rotation);
+    const rotation = normalizeRotationRadians(transform?.angle ?? placement?.rotation);
     const dx = Number(localX) - w * 0.5;
     const dy = Number(localY) - h * 0.5;
     const cosine = Math.cos(rotation);
@@ -45,11 +47,11 @@ export function placementLocalToWorld(placement, localX, localY) {
     };
 }
 
-export function worldToPlacementLocal(placement, worldX, worldY) {
-    const center = placementCenter(placement);
+export function worldToPlacementLocal(placement, worldX, worldY, transform = currentTransformOf(placement)) {
+    const center = placementCenter(placement, transform);
     const w = Math.max(0, Number(placement?.w) || 0);
     const h = Math.max(0, Number(placement?.h) || 0);
-    const rotation = normalizeRotationRadians(placement?.rotation);
+    const rotation = normalizeRotationRadians(transform?.angle ?? placement?.rotation);
     const dx = Number(worldX) - center.x;
     const dy = Number(worldY) - center.y;
     const cosine = Math.cos(rotation);
@@ -78,7 +80,7 @@ export function placementCorners(placement) {
     ];
 }
 
-export function atlasNodeToPlacementWorld(placement, frame, node) {
+export function atlasNodeToPlacementWorld(placement, frame, node, transform = currentTransformOf(placement)) {
     const frameW = Math.max(1, Number(frame?.w) || 1);
     const frameH = Math.max(1, Number(frame?.h) || 1);
     const w = Math.max(0, Number(placement?.w) || 0);
@@ -90,6 +92,7 @@ export function atlasNodeToPlacementWorld(placement, frame, node) {
     return placementLocalToWorld(
         placement,
         mirroredX / frameW * w,
-        mirroredY / frameH * h
+        mirroredY / frameH * h,
+        transform
     );
 }

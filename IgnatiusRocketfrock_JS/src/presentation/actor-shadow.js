@@ -1,3 +1,5 @@
+import { shownTransformOf } from "../shared/presentation-transform-data.js";
+
 export const ACTOR_SHADOW_FADE_SECONDS = 0.2;
 
 function finiteOr(value, fallback = 0) {
@@ -10,9 +12,10 @@ function clamp(value, min, max) {
 }
 
 export function actorGroundPoint(actor = {}) {
+    const transform = shownTransformOf(actor);
     return {
-        x: finiteOr(actor.x, 0),
-        y: finiteOr(actor.y, 0)
+        x: finiteOr(transform.x, 0),
+        y: finiteOr(transform.y, 0)
     };
 }
 

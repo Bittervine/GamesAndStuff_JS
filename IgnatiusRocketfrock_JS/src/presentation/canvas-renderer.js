@@ -76,6 +76,7 @@ import {
 import { createWebGL2RendererBackend } from "./webgl2-renderer.js";
 import { createPixmapPyramid, drawPixmap } from "./pixmap-pyramid.js";
 import { ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER } from "../shared/experimental-renderer-flags.js";
+import { shownTransformOf } from "../shared/presentation-transform-data.js";
 import {
     STATIC_TILE_GUTTER,
     STATIC_TILE_SIZE,
@@ -169,6 +170,17 @@ const REQUIRED_RIG_SECTIONS = ["global", "animation", "anchors", "legMotion", "p
 // converted through this same viewport transform before gameplay sees them.
 const MIN_TOUCH_VIEWPORT_WIDTH = 600;
 const VISUAL_CULL_MARGIN_PX = 128;
+
+function visualPresentationAngle(visual) {
+    const transform = shownTransformOf(visual);
+    return normalizeRotationRadians(visual?.dynamicPosition ? transform?.angle : visual?.rotation);
+}
+
+function visualPresentationAlpha(visual) {
+    const transform = shownTransformOf(visual);
+    const value = visual?.dynamicPosition ? transform?.alpha : visual?.alpha;
+    return Number.isFinite(Number(value)) ? Number(value) : 1;
+}
 const WEBGL_DIRECT_WORLD_EFFECT_KINDS = new Set([
     "rocketSmokePuff",
     "attachedRocketSmokePuff",
@@ -183,11 +195,12 @@ const WEBGL_DIRECT_WORLD_EFFECT_KINDS = new Set([
 const WEBGL_DIRECT_ENEMY_PROJECTILE_KINDS = new Set(["enemyFireball", "enemyMusketBall", "enemyRock", "enemyKnife"]);
 
 const STATIC_LAYER_BAKE_CANVAS2D_MEMORY_BUDGET_BYTES = 1536 * 1024 * 1024;
-// Full baking is deliberately capped at 1.5 GiB of estimated RGBA texture
+// Full WebGL baking is deliberately capped at 2 GiB of estimated RGBA texture
 // storage. WebGL cannot report a trustworthy VRAM total, so the experiment must
-// leave a broad reserve for atlases, framebuffers, compositor surfaces, and
-// upload staging rather than probing the driver's failure cliff.
-const STATIC_LAYER_BAKE_WEBGL_MEMORY_BUDGET_BYTES = 1536 * 1024 * 1024;
+// leave a reserve for atlases, framebuffers, compositor surfaces, and upload
+// staging rather than probing the driver's failure cliff. Canvas2D keeps its
+// lower RAM ceiling because the baked canvases remain CPU-resident.
+const STATIC_LAYER_BAKE_WEBGL_MEMORY_BUDGET_BYTES = 2 * 1024 * 1024 * 1024;
 const STATIC_LAYER_BAKE_BYTES_PER_PIXEL = 4;
 const STATIC_LAYER_BAKE_CANVAS_COUNT = 3;
 const STATIC_LAYER_BAKE_MAX_DIMENSION = 32767;
@@ -730,6 +743,9 @@ class RocketfrockRenderer {
         this.framePlayerRocketTransform = null;
         this.frameVisualCounters = this.createVisualCounters();
         this.frameRenderBreakdown = this.createRenderBreakdown();
+        this.staticTileDiagnosticsEnabled = false;
+        this.staticTileFrameDiagnostics = this.createStaticTileFrameDiagnostics();
+        this.staticTileAsyncDiagnostics = this.createStaticTileAsyncDiagnostics();
         this.frameDrawnBlendGroups = new Set();
         this.frameHandledProjectileIds = new Set();
         this.worldVisualQueryScratch = {
@@ -787,7 +803,56 @@ class RocketfrockRenderer {
             staticBakeChunks: 0,
             staticBakeMode: "off",
             staticBakeLastInvalidationReason: "",
-            staticBakeStatus: ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER ? "off" : STATIC_LAYER_BAKE_DISABLED_STATUS
+            staticBakeStatus: ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER ? "off" : STATIC_LAYER_BAKE_DISABLED_STATUS,
+            staticTileDiagnosticsActive: false,
+            staticTileWorkerCollectMs: 0,
+            staticTileCacheEnsureMs: 0,
+            staticTileCameraVelocityMs: 0,
+            staticTileCompletedAdoptionMs: 0,
+            staticTilePlanningMs: 0,
+            staticTileEvictionMs: 0,
+            staticTileJobSchedulingMs: 0,
+            staticTileDiagnosticsMs: 0,
+            staticTileAtlasAllocationMs: 0,
+            staticTileTextureUploadMs: 0,
+            staticTileDrawMs: 0,
+            staticTileWorkerMessages: 0,
+            staticTileWorkerResultsDiscarded: 0,
+            staticTileTilesCompleted: 0,
+            staticTileTilesAdopted: 0,
+            staticTileTilesUploaded: 0,
+            staticTileUploadBytes: 0,
+            staticTileAtlasPagesTouched: 0,
+            staticTileAtlasSlotsAllocated: 0,
+            staticTileAtlasPagesCreated: 0,
+            staticTileTilesEvicted: 0,
+            staticTileDistantEvictions: 0,
+            staticTileBudgetEvictions: 0,
+            staticTileJobsQueued: 0,
+            staticTileJobsStarted: 0,
+            staticTileJobsRemaining: 0,
+            staticTileCompletedQueueDepth: 0,
+            staticTileRecordsTotal: 0,
+            staticTileRecordsReady: 0,
+            staticTileRecordsResident: 0,
+            staticTileWorkerBusy: 0,
+            staticTileUploadBurstId: 0,
+            staticTileUploadFrameGap: 0,
+            staticTileUploadLayer: "",
+            staticTileUploadTileX: 0,
+            staticTileUploadTileY: 0,
+            staticTileUploadPageId: 0,
+            staticTileUploadSlotIndex: -1,
+            staticTileUploadSlotX: 0,
+            staticTileUploadSlotY: 0,
+            staticTileUploadWidth: 0,
+            staticTileUploadHeight: 0,
+            staticTileCameraX: 0,
+            staticTileCameraY: 0,
+            staticTileCameraTileX: 0,
+            staticTileCameraTileY: 0,
+            staticTileUploadTileDeltaX: 0,
+            staticTileUploadTileDeltaY: 0
         };
         this.phase = 0;
         this.forcePhase = null;
@@ -927,6 +992,142 @@ class RocketfrockRenderer {
             worldGeometryMs: 0,
             portalMs: 0
         };
+    }
+
+    createStaticTileFrameDiagnostics() {
+        return {
+            active: false,
+            workerCollectMs: 0,
+            cacheEnsureMs: 0,
+            cameraVelocityMs: 0,
+            completedAdoptionMs: 0,
+            planningMs: 0,
+            evictionMs: 0,
+            jobSchedulingMs: 0,
+            diagnosticsMs: 0,
+            atlasAllocationMs: 0,
+            textureUploadMs: 0,
+            drawMs: 0,
+            workerMessages: 0,
+            workerResultsDiscarded: 0,
+            tilesCompleted: 0,
+            tilesAdopted: 0,
+            tilesUploaded: 0,
+            uploadBytes: 0,
+            atlasPagesTouched: 0,
+            atlasSlotsAllocated: 0,
+            atlasPagesCreated: 0,
+            tilesEvicted: 0,
+            distantEvictions: 0,
+            budgetEvictions: 0,
+            jobsQueued: 0,
+            jobsStarted: 0,
+            jobsRemaining: 0,
+            completedQueueDepth: 0,
+            recordsTotal: 0,
+            recordsReady: 0,
+            recordsResident: 0,
+            workerBusy: 0,
+            uploadBurstId: 0,
+            uploadFrameGap: 0,
+            uploadLayer: "",
+            uploadTileX: 0,
+            uploadTileY: 0,
+            uploadPageId: 0,
+            uploadSlotIndex: -1,
+            uploadSlotX: 0,
+            uploadSlotY: 0,
+            uploadWidth: 0,
+            uploadHeight: 0,
+            cameraX: 0,
+            cameraY: 0,
+            cameraTileX: 0,
+            cameraTileY: 0,
+            uploadTileDeltaX: 0,
+            uploadTileDeltaY: 0
+        };
+    }
+
+    createStaticTileAsyncDiagnostics() {
+        return {
+            workerCollectMs: 0,
+            workerMessages: 0,
+            workerResultsDiscarded: 0,
+            tilesCompleted: 0
+        };
+    }
+
+    resetStaticTileAsyncDiagnostics(diagnostics = this.staticTileAsyncDiagnostics) {
+        diagnostics.workerCollectMs = 0;
+        diagnostics.workerMessages = 0;
+        diagnostics.workerResultsDiscarded = 0;
+        diagnostics.tilesCompleted = 0;
+        return diagnostics;
+    }
+
+    setStaticTileDiagnosticsEnabled(enabled) {
+        const next = enabled === true;
+        if (this.staticTileDiagnosticsEnabled === next) return next;
+        this.staticTileDiagnosticsEnabled = next;
+        this.staticTileFrameDiagnostics.active = false;
+        this.resetStaticTileAsyncDiagnostics();
+        return next;
+    }
+
+    beginStaticTileDiagnosticFrame(view) {
+        const diagnostics = this.staticTileFrameDiagnostics;
+        const pending = this.staticTileAsyncDiagnostics;
+        diagnostics.active = true;
+        diagnostics.workerCollectMs = pending.workerCollectMs;
+        diagnostics.workerMessages = pending.workerMessages;
+        diagnostics.workerResultsDiscarded = pending.workerResultsDiscarded;
+        diagnostics.tilesCompleted = pending.tilesCompleted;
+        this.resetStaticTileAsyncDiagnostics(pending);
+        diagnostics.cacheEnsureMs = 0;
+        diagnostics.cameraVelocityMs = 0;
+        diagnostics.completedAdoptionMs = 0;
+        diagnostics.planningMs = 0;
+        diagnostics.evictionMs = 0;
+        diagnostics.jobSchedulingMs = 0;
+        diagnostics.diagnosticsMs = 0;
+        diagnostics.atlasAllocationMs = 0;
+        diagnostics.textureUploadMs = 0;
+        diagnostics.drawMs = 0;
+        diagnostics.tilesAdopted = 0;
+        diagnostics.tilesUploaded = 0;
+        diagnostics.uploadBytes = 0;
+        diagnostics.atlasPagesTouched = 0;
+        diagnostics.atlasSlotsAllocated = 0;
+        diagnostics.atlasPagesCreated = 0;
+        diagnostics.tilesEvicted = 0;
+        diagnostics.distantEvictions = 0;
+        diagnostics.budgetEvictions = 0;
+        diagnostics.jobsQueued = 0;
+        diagnostics.jobsStarted = 0;
+        diagnostics.jobsRemaining = 0;
+        diagnostics.completedQueueDepth = 0;
+        diagnostics.recordsTotal = 0;
+        diagnostics.recordsReady = 0;
+        diagnostics.recordsResident = 0;
+        diagnostics.workerBusy = 0;
+        diagnostics.uploadBurstId = 0;
+        diagnostics.uploadFrameGap = 0;
+        diagnostics.uploadLayer = "";
+        diagnostics.uploadTileX = 0;
+        diagnostics.uploadTileY = 0;
+        diagnostics.uploadPageId = 0;
+        diagnostics.uploadSlotIndex = -1;
+        diagnostics.uploadSlotX = 0;
+        diagnostics.uploadSlotY = 0;
+        diagnostics.uploadWidth = 0;
+        diagnostics.uploadHeight = 0;
+        diagnostics.cameraX = Number(view?.x) || 0;
+        diagnostics.cameraY = Number(view?.y) || 0;
+        diagnostics.cameraTileX = Math.floor((diagnostics.cameraX + (Number(view?.virtualW) || 0) * 0.5) / STATIC_TILE_SIZE);
+        diagnostics.cameraTileY = Math.floor((diagnostics.cameraY + (Number(view?.virtualH) || 0) * 0.5) / STATIC_TILE_SIZE);
+        diagnostics.uploadTileDeltaX = 0;
+        diagnostics.uploadTileDeltaY = 0;
+        return diagnostics;
     }
 
     resetRenderBreakdown(breakdown = this.createRenderBreakdown()) {
@@ -1092,20 +1293,53 @@ class RocketfrockRenderer {
     prewarmLevelPresentationCaches(world) {
         const visuals = Array.isArray(world?.visuals) ? world.visuals : [];
         const warmedBackgroundAtlases = new Set();
+        const warmedForegroundSprites = new Set();
+        const derivedTextureSources = new Set();
         let backgroundAtlases = 0;
+        let foregroundSprites = 0;
         for (const visual of visuals) {
-            if (!isWorldBackgroundVisual(visual)) continue;
-            const brightness = normalizeLayerBrightness(visual.backgroundBrightness);
-            if (Math.abs(brightness - 1) < 0.000001) continue;
-            const atlas = this.environmentAtlases.get(visual.atlasId);
+            const atlas = this.environmentAtlases.get(visual?.atlasId);
             if (!atlas || atlas.missing || !atlas.image) continue;
-            const key = `${atlas.atlasId || atlas.id || visual.atlasId}|${brightness.toFixed(4)}`;
-            if (warmedBackgroundAtlases.has(key)) continue;
-            warmedBackgroundAtlases.add(key);
-            this.getLayerBrightnessAtlas(atlas, brightness, "background");
-            backgroundAtlases += 1;
+
+            if (isWorldBackgroundVisual(visual)) {
+                const brightness = normalizeLayerBrightness(visual.backgroundBrightness);
+                if (Math.abs(brightness - 1) >= 0.000001) {
+                    const key = `${atlas.atlasId || atlas.id || visual.atlasId}|${brightness.toFixed(4)}`;
+                    if (!warmedBackgroundAtlases.has(key)) {
+                        warmedBackgroundAtlases.add(key);
+                        const surface = this.getLayerBrightnessAtlas(atlas, brightness, "background");
+                        if (surface) derivedTextureSources.add(surface);
+                        backgroundAtlases += 1;
+                    }
+                }
+            }
+
+            if (visual.layer !== "caveForeground") continue;
+            const frameName = visual.frame || visual.assetId;
+            const frame = atlas.frames?.[frameName];
+            if (!frame) continue;
+            const key = foregroundTreatmentCacheKey({
+                atlasId: atlas.atlasId || visual.atlasId || "atlas",
+                frameName,
+                colorMapKey: this.environmentColorMapKey,
+                visual
+            });
+            if (warmedForegroundSprites.has(key)) continue;
+            warmedForegroundSprites.add(key);
+            const surface = this.getForegroundSpriteCanvas(atlas, frameName, frame, visual, {
+                trackFrameCounters: false
+            });
+            if (surface) derivedTextureSources.add(surface);
+            foregroundSprites += 1;
         }
-        return { backgroundAtlases };
+
+        let webglTextures = 0;
+        if (this.webglBackend?.available) {
+            for (const source of derivedTextureSources) {
+                if (this.webglBackend.cacheTexture(source)) webglTextures += 1;
+            }
+        }
+        return { backgroundAtlases, foregroundSprites, webglTextures };
     }
 
     supportsExperimentalStaticLayerBakeRenderer() {
@@ -1573,6 +1807,7 @@ class RocketfrockRenderer {
         this.lastCharacterDraws = [];
         this.resetVisualCounters(this.frameVisualCounters);
         this.resetRenderBreakdown(this.frameRenderBreakdown);
+        this.staticTileFrameDiagnostics.active = false;
         this.framePlayerRocketTransform = null;
         this.updateFrameEntityVisibility(state);
         this.updateActorShadowOpacity(state, this.lastRenderDt);
@@ -1700,37 +1935,54 @@ class RocketfrockRenderer {
     }
 
     handleStaticTileWorkerMessage(message) {
-        const bitmap = message?.bitmap || null;
-        const cache = this.staticLayerBake.tileCache;
-        if (
-            !cache ||
-            Number(message.generation) !== Number(cache.generation) ||
-            Number(message.generation) !== Number(this.staticTileWorkerGeneration)
-        ) {
-            this.closeStaticTileBitmap(bitmap);
-            return;
+        const diagnosticsEnabled = this.staticTileDiagnosticsEnabled;
+        const diagnosticStart = diagnosticsEnabled ? rendererNowMs() : 0;
+        let acceptedCompletion = false;
+        let discardedResult = false;
+        try {
+            const bitmap = message?.bitmap || null;
+            const cache = this.staticLayerBake.tileCache;
+            if (
+                !cache ||
+                Number(message.generation) !== Number(cache.generation) ||
+                Number(message.generation) !== Number(this.staticTileWorkerGeneration)
+            ) {
+                discardedResult = true;
+                this.closeStaticTileBitmap(bitmap);
+                return;
+            }
+            const taskId = Number(message.taskId) || 0;
+            if (taskId === this.staticTileWorkerBusyTaskId) this.staticTileWorkerBusyTaskId = 0;
+            const record = cache.records.get(String(message.key || ""));
+            if (!record || record.taskId !== taskId) {
+                discardedResult = true;
+                this.closeStaticTileBitmap(bitmap);
+                return;
+            }
+            if (message.type === "error") {
+                record.state = "queued";
+                record.taskId = 0;
+                this.disableStaticLayerBakeAfterFailure(message.detail || "tile-bake worker failed");
+                return;
+            }
+            if (message.type !== "baked" || !bitmap) return;
+            record.state = "completed";
+            cache.completed.push({
+                key: record.key,
+                taskId,
+                bitmap,
+                buildMs: Math.max(0, Number(message.buildMs) || 0)
+            });
+            acceptedCompletion = true;
+        } finally {
+            if (diagnosticsEnabled) {
+                const pending = this.staticTileAsyncDiagnostics;
+                pending.workerCollectMs += Math.max(0, rendererNowMs() - diagnosticStart);
+                pending.workerMessages += 1;
+                if (acceptedCompletion) pending.tilesCompleted += 1;
+                if (discardedResult) pending.workerResultsDiscarded += 1;
+            }
         }
-        const taskId = Number(message.taskId) || 0;
-        if (taskId === this.staticTileWorkerBusyTaskId) this.staticTileWorkerBusyTaskId = 0;
-        const record = cache.records.get(String(message.key || ""));
-        if (!record || record.taskId !== taskId) {
-            this.closeStaticTileBitmap(bitmap);
-            return;
-        }
-        if (message.type === "error") {
-            record.state = "queued";
-            record.taskId = 0;
-            this.disableStaticLayerBakeAfterFailure(message.detail || "tile-bake worker failed");
-            return;
-        }
-        if (message.type !== "baked" || !bitmap) return;
-        record.state = "completed";
-        cache.completed.push({
-            key: record.key,
-            taskId,
-            bitmap,
-            buildMs: Math.max(0, Number(message.buildMs) || 0)
-        });
     }
 
     staticTileBakeCacheKey(state) {
@@ -1764,7 +2016,9 @@ class RocketfrockRenderer {
             uploadedTiles: 0,
             emptyTiles: 0,
             buildMs: 0,
-            drawMs: 0
+            drawMs: 0,
+            uploadBurstId: 0,
+            lastUploadFrame: 0
         };
         this.staticLayerBake.tileCache = cache;
         this.staticLayerBake.cache = null;
@@ -1797,7 +2051,14 @@ class RocketfrockRenderer {
 
     ensureStaticTileBakeCache(state, view) {
         if (!this.isStaticTileBakeEnabled()) return null;
-        if (!this.ensureStaticTileBakeWorker()) return null;
+        const diagnostics = this.staticTileDiagnosticsEnabled
+            ? this.beginStaticTileDiagnosticFrame(view)
+            : null;
+        const ensureStart = diagnostics ? rendererNowMs() : 0;
+        if (!this.ensureStaticTileBakeWorker()) {
+            if (diagnostics) diagnostics.cacheEnsureMs = Math.max(0, rendererNowMs() - ensureStart);
+            return null;
+        }
         const expectedKey = this.staticTileBakeCacheKey(state);
         const backendGeneration = this.webglBackend?.getResourceGeneration?.() || 0;
         let cache = this.staticLayerBake.tileCache;
@@ -1812,12 +2073,35 @@ class RocketfrockRenderer {
             cache = this.createStaticTileBakeCache(state, view);
         }
         cache.frame += 1;
+
+        let phaseStart = diagnostics ? rendererNowMs() : 0;
         this.updateStaticTileCameraVelocity(cache, view);
+        if (diagnostics) diagnostics.cameraVelocityMs = Math.max(0, rendererNowMs() - phaseStart);
+
+        phaseStart = diagnostics ? rendererNowMs() : 0;
         this.processOneCompletedStaticTile(cache);
+        if (diagnostics) diagnostics.completedAdoptionMs = Math.max(0, rendererNowMs() - phaseStart);
+
+        phaseStart = diagnostics ? rendererNowMs() : 0;
         this.planStaticTileBakeRecords(cache, state, view);
+        if (diagnostics) diagnostics.planningMs = Math.max(0, rendererNowMs() - phaseStart);
+
+        phaseStart = diagnostics ? rendererNowMs() : 0;
         this.evictDistantStaticTiles(cache);
+        if (diagnostics) diagnostics.evictionMs = Math.max(0, rendererNowMs() - phaseStart);
+
+        phaseStart = diagnostics ? rendererNowMs() : 0;
         this.dispatchNextStaticTileBake(cache, state);
+        if (diagnostics) diagnostics.jobSchedulingMs = Math.max(0, rendererNowMs() - phaseStart);
+
+        phaseStart = diagnostics ? rendererNowMs() : 0;
         this.updateStaticTileBakeDiagnostics(cache);
+        if (diagnostics) {
+            diagnostics.diagnosticsMs = Math.max(0, rendererNowMs() - phaseStart);
+            diagnostics.completedQueueDepth = cache.completed.length;
+            diagnostics.workerBusy = this.staticTileWorkerBusyTaskId ? 1 : 0;
+            diagnostics.cacheEnsureMs = Math.max(0, rendererNowMs() - ensureStart);
+        }
         return cache;
     }
 
@@ -1858,6 +2142,9 @@ class RocketfrockRenderer {
                                 lastDrawFrame: 0
                             };
                             cache.records.set(key, record);
+                            if (this.staticTileFrameDiagnostics.active) {
+                                this.staticTileFrameDiagnostics.jobsQueued += 1;
+                            }
                         }
                         record.wantedFrame = cache.frame;
                         record.priority = staticTilePriority(
@@ -1878,12 +2165,12 @@ class RocketfrockRenderer {
             const retentionRects = cache.regions[record.layerName]?.retentionRects || [];
             if (staticTileRectIntersectsAny(record.rect, retentionRects)) continue;
             if (record.state === "preparing" || record.state === "baking" || record.state === "completed") continue;
-            this.evictStaticTileRecord(cache, record);
+            this.evictStaticTileRecord(cache, record, "distant");
         }
         this.releaseUnusedStaticTileAtlasPages(cache);
     }
 
-    evictStaticTileRecord(cache, record) {
+    evictStaticTileRecord(cache, record, reason = "") {
         if (!record) return false;
         this.closeStaticTileBitmap(record.bitmap);
         record.bitmap = null;
@@ -1892,6 +2179,12 @@ class RocketfrockRenderer {
             record.page.freeSlots.push(record.slotIndex);
         }
         cache.records.delete(record.key);
+        if (this.staticTileFrameDiagnostics.active) {
+            const diagnostics = this.staticTileFrameDiagnostics;
+            diagnostics.tilesEvicted += 1;
+            if (reason === "distant") diagnostics.distantEvictions += 1;
+            if (reason === "webglBudget" || reason === "canvasBudget") diagnostics.budgetEvictions += 1;
+        }
         return true;
     }
 
@@ -1963,7 +2256,7 @@ class RocketfrockRenderer {
         }
         const descriptor = this.staticTileSourceDescriptor(source, sourceX, sourceY, sourceWidth, sourceHeight);
         if (!descriptor) return null;
-        const center = placementCenter(visual);
+        const center = placementCenter(visual, shownTransformOf(visual));
         return {
             kind: "image",
             sourceId: descriptor.id,
@@ -1971,10 +2264,10 @@ class RocketfrockRenderer {
             centerY: center.y,
             width: Number(visual.w) || 0,
             height: Number(visual.h) || 0,
-            rotation: normalizeRotationRadians(visual.rotation),
+            rotation: visualPresentationAngle(visual),
             mirrorX: Boolean(visual.mirrorX),
             mirrorY: Boolean(visual.mirrorY),
-            alpha: visual.alpha ?? 1
+            alpha: visualPresentationAlpha(visual)
         };
     }
 
@@ -2117,6 +2410,9 @@ class RocketfrockRenderer {
             record.taskId = taskId;
             this.staticTileWorkerBusyTaskId = taskId;
             const preparationToken = ++this.staticTilePreparationToken;
+            if (this.staticTileFrameDiagnostics.active) {
+                this.staticTileFrameDiagnostics.jobsStarted += 1;
+            }
             void this.prepareAndPostStaticTileTask(cache, record, task, taskId, preparationToken);
             return;
         }
@@ -2185,8 +2481,15 @@ class RocketfrockRenderer {
             this.closeStaticTileBitmap(completed.bitmap);
             return false;
         }
+        const diagnostics = this.staticTileFrameDiagnostics.active
+            ? this.staticTileFrameDiagnostics
+            : null;
         if (this.webglBackend?.available) {
+            const allocationStart = diagnostics ? rendererNowMs() : 0;
             const slot = this.allocateStaticTileAtlasSlot(cache, record);
+            if (diagnostics) {
+                diagnostics.atlasAllocationMs += Math.max(0, rendererNowMs() - allocationStart);
+            }
             if (!slot) {
                 this.closeStaticTileBitmap(completed.bitmap);
                 record.state = "queued";
@@ -2194,6 +2497,25 @@ class RocketfrockRenderer {
                 this.staticLayerBake.status = "tile texture budget reached; distant tiles will be recycled";
                 return false;
             }
+            const uploadWidth = Math.max(0, Number(completed.bitmap?.width) || STATIC_TILE_SLOT_SIZE);
+            const uploadHeight = Math.max(0, Number(completed.bitmap?.height) || STATIC_TILE_SLOT_SIZE);
+            if (diagnostics) {
+                diagnostics.atlasSlotsAllocated += 1;
+                diagnostics.atlasPagesTouched = 1;
+                if (slot.createdPage) diagnostics.atlasPagesCreated += 1;
+                diagnostics.uploadLayer = record.layerName;
+                diagnostics.uploadTileX = record.tileX;
+                diagnostics.uploadTileY = record.tileY;
+                diagnostics.uploadPageId = slot.page.id;
+                diagnostics.uploadSlotIndex = slot.slotIndex;
+                diagnostics.uploadSlotX = slot.x;
+                diagnostics.uploadSlotY = slot.y;
+                diagnostics.uploadWidth = uploadWidth;
+                diagnostics.uploadHeight = uploadHeight;
+                diagnostics.uploadTileDeltaX = record.tileX - diagnostics.cameraTileX;
+                diagnostics.uploadTileDeltaY = record.tileY - diagnostics.cameraTileY;
+            }
+            const uploadStart = diagnostics ? rendererNowMs() : 0;
             const uploaded = this.webglBackend.updateTextureRegion(
                 slot.page.source,
                 completed.bitmap,
@@ -2201,6 +2523,9 @@ class RocketfrockRenderer {
                 slot.y,
                 { unpackFlipY: false }
             );
+            if (diagnostics) {
+                diagnostics.textureUploadMs += Math.max(0, rendererNowMs() - uploadStart);
+            }
             this.closeStaticTileBitmap(completed.bitmap);
             if (!uploaded) {
                 return Boolean(this.disableStaticLayerBakeAfterFailure(
@@ -2211,6 +2536,17 @@ class RocketfrockRenderer {
             record.slotIndex = slot.slotIndex;
             record.slotX = slot.x;
             record.slotY = slot.y;
+            if (diagnostics) {
+                const frameGap = cache.lastUploadFrame > 0
+                    ? Math.max(0, cache.frame - cache.lastUploadFrame)
+                    : 0;
+                if (cache.uploadBurstId <= 0 || frameGap > 4) cache.uploadBurstId += 1;
+                cache.lastUploadFrame = cache.frame;
+                diagnostics.tilesUploaded += 1;
+                diagnostics.uploadBytes += uploadWidth * uploadHeight * STATIC_LAYER_BAKE_BYTES_PER_PIXEL;
+                diagnostics.uploadBurstId = cache.uploadBurstId;
+                diagnostics.uploadFrameGap = frameGap;
+            }
         } else {
             const tileBytes = STATIC_TILE_SLOT_SIZE * STATIC_TILE_SLOT_SIZE * STATIC_LAYER_BAKE_BYTES_PER_PIXEL;
             let residentBytes = [...cache.records.values()].reduce((sum, candidate) => (
@@ -2227,7 +2563,7 @@ class RocketfrockRenderer {
                     this.staticLayerBake.status = "Canvas tile memory budget reached; waiting for distant tiles to be recycled";
                     return false;
                 }
-                this.evictStaticTileRecord(cache, victim);
+                this.evictStaticTileRecord(cache, victim, "canvasBudget");
                 residentBytes = Math.max(0, residentBytes - tileBytes);
             }
             record.bitmap = completed.bitmap;
@@ -2237,6 +2573,7 @@ class RocketfrockRenderer {
         record.taskId = 0;
         cache.uploadedTiles += 1;
         cache.buildMs = cache.buildMs * 0.9 + completed.buildMs * 0.1;
+        if (diagnostics) diagnostics.tilesAdopted += 1;
         return true;
     }
 
@@ -2249,7 +2586,8 @@ class RocketfrockRenderer {
                 page,
                 slotIndex,
                 x: (slotIndex % page.slotsPerAxis) * STATIC_TILE_SLOT_SIZE,
-                y: Math.floor(slotIndex / page.slotsPerAxis) * STATIC_TILE_SLOT_SIZE
+                y: Math.floor(slotIndex / page.slotsPerAxis) * STATIC_TILE_SLOT_SIZE,
+                createdPage: false
             };
         }
         const maxTextureSize = Math.max(STATIC_TILE_SLOT_SIZE, Number(this.webglBackend?.getMaxTextureSize?.()) || STATIC_TILE_SLOT_SIZE);
@@ -2261,7 +2599,7 @@ class RocketfrockRenderer {
                 .filter((candidate) => candidate !== record && candidate.state === "ready" && candidate.page)
                 .sort((a, b) => (b.priority || 0) - (a.priority || 0))[0];
             if (!victim) return null;
-            this.evictStaticTileRecord(cache, victim);
+            this.evictStaticTileRecord(cache, victim, "webglBudget");
             for (const page of cache.pages) {
                 if (!page.freeSlots.length) continue;
                 const slotIndex = page.freeSlots.pop();
@@ -2270,7 +2608,8 @@ class RocketfrockRenderer {
                     page,
                     slotIndex,
                     x: (slotIndex % page.slotsPerAxis) * STATIC_TILE_SLOT_SIZE,
-                    y: Math.floor(slotIndex / page.slotsPerAxis) * STATIC_TILE_SLOT_SIZE
+                    y: Math.floor(slotIndex / page.slotsPerAxis) * STATIC_TILE_SLOT_SIZE,
+                    createdPage: false
                 };
             }
         }
@@ -2289,7 +2628,7 @@ class RocketfrockRenderer {
         cache.pages.push(page);
         const slotIndex = page.freeSlots.pop();
         page.usedSlots.set(slotIndex, record.key);
-        return { page, slotIndex, x: 0, y: 0 };
+        return { page, slotIndex, x: 0, y: 0, createdPage: true };
     }
 
     staticTileVisibleRecords(cache, layerName, view, parallaxOffset = null) {
@@ -2390,6 +2729,13 @@ class RocketfrockRenderer {
         this.staticLayerBake.mode = "tiles";
         this.staticLayerBake.fullLayout = "";
         this.staticLayerBake.status = `tiles: ${ready} ready (${resident} textured), ${cache.pages.length} atlas pages, ${Math.round(this.staticLayerBake.bytes / 1048576)} MiB`;
+        if (this.staticTileFrameDiagnostics.active) {
+            const diagnostics = this.staticTileFrameDiagnostics;
+            diagnostics.jobsRemaining = Math.max(0, cache.records.size - ready);
+            diagnostics.recordsTotal = cache.records.size;
+            diagnostics.recordsReady = ready;
+            diagnostics.recordsResident = resident;
+        }
     }
 
     renderCanvas2DStaticTiles(state, inputFrame, view, frameStart) {
@@ -2450,6 +2796,9 @@ class RocketfrockRenderer {
         const frameEnd = rendererNowMs();
 
         cache.drawMs = backgroundTiles.ms + terrainTiles.ms + foregroundTiles.ms;
+        if (this.staticTileFrameDiagnostics.active) {
+            this.staticTileFrameDiagnostics.drawMs = cache.drawMs;
+        }
         this.staticLayerBake.lastDrawMs = cache.drawMs;
         this.staticLayerBake.lastUsed = backgroundTiles.complete || terrainTiles.complete || foregroundTiles.complete;
         cache.readyVisibleLayers = Number(backgroundTiles.complete) + Number(terrainTiles.complete) + Number(foregroundTiles.complete);
@@ -3118,6 +3467,9 @@ class RocketfrockRenderer {
         const gpuStats = backend.endFrame();
         const frameEnd = rendererNowMs();
         cache.drawMs = backgroundTiles.ms + terrainTiles.ms + foregroundTiles.ms;
+        if (this.staticTileFrameDiagnostics.active) {
+            this.staticTileFrameDiagnostics.drawMs = cache.drawMs;
+        }
         this.staticLayerBake.lastDrawMs = cache.drawMs;
         this.staticLayerBake.lastUsed = backgroundTiles.complete || terrainTiles.complete || foregroundTiles.complete;
         cache.readyVisibleLayers = Number(backgroundTiles.complete) + Number(terrainTiles.complete) + Number(foregroundTiles.complete);
@@ -3371,6 +3723,8 @@ class RocketfrockRenderer {
             ? previousAverage * 0.9 + frameMs * 0.1
             : frameMs;
         const gpuStats = timings.gpuStats || this.webglBackend?.getDiagnostics?.() || {};
+        const tileDiagnostics = this.staticTileFrameDiagnostics;
+        const tileDiagnosticsActive = tileDiagnostics.active === true;
         this.performanceDiagnostics = {
             backend: String(gpuStats.backend || this.renderBackend),
             gpuDrawCalls: Math.max(0, Number(gpuStats.drawCalls) || 0),
@@ -3417,7 +3771,56 @@ class RocketfrockRenderer {
             staticBakeLastInvalidationReason: this.staticLayerBake.lastInvalidationReason || "",
             staticBakeStatus: ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER
                 ? (this.staticLayerBake.lastError || this.staticLayerBake.status || "off")
-                : STATIC_LAYER_BAKE_DISABLED_STATUS
+                : STATIC_LAYER_BAKE_DISABLED_STATUS,
+            staticTileDiagnosticsActive: tileDiagnosticsActive,
+            staticTileWorkerCollectMs: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.workerCollectMs) || 0) : 0,
+            staticTileCacheEnsureMs: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.cacheEnsureMs) || 0) : 0,
+            staticTileCameraVelocityMs: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.cameraVelocityMs) || 0) : 0,
+            staticTileCompletedAdoptionMs: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.completedAdoptionMs) || 0) : 0,
+            staticTilePlanningMs: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.planningMs) || 0) : 0,
+            staticTileEvictionMs: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.evictionMs) || 0) : 0,
+            staticTileJobSchedulingMs: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.jobSchedulingMs) || 0) : 0,
+            staticTileDiagnosticsMs: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.diagnosticsMs) || 0) : 0,
+            staticTileAtlasAllocationMs: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.atlasAllocationMs) || 0) : 0,
+            staticTileTextureUploadMs: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.textureUploadMs) || 0) : 0,
+            staticTileDrawMs: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.drawMs) || 0) : 0,
+            staticTileWorkerMessages: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.workerMessages) || 0) : 0,
+            staticTileWorkerResultsDiscarded: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.workerResultsDiscarded) || 0) : 0,
+            staticTileTilesCompleted: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.tilesCompleted) || 0) : 0,
+            staticTileTilesAdopted: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.tilesAdopted) || 0) : 0,
+            staticTileTilesUploaded: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.tilesUploaded) || 0) : 0,
+            staticTileUploadBytes: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.uploadBytes) || 0) : 0,
+            staticTileAtlasPagesTouched: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.atlasPagesTouched) || 0) : 0,
+            staticTileAtlasSlotsAllocated: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.atlasSlotsAllocated) || 0) : 0,
+            staticTileAtlasPagesCreated: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.atlasPagesCreated) || 0) : 0,
+            staticTileTilesEvicted: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.tilesEvicted) || 0) : 0,
+            staticTileDistantEvictions: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.distantEvictions) || 0) : 0,
+            staticTileBudgetEvictions: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.budgetEvictions) || 0) : 0,
+            staticTileJobsQueued: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.jobsQueued) || 0) : 0,
+            staticTileJobsStarted: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.jobsStarted) || 0) : 0,
+            staticTileJobsRemaining: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.jobsRemaining) || 0) : 0,
+            staticTileCompletedQueueDepth: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.completedQueueDepth) || 0) : 0,
+            staticTileRecordsTotal: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.recordsTotal) || 0) : 0,
+            staticTileRecordsReady: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.recordsReady) || 0) : 0,
+            staticTileRecordsResident: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.recordsResident) || 0) : 0,
+            staticTileWorkerBusy: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.workerBusy) || 0) : 0,
+            staticTileUploadBurstId: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.uploadBurstId) || 0) : 0,
+            staticTileUploadFrameGap: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.uploadFrameGap) || 0) : 0,
+            staticTileUploadLayer: tileDiagnosticsActive ? String(tileDiagnostics.uploadLayer || "") : "",
+            staticTileUploadTileX: tileDiagnosticsActive ? Number(tileDiagnostics.uploadTileX) || 0 : 0,
+            staticTileUploadTileY: tileDiagnosticsActive ? Number(tileDiagnostics.uploadTileY) || 0 : 0,
+            staticTileUploadPageId: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.uploadPageId) || 0) : 0,
+            staticTileUploadSlotIndex: tileDiagnosticsActive ? Number(tileDiagnostics.uploadSlotIndex) || 0 : -1,
+            staticTileUploadSlotX: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.uploadSlotX) || 0) : 0,
+            staticTileUploadSlotY: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.uploadSlotY) || 0) : 0,
+            staticTileUploadWidth: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.uploadWidth) || 0) : 0,
+            staticTileUploadHeight: tileDiagnosticsActive ? Math.max(0, Number(tileDiagnostics.uploadHeight) || 0) : 0,
+            staticTileCameraX: tileDiagnosticsActive ? Number(tileDiagnostics.cameraX) || 0 : 0,
+            staticTileCameraY: tileDiagnosticsActive ? Number(tileDiagnostics.cameraY) || 0 : 0,
+            staticTileCameraTileX: tileDiagnosticsActive ? Number(tileDiagnostics.cameraTileX) || 0 : 0,
+            staticTileCameraTileY: tileDiagnosticsActive ? Number(tileDiagnostics.cameraTileY) || 0 : 0,
+            staticTileUploadTileDeltaX: tileDiagnosticsActive ? Number(tileDiagnostics.uploadTileDeltaX) || 0 : 0,
+            staticTileUploadTileDeltaY: tileDiagnosticsActive ? Number(tileDiagnostics.uploadTileDeltaY) || 0 : 0
         };
     }
 
@@ -3442,8 +3845,8 @@ class RocketfrockRenderer {
             virtualW: w / zoom,
             virtualH: h / zoom,
             minVirtualW: this.viewport.minVirtualW || MIN_TOUCH_VIEWPORT_WIDTH,
-            x: override ? override.x : state.camera.x - w / zoom * 0.5,
-            y: override ? override.y : state.camera.y - h / zoom * 0.56
+            x: override ? override.x : state.camera.shownTransform.x - w / zoom * 0.5,
+            y: override ? override.y : state.camera.shownTransform.y - h / zoom * 0.56
         };
     }
 
@@ -3492,10 +3895,11 @@ class RocketfrockRenderer {
 
     projectileRenderBounds(projectile) {
         const extent = Math.max(36, Number(projectile?.radius) || 0, Number(projectile?.areaDamageRadius) || 0);
-        let minX = (Number(projectile?.x) || 0) - extent;
-        let minY = (Number(projectile?.y) || 0) - extent;
-        let maxX = (Number(projectile?.x) || 0) + extent;
-        let maxY = (Number(projectile?.y) || 0) + extent;
+        const transform = shownTransformOf(projectile);
+        let minX = (Number(transform?.x) || 0) - extent;
+        let minY = (Number(transform?.y) || 0) - extent;
+        let maxX = (Number(transform?.x) || 0) + extent;
+        let maxY = (Number(transform?.y) || 0) + extent;
         for (const point of projectile?.trail || []) {
             const x = Number(point?.x);
             const y = Number(point?.y);
@@ -3826,7 +4230,7 @@ class RocketfrockRenderer {
         const frameName = visual.frame || visual.assetId;
         const frame = atlas.frames?.[frameName];
         if (!frame) return false;
-        const centerWorld = placementCenter(visual);
+        const centerWorld = placementCenter(visual, shownTransformOf(visual));
         const center = this.worldToScreen(
             view,
             centerWorld.x - (parallaxOffset?.x || 0),
@@ -3857,10 +4261,10 @@ class RocketfrockRenderer {
             centerY: center.y,
             width: visual.w * view.zoom,
             height: visual.h * view.zoom,
-            rotation: normalizeRotationRadians(visual.rotation),
+            rotation: visualPresentationAngle(visual),
             mirrorX: Boolean(visual.mirrorX),
             mirrorY: Boolean(visual.mirrorY),
-            alpha: visual.alpha ?? 1
+            alpha: visualPresentationAlpha(visual)
         });
         if (queued) this.frameVisualCounters.drawn += 1;
         return queued;
@@ -4017,7 +4421,7 @@ class RocketfrockRenderer {
             return false;
         }
         const ctx = this.ctx;
-        const centerWorld = placementCenter(visual);
+        const centerWorld = placementCenter(visual, shownTransformOf(visual));
         const center = this.worldToScreen(
             view,
             centerWorld.x - (parallaxOffset?.x || 0),
@@ -4026,9 +4430,9 @@ class RocketfrockRenderer {
         const w = visual.w * view.zoom;
         const h = visual.h * view.zoom;
         ctx.save();
-        ctx.globalAlpha *= visual.alpha ?? 1;
+        ctx.globalAlpha *= visualPresentationAlpha(visual);
         ctx.translate(center.x, center.y);
-        ctx.rotate(normalizeRotationRadians(visual.rotation));
+        ctx.rotate(visualPresentationAngle(visual));
         ctx.scale(visual.mirrorX ? -1 : 1, visual.mirrorY ? -1 : 1);
         if (caveForeground) {
             const cachedSprite = this.getForegroundSpriteCanvas(atlas, frameName, frame, visual);
@@ -4074,7 +4478,8 @@ class RocketfrockRenderer {
         return surface;
     }
 
-    getForegroundSpriteCanvas(atlas, frameName, frame, visual) {
+    getForegroundSpriteCanvas(atlas, frameName, frame, visual, options = {}) {
+        const trackFrameCounters = options.trackFrameCounters !== false;
         const cacheKey = foregroundTreatmentCacheKey({
             atlasId: atlas.atlasId || visual.atlasId || "atlas",
             frameName,
@@ -4083,7 +4488,7 @@ class RocketfrockRenderer {
         });
         const cached = this.foregroundSpriteCache.get(cacheKey);
         if (cached) {
-            this.frameVisualCounters.foregroundCacheHits += 1;
+            if (trackFrameCounters) this.frameVisualCounters.foregroundCacheHits += 1;
             return cached;
         }
 
@@ -4095,7 +4500,7 @@ class RocketfrockRenderer {
             visual
         });
         this.foregroundSpriteCache.set(cacheKey, surface);
-        this.frameVisualCounters.foregroundCacheMisses += 1;
+        if (trackFrameCounters) this.frameVisualCounters.foregroundCacheMisses += 1;
         return surface;
     }
 
@@ -4397,13 +4802,13 @@ class RocketfrockRenderer {
                 continue;
             }
 
-            const centerWorld = placementCenter(visual);
+            const centerWorld = placementCenter(visual, shownTransformOf(visual));
             const center = this.worldToScreen(view, centerWorld.x, centerWorld.y);
             const visualW = visual.w * view.zoom;
             const visualH = visual.h * view.zoom;
             ctx.save();
             ctx.translate(center.x, center.y);
-            ctx.rotate(normalizeRotationRadians(visual.rotation));
+            ctx.rotate(visualPresentationAngle(visual));
             ctx.strokeStyle = "rgba(86, 230, 255, 0.72)";
             ctx.lineWidth = 1.5 * view.zoom;
             ctx.setLineDash([5 * view.zoom, 4 * view.zoom]);
@@ -4726,7 +5131,7 @@ class RocketfrockRenderer {
         const health = clamp(Number(enemy.health) || 0, 0, maxHealth || 1);
         if (health <= 0 || maxHealth <= 0 || health >= maxHealth || (Number(enemy.healthBarTimer) || 0) <= 0) return;
         const backend = this.webglBackend;
-        const center = this.worldToScreen(view, enemy.x, enemy.y - enemy.height - 10 / Math.max(0.05, actorScale));
+        const center = this.worldToScreen(view, enemy.shownTransform.x, enemy.shownTransform.y - enemy.height - 10 / Math.max(0.05, actorScale));
         const width = Math.max(34, Math.min(74, enemy.width * Math.max(0.75, actorScale))) * view.zoom;
         const height = 6 * view.zoom;
         const ratio = health / maxHealth;
@@ -4736,16 +5141,16 @@ class RocketfrockRenderer {
     }
 
     drawRuntimeCharacterEnemyWebGL(project, enemy, state, view) {
-        const renderOpacity = enemy.health <= 0 ? clamp(Number(enemy.renderOpacity ?? 1), 0, 1) : 1;
+        const renderOpacity = enemy.health <= 0 ? clamp(Number(enemy.shownTransform.alpha ?? 1), 0, 1) : 1;
         if (renderOpacity <= 0) return false;
-        const actorScale = Math.max(0.05, Number(enemy.renderScale) || 1);
+        const actorScale = Math.max(0.05, Number(enemy.shownTransform.scaleX) || 1);
         const facing = Number(enemy.facing) < 0 ? -1 : 1;
         const artworkOrigin = characterArtworkOrigin(enemy);
         const screen = this.worldToScreen(view, artworkOrigin.x, artworkOrigin.y);
         const groundPoint = actorGroundPoint(enemy);
         const groundScreen = this.worldToScreen(view, groundPoint.x, groundPoint.y);
         const requestedSlot = enemy.animationSlot || enemy.state || "idle";
-        const time = Number.isFinite(Number(enemy.animationTime)) ? Number(enemy.animationTime) : state.clock.time + (Number(enemy.animationTimeOffset) || 0);
+        const time = Number.isFinite(Number(enemy.animationClock?.shown)) ? Number(enemy.animationClock?.shown) : state.clock.time + (Number(enemy.animationTimeOffset) || 0);
         const sampled = sampleRuntimeCharacterPose(project, requestedSlot, time);
         const transforms = animationPoseToRuntimeTransforms(sampled.pose, project.rig, view.zoom, actorScale);
         applyRuntimeProjectileHandoffVisibility(project, sampled.slot, time, transforms);
@@ -4777,7 +5182,7 @@ class RocketfrockRenderer {
             if (enemy.visualized) continue;
             const enemyWidth = Math.max(1, Number(enemy.width) || 1);
             const enemyHeight = Math.max(1, Number(enemy.height) || 1);
-            const enemyBounds = { minX: enemy.x - enemyWidth * 0.5, minY: enemy.y - enemyHeight - 36, maxX: enemy.x + enemyWidth * 0.5, maxY: enemy.y + 12 };
+            const enemyBounds = { minX: enemy.shownTransform.x - enemyWidth * 0.5, minY: enemy.shownTransform.y - enemyHeight - 36, maxX: enemy.shownTransform.x + enemyWidth * 0.5, maxY: enemy.shownTransform.y + 12 };
             if (!this.dynamicBoundsVisible(enemyBounds, view, 96)) continue;
             const project = this.getCharacterProject(enemy.characterId || enemy.characterProject);
             if (project) {
@@ -4785,7 +5190,7 @@ class RocketfrockRenderer {
                 continue;
             }
             if (enemy.health <= 0 || !fallback) continue;
-            const center = this.worldToScreen(view, enemy.x, enemy.y - enemyHeight * 0.5);
+            const center = this.worldToScreen(view, enemy.shownTransform.x, enemy.shownTransform.y - enemyHeight * 0.5);
             backend.queueSprite({
                 source: fallback,
                 centerX: center.x,
@@ -4807,10 +5212,10 @@ class RocketfrockRenderer {
             const width = Math.max(1, Number(enemy.width) || 1);
             const height = Math.max(1, Number(enemy.height) || 1);
             const guideBounds = {
-                minX: enemy.x - Math.max(width, Number(enemy.awarenessRange) || 0),
-                minY: enemy.y - Math.max(height, Number(enemy.awarenessRange) || 0),
-                maxX: enemy.x + Math.max(width, Number(enemy.awarenessRange) || 0),
-                maxY: enemy.y + Math.max(height, Number(enemy.awarenessRange) || 0)
+                minX: enemy.shownTransform.x - Math.max(width, Number(enemy.awarenessRange) || 0),
+                minY: enemy.shownTransform.y - Math.max(height, Number(enemy.awarenessRange) || 0),
+                maxX: enemy.shownTransform.x + Math.max(width, Number(enemy.awarenessRange) || 0),
+                maxY: enemy.shownTransform.y + Math.max(height, Number(enemy.awarenessRange) || 0)
             };
             if (visualIntersectsViewport(guideBounds, view, null, 48)) this.drawEnemyPuppetGuide(enemy, state, view);
         }
@@ -4890,10 +5295,10 @@ class RocketfrockRenderer {
             const enemyWidth = Math.max(1, Number(enemy.width) || 1);
             const enemyHeight = Math.max(1, Number(enemy.height) || 1);
             const enemyBounds = {
-                minX: (Number(enemy.x) || 0) - enemyWidth * 0.5,
-                minY: (Number(enemy.y) || 0) - enemyHeight - 36,
-                maxX: (Number(enemy.x) || 0) + enemyWidth * 0.5,
-                maxY: (Number(enemy.y) || 0) + 12
+                minX: (Number(enemy.shownTransform.x) || 0) - enemyWidth * 0.5,
+                minY: (Number(enemy.shownTransform.y) || 0) - enemyHeight - 36,
+                maxX: (Number(enemy.shownTransform.x) || 0) + enemyWidth * 0.5,
+                maxY: (Number(enemy.shownTransform.y) || 0) + 12
             };
             if (!this.dynamicBoundsVisible(enemyBounds, view, 96)) {
                 continue;
@@ -4908,7 +5313,7 @@ class RocketfrockRenderer {
                 continue;
             }
 
-            const p = this.worldToScreen(view, enemy.x - enemy.width / 2, enemy.y - enemy.height);
+            const p = this.worldToScreen(view, enemy.shownTransform.x - enemy.width / 2, enemy.shownTransform.y - enemy.height);
             ctx.save();
             ctx.fillStyle = enemy.hitFlashTimer > 0 ? "rgba(255, 246, 214, 0.92)" : "rgba(202, 135, 255, 0.62)";
             ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
@@ -4935,10 +5340,10 @@ class RocketfrockRenderer {
                 const width = Math.max(1, Number(enemy.width) || 1);
                 const height = Math.max(1, Number(enemy.height) || 1);
                 const guideBounds = {
-                    minX: (Number(enemy.x) || 0) - Math.max(width, Number(enemy.awarenessRange) || 0),
-                    minY: (Number(enemy.y) || 0) - Math.max(height, Number(enemy.awarenessRange) || 0),
-                    maxX: (Number(enemy.x) || 0) + Math.max(width, Number(enemy.awarenessRange) || 0),
-                    maxY: (Number(enemy.y) || 0) + Math.max(height, Number(enemy.awarenessRange) || 0)
+                    minX: (Number(enemy.shownTransform.x) || 0) - Math.max(width, Number(enemy.awarenessRange) || 0),
+                    minY: (Number(enemy.shownTransform.y) || 0) - Math.max(height, Number(enemy.awarenessRange) || 0),
+                    maxX: (Number(enemy.shownTransform.x) || 0) + Math.max(width, Number(enemy.awarenessRange) || 0),
+                    maxY: (Number(enemy.shownTransform.y) || 0) + Math.max(height, Number(enemy.awarenessRange) || 0)
                 };
                 if (visualIntersectsViewport(guideBounds, view, null, 48)) {
                     this.drawEnemyPuppetGuide(enemy, state, view);
@@ -4976,20 +5381,20 @@ class RocketfrockRenderer {
 
     drawRuntimeCharacterEnemy(project, enemy, state, view) {
         const renderOpacity = enemy.health <= 0
-            ? clamp(Number(enemy.renderOpacity ?? 1), 0, 1)
+            ? clamp(Number(enemy.shownTransform.alpha ?? 1), 0, 1)
             : 1;
         if (renderOpacity <= 0) {
             return;
         }
-        const actorScale = Math.max(0.05, Number(enemy.renderScale) || 1);
+        const actorScale = Math.max(0.05, Number(enemy.shownTransform.scaleX) || 1);
         const facing = Number(enemy.facing) < 0 ? -1 : 1;
         const artworkOrigin = characterArtworkOrigin(enemy);
         const screen = this.worldToScreen(view, artworkOrigin.x, artworkOrigin.y);
         const groundPoint = actorGroundPoint(enemy);
         const groundScreen = this.worldToScreen(view, groundPoint.x, groundPoint.y);
         const requestedSlot = enemy.animationSlot || enemy.state || "idle";
-        const time = Number.isFinite(Number(enemy.animationTime))
-            ? Number(enemy.animationTime)
+        const time = Number.isFinite(Number(enemy.animationClock?.shown))
+            ? Number(enemy.animationClock?.shown)
             : state.clock.time + (Number(enemy.animationTimeOffset) || 0);
         const sampled = sampleRuntimeCharacterPose(project, requestedSlot, time);
         const transforms = animationPoseToRuntimeTransforms(sampled.pose, project.rig, view.zoom, actorScale);
@@ -5032,8 +5437,8 @@ class RocketfrockRenderer {
         const bodyScreen = this.worldToScreen(view, body.x, body.y);
         const hitboxScreen = this.worldToScreen(view, projectileHitbox.x, projectileHitbox.y);
         const enemyCenter = {
-            x: Number(enemy.x) || 0,
-            y: (Number(enemy.y) || 0) - Math.max(1, Number(enemy.height) || 1) * 0.5
+            x: Number(enemy.shownTransform.x) || 0,
+            y: (Number(enemy.shownTransform.y) || 0) - Math.max(1, Number(enemy.height) || 1) * 0.5
         };
         const centerScreen = this.worldToScreen(view, enemyCenter.x, enemyCenter.y);
         const facing = Number(enemy.facing) < 0 ? -1 : 1;
@@ -5118,7 +5523,7 @@ class RocketfrockRenderer {
         }
 
         if (Number.isFinite(Number(enemy.patrolMinX)) && Number.isFinite(Number(enemy.patrolMaxX))) {
-            const patrolY = (Number(enemy.y) || 0) + 5;
+            const patrolY = (Number(enemy.shownTransform.y) || 0) + 5;
             const patrolStart = this.worldToScreen(view, Number(enemy.patrolMinX), patrolY);
             const patrolEnd = this.worldToScreen(view, Number(enemy.patrolMaxX), patrolY);
             ctx.strokeStyle = "rgba(194, 154, 255, 0.72)";
@@ -5167,8 +5572,8 @@ class RocketfrockRenderer {
         if (state.player?.visible !== false) {
             const playerCenter = this.worldToScreen(
                 view,
-                Number(state.player.x) || 0,
-                (Number(state.player.y) || 0) - (Number(state.player.height) || 0) * 0.5
+                Number(state.player.shownTransform.x) || 0,
+                (Number(state.player.shownTransform.y) || 0) - (Number(state.player.height) || 0) * 0.5
             );
             ctx.strokeStyle = enemy.alerted
                 ? "rgba(255, 137, 101, 0.58)"
@@ -5189,7 +5594,7 @@ class RocketfrockRenderer {
     drawEnemyNavigationDebug(enemy, view) {
         const ctx = this.ctx;
         const route = Array.isArray(enemy.route) ? enemy.route.slice(Math.max(0, Number(enemy.routeIndex) || 0)) : [];
-        const origin = this.worldToScreen(view, enemy.x, enemy.y - 6);
+        const origin = this.worldToScreen(view, enemy.shownTransform.x, enemy.shownTransform.y - 6);
         ctx.save();
         ctx.font = `${Math.max(10, 11 * view.zoom)}px ui-monospace, monospace`;
         ctx.textAlign = "center";
@@ -5226,7 +5631,7 @@ class RocketfrockRenderer {
         }
 
         const ctx = this.ctx;
-        const center = this.worldToScreen(view, enemy.x, enemy.y - enemy.height - 10 / Math.max(0.05, actorScale));
+        const center = this.worldToScreen(view, enemy.shownTransform.x, enemy.shownTransform.y - enemy.height - 10 / Math.max(0.05, actorScale));
         const width = Math.max(34, Math.min(74, enemy.width * Math.max(0.75, actorScale))) * view.zoom;
         const height = 6 * view.zoom;
         const ratio = health / maxHealth;
@@ -5664,7 +6069,7 @@ class RocketfrockRenderer {
             if (!this.dynamicBoundsVisible(this.projectileRenderBounds(projectile), view, 96)) {
                 continue;
             }
-            const point = this.worldToScreen(view, projectile.x, projectile.y);
+            const point = this.worldToScreen(view, projectile.shownTransform.x, projectile.shownTransform.y);
             const total = Math.max(0.001, Number(state.tuning?.rocketProjectileExplosionSeconds) || 0.42);
             const remaining = Math.max(0, Number(projectile.explosionTimer) || 0);
             const progress = Math.max(0, Math.min(1, 1 - remaining / total));
@@ -5700,7 +6105,7 @@ class RocketfrockRenderer {
                     point.x,
                     point.y,
                     view,
-                    projectile.age + projectile.x,
+                    projectile.age + projectile.shownTransform.x,
                     Math.max(9, Math.round(9 * explosionScale)),
                     22 * explosionScale * view.zoom,
                     "rocket"
@@ -5736,7 +6141,7 @@ class RocketfrockRenderer {
                     point.x,
                     point.y,
                     view,
-                    projectile.age + projectile.x,
+                    projectile.age + projectile.shownTransform.x,
                     projectile.impactKind === "player" ? 4 : 3,
                     (projectile.impactKind === "player" ? 10 : 8) * view.zoom,
                     projectile.impactKind === "player" ? "wizardAccent" : "enemy"
@@ -5925,9 +6330,8 @@ class RocketfrockRenderer {
         if (!backend?.available) {
             return false;
         }
-        const p = this.worldToScreen(view, projectile.x, projectile.y);
-        const speed = Math.hypot(projectile.vx, projectile.vy) || 1;
-        const angle = Math.atan2(projectile.vy / speed, projectile.vx / speed);
+        const p = this.worldToScreen(view, projectile.shownTransform.x, projectile.shownTransform.y);
+        const angle = Number(projectile.shownTransform.angle) || 0;
         const undeath = this.isUndeathProjectile(projectile);
         const trailEnabled = undeath || state.settings?.renderingQuality !== "low";
         let drew = false;
@@ -5969,7 +6373,7 @@ class RocketfrockRenderer {
         if (!backend?.available) {
             return false;
         }
-        const p = this.worldToScreen(view, projectile.x, projectile.y);
+        const p = this.worldToScreen(view, projectile.shownTransform.x, projectile.shownTransform.y);
         const targetHeight = Math.max(2, Number(projectile.radius) || 1) * 2.45 * view.zoom;
         const rotation = projectile.age * 8;
         const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_011", projectile.frameId || "cannonball") ||
@@ -5994,9 +6398,9 @@ class RocketfrockRenderer {
         if (!backend?.available) {
             return false;
         }
-        const p = this.worldToScreen(view, projectile.x, projectile.y);
+        const p = this.worldToScreen(view, projectile.shownTransform.x, projectile.shownTransform.y);
         const targetHeight = Math.max(8, Number(projectile.radius) || 10) * 2.35 * view.zoom;
-        const rotation = (Number(projectile.age) || 0) * 5 + projectile.x * 0.01;
+        const rotation = (Number(projectile.age) || 0) * 5 + projectile.shownTransform.x * 0.01;
         const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_020", projectile.frameId || "rock") ||
             this.getCharacterAtlasFrame("ct_char_enemy_020", "rock");
         if (asset && !asset.missing) {
@@ -6018,9 +6422,8 @@ class RocketfrockRenderer {
         if (!backend?.available) {
             return false;
         }
-        const p = this.worldToScreen(view, projectile.x, projectile.y);
-        const travelAngle = Math.atan2(Number(projectile.vy) || 0, Number(projectile.vx) || 1);
-        const rotation = travelAngle;
+        const p = this.worldToScreen(view, projectile.shownTransform.x, projectile.shownTransform.y);
+        const rotation = Number(projectile.shownTransform.angle) || 0;
         const targetHeight = Math.max(5, Number(projectile.radius) || 5) * 1.45 * view.zoom;
         const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_032", projectile.frameId || "dagger") ||
             this.getCharacterAtlasFrame("ct_char_enemy_032", "dagger");
@@ -6034,7 +6437,7 @@ class RocketfrockRenderer {
         const backend = this.webglBackend;
         if (!backend?.available) return false;
         const rawTrail = Array.isArray(projectile.trail) ? projectile.trail : [];
-        const trail = rawTrail.concat([{ x: projectile.x, y: projectile.y, time: state.clock.time }]);
+        const trail = rawTrail.concat([{ x: projectile.shownTransform.x, y: projectile.shownTransform.y, time: state.clock.time }]);
         if (trail.length < 2) return false;
 
         const screenTrail = trail.map((point) => ({
@@ -6094,7 +6497,7 @@ class RocketfrockRenderer {
 
         if (glowSprite) {
             const sparkCount = Math.min(42, Math.max(8, visible.length * 2));
-            const seed = projectile.id.length * 97 + Math.floor(projectile.x * 0.11) + Math.floor(projectile.y * 0.07);
+            const seed = projectile.id.length * 97 + Math.floor(projectile.shownTransform.x * 0.11) + Math.floor(projectile.shownTransform.y * 0.07);
             const poweredTint = hexColorRgb(projectile.wrenchGlowTint);
             for (let index = 0; index < sparkCount; index += 1) {
                 const segmentIndex = Math.min(visible.length - 2, Math.floor(hashNoise(seed + 13, index) * (visible.length - 1)));
@@ -6199,14 +6602,12 @@ class RocketfrockRenderer {
         if (!baseAsset || baseAsset.missing) {
             return false;
         }
-        const p = this.worldToScreen(view, projectile.x, projectile.y);
-        const speed = Math.hypot(projectile.vx, projectile.vy) || 1;
-        const dir = { x: projectile.vx / speed, y: projectile.vy / speed };
-        const angle = Math.atan2(dir.x, -dir.y);
+        const p = this.worldToScreen(view, projectile.shownTransform.x, projectile.shownTransform.y);
+        const angle = (Number(projectile.shownTransform.angle) || 0) + Math.PI * 0.5;
         const pivot = projectile.frameId === "rocket_projectile"
             ? { x: 0.5, y: 0.78 }
             : this.rigConfig.pivots.rocket;
-        const visualScale = Math.max(0.1, Number(projectile.visualScale) || 1);
+        const visualScale = Math.max(0.1, Number(projectile.shownTransform.scaleX) || 1);
         const targetHeight = (projectile.frameId === "rocket_projectile" ? 58 : 72) * visualScale * view.zoom;
 
         const glowFrameId = projectile.wrenchGlowFrameId || wrenchRocketGlowAtlasFrameId(projectile.wrenchEffectId);
@@ -6315,7 +6716,7 @@ class RocketfrockRenderer {
                 if (this.isUndeathProjectile(projectile)) {
                     this.drawEnemyFireballParticles(projectile, state, view);
                 }
-                const p = this.worldToScreen(view, projectile.x, projectile.y);
+                const p = this.worldToScreen(view, projectile.shownTransform.x, projectile.shownTransform.y);
                 ctx.save();
                 if (projectile.owner !== "enemy") {
                     const explosionScale = Math.max(1, Number(projectile.explosionVisualScale) || 1);
@@ -6323,7 +6724,7 @@ class RocketfrockRenderer {
                         p.x,
                         p.y,
                         view,
-                        projectile.age + projectile.x,
+                        projectile.age + projectile.shownTransform.x,
                         Math.max(9, Math.round(9 * explosionScale)),
                         22 * explosionScale * view.zoom,
                         "rocket"
@@ -6343,7 +6744,7 @@ class RocketfrockRenderer {
                 } else if (projectile.impactKind === "player") {
                     // Contact with Ignatius may shake loose a small trace of his own
                     // yellow-purple rocket magic, but ordinary mob impacts stay dark.
-                    this.drawSparkBurst(p.x, p.y, view, projectile.age + projectile.x, 3, 9 * view.zoom, "wizardAccent");
+                    this.drawSparkBurst(p.x, p.y, view, projectile.age + projectile.shownTransform.x, 3, 9 * view.zoom, "wizardAccent");
                 }
                 ctx.restore();
                 this.markDynamicDrawn();
@@ -6374,14 +6775,12 @@ class RocketfrockRenderer {
             return;
         }
         const ctx = this.ctx;
-        const p = this.worldToScreen(view, projectile.x, projectile.y);
-        const speed = Math.hypot(projectile.vx, projectile.vy) || 1;
-        const dir = { x: projectile.vx / speed, y: projectile.vy / speed };
-        const angle = Math.atan2(dir.x, -dir.y);
+        const p = this.worldToScreen(view, projectile.shownTransform.x, projectile.shownTransform.y);
+        const angle = (Number(projectile.shownTransform.angle) || 0) + Math.PI * 0.5;
         const pivot = projectile.frameId === "rocket_projectile"
             ? { x: 0.5, y: 0.78 }
             : this.rigConfig.pivots.rocket;
-        const visualScale = Math.max(0.1, Number(projectile.visualScale) || 1);
+        const visualScale = Math.max(0.1, Number(projectile.shownTransform.scaleX) || 1);
         const targetHeight = (projectile.frameId === "rocket_projectile" ? 58 : 72) * visualScale * view.zoom;
 
         const glowFrameId = projectile.wrenchGlowFrameId || wrenchRocketGlowAtlasFrameId(projectile.wrenchEffectId);
@@ -6406,14 +6805,13 @@ class RocketfrockRenderer {
 
     drawProjectileKnife(projectile, state, view) {
         const ctx = this.ctx;
-        const p = this.worldToScreen(view, projectile.x, projectile.y);
+        const p = this.worldToScreen(view, projectile.shownTransform.x, projectile.shownTransform.y);
         const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_032", projectile.frameId || "dagger") ||
             this.getCharacterAtlasFrame("ct_char_enemy_032", "dagger");
         if (!asset || asset.missing) {
             return;
         }
-        const travelAngle = Math.atan2(Number(projectile.vy) || 0, Number(projectile.vx) || 1);
-        const rotation = travelAngle;
+        const rotation = Number(projectile.shownTransform.angle) || 0;
         const targetHeight = Math.max(5, Number(projectile.radius) || 5) * 1.45 * view.zoom;
         const spriteScale = targetHeight / Math.max(1, asset.height);
         ctx.save();
@@ -6426,7 +6824,7 @@ class RocketfrockRenderer {
 
     drawProjectileRock(projectile, state, view) {
         const ctx = this.ctx;
-        const p = this.worldToScreen(view, projectile.x, projectile.y);
+        const p = this.worldToScreen(view, projectile.shownTransform.x, projectile.shownTransform.y);
         const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_020", projectile.frameId || "rock") ||
             this.getCharacterAtlasFrame("ct_char_enemy_020", "rock");
         if (asset && !asset.missing) {
@@ -6434,7 +6832,7 @@ class RocketfrockRenderer {
             const spriteScale = targetHeight / Math.max(1, asset.height);
             ctx.save();
             ctx.translate(p.x, p.y);
-            ctx.rotate((Number(projectile.age) || 0) * 5 + projectile.x * 0.01);
+            ctx.rotate((Number(projectile.age) || 0) * 5 + projectile.shownTransform.x * 0.01);
             ctx.scale(spriteScale, spriteScale);
             drawRuntimePixmap(ctx, asset, -asset.width * 0.5, -asset.height * 0.5);
             ctx.restore();
@@ -6444,7 +6842,7 @@ class RocketfrockRenderer {
         const radius = Math.max(4, Number(projectile.radius) || 10) * view.zoom;
         ctx.save();
         ctx.translate(p.x, p.y);
-        ctx.rotate((Number(projectile.age) || 0) * 5 + projectile.x * 0.01);
+        ctx.rotate((Number(projectile.age) || 0) * 5 + projectile.shownTransform.x * 0.01);
         ctx.beginPath();
         for (let i = 0; i < 8; i += 1) {
             const angle = i / 8 * Math.PI * 2;
@@ -6558,9 +6956,8 @@ class RocketfrockRenderer {
 
     drawProjectileFireball(projectile, state, view) {
         const ctx = this.ctx;
-        const p = this.worldToScreen(view, projectile.x, projectile.y);
-        const speed = Math.hypot(projectile.vx, projectile.vy) || 1;
-        const angle = Math.atan2(projectile.vy / speed, projectile.vx / speed);
+        const p = this.worldToScreen(view, projectile.shownTransform.x, projectile.shownTransform.y);
+        const angle = Number(projectile.shownTransform.angle) || 0;
         const undeath = this.isUndeathProjectile(projectile);
         const trailEnabled = undeath || state.settings?.renderingQuality !== "low";
 
@@ -6604,7 +7001,7 @@ class RocketfrockRenderer {
 
     drawProjectileMusketBall(projectile, state, view) {
         const ctx = this.ctx;
-        const p = this.worldToScreen(view, projectile.x, projectile.y);
+        const p = this.worldToScreen(view, projectile.shownTransform.x, projectile.shownTransform.y);
         const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_011", projectile.frameId || "cannonball") ||
             this.getCharacterAtlasFrame("ct_char_enemy_011", "cannonball") ||
             this.getCharacterAtlasFrame("ct_char_enemy_010", "cannonball");
@@ -6636,7 +7033,7 @@ class RocketfrockRenderer {
     drawRocketPathTrail(projectile, state, view) {
         const ctx = this.ctx;
         const rawTrail = Array.isArray(projectile.trail) ? projectile.trail : [];
-        const trail = rawTrail.concat([{ x: projectile.x, y: projectile.y, time: state.clock.time }]);
+        const trail = rawTrail.concat([{ x: projectile.shownTransform.x, y: projectile.shownTransform.y, time: state.clock.time }]);
         if (trail.length < 2) {
             return;
         }
@@ -6699,7 +7096,7 @@ class RocketfrockRenderer {
         // Second pass: hot magical sparkle crumbs pinned to the same bent path.
         ctx.globalCompositeOperation = "lighter";
         const sparkCount = Math.min(42, Math.max(8, visible.length * 2));
-        const seed = projectile.id.length * 97 + Math.floor(projectile.x * 0.11) + Math.floor(projectile.y * 0.07);
+        const seed = projectile.id.length * 97 + Math.floor(projectile.shownTransform.x * 0.11) + Math.floor(projectile.shownTransform.y * 0.07);
         for (let i = 0; i < sparkCount; i += 1) {
             const segmentIndex = Math.min(visible.length - 2, Math.floor(hashNoise(seed + 13, i) * (visible.length - 1)));
             const a = visible[segmentIndex];
@@ -6876,7 +7273,7 @@ class RocketfrockRenderer {
         const virtualH = virtualW * frame.h / Math.max(1, frame.w);
         const w = virtualW * view.zoom;
         const h = virtualH * view.zoom;
-        const speaker = this.worldToScreen(view, state.player.x, state.player.y - state.player.height * 0.88);
+        const speaker = this.worldToScreen(view, state.player.shownTransform.x, state.player.shownTransform.y - state.player.height * 0.88);
         const placement = computeThoughtBubblePlacement({
             speakerX: speaker.x,
             speakerY: speaker.y,
@@ -7117,7 +7514,7 @@ class RocketfrockRenderer {
         }
         const groundPoint = actorGroundPoint(state.player);
         const point = this.worldToScreen(view, groundPoint.x, groundPoint.y);
-        const renderScale = Math.max(0.05, Number(state.player.renderScale) || 1);
+        const renderScale = Math.max(0.05, Number(state.player.shownTransform.scaleX) || 1);
         this.queueShadowWebGL(
             point.x,
             point.y,
@@ -7317,7 +7714,7 @@ class RocketfrockRenderer {
         }
         const groundPoint = actorGroundPoint(state.player);
         const p = this.worldToScreen(view, groundPoint.x, groundPoint.y);
-        const renderScale = Math.max(0.05, Number(state.player.renderScale) || 1);
+        const renderScale = Math.max(0.05, Number(state.player.shownTransform.scaleX) || 1);
         this.drawShadow(
             p.x,
             p.y,
@@ -7685,8 +8082,8 @@ class RocketfrockRenderer {
 
         if (state.debug.showHitboxes) {
             const rect = {
-                x: state.player.x - state.player.width / 2,
-                y: state.player.y - state.player.height,
+                x: state.player.shownTransform.x - state.player.width / 2,
+                y: state.player.shownTransform.y - state.player.height,
                 w: state.player.width,
                 h: state.player.height
             };
@@ -7704,7 +8101,7 @@ class RocketfrockRenderer {
             ctx.lineWidth = 1.5 * view.zoom;
             for (const projectile of state.projectiles || []) {
                 if (projectile.state !== "launched") continue;
-                const p = this.worldToScreen(view, projectile.x, projectile.y);
+                const p = this.worldToScreen(view, projectile.shownTransform.x, projectile.shownTransform.y);
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, projectile.radius * view.zoom, 0, Math.PI * 2);
                 ctx.stroke();
@@ -7719,7 +8116,7 @@ class RocketfrockRenderer {
         }
 
         if (state.debug.showVelocity) {
-            const start = this.worldToScreen(view, state.player.x, state.player.y - state.player.height * 0.5);
+            const start = this.worldToScreen(view, state.player.shownTransform.x, state.player.shownTransform.y - state.player.height * 0.5);
             ctx.save();
             ctx.strokeStyle = "rgba(255, 223, 116, 0.92)";
             ctx.lineWidth = 2 * view.zoom;

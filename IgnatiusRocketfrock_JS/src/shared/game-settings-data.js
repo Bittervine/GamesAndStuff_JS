@@ -17,14 +17,14 @@ export const GAME_BAKING_MODE_PRESETS = Object.freeze([
 ]);
 
 export const DEFAULT_GAME_SETTINGS = Object.freeze({
-    version: 8,
+    version: 9,
     sfxVolume: 0.8,
     musicVolume: 0.1,
     difficulty: "normal",
     renderingQuality: "medium",
     autoFullscreen: true,
     showMinimap: true,
-    useHardwareRendering: false,
+    useHardwareRendering: true,
     developmentMode: true,
     usePixmapPyramids: true,
     bakingMode: "off"

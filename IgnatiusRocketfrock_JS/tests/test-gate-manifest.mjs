@@ -27,6 +27,8 @@ export const TEST_SHARDS = Object.freeze({
             "unified enemy scaling",
             "state serialization and cloning",
             "rocket projectile renderer exists",
+            "tiled bake profiler diagnostics",
+            "frame-delivery diagnostics",
             "wizard atlas includes dedicated projectile rocket",
             "enemy projectile impact fx remain economical",
             "enemy projectile player hit carries small wizard accent flag",
@@ -172,6 +174,7 @@ export const TEST_SHARDS = Object.freeze({
             "standard rocket one-HP secondary splash",
             "rocket target prioritizes facing direction",
             "rocket target prioritizes line of sight",
+            "homing rockets target only visible enemies",
             "rocket trail tracks curved path and persists",
             "attached boost smoke and visual power",
             "attached smoke down speed tuning",
@@ -191,7 +194,9 @@ export const TEST_SHARDS = Object.freeze({
             "rocket impacts atlas collision lines and areas",
             "weapon launch uses dedicated projectile rocket frame",
             "rocket launch ignores unrelated atlas areas",
-            "manual reset"
+            "manual reset",
+            "presentation transform migration",
+            "presentation transform interpolation"
     ]),
     "generator-foundation": Object.freeze([
             "Atlas 004 long platforms and collision manifest",

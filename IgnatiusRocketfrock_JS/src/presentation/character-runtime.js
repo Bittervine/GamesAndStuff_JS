@@ -6,6 +6,7 @@ import {
 } from "../shared/animation-data.js";
 import { normalizeColorExchange, colorExchangeCacheKey } from "../shared/color-exchange-data.js";
 import { createColorExchangedSpriteCanvas } from "./sprite-color-exchange.js";
+import { shownTransformOf } from "../shared/presentation-transform-data.js";
 
 export function characterArtworkOffset(renderOffsetX = 0, renderOffsetY = 0, scale = 1) {
     const safeScale = finitePositive(scale, 1);
@@ -18,9 +19,10 @@ export function characterArtworkOffset(renderOffsetX = 0, renderOffsetY = 0, sca
 export function characterArtworkOrigin(actor = {}) {
     const facing = Number(actor.facing) < 0 ? -1 : 1;
     const offset = characterArtworkOffset(actor.renderOffsetX, actor.renderOffsetY);
+    const transform = shownTransformOf(actor);
     return {
-        x: finiteOr(actor.x, 0) + facing * offset.x,
-        y: finiteOr(actor.y, 0) + offset.y
+        x: finiteOr(transform.x, 0) + facing * offset.x,
+        y: finiteOr(transform.y, 0) + offset.y
     };
 }
 

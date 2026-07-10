@@ -455,3 +455,35 @@ Generator schema version 35 records exact `endpoints.entrance.x/y` and `endpoint
 Endpoint protection is intentionally local. Earth encounters preserve 520 world units around each portal and Ice encounters preserve 540. Do not expand this distance to the largest enemy awareness range; doing so wastes one or more complete screens. Encounter candidate ordering uses a distributed route order and explicit endpoint-local fallback seats so bat groups or a blocked preferred seat cannot exhaust the monster target before the final screen is considered.
 
 Physical rewards may use the complete route progress range. When treasure generation is enabled, the far side of each door platform receives one chest if it clears the theme's endpoint exclusion distance. Earth uses 300 units and Ice uses 320. Upper reward perches may consume only a bounded share of the chest target; all remaining chest targets are spread over the full normalized route range. Reward-only rerolls must preserve the endpoint and encounter streams exactly.
+
+## Runtime transform triplets and interpolation (revisions 504-505)
+
+Simulation-driven actors, projectiles, the camera, the hat, and moving world visuals no longer expose their root position through direct `.x` and `.y` properties. Use `subject.currentTransform` in simulation/gameplay code and `subject.shownTransform` in presentation code. Both records contain `x`, `y`, `angle`, `scaleX`, `scaleY`, and `alpha`; `previousTransform` stores the state immediately before the latest fixed step.
+
+Use the helpers in `src/shared/presentation-transform-data.js` to create, copy, snapshot, interpolate, show, or snap a transform. Never assign one transform object to another variable as a state copy and never replace the persistent records during a frame. `copyTransform(target, source)` and `interpolateTransform(target, previous, current, blend)` mutate six numeric fields in place and avoid garbage collection pressure.
+
+Character-enemy animation time follows the same boundary through `enemy.animationClock.previous/current/shown`. Simulation updates `current`, while the renderer samples `shown`. Articulated limb transforms remain generated presentation data; do not create previous/current/shown copies for every limb unless a limb becomes an independent physics object. When an enemy changes animation slot, reset and snap its animation clock together so the new clip is not sampled at an interpolated time inherited from the old clip.
+
+Revision 505 passes `accumulator / FIXED_DT`, clamped to 0-1, into `preparePresentationFrame(state, blend)`. Position, scale, opacity, and simulation-driven animation time use linear interpolation. Angles use the shortest wrapped path. A scale sign change snaps to the current value rather than collapsing through zero. Paused and single-step presentation uses a full blend so the newest stepped state is visible immediately.
+
+When diagnosing gameplay, inspect current. When diagnosing a drawn position, inspect shown. Level loads, resets, respawns, development pose changes, animation-slot resets, teleports, and camera cuts must call the relevant snap helper so previous, current, and shown agree. Interpolation is presentation-only and must never write shown values back into collision, AI, targeting, or serialization.
+
+## Tiled-bake micro-stutter diagnostics (revision 506)
+
+Start and stop the lower-right profiler button as before. While the profiler is active, tiled baking adds flat `staticTile...` fields to each sample's `renderer` record. Normal play does not collect these subphase timings.
+
+The principal timing fields are `staticTileWorkerCollectMs`, `staticTileCompletedAdoptionMs`, `staticTileAtlasAllocationMs`, `staticTileTextureUploadMs`, `staticTilePlanningMs`, `staticTileEvictionMs`, `staticTileJobSchedulingMs`, `staticTileDiagnosticsMs`, `staticTileCacheEnsureMs`, and `staticTileDrawMs`. Worker collection occurs asynchronously and is charged to the next tiled frame. Texture-upload time measures JavaScript submission around `updateTextureRegion`; it does not prove when the GPU finishes the work.
+
+Upload-bearing samples include `staticTileUploadBurstId`, logical tile coordinates, atlas page/slot coordinates, upload dimensions and bytes, camera coordinates, camera tile coordinates, and tile-to-camera deltas. Consecutive uploads no more than four tiled frames apart share one diagnostic burst ID. The report summary's `staticTile` section totals uploads, bytes, evictions, jobs, and burst count and retains the maximum subphase times.
+
+Use matched routes and settings for comparison. A useful pair is WebGL2 with Baking Off as the control and WebGL2 with Baking Tiles as the experiment. Do not infer GPU completion latency solely from a small `staticTileTextureUploadMs`; the profiler intentionally avoids `gl.finish`, readback, fences, and timer queries because those probes can manufacture or reshape the hitch being investigated.
+
+## Frame-delivery captures (revision 508)
+
+Start **Profiler: off** from the lower-right development tool strip. The profiler records every frame and includes `callbackEntryGapMs`, `callbackLatenessMs`, `renderMode`, and `presentation` on each sample. `rafGapMs` remains the interval between browser-supplied rAF timestamps. `callbackEntryGapMs` is the measured interval between actual JavaScript callback entries and is the better field for detecting a callback that arrived late despite regular rAF timestamps.
+
+After a visible hitch, click **Profiler: on** again as soon as practical. That stops the recording and copies the newest bounded capture to the clipboard. The ring retains the latest 900 frames, about fifteen seconds at 60 Hz, so a hitch remains available when the profiler is stopped within that window. Run one renderer/baking mode per capture.
+
+`presentation.player` and `presentation.camera` contain current and shown coordinates and their deltas. `presentation.playerScreen` subtracts shown camera motion from shown player motion. A whole-world hitch should be visible in camera/world delivery even when the player remains stable on screen; an actor-only discontinuity should appear in player or player-screen deltas. `presentation.snap.events` identifies snap helpers called since the previous sample and includes the latest reason, subject, and kind.
+
+`renderMode.backend` and `renderMode.bakingMode` are repeated per sample rather than inferred from the final report metadata. This matters when a recording accidentally spans a settings change. The profiler still cannot prove whether the desktop compositor displayed or repeated a submitted frame, but callback-entry and shown-motion data can separate application pacing from that remaining blind spot. Revision 508 removes the redundant **Mark stutter** control and its separate clipboard state; the profiler toggle is the sole in-game capture workflow.

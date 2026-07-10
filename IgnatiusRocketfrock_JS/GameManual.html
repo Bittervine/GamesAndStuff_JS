@@ -155,6 +155,7 @@
 
         <h2>Graphics compatibility</h2>
         <p>The game uses WebGL2 for its main sprite and scenery rendering when the browser supports it. On systems without WebGL2, it automatically falls back to the Canvas 2D renderer. The visual content and gameplay rules are the same in both modes, though performance may differ on scenery-heavy levels.</p>
+        <p>Gameplay physics continue to run at a deterministic 60 updates per second. Rendering blends moving actors, rockets, platforms, camera motion, scale, fades, and simulation-driven enemy animation between those fixed updates, so ordinary movement remains smooth when display-frame timing lands between simulation ticks. This visual blending does not change collision, targeting, jump height, or other gameplay results.</p>
 
         <h2>Goal</h2>
         <p>Guide Ignatius through the cave, survive hostile creatures and hazards, operate useful devices, and reach the exit door.</p>
@@ -189,7 +190,7 @@
             <li>Rocket launches have no firing cooldown. Each distinct launch press fires immediately whenever enough fuel is available.</li>
             <li>When a gamepad is the active control device, supported controllers rumble strongly when Ignatius is hurt and more gently for rocket fire, the double-jump kick, and sustained hover. Keyboard or touch control keeps controller vibration silent.</li>
             <li>Fuel normally begins recharging after Ignatius returns to the ground. Overdrive provides its smaller passive recovery even in the air and while hovering.</li>
-            <li>Homing rockets prefer active targets in the direction Ignatius is facing.</li>
+            <li>Homing rockets only lock onto enemies that are at least partly visible on the current screen. They prefer visible active targets in the direction Ignatius is facing, and release a target that leaves the screen.</li>
             <li>A standard rocket deals 30 damage to the enemy it directly hits. Its small impact splash deals exactly 1 damage to other nearby enemies within a diameter of about two wizard heights. Overdrive retains this splash; wrench rockets use only their own behavior.</li>
         </ul>
 
@@ -252,8 +253,9 @@
             <li>Rendering quality changes visual particle density without changing gameplay timing or collision.</li>
             <li><strong>Use hardware rendering</strong> selects WebGL2 by default after the next reload. An explicit <code>?webgl=0</code> or <code>?webgl=1</code> URL option overrides the saved preference.</li>
             <li><strong>Development mode</strong> shows or hides the lower-right development tool strip in both browser and Electron builds.</li>
+            <li>The development <strong>Profiler</strong> button records every requested frame until pressed again, then copies a JSON report. While <strong>Baking: Tiles</strong> is active, the report also separates tile-worker collection, cache planning, adoption, atlas upload, eviction, scheduling, and drawing without changing the tile-cache policy.</li>
             <li><strong>Use pixmap pyramids</strong> enables prefiltered reduced copies of isolated character artwork after the next reload. Disable it to compare direct drawing from the original full-size pixmaps.</li>
-            <li><strong>Baking</strong> chooses how static background, terrain, and foreground artwork is reused. <strong>Off</strong> draws static scenery live every frame. <strong>Tiles</strong> continuously bakes nearby 256-pixel tiles in the background, reuses them while they remain near the camera, and falls back to live drawing until a visible layer is ready. <strong>Full</strong> keeps the experimental complete-level bake for renderer comparison testing. A failed bake returns the setting to Off.</li>
+            <li><strong>Baking</strong> chooses how static background, terrain, and foreground artwork is reused. <strong>Off</strong> draws static scenery live every frame. <strong>Tiles</strong> continuously bakes nearby 256-pixel tiles in the background, reuses them while they remain near the camera, and falls back to live drawing until a visible layer is ready. <strong>Full</strong> keeps the experimental complete-level bake for renderer comparison testing. WebGL Full baking has a 2 GiB estimated texture ceiling; an oversized or failed bake returns the setting to Off.</li>
             <li>Show minimap controls whether the upper-right minimap is visible.</li>
         </ul>
 
@@ -284,6 +286,8 @@
 
         <h2>Level authoring: selection and assets</h2>
         <p>Use <strong>Shift-drag</strong> on the canvas to select every fully enclosed entity or asset. <strong>Ctrl-click</strong> toggles one object, and <strong>Ctrl+Shift-drag</strong> toggles all objects enclosed by the rectangle. The last selected object remains the primary white-outlined object whose properties appear in <strong>Selected object</strong>; the other gray-outlined objects participate in group movement and clipboard actions. Position, size, angle, layer, mirror settings, entity state, and other inspector controls commit directly, so there is no Apply button. X, Y, W, H, angle, enemy scale, and the single-line Notes field update while edited. The toolbar provides standard <strong>Cut</strong>, <strong>Copy</strong>, <strong>Paste</strong>, and <strong>Delete</strong> actions for either one object or a multi-selection. The corresponding Ctrl/Cmd+X, Ctrl/Cmd+C, Ctrl/Cmd+V, Delete, and Backspace shortcuts work whenever a text field is not being edited. The first paste after Cut restores the objects at their original coordinates; copied objects paste with a small snapped offset, and repeated pastes continue to cascade. The Asset palette lists every asset from every loaded atlas, so no separate atlas dropdown is needed. Both the Asset and Entity palettes use matching two-column thumbnail cards, compact filter fields, and their own full-height scroll areas. Thumbnail rows keep a useful fixed height and scroll rather than being compressed to fit; previews use the displayed card aspect ratio and are centered from the final visible artwork, including complete composed enemy poses. Selecting an asset card enters Place Asset mode; choosing an entity card enters Place Entity mode, while the toolbar placement buttons reuse the current palette choices without duplicate dropdowns. Moving over the canvas shows the selected item as a snapped translucent preview. One click places it, after which both asset and entity placement return automatically to Select mode.</p>
-    </main>
+    
+        <p><strong>Rendering defaults:</strong> Fresh profiles use hardware rendering with baking Off. Existing saved rendering preferences are preserved.</p>
+</main>
 </body>
 </html>

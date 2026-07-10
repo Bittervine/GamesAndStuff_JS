@@ -1,3 +1,5 @@
+import { currentTransformOf } from "./presentation-transform-data.js";
+
 function finite(value, fallback = 0) {
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;
@@ -10,8 +12,9 @@ function clamp(value, min, max) {
 export function actorBodyRect(actor) {
     const width = Math.max(1, finite(actor?.width, 1));
     const height = Math.max(1, finite(actor?.height, 1));
-    const x = finite(actor?.x, 0);
-    const y = finite(actor?.y, 0);
+    const transform = currentTransformOf(actor);
+    const x = finite(transform?.x, 0);
+    const y = finite(transform?.y, 0);
     return {
         x: x - width * 0.5,
         y: y - height,
@@ -43,10 +46,11 @@ export function characterEnemyMeleeAttackRect(enemy) {
     const reach = Math.max(1, finite(enemy?.attackRange, 1));
     const verticalRange = Math.max(1, finite(enemy?.attackVerticalRange, height));
     const bodyInset = Math.max(4, width * 0.12);
-    const front = finite(enemy?.x, 0) + facing * bodyInset;
+    const transform = currentTransformOf(enemy);
+    const front = finite(transform?.x, 0) + facing * bodyInset;
     return {
         x: facing > 0 ? front : front - reach,
-        y: finite(enemy?.y, 0) - verticalRange,
+        y: finite(transform?.y, 0) - verticalRange,
         w: reach,
         h: verticalRange
     };

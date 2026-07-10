@@ -1,5 +1,6 @@
 import { normalizeRotationRadians } from "../shared/level-transform.js";
 import { BACKGROUND_LAYER, CAVE_FOREGROUND_LAYER_ID } from "../shared/level-layer-data.js";
+import { shownTransformOf } from "../shared/presentation-transform-data.js";
 
 const DEFAULT_CULL_MARGIN_PX = 96;
 const DEFAULT_SPATIAL_BIN_SIZE = 768;
@@ -32,9 +33,10 @@ export function visualWorldBoundsInto(target, visual) {
     const output = target && typeof target === "object" ? target : {};
     const width = Math.max(0, finiteNumber(visual?.w, 0));
     const height = Math.max(0, finiteNumber(visual?.h, 0));
+    const transform = shownTransformOf(visual);
     if (visual?.kind === "cutoutMask") {
-        const x = finiteNumber(visual.x, 0);
-        const y = finiteNumber(visual.y, 0);
+        const x = finiteNumber(transform.x, 0);
+        const y = finiteNumber(transform.y, 0);
         output.minX = x;
         output.minY = y;
         output.maxX = x + width;
@@ -42,9 +44,9 @@ export function visualWorldBoundsInto(target, visual) {
         return output;
     }
 
-    const centerX = finiteNumber(visual?.x, 0) + width * 0.5;
-    const centerY = finiteNumber(visual?.y, 0) + height * 0.5;
-    const rotation = normalizeRotationRadians(visual?.rotation);
+    const centerX = finiteNumber(transform?.x, 0) + width * 0.5;
+    const centerY = finiteNumber(transform?.y, 0) + height * 0.5;
+    const rotation = normalizeRotationRadians(visual?.dynamicPosition ? transform?.angle : visual?.rotation);
     const cosine = Math.abs(Math.cos(rotation));
     const sine = Math.abs(Math.sin(rotation));
     const extentX = cosine * width * 0.5 + sine * height * 0.5;

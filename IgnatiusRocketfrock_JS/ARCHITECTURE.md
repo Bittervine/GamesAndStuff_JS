@@ -322,9 +322,9 @@ Player health is a resource value, not the authoritative player lifecycle state.
 
 ## Browser startup loading boundary
 
-`src/browser/game-bootstrap.js` owns visible startup and level-transition loading state. The static loading surface is present in `game.html` before module evaluation, so a slow server never presents an unexplained black canvas. Startup applies the selected level before renderer creation and passes `world.atlasManifests` into `createRenderer`; environment discovery is level-authored rather than a sequential scan of speculative filenames.
+`src/browser/game-bootstrap.js` owns visible startup and level-transition loading state. The static loading surface is present in `game.html` before module evaluation, so a slow server never presents an unexplained black canvas. Startup applies the selected level before renderer creation and passes `world.atlasManifests` into `createRenderer`; environment discovery is level-authored rather than a sequential scan of speculative filenames. The loading surface remains visible through active colour-map synchronization and level-presentation cache prewarming, including every unique treated `caveForeground` sprite and its WebGL texture when hardware rendering is active.
 
-`src/presentation/canvas-renderer.js` coordinates concurrent character-project and environment-atlas loading and reports normalized progress, while `src/presentation/character-runtime.js` reports the internal character definition, rig, atlas manifest, decoded image, and animation stages. The renderer owns loaded presentation resources and exposes `ensureEnvironmentAtlases` for later levels. Portable simulation remains unaware of browser progress UI and receives only the completed manifest map through `applyAtlasManifestsToWorld`.
+`src/presentation/canvas-renderer.js` coordinates concurrent character-project and environment-atlas loading and reports normalized progress, while `src/presentation/character-runtime.js` reports the internal character definition, rig, atlas manifest, decoded image, and animation stages. The renderer owns loaded presentation resources and exposes `ensureEnvironmentAtlases` for later levels. Level transitions and restarts must prewarm presentation caches only after required atlases and the active colour map are ready, so derived sprite canvases are never created or uploaded for the first time inside active gameplay. Portable simulation remains unaware of browser progress UI and receives only the completed manifest map through `applyAtlasManifestsToWorld`.
 
 
 ## Cave full-black outset boundary
@@ -2043,3 +2043,51 @@ The Baking selector remains owned by `game-bootstrap.js` and the shared `bakingM
 
 Worker-baked tiles have one canonical orientation before they enter WebGL atlas storage. `static-tile-bake-worker.js` creates an upload-oriented copy only when the task is destined for WebGL; the complete guttered tile is flipped as one unit so later clipping can use normal top-left source rectangles. `webgl2-renderer.js` accepts an explicit `unpackFlipY` option for subregion uploads, and the tile path disables unpack flipping because the worker has already normalized the bitmap. `queueStaticTileLayerWebGL` no longer owns a special `mirrorY` rule. This keeps clipped edge tiles, full tiles, and ordinary resident textures on one sampling convention without altering Canvas2D or Full baking.
 
+
+## Revision 504 simulation/presentation transform boundary
+
+`src/shared/presentation-transform-data.js` owns engine-neutral transform storage and in-place copy helpers. A simulation-driven root has three persistent records: `previousTransform`, `currentTransform`, and `shownTransform`. Each record contains `x`, `y`, `angle`, `scaleX`, `scaleY`, and `alpha`. These records are allocated when the runtime object is created or first normalized, then mutated in place. Per-frame transform cloning or replacement is prohibited.
+
+Portable core owns `currentTransform`. At the beginning of every fixed simulation step, `snapshotSimulationPresentation` copies current into previous for the player, camera, hat, enemies, projectiles, and moving world visuals. Gameplay geometry, collision, AI, targeting, scripted movement, and serialization use current. Before each requested render, the browser adapter calls `preparePresentationFrame` with the clamped fixed-step accumulator fraction. Presentation-only code reads the interpolated shown record for actor roots, camera projection, projectile orientation and scale, moving-visual placement, actor shadows, and presentation culling. It must not temporarily overwrite current or expose shown values to gameplay.
+
+Simulation-driven articulated enemies use the parallel `animationClock` record with `previous`, `current`, and `shown` scalars. Presentation samples the character pose at `shown`; individual limb transforms remain presentation output and are not triplicated in portable state. Discrete fields such as facing, sprite choice, visibility, attack state, and collision state remain ordinary state rather than continuous transform channels.
+
+Legacy direct root properties (`x`, `y`, `angle`, `renderScale`, `renderOpacity`, and simulation-owned `animationTime`) are unsupported on migrated runtime actors and projectiles. Static authored level placements, target points, particles, editor handles, geometry points, and other non-migrated records may still legitimately use ordinary x/y fields. The regression suite therefore guards specific runtime access paths rather than banning coordinate property names globally.
+
+Revision 504 intentionally set shown equal to current to validate the boundary. Revision 505 changes only the current-to-shown preparation stage: x/y, scale, alpha, and articulated animation time interpolate linearly; angles use the shortest wrapped path; scale sign changes snap; and explicit snap helpers reset history at discontinuities. The authoritative fixed-step state and renderer read boundary remain unchanged.
+
+## Revision 505 fixed-step presentation interpolation
+
+`game-bootstrap.js` derives one presentation blend per requested frame from `accumulator / FIXED_DT`. Normal play uses that fraction, while paused or development single-step frames use a full blend so the newest state is visible immediately. `src/shared/presentation-transform-data.js` mutates each persistent shown record in place, preserving the no-per-frame-allocation contract established by revision 504.
+
+Spawned objects begin with previous, current, and shown equal because their triplets are initialized on first normalization. Level application, player reset, camera reset, and development pose changes explicitly snap existing triplets. Character animation-slot changes snap the animation clock when its current time resets to zero, preventing a new clip from inheriting an old clip's interpolation history. Static scenery and baked tiles remain outside this system; smooth camera interpolation moves them on screen without creating transform records for static placements.
+
+## Revision 506 tiled-bake profiler boundary
+
+Revision 506 keeps rolling tile baking owned by `CanvasGameRenderer` and keeps the profiler owned by the browser bootstrap. While `MicroStutterProfiler` is recording, the bootstrap enables renderer-local tile diagnostics through `setStaticTileDiagnosticsEnabled(true)`; normal play leaves that path inactive. The renderer owns one reusable synchronous frame record plus one reusable asynchronous worker-result accumulator. Worker message handling deposits only numeric counts and elapsed time into the accumulator, and the next tiled render consumes those values without creating a separate diagnostic collection.
+
+The reported subphases cover camera-velocity bookkeeping, completed-tile adoption, atlas allocation, `texSubImage2D` submission, visible-region planning, distant/budget eviction, job selection, cache diagnostics, and baked-tile drawing. Upload metadata remains presentation-only and includes logical tile coordinates, atlas page and slot coordinates, byte dimensions, camera tile coordinates, and a diagnostic burst ID. None of these fields enter portable core state, level data, cache priority calculations, or renderer decisions.
+
+This diagnostic boundary must remain observational. It may not introduce GPU synchronization, readback, fences, timer-query extensions, console logging in the frame loop, altered worker concurrency, larger prediction margins, different upload budgets, extra completed-tile adoption, or page-buffering experiments. Any such intervention belongs in a later separately measured revision.
+
+## Revision 507 frame-delivery diagnostic boundary
+
+`MicroStutterProfiler` now distinguishes three timelines without changing any of them: the rAF timestamp sequence supplied by the browser, the actual JavaScript callback-entry sequence measured with `performance.now()`, and the presentation sequence represented by shown player/camera transforms. The browser bootstrap owns callback-entry measurement and samples transform records after `preparePresentationFrame` has populated shown values. The profiler owns delta calculation, ring-buffer retention, mark metadata, and summary maxima. Renderer and portable simulation modules do not depend on profiler state.
+
+Presentation snap diagnostics remain module-local to `src/core/simulation.js`. Snap helpers increment a monotonically increasing diagnostic sequence and retain only the latest reason, subject label, and snap kind. These values are observational and are read only while profiling. They are not serialized into game state, do not affect transform copying, and do not allocate during ordinary unprofiled frames.
+
+A marked capture uses the existing bounded profiler ring. The mark records the current frame, requested/available pre-roll, and a fixed post-roll. Once the post-roll completes, the browser stops both the profiler and tile-specific diagnostics. No timers, sleeps, GPU fences, readbacks, alternate rendering paths, or presentation-clock changes are introduced by this boundary.
+
+## Revision 508 profiler-control simplification
+
+The lower-right development strip exposes one micro-stutter control only. The first click starts the existing all-frame bounded ring; the second click stops profiling, disables tile-specific diagnostics, and copies the retained report. The manual mark/post-roll state machine and its browser-facing API are removed. The exported schema keeps an empty `marks` array for compatibility with revision-507 reports, but no runtime mark state exists.
+
+This revision does not alter callback timing, fixed-step accumulation, interpolation, camera motion, renderer selection, baking, or presentation transforms. The revision-507 player/camera reversal seen in one capture is not treated as the reported hitch because the user observes the target symptom during long, uninterrupted runs in one direction. Future analysis must therefore focus on steady-direction samples and must not infer the hitch from input reversals.
+
+
+
+## Revision 510 foreground prewarm and Full-bake ceiling
+
+Revision 510 keeps treated cave-foreground cache construction inside `CanvasGameRenderer` and schedules it only while the browser loading surface is active. Every unique colour-map-aware treatment referenced by the loaded level is built once, and hardware rendering uploads those derived surfaces through the ordinary WebGL texture cache before gameplay resumes. This is optional presentation preparation only; level data, simulation, culling, parallax, and draw order remain unchanged, and a failed texture creation still leaves the normal live renderer available.
+
+The experimental WebGL Full-bake path now rejects estimates above 2 GiB of three-layer RGBA storage before allocating chunk canvases or textures. Canvas2D retains its 1.5 GiB RAM ceiling because its full bake remains CPU-resident, and rolling Tiles retains its independent budgets. All Full-bake budget failures continue to disable the optional cache and fall back to complete live rendering rather than becoming a gameplay or level-authoring constraint.

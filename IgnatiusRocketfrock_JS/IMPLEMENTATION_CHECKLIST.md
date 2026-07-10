@@ -4482,3 +4482,80 @@ Manual profiling workflow: open the game, run `window.__rocketfrockDev.profiler.
 - [x] Keep Off, Full, ordinary sprite textures, and layer ordering unchanged.
 - [x] Synchronize the packaged revision to 502.
 
+
+
+## Revision 503 visible homing-target checklist
+
+- [x] Restrict homing target acquisition to targets intersecting the visible camera rectangle.
+- [x] Treat a partially visible enemy body as a valid on-screen target.
+- [x] Release off-screen targets during flight and reacquire only visible active targets.
+- [x] Keep non-homing launch-time aiming behavior unchanged.
+- [x] Update the Game Manual and add a deterministic gameplay regression.
+- [x] Synchronize the packaged revision to 503.
+
+## Revision 504 presentation-transform migration checklist
+
+- [x] Add reusable previous/current/shown transform records with x, y, angle, scaleX, scaleY, and alpha.
+- [x] Make current transforms authoritative for portable simulation, collision, AI, projectiles, camera state, and moving visuals.
+- [x] Snapshot current into previous before each fixed simulation step without allocating replacement objects.
+- [x] Copy current into shown once per requested render frame, with interpolation intentionally disabled.
+- [x] Make Canvas2D/WebGL presentation, culling, shadows, character roots, moving visuals, and projectile orientation consume shown transforms.
+- [x] Add previous/current/shown animation clocks for simulation-driven articulated enemies.
+- [x] Remove legacy root x/y/angle/render-scale/render-opacity/animation-time fields from migrated runtime objects.
+- [x] Preserve scale and alpha in the transform path and preserve projectile turning angle.
+- [x] Snap presentation triplets on level application, manual reset, and development pose changes.
+- [x] Add a regression covering transform fields, in-place object reuse, dynamic visuals, projectiles, animation clocks, and forbidden legacy accesses.
+- [x] Keep the 60 Hz fixed-step simulation and all visible motion unchanged for the revision 504 playtest.
+- [x] Synchronize the packaged revision to 504.
+
+## Revision 505 presentation-interpolation checklist
+
+- [x] Keep portable gameplay simulation fixed at 60 Hz and derive presentation blend from the remaining accumulator.
+- [x] Interpolate shown x/y, scaleX/scaleY, alpha, and articulated-enemy animation time without allocating replacement records.
+- [x] Interpolate projectile and actor angles by the shortest wrapped path.
+- [x] Snap scale sign changes rather than interpolating through zero.
+- [x] Keep collision, AI, targeting, scripted movement, and serialization on current transforms only.
+- [x] Present current immediately while paused or development single-stepping.
+- [x] Snap player and camera history on reset and preserve existing level/pose snap paths.
+- [x] Snap enemy animation clocks when animation slots reset to prevent cross-clip time blending.
+- [x] Make the in-game profiler button record all frames and include the interpolation blend.
+- [x] Add deterministic regressions for every transform channel, wrapped angles, scale sign changes, animation clocks, monotonic render-only motion, snap handling, and profiler instrumentation.
+- [x] Update the Game Manual, Developer Manual, architecture notes, plan, and packaged revision labels.
+- [x] Synchronize the packaged revision to 505.
+
+
+## Revision 506 tiled-bake diagnostics checklist
+
+- [x] Keep the rolling tile cache, atlas layout, budgets, prediction corridor, eviction policy, worker concurrency, upload order, and draw order unchanged.
+- [x] Enable detailed tile diagnostics only while the micro-stutter profiler is recording.
+- [x] Reuse one synchronous frame record and one asynchronous worker-result accumulator instead of allocating diagnostic arrays or objects per frame.
+- [x] Measure worker collection, adoption, planning, eviction, scheduling, diagnostics, atlas allocation, texture update, and tile drawing separately.
+- [x] Record tile completion/adoption/upload counts, byte counts, page/slot activity, evictions, jobs, record state, worker state, burst ID, upload coordinates, and camera-tile relationship.
+- [x] Add profiler summary totals and maxima for tiled-bake activity.
+- [x] Add a named regression owned by one test shard and assert that no GPU synchronization/readback probe was introduced.
+- [x] Record the tiled-mode periodic hitch as unresolved pending a controlled diagnostic capture.
+- [x] Synchronize the packaged revision to 506.
+
+## Revision 507 marked-stutter diagnostics checklist
+
+- [x] Keep simulation frequency, accumulator behavior, interpolation math, renderer behavior, baking modes, cache policy, upload order, and drawing order unchanged.
+- [x] Record actual callback-entry gaps independently from rAF timestamp gaps.
+- [x] Record callback lateness relative to the supplied rAF timestamp.
+- [x] Record renderer backend and baking mode on every retained sample.
+- [x] Record current and shown player/camera positions plus frame-to-frame and screen-relative deltas.
+- [x] Add diagnostic-only presentation snap sequence, reason, subject, and kind tracking.
+- [x] Fix the profiler's stale camera summary to read current/shown transform records.
+- [x] Add a Mark stutter control with bounded pre-roll, two-second post-roll, automatic stop, and explicit copy action.
+- [x] Add a named regression owned by one test shard for callback timing, transform deltas, snap correlation, renderer mode, and marked-window completion.
+- [x] Synchronize the packaged revision to 507.
+
+## Revision 508 profiler-control cleanup checklist
+
+- [x] Remove the Mark stutter button from the development tool strip.
+- [x] Remove browser auto-stop, marked-copy, and public marker API paths.
+- [x] Remove the profiler marker state machine while retaining an empty compatibility `marks` field in schema version 2.
+- [x] Keep callback-entry, renderer-mode, player/camera transform, snap, tiled-bake, and interpolation diagnostics unchanged.
+- [x] Leave camera behavior, input handling, simulation, interpolation, rendering, and baking untouched.
+- [x] Update the named frame-delivery regression and keep one primary test-shard owner.
+- [x] Record that the investigated hitch occurs during steady one-direction running, not direction changes.
+- [x] Synchronize the packaged revision to 508.
