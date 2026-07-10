@@ -1994,3 +1994,29 @@ Revision 491 keeps the static-layer bake perimeter fix inside the presentation r
 ## Revision 492 baked renderer failure boundary
 
 Revision 492 keeps the experimental baked renderer subordinate to the normal presentation pipeline by adding a hard failure boundary. Static bake allocation, canvas creation, and WebGL texture uploads are treated as optional cache construction; if any of them fail, the renderer releases partial baked resources, disables baked mode, and falls back to live rendering. The browser bootstrap owns the user-facing notification and clears the persisted Use baked layers setting so the renderer does not repeatedly retry after an out-of-memory condition.
+
+
+## Revision 493 default baked presentation cache
+
+Revision 493 keeps the experimental static-layer bake renderer isolated behind the same Settings and kill-switch boundaries, but changes the default user setting to enabled. This is a default preference change rather than a renderer ownership change: the normal live renderer remains the required fallback, and a bake allocation/upload failure disables the stored Use baked layers setting for that profile. The settings migration intentionally re-enables baked layers once for settings written by pre-493 builds, because those profiles frequently contain the old false default even when the user never made an architectural choice about the baked path.
+
+
+## Revision 494 baked-layer load safety
+
+Revision 494 tightens the experimental baked static-layer renderer boundary after a large generated level exposed a memory-pressure freeze during default-on baking. The normal renderer remains the fallback. In WebGL, baked layers are budgeted below the theoretical 2 GiB full-layer estimate because resident texture memory and temporary Canvas2D build memory overlap with the rest of the game. Oversized bakes fail fast through the existing notification/fallback path. Successful WebGL baked chunks upload to resident textures and then shrink their canvas backing stores while preserving the canvas object as the texture-cache key.
+
+## Revision 495 baked-layer backend budgets
+
+Revision 495 keeps the experimental static baked-layer renderer behind the ordinary renderer boundary, but separates the safety budgets by backend. WebGL now assumes a 3 GiB VRAM test budget before attempting chunked baked-layer textures. Canvas2D keeps a smaller RAM preflight budget because its baked layer canvases remain CPU-side and can freeze browsers before JavaScript receives a useful allocation exception. When either backend exceeds its configured budget, baked layers disable themselves and live rendering remains the fallback.
+
+## Revision 496 baked-layer default rollback
+
+Revision 496 keeps the experimental static baked-layer renderer isolated behind the existing Settings toggle and fallback paths, but restores the fresh-profile default to off. Stored preferences remain authoritative: profiles that explicitly enabled baked layers continue to do so, while profiles with no baked-layer setting normalize to ordinary live rendering. No renderer budget, resource-release, chunking, or fallback behavior changes in this revision.
+
+## Revision 497 settings reload-note cleanup
+
+Revision 497 keeps the Settings dialog's reload semantics explicit without reintroducing browser-query help text into the compact UI. Hardware-renderer selection is still resolved when the renderer is created, and pixmap-pyramid selection is still applied during asset/runtime preparation, so both rows carry the short "Applied after reloading." note. Dynamic options, including development tools and experimental baked layers, remain note-free because their handlers update the live runtime.
+
+## Revision 498 renderer-setting state and host parity
+
+Revision 498 keeps renderer selection under the persisted game-settings boundary for every host. Electron no longer changes the renderer preference merely by exposing its window bridge; browser and packaged builds both resolve hardware rendering from `settings.useHardwareRendering`, with explicit URL parameters retained only as a development override. The Settings dialog compares the saved request with the renderer and pixmap-pyramid modes latched during startup, so it can distinguish the active state from a pending reload without attempting to rebuild renderer-owned resources in place.

@@ -168,7 +168,13 @@ const WEBGL_DIRECT_WORLD_EFFECT_KINDS = new Set([
 ]);
 const WEBGL_DIRECT_ENEMY_PROJECTILE_KINDS = new Set(["enemyFireball", "enemyMusketBall", "enemyRock", "enemyKnife"]);
 
-const STATIC_LAYER_BAKE_MEMORY_BUDGET_BYTES = 2 * 1024 * 1024 * 1024;
+const STATIC_LAYER_BAKE_CANVAS2D_MEMORY_BUDGET_BYTES = 1536 * 1024 * 1024;
+// WebGL keeps the baked layers as resident GPU textures. Assume up to 3 GiB
+// of VRAM for the experimental baked renderer, while still keeping allocation
+// failures non-fatal. Canvas2D keeps large CPU-side canvases resident, so it
+// deliberately uses a lower safety budget to avoid browser freezes on very
+// large expanded foreground/perimeter bakes.
+const STATIC_LAYER_BAKE_WEBGL_MEMORY_BUDGET_BYTES = 3 * 1024 * 1024 * 1024;
 const STATIC_LAYER_BAKE_BYTES_PER_PIXEL = 4;
 const STATIC_LAYER_BAKE_CANVAS_COUNT = 3;
 const STATIC_LAYER_BAKE_MAX_DIMENSION = 32767;
@@ -176,6 +182,16 @@ const STATIC_LAYER_BAKE_WEBGL_CHUNK_SIZE = 4096;
 
 function bakedLayerByteEstimate(width, height) {
     return Math.max(0, Math.ceil(width) * Math.ceil(height) * STATIC_LAYER_BAKE_BYTES_PER_PIXEL * STATIC_LAYER_BAKE_CANVAS_COUNT);
+}
+
+function staticLayerBakeBudgetForBackend(backend) {
+    return backend?.available
+        ? STATIC_LAYER_BAKE_WEBGL_MEMORY_BUDGET_BYTES
+        : STATIC_LAYER_BAKE_CANVAS2D_MEMORY_BUDGET_BYTES;
+}
+
+function staticLayerBakeBudgetLabelForBackend(backend) {
+    return backend?.available ? "WebGL/VRAM" : "Canvas2D/RAM";
 }
 
 function staticLayerBakeWorldBounds(worldBounds) {
@@ -305,6 +321,14 @@ function staticLayerBakeLayerSurfaces(layer) {
     if (!layer) return [];
     if (Array.isArray(layer.chunks)) return layer.chunks;
     return layer.canvas ? [layer] : [];
+}
+
+function staticLayerBakeSurfaceWidth(surface) {
+    return Math.max(1, Number(surface?.width) || Number(surface?.canvas?.width) || 1);
+}
+
+function staticLayerBakeSurfaceHeight(surface) {
+    return Math.max(1, Number(surface?.height) || Number(surface?.canvas?.height) || 1);
 }
 
 function staticLayerBakeSurfaceCount(layers) {
@@ -1619,8 +1643,9 @@ class RocketfrockRenderer {
             return null;
         }
         const bytes = bakedLayerByteEstimate(bounds.w, bounds.h);
-        if (bytes > STATIC_LAYER_BAKE_MEMORY_BUDGET_BYTES) {
-            const detail = `estimated ${Math.round(bytes / 1048576)} MiB exceeds 2 GiB baked-layer budget`;
+        const memoryBudget = staticLayerBakeBudgetForBackend(this.webglBackend);
+        if (bytes > memoryBudget) {
+            const detail = `estimated ${Math.round(bytes / 1048576)} MiB exceeds ${staticLayerBakeBudgetLabelForBackend(this.webglBackend)} baked-layer safety budget ${Math.round(memoryBudget / 1048576)} MiB`;
             this.staticLayerBake.status = detail;
             return this.disableStaticLayerBakeAfterFailure(detail);
         }
@@ -1650,10 +1675,11 @@ class RocketfrockRenderer {
             }
             nextCache = this.buildStaticLayerBake(state, bounds, visuals, {
                 chunked: needsChunking,
-                chunkSize
+                chunkSize,
+                releaseSurfacesAfterUpload: Boolean(this.webglBackend?.available)
             });
             if (this.webglBackend?.available) {
-                this.preloadStaticLayerBakeTextures(nextCache);
+                this.preloadStaticLayerBakeTextures(nextCache, { releaseSurfacesAfterUpload: true });
             }
             const buildEnd = rendererNowMs();
             this.staticLayerBake.cache = nextCache;
@@ -1688,7 +1714,7 @@ class RocketfrockRenderer {
         }
         context.setTransform(1, 0, 0, 1, 0, 0);
         context.clearRect(0, 0, canvas.width, canvas.height);
-        return { canvas, context, originX, originY };
+        return { canvas, context, originX, originY, width: canvas.width, height: canvas.height, releasedCanvasBacking: false };
     }
 
     createStaticLayerBakeLayer(bounds, options = {}) {
@@ -1715,8 +1741,8 @@ class RocketfrockRenderer {
     }
 
     staticLayerBakeSurfaceView(surface) {
-        const width = Math.max(1, Number(surface?.canvas?.width) || 1);
-        const height = Math.max(1, Number(surface?.canvas?.height) || 1);
+        const width = staticLayerBakeSurfaceWidth(surface);
+        const height = staticLayerBakeSurfaceHeight(surface);
         return {
             w: width,
             h: height,
@@ -1733,14 +1759,40 @@ class RocketfrockRenderer {
         };
     }
 
-    drawIntoStaticLayerBakeSurfaces(layer, drawSurface) {
+    drawIntoStaticLayerBakeSurfaces(layer, drawSurface, options = {}) {
+        let uploaded = 0;
         for (const surface of staticLayerBakeLayerSurfaces(layer)) {
             this.ctx = surface.context;
             drawSurface(this.staticLayerBakeSurfaceView(surface));
+            if (options.releaseSurfacesAfterUpload) {
+                this.uploadAndReleaseStaticLayerBakeSurface(surface);
+                uploaded += 1;
+            }
         }
+        return uploaded;
     }
 
-    preloadStaticLayerBakeTextures(cache) {
+    uploadAndReleaseStaticLayerBakeSurface(surface) {
+        if (!surface?.canvas || surface.releasedCanvasBacking) return false;
+        const backend = this.webglBackend;
+        if (!backend?.available) return false;
+        const width = staticLayerBakeSurfaceWidth(surface);
+        const height = staticLayerBakeSurfaceHeight(surface);
+        if (!backend.cacheTexture?.(surface.canvas)) {
+            throw new Error(backend.lastTextureError || `could not upload baked layer texture ${width}x${height}`);
+        }
+        // The WebGL texture is resident now, and the texture cache still uses the
+        // canvas object as its key. Shrinking the canvas after upload keeps that
+        // key alive while letting the browser release the large CPU-side backing
+        // store. Drawing uses the stored surface width/height, not canvas.width.
+        surface.canvas.width = 1;
+        surface.canvas.height = 1;
+        surface.context = null;
+        surface.releasedCanvasBacking = true;
+        return true;
+    }
+
+    preloadStaticLayerBakeTextures(cache, options = {}) {
         const backend = this.webglBackend;
         if (!backend?.available) return 0;
         let uploaded = 0;
@@ -1748,13 +1800,19 @@ class RocketfrockRenderer {
         if (!layers) return 0;
         for (const layer of Object.values(layers)) {
             for (const surface of staticLayerBakeLayerSurfaces(layer)) {
-                if (!surface?.canvas) continue;
+                if (!surface?.canvas || surface.releasedCanvasBacking) continue;
                 if (!backend.cacheTexture?.(surface.canvas)) {
-                    const width = Math.max(1, Number(surface.canvas.width) || 1);
-                    const height = Math.max(1, Number(surface.canvas.height) || 1);
+                    const width = staticLayerBakeSurfaceWidth(surface);
+                    const height = staticLayerBakeSurfaceHeight(surface);
                     throw new Error(backend.lastTextureError || `could not upload baked layer texture ${width}x${height}`);
                 }
                 uploaded += 1;
+                if (options.releaseSurfacesAfterUpload) {
+                    surface.canvas.width = 1;
+                    surface.canvas.height = 1;
+                    surface.context = null;
+                    surface.releasedCanvasBacking = true;
+                }
             }
         }
         return uploaded;
@@ -1777,14 +1835,15 @@ class RocketfrockRenderer {
         this.frameForegroundOffset.x = 0;
         this.frameForegroundOffset.y = 0;
         try {
+            const uploadOptions = { releaseSurfacesAfterUpload: Boolean(options.releaseSurfacesAfterUpload) };
             this.drawIntoStaticLayerBakeSurfaces(layers.background, (bakeView) => {
                 this.drawStaticWorldVisualPartition(state, bakeView, "background");
-            });
+            }, uploadOptions);
 
             this.drawIntoStaticLayerBakeSurfaces(layers.terrain, (bakeView) => {
                 const mainResult = this.drawStaticWorldVisualPartition(state, bakeView, "main");
                 this.drawStaticWorldGeometryForBake(state, bakeView, mainResult);
-            });
+            }, uploadOptions);
 
             this.drawIntoStaticLayerBakeSurfaces(layers.foreground, (bakeView) => {
                 this.drawStaticWorldVisualPartition(state, bakeView, "actorFront");
@@ -1800,7 +1859,7 @@ class RocketfrockRenderer {
                     drawToTarget: true,
                     scrollPaddingPixels: 0
                 });
-            });
+            }, uploadOptions);
         } finally {
             this.ctx = previousContext;
             this.frameBackgroundOffset.x = previousBackgroundOffset.x;
@@ -1900,8 +1959,8 @@ class RocketfrockRenderer {
             if (!surface?.canvas) continue;
             const originX = Number(surface.originX) || 0;
             const originY = Number(surface.originY) || 0;
-            const surfaceRight = originX + surface.canvas.width;
-            const surfaceBottom = originY + surface.canvas.height;
+            const surfaceRight = originX + staticLayerBakeSurfaceWidth(surface);
+            const surfaceBottom = originY + staticLayerBakeSurfaceHeight(surface);
             const worldLeft = Math.max(viewLeft, originX);
             const worldTop = Math.max(viewTop, originY);
             const worldRight = Math.min(viewRight, surfaceRight);
@@ -1941,8 +2000,8 @@ class RocketfrockRenderer {
             if (!surface?.canvas) continue;
             const originX = Number(surface.originX) || 0;
             const originY = Number(surface.originY) || 0;
-            const surfaceRight = originX + surface.canvas.width;
-            const surfaceBottom = originY + surface.canvas.height;
+            const surfaceRight = originX + staticLayerBakeSurfaceWidth(surface);
+            const surfaceBottom = originY + staticLayerBakeSurfaceHeight(surface);
             const worldLeft = Math.max(viewLeft, originX);
             const worldTop = Math.max(viewTop, originY);
             const worldRight = Math.min(viewRight, surfaceRight);
@@ -1969,7 +2028,7 @@ class RocketfrockRenderer {
                 result.queued += 1;
             } else {
                 result.failed += 1;
-                result.error ||= this.webglBackend.lastTextureError || `could not queue baked layer texture ${surface.canvas.width}x${surface.canvas.height}`;
+                result.error ||= this.webglBackend.lastTextureError || `could not queue baked layer texture ${staticLayerBakeSurfaceWidth(surface)}x${staticLayerBakeSurfaceHeight(surface)}`;
             }
         }
         result.ms = rendererNowMs() - drawStart;

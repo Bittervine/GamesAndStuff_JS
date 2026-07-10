@@ -5,14 +5,25 @@ export const GAME_SETTINGS_STORAGE_KEY = "ignatius_rocketfrock_game_settings_v1"
 function migrateStoredGameSettings(value) {
     const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
     const version = Number(source.version) || 1;
+    let migrated = source;
     if (version < 3 && Number(source.musicVolume) === 0.6) {
-        return {
-            ...source,
+        migrated = {
+            ...migrated,
             version: 4,
             musicVolume: DEFAULT_GAME_SETTINGS.musicVolume
         };
     }
-    return source;
+    // Revision 496 keeps the experimental baked static-layer renderer available
+    // but restores the safe fresh-profile default to off. Preserve any explicit
+    // stored baked-layer preference while still advancing older settings records
+    // so future migrations do not revisit them.
+    if (version < 7) {
+        migrated = {
+            ...migrated,
+            version: 7
+        };
+    }
+    return migrated;
 }
 
 export function loadStoredGameSettings(storage = globalThis.localStorage) {

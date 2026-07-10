@@ -4097,3 +4097,34 @@ The bake key now includes the viewport-aware expanded bounds, so resize/parallax
 ## Revision 492 baked-layer allocation fallback
 
 Revision 492 hardens the experimental static-layer bake renderer against memory pressure. The renderer now frees the old bake cache before building a replacement, checks WebGL texture upload/allocation failures, disables baked layers on hard allocation failure, and reports the fallback through the Settings-facing game UI instead of leaving only dynamic sprites visible on a dark world. The normal live renderer remains the fallback path and the baked experiment stays off unless the persisted Use baked layers setting is enabled.
+
+
+## Revision 493 baked layers default-on
+
+Revision 493 makes the experimental static-layer bake renderer enabled by default through the Use baked layers setting. The allocation-failure boundary from revision 492 remains in charge: if the bake cache cannot be allocated or uploaded, the game falls back to normal live rendering, turns the setting off for that stored profile, and shows a small notification rather than leaving a dark world. Stored settings from pre-493 revisions are migrated once to the new baked-on default because many of them merely persisted the old false default after unrelated Settings changes.
+
+
+## Revision 494 baked-layer load safety
+
+Revision 494 keeps baked layers enabled by default, but makes the default-on path more conservative in WebGL. WebGL baked layers now use a lower safety budget because the baked content lives both as GPU textures and, temporarily, as Canvas2D bake surfaces while being built. If a level exceeds that budget the renderer immediately disables baked layers, saves the fallback setting, and shows the existing warning popup instead of attempting a giant allocation. WebGL bake surfaces are also released after their resident textures upload, so successful chunked bakes do not keep duplicate CPU-side canvas backing stores.
+
+
+## Revision 495 baked-layer budgets and Canvas2D fallback
+
+Revision 495 raises the experimental WebGL baked-layer safety budget to 3 GiB as a deliberate VRAM assumption for testing. Canvas2D keeps a lower RAM safety budget because its baked canvases stay resident in browser memory and very large expanded perimeter bakes can freeze before a JavaScript allocation exception is delivered. Oversized Canvas2D bakes now take the same non-fatal fallback path as WebGL: baked layers are disabled for the stored profile and the game returns to normal live rendering with the allocation warning popup.
+
+
+## Revision 496 baked-layer default rollback
+
+Revision 496 restores the experimental baked-layer renderer to an off-by-default setting for fresh profiles. Existing saved preferences are preserved, including explicit opt-in profiles, so the feature remains available for targeted browser/Electron performance testing without surprising new sessions or low-memory machines during level loading.
+
+## Revision 497 settings reload-note cleanup
+
+Revision 497 restores the concise "Applied after reloading." note for settings whose changes are latched during renderer/startup creation, specifically hardware rendering and pixmap pyramids. The removed `?webgl=1` explanatory text stays gone, and immediately-applied toggles such as development mode, minimap, and baked layers remain unlabelled so the Settings dialog only spends space where it prevents confusion.
+
+## Revision 498 renderer-setting state labels and Electron parity
+
+Revision 498 makes the two startup-latched renderer settings report both the active state and any pending change. Hardware rendering and pixmap pyramids now show `Enabled` or `Disabled` when the checkbox matches the mode used by the current session, and `Reload to enable` or `Reload to disable` after the user changes the saved preference.
+
+The Electron build no longer implicitly forces WebGL merely because it is running inside Electron. It now follows the same saved hardware-rendering setting as the browser build, while still allowing the existing explicit renderer URL override for development diagnostics.
+

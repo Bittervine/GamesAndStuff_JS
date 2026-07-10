@@ -9258,6 +9258,13 @@ function testRocketPowerUpArsenal() {
     assert.ok(gameHtml.includes('id="toggle-micro-profiler"') && gameHtml.includes('Profiler: off'), "the lower-right game tool strip should expose a manual profiler toggle that starts off");
     assert.doesNotMatch(gameHtml, /id="toggle-static-bake-renderer"/, "the experimental Bake toggle should no longer live in the lower-right game tool strip");
     assert.ok(gameHtml.includes('id="use-baked-layers"') && gameHtml.includes('id="use-baked-layers-row"'), "settings should expose the experimental baked-layer switch instead of a game-screen button");
+    assert.ok(
+        /for="use-hardware-rendering"[\s\S]*Use hardware rendering[\s\S]*id="use-hardware-rendering-status"/.test(gameHtml)
+            && /for="use-pixmap-pyramids"[\s\S]*Use pixmap pyramids[\s\S]*id="use-pixmap-pyramids-status"/.test(gameHtml)
+            && bootstrapSource.includes('return requested ? "Reload to enable" : "Reload to disable";')
+            && !/for="use-baked-layers"[\s\S]*Use baked layers[\s\S]*settings-note/.test(gameHtml),
+        "only startup-latched settings should expose active and pending reload status"
+    );
     assert.ok(bootstrapSource.includes("ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER") && bootstrapSource.includes("staticBakeRendererAvailable") && bootstrapSource.includes("syncStaticBakeRendererSetting"), "the game bootstrap should gate the baked-layer setting behind the shared experimental flag");
     assert.ok(rendererSource.includes("supportsExperimentalStaticLayerBakeRenderer") && rendererSource.includes("STATIC_LAYER_BAKE_DISABLED_STATUS") && rendererSource.includes("surface.canvas.width = 1"), "the renderer should expose a static-bake availability boundary and aggressively release discarded bake canvases");
     assert.ok(bootstrapSource.includes('"#tool-links"'), "title-screen pointer handling should ignore lower-right tool buttons instead of treating them as Start gestures");
@@ -9265,10 +9272,10 @@ function testRocketPowerUpArsenal() {
     const characterEditorSource = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 492<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(characterEditorSource, /Puppet Forge <small>rev 492<\/small>/, "Puppet Forge should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 498<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(characterEditorSource, /Puppet Forge <small>rev 498<\/small>/, "Puppet Forge should display the packaged revision");
     const assetEditorSource = readFileSync(new URL("../asset-editor.html", import.meta.url), "utf8");
-    assert.match(assetEditorSource, /Asset Tool <small>rev 492<\/small>/, "Asset Tool should display the packaged revision");
+    assert.match(assetEditorSource, /Asset Tool <small>rev 498<\/small>/, "Asset Tool should display the packaged revision");
     assert.match(assetEditorSource, /id="atlas-numbered-select"[\s\S]*id="load-numbered-atlas"[\s\S]*id="load-local"[\s\S]*id="save-local"[\s\S]*id="quick-save-json"/, "Asset Tool should keep atlas loading and save/export controls together in the Files panel");
     assert.ok(!assetEditorSource.includes("Custom atlas image") && !assetEditorSource.includes("Custom JSON"), "Asset Tool should retire the visible custom import pickers from the primary Files panel");
     assert.doesNotMatch(assetEditorSource, /load-default-image|load-default-json/, "Asset Tool should retire the hard-coded at_atlas_001 load buttons");
@@ -9301,7 +9308,7 @@ function testRocketPowerUpArsenal() {
     assert.equal(editorSource.includes('id="canvas-renderer-baseline"'), false, "the Level Editor should no longer advertise the posterity-only Canvas baseline");
     assert.equal(editorSource.includes("openCanvasRendererBaseline"), false, "the removed baseline link should leave no dormant click handler");
     assert.equal(editorSource.includes("Editor 2 lab"), false, "the Level Editor should not link to the removed Editor 2 lab");
-    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 492") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
+    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 498") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
     assert.ok(baselineSource.includes("applyEditorLevelToWorld") && baselineSource.includes("preferWebGL2: false") && baselineSource.includes("setViewOverride"), "the retained baseline should still convert the authored level and use the ordinary Canvas2D game renderer with an editor camera override");
     assert.ok(editorPlaywrightBenchmark.includes("benchmark_baseline") && editorPlaywrightBenchmark.includes("benchmark_editor") && editorPlaywrightBenchmark.includes("editorToBaselineCadenceRatio"), "the optional Playwright probe should compare the loaded baseline and editor rather than source-only timings");
     assert.ok(editorPlaywrightBenchmark.includes("bodyScrollWidth") && editorPlaywrightBenchmark.includes("stageBacking") && editorPlaywrightBenchmark.includes("overlayBacking"), "the Playwright probe should detect viewport overflow and stage/overlay size divergence");
@@ -9311,7 +9318,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(rendererSource.includes("backingPixelsPerCssPixel") && rendererSource.includes("override.cssZoom * backingPixelsPerCssPixel") && editorSource.includes("cssZoom: state.camera.zoom"), "editor and runtime artwork should share one CSS-pixel camera scale so guide alignment does not drift across the viewport");
     assert.ok(rendererSource.includes("this.ctx.setTransform(1, 0, 0, 1, 0, 0)") && rendererSource.includes("never inherit a CSS/DPR transform"), "the production Canvas renderer should reset inherited context transforms before drawing backing-pixel coordinates");
     assert.ok(editorSource.includes("stageCtx?.setTransform(1, 0, 0, 1, 0, 0)") && !editorSource.includes("stageCtx?.setTransform(dpr"), "the Level Editor must not pre-scale the production scene context by devicePixelRatio");
-    assert.match(bootstrapSource, /const GAME_REVISION = "492";/, "the game debug revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "498";/, "the game debug  revision should match the packaged revision");
     assert.ok(
         editorSource.includes('<div class="level-section-label">Existing Level:</div>')
             && editorSource.includes('id="load-level">Load</button>')
@@ -12840,7 +12847,7 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.equal(DEFAULT_GAME_SETTINGS.autoFullscreen, true, "browser play should default to automatic fullscreen transitions");
     assert.equal(DEFAULT_GAME_SETTINGS.showMinimap, true, "the minimap should be visible by default");
     assert.equal(DEFAULT_GAME_SETTINGS.developmentMode, true, "development tools should remain visible by default in development builds");
-    assert.equal(DEFAULT_GAME_SETTINGS.useBakedLayers, false, "experimental baked layers should default off");
+    assert.equal(DEFAULT_GAME_SETTINGS.useBakedLayers, false, "baked layers should default off until explicitly enabled");
     assert.equal(GAME_DIFFICULTY_PRESETS.length, 3, "the initial settings UI should expose three damage presets");
     assert.equal(GAME_RENDERING_QUALITY_PRESETS.length, 3, "the initial settings UI should expose three particle presets");
     assert.equal(difficultyDamageScale("easy"), 0.75, "easy should reduce incoming damage");
@@ -12869,7 +12876,7 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.equal(normalizeGameSettings({}).autoFullscreen, true, "older stored settings should migrate to the safe default");
     assert.equal(normalizeGameSettings({}).showMinimap, true, "settings without a minimap preference should default to visible");
     assert.equal(normalizeGameSettings({}).developmentMode, true, "settings without a development-mode preference should default to visible tools");
-    assert.equal(normalizeGameSettings({}).useBakedLayers, false, "settings without a baked-layer preference should default to the ordinary renderer");
+    assert.equal(normalizeGameSettings({}).useBakedLayers, false, "settings without a baked-layer preference should default to live rendering");
 
     const values = new Map();
     const storage = {
@@ -12905,7 +12912,49 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
             legacyValues.set(key, String(value));
         }
     };
-    assert.equal(loadStoredGameSettings(legacyStorage).musicVolume, 0.1, "the former untouched 60 percent default should migrate to the new 10 percent default");
+    const migratedLegacySettings = loadStoredGameSettings(legacyStorage);
+    assert.equal(migratedLegacySettings.musicVolume, 0.1, "the former untouched 60 percent default should migrate to the new 10 percent default");
+    assert.equal(migratedLegacySettings.useBakedLayers, false, "legacy stored settings without a baked-layer preference should migrate to the safe off default");
+
+    const legacyBakedOnValues = new Map([[GAME_SETTINGS_STORAGE_KEY, JSON.stringify({
+        version: 6,
+        sfxVolume: 0.8,
+        musicVolume: 0.1,
+        difficulty: "normal",
+        renderingQuality: "medium",
+        autoFullscreen: true,
+        showMinimap: true,
+        useBakedLayers: true
+    })]]);
+    const legacyBakedOnStorage = {
+        getItem(key) {
+            return legacyBakedOnValues.has(key) ? legacyBakedOnValues.get(key) : null;
+        },
+        setItem(key, value) {
+            legacyBakedOnValues.set(key, String(value));
+        }
+    };
+    assert.equal(loadStoredGameSettings(legacyBakedOnStorage).useBakedLayers, true, "explicit legacy baked-layer opt-in should remain respected");
+
+    const fallbackValues = new Map([[GAME_SETTINGS_STORAGE_KEY, JSON.stringify({
+        version: 7,
+        sfxVolume: 0.8,
+        musicVolume: 0.1,
+        difficulty: "normal",
+        renderingQuality: "medium",
+        autoFullscreen: true,
+        showMinimap: true,
+        useBakedLayers: false
+    })]]);
+    const fallbackStorage = {
+        getItem(key) {
+            return fallbackValues.has(key) ? fallbackValues.get(key) : null;
+        },
+        setItem(key, value) {
+            fallbackValues.set(key, String(value));
+        }
+    };
+    assert.equal(loadStoredGameSettings(fallbackStorage).useBakedLayers, false, "post-493 fallback-disabled profiles should not be re-enabled by migration");
 
     const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
     const manualHtml = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");

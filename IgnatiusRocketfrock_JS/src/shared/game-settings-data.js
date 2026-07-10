@@ -11,7 +11,7 @@ export const GAME_RENDERING_QUALITY_PRESETS = Object.freeze([
 ]);
 
 export const DEFAULT_GAME_SETTINGS = Object.freeze({
-    version: 6,
+    version: 7,
     sfxVolume: 0.8,
     musicVolume: 0.1,
     difficulty: "normal",

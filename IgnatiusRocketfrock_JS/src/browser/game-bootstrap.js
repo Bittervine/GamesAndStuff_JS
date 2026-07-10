@@ -105,12 +105,14 @@ const autoFullscreenRow = document.getElementById("auto-fullscreen-row");
 const autoFullscreenInput = document.getElementById("auto-fullscreen");
 const showMinimapInput = document.getElementById("show-minimap");
 const useHardwareRenderingInput = document.getElementById("use-hardware-rendering");
+const useHardwareRenderingStatus = document.getElementById("use-hardware-rendering-status");
 const developmentModeInput = document.getElementById("development-mode");
 const usePixmapPyramidsInput = document.getElementById("use-pixmap-pyramids");
+const usePixmapPyramidsStatus = document.getElementById("use-pixmap-pyramids-status");
 const useBakedLayersRow = document.getElementById("use-baked-layers-row");
 const useBakedLayersInput = document.getElementById("use-baked-layers");
 
-const GAME_REVISION = "492";
+const GAME_REVISION = "498";
 const START_LEVEL_ID = "level_001";
 const RESUME_SAVE_STORAGE_KEY = "ignatius_rocketfrock_resume_v1";
 
@@ -140,6 +142,8 @@ let enemyCharacterProjectUrls = [];
 let staticBakeFailureNoticeKey = "";
 let activeNoticeOverlay = null;
 const preferWebGL2Renderer = shouldPreferWebGL2Renderer();
+const activePixmapPyramids = Boolean(gameState.settings.usePixmapPyramids);
+let activeHardwareRendering = false;
 const hudBackdropBlurDisabled = shouldDisableHudBackdropBlur();
 document.documentElement.classList.toggle("dev-no-hud-blur", hudBackdropBlurDisabled);
 gameState.debug.revision = GAME_REVISION;
@@ -169,6 +173,7 @@ try {
 } catch (error) {
     failStartup(`Game assets could not be loaded: ${error.message}`, error);
 }
+activeHardwareRendering = String(renderer.getPerformanceDiagnostics?.().backend || "").startsWith("webgl2");
 renderer.syncCaveWindow(activeCaveWindow);
 syncLoadedCharacterCombatProfiles();
 if (!applyLoadedAtlasCollisions()) {
@@ -229,9 +234,7 @@ function shouldPreferWebGL2Renderer() {
         }
         return ["1", "true", "on", "webgl", "webgl2", "gpu"].includes(value);
     }
-    // Desktop builds opt into the GPU renderer by default. An ordinary web page
-    // remains Canvas 2D unless webgl=1 (or an equivalent value) is requested.
-    return Boolean(gameState.settings?.useHardwareRendering || electronWindowBridge);
+    return Boolean(gameState.settings?.useHardwareRendering);
 }
 
 function microStutterProfilerExtra() {
@@ -1406,7 +1409,8 @@ async function restartCurrentLevel() {
             await applyRequiredLevel(targetLevelId);
         }
         setLoadingProgress(0.24, "Level data ready");
-        renderer.syncCaveWindow(activeCaveWindow);
+        activeHardwareRendering = String(renderer.getPerformanceDiagnostics?.().backend || "").startsWith("webgl2");
+renderer.syncCaveWindow(activeCaveWindow);
         await renderer.ensureEnvironmentAtlases(gameState.world.atlasManifests, {
             onProgress: ({ progress, label }) => {
                 setLoadingProgress(0.24 + clamp01(progress) * 0.64, label);
@@ -1518,6 +1522,13 @@ function updatePersistentGameSettings(patch) {
     syncGameSettingsUi();
 }
 
+function reloadSettingStatus(active, requested) {
+    if (active === requested) {
+        return active ? "Enabled" : "Disabled";
+    }
+    return requested ? "Reload to enable" : "Reload to disable";
+}
+
 function syncGameSettingsUi() {
     gameState.settings = normalizeGameSettings(gameState.settings);
     const settings = gameState.settings;
@@ -1528,8 +1539,20 @@ function syncGameSettingsUi() {
     if (autoFullscreenInput) autoFullscreenInput.checked = Boolean(settings.autoFullscreen);
     if (showMinimapInput) showMinimapInput.checked = Boolean(settings.showMinimap);
     if (useHardwareRenderingInput) useHardwareRenderingInput.checked = Boolean(settings.useHardwareRendering);
+    if (useHardwareRenderingStatus) {
+        useHardwareRenderingStatus.textContent = reloadSettingStatus(
+            activeHardwareRendering,
+            Boolean(settings.useHardwareRendering)
+        );
+    }
     if (developmentModeInput) developmentModeInput.checked = Boolean(settings.developmentMode);
     if (usePixmapPyramidsInput) usePixmapPyramidsInput.checked = Boolean(settings.usePixmapPyramids);
+    if (usePixmapPyramidsStatus) {
+        usePixmapPyramidsStatus.textContent = reloadSettingStatus(
+            activePixmapPyramids,
+            Boolean(settings.usePixmapPyramids)
+        );
+    }
     if (useBakedLayersInput) useBakedLayersInput.checked = Boolean(settings.useBakedLayers && staticBakeRendererAvailable());
     if (useBakedLayersRow) useBakedLayersRow.hidden = !ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER;
     syncDevelopmentToolVisibility();

@@ -4389,3 +4389,51 @@ Manual profiling workflow: open the game, run `window.__rocketfrockDev.profiler.
 - Disable Use baked layers and show a small OK notification when a hard bake allocation failure occurs.
 - Keep story/mailbox overlays on the live dynamic path without forcing a static bake rebuild.
 - Preserve the normal renderer as the fallback whenever the experimental baked cache is unavailable.
+
+
+## Revision 493 baked default checklist
+
+- [x] Make Use baked layers true in DEFAULT_GAME_SETTINGS.
+- [x] Bump the game settings schema version so old off-by-default settings migrate once to the new baked-on default.
+- [x] Preserve the revision 492 memory/allocation fallback so failed baked allocation disables the setting and prevents repeated retries on the next launch.
+- [x] Keep the experimental renderer kill switch and Settings checkbox boundaries intact.
+
+
+## Revision 494 baked-layer load safety checklist
+
+- [x] Keep baked layers default-on.
+- [x] Add a lower WebGL baked-layer safety budget so oversized levels fail fast instead of freezing during load.
+- [x] Release CPU-side baked chunk canvas backing stores after WebGL texture upload.
+- [x] Preserve the existing fallback notification and saved setting update when baking cannot be allocated safely.
+- [x] Keep all changes inside the experimental baked renderer path.
+
+
+## Revision 495 baked-layer budget checklist
+
+- WebGL baked-layer safety budget is raised to 3 GiB for test machines with sufficient VRAM.
+- Canvas2D baked-layer preflight keeps a conservative RAM budget so level loads fall back instead of freezing.
+- Oversized baked-layer estimates report the active backend budget in debug/failure text.
+- Normal live rendering remains the fallback path when baking is disabled or unavailable.
+
+
+## Revision 496 baked-layer default rollback checklist
+
+- [x] Fresh/no-storage profiles default `Use baked layers` to off again.
+- [x] Existing saved baked-layer preferences are preserved during migration.
+- [x] No renderer behavior, budget, fallback, or UI layout changes were made beyond the default preference rollback.
+
+## Revision 497 settings reload-note cleanup checklist
+
+- [x] Restored the short reload note under Use hardware rendering without restoring the removed `?webgl=1` help text.
+- [x] Kept the existing reload note for Use pixmap pyramids.
+- [x] Left immediately-applied options, including Development mode and Use baked layers, without reload notes.
+- [x] Added a regression assertion covering the Settings dialog note placement.
+
+## Revision 498 renderer-setting state checklist
+
+- [x] Show Enabled or Disabled when each startup-latched rendering checkbox matches the current session.
+- [x] Show Reload to enable or Reload to disable when the saved checkbox differs from the current session.
+- [x] Derive hardware-rendering status from the renderer backend that was actually created, including fallback behavior.
+- [x] Make Electron honor the same saved hardware-rendering setting as the browser build.
+- [x] Preserve explicit URL renderer overrides for development diagnostics.
+- [x] Update regression coverage and packaged revision labels.
