@@ -3953,8 +3953,8 @@
   const MUSIC_TRACK_URL = 'assets/soundtrack1.ogg';
   const TITLE_TRACK_URL = 'assets/titlescreen.ogg';
   // These matching phrases make a musical, gapless repeat without altering the track.
-  const MUSIC_LOOP_START = 16.3;
-  const MUSIC_LOOP_END = 181.8;
+  const MUSIC_LOOP_START = 12.084;
+  const MUSIC_LOOP_END = 171.938;
   const MUSIC_FADE_OUT_SECONDS = 1.5;
   const TITLE_FADE_OUT_SECONDS = 1.0;
 
