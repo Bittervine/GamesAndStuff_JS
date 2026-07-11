@@ -3931,15 +3931,21 @@
     musicTrackPromise: null,
     musicTrackSource: null,
     musicTrackGain: null,
+    titleTrack: null,
+    titleTrackPromise: null,
+    titleTrackSource: null,
+    titleTrackGain: null,
     enabled: false,
     resumePromise: null
   };
 
   const MUSIC_TRACK_URL = 'assets/soundtrack1.ogg';
+  const TITLE_TRACK_URL = 'assets/titlescreen.ogg';
   // These matching phrases make a musical, gapless repeat without altering the track.
   const MUSIC_LOOP_START = 17.0;
   const MUSIC_LOOP_END = 182.5;
   const MUSIC_FADE_OUT_SECONDS = 1.5;
+  const TITLE_FADE_OUT_SECONDS = 1.0;
 
   function ensureAudio() {
     if (audio.ctx) return audio.ctx;
@@ -3967,12 +3973,14 @@
     if (ctxAudio.state === 'running') {
       audio.enabled = true;
       applyMute();
+      startTitleMusic();
       return;
     }
     if (audio.resumePromise) return;
     audio.resumePromise = ctxAudio.resume().then(function () {
       audio.enabled = ctxAudio.state === 'running';
       applyMute();
+      startTitleMusic();
     }).catch(function () {
       audio.enabled = false;
     }).finally(function () {
@@ -4008,6 +4016,66 @@
     return audio.musicTrackPromise;
   }
 
+  function loadTitleTrack() {
+    if (audio.titleTrack) return Promise.resolve(audio.titleTrack);
+    if (audio.titleTrackPromise) return audio.titleTrackPromise;
+    const ctxAudio = ensureAudio();
+    if (!ctxAudio) return Promise.reject(new Error('Web Audio is unavailable.'));
+    audio.titleTrackPromise = fetch(TITLE_TRACK_URL)
+      .then(function (response) {
+        if (!response.ok) throw new Error('Unable to load titlescreen.ogg.');
+        return response.arrayBuffer();
+      })
+      .then(function (data) { return ctxAudio.decodeAudioData(data); })
+      .then(function (track) {
+        audio.titleTrack = track;
+        return track;
+      })
+      .finally(function () {
+        audio.titleTrackPromise = null;
+      });
+    return audio.titleTrackPromise;
+  }
+
+  function startTitleMusic(delaySeconds) {
+    if (state.mode !== 'title' || audio.titleTrackSource || audio.titleTrackPromise) return;
+    loadTitleTrack().then(function (track) {
+      if (state.mode !== 'title' || audio.titleTrackSource || !audio.ctx) return;
+      const source = audio.ctx.createBufferSource();
+      const gain = audio.ctx.createGain();
+      source.buffer = track;
+      source.loop = true;
+      gain.gain.value = 1;
+      source.connect(gain);
+      gain.connect(audio.music);
+      source.onended = function () {
+        if (audio.titleTrackSource === source) {
+          audio.titleTrackSource = null;
+          audio.titleTrackGain = null;
+        }
+      };
+      audio.titleTrackSource = source;
+      audio.titleTrackGain = gain;
+      source.start(audio.ctx.currentTime + Math.max(0, delaySeconds || 0));
+    }).catch(function (err) {
+      console.warn('Unable to start title soundtrack.', err);
+    });
+  }
+
+  function stopTitleMusic(fadeSeconds) {
+    const source = audio.titleTrackSource;
+    const gain = audio.titleTrackGain;
+    if (!source || !gain || !audio.ctx) return 0;
+    const now = audio.ctx.currentTime;
+    const fade = Math.max(0, fadeSeconds || 0);
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setValueAtTime(Math.max(0.0001, gain.gain.value), now);
+    if (fade > 0) gain.gain.linearRampToValueAtTime(0, now + fade);
+    else gain.gain.setValueAtTime(0, now);
+    try { source.stop(now + fade + 0.02); } catch (err) {}
+    return fade;
+  }
+
   function stopMusic(fadeSeconds) {
     const source = audio.musicTrackSource;
     const gain = audio.musicTrackGain;
@@ -4023,6 +4091,7 @@
 
   function startMusic() {
     stopMusic(0);
+    const titleFade = stopTitleMusic(TITLE_FADE_OUT_SECONDS);
     loadMusicTrack().then(function (track) {
       if (state.mode !== 'playing' || !audio.ctx) return;
       const source = audio.ctx.createBufferSource();
@@ -4042,7 +4111,7 @@
       };
       audio.musicTrackSource = source;
       audio.musicTrackGain = gain;
-      source.start();
+      source.start(audio.ctx.currentTime + titleFade);
     }).catch(function (err) {
       console.warn('Unable to start soundtrack.', err);
     });
@@ -4487,6 +4556,7 @@
     stopMusic(MUSIC_FADE_OUT_SECONDS);
     closeSettings(false);
     resetRun();
+    startTitleMusic(MUSIC_FADE_OUT_SECONDS);
   }
 
   function exitToDesktop() {
@@ -10405,6 +10475,7 @@
   function onKeyDown(ev) {
     const code = ev.code;
     feedPlayer3DCheat(ev);
+    resumeAudio();
     if (state.settingsOpen || settingsDialog.open) {
       if (handleDialogKey(ev)) return;
       return;

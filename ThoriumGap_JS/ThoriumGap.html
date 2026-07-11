@@ -10,6 +10,7 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./pwa-icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./pwa-icon.svg" type="image/svg+xml">
+  <link rel="preload" href="./assets/titlescreen.ogg" as="audio" type="audio/ogg">
   <title>Thorium Gap</title>
   <style>
     :root {
@@ -515,7 +516,7 @@
   </dialog>
   <script>
     (function () {
-      var appVersion = 'thoriumgap-v98';     // BUMP ME
+      var appVersion = 'thoriumgap-v100';     // BUMP ME
       window.THORIUM_GAP_VERSION = appVersion;
       var script = document.createElement('script');
       script.src = './ThoriumGap.js';
