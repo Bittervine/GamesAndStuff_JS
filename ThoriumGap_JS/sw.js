@@ -1,10 +1,10 @@
 'use strict';
 
-var APP_VERSION = 'thoriumgap-v107'; // BUMP ME
+var APP_VERSION = 'thoriumgap-v108'; // BUMP ME
 var CACHE_NAME = APP_VERSION;
 var APP_SHELL = [
   './ThoriumGap.html',
-  './ThoriumGap.js',
+  './ThoriumGap.js?v=thoriumgap-v108',
   './GameManual.html',
   './manifest.webmanifest',
   './pwa-icon.svg',
@@ -211,9 +211,10 @@ self.addEventListener('activate', function (event) {
 self.addEventListener('fetch', function (event) {
   if (event.request.method !== 'GET') return;
   var url = new URL(event.request.url);
+  var isGameScriptRequest = url.pathname === '/ThoriumGap.js' || url.pathname === '/ThoriumGap_JS/ThoriumGap.js';
   if (url.origin !== self.location.origin) return;
 
-  if (event.request.mode === 'navigate' || event.request.destination === 'document' || url.pathname === '/ThoriumGap.html' || url.pathname === '/ThoriumGap/' || url.pathname === '/ThoriumGap.js' || url.pathname === '/ThoriumGap_JS/ThoriumGap.html' || url.pathname === '/ThoriumGap_JS/ThoriumGap.js') {
+  if (event.request.mode === 'navigate' || event.request.destination === 'document' || url.pathname === '/ThoriumGap.html' || url.pathname === '/ThoriumGap/' || isGameScriptRequest) {
     event.respondWith(
       fetch(event.request, { cache: 'no-store' }).then(function (response) {
         if (response && response.ok && event.request.destination !== 'document' && event.request.mode !== 'navigate') {
@@ -226,6 +227,7 @@ self.addEventListener('fetch', function (event) {
       }).catch(function () {
         return caches.match(event.request).then(function (cached) {
           if (cached) return cached;
+          if (isGameScriptRequest && url.search) return Response.error();
           if (event.request.destination === 'document' || event.request.mode === 'navigate') {
             return caches.match('./ThoriumGap.html');
           }

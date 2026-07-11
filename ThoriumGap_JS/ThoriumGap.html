@@ -516,10 +516,10 @@
   </dialog>
   <script>
     (function () {
-      var appVersion = 'thoriumgap-v107';     // BUMP ME
+      var appVersion = 'thoriumgap-v108';     // BUMP ME
       window.THORIUM_GAP_VERSION = appVersion;
       var script = document.createElement('script');
-      script.src = './ThoriumGap.js';
+      script.src = './ThoriumGap.js?v=' + encodeURIComponent(appVersion);
       document.head.appendChild(script);
       if ('serviceWorker' in navigator && !(window.electronWindow && window.electronWindow.isAvailable)) {
         window.addEventListener('load', function () {
