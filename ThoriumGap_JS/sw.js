@@ -1,10 +1,10 @@
 'use strict';
 
-var APP_VERSION = 'thoriumgap-v108'; // BUMP ME
+var APP_VERSION = 'thoriumgap-v112'; // BUMP ME
 var CACHE_NAME = APP_VERSION;
 var APP_SHELL = [
   './ThoriumGap.html',
-  './ThoriumGap.js?v=thoriumgap-v108',
+  './ThoriumGap.js?v=thoriumgap-v112',
   './GameManual.html',
   './manifest.webmanifest',
   './pwa-icon.svg',

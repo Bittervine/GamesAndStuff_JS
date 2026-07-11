@@ -3774,7 +3774,7 @@
     const current = loadNum('ThroriumGap_musicVolumeV2', NaN);
     if (Number.isFinite(current)) return clamp(current, 0, 1);
     const legacy = loadNum('ThroriumGap_musicVolume', NaN);
-    return Number.isFinite(legacy) && legacy > 0 ? clamp(legacy, 0, 1) : 0.5;
+    return Number.isFinite(legacy) ? clamp(legacy, 0, 1) : 0.2;
   }
 
   const state = {
@@ -3798,7 +3798,7 @@
     initialsEntryIndex: 0,
     initialsEntryBuffer: ['A', 'A', 'A'],
     settings: {
-      sfxVolume: clamp(loadNum('ThroriumGap_sfxVolume', 0.8), 0, 1),
+      sfxVolume: clamp(loadNum('ThroriumGap_sfxVolume', 1), 0, 1),
       musicVolume: loadMusicVolume(),
       difficulty: clamp(Math.round(loadNum('ThroriumGap_difficulty', 0)), 0, 2),
       graphicalEffects: loadGraphicalEffects(),
@@ -3933,6 +3933,8 @@
     ctx: null,
     master: null,
     sfx: null,
+    sfxBoost: null,
+    sfxCompressor: null,
     music: null,
     noise: null,
     musicTrack: null,
@@ -3955,6 +3957,21 @@
   const MUSIC_FADE_OUT_SECONDS = 1.5;
   const TITLE_FADE_OUT_SECONDS = 1.0;
 
+  function soundtrackLoopPoints(duration) {
+    const fallback = {
+      start: clamp(MUSIC_LOOP_START, 0, Math.max(0, duration - 0.01)),
+      end: clamp(MUSIC_LOOP_END, 0.01, duration)
+    };
+    const rawStart = URL_PARAMS.get('music_loop_a');
+    const rawEnd = URL_PARAMS.get('music_loop_b');
+    if (rawStart == null || rawEnd == null) return fallback;
+    const start = Number(rawStart);
+    const end = Number(rawEnd);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return fallback;
+    if (start < 0 || end > duration || end <= start + 0.01) return fallback;
+    return { start: start, end: end };
+  }
+
   function ensureAudio() {
     if (audio.ctx) return audio.ctx;
     const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -3964,7 +3981,17 @@
     audio.master.gain.value = 0.92;
     audio.master.connect(audio.ctx.destination);
     audio.sfx = audio.ctx.createGain();
-    audio.sfx.connect(audio.master);
+    audio.sfxBoost = audio.ctx.createGain();
+    audio.sfxBoost.gain.value = 2;
+    audio.sfxCompressor = audio.ctx.createDynamicsCompressor();
+    audio.sfxCompressor.threshold.value = -9;
+    audio.sfxCompressor.knee.value = 6;
+    audio.sfxCompressor.ratio.value = 10;
+    audio.sfxCompressor.attack.value = 0.003;
+    audio.sfxCompressor.release.value = 0.12;
+    audio.sfx.connect(audio.sfxBoost);
+    audio.sfxBoost.connect(audio.sfxCompressor);
+    audio.sfxCompressor.connect(audio.master);
     audio.music = audio.ctx.createGain();
     audio.music.connect(audio.master);
     const len = Math.max(1, Math.floor(audio.ctx.sampleRate * 0.35));
@@ -4116,10 +4143,11 @@
       const now = audio.ctx.currentTime;
       const source = audio.ctx.createBufferSource();
       const gain = audio.ctx.createGain();
+      const loop = soundtrackLoopPoints(track.duration);
       source.buffer = track;
       source.loop = true;
-      source.loopStart = MUSIC_LOOP_START;
-      source.loopEnd = Math.min(MUSIC_LOOP_END, track.duration);
+      source.loopStart = loop.start;
+      source.loopEnd = loop.end;
       gain.gain.setValueAtTime(titleFade > 0 ? 0 : 1, now);
       if (titleFade > 0) gain.gain.linearRampToValueAtTime(1, now + titleFade);
       source.connect(gain);
