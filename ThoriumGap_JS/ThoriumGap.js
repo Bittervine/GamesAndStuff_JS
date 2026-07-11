@@ -3770,6 +3770,13 @@
     return loadBool('ThroriumGap_lowEndMode', false) ? GRAPHICAL_EFFECTS.LOW : GRAPHICAL_EFFECTS.HIGH;
   }
 
+  function loadMusicVolume() {
+    const current = loadNum('ThroriumGap_musicVolumeV2', NaN);
+    if (Number.isFinite(current)) return clamp(current, 0, 1);
+    const legacy = loadNum('ThroriumGap_musicVolume', NaN);
+    return Number.isFinite(legacy) && legacy > 0 ? clamp(legacy, 0, 1) : 0.5;
+  }
+
   const state = {
     mode: 'title',
     paused: false,
@@ -3792,7 +3799,7 @@
     initialsEntryBuffer: ['A', 'A', 'A'],
     settings: {
       sfxVolume: clamp(loadNum('ThroriumGap_sfxVolume', 0.8), 0, 1),
-      musicVolume: clamp(loadNum('ThroriumGap_musicVolume', 0.5), 0, 1),
+      musicVolume: loadMusicVolume(),
       difficulty: clamp(Math.round(loadNum('ThroriumGap_difficulty', 0)), 0, 2),
       graphicalEffects: loadGraphicalEffects(),
       alwaysFollowMouse: loadBool('ThroriumGap_alwaysFollowMouse', false),
@@ -3815,6 +3822,7 @@
     debugDamageBreakpoints: false,
     assetsReady: false,
     assetsLoading: false,
+    titleActivated: false,
     assetsWarmupPromise: null,
     threeWarmupPromise: null,
     nextLevelTimer: 0,
@@ -4048,7 +4056,7 @@
   }
 
   function startTitleMusic(delaySeconds) {
-    if (state.mode !== 'title' || audio.titleTrackSource) return;
+    if (state.mode !== 'title' || !state.titleActivated || audio.titleTrackSource) return;
     loadTitleTrack().then(function (track) {
       if (state.mode !== 'title' || audio.titleTrackSource || !audio.ctx) return;
       const source = audio.ctx.createBufferSource();
@@ -4058,6 +4066,7 @@
       gain.gain.value = 1;
       source.connect(gain);
       gain.connect(audio.music);
+      applyMute();
       source.onended = function () {
         if (audio.titleTrackSource === source) {
           audio.titleTrackSource = null;
@@ -4249,6 +4258,7 @@
   function saveSettings() {
     saveNum('ThroriumGap_sfxVolume', state.settings.sfxVolume);
     saveNum('ThroriumGap_musicVolume', state.settings.musicVolume);
+    saveNum('ThroriumGap_musicVolumeV2', state.settings.musicVolume);
     saveNum('ThroriumGap_difficulty', state.settings.difficulty);
     saveNum('ThroriumGap_graphicalEffects', state.settings.graphicalEffects);
     saveBool('ThroriumGap_alwaysFollowMouse', state.settings.alwaysFollowMouse);
@@ -4582,7 +4592,7 @@
   function syncTitleManualButton() {
     if (!titleManualButton) return;
     const loading = !state.assetsReady || state.assetsLoading || assetWarmupBusy();
-    titleManualButton.classList.toggle('show', state.mode === 'title' && !loading);
+    titleManualButton.classList.toggle('show', state.mode === 'title' && state.titleActivated && !loading);
   }
 
   function syncBodyModeClass() {
@@ -4687,15 +4697,23 @@
       toggleSettings();
     }
     if (!state.initialsEntryActive && !state.initialsConfirmActive && fireEdge) {
-      resumeAudio();
-      if (state.mode === 'title') startGame();
-      else if (state.mode === 'gameover' || state.mode === 'victory') endScreenContinue();
+      if (state.mode === 'title' && !state.titleActivated) {
+        if (state.assetsReady) activateTitleScreen();
+      } else {
+        resumeAudio();
+        if (state.mode === 'title') startGame();
+        else if (state.mode === 'gameover' || state.mode === 'victory') endScreenContinue();
+      }
     }
     if (!state.initialsEntryActive && !state.initialsConfirmActive && bombDown && !state.gamepad.prevBomb) {
-      resumeAudio();
-      if (state.mode === 'title') startGame();
-      else if (state.mode === 'gameover' || state.mode === 'victory') endScreenContinue();
-      else if (state.mode === 'playing') useBomb();
+      if (state.mode === 'title' && !state.titleActivated) {
+        if (state.assetsReady) activateTitleScreen();
+      } else {
+        resumeAudio();
+        if (state.mode === 'title') startGame();
+        else if (state.mode === 'gameover' || state.mode === 'victory') endScreenContinue();
+        else if (state.mode === 'playing') useBomb();
+      }
     }
     state.gamepad.prevFire = fireDown;
     state.gamepad.prevBomb = bombDown;
@@ -5107,7 +5125,7 @@
 
   function startGame() {
     resumeAudio();
-    if (!state.assetsReady) {
+    if (!state.assetsReady || !state.titleActivated) {
       titleScreenText();
       markHudDirty();
       return;
@@ -5124,15 +5142,29 @@
   }
 
   function titleScreenText() {
-    if (state.assetsReady) {
+    if (!state.assetsReady) {
+      setBanner('THORIUM GAP', 'Preloading textures...', 3.5);
+      hint('Please wait while the game warms its textures.', 5);
+    } else if (!state.titleActivated) {
+      setBanner('THORIUM GAP', 'PRESS ANY KEY', 999);
+      hint('Press any key to initialize audio.', 30);
+    } else {
       setBanner('THORIUM GAP', 'Click or press Space to launch.', 3.5);
       hint(electronWindowBridge
         ? 'Drag to fly. Hold to fire. Press Escape for audio and combat settings.'
         : 'Drag to fly. Hold to fire. Open MENU or press Escape for audio and combat settings.', 5);
-    } else {
-      setBanner('THORIUM GAP', 'Preloading textures...', 3.5);
-      hint('Please wait while the game warms its textures.', 5);
     }
+  }
+
+  function activateTitleScreen() {
+    if (!state.assetsReady || state.titleActivated) return false;
+    state.titleActivated = true;
+    resumeAudio();
+    titleScreenText();
+    syncMouseCursor();
+    syncSettingsUi();
+    markHudDirty();
+    return true;
   }
 
   function assetWarmupBusy() {
@@ -10100,6 +10132,9 @@
       hudCtx.globalAlpha = 0.98;
       hudCtx.font = '900 ' + clamp(Math.round(view.w * 0.038), 22, 42) + 'px "Trebuchet MS", "Segoe UI", sans-serif';
       hudCtx.fillText('LOADING TEXTURES', view.w * 0.5, view.h * 0.54);
+    } else if (!state.titleActivated) {
+      hudCtx.font = '900 ' + clamp(Math.round(view.w * 0.038), 22, 42) + 'px "Trebuchet MS", "Segoe UI", sans-serif';
+      hudCtx.fillText('PRESS ANY KEY', view.w * 0.5, view.h * 0.54);
     } else {
       hudCtx.font = '800 15px "Trebuchet MS", "Segoe UI", sans-serif';
       hudCtx.fillText('Click or press Space to begin.', view.w * 0.5, y + cardH - 28);
@@ -10314,6 +10349,10 @@
   function handleCanvasClick(ev) {
     if (ev.button != null && ev.button !== 0) return;
     ev.preventDefault();
+    if (state.mode === 'title' && !state.titleActivated) {
+      if (state.assetsReady) activateTitleScreen();
+      return;
+    }
     resumeAudio();
     if (state.initialsEntryActive) return;
     if (state.initialsConfirmActive) {
@@ -10488,6 +10527,11 @@
 
   function onKeyDown(ev) {
     const code = ev.code;
+    if (state.mode === 'title' && !state.titleActivated) {
+      ev.preventDefault();
+      if (state.assetsReady && !ev.repeat) activateTitleScreen();
+      return;
+    }
     feedPlayer3DCheat(ev);
     resumeAudio();
     if (state.settingsOpen || settingsDialog.open) {
