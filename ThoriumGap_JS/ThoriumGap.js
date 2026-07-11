@@ -10123,7 +10123,7 @@
     }
     hudCtx.fillStyle = '#fff';
     hudCtx.globalAlpha = 0.96;
-    if (loading) {
+    if (loading || !state.titleActivated) {
       hudCtx.save();
       hudCtx.globalAlpha = 0.8;
       hudCtx.fillStyle = '#000';
@@ -10131,10 +10131,7 @@
       hudCtx.restore();
       hudCtx.globalAlpha = 0.98;
       hudCtx.font = '900 ' + clamp(Math.round(view.w * 0.038), 22, 42) + 'px "Trebuchet MS", "Segoe UI", sans-serif';
-      hudCtx.fillText('LOADING TEXTURES', view.w * 0.5, view.h * 0.54);
-    } else if (!state.titleActivated) {
-      hudCtx.font = '900 ' + clamp(Math.round(view.w * 0.038), 22, 42) + 'px "Trebuchet MS", "Segoe UI", sans-serif';
-      hudCtx.fillText('PRESS ANY KEY', view.w * 0.5, view.h * 0.54);
+      hudCtx.fillText(loading ? 'LOADING TEXTURES' : 'PRESS ANY KEY', view.w * 0.5, view.h * 0.54);
     } else {
       hudCtx.font = '800 15px "Trebuchet MS", "Segoe UI", sans-serif';
       hudCtx.fillText('Click or press Space to begin.', view.w * 0.5, y + cardH - 28);
