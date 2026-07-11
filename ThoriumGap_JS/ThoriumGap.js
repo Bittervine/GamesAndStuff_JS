@@ -3942,8 +3942,8 @@
   const MUSIC_TRACK_URL = 'assets/soundtrack1.ogg';
   const TITLE_TRACK_URL = 'assets/titlescreen.ogg';
   // These matching phrases make a musical, gapless repeat without altering the track.
-  const MUSIC_LOOP_START = 17.0;
-  const MUSIC_LOOP_END = 182.5;
+  const MUSIC_LOOP_START = 16.3;
+  const MUSIC_LOOP_END = 181.8;
   const MUSIC_FADE_OUT_SECONDS = 1.5;
   const TITLE_FADE_OUT_SECONDS = 1.0;
 
@@ -4037,8 +4037,18 @@
     return audio.titleTrackPromise;
   }
 
+  function prewarmMusicTracks() {
+    const mainTrack = loadMusicTrack().catch(function (err) {
+      console.warn('Unable to prewarm soundtrack.', err);
+    });
+    const titleTrack = loadTitleTrack().catch(function (err) {
+      console.warn('Unable to prewarm title soundtrack.', err);
+    });
+    return Promise.all([mainTrack, titleTrack]);
+  }
+
   function startTitleMusic(delaySeconds) {
-    if (state.mode !== 'title' || audio.titleTrackSource || audio.titleTrackPromise) return;
+    if (state.mode !== 'title' || audio.titleTrackSource) return;
     loadTitleTrack().then(function (track) {
       if (state.mode !== 'title' || audio.titleTrackSource || !audio.ctx) return;
       const source = audio.ctx.createBufferSource();
@@ -4091,16 +4101,18 @@
 
   function startMusic() {
     stopMusic(0);
-    const titleFade = stopTitleMusic(TITLE_FADE_OUT_SECONDS);
     loadMusicTrack().then(function (track) {
       if (state.mode !== 'playing' || !audio.ctx) return;
+      const titleFade = stopTitleMusic(TITLE_FADE_OUT_SECONDS);
+      const now = audio.ctx.currentTime;
       const source = audio.ctx.createBufferSource();
       const gain = audio.ctx.createGain();
       source.buffer = track;
       source.loop = true;
       source.loopStart = MUSIC_LOOP_START;
       source.loopEnd = Math.min(MUSIC_LOOP_END, track.duration);
-      gain.gain.value = 1;
+      gain.gain.setValueAtTime(titleFade > 0 ? 0 : 1, now);
+      if (titleFade > 0) gain.gain.linearRampToValueAtTime(1, now + titleFade);
       source.connect(gain);
       gain.connect(audio.music);
       source.onended = function () {
@@ -4111,7 +4123,7 @@
       };
       audio.musicTrackSource = source;
       audio.musicTrackGain = gain;
-      source.start(audio.ctx.currentTime + titleFade);
+      source.start(now);
     }).catch(function (err) {
       console.warn('Unable to start soundtrack.', err);
     });
@@ -5155,12 +5167,14 @@
     titleScreenText();
     markHudDirty();
     warmAllTextures();
+    const musicWarmup = prewarmMusicTracks();
     state.assetsWarmupPromise = (async function () {
       const started = Date.now();
       while (assetWarmupBusy()) {
         if (Date.now() - started > 30000) break;
         await new Promise(function (resolve) { setTimeout(resolve, 50); });
       }
+      await musicWarmup;
       state.assetsLoading = false;
       state.assetsReady = true;
       state.assetsWarmupPromise = null;
