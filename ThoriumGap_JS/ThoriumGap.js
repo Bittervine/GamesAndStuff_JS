@@ -3946,6 +3946,7 @@
     titleTrackSource: null,
     titleTrackGain: null,
     enabled: false,
+    focusMuted: false,
     resumePromise: null
   };
 
@@ -4025,9 +4026,14 @@
 
   function applyMute() {
     if (!audio.master) return;
-    audio.master.gain.value = 0.92;
+    audio.master.gain.value = audio.focusMuted ? 0 : 0.92;
     audio.sfx.gain.value = state.muted ? 0 : state.settings.sfxVolume;
     audio.music.gain.value = state.muted ? 0 : state.settings.musicVolume;
+  }
+
+  function setFocusMuted(muted) {
+    audio.focusMuted = !!muted;
+    applyMute();
   }
 
   function loadMusicTrack() {
@@ -10777,8 +10783,11 @@
   window.addEventListener('keyup', onKeyUp);
   window.addEventListener('resize', resize);
   document.addEventListener('visibilitychange', function () {
+    setFocusMuted(document.hidden);
     if (document.hidden && state.mode === 'playing' && !state.paused) togglePause(true);
   });
+  window.addEventListener('blur', function () { setFocusMuted(true); });
+  window.addEventListener('focus', function () { setFocusMuted(document.hidden); });
   if (!electronWindowBridge) {
     document.addEventListener('fullscreenchange', syncFullscreenButton);
   }
