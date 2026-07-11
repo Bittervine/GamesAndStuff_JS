@@ -4088,15 +4088,24 @@
     return Promise.all([mainTrack, titleTrack]);
   }
 
-  function startTitleMusic(delaySeconds) {
-    if (state.mode !== 'title' || !state.titleActivated || audio.titleTrackSource) return;
+  function titleMusicShouldPlay() {
+    return state.titleActivated && (state.mode === 'title' || state.mode === 'gameover' || state.mode === 'victory');
+  }
+
+  function startTitleMusic(delaySeconds, fadeSeconds) {
+    if (!titleMusicShouldPlay() || audio.titleTrackSource) return;
     loadTitleTrack().then(function (track) {
-      if (state.mode !== 'title' || audio.titleTrackSource || !audio.ctx) return;
+      if (!titleMusicShouldPlay() || audio.titleTrackSource || !audio.ctx) return;
       const source = audio.ctx.createBufferSource();
       const gain = audio.ctx.createGain();
+      const now = audio.ctx.currentTime;
+      const delay = Math.max(0, delaySeconds || 0);
+      const fade = Math.max(0, fadeSeconds || 0);
+      const startAt = now + delay;
       source.buffer = track;
       source.loop = true;
-      gain.gain.value = 1;
+      gain.gain.setValueAtTime(fade > 0 ? 0 : 1, startAt);
+      if (fade > 0) gain.gain.linearRampToValueAtTime(1, startAt + fade);
       source.connect(gain);
       gain.connect(audio.music);
       applyMute();
@@ -4108,7 +4117,7 @@
       };
       audio.titleTrackSource = source;
       audio.titleTrackGain = gain;
-      source.start(audio.ctx.currentTime + Math.max(0, delaySeconds || 0));
+      source.start(startAt);
     }).catch(function (err) {
       console.warn('Unable to start title soundtrack.', err);
     });
@@ -5406,8 +5415,9 @@
   }
 
   function victory() {
-    stopMusic(MUSIC_FADE_OUT_SECONDS);
     state.mode = 'victory';
+    stopMusic(MUSIC_FADE_OUT_SECONDS);
+    startTitleMusic(0, MUSIC_FADE_OUT_SECONDS);
     syncMouseCursor();
     applyAutoFullscreenPolicy();
     state.banner = 'VICTORY';
@@ -5435,8 +5445,9 @@
       score: state.score,
       levelIndex: state.levelIndex
     });
-    stopMusic(MUSIC_FADE_OUT_SECONDS);
     state.mode = 'gameover';
+    stopMusic(MUSIC_FADE_OUT_SECONDS);
+    startTitleMusic(0, MUSIC_FADE_OUT_SECONDS);
     syncMouseCursor();
     applyAutoFullscreenPolicy();
     state.banner = 'GAME OVER';
