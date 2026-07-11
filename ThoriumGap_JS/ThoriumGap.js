@@ -3792,7 +3792,7 @@
     initialsEntryBuffer: ['A', 'A', 'A'],
     settings: {
       sfxVolume: clamp(loadNum('ThroriumGap_sfxVolume', 0.8), 0, 1),
-      musicVolume: clamp(loadNum('ThroriumGap_musicVolume', 0), 0, 1),
+      musicVolume: clamp(loadNum('ThroriumGap_musicVolume', 0.5), 0, 1),
       difficulty: clamp(Math.round(loadNum('ThroriumGap_difficulty', 0)), 0, 2),
       graphicalEffects: loadGraphicalEffects(),
       alwaysFollowMouse: loadBool('ThroriumGap_alwaysFollowMouse', false),
@@ -3927,9 +3927,19 @@
     sfx: null,
     music: null,
     noise: null,
+    musicTrack: null,
+    musicTrackPromise: null,
+    musicTrackSource: null,
+    musicTrackGain: null,
     enabled: false,
     resumePromise: null
   };
+
+  const MUSIC_TRACK_URL = 'assets/soundtrack1.ogg';
+  // These matching phrases make a musical, gapless repeat without altering the track.
+  const MUSIC_LOOP_START = 17.0;
+  const MUSIC_LOOP_END = 182.5;
+  const MUSIC_FADE_OUT_SECONDS = 1.5;
 
   function ensureAudio() {
     if (audio.ctx) return audio.ctx;
@@ -3975,6 +3985,67 @@
     audio.master.gain.value = 0.92;
     audio.sfx.gain.value = state.muted ? 0 : state.settings.sfxVolume;
     audio.music.gain.value = state.muted ? 0 : state.settings.musicVolume;
+  }
+
+  function loadMusicTrack() {
+    if (audio.musicTrack) return Promise.resolve(audio.musicTrack);
+    if (audio.musicTrackPromise) return audio.musicTrackPromise;
+    const ctxAudio = ensureAudio();
+    if (!ctxAudio) return Promise.reject(new Error('Web Audio is unavailable.'));
+    audio.musicTrackPromise = fetch(MUSIC_TRACK_URL)
+      .then(function (response) {
+        if (!response.ok) throw new Error('Unable to load soundtrack1.ogg.');
+        return response.arrayBuffer();
+      })
+      .then(function (data) { return ctxAudio.decodeAudioData(data); })
+      .then(function (track) {
+        audio.musicTrack = track;
+        return track;
+      })
+      .finally(function () {
+        audio.musicTrackPromise = null;
+      });
+    return audio.musicTrackPromise;
+  }
+
+  function stopMusic(fadeSeconds) {
+    const source = audio.musicTrackSource;
+    const gain = audio.musicTrackGain;
+    if (!source || !gain || !audio.ctx) return;
+    const now = audio.ctx.currentTime;
+    const fade = Math.max(0, fadeSeconds || 0);
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setValueAtTime(Math.max(0.0001, gain.gain.value), now);
+    if (fade > 0) gain.gain.linearRampToValueAtTime(0, now + fade);
+    else gain.gain.setValueAtTime(0, now);
+    try { source.stop(now + fade + 0.02); } catch (err) {}
+  }
+
+  function startMusic() {
+    stopMusic(0);
+    loadMusicTrack().then(function (track) {
+      if (state.mode !== 'playing' || !audio.ctx) return;
+      const source = audio.ctx.createBufferSource();
+      const gain = audio.ctx.createGain();
+      source.buffer = track;
+      source.loop = true;
+      source.loopStart = MUSIC_LOOP_START;
+      source.loopEnd = Math.min(MUSIC_LOOP_END, track.duration);
+      gain.gain.value = 1;
+      source.connect(gain);
+      gain.connect(audio.music);
+      source.onended = function () {
+        if (audio.musicTrackSource === source) {
+          audio.musicTrackSource = null;
+          audio.musicTrackGain = null;
+        }
+      };
+      audio.musicTrackSource = source;
+      audio.musicTrackGain = gain;
+      source.start();
+    }).catch(function (err) {
+      console.warn('Unable to start soundtrack.', err);
+    });
   }
 
   function triggerRumble(strength, duration) {
@@ -4413,6 +4484,7 @@
 
   function exitToTitle() {
     resumeAudio();
+    stopMusic(MUSIC_FADE_OUT_SECONDS);
     closeSettings(false);
     resetRun();
   }
@@ -4961,6 +5033,7 @@
     closeSettings();
     resetRun();
     state.mode = 'playing';
+    startMusic();
     syncMouseCursor();
     applyAutoFullscreenPolicy();
     if (DEBUG_END_BOSS) debugJumpToFinalBoss(true);
@@ -5183,6 +5256,7 @@
   }
 
   function victory() {
+    stopMusic(MUSIC_FADE_OUT_SECONDS);
     state.mode = 'victory';
     syncMouseCursor();
     applyAutoFullscreenPolicy();
@@ -5211,6 +5285,7 @@
       score: state.score,
       levelIndex: state.levelIndex
     });
+    stopMusic(MUSIC_FADE_OUT_SECONDS);
     state.mode = 'gameover';
     syncMouseCursor();
     applyAutoFullscreenPolicy();
@@ -7405,23 +7480,6 @@
     }
   }
 
-  function updateMusic(dt) {
-    if (!audio.ctx || audio.ctx.state !== 'running' || state.muted) return;
-    if (state.mode !== 'playing' && state.mode !== 'title') return;
-    const theme = mainTheme();
-    const beat = 60 / theme.music.bpm / 2;
-    state.musicClock += dt;
-    while (state.musicClock >= beat) {
-      state.musicClock -= beat;
-      const step = state.musicStep++;
-      const n = theme.music.pattern[step % theme.music.pattern.length];
-      const f = theme.music.root * Math.pow(2, n / 12);
-      tone({ freq: f, endFreq: f * 1.03, dur: beat * 0.7, gain: state.mode === 'title' ? 0.03 : 0.04, type: 'triangle', pan: (step % 4 - 1.5) * 0.12, bus: 'music' });
-      if (step % 4 === 0) tone({ freq: f * 0.5, endFreq: f * 0.52, dur: beat * 1.3, gain: state.mode === 'title' ? 0.04 : 0.05, type: 'sine', bus: 'music' });
-      if (step % 2 === 0) tone({ freq: f * 2, endFreq: f * 2.03, dur: beat * 0.3, gain: 0.016, type: 'square', bus: 'music' });
-    }
-  }
-
   function updateTransition(dt) {
     if (!state.transition) return;
     state.transition.timer += dt;
@@ -7439,10 +7497,9 @@
     state.animClock += dt;
     updateGamepadInput();
     if (state.mode === 'debug') return;
-    if (state.mode === 'title') { updateMusic(dt); updateParticles(dt); return; }
+    if (state.mode === 'title') { updateParticles(dt); return; }
     if (state.mode === 'gameover' || state.mode === 'victory') {
       updateAsteroids(dt);
-      updateMusic(dt * 0.35);
       updateParticles(dt);
       if (state.player.invuln > 0) state.player.invuln = Math.max(0, state.player.invuln - dt);
       return;
@@ -7469,7 +7526,6 @@
       while (state.waveClock >= spawnInterval) { state.waveClock -= spawnInterval; spawnWave(theme); }
       if (!state.boss && state.levelClock >= 40 + state.levelIndex * 2) spawnBoss(theme);
     }
-    updateMusic(dt);
     if (state.flash > 0) state.flash = Math.max(0, state.flash - dt * 0.85);
     if (state.shake > 0) state.shake = Math.max(0, state.shake - dt * 12);
     if (state.player.invuln > 0) state.player.invuln = Math.max(0, state.player.invuln - dt);

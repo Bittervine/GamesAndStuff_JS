@@ -469,9 +469,9 @@
         <div class="settings-group">
           <div class="settings-label">
             <span>Music Volume</span>
-            <span class="settings-value" id="musicVolumeValue">0%</span>
+            <span class="settings-value" id="musicVolumeValue">50%</span>
           </div>
-          <input id="musicVolume" type="range" min="0" max="1" step="0.01" value="0">
+          <input id="musicVolume" type="range" min="0" max="1" step="0.01" value="0.5">
         </div>
 
         <div class="settings-group">
@@ -515,7 +515,7 @@
   </dialog>
   <script>
     (function () {
-      var appVersion = 'thoriumgap-v97';     // BUMP ME
+      var appVersion = 'thoriumgap-v98';     // BUMP ME
       window.THORIUM_GAP_VERSION = appVersion;
       var script = document.createElement('script');
       script.src = './ThoriumGap.js';
