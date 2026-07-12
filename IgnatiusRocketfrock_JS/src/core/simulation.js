@@ -4393,91 +4393,162 @@ function characterEnemyProjectilePathClearFromPoint(state, enemy, point) {
     return true;
 }
 
-function addPathingAvoidanceFromPoint(projectile, point, clearance, accumulator) {
-    const dx = projectile.currentTransform.x - point.x;
-    const dy = projectile.currentTransform.y - point.y;
-    const distance = Math.hypot(dx, dy);
-    const limit = clearance + Math.max(0, Number(projectile.radius) || 0);
-    if (distance > limit) {
-        return;
+function pathingProjectileProbe(state, projectile, direction, distance, extraRadius = 0) {
+    const dir = normalizeVector(direction);
+    if (Math.abs(dir.x) < 0.000001 && Math.abs(dir.y) < 0.000001) {
+        return { distance: 0, impact: null, probeDistance: 0 };
     }
-    const weight = clamp(1 - distance / Math.max(1, limit), 0, 1);
-    let awayX = dx;
-    let awayY = dy;
-    if (distance < 0.0001) {
-        awayX = (Number(projectile.vx) || 1);
-        awayY = (Number(projectile.vy) || 0);
-        const awayLength = Math.hypot(awayX, awayY) || 1;
-        awayX /= awayLength;
-        awayY /= awayLength;
-    } else {
-        awayX /= distance;
-        awayY /= distance;
-    }
-    accumulator.x += awayX * weight;
-    accumulator.y += awayY * weight;
+    const probeDistance = Math.max(1, Number(distance) || 0);
+    const probeRadius = Math.max(1, Number(projectile.radius) || 1) + Math.max(0, Number(extraRadius) || 0);
+    const startX = projectile.currentTransform.x;
+    const startY = projectile.currentTransform.y;
+    const endX = startX + dir.x * probeDistance;
+    const endY = startY + dir.y * probeDistance;
+    const probe = {
+        currentTransform: { x: endX, y: endY },
+        radius: probeRadius
+    };
+    const impact = findProjectileTerrainImpact(
+        state,
+        probe,
+        startX,
+        startY,
+        { includeReactiveObjects: true }
+    );
+    return {
+        distance: impact ? probeDistance * clamp(impact.t, 0, 1) : probeDistance,
+        impact,
+        probeDistance
+    };
 }
+
+function pathingProjectileProbeClearDistance(state, projectile, direction, distance, extraRadius = 0) {
+    return pathingProjectileProbe(state, projectile, direction, distance, extraRadius).distance;
+}
+
 
 function pathingProjectileDesiredDirection(state, projectile, target) {
     const currentSpeed = Math.hypot(Number(projectile.vx) || 0, Number(projectile.vy) || 0) || Math.max(1, Number(projectile.projectileSpeed) || 1);
-    const currentDir = normalizeVector({ x: Number(projectile.vx) || 0, y: Number(projectile.vy) || 0 });
-    const targetDir = normalizeVector({ x: target.x - projectile.currentTransform.x, y: target.y - projectile.currentTransform.y });
-    const clearance = Math.max(Math.max(0, Number(projectile.pathMargin) || 0), Math.max(10, Number(projectile.radius) || 0) + 4);
-    const queryBounds = {
-        minX: projectile.currentTransform.x - clearance,
-        minY: projectile.currentTransform.y - clearance,
-        maxX: projectile.currentTransform.x + clearance,
-        maxY: projectile.currentTransform.y + clearance
+    const targetVector = {
+        x: target.x - projectile.currentTransform.x,
+        y: target.y - projectile.currentTransform.y
     };
-    const avoidance = { x: 0, y: 0 };
+    const targetDistance = Math.hypot(targetVector.x, targetVector.y);
+    const targetDir = normalizeVector(targetVector);
+    const currentDir = normalizeVector({ x: Number(projectile.vx) || targetDir.x, y: Number(projectile.vy) || targetDir.y });
+    const probeAngle = 15 * Math.PI / 180;
+    const avoidTurnAngle = 48 * Math.PI / 180;
+    const clearance = Math.max(100, Number(projectile.pathMargin) || 0, Math.max(10, Number(projectile.radius) || 0) + 4);
+    const agility = Math.max(0.01, Number(projectile.homingStrength) || 0.01);
+    const turnThirtySeconds = (Math.PI / 6) / agility;
+    const c = Math.max(128, currentSpeed * turnThirtySeconds);
+    const dangerProbeDistance = Math.max(320, c + clearance + Math.max(24, Number(projectile.radius) || 0) * 2);
+    const losProbeDistance = Math.min(Math.max(1, targetDistance), 1400);
+    const losExtraRadius = Math.max(4, Math.min(18, (Number(projectile.radius) || 0) * 0.35));
+    const directProbe = pathingProjectileProbe(state, projectile, targetDir, losProbeDistance, losExtraRadius);
+    const directClearDistance = directProbe.distance;
+    const hasLineOfSightToWizard = targetDistance <= losProbeDistance + 0.5 && directClearDistance >= targetDistance - Math.max(1, Number(projectile.radius) || 0) * 0.25;
 
-    for (const solid of queryWorldSolids(state.world, queryBounds)) {
-        const closest = closestPointOnRect(projectile, solid);
-        addPathingAvoidanceFromPoint(projectile, closest, clearance, avoidance);
-    }
-    for (const segment of queryWorldSegments(state.world, queryBounds)) {
-        if (segment.kind === "walkable" || !isSolidSegmentKind(segment.kind)) {
-            continue;
+    const forwardDir = currentDir;
+    const downDir = rotateVector(currentDir, probeAngle);
+    const upDir = rotateVector(currentDir, -probeAngle);
+    const probeExtraRadius = Math.max(8, Math.min(20, (Number(projectile.radius) || 0) * 0.5));
+    const forwardClearDistance = pathingProjectileProbeClearDistance(state, projectile, forwardDir, dangerProbeDistance, probeExtraRadius);
+    const downClearDistance = pathingProjectileProbeClearDistance(state, projectile, downDir, dangerProbeDistance, probeExtraRadius);
+    const upClearDistance = pathingProjectileProbeClearDistance(state, projectile, upDir, dangerProbeDistance, probeExtraRadius);
+    const forwardDanger = forwardClearDistance < dangerProbeDistance - 0.5;
+    const targetPathDanger = directClearDistance < Math.min(targetDistance, losProbeDistance) - Math.max(2, Number(projectile.radius) || 0) * 0.25;
+    const upBeatsForward = upClearDistance > forwardClearDistance + 4;
+    const downBeatsForward = downClearDistance > forwardClearDistance + 4;
+    const imminentDanger = forwardDanger || targetPathDanger || upBeatsForward || downBeatsForward;
+
+    const upAlignment = Math.max(0, upDir.x * targetDir.x + upDir.y * targetDir.y);
+    const downAlignment = Math.max(0, downDir.x * targetDir.x + downDir.y * targetDir.y);
+    const upBias = upClearDistance + upAlignment * (dangerProbeDistance * 0.05);
+    const downBias = downClearDistance + downAlignment * (dangerProbeDistance * 0.05);
+
+    const directImpact = directProbe.impact || null;
+    const forcedSide = directImpact && targetPathDanger
+        ? directImpact.y >= projectile.currentTransform.y - Math.max(4, Number(projectile.radius) || 0) * 0.4 ? "up" : "down"
+        : null;
+
+    let decision = "home";
+    let chosenDir = targetDir;
+    if (hasLineOfSightToWizard && !imminentDanger) {
+        decision = "home_clear_los";
+        chosenDir = targetDir;
+        projectile.pathingAvoidanceSide = null;
+    } else if (imminentDanger || !hasLineOfSightToWizard) {
+        const previousSide = projectile.pathingAvoidanceSide === "down" ? "down" : projectile.pathingAvoidanceSide === "up" ? "up" : null;
+        const decisiveMargin = forcedSide ? 160 : 12;
+        let side = forcedSide || previousSide || "up";
+        if (upBias > downBias + decisiveMargin) {
+            side = "up";
+        } else if (downBias > upBias + decisiveMargin) {
+            side = "down";
         }
-        const closest = closestPointOnSegment(projectile, { x: segment.x1, y: segment.y1 }, { x: segment.x2, y: segment.y2 });
-        addPathingAvoidanceFromPoint(projectile, closest, clearance, avoidance);
-    }
-    for (const polygon of queryWorldCollisionPolygons(state.world, queryBounds)) {
-        if (!isAreaBlockingSegmentKind(polygon.kind)) {
-            continue;
-        }
-        const points = Array.isArray(polygon.points) ? polygon.points : [];
-        for (let index = 0; index < points.length; index += 1) {
-            const a = points[index];
-            const b = points[(index + 1) % points.length];
-            if (!a || !b) continue;
-            const closest = closestPointOnSegment(projectile, a, b);
-            addPathingAvoidanceFromPoint(projectile, closest, clearance, avoidance);
+        projectile.pathingAvoidanceSide = side;
+        if (side === "up") {
+            decision = hasLineOfSightToWizard ? "avoid_up_imminent" : "avoid_up_no_los";
+            chosenDir = rotateVector(targetDir, -avoidTurnAngle);
+        } else {
+            decision = hasLineOfSightToWizard ? "avoid_down_imminent" : "avoid_down_no_los";
+            chosenDir = rotateVector(targetDir, avoidTurnAngle);
         }
     }
 
-    const lookahead = Math.max(clearance * 1.35, currentSpeed * 0.9);
-    const forward = {
-        x: projectile.currentTransform.x + currentDir.x * lookahead,
-        y: projectile.currentTransform.y + currentDir.y * lookahead,
-        radius: Math.max(1, Number(projectile.radius) || 1) + clearance * 0.55
-    };
-    const forwardImpact = findProjectileTerrainImpact(state, forward, projectile.currentTransform.x, projectile.currentTransform.y, { includeReactiveObjects: true });
-    if (forwardImpact) {
-        addPathingAvoidanceFromPoint(projectile, { x: forwardImpact.x, y: forwardImpact.y }, clearance * 1.1, avoidance);
+    if (projectile.debugGuidanceCapture) {
+        if (!Array.isArray(projectile.debugGuidanceTrace)) {
+            projectile.debugGuidanceTrace = [];
+        }
+        if (projectile.debugGuidanceTrace.length < (projectile.debugGuidanceTraceLimit || 120)) {
+            projectile.debugGuidanceTrace.push({
+                time: Number(state.clock?.time) || 0,
+                projectileX: projectile.currentTransform.x,
+                projectileY: projectile.currentTransform.y,
+                targetX: target.x,
+                targetY: target.y,
+                targetDistance,
+                currentSpeed,
+                c,
+                clearance,
+                directProbeDistance: losProbeDistance,
+                directClearDistance,
+                hasLineOfSightToWizard,
+                dangerProbeDistance,
+                forwardClearDistance,
+                leftClearDistance: upClearDistance,
+                rightClearDistance: downClearDistance,
+                upClearDistance,
+                downClearDistance,
+                forwardDanger,
+                leftBeatsForward: upBeatsForward,
+                rightBeatsForward: downBeatsForward,
+                upBeatsForward,
+                downBeatsForward,
+                targetPathDanger,
+                imminentDanger,
+                leftBias: upBias,
+                rightBias: downBias,
+                upBias,
+                downBias,
+                forcedSide,
+                directImpactX: directImpact ? directImpact.x : null,
+                directImpactY: directImpact ? directImpact.y : null,
+                directImpactId: directImpact ? directImpact.id : null,
+                currentHeadingDeg: Math.atan2(currentDir.y, currentDir.x) * 180 / Math.PI,
+                targetHeadingDeg: Math.atan2(targetDir.y, targetDir.x) * 180 / Math.PI,
+                chosenHeadingDeg: Math.atan2(chosenDir.y, chosenDir.x) * 180 / Math.PI,
+                decision
+            });
+        }
     }
 
-    const desired = normalizeVector({
-        x: targetDir.x + avoidance.x * 1.9,
-        y: targetDir.y + avoidance.y * 1.9
-    });
-    if ((Math.abs(desired.x) < 0.00001 && Math.abs(desired.y) < 0.00001)) {
-        return currentDir;
-    }
-    return desired;
+    return chosenDir;
 }
 
-function launchCharacterEnemyProjectile(state, enemy, angleOffset = 0, volley = null) {
+
+export function launchCharacterEnemyProjectile(state, enemy, angleOffset = 0, volley = null) {
     const player = state.player;
     const origin = String(enemy.projectileLaunchType || "") === "drop"
         ? {
@@ -4531,9 +4602,9 @@ function launchCharacterEnemyProjectile(state, enemy, angleOffset = 0, volley = 
         vy = aim.y * tunedProjectileSpeed;
         gravity = 0;
         if (launchType === "pathing_hi") {
-            homingStrength = Math.max(0.8, Number(enemy.projectileHomingStrength) || 0);
+            homingStrength = Math.max(2.4, (Number(enemy.projectileHomingStrength) || 0) * 2);
         } else if (launchType === "pathing_lo") {
-            homingStrength = Math.max(0.2, Number(enemy.projectileHomingStrength) || 0);
+            homingStrength = Math.max(2.6, (Number(enemy.projectileHomingStrength) || 0) * 2.9);
         } else if (launchType === "homing_hi") {
             homingStrength = Math.max(2.4, Number(enemy.projectileHomingStrength) || 0);
         } else if (launchType === "homing_lo") {

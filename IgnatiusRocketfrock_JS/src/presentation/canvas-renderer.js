@@ -961,7 +961,8 @@ class RocketfrockRenderer {
             "rocketFlame",
             "diamond",
             "crossSpark",
-            "solidDisc"
+            "solidDisc",
+            "undeathBubble"
         ]) {
             add(this.getWebGLParticleSpriteCanvas(kind));
         }
@@ -6338,6 +6339,9 @@ class RocketfrockRenderer {
         if (trailEnabled && !undeath) {
             drew = this.drawEnemyFireballParticlesWebGL(projectile, state, view) || drew;
         }
+        if (trailEnabled && undeath) {
+            drew = this.drawEnemyFireballParticlesWebGL(projectile, state, view) || drew;
+        }
         if (!undeath) {
             const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_010", projectile.frameId || "fireball") ||
                 this.getCharacterAtlasFrame("ct_char_enemy_010", "fireball");
@@ -6361,9 +6365,6 @@ class RocketfrockRenderer {
                     }) || drew;
                 }
             }
-        }
-        if (trailEnabled && undeath) {
-            drew = this.drawEnemyFireballParticlesWebGL(projectile, state, view) || drew;
         }
         return drew;
     }
@@ -6965,6 +6966,10 @@ class RocketfrockRenderer {
             this.drawEnemyFireballParticles(projectile, state, view);
         }
 
+        if (trailEnabled && undeath) {
+            this.drawEnemyFireballParticles(projectile, state, view);
+        }
+
         if (!undeath) {
             const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_010", projectile.frameId || "fireball") ||
                 this.getCharacterAtlasFrame("ct_char_enemy_010", "fireball");
@@ -6986,9 +6991,6 @@ class RocketfrockRenderer {
             }
         }
 
-        if (trailEnabled && undeath) {
-            this.drawEnemyFireballParticles(projectile, state, view);
-        }
     }
 
     drawFireballTrailOverlay(projectile, state, view, fireballCoreRadius = 0) {

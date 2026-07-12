@@ -391,8 +391,16 @@ import {
     defaultNextLevelId,
     setWorldEntityState,
     syncEnemyTuningHealthScales,
-    damagePlayer
+    damagePlayer,
+    getPlayerRect,
+    launchCharacterEnemyProjectile
 } from "../src/core/simulation.js";
+
+function distancePointToRect(x, y, rect) {
+    const dx = Math.max(rect.x - x, 0, x - (rect.x + rect.w));
+    const dy = Math.max(rect.y - y, 0, y - (rect.y + rect.h));
+    return Math.hypot(dx, dy);
+}
 
 function applyEditorLevelToWorld(state, editorLevel) {
     const wrapper = editorLevel?.level && typeof editorLevel.level === "object" ? editorLevel : null;
@@ -8335,6 +8343,7 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     assert.ok(rendererSource.indexOf("this.drawPlayer(state, view)") < rendererSource.indexOf("this.drawPlayerDeathCover(state, view)"), "the active hybrid dynamic pass must render death-cover sparks after Ignatius so they actually cover the rig");
     assert.ok(rendererSource.includes("drawEnemyProjectilesWebGL") && rendererSource.includes("WEBGL_DIRECT_ENEMY_PROJECTILE_KINDS"), "enemy projectile families should have their own direct WebGL2 pass when the GPU backend is active");
     assert.ok(rendererSource.includes("prewarmWebGLTextures") && rendererSource.includes("replacePinnedTextures") && rendererSource.includes("asset.image || asset.canvas"), "the opt-in WebGL2 renderer should pin original atlas textures and draw atlas-backed dynamic sprites directly from them");
+    assert.ok(rendererSource.includes('"undeathBubble"'), "WebGL prewarming should include the skeleton-caster undeath bubble sprite so its projectile visual does not first appear as an unprepared source during combat");
     assert.ok(rendererSource.includes("buildCaveWindowGpuMaskGeometry") && rendererSource.includes("drawCaveMaskGeometry"), "the WebGL cave mask should use reusable world-space geometry before considering the Canvas compatibility fallback");
     assert.ok(maskSource.includes("gradientVertices") && maskSource.includes("exteriorStencilVertices"), "cave-window data should compile into resident gradient and odd-even exterior meshes");
     assert.ok(rendererSource.includes("drawPlayerRocketsWebGL") && rendererSource.includes("drawProjectileRocketWebGL") && rendererSource.includes("rocketFlame"), "player rocket bodies and flame treatment should also have a direct WebGL2 pass when the GPU backend is active");
@@ -8344,6 +8353,7 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
         rendererSource.indexOf("drawProjectileMusketBallWebGL(projectile, state, view)")
     );
     assert.ok(fireballWebGLSource.includes("the circular glow is only a missing-art fallback"), "the WebGL fireball must keep its circular glow limited to missing-art fallback rendering");
+    assert.equal(fireballWebGLSource.includes("drawUndeathProjectileCoreWebGL"), false, "the WebGL skeleton-caster shot should remain a bubble-trail-only projectile without a separate large core");
     assert.ok(fireballWebGLSource.indexOf("const asset =") < fireballWebGLSource.indexOf('getWebGLParticleSpriteCanvas("softGlow")'), "the authored fireball sprite should return before any circular fallback glow is considered");
     assert.ok(rendererSource.includes("hitFlashCanvas") && rendererSource.includes("overlayTintCanvasKey"), "WebGL character rendering should preserve player and enemy hit-flash overlays");
     assert.ok(rendererSource.includes('overlayTintCanvasKey: "hitFlashCanvas"') && rendererSource.includes("drawPlayer(state, view)"), "player and enemy hit reactions should continue to rely on prepared white hit-flash overlays");
@@ -9365,10 +9375,10 @@ function testRocketPowerUpArsenal() {
     const characterEditorSource = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 511<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(characterEditorSource, /Puppet Forge <small>rev 511<\/small>/, "Puppet Forge should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 520<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(characterEditorSource, /Puppet Forge <small>rev 520<\/small>/, "Puppet Forge should display the packaged revision");
     const assetEditorSource = readFileSync(new URL("../asset-editor.html", import.meta.url), "utf8");
-    assert.match(assetEditorSource, /Asset Tool <small>rev 511<\/small>/, "Asset Tool should display the packaged revision");
+    assert.match(assetEditorSource, /Asset Tool <small>rev 520<\/small>/, "Asset Tool should display the packaged revision");
     assert.match(assetEditorSource, /id="atlas-numbered-select"[\s\S]*id="load-numbered-atlas"[\s\S]*id="load-local"[\s\S]*id="save-local"[\s\S]*id="quick-save-json"/, "Asset Tool should keep atlas loading and save/export controls together in the Files panel");
     assert.ok(!assetEditorSource.includes("Custom atlas image") && !assetEditorSource.includes("Custom JSON"), "Asset Tool should retire the visible custom import pickers from the primary Files panel");
     assert.doesNotMatch(assetEditorSource, /load-default-image|load-default-json/, "Asset Tool should retire the hard-coded at_atlas_001 load buttons");
@@ -9401,7 +9411,7 @@ function testRocketPowerUpArsenal() {
     assert.equal(editorSource.includes('id="canvas-renderer-baseline"'), false, "the Level Editor should no longer advertise the posterity-only Canvas baseline");
     assert.equal(editorSource.includes("openCanvasRendererBaseline"), false, "the removed baseline link should leave no dormant click handler");
     assert.equal(editorSource.includes("Editor 2 lab"), false, "the Level Editor should not link to the removed Editor 2 lab");
-    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 511") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
+    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 520") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
     assert.ok(baselineSource.includes("applyEditorLevelToWorld") && baselineSource.includes("preferWebGL2: false") && baselineSource.includes("setViewOverride"), "the retained baseline should still convert the authored level and use the ordinary Canvas2D game renderer with an editor camera override");
     assert.ok(editorPlaywrightBenchmark.includes("benchmark_baseline") && editorPlaywrightBenchmark.includes("benchmark_editor") && editorPlaywrightBenchmark.includes("editorToBaselineCadenceRatio"), "the optional Playwright probe should compare the loaded baseline and editor rather than source-only timings");
     assert.ok(editorPlaywrightBenchmark.includes("bodyScrollWidth") && editorPlaywrightBenchmark.includes("stageBacking") && editorPlaywrightBenchmark.includes("overlayBacking"), "the Playwright probe should detect viewport overflow and stage/overlay size divergence");
@@ -9411,7 +9421,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(rendererSource.includes("backingPixelsPerCssPixel") && rendererSource.includes("override.cssZoom * backingPixelsPerCssPixel") && editorSource.includes("cssZoom: state.camera.zoom"), "editor and runtime artwork should share one CSS-pixel camera scale so guide alignment does not drift across the viewport");
     assert.ok(rendererSource.includes("this.ctx.setTransform(1, 0, 0, 1, 0, 0)") && rendererSource.includes("never inherit a CSS/DPR transform"), "the production Canvas renderer should reset inherited context transforms before drawing backing-pixel coordinates");
     assert.ok(editorSource.includes("stageCtx?.setTransform(1, 0, 0, 1, 0, 0)") && !editorSource.includes("stageCtx?.setTransform(dpr"), "the Level Editor must not pre-scale the production scene context by devicePixelRatio");
-    assert.match(bootstrapSource, /const GAME_REVISION = "511";/, "the game debug  revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "520";/, "the game debug  revision should match the packaged revision");
     assert.ok(
         editorSource.includes('<div class="level-section-label">Existing Level:</div>')
             && editorSource.includes('id="load-level">Load</button>')
@@ -10764,7 +10774,7 @@ function testGameplayRecordingAndPlaybackTooling() {
     assert.deepEqual(debug.enemies.map((enemy) => enemy.id), ["visible_enemy"], "recording debug should include only visible enemies");
     assert.deepEqual(debug.projectiles.map((projectile) => projectile.id), ["rocket_1"], "recording debug should include visible projectiles");
 
-    const recording = createGameplayRecording({ revision: "511", levelId: "level_002", initialState: state, source: "test" });
+    const recording = createGameplayRecording({ revision: "512", levelId: "level_002", initialState: state, source: "test" });
     appendGameplayRecordingFrame(recording, {
         index: 0,
         recordingTimeSec: 1 / 60,
@@ -12237,8 +12247,10 @@ function testEnemyProjectileVisualLanguageRendererContract() {
     assert.ok(simulationSource.includes("UNDEATH_TRAIL_LOW_QUALITY_DENSITY_SCALE = 0.75"), "Low quality should retain the visible undeath cloud with a modest twenty-five-percent density reduction");
     assert.ok(simulationSource.includes('projectile.state = projectile.visualStyle === "undeath" && projectile.trail?.length') && simulationSource.includes('"trailFading"'), "undeath impacts should preserve emitted bubbles in a non-colliding trail-fading state");
     assert.match(fireballSource, /if \(trailEnabled && !undeath\) \{\s*this\.drawEnemyFireballParticles\(projectile, state, view\);\s*\}/, "Medium and High quality should draw ordinary emitted fire particles behind the projectile");
-    assert.match(fireballSource, /if \(trailEnabled && undeath\) \{\s*this\.drawEnemyFireballParticles\(projectile, state, view\);\s*\}/, "the undeath projectile should draw its bubble body at every graphics quality");
+    assert.match(fireballSource, /if \(trailEnabled && undeath\) \{\s*this\.drawEnemyFireballParticles\(projectile, state, view\);\s*\}/, "the undeath projectile should draw its emitted bubble trail at every graphics quality");
+    assert.equal(fireballSource.includes("drawUndeathProjectileCore"), false, "the skeleton-caster projectile should not draw a separate large undeath core");
     assert.match(fireballSource, /if \(!undeath\) \{\s*const asset = this\.getCharacterAtlasFrame\(projectile\.characterId \|\| "ct_char_enemy_010", projectile\.frameId \|\| "fireball"\)/, "only ordinary fireballs should draw an authored projectile sprite");
+    assert.equal(rendererSource.includes("drawUndeathProjectileCore"), false, "Canvas and WebGL should both keep undeath shots as trail-only visuals");
     assert.doesNotMatch(rendererSource, /Jump to continue|scrolls automatically/, "story overlays should no longer explain skip controls");
     assert.match(fireballSource, /drawRuntimePixmap\(ctx, asset/, "ordinary fireballs should still draw the authored sprite through the scale-aware pixmap path");
     assert.match(rendererSource, /const radius = Math\.max\(0\.15 \* view\.zoom, Number\(particle\.radius \|\| 2\) \* fade \* view\.zoom\);/, "emitted circles should shrink linearly with remaining lifetime");
@@ -12247,6 +12259,219 @@ function testEnemyProjectileVisualLanguageRendererContract() {
 }
 
 
+
+function runUndeathPedestalAvoidanceScenario({ useAiAttack = false } = {}) {
+    const catalog = JSON.parse(readFileSync("./assets/ct_enemies_001.json", "utf8"));
+    const state = createInitialGameState({
+        tuning: {
+            maxDebugEvents: 240,
+            playerDamageInvulnerabilitySeconds: 0.1,
+            healthRegenDelay: 99
+        }
+    });
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.world.segments = [{ id: "floor", kind: "walkable", x1: -400, y1: 600, x2: 1400, y2: 600 }];
+    const pedestal = { id: "pedestal", kind: "blockable", x: 500, y: 460, w: 100, h: 140 };
+    state.world.solids = [];
+    state.world.collisionPolygons = [];
+
+    applyEditorLevelToWorld(state, {
+        levelId: useAiAttack ? "skeleton_caster_pedestal_ai_test" : "skeleton_caster_pedestal_launch_test",
+        testPlayerStart: { x: 920, y: 600 },
+        entities: [enemyEntityFromDefinition(catalog, "enemy_002", {
+            id: useAiAttack ? "skeleton_caster_ai_test" : "skeleton_caster_launch_test",
+            x: 120,
+            y: 600,
+            homeX: 120,
+            homeY: 600,
+            facing: 1,
+            strategy: useAiAttack ? "sentry" : "hunter",
+            patrolDistance: 0,
+            awarenessRange: 1200,
+            awarenessViewHalfAngle: 90,
+            preferredAttackMinRange: 0,
+            projectileCooldown: 0,
+            attackCooldown: 0
+        })]
+    });
+    state.world.solids = [pedestal];
+    state.world.segments = [{ id: "floor", kind: "walkable", x1: -400, y1: 600, x2: 1400, y2: 600 }];
+    state.world.collisionPolygons = [];
+    applyCharacterCombatProfiles(state, new Map([["ct_char_enemy_002", {
+        attackDuration: 0.62,
+        projectiles: [{
+            partName: "undeathOrb",
+            projectileId: "undeathOrb",
+            frameId: "undeathOrb",
+            animationSlot: "attack",
+            launchType: "pathing_lo",
+            releaseTime: 0.413333,
+            localX: 180,
+            localY: -207.77879481245526,
+            localRotation: 0,
+            localScale: 0.9999972050661625,
+            rigScale: 0.5,
+            projectileKind: "undeathOrb"
+        }]
+    }]]));
+
+    const enemyId = useAiAttack ? "skeleton_caster_ai_test" : "skeleton_caster_launch_test";
+    const enemy = state.enemies.find((item) => item.id === enemyId);
+    assert.ok(enemy, "test fixture should create a Skeleton Caster enemy");
+    state.player.currentTransform.x = 920;
+    state.player.currentTransform.y = 600;
+    state.player.shownTransform.x = 920;
+    state.player.shownTransform.y = 600;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    state.player.visible = true;
+    state.health.invulnerabilityTimer = 0;
+    state.health.contactInvulnerabilityTimer = 0;
+
+    let projectile = null;
+    let attackStarted = false;
+    if (useAiAttack) {
+        for (let frame = 0; frame < 180 && !projectile; frame += 1) {
+            stepSimulation(state, createInputFrame(), FIXED_DT);
+            attackStarted = attackStarted || state.debug.lastEvents.some((event) => event.type === "ENEMY_ATTACK_STARTED" && event.enemyId === enemy.id);
+            projectile = state.projectiles.find((item) => item.owner === "enemy" && item.enemyId === enemy.id);
+        }
+        assert.equal(attackStarted, true, "Skeleton Caster obstacle fixture should enter its ranged attack state");
+        assert.ok(projectile, "Skeleton Caster obstacle fixture should release an undeath orb through the normal AI attack path");
+    } else {
+        projectile = launchCharacterEnemyProjectile(state, enemy);
+        assert.ok(projectile, "fixture should launch a Skeleton Caster projectile");
+    }
+    assert.equal(projectile.projectileKind, "undeathOrb", "fixture should launch the Skeleton Caster undeath orb");
+    assert.equal(projectile.launchType, "pathing_lo", "fixture should preserve the obstacle-aware pathing launch type");
+    projectile.debugGuidanceCapture = true;
+    projectile.debugGuidanceTraceLimit = 180;
+
+    const spawnY = projectile.currentTransform.y;
+    const startHealth = state.health.amount;
+    let hitFrame = -1;
+    let clearedPedestalAboveTop = false;
+    let steeredUpward = false;
+    let sampleAfterClearing = null;
+    let impactKind = null;
+    let lastDistanceAfterClear = Infinity;
+    let turnedBackTowardWizard = false;
+    let minY = spawnY;
+    let maxX = projectile.currentTransform.x;
+    let finalSample = { x: projectile.currentTransform.x, y: projectile.currentTransform.y };
+
+    for (let frame = 1; frame <= 300; frame += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        const activeProjectile = state.projectiles.find((item) => item.id === projectile.id);
+        const playerRect = getPlayerRect(state);
+        if (activeProjectile) {
+            const x = activeProjectile.currentTransform.x;
+            const y = activeProjectile.currentTransform.y;
+            minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x);
+            finalSample = { x, y };
+            steeredUpward = steeredUpward || y < spawnY - 24;
+            const overlapsPedestalX = x >= pedestal.x - activeProjectile.radius && x <= pedestal.x + pedestal.w + activeProjectile.radius;
+            if (overlapsPedestalX && y <= pedestal.y - activeProjectile.radius + 2) {
+                clearedPedestalAboveTop = true;
+            }
+            if (x > pedestal.x + pedestal.w + activeProjectile.radius) {
+                const distanceToPlayerRect = distancePointToRect(x, y, playerRect);
+                if (!sampleAfterClearing) {
+                    sampleAfterClearing = { frame, x, y, distanceToPlayerRect };
+                }
+                if (distanceToPlayerRect < lastDistanceAfterClear - 0.5) {
+                    turnedBackTowardWizard = true;
+                }
+                lastDistanceAfterClear = Math.min(lastDistanceAfterClear, distanceToPlayerRect);
+            }
+        }
+        if (state.health.amount < startHealth) {
+            hitFrame = frame;
+            impactKind = activeProjectile?.impactKind || state.debug.lastEvents.find((event) => event.type === "PLAYER_DAMAGED")?.source || "player";
+            break;
+        }
+        const projectileImpact = state.debug.lastEvents.find((event) => event.type === "PROJECTILE_IMPACTED" && event.projectileId === projectile.id);
+        if (projectileImpact && projectileImpact.impactKind) {
+            impactKind = projectileImpact.impactKind;
+        }
+    }
+
+    return {
+        impactKind,
+        hitFrame,
+        steeredUpward,
+        clearedPedestalAboveTop,
+        sampleAfterClearing,
+        turnedBackTowardWizard,
+        minY,
+        maxX,
+        spawnY,
+        finalSample,
+        guidanceTrace: Array.isArray(projectile.debugGuidanceTrace) ? projectile.debugGuidanceTrace : []
+    };
+}
+
+
+function summarizeGuidanceTrace(trace) {
+    if (!Array.isArray(trace) || !trace.length) return "no-guidance-trace";
+    const first = trace.slice(0, 6).map((sample, index) => ({
+        step: index,
+        time: Number(sample.time || 0).toFixed(3),
+        projectile: `${Number(sample.projectileX || 0).toFixed(1)},${Number(sample.projectileY || 0).toFixed(1)}`,
+        los: !!sample.hasLineOfSightToWizard,
+        targetDistance: Number(sample.targetDistance || 0).toFixed(1),
+        directClear: Number(sample.directClearDistance || 0).toFixed(1),
+        forward: Number(sample.forwardClearDistance || 0).toFixed(1),
+        left: Number(sample.leftClearDistance || 0).toFixed(1),
+        right: Number(sample.rightClearDistance || 0).toFixed(1),
+        leftBias: Number(sample.leftBias || 0).toFixed(1),
+        rightBias: Number(sample.rightBias || 0).toFixed(1),
+        decision: sample.decision,
+        currentHeadingDeg: Number(sample.currentHeadingDeg || 0).toFixed(1),
+        targetHeadingDeg: Number(sample.targetHeadingDeg || 0).toFixed(1),
+        chosenHeadingDeg: Number(sample.chosenHeadingDeg || 0).toFixed(1)
+    }));
+    const last = trace.slice(-4).map((sample, offset) => ({
+        stepFromEnd: trace.length - 4 + offset,
+        time: Number(sample.time || 0).toFixed(3),
+        projectile: `${Number(sample.projectileX || 0).toFixed(1)},${Number(sample.projectileY || 0).toFixed(1)}`,
+        los: !!sample.hasLineOfSightToWizard,
+        targetDistance: Number(sample.targetDistance || 0).toFixed(1),
+        directClear: Number(sample.directClearDistance || 0).toFixed(1),
+        forward: Number(sample.forwardClearDistance || 0).toFixed(1),
+        left: Number(sample.leftClearDistance || 0).toFixed(1),
+        right: Number(sample.rightClearDistance || 0).toFixed(1),
+        leftBias: Number(sample.leftBias || 0).toFixed(1),
+        rightBias: Number(sample.rightBias || 0).toFixed(1),
+        decision: sample.decision,
+        currentHeadingDeg: Number(sample.currentHeadingDeg || 0).toFixed(1),
+        targetHeadingDeg: Number(sample.targetHeadingDeg || 0).toFixed(1),
+        chosenHeadingDeg: Number(sample.chosenHeadingDeg || 0).toFixed(1)
+    }));
+    return JSON.stringify({ first, last, samples: trace.length });
+}
+
+function testSkeletonCasterPathingProjectileAvoidsPedestalAndHitsWizard() {
+    const result = runUndeathPedestalAvoidanceScenario({ useAiAttack: false });
+    assert.equal(result.steeredUpward, true, `undeath orb should steer upward instead of flying flat into the pedestal (spawnY ${result.spawnY.toFixed(2)}, minY ${result.minY.toFixed(2)}, maxX ${result.maxX.toFixed(2)}, impactKind ${result.impactKind || "none"}, guidance ${summarizeGuidanceTrace(result.guidanceTrace)})`);
+    assert.equal(result.clearedPedestalAboveTop, true, `undeath orb should pass above the pedestal while its x-position overlaps the obstruction (minY ${result.minY.toFixed(2)}, final ${result.finalSample.x.toFixed(2)},${result.finalSample.y.toFixed(2)}, impactKind ${result.impactKind || "none"})`);
+    assert.ok(result.sampleAfterClearing, `undeath orb should survive past the pedestal instead of dying on the obstruction (maxX ${result.maxX.toFixed(2)}, impactKind ${result.impactKind || "none"})`);
+    assert.equal(result.turnedBackTowardWizard, true, `after clearing the pedestal, the undeath orb should bend back toward the wizard (sampleAfterClearing ${result.sampleAfterClearing ? JSON.stringify(result.sampleAfterClearing) : "none"})`);
+    assert.ok(result.hitFrame >= 0, `undeath orb should eventually hit the wizard after steering around the pedestal (impactKind: ${result.impactKind || "none"}, maxX ${result.maxX.toFixed(2)})`);
+}
+
+
+function testSkeletonCasterAttackPathAvoidsPedestalAndHitsWizard() {
+    const result = runUndeathPedestalAvoidanceScenario({ useAiAttack: true });
+    assert.equal(result.steeredUpward, true, `AI-fired undeath orb should steer upward instead of flying flat into the pedestal (spawnY ${result.spawnY.toFixed(2)}, minY ${result.minY.toFixed(2)}, maxX ${result.maxX.toFixed(2)}, impactKind ${result.impactKind || "none"}, guidance ${summarizeGuidanceTrace(result.guidanceTrace)})`);
+    assert.equal(result.clearedPedestalAboveTop, true, `AI-fired undeath orb should pass above the pedestal while its x-position overlaps the obstruction (minY ${result.minY.toFixed(2)}, final ${result.finalSample.x.toFixed(2)},${result.finalSample.y.toFixed(2)}, impactKind ${result.impactKind || "none"})`);
+    assert.ok(result.sampleAfterClearing, `AI-fired undeath orb should survive past the pedestal instead of dying on the obstruction (maxX ${result.maxX.toFixed(2)}, impactKind ${result.impactKind || "none"})`);
+    assert.equal(result.turnedBackTowardWizard, true, `after clearing the pedestal, the AI-fired undeath orb should bend back toward the wizard (sampleAfterClearing ${result.sampleAfterClearing ? JSON.stringify(result.sampleAfterClearing) : "none"})`);
+    assert.ok(result.hitFrame >= 0, `AI-fired undeath orb should eventually hit the wizard after steering around the pedestal (impactKind: ${result.impactKind || "none"}, maxX ${result.maxX.toFixed(2)})`);
+}
 
 function testRocketLaunchDoesNotFalseHitUnrelatedAtlasArea() {
     const level = JSON.parse(readFileSync("./assets/level_t01.json", "utf8"));
@@ -14477,6 +14702,8 @@ const tests = [
     ["enemy projectile impact fx remain economical", testEnemyProjectileImpactFxRemainEconomical],
     ["enemy projectile player hit carries small wizard accent flag", testEnemyProjectilePlayerHitCarriesSmallWizardAccentFlag],
     ["enemy projectile visual language renderer contract", testEnemyProjectileVisualLanguageRendererContract],
+    ["Skeleton Caster pathing projectile avoids pedestal and hits wizard", testSkeletonCasterPathingProjectileAvoidsPedestalAndHitsWizard],
+    ["Skeleton Caster AI attack avoids pedestal and hits wizard", testSkeletonCasterAttackPathAvoidsPedestalAndHitsWizard],
     ["rocket launch ignores unrelated atlas areas", testRocketLaunchDoesNotFalseHitUnrelatedAtlasArea],
     ["manual reset", testReset]
 ];

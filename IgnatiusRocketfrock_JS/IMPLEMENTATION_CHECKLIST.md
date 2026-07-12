@@ -416,7 +416,7 @@ Goal: turn the current rocket behavior into a flexible weapon system.
 * [x] Use an explicit user-authored projectile release time while showing the part's final keyed time as an editor reference.
 * [x] Transfer the sampled projectile world transform from animation ownership to simulation ownership at release.
 * [x] Support deterministic `ballistic`, `straight`, `homing_lo`, and `homing_hi` launch behaviour.
-* [ ] Add true deterministic obstacle planning for `pathing_lo` and `pathing_hi`.
+* [x] Add deterministic obstacle-aware steering for `pathing_lo` and `pathing_hi` using forward probes and clearance-biased turn selection.
 * [ ] Add independent character/enemy damage fields for projectile, melee, and touch/contact damage.
 * [ ] Add quick launch mode.
 * [ ] Add held aimed launch mode.
@@ -4569,3 +4569,21 @@ Manual profiling workflow: open the game, run `window.__rocketfrockDev.profiler.
 - Recording JSON includes the initial game state, per-frame timing, input, player position, camera visible rectangle, and visible enemy/projectile summaries.
 - Playback restores the initial state, feeds recorded frame deltas and inputs into the existing fixed-step loop, and supports pause-at-time resume by key press.
 - Added `gameplay recording and playback tooling` to the shared test gate.
+
+
+## Revision 512 skeleton-caster projectile visibility checklist
+
+- [x] Keep Skeleton Caster projectile simulation, damage, targeting, pathing, lifetime, and collision unchanged.
+- [x] Draw an explicit green undeath projectile core in Canvas2D.
+- [x] Draw the same core through the direct WebGL enemy-projectile path.
+- [x] Preserve emitted bubble trails and trail-fading behavior after impact.
+- [x] Prewarm the `undeathBubble` WebGL particle sprite with the other direct-effect sprites.
+- [x] Extend renderer contract tests for Canvas2D and WebGL undeath projectile visibility.
+- [x] Synchronize the packaged revision to 512.
+
+## Revision 520 checks
+
+- Verify Skeleton Caster undeath shots remain bubble-trail-only in Canvas2D and WebGL; do not reintroduce a separate large projectile core.
+- Keep `pathing_lo` and `pathing_hi` guidance portable in `src/core/simulation.js`; obstacle probes must use world collision queries only.
+- The pedestal regression fixtures must keep the obstruction in `state.world.solids` after applying the synthetic level.
+- `pathing_lo` shots should avoid a ground pedestal by steering upward, clear the obstruction, return toward Ignatius, and eventually hit him in both direct-launch and AI-attack tests.

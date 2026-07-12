@@ -4227,3 +4227,18 @@ Implemented launch controls:
 - `?playback_pause=120.2` pauses playback at the first recorded frame at or beyond 120.2 seconds until any key is pressed.
 
 The development tool strip now has `Recording: Off/On` and `Playback JSON…` controls. Recording stops and opens a save/download path when toggled off, and automatically stops at a level-transition request before loading the next level. Playback deliberately blocks live level transitions so a parity recording remains a bounded visual sequence instead of drifting into unrecorded play.
+
+
+## Revision 512 skeleton-caster projectile visibility
+
+A reported combat regression made Skeleton Caster shots still collide with Ignatius while their green undeath-bubble projectile visual could disappear, most noticeably on the current WebGL-first path. Revision 512 fixes this immediately in presentation code rather than changing enemy AI, projectile physics, damage, timing, targeting, or collision.
+
+The renderer now treats the undeath orb as two visible pieces: emitted bubble particles for the trail, plus an explicit green bubble core at the projectile head. Both Canvas2D and WebGL draw that core, so the projectile remains visible even on frames where the transient trail particle list has no live sample. WebGL startup prewarming also pins the `undeathBubble` particle sprite alongside the other direct-effect sprites so the skeleton-caster visual source is prepared before combat. The existing trail emission, lingering trail-fading behavior after impact, and low-quality density reduction remain unchanged.
+
+## Revision 520 undeath-orb pathing rewrite completion
+
+The revision 517-519 pedestal regressions showed that the new obstacle-aware undeath-orb guidance still behaved too much like ordinary homing. The test fixture also originally placed the pedestal before the helper reapplied the level, which allowed the line-of-sight probe to miss the intended obstruction. Revision 520 fixes both the fixture and the runtime guidance.
+
+The undeath orb now uses a real blocked-path line-of-sight probe to Ignatius, separate short-range danger probes, and a persistent avoidance-side choice. When the direct target path is blocked, the guidance uses the impact position to choose an escape side, preferring upward movement around ground pedestals unless the opposite side is decisively safer. Avoidance steers relative to the target direction instead of recursively rotating the current velocity, so the projectile bends around the obstacle rather than spiraling away from the fight.
+
+The temporary large undeath projectile core is removed again. Skeleton Caster shots are intentionally represented by their green bubble trail only, while ordinary goblin fireballs keep their authored projectile sprite and fallback glow.

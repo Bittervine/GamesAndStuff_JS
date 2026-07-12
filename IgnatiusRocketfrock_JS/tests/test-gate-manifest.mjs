@@ -33,7 +33,9 @@ export const TEST_SHARDS = Object.freeze({
             "wizard atlas includes dedicated projectile rocket",
             "enemy projectile impact fx remain economical",
             "enemy projectile player hit carries small wizard accent flag",
-            "enemy projectile visual language renderer contract"
+            "enemy projectile visual language renderer contract",
+            "Skeleton Caster pathing projectile avoids pedestal and hits wizard",
+            "Skeleton Caster AI attack avoids pedestal and hits wizard"
     ]),
     "editor-1": Object.freeze([
             "level editor dense stress fixture",

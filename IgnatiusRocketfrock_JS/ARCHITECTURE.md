@@ -2098,3 +2098,16 @@ The experimental WebGL Full-bake path now rejects estimates above 2 GiB of three
 Revision 511 adds `src/browser/gameplay-recording.js` as a browser-adapter diagnostic boundary for parity work. It owns gameplay recording JSON normalization, input-frame snapshots, replay-frame reconstruction, hosted `recordings/*.json` URL normalization, and lightweight per-frame debug snapshots of player, camera viewport, visible enemies, and visible projectiles. Portable simulation remains unchanged: playback feeds ordinary `InputFrame` values and recorded fixed-loop deltas back into the existing browser loop rather than adding file, DOM, or network behavior to `src/core/`.
 
 `src/browser/game-bootstrap.js` owns the launch wiring: `?level=2` loads `level_002` and skips the title screen, `?record=1` starts recording from the initial level state, `?playback=record001.json` loads `recordings/record001.json`, and `?playback_pause=120.2` freezes replay after the first recorded frame at or beyond that recording time until a key press resumes it. The same controls are exposed through the development tool strip and `window.__rocketfrockDev.gameplayRecording` / `window.__rocketfrockDev.gameplayPlayback`. Recording export uses the File System Access API when available and falls back to a normal JSON download.
+
+
+## Revision 512 undeath projectile presentation boundary
+
+Skeleton Caster projectiles remain ordinary portable enemy projectiles in `src/core/simulation.js`: their `projectileKind` is `undeathOrb`, their renderer-facing `kind` remains `enemyFireball`, and `visualStyle: "undeath"` selects the green bubble presentation. Collision, damage, homing/pathing, lifetime, impact, and trail-emission state stay core-owned and unchanged.
+
+`src/presentation/canvas-renderer.js` owns the visual guarantee. Canvas2D and WebGL both render emitted undeath bubbles from the projectile trail and also draw an explicit `undeathBubble` core at the current shown projectile transform. The core is presentation-only and exists to keep the projectile visible even if no transient bubble particle is alive during a particular render frame. WebGL texture prewarming includes this sprite in the resident direct-effect source list, keeping it out of mid-combat first-use uploads.
+
+## Revision 520 undeath-orb steering and trail-only presentation
+
+Revision 520 finalizes the replacement for the old brittle `pathing_lo` projectile behavior in `src/core/simulation.js`. Pathing projectiles remain ordinary fixed-step enemy projectiles, but their desired heading is now selected by a portable obstacle-aware homing helper that performs a true direct blocked-path probe toward the player plus three short danger probes around the current heading. A persistent avoidance side prevents frame-to-frame oscillation, and blocked direct-path impacts bias ground-obstacle escapes upward unless the opposite side has a decisively better clearance score. The helper continues to use the normal homing velocity blend and does not introduce browser or renderer dependencies.
+
+The presentation layer in `src/presentation/canvas-renderer.js` again treats undeath shots as trail-only visuals. Canvas2D and WebGL draw the emitted `undeathBubble` particles at all quality levels, but do not draw a separate large projectile core.
