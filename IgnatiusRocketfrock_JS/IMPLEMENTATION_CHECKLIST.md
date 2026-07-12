@@ -4559,3 +4559,13 @@ Manual profiling workflow: open the game, run `window.__rocketfrockDev.profiler.
 - [x] Update the named frame-delivery regression and keep one primary test-shard owner.
 - [x] Record that the investigated hitch occurs during steady one-direction running, not direction changes.
 - [x] Synchronize the packaged revision to 508.
+
+## Revision 511 checklist
+
+- Added `src/browser/gameplay-recording.js` for gameplay recording schema helpers, hosted playback URL normalization, input snapshots, playback input reconstruction, and per-frame visual debug snapshots.
+- Added `?level=`, `?record=1`, `?playback=`, and `?playback_pause=` browser launch handling in `src/browser/game-bootstrap.js`.
+- Added development toolbar controls for recording and uploading playback JSON.
+- Added developer-console APIs under `window.__rocketfrockDev.gameplayRecording` and `window.__rocketfrockDev.gameplayPlayback`.
+- Recording JSON includes the initial game state, per-frame timing, input, player position, camera visible rectangle, and visible enemy/projectile summaries.
+- Playback restores the initial state, feeds recorded frame deltas and inputs into the existing fixed-step loop, and supports pause-at-time resume by key press.
+- Added `gameplay recording and playback tooling` to the shared test gate.

@@ -39,6 +39,18 @@ import {
 } from "./electron-window-bridge.js";
 import { calculateHudPanelScale } from "./hud-panel-layout.js";
 import { MicroStutterProfiler } from "./micro-stutter-profiler.js";
+import {
+    appendGameplayRecordingFrame,
+    createGameplayRecording,
+    finalizeGameplayRecording,
+    inputFrameFromSnapshot,
+    normalizeGameplayRecording,
+    normalizeLaunchLevelQuery,
+    playbackUrlFromQueryValue,
+    recordingFrameDtSeconds,
+    sanitizeRecordingFilename,
+    snapshotGameplayDebug
+} from "./gameplay-recording.js";
 import { ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER } from "../shared/experimental-renderer-flags.js";
 
 const canvas = document.getElementById("stage");
@@ -66,6 +78,9 @@ const debugPanelButton = document.getElementById("toggle-debug-panel");
 const gameTuningButton = document.getElementById("toggle-game-tuning");
 const helpPanelButton = document.getElementById("toggle-help-panel");
 const microProfilerButton = document.getElementById("toggle-micro-profiler");
+const gameplayRecordingButton = document.getElementById("toggle-gameplay-recording");
+const gameplayPlaybackButton = document.getElementById("load-gameplay-playback");
+const gameplayPlaybackFileInput = document.getElementById("gameplay-playback-file");
 const helpPanel = document.getElementById("help-panel");
 const toolLinks = document.getElementById("tool-links");
 const applyTuningJsonButton = document.getElementById("apply-tuning-json");
@@ -116,15 +131,32 @@ const usePixmapPyramidsStatus = document.getElementById("use-pixmap-pyramids-sta
 const bakingModeRow = document.getElementById("baking-mode-row");
 const bakingModeSelect = document.getElementById("baking-mode-select");
 
-const GAME_REVISION = "510";
+const GAME_REVISION = "511";
 const START_LEVEL_ID = "level_001";
+const launchParams = new URLSearchParams(window.location.search || "");
+const launchLevelId = normalizeLaunchLevelQuery(launchParams.get("level"), START_LEVEL_ID);
+const launchLevelSpecified = launchParams.has("level");
+const launchRecordRequested = ["1", "true", "on", "yes"].includes(String(launchParams.get("record") || "").trim().toLowerCase());
+const launchPlaybackUrl = playbackUrlFromQueryValue(launchParams.get("playback"));
+const launchPlaybackPauseAtSec = finiteNonNegativeNumber(launchParams.get("playback_pause"), null);
 const RESUME_SAVE_STORAGE_KEY = "ignatius_rocketfrock_resume_v1";
 
 let displayedLoadingProgress = 0;
 let activeCaveWindow = normalizeCaveWindow(null);
 let renderer;
 const electronWindowBridge = detectElectronWindowBridge(window);
-let gameState = createInitialGameState({ settings: loadStoredGameSettings(), randomSeed: browserRandomSeed() });
+let launchPlaybackRecording = null;
+if (launchPlaybackUrl) {
+    showLoadingScreen("Loading gameplay recording", 0.01);
+    launchPlaybackRecording = await loadHostedGameplayRecording(launchPlaybackUrl);
+}
+let gameState = launchPlaybackRecording?.initialState
+    ? cloneGameState(launchPlaybackRecording.initialState)
+    : createInitialGameState({
+        settings: loadStoredGameSettings(),
+        randomSeed: launchPlaybackRecording?.initial?.randomSeed || browserRandomSeed()
+    });
+gameState.settings = normalizeGameSettings(gameState.settings);
 const musicDirector = createMusicDirector({ volume: gameState.settings.musicVolume });
 let musicCatalog = normalizeMusicCatalog(null);
 let activeLevelMusic = normalizeLevelMusic(null);
@@ -158,9 +190,11 @@ gamepadHaptics.prime(gameState.debug.lastEvents);
 showLoadingScreen("Loading level data", 0.02);
 await loadEnemyDefinitionCatalog();
 await loadMusicCatalog();
-const loadedBrowserCopy = maybeApplyBrowserCopyLevel();
-if (!loadedBrowserCopy) {
-    await applyRequiredDefaultLevel();
+const loadedBrowserCopy = !launchPlaybackRecording && !launchLevelSpecified && maybeApplyBrowserCopyLevel();
+if (launchPlaybackRecording?.initialState?.world?.levelId) {
+    syncPresentationFromWorldState();
+} else if (!loadedBrowserCopy) {
+    await applyRequiredLevel(launchLevelId);
 }
 setLoadingProgress(0.1, "Level data ready");
 try {
@@ -200,6 +234,12 @@ let levelTransitionLoading = false;
 const tuningSliders = new Map();
 const microStutterProfiler = new MicroStutterProfiler();
 let updateMicroProfilerControls = () => {};
+let updateGameplayRecordingControls = () => {};
+let updateGameplayPlaybackControls = () => {};
+let gameplayRecording = null;
+let gameplayRecordingClockSec = 0;
+let gameplayRecordingFrameIndex = 0;
+let gameplayPlayback = null;
 
 setupTuningControls();
 setupTuningJsonControls();
@@ -209,6 +249,18 @@ setupMinimap();
 setupGameMenuAndSettings();
 setLoadingProgress(1, "Ready");
 showTitleScreen();
+if (launchPlaybackRecording) {
+    await startGameplayPlayback(launchPlaybackRecording, {
+        source: launchPlaybackUrl,
+        pauseAtSec: launchPlaybackPauseAtSec,
+        restoreInitialState: true
+    });
+} else if (launchLevelSpecified || launchRecordRequested) {
+    startGameFromTitle();
+    if (launchRecordRequested) {
+        startGameplayRecording("launch-query");
+    }
+}
 await nextPaint();
 hideLoadingScreen();
 
@@ -219,6 +271,31 @@ function browserRandomSeed() {
         if (seed[0]) return seed[0];
     }
     return (Math.floor(Date.now() ^ performance.now() * 1000) >>> 0) || 0x1a2b3c4d;
+}
+
+function finiteNonNegativeNumber(value, fallback = null) {
+    if (value == null || value === "") return fallback;
+    const n = Number(value);
+    return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+
+async function loadHostedGameplayRecording(url) {
+    try {
+        const response = await fetch(url, { cache: "no-store" });
+        if (!response.ok) {
+            throw new Error(`${response.status}`);
+        }
+        return normalizeGameplayRecording(await response.json());
+    } catch (error) {
+        failStartup(`Gameplay recording could not be loaded: ${url}.`, error);
+    }
+}
+
+function syncPresentationFromWorldState() {
+    activeCaveWindow = normalizeCaveWindow(gameState.world?.caveWindow);
+    activeLevelMusic = normalizeLevelMusic(gameState.world?.music);
+    renderer?.syncCaveWindow(activeCaveWindow);
+    musicDirector?.setTrack(activeLevelMusic.trackId);
 }
 
 function clamp01(value) {
@@ -305,6 +382,222 @@ async function copyMicroStutterProfileToClipboard() {
     }
     await navigator.clipboard.writeText(text);
     return { bytes: text.length, samples: microStutterProfiler.status().capturedFrames };
+}
+
+function startGameplayRecording(source = "manual") {
+    if (gameplayPlayback?.active) {
+        console.warn("Gameplay recording is disabled while playback is active.");
+        return null;
+    }
+    gameplayRecording = createGameplayRecording({
+        revision: GAME_REVISION,
+        levelId: gameState.world?.levelId || START_LEVEL_ID,
+        initialState: cloneGameState(gameState),
+        settings: normalizeGameSettings(gameState.settings),
+        source
+    });
+    gameplayRecordingClockSec = 0;
+    gameplayRecordingFrameIndex = 0;
+    window.__rocketfrockLastGameplayRecording = gameplayRecording;
+    addEvent(gameState, "GAMEPLAY_RECORDING_STARTED", { source, levelId: gameplayRecording.levelId });
+    updateGameplayRecordingControls("Recording gameplay. Click again to stop and save JSON.");
+    return gameplayRecording;
+}
+
+function stopGameplayRecording(reason = "manual", { save = true } = {}) {
+    if (!gameplayRecording) {
+        updateGameplayRecordingControls();
+        return null;
+    }
+    const finished = finalizeGameplayRecording(gameplayRecording, { reason });
+    gameplayRecording = null;
+    gameplayRecordingClockSec = 0;
+    gameplayRecordingFrameIndex = 0;
+    window.__rocketfrockLastGameplayRecording = finished;
+    updateGameplayRecordingControls(`Recording stopped: ${finished.summary.frames} frame${finished.summary.frames === 1 ? "" : "s"}.`);
+    addEvent(gameState, "GAMEPLAY_RECORDING_STOPPED", { reason, frames: finished.summary.frames });
+    if (save) {
+        void saveGameplayRecordingJson(finished);
+    }
+    return finished;
+}
+
+function recordGameplayFrame({ requestedAtMs, callbackArrivalMs, callbackEntryGapMs, rafGapMs, realDt, inputFrame, fixedSteps, accumulatorMs, interpolationBlend }) {
+    if (!gameplayRecording) return;
+    gameplayRecordingClockSec += Math.max(0, Number(realDt) || 0);
+    appendGameplayRecordingFrame(gameplayRecording, {
+        index: gameplayRecordingFrameIndex++,
+        recordingTimeSec: gameplayRecordingClockSec,
+        gameTimeSec: gameState.clock?.time || 0,
+        tick: gameState.clock?.tick || 0,
+        requestedAtMs,
+        callbackArrivalMs,
+        callbackEntryGapMs,
+        rafGapMs,
+        realDtMs: realDt * 1000,
+        fixedSteps,
+        accumulatorMs,
+        interpolationBlend,
+        input: inputFrame,
+        debug: snapshotGameplayDebug(gameState)
+    });
+}
+
+async function saveGameplayRecordingJson(recording) {
+    const safeLevel = sanitizeRecordingFilename(recording?.levelId || START_LEVEL_ID, START_LEVEL_ID).replace(/\.json$/i, "");
+    const filename = sanitizeRecordingFilename(`ignatius_recording_rev${GAME_REVISION}_${safeLevel}_${Date.now()}.json`);
+    const text = JSON.stringify(recording, null, 2);
+    window.__rocketfrockLastGameplayRecordingJson = text;
+    try {
+        if (window.showSaveFilePicker) {
+            const handle = await window.showSaveFilePicker({
+                suggestedName: filename,
+                types: [{
+                    description: "Ignatius gameplay recording",
+                    accept: { "application/json": [".json"] }
+                }]
+            });
+            const writable = await handle.createWritable();
+            await writable.write(text);
+            await writable.close();
+            updateGameplayRecordingControls(`Saved ${recording.summary.frames} recorded frames to ${filename}.`);
+            return { filename, bytes: text.length, method: "file-system-access" };
+        }
+    } catch (error) {
+        console.warn("Gameplay recording save picker failed; falling back to download.", error);
+    }
+    downloadTextFile(filename, text, "application/json");
+    updateGameplayRecordingControls(`Downloaded ${recording.summary.frames} recorded frames as ${filename}.`);
+    return { filename, bytes: text.length, method: "download" };
+}
+
+function downloadTextFile(filename, text, mimeType = "text/plain") {
+    const blob = new Blob([text], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = sanitizeRecordingFilename(filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function createGameplayPlaybackRuntime(recording, { source = "manual", pauseAtSec = null } = {}) {
+    return {
+        active: true,
+        source,
+        recording,
+        frames: recording.frames || [],
+        index: 0,
+        pauseAtSec: Number.isFinite(Number(pauseAtSec)) ? Math.max(0, Number(pauseAtSec)) : null,
+        pauseTriggered: false,
+        pausedForKey: false,
+        lastFrame: null
+    };
+}
+
+async function startGameplayPlayback(recordingLike, { source = "manual", pauseAtSec = null, restoreInitialState = true } = {}) {
+    const recording = normalizeGameplayRecording(recordingLike);
+    if (gameplayRecording) {
+        stopGameplayRecording("playback-started", { save: false });
+    }
+    if (restoreInitialState) {
+        await restoreGameplayPlaybackInitialState(recording);
+    }
+    gameplayPlayback = createGameplayPlaybackRuntime(recording, { source, pauseAtSec });
+    titleScreenActive = false;
+    gameHasStarted = true;
+    input.clear();
+    setGamePaused(false, { clearInput: true });
+    syncTitleScreenUi();
+    syncGameAudioState();
+    addEvent(gameState, "GAMEPLAY_PLAYBACK_STARTED", {
+        source,
+        levelId: recording.levelId,
+        frames: recording.frames.length,
+        pauseAtSec: gameplayPlayback.pauseAtSec
+    });
+    updateGameplayPlaybackControls();
+    updateGameplayRecordingControls("Recording disabled during playback.");
+    return gameplayPlayback;
+}
+
+async function restoreGameplayPlaybackInitialState(recording) {
+    showLoadingScreen("Preparing gameplay playback", 0.04);
+    try {
+        gameState = cloneGameState(recording.initialState);
+        gameState.settings = normalizeGameSettings(gameState.settings);
+        gameState.debug.revision = GAME_REVISION;
+        syncPresentationFromWorldState();
+        setLoadingProgress(0.18, "Loading playback renderer assets");
+        await renderer.ensureEnvironmentAtlases(gameState.world.atlasManifests, {
+            onProgress: ({ progress, label }) => {
+                setLoadingProgress(0.18 + clamp01(progress) * 0.66, label);
+            }
+        });
+        renderer.syncCaveWindow(activeCaveWindow);
+        syncLoadedCharacterCombatProfiles();
+        applyLoadedAtlasCollisions();
+        renderer.syncEnvironmentColorMap(gameState.world.colorMap);
+        renderer.prewarmLevelPresentationCaches?.(gameState.world);
+        accumulator = 0;
+        lastRafNow = performance.now();
+        lastCallbackArrivalNow = performance.now();
+        lastInputFrame = createInputFrame();
+        levelTransitionLoading = false;
+        setLoadingProgress(1, "Playback ready");
+        await nextPaint();
+    } finally {
+        hideLoadingScreen();
+    }
+}
+
+function takeGameplayPlaybackFrame() {
+    if (!gameplayPlayback?.active) return { kind: "inactive" };
+    if (gameplayPlayback.pausedForKey) return { kind: "paused" };
+    const frame = gameplayPlayback.frames[gameplayPlayback.index];
+    if (!frame) {
+        stopGameplayPlayback("complete");
+        return { kind: "complete" };
+    }
+    gameplayPlayback.index += 1;
+    gameplayPlayback.lastFrame = frame;
+    if (gameplayPlayback.pauseAtSec != null && !gameplayPlayback.pauseTriggered && Number(frame.recordingTimeSec) >= gameplayPlayback.pauseAtSec) {
+        gameplayPlayback.pauseTriggered = true;
+        gameplayPlayback.pausedForKey = true;
+        updateGameplayPlaybackControls(`Playback paused at ${Number(frame.recordingTimeSec).toFixed(3)}s. Press any key to continue.`);
+    }
+    return { kind: "frame", frame };
+}
+
+function resumeGameplayPlaybackFromPause() {
+    if (!gameplayPlayback?.active || !gameplayPlayback.pausedForKey) return false;
+    gameplayPlayback.pausedForKey = false;
+    updateGameplayPlaybackControls();
+    return true;
+}
+
+function stopGameplayPlayback(reason = "manual") {
+    if (!gameplayPlayback) {
+        updateGameplayPlaybackControls();
+        return false;
+    }
+    const framesPlayed = gameplayPlayback.index;
+    const levelId = gameplayPlayback.recording?.levelId || gameState.world?.levelId || START_LEVEL_ID;
+    gameplayPlayback = null;
+    if (gameState.story) {
+        gameState.story.levelTransitionRequest = null;
+    }
+    addEvent(gameState, "GAMEPLAY_PLAYBACK_STOPPED", { reason, levelId, framesPlayed });
+    updateGameplayPlaybackControls(`Playback ${reason}. Played ${framesPlayed} frame${framesPlayed === 1 ? "" : "s"}.`);
+    updateGameplayRecordingControls();
+    return true;
+}
+
+async function loadGameplayRecordingFromFile(file) {
+    const text = await file.text();
+    return normalizeGameplayRecording(text);
 }
 
 function setLoadingProgress(progress, label = "Loading game assets") {
@@ -527,6 +820,12 @@ async function fetchOptionalLevel(levelId) {
 function processLevelTransitionRequest() {
     const request = gameState.story?.levelTransitionRequest;
     if (!request || levelTransitionLoading) return;
+    if (gameplayPlayback?.active) {
+        return;
+    }
+    if (gameplayRecording) {
+        stopGameplayRecording("level-transition");
+    }
     gameState.story.levelTransitionRequest = null;
     levelTransitionLoading = true;
     void loadRequestedLevel(request).finally(() => {
@@ -691,10 +990,20 @@ function setupTitleScreen() {
         void resumeGameFromTitle();
     });
 
+    window.addEventListener("keydown", handleGameplayPlaybackResumeKeydown, { capture: true, passive: false });
     window.addEventListener("keydown", handleTitleStartKeydown, { capture: true, passive: false });
     window.addEventListener("pointerdown", handleTitleStartPointer, { capture: true, passive: false });
     window.addEventListener("mousedown", handleTitleStartPointer, { capture: true, passive: false });
     window.addEventListener("touchstart", handleTitleStartPointer, { capture: true, passive: false });
+}
+
+function handleGameplayPlaybackResumeKeydown(event) {
+    if (!gameplayPlayback?.pausedForKey) {
+        return;
+    }
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    resumeGameplayPlaybackFromPause();
 }
 
 function handleTitleStartKeydown(event) {
@@ -1415,13 +1724,19 @@ async function exitToTitleFromMenu() {
 
 async function restartCurrentLevel() {
     const options = arguments[0] && typeof arguments[0] === "object" ? arguments[0] : {};
-    const targetLevelId = normalizedLevelId(options.levelId || START_LEVEL_ID, START_LEVEL_ID);
+    const targetLevelId = normalizedLevelId(options.levelId || gameState.world?.levelId || START_LEVEL_ID, START_LEVEL_ID);
     const useBrowserCopy = options.useBrowserCopy !== false;
     showLoadingScreen(options.loadingLabel || "Restarting level", 0.04);
     setGamePaused(true, { clearInput: true });
     try {
         const preservedSettings = normalizeGameSettings(gameState.settings);
         gameState = createInitialGameState({ settings: preservedSettings, randomSeed: browserRandomSeed() });
+        if (gameplayRecording) {
+            stopGameplayRecording("level-restart", { save: false });
+        }
+        if (gameplayPlayback) {
+            stopGameplayPlayback("level-restart");
+        }
         gameState.debug.revision = GAME_REVISION;
         addEvent(gameState, `BUILD_REVISION_${GAME_REVISION}`);
         activeCaveWindow = normalizeCaveWindow(null);
@@ -1784,6 +2099,33 @@ function setupPanelToggleButtons() {
         }
     };
 
+    updateGameplayRecordingControls = (message = "") => {
+        if (!gameplayRecordingButton) return;
+        const active = Boolean(gameplayRecording);
+        const disabled = Boolean(gameplayPlayback?.active);
+        gameplayRecordingButton.textContent = `Recording: ${active ? "On" : "Off"}`;
+        gameplayRecordingButton.setAttribute("aria-pressed", active ? "true" : "false");
+        gameplayRecordingButton.disabled = disabled;
+        gameplayRecordingButton.title = message || (disabled
+            ? "Gameplay recording is disabled while playback is active."
+            : active
+                ? "Click to stop gameplay recording and save JSON."
+                : "Click to start gameplay recording from the current state.");
+    };
+
+    updateGameplayPlaybackControls = (message = "") => {
+        if (!gameplayPlaybackButton) return;
+        const active = Boolean(gameplayPlayback?.active);
+        const paused = Boolean(gameplayPlayback?.pausedForKey);
+        gameplayPlaybackButton.textContent = active
+            ? `Playback: ${paused ? "Paused" : "On"}`
+            : "Playback JSON…";
+        gameplayPlaybackButton.setAttribute("aria-pressed", active ? "true" : "false");
+        gameplayPlaybackButton.title = message || (active
+            ? "Playback is active. Press any key when paused, or use the developer console to stop playback."
+            : "Load a gameplay recording JSON and replay it visually.");
+    };
+
     const copyCurrentMicroProfile = (message = "Copying micro-stutter profile to the clipboard…") => {
         updateMicroProfilerControls(message);
         copyMicroStutterProfileToClipboard()
@@ -1845,12 +2187,43 @@ function setupPanelToggleButtons() {
     });
 
 
+    gameplayRecordingButton?.addEventListener("click", () => {
+        if (gameplayRecording) {
+            stopGameplayRecording("button");
+            return;
+        }
+        startGameplayRecording("button");
+    });
+
+    gameplayPlaybackButton?.addEventListener("click", () => {
+        if (gameplayPlayback?.active) {
+            stopGameplayPlayback("button");
+            return;
+        }
+        gameplayPlaybackFileInput?.click();
+    });
+
+    gameplayPlaybackFileInput?.addEventListener("change", () => {
+        const file = gameplayPlaybackFileInput.files?.[0] || null;
+        gameplayPlaybackFileInput.value = "";
+        if (!file) return;
+        loadGameplayRecordingFromFile(file)
+            .then((recording) => startGameplayPlayback(recording, { source: file.name, restoreInitialState: true }))
+            .catch((error) => {
+                console.warn("Gameplay playback file could not be loaded.", error);
+                showGameNotice(`Could not load gameplay playback JSON.\n\n${error.message}`, { okText: "OK" });
+            });
+    });
+
+
     updateAssetGuides();
     updatePuppetGuide();
     updateDebugPanel();
     updateGameTuning();
     updateHelpPanel();
     updateMicroProfilerControls();
+    updateGameplayRecordingControls();
+    updateGameplayPlaybackControls();
     syncDevelopmentToolVisibility();
     syncStaticBakeRendererSetting();
 }
@@ -1874,7 +2247,8 @@ function frame(now) {
     } else {
         }
     const rafGapMs = Math.max(0, now - lastRafNow);
-    const realDt = Math.min(0.1, callbackEntryGapMs / 1000);
+    const measuredRealDt = Math.min(0.1, callbackEntryGapMs / 1000);
+    let realDt = measuredRealDt;
     lastRafNow = now;
     let profileAfterInputMs = profileStartMs;
     let profileBeforeSimulationMs = profileStartMs;
@@ -1883,17 +2257,26 @@ function frame(now) {
     let profileAfterRenderMs = profileStartMs;
     let profileAfterHudMs = profileStartMs;
 
-    let inputFrame = input.sample({ consumeGameplayEdges: false });
-    if (titleScreenActive && !isGameMenuOpen() && titleStartRequested(inputFrame)) {
-        startGameFromTitle();
-        // Consume the title gesture until the physical gamepad control is released.
-        // Clearing the input alone would otherwise turn a held A button into a new
-        // jump edge on the following animation frame.
-        input.suppressJumpUntilRelease();
-        inputFrame = createInputFrame();
-    }
-    if (!isGameMenuOpen() && !titleScreenActive) {
-        handleDebugInput(inputFrame);
+    let inputFrame = createInputFrame();
+    const playbackResult = gameplayPlayback?.active ? takeGameplayPlaybackFrame() : { kind: "inactive" };
+    if (playbackResult.kind === "frame") {
+        inputFrame = inputFrameFromSnapshot(playbackResult.frame.input);
+        realDt = recordingFrameDtSeconds(playbackResult.frame);
+    } else if (playbackResult.kind === "paused" || playbackResult.kind === "complete") {
+        realDt = 0;
+    } else {
+        inputFrame = input.sample({ consumeGameplayEdges: false });
+        if (titleScreenActive && !isGameMenuOpen() && titleStartRequested(inputFrame)) {
+            startGameFromTitle();
+            // Consume the title gesture until the physical gamepad control is released.
+            // Clearing the input alone would otherwise turn a held A button into a new
+            // jump edge on the following animation frame.
+            input.suppressJumpUntilRelease();
+            inputFrame = createInputFrame();
+        }
+        if (!isGameMenuOpen() && !titleScreenActive) {
+            handleDebugInput(inputFrame);
+        }
     }
     syncGameAudioState();
     const viewportMetrics = renderer.getViewportMetrics?.();
@@ -1924,8 +2307,9 @@ function frame(now) {
     if (profileEnabled) profileAfterSimulationMs = performance.now();
 
     lastInputFrame = inputFrame;
-    gamepadHaptics.update(gameState, inputFrame);
-    processLevelTransitionRequest();
+    if (!gameplayPlayback?.active) {
+        gamepadHaptics.update(gameState, inputFrame);
+    }
     const presentationBlend = gameState.debug.paused
         ? 1
         : clamp01(accumulator / FIXED_DT);
@@ -1933,6 +2317,18 @@ function frame(now) {
     if (profileEnabled) profileAfterPostSimulationMs = performance.now();
     renderer.render(gameState, inputFrame, realDt);
     if (profileEnabled) profileAfterRenderMs = performance.now();
+    recordGameplayFrame({
+        requestedAtMs: now,
+        callbackArrivalMs: callbackArrivalNow,
+        callbackEntryGapMs,
+        rafGapMs,
+        realDt,
+        inputFrame,
+        fixedSteps: safety,
+        accumulatorMs: accumulator * 1000,
+        interpolationBlend: presentationBlend
+    });
+    processLevelTransitionRequest();
     updateHud();
     if (profileEnabled) profileAfterHudMs = performance.now();
     updateDebugText();
@@ -2482,6 +2878,51 @@ window.__rocketfrockDev = {
     },
     getInputEvents(limit = 20) {
         return input.getRecentEvents(limit);
+    },
+    gameplayRecording: {
+        start(source = "dev-console") {
+            return startGameplayRecording(source);
+        },
+        stop(reason = "dev-console") {
+            return stopGameplayRecording(reason);
+        },
+        status() {
+            return {
+                recording: Boolean(gameplayRecording),
+                frames: gameplayRecording?.frames?.length || 0,
+                playback: Boolean(gameplayPlayback?.active),
+                playbackPaused: Boolean(gameplayPlayback?.pausedForKey),
+                playbackIndex: gameplayPlayback?.index || 0,
+                playbackFrames: gameplayPlayback?.frames?.length || 0
+            };
+        },
+        export() {
+            return gameplayRecording ? JSON.stringify(gameplayRecording, null, 2) : window.__rocketfrockLastGameplayRecordingJson || "";
+        },
+        save() {
+            const recording = gameplayRecording || window.__rocketfrockLastGameplayRecording;
+            return recording ? saveGameplayRecordingJson(finalizeGameplayRecording(recording, { reason: "dev-console-save" })) : null;
+        }
+    },
+    gameplayPlayback: {
+        async start(recording, options = {}) {
+            return startGameplayPlayback(recording, { source: "dev-console", restoreInitialState: true, ...options });
+        },
+        stop(reason = "dev-console") {
+            return stopGameplayPlayback(reason);
+        },
+        resume() {
+            return resumeGameplayPlaybackFromPause();
+        },
+        status() {
+            return {
+                active: Boolean(gameplayPlayback?.active),
+                pausedForKey: Boolean(gameplayPlayback?.pausedForKey),
+                index: gameplayPlayback?.index || 0,
+                frames: gameplayPlayback?.frames?.length || 0,
+                source: gameplayPlayback?.source || ""
+            };
+        }
     },
     profiler: {
         start(options = {}) {

@@ -29,6 +29,7 @@ export const TEST_SHARDS = Object.freeze({
             "rocket projectile renderer exists",
             "tiled bake profiler diagnostics",
             "frame-delivery diagnostics",
+            "gameplay recording and playback tooling",
             "wizard atlas includes dedicated projectile rocket",
             "enemy projectile impact fx remain economical",
             "enemy projectile player hit carries small wizard accent flag",

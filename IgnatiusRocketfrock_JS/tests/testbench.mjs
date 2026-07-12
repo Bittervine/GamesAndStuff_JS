@@ -62,6 +62,18 @@ import {
 } from "../src/shared/enemy-scale-data.js";
 import { GAMEPAD_ACTIVITY_TIMEOUT_SECONDS, RocketfrockInput } from "../src/browser/browser-input.js";
 import { MicroStutterProfiler } from "../src/browser/micro-stutter-profiler.js";
+import {
+    appendGameplayRecordingFrame,
+    createGameplayRecording,
+    finalizeGameplayRecording,
+    GAMEPLAY_RECORDING_SCHEMA,
+    inputFrameFromSnapshot,
+    normalizeGameplayRecording,
+    normalizeLaunchLevelQuery,
+    playbackUrlFromQueryValue,
+    snapshotGameplayDebug,
+    snapshotGameplayInput
+} from "../src/browser/gameplay-recording.js";
 import { calculateHudPanelScale } from "../src/browser/hud-panel-layout.js";
 import { GamepadHaptics, GAMEPAD_HAPTIC_PATTERNS } from "../src/browser/gamepad-haptics.js";
 import {
@@ -9353,10 +9365,10 @@ function testRocketPowerUpArsenal() {
     const characterEditorSource = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 510<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(characterEditorSource, /Puppet Forge <small>rev 510<\/small>/, "Puppet Forge should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 511<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(characterEditorSource, /Puppet Forge <small>rev 511<\/small>/, "Puppet Forge should display the packaged revision");
     const assetEditorSource = readFileSync(new URL("../asset-editor.html", import.meta.url), "utf8");
-    assert.match(assetEditorSource, /Asset Tool <small>rev 510<\/small>/, "Asset Tool should display the packaged revision");
+    assert.match(assetEditorSource, /Asset Tool <small>rev 511<\/small>/, "Asset Tool should display the packaged revision");
     assert.match(assetEditorSource, /id="atlas-numbered-select"[\s\S]*id="load-numbered-atlas"[\s\S]*id="load-local"[\s\S]*id="save-local"[\s\S]*id="quick-save-json"/, "Asset Tool should keep atlas loading and save/export controls together in the Files panel");
     assert.ok(!assetEditorSource.includes("Custom atlas image") && !assetEditorSource.includes("Custom JSON"), "Asset Tool should retire the visible custom import pickers from the primary Files panel");
     assert.doesNotMatch(assetEditorSource, /load-default-image|load-default-json/, "Asset Tool should retire the hard-coded at_atlas_001 load buttons");
@@ -9389,7 +9401,7 @@ function testRocketPowerUpArsenal() {
     assert.equal(editorSource.includes('id="canvas-renderer-baseline"'), false, "the Level Editor should no longer advertise the posterity-only Canvas baseline");
     assert.equal(editorSource.includes("openCanvasRendererBaseline"), false, "the removed baseline link should leave no dormant click handler");
     assert.equal(editorSource.includes("Editor 2 lab"), false, "the Level Editor should not link to the removed Editor 2 lab");
-    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 510") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
+    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 511") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
     assert.ok(baselineSource.includes("applyEditorLevelToWorld") && baselineSource.includes("preferWebGL2: false") && baselineSource.includes("setViewOverride"), "the retained baseline should still convert the authored level and use the ordinary Canvas2D game renderer with an editor camera override");
     assert.ok(editorPlaywrightBenchmark.includes("benchmark_baseline") && editorPlaywrightBenchmark.includes("benchmark_editor") && editorPlaywrightBenchmark.includes("editorToBaselineCadenceRatio"), "the optional Playwright probe should compare the loaded baseline and editor rather than source-only timings");
     assert.ok(editorPlaywrightBenchmark.includes("bodyScrollWidth") && editorPlaywrightBenchmark.includes("stageBacking") && editorPlaywrightBenchmark.includes("overlayBacking"), "the Playwright probe should detect viewport overflow and stage/overlay size divergence");
@@ -9399,7 +9411,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(rendererSource.includes("backingPixelsPerCssPixel") && rendererSource.includes("override.cssZoom * backingPixelsPerCssPixel") && editorSource.includes("cssZoom: state.camera.zoom"), "editor and runtime artwork should share one CSS-pixel camera scale so guide alignment does not drift across the viewport");
     assert.ok(rendererSource.includes("this.ctx.setTransform(1, 0, 0, 1, 0, 0)") && rendererSource.includes("never inherit a CSS/DPR transform"), "the production Canvas renderer should reset inherited context transforms before drawing backing-pixel coordinates");
     assert.ok(editorSource.includes("stageCtx?.setTransform(1, 0, 0, 1, 0, 0)") && !editorSource.includes("stageCtx?.setTransform(dpr"), "the Level Editor must not pre-scale the production scene context by devicePixelRatio");
-    assert.match(bootstrapSource, /const GAME_REVISION = "510";/, "the game debug  revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "511";/, "the game debug  revision should match the packaged revision");
     assert.ok(
         editorSource.includes('<div class="level-section-label">Existing Level:</div>')
             && editorSource.includes('id="load-level">Load</button>')
@@ -10715,6 +10727,74 @@ function testTiledBakeProfilerDiagnostics() {
 }
 
 
+function testGameplayRecordingAndPlaybackTooling() {
+    assert.equal(normalizeLaunchLevelQuery("2"), "level_002", "numeric level query should resolve to a padded authored level id");
+    assert.equal(normalizeLaunchLevelQuery("level_12"), "level_012", "level query should preserve level_ prefixes and normalize padding");
+    assert.equal(playbackUrlFromQueryValue("../record001.json"), "recordings/record001.json", "playback query should stay inside the recordings folder");
+
+    const inputSnapshot = snapshotGameplayInput(createInputFrame({
+        moveRight: true,
+        moveAxis: 1,
+        jumpPressed: true,
+        jumpHeld: true,
+        aimVector: { x: 0.5, y: -0.5 },
+        inputDevice: "keyboard"
+    }));
+    const inputFrame = inputFrameFromSnapshot(inputSnapshot);
+    assert.equal(inputFrame.moveRight, true, "playback input should restore held movement");
+    assert.equal(inputFrame.jumpPressed, true, "playback input should restore gameplay edges");
+    assert.equal(inputFrame.pausePressed, false, "playback input must never replay debug pause edges");
+
+    const state = createInitialGameState({ randomSeed: 1234 });
+    state.camera.viewportWidth = 400;
+    state.camera.viewportHeight = 300;
+    state.camera.shownTransform.x = 100;
+    state.camera.shownTransform.y = 200;
+    state.player.currentTransform.x = 110;
+    state.player.currentTransform.y = 220;
+    state.enemies = [
+        { id: "visible_enemy", kind: "goblin", currentTransform: { x: 125, y: 230 }, shownTransform: { x: 125, y: 230 }, width: 40, height: 80, health: 10, state: "idle" },
+        { id: "hidden_enemy", kind: "goblin", currentTransform: { x: 1200, y: 230 }, shownTransform: { x: 1200, y: 230 }, width: 40, height: 80, health: 10, state: "idle" }
+    ];
+    state.projectiles = [
+        { id: "rocket_1", owner: "player", kind: "rocket", currentTransform: { x: 115, y: 210 }, shownTransform: { x: 115, y: 210 }, radius: 12, state: "launched" }
+    ];
+    const debug = snapshotGameplayDebug(state);
+    assert.deepEqual(debug.camera.visibleRect, { x: -100, y: 50, w: 400, h: 300, left: -100, top: 50, right: 300, bottom: 350 }, "recording debug should expose the visible camera rectangle in level coordinates");
+    assert.deepEqual(debug.enemies.map((enemy) => enemy.id), ["visible_enemy"], "recording debug should include only visible enemies");
+    assert.deepEqual(debug.projectiles.map((projectile) => projectile.id), ["rocket_1"], "recording debug should include visible projectiles");
+
+    const recording = createGameplayRecording({ revision: "511", levelId: "level_002", initialState: state, source: "test" });
+    appendGameplayRecordingFrame(recording, {
+        index: 0,
+        recordingTimeSec: 1 / 60,
+        gameTimeSec: state.clock.time,
+        tick: state.clock.tick,
+        requestedAtMs: 123.456,
+        callbackArrivalMs: 124.456,
+        callbackEntryGapMs: 16.7,
+        rafGapMs: 16.7,
+        realDtMs: 16.7,
+        fixedSteps: 1,
+        accumulatorMs: 0.033,
+        interpolationBlend: 0.002,
+        input: inputFrame,
+        debug
+    });
+    finalizeGameplayRecording(recording, { reason: "test" });
+    const normalized = normalizeGameplayRecording(JSON.stringify(recording));
+    assert.equal(normalized.schema, GAMEPLAY_RECORDING_SCHEMA, "recording should use the gameplay recording schema");
+    assert.equal(normalized.frames.length, 1, "recording should preserve appended frames");
+    assert.equal(normalized.frames[0].input.moveRight, true, "recording should preserve input snapshots for playback");
+
+    const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
+    const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
+    const recordingSource = readFileSync(new URL("../src/browser/gameplay-recording.js", import.meta.url), "utf8");
+    assert.ok(gameHtml.includes('id="toggle-gameplay-recording"') && gameHtml.includes('id="load-gameplay-playback"') && gameHtml.includes('id="gameplay-playback-file"'), "gameplay recording and playback controls should be available in the debug toolbar");
+    assert.ok(bootstrapSource.includes('launchParams.get("level")') && bootstrapSource.includes('launchParams.get("record")') && bootstrapSource.includes('launchParams.get("playback")') && bootstrapSource.includes('launchParams.get("playback_pause")'), "game bootstrap should wire the recording and playback query arguments");
+    assert.ok(recordingSource.includes('recordings/${filename}') && bootstrapSource.includes('startGameplayPlayback') && bootstrapSource.includes('pausedForKey'), "hosted playback and pause-for-key support should remain wired");
+}
+
 function testFrameDeliveryDiagnostics() {
     const profiler = new MicroStutterProfiler({ thresholdMs: 0, rafGapMs: 0, maxSamples: 20 });
     profiler.start({ label: "frame-delivery", thresholdMs: 0, rafGapMs: 0, maxSamples: 20 });
@@ -10813,7 +10893,7 @@ function testFrameDeliveryDiagnostics() {
     const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
     const profilerSource = readFileSync(new URL("../src/browser/micro-stutter-profiler.js", import.meta.url), "utf8");
     assert.match(bootstrapSource, /callbackEntryGapMs[\s\S]*callbackLatenessMs/, "the browser loop should record actual callback-entry pacing and lateness");
-    assert.match(bootstrapSource, /const callbackArrivalNow = performance\.now\(\);[\s\S]*const realDt = Math\.min\(0\.1, callbackEntryGapMs \/ 1000\)/, "the fixed-step accumulator should use actual callback-arrival time with a 100 ms clamp");
+    assert.match(bootstrapSource, /const callbackArrivalNow = performance\.now\(\);[\s\S]*const measuredRealDt = Math\.min\(0\.1, callbackEntryGapMs \/ 1000\)[\s\S]*let realDt = measuredRealDt/, "the fixed-step accumulator should use actual callback-arrival time with a 100 ms clamp while allowing recorded playback deltas");
     assert.match(bootstrapSource, /const rafGapMs = Math\.max\(0, now - lastRafNow\)/, "the rAF timeline should remain available independently for diagnostics");
     assert.match(bootstrapSource, /playerCurrentX:[\s\S]*playerShownX:[\s\S]*cameraCurrentX:[\s\S]*cameraShownX:/, "the browser loop should record authoritative and shown player/camera positions");
     assert.match(bootstrapSource, /renderMode:[\s\S]*backend:[\s\S]*bakingMode:/, "each profiler sample should retain renderer and baking mode");
@@ -14356,6 +14436,7 @@ const tests = [
     ["presentation transform interpolation", testPresentationTransformInterpolation],
     ["tiled bake profiler diagnostics", testTiledBakeProfilerDiagnostics],
     ["frame-delivery diagnostics", testFrameDeliveryDiagnostics],
+    ["gameplay recording and playback tooling", testGameplayRecordingAndPlaybackTooling],
     ["headless stepping and floor collision", testHeadlessSteppingAndFloorCollision],
     ["player follows steep walkable bridge ramps while running", testPlayerFollowsSteepWalkableBridgeRampWhileRunning],
     ["swept support uses up-to-down crossing not colour priority", testSweptSupportUsesUpToDownCrossingNotColourPriority],

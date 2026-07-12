@@ -4214,3 +4214,16 @@ Revision 510 extends that loading-stage hook across every unique `caveForeground
 Startup, level transitions, and restarts all run the prewarm after atlas loading and level colour-map synchronization. Diagnostic hit/miss counters are deliberately not incremented by preparation work, so later profiler captures continue to describe gameplay frames rather than loading. The change does not alter foreground appearance, culling, parallax, placement order, simulation, or presentation interpolation. Fresh profiles continue to default to WebGL enabled and baking Off, while saved settings remain authoritative.
 
 The same revision sets the Full-bake WebGL preflight ceiling to 2 GiB of estimated three-layer RGBA storage. Levels above that estimate fail fast through the existing non-fatal fallback to live rendering instead of approaching the driver's allocation cliff. Canvas2D Full baking retains its more conservative 1.5 GiB RAM ceiling because those bake canvases stay CPU-resident; tiled baking budgets are unchanged.
+
+## Revision 511 gameplay recording and playback for port parity
+
+The SDL/C++ port needs repeatable gameplay sequences that can be replayed visually and paused at selected timestamps for screenshot parity checks. Revision 511 adds a browser-owned gameplay-recording JSON format with an initial portable game-state snapshot, per-frame requested rAF time, callback timing, fixed-step count, input snapshot, player position, camera visible rectangle, and visible enemy/projectile summaries.
+
+Implemented launch controls:
+
+- `?level=2` normalizes to `level_002`, loads that level immediately, and skips the title screen.
+- `?record=1` starts gameplay recording immediately after the launch level starts.
+- `?playback=record001.json` loads `recordings/record001.json`, restores the recorded initial state, and replays the recorded input/timing sequence visually.
+- `?playback_pause=120.2` pauses playback at the first recorded frame at or beyond 120.2 seconds until any key is pressed.
+
+The development tool strip now has `Recording: Off/On` and `Playback JSON…` controls. Recording stops and opens a save/download path when toggled off, and automatically stops at a level-transition request before loading the next level. Playback deliberately blocks live level transitions so a parity recording remains a bounded visual sequence instead of drifting into unrecorded play.
