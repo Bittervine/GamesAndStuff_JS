@@ -3748,6 +3748,8 @@
   const HEAT_MAX_SECONDS = 5;
   const HEAT_MAX_PENALTY = 0.5;
   const HEAT_COOLDOWN_FACTOR = 5;
+  const MUSIC_VOLUME_ATTENUATION_DB = -8;
+  const MUSIC_VOLUME_ATTENUATION = Math.pow(10, MUSIC_VOLUME_ATTENUATION_DB / 20);
 
   function enemyShotPace() {
     const diff = currentDifficulty();
@@ -3771,10 +3773,12 @@
   }
 
   function loadMusicVolume() {
-    const current = loadNum('ThroriumGap_musicVolumeV2', NaN);
+    const current = loadNum('ThroriumGap_musicVolumeV3', NaN);
     if (Number.isFinite(current)) return clamp(current, 0, 1);
+    const v2 = loadNum('ThroriumGap_musicVolumeV2', NaN);
+    if (Number.isFinite(v2)) return clamp(v2 * 2, 0, 1);
     const legacy = loadNum('ThroriumGap_musicVolume', NaN);
-    return Number.isFinite(legacy) ? clamp(legacy, 0, 1) : 0.2;
+    return Number.isFinite(legacy) ? clamp(legacy * 2, 0, 1) : 0.4;
   }
 
   const state = {
@@ -3937,41 +3941,56 @@
     sfxCompressor: null,
     music: null,
     noise: null,
-    musicTrack: null,
-    musicTrackPromise: null,
-    musicTrackSource: null,
-    musicTrackGain: null,
-    titleTrack: null,
-    titleTrackPromise: null,
-    titleTrackSource: null,
-    titleTrackGain: null,
+    musicBuffers: new Map(),
+    musicLoadPromises: new Map(),
+    musicSource: null,
+    musicGain: null,
+    musicAsset: null,
+    musicRequestId: 0,
     enabled: false,
     focusMuted: false,
     resumePromise: null
   };
 
-  const MUSIC_TRACK_URL = 'assets/soundtrack1.ogg';
-  const TITLE_TRACK_URL = 'assets/titlescreen.ogg';
-  // These matching phrases make a musical, gapless repeat without altering the track.
-  const MUSIC_LOOP_START = 11.414966;
-  const MUSIC_LOOP_END = 171.224649;
-  const MUSIC_FADE_OUT_SECONDS = 1.5;
-  const TITLE_FADE_OUT_SECONDS = 1.0;
-
-  function soundtrackLoopPoints(duration) {
-    const fallback = {
-      start: clamp(MUSIC_LOOP_START, 0, Math.max(0, duration - 0.01)),
-      end: clamp(MUSIC_LOOP_END, 0.01, duration)
-    };
-    const rawStart = URL_PARAMS.get('music_loop_a');
-    const rawEnd = URL_PARAMS.get('music_loop_b');
-    if (rawStart == null || rawEnd == null) return fallback;
-    const start = Number(rawStart);
-    const end = Number(rawEnd);
-    if (!Number.isFinite(start) || !Number.isFinite(end)) return fallback;
-    if (start < 0 || end > duration || end <= start + 0.01) return fallback;
-    return { start: start, end: end };
-  }
+  // Music cue table. Change only asset, loopStart, and loopEnd to give a screen,
+  // stage, or boss its own track. A null loopEnd means to loop to the file's end.
+  const MUSIC_CUES = {
+    titleScreen: { asset: 'assets/titlescreen.ogg', loopStart: 0, loopEnd: null },
+    victory: { asset: 'assets/titlescreen.ogg', loopStart: 0, loopEnd: null },
+    newHighScore: { asset: 'assets/titlescreen.ogg', loopStart: 0, loopEnd: null },
+    gameOver: { asset: 'assets/titlescreen.ogg', loopStart: 0, loopEnd: null },
+    levels: [
+      { asset: 'assets/soundtrack1.ogg', loopStart: 11.414966, loopEnd: 171.224649 }, // Stage 1
+      { asset: 'assets/soundtrack1.ogg', loopStart: 11.414966, loopEnd: 171.224649 }, // Stage 2
+      { asset: 'assets/soundtrack1.ogg', loopStart: 11.414966, loopEnd: 171.224649 }, // Stage 3
+      { asset: 'assets/soundtrack1.ogg', loopStart: 11.414966, loopEnd: 171.224649 }, // Stage 4
+      { asset: 'assets/soundtrack1.ogg', loopStart: 11.414966, loopEnd: 171.224649 }, // Stage 5
+      { asset: 'assets/soundtrack1.ogg', loopStart: 11.414966, loopEnd: 171.224649 }, // Stage 6
+      { asset: 'assets/soundtrack1.ogg', loopStart: 11.414966, loopEnd: 171.224649 }, // Stage 7
+      { asset: 'assets/soundtrack1.ogg', loopStart: 11.414966, loopEnd: 171.224649 }, // Stage 8
+      { asset: 'assets/soundtrack1.ogg', loopStart: 11.414966, loopEnd: 171.224649 }, // Stage 9
+      { asset: 'assets/soundtrack1.ogg', loopStart: 11.414966, loopEnd: 171.224649 }, // Stage 10
+      { asset: 'assets/soundtrack1.ogg', loopStart: 11.414966, loopEnd: 171.224649 }, // Stage 11
+      { asset: 'assets/soundtrack1.ogg', loopStart: 11.414966, loopEnd: 171.224649 }, // Stage 12
+      { asset: 'assets/soundtrack1.ogg', loopStart: 11.414966, loopEnd: 171.224649 }  // Stage 13
+    ],
+    bossFights: [
+      { asset: 'assets/soundtrack1.ogg', loopStart: 11.414966, loopEnd: 171.224649 }, // Boss 1
+      { asset: 'assets/soundtrack1.ogg', loopStart: 11.414966, loopEnd: 171.224649 }, // Boss 2
+      { asset: 'assets/soundtrack1.ogg', loopStart: 11.414966, loopEnd: 171.224649 }, // Boss 3
+      { asset: 'assets/soundtrack1.ogg', loopStart: 11.414966, loopEnd: 171.224649 }, // Boss 4
+      { asset: 'assets/soundtrack1.ogg', loopStart: 11.414966, loopEnd: 171.224649 }, // Boss 5
+      { asset: 'assets/soundtrack1.ogg', loopStart: 11.414966, loopEnd: 171.224649 }, // Boss 6
+      { asset: 'assets/soundtrack1.ogg', loopStart: 11.414966, loopEnd: 171.224649 }, // Boss 7
+      { asset: 'assets/soundtrack1.ogg', loopStart: 11.414966, loopEnd: 171.224649 }, // Boss 8
+      { asset: 'assets/soundtrack1.ogg', loopStart: 11.414966, loopEnd: 171.224649 }, // Boss 9
+      { asset: 'assets/soundtrack1.ogg', loopStart: 11.414966, loopEnd: 171.224649 }, // Boss 10
+      { asset: 'assets/soundtrack1.ogg', loopStart: 11.414966, loopEnd: 171.224649 }, // Boss 11
+      { asset: 'assets/soundtrack1.ogg', loopStart: 11.414966, loopEnd: 171.224649 }, // Boss 12
+      { asset: 'assets/soundtrack1.ogg', loopStart: 11.414966, loopEnd: 171.224649 }  // Boss 13
+    ]
+  };
+  const MUSIC_CROSSFADE_SECONDS = 1.0;
 
   function ensureAudio() {
     if (audio.ctx) return audio.ctx;
@@ -4009,14 +4028,14 @@
     if (ctxAudio.state === 'running') {
       audio.enabled = true;
       applyMute();
-      startTitleMusic();
+      playCurrentMusic();
       return;
     }
     if (audio.resumePromise) return;
     audio.resumePromise = ctxAudio.resume().then(function () {
       audio.enabled = ctxAudio.state === 'running';
       applyMute();
-      startTitleMusic();
+      playCurrentMusic();
     }).catch(function () {
       audio.enabled = false;
     }).finally(function () {
@@ -4028,7 +4047,7 @@
     if (!audio.master) return;
     audio.master.gain.value = audio.focusMuted ? 0 : 0.92;
     audio.sfx.gain.value = state.muted ? 0 : state.settings.sfxVolume;
-    audio.music.gain.value = state.muted ? 0 : state.settings.musicVolume;
+    audio.music.gain.value = state.muted ? 0 : state.settings.musicVolume * MUSIC_VOLUME_ATTENUATION;
   }
 
   function setFocusMuted(muted) {
@@ -4036,110 +4055,65 @@
     applyMute();
   }
 
-  function loadMusicTrack() {
-    if (audio.musicTrack) return Promise.resolve(audio.musicTrack);
-    if (audio.musicTrackPromise) return audio.musicTrackPromise;
+  function loadMusicTrack(cue) {
+    const asset = cue && cue.asset;
+    if (!asset) return Promise.reject(new Error('Music cue is missing an asset.'));
+    if (audio.musicBuffers.has(asset)) return Promise.resolve(audio.musicBuffers.get(asset));
+    if (audio.musicLoadPromises.has(asset)) return audio.musicLoadPromises.get(asset);
     const ctxAudio = ensureAudio();
     if (!ctxAudio) return Promise.reject(new Error('Web Audio is unavailable.'));
-    audio.musicTrackPromise = fetch(MUSIC_TRACK_URL)
+    const promise = fetch(asset)
       .then(function (response) {
-        if (!response.ok) throw new Error('Unable to load soundtrack1.ogg.');
+        if (!response.ok) throw new Error('Unable to load ' + asset + '.');
         return response.arrayBuffer();
       })
       .then(function (data) { return ctxAudio.decodeAudioData(data); })
       .then(function (track) {
-        audio.musicTrack = track;
+        audio.musicBuffers.set(asset, track);
         return track;
       })
       .finally(function () {
-        audio.musicTrackPromise = null;
+        audio.musicLoadPromises.delete(asset);
       });
-    return audio.musicTrackPromise;
+    audio.musicLoadPromises.set(asset, promise);
+    return promise;
   }
 
-  function loadTitleTrack() {
-    if (audio.titleTrack) return Promise.resolve(audio.titleTrack);
-    if (audio.titleTrackPromise) return audio.titleTrackPromise;
-    const ctxAudio = ensureAudio();
-    if (!ctxAudio) return Promise.reject(new Error('Web Audio is unavailable.'));
-    audio.titleTrackPromise = fetch(TITLE_TRACK_URL)
-      .then(function (response) {
-        if (!response.ok) throw new Error('Unable to load titlescreen.ogg.');
-        return response.arrayBuffer();
-      })
-      .then(function (data) { return ctxAudio.decodeAudioData(data); })
-      .then(function (track) {
-        audio.titleTrack = track;
-        return track;
-      })
-      .finally(function () {
-        audio.titleTrackPromise = null;
-      });
-    return audio.titleTrackPromise;
+  function musicLoopPoints(cue, duration) {
+    const startValue = Number(cue && cue.loopStart);
+    const start = Number.isFinite(startValue)
+      ? clamp(startValue, 0, Math.max(0, duration - 0.01))
+      : 0;
+    const endValue = Number(cue && cue.loopEnd);
+    const end = cue && cue.loopEnd != null && Number.isFinite(endValue)
+      ? clamp(endValue, start + 0.01, duration)
+      : duration;
+    return end > start + 0.01 ? { start: start, end: end } : { start: 0, end: duration };
   }
 
   function prewarmMusicTracks() {
-    const mainTrack = loadMusicTrack().catch(function (err) {
-      console.warn('Unable to prewarm soundtrack.', err);
-    });
-    const titleTrack = loadTitleTrack().catch(function (err) {
-      console.warn('Unable to prewarm title soundtrack.', err);
-    });
-    return Promise.all([mainTrack, titleTrack]);
+    const cues = [MUSIC_CUES.titleScreen, MUSIC_CUES.victory, MUSIC_CUES.newHighScore, MUSIC_CUES.gameOver]
+      .concat(MUSIC_CUES.levels, MUSIC_CUES.bossFights);
+    const assets = new Set(cues.map(function (cue) { return cue.asset; }));
+    return Promise.all(Array.from(assets).map(function (asset) {
+      return loadMusicTrack({ asset: asset }).catch(function (err) {
+        console.warn('Unable to prewarm music track ' + asset + '.', err);
+      });
+    }));
   }
 
-  function titleMusicShouldPlay() {
-    return state.titleActivated && (state.mode === 'title' || state.mode === 'gameover' || state.mode === 'victory');
+  function currentMusicCue() {
+    if (!state.titleActivated) return null;
+    if (state.mode === 'title') return MUSIC_CUES.titleScreen;
+    if (state.mode === 'gameover' || state.mode === 'victory') {
+      return state.initialsEntryActive || state.initialsConfirmActive ? MUSIC_CUES.newHighScore : MUSIC_CUES[state.mode];
+    }
+    if (state.mode !== 'playing') return null;
+    if (state.boss) return MUSIC_CUES.bossFights[state.levelIndex] || MUSIC_CUES.bossFights[0];
+    return MUSIC_CUES.levels[state.levelIndex] || MUSIC_CUES.levels[0];
   }
 
-  function startTitleMusic(delaySeconds, fadeSeconds) {
-    if (!titleMusicShouldPlay() || audio.titleTrackSource) return;
-    loadTitleTrack().then(function (track) {
-      if (!titleMusicShouldPlay() || audio.titleTrackSource || !audio.ctx) return;
-      const source = audio.ctx.createBufferSource();
-      const gain = audio.ctx.createGain();
-      const now = audio.ctx.currentTime;
-      const delay = Math.max(0, delaySeconds || 0);
-      const fade = Math.max(0, fadeSeconds || 0);
-      const startAt = now + delay;
-      source.buffer = track;
-      source.loop = true;
-      gain.gain.setValueAtTime(fade > 0 ? 0 : 1, startAt);
-      if (fade > 0) gain.gain.linearRampToValueAtTime(1, startAt + fade);
-      source.connect(gain);
-      gain.connect(audio.music);
-      applyMute();
-      source.onended = function () {
-        if (audio.titleTrackSource === source) {
-          audio.titleTrackSource = null;
-          audio.titleTrackGain = null;
-        }
-      };
-      audio.titleTrackSource = source;
-      audio.titleTrackGain = gain;
-      source.start(startAt);
-    }).catch(function (err) {
-      console.warn('Unable to start title soundtrack.', err);
-    });
-  }
-
-  function stopTitleMusic(fadeSeconds) {
-    const source = audio.titleTrackSource;
-    const gain = audio.titleTrackGain;
-    if (!source || !gain || !audio.ctx) return 0;
-    const now = audio.ctx.currentTime;
-    const fade = Math.max(0, fadeSeconds || 0);
-    gain.gain.cancelScheduledValues(now);
-    gain.gain.setValueAtTime(Math.max(0.0001, gain.gain.value), now);
-    if (fade > 0) gain.gain.linearRampToValueAtTime(0, now + fade);
-    else gain.gain.setValueAtTime(0, now);
-    try { source.stop(now + fade + 0.02); } catch (err) {}
-    return fade;
-  }
-
-  function stopMusic(fadeSeconds) {
-    const source = audio.musicTrackSource;
-    const gain = audio.musicTrackGain;
+  function fadeOutMusic(source, gain, fadeSeconds) {
     if (!source || !gain || !audio.ctx) return;
     const now = audio.ctx.currentTime;
     const fade = Math.max(0, fadeSeconds || 0);
@@ -4150,35 +4124,44 @@
     try { source.stop(now + fade + 0.02); } catch (err) {}
   }
 
-  function startMusic() {
-    stopMusic(0);
-    loadMusicTrack().then(function (track) {
-      if (state.mode !== 'playing' || !audio.ctx) return;
-      const titleFade = stopTitleMusic(TITLE_FADE_OUT_SECONDS);
+  function playMusicCue(cue) {
+    if (!cue || !cue.asset || !audio.ctx || audio.ctx.state !== 'running') return;
+    const requestId = ++audio.musicRequestId;
+    if (audio.musicSource && audio.musicAsset === cue.asset) return;
+    loadMusicTrack(cue).then(function (track) {
+      if (requestId !== audio.musicRequestId || !audio.ctx || audio.ctx.state !== 'running') return;
+      if (audio.musicSource && audio.musicAsset === cue.asset) return;
       const now = audio.ctx.currentTime;
       const source = audio.ctx.createBufferSource();
       const gain = audio.ctx.createGain();
-      const loop = soundtrackLoopPoints(track.duration);
+      const loop = musicLoopPoints(cue, track.duration);
       source.buffer = track;
       source.loop = true;
       source.loopStart = loop.start;
       source.loopEnd = loop.end;
-      gain.gain.setValueAtTime(titleFade > 0 ? 0 : 1, now);
-      if (titleFade > 0) gain.gain.linearRampToValueAtTime(1, now + titleFade);
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(1, now + MUSIC_CROSSFADE_SECONDS);
       source.connect(gain);
       gain.connect(audio.music);
+      fadeOutMusic(audio.musicSource, audio.musicGain, MUSIC_CROSSFADE_SECONDS);
       source.onended = function () {
-        if (audio.musicTrackSource === source) {
-          audio.musicTrackSource = null;
-          audio.musicTrackGain = null;
+        if (audio.musicSource === source) {
+          audio.musicSource = null;
+          audio.musicGain = null;
+          audio.musicAsset = null;
         }
       };
-      audio.musicTrackSource = source;
-      audio.musicTrackGain = gain;
+      audio.musicSource = source;
+      audio.musicGain = gain;
+      audio.musicAsset = cue.asset;
       source.start(now);
     }).catch(function (err) {
-      console.warn('Unable to start soundtrack.', err);
+      console.warn('Unable to start music track ' + cue.asset + '.', err);
     });
+  }
+
+  function playCurrentMusic() {
+    playMusicCue(currentMusicCue());
   }
 
   function triggerRumble(strength, duration) {
@@ -4302,6 +4285,7 @@
     saveNum('ThroriumGap_sfxVolume', state.settings.sfxVolume);
     saveNum('ThroriumGap_musicVolume', state.settings.musicVolume);
     saveNum('ThroriumGap_musicVolumeV2', state.settings.musicVolume);
+    saveNum('ThroriumGap_musicVolumeV3', state.settings.musicVolume);
     saveNum('ThroriumGap_difficulty', state.settings.difficulty);
     saveNum('ThroriumGap_graphicalEffects', state.settings.graphicalEffects);
     saveBool('ThroriumGap_alwaysFollowMouse', state.settings.alwaysFollowMouse);
@@ -4618,10 +4602,9 @@
 
   function exitToTitle() {
     resumeAudio();
-    stopMusic(MUSIC_FADE_OUT_SECONDS);
     closeSettings(false);
     resetRun();
-    startTitleMusic(MUSIC_FADE_OUT_SECONDS);
+    playCurrentMusic();
   }
 
   function exitToDesktop() {
@@ -5104,6 +5087,7 @@
     saveNum('ThroriumGap_highScore', state.highScore);
     saveString('ThroriumGap_highScoreInitials', state.highScoreInitials);
     state.mode = state.pendingHighScoreEndMode;
+    playMusicCue(MUSIC_CUES.newHighScore);
     state.banner = 'YOU HAVE BEATEN THE HIGHSCORE!';
     state.bannerSub = '';
     state.bannerTimer = 999;
@@ -5158,6 +5142,7 @@
     const endMode = state.pendingHighScoreEndMode === 'victory' ? 'victory' : 'gameover';
     state.pendingHighScoreEndMode = 'gameover';
     state.mode = endMode;
+    playCurrentMusic();
     state.banner = endMode === 'victory' ? 'VICTORY' : 'GAME OVER';
     state.bannerSub = endMode === 'victory' ? '' : (state.bannerSub || 'The void has taken the ship.');
     state.bannerTimer = 999;
@@ -5176,7 +5161,6 @@
     closeSettings();
     resetRun();
     state.mode = 'playing';
-    startMusic();
     syncMouseCursor();
     applyAutoFullscreenPolicy();
     if (DEBUG_END_BOSS) debugJumpToFinalBoss(true);
@@ -5410,14 +5394,13 @@
     state.player.respawnStartY = state.player.y;
     state.player.respawnTargetX = state.player.x;
     state.player.respawnTargetY = state.player.y;
+    playMusicCue(MUSIC_CUES.levels[index] || MUSIC_CUES.levels[0]);
     setBanner('STAGE ' + (index + 1), state.currentTheme.name, 2.8);
     markHudDirty();
   }
 
   function victory() {
     state.mode = 'victory';
-    stopMusic(MUSIC_FADE_OUT_SECONDS);
-    startTitleMusic(0, MUSIC_FADE_OUT_SECONDS);
     syncMouseCursor();
     applyAutoFullscreenPolicy();
     state.banner = 'VICTORY';
@@ -5430,6 +5413,7 @@
     if (state.score > state.highScoreRunStart) {
       startInitialsEntry(state.score, 'victory');
     } else {
+      playMusicCue(MUSIC_CUES.victory);
       hint('Press fire to continue.', 6);
       saveBest();
     }
@@ -5446,8 +5430,6 @@
       levelIndex: state.levelIndex
     });
     state.mode = 'gameover';
-    stopMusic(MUSIC_FADE_OUT_SECONDS);
-    startTitleMusic(0, MUSIC_FADE_OUT_SECONDS);
     syncMouseCursor();
     applyAutoFullscreenPolicy();
     state.banner = 'GAME OVER';
@@ -5459,6 +5441,7 @@
     if (state.score > state.highScoreRunStart) {
       startInitialsEntry(state.score);
     } else {
+      playMusicCue(MUSIC_CUES.gameOver);
       hint('Press fire to continue.', 6);
       saveBest();
     }
@@ -5849,6 +5832,7 @@
       } : null,
       yOffset: bossYOffset
     };
+    playMusicCue(MUSIC_CUES.bossFights[state.levelIndex] || MUSIC_CUES.bossFights[0]);
     state.banner = 'BOSS: ' + b.name;
     state.bannerSub = theme.subtitle;
     state.bannerTimer = 3.2;
