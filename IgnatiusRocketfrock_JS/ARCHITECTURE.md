@@ -2100,6 +2100,14 @@ Revision 511 adds `src/browser/gameplay-recording.js` as a browser-adapter diagn
 `src/browser/game-bootstrap.js` owns the launch wiring: `?level=2` loads `level_002` and skips the title screen, `?record=1` starts recording from the initial level state, `?playback=record001.json` loads `recordings/record001.json`, and `?playback_pause=120.2` freezes replay after the first recorded frame at or beyond that recording time until a key press resumes it. The same controls are exposed through the development tool strip and `window.__rocketfrockDev.gameplayRecording` / `window.__rocketfrockDev.gameplayPlayback`. Recording export uses the File System Access API when available and falls back to a normal JSON download.
 
 
+## Revision 521 pathing debug naming and package hygiene
+
+Revision 521 is a cleanup revision after the undeath-orb steering rewrite. It does not replace the obstacle-aware guidance helper: pathing projectiles still use the same direct blocked-path probe, short-range danger probes, persistent avoidance side, and normal homing velocity blend from revision 520.
+
+The debug contract is now clearer. `src/core/simulation.js` emits only `upClearDistance`, `downClearDistance`, `upBeatsForward`, `downBeatsForward`, `upBias`, and `downBias` for pathing guidance capture. The shared regression summarizer in `tests/testbench.mjs` prints the same up/down terminology, avoiding stale left/right aliases that obscured the actual vertical avoidance behavior. The Character Editor presents the pathing launch modes as obstacle-aware choices rather than reserved slots.
+
+Compact update archives continue to exclude `.build`, PNG, XCF, OGG, and EXE outputs, preventing stale local test-gate reports from being mistaken for source truth.
+
 ## Revision 512 undeath projectile presentation boundary
 
 Skeleton Caster projectiles remain ordinary portable enemy projectiles in `src/core/simulation.js`: their `projectileKind` is `undeathOrb`, their renderer-facing `kind` remains `enemyFireball`, and `visualStyle: "undeath"` selects the green bubble presentation. Collision, damage, homing/pathing, lifetime, impact, and trail-emission state stay core-owned and unchanged.

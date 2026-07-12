@@ -4242,3 +4242,9 @@ The revision 517-519 pedestal regressions showed that the new obstacle-aware und
 The undeath orb now uses a real blocked-path line-of-sight probe to Ignatius, separate short-range danger probes, and a persistent avoidance-side choice. When the direct target path is blocked, the guidance uses the impact position to choose an escape side, preferring upward movement around ground pedestals unless the opposite side is decisively safer. Avoidance steers relative to the target direction instead of recursively rotating the current velocity, so the projectile bends around the obstacle rather than spiraling away from the fight.
 
 The temporary large undeath projectile core is removed again. Skeleton Caster shots are intentionally represented by their green bubble trail only, while ordinary goblin fireballs keep their authored projectile sprite and fallback glow.
+
+## Revision 521 pathing-orb cleanup
+
+Revision 521 keeps the smarter Skeleton Caster undeath-orb steering from revision 520, but cleans up the names and package hygiene around it. The Character Editor no longer marks `pathing_lo` and `pathing_hi` as reserved launch types because the Skeleton Caster now actively uses `pathing_lo`.
+
+The pathing debug capture now reports upward and downward clearance, bias, and branch decisions using `up*` and `down*` names only. The older left/right aliases were removed because they described the previous mental model poorly once the projectile guidance became an above/below pedestal avoidance problem. The compact update package continues to omit `.build` test reports so stale local gate state does not travel with releases.

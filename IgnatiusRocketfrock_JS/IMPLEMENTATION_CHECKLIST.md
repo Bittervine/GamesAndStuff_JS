@@ -4587,3 +4587,11 @@ Manual profiling workflow: open the game, run `window.__rocketfrockDev.profiler.
 - Keep `pathing_lo` and `pathing_hi` guidance portable in `src/core/simulation.js`; obstacle probes must use world collision queries only.
 - The pedestal regression fixtures must keep the obstruction in `state.world.solids` after applying the synthetic level.
 - `pathing_lo` shots should avoid a ground pedestal by steering upward, clear the obstruction, return toward Ignatius, and eventually hit him in both direct-launch and AI-attack tests.
+
+## Revision 521 checks
+
+- [x] Keep the revision 520 smarter Skeleton Caster pathing-orb steering logic intact.
+- [x] Rename pathing guidance debug summaries from left/right aliases to up/down terminology.
+- [x] Remove obsolete left/right alias fields from captured pathing guidance trace samples.
+- [x] Present `pathing_lo` and `pathing_hi` as obstacle-aware launch modes in the Character Editor instead of reserved entries.
+- [x] Package the update without `.build` gate reports and without PNG, XCF, OGG, or EXE files.
