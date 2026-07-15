@@ -4283,3 +4283,9 @@ Revision 527 flips the attached rocket hover governor from a slow downward sink 
 ## Revision 528 JSON-only gameplay recording
 
 Revision 528 removes the live browser PNG screenshot capture introduced in revision 522. Gameplay recording returns to a JSON-only browser feature; deterministic screenshots are generated after the fact through the isolated `devel/capture_recording_frame.mjs` Node/skia-canvas helper.
+
+## Revision 529 loop-safe animation endpoints
+
+Revision 529 removes authored terminal-duration keyframes from every looping `ct_anim_*.json` clip and hardens runtime track sampling so a terminal key at the loop duration can never become the interpolation target immediately before wrapping. Loop endpoints are now treated as equivalent to the first key during gameplay, while `sampleAnimationClipAtPlayhead()` still permits the Character Editor to inspect an explicitly authored terminal pose in unsanitized working data.
+
+A temporary dense regression snapshot was captured against revision 528 and replayed after the change across all 47 animation clips. Sampling remained byte-for-byte identical outside the deliberately repaired terminal interpolation intervals. Permanent tests now cover the near-duration poison-seam case and reject terminal-duration keys in shipped looping animation assets.

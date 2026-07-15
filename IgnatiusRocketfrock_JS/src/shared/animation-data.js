@@ -93,7 +93,11 @@ export function sampleAnimationTrack(track, timeSeconds, duration, loop = true, 
     if (!Array.isArray(track) || track.length === 0) {
         throw new Error("Cannot sample an empty animation track.");
     }
-    if (track.length === 1) {
+    const terminalKeyIsLoopEndpoint = loop
+        && track.length > 1
+        && Math.abs(track[track.length - 1].time - duration) <= 0.0000001;
+    const runtimeKeyCount = terminalKeyIsLoopEndpoint ? track.length - 1 : track.length;
+    if (runtimeKeyCount === 1) {
         return track[0].value;
     }
 
@@ -101,7 +105,7 @@ export function sampleAnimationTrack(track, timeSeconds, duration, loop = true, 
     let left = track[0];
     let right = null;
 
-    for (let index = 1; index < track.length; index += 1) {
+    for (let index = 1; index < runtimeKeyCount; index += 1) {
         const candidate = track[index];
         if (time <= candidate.time) {
             right = candidate;

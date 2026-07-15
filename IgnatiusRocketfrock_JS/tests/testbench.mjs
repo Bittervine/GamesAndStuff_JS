@@ -10065,7 +10065,7 @@ function testNumberedEnemy001Assets() {
     assert.ok(attack.tracks.sword.x.find((key) => Math.abs(key.time - 0.366667) < 0.000001).value >= 190, "enemy_001 attack should carry the sword far enough forward for contact");
     assert.equal(attack.duration, 0.44, "enemy_001 attack should be a rapid one-shot chop");
     assert.equal(walk.duration, 0.8, "enemy_001 walk should contain one brisk two-step cycle");
-    assert.ok(walk.tracks.leftLeg.rotation.length >= 9, "enemy_001 walk should author a complete alternating leg cycle");
+    assert.ok(walk.tracks.leftLeg.rotation.length >= 8, "enemy_001 walk should author a complete alternating leg cycle without a redundant terminal key");
     assert.ok(walk.tracks.rightLeg.y.some((key) => key.value < -170), "enemy_001 walk should lift the swinging right foot");
     assert.ok(walk.tracks.leftLeg.y.some((key) => key.value < -170), "enemy_001 walk should lift the swinging left foot");
 }
@@ -10278,8 +10278,10 @@ function testDataDrivenRunAnimation() {
             const track = partTracks[property];
             assert.ok(Array.isArray(track) && track.length >= 1, `${partName}.${property} should have keyframes`);
             assert.equal(track[0].time, 0, `${partName}.${property} should begin at time zero`);
-            assert.equal(track[track.length - 1].time, clip.duration, `${partName}.${property} should close at the clip duration`);
-            approx(track[0].value, track[track.length - 1].value, 0.000001, `${partName}.${property} loop closure`);
+            assert.ok(track[track.length - 1].time < clip.duration, `${partName}.${property} should omit a redundant terminal-duration key`);
+            const startValue = sampleAnimationTrack(track, 0, clip.duration, true, property === "rotation");
+            const nearEndValue = sampleAnimationTrack(track, clip.duration - 0.0000001, clip.duration, true, property === "rotation");
+            approx(startValue, nearEndValue, 0.0001, `${partName}.${property} loop closure`);
         }
     }
 
@@ -10455,7 +10457,11 @@ function testAnimationEasingModes() {
     ];
     approx(sampleAnimationTrack(track, 0.5, 1, false), 5, 0.000001, "linear keyframe interpolation");
     approx(sampleAnimationTrack(track, 2, 1, false), 10, 0.000001, "one-shot tracks should clamp at their final key");
-    approx(sampleAnimationTrack(track, 1.25, 1, true), 2.5, 0.000001, "looped tracks should wrap after their duration");
+    const loopTrack = [
+        { time: 0, value: 0, easing: "linear" },
+        { time: 0.5, value: 10, easing: "linear" }
+    ];
+    approx(sampleAnimationTrack(loopTrack, 1.25, 1, true), 5, 0.000001, "looped tracks should wrap after their duration");
 
     const stepTrack = [
         { time: 0, value: 3, easing: "step" },
@@ -10484,10 +10490,25 @@ function testAnimationEasingModes() {
             }
         }
     }, "editor terminal key test");
+    approx(sampleAnimationClip(loopedClip, 0.999).part.x, 0, 0.000001, "runtime loop sampling must not interpolate toward a distinct terminal key");
     approx(sampleAnimationClip(loopedClip, 1).part.x, 0, 0.000001, "runtime loop sampling should still wrap at the duration");
     approx(sampleAnimationClipAtPlayhead(loopedClip, 1).part.x, 25, 0.000001, "editor playhead sampling should expose the editable terminal key");
     const toolHtml = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     assert.ok(toolHtml.includes("sampleAnimationClipAtPlayhead"), "Puppet Forge should use terminal-aware playhead sampling");
+
+    const animationAssetDirectory = new URL("../assets/", import.meta.url);
+    for (const filename of readdirSync(animationAssetDirectory).filter((name) => name.startsWith("ct_anim_") && name.endsWith(".json"))) {
+        const rawClip = JSON.parse(readFileSync(new URL(filename, animationAssetDirectory), "utf8"));
+        if (rawClip.loop === false) continue;
+        for (const [partName, partTracks] of Object.entries(rawClip.tracks || {})) {
+            for (const [property, keys] of Object.entries(partTracks || {})) {
+                assert.ok(
+                    !keys.some((key) => Math.abs(Number(key.time) - Number(rawClip.duration)) <= 0.0000001),
+                    `${filename} looping track ${partName}.${property} must not contain a terminal-duration key`
+                );
+            }
+        }
+    }
 }
 
 function testStateSerialization() {
