@@ -131,7 +131,7 @@ const usePixmapPyramidsStatus = document.getElementById("use-pixmap-pyramids-sta
 const bakingModeRow = document.getElementById("baking-mode-row");
 const bakingModeSelect = document.getElementById("baking-mode-select");
 
-const GAME_REVISION = "528";
+const GAME_REVISION = "530";
 const START_LEVEL_ID = "level_001";
 const launchParams = new URLSearchParams(window.location.search || "");
 const launchLevelId = normalizeLaunchLevelQuery(launchParams.get("level"), START_LEVEL_ID);

@@ -2154,3 +2154,7 @@ Revision 527 keeps the attached rocket governor in core simulation but changes i
 ## Revision 528 recording/capture split
 
 Revision 528 keeps gameplay recording and visual capture separated. The browser runtime records JSON inputs and debug state only, while screenshot production lives in the removable `devel` Node capture utility that replays recordings through shared simulation and renderer code.
+
+## Revision 530 package revision synchronization
+
+Revision 530 makes no architecture changes; it only synchronizes the active package revision labels.

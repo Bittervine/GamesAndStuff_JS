@@ -4654,3 +4654,7 @@ Manual profiling workflow: open the game, run `window.__rocketfrockDev.profiler.
 - [x] Restore gameplay recording save flow to JSON-only output.
 - [x] Keep deterministic PNG generation in the isolated `devel/capture_recording_frame.mjs` utility.
 - [x] Add regression checks that browser recording does not contain screenshot capture plumbing.
+
+## Revision 530 checks
+
+- [x] Synchronize active game, editor, tool, and release-test revision labels to 530 without gameplay or data changes.
