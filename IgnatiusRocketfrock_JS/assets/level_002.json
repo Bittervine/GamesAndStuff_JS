@@ -4496,7 +4496,7 @@
             "type": "wizard_exit_door",
             "catalogId": "it_entities_001",
             "x": 4992,
-            "y": 509,
+            "y": 509.1531439000189,
             "w": 125,
             "h": 164,
             "state": "closed",
@@ -4700,45 +4700,6 @@
             "glowTint": "#ffb52f",
             "notes": "Overdrive: half rocket launch cost plus passive fuel recovery equal to 90% of hover drain for twenty seconds. Respawns after sixty seconds.",
             "respawnSeconds": 60
-        },
-        {
-            "id": "random_wrench_001",
-            "type": "randomWrenchPickup",
-            "catalogId": "it_entities_001",
-            "x": 1400,
-            "y": 844,
-            "w": 96,
-            "h": 96,
-            "state": "available",
-            "visualStates": {
-                "available": {
-                    "visuals": []
-                },
-                "collected": {
-                    "visuals": []
-                }
-            },
-            "stateLabels": {
-                "available": "Available",
-                "collected": "Collected"
-            },
-            "effectId": "wrenchTriple",
-            "randomEffectIds": [
-                "wrenchTriple",
-                "wrenchDart",
-                "wrenchBurst",
-                "wrenchBigbomb",
-                "wrenchBoomerang",
-                "wrenchPhase"
-            ],
-            "durationSeconds": 20,
-            "respawnSeconds": 60,
-            "radius": 30,
-            "atlasId": "it_atlas_001",
-            "glowFrame": "powerup_glow_white",
-            "iconFrame": "powerup_icon_wrench",
-            "glowTint": "#ffff00",
-            "notes": "Random wrench pickup. Rolls Fivefold, Dart, Target, Bigbomb, Boomerang, or Homing Triple at level start and on every sixty-second respawn."
         },
         {
             "id": "shield_001",
@@ -5146,6 +5107,33 @@
             "renderOffsetY": 0,
             "locomotion": "ground",
             "notes": "A hunter skeleton that casts a slow pathing orb of undeath."
+        },
+        {
+            "id": "wrenchPickup_001",
+            "type": "wrenchPickup",
+            "catalogId": "it_entities_001",
+            "x": 1424,
+            "y": 848,
+            "w": 96,
+            "h": 96,
+            "state": "available",
+            "visualStates": {
+                "available": [],
+                "collected": []
+            },
+            "stateLabels": {
+                "available": "Available",
+                "collected": "Collected"
+            },
+            "effectId": "wrenchCyan",
+            "durationSeconds": 20,
+            "respawnSeconds": 60,
+            "radius": 30,
+            "atlasId": "it_atlas_001",
+            "glowFrame": "powerup_glow_white",
+            "iconFrame": "powerup_icon_wrench",
+            "glowTint": "#00ffff",
+            "notes": "Grants the selected 20-second wrench rocket mode. If no wrench type is authored, it defaults to the cyan Dart wrench."
         }
     ],
     "navigationGraphs": {

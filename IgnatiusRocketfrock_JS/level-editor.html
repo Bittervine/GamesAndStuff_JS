@@ -794,7 +794,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 521</small></h1>
+        <h1>Level Editor <small>rev 528</small></h1>
 
         <div class="box">
             <h2>Level</h2>
@@ -1123,6 +1123,13 @@
             <label id="entity-state-row">Entity state
                 <select id="inspect-entity-state"></select>
             </label>
+            <div id="wrench-settings-row" style="display:none">
+                <h3>Wrench power-up</h3>
+                <label>Wrench type
+                    <select id="inspect-wrench-effect"></select>
+                </label>
+                <p class="small">Missing or invalid wrench type defaults to the cyan Dart wrench.</p>
+            </div>
             <div id="signal-settings-row" style="display:none">
                 <h3>Signal emitter</h3>
                 <div class="row">
@@ -1364,6 +1371,12 @@ import {
 } from "./src/shared/moving-platform-data.js";
 import { isSignalEmitterEntity, isSignalReceiverEntity, normalizeSignalChannel } from "./src/shared/signal-channel-data.js";
 import { DEFAULT_LEVEL_MUSIC, normalizeLevelMusic, normalizeMusicCatalog } from "./src/shared/music-data.js";
+import {
+    DEFAULT_WRENCH_POWER_UP_EFFECT_ID,
+    WRENCH_POWER_UP_EFFECT_IDS,
+    normalizeWrenchPowerUpEffectId,
+    powerUpEffectDefinition
+} from "./src/shared/power-up-data.js";
 import { normalizeEnemyScale, scaledEnemyDimensions, scaledEnemyRenderScale } from "./src/shared/enemy-scale-data.js";
 import {
     DEFAULT_AUTO_SPAWN_ENEMIES,
@@ -1717,6 +1730,8 @@ import {
         assetExtraRow: document.getElementById("asset-extra-row"),
         entityTypeRow: document.getElementById("entity-type-row"),
         entityStateRow: document.getElementById("entity-state-row"),
+        wrenchSettingsRow: document.getElementById("wrench-settings-row"),
+        inspectWrenchEffect: document.getElementById("inspect-wrench-effect"),
         cutSelection: document.getElementById("cut-selection"),
         copySelection: document.getElementById("copy-selection"),
         pasteSelection: document.getElementById("paste-selection"),
@@ -3391,6 +3406,51 @@ import {
         ctx.closePath();
         ctx.fill();
         ctx.restore();
+    }
+
+    const WRENCH_POWER_UP_OPTIONS = WRENCH_POWER_UP_EFFECT_IDS.map((effectId) => ({
+        effectId,
+        label: effectId
+    }));
+
+    function isWrenchPickupEntity(entity) {
+        if (!entity || typeof entity !== "object") return false;
+        const type = String(entity.type || "");
+        if (type === "wrenchPickup" || type === "randomWrenchPickup") return true;
+        return WRENCH_POWER_UP_EFFECT_IDS.includes(String(entity.effectId || entity.wrenchEffectId || ""));
+    }
+
+    function selectedWrenchEffectId(entity) {
+        return normalizeWrenchPowerUpEffectId(entity?.wrenchEffectId || entity?.effectId || DEFAULT_WRENCH_POWER_UP_EFFECT_ID);
+    }
+
+    function applyWrenchEffectDefaults(entity, effectId = "") {
+        if (!entity || typeof entity !== "object") return entity;
+        const normalizedEffectId = normalizeWrenchPowerUpEffectId(effectId || entity.wrenchEffectId || entity.effectId);
+        const definition = powerUpEffectDefinition(normalizedEffectId);
+        entity.type = "wrenchPickup";
+        entity.effectId = normalizedEffectId;
+        delete entity.wrenchEffectId;
+        delete entity.randomEffectIds;
+        delete entity.randomRollCount;
+        entity.durationSeconds = Number(entity.durationSeconds) || definition?.durationSeconds || 20;
+        entity.respawnSeconds = Number(entity.respawnSeconds) || 60;
+        entity.radius = Number(entity.radius) || 30;
+        entity.atlasId = entity.atlasId || "it_atlas_001";
+        entity.glowFrame = definition?.hud?.glowFrame || entity.glowFrame || "powerup_glow_white";
+        entity.iconFrame = definition?.hud?.iconFrame || entity.iconFrame || "powerup_icon_wrench";
+        entity.glowTint = definition?.hud?.glowTint || entity.glowTint || "#00ffff";
+        return entity;
+    }
+
+    function populateWrenchEffectInspector() {
+        if (!els.inspectWrenchEffect || els.inspectWrenchEffect.options.length) return;
+        for (const optionData of WRENCH_POWER_UP_OPTIONS) {
+            const option = document.createElement("option");
+            option.value = optionData.effectId;
+            option.textContent = optionData.label;
+            els.inspectWrenchEffect.appendChild(option);
+        }
     }
 
     function assetIds() {
@@ -6184,6 +6244,7 @@ import {
             els.inspectMovingEndPause.value = String(movingDraft.endPause);
             els.inspectMovingFade.value = String(movingDraft.fadeDuration);
             els.inspectMovingHidden.value = String(movingDraft.hiddenDuration);
+            if (rec.type) addEntityPaletteOption(rec.type);
             els.inspectEntityType.value = rec.type || "targetDummy";
             els.inspectEntityState.innerHTML = "";
             const stateIds = Object.keys(rec.visualStates || {});
@@ -6247,6 +6308,8 @@ import {
             els.inspectReactiveDamageMultiplier.value = Math.max(0, finiteEditorNumber(rec.projectileDamageMultiplier, 1));
             els.inspectReactiveBlocksPlayer.checked = rec.blocksPlayer !== false;
             els.inspectReactiveBlocksProjectiles.checked = rec.blocksProjectiles !== false;
+            populateWrenchEffectInspector();
+            els.inspectWrenchEffect.value = selectedWrenchEffectId(rec);
             els.inspectNotes.value = rec.notes || "";
         }
         const isMailboxStory = selected.kind === "entity" && (rec.type === "mailbox" || rec.interaction === "editorLetter");
@@ -6257,6 +6320,7 @@ import {
         const isEnemy = selectedEnemy;
         const isSpawner = selected.kind === "entity" && isEnemySpawner(rec);
         const isReactive = selected.kind === "entity" && isReactiveObject(rec);
+        const isWrench = selected.kind === "entity" && isWrenchPickupEntity(rec);
         const isSignalEmitter = selected.kind === "entity" && isSignalEmitterEntity(rec);
         const isKeyhole = isSignalEmitter && (rec.type === "keyholeSwitch" || rec.interaction === "keyhole");
         const isSignalReceiver = selected.kind === "entity" && isSignalReceiverEntity(rec);
@@ -6276,6 +6340,7 @@ import {
         els.enemySettingsRow.style.display = isEnemy ? "block" : "none";
         els.enemySpawnerSettingsRow.style.display = isSpawner ? "block" : "none";
         els.reactiveSettingsRow.style.display = isReactive ? "block" : "none";
+        els.wrenchSettingsRow.style.display = isWrench ? "block" : "none";
         els.assetSizeRow.style.display = selected.kind === "asset" || selected.kind === "cutoutMask" || selected.kind === "entity" ? "grid" : "none";
         els.assetExtraRow.style.display = selected.kind === "asset" ? "grid" : "none";
         const movingPlatformAvailable = selected.kind === "asset" && ![BACKGROUND_LAYER, CAVE_FOREGROUND_LAYER].includes(rec.layer || "terrain");
@@ -6362,6 +6427,7 @@ import {
             "inspect-w",
             "inspect-h",
             "inspect-entity-type",
+            "inspect-wrench-effect",
             "inspect-enemy-character"
         ].includes(changedControlId);
         const oldId = rec.id;
@@ -6432,6 +6498,9 @@ import {
         } else if (selected.kind === "entity") {
             rec.type = els.inspectEntityType.value;
             if (els.inspectEntityState.value) rec.state = els.inspectEntityState.value;
+            if (isWrenchPickupEntity(rec)) {
+                applyWrenchEffectDefaults(rec, els.inspectWrenchEffect.value);
+            }
             if (isSignalEmitterEntity(rec)) {
                 rec.channel = normalizeSignalChannel(els.inspectSignalChannel.value);
                 rec.triggerDistance = Math.max(8, Number(els.inspectSignalDistance.value) || 76);
@@ -8465,6 +8534,7 @@ import {
     }
 
     setupCollapsiblePanels();
+    populateWrenchEffectInspector();
     initializeEditor();
 })();
 </script>

@@ -1738,7 +1738,7 @@ export function generateAutomaticLevelDraft(options = {}) {
     }
     if (implementations.rewards === "basic-rewards-v1") {
         if (!rewardGenerationCatalog.rewards.length) throw new Error("The reward generation metadata catalog is empty.");
-        for (const requiredType of ["treasureChest", "overdrivePickup", "shieldPickup", "randomWrenchPickup", "fuel", "thoughtTrigger"]) {
+        for (const requiredType of ["treasureChest", "overdrivePickup", "shieldPickup", "wrenchPickup", "fuel", "thoughtTrigger"]) {
             if (!entityCatalog.has(requiredType)) throw new Error(`The interactive entity catalog is missing “${requiredType}”.`);
         }
     }
@@ -1982,7 +1982,7 @@ export function generateAutomaticLevelDraft(options = {}) {
                 rewardCount: rewards.entities.length,
                 chestCount: rewards.entities.filter((entity) => entity.type === "treasureChest").length,
                 chestTarget: rewards.treasureTarget,
-                powerUpCount: rewards.entities.filter((entity) => ["overdrivePickup", "shieldPickup", "randomWrenchPickup"].includes(entity.type)).length,
+                powerUpCount: rewards.entities.filter((entity) => ["overdrivePickup", "shieldPickup", "wrenchPickup"].includes(entity.type)).length,
                 powerUpTarget: rewards.powerUpTarget,
                 thoughtCount: rewards.entities.filter((entity) => entity.type === "thoughtTrigger").length
             },

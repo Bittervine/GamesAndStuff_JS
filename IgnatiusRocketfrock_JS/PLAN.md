@@ -3131,7 +3131,7 @@ The five non-red wrench modes now share a simple economy target. Yellow Triple, 
 
 Yellow Triple now launches three straight non-homing rockets at -15, 0, and +15 degrees around a launch-time line to the nearest active enemy in the direction Ignatius faces. Each deals one third standard damage. Green Target launches one straight standard-damage rocket on the same nearest-forward launch-time aim, falling back to straight ahead when no enemy is in front. Cyan Dart continues straight along facing. All three non-homing wrench modes use the exported `NON_HOMING_ROCKET_SPEED_FACTOR`, currently 2. Blue Homing Triple inherits the former yellow homing volley: three one-third-damage homing rockets in the established -12, 0, and +12 degree fan, with separate target assignment when possible, at standard speed. Magenta keeps standard speed, homing, return, and catch behavior.
 
-The stable serialized effect IDs remain `wrenchBurst` and `wrenchPhase` for compatibility, while their visible labels become Target and Homing Triple so the HUD and manual no longer promise retired burst or phasing behavior. Regression coverage checks player and enemy projectile passage through walkable lines, blocking-line and blocking-area impacts, launch-time forward target selection, spread angles, homing state, speed, fuel cost, damage totals, and Boomerang refund arithmetic.
+The stable serialized effect IDs remain `wrenchGreen` and `wrenchBlue` for compatibility, while their visible labels become Target and Homing Triple so the HUD and manual no longer promise retired burst or phasing behavior. Regression coverage checks player and enemy projectile passage through walkable lines, blocking-line and blocking-area impacts, launch-time forward target selection, spread angles, homing state, speed, fuel cost, damage totals, and Boomerang refund arithmetic.
 
 ## Revision 306 wrench-first Power HUD priority
 
@@ -3142,7 +3142,7 @@ The priority selector also compares normalized saved metadata with the current b
 
 ## Revision 307 yellow Fivefold volley
 
-Revision 307 expands the yellow wrench from three rockets to five while preserving the existing +/-15-degree outer cone. The fan is evenly spaced at -15, -7.5, 0, +7.5, and +15 degrees around the nearest-forward launch-time target line. Each projectile deals one fifth of standard rocket damage, keeping the volley at one standard rocket of nominal total damage for half standard fuel. The visible label changes from Triple to Fivefold, while the internal `wrenchTriple` ID remains stable for saved data.
+Revision 307 expands the yellow wrench from three rockets to five while preserving the existing +/-15-degree outer cone. The fan is evenly spaced at -15, -7.5, 0, +7.5, and +15 degrees around the nearest-forward launch-time target line. Each projectile deals one fifth of standard rocket damage, keeping the volley at one standard rocket of nominal total damage for half standard fuel. The visible label changes from Triple to Fivefold, while the internal `wrenchYellow` ID remains stable for saved data.
 
 ## Revision 308 remove player rocket firing cooldown
 
@@ -3871,7 +3871,7 @@ Status: implemented.
 
 The automatic generator now uses substantially more of the cave ceiling. Horizontal routes distribute reachable second-tier branches across at least 36 percent of the playable span. Standard routes place more detached first-tier platforms and extend selected branches into a higher second tier. Branch roles cycle between combat positions, ordinary reward perches, and dedicated power-up detours, allowing generated monsters and pickups to occupy optional routes rather than clustering on the main path.
 
-Overdrive is deliberately reserved for dedicated upper detours before ordinary reward slots are filled. The generated power-up pool changes from 50/25/25 to 60 percent random wrench, 30 percent Overdrive, and 10 percent Shield. Reward-only rerolls keep fixed safe seats so anchored encounter composition remains unchanged. Generator schema version 32 and reward catalog version 3 record the new behavior.
+Overdrive is deliberately reserved for dedicated upper detours before ordinary reward slots are filled. The generated power-up pool changes from 50/25/25 to 60 percent authored wrench, 30 percent Overdrive, and 10 percent Shield. Reward-only rerolls keep fixed safe seats so anchored encounter composition remains unchanged. Generator schema version 32 and reward catalog version 3 record the new behavior.
 
 The release gate also repaired two stale revision-415 contracts in the bundled Level 001 data and tests: the placed Skeleton Guard now carries the catalog-authoritative 50 damage, and navigation coverage recognizes the already-baked third hunter profile used by the Skeleton Caster.
 
@@ -3887,7 +3887,7 @@ Status: implemented.
 
 Generated encounter density is now horizontal-span based. At each theme's default Enemy density, the generator targets one monster per 500 horizontal route units. The density control scales that target, zero still disables encounters, and the upper scale is capped at twice the default rate. Long supports are divided into several deterministic encounter seats, so two or more separately paced encounters may occupy the same platform when body clearance, reward exclusion, endpoint calm zones, and minimum encounter spacing remain valid. Encounter metadata version 2 records the target, horizontal span, and target spacing.
 
-Generated power-ups are reduced to one third of revision 417 by changing their route-scaled target from one per 1,000 mandatory-route pixels to one per 3,000. The 60/30/10 random-wrench, Overdrive, and Shield mix remains unchanged, including dedicated upper Overdrive detours. Generator schema version 33 records the new population behavior.
+Generated power-ups are reduced to one third of revision 417 by changing their route-scaled target from one per 1,000 mandatory-route pixels to one per 3,000. The 60/30/10 authored-wrench, Overdrive, and Shield mix remains unchanged, including dedicated upper Overdrive detours. Generator schema version 33 records the new population behavior.
 
 
 ## Revision 419 increased generated monster density
@@ -4248,3 +4248,38 @@ The temporary large undeath projectile core is removed again. Skeleton Caster sh
 Revision 521 keeps the smarter Skeleton Caster undeath-orb steering from revision 520, but cleans up the names and package hygiene around it. The Character Editor no longer marks `pathing_lo` and `pathing_hi` as reserved launch types because the Skeleton Caster now actively uses `pathing_lo`.
 
 The pathing debug capture now reports upward and downward clearance, bias, and branch decisions using `up*` and `down*` names only. The older left/right aliases were removed because they described the previous mental model poorly once the projectile guidance became an above/below pedestal avoidance problem. The compact update package continues to omit `.build` test reports so stale local gate state does not travel with releases.
+
+
+## Revision 522 gameplay recording screenshots
+
+Revision 522 extends gameplay recording so the game can capture a PNG screenshot every second while a run is being recorded. Stopping a recording now saves a bundle: the JSON recording plus the periodic screenshots, using the File System Access API directory picker when available and download fallbacks otherwise.
+
+
+## Revision 523 Node recording capture utility
+
+Revision 523 adds an isolated development-only capture helper under `devel/`. The helper installs minimal Node browser adapters backed by `skia-canvas`, loads an existing gameplay recording, replays the shared simulation frame inputs to a selected recording frame, renders through the production Canvas2D renderer, and writes a PNG with exact frame/tick/time metadata. The utility does not participate in the normal browser runtime and can be deleted without changing gameplay.
+
+
+## Revision 524 authored wrench pickups
+
+Revision 524 removes random wrench selection from placed wrench pickups. Wrenches now use an authored `effectId`, the Level Editor exposes a Wrench type dropdown, and missing or invalid wrench types default to the cyan Dart (`wrenchCyan`). Existing authored levels have their wrench pickups migrated to cyan fixed wrenches with no `randomEffectIds` pool.
+
+
+## Revision 525 cyan default wrench pickups
+
+Revision 525 changes the authored wrench fallback from blue Homing Triple to cyan Dart. Shipped levels and the stress fixture now use `wrenchCyan` for the fixed wrench pickups migrated in revision 524, while missing or invalid wrench data also resolves to cyan.
+
+
+## Revision 526 wrench effect IDs
+
+Revision 526 renames the wrench power-up effect IDs to color-coded authored IDs. The cyan default is now `wrenchCyan`; the other built-ins are `wrenchYellow`, `wrenchGreen`, `wrenchRed`, `wrenchMagenta`, and `wrenchBlue`. Shipped levels, fixtures, recordings, the wizard glow atlas manifest, and Level Editor options use the renamed IDs directly. No compatibility alias is kept for the short-lived revision 524/525 wrench IDs.
+
+
+## Revision 527 upward hover drift
+
+Revision 527 flips the attached rocket hover governor from a slow downward sink to a slow upward climb using the same configured speed magnitude. The boost kick and normal jump behavior are otherwise unchanged.
+
+
+## Revision 528 JSON-only gameplay recording
+
+Revision 528 removes the live browser PNG screenshot capture introduced in revision 522. Gameplay recording returns to a JSON-only browser feature; deterministic screenshots are generated after the fact through the isolated `devel/capture_recording_frame.mjs` Node/skia-canvas helper.

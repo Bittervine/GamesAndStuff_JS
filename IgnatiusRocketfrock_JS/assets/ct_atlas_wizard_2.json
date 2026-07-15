@@ -6,37 +6,37 @@
     "atlasId": "ct_atlas_wizard_2",
     "image": "ct_atlas_wizard_2.png",
     "frames": {
-        "rocket_projectile_glow_wrench_triple": {
+        "rocket_projectile_glow_wrench_yellow": {
             "x": 0,
             "y": 0,
             "w": 436,
             "h": 749
         },
-        "rocket_projectile_glow_wrench_dart": {
+        "rocket_projectile_glow_wrench_cyan": {
             "x": 0,
             "y": 749,
             "w": 436,
             "h": 749
         },
-        "rocket_projectile_glow_wrench_burst": {
+        "rocket_projectile_glow_wrench_green": {
             "x": 0,
             "y": 1498,
             "w": 436,
             "h": 749
         },
-        "rocket_projectile_glow_wrench_bigbomb": {
+        "rocket_projectile_glow_wrench_red": {
             "x": 0,
             "y": 2247,
             "w": 436,
             "h": 749
         },
-        "rocket_projectile_glow_wrench_boomerang": {
+        "rocket_projectile_glow_wrench_magenta": {
             "x": 0,
             "y": 2996,
             "w": 436,
             "h": 749
         },
-        "rocket_projectile_glow_wrench_phase": {
+        "rocket_projectile_glow_wrench_blue": {
             "x": 0,
             "y": 3745,
             "w": 436,
@@ -44,13 +44,13 @@
         }
     },
     "objects": {
-        "rocket_projectile_glow_wrench_triple": {
-            "id": "rocket_projectile_glow_wrench_triple",
-            "frame": "rocket_projectile_glow_wrench_triple",
+        "rocket_projectile_glow_wrench_yellow": {
+            "id": "rocket_projectile_glow_wrench_yellow",
+            "frame": "rocket_projectile_glow_wrench_yellow",
             "type": "projectileVariant",
             "layer": "character",
             "mirrorable": false,
-            "effectId": "wrenchTriple",
+            "effectId": "wrenchYellow",
             "paddingX": 120,
             "paddingY": 120,
             "tags": [
@@ -58,16 +58,16 @@
                 "projectile",
                 "rocket",
                 "glow",
-                "wrenchTriple"
+                "wrenchYellow"
             ]
         },
-        "rocket_projectile_glow_wrench_dart": {
-            "id": "rocket_projectile_glow_wrench_dart",
-            "frame": "rocket_projectile_glow_wrench_dart",
+        "rocket_projectile_glow_wrench_cyan": {
+            "id": "rocket_projectile_glow_wrench_cyan",
+            "frame": "rocket_projectile_glow_wrench_cyan",
             "type": "projectileVariant",
             "layer": "character",
             "mirrorable": false,
-            "effectId": "wrenchDart",
+            "effectId": "wrenchCyan",
             "paddingX": 120,
             "paddingY": 120,
             "tags": [
@@ -75,16 +75,16 @@
                 "projectile",
                 "rocket",
                 "glow",
-                "wrenchDart"
+                "wrenchCyan"
             ]
         },
-        "rocket_projectile_glow_wrench_burst": {
-            "id": "rocket_projectile_glow_wrench_burst",
-            "frame": "rocket_projectile_glow_wrench_burst",
+        "rocket_projectile_glow_wrench_green": {
+            "id": "rocket_projectile_glow_wrench_green",
+            "frame": "rocket_projectile_glow_wrench_green",
             "type": "projectileVariant",
             "layer": "character",
             "mirrorable": false,
-            "effectId": "wrenchBurst",
+            "effectId": "wrenchGreen",
             "paddingX": 120,
             "paddingY": 120,
             "tags": [
@@ -92,16 +92,16 @@
                 "projectile",
                 "rocket",
                 "glow",
-                "wrenchBurst"
+                "wrenchGreen"
             ]
         },
-        "rocket_projectile_glow_wrench_bigbomb": {
-            "id": "rocket_projectile_glow_wrench_bigbomb",
-            "frame": "rocket_projectile_glow_wrench_bigbomb",
+        "rocket_projectile_glow_wrench_red": {
+            "id": "rocket_projectile_glow_wrench_red",
+            "frame": "rocket_projectile_glow_wrench_red",
             "type": "projectileVariant",
             "layer": "character",
             "mirrorable": false,
-            "effectId": "wrenchBigbomb",
+            "effectId": "wrenchRed",
             "paddingX": 120,
             "paddingY": 120,
             "tags": [
@@ -109,16 +109,16 @@
                 "projectile",
                 "rocket",
                 "glow",
-                "wrenchBigbomb"
+                "wrenchRed"
             ]
         },
-        "rocket_projectile_glow_wrench_boomerang": {
-            "id": "rocket_projectile_glow_wrench_boomerang",
-            "frame": "rocket_projectile_glow_wrench_boomerang",
+        "rocket_projectile_glow_wrench_magenta": {
+            "id": "rocket_projectile_glow_wrench_magenta",
+            "frame": "rocket_projectile_glow_wrench_magenta",
             "type": "projectileVariant",
             "layer": "character",
             "mirrorable": false,
-            "effectId": "wrenchBoomerang",
+            "effectId": "wrenchMagenta",
             "paddingX": 120,
             "paddingY": 120,
             "tags": [
@@ -126,16 +126,16 @@
                 "projectile",
                 "rocket",
                 "glow",
-                "wrenchBoomerang"
+                "wrenchMagenta"
             ]
         },
-        "rocket_projectile_glow_wrench_phase": {
-            "id": "rocket_projectile_glow_wrench_phase",
-            "frame": "rocket_projectile_glow_wrench_phase",
+        "rocket_projectile_glow_wrench_blue": {
+            "id": "rocket_projectile_glow_wrench_blue",
+            "frame": "rocket_projectile_glow_wrench_blue",
             "type": "projectileVariant",
             "layer": "character",
             "mirrorable": false,
-            "effectId": "wrenchPhase",
+            "effectId": "wrenchBlue",
             "paddingX": 120,
             "paddingY": 120,
             "tags": [
@@ -143,7 +143,7 @@
                 "projectile",
                 "rocket",
                 "glow",
-                "wrenchPhase"
+                "wrenchBlue"
             ]
         }
     }

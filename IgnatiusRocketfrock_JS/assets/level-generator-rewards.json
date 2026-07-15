@@ -49,19 +49,6 @@
       "minimumProgress": 0,
       "maximumProgress": 1
     },
-    "randomWrenchPickup": {
-      "entityType": "randomWrenchPickup",
-      "category": "powerUp",
-      "contexts": [
-        "beforeLargeEncounter"
-      ],
-      "weight": 6,
-      "minimumSupportWidth": 220,
-      "edgeClearance": 64,
-      "verticalOffset": 0,
-      "minimumProgress": 0,
-      "maximumProgress": 1
-    },
     "fuel": {
       "entityType": "fuel",
       "category": "utility",
@@ -87,6 +74,19 @@
       "verticalOffset": 0,
       "minimumProgress": 0.25,
       "maximumProgress": 0.78
+    },
+    "wrenchPickup": {
+      "entityType": "wrenchPickup",
+      "category": "powerUp",
+      "contexts": [
+        "beforeLargeEncounter"
+      ],
+      "weight": 6,
+      "minimumSupportWidth": 220,
+      "edgeClearance": 64,
+      "verticalOffset": 0,
+      "minimumProgress": 0,
+      "maximumProgress": 1
     }
   }
 }

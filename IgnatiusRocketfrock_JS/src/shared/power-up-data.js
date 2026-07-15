@@ -1,12 +1,12 @@
 export const POWER_UP_EFFECT_IDS = Object.freeze({
     OVERDRIVE: "overdrive",
     SHIELD: "shield",
-    WRENCH_TRIPLE: "wrenchTriple",
-    WRENCH_DART: "wrenchDart",
-    WRENCH_BURST: "wrenchBurst",
-    WRENCH_BIGBOMB: "wrenchBigbomb",
-    WRENCH_BOOMERANG: "wrenchBoomerang",
-    WRENCH_PHASE: "wrenchPhase"
+    WRENCH_TRIPLE: "wrenchYellow",
+    WRENCH_DART: "wrenchCyan",
+    WRENCH_BURST: "wrenchGreen",
+    WRENCH_BIGBOMB: "wrenchRed",
+    WRENCH_BOOMERANG: "wrenchMagenta",
+    WRENCH_PHASE: "wrenchBlue"
 });
 
 const RETIRED_ROCKET_OVERDRIVE_ID = "rocketOverdrive";
@@ -21,6 +21,8 @@ export const HOMING_TRIPLE_MEANDER_INTERVAL_SECONDS = 0.16;
 export const HOMING_TRIPLE_MEANDER_TURN_DEGREES = 7;
 export const OVERDRIVE_PASSIVE_FUEL_RECOVERY_DRAIN_FACTOR = 0.9;
 
+export const DEFAULT_WRENCH_POWER_UP_EFFECT_ID = POWER_UP_EFFECT_IDS.WRENCH_DART;
+
 export const WRENCH_POWER_UP_EFFECT_IDS = Object.freeze([
     POWER_UP_EFFECT_IDS.WRENCH_TRIPLE,
     POWER_UP_EFFECT_IDS.WRENCH_DART,
@@ -31,12 +33,12 @@ export const WRENCH_POWER_UP_EFFECT_IDS = Object.freeze([
 ]);
 
 export const WRENCH_ROCKET_GLOW_ATLAS_FRAMES = Object.freeze({
-    [POWER_UP_EFFECT_IDS.WRENCH_TRIPLE]: "rocket_projectile_glow_wrench_triple",
-    [POWER_UP_EFFECT_IDS.WRENCH_DART]: "rocket_projectile_glow_wrench_dart",
-    [POWER_UP_EFFECT_IDS.WRENCH_BURST]: "rocket_projectile_glow_wrench_burst",
-    [POWER_UP_EFFECT_IDS.WRENCH_BIGBOMB]: "rocket_projectile_glow_wrench_bigbomb",
-    [POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG]: "rocket_projectile_glow_wrench_boomerang",
-    [POWER_UP_EFFECT_IDS.WRENCH_PHASE]: "rocket_projectile_glow_wrench_phase"
+    [POWER_UP_EFFECT_IDS.WRENCH_TRIPLE]: "rocket_projectile_glow_wrench_yellow",
+    [POWER_UP_EFFECT_IDS.WRENCH_DART]: "rocket_projectile_glow_wrench_cyan",
+    [POWER_UP_EFFECT_IDS.WRENCH_BURST]: "rocket_projectile_glow_wrench_green",
+    [POWER_UP_EFFECT_IDS.WRENCH_BIGBOMB]: "rocket_projectile_glow_wrench_red",
+    [POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG]: "rocket_projectile_glow_wrench_magenta",
+    [POWER_UP_EFFECT_IDS.WRENCH_PHASE]: "rocket_projectile_glow_wrench_blue"
 });
 
 export const POWER_UP_STACKING_RULES = Object.freeze({
@@ -132,7 +134,7 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
     }),
     [POWER_UP_EFFECT_IDS.WRENCH_TRIPLE]: wrenchEffect({
         id: POWER_UP_EFFECT_IDS.WRENCH_TRIPLE,
-        label: "Fivefold",
+        label: POWER_UP_EFFECT_IDS.WRENCH_TRIPLE,
         glowTint: "#ffff00",
         rocket: {
             launchFuelCostMultiplier: 0.5,
@@ -149,7 +151,7 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
     }),
     [POWER_UP_EFFECT_IDS.WRENCH_DART]: wrenchEffect({
         id: POWER_UP_EFFECT_IDS.WRENCH_DART,
-        label: "Dart",
+        label: POWER_UP_EFFECT_IDS.WRENCH_DART,
         glowTint: "#00ffff",
         rocket: {
             launchFuelCostMultiplier: 0.5,
@@ -162,7 +164,7 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
     }),
     [POWER_UP_EFFECT_IDS.WRENCH_BURST]: wrenchEffect({
         id: POWER_UP_EFFECT_IDS.WRENCH_BURST,
-        label: "Target",
+        label: POWER_UP_EFFECT_IDS.WRENCH_BURST,
         glowTint: "#00ff00",
         rocket: {
             launchFuelCostMultiplier: 0.5,
@@ -175,7 +177,7 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
     }),
     [POWER_UP_EFFECT_IDS.WRENCH_BIGBOMB]: wrenchEffect({
         id: POWER_UP_EFFECT_IDS.WRENCH_BIGBOMB,
-        label: "Bigbomb",
+        label: POWER_UP_EFFECT_IDS.WRENCH_BIGBOMB,
         glowTint: "#ff0000",
         rocket: {
             launchFuelCostMultiplier: 3,
@@ -190,7 +192,7 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
     }),
     [POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG]: wrenchEffect({
         id: POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG,
-        label: "Boomerang",
+        label: POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG,
         glowTint: "#ff00ff",
         rocket: {
             launchFuelCostMultiplier: 0.5,
@@ -200,7 +202,7 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
     }),
     [POWER_UP_EFFECT_IDS.WRENCH_PHASE]: wrenchEffect({
         id: POWER_UP_EFFECT_IDS.WRENCH_PHASE,
-        label: "Homing Triple",
+        label: POWER_UP_EFFECT_IDS.WRENCH_PHASE,
         glowTint: "#0000ff",
         rocket: {
             launchFuelCostMultiplier: 0.5,
@@ -244,6 +246,13 @@ function normalizeAngles(value, fallback) {
 export function powerUpEffectDefinition(effectId) {
     if (isRetiredPowerUpEffectId(effectId)) return null;
     return BUILTIN_POWER_UP_EFFECTS[canonicalEffectId(effectId)] || null;
+}
+
+export function normalizeWrenchPowerUpEffectId(value, fallback = DEFAULT_WRENCH_POWER_UP_EFFECT_ID) {
+    const requested = canonicalEffectId(value || fallback);
+    return WRENCH_POWER_UP_EFFECT_IDS.includes(requested)
+        ? requested
+        : DEFAULT_WRENCH_POWER_UP_EFFECT_ID;
 }
 
 export function wrenchRocketGlowAtlasFrameId(effectId) {

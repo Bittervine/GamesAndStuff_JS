@@ -7176,7 +7176,7 @@ function testAutomaticLevelGeneratorRewards() {
     assert.deepEqual(generatedPowerUpWeights, {
         overdrivePickup: 3,
         shieldPickup: 1,
-        randomWrenchPickup: 6
+        wrenchPickup: 6
     }, "generated power-up weights should target 60% wrenches, 30% Overdrive, and a much rarer 10% Shield");
     assert.ok(entityCatalog.entities.thoughtTrigger, "the interactive entity catalog should define the invisible one-shot thought trigger");
     const movingPlatformAsset = assetCatalog.assets.find((entry) => entry.assetId === "rubble_long");
@@ -7229,16 +7229,16 @@ function testAutomaticLevelGeneratorRewards() {
         assert.ok(chest.scoreValue > 0 && Math.abs(chest.y - support.surfaceY) <= 0.01, "every generated chest should be seated and award positive Score");
     }
     const contextualTypes = rewardEntities.filter((entity) => entity.type !== "treasureChest" && entity.type !== "thoughtTrigger").map((entity) => entity.type);
-    const generatedPowerUps = rewardEntities.filter((entity) => ["overdrivePickup", "shieldPickup", "randomWrenchPickup"].includes(entity.type));
+    const generatedPowerUps = rewardEntities.filter((entity) => ["overdrivePickup", "shieldPickup", "wrenchPickup"].includes(entity.type));
     assert.ok(generatedPowerUps.length >= first.generation.rewards.powerUpTarget, `rewarded generated levels should meet their route-scaled power-up target of ${first.generation.rewards.powerUpTarget}`);
     const generatedPowerUpCounts = generatedPowerUps.reduce((counts, entity) => {
         counts[entity.type] = (counts[entity.type] || 0) + 1;
         return counts;
     }, {});
-    const generatedWrenchCount = generatedPowerUpCounts.randomWrenchPickup || 0;
+    const generatedWrenchCount = generatedPowerUpCounts.wrenchPickup || 0;
     const generatedShieldCount = generatedPowerUpCounts.shieldPickup || 0;
     const generatedSpeedCount = generatedPowerUpCounts.overdrivePickup || 0;
-    assert.ok(Math.abs(generatedWrenchCount * 10 - generatedPowerUps.length * 6) <= 6, "about 60% of generated power-ups should be randomized wrenches");
+    assert.ok(Math.abs(generatedWrenchCount * 10 - generatedPowerUps.length * 6) <= 6, "about 60% of generated power-ups should be authored wrenches");
     assert.ok(Math.abs(generatedSpeedCount * 10 - generatedPowerUps.length * 3) <= 6, "about 30% of generated power-ups should be Overdrive");
     assert.ok(Math.abs(generatedShieldCount * 10 - generatedPowerUps.length) <= 6, "about 10% of generated power-ups should be Shield");
     const detachedOverdrives = generatedPowerUps.filter((entity) => entity.type === "overdrivePickup" && entity.generationContext === "detourUpperPerch");
@@ -7249,7 +7249,7 @@ function testAutomaticLevelGeneratorRewards() {
         return support?.powerUpPerch && support.secondaryTier === 2 && !support.mandatory;
     }), "detour Overdrive pickups should sit on optional second-tier power-up branches rather than the main route");
     assert.equal(generatedPowerUps.every((entity) => Math.abs(entity.y - supportById.get(entity.generationSupportId)?.surfaceY) <= 0.01), true, "generated power-ups should sit directly on their support surface for easy pickup");
-    assert.ok(contextualTypes.some((type) => ["overdrivePickup", "shieldPickup", "randomWrenchPickup"].includes(type)), "rewarded generated levels should contain genuine power-up pickups");
+    assert.ok(contextualTypes.some((type) => ["overdrivePickup", "shieldPickup", "wrenchPickup"].includes(type)), "rewarded generated levels should contain genuine power-up pickups");
     assert.equal(rewardEntities.some((entity) => entity.type === "thoughtTrigger"), false, "generated location thoughts should remain absent unless explicitly enabled");
 
     const independent = validateGeneratedRewards({
@@ -7284,7 +7284,7 @@ function testAutomaticLevelGeneratorRewards() {
     assert.ok(wideSecondarySupports.length >= 3, "a rewarded Wide cavern should populate its open upper volume with several reachable platforms");
     assert.ok(wideContent.entities.some((entity) => entity.generationStage === "encounters" && wideSupportById.get(entity.generationSupportId)?.combatPerch), "Wide caverns should use at least one upper combat perch for monsters");
     assert.ok(wideContent.entities.some((entity) => entity.generationStage === "rewards" && wideSupportById.get(entity.generationSupportId)?.rewardPerch), "Wide caverns should use at least one upper reward perch for treasure or pickups");
-    assert.ok(wideContent.entities.some((entity) => entity.generationStage === "rewards" && ["overdrivePickup", "shieldPickup", "randomWrenchPickup"].includes(entity.type)), "Wide rewarded caverns should retain a genuine power-up pickup");
+    assert.ok(wideContent.entities.some((entity) => entity.generationStage === "rewards" && ["overdrivePickup", "shieldPickup", "wrenchPickup"].includes(entity.type)), "Wide rewarded caverns should retain a genuine power-up pickup");
 
     const zeroRewards = generateAutomaticLevelDraft({
         ...options,
@@ -8627,7 +8627,7 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     assert.ok(atlas.objects.powerup_icon_wrench.tags.includes("upgrade"), "the wrench should be identified as the generic rocket-upgrade emblem");
     assert.ok(!atlas.objects.powerup_icon_lightning.tags.includes("rapid-fire") && atlas.objects.powerup_icon_lightning.tags.includes("fuel-efficiency"), "the lightning icon should describe Overdrive fuel efficiency without a retired rapid-fire promise");
     assert.ok(catalog.entities.mailbox && catalog.entities.treasureChest && catalog.entities.wizard_entry_door && catalog.entities.wizard_exit_door, "catalog should define mailboxes plus dedicated wizard entry/exit doors");
-    assert.ok(catalog.entities.overdrivePickup && catalog.entities.shieldPickup && catalog.entities.randomWrenchPickup, "interactive catalog should expose Overdrive, Shield, and the randomized wrench pickup family");
+    assert.ok(catalog.entities.overdrivePickup && catalog.entities.shieldPickup && catalog.entities.wrenchPickup, "interactive catalog should expose Overdrive, Shield, and the authored wrench pickup family");
     assert.equal(catalog.entities.shieldPickup.defaults.glowTint, "#008cff", "Shield pickups should use the authored blue glow");
     assert.equal(catalog.entities.shieldPickup.defaults.iconFrame, "powerup_icon_shield", "Shield pickups should use the reserved shield emblem");
     assert.ok(catalog.entities.breakableCrate, "interactive catalog should expose the first reactive destructible object");
@@ -8854,7 +8854,7 @@ function testRocketPowerUpArsenal() {
         [POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG, { count: 1, damage: 1, cost: 0.5, speed: 1, tint: "#ff00ff" }],
         [POWER_UP_EFFECT_IDS.WRENCH_PHASE, { count: 3, damage: 1 / 3, cost: 0.5, speed: 1, tint: "#0000ff" }]
     ]);
-    assert.deepEqual(WRENCH_POWER_UP_EFFECT_IDS, [...expectedWrenches.keys()], "the random wrench pool should include the complete six-mode arsenal");
+    assert.deepEqual(WRENCH_POWER_UP_EFFECT_IDS, [...expectedWrenches.keys()], "the wrench effect list should include the complete six-mode arsenal");
     assert.equal(powerUpEffectDefinition("wrenchTwin"), null, "the replaced Twin identity should no longer be accepted as a current wrench effect");
     const burstDefinition = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.WRENCH_BURST);
     assert.equal(normalizePowerUpPickup({
@@ -8903,13 +8903,12 @@ function testRocketPowerUpArsenal() {
             },
             {
                 id: "random_wrench",
-                type: "randomWrenchPickup",
+                type: "wrenchPickup",
                 state: "available",
                 x: 620,
                 y: 600,
                 w: 96,
                 h: 96,
-                randomEffectIds: [...WRENCH_POWER_UP_EFFECT_IDS],
                 respawnSeconds: 60,
                 radius: 30,
                 visualStates: { available: { visuals: [] }, collected: { visuals: [] } }
@@ -8938,16 +8937,15 @@ function testRocketPowerUpArsenal() {
     const shieldPickup = state.pickups.find((item) => item.id === "shield_a");
     assert.equal(speedPickup.kind, "powerUp", "effect-bearing entities should become portable power-up pickups");
     assert.equal(speedPickup.respawnSeconds, 60, "Overdrive should respawn after sixty seconds");
-    assert.equal(wrenchPickup.respawnSeconds, 60, "random wrenches should respawn after sixty seconds");
-    assert.ok(WRENCH_POWER_UP_EFFECT_IDS.includes(wrenchPickup.powerUp.effectId), "the wrench should roll a valid mode at level start");
-    assert.equal(wrenchPickup.powerUp.iconFrame, "powerup_icon_wrench", "the randomized pickup should render the wrench emblem");
+    assert.equal(wrenchPickup.respawnSeconds, 60, "wrenches should respawn after sixty seconds");
+    assert.equal(wrenchPickup.powerUp.effectId, POWER_UP_EFFECT_IDS.WRENCH_DART, "a wrench without an authored type should default to the cyan Dart mode");
+    assert.equal(wrenchPickup.powerUp.iconFrame, "powerup_icon_wrench", "the authored pickup should render the wrench emblem");
     assert.equal(shieldPickup.powerUp.iconFrame, "powerup_icon_shield", "the Shield pickup should retain its shield emblem");
     assert.equal(shieldPickup.powerUp.glowTint, "#008cff", "the Shield pickup should retain its blue glow");
 
-    const initialWrenchRoll = wrenchPickup.powerUp.effectId;
-    const repeatState = createInitialGameState({ randomSeed: 0x12345678 });
+    const repeatState = createInitialGameState({ randomSeed: 0x87654321 });
     assert.equal(applyEditorLevelToWorld(repeatState, level), true);
-    assert.equal(repeatState.pickups.find((item) => item.id === "random_wrench").powerUp.effectId, initialWrenchRoll, "the portable random roll should be deterministic for a given session seed and level load");
+    assert.equal(repeatState.pickups.find((item) => item.id === "random_wrench").powerUp.effectId, POWER_UP_EFFECT_IDS.WRENCH_DART, "missing wrench type should deterministically default to the cyan Dart");
 
     const fuelBefore = state.fuel.amount;
     stepSimulation(state, createInputFrame({ weaponPressed: true }), FIXED_DT);
@@ -8998,7 +8996,7 @@ function testRocketPowerUpArsenal() {
     state.player.vy = 0;
     stepSimulation(state, createInputFrame(), FIXED_DT);
     const activeWrench = activeWrenchPowerUpEffect(state);
-    assert.ok(activeWrench && WRENCH_POWER_UP_EFFECT_IDS.includes(activeWrench.id), "collecting the random wrench should activate exactly one wrench effect");
+    assert.ok(activeWrench && WRENCH_POWER_UP_EFFECT_IDS.includes(activeWrench.id), "collecting the authored wrench should activate exactly one wrench effect");
     assert.equal(prioritizedActivePowerUpEffect(state)?.id, activeWrench.id, "the active wrench should be displayed ahead of Overdrive");
 
     const replacementPickup = {
@@ -9052,8 +9050,8 @@ function testRocketPowerUpArsenal() {
     state.player.currentTransform.x = 1000;
     stepSimulation(state, createInputFrame(), FIXED_DT);
     assert.equal(wrenchPickup.collected, false, "a collected wrench should reappear after its respawn timer");
-    assert.equal(wrenchPickup.randomRollCount, 1, "each wrench respawn should advance its random roll counter");
-    assert.ok(WRENCH_POWER_UP_EFFECT_IDS.includes(wrenchPickup.powerUp.effectId), "the respawned wrench should reroll to a valid mode");
+    assert.equal(wrenchPickup.randomRollCount, 0, "wrench respawn should not advance a random roll counter");
+    assert.equal(wrenchPickup.powerUp.effectId, POWER_UP_EFFECT_IDS.WRENCH_DART, "the respawned wrench should keep its authored mode");
     assert.ok(state.debug.lastEvents.some((event) => event.type === "POWER_UP_PICKUP_RESPAWNED" && event.pickupId === wrenchPickup.id), "power-up respawn should be visible in deterministic diagnostics");
 
     function stateWithWrench(effectId, { fuel = 100, targets = [] } = {}) {
@@ -9309,7 +9307,7 @@ function testRocketPowerUpArsenal() {
 
     const serialized = restoreGameState(serializeGameState(state));
     assert.ok(activePowerUpEffect(serialized, POWER_UP_EFFECT_IDS.OVERDRIVE), "active effects should survive ordinary state serialization");
-    assert.equal(serialized.pickups.find((pickup) => pickup.id === wrenchPickup.id).randomRollCount, 1, "pickup reroll state should survive serialization");
+    assert.equal(serialized.pickups.find((pickup) => pickup.id === wrenchPickup.id).randomRollCount, 0, "pickup respawn state should survive serialization");
 
     const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
     assert.ok(rendererSource.includes("getTintedAtlasFrameCanvas") && rendererSource.includes("drawPowerUpComposite"), "renderer should tint the prepared white glow and compose the icon above it");
@@ -9375,10 +9373,10 @@ function testRocketPowerUpArsenal() {
     const characterEditorSource = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 520<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(characterEditorSource, /Puppet Forge <small>rev 520<\/small>/, "Puppet Forge should display the packaged revision");
+    assert.match(editorSource, /Level Editor <small>rev 528<\/small>/, "the Level Editor should display the packaged revision");
+    assert.match(characterEditorSource, /Puppet Forge <small>rev 528<\/small>/, "Puppet Forge should display the packaged revision");
     const assetEditorSource = readFileSync(new URL("../asset-editor.html", import.meta.url), "utf8");
-    assert.match(assetEditorSource, /Asset Tool <small>rev 520<\/small>/, "Asset Tool should display the packaged revision");
+    assert.match(assetEditorSource, /Asset Tool <small>rev 528<\/small>/, "Asset Tool should display the packaged revision");
     assert.match(assetEditorSource, /id="atlas-numbered-select"[\s\S]*id="load-numbered-atlas"[\s\S]*id="load-local"[\s\S]*id="save-local"[\s\S]*id="quick-save-json"/, "Asset Tool should keep atlas loading and save/export controls together in the Files panel");
     assert.ok(!assetEditorSource.includes("Custom atlas image") && !assetEditorSource.includes("Custom JSON"), "Asset Tool should retire the visible custom import pickers from the primary Files panel");
     assert.doesNotMatch(assetEditorSource, /load-default-image|load-default-json/, "Asset Tool should retire the hard-coded at_atlas_001 load buttons");
@@ -9411,7 +9409,7 @@ function testRocketPowerUpArsenal() {
     assert.equal(editorSource.includes('id="canvas-renderer-baseline"'), false, "the Level Editor should no longer advertise the posterity-only Canvas baseline");
     assert.equal(editorSource.includes("openCanvasRendererBaseline"), false, "the removed baseline link should leave no dormant click handler");
     assert.equal(editorSource.includes("Editor 2 lab"), false, "the Level Editor should not link to the removed Editor 2 lab");
-    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 520") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
+    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 528") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
     assert.ok(baselineSource.includes("applyEditorLevelToWorld") && baselineSource.includes("preferWebGL2: false") && baselineSource.includes("setViewOverride"), "the retained baseline should still convert the authored level and use the ordinary Canvas2D game renderer with an editor camera override");
     assert.ok(editorPlaywrightBenchmark.includes("benchmark_baseline") && editorPlaywrightBenchmark.includes("benchmark_editor") && editorPlaywrightBenchmark.includes("editorToBaselineCadenceRatio"), "the optional Playwright probe should compare the loaded baseline and editor rather than source-only timings");
     assert.ok(editorPlaywrightBenchmark.includes("bodyScrollWidth") && editorPlaywrightBenchmark.includes("stageBacking") && editorPlaywrightBenchmark.includes("overlayBacking"), "the Playwright probe should detect viewport overflow and stage/overlay size divergence");
@@ -9421,7 +9419,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(rendererSource.includes("backingPixelsPerCssPixel") && rendererSource.includes("override.cssZoom * backingPixelsPerCssPixel") && editorSource.includes("cssZoom: state.camera.zoom"), "editor and runtime artwork should share one CSS-pixel camera scale so guide alignment does not drift across the viewport");
     assert.ok(rendererSource.includes("this.ctx.setTransform(1, 0, 0, 1, 0, 0)") && rendererSource.includes("never inherit a CSS/DPR transform"), "the production Canvas renderer should reset inherited context transforms before drawing backing-pixel coordinates");
     assert.ok(editorSource.includes("stageCtx?.setTransform(1, 0, 0, 1, 0, 0)") && !editorSource.includes("stageCtx?.setTransform(dpr"), "the Level Editor must not pre-scale the production scene context by devicePixelRatio");
-    assert.match(bootstrapSource, /const GAME_REVISION = "520";/, "the game debug  revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "528";/, "the game debug  revision should match the packaged revision");
     assert.ok(
         editorSource.includes('<div class="level-section-label">Existing Level:</div>')
             && editorSource.includes('id="load-level">Load</button>')
@@ -9513,10 +9511,10 @@ function testRocketPowerUpArsenal() {
     const catalogEntities = Object.values(entityCatalog.entities || {});
     const speedCatalogEntry = catalogEntities.find((entity) => entity.type === "overdrivePickup");
     const shieldCatalogEntry = catalogEntities.find((entity) => entity.type === "shieldPickup");
-    const wrenchCatalogEntry = catalogEntities.find((entity) => entity.type === "randomWrenchPickup");
+    const wrenchCatalogEntry = catalogEntities.find((entity) => entity.type === "wrenchPickup");
     assert.equal(speedCatalogEntry?.defaults?.durationSeconds, 20, "the entity catalog should default Overdrive pickups to twenty seconds");
     assert.equal(shieldCatalogEntry?.defaults?.durationSeconds, 10, "the entity catalog should default Shield pickups to ten seconds");
-    assert.equal(wrenchCatalogEntry?.defaults?.durationSeconds, 20, "the entity catalog should default random wrench pickups to twenty seconds");
+    assert.equal(wrenchCatalogEntry?.defaults?.durationSeconds, 20, "the entity catalog should default wrench pickups to twenty seconds");
 
     const levelOne = JSON.parse(readFileSync(new URL("../assets/level_t01.json", import.meta.url), "utf8"));
     const placedOverdrive = levelOne.entities.find((entity) => entity.id === "overdrive_001");
@@ -9526,9 +9524,10 @@ function testRocketPowerUpArsenal() {
     assert.equal(placedOverdrive.x, 800, "Overdrive should remain on the early main floor");
     assert.equal(placedOverdrive.durationSeconds, 20, "the authored Overdrive should last twenty seconds");
     assert.equal(placedOverdrive.respawnSeconds, 60, "the authored Overdrive should respawn after sixty seconds");
-    assert.ok(placedWrench && placedWrench.type === "randomWrenchPickup", "level_t01 should include one randomized wrench pickup");
-    assert.deepEqual(placedWrench.randomEffectIds, [...WRENCH_POWER_UP_EFFECT_IDS], "the level wrench should roll across the complete wrench family");
-    assert.equal(placedWrench.durationSeconds, 20, "the authored random wrench should grant a twenty-second effect");
+    assert.ok(placedWrench && placedWrench.type === "wrenchPickup", "level_t01 should include one authored wrench pickup");
+    assert.equal(placedWrench.effectId, POWER_UP_EFFECT_IDS.WRENCH_DART, "the level wrench should be the cyan Dart mode");
+    assert.equal("randomEffectIds" in placedWrench, false, "the level wrench should not retain a random effect pool");
+    assert.equal(placedWrench.durationSeconds, 20, "the authored wrench should grant a twenty-second effect");
     assert.equal(placedWrench.x, 1400, "the playtest wrench should sit farther along the early main floor");
     assert.ok(placedShield && placedShield.type === "shieldPickup", "level_t01 should include the blue Shield pickup");
     assert.equal(placedShield.effectId, POWER_UP_EFFECT_IDS.SHIELD, "the placed Shield should activate the shared Shield effect");
@@ -9544,7 +9543,7 @@ function testRocketPowerUpArsenal() {
                     remainingSeconds: 4,
                     activatedAt: 1
                 },
-                wrenchTriple: {
+                wrenchYellow: {
                     id: POWER_UP_EFFECT_IDS.WRENCH_TRIPLE,
                     definition: powerUpEffectDefinition(POWER_UP_EFFECT_IDS.WRENCH_TRIPLE),
                     remainingSeconds: 14,
@@ -9559,15 +9558,15 @@ function testRocketPowerUpArsenal() {
             }
         }
     };
-    priorityState.statusEffects.active.wrenchTriple.definition = {
-        ...priorityState.statusEffects.active.wrenchTriple.definition,
+    priorityState.statusEffects.active.wrenchYellow.definition = {
+        ...priorityState.statusEffects.active.wrenchYellow.definition,
         hud: {
-            ...priorityState.statusEffects.active.wrenchTriple.definition.hud,
+            ...priorityState.statusEffects.active.wrenchYellow.definition.hud,
             priority: 50
         }
     };
     assert.equal(prioritizedActivePowerUpEffect(priorityState)?.id, POWER_UP_EFFECT_IDS.WRENCH_TRIPLE, "an active wrench should display ahead of Shield and Overdrive, including a stale saved definition with the old priority");
-    priorityState.statusEffects.active.wrenchTriple.remainingSeconds = 0;
+    priorityState.statusEffects.active.wrenchYellow.remainingSeconds = 0;
     assert.equal(prioritizedActivePowerUpEffect(priorityState)?.id, POWER_UP_EFFECT_IDS.SHIELD, "Shield should display after the wrench expires and ahead of Overdrive");
     priorityState.statusEffects.active.shield.remainingSeconds = 0;
     assert.equal(prioritizedActivePowerUpEffect(priorityState)?.id, POWER_UP_EFFECT_IDS.OVERDRIVE, "Overdrive should display after both the wrench and Shield expire");
@@ -10803,6 +10802,14 @@ function testGameplayRecordingAndPlaybackTooling() {
     assert.ok(gameHtml.includes('id="toggle-gameplay-recording"') && gameHtml.includes('id="load-gameplay-playback"') && gameHtml.includes('id="gameplay-playback-file"'), "gameplay recording and playback controls should be available in the debug toolbar");
     assert.ok(bootstrapSource.includes('launchParams.get("level")') && bootstrapSource.includes('launchParams.get("record")') && bootstrapSource.includes('launchParams.get("playback")') && bootstrapSource.includes('launchParams.get("playback_pause")'), "game bootstrap should wire the recording and playback query arguments");
     assert.ok(recordingSource.includes('recordings/${filename}') && bootstrapSource.includes('startGameplayPlayback') && bootstrapSource.includes('pausedForKey'), "hosted playback and pause-for-key support should remain wired");
+    assert.equal(bootstrapSource.includes('queueGameplayRecordingScreenshotIfNeeded') || bootstrapSource.includes('canvasToBlob(') || bootstrapSource.includes('showDirectoryPicker'), false, "browser gameplay recording should remain JSON-only; screenshots belong to the offline capture utility");
+    assert.equal(recordingSource.includes('appendGameplayRecordingScreenshot') || recordingSource.includes('summary.screenshots'), false, "gameplay recording schema should not include live screenshot metadata");
+
+    const captureUtilitySource = readFileSync(new URL("../devel/capture_recording_frame.mjs", import.meta.url), "utf8");
+    const nodeCanvasAdapterSource = readFileSync(new URL("../devel/node-canvas-adapters.mjs", import.meta.url), "utf8");
+    assert.ok(captureUtilitySource.includes('recordingTools.inputFrameFromSnapshot') && captureUtilitySource.includes('simulation.stepSimulation') && captureUtilitySource.includes('renderer.render'), "the Node capture utility should replay real recording inputs through the shared simulation and renderer");
+    assert.ok(captureUtilitySource.includes('--frame <index>') && captureUtilitySource.includes('selectedFrameIndex'), "the Node capture utility should expose selected-frame capture metadata for cross-referencing");
+    assert.ok(nodeCanvasAdapterSource.includes('skia-canvas') && nodeCanvasAdapterSource.includes('fetchLocalAsset') && nodeCanvasAdapterSource.includes('createElement(tag)'), "the Node capture utility should keep browser API adapters isolated under devel");
 }
 
 function testFrameDeliveryDiagnostics() {
@@ -11265,11 +11272,11 @@ function testDoubleJumpKickAndHoverGovernor() {
     state.player.vy = 620;
     stepMany(state, 36, () => createInputFrame({ jumpHeld: true }));
     assert.ok(
-        state.player.vy <= state.tuning.attachedBoostHoverFallSpeed + 4,
-        `hover governor should reduce fast falls to the configured slow-fall speed, got ${state.player.vy}`
+        state.player.vy <= -state.tuning.attachedBoostHoverFallSpeed + 4,
+        `hover governor should convert fast falls into the configured slow-climb speed, got ${state.player.vy}`
     );
-    assert.ok(state.player.vy >= 0, `hover governor should not convert falling into upward flight, got ${state.player.vy}`);
-    assert.ok(state.equipment.rocket.boostAccelerationNow <= 0, "hover governor should only apply upward correction while trimming a fall");
+    assert.ok(state.player.vy < 0, `hover governor should now drift Ignatius upward, got ${state.player.vy}`);
+    assert.ok(state.equipment.rocket.boostAccelerationNow <= 0, "hover governor should only apply upward correction while trimming toward the climb target");
 }
 
 function testBoostKickCannotBeTapExploited() {
@@ -13143,8 +13150,9 @@ function testLevelTwoGoblinBossArenaContract() {
     assert.ok(spawners.every((spawner) => spawner.enemyPool === "10,11,12"), "arena spawners should create ordinary Fireball, Musket, or Tri-fireball Goblins");
     assert.ok(spawners.every((spawner) => spawner.disableSignalChannel === "BOSS_002_DEFEATED"), "reinforcements should stop once the boss falls");
 
-    const wrenches = level.entities.filter((entity) => entity.type === "randomWrenchPickup");
+    const wrenches = level.entities.filter((entity) => entity.type === "wrenchPickup");
     assert.equal(wrenches.length, 4, "the arena should contain exactly four wrench power-ups");
+    assert.ok(wrenches.every((wrench) => wrench.effectId === POWER_UP_EFFECT_IDS.WRENCH_DART && !("randomEffectIds" in wrench)), "all arena wrenches should be authored cyan Dart pickups");
     assert.ok(wrenches.every((wrench) => wrench.x >= 16890 && wrench.x <= 18080 && wrench.y <= 720), "all four wrenches should sit on the compact arena columns");
 
     const gate = level.entities.find((entity) => /Gate$/.test(entity.type || "") || entity.id === "boss_exit_gate_001");

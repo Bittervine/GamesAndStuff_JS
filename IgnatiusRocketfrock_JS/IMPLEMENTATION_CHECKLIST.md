@@ -4055,7 +4055,7 @@ Revision 399 keeps the shipped Enemy 032 death clip unchanged but replaces the t
 - [x] Classify upper branches as combat, ordinary reward, or dedicated power-up perches.
 - [x] Let encounter generation populate second-tier combat perches with monsters.
 - [x] Reserve dedicated second-tier detours for generated Overdrive pickups.
-- [x] Change generated power-up weights to 60 percent random wrench, 30 percent Overdrive, and 10 percent Shield.
+- [x] Change generated power-up weights to 60 percent authored wrench, 30 percent Overdrive, and 10 percent Shield.
 - [x] Preserve fixed reward seats and anchored encounters during reward-only rerolls.
 - [x] Add regressions for branch tiers, upper monsters, Overdrive detours, reward rerolls, and the new power-up mix.
 - [x] Increment generator schema to 32, reward catalog to 3, and packaged revision labels to 416.
@@ -4595,3 +4595,62 @@ Manual profiling workflow: open the game, run `window.__rocketfrockDev.profiler.
 - [x] Remove obsolete left/right alias fields from captured pathing guidance trace samples.
 - [x] Present `pathing_lo` and `pathing_hi` as obstacle-aware launch modes in the Character Editor instead of reserved entries.
 - [x] Package the update without `.build` gate reports and without PNG, XCF, OGG, or EXE files.
+
+
+## Revision 522 checks
+
+- [x] Capture a PNG screenshot every second during gameplay recording.
+- [x] Store screenshot metadata in the gameplay recording object and summary.
+- [x] Save recording JSON plus screenshots as one bundle when recording stops.
+- [x] Prefer File System Access directory export and fall back to browser downloads.
+- [x] Cover the bundle workflow with the gameplay recording tooling regression test.
+
+
+## Revision 523 checks
+
+- [x] Add a standalone Node capture utility under `devel/`.
+- [x] Keep browser API adapters isolated from the game runtime.
+- [x] Reuse the production simulation, recording tools, cave-window data, and Canvas2D renderer.
+- [x] Load a real recording and render a selected frame to PNG without Playwright or Chromium.
+- [x] Emit selected frame index, recording time, game time, tick, player, camera, and output path metadata.
+
+
+## Revision 524 checks
+
+- [x] Replace random wrench pickup catalog data with authored `wrenchPickup` records.
+- [x] Add a Level Editor wrench type selector.
+- [x] Default missing wrench type data to the cyan Dart.
+- [x] Migrate existing campaign/test wrench placements to cyan fixed wrenches.
+- [x] Keep legacy `randomWrenchPickup` records loadable without random rerolls.
+
+
+## Revision 525 checks
+
+- [x] Change missing/invalid wrench pickup fallback to cyan Dart.
+- [x] Update Level Editor wording and entity catalog defaults.
+- [x] Convert shipped level and stress-fixture wrench pickups from blue to cyan.
+- [x] Keep fixed wrench pickup behavior deterministic and non-random.
+
+
+## Revision 526 checks
+
+- [x] Rename wrench effect definition IDs to color-coded authored IDs.
+- [x] Keep the default/missing wrench pickup as cyan via `wrenchCyan`.
+- [x] Convert shipped levels, fixtures, and bundled recordings to current wrench IDs.
+- [x] Keep wrench pickups deterministic and non-random.
+- [x] Update tests and glow atlas metadata to match the renamed definitions.
+
+
+## Revision 527 checks
+
+- [x] Flip sustained hover from slow descent to slow ascent.
+- [x] Preserve the existing hover speed magnitude and boost-kick behavior.
+- [x] Update the hover governor regression expectation.
+
+
+## Revision 528 checks
+
+- [x] Remove live PNG screenshot capture from browser gameplay recording.
+- [x] Restore gameplay recording save flow to JSON-only output.
+- [x] Keep deterministic PNG generation in the isolated `devel/capture_recording_frame.mjs` utility.
+- [x] Add regression checks that browser recording does not contain screenshot capture plumbing.

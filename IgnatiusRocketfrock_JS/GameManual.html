@@ -197,13 +197,13 @@
         <h2>Power-ups</h2>
         <ul>
             <li>Collected power-ups disappear and return after 60 seconds, so it can be worthwhile to revisit an earlier part of a level.</li>
-            <li>Automatically generated levels aim for roughly one treasure chest per 500 pixels and one genuine power-up per 1,000 pixels of route travel at the default Reward density. Chests may appear on the main route, lower recovery routes, upper access steps, or reachable upper perches. Power-ups are placed directly on a walkable surface for easy collection; about half are random-wrench pickups, with the remainder split evenly between Shield and Overdrive.</li>
+            <li>Automatically generated levels aim for roughly one treasure chest per 500 pixels and one genuine power-up per 1,000 pixels of route travel at the default Reward density. Chests may appear on the main route, lower recovery routes, upper access steps, or reachable upper perches. Power-ups are placed directly on a walkable surface for easy collection; about half are authored wrench pickups, with the remainder split evenly between Shield and Overdrive.</li>
             <li>Generated static platforms that overlap horizontally keep their walking surfaces at least 180 pixels apart vertically.</li>
             <li>Generated vertical lifts reserve a full rider-height corridor and dock beside solid yellow platforms rather than carrying riders into their undersides.</li>
             <li>The top-left Power bar shows the highest-priority active effect and its remaining duration. Any active wrench upgrade is shown ahead of Shield and Overdrive; all compatible effects remain active at the same time.</li>
             <li><strong>Shield</strong> lasts 10 seconds and blocks all ordinary incoming damage. The pickup glows blue, and Ignatius flashes blue while protected. The blue flash takes priority over the red critical-health flash.</li>
             <li><strong>Overdrive</strong> lasts 20 seconds and halves the fuel cost of each launch. It also recovers fuel continuously at a minimum rate equal to 90% of hover consumption, including while hovering or during the ordinary recharge delay. Normal grounded recovery may be faster, but the two rates do not add together. Rocket firing itself has no cooldown.</li>
-            <li>Wrench power-ups last 20 seconds and replace any other active wrench. A random wrench pickup chooses its type when the level starts and rolls a new type whenever it respawns.</li>
+            <li>Wrench power-ups last 20 seconds and replace any other active wrench. A wrench pickup has an authored type selected in the Level Editor; if the field is missing, it defaults to the blue Homing Triple wrench.</li>
             <li>Rockets modified by a wrench carry a fuzzy outline in that wrench's colour, so the current payload remains visible even after launch. The six powered rockets use precomposited atlas frames, avoiding first-shot stutter and extra glow drawing during play.</li>
         </ul>
         <table>

@@ -50,6 +50,7 @@ import {
     OVERDRIVE_PASSIVE_FUEL_RECOVERY_DRAIN_FACTOR,
     POWER_UP_EFFECT_IDS,
     WRENCH_POWER_UP_EFFECT_IDS,
+    normalizeWrenchPowerUpEffectId,
     activePowerUpEffect,
     activeWrenchPowerUpEffect,
     normalizeActivePowerUpEffect,
@@ -1946,35 +1947,11 @@ function clearDeathResetPowerUps(state) {
     }
 }
 
-function rerollRandomPowerUpPickup(state, pickup) {
-    if (!pickup || !Array.isArray(pickup.randomEffectIds) || !pickup.randomEffectIds.length) return false;
-    pickup.randomRollCount = Math.max(0, Math.floor(Number(pickup.randomRollCount) || 0)) + 1;
-    const effectId = randomPowerUpEffectId(state, pickup.id, pickup.randomEffectIds, pickup.randomRollCount);
-    const nextPowerUp = normalizePowerUpPickup({
-        effectId,
-        radius: pickup.radius,
-        atlasId: pickup.powerUp?.atlasId || "it_atlas_001",
-        glowFrame: pickup.powerUp?.glowFrame || "powerup_glow_white"
-    });
-    if (!nextPowerUp) return false;
-    pickup.powerUp = nextPowerUp;
-    pickup.pickupKind = nextPowerUp.effectId;
-    addEvent(state, "POWER_UP_PICKUP_REROLLED", {
-        pickupId: pickup.id,
-        effectId: nextPowerUp.effectId,
-        rollCount: pickup.randomRollCount
-    });
-    return true;
-}
-
 function updatePickupRespawns(state, dt) {
     for (const pickup of state.pickups || []) {
         if (!pickup.collected || !(Number(pickup.respawnSeconds) > 0)) continue;
         pickup.respawnTimer = Math.max(0, (Number(pickup.respawnTimer) || 0) - Math.max(0, dt));
         if (pickup.respawnTimer > 0) continue;
-        if (Array.isArray(pickup.randomEffectIds) && pickup.randomEffectIds.length) {
-            rerollRandomPowerUpPickup(state, pickup);
-        }
         pickup.collected = false;
         addEvent(state, "POWER_UP_PICKUP_RESPAWNED", {
             pickupId: pickup.id,
@@ -3145,6 +3122,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             "fuelPickup",
             "overdrivePickup",
             "shieldPickup",
+            "wrenchPickup",
             "randomWrenchPickup",
             "ornateKeyPickup",
             "ironKeyPickup",
@@ -3157,23 +3135,17 @@ export function applyEditorLevelToWorld(state, editorLevel) {
     };
     state.pickups = runtimeEntities.filter(pickupLike).map((entity, index) => {
         const type = String(entity.type || "");
-        const randomEffectIds = type === "randomWrenchPickup" || Array.isArray(entity.randomEffectIds)
-            ? normalizedRandomEffectPool(entity.randomEffectIds)
-            : [];
-        const randomRollCount = Math.max(0, Math.floor(Number(entity.randomRollCount) || 0));
-        const selectedRandomEffectId = randomEffectIds.length
-            ? randomPowerUpEffectId(state, entity.id || `random_powerup_${index + 1}`, randomEffectIds, randomRollCount)
-            : null;
-        const authoredEffectId = selectedRandomEffectId || entity.effectId ||
-            (type === "overdrivePickup"
-                ? POWER_UP_EFFECT_IDS.OVERDRIVE
-                : (type === "shieldPickup" ? POWER_UP_EFFECT_IDS.SHIELD : null));
+        const isWrenchPickup = type === "wrenchPickup" || type === "randomWrenchPickup";
+        const authoredEffectId = isWrenchPickup
+            ? normalizeWrenchPowerUpEffectId(entity.wrenchEffectId || entity.effectId)
+            : (entity.effectId ||
+                (type === "overdrivePickup"
+                    ? POWER_UP_EFFECT_IDS.OVERDRIVE
+                    : (type === "shieldPickup" ? POWER_UP_EFFECT_IDS.SHIELD : null)));
         const powerUp = authoredEffectId
             ? normalizePowerUpPickup({
                 ...entity,
-                effectId: authoredEffectId,
-                iconFrame: randomEffectIds.length ? undefined : entity.iconFrame,
-                glowTint: randomEffectIds.length ? undefined : entity.glowTint
+                effectId: authoredEffectId
             })
             : null;
         const pickupKind = String(entity.pickupKind || (type === "fuel" ? "fuel" : type || "item"));
@@ -3200,8 +3172,8 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             collected,
             respawnSeconds,
             respawnTimer: collected ? respawnSeconds : 0,
-            randomEffectIds,
-            randomRollCount,
+            randomEffectIds: [],
+            randomRollCount: 0,
             visualized: editorEntityVisuals(entity).length > 0
         };
     });
@@ -3455,25 +3427,6 @@ function ensureRandomState(state) {
     state.random.seed = (Math.floor(Number(state.random.seed)) >>> 0) || 0x1a2b3c4d;
     state.random.levelLoadCount = Math.max(0, Math.floor(Number(state.random.levelLoadCount) || 0));
     return state.random;
-}
-
-function deterministicPowerUpIndex(state, pickupId, rollCount, poolLength) {
-    const random = ensureRandomState(state);
-    const salt = stableStringHash(`${pickupId}:${random.levelLoadCount}:${Math.max(0, Math.floor(Number(rollCount) || 0))}`);
-    return mixedUint32(random.seed ^ salt) % Math.max(1, poolLength);
-}
-
-function normalizedRandomEffectPool(effectIds) {
-    const source = Array.isArray(effectIds) && effectIds.length ? effectIds : WRENCH_POWER_UP_EFFECT_IDS;
-    return source
-        .map((effectId) => powerUpEffectDefinition(effectId)?.id)
-        .filter((effectId, index, all) => effectId && all.indexOf(effectId) === index);
-}
-
-function randomPowerUpEffectId(state, pickupId, effectIds, rollCount = 0) {
-    const pool = normalizedRandomEffectPool(effectIds);
-    if (!pool.length) return null;
-    return pool[deterministicPowerUpIndex(state, pickupId, rollCount, pool.length)];
 }
 
 function autoSpawnRandomUnit(state, rollCount, channel) {
@@ -7699,14 +7652,16 @@ function applyAttachedHoverGovernor(state, dt) {
 
     const t = state.tuning;
     const p = state.player;
-    const slowFallSpeed = Math.max(0, t.attachedBoostHoverFallSpeed ?? 36);
+    const slowClimbSpeed = -Math.max(0, t.attachedBoostHoverFallSpeed ?? 36);
     const brakeAcceleration = Math.max(0, t.attachedBoostHoverBrakeAcceleration ?? 3600);
 
-    // The Phase 1.004 rocket autopilot is a fall governor, not a sustained upward engine.
-    // It never makes an upward velocity more upward. It only trims excessive downward speed.
-    if (p.vy > slowFallSpeed) {
+    // The hover governor now holds Ignatius in a gentle upward drift. It still
+    // refuses to pile extra force onto a faster rocket-kick ascent; once the
+    // burst slows below the target climb, it trims gravity back toward the same
+    // speed magnitude the old hover used for sinking.
+    if (p.vy > slowClimbSpeed) {
         const before = p.vy;
-        p.vy = Math.max(slowFallSpeed, p.vy - brakeAcceleration * dt);
+        p.vy = Math.max(slowClimbSpeed, p.vy - brakeAcceleration * dt);
         const correction = (p.vy - before) / Math.max(0.0001, dt);
         rocket.boostAccelerationNow = correction;
         p.ay += correction;

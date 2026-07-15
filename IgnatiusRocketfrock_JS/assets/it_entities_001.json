@@ -951,33 +951,25 @@
         }
       }
     },
-    "randomWrenchPickup": {
-      "type": "randomWrenchPickup",
-      "label": "Random wrench powerup",
+    "wrenchPickup": {
+      "type": "wrenchPickup",
+      "label": "Wrench powerup",
       "icon": "\ud83d\udd27",
-      "description": "Rolls a random 20-second wrench rocket mode when the level starts and every time it respawns.",
+      "description": "Grants the selected 20-second wrench rocket mode. If no wrench type is authored, it defaults to the cyan Dart wrench.",
       "defaultState": "available",
       "defaultSize": {
         "w": 96,
         "h": 96
       },
       "defaults": {
-        "effectId": "wrenchTriple",
-        "randomEffectIds": [
-          "wrenchTriple",
-          "wrenchDart",
-          "wrenchBurst",
-          "wrenchBigbomb",
-          "wrenchBoomerang",
-          "wrenchPhase"
-        ],
+        "effectId": "wrenchCyan",
         "durationSeconds": 20,
         "respawnSeconds": 60,
         "radius": 30,
         "atlasId": "it_atlas_001",
         "glowFrame": "powerup_glow_white",
         "iconFrame": "powerup_icon_wrench",
-        "glowTint": "#ffff00"
+        "glowTint": "#00ffff"
       },
       "states": {
         "available": {

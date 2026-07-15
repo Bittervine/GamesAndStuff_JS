@@ -1178,7 +1178,7 @@ This is a browser-adapter responsibility. `src/core/simulation.js` remains event
 
 `src/shared/power-up-data.js` exports `NON_HOMING_ROCKET_SPEED_FACTOR`, currently 2, and owns the complete built-in profile data. Yellow Fivefold and green Target set `aimAtNearestForwardTarget`; simulation resolves the nearest active target in the player's facing half-plane at launch time, converts that line to a base direction, then applies the profile fan. The rockets remain non-homing afterward. With no forward target they use their ordinary facing direction. Cyan Dart also uses the shared speed factor but keeps direct facing aim.
 
-Blue Homing Triple keeps normal homing target selection and uses the former yellow -12, 0, and +12 degree fan, assigning separate targets when available. Blue and yellow both apply a small deterministic shared wedge-direction jitter of at most 2 degrees per volley so repeated volleys do not share one rigid fan direction, while the authored internal spacing of each wedge stays unchanged. Yellow uses five evenly spaced launch angles at -7.5, -3.75, 0, +3.75, and +7.5 degrees. Its five rockets deal one-fifth standard damage each. Blue creates three one-third-damage projectiles. Yellow, cyan, green, blue, and magenta use a 0.5 launch-fuel multiplier and one standard rocket of nominal total damage. Magenta's catch refund is still calculated from its actual reduced launch cost. Red Bigbomb is unchanged. The internal effect IDs remain stable for saved data; `wrenchTriple`, `wrenchBurst`, and `wrenchPhase` present the labels Fivefold, Target, and Homing Triple.
+Blue Homing Triple keeps normal homing target selection and uses the former yellow -12, 0, and +12 degree fan, assigning separate targets when available. Blue and yellow both apply a small deterministic shared wedge-direction jitter of at most 2 degrees per volley so repeated volleys do not share one rigid fan direction, while the authored internal spacing of each wedge stays unchanged. Yellow uses five evenly spaced launch angles at -7.5, -3.75, 0, +3.75, and +7.5 degrees. Its five rockets deal one-fifth standard damage each. Blue creates three one-third-damage projectiles. Yellow, cyan, green, blue, and magenta use a 0.5 launch-fuel multiplier and one standard rocket of nominal total damage. Magenta's catch refund is still calculated from its actual reduced launch cost. Red Bigbomb is unchanged. The internal effect IDs remain stable for saved data; `wrenchYellow`, `wrenchGreen`, and `wrenchBlue` present the labels Fivefold, Target, and Homing Triple.
 
 ## Revision 306 wrench-first Power HUD selection
 
@@ -1187,7 +1187,7 @@ Built-in wrench effects use Power HUD priority 200, Shield uses 150, and Overdri
 
 ## Revision 307 yellow Fivefold volley
 
-The yellow wrench profile keeps its stable serialized ID `wrenchTriple` but now presents the label Fivefold. One launch creates five non-homing rockets at -15, -7.5, 0, +7.5, and +15 degrees around the nearest-forward launch-time aim. Each rocket uses a `1 / 5` damage multiplier, so a complete five-hit volley still delivers exactly one standard rocket's nominal damage. Half fuel cost, shared double non-homing speed, radius, visual scale, collision, and target-selection rules are unchanged.
+The yellow wrench profile keeps its stable serialized ID `wrenchYellow` but now presents the label Fivefold. One launch creates five non-homing rockets at -15, -7.5, 0, +7.5, and +15 degrees around the nearest-forward launch-time aim. Each rocket uses a `1 / 5` damage multiplier, so a complete five-hit volley still delivers exactly one standard rocket's nominal damage. Half fuel cost, shared double non-homing speed, radius, visual scale, collision, and target-selection rules are unchanged.
 
 ## Revision 308 player rocket launch admission
 
@@ -1780,7 +1780,7 @@ Low-quality density is simulation-owned through `UNDEATH_TRAIL_LOW_QUALITY_DENSI
 
 Traversal generation now records `secondaryTier` on optional branch supports and marks dedicated reward branches with `powerUpPerch`. Mostly-horizontal routes build each upper destination through an intermediate `upperAccessPlatform`, producing a two-step detour while preserving the continuous ground route. Standard routes may chain a tier-two one-way platform from an existing tier-one secondary support. Combat and reward classifications remain mutually exhaustive; power-up perches are a specialized reward-perch subset.
 
-Reward generation selects dedicated tier-two power-up perches before ordinary contextual placement and seats Overdrive there with `generationContext: "detourUpperPerch"`. The catalog weights are 6:3:1 for random wrench, Overdrive, and Shield. Pickup type variation uses fixed support seats so reward-stage rerolls do not perturb the reward exclusion envelopes already used by encounter generation.
+Reward generation selects dedicated tier-two power-up perches before ordinary contextual placement and seats Overdrive there with `generationContext: "detourUpperPerch"`. The catalog weights are 6:3:1 for authored wrench, Overdrive, and Shield. Pickup type variation uses fixed support seats so reward-stage rerolls do not perturb the reward exclusion envelopes already used by encounter generation.
 
 Level 001 currently owns three exact hunter navigation profiles: goblin, tall human, and Skeleton Caster. The caster profile is not redundant with the goblin profile because its body dimensions and movement values differ. The placed Skeleton Guard is patched to the same 50-damage value as the current enemy catalog.
 
@@ -2119,3 +2119,38 @@ Skeleton Caster projectiles remain ordinary portable enemy projectiles in `src/c
 Revision 520 finalizes the replacement for the old brittle `pathing_lo` projectile behavior in `src/core/simulation.js`. Pathing projectiles remain ordinary fixed-step enemy projectiles, but their desired heading is now selected by a portable obstacle-aware homing helper that performs a true direct blocked-path probe toward the player plus three short danger probes around the current heading. A persistent avoidance side prevents frame-to-frame oscillation, and blocked direct-path impacts bias ground-obstacle escapes upward unless the opposite side has a decisively better clearance score. The helper continues to use the normal homing velocity blend and does not introduce browser or renderer dependencies.
 
 The presentation layer in `src/presentation/canvas-renderer.js` again treats undeath shots as trail-only visuals. Canvas2D and WebGL draw the emitted `undeathBubble` particles at all quality levels, but do not draw a separate large projectile core.
+
+
+## Revision 522 gameplay recording bundle export
+
+Revision 522 keeps the existing gameplay recording JSON schema and adds optional screenshot metadata plus a browser-side export bundle path. The browser bootstrap now samples the rendered stage canvas at 1 Hz while recording is active, stores metadata on the recording object, and writes the JSON plus PNGs together when recording stops.
+
+
+## Revision 523 removable Node capture island
+
+Revision 523 keeps browser gameplay untouched and adds a small removable island in `devel/`: `node-canvas-adapters.mjs` provides only the browser APIs needed by the existing Canvas2D renderer in Node, while `capture_recording_frame.mjs` imports the real simulation, gameplay-recording normalizer, cave-window data, and production renderer. The helper replays recorded inputs through `stepSimulation`, prepares the presentation frame, renders with Canvas2D, and writes a PNG. No production module imports the helper.
+
+
+## Revision 524 fixed wrench pickup identity
+
+Revision 524 keeps the six wrench rocket effects but moves pickup identity from deterministic random rolling to authored data. `wrenchPickup` records use `effectId` as their selected mode; legacy `randomWrenchPickup` records still load but resolve through the same fixed path, defaulting to `wrenchCyan` when no valid wrench type is present. The Level Editor owns the authoring UI and the browser/gameplay runtime remains free of editor-only code.
+
+
+## Revision 525 wrench default colour
+
+Revision 525 keeps fixed authored wrench pickups and changes only the fallback/default identity: any wrench pickup without a valid authored `effectId` resolves to cyan Dart (`wrenchCyan`). The bundled authored levels and editor stress fixture use that same cyan identity for their fixed wrench pickups.
+
+
+## Revision 526 color-coded wrench definitions
+
+Revision 526 keeps fixed authored wrench pickups, but renames the actual effect definition IDs to color-coded values such as `wrenchCyan`, `wrenchYellow`, `wrenchGreen`, `wrenchRed`, `wrenchMagenta`, and `wrenchBlue`. Runtime normalization no longer maps old short-lived IDs from revision 524/525; authored level data must use the current IDs.
+
+
+## Revision 527 hover-governor direction
+
+Revision 527 keeps the attached rocket governor in core simulation but changes its sustain target from positive slow-fall velocity to the matching negative slow-climb velocity. The existing tuning field remains the speed magnitude so gameplay data and editor/runtime boundaries do not change.
+
+
+## Revision 528 recording/capture split
+
+Revision 528 keeps gameplay recording and visual capture separated. The browser runtime records JSON inputs and debug state only, while screenshot production lives in the removable `devel` Node capture utility that replays recordings through shared simulation and renderer code.

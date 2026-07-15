@@ -1,0 +1,10 @@
+Use
+
+node devel/capture_recording_frame.mjs \
+  --recording recordings/level_001_1.json \
+  --frame 300 \
+  --out /tmp/frame_300.png
+  
+or 
+
+npm run capture:recording -- --frame 300 --out /tmp/frame_300.png

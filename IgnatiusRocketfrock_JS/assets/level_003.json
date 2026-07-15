@@ -29552,150 +29552,6 @@
             "generationEncounterId": "level002_bat_group_3"
         },
         {
-            "type": "randomWrenchPickup",
-            "catalogId": "it_entities_001",
-            "w": 96,
-            "h": 96,
-            "state": "available",
-            "visualStates": {
-                "available": [],
-                "collected": []
-            },
-            "stateLabels": {
-                "available": "Available",
-                "collected": "Collected"
-            },
-            "effectId": "wrenchTriple",
-            "randomEffectIds": [
-                "wrenchTriple",
-                "wrenchDart",
-                "wrenchBurst",
-                "wrenchBigbomb",
-                "wrenchBoomerang",
-                "wrenchPhase"
-            ],
-            "durationSeconds": 20,
-            "respawnSeconds": 60,
-            "radius": 30,
-            "atlasId": "it_atlas_001",
-            "glowFrame": "powerup_glow_white",
-            "iconFrame": "powerup_icon_wrench",
-            "glowTint": "#ffff00",
-            "notes": "Boss-arena wrench power-up placed on a compact fighting platform.",
-            "id": "boss_wrench_01",
-            "x": 17100,
-            "y": 618,
-            "order": 20101
-        },
-        {
-            "type": "randomWrenchPickup",
-            "catalogId": "it_entities_001",
-            "w": 96,
-            "h": 96,
-            "state": "available",
-            "visualStates": {
-                "available": [],
-                "collected": []
-            },
-            "stateLabels": {
-                "available": "Available",
-                "collected": "Collected"
-            },
-            "effectId": "wrenchTriple",
-            "randomEffectIds": [
-                "wrenchTriple",
-                "wrenchDart",
-                "wrenchBurst",
-                "wrenchBigbomb",
-                "wrenchBoomerang",
-                "wrenchPhase"
-            ],
-            "durationSeconds": 20,
-            "respawnSeconds": 60,
-            "radius": 30,
-            "atlasId": "it_atlas_001",
-            "glowFrame": "powerup_glow_white",
-            "iconFrame": "powerup_icon_wrench",
-            "glowTint": "#ffff00",
-            "notes": "Boss-arena wrench power-up placed on a compact fighting platform.",
-            "id": "boss_wrench_02",
-            "x": 17100,
-            "y": 328,
-            "order": 20102
-        },
-        {
-            "type": "randomWrenchPickup",
-            "catalogId": "it_entities_001",
-            "w": 96,
-            "h": 96,
-            "state": "available",
-            "visualStates": {
-                "available": [],
-                "collected": []
-            },
-            "stateLabels": {
-                "available": "Available",
-                "collected": "Collected"
-            },
-            "effectId": "wrenchTriple",
-            "randomEffectIds": [
-                "wrenchTriple",
-                "wrenchDart",
-                "wrenchBurst",
-                "wrenchBigbomb",
-                "wrenchBoomerang",
-                "wrenchPhase"
-            ],
-            "durationSeconds": 20,
-            "respawnSeconds": 60,
-            "radius": 30,
-            "atlasId": "it_atlas_001",
-            "glowFrame": "powerup_glow_white",
-            "iconFrame": "powerup_icon_wrench",
-            "glowTint": "#ffff00",
-            "notes": "Boss-arena wrench power-up placed on a compact fighting platform.",
-            "id": "boss_wrench_03",
-            "x": 17920,
-            "y": 573,
-            "order": 20103
-        },
-        {
-            "type": "randomWrenchPickup",
-            "catalogId": "it_entities_001",
-            "w": 96,
-            "h": 96,
-            "state": "available",
-            "visualStates": {
-                "available": [],
-                "collected": []
-            },
-            "stateLabels": {
-                "available": "Available",
-                "collected": "Collected"
-            },
-            "effectId": "wrenchTriple",
-            "randomEffectIds": [
-                "wrenchTriple",
-                "wrenchDart",
-                "wrenchBurst",
-                "wrenchBigbomb",
-                "wrenchBoomerang",
-                "wrenchPhase"
-            ],
-            "durationSeconds": 20,
-            "respawnSeconds": 60,
-            "radius": 30,
-            "atlasId": "it_atlas_001",
-            "glowFrame": "powerup_glow_white",
-            "iconFrame": "powerup_icon_wrench",
-            "glowTint": "#ffff00",
-            "notes": "Boss-arena wrench power-up placed on a compact fighting platform.",
-            "id": "boss_wrench_04",
-            "x": 17920,
-            "y": 283,
-            "order": 20104
-        },
-        {
             "id": "boss_goblin_spawner_01",
             "type": "enemySpawner",
             "catalogId": "it_entities_001",
@@ -29907,7 +29763,7 @@
             "type": "wizard_exit_door",
             "catalogId": "it_entities_001",
             "x": 18432,
-            "y": 905,
+            "y": 905.2227722772277,
             "w": 125,
             "h": 164,
             "state": "closed",
@@ -30910,6 +30766,114 @@
             "iconFrame": "powerup_icon_lightning",
             "glowTint": "#ffb52f",
             "notes": "Timed rocket overdrive: launches cost half fuel and passive recovery offsets 90% of hover drain, even while fuel is being spent."
+        },
+        {
+            "id": "wrenchPickup_001",
+            "type": "wrenchPickup",
+            "catalogId": "it_entities_001",
+            "x": 17120,
+            "y": 608,
+            "w": 96,
+            "h": 96,
+            "state": "available",
+            "visualStates": {
+                "available": [],
+                "collected": []
+            },
+            "stateLabels": {
+                "available": "Available",
+                "collected": "Collected"
+            },
+            "effectId": "wrenchBlue",
+            "durationSeconds": 20,
+            "respawnSeconds": 60,
+            "radius": 30,
+            "atlasId": "it_atlas_001",
+            "glowFrame": "powerup_glow_white",
+            "iconFrame": "powerup_icon_wrench",
+            "glowTint": "#0000ff",
+            "notes": "Grants the selected 20-second wrench rocket mode. If no wrench type is authored, it defaults to the cyan Dart wrench."
+        },
+        {
+            "id": "wrenchPickup_002",
+            "type": "wrenchPickup",
+            "catalogId": "it_entities_001",
+            "x": 17952,
+            "y": 560,
+            "w": 96,
+            "h": 96,
+            "state": "available",
+            "visualStates": {
+                "available": [],
+                "collected": []
+            },
+            "stateLabels": {
+                "available": "Available",
+                "collected": "Collected"
+            },
+            "effectId": "wrenchGreen",
+            "durationSeconds": 20,
+            "respawnSeconds": 60,
+            "radius": 30,
+            "atlasId": "it_atlas_001",
+            "glowFrame": "powerup_glow_white",
+            "iconFrame": "powerup_icon_wrench",
+            "glowTint": "#00ff00",
+            "notes": "Grants the selected 20-second wrench rocket mode. If no wrench type is authored, it defaults to the cyan Dart wrench."
+        },
+        {
+            "id": "wrenchPickup_003",
+            "type": "wrenchPickup",
+            "catalogId": "it_entities_001",
+            "x": 17120,
+            "y": 320,
+            "w": 96,
+            "h": 96,
+            "state": "available",
+            "visualStates": {
+                "available": [],
+                "collected": []
+            },
+            "stateLabels": {
+                "available": "Available",
+                "collected": "Collected"
+            },
+            "effectId": "wrenchRed",
+            "durationSeconds": 20,
+            "respawnSeconds": 60,
+            "radius": 30,
+            "atlasId": "it_atlas_001",
+            "glowFrame": "powerup_glow_white",
+            "iconFrame": "powerup_icon_wrench",
+            "glowTint": "#ff0000",
+            "notes": "Grants the selected 20-second wrench rocket mode. If no wrench type is authored, it defaults to the cyan Dart wrench."
+        },
+        {
+            "id": "wrenchPickup_004",
+            "type": "wrenchPickup",
+            "catalogId": "it_entities_001",
+            "x": 17888,
+            "y": 272,
+            "w": 96,
+            "h": 96,
+            "state": "available",
+            "visualStates": {
+                "available": [],
+                "collected": []
+            },
+            "stateLabels": {
+                "available": "Available",
+                "collected": "Collected"
+            },
+            "effectId": "wrenchMagenta",
+            "durationSeconds": 20,
+            "respawnSeconds": 60,
+            "radius": 30,
+            "atlasId": "it_atlas_001",
+            "glowFrame": "powerup_glow_white",
+            "iconFrame": "powerup_icon_wrench",
+            "glowTint": "#ff00ff",
+            "notes": "Grants the selected 20-second wrench rocket mode. If no wrench type is authored, it defaults to the cyan Dart wrench."
         }
     ],
     "navigationGraphs": {
@@ -45950,7 +45914,7 @@
                 {
                     "id": "reward_003",
                     "entityId": "generated_reward_003_alg9_d32f35d0",
-                    "entityType": "randomWrenchPickup",
+                    "entityType": "wrenchPickup",
                     "category": "powerUp",
                     "context": "openRoute",
                     "supportId": "support_route_main_002",
@@ -45983,7 +45947,7 @@
                 {
                     "id": "reward_006",
                     "entityId": "generated_reward_006_alg9_d32f35d0",
-                    "entityType": "randomWrenchPickup",
+                    "entityType": "wrenchPickup",
                     "category": "powerUp",
                     "context": "openRoute",
                     "supportId": "support_route_main_edge_003_ground_01",
@@ -45994,7 +45958,7 @@
                 {
                     "id": "reward_007",
                     "entityId": "generated_reward_007_alg9_d32f35d0",
-                    "entityType": "randomWrenchPickup",
+                    "entityType": "wrenchPickup",
                     "category": "powerUp",
                     "context": "openRoute",
                     "supportId": "support_route_main_edge_004_ground_01",
@@ -46027,7 +45991,7 @@
                 {
                     "id": "reward_010",
                     "entityId": "generated_reward_010_alg9_d32f35d0",
-                    "entityType": "randomWrenchPickup",
+                    "entityType": "wrenchPickup",
                     "category": "powerUp",
                     "context": "openRoute",
                     "supportId": "support_route_main_edge_006_ground_01",
@@ -46038,7 +46002,7 @@
                 {
                     "id": "reward_011",
                     "entityId": "generated_reward_011_alg9_d32f35d0",
-                    "entityType": "randomWrenchPickup",
+                    "entityType": "wrenchPickup",
                     "category": "powerUp",
                     "context": "openRoute",
                     "supportId": "support_route_main_edge_006_ground_02",
@@ -46071,7 +46035,7 @@
                 {
                     "id": "reward_014",
                     "entityId": "generated_reward_014_alg9_d32f35d0",
-                    "entityType": "randomWrenchPickup",
+                    "entityType": "wrenchPickup",
                     "category": "powerUp",
                     "context": "openRoute",
                     "supportId": "support_route_main_edge_008_ground_01",
@@ -46082,7 +46046,7 @@
                 {
                     "id": "reward_015",
                     "entityId": "generated_reward_015_alg9_d32f35d0",
-                    "entityType": "randomWrenchPickup",
+                    "entityType": "wrenchPickup",
                     "category": "powerUp",
                     "context": "openUpperPerch",
                     "supportId": "support_secondary_02_support_upper_access_02_support_route_main_002",
@@ -46115,7 +46079,7 @@
                 {
                     "id": "reward_018",
                     "entityId": "generated_reward_018_alg9_d32f35d0",
-                    "entityType": "randomWrenchPickup",
+                    "entityType": "wrenchPickup",
                     "category": "powerUp",
                     "context": "openRoute",
                     "supportId": "support_upper_access_03_support_route_main_edge_002_ground_02",

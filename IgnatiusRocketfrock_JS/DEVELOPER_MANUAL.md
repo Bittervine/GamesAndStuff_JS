@@ -34,7 +34,7 @@ Horizontal is the run-and-gun route. It advances steadily toward the exit, favor
 
 Standard remains the folded route with broad upper traversal and a nearly continuous lower recovery path. It now creates more detached first-tier side platforms and extends a subset into second-tier branches, using otherwise empty ceiling volume for monsters and rewards. Domed caverns keep the lower perimeter close to the route while expanding that upper volume.
 
-Rewarded levels target roughly one real power-up per 3,000 route pixels at default density. The generated pool is 60 percent random wrench, 30 percent Overdrive, and 10 percent Shield. Dedicated second-tier power-up perches receive Overdrive before ordinary reward slots are filled, so the speed reward is visibly off the main path. Reward-only rerolls retain fixed safe seats and anchored encounters while varying the pickup mix.
+Rewarded levels target roughly one real power-up per 3,000 route pixels at default density. The generated pool is 60 percent authored wrench, 30 percent Overdrive, and 10 percent Shield. Dedicated second-tier power-up perches receive Overdrive before ordinary reward slots are filled, so the speed reward is visibly off the main path. Reward-only rerolls retain fixed safe seats and anchored encounters while varying the pickup mix.
 
 Encounter rerolls preserve route, platforms, endpoints, and rewards. Reward rerolls preserve route and terrain while replacing generated rewards and retaining anchored encounters. Validation reports the current generated records. Generator locks prevent direct editing but regeneration still replaces generator-owned records. Converting a generated object to manual ownership detaches it from generator clear and regeneration operations.
 
@@ -424,7 +424,7 @@ Normal current-schema validation, numeric clamping, and defaults used while crea
 
 Generator schema version 34 retains the optional secondary supports introduced by version 32 with `secondaryTier` and `powerUpPerch`. Horizontal routes use a two-step ceiling lane with at least 36 percent span coverage. Standard routes create more first-tier branches and extend selected branches into a second tier. Encounter generation may seat monsters on combat perches at either tier.
 
-The reward catalog is version 3. Power-up weights are `randomWrenchPickup: 6`, `overdrivePickup: 3`, and `shieldPickup: 1`. A generated Overdrive with context `detourUpperPerch` must reference an optional second-tier `powerUpPerch`. Fixed seating remains important because encounter reservations are built from reward envelopes before the encounter stage; reward rerolls may change types but must not move those seats.
+The reward catalog is version 3. Power-up weights are `wrenchPickup: 6`, `overdrivePickup: 3`, and `shieldPickup: 1`. A generated Overdrive with context `detourUpperPerch` must reference an optional second-tier `powerUpPerch`. Fixed seating remains important because encounter reservations are built from reward envelopes before the encounter stage; reward rerolls may change types but must not move those seats.
 
 Level 001 has three baked hunter profiles: goblin, tall human, and Skeleton Caster. Keep the caster profile separate because its 72 by 164 body and movement values do not match either other family. The placed Skeleton Guard should mirror the catalog melee damage of 50.
 
@@ -436,7 +436,7 @@ The **New level** command creates a bounded but otherwise empty authored level. 
 
 At a theme's default **Enemy density**, generated levels target one monster per 500 horizontal route units. This is based on left-to-right span rather than winding path length. Long platforms can hold several independently spaced encounters, matching ordinary authored levels; the generator still protects incoming landings, endpoint calm zones, rewards, moving-platform shafts, and unrelated platform artwork. The Enemy density control scales the target and zero disables all generated encounters.
 
-Generated power-ups now target one pickup per 3,000 mandatory-route pixels, one third of the revision 417 count. Their type mix remains 60 percent random wrench, 30 percent Overdrive, and 10 percent Shield, with Overdrive still preferentially assigned to dedicated upper detours. Generator schema version 33 stores the new behavior.
+Generated power-ups now target one pickup per 3,000 mandatory-route pixels, one third of the revision 417 count. Their type mix remains 60 percent authored wrench, 30 percent Overdrive, and 10 percent Shield, with Overdrive still preferentially assigned to dedicated upper detours. Generator schema version 33 stores the new behavior.
 
 
 ## Generated monster density (revision 419)
