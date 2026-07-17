@@ -28,6 +28,7 @@ import {
     normalizeForegroundParallax,
     normalizeLayerBrightness
 } from "../shared/level-layer-data.js";
+import { getAssetFn } from "../shared/asset-path.js";
 import { caveWindowBounds } from "../shared/cave-window-data.js";
 import {
     POWER_UP_EFFECT_IDS,
@@ -8257,7 +8258,7 @@ async function loadEnvironmentAtlases(options = {}) {
         : ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES;
     const onProgress = typeof options.onProgress === "function" ? options.onProgress : () => {};
     const records = await Promise.all(candidates.map(async (candidate) => {
-        const url = String(candidate.url || "");
+        const url = await getAssetFn(candidate.url || "");
         onProgress({ url, progress: 0.02, label: `Loading atlas manifest ${url}` });
         let manifest = null;
         try {
@@ -8341,14 +8342,15 @@ function loadImage(url) {
 }
 
 async function loadJsonStrict(url, label) {
+    const resolvedUrl = await getAssetFn(url);
     let response;
     try {
-        response = await fetch(url, { cache: "no-store" });
+        response = await fetch(resolvedUrl, { cache: "no-store" });
     } catch (error) {
-        throw new Error(`Could not load ${label} from ${url}. Use a local web server and make sure the file exists. ${error.message}`);
+        throw new Error(`Could not load ${label} from ${resolvedUrl}. Use a local web server and make sure the file exists. ${error.message}`);
     }
     if (!response.ok) {
-        throw new Error(`Could not load ${label} from ${url}: HTTP ${response.status}.`);
+        throw new Error(`Could not load ${label} from ${resolvedUrl}: HTTP ${response.status}.`);
     }
     return await response.json();
 }

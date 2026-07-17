@@ -5,6 +5,7 @@ import {
     createInputFrame
 } from "../core/simulation.js";
 import { createRenderer } from "../presentation/canvas-renderer.js";
+import { getAssetFn } from "../shared/asset-path.js";
 
 const STORAGE_KEY = "ignatius_level_editor_v2";
 const canvas = document.getElementById("stage");
@@ -46,8 +47,9 @@ function clamp(value, min, max) {
 }
 
 async function fetchJson(url) {
-    const response = await fetch(url, { cache: "no-store" });
-    if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
+    const resolvedUrl = await getAssetFn(url);
+    const response = await fetch(resolvedUrl, { cache: "no-store" });
+    if (!response.ok) throw new Error(`${resolvedUrl}: HTTP ${response.status}`);
     return response.json();
 }
 
@@ -60,7 +62,7 @@ function loadBrowserCopy() {
 async function loadRequestedLevel() {
     return requestedLevel === "browser_copy"
         ? loadBrowserCopy()
-        : fetchJson(`assets/${requestedLevel}.json`);
+        : fetchJson(`${requestedLevel}.json`);
 }
 
 function enemyCharacterUrls(catalog) {
@@ -174,7 +176,7 @@ async function start() {
     try {
         const [loadedLevel, enemyCatalog] = await Promise.all([
             loadRequestedLevel(),
-            fetchJson("assets/ct_enemies_001.json")
+            fetchJson("ct_enemies_001.json")
         ]);
         level = loadedLevel;
         gameState = createInitialGameState();

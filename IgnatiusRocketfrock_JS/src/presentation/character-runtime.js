@@ -1,4 +1,5 @@
 import { createPixmapPyramid } from "./pixmap-pyramid.js";
+import { getAssetFn } from "../shared/asset-path.js";
 import {
     defaultAnimationTransform,
     normalizeAnimationClip,
@@ -528,14 +529,15 @@ function makeRuntimeAtlasFrameAsset(image, frame, partName, frameId, imageUrl, a
 }
 
 async function defaultLoadJson(url, label = "JSON") {
+    const resolvedUrl = await getAssetFn(url);
     let response;
     try {
-        response = await fetch(url, { cache: "no-store" });
+        response = await fetch(resolvedUrl, { cache: "no-store" });
     } catch (error) {
-        throw new Error(`Could not load ${label} from ${url}. Use a local web server and make sure the file exists. ${error.message}`);
+        throw new Error(`Could not load ${label} from ${resolvedUrl}. Use a local web server and make sure the file exists. ${error.message}`);
     }
     if (!response.ok) {
-        throw new Error(`Could not load ${label} from ${url}: HTTP ${response.status}.`);
+        throw new Error(`Could not load ${label} from ${resolvedUrl}: HTTP ${response.status}.`);
     }
     return response.json();
 }

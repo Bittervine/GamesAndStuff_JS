@@ -1,16 +1,16 @@
 {
   "version": 1,
-  "fingerprint": "31910260d96c2f9e7c2d2c45e9787175650871729f742419f4c6ba76537e6961",
+  "fingerprint": "b5a1e5b1534611d9a8152bdbed4aea6dc859514cca96018580bc6dbae475cd2c",
   "results": {
     "smoke": {
       "status": "passed",
-      "durationMs": 227,
+      "durationMs": 246,
       "exitCode": 0,
       "signal": null,
-      "completedAt": "2026-07-17T19:16:17.079Z"
+      "completedAt": "2026-07-17T19:28:15.172Z"
     }
   },
   "lastGate": "smoke",
-  "startedAt": "2026-07-17T19:16:16.849Z",
-  "completedAt": "2026-07-17T19:16:17.080Z"
+  "startedAt": "2026-07-17T19:28:14.923Z",
+  "completedAt": "2026-07-17T19:28:15.174Z"
 }

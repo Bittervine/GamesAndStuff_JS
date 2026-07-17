@@ -22,6 +22,7 @@ import { RocketfrockInput } from "./browser-input.js";
 import { GamepadHaptics } from "./gamepad-haptics.js";
 import { createRenderer } from "../presentation/canvas-renderer.js";
 import { normalizeCaveWindow } from "../shared/cave-window-data.js";
+import { getAssetFn } from "../shared/asset-path.js";
 import {
     gameBakingModePreset,
     gameDifficultyPreset,
@@ -157,7 +158,14 @@ let gameState = launchPlaybackRecording?.initialState
         randomSeed: launchPlaybackRecording?.initial?.randomSeed || browserRandomSeed()
     });
 gameState.settings = normalizeGameSettings(gameState.settings);
-const musicDirector = createMusicDirector({ volume: gameState.settings.musicVolume });
+let musicBaseUrl = "assets/";
+try {
+    const resolvedMusicCatalogUrl = await getAssetFn("music.json");
+    musicBaseUrl = resolvedMusicCatalogUrl.slice(0, resolvedMusicCatalogUrl.lastIndexOf("/") + 1);
+} catch (error) {
+    // Music is optional. If the catalog itself is unavailable we keep the legacy default base.
+}
+const musicDirector = createMusicDirector({ volume: gameState.settings.musicVolume, baseUrl: musicBaseUrl });
 let musicCatalog = normalizeMusicCatalog(null);
 let activeLevelMusic = normalizeLevelMusic(null);
 let gameMenuView = "menu";
@@ -655,7 +663,7 @@ function syncLoadedCharacterCombatProfiles() {
 }
 
 async function loadEnemyDefinitionCatalog() {
-    const url = "assets/ct_enemies_001.json";
+    const url = await getAssetFn("ct_enemies_001.json");
     try {
         const response = await fetch(url, { cache: "no-store" });
         if (!response.ok) throw new Error(`${response.status}`);
@@ -702,7 +710,7 @@ function maybeApplyBrowserCopyLevel() {
 }
 
 async function loadMusicCatalog() {
-    const url = "assets/music.json";
+    const url = await getAssetFn("music.json");
     try {
         const response = await fetch(url, { cache: "no-store" });
         if (!response.ok) {
@@ -725,7 +733,7 @@ async function applyRequiredDefaultLevel() {
 
 async function applyRequiredLevel(levelId = START_LEVEL_ID) {
     const id = normalizedLevelId(levelId, START_LEVEL_ID);
-    const url = `assets/${id}.json`;
+    const url = await getAssetFn(`${id}.json`);
     let response;
     try {
         response = await fetch(url, { cache: "no-store" });
@@ -806,7 +814,7 @@ function clearStoredResumeLevel() {
 
 async function fetchOptionalLevel(levelId) {
     const id = normalizedLevelId(levelId);
-    const url = `assets/${id}.json`;
+    const url = await getAssetFn(`${id}.json`);
     try {
         const response = await fetch(url, { cache: "no-store" });
         if (!response.ok) return null;
