@@ -60,6 +60,8 @@ IgnatiusRocketfrock_JS/
 
 `package.json` declares the browser-style ES-module format and provides the dependency-free `npm test` command. `ARCHITECTURE.md` is the authoritative directory, dependency, classification, and JavaScript-to-C++ parity map. The root HTML pages remain stable browser entry points. Their large inline editor applications should be extracted one editor at a time into uniquely named modules such as `level-editor-app.js`; do not use several ambiguous files all named `app.js`.
 
+The shipped practice target now uses `enemy_900`, a passive training enemy that stays in the ordinary enemy pipeline. Its death presentation is a short shake followed by the normal corpse fade, and the core now treats `strategy: "passive"` as a first-class non-combat enemy mode so future passive props can reuse the same route safely.
+
 
 ## Near-Term Cave-Window Authoring Track
 

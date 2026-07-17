@@ -2665,10 +2665,13 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
             ? "bomber"
             : requestedStrategy === "simple_patrol"
                 ? "simple_patrol"
+                : requestedStrategy === "passive"
+                    ? "passive"
                 : "sentry";
     const locomotion = String(entity.locomotion || "").trim().toLowerCase() === "flying"
         ? "flying"
         : "ground";
+    const isPassive = strategy === "passive";
     const isSimplePatrol = strategy === "simple_patrol";
     const patrolDistance = Math.max(0, finiteNumberOr(entity.patrolDistance, 0));
     const idleDuration = Math.max(0, finiteNumberOr(entity.idleDuration, 1.1));
@@ -2708,7 +2711,7 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         strategy,
         locomotion,
         hunterPursuePlayerSupport: entity.hunterPursuePlayerSupport === true || String(entity.projectileLaunchType || "").startsWith("pathing_"),
-        aiState: health <= 0 ? "dead" : (locomotion === "flying" ? "fly" : (strategy === "hunter" ? "patrol" : strategy)),
+        aiState: health <= 0 ? "dead" : (isPassive ? "idle" : (locomotion === "flying" ? "fly" : (strategy === "hunter" ? "patrol" : strategy))),
         engaged: false,
         patrolDistance,
         patrolMinX: x - patrolDistance * 0.5,
@@ -2765,8 +2768,8 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         maxStepHeight: Math.max(0, finiteNumberOr(entity.maxStepHeight, 26)),
         maxDropDistance: Math.max(0, finiteNumberOr(entity.maxDropDistance, 34)),
         groundSnapDistance: Math.max(0, finiteNumberOr(entity.groundSnapDistance, 96)),
-        movementPhase: health <= 0 ? "dead" : (locomotion === "flying" ? "fly" : (isSimplePatrol && patrolDistance > 0 ? "idle" : "guard")),
-        phaseTimer: locomotion === "flying" ? 0 : (isSimplePatrol && patrolDistance > 0 ? idleDuration : 0),
+        movementPhase: health <= 0 ? "dead" : (locomotion === "flying" ? "fly" : (isPassive ? "idle" : (isSimplePatrol && patrolDistance > 0 ? "idle" : "guard"))),
+        phaseTimer: locomotion === "flying" ? 0 : (isPassive ? 0 : (isSimplePatrol && patrolDistance > 0 ? idleDuration : 0)),
         flightBaseY: y,
         flightTime: Math.max(0, finiteNumberOr(entity.flightTime, 0)),
         flightPhaseOffset: finiteNumberOr(entity.flightPhaseOffset, 0),
@@ -2870,6 +2873,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
     const caveKillBoundary = deriveCaveFullBlackKillBoundary(caveWindow);
     const placements = Array.isArray(source.placements) ? source.placements : [];
     const entities = Array.isArray(source.entities) ? source.entities : [];
+    const enemyCatalog = normalizeEnemyDefinitionCatalog(state.enemyCatalog);
     const entryDoorSource = wizardEntryDoorEntity(entities);
     const playerStart = entryDoorSource
         ? {
@@ -2948,7 +2952,24 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             order: Number.isFinite(Number(placement.order)) ? Number(placement.order) : visuals.length
         });
     }
-    const runtimeEntities = deepClone(entities);
+    const runtimeEntities = deepClone(entities).map((entity) => {
+        const type = String(entity?.type || "");
+        const enemyCatalogId = String(entity?.enemyCatalogId || "");
+        if ((type === "characterEnemy" || type === "enemy") && enemyCatalogId) {
+            const definition = enemyCatalog.enemies[enemyCatalogId];
+            if (definition) {
+                return {
+                    ...deepClone(definition.defaults || {}),
+                    ...entity,
+                    enemyCatalogId,
+                    characterId: String(entity.characterId || definition.characterId),
+                    w: Math.max(1, Number(entity.w) || definition.defaultSize.w),
+                    h: Math.max(1, Number(entity.h) || definition.defaultSize.h)
+                };
+            }
+        }
+        return entity;
+    });
     for (const entity of runtimeEntities) {
         editorEntityVisuals(entity).forEach((visual, index) => {
             if (visual?.assetId) visuals.push(editorEntityVisualToWorld(entity, visual, index, entity.state || ""));
@@ -3270,7 +3291,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
 }
 
 function applyCharacterCombatProfileToEnemy(state, enemy) {
-    if (!isCharacterEnemyState(enemy)) return false;
+    if (!isCharacterEnemyState(enemy) || enemy.strategy === "passive") return false;
     const profile = state.characterCombatProfiles?.[enemy.characterId];
     if (!profile || typeof profile !== "object") return false;
     const projectiles = Array.isArray(profile.projectiles) ? profile.projectiles : [];
@@ -5678,6 +5699,9 @@ function alertCharacterEnemyFromPlayerDamage(state, enemy) {
     if (!isCharacterEnemyState(enemy)) {
         return;
     }
+    if (enemy.strategy === "passive") {
+        return;
+    }
 
     const wasAlerted = enemy.alerted === true;
     enemy.awarenessTimer = Math.max(
@@ -7164,6 +7188,20 @@ function updateCharacterEnemies(state, dt) {
             updateDeadCharacterEnemyPhysics(state, enemy, dt);
             updateDeadEnemyPresentation(state, enemy, dt);
             setCharacterEnemyAnimation(enemy, "death");
+            syncCharacterEnemyTarget(state, enemy);
+            continue;
+        }
+
+        if (enemy.strategy === "passive") {
+            enemy.combatState = ENEMY_COMBAT_STATE.ALIVE;
+            enemy.state = enemy.health > 0 ? "idle" : "death";
+            enemy.movementPhase = enemy.health > 0 ? "idle" : "dead";
+            enemy.alerted = false;
+            enemy.awarenessTimer = 0;
+            enemy.attackTimer = 0;
+            enemy.attackLungeRemaining = 0;
+            enemy.attackHitApplied = false;
+            setCharacterEnemyAnimation(enemy, enemy.health > 0 ? "idle" : "death");
             syncCharacterEnemyTarget(state, enemy);
             continue;
         }
@@ -11150,6 +11188,7 @@ function updateEnemyContactDamage(state) {
     let strongest = null;
 
     for (const enemy of state.enemies || []) {
+        if (enemy.strategy === "passive") continue;
         if ((Number(enemy.health) || 0) <= 0) continue;
         if (enemy.combatState === ENEMY_COMBAT_STATE.DEAD || enemy.state === "destroyed") continue;
         if (!rectsOverlap(playerRect, enemyContactBodyRect(enemy))) continue;

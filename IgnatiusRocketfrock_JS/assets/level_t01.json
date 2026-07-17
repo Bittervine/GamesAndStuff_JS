@@ -4419,27 +4419,18 @@
       "notes": ""
     },
     {
-      "id": "targetDummy_002",
-      "type": "targetDummy",
-      "catalogId": "it_entities_001",
+      "id": "enemy_900_002",
+      "type": "characterEnemy",
+      "enemyCatalogId": "enemy_900",
+      "characterId": "ct_char_enemy_900",
       "x": 4320,
       "y": 864,
       "w": 103,
       "h": 151,
-      "state": "idle",
-      "visualStates": {
-        "idle": [
-          {
-            "atlasId": "it_atlas_001",
-            "assetId": "target_dummy",
-            "layer": "decorFront"
-          }
-        ]
-      },
-      "stateLabels": {
-        "idle": "Idle"
-      },
+      "scale": 1,
       "health": 90,
+      "facing": -1,
+      "animationSlot": "idle",
       "notes": "Rocket target and combat-training prop.",
       "targetAnchor": {
         "x": 0.5,

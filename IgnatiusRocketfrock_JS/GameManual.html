@@ -192,6 +192,7 @@
             <li>Fuel normally begins recharging after Ignatius returns to the ground. Overdrive provides its smaller passive recovery even in the air and while hovering.</li>
             <li>Homing rockets only lock onto enemies that are at least partly visible on the current screen. They prefer visible active targets in the direction Ignatius is facing, and release a target that leaves the screen.</li>
             <li>A standard rocket deals 30 damage to the enemy it directly hits. Its small impact splash deals exactly 1 damage to other nearby enemies within a diameter of about two wizard heights. Overdrive retains this splash; wrench rockets use only their own behavior.</li>
+            <li>The old target dummy is now just a stationary training enemy in the normal enemy pipeline. It has no contact damage, no attacks, and it shakes briefly before fading out when destroyed.</li>
         </ul>
 
         <h2>Power-ups</h2>
@@ -202,7 +203,7 @@
             <li>Generated vertical lifts reserve a full rider-height corridor and dock beside solid yellow platforms rather than carrying riders into their undersides.</li>
             <li>The top-left Power bar shows the highest-priority active effect and its remaining duration. Any active wrench upgrade is shown ahead of Shield and Overdrive; all compatible effects remain active at the same time.</li>
             <li><strong>Shield</strong> lasts 10 seconds and blocks all ordinary incoming damage. The pickup glows blue, and Ignatius flashes blue while protected. The blue flash takes priority over the red critical-health flash.</li>
-            <li><strong>Overdrive</strong> lasts 20 seconds and halves the fuel cost of each launch. It also recovers fuel continuously at a minimum rate equal to 90% of hover consumption, including while hovering or during the ordinary recharge delay. Normal grounded recovery may be faster, but the two rates do not add together. Rocket firing itself has no cooldown.</li>
+            <li><strong>Overdrive</strong> lasts 20 seconds and halves the fuel cost of each launch. It also recovers fuel continuously at a minimum rate equal to 90% of hover consumption, including while hovering or during the ordinary recharge delay. Normal grounded recovery may be faster, but the two rates do not add together. Rocket firing itself has no cooldown. While active, Ignatius also gets a small yellow spark shimmer around his body.</li>
             <li>Wrench power-ups last 20 seconds and replace any other active wrench. A wrench pickup has an authored type selected in the Level Editor; if the field is missing, it defaults to the blue Homing Triple wrench.</li>
             <li>Rockets modified by a wrench carry a fuzzy outline in that wrench's colour, so the current payload remains visible even after launch. The six powered rockets use precomposited atlas frames, avoiding first-shot stutter and extra glow drawing during play.</li>
         </ul>

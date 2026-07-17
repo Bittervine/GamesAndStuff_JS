@@ -4642,6 +4642,40 @@ function testCharacterEnemyRocketCombat() {
     assert.equal(enemy.currentTransform.alpha, 0, "defeated enemy should be fully transparent after the three-second fade");
 }
 
+function testPassiveEnemyDoesNotTurnWhenDamaged() {
+    const state = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(state, {
+        levelId: "passive_dummy_damage_test",
+        testPlayerStart: { x: 520, y: 600 },
+        entities: [{
+            id: "training_dummy",
+            type: "characterEnemy",
+            enemyCatalogId: "enemy_900",
+            x: 180,
+            y: 100,
+            facing: -1
+        }]
+    }), true, "passive dummy damage test level should apply");
+    state.world.solids = [];
+    state.world.segments = [];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+
+    const enemy = state.enemies.find((item) => item.id === "training_dummy");
+    const target = state.targets.find((item) => item.enemyId === enemy.id);
+    const rocket = addTestRocket(state, { id: "passive_dummy_hit" });
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+
+    assert.equal(rocket.state, "exploding", "rocket should still impact the passive dummy");
+    assert.equal(enemy.facing, -1, "passive dummy should keep its authored facing when damaged");
+    assert.equal(enemy.alerted, false, "passive dummy should not enter an alerted state when damaged");
+    assert.equal(enemy.engaged, false, "passive dummy should not become engaged when damaged");
+    assert.equal(target.state, "active", "damaged passive dummy should remain a valid homing target while alive");
+    assert.ok(enemy.hitFlashTimer > 0, "passive dummy should still show the hit flash");
+}
+
 function testAirborneEnemyDefersDeathUntilLanding() {
     const state = createInitialGameState();
     assert.equal(applyEditorLevelToWorld(state, {
@@ -14656,6 +14690,7 @@ const tests = [
     ["character enemy aggressive chase and combo", testCharacterEnemyAggressiveChaseAndCombo],
     ["rebalanced enemy health and standard rocket hit counts", testRebalancedEnemyHealthAndRocketHits],
     ["character enemy rocket combat", testCharacterEnemyRocketCombat],
+    ["passive enemy does not turn when damaged", testPassiveEnemyDoesNotTurnWhenDamaged],
     ["airborne enemy defers death until landing", testAirborneEnemyDefersDeathUntilLanding],
     ["enemy contact damage uses independent invulnerability", testEnemyContactDamageUsesIndependentInvulnerability],
     ["character enemy melee attack", testCharacterEnemyMeleeAttack],

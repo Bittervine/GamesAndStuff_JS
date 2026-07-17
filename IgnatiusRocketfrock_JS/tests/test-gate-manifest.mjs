@@ -142,6 +142,7 @@ export const TEST_SHARDS = Object.freeze({
             "character enemy aggressive chase and combo",
             "rebalanced enemy health and standard rocket hit counts",
             "character enemy rocket combat",
+            "passive enemy does not turn when damaged",
             "airborne enemy defers death until landing",
             "enemy contact damage uses independent invulnerability",
             "character enemy melee attack",

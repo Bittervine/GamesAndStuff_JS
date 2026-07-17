@@ -1,0 +1,45 @@
+{
+  "meta": {
+    "version": 1,
+    "note": "Revision 482 training dummy rig. A single rigid body reuses the existing target-dummy frame so the passive enemy stays cheap to draw and animate."
+  },
+  "rigId": "ct_rig_enemy_900",
+  "atlasId": "it_atlas_001",
+  "atlasManifest": "it_atlas_001.json",
+  "drawOrder": [
+    "body"
+  ],
+  "global": {
+    "scale": 1,
+    "lean": 0,
+    "rootX": 0,
+    "rootYOffsetFromGround": 0,
+    "groundOffset": 0,
+    "debugPivots": false
+  },
+  "anchors": {},
+  "pivots": {
+    "body": {
+      "x": 0.5,
+      "y": 1
+    }
+  },
+  "parts": {
+    "body": {
+      "frame": "target_dummy",
+      "role": "body",
+      "tags": [
+        "dummy",
+        "training",
+        "passive"
+      ],
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "scale": 1,
+      "targetHeight": 151,
+      "alpha": 1
+    }
+  }
+}

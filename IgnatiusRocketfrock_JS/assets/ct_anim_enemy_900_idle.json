@@ -1,0 +1,31 @@
+{
+  "meta": {
+    "version": 1,
+    "note": "Revision 482 training dummy idle clip. The dummy stays stationary and simply holds its pose."
+  },
+  "animationId": "ct_anim_enemy_900_idle",
+  "duration": 1,
+  "loop": true,
+  "mirrorable": true,
+  "playback": {
+    "idleThreshold": 0.04,
+    "baseCyclesPerSecond": 1,
+    "speedCyclesPerSecond": 1,
+    "maxSpeedRatio": 1
+  },
+  "rootMotion": {
+    "enabled": false,
+    "xTrack": null,
+    "yTrack": null
+  },
+  "referencePose": {
+    "body": {
+      "x": 0,
+      "y": 0,
+      "rotation": 0,
+      "scale": 1,
+      "alpha": 1
+    }
+  },
+  "tracks": {}
+}

@@ -6698,27 +6698,18 @@
       "notes": "Invisible one-shot region that pauses play and shows an Ignatius thought bubble when entered."
     },
     {
-      "id": "targetDummy_001",
-      "type": "targetDummy",
-      "catalogId": "it_entities_001",
+      "id": "enemy_900_001",
+      "type": "characterEnemy",
+      "enemyCatalogId": "enemy_900",
+      "characterId": "ct_char_enemy_900",
       "x": 2528,
       "y": 496,
       "w": 103,
       "h": 151,
-      "state": "idle",
-      "visualStates": {
-        "idle": [
-          {
-            "atlasId": "it_atlas_001",
-            "assetId": "target_dummy",
-            "layer": "decorFront"
-          }
-        ]
-      },
-      "stateLabels": {
-        "idle": "Idle"
-      },
+      "scale": 1,
       "health": 90,
+      "facing": -1,
+      "animationSlot": "idle",
       "targetAnchor": {
         "x": 0.5,
         "y": 0.5
@@ -6749,7 +6740,7 @@
       "verticalTolerance": 150,
       "thoughtAtlasId": "it_atlas_001",
       "thoughtAssetId": "thought_bubble_large",
-      "thoughtText": "My old target dummy!\n\nMaybe I should practice one last time on firing my rocket.\n\nWhat button was it now again?",
+      "thoughtText": "My old training dummy!\n\nMaybe I should practice one last time on firing my rocket.\n\nWhat button was it now again?",
       "notes": "Invisible one-shot region that pauses play and shows an Ignatius thought bubble when entered."
     },
     {

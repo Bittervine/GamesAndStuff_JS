@@ -6024,7 +6024,7 @@ class RocketfrockRenderer {
         }
     }
 
-    drawSparkBurstWebGL(x, y, view, seed, count, radius, palette = "rocket") {
+    drawSparkBurstWebGL(x, y, view, seed, count, radius, palette = "rocket", spreadX = 1, spreadY = 1) {
         const backend = this.webglBackend;
         const glowSprite = this.getWebGLParticleSpriteCanvas("softGlow");
         if (!backend?.available || !glowSprite) {
@@ -6033,14 +6033,16 @@ class RocketfrockRenderer {
         for (let i = 0; i < count; i += 1) {
             const a = hashNoise(seed, i) * Math.PI * 2;
             const r = (0.25 + hashNoise(seed + 31, i) * 0.75) * radius;
-            const px = x + Math.cos(a) * r;
-            const py = y + Math.sin(a) * r;
+            const px = x + Math.cos(a) * r * Math.max(0.1, Number(spreadX) || 1);
+            const py = y + Math.sin(a) * r * Math.max(0.1, Number(spreadY) || 1);
             const size = (palette === "enemy" ? 0.9 : 1.1) * (1 + hashNoise(seed + 71, i) * (palette === "enemy" ? 1.7 : 2.3)) * view.zoom;
             const alpha = (palette === "enemy" ? 0.22 : 0.28) + hashNoise(seed + 109, i) * (palette === "enemy" ? 0.28 : 0.38);
             const tint = palette === "enemy"
                 ? (i % 2 === 0 ? [1, 92 / 255, 68 / 255, 1] : [1, 155 / 255, 84 / 255, 1])
                 : palette === "wizardAccent"
                     ? (i % 2 === 0 ? [1, 238 / 255, 114 / 255, 1] : [184 / 255, 112 / 255, 1, 1])
+                    : palette === "overdrive"
+                        ? (i % 3 === 0 ? [1, 1, 206 / 255, 1] : (i % 2 === 0 ? [1, 228 / 255, 86 / 255, 1] : [1, 194 / 255, 40 / 255, 1]))
                     : (i % 3 === 0 ? [1, 246 / 255, 166 / 255, 1] : [1, 137 / 255, 82 / 255, 1]);
             backend.queueSprite({
                 source: glowSprite,
@@ -7145,20 +7147,22 @@ class RocketfrockRenderer {
         ctx.restore();
     }
 
-    drawSparkBurst(x, y, view, seed, count, radius, palette = "rocket") {
+    drawSparkBurst(x, y, view, seed, count, radius, palette = "rocket", spreadX = 1, spreadY = 1) {
         const ctx = this.ctx;
         ctx.save();
         for (let i = 0; i < count; i += 1) {
             const a = hashNoise(seed, i) * Math.PI * 2;
             const r = (0.25 + hashNoise(seed + 31, i) * 0.75) * radius;
-            const px = x + Math.cos(a) * r;
-            const py = y + Math.sin(a) * r;
+            const px = x + Math.cos(a) * r * Math.max(0.1, Number(spreadX) || 1);
+            const py = y + Math.sin(a) * r * Math.max(0.1, Number(spreadY) || 1);
             const size = (palette === "enemy" ? 0.9 : 1.1) * (1 + hashNoise(seed + 71, i) * (palette === "enemy" ? 1.7 : 2.3)) * view.zoom;
             ctx.globalAlpha = (palette === "enemy" ? 0.22 : 0.28) + hashNoise(seed + 109, i) * (palette === "enemy" ? 0.28 : 0.38);
             ctx.fillStyle = palette === "enemy"
                 ? (i % 2 === 0 ? "rgba(255, 92, 68, 0.78)" : "rgba(255, 155, 84, 0.64)")
                 : palette === "wizardAccent"
                     ? (i % 2 === 0 ? "rgba(255, 238, 114, 0.82)" : "rgba(184, 112, 255, 0.78)")
+                    : palette === "overdrive"
+                        ? (i % 3 === 0 ? "rgba(255, 255, 206, 0.96)" : (i % 2 === 0 ? "rgba(255, 228, 86, 0.90)" : "rgba(255, 194, 40, 0.82)"))
                     : (i % 3 === 0 ? "rgba(255, 246, 166, 0.9)" : "rgba(255, 137, 82, 0.86)");
             ctx.beginPath();
             ctx.arc(px, py, size, 0, Math.PI * 2);
@@ -7556,6 +7560,15 @@ class RocketfrockRenderer {
                 }
             }
         );
+        if (activePowerUpEffect(state, POWER_UP_EFFECT_IDS.OVERDRIVE) && Number.isFinite(bounds.minX)) {
+            const sparkWidth = Number(bounds.maxX) - Number(bounds.minX);
+            const sparkHeight = Number(bounds.maxY) - Number(bounds.minY);
+            const sparkX = (Number(bounds.minX) + Number(bounds.maxX)) * 0.5;
+            const sparkY = Number(bounds.minY) + Math.max(0, sparkHeight) * 0.28;
+            const sparkRadius = Math.max(8, Math.min(Math.max(1, sparkWidth), Math.max(1, sparkHeight)) * 0.12);
+            const sparkSeed = Math.floor((Number(state.clock.time) || 0) * 12) ^ Math.floor(sparkX * 0.25) ^ Math.floor(sparkY * 0.25);
+            this.drawSparkBurstWebGL(sparkX, sparkY, view, sparkSeed, 4, sparkRadius, "overdrive", 4, 4);
+        }
         this.lastBounds = Number.isFinite(bounds.minX) ? bounds : null;
         return true;
     }
@@ -7728,6 +7741,19 @@ class RocketfrockRenderer {
             overlayTintAlpha: hitFlash * 0.72,
             overlayTintCanvasKey: "hitFlashCanvas"
         });
+        if (activePowerUpEffect(state, POWER_UP_EFFECT_IDS.OVERDRIVE) && Number.isFinite(bounds.minX)) {
+            const sparkWidth = Number(bounds.maxX) - Number(bounds.minX);
+            const sparkHeight = Number(bounds.maxY) - Number(bounds.minY);
+            const sparkX = (Number(bounds.minX) + Number(bounds.maxX)) * 0.5;
+            const sparkY = Number(bounds.minY) + Math.max(0, sparkHeight) * 0.28;
+            const sparkRadius = Math.max(8, Math.min(Math.max(1, sparkWidth), Math.max(1, sparkHeight)) * 0.12);
+            const sparkSeed = Math.floor((Number(state.clock.time) || 0) * 12) ^ Math.floor(sparkX * 0.25) ^ Math.floor(sparkY * 0.25);
+            const ctx = this.ctx;
+            ctx.save();
+            ctx.globalCompositeOperation = "lighter";
+            this.drawSparkBurst(sparkX, sparkY, view, sparkSeed, 4, sparkRadius, "overdrive", 4, 4);
+            ctx.restore();
+        }
         this.lastBounds = bounds;
     }
 

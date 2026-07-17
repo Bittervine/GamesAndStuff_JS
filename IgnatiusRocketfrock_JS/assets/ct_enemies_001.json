@@ -1,11 +1,65 @@
 {
-    "meta": {
-        "version": 52,
-        "note": "Revision 481 makes regular goblins nimble: enemy_010 through enemy_012 now default to 250 px/s run speed and 250 px jump height.",
-        "revision": 481
-    },
-    "catalogId": "ct_enemies_001",
-    "enemies": {
+  "meta": {
+    "version": 53,
+    "note": "Revision 482 adds a passive training dummy enemy in the 900 range so practice targets can use the normal enemy pipeline.",
+    "revision": 482
+  },
+  "catalogId": "ct_enemies_001",
+  "enemies": {
+        "enemy_900": {
+            "label": "Training Dummy",
+            "icon": "\ud83c\udfaf",
+            "characterId": "ct_char_enemy_900",
+            "defaultSize": {
+                "w": 103,
+                "h": 151
+            },
+            "defaults": {
+                "facing": -1,
+                "patrolDistance": 0,
+                "walkSpeed": 0,
+                "idleDuration": 1,
+                "turnPause": 0,
+                "groundSnapDistance": 96,
+                "maxStepHeight": 26,
+                "maxDropDistance": 34,
+                "renderScale": 1,
+                "health": 90,
+                "animationSlot": "idle",
+                "targetAnchor": {
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                "showTargetMarker": false,
+                "attackDamage": 0,
+                "attackRange": 0,
+                "attackVerticalRange": 0,
+                "attackDuration": 0,
+                "attackHitTime": 0,
+                "attackCooldown": 0,
+                "awarenessRange": 0,
+                "awarenessHoldDuration": 0,
+                "attackLungeDistance": 0,
+                "attackLungeSpeed": 0,
+                "strategy": "passive",
+                "runSpeed": 0,
+                "jumpHeight": 0,
+                "unreachableGlareDuration": 0,
+                "awarenessViewHalfAngle": 0,
+                "renderOffsetX": 0,
+                "renderOffsetY": 0,
+                "locomotion": "ground",
+                "jumpGravity": 1250,
+                "maxFallDistance": 600,
+                "routeRepathInterval": 0.34,
+                "homeRetryInterval": 4,
+                "attackMode": "melee",
+                "deathDuration": 0.34,
+                "corpseHoldDuration": 0.34,
+                "corpseFadeDuration": 0
+            },
+            "description": "A stationary training dummy that uses the ordinary enemy pipeline but never attacks or deals contact damage."
+        },
         "enemy_001": {
             "label": "Skeleton Guard",
             "icon": "\u2620",

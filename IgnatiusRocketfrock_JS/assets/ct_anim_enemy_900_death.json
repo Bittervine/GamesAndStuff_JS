@@ -1,0 +1,75 @@
+{
+  "meta": {
+    "version": 1,
+    "note": "Revision 482 training dummy death clip. It gives the dummy a short violent shake before the normal corpse fade takes over."
+  },
+  "animationId": "ct_anim_enemy_900_death",
+  "duration": 0.34,
+  "loop": false,
+  "mirrorable": true,
+  "playback": {
+    "idleThreshold": 0.04,
+    "baseCyclesPerSecond": 2.941176,
+    "speedCyclesPerSecond": 2.941176,
+    "maxSpeedRatio": 1
+  },
+  "rootMotion": {
+    "enabled": false,
+    "xTrack": null,
+    "yTrack": null
+  },
+  "referencePose": {
+    "body": {
+      "x": 0,
+      "y": 0,
+      "rotation": 0,
+      "scale": 1,
+      "alpha": 1
+    }
+  },
+  "tracks": {
+    "body": {
+      "x": [
+        { "time": 0, "value": 0, "easing": "step" },
+        { "time": 0.04, "value": 7, "easing": "linear" },
+        { "time": 0.08, "value": -8, "easing": "linear" },
+        { "time": 0.12, "value": 6, "easing": "linear" },
+        { "time": 0.16, "value": -5, "easing": "linear" },
+        { "time": 0.2, "value": 4, "easing": "linear" },
+        { "time": 0.24, "value": -3, "easing": "linear" },
+        { "time": 0.28, "value": 2, "easing": "linear" },
+        { "time": 0.34, "value": 0, "easing": "linear" }
+      ],
+      "y": [
+        { "time": 0, "value": 0, "easing": "step" },
+        { "time": 0.04, "value": -2, "easing": "linear" },
+        { "time": 0.08, "value": 4, "easing": "linear" },
+        { "time": 0.12, "value": -3, "easing": "linear" },
+        { "time": 0.16, "value": 3, "easing": "linear" },
+        { "time": 0.2, "value": -2, "easing": "linear" },
+        { "time": 0.24, "value": 1, "easing": "linear" },
+        { "time": 0.34, "value": 0, "easing": "linear" }
+      ],
+      "rotation": [
+        { "time": 0, "value": 0, "easing": "step" },
+        { "time": 0.04, "value": 0.08, "easing": "linear" },
+        { "time": 0.08, "value": -0.14, "easing": "linear" },
+        { "time": 0.12, "value": 0.12, "easing": "linear" },
+        { "time": 0.16, "value": -0.1, "easing": "linear" },
+        { "time": 0.2, "value": 0.07, "easing": "linear" },
+        { "time": 0.24, "value": -0.05, "easing": "linear" },
+        { "time": 0.28, "value": 0.02, "easing": "linear" },
+        { "time": 0.34, "value": 0, "easing": "linear" }
+      ],
+      "alpha": [
+        { "time": 0, "value": 1, "easing": "step" },
+        { "time": 0.12, "value": 1, "easing": "step" },
+        { "time": 0.16, "value": 0.82, "easing": "linear" },
+        { "time": 0.2, "value": 0.52, "easing": "linear" },
+        { "time": 0.24, "value": 0.25, "easing": "linear" },
+        { "time": 0.28, "value": 0.08, "easing": "linear" },
+        { "time": 0.34, "value": 0, "easing": "linear" }
+      ]
+    }
+  }
+}
