@@ -8701,7 +8701,7 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     const state = createInitialGameState();
     const mailboxDef = catalog.entities.mailbox;
     const fuelDef = catalog.entities.fuel;
-    const targetDef = catalog.entities.targetDummy;
+    const enemyDef = catalog.enemies.enemy_900;
     const level = {
         levelId: "interactive_items_test",
         world: { bounds: { x: 0, y: 0, w: 1000, h: 700 }, resetY: 900 },
@@ -8733,17 +8733,20 @@ function testInteractiveItemAtlasAndEntityVisuals() {
             },
             {
                 id: "target_test",
-                type: "targetDummy",
+                type: "characterEnemy",
                 x: 600,
                 y: 500,
-                w: targetDef.defaultSize.w,
-                h: targetDef.defaultSize.h,
-                health: targetDef.defaults.health,
-                targetAnchor: targetDef.defaults.targetAnchor,
-                targetRadius: targetDef.defaults.targetRadius,
-                showTargetMarker: targetDef.defaults.showTargetMarker,
-                state: targetDef.defaultState,
-                visualStates: Object.fromEntries(Object.entries(targetDef.states).map(([id, def]) => [id, def.visuals]))
+                w: enemyDef.defaultSize.w,
+                h: enemyDef.defaultSize.h,
+                enemyCatalogId: "enemy_900",
+                characterId: enemyDef.characterId,
+                health: enemyDef.defaults.health,
+                targetAnchor: enemyDef.defaults.targetAnchor,
+                targetRadius: enemyDef.defaults.targetRadius,
+                showTargetMarker: enemyDef.defaults.showTargetMarker,
+                strategy: enemyDef.defaults.strategy,
+                state: "idle",
+                visualStates: {}
             }
         ]
     };
@@ -8751,11 +8754,11 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     assert.ok(state.world.visuals.some((visual) => visual.entityId === "mailbox_test" && visual.assetId === "mailbox_with_letter"), "mailbox state should become an atlas visual");
     assert.ok(state.world.visuals.some((visual) => visual.entityId === "fuel_test" && visual.assetId === "rocket_fuel_canister"), "fuel should become an atlas visual");
     assert.equal(state.pickups[0].visualized, true, "atlas-backed fuel should suppress the old debug-circle rendering");
-    assert.equal(state.enemies[0].visualized, true, "atlas-backed target dummy should be recognized as artwork-backed");
-    assert.equal(state.enemies[0].maxHealth, 90, "atlas-backed target dummy should use the 90 HP practice-target balance");
-    approx(state.targets[0].x, 600, 0.000001, "target dummy homing point should be centered on the bullseye");
-    approx(state.targets[0].y, 500 - targetDef.defaultSize.h * 0.5, 0.000001, "target dummy homing point should use the belly bullseye height");
-    assert.equal(state.targets[0].showMarker, false, "artwork-backed target dummy should suppress the old dot and pulse marker");
+    assert.equal(state.enemies[0].visualized, true, "artwork-backed training enemy should be recognized as artwork-backed");
+    assert.equal(state.enemies[0].maxHealth, 90, "artwork-backed training enemy should use the 90 HP practice balance");
+    approx(state.targets[0].x, 600, 0.000001, "training enemy homing point should be centered on the bullseye");
+    approx(state.targets[0].y, 500 - enemyDef.defaultSize.h * 0.5, 0.000001, "training enemy homing point should use the belly bullseye height");
+    assert.equal(state.targets[0].showMarker, false, "artwork-backed training enemy should suppress the old dot and pulse marker");
 }
 
 
@@ -8801,8 +8804,8 @@ function testScoreHudAndTreasureChestCollection() {
     stepSimulation(state, createInputFrame(), FIXED_DT);
     assert.equal(state.score, 125, "walking close to the chest should award its Score once");
     assert.equal(state.treasureChests[0].collected, true, "the collected flag should become authoritative immediately");
-    assert.equal(state.treasureChests[0].state, "openLoot", "the chest should briefly reveal its loot");
-    assert.equal(state.world.entityStates.treasure_test, "openLoot", "the world entity visual state should follow portable chest state");
+    assert.equal(state.treasureChests[0].state, "openEmpty", "the chest should switch to empty as soon as the score popup starts");
+    assert.equal(state.world.entityStates.treasure_test, "openEmpty", "the world entity visual state should follow the emptied chest immediately");
     assert.ok(state.debug.lastEvents.some((event) => event.type === "SCORE_CHANGED" && event.amount === 100), "collection should emit a deterministic Score change event");
     assert.ok(state.debug.lastEvents.some((event) => event.type === "TREASURE_CHEST_COLLECTED"), "collection should emit a chest event");
 

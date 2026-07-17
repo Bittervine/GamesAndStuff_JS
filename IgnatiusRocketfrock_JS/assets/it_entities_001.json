@@ -12,38 +12,6 @@
     }
   ],
   "entities": {
-    "targetDummy": {
-      "type": "targetDummy",
-      "label": "Target dummy",
-      "icon": "\ud83c\udfaf",
-      "description": "Rocket target and combat-training prop.",
-      "defaultState": "idle",
-      "defaultSize": {
-        "w": 103,
-        "h": 151
-      },
-      "defaults": {
-        "health": 90,
-        "targetAnchor": {
-          "x": 0.5,
-          "y": 0.5
-        },
-        "targetRadius": 16,
-        "showTargetMarker": false
-      },
-      "states": {
-        "idle": {
-          "label": "Idle",
-          "visuals": [
-            {
-              "atlasId": "it_atlas_001",
-              "assetId": "target_dummy",
-              "layer": "decorFront"
-            }
-          ]
-        }
-      }
-    },
     "enemySpawner": {
       "type": "enemySpawner",
       "label": "Enemy spawner",

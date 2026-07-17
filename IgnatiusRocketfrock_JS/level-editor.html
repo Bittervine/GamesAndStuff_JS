@@ -1113,7 +1113,6 @@
                 <select id="inspect-entity-type">
                     <option value="wizard_entry_door">wizard_entry_door</option>
                     <option value="wizard_exit_door">wizard_exit_door</option>
-                    <option value="targetDummy">targetDummy</option>
                     <option value="characterEnemy">characterEnemy</option>
                     <option value="enemySpawner">enemySpawner</option>
                     <option value="fuel">fuel</option>
@@ -1195,6 +1194,7 @@
                             <option value="simple_patrol">Simple-minded patrol</option>
                             <option value="hunter">Hunter</option>
                             <option value="sentry">Stationary sentry</option>
+                            <option value="passive">Passive training dummy</option>
                         </select>
                     </label>
                     <label>Facing
@@ -1227,7 +1227,7 @@
                 </div>
                 <div class="row">
                     <label>Attack damage<input id="inspect-enemy-attack-damage" type="number" min="0" step="1"></label>
-                    <label>Attack reach<input id="inspect-enemy-attack-range" type="number" min="1" step="1"></label>
+                    <label>Attack reach<input id="inspect-enemy-attack-range" type="number" min="0" step="1"></label>
                 </div>
                 <label>Attack cooldown seconds<input id="inspect-enemy-attack-cooldown" type="number" min="0" step="0.05"></label>
             </div>
@@ -2416,9 +2416,23 @@ import {
             (record?.type === "enemy" && Boolean(record.characterId || record.characterProject));
     }
 
+    function isTrainingEnemy(record) {
+        const type = String(record?.type || "");
+        const characterId = String(record?.characterId || record?.characterProject || "");
+        const enemyCatalogId = String(record?.enemyCatalogId || "");
+        return type === "targetDummy" || characterId === "ct_char_enemy_900" || enemyCatalogId === "enemy_900";
+    }
+
+    function characterEnemyCharacterId(record) {
+        const requested = String(record?.characterId || record?.characterProject || "").trim();
+        if (requested) return requested;
+        return isTrainingEnemy(record) ? "ct_char_enemy_900" : "ct_char_enemy_001";
+    }
+
     function characterEnemyStrategy(record) {
         const requested = String(record?.strategy || "").trim().toLowerCase();
-        return ["simple_patrol", "hunter", "sentry", "bomber"].includes(requested) ? requested : "sentry";
+        if (["simple_patrol", "hunter", "sentry", "bomber", "passive"].includes(requested)) return requested;
+        return isTrainingEnemy(record) ? "passive" : "sentry";
     }
 
     function isReactiveObject(record) {
@@ -2860,7 +2874,7 @@ import {
         normalized.entities = normalized.entities
             .filter((entity) => entity && typeof entity === "object" && typeof entity.type === "string" && entity.type)
             .map((entity, index) => {
-                const normalizedType = entity.type;
+                const normalizedType = entity.type === "targetDummy" ? "characterEnemy" : entity.type;
                 const normalizedEntity = {
                     ...cloneData(entity),
                     id: entity.id || `${normalizedType}_${String(index + 1).padStart(3, "0")}`,
@@ -2871,11 +2885,18 @@ import {
                     h: Math.max(1, Number(entity.h) || 80),
                     notes: entity.notes || ""
                 };
+                if (entity.type === "targetDummy") {
+                    normalizedEntity.enemyCatalogId = "enemy_900";
+                    normalizedEntity.characterId = "ct_char_enemy_900";
+                    normalizedEntity.strategy = "passive";
+                    normalizedEntity.showTargetMarker = false;
+                }
                 if (entity.radius !== undefined) normalizedEntity.radius = Number(entity.radius) || 14;
                 if (entity.amount !== undefined) normalizedEntity.amount = Number(entity.amount) || 40;
                 if (isCharacterEnemy(normalizedEntity)) {
                     normalizedEntity.type = "characterEnemy";
-                    normalizedEntity.strategy = characterEnemyStrategy(entity);
+                    normalizedEntity.characterId = characterEnemyCharacterId(normalizedEntity);
+                    normalizedEntity.strategy = characterEnemyStrategy(normalizedEntity);
                     normalizedEntity.runSpeed = Math.max(0, finiteEditorNumber(entity.runSpeed, 150));
                 }
                 for (const visual of entityVisuals(normalizedEntity)) {
@@ -6245,7 +6266,7 @@ import {
             els.inspectMovingFade.value = String(movingDraft.fadeDuration);
             els.inspectMovingHidden.value = String(movingDraft.hiddenDuration);
             if (rec.type) addEntityPaletteOption(rec.type);
-            els.inspectEntityType.value = rec.type || "targetDummy";
+            els.inspectEntityType.value = rec.type || "characterEnemy";
             els.inspectEntityState.innerHTML = "";
             const stateIds = Object.keys(rec.visualStates || {});
             for (const stateId of stateIds) {
@@ -6280,23 +6301,25 @@ import {
             els.doorDistanceLabel.firstChild.textContent = isEntryDoor ? "Emergence distance" : "Trigger distance";
             els.inspectDoorDistance.value = isEntryDoor ? (Number(rec.emergeDistance) || 180) : (Number(rec.triggerDistance) || 96);
             els.inspectDoorWalkSpeed.value = Number(rec.walkSpeed) || 105;
-            els.inspectEnemyCharacter.value = rec.characterId || rec.characterProject || "ct_char_enemy_001";
+            els.inspectEnemyCharacter.value = characterEnemyCharacterId(rec);
             els.inspectEnemyStrategy.value = characterEnemyStrategy(rec);
             els.inspectEnemyFacing.value = Number(rec.facing) < 0 ? "-1" : "1";
-            els.inspectEnemyPatrolDistance.value = Math.max(0, finiteEditorNumber(rec.patrolDistance, 0));
-            els.inspectEnemyWalkSpeed.value = Math.max(0, finiteEditorNumber(rec.walkSpeed, 56));
-            els.inspectEnemyRunSpeed.value = Math.max(0, finiteEditorNumber(rec.runSpeed, 150));
-            els.inspectEnemyAwarenessRange.value = Math.max(0, finiteEditorNumber(rec.awarenessRange, 300));
-            els.inspectEnemyViewHalfAngle.value = Math.max(0, Math.min(180, finiteEditorNumber(rec.awarenessViewHalfAngle, 60)));
-            els.inspectEnemyJumpHeight.value = Math.max(0, finiteEditorNumber(rec.jumpHeight, 118));
-            els.inspectEnemyGlareDuration.value = Math.max(0, finiteEditorNumber(rec.unreachableGlareDuration, 5));
-            els.inspectEnemyIdleDuration.value = Math.max(0, finiteEditorNumber(rec.idleDuration, 1.1));
-            els.inspectEnemyTurnPause.value = Math.max(0, finiteEditorNumber(rec.turnPause, 0.5));
-            els.inspectEnemyHealth.value = Math.max(1, finiteEditorNumber(rec.health, 90));
+            const trainingEnemy = isTrainingEnemy(rec);
+            const enemyDefaults = trainingEnemy ? (state.enemyCatalog.get("enemy_900")?.defaults || {}) : {};
+            els.inspectEnemyPatrolDistance.value = Math.max(0, finiteEditorNumber(rec.patrolDistance, trainingEnemy ? Number(enemyDefaults.patrolDistance) || 0 : 0));
+            els.inspectEnemyWalkSpeed.value = Math.max(0, finiteEditorNumber(rec.walkSpeed, trainingEnemy ? Number(enemyDefaults.walkSpeed) || 0 : 56));
+            els.inspectEnemyRunSpeed.value = Math.max(0, finiteEditorNumber(rec.runSpeed, trainingEnemy ? Number(enemyDefaults.runSpeed) || 0 : 150));
+            els.inspectEnemyAwarenessRange.value = Math.max(0, finiteEditorNumber(rec.awarenessRange, trainingEnemy ? Number(enemyDefaults.awarenessRange) || 0 : 300));
+            els.inspectEnemyViewHalfAngle.value = Math.max(0, Math.min(180, finiteEditorNumber(rec.awarenessViewHalfAngle, trainingEnemy ? Number(enemyDefaults.awarenessViewHalfAngle) || 0 : 60)));
+            els.inspectEnemyJumpHeight.value = Math.max(0, finiteEditorNumber(rec.jumpHeight, trainingEnemy ? Number(enemyDefaults.jumpHeight) || 0 : 118));
+            els.inspectEnemyGlareDuration.value = Math.max(0, finiteEditorNumber(rec.unreachableGlareDuration, trainingEnemy ? Number(enemyDefaults.unreachableGlareDuration) || 0 : 5));
+            els.inspectEnemyIdleDuration.value = Math.max(0, finiteEditorNumber(rec.idleDuration, trainingEnemy ? Number(enemyDefaults.idleDuration) || 1 : 1.1));
+            els.inspectEnemyTurnPause.value = Math.max(0, finiteEditorNumber(rec.turnPause, trainingEnemy ? Number(enemyDefaults.turnPause) || 0 : 0.5));
+            els.inspectEnemyHealth.value = Math.max(1, finiteEditorNumber(rec.health, trainingEnemy ? Number(enemyDefaults.health) || 90 : 90));
             els.inspectEnemyRenderScale.value = normalizeEnemyScale(rec.scale, 1);
-            els.inspectEnemyAttackDamage.value = Math.max(0, finiteEditorNumber(rec.attackDamage, 24));
-            els.inspectEnemyAttackRange.value = Math.max(1, finiteEditorNumber(rec.attackRange, 66));
-            els.inspectEnemyAttackCooldown.value = Math.max(0, finiteEditorNumber(rec.attackCooldown, 0.12));
+            els.inspectEnemyAttackDamage.value = Math.max(0, finiteEditorNumber(rec.attackDamage, trainingEnemy ? Number(enemyDefaults.attackDamage) || 0 : 24));
+            els.inspectEnemyAttackRange.value = Math.max(0, finiteEditorNumber(rec.attackRange, trainingEnemy ? Number(enemyDefaults.attackRange) || 0 : 66));
+            els.inspectEnemyAttackCooldown.value = Math.max(0, finiteEditorNumber(rec.attackCooldown, trainingEnemy ? Number(enemyDefaults.attackCooldown) || 0 : 0.12));
             els.inspectEnemyIsBoss.checked = rec.isBoss === true;
             els.inspectEnemyBossName.value = String(rec.bossName || "Boss");
             els.inspectEnemyBossSignal.value = String(rec.bossDefeatSignalChannel || "");
@@ -6614,10 +6637,10 @@ import {
                     delete rec.bossName;
                     delete rec.bossDefeatSignalChannel;
                 }
-                rec.characterId = els.inspectEnemyCharacter.value.trim() || "ct_char_enemy_001";
-                rec.strategy = ["simple_patrol", "hunter", "sentry"].includes(els.inspectEnemyStrategy.value)
+                rec.characterId = els.inspectEnemyCharacter.value.trim() || characterEnemyCharacterId(rec);
+                rec.strategy = ["simple_patrol", "hunter", "sentry", "passive"].includes(els.inspectEnemyStrategy.value)
                     ? els.inspectEnemyStrategy.value
-                    : "simple_patrol";
+                    : characterEnemyStrategy(rec);
                 rec.facing = Number(els.inspectEnemyFacing.value) < 0 ? -1 : 1;
                 rec.patrolDistance = Math.max(0, Number(els.inspectEnemyPatrolDistance.value) || 0);
                 rec.walkSpeed = Math.max(0, Number(els.inspectEnemyWalkSpeed.value) || 0);

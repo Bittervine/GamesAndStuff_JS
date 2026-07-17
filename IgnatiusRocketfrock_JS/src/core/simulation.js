@@ -547,10 +547,7 @@ export function createInitialGameState(overrides = {}) {
         targets: [
             { id: "homing_dot", kind: "debugHomingDot", x: 1800, y: 395, radius: 15, state: "active" }
         ],
-        enemies: [
-            { id: "dummy_001", kind: "targetDummy", ...createTransformTriplet({ x: 1750, y: 580 }), width: 42, height: 80, health: 90, state: "idle" },
-            { id: "dummy_002", kind: "targetDummy", ...createTransformTriplet({ x: 3660, y: 580 }), width: 42, height: 80, health: 90, state: "idle" }
-        ],
+        enemies: [],
         pickups: [
             { id: "fuel_001", entityId: "fuel_001", kind: "fuel", pickupKind: "fuel", x: 835, y: 315, radius: 14, amount: 40, collected: false },
             { id: "fuel_002", entityId: "fuel_002", kind: "fuel", pickupKind: "fuel", x: 3070, y: 115, radius: 14, amount: 40, collected: false }
@@ -589,6 +586,65 @@ export function createInitialGameState(overrides = {}) {
             exportedAt: null
         }
     };
+
+    state.enemies = [
+        createCharacterEnemyRuntime(state, {
+            id: "enemy_900_001",
+            type: "characterEnemy",
+            enemyCatalogId: "enemy_900",
+            characterId: "ct_char_enemy_900",
+            x: 1750,
+            y: 580,
+            strategy: "passive",
+            facing: -1,
+            patrolDistance: 0,
+            walkSpeed: 0,
+            runSpeed: 0,
+            idleDuration: 1,
+            turnPause: 0,
+            health: 90,
+            scale: 1,
+            attackDamage: 0,
+            attackRange: 0,
+            attackCooldown: 0,
+            awarenessRange: 0,
+            awarenessHoldDuration: 0,
+            awarenessViewHalfAngle: 0,
+            jumpHeight: 0,
+            unreachableGlareDuration: 0,
+            targetAnchor: { x: 0.5, y: 0.5 },
+            targetRadius: 16,
+            showTargetMarker: false
+        }, 0),
+        createCharacterEnemyRuntime(state, {
+            id: "enemy_900_002",
+            type: "characterEnemy",
+            enemyCatalogId: "enemy_900",
+            characterId: "ct_char_enemy_900",
+            x: 3660,
+            y: 580,
+            strategy: "passive",
+            facing: -1,
+            patrolDistance: 0,
+            walkSpeed: 0,
+            runSpeed: 0,
+            idleDuration: 1,
+            turnPause: 0,
+            health: 90,
+            scale: 1,
+            attackDamage: 0,
+            attackRange: 0,
+            attackCooldown: 0,
+            awarenessRange: 0,
+            awarenessHoldDuration: 0,
+            awarenessViewHalfAngle: 0,
+            jumpHeight: 0,
+            unreachableGlareDuration: 0,
+            targetAnchor: { x: 0.5, y: 0.5 },
+            targetRadius: 16,
+            showTargetMarker: false
+        }, 1)
+    ];
 
     addEvent(state, "TEST_ARENA_CREATED", { solids: state.world.solids.length, segments: state.world.segments?.length ?? 0 });
     return state;
@@ -2074,10 +2130,7 @@ function updateTreasureChests(state, dt) {
     for (const chest of state.treasureChests || []) {
         if (chest.collected) {
             if (chest.state === "openLoot") {
-                chest.lootDisplayTimer = Math.max(0, (Number(chest.lootDisplayTimer) || 0) - Math.max(0, dt));
-                if (chest.lootDisplayTimer <= 0) {
-                    setTreasureChestState(state, chest, "openEmpty");
-                }
+                setTreasureChestState(state, chest, "openEmpty");
             }
             continue;
         }
@@ -2085,8 +2138,7 @@ function updateTreasureChests(state, dt) {
         if (!rectsOverlap(getPlayerRect(state), treasureChestCollectionRect(chest))) continue;
 
         chest.collected = true;
-        chest.lootDisplayTimer = Math.max(FIXED_DT, Number(chest.lootDisplaySeconds) || 0.8);
-        setTreasureChestState(state, chest, "openLoot");
+        setTreasureChestState(state, chest, "openEmpty");
         const score = addScore(state, chest.scoreValue, {
             sourceId: chest.id,
             x: chest.x,
@@ -3096,45 +3148,26 @@ export function applyEditorLevelToWorld(state, editorLevel) {
     configureMailboxStory(state, runtimeEntities);
     configureSignalSystem(state, runtimeEntities);
 
-    const targetLike = (entity) => entity.type === "targetDummy";
-    const targetDummies = runtimeEntities.filter(targetLike).map((entity, index) => {
-        const x = Number(entity.x) || 0;
-        const y = Number(entity.y) || 0;
-        const width = Number(entity.w) || 42;
-        const height = Number(entity.h) || 80;
-        const visualized = editorEntityVisuals(entity).length > 0;
-        const anchor = entity.targetAnchor && typeof entity.targetAnchor === "object" ? entity.targetAnchor : null;
-        const anchorX = clamp(Number(anchor?.x ?? 0.5), 0, 1);
-        const anchorY = clamp(Number(anchor?.y ?? (visualized ? 0.52 : 0.5)), 0, 1);
-        const health = Math.max(0, finiteNumberOr(entity.health, 90));
+    const legacyTrainingEnemy = (entity) => {
+        if (entity?.type !== "targetDummy") return entity;
         return {
-            id: entity.id || `targetDummy_${index + 1}`,
-            kind: "targetDummy",
-            ...createTransformTriplet({ x, y }),
-            width,
-            height,
-            health,
-            maxHealth: health,
-            combatState: health > 0 ? "alive" : "dead",
-            state: health > 0 ? "idle" : "destroyed",
-            hitFlashTimer: 0,
-            hitFlashDuration: state.tuning.enemyHitFlashSeconds,
-            healthBarTimer: 0,
-            visualized,
-            targetX: x - width * 0.5 + anchorX * width,
-            targetY: y - height + anchorY * height,
-            targetRadius: Math.max(4, Number(entity.targetRadius) || Math.min(width, height) * 0.12),
-            showTargetMarker: entity.showTargetMarker ?? !visualized
+            ...entity,
+            type: "characterEnemy",
+            enemyCatalogId: "enemy_900",
+            characterId: "ct_char_enemy_900",
+            strategy: "passive",
+            showTargetMarker: false
         };
-    });
+    };
 
     const characterEnemyLike = (entity) =>
         entity.type === "characterEnemy" ||
+        entity.type === "targetDummy" ||
         (entity.type === "enemy" && (entity.characterId || entity.characterProject));
     const characterEnemies = runtimeEntities.filter(characterEnemyLike).map((entity, index) =>
-        createCharacterEnemyRuntime(state, entity, index)
+        createCharacterEnemyRuntime(state, legacyTrainingEnemy(entity), index)
     );
-    state.enemies = [...targetDummies, ...characterEnemies];
+    state.enemies = characterEnemies;
 
     const pickupLike = (entity) => {
         const type = String(entity.type || "");
@@ -3273,7 +3306,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
 
     state.targets = state.enemies.length ? state.enemies.map((enemy) => ({
         id: `${enemy.id}_target`,
-        kind: "targetDummyBullseye",
+        kind: "enemyBullseye",
         enemyId: enemy.id,
         x: enemy.targetX,
         y: enemy.targetY,
@@ -3584,7 +3617,7 @@ function autoSpawnFlyingPosition(state, enemy, band, verticalUnit) {
 function autoSpawnTargetForEnemy(enemy) {
     return {
         id: `${enemy.id}_target`,
-        kind: "targetDummyBullseye",
+        kind: "enemyBullseye",
         enemyId: enemy.id,
         x: enemy.targetX,
         y: enemy.targetY,

@@ -4214,7 +4214,7 @@ class RocketfrockRenderer {
     queueAtlasSpriteVisualWebGL(visual, view, state = null, cachedBounds = null) {
         if (visual.entityId && state) {
             if (this.frameEntityVisibility.collectedPickups.has(visual.entityId)) return false;
-            if (visual.entityType === "targetDummy" && this.frameEntityVisibility.defeatedEnemies.has(visual.entityId)) return false;
+            if (this.frameEntityVisibility.defeatedEnemies.has(visual.entityId)) return false;
         }
         this.frameVisualCounters.considered += 1;
         const caveForeground = visual.layer === "caveForeground";
@@ -4396,7 +4396,7 @@ class RocketfrockRenderer {
             if (this.frameEntityVisibility.collectedPickups.has(visual.entityId)) {
                 return false;
             }
-            if (visual.entityType === "targetDummy" && this.frameEntityVisibility.defeatedEnemies.has(visual.entityId)) {
+            if (this.frameEntityVisibility.defeatedEnemies.has(visual.entityId)) {
                 return false;
             }
         }
@@ -6031,12 +6031,13 @@ class RocketfrockRenderer {
         if (!backend?.available || !glowSprite) {
             return;
         }
+        const sizeScale = palette === "overdrive" ? 1.5 : 1;
         for (let i = 0; i < count; i += 1) {
             const a = hashNoise(seed, i) * Math.PI * 2;
             const r = (0.25 + hashNoise(seed + 31, i) * 0.75) * radius;
             const px = x + Math.cos(a) * r * Math.max(0.1, Number(spreadX) || 1);
             const py = y + Math.sin(a) * r * Math.max(0.1, Number(spreadY) || 1);
-            const size = (palette === "enemy" ? 0.9 : 1.1) * (1 + hashNoise(seed + 71, i) * (palette === "enemy" ? 1.7 : 2.3)) * view.zoom;
+            const size = (palette === "enemy" ? 0.9 : 1.1) * (1 + hashNoise(seed + 71, i) * (palette === "enemy" ? 1.7 : 2.3)) * view.zoom * sizeScale;
             const alpha = (palette === "enemy" ? 0.22 : 0.28) + hashNoise(seed + 109, i) * (palette === "enemy" ? 0.28 : 0.38);
             const tint = palette === "enemy"
                 ? (i % 2 === 0 ? [1, 92 / 255, 68 / 255, 1] : [1, 155 / 255, 84 / 255, 1])
@@ -7151,12 +7152,13 @@ class RocketfrockRenderer {
     drawSparkBurst(x, y, view, seed, count, radius, palette = "rocket", spreadX = 1, spreadY = 1) {
         const ctx = this.ctx;
         ctx.save();
+        const sizeScale = palette === "overdrive" ? 1.5 : 1;
         for (let i = 0; i < count; i += 1) {
             const a = hashNoise(seed, i) * Math.PI * 2;
             const r = (0.25 + hashNoise(seed + 31, i) * 0.75) * radius;
             const px = x + Math.cos(a) * r * Math.max(0.1, Number(spreadX) || 1);
             const py = y + Math.sin(a) * r * Math.max(0.1, Number(spreadY) || 1);
-            const size = (palette === "enemy" ? 0.9 : 1.1) * (1 + hashNoise(seed + 71, i) * (palette === "enemy" ? 1.7 : 2.3)) * view.zoom;
+            const size = (palette === "enemy" ? 0.9 : 1.1) * (1 + hashNoise(seed + 71, i) * (palette === "enemy" ? 1.7 : 2.3)) * view.zoom * sizeScale;
             ctx.globalAlpha = (palette === "enemy" ? 0.22 : 0.28) + hashNoise(seed + 109, i) * (palette === "enemy" ? 0.28 : 0.38);
             ctx.fillStyle = palette === "enemy"
                 ? (i % 2 === 0 ? "rgba(255, 92, 68, 0.78)" : "rgba(255, 155, 84, 0.64)")
