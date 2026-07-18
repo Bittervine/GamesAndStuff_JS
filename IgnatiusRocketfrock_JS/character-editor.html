@@ -3612,7 +3612,7 @@ function sampleUnconstrainedPose() {
     if (!clip || !state.rig) {
         return null;
     }
-    const sampled = sampleAnimationClipAtPlayhead(clip, state.time);
+    const sampled = sampleAnimationClipAtPlayhead(clip, state.time, { loop: els.loop.checked });
     const pose = {};
     for (const partName of drawOrder()) {
         const setup = rigSetupTransform(partName);

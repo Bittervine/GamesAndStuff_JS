@@ -4301,3 +4301,7 @@ A temporary dense regression snapshot was captured against revision 528 and repl
 ## Revision 530 package revision synchronization
 
 Revision 530 contains no gameplay or data changes. It synchronizes the active package revision labels and their release assertions.
+
+## Revision 531 Character Editor loop preview sampling
+
+Revision 531 keeps `sampleAnimationClipAtPlayhead()` terminal-key inspection available by default, but adds an explicit loop-aware sampling option for editor preview playback. The Character Editor now passes its loop toggle into that sampler so looping clips interpolate from their last authored key back to the first key while scrubbing or playing near the clip end.

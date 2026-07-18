@@ -78,15 +78,16 @@ export function sampleAnimationClip(clip, timeSeconds) {
     return pose;
 }
 
-export function sampleAnimationClipAtPlayhead(clip, timeSeconds) {
+export function sampleAnimationClipAtPlayhead(clip, timeSeconds, options = {}) {
     const normalizedClip = clip?._normalizedAnimationClip === true ? clip : normalizeAnimationClip(clip);
-    const sampleTime = normalizeSampleTime(timeSeconds, normalizedClip.duration, false);
+    const loop = options?.loop === true && normalizedClip.loop !== false;
+    const sampleTime = normalizeSampleTime(timeSeconds, normalizedClip.duration, loop);
     const pose = cloneAnimationPose(normalizedClip.referencePose);
 
     for (const [partName, partTracks] of Object.entries(normalizedClip.tracks)) {
         const part = pose[partName] || defaultAnimationTransform();
         for (const [property, track] of Object.entries(partTracks)) {
-            part[property] = sampleAnimationTrack(track, sampleTime, normalizedClip.duration, false, property === "rotation");
+            part[property] = sampleAnimationTrack(track, sampleTime, normalizedClip.duration, loop, property === "rotation");
         }
         pose[partName] = part;
     }

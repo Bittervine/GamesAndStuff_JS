@@ -10598,8 +10598,10 @@ function testAnimationEasingModes() {
     approx(sampleAnimationClip(loopedClip, 0.999).part.x, 0, 0.000001, "runtime loop sampling must not interpolate toward a distinct terminal key");
     approx(sampleAnimationClip(loopedClip, 1).part.x, 0, 0.000001, "runtime loop sampling should still wrap at the duration");
     approx(sampleAnimationClipAtPlayhead(loopedClip, 1).part.x, 25, 0.000001, "editor playhead sampling should expose the editable terminal key");
+    approx(sampleAnimationClipAtPlayhead(loopedClip, 0.999, { loop: true }).part.x, 0, 0.000001, "looping editor preview should wrap toward the first key near the clip end");
     const toolHtml = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     assert.ok(toolHtml.includes("sampleAnimationClipAtPlayhead"), "Puppet Forge should use terminal-aware playhead sampling");
+    assert.ok(toolHtml.includes("sampleAnimationClipAtPlayhead(clip, state.time, { loop: els.loop.checked })"), "Puppet Forge preview should honor the loop toggle when sampling between the last and first keys");
 
     const animationAssetDirectory = new URL("../assets/", import.meta.url);
     for (const filename of readdirSync(animationAssetDirectory).filter((name) => name.startsWith("ct_anim_") && name.endsWith(".json"))) {

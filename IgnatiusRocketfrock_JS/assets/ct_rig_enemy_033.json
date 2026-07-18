@@ -105,8 +105,8 @@
             "y": 0.885
         },
         "rightUpperArm": {
-            "x": 0.6,
-            "y": 0.225
+            "x": 0.635,
+            "y": 0.2
         },
         "rightLowerArm": {
             "x": 0.21,
@@ -333,8 +333,8 @@
             "parentConstraint": {
                 "parentPart": "torso",
                 "parentPoint": {
-                    "x": 0.4404701164229112,
-                    "y": 0.10336108547100564
+                    "x": 0.4405,
+                    "y": 0.11
                 }
             }
         },

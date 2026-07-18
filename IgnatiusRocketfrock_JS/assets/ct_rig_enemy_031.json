@@ -363,8 +363,8 @@
             "parentConstraint": {
                 "parentPart": "torso",
                 "parentPoint": {
-                    "x": 0.4404701164229112,
-                    "y": 0.10336108547100564
+                    "x": 0.4405,
+                    "y": 0.12
                 }
             }
         },
