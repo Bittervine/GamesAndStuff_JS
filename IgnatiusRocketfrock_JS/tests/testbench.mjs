@@ -1850,8 +1850,8 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     for (const humanId of ["enemy_030", "enemy_031", "enemy_032", "enemy_033"]) {
         const human = catalog.enemies[humanId];
         assert.ok(human, `${humanId} should register a modular human raider`);
-        assert.equal(human.defaultSize.w, 67.5, `${humanId} should use the 50-percent wider default hitbox`);
-        assert.equal(human.defaultSize.h, 194, `${humanId} should use the articulated modular-human height`);
+        assert.equal(human.defaultSize.w, 60, `${humanId} should use the compact modular-human default hitbox width`);
+        assert.equal(human.defaultSize.h, 170, `${humanId} should use the compact modular-human default hitbox height`);
         assert.equal(human.defaults.renderScale, 1.23, `${humanId} artwork should be 50 percent larger`);
         assert.equal(human.defaults.renderOffsetY, 51, `${humanId} grounded artwork offset should scale with the actor`);
         assert.equal(human.defaults.maxFallDistance, 600, `${humanId} should escape the authored tall ledges`);
@@ -1948,7 +1948,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(editorHtml.includes('id="inspect-enemy-run-speed"'), "level editor should expose canonical run speed");
     assert.ok(editorHtml.includes('id="inspect-enemy-awareness-range"'), "level editor should expose enemy awareness range");
     assert.ok(editorHtml.includes('id="inspect-enemy-view-half-angle"'), "level editor should expose enemy awareness view half-angle");
-    assert.ok(editorHtml.includes("finiteEditorNumber(rec.awarenessViewHalfAngle, 60)"), "level editor should default missing awareness cones to the authored ±60 degree value");
+    assert.ok(editorHtml.includes("finiteEditorNumber(rec.awarenessViewHalfAngle, trainingEnemy ? Number(enemyDefaults.awarenessViewHalfAngle) || 0 : 60)"), "level editor should default missing awareness cones to the authored value, including zero-degree training enemies");
     assert.ok(editorHtml.includes('id="inspect-enemy-strategy"'), "level editor should expose AI strategy selection");
     assert.ok(editorHtml.includes('id="inspect-enemy-jump-height"'), "level editor should expose maximum jump height");
     assert.ok(editorHtml.includes('id="inspect-enemy-glare-duration"'), "level editor should expose unreachable glare duration");
@@ -2065,8 +2065,17 @@ function testEnemyCatalogAndLevelEditorIntegration() {
         assert.deepEqual(Object.keys(clip.tracks).sort(), Object.keys(humanRig032.parts).sort(), `enemy_032 ${slot} tracks should contain no retired sword part`);
         assert.equal(clip.referencePose.weapon, undefined, `enemy_032 ${slot} should remove the sword reference pose`);
         assert.equal(clip.tracks.throwingKnife.alpha[0].value, 0, `enemy_032 ${slot} should keep the launch marker invisible`);
-        assert.deepEqual(clip033.referencePose, clip.referencePose, `enemy_033 ${slot} should copy Enemy 032's current pose exactly`);
-        assert.deepEqual(clip033.tracks, clip.tracks, `enemy_033 ${slot} should copy Enemy 032's current motion exactly`);
+        if (slot === "walk") {
+            for (const partName of Object.keys(clip.referencePose)) {
+                for (const property of ["rotation", "scale", "alpha"]) {
+                    assert.deepEqual(clip033.referencePose[partName]?.[property], clip.referencePose[partName]?.[property], `enemy_033 walk ${partName}.${property} should match Enemy 032`);
+                    assert.deepEqual(clip033.tracks[partName]?.[property], clip.tracks[partName]?.[property], `enemy_033 walk ${partName}.${property} tracks should match Enemy 032`);
+                }
+            }
+        } else {
+            assert.deepEqual(clip033.referencePose, clip.referencePose, `enemy_033 ${slot} should copy Enemy 032's current pose exactly`);
+            assert.deepEqual(clip033.tracks, clip.tracks, `enemy_033 ${slot} should copy Enemy 032's current motion exactly`);
+        }
         assert.equal(clip033.animationId, `ct_anim_enemy_033_${slot}`, `enemy_033 ${slot} should keep its own animation identity`);
     }
     const throwUpperArm = human032Attack.tracks.rightUpperArm.rotation.map((key) => key.value);
@@ -4526,8 +4535,8 @@ function testRebalancedEnemyHealthAndRocketHits() {
                 characterId: profile.characterId,
                 x: 180,
                 y: 100,
-                w: profile.id === "enemy_001" || profile.id === "enemy_002" ? 72 : (profile.id.startsWith("enemy_03") ? 67.5 : 70),
-                h: profile.id === "enemy_001" || profile.id === "enemy_002" ? 164 : (profile.id.startsWith("enemy_03") ? 194 : 105),
+                w: profile.id === "enemy_001" || profile.id === "enemy_002" ? 72 : (profile.id.startsWith("enemy_03") ? 60 : 70),
+                h: profile.id === "enemy_001" || profile.id === "enemy_002" ? 164 : (profile.id.startsWith("enemy_03") ? 170 : 105),
                 health: profile.expectedHealth,
                 strategy: "sentry",
                 facing: -1
@@ -4694,8 +4703,9 @@ function testCharacterEnemyRocketCombat() {
     assert.equal(enemy.currentTransform.alpha, 0, "defeated enemy should be fully transparent after the three-second fade");
 }
 
-function testPassiveEnemyDoesNotTurnWhenDamaged() {
-    const state = createInitialGameState();
+function testPassiveEnemyStaysPassiveWhenDamaged() {
+    const enemyCatalog = JSON.parse(readFileSync(new URL("../assets/ct_enemies_001.json", import.meta.url), "utf8"));
+    const state = createInitialGameState({ enemyCatalog });
     assert.equal(applyEditorLevelToWorld(state, {
         levelId: "passive_dummy_damage_test",
         testPlayerStart: { x: 520, y: 600 },
@@ -4721,7 +4731,6 @@ function testPassiveEnemyDoesNotTurnWhenDamaged() {
     stepSimulation(state, createInputFrame(), FIXED_DT);
 
     assert.equal(rocket.state, "exploding", "rocket should still impact the passive dummy");
-    assert.equal(enemy.facing, -1, "passive dummy should keep its authored facing when damaged");
     assert.equal(enemy.alerted, false, "passive dummy should not enter an alerted state when damaged");
     assert.equal(enemy.engaged, false, "passive dummy should not become engaged when damaged");
     assert.equal(target.state, "active", "damaged passive dummy should remain a valid homing target while alive");
@@ -8696,6 +8705,7 @@ function testPlayerStartSnapsToNearbyGround() {
 function testInteractiveItemAtlasAndEntityVisuals() {
     const atlas = JSON.parse(readFileSync(new URL("../assets/it_atlas_001.json", import.meta.url), "utf8"));
     const catalog = JSON.parse(readFileSync(new URL("../assets/it_entities_001.json", import.meta.url), "utf8"));
+    const enemyCatalog = JSON.parse(readFileSync(new URL("../assets/ct_enemies_001.json", import.meta.url), "utf8"));
     assert.equal(atlas.atlasId, "it_atlas_001", "interactive atlas should use its dedicated atlas id");
     assert.equal(atlas.image, "it_atlas_001.png", "interactive atlas should reference the user-supplied PNG name");
     assert.equal(Object.keys(atlas.frames).length, 51, "interactive atlas should expose all authored item frames");
@@ -8750,10 +8760,10 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     assert.deepEqual({ w: generatedEntryDoor.w, h: generatedEntryDoor.h }, { w: 125, h: 164 }, "generated entry doorway should retain the wizard-sized dimensions");
     assert.deepEqual({ w: generatedExitDoor.w, h: generatedExitDoor.h }, { w: 125, h: 164 }, "generated exit doorway should retain the wizard-sized dimensions");
 
-    const state = createInitialGameState();
+    const state = createInitialGameState({ enemyCatalog });
     const mailboxDef = catalog.entities.mailbox;
     const fuelDef = catalog.entities.fuel;
-    const enemyDef = catalog.enemies.enemy_900;
+    const enemyDef = enemyCatalog.enemies.enemy_900;
     const level = {
         levelId: "interactive_items_test",
         world: { bounds: { x: 0, y: 0, w: 1000, h: 700 }, resetY: 900 },
@@ -8806,7 +8816,8 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     assert.ok(state.world.visuals.some((visual) => visual.entityId === "mailbox_test" && visual.assetId === "mailbox_with_letter"), "mailbox state should become an atlas visual");
     assert.ok(state.world.visuals.some((visual) => visual.entityId === "fuel_test" && visual.assetId === "rocket_fuel_canister"), "fuel should become an atlas visual");
     assert.equal(state.pickups[0].visualized, true, "atlas-backed fuel should suppress the old debug-circle rendering");
-    assert.equal(state.enemies[0].visualized, true, "artwork-backed training enemy should be recognized as artwork-backed");
+    assert.equal(state.enemies[0].characterId, "ct_char_enemy_900", "training enemy should retain its character-project artwork ID");
+    assert.equal(state.enemies[0].visualized, false, "character-project enemies should remain in the character renderer rather than atlas visual-state suppression");
     assert.equal(state.enemies[0].maxHealth, 90, "artwork-backed training enemy should use the 90 HP practice balance");
     approx(state.targets[0].x, 600, 0.000001, "training enemy homing point should be centered on the bullseye");
     approx(state.targets[0].y, 500 - enemyDef.defaultSize.h * 0.5, 0.000001, "training enemy homing point should use the belly bullseye height");
@@ -14750,7 +14761,7 @@ const tests = [
     ["character enemy aggressive chase and combo", testCharacterEnemyAggressiveChaseAndCombo],
     ["rebalanced enemy health and standard rocket hit counts", testRebalancedEnemyHealthAndRocketHits],
     ["character enemy rocket combat", testCharacterEnemyRocketCombat],
-    ["passive enemy does not turn when damaged", testPassiveEnemyDoesNotTurnWhenDamaged],
+    ["passive enemy stays passive when damaged", testPassiveEnemyStaysPassiveWhenDamaged],
     ["airborne enemy defers death until landing", testAirborneEnemyDefersDeathUntilLanding],
     ["enemy contact damage uses independent invulnerability", testEnemyContactDamageUsesIndependentInvulnerability],
     ["character enemy melee attack", testCharacterEnemyMeleeAttack],

@@ -64,6 +64,10 @@ The shipped practice target now uses `enemy_900`, a passive training enemy that 
 
 Fixed after the SDL parity pass exposed a runtime/editor mismatch in the split-limb human rigs: `src/presentation/character-runtime.js` now preserves `parentConstraint` during runtime rig normalization and resolves constrained part pivots against loaded parent sprites while building draw commands. The regression uses `ct_rig_enemy_030.json` to verify `leftUpperArm` attaches to the torso shoulder without changing its own rotation or target height.
 
+The JS testbench also had stale modular-human default-hitbox expectations after the human catalog was tightened from the older oversized profile. The current `ct_enemies_001.json` defaults for enemies 030-033 are 60×170, with existing shipped levels still carrying their authored baked 67.5×194 navigation profiles until those level records are deliberately regenerated.
+
+Enemy 033's walk clip may intentionally diverge from Enemy 032 in constrained-part X/Y placement so hands and limbs sit at the corrected depth for the body/head variant. Tests should preserve matching motion channels and rig coverage without forcing those constrained X/Y tracks back to an exact Enemy 032 copy.
+
 
 ## Near-Term Cave-Window Authoring Track
 

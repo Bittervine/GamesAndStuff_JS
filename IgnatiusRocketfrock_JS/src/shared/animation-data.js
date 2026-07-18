@@ -80,7 +80,18 @@ export function sampleAnimationClip(clip, timeSeconds) {
 
 export function sampleAnimationClipAtPlayhead(clip, timeSeconds) {
     const normalizedClip = clip?._normalizedAnimationClip === true ? clip : normalizeAnimationClip(clip);
-    return sampleAnimationClip(normalizedClip, timeSeconds);
+    const sampleTime = normalizeSampleTime(timeSeconds, normalizedClip.duration, false);
+    const pose = cloneAnimationPose(normalizedClip.referencePose);
+
+    for (const [partName, partTracks] of Object.entries(normalizedClip.tracks)) {
+        const part = pose[partName] || defaultAnimationTransform();
+        for (const [property, track] of Object.entries(partTracks)) {
+            part[property] = sampleAnimationTrack(track, sampleTime, normalizedClip.duration, false, property === "rotation");
+        }
+        pose[partName] = part;
+    }
+
+    return pose;
 }
 
 export function sampleAnimationTrack(track, timeSeconds, duration, loop = true, angular = false) {

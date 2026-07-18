@@ -2750,7 +2750,6 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         spawnY: y,
         width,
         height,
-        scale: enemyScale,
         health,
         maxHealth: health,
         tuningBaseMaxHealth,
