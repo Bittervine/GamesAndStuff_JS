@@ -47,6 +47,7 @@ export const CHARACTER_PROJECTILE_LAUNCH_TYPES = Object.freeze([
 ]);
 
 const CHARACTER_PROJECTILE_LAUNCH_TYPE_SET = new Set(CHARACTER_PROJECTILE_LAUNCH_TYPES);
+const DEFAULT_PARENT_CONSTRAINT_POINT = Object.freeze({ x: 0.5, y: 0.5 });
 
 export function normalizeRuntimeCharacterRig(rawRig, label = "character rig") {
     if (!rawRig || typeof rawRig !== "object" || Array.isArray(rawRig)) {
@@ -74,11 +75,13 @@ export function normalizeRuntimeCharacterRig(rawRig, label = "character rig") {
     const parts = {};
     for (const partName of drawOrder) {
         const rawPart = sourceParts[partName] || {};
+        const { parentConstraint: _rawParentConstraint, ...rawPartFields } = rawPart;
         const rawPivot = rawRig.pivots?.[partName] || {};
         const rawOffset = rawPart.offset || {};
         const colorExchange = normalizeColorExchange(rawPart.colorExchange);
+        const parentConstraint = normalizeParentConstraint(rawPart.parentConstraint);
         parts[partName] = {
-            ...rawPart,
+            ...rawPartFields,
             frame: String(rawPart.frame || partName),
             offset: {
                 x: finiteOr(rawOffset.x, 0),
@@ -88,6 +91,7 @@ export function normalizeRuntimeCharacterRig(rawRig, label = "character rig") {
             scale: finiteOr(rawPart.scale, 1),
             targetHeight: Math.max(0.0001, finiteOr(rawPart.targetHeight, 1)),
             alpha: clamp(finiteOr(rawPart.alpha, 1), 0, 1),
+            ...(parentConstraint ? { parentConstraint } : {}),
             ...(colorExchange ? { colorExchange } : {})
         };
         pivots[partName] = {
@@ -113,6 +117,10 @@ export function normalizeRuntimeCharacterRig(rawRig, label = "character rig") {
         pivots,
         parts
     };
+}
+
+export function parentConstraintForRuntimePart(rig, partName) {
+    return normalizeParentConstraint(rig?.parts?.[partName]?.parentConstraint);
 }
 
 export function createRuntimeCharacterSetupPose(rig) {
@@ -218,10 +226,11 @@ export function buildRuntimeCharacterDrawCommands(project, renderedTransforms) {
     if (!project?.rig || !(project.assets instanceof Map)) {
         throw new Error("Runtime character project must contain a normalized rig and an assets map.");
     }
+    const resolvedTransforms = resolveRuntimeParentConstrainedTransforms(project.rig, renderedTransforms, project.assets);
     const commands = [];
     for (const partName of project.rig.drawOrder) {
         const asset = project.assets.get(partName);
-        const transform = renderedTransforms?.[partName];
+        const transform = resolvedTransforms?.[partName];
         const pivot = project.rig.pivots[partName];
         if (!asset || !transform || !pivot) {
             continue;
@@ -239,6 +248,73 @@ export function buildRuntimeCharacterDrawCommands(project, renderedTransforms) {
         });
     }
     return commands;
+}
+
+export function resolveRuntimeParentConstrainedTransforms(rig, renderedTransforms, assets) {
+    if (!rig?.parts || !renderedTransforms || !(assets instanceof Map)) {
+        return renderedTransforms || {};
+    }
+    const result = {};
+    for (const partName of Object.keys(renderedTransforms)) {
+        result[partName] = { ...renderedTransforms[partName] };
+    }
+    const resolving = new Set();
+    const resolved = new Set();
+
+    function resolve(partName) {
+        if (resolved.has(partName)) {
+            return result[partName] || null;
+        }
+        if (resolving.has(partName)) {
+            throw new Error(`Circular parent constraint encountered at ${partName}.`);
+        }
+        const transform = result[partName];
+        if (!transform) {
+            resolved.add(partName);
+            return null;
+        }
+        const constraint = parentConstraintForRuntimePart(rig, partName);
+        if (!constraint || !rig.parts?.[constraint.parentPart] || !result[constraint.parentPart]) {
+            resolved.add(partName);
+            return transform;
+        }
+        resolving.add(partName);
+        const parentTransform = resolve(constraint.parentPart);
+        const point = runtimeParentAttachmentPoint(rig, constraint.parentPart, constraint.parentPoint, parentTransform, assets);
+        if (point) {
+            transform.x = point.x;
+            transform.y = point.y;
+        }
+        resolving.delete(partName);
+        resolved.add(partName);
+        return transform;
+    }
+
+    for (const partName of rig.drawOrder || Object.keys(result)) {
+        resolve(partName);
+    }
+    return result;
+}
+
+export function runtimeParentAttachmentPoint(rig, parentPart, parentPoint, parentTransform, assets) {
+    const asset = assets instanceof Map ? assets.get(parentPart) : null;
+    const pivot = rig?.pivots?.[parentPart];
+    if (!asset || !pivot || !parentTransform) {
+        return null;
+    }
+    const width = Math.max(1, finiteOr(asset.width, asset.w || 1));
+    const height = Math.max(1, finiteOr(asset.height, asset.h || 1));
+    const parentTargetHeight = finiteOr(parentTransform.targetHeight, 0);
+    const spriteScale = parentTargetHeight <= 0 ? 1 : parentTargetHeight / height;
+    const localX = (finiteOr(parentPoint?.x, DEFAULT_PARENT_CONSTRAINT_POINT.x) - finiteOr(pivot.x, 0.5)) * width * spriteScale;
+    const localY = (finiteOr(parentPoint?.y, DEFAULT_PARENT_CONSTRAINT_POINT.y) - finiteOr(pivot.y, 0.5)) * height * spriteScale;
+    const angle = finiteOr(parentTransform.angle, parentTransform.rotation);
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    return {
+        x: finiteOr(parentTransform.x, 0) + localX * cos - localY * sin,
+        y: finiteOr(parentTransform.y, 0) + localX * sin + localY * cos
+    };
 }
 
 export function compileRuntimeCharacterProjectiles(rig, animations, label = "character project") {
@@ -580,6 +656,23 @@ function defaultCreateCanvas(width, height) {
     canvas.width = width;
     canvas.height = height;
     return canvas;
+}
+
+function normalizeParentConstraint(raw) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+        return null;
+    }
+    const parentPart = String(raw.parentPart || "").trim();
+    if (!parentPart) {
+        return null;
+    }
+    return {
+        parentPart,
+        parentPoint: {
+            x: finiteOr(raw.parentPoint?.x, DEFAULT_PARENT_CONSTRAINT_POINT.x),
+            y: finiteOr(raw.parentPoint?.y, DEFAULT_PARENT_CONSTRAINT_POINT.y)
+        }
+    };
 }
 
 function finitePositive(value, fallback) {

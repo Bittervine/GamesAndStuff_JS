@@ -1,14 +1,14 @@
 {
-  "meta": {
-    "version": 53,
-    "note": "Revision 482 adds a passive training dummy enemy in the 900 range so practice targets can use the normal enemy pipeline.",
-    "revision": 482
-  },
-  "catalogId": "ct_enemies_001",
-  "enemies": {
+    "meta": {
+        "version": 57,
+        "note": "Revision 482 adds a passive training dummy enemy in the 900 range so practice targets can use the normal enemy pipeline.",
+        "revision": 482
+    },
+    "catalogId": "ct_enemies_001",
+    "enemies": {
         "enemy_900": {
             "label": "Training Dummy",
-            "icon": "\ud83c\udfaf",
+            "icon": "🎯",
             "characterId": "ct_char_enemy_900",
             "defaultSize": {
                 "w": 103,
@@ -62,7 +62,7 @@
         },
         "enemy_001": {
             "label": "Skeleton Guard",
-            "icon": "\u2620",
+            "icon": "☠",
             "characterId": "ct_char_enemy_001",
             "defaultSize": {
                 "w": 72,
@@ -114,7 +114,7 @@
         },
         "enemy_002": {
             "label": "Skeleton Caster",
-            "icon": "\ud83d\udfe2",
+            "icon": "🟢",
             "characterId": "ct_char_enemy_002",
             "defaultSize": {
                 "w": 72,
@@ -181,7 +181,7 @@
         },
         "enemy_010": {
             "label": "Fireball Goblin",
-            "icon": "\ud83d\udd25",
+            "icon": "🔥",
             "characterId": "ct_char_enemy_010",
             "defaultSize": {
                 "w": 70,
@@ -242,7 +242,7 @@
         },
         "enemy_011": {
             "label": "Musket Goblin",
-            "icon": "\ud83d\udd2b",
+            "icon": "🔫",
             "characterId": "ct_char_enemy_011",
             "defaultSize": {
                 "w": 70,
@@ -303,7 +303,7 @@
         },
         "enemy_012": {
             "label": "Tri-fireball Goblin",
-            "icon": "\ud83d\udd25",
+            "icon": "🔥",
             "characterId": "ct_char_enemy_012",
             "defaultSize": {
                 "w": 70,
@@ -366,7 +366,7 @@
         },
         "enemy_020": {
             "label": "Bombing Bat",
-            "icon": "\ud83e\udd87",
+            "icon": "🦇",
             "description": "The retained bat enemy. It patrols a small area around its authored perch, activates only when Ignatius enters its normal awareness view, flies overhead, and drops atlas-authored rocks.",
             "characterId": "ct_char_enemy_020",
             "defaultSize": {
@@ -443,11 +443,11 @@
         },
         "enemy_030": {
             "label": "Human Raider",
-            "icon": "\u2694",
+            "icon": "⚔",
             "characterId": "ct_char_enemy_030",
             "defaultSize": {
-                "w": 67.5,
-                "h": 194
+                "w": 60,
+                "h": 170
             },
             "defaults": {
                 "facing": -1,
@@ -495,11 +495,11 @@
         },
         "enemy_031": {
             "label": "Human Raider II",
-            "icon": "\u2694",
+            "icon": "⚔",
             "characterId": "ct_char_enemy_031",
             "defaultSize": {
-                "w": 67.5,
-                "h": 194
+                "w": 60,
+                "h": 170
             },
             "defaults": {
                 "facing": -1,
@@ -547,11 +547,11 @@
         },
         "enemy_032": {
             "label": "Human Knife Thrower",
-            "icon": "\ud83d\udde1",
+            "icon": "🗡",
             "characterId": "ct_char_enemy_032",
             "defaultSize": {
-                "w": 67.5,
-                "h": 194
+                "w": 60,
+                "h": 170
             },
             "defaults": {
                 "facing": -1,
@@ -618,11 +618,11 @@
         },
         "enemy_033": {
             "label": "Human Knife Thrower II",
-            "icon": "\ud83d\udde1",
+            "icon": "🗡",
             "characterId": "ct_char_enemy_033",
             "defaultSize": {
-                "w": 67.5,
-                "h": 194
+                "w": 60,
+                "h": 170
             },
             "defaults": {
                 "facing": -1,

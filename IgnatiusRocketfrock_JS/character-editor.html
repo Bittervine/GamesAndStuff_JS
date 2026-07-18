@@ -691,6 +691,7 @@ touch-action: none;
                 <label class="check-row"><input id="loop" type="checkbox" checked> Cykle animation</label>
                 <label class="check-row"><input id="show-full-dopesheet" type="checkbox"> Show full dopesheet</label>
                 <label class="check-row"><input id="apply-preview-alpha" type="checkbox"> Apply alpha values in preview</label>
+                <label class="check-row"><input id="show-hitbox-guide-dock" type="checkbox" checked> Show hitbox guide</label>
             </div>
         </section>
     </div>
@@ -1067,6 +1068,7 @@ touch-action: none;
                 <input id="reference-opacity" type="range" min="0" max="1" step="0.01" value="0.45">
             </label>
             <label class="check-row"><input id="show-reference" type="checkbox" checked> Show video behind the rig</label>
+            <label class="check-row"><input id="show-hitbox-guide" type="checkbox" checked> Show hitbox guide</label>
             <label class="check-row"><input id="loop-reference" type="checkbox" checked> Loop video when its end is reached</label>
             <div id="reference-frame-readout" class="muted-line">The video is bottom-aligned to the cyan ground guide and follows canvas zoom, pan, and facing.</div>
         </section>
@@ -1219,6 +1221,7 @@ const els = {
     referenceOpacity: document.getElementById("reference-opacity"),
     referenceOpacityValue: document.getElementById("reference-opacity-value"),
     showReference: document.getElementById("show-reference"),
+    showHitboxGuide: document.getElementById("show-hitbox-guide"),
     loopReference: document.getElementById("loop-reference"),
     projectSelect: document.getElementById("project-select"),
     loadKnownProject: document.getElementById("load-known-project"),
@@ -1308,6 +1311,7 @@ const els = {
     loop: document.getElementById("loop"),
     showFullDopesheet: document.getElementById("show-full-dopesheet"),
     applyPreviewAlpha: document.getElementById("apply-preview-alpha"),
+    showHitboxGuideDock: document.getElementById("show-hitbox-guide-dock"),
     partSelect: document.getElementById("part-select"),
     propertySelect: document.getElementById("property-select"),
     timeline: document.getElementById("timeline"),
@@ -1385,6 +1389,7 @@ const KNOWN_PROJECTS = Object.freeze({
     enemy_033: "assets/ct_char_enemy_033.json"
 });
 const PANEL_STORAGE_KEY = "ignatiusRocketfrock.characterEditor.collapsedPanels.v1";
+const SHOW_HITBOX_GUIDE_STORAGE_KEY = "ignatiusRocketfrock.characterEditor.showHitboxGuide.v1";
 
 const state = {
     character: null,
@@ -1778,6 +1783,40 @@ function writeCollapsedPanels(value) {
         localStorage.setItem(PANEL_STORAGE_KEY, JSON.stringify(value));
     } catch {
         // Storage may be unavailable in private or locked-down browser contexts.
+    }
+}
+
+function readShowHitboxGuide() {
+    try {
+        return localStorage.getItem(SHOW_HITBOX_GUIDE_STORAGE_KEY) !== "0";
+    } catch {
+        return true;
+    }
+}
+
+function writeShowHitboxGuide(value) {
+    try {
+        localStorage.setItem(SHOW_HITBOX_GUIDE_STORAGE_KEY, value ? "1" : "0");
+    } catch {
+        // Storage may be unavailable in private or locked-down browser contexts.
+    }
+}
+
+function hitboxGuideControls() {
+    return [els.showHitboxGuide, els.showHitboxGuideDock].filter(Boolean);
+}
+
+function hitboxGuideVisible() {
+    return hitboxGuideControls().some((control) => control.checked);
+}
+
+function setShowHitboxGuide(value, options = {}) {
+    const checked = Boolean(value);
+    for (const control of hitboxGuideControls()) {
+        control.checked = checked;
+    }
+    if (options.persist !== false) {
+        writeShowHitboxGuide(checked);
     }
 }
 
@@ -5379,7 +5418,9 @@ function render(now) {
             }
         }
         ctx.restore();
-        drawEnemyHitboxGuide();
+        if (hitboxGuideVisible()) {
+            drawEnemyHitboxGuide();
+        }
         if (pose) {
             drawSelectionOverlay(pose);
         }
@@ -5407,6 +5448,13 @@ els.resetReferenceTransform.addEventListener("click", () => {
     resetReferenceTransform();
     setStatus("Reset the tab-local reference video to ground-centred alignment. No project data changed.");
 });
+setShowHitboxGuide(readShowHitboxGuide(), { persist: false });
+for (const control of hitboxGuideControls()) {
+    control.addEventListener("change", () => {
+        setShowHitboxGuide(control.checked);
+        updateReadouts();
+    });
+}
 for (const control of [
     els.referenceTimeOffset,
     els.referenceX,

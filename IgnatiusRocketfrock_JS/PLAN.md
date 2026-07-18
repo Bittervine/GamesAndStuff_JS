@@ -62,6 +62,8 @@ IgnatiusRocketfrock_JS/
 
 The shipped practice target now uses `enemy_900`, a passive training enemy that stays in the ordinary enemy pipeline. Its death presentation is a short shake followed by the normal corpse fade, and the core now treats `strategy: "passive"` as a first-class non-combat enemy mode so future passive props can reuse the same route safely.
 
+Fixed after the SDL parity pass exposed a runtime/editor mismatch in the split-limb human rigs: `src/presentation/character-runtime.js` now preserves `parentConstraint` during runtime rig normalization and resolves constrained part pivots against loaded parent sprites while building draw commands. The regression uses `ct_rig_enemy_030.json` to verify `leftUpperArm` attaches to the torso shoulder without changing its own rotation or target height.
+
 
 ## Near-Term Cave-Window Authoring Track
 

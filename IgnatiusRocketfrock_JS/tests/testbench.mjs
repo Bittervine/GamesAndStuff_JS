@@ -346,7 +346,10 @@ import {
     createRuntimeCharacterSetupPose,
     loadRuntimeCharacterProject,
     normalizeRuntimeCharacterRig,
+    parentConstraintForRuntimePart,
+    resolveRuntimeParentConstrainedTransforms,
     resolveRuntimeAnimationSlot,
+    runtimeParentAttachmentPoint,
     sampleRuntimeCharacterPose
 } from "../src/presentation/character-runtime.js";
 import {
@@ -946,6 +949,55 @@ async function testGenericRuntimeCharacterProject() {
     const commands = buildRuntimeCharacterDrawCommands(project, transforms);
     assert.deepEqual(commands.map((command) => command.partName), project.rig.drawOrder, "draw commands should follow rig draw order");
     assert.ok(commands.every((command) => Number.isFinite(command.spriteScale) && command.spriteScale > 0), "draw commands should have finite positive scales");
+
+    const humanRaiderRig = normalizeRuntimeCharacterRig(JSON.parse(readFileSync("./assets/ct_rig_enemy_030.json", "utf8")));
+    const humanRaiderAtlas = JSON.parse(readFileSync("./assets/ct_atlas_enemy_030.json", "utf8"));
+    const humanRaiderIdle = normalizeAnimationClip(JSON.parse(readFileSync("./assets/ct_anim_enemy_030_idle.json", "utf8")));
+    const humanRaiderAssets = new Map(humanRaiderRig.drawOrder.map((partName) => {
+        const part = humanRaiderRig.parts[partName];
+        const frame = humanRaiderAtlas.frames[part.frame];
+        assert.ok(frame, `enemy_030 atlas should contain frame ${part.frame}`);
+        return [partName, {
+            frameId: part.frame,
+            width: frame.w,
+            height: frame.h,
+            missing: false
+        }];
+    }));
+    const leftUpperArmConstraint = parentConstraintForRuntimePart(humanRaiderRig, "leftUpperArm");
+    assert.deepEqual(
+        leftUpperArmConstraint,
+        {
+            parentPart: "torso",
+            parentPoint: {
+                x: 0.6569620785033716,
+                y: 0.20864837588872165
+            }
+        },
+        "enemy_030 leftUpperArm parentConstraint should survive runtime rig normalization"
+    );
+    const humanRaiderPose = sampleAnimationClip(humanRaiderIdle, 0);
+    const humanRaiderTransforms = animationPoseToRuntimeTransforms(humanRaiderPose, humanRaiderRig, 1, 1);
+    const expectedLeftShoulder = runtimeParentAttachmentPoint(
+        humanRaiderRig,
+        "torso",
+        leftUpperArmConstraint.parentPoint,
+        humanRaiderTransforms.torso,
+        humanRaiderAssets
+    );
+    const resolvedHumanRaiderTransforms = resolveRuntimeParentConstrainedTransforms(humanRaiderRig, humanRaiderTransforms, humanRaiderAssets);
+    approx(resolvedHumanRaiderTransforms.leftUpperArm.x, expectedLeftShoulder.x, 0.000001, "enemy_030 leftUpperArm runtime X should attach to the torso shoulder point");
+    approx(resolvedHumanRaiderTransforms.leftUpperArm.y, expectedLeftShoulder.y, 0.000001, "enemy_030 leftUpperArm runtime Y should attach to the torso shoulder point");
+    approx(resolvedHumanRaiderTransforms.leftUpperArm.angle, humanRaiderTransforms.leftUpperArm.angle, 0.000001, "enemy_030 leftUpperArm rotation should remain independently animated");
+    approx(resolvedHumanRaiderTransforms.leftUpperArm.targetHeight, humanRaiderTransforms.leftUpperArm.targetHeight, 0.000001, "enemy_030 leftUpperArm target height should remain independently animated");
+    const humanRaiderCommands = buildRuntimeCharacterDrawCommands(
+        { rig: humanRaiderRig, assets: humanRaiderAssets },
+        humanRaiderTransforms
+    );
+    const leftUpperArmCommand = humanRaiderCommands.find((command) => command.partName === "leftUpperArm");
+    assert.ok(leftUpperArmCommand, "enemy_030 draw commands should include leftUpperArm");
+    approx(leftUpperArmCommand.transform.x, expectedLeftShoulder.x, 0.000001, "enemy_030 leftUpperArm draw pivot should land on the torso shoulder X");
+    approx(leftUpperArmCommand.transform.y, expectedLeftShoulder.y, 0.000001, "enemy_030 leftUpperArm draw pivot should land on the torso shoulder Y");
 
     const arbitraryRig = normalizeRuntimeCharacterRig({
         rigId: "tiny",
@@ -10191,6 +10243,11 @@ function testCharacterToolDirectTransformGeometry() {
     assert.ok(toolHtml.includes("function rigSetupTransform(partName)"), "character tool should synthesize setup transforms for rig parts missing from an animation clip");
     assert.ok(toolHtml.includes("authored ? { ...setup, ...authored } : setup"), "missing animation parts should remain selectable and movable from their rig setup pose");
     assert.ok(toolHtml.includes("els.applyPreviewAlpha.checked"), "sprite drawing should switch between edit visibility and effective alpha preview");
+    assert.ok(toolHtml.includes('id="show-hitbox-guide"'), "character tool should expose a hitbox guide visibility toggle");
+    assert.ok(toolHtml.includes('id="show-hitbox-guide-dock"'), "character tool should expose the hitbox guide toggle in the bottom toolbar");
+    assert.ok(toolHtml.includes("SHOW_HITBOX_GUIDE_STORAGE_KEY"), "hitbox guide visibility should persist as editor-only UI state");
+    assert.ok(toolHtml.includes("function setShowHitboxGuide"), "hitbox guide toggles should stay synchronized");
+    assert.ok(toolHtml.includes("if (hitboxGuideVisible())"), "character preview should hide the hitbox guide when the toggle is off");
 }
 
 

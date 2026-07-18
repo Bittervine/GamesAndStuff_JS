@@ -1,415 +1,415 @@
 {
-  "meta": {
-    "version": 1,
-    "note": "Revision 406 Human Knife Thrower II rig. Cloned from the current Enemy 032 articulated throwing rig, selecting fresh body_03/head_03 artwork while retaining the invisible dagger launch marker."
-  },
-  "rigId": "ct_rig_enemy_033",
-  "atlasId": "ct_atlas_enemy_030",
-  "atlasManifest": "ct_atlas_enemy_030.json",
-  "drawOrder": [
-    "leftUpperLeg",
-    "leftLowerLeg",
-    "leftFoot",
-    "rightUpperLeg",
-    "rightLowerLeg",
-    "rightFoot",
-    "leftUpperArm",
-    "leftLowerArm",
-    "torso",
-    "head",
-    "rightUpperArm",
-    "rightLowerArm",
-    "throwingKnife"
-  ],
-  "global": {
-    "scale": 0.5,
-    "lean": 0,
-    "rootX": 0,
-    "rootYOffsetFromGround": 0,
-    "groundOffset": 0,
-    "debugPivots": false
-  },
-  "anchors": {
-    "neck": {
-      "x": 4,
-      "y": -296
+    "meta": {
+        "version": 1,
+        "note": "Revision 406 Human Knife Thrower II rig. Cloned from the current Enemy 032 articulated throwing rig, selecting fresh body_03/head_03 artwork while retaining the invisible dagger launch marker."
     },
-    "rightShoulder": {
-      "x": -42,
-      "y": -276
-    },
-    "leftShoulder": {
-      "x": 48,
-      "y": -280
-    },
-    "rightHand": {
-      "x": -10,
-      "y": -158
-    },
-    "leftHand": {
-      "x": 54,
-      "y": -152
-    },
-    "rightHip": {
-      "x": -24,
-      "y": -168
-    },
-    "leftHip": {
-      "x": 24,
-      "y": -168
-    },
-    "weaponGrip": {
-      "x": 54,
-      "y": -152
-    }
-  },
-  "pivots": {
-    "leftUpperArm": {
-      "x": 0.5,
-      "y": 0.15
-    },
-    "leftLowerArm": {
-      "x": 0.15,
-      "y": 0.135
-    },
-    "rightUpperLeg": {
-      "x": 0.26,
-      "y": 0.04
-    },
-    "rightLowerLeg": {
-      "x": 0.635,
-      "y": 0.23
-    },
-    "rightFoot": {
-      "x": 0.315,
-      "y": 0.31
-    },
-    "leftUpperLeg": {
-      "x": 0.285,
-      "y": 0.045
-    },
-    "leftLowerLeg": {
-      "x": 0.64,
-      "y": 0.13
-    },
-    "leftFoot": {
-      "x": 0.265,
-      "y": 0.3
-    },
-    "torso": {
-      "x": 0.5,
-      "y": 0.92
-    },
-    "head": {
-      "x": 0.4,
-      "y": 0.885
-    },
-    "rightUpperArm": {
-      "x": 0.6,
-      "y": 0.225
-    },
-    "rightLowerArm": {
-      "x": 0.21,
-      "y": 0.155
-    },
-    "throwingKnife": {
-      "x": 0.5,
-      "y": 0.5
-    }
-  },
-  "parts": {
-    "leftUpperArm": {
-      "frame": "arm_upper_01",
-      "role": "leftUpperArm",
-      "tags": [
-        "arm",
-        "upper",
-        "rear"
-      ],
-      "offset": {
-        "x": 48,
-        "y": -280
-      },
-      "scale": 1,
-      "targetHeight": 91,
-      "alpha": 1,
-      "parentConstraint": {
-        "parentPart": "torso",
-        "parentPoint": {
-          "x": 0.6569620785033716,
-          "y": 0.20864837588872165
-        }
-      }
-    },
-    "leftLowerArm": {
-      "frame": "arm_lower_01",
-      "role": "leftLowerArm",
-      "tags": [
-        "arm",
-        "lower",
-        "rear"
-      ],
-      "offset": {
-        "x": 48,
-        "y": -280
-      },
-      "scale": 1,
-      "targetHeight": 110,
-      "alpha": 1,
-      "parentConstraint": {
-        "parentPart": "leftUpperArm",
-        "parentPoint": {
-          "x": 0.54,
-          "y": 0.95
-        }
-      }
-    },
-    "rightUpperLeg": {
-      "frame": "leg_upper_00",
-      "role": "rightUpperLeg",
-      "tags": [
-        "leg",
-        "upper",
-        "rear"
-      ],
-      "offset": {
-        "x": -24,
-        "y": -168
-      },
-      "scale": 1,
-      "targetHeight": 109,
-      "alpha": 1,
-      "parentConstraint": {
-        "parentPart": "leftUpperLeg",
-        "parentPoint": {
-          "x": 0.29104744355398277,
-          "y": 0.06155780150298855
-        }
-      }
-    },
-    "rightLowerLeg": {
-      "frame": "leg_lower_00",
-      "role": "rightLowerLeg",
-      "tags": [
-        "leg",
-        "lower",
-        "rear"
-      ],
-      "offset": {
-        "x": -24,
-        "y": -168
-      },
-      "scale": 1,
-      "targetHeight": 128,
-      "alpha": 1,
-      "parentConstraint": {
-        "parentPart": "rightUpperLeg",
-        "parentPoint": {
-          "x": 0.735,
-          "y": 0.825
-        }
-      }
-    },
-    "rightFoot": {
-      "frame": "foot_00",
-      "role": "rightFoot",
-      "tags": [
-        "foot",
-        "rear"
-      ],
-      "offset": {
-        "x": -24,
-        "y": -168
-      },
-      "scale": 1,
-      "targetHeight": 78,
-      "alpha": 1,
-      "parentConstraint": {
-        "parentPart": "rightLowerLeg",
-        "parentPoint": {
-          "x": 0.22092609401465596,
-          "y": 0.9066303730160415
-        }
-      }
-    },
-    "leftUpperLeg": {
-      "frame": "leg_upper_01",
-      "role": "leftUpperLeg",
-      "tags": [
-        "leg",
-        "upper",
-        "front"
-      ],
-      "offset": {
-        "x": 24,
-        "y": -168
-      },
-      "scale": 1.1,
-      "targetHeight": 101,
-      "alpha": 1,
-      "parentConstraint": {
-        "parentPart": "torso",
-        "parentPoint": {
-          "x": 0.47,
-          "y": 0.7379
-        }
-      }
-    },
-    "leftLowerLeg": {
-      "frame": "leg_lower_01",
-      "role": "leftLowerLeg",
-      "tags": [
-        "leg",
-        "lower",
-        "front"
-      ],
-      "offset": {
-        "x": 24,
-        "y": -168
-      },
-      "scale": 1,
-      "targetHeight": 122,
-      "alpha": 1,
-      "parentConstraint": {
-        "parentPart": "leftUpperLeg",
-        "parentPoint": {
-          "x": 0.725,
-          "y": 0.865
-        }
-      }
-    },
-    "leftFoot": {
-      "frame": "foot_01",
-      "role": "leftFoot",
-      "tags": [
-        "foot",
-        "front"
-      ],
-      "offset": {
-        "x": 24,
-        "y": -168
-      },
-      "scale": 1,
-      "targetHeight": 73,
-      "alpha": 1,
-      "parentConstraint": {
-        "parentPart": "leftLowerLeg",
-        "parentPoint": {
-          "x": 0.20215613485500866,
-          "y": 0.8989588037542541
-        }
-      }
-    },
-    "torso": {
-      "frame": "body_03",
-      "role": "torso",
-      "tags": [
-        "body",
+    "rigId": "ct_rig_enemy_033",
+    "atlasId": "ct_atlas_enemy_030",
+    "atlasManifest": "ct_atlas_enemy_030.json",
+    "drawOrder": [
+        "leftLowerArm",
+        "leftUpperLeg",
+        "leftLowerLeg",
+        "leftFoot",
+        "rightUpperLeg",
+        "rightLowerLeg",
+        "rightFoot",
+        "leftUpperArm",
         "torso",
-        "human"
-      ],
-      "offset": {
-        "x": 0,
-        "y": -166
-      },
-      "scale": 1,
-      "targetHeight": 182,
-      "alpha": 1
-    },
-    "head": {
-      "frame": "head_03",
-      "role": "head",
-      "tags": [
         "head",
-        "human"
-      ],
-      "offset": {
-        "x": 4,
-        "y": -298
-      },
-      "scale": 1,
-      "targetHeight": 140,
-      "alpha": 1,
-      "parentConstraint": {
-        "parentPart": "torso",
-        "parentPoint": {
-          "x": 0.4404701164229112,
-          "y": 0.10336108547100564
-        }
-      }
+        "rightUpperArm",
+        "rightLowerArm",
+        "throwingKnife"
+    ],
+    "global": {
+        "scale": 0.5,
+        "lean": 0,
+        "rootX": 0,
+        "rootYOffsetFromGround": 0,
+        "groundOffset": 0,
+        "debugPivots": false
     },
-    "rightUpperArm": {
-      "frame": "arm_upper_00",
-      "role": "rightUpperArm",
-      "tags": [
-        "arm",
-        "upper",
-        "front",
-        "weaponArm"
-      ],
-      "offset": {
-        "x": -36,
-        "y": -276
-      },
-      "scale": 1,
-      "targetHeight": 92,
-      "alpha": 1,
-      "parentConstraint": {
-        "parentPart": "torso",
-        "parentPoint": {
-          "x": 0.225,
-          "y": 0.25
+    "anchors": {
+        "neck": {
+            "x": 4,
+            "y": -296
+        },
+        "rightShoulder": {
+            "x": -42,
+            "y": -276
+        },
+        "leftShoulder": {
+            "x": 48,
+            "y": -280
+        },
+        "rightHand": {
+            "x": -10,
+            "y": -158
+        },
+        "leftHand": {
+            "x": 54,
+            "y": -152
+        },
+        "rightHip": {
+            "x": -24,
+            "y": -168
+        },
+        "leftHip": {
+            "x": 24,
+            "y": -168
+        },
+        "weaponGrip": {
+            "x": 54,
+            "y": -152
         }
-      }
     },
-    "rightLowerArm": {
-      "frame": "arm_lower_00",
-      "role": "rightLowerArm",
-      "tags": [
-        "arm",
-        "lower",
-        "front",
-        "weaponArm",
-        "holder"
-      ],
-      "offset": {
-        "x": -36,
-        "y": -276
-      },
-      "scale": 1.3,
-      "targetHeight": 112,
-      "alpha": 1,
-      "parentConstraint": {
-        "parentPart": "rightUpperArm",
-        "parentPoint": {
-          "x": 0.33916713271610416,
-          "y": 0.9465818008718319
+    "pivots": {
+        "leftUpperArm": {
+            "x": 0.5,
+            "y": 0.15
+        },
+        "leftLowerArm": {
+            "x": 0.15,
+            "y": 0.135
+        },
+        "rightUpperLeg": {
+            "x": 0.26,
+            "y": 0.04
+        },
+        "rightLowerLeg": {
+            "x": 0.635,
+            "y": 0.23
+        },
+        "rightFoot": {
+            "x": 0.315,
+            "y": 0.31
+        },
+        "leftUpperLeg": {
+            "x": 0.285,
+            "y": 0.045
+        },
+        "leftLowerLeg": {
+            "x": 0.64,
+            "y": 0.13
+        },
+        "leftFoot": {
+            "x": 0.265,
+            "y": 0.3
+        },
+        "torso": {
+            "x": 0.5,
+            "y": 0.92
+        },
+        "head": {
+            "x": 0.4,
+            "y": 0.885
+        },
+        "rightUpperArm": {
+            "x": 0.6,
+            "y": 0.225
+        },
+        "rightLowerArm": {
+            "x": 0.21,
+            "y": 0.155
+        },
+        "throwingKnife": {
+            "x": 0.5,
+            "y": 0.5
         }
-      }
     },
-    "throwingKnife": {
-      "frame": "dagger",
-      "role": "throwingKnifeLaunchMarker",
-      "tags": [
-        "projectile",
-        "throwingKnife",
-        "hiddenLaunchMarker"
-      ],
-      "offset": {
-        "x": -10,
-        "y": -260
-      },
-      "scale": 0.22,
-      "targetHeight": 10,
-      "alpha": 0,
-      "projectile": {
-        "enabled": true,
-        "id": "throwingKnife",
-        "animationSlot": "attack",
-        "launchType": "straight",
-        "releaseTime": 0.34,
-        "projectileKind": "throwingKnife"
-      }
+    "parts": {
+        "leftUpperArm": {
+            "frame": "arm_upper_01",
+            "role": "leftUpperArm",
+            "tags": [
+                "arm",
+                "upper",
+                "rear"
+            ],
+            "offset": {
+                "x": 48,
+                "y": -280
+            },
+            "scale": 1,
+            "targetHeight": 91,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "torso",
+                "parentPoint": {
+                    "x": 0.6569620785033716,
+                    "y": 0.20864837588872165
+                }
+            }
+        },
+        "leftLowerArm": {
+            "frame": "arm_lower_01",
+            "role": "leftLowerArm",
+            "tags": [
+                "arm",
+                "lower",
+                "rear"
+            ],
+            "offset": {
+                "x": 48,
+                "y": -280
+            },
+            "scale": 1,
+            "targetHeight": 110,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "leftUpperArm",
+                "parentPoint": {
+                    "x": 0.54,
+                    "y": 0.95
+                }
+            }
+        },
+        "rightUpperLeg": {
+            "frame": "leg_upper_00",
+            "role": "rightUpperLeg",
+            "tags": [
+                "leg",
+                "upper",
+                "rear"
+            ],
+            "offset": {
+                "x": -24,
+                "y": -168
+            },
+            "scale": 1,
+            "targetHeight": 109,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "leftUpperLeg",
+                "parentPoint": {
+                    "x": 0.29104744355398277,
+                    "y": 0.06155780150298855
+                }
+            }
+        },
+        "rightLowerLeg": {
+            "frame": "leg_lower_00",
+            "role": "rightLowerLeg",
+            "tags": [
+                "leg",
+                "lower",
+                "rear"
+            ],
+            "offset": {
+                "x": -24,
+                "y": -168
+            },
+            "scale": 1,
+            "targetHeight": 128,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "rightUpperLeg",
+                "parentPoint": {
+                    "x": 0.735,
+                    "y": 0.825
+                }
+            }
+        },
+        "rightFoot": {
+            "frame": "foot_00",
+            "role": "rightFoot",
+            "tags": [
+                "foot",
+                "rear"
+            ],
+            "offset": {
+                "x": -24,
+                "y": -168
+            },
+            "scale": 1,
+            "targetHeight": 78,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "rightLowerLeg",
+                "parentPoint": {
+                    "x": 0.22092609401465596,
+                    "y": 0.9066303730160415
+                }
+            }
+        },
+        "leftUpperLeg": {
+            "frame": "leg_upper_01",
+            "role": "leftUpperLeg",
+            "tags": [
+                "leg",
+                "upper",
+                "front"
+            ],
+            "offset": {
+                "x": 24,
+                "y": -168
+            },
+            "scale": 1.1,
+            "targetHeight": 101,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "torso",
+                "parentPoint": {
+                    "x": 0.47,
+                    "y": 0.7379
+                }
+            }
+        },
+        "leftLowerLeg": {
+            "frame": "leg_lower_01",
+            "role": "leftLowerLeg",
+            "tags": [
+                "leg",
+                "lower",
+                "front"
+            ],
+            "offset": {
+                "x": 24,
+                "y": -168
+            },
+            "scale": 1,
+            "targetHeight": 122,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "leftUpperLeg",
+                "parentPoint": {
+                    "x": 0.725,
+                    "y": 0.865
+                }
+            }
+        },
+        "leftFoot": {
+            "frame": "foot_01",
+            "role": "leftFoot",
+            "tags": [
+                "foot",
+                "front"
+            ],
+            "offset": {
+                "x": 24,
+                "y": -168
+            },
+            "scale": 1,
+            "targetHeight": 73,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "leftLowerLeg",
+                "parentPoint": {
+                    "x": 0.20215613485500866,
+                    "y": 0.8989588037542541
+                }
+            }
+        },
+        "torso": {
+            "frame": "body_03",
+            "role": "torso",
+            "tags": [
+                "body",
+                "torso",
+                "human"
+            ],
+            "offset": {
+                "x": 0,
+                "y": -166
+            },
+            "scale": 1,
+            "targetHeight": 182,
+            "alpha": 1
+        },
+        "head": {
+            "frame": "head_03",
+            "role": "head",
+            "tags": [
+                "head",
+                "human"
+            ],
+            "offset": {
+                "x": 4,
+                "y": -298
+            },
+            "scale": 1,
+            "targetHeight": 140,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "torso",
+                "parentPoint": {
+                    "x": 0.4404701164229112,
+                    "y": 0.10336108547100564
+                }
+            }
+        },
+        "rightUpperArm": {
+            "frame": "arm_upper_00",
+            "role": "rightUpperArm",
+            "tags": [
+                "arm",
+                "upper",
+                "front",
+                "weaponArm"
+            ],
+            "offset": {
+                "x": -36,
+                "y": -276
+            },
+            "scale": 1,
+            "targetHeight": 92,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "torso",
+                "parentPoint": {
+                    "x": 0.225,
+                    "y": 0.25
+                }
+            }
+        },
+        "rightLowerArm": {
+            "frame": "arm_lower_00",
+            "role": "rightLowerArm",
+            "tags": [
+                "arm",
+                "lower",
+                "front",
+                "weaponArm",
+                "holder"
+            ],
+            "offset": {
+                "x": -36,
+                "y": -276
+            },
+            "scale": 1.3,
+            "targetHeight": 112,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "rightUpperArm",
+                "parentPoint": {
+                    "x": 0.33916713271610416,
+                    "y": 0.9465818008718319
+                }
+            }
+        },
+        "throwingKnife": {
+            "frame": "dagger",
+            "role": "throwingKnifeLaunchMarker",
+            "tags": [
+                "projectile",
+                "throwingKnife",
+                "hiddenLaunchMarker"
+            ],
+            "offset": {
+                "x": -10,
+                "y": -260
+            },
+            "scale": 0.22,
+            "targetHeight": 10,
+            "alpha": 0,
+            "projectile": {
+                "enabled": true,
+                "id": "throwingKnife",
+                "animationSlot": "attack",
+                "launchType": "straight",
+                "releaseTime": 0.34,
+                "projectileKind": "throwingKnife"
+            }
+        }
     }
-  }
 }
