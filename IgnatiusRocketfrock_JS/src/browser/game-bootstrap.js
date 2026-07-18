@@ -30,7 +30,7 @@ import {
 } from "../shared/game-settings-data.js";
 import { loadStoredGameSettings, saveStoredGameSettings } from "./game-settings-store.js";
 import { normalizeLevelMusic, normalizeMusicCatalog } from "../shared/music-data.js";
-import { prioritizedActivePowerUpEffect } from "../shared/power-up-data.js";
+import { powerUpHudLabel, prioritizedActivePowerUpEffect } from "../shared/power-up-data.js";
 import { createMusicDirector } from "./music-director.js";
 import {
     detectElectronWindowBridge,
@@ -2533,7 +2533,7 @@ function updateHud() {
         return;
     }
 
-    setHudText("powerText", powerText, `Powerup: ${displayedEffect.definition.label}`);
+    setHudText("powerText", powerText, `Powerup: ${powerUpHudLabel(displayedEffect.definition)}`);
     if (displayedEffect.definition.permanent) {
         setHudText("powerTime", powerTime, "∞");
         setHudWidth("powerWidth", powerFill, "100%");

@@ -248,6 +248,16 @@ export function powerUpEffectDefinition(effectId) {
     return BUILTIN_POWER_UP_EFFECTS[canonicalEffectId(effectId)] || null;
 }
 
+export function powerUpHudLabel(definition) {
+    const id = canonicalEffectId(definition?.id);
+    const label = String(definition?.label || id);
+    const wrenchPrefix = "wrench";
+    if (definition?.groupId === POWER_UP_GROUP_IDS.WRENCH && id.startsWith(wrenchPrefix) && id.length > wrenchPrefix.length) {
+        return id.slice(wrenchPrefix.length);
+    }
+    return label;
+}
+
 export function normalizeWrenchPowerUpEffectId(value, fallback = DEFAULT_WRENCH_POWER_UP_EFFECT_ID) {
     const requested = canonicalEffectId(value || fallback);
     return WRENCH_POWER_UP_EFFECT_IDS.includes(requested)

@@ -241,6 +241,7 @@ import {
     normalizeActivePowerUpEffect,
     normalizePowerUpPickup,
     powerUpEffectDefinition,
+    powerUpHudLabel,
     prioritizedActivePowerUpEffect,
     rocketPowerUpMultipliers
 } from "../src/shared/power-up-data.js";
@@ -8919,6 +8920,7 @@ function testScoreHudAndTreasureChestCollection() {
 function testRocketPowerUpArsenal() {
     const overdrive = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.OVERDRIVE);
     assert.equal(overdrive.label, "Overdrive", "the lightning power-up should use its new Overdrive display name");
+    assert.equal(powerUpHudLabel(overdrive), "Overdrive", "non-wrench HUD labels should remain unchanged");
     assert.equal(overdrive.stacking, POWER_UP_STACKING_RULES.REFRESH, "Overdrive should refresh rather than stack multiplicatively");
     assert.equal(overdrive.durationSeconds, 20, "Overdrive should last twenty seconds");
     assert.equal("launchCooldownMultiplier" in overdrive.rocket, false, "rocket profiles should not retain a firing-cooldown field");
@@ -8947,12 +8949,12 @@ function testRocketPowerUpArsenal() {
     assert.deepEqual(rocketPowerUpMultipliers({ statusEffects: { active: { shield: { id: shield.id, definition: shield, remainingSeconds: 5 } } } }), { launchFuelCostMultiplier: 1 }, "Shield should not alter rocket fuel cost");
 
     const expectedWrenches = new Map([
-        [POWER_UP_EFFECT_IDS.WRENCH_TRIPLE, { count: 5, damage: 1 / 5, cost: 0.5, speed: NON_HOMING_ROCKET_SPEED_FACTOR, tint: "#ffff00" }],
-        [POWER_UP_EFFECT_IDS.WRENCH_DART, { count: 1, damage: 1, cost: 0.5, speed: NON_HOMING_ROCKET_SPEED_FACTOR, tint: "#00ffff" }],
-        [POWER_UP_EFFECT_IDS.WRENCH_BURST, { count: 1, damage: 1, cost: 0.5, speed: NON_HOMING_ROCKET_SPEED_FACTOR, tint: "#00ff00" }],
-        [POWER_UP_EFFECT_IDS.WRENCH_BIGBOMB, { count: 1, damage: 4, cost: 3, speed: 0.5, tint: "#ff0000" }],
-        [POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG, { count: 1, damage: 1, cost: 0.5, speed: 1, tint: "#ff00ff" }],
-        [POWER_UP_EFFECT_IDS.WRENCH_PHASE, { count: 3, damage: 1 / 3, cost: 0.5, speed: 1, tint: "#0000ff" }]
+        [POWER_UP_EFFECT_IDS.WRENCH_TRIPLE, { hudLabel: "Yellow", count: 5, damage: 1 / 5, cost: 0.5, speed: NON_HOMING_ROCKET_SPEED_FACTOR, tint: "#ffff00" }],
+        [POWER_UP_EFFECT_IDS.WRENCH_DART, { hudLabel: "Cyan", count: 1, damage: 1, cost: 0.5, speed: NON_HOMING_ROCKET_SPEED_FACTOR, tint: "#00ffff" }],
+        [POWER_UP_EFFECT_IDS.WRENCH_BURST, { hudLabel: "Green", count: 1, damage: 1, cost: 0.5, speed: NON_HOMING_ROCKET_SPEED_FACTOR, tint: "#00ff00" }],
+        [POWER_UP_EFFECT_IDS.WRENCH_BIGBOMB, { hudLabel: "Red", count: 1, damage: 4, cost: 3, speed: 0.5, tint: "#ff0000" }],
+        [POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG, { hudLabel: "Magenta", count: 1, damage: 1, cost: 0.5, speed: 1, tint: "#ff00ff" }],
+        [POWER_UP_EFFECT_IDS.WRENCH_PHASE, { hudLabel: "Blue", count: 3, damage: 1 / 3, cost: 0.5, speed: 1, tint: "#0000ff" }]
     ]);
     assert.deepEqual(WRENCH_POWER_UP_EFFECT_IDS, [...expectedWrenches.keys()], "the wrench effect list should include the complete six-mode arsenal");
     assert.equal(powerUpEffectDefinition("wrenchTwin"), null, "the replaced Twin identity should no longer be accepted as a current wrench effect");
@@ -8968,6 +8970,9 @@ function testRocketPowerUpArsenal() {
     }), null, "saved active-effect snapshots should reject the retired Twin identity");
     for (const [effectId, expected] of expectedWrenches) {
         const definition = powerUpEffectDefinition(effectId);
+        assert.equal(definition.id, effectId, `${effectId} should retain its canonical identifier`);
+        assert.equal(definition.label, effectId, `${effectId} should retain its full wrench identifier as its data label`);
+        assert.equal(powerUpHudLabel(definition), expected.hudLabel, `${effectId} should show only its colour name on the HUD`);
         assert.equal(definition.durationSeconds, 20, `${definition.label} should last twenty seconds`);
         assert.equal(definition.groupId, POWER_UP_GROUP_IDS.WRENCH, `${definition.label} should occupy the exclusive wrench slot`);
         assert.equal(definition.exclusiveGroup, true, `${definition.label} should replace another wrench`);
