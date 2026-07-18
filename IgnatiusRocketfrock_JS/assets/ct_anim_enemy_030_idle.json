@@ -79,7 +79,7 @@
       "x": 0,
       "y": -166,
       "rotation": 0,
-      "scale": 1,
+      "scale": 0.8,
       "alpha": 1
     },
     "head": {
@@ -2013,7 +2013,7 @@
       "scale": [
         {
           "time": 0,
-          "value": 1,
+          "value": 0.8,
           "easing": "linear"
         }
       ],

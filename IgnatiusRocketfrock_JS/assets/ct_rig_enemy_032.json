@@ -7,6 +7,7 @@
     "atlasId": "ct_atlas_enemy_030",
     "atlasManifest": "ct_atlas_enemy_030.json",
     "drawOrder": [
+        "leftLowerArm",
         "leftUpperLeg",
         "leftLowerLeg",
         "leftFoot",
@@ -14,7 +15,6 @@
         "rightLowerLeg",
         "rightFoot",
         "leftUpperArm",
-        "leftLowerArm",
         "torso",
         "head",
         "rightUpperArm",
@@ -295,8 +295,8 @@
             "parentConstraint": {
                 "parentPart": "leftLowerLeg",
                 "parentPoint": {
-                    "x": 0.26999999999999996,
-                    "y": 0.9599999999999996
+                    "x": 0.20215613485500866,
+                    "y": 0.8989588037542541
                 }
             }
         },
