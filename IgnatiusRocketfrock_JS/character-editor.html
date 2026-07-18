@@ -66,6 +66,20 @@ touch-action: none;
             user-select: none;
         }
 
+        body.atlas-mode #stage-wrap,
+        main.atlas-mode #stage-wrap {
+            justify-items: stretch;
+            align-items: stretch;
+        }
+
+        body.atlas-mode canvas,
+        main.atlas-mode canvas {
+            width: auto;
+            height: 100%;
+            max-width: none;
+            max-height: none;
+        }
+
         aside {
             border-left: 1px solid var(--line);
             background: var(--panel);
@@ -1694,6 +1708,8 @@ function confirmDiscardChanges(actionLabel = "load another project") {
 function setEditorMode(mode) {
     state.editorMode = mode === "atlas" ? "atlas" : "animation";
     els.editorMode.value = state.editorMode;
+    document.body?.classList.toggle("atlas-mode", state.editorMode === "atlas");
+    document.querySelector("main")?.classList.toggle("atlas-mode", state.editorMode === "atlas");
     for (const panel of document.querySelectorAll(".animation-panel")) {
         panel.hidden = state.editorMode !== "animation";
     }
