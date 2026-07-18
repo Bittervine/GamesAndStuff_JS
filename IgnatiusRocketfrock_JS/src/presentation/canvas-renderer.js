@@ -28,7 +28,6 @@ import {
     normalizeForegroundParallax,
     normalizeLayerBrightness
 } from "../shared/level-layer-data.js";
-import { getAssetFn } from "../shared/asset-path.js";
 import { caveWindowBounds } from "../shared/cave-window-data.js";
 import {
     POWER_UP_EFFECT_IDS,
@@ -161,6 +160,17 @@ const ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES = [
 ];
 
 const REQUIRED_RIG_SECTIONS = ["global", "animation", "anchors", "legMotion", "pivots", "parts"];
+
+function assetUrl(requestPath) {
+    const text = String(requestPath || "");
+    if (!text) {
+        return "";
+    }
+    if (/^(?:[a-z]+:)?\/\//i.test(text) || text.startsWith("/") || text.startsWith("data:") || text.startsWith("blob:")) {
+        return text;
+    }
+    return `assets/${text.replace(/^(?:\.\/|assets\/)+/, "")}`;
+}
 
 // IMPORTANT VIEWPORT RULE:
 // The game uses virtual viewport coordinates. On narrow mobile screens the
@@ -8260,7 +8270,7 @@ async function loadEnvironmentAtlases(options = {}) {
         : ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES;
     const onProgress = typeof options.onProgress === "function" ? options.onProgress : () => {};
     const records = await Promise.all(candidates.map(async (candidate) => {
-        const url = await getAssetFn(candidate.url || "");
+        const url = assetUrl(candidate.url || "");
         onProgress({ url, progress: 0.02, label: `Loading atlas manifest ${url}` });
         let manifest = null;
         try {
@@ -8344,7 +8354,7 @@ function loadImage(url) {
 }
 
 async function loadJsonStrict(url, label) {
-    const resolvedUrl = await getAssetFn(url);
+    const resolvedUrl = assetUrl(url);
     let response;
     try {
         response = await fetch(resolvedUrl, { cache: "no-store" });

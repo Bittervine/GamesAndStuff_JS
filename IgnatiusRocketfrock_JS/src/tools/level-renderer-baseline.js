@@ -5,7 +5,17 @@ import {
     createInputFrame
 } from "../core/simulation.js";
 import { createRenderer } from "../presentation/canvas-renderer.js";
-import { getAssetFn } from "../shared/asset-path.js";
+
+function assetUrl(requestPath) {
+    const text = String(requestPath || "");
+    if (!text) {
+        return "";
+    }
+    if (/^(?:[a-z]+:)?\/\//i.test(text) || text.startsWith("/") || text.startsWith("data:") || text.startsWith("blob:")) {
+        return text;
+    }
+    return `assets/${text.replace(/^(?:\.\/|assets\/)+/, "")}`;
+}
 
 const STORAGE_KEY = "ignatius_level_editor_v2";
 const canvas = document.getElementById("stage");
@@ -47,7 +57,7 @@ function clamp(value, min, max) {
 }
 
 async function fetchJson(url) {
-    const resolvedUrl = await getAssetFn(url);
+    const resolvedUrl = assetUrl(url);
     const response = await fetch(resolvedUrl, { cache: "no-store" });
     if (!response.ok) throw new Error(`${resolvedUrl}: HTTP ${response.status}`);
     return response.json();

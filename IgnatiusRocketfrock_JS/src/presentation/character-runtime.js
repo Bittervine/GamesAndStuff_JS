@@ -1,5 +1,4 @@
 import { createPixmapPyramid } from "./pixmap-pyramid.js";
-import { getAssetFn } from "../shared/asset-path.js";
 import {
     defaultAnimationTransform,
     normalizeAnimationClip,
@@ -8,6 +7,17 @@ import {
 import { normalizeColorExchange, colorExchangeCacheKey } from "../shared/color-exchange-data.js";
 import { createColorExchangedSpriteCanvas } from "./sprite-color-exchange.js";
 import { shownTransformOf } from "../shared/presentation-transform-data.js";
+
+function assetUrl(requestPath) {
+    const text = String(requestPath || "");
+    if (!text) {
+        return "";
+    }
+    if (/^(?:[a-z]+:)?\/\//i.test(text) || text.startsWith("/") || text.startsWith("data:") || text.startsWith("blob:")) {
+        return text;
+    }
+    return `assets/${text.replace(/^(?:\.\/|assets\/)+/, "")}`;
+}
 
 export function characterArtworkOffset(renderOffsetX = 0, renderOffsetY = 0, scale = 1) {
     const safeScale = finitePositive(scale, 1);
@@ -529,7 +539,7 @@ function makeRuntimeAtlasFrameAsset(image, frame, partName, frameId, imageUrl, a
 }
 
 async function defaultLoadJson(url, label = "JSON") {
-    const resolvedUrl = await getAssetFn(url);
+    const resolvedUrl = assetUrl(url);
     let response;
     try {
         response = await fetch(resolvedUrl, { cache: "no-store" });

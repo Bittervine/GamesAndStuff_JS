@@ -22,7 +22,6 @@ import { RocketfrockInput } from "./browser-input.js";
 import { GamepadHaptics } from "./gamepad-haptics.js";
 import { createRenderer } from "../presentation/canvas-renderer.js";
 import { normalizeCaveWindow } from "../shared/cave-window-data.js";
-import { getAssetFn } from "../shared/asset-path.js";
 import {
     gameBakingModePreset,
     gameDifficultyPreset,
@@ -142,6 +141,17 @@ const launchPlaybackUrl = playbackUrlFromQueryValue(launchParams.get("playback")
 const launchPlaybackPauseAtSec = finiteNonNegativeNumber(launchParams.get("playback_pause"), null);
 const RESUME_SAVE_STORAGE_KEY = "ignatius_rocketfrock_resume_v1";
 
+function assetUrl(requestPath) {
+    const text = String(requestPath || "");
+    if (!text) {
+        return "";
+    }
+    if (/^(?:[a-z]+:)?\/\//i.test(text) || text.startsWith("/") || text.startsWith("data:") || text.startsWith("blob:")) {
+        return text;
+    }
+    return `assets/${text.replace(/^(?:\.\/|assets\/)+/, "")}`;
+}
+
 let displayedLoadingProgress = 0;
 let activeCaveWindow = normalizeCaveWindow(null);
 let renderer;
@@ -159,12 +169,6 @@ let gameState = launchPlaybackRecording?.initialState
     });
 gameState.settings = normalizeGameSettings(gameState.settings);
 let musicBaseUrl = "assets/";
-try {
-    const resolvedMusicCatalogUrl = await getAssetFn("music.json");
-    musicBaseUrl = resolvedMusicCatalogUrl.slice(0, resolvedMusicCatalogUrl.lastIndexOf("/") + 1);
-} catch (error) {
-    // Music is optional. If the catalog itself is unavailable we keep the legacy default base.
-}
 const musicDirector = createMusicDirector({ volume: gameState.settings.musicVolume, baseUrl: musicBaseUrl });
 let musicCatalog = normalizeMusicCatalog(null);
 let activeLevelMusic = normalizeLevelMusic(null);
@@ -663,7 +667,7 @@ function syncLoadedCharacterCombatProfiles() {
 }
 
 async function loadEnemyDefinitionCatalog() {
-    const url = await getAssetFn("ct_enemies_001.json");
+    const url = assetUrl("ct_enemies_001.json");
     try {
         const response = await fetch(url, { cache: "no-store" });
         if (!response.ok) throw new Error(`${response.status}`);
@@ -710,7 +714,7 @@ function maybeApplyBrowserCopyLevel() {
 }
 
 async function loadMusicCatalog() {
-    const url = await getAssetFn("music.json");
+    const url = assetUrl("music.json");
     try {
         const response = await fetch(url, { cache: "no-store" });
         if (!response.ok) {
@@ -733,7 +737,7 @@ async function applyRequiredDefaultLevel() {
 
 async function applyRequiredLevel(levelId = START_LEVEL_ID) {
     const id = normalizedLevelId(levelId, START_LEVEL_ID);
-    const url = await getAssetFn(`${id}.json`);
+    const url = assetUrl(`${id}.json`);
     let response;
     try {
         response = await fetch(url, { cache: "no-store" });
@@ -814,7 +818,7 @@ function clearStoredResumeLevel() {
 
 async function fetchOptionalLevel(levelId) {
     const id = normalizedLevelId(levelId);
-    const url = await getAssetFn(`${id}.json`);
+    const url = assetUrl(`${id}.json`);
     try {
         const response = await fetch(url, { cache: "no-store" });
         if (!response.ok) return null;
