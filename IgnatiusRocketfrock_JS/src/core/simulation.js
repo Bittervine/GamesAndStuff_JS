@@ -218,6 +218,8 @@ export const DEFAULT_TUNING = Object.freeze({
     groundAcceleration: 950,
     airAcceleration: 820,
     groundFriction: 900,
+    flightVerticalSpeed: 300,
+    flightVerticalAcceleration: 900,
     landingFriction: 550,
     airDrag: 0.12,
     attachedBoostAcceleration: -1580,
@@ -1957,6 +1959,26 @@ function activatePowerUpEffect(state, pickup) {
     }
 
     activeEffects[definition.id] = next;
+
+    if (definition.id === POWER_UP_EFFECT_IDS.FLIGHT) {
+        const rocket = state.equipment.rocket;
+        const boostWasActive = Boolean(rocket.attachedBoosting);
+        rocket.attachedBoosting = false;
+        rocket.state = "flight";
+        rocket.attachedBoostTime = 0;
+        rocket.boostBurstTimer = 0;
+        rocket.boostAccelerationNow = 0;
+        rocket.boostVisualPowerNow = Math.max(0.18, Number(state.tuning.attachedBoostVisualIdlePower) || 0);
+        rocket.attachedSmokeTimer = 0;
+        state.player.ordinaryJumpActive = false;
+        state.player.airBoostArmed = false;
+        const flightSpeed = Math.max(1, Number(state.tuning.flightVerticalSpeed) || DEFAULT_TUNING.flightVerticalSpeed);
+        state.player.vy = clamp(state.player.vy, -flightSpeed, flightSpeed);
+        if (boostWasActive) {
+            addEvent(state, "PLAYER_BOOST_ENDED", { reason: "flightActivated" });
+        }
+    }
+
     addEvent(state, eventType, {
         effectId: definition.id,
         pickupId: pickup?.id || null,
@@ -2030,12 +2052,20 @@ function updatePickups(state) {
         pickup.collected = true;
         pickup.respawnTimer = Math.max(0, Number(pickup.respawnSeconds) || 0);
         if (pickup.kind === "fuel" || pickup.pickupKind === "fuel") {
-            const before = state.fuel.amount;
-            state.fuel.amount = clamp(state.fuel.amount + Math.max(0, Number(pickup.amount) || 0), 0, state.fuel.max);
-            addEvent(state, "FUEL_PICKUP_COLLECTED", {
+            const flightPickup = {
+                ...pickup,
+                kind: "powerUp",
+                pickupKind: POWER_UP_EFFECT_IDS.FLIGHT,
+                powerUp: normalizePowerUpPickup({
+                    effectId: POWER_UP_EFFECT_IDS.FLIGHT,
+                    radius: pickup.radius
+                })
+            };
+            activatePowerUpEffect(state, flightPickup);
+            addEvent(state, "POWER_UP_PICKUP_COLLECTED", {
                 pickupId: pickup.id,
-                amount: round(state.fuel.amount - before),
-                fuel: round(state.fuel.amount)
+                effectId: POWER_UP_EFFECT_IDS.FLIGHT,
+                respawnSeconds: pickup.respawnSeconds
             });
         } else if (pickup.kind === "powerUp" || pickup.powerUp) {
             activatePowerUpEffect(state, pickup);
@@ -3194,7 +3224,9 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             : (entity.effectId ||
                 (type === "overdrivePickup"
                     ? POWER_UP_EFFECT_IDS.OVERDRIVE
-                    : (type === "shieldPickup" ? POWER_UP_EFFECT_IDS.SHIELD : null)));
+                    : (type === "shieldPickup"
+                        ? POWER_UP_EFFECT_IDS.SHIELD
+                        : ((type === "fuel" || type === "fuelPickup") ? POWER_UP_EFFECT_IDS.FLIGHT : null))));
         const powerUp = authoredEffectId
             ? normalizePowerUpPickup({
                 ...entity,
@@ -7509,6 +7541,14 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
 
     updateTreasureChests(state, dt);
     updatePickups(state);
+    const flightActive = flightPowerUpActive(state);
+    if (!flightActive && rocket.state === "flight") {
+        rocket.state = "mountedReady";
+        rocket.attachedBoostTime = 0;
+        rocket.boostAccelerationNow = 0;
+        rocket.boostVisualPowerNow = 0;
+        rocket.attachedSmokeTimer = 0;
+    }
     updateSignalEmitters(state, input);
     updateSignalReceivers(state);
     updateMovingPlatforms(state, dt);
@@ -7522,7 +7562,7 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
 
     p.dropThroughTimer = Math.max(0, (Number(p.dropThroughTimer) || 0) - Math.max(0, Number(dt) || 0));
     const dropIntent = Boolean(input.dropHeld || input.dropPressed);
-    const mayStartDropThrough = (p.onGround && !input.jumpPressed) || (!p.onGround && p.vy >= 0);
+    const mayStartDropThrough = flightActive || (p.onGround && !input.jumpPressed) || (!p.onGround && p.vy >= 0);
     if (dropIntent && mayStartDropThrough) {
         p.dropThroughTimer = Math.max(
             p.dropThroughTimer,
@@ -7540,10 +7580,10 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     const moveAxis = Math.abs(analogMoveAxis) > 0.001 ? analogMoveAxis : digitalMoveAxis;
     if (Math.abs(moveAxis) > 0.001) {
         p.facing = moveAxis > 0 ? 1 : -1;
-        const accel = wasOnGround ? t.groundAcceleration : t.airAcceleration;
+        const accel = (wasOnGround || flightActive) ? t.groundAcceleration : t.airAcceleration;
         p.vx += moveAxis * accel * dt;
         p.ax = moveAxis * accel;
-    } else if (wasOnGround) {
+    } else if (wasOnGround || flightActive) {
         p.vx = approach(p.vx, 0, t.groundFriction * dt);
     } else {
         p.vx *= Math.max(0, 1 - t.airDrag * dt);
@@ -7551,31 +7591,33 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
 
     p.vx = clamp(p.vx, -t.maxRunSpeed, t.maxRunSpeed);
 
-    if (input.jumpReleased && !wasOnGround) {
-        p.airBoostArmed = true;
-    }
+    if (!flightActive) {
+        if (input.jumpReleased && !wasOnGround) {
+            p.airBoostArmed = true;
+        }
 
-    if (input.jumpPressed && wasOnGround) {
-        t.jumpVelocity = ordinaryJumpVelocity(t.gravity, t.ordinaryJumpHeight);
-        p.vy = t.jumpVelocity;
-        p.ordinaryJumpActive = true;
-        p.ordinaryJumpStartY = p.currentTransform.y;
-        p.ordinaryJumpApexY = null;
-        p.onGround = false;
-        p.supportId = null;
-        p.airborneTime = 0;
-        p.airBoostArmed = false;
-        addEvent(state, "PLAYER_JUMPED", { x: round(p.currentTransform.x), y: round(p.currentTransform.y), vx: round(p.vx), vy: round(p.vy) });
-    } else if ((input.jumpPressed || input.boostPressed) && !wasOnGround && !rocket.attachedBoosting) {
-        if (p.airBoostArmed) {
+        if (input.jumpPressed && wasOnGround) {
+            t.jumpVelocity = ordinaryJumpVelocity(t.gravity, t.ordinaryJumpHeight);
+            p.vy = t.jumpVelocity;
+            p.ordinaryJumpActive = true;
+            p.ordinaryJumpStartY = p.currentTransform.y;
+            p.ordinaryJumpApexY = null;
+            p.onGround = false;
+            p.supportId = null;
+            p.airborneTime = 0;
             p.airBoostArmed = false;
-            startAttachedBoost(state);
-        } else {
-            addEvent(state, "PLAYER_BOOST_BLOCKED", { reason: "jumpNotReleased" });
+            addEvent(state, "PLAYER_JUMPED", { x: round(p.currentTransform.x), y: round(p.currentTransform.y), vx: round(p.vx), vy: round(p.vy) });
+        } else if ((input.jumpPressed || input.boostPressed) && !wasOnGround && !rocket.attachedBoosting) {
+            if (p.airBoostArmed) {
+                p.airBoostArmed = false;
+                startAttachedBoost(state);
+            } else {
+                addEvent(state, "PLAYER_BOOST_BLOCKED", { reason: "jumpNotReleased" });
+            }
         }
     }
 
-    if (rocket.attachedBoosting) {
+    if (!flightActive && rocket.attachedBoosting) {
         const boostIntentHeld = input.jumpHeld || input.boostHeld;
         const shouldStop = !boostIntentHeld || fuel.amount <= 0;
         if (shouldStop) {
@@ -7593,7 +7635,7 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
                 stopAttachedBoost(state, "fuelEmpty");
             }
         }
-    } else {
+    } else if (!flightActive) {
         rocket.boostAccelerationNow = 0;
         rocket.boostVisualPowerNow = 0;
     }
@@ -7608,7 +7650,7 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     }
 
     moveAndCollideX(state, p.vx * dt);
-    integratePlayerVerticalMotion(state, dt, wasOnGround, Boolean(input.dropHeld || input.dropPressed));
+    integratePlayerVerticalMotion(state, input, dt, wasOnGround, Boolean(input.dropHeld || input.dropPressed));
     if (playerDeathActive(state)) {
         return state;
     }
@@ -7712,6 +7754,37 @@ function getAttachedBoostAcceleration(state) {
     const initial = t.attachedBoostInitialAcceleration ?? t.attachedBoostAcceleration;
     const sustain = t.attachedBoostSustainAcceleration ?? t.attachedBoostAcceleration;
     return (sustain + (initial - sustain) * shapedBurst) * fuelScale;
+}
+
+function flightPowerUpActive(state) {
+    return Boolean(activePowerUpEffect(state, POWER_UP_EFFECT_IDS.FLIGHT));
+}
+
+function applyFlightGovernor(state, input, dt) {
+    if (!flightPowerUpActive(state)) return;
+
+    const safeDt = Math.max(0.0001, Number(dt) || FIXED_DT);
+    const upIntent = Boolean(input?.jumpHeld || input?.jumpPressed || input?.boostHeld || input?.boostPressed);
+    const downIntent = Boolean(input?.dropHeld || input?.dropPressed);
+    const verticalInput = (downIntent ? 1 : 0) - (upIntent ? 1 : 0);
+    const speed = Math.max(1, Number(state.tuning.flightVerticalSpeed) || DEFAULT_TUNING.flightVerticalSpeed);
+    const acceleration = Math.max(1, Number(state.tuning.flightVerticalAcceleration) || DEFAULT_TUNING.flightVerticalAcceleration);
+    const targetVelocity = verticalInput * speed;
+    const previousVelocity = state.player.vy;
+
+    state.player.vy = approach(state.player.vy, targetVelocity, acceleration * safeDt);
+    state.player.ay = (state.player.vy - previousVelocity) / safeDt;
+    state.player.ordinaryJumpActive = false;
+    state.player.airBoostArmed = false;
+
+    const rocket = state.equipment.rocket;
+    rocket.attachedBoosting = false;
+    rocket.state = "flight";
+    rocket.attachedBoostTime = (Number(rocket.attachedBoostTime) || 0) + safeDt;
+    rocket.boostBurstTimer = 0;
+    rocket.boostAccelerationNow = state.player.ay;
+    rocket.boostVisualPowerNow = verticalInput < -0.001 ? 0.9 : (verticalInput > 0.001 ? 0.24 : 0.48);
+    emitAttachedBoostSmoke(state, safeDt);
 }
 
 function applyAttachedHoverGovernor(state, dt) {
@@ -9979,9 +10052,14 @@ function moveAndCollideX(state, dx) {
     };
 }
 
-function integratePlayerVerticalMotion(state, dt, wasOnGround, doubleGravityHeld = false) {
+function integratePlayerVerticalMotion(state, input, dt, wasOnGround, doubleGravityHeld = false) {
     const p = state.player;
     const t = state.tuning;
+    if (flightPowerUpActive(state)) {
+        applyFlightGovernor(state, input, dt);
+        moveAndCollideY(state, p.vy * dt, wasOnGround);
+        return;
+    }
     const gravity = Math.max(1, Number(t.gravity) || DEFAULT_TUNING.gravity);
     const effectiveGravity = gravity * (doubleGravityHeld ? 2 : 1);
     const initialVy = p.vy;
@@ -11144,7 +11222,9 @@ function updateFuelRecharge(state, dt) {
     const t = state.tuning;
     const rocket = state.equipment.rocket;
     const overdriveActive = Boolean(activePowerUpEffect(state, POWER_UP_EFFECT_IDS.OVERDRIVE));
-    const overdriveRecoveryRate = overdriveActive
+    const flightActive = Boolean(activePowerUpEffect(state, POWER_UP_EFFECT_IDS.FLIGHT));
+    const passiveFuelRecoveryActive = overdriveActive || flightActive;
+    const passiveFuelRecoveryRate = passiveFuelRecoveryActive
         ? Math.max(0, Number(t.attachedBoostDrainRate) || 0) * OVERDRIVE_PASSIVE_FUEL_RECOVERY_DRAIN_FACTOR
         : 0;
 
@@ -11167,8 +11247,8 @@ function updateFuelRecharge(state, dt) {
         }
     }
 
-    const recoveryRate = Math.max(overdriveRecoveryRate, normalRecoveryRate);
-    const cap = overdriveActive
+    const recoveryRate = Math.max(passiveFuelRecoveryRate, normalRecoveryRate);
+    const cap = passiveFuelRecoveryActive
         ? fuel.max
         : clamp(fuel.rechargeCap, 0, fuel.max);
     if (fuel.amount < cap) {

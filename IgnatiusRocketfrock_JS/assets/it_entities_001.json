@@ -574,15 +574,18 @@
       "type": "fuel",
       "label": "Rocket fuel",
       "icon": "\u26fd",
-      "description": "Mid-air rocket-fuel pickup.",
+      "description": "Sixty-second rocket flight power-up.",
       "defaultState": "available",
       "defaultSize": {
         "w": 54,
         "h": 90
       },
       "defaults": {
-        "amount": 40,
-        "radius": 22
+        "effectId": "flight",
+        "durationSeconds": 60,
+        "respawnSeconds": 60,
+        "radius": 22,
+        "worldScale": 2
       },
       "states": {
         "available": {

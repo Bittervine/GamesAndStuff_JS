@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <link rel="icon" href="favicon.ico" sizes="any">
-    <title>Ignatius Rocketfrock: Phase 1 Physics Arena</title>
+    <title>Ignatius Rocketfrock - HTML BUILD 122</title>
     <style>
         :root {
             color-scheme: dark;
@@ -123,8 +123,9 @@
             place-items: center;
             padding: clamp(18px, 4vw, 48px);
             background:
-                radial-gradient(circle at 50% 35%, rgba(201, 167, 255, 0.18), transparent 36rem),
-                rgba(6, 6, 12, 0.94);
+                radial-gradient(circle at 50% 39%, rgba(122, 80, 184, 0.48) 0, rgba(43, 29, 67, 0.38) 28%, rgba(10, 8, 18, 0.96) 64%, #03030a 100%),
+                radial-gradient(circle at 50% 42%, rgba(201, 167, 255, 0.22), transparent 34rem),
+                #03030a;
         }
 
         #title-screen[hidden] {
@@ -132,16 +133,16 @@
         }
 
         #title-content {
-            width: min(94vw, 1120px);
+            width: min(96vw, 1240px);
             display: grid;
             justify-items: center;
-            gap: clamp(14px, 2.2vw, 24px);
+            gap: clamp(10px, 1.5vw, 18px);
         }
 
         #title-card-art {
             display: block;
-            width: min(100%, calc((100vh - 170px) * 1.333));
-            max-height: min(74vh, 780px);
+            width: min(100%, calc((100vh - 145px) * 1.333));
+            max-height: min(76vh, 780px);
             object-fit: contain;
             
             user-select: none;
@@ -149,9 +150,11 @@
         }
 
         #title-actions {
-            display: grid;
-            justify-items: center;
-            gap: 8px;
+            width: min(100%, 1120px);
+            display: flex;
+            align-items: stretch;
+            justify-content: center;
+            gap: clamp(5px, 0.8vw, 10px);
         }
 
         .title-action-row {
@@ -163,7 +166,8 @@
         }
 
         .title-action {
-            min-width: 140px;
+            flex: 1 1 0;
+            min-width: 0;
             min-height: 42px;
             border: 1px solid rgba(225, 209, 255, 0.7);
             border-radius: 10px;
@@ -172,9 +176,10 @@
             background: linear-gradient(180deg, rgba(139, 104, 194, 0.72), rgba(35, 28, 48, 0.94));
 text-align: center;
             text-decoration: none;
-            font-size: 13px;
+            font-size: clamp(9px, 0.95vw, 13px);
             font-weight: 850;
             letter-spacing: 0.04em;
+            line-height: 1.15;
         }
 
         .title-action-small {
@@ -719,9 +724,17 @@ cursor: pointer;
             grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
-        #auto-fullscreen-row,
-        #show-minimap-row {
+        .settings-inline-row {
             grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        #fullscreen-row,
+        #show-minimap-row {
+            grid-column: auto;
+            min-width: 0;
         }
 
         #baking-mode-row {
@@ -897,6 +910,47 @@ font-size: 14px;
             accent-color: var(--menu-accent);
         }
 
+        .title-action-danger {
+            border-color: rgba(221, 130, 169, 0.62);
+            background: linear-gradient(180deg, rgba(126, 61, 92, 0.7), rgba(48, 25, 39, 0.94));
+        }
+
+        .settings-inline-row {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .settings-wide {
+            grid-column: 1 / -1;
+        }
+
+        .save-slot-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .save-slot-card {
+            display: grid;
+            gap: 5px;
+            min-height: 92px;
+            padding: 13px 15px;
+            text-align: left;
+            border-color: rgba(201, 167, 255, 0.4);
+            background: linear-gradient(180deg, rgba(75, 56, 103, 0.5), rgba(29, 23, 40, 0.9));
+        }
+
+        .save-slot-card strong {
+            font-size: 15px;
+        }
+
+        .save-slot-card span,
+        .save-slot-card small {
+            color: var(--menu-muted);
+            line-height: 1.35;
+        }
+
         body.game-menu-open #game-menu-controls,
         body.game-menu-open #meters {
             opacity: 0.45;
@@ -921,9 +975,8 @@ font-size: 14px;
                 grid-template-columns: 1fr;
             }
 
-            #auto-fullscreen-row,
-            #show-minimap-row {
-                grid-column: auto;
+            .settings-inline-row {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
             }
 
             #title-screen {
@@ -931,8 +984,18 @@ font-size: 14px;
             }
 
             #title-card-art {
-                width: min(100%, calc((100vh - 148px) * 1.333));
-                max-height: 68vh;
+                width: min(100%, calc((100vh - 132px) * 1.333));
+                max-height: 72vh;
+            }
+
+            #title-actions {
+                gap: 4px;
+            }
+
+            .title-action {
+                min-height: 38px;
+                padding: 7px 5px;
+                letter-spacing: 0.015em;
             }
         }
     </style>
@@ -953,16 +1016,15 @@ font-size: 14px;
     <section id="title-screen" aria-label="Ignatius Rocketfrock title screen" hidden>
         <div id="title-content">
             <img id="title-card-art" src="assets/title_card.png" alt="Ignatius Rocketfrock">
-            <div id="title-actions">
-                <div class="title-action-row title-action-row-primary">
-                    <button id="title-start-button" class="title-action" type="button">Start</button>
-                    <button id="title-resume-button" class="title-action" type="button">Resume</button>
-                </div>
-                <div class="title-action-row title-action-row-secondary">
-                    <a id="title-manual-link" class="title-action title-action-small title-manual-action" href="GameManual.html">Game manual</a>
-                </div>
+            <div id="title-actions" role="menu" aria-label="Main menu">
+                <button id="title-start-button" class="title-action" type="button" role="menuitem">Start New Game</button>
+                <button id="title-resume-button" class="title-action" type="button" role="menuitem">Resume Game</button>
+                <button id="title-load-button" class="title-action" type="button" role="menuitem">Load Game</button>
+                <button id="title-settings-button" class="title-action" type="button" role="menuitem">Settings</button>
+                <button id="title-exit-desktop-button" class="title-action title-action-danger" type="button" role="menuitem">Exit to Desktop</button>
             </div>
-            <div id="title-start-hint">Press jump, click, tap, or press any key</div>
+            <a id="title-manual-link" class="title-action title-action-small title-manual-action" href="GameManual.html">Game manual</a>
+            <div id="title-start-hint">Choose an adventure, or adjust the machinery first.</div>
         </div>
     </section>
     <div id="tool-links" style="position:fixed; right:14px; bottom:14px; z-index:20; display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; align-items:center; max-width:calc(100vw - 28px);">
@@ -1002,10 +1064,19 @@ font-size: 14px;
 
             <section id="game-menu-main" class="game-menu-view">
                 <div class="game-menu-actions">
+                    <button id="game-menu-resume" class="game-menu-action" type="button">Resume Game</button>
+                    <button id="game-menu-save" class="game-menu-action" type="button">Save Game</button>
+                    <button id="game-menu-load" class="game-menu-action" type="button">Load Game</button>
                     <button id="game-menu-settings" class="game-menu-action" type="button">Settings</button>
-                    <button id="game-menu-restart" class="game-menu-action" type="button">Restart level</button>
-                    <button id="game-menu-exit-title" class="game-menu-action" type="button">Exit to Title</button>
-                    <button id="game-menu-exit-desktop" class="game-menu-action danger" type="button" hidden>Exit to desktop</button>
+                    <button id="game-menu-exit-title" class="game-menu-action danger" type="button">Exit to Title</button>
+                </div>
+            </section>
+
+            <section id="game-save-slots-panel" class="game-menu-view" hidden>
+                <div id="game-save-slots" class="save-slot-list" aria-label="Save slots">
+                    <button class="save-slot-card" type="button" data-save-slot="slot1"></button>
+                    <button class="save-slot-card" type="button" data-save-slot="slot2"></button>
+                    <button class="save-slot-card" type="button" data-save-slot="slot3"></button>
                 </div>
             </section>
 
@@ -1040,62 +1111,39 @@ font-size: 14px;
 
                 <div class="settings-group">
                     <div class="settings-label">
-                        <span>Rendering quality</span>
+                        <span>Effects quality</span>
                         <span id="rendering-quality-value" class="settings-value">Medium</span>
                     </div>
-                    <div id="rendering-quality-buttons" class="settings-choice-grid" aria-label="Rendering quality">
+                    <div id="rendering-quality-buttons" class="settings-choice-grid" aria-label="Effects quality">
                         <button type="button" data-rendering-quality="low" aria-pressed="false">Low</button>
                         <button type="button" data-rendering-quality="medium" aria-pressed="true">Medium</button>
                         <button type="button" data-rendering-quality="high" aria-pressed="false">High</button>
                     </div>
                 </div>
 
-                <label id="auto-fullscreen-row" class="settings-toggle" for="auto-fullscreen">
-                    <span class="settings-toggle-copy">
-                        <span class="settings-toggle-title">Automatically switch to fullscreen</span>
-                    </span>
-                    <input id="auto-fullscreen" type="checkbox" checked>
-                </label>
-
-                <label id="show-minimap-row" class="settings-toggle" for="show-minimap">
-                    <span class="settings-toggle-copy">
-                        <span class="settings-toggle-title">Show minimap</span>
-                    </span>
-                    <input id="show-minimap" type="checkbox" checked>
-                </label>
-
-                <label class="settings-toggle" for="use-hardware-rendering">
-                    <span class="settings-toggle-copy">
-                        <span class="settings-toggle-title">Use hardware rendering</span>
-                        <span id="use-hardware-rendering-status" class="settings-note">Disabled</span>
-                    </span>
-                    <input id="use-hardware-rendering" type="checkbox">
-                </label>
-
-                <label class="settings-toggle" for="development-mode">
-                    <span class="settings-toggle-copy">
-                        <span class="settings-toggle-title">Development mode</span>
-                    </span>
-                    <input id="development-mode" type="checkbox" checked>
-                </label>
-
-                <label class="settings-toggle" for="use-pixmap-pyramids">
-                    <span class="settings-toggle-copy">
-                        <span class="settings-toggle-title">Use pixmap pyramids</span>
-                        <span id="use-pixmap-pyramids-status" class="settings-note">Enabled</span>
-                    </span>
-                    <input id="use-pixmap-pyramids" type="checkbox" checked>
-                </label>
-
-                <div id="baking-mode-row" class="settings-group" hidden>
-                    <label class="settings-label" for="baking-mode-select">
-                        <span>Baking</span>
+                <div class="settings-inline-row">
+                    <label id="fullscreen-row" class="settings-toggle" for="fullscreen-setting">
+                        <span class="settings-toggle-copy"><span class="settings-toggle-title">Fullscreen</span></span>
+                        <input id="fullscreen-setting" type="checkbox" checked>
                     </label>
-                    <select id="baking-mode-select" class="settings-select" aria-label="Static scenery baking mode">
-                        <option value="off">Off</option>
-                        <option value="tiles">Tiles</option>
-                        <option value="full">Full</option>
+                    <label id="show-minimap-row" class="settings-toggle" for="show-minimap">
+                        <span class="settings-toggle-copy"><span class="settings-toggle-title">Minimap</span></span>
+                        <input id="show-minimap" type="checkbox" checked>
+                    </label>
+                </div>
+
+                <div id="rendering-mode-group" class="settings-group settings-wide">
+                    <div class="settings-label">
+                        <span>Rendering mode</span>
+                        <span id="rendering-mode-value" class="settings-value">Hardware regular</span>
+                    </div>
+                    <select id="rendering-mode-select" class="settings-select" aria-label="Rendering mode">
+                        <option value="hardwareRegular">Hardware regular</option>
+                        <option value="hardwareSpeedhack">Hardware + speedhack</option>
+                        <option value="softwareRegular">Software regular</option>
+                        <option value="softwareSpeedhack">Software + speedhack</option>
                     </select>
+                    <div id="rendering-mode-status" class="settings-note">Renderer changes take effect after reloading the game.</div>
                 </div>
             </section>
         </div>
@@ -1132,7 +1180,7 @@ font-size: 14px;
                 <h1>Ignatius Rocketfrock</h1>
             </div>
             <div class="small">
-                Move with <kbd>←</kbd>/<kbd>→</kbd> or <kbd>A</kbd>/<kbd>D</kbd>. Jump with <kbd>↑</kbd>, <kbd>W</kbd>, or <kbd>Z</kbd>. Press jump again for the double-jump kick, then hold to hover-slowfall. Hold <kbd>↓</kbd> or <kbd>S</kbd> to drop through green one-way platforms; yellow geometry always blocks. Operate nearby levers and keyholes with <kbd>↓</kbd>, <kbd>S</kbd>, or <kbd>Enter</kbd>. Mouse/touch: press anywhere in the playfield, drag left/right to run, drag up to jump/boost, swipe or drag down to drop through green platforms, and quick double-tap to launch the homing rocket. Rocket fuel only recharges after landing. <kbd>Space</kbd>, <kbd>X</kbd>, <kbd>K</kbd>, or either <kbd>Ctrl</kbd> key also launches the rocket.
+                Move with <kbd>←</kbd>/<kbd>→</kbd> or <kbd>A</kbd>/<kbd>D</kbd>. Jump with <kbd>↑</kbd>, <kbd>W</kbd>, or <kbd>Z</kbd>. Press jump again for the double-jump kick, then hold to hover-slowfall. Hold <kbd>↓</kbd> or <kbd>S</kbd> to drop through green one-way platforms; yellow geometry always blocks. Operate nearby levers and keyholes with <kbd>↓</kbd>, <kbd>S</kbd>, or <kbd>Enter</kbd>. Mouse/touch: press anywhere in the playfield, drag left/right to run, drag up to jump/boost, swipe or drag down to drop through green platforms, and quick double-tap or right-click to launch the homing rocket. Rocket fuel only recharges after landing. <kbd>Space</kbd>, <kbd>X</kbd>, <kbd>K</kbd>, or either <kbd>Ctrl</kbd> key also launches the rocket.
             </div>
         </div>
         <pre id="debug" class="panel" hidden></pre>

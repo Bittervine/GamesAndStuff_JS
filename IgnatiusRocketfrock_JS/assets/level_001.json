@@ -5,7 +5,7 @@
     "note": "Empty level created in the editor. Add atlas assets and entities, then export as JSON."
   },
   "levelId": "level_001",
-  "title": "Ignatius Rocketfrock and Forrest of Peacefulness",
+  "title": "The Forrest of Peacefulness",
   "world": {
     "bounds": {
       "x": -320,
@@ -6716,7 +6716,8 @@
       },
       "targetRadius": 16,
       "showTargetMarker": false,
-      "notes": "Rocket target and combat-training prop."
+      "notes": "Rocket target and combat-training prop.",
+      "strategy": "passive"
     },
     {
       "id": "thoughtTrigger_003",

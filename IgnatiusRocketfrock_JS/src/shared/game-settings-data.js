@@ -10,31 +10,56 @@ export const GAME_RENDERING_QUALITY_PRESETS = Object.freeze([
     Object.freeze({ id: "high", label: "High", particleScale: 1.5 })
 ]);
 
-export const GAME_BAKING_MODE_PRESETS = Object.freeze([
-    Object.freeze({ id: "off", label: "Off" }),
-    Object.freeze({ id: "tiles", label: "Tiles" }),
-    Object.freeze({ id: "full", label: "Full" })
+export const GAME_RENDERING_MODE_PRESETS = Object.freeze([
+    Object.freeze({
+        id: "hardwareRegular",
+        label: "Hardware regular",
+        detail: "WebGL2",
+        useHardwareRendering: true,
+        usePixmapPyramids: true,
+        bakingMode: "off"
+    }),
+    Object.freeze({
+        id: "hardwareSpeedhack",
+        label: "Hardware + speedhack",
+        detail: "WebGL2 + baked tiles",
+        useHardwareRendering: true,
+        usePixmapPyramids: true,
+        bakingMode: "tiles"
+    }),
+    Object.freeze({
+        id: "softwareRegular",
+        label: "Software regular",
+        detail: "Canvas2D + pixmap pyramids",
+        useHardwareRendering: false,
+        usePixmapPyramids: true,
+        bakingMode: "off"
+    }),
+    Object.freeze({
+        id: "softwareSpeedhack",
+        label: "Software + speedhack",
+        detail: "Canvas2D + baked tiles + pixmap pyramids",
+        useHardwareRendering: false,
+        usePixmapPyramids: true,
+        bakingMode: "tiles"
+    })
 ]);
 
 export const DEFAULT_GAME_SETTINGS = Object.freeze({
-    version: 9,
+    version: 10,
     sfxVolume: 0.8,
     musicVolume: 0.1,
     difficulty: "normal",
     renderingQuality: "medium",
-    autoFullscreen: true,
+    fullscreen: true,
     showMinimap: true,
-    useHardwareRendering: true,
-    developmentMode: true,
-    usePixmapPyramids: true,
-    bakingMode: "off"
+    renderingMode: "hardwareRegular",
+    developmentMode: true
 });
 
 function clamp01(value, fallback) {
     const number = Number(value);
-    if (!Number.isFinite(number)) {
-        return fallback;
-    }
+    if (!Number.isFinite(number)) return fallback;
     return Math.max(0, Math.min(1, number));
 }
 
@@ -44,18 +69,25 @@ function normalizedBoolean(value, fallback) {
 
 function presetId(value, presets, fallback) {
     const candidate = String(value || "").trim().toLowerCase();
-    return presets.some((preset) => preset.id === candidate) ? candidate : fallback;
+    const preset = presets.find((entry) => entry.id.toLowerCase() === candidate);
+    return preset?.id || fallback;
 }
 
-function normalizedBakingMode(source) {
-    const explicit = presetId(source.bakingMode, GAME_BAKING_MODE_PRESETS, "");
-    if (explicit) return explicit;
-    if (typeof source.useBakedLayers === "boolean") return source.useBakedLayers ? "full" : "off";
-    return DEFAULT_GAME_SETTINGS.bakingMode;
+export function gameRenderingModePreset(settingsOrId) {
+    const id = typeof settingsOrId === "string"
+        ? presetId(settingsOrId, GAME_RENDERING_MODE_PRESETS, DEFAULT_GAME_SETTINGS.renderingMode)
+        : normalizeGameSettings(settingsOrId).renderingMode;
+    return GAME_RENDERING_MODE_PRESETS.find((preset) => preset.id === id) || GAME_RENDERING_MODE_PRESETS[0];
 }
 
 export function normalizeGameSettings(value = {}) {
     const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+    const renderingMode = presetId(
+        source.renderingMode,
+        GAME_RENDERING_MODE_PRESETS,
+        DEFAULT_GAME_SETTINGS.renderingMode
+    );
+    const mode = GAME_RENDERING_MODE_PRESETS.find((preset) => preset.id === renderingMode) || GAME_RENDERING_MODE_PRESETS[0];
     return {
         version: DEFAULT_GAME_SETTINGS.version,
         sfxVolume: clamp01(source.sfxVolume, DEFAULT_GAME_SETTINGS.sfxVolume),
@@ -66,12 +98,13 @@ export function normalizeGameSettings(value = {}) {
             GAME_RENDERING_QUALITY_PRESETS,
             DEFAULT_GAME_SETTINGS.renderingQuality
         ),
-        autoFullscreen: normalizedBoolean(source.autoFullscreen, DEFAULT_GAME_SETTINGS.autoFullscreen),
+        fullscreen: normalizedBoolean(source.fullscreen, DEFAULT_GAME_SETTINGS.fullscreen),
         showMinimap: normalizedBoolean(source.showMinimap, DEFAULT_GAME_SETTINGS.showMinimap),
-        useHardwareRendering: normalizedBoolean(source.useHardwareRendering, DEFAULT_GAME_SETTINGS.useHardwareRendering),
+        renderingMode,
         developmentMode: normalizedBoolean(source.developmentMode, DEFAULT_GAME_SETTINGS.developmentMode),
-        usePixmapPyramids: normalizedBoolean(source.usePixmapPyramids, DEFAULT_GAME_SETTINGS.usePixmapPyramids),
-        bakingMode: normalizedBakingMode(source)
+        useHardwareRendering: mode.useHardwareRendering,
+        usePixmapPyramids: mode.usePixmapPyramids,
+        bakingMode: mode.bakingMode
     };
 }
 
@@ -87,13 +120,6 @@ export function gameRenderingQualityPreset(settingsOrId) {
         ? settingsOrId
         : normalizeGameSettings(settingsOrId).renderingQuality;
     return GAME_RENDERING_QUALITY_PRESETS.find((preset) => preset.id === id) || GAME_RENDERING_QUALITY_PRESETS[1];
-}
-
-export function gameBakingModePreset(settingsOrId) {
-    const id = typeof settingsOrId === "string"
-        ? presetId(settingsOrId, GAME_BAKING_MODE_PRESETS, DEFAULT_GAME_SETTINGS.bakingMode)
-        : normalizeGameSettings(settingsOrId).bakingMode;
-    return GAME_BAKING_MODE_PRESETS.find((preset) => preset.id === id) || GAME_BAKING_MODE_PRESETS[0];
 }
 
 export function difficultyDamageScale(settingsOrId) {

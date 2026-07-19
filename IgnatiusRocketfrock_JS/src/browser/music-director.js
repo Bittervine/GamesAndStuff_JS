@@ -11,6 +11,32 @@ function defaultAudioElementFactory() {
     return new globalThis.Audio();
 }
 
+function defaultNow() {
+    if (typeof globalThis.performance?.now === "function") {
+        return globalThis.performance.now();
+    }
+    return Date.now();
+}
+
+function defaultScheduleFrame(callback) {
+    if (typeof globalThis.requestAnimationFrame === "function") {
+        return { kind: "animation", id: globalThis.requestAnimationFrame(callback) };
+    }
+    return {
+        kind: "timeout",
+        id: globalThis.setTimeout?.(() => callback(defaultNow()), 16)
+    };
+}
+
+function defaultCancelFrame(handle) {
+    if (!handle) return;
+    if (handle.kind === "animation" && typeof globalThis.cancelAnimationFrame === "function") {
+        globalThis.cancelAnimationFrame(handle.id);
+    } else if (handle.kind === "timeout" && typeof globalThis.clearTimeout === "function") {
+        globalThis.clearTimeout(handle.id);
+    }
+}
+
 function trackSourceUrl(track, baseUrl) {
     if (!track || track.id === NO_MUSIC_TRACK.id || !track.file) return "";
     if (/^(?:https?:|data:|blob:|\/)/i.test(track.file)) return track.file;
@@ -21,7 +47,11 @@ function trackSourceUrl(track, baseUrl) {
 export function createMusicDirector({
     volume = 0.1,
     audioElementFactory = defaultAudioElementFactory,
-    baseUrl = "assets/"
+    baseUrl = "assets/",
+    fadeDurationMs = 1000,
+    now = defaultNow,
+    scheduleFrame = defaultScheduleFrame,
+    cancelFrame = defaultCancelFrame
 } = {}) {
     const audio = typeof audioElementFactory === "function" ? audioElementFactory() : null;
     let catalog = normalizeMusicCatalog(null);
@@ -33,6 +63,10 @@ export function createMusicDirector({
     let disposed = false;
     let configuredSrc = "";
     let startAttempt = null;
+    let fadeGain = 1;
+    let fadeGeneration = 0;
+    let fadeFrameHandle = null;
+    let fadeTransition = null;
 
     if (audio) {
         audio.loop = true;
@@ -44,13 +78,32 @@ export function createMusicDirector({
         return getMusicTrack(trackId, catalog);
     }
 
+    function activeSourceUrl() {
+        return trackSourceUrl(activeTrack(), baseUrl);
+    }
+
     function setAudioVolume() {
         if (audio) {
-            audio.volume = muted ? 0 : currentVolume;
+            audio.volume = muted ? 0 : clamp01(currentVolume * fadeGain);
         }
     }
 
-    function stopAudio({ clearSource = false } = {}) {
+    function cancelFadeTransition({ restoreVolume = true } = {}) {
+        fadeGeneration += 1;
+        if (fadeFrameHandle) {
+            cancelFrame(fadeFrameHandle);
+            fadeFrameHandle = null;
+        }
+        const transition = fadeTransition;
+        fadeTransition = null;
+        if (restoreVolume) {
+            fadeGain = 1;
+            setAudioVolume();
+        }
+        transition?.resolve?.(false);
+    }
+
+    function resetAudioPlayback({ clearSource = false } = {}) {
         audio?.pause?.();
         try {
             if (audio && Number.isFinite(Number(audio.currentTime))) {
@@ -72,20 +125,25 @@ export function createMusicDirector({
         startAttempt = null;
     }
 
+    function stopAudio({ clearSource = false } = {}) {
+        cancelFadeTransition();
+        resetAudioPlayback({ clearSource });
+    }
+
     function configureActiveTrack() {
         if (!audio || disposed) return false;
-        const track = activeTrack();
-        const nextSrc = trackSourceUrl(track, baseUrl);
+        const nextSrc = activeSourceUrl();
         if (!nextSrc) {
-            stopAudio({ clearSource: true });
+            resetAudioPlayback({ clearSource: true });
             return false;
         }
         if (configuredSrc === nextSrc) return true;
-        stopAudio();
+        resetAudioPlayback();
         configuredSrc = nextSrc;
         audio.src = nextSrc;
         audio.loop = true;
         audio.preload = "auto";
+        fadeGain = 1;
         setAudioVolume();
         audio.load?.();
         return true;
@@ -94,14 +152,17 @@ export function createMusicDirector({
     function startActiveTrack() {
         if (disposed) return Promise.resolve(false);
         unlockRequested = true;
+        if (fadeTransition) {
+            return fadeTransition.promise;
+        }
         const track = activeTrack();
         if (!audio || muted || currentVolume <= 0 || track.id === NO_MUSIC_TRACK.id) {
             return Promise.resolve(false);
         }
-        if (unlocked && configuredSrc === trackSourceUrl(track, baseUrl) && audio.paused === false) {
+        const expectedSrc = activeSourceUrl();
+        if (unlocked && configuredSrc === expectedSrc && audio.paused === false) {
             return Promise.resolve(true);
         }
-        const expectedSrc = trackSourceUrl(track, baseUrl);
         if (startAttempt?.src === expectedSrc) {
             return startAttempt.promise;
         }
@@ -112,6 +173,7 @@ export function createMusicDirector({
         attempt.promise = (async () => {
             if (!configureActiveTrack()) return false;
             if (disposed || muted || currentVolume <= 0 || configuredSrc !== expectedSrc) return false;
+            fadeGain = 1;
             setAudioVolume();
             try {
                 await audio.play?.();
@@ -128,6 +190,55 @@ export function createMusicDirector({
         });
         startAttempt = attempt;
         return attempt.promise;
+    }
+
+    function beginFadeToActiveTrack() {
+        if (!audio || disposed) return Promise.resolve(false);
+        if (fadeTransition) return fadeTransition.promise;
+
+        const duration = Math.max(0, Number(fadeDurationMs) || 0);
+        if (duration <= 0 || audio.paused !== false || muted || currentVolume <= 0) {
+            resetAudioPlayback({ clearSource: !activeSourceUrl() });
+            return startActiveTrack();
+        }
+
+        const generation = ++fadeGeneration;
+        const startedAt = Number(now()) || 0;
+        const startingGain = fadeGain;
+        let resolveTransition;
+        const promise = new Promise((resolve) => {
+            resolveTransition = resolve;
+        });
+        fadeTransition = { generation, promise, resolve: resolveTransition };
+
+        const finish = async () => {
+            if (!fadeTransition || fadeTransition.generation !== generation || disposed) return;
+            fadeFrameHandle = null;
+            fadeTransition = null;
+            fadeGain = 0;
+            setAudioVolume();
+            resetAudioPlayback({ clearSource: !activeSourceUrl() });
+            fadeGain = 1;
+            setAudioVolume();
+            const started = activeSourceUrl() ? await startActiveTrack() : false;
+            resolveTransition(started);
+        };
+
+        const step = (timestamp) => {
+            if (!fadeTransition || fadeTransition.generation !== generation || disposed) return;
+            const currentTime = Number.isFinite(Number(timestamp)) ? Number(timestamp) : Number(now()) || startedAt;
+            const progress = clamp01((currentTime - startedAt) / duration);
+            fadeGain = startingGain * (1 - progress);
+            setAudioVolume();
+            if (progress >= 1) {
+                void finish();
+                return;
+            }
+            fadeFrameHandle = scheduleFrame(step);
+        };
+
+        step(startedAt);
+        return promise;
     }
 
     function setCatalog(nextCatalog) {
@@ -149,10 +260,31 @@ export function createMusicDirector({
     function setTrack(nextTrackId) {
         const track = getMusicTrack(normalizeLevelMusic({ trackId: nextTrackId }).trackId, catalog);
         if (track.id === trackId) return trackId;
+
         trackId = track.id;
-        stopAudio({ clearSource: track.id === NO_MUSIC_TRACK.id });
-        if (unlockRequested && !muted && currentVolume > 0 && track.id !== NO_MUSIC_TRACK.id) {
-            void startActiveTrack();
+        const nextSrc = activeSourceUrl();
+
+        // Different catalog ids can still point at the same song. Keep the
+        // current playback position in that case instead of restarting it.
+        if (audio && configuredSrc && configuredSrc === nextSrc && audio.paused === false) {
+            cancelFadeTransition();
+            unlocked = true;
+            return trackId;
+        }
+
+        if (fadeTransition) {
+            // The fade always resolves to the latest requested track. This
+            // prevents rapid level changes from stacking timers or songs.
+            return trackId;
+        }
+
+        if (audio && configuredSrc && audio.paused === false && !muted && currentVolume > 0) {
+            void beginFadeToActiveTrack();
+        } else {
+            resetAudioPlayback({ clearSource: !nextSrc });
+            if (unlockRequested && !muted && currentVolume > 0 && track.id !== NO_MUSIC_TRACK.id) {
+                void startActiveTrack();
+            }
         }
         return trackId;
     }
@@ -175,6 +307,7 @@ export function createMusicDirector({
         muted = normalized;
         setAudioVolume();
         if (muted) {
+            cancelFadeTransition();
             audio?.pause?.();
             unlocked = false;
         } else if (unlockRequested && currentVolume > 0 && activeTrack().id !== NO_MUSIC_TRACK.id) {

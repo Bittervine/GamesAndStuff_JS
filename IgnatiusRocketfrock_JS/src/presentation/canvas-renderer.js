@@ -5045,7 +5045,8 @@ class RocketfrockRenderer {
         const pickupDisc = this.getWebGLParticleSpriteCanvas("pickupDisc");
         for (const pickup of state.pickups || []) {
             if (pickup.collected || pickup.visualized) continue;
-            const pickupExtent = Math.max(1, Number(pickup.radius) || 1);
+            const pickupScale = pickup.kind === "powerUp" ? Math.max(0.1, Number(pickup.powerUp?.worldScale) || 1) : 1;
+            const pickupExtent = Math.max(1, Number(pickup.radius) || 1) * pickupScale;
             const centerY = Number.isFinite(Number(pickup.centerY)) ? Number(pickup.centerY) : Number(pickup.y) || 0;
             if (!this.dynamicBoundsVisible({
                 minX: pickup.x - pickupExtent,
@@ -5058,7 +5059,7 @@ class RocketfrockRenderer {
             const radius = Math.max(1, Number(pickup.radius) || 1) * view.zoom;
             let drew = false;
             if (pickup.kind === "powerUp" && pickup.powerUp) {
-                drew = this.drawPowerUpCompositeWebGL(pickup.powerUp, point.x, point.y, Math.max(44 * view.zoom, radius * 2.25), state.clock.time);
+                drew = this.drawPowerUpCompositeWebGL(pickup.powerUp, point.x, point.y, Math.max(44 * view.zoom, radius * 2.25) * pickupScale, state.clock.time);
             } else if (pickupDisc) {
                 drew = backend.queueSprite({
                     source: pickupDisc,
@@ -5269,7 +5270,8 @@ class RocketfrockRenderer {
         const ctx = this.ctx;
         for (const pickup of state.pickups) {
             if (pickup.collected || pickup.visualized) continue;
-            const pickupExtent = Math.max(1, Number(pickup.radius) || 1);
+            const pickupScale = pickup.kind === "powerUp" ? Math.max(0.1, Number(pickup.powerUp?.worldScale) || 1) : 1;
+            const pickupExtent = Math.max(1, Number(pickup.radius) || 1) * pickupScale;
             const centerY = Number.isFinite(Number(pickup.centerY)) ? Number(pickup.centerY) : Number(pickup.y) || 0;
             if (!this.dynamicBoundsVisible({
                 minX: pickup.x - pickupExtent,
@@ -5283,7 +5285,7 @@ class RocketfrockRenderer {
             const p = this.worldToScreen(view, pickup.x, centerY + bob);
             const r = pickup.radius * view.zoom;
             if (pickup.kind === "powerUp" && pickup.powerUp) {
-                this.drawPowerUpComposite(pickup.powerUp, p.x, p.y, Math.max(44 * view.zoom, r * 2.25), state.clock.time);
+                this.drawPowerUpComposite(pickup.powerUp, p.x, p.y, Math.max(44 * view.zoom, r * 2.25) * pickupScale, state.clock.time);
             } else {
                 ctx.save();
                 ctx.globalAlpha = 0.82 + 0.18 * Math.sin(state.clock.time * 5 + pickup.x);
@@ -7612,20 +7614,22 @@ class RocketfrockRenderer {
         const mid = tuning.rocketFuelBulbMediumThreshold ?? 60;
         const scale = tuning.rocketFuelBulbScale ?? 1;
         const radius = Math.max(5, Math.min(asset.width, asset.height) * 0.055 * scale) * spriteScale;
-        const overdriveRecovering = Boolean(
-            activePowerUpEffect(state, POWER_UP_EFFECT_IDS.OVERDRIVE) && fuel.amount < fuel.max
+        const passivePowerUpRecovering = Boolean(
+            (activePowerUpEffect(state, POWER_UP_EFFECT_IDS.OVERDRIVE)
+                || activePowerUpEffect(state, POWER_UP_EFFECT_IDS.FLIGHT))
+            && fuel.amount < fuel.max
         );
         const canRechargeNow = tuning.fuelRechargeRequiresGround === false || state.player.onGround || fuel.rechargeLatched === true;
         const recharging = Boolean(
             tuning.rocketFuelBulbPulseWhenRecharging !== false &&
-            (overdriveRecovering || (
+            (passivePowerUpRecovering || (
                 !rocket.attachedBoosting &&
                 canRechargeNow &&
                 (fuel.rechargeDelayTimer ?? 0) <= 0 &&
                 fuel.amount < Math.min(fuel.rechargeCap ?? fuel.max, fuel.max)
             ))
         );
-        const unavailable = !overdriveRecovering && (
+        const unavailable = !passivePowerUpRecovering && (
             (tuning.fuelRechargeRequiresGround !== false && !state.player.onGround && fuel.rechargeLatched !== true) ||
             (fuel.rechargeDelayTimer ?? 0) > 0
         );
@@ -7927,8 +7931,9 @@ class RocketfrockRenderer {
         const anchors = cfg.anchors;
         const rocket = state.equipment.rocket;
         const kickWindow = Math.max(0.16, Math.min(0.34, (state.tuning.attachedBoostBurstDuration ?? 0.5) * 0.55));
-        const boostKickPose = rocket.attachedBoosting && rocket.attachedBoostTime <= kickWindow;
-        const poseMode = rocket.attachedBoosting && !boostKickPose ? "hover" : "jump";
+        const flightActive = Boolean(activePowerUpEffect(state, POWER_UP_EFFECT_IDS.FLIGHT));
+        const boostKickPose = !flightActive && rocket.attachedBoosting && rocket.attachedBoostTime <= kickWindow;
+        const poseMode = flightActive || (rocket.attachedBoosting && !boostKickPose) ? "hover" : "jump";
         let torsoAngle;
         if (poseMode === "hover") {
             torsoAngle = 0.015 + Math.sin(state.clock.time * 5.5) * 0.012;
@@ -7947,7 +7952,7 @@ class RocketfrockRenderer {
         const neck = add(root, scaledRotatedAnchor(anchors.neck, scale, torsoAngle));
         const rocketMount = add(root, scaledRotatedAnchor(anchors.rocketMount, scale, torsoAngle));
         const hatBase = add(neck, scaledRotatedAnchor(anchors.hatFromHead, scale, headAngle));
-        const rocketBob = rocket.attachedBoosting ? Math.sin(state.clock.time * 38) * 2.8 * scale : 0;
+        const rocketBob = (rocket.attachedBoosting || flightActive) ? Math.sin(state.clock.time * 38) * 2.8 * scale : 0;
         const rocketBobPoint = { x: rocketMount.x, y: rocketMount.y + rocketBob };
 
         return {
@@ -8419,15 +8424,16 @@ function drawRocketFuelBulbLocal(ctx, asset, pivot, state, time) {
     const bulbX = (0.46 - pivot.x) * asset.width;
     const bulbY = (0.47 - pivot.y) * asset.height;
     const radius = Math.max(5, Math.min(asset.width, asset.height) * 0.055 * scale);
-    const overdriveRecovering = Boolean(
-        activePowerUpEffect(state, POWER_UP_EFFECT_IDS.OVERDRIVE) &&
+    const passivePowerUpRecovering = Boolean(
+        (activePowerUpEffect(state, POWER_UP_EFFECT_IDS.OVERDRIVE)
+            || activePowerUpEffect(state, POWER_UP_EFFECT_IDS.FLIGHT)) &&
         fuel.amount < fuel.max
     );
     const canRechargeNow = tuning.fuelRechargeRequiresGround === false || state.player.onGround || fuel.rechargeLatched === true;
     const recharging = Boolean(
         tuning.rocketFuelBulbPulseWhenRecharging !== false &&
         (
-            overdriveRecovering ||
+            passivePowerUpRecovering ||
             (
                 !rocket.attachedBoosting &&
                 canRechargeNow &&
@@ -8436,7 +8442,7 @@ function drawRocketFuelBulbLocal(ctx, asset, pivot, state, time) {
             )
         )
     );
-    const unavailable = !overdriveRecovering && (
+    const unavailable = !passivePowerUpRecovering && (
         (tuning.fuelRechargeRequiresGround !== false && !state.player.onGround && fuel.rechargeLatched !== true) ||
         (fuel.rechargeDelayTimer ?? 0) > 0
     );

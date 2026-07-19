@@ -4305,3 +4305,8 @@ Revision 530 contains no gameplay or data changes. It synchronizes the active pa
 ## Revision 531 Character Editor loop preview sampling
 
 Revision 531 keeps `sampleAnimationClipAtPlayhead()` terminal-key inspection available by default, but adds an explicit loop-aware sampling option for editor preview playback. The Character Editor now passes its loop toggle into that sampler so looping clips interpolate from their last authored key back to the first key while scrubbing or playing near the clip end.
+
+
+## Revision 532 rocket-fuel Flight mode
+
+Revision 532 changes the old instant rocket-fuel refill into a sixty-second `flight` power-up. Flight holds Ignatius at a steady altitude with no vertical input, eases toward governed climb/descent speeds while Up or Down is held, uses running-style horizontal acceleration and braking, and does not consume fuel for movement. It shares Overdrive's passive fuel recovery rate, but projectile launches retain full fuel cost. The Power HUD ranks Flight immediately below wrench effects. Level 002 now demonstrates the pickup on its high upper ledge, and the entity catalog authors future fuel placements with the same effect.

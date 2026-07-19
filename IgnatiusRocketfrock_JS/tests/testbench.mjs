@@ -78,11 +78,11 @@ import { calculateHudPanelScale } from "../src/browser/hud-panel-layout.js";
 import { GamepadHaptics, GAMEPAD_HAPTIC_PATTERNS } from "../src/browser/gamepad-haptics.js";
 import {
     DEFAULT_GAME_SETTINGS,
-    GAME_BAKING_MODE_PRESETS,
     GAME_DIFFICULTY_PRESETS,
+    GAME_RENDERING_MODE_PRESETS,
     GAME_RENDERING_QUALITY_PRESETS,
     difficultyDamageScale,
-    gameBakingModePreset,
+    gameRenderingModePreset,
     normalizeGameSettings,
     renderingParticleScale
 } from "../src/shared/game-settings-data.js";
@@ -91,6 +91,21 @@ import {
     loadStoredGameSettings,
     saveStoredGameSettings
 } from "../src/browser/game-settings-store.js";
+import {
+    AUTOSAVE_SLOT_ID,
+    MANUAL_SAVE_SLOT_IDS,
+    SAVE_GAME_SCHEMA,
+    createSaveGameRecord,
+    normalizeSaveGameRecord
+} from "../src/shared/save-game-data.js";
+import {
+    SAVE_GAME_STORAGE_PREFIX,
+    clearStoredSaveGame,
+    loadManualSaveGames,
+    loadStoredAutosave,
+    loadStoredSaveGame,
+    saveStoredSaveGame
+} from "../src/browser/save-game-store.js";
 import {
     DEFAULT_LEVEL_MUSIC,
     getMusicTrack,
@@ -4327,6 +4342,95 @@ function testPlayerCanDropThroughOneWayPlatforms() {
     const postSwipeFrame = input.sample();
     assert.equal(postSwipeFrame.dropHeld, false, "the completed swipe pulse should last for only one sampled frame");
     assert.equal(postSwipeFrame.dropReleased, true, "the completed swipe pulse should produce a clean release edge");
+
+    const rightClickInput = new RocketfrockInput({ addEventListener() {} });
+    let prevented = false;
+    rightClickInput.onMouseDown({
+        type: "mousedown",
+        button: 2,
+        clientX: 120,
+        clientY: 90,
+        target: { closest() { return null; } },
+        preventDefault() { prevented = true; }
+    });
+    const rightClickFrame = rightClickInput.sample();
+    assert.equal(prevented, true, "right-click weapon input should suppress the browser context menu");
+    assert.equal(rightClickFrame.weaponPressed, true, "one right click should launch the rocket without requiring a double-click");
+    assert.equal(rightClickInput.sample().weaponPressed, false, "right-click weapon input should be a one-frame press pulse");
+
+    const independentButtonsInput = new RocketfrockInput({ addEventListener() {} });
+    independentButtonsInput.onMouseDown({
+        type: "mousedown",
+        button: 0,
+        clientX: 100,
+        clientY: 100,
+        target: { closest() { return null; } },
+        preventDefault() {}
+    });
+    independentButtonsInput.onMouseMove({ clientX: 170, clientY: 100, preventDefault() {} });
+    independentButtonsInput.onMouseDown({
+        type: "mousedown",
+        button: 2,
+        clientX: 170,
+        clientY: 100,
+        target: { closest() { return null; } },
+        preventDefault() {}
+    });
+    const independentButtonsFrame = independentButtonsInput.sample();
+    assert.ok(independentButtonsFrame.moveAxis > 0.35, "holding the left mouse button and dragging should continue to steer right");
+    assert.equal(independentButtonsFrame.weaponPressed, true, "right click should fire independently while the left mouse button remains held");
+
+    const listeners = new Map();
+    const pointerTarget = {
+        addEventListener(type, listener) {
+            if (!listeners.has(type)) listeners.set(type, []);
+            listeners.get(type).push(listener);
+        }
+    };
+    const originalPointerEvent = globalThis.window?.PointerEvent;
+    if (!globalThis.window) globalThis.window = {};
+    globalThis.window.PointerEvent = class PointerEvent {};
+    try {
+        const pointerButtonsInput = new RocketfrockInput(pointerTarget);
+        const dispatch = (type, event) => {
+            for (const listener of listeners.get(type) || []) listener(event);
+        };
+        dispatch("pointerdown", {
+            type: "pointerdown",
+            pointerType: "mouse",
+            pointerId: 1,
+            button: 0,
+            clientX: 100,
+            clientY: 100,
+            target: { closest() { return null; }, setPointerCapture() {} },
+            preventDefault() {}
+        });
+        dispatch("pointermove", {
+            type: "pointermove",
+            pointerType: "mouse",
+            pointerId: 1,
+            clientX: 170,
+            clientY: 100,
+            preventDefault() {}
+        });
+        dispatch("pointermove", {
+            type: "pointermove",
+            pointerType: "mouse",
+            pointerId: 1,
+            button: 2,
+            buttons: 3,
+            clientX: 170,
+            clientY: 100,
+            target: { closest() { return null; } },
+            preventDefault() {}
+        });
+        const pointerButtonsFrame = pointerButtonsInput.sample();
+        assert.ok(pointerButtonsFrame.moveAxis > 0.35, "Pointer Events should preserve left-button steering while right is pressed");
+        assert.equal(pointerButtonsFrame.weaponPressed, true, "the additional right-button transition reported as pointermove should fire while left remains held");
+    } finally {
+        if (originalPointerEvent === undefined) delete globalThis.window.PointerEvent;
+        else globalThis.window.PointerEvent = originalPointerEvent;
+    }
 }
 
 
@@ -4736,6 +4840,18 @@ function testPassiveEnemyStaysPassiveWhenDamaged() {
     assert.equal(enemy.engaged, false, "passive dummy should not become engaged when damaged");
     assert.equal(target.state, "active", "damaged passive dummy should remain a valid homing target while alive");
     assert.ok(enemy.hitFlashTimer > 0, "passive dummy should still show the hit flash");
+
+    const startX = enemy.currentTransform.x;
+    const startY = enemy.currentTransform.y;
+    for (let tick = 0; tick < 120; tick += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+    }
+    approx(enemy.currentTransform.x, startX, 0.000001, "Passive strategy should remain horizontally stationary after damage");
+    approx(enemy.currentTransform.y, startY, 0.000001, "Passive strategy should remain vertically stationary after damage");
+    assert.equal(enemy.alerted, false, "Passive strategy should stay unalerted after damage");
+    assert.equal(enemy.engaged, false, "Passive strategy should stay disengaged after damage");
+    assert.equal(enemy.attackTimer, 0, "Passive strategy should never begin an attack after damage");
+    assert.equal(enemy.movementPhase, "idle", "Passive strategy should remain in its idle movement phase");
 }
 
 function testAirborneEnemyDefersDeathUntilLanding() {
@@ -9453,15 +9569,22 @@ function testRocketPowerUpArsenal() {
     );
     assert.ok(gameHtml.includes('id="toggle-micro-profiler"') && gameHtml.includes('Profiler: off'), "the lower-right game tool strip should expose a manual profiler toggle that starts off");
     assert.doesNotMatch(gameHtml, /id="toggle-static-bake-renderer"/, "the experimental Bake toggle should no longer live in the lower-right game tool strip");
-    assert.ok(gameHtml.includes('id="baking-mode-row"') && gameHtml.includes('id="baking-mode-select"') && gameHtml.includes('<option value="off">Off</option>') && gameHtml.includes('<option value="tiles">Tiles</option>') && gameHtml.includes('<option value="full">Full</option>'), "settings should expose Off, Tiles, and Full in one baking dropdown instead of a game-screen button");
     assert.ok(
-        /for="use-hardware-rendering"[\s\S]*Use hardware rendering[\s\S]*id="use-hardware-rendering-status"/.test(gameHtml)
-            && /for="use-pixmap-pyramids"[\s\S]*Use pixmap pyramids[\s\S]*id="use-pixmap-pyramids-status"/.test(gameHtml)
-            && bootstrapSource.includes('return requested ? "Reload to enable" : "Reload to disable";')
-            && !/id="baking-mode-row"[\s\S]*settings-note/.test(gameHtml),
-        "only startup-latched settings should expose active and pending reload status"
+        gameHtml.includes('id="rendering-mode-group"')
+            && gameHtml.includes('id="rendering-mode-select"')
+            && gameHtml.includes('value="hardwareRegular"')
+            && gameHtml.includes('value="hardwareSpeedhack"')
+            && gameHtml.includes('value="softwareRegular"')
+            && gameHtml.includes('value="softwareSpeedhack"'),
+        "settings should consolidate browser rendering into the four supported user-facing modes"
     );
-    assert.ok(bootstrapSource.includes("ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER") && bootstrapSource.includes("staticBakeRendererAvailable") && bootstrapSource.includes("syncStaticBakeRendererSetting") && bootstrapSource.includes("setStaticLayerBakeMode"), "the game bootstrap should gate the three-way baking setting behind the shared experimental flag");
+    assert.ok(
+        gameHtml.includes("Hardware + speedhack")
+            && gameHtml.includes("Software + speedhack")
+            && bootstrapSource.includes("activeRenderingModeId")
+            && bootstrapSource.includes("syncGameSettingsUi"),
+        "the consolidated renderer selector should retain the agreed labels and startup-latched application path"
+    );
     assert.ok(rendererSource.includes("supportsExperimentalStaticLayerBakeRenderer") && rendererSource.includes("STATIC_LAYER_BAKE_DISABLED_STATUS") && rendererSource.includes("renderWebGL2StaticTiles") && rendererSource.includes("surface.canvas.width = 1"), "the renderer should expose full and rolling-tile bake boundaries and aggressively release discarded full-bake canvases");
     const tileWorkerSource = readFileSync(new URL("../src/presentation/static-tile-bake-worker.js", import.meta.url), "utf8");
     assert.ok(tileWorkerSource.includes("new OffscreenCanvas") && tileWorkerSource.includes("transferToImageBitmap") && tileWorkerSource.includes('message.type === "reset"'), "tile baking should rasterize off-thread, transfer one result, and release worker source caches on reset");
@@ -9473,15 +9596,15 @@ function testRocketPowerUpArsenal() {
         rendererSource.indexOf("updateStaticTileBakeDiagnostics")
     );
     assert.ok(!tileQueueSource.includes("mirrorY: true"), "atlas-backed tile sprites should no longer mirror clipped source rectangles at draw time");
-    assert.ok(bootstrapSource.includes('"#tool-links"'), "title-screen pointer handling should ignore lower-right tool buttons instead of treating them as Start gestures");
+    assert.ok(bootstrapSource.includes("titleStartButton") && bootstrapSource.includes("startNewGameFromTitle"), "the title screen should use explicit menu actions instead of treating arbitrary pointer input as Start");
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const characterEditorSource = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
-    assert.match(editorSource, /Level Editor <small>rev 530<\/small>/, "the Level Editor should display the packaged revision");
-    assert.match(characterEditorSource, /Puppet Forge <small>rev 530<\/small>/, "Puppet Forge should display the packaged revision");
+    assert.doesNotMatch(editorSource, /<small>rev \d+<\/small>/, "the Level Editor should not display a separate web revision");
+    assert.doesNotMatch(characterEditorSource, /<small>rev \d+<\/small>/, "Puppet Forge should not display a separate web revision");
     const assetEditorSource = readFileSync(new URL("../asset-editor.html", import.meta.url), "utf8");
-    assert.match(assetEditorSource, /Asset Tool <small>rev 530<\/small>/, "Asset Tool should display the packaged revision");
+    assert.doesNotMatch(assetEditorSource, /<small>rev \d+<\/small>/, "Asset Tool should not display a separate web revision");
     assert.match(assetEditorSource, /id="atlas-numbered-select"[\s\S]*id="load-numbered-atlas"[\s\S]*id="load-local"[\s\S]*id="save-local"[\s\S]*id="quick-save-json"/, "Asset Tool should keep atlas loading and save/export controls together in the Files panel");
     assert.ok(!assetEditorSource.includes("Custom atlas image") && !assetEditorSource.includes("Custom JSON"), "Asset Tool should retire the visible custom import pickers from the primary Files panel");
     assert.doesNotMatch(assetEditorSource, /load-default-image|load-default-json/, "Asset Tool should retire the hard-coded at_atlas_001 load buttons");
@@ -9514,7 +9637,7 @@ function testRocketPowerUpArsenal() {
     assert.equal(editorSource.includes('id="canvas-renderer-baseline"'), false, "the Level Editor should no longer advertise the posterity-only Canvas baseline");
     assert.equal(editorSource.includes("openCanvasRendererBaseline"), false, "the removed baseline link should leave no dormant click handler");
     assert.equal(editorSource.includes("Editor 2 lab"), false, "the Level Editor should not link to the removed Editor 2 lab");
-    assert.ok(baselineHtml.includes("Canvas game-renderer baseline · rev 530") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should identify the packaged revision and load its dedicated tool module");
+    assert.ok(baselineHtml.includes("Canvas game-renderer baseline") && !baselineHtml.includes("· rev ") && baselineHtml.includes('src="src/tools/level-renderer-baseline.js"'), "the retained baseline page should omit a separate web revision and load its dedicated tool module");
     assert.ok(baselineSource.includes("applyEditorLevelToWorld") && baselineSource.includes("preferWebGL2: false") && baselineSource.includes("setViewOverride"), "the retained baseline should still convert the authored level and use the ordinary Canvas2D game renderer with an editor camera override");
     assert.ok(editorPlaywrightBenchmark.includes("benchmark_baseline") && editorPlaywrightBenchmark.includes("benchmark_editor") && editorPlaywrightBenchmark.includes("editorToBaselineCadenceRatio"), "the optional Playwright probe should compare the loaded baseline and editor rather than source-only timings");
     assert.ok(editorPlaywrightBenchmark.includes("bodyScrollWidth") && editorPlaywrightBenchmark.includes("stageBacking") && editorPlaywrightBenchmark.includes("overlayBacking"), "the Playwright probe should detect viewport overflow and stage/overlay size divergence");
@@ -9524,7 +9647,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(rendererSource.includes("backingPixelsPerCssPixel") && rendererSource.includes("override.cssZoom * backingPixelsPerCssPixel") && editorSource.includes("cssZoom: state.camera.zoom"), "editor and runtime artwork should share one CSS-pixel camera scale so guide alignment does not drift across the viewport");
     assert.ok(rendererSource.includes("this.ctx.setTransform(1, 0, 0, 1, 0, 0)") && rendererSource.includes("never inherit a CSS/DPR transform"), "the production Canvas renderer should reset inherited context transforms before drawing backing-pixel coordinates");
     assert.ok(editorSource.includes("stageCtx?.setTransform(1, 0, 0, 1, 0, 0)") && !editorSource.includes("stageCtx?.setTransform(dpr"), "the Level Editor must not pre-scale the production scene context by devicePixelRatio");
-    assert.match(bootstrapSource, /const GAME_REVISION = "530";/, "the game debug  revision should match the packaged revision");
+    assert.match(bootstrapSource, /const GAME_REVISION = "532";/, "the game debug  revision should match the packaged revision");
     assert.ok(
         editorSource.includes('<div class="level-section-label">Existing Level:</div>')
             && editorSource.includes('id="load-level">Load</button>')
@@ -9675,6 +9798,139 @@ function testRocketPowerUpArsenal() {
     assert.equal(prioritizedActivePowerUpEffect(priorityState)?.id, POWER_UP_EFFECT_IDS.SHIELD, "Shield should display after the wrench expires and ahead of Overdrive");
     priorityState.statusEffects.active.shield.remainingSeconds = 0;
     assert.equal(prioritizedActivePowerUpEffect(priorityState)?.id, POWER_UP_EFFECT_IDS.OVERDRIVE, "Overdrive should display after both the wrench and Shield expire");
+}
+
+function testRocketFuelFlightMode() {
+    const flight = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.FLIGHT);
+    assert.ok(flight, "the rocket-fuel Flight definition should exist");
+    assert.equal(flight.label, "Flight", "rocket fuel should identify its timed mode as Flight");
+    assert.equal(flight.durationSeconds, 60, "Flight should last sixty seconds");
+    assert.equal(flight.stacking, POWER_UP_STACKING_RULES.REFRESH, "collecting more rocket fuel should refresh Flight");
+    assert.equal(flight.hud.iconFrame, "rocket_fuel_canister", "Flight should retain the rocket-fuel canister on the Power HUD");
+    assert.equal(normalizePowerUpPickup({ effectId: POWER_UP_EFFECT_IDS.FLIGHT })?.worldScale, 2, "Flight pickups should render at double size in the world");
+    assert.equal(flight.hud.priority, 190, "Flight should rank immediately below wrench effects");
+    assert.equal(flight.rocket.launchFuelCostMultiplier, 1, "Flight should not discount projectile fuel cost");
+
+    const wrench = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.WRENCH_DART);
+    const shield = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.SHIELD);
+    const overdrive = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.OVERDRIVE);
+    const priorityState = {
+        statusEffects: {
+            active: Object.fromEntries([wrench, flight, shield, overdrive].map((definition) => [definition.id, {
+                id: definition.id,
+                definition,
+                remainingSeconds: definition.durationSeconds,
+                activatedAt: 0,
+                refreshCount: 0
+            }]))
+        }
+    };
+    assert.equal(prioritizedActivePowerUpEffect(priorityState)?.id, wrench.id, "wrenches should remain above Flight on the Power HUD");
+    delete priorityState.statusEffects.active[wrench.id];
+    assert.equal(prioritizedActivePowerUpEffect(priorityState)?.id, flight.id, "Flight should appear ahead of Shield and Overdrive");
+
+    const catalog = JSON.parse(readFileSync(new URL("../assets/it_entities_001.json", import.meta.url), "utf8"));
+    assert.equal(catalog.entities.fuel.defaults.effectId, POWER_UP_EFFECT_IDS.FLIGHT, "newly authored fuel entities should grant Flight");
+    assert.equal(catalog.entities.fuel.defaults.durationSeconds, 60, "the fuel catalog should author the full Flight duration");
+
+    const levelTwo = JSON.parse(readFileSync(new URL("../assets/level_002.json", import.meta.url), "utf8"));
+    const highFuel = levelTwo.entities.find((entity) => entity.id === "flight_fuel_001");
+    assert.ok(highFuel, "Level 002 should contain the high rocket-fuel pickup");
+    assert.equal(highFuel.effectId, POWER_UP_EFFECT_IDS.FLIGHT, "Level 002 rocket fuel should explicitly grant Flight");
+    assert.ok(highFuel.y < 200, "Level 002 rocket fuel should be placed high in the level");
+
+    const state = createInitialGameState();
+    const testLevel = {
+        levelId: "flight_test",
+        title: "Flight Test",
+        world: { bounds: { minX: -2000, minY: -2000, maxX: 2000, maxY: 3000 }, resetY: 2500 },
+        placements: [],
+        entities: [{
+            id: "flight_fuel_test",
+            type: "fuel",
+            x: 300,
+            y: 600,
+            w: 54,
+            h: 90,
+            state: "available",
+            radius: 22,
+            respawnSeconds: 60
+        }]
+    };
+    assert.equal(applyEditorLevelToWorld(state, testLevel), true, "a fuel entity should load through normal level conversion");
+    const pickup = state.pickups.find((item) => item.id === "flight_fuel_test");
+    assert.equal(pickup.kind, "powerUp", "fuel entities should become timed power-up pickups");
+    assert.equal(pickup.powerUp.effectId, POWER_UP_EFFECT_IDS.FLIGHT, "fuel entities should normalize to Flight");
+
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.enemies = [];
+    state.targets = [];
+    state.world.autoSpawnEnemies.enabled = false;
+    state.world.enemySpawners = [];
+    state.player.currentTransform.x = 300;
+    state.player.currentTransform.y = 600;
+    state.player.vx = 0;
+    state.player.vy = 0;
+    state.player.onGround = false;
+    state.player.wasOnGround = false;
+    state.fuel.amount = 10;
+    state.fuel.rechargeDelayTimer = 10;
+    state.fuel.rechargeLatched = false;
+
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.ok(activePowerUpEffect(state, POWER_UP_EFFECT_IDS.FLIGHT), "collecting rocket fuel should activate Flight");
+    approx(state.player.vy, 0, 0.000001, "Flight should hover steadily with no vertical input");
+    const passiveRecoveryRate = DEFAULT_TUNING.attachedBoostDrainRate * OVERDRIVE_PASSIVE_FUEL_RECOVERY_DRAIN_FACTOR;
+    approx(state.fuel.amount, 10 + passiveRecoveryRate * FIXED_DT, 0.0001, "Flight should passively replenish fuel while airborne and inside recharge delay");
+    assert.equal(state.equipment.rocket.attachedBoosting, false, "Flight should not use the fuel-draining attached boost state");
+    assert.equal(state.equipment.rocket.state, "flight", "the mounted rocket should expose Flight presentation state");
+
+    const firstRiseSpeed = state.player.vy;
+    stepSimulation(state, createInputFrame({ jumpHeld: true }), FIXED_DT);
+    assert.ok(state.player.vy < firstRiseSpeed, "holding Up should begin easing into a climb");
+    assert.ok(state.player.vy > -DEFAULT_TUNING.flightVerticalSpeed, "the first Flight step should not snap immediately to full climb speed");
+    stepMany(state, 30, () => createInputFrame({ jumpHeld: true }));
+    approx(state.player.vy, -DEFAULT_TUNING.flightVerticalSpeed, 0.0001, "sustained Up should reach the governed climb speed");
+
+    const climbSpeed = state.player.vy;
+    stepMany(state, 10, () => createInputFrame());
+    assert.ok(Math.abs(state.player.vy) < Math.abs(climbSpeed), "releasing Up should ease the climb back toward a hover");
+    stepMany(state, 20, () => createInputFrame());
+    approx(state.player.vy, 0, 0.0001, "released vertical controls should settle into a steady hover");
+
+    stepMany(state, 10, () => createInputFrame({ dropHeld: true }));
+    assert.ok(state.player.vy > 0, "holding Down should ease into a descent");
+    assert.ok(state.player.vy < DEFAULT_TUNING.flightVerticalSpeed, "early descent should retain the same inertial easing");
+    stepMany(state, 20, () => createInputFrame({ dropHeld: true }));
+    approx(state.player.vy, DEFAULT_TUNING.flightVerticalSpeed, 0.0001, "sustained Down should reach the governed descent speed");
+
+    state.player.vy = 0;
+    state.player.vx = 0;
+    stepSimulation(state, createInputFrame({ moveRight: true }), FIXED_DT);
+    approx(state.player.vx, DEFAULT_TUNING.groundAcceleration * FIXED_DT, 0.0001, "Flight horizontal steering should ease in with running acceleration");
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    approx(
+        state.player.vx,
+        Math.max(0, (DEFAULT_TUNING.groundAcceleration - DEFAULT_TUNING.groundFriction) * FIXED_DT),
+        0.0001,
+        "Flight horizontal steering should ease out with running friction"
+    );
+
+    state.fuel.amount = 100;
+    state.fuel.rechargeDelayTimer = 10;
+    stepSimulation(state, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    approx(
+        state.fuel.amount,
+        100 - DEFAULT_TUNING.rocketLaunchCost + passiveRecoveryRate * FIXED_DT,
+        0.0001,
+        "Flight should keep full shooting cost while passive recovery permits frequent but finite fire"
+    );
+
+    state.statusEffects.active[POWER_UP_EFFECT_IDS.FLIGHT].remainingSeconds = FIXED_DT * 0.5;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(activePowerUpEffect(state, POWER_UP_EFFECT_IDS.FLIGHT), null, "Flight should expire after its sixty-second timer");
+    assert.equal(state.equipment.rocket.state, "mountedReady", "the mounted rocket should leave Flight presentation state when the effect expires");
 }
 
 function testCachedWrenchRocketGlowKernels() {
@@ -13629,7 +13885,7 @@ function testInteractKeyBinding() {
 }
 
 
-function testGamepadJumpProducesTitleStartEdge() {
+function testGamepadJumpDoesNotBypassTitleMenu() {
     const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
     let jumpPressed = true;
     const buttons = Array.from({ length: 16 }, () => ({ pressed: false }));
@@ -13647,11 +13903,11 @@ function testGamepadJumpProducesTitleStartEdge() {
         const input = new RocketfrockInput({ addEventListener() {} });
         const first = input.sample();
         assert.equal(first.jumpHeld, true, "gamepad A should map to the held jump action");
-        assert.equal(first.jumpPressed, true, "gamepad A should create a fresh jump edge suitable for starting the title screen");
+        assert.equal(first.jumpPressed, true, "gamepad A should create a fresh jump edge suitable for explicit menu activation");
         assert.equal(first.gamepadActive, true, "a pressed gamepad control should mark the gamepad as the active input device");
         assert.equal(first.gamepadIndex, 0, "the active gamepad index should travel with the sampled input frame");
         const held = input.sample();
-        assert.equal(held.jumpPressed, false, "holding gamepad A should not repeatedly start or jump");
+        assert.equal(held.jumpPressed, false, "holding gamepad A should not repeatedly activate or jump");
 
         input.clear();
         input.suppressJumpUntilRelease();
@@ -13678,9 +13934,9 @@ function testGamepadJumpProducesTitleStartEdge() {
     }
 
     const bootstrapSource = readFileSync("./src/browser/game-bootstrap.js", "utf8");
-    assert.match(bootstrapSource, /titleScreenActive && !isGameMenuOpen\(\) && titleStartRequested\(inputFrame\)/, "the animation frame should inspect gamepad-derived jump input while the title screen is active");
-    assert.match(bootstrapSource, /input\.suppressJumpUntilRelease\(\)/, "the title-start jump should remain consumed until the physical gamepad control is released");
-    assert.match(bootstrapSource, /inputFrame = createInputFrame\(\)/, "the title-start jump edge should be consumed instead of leaking into the first gameplay step");
+    assert.doesNotMatch(bootstrapSource, /titleStartRequested\(inputFrame\)/, "gameplay input must not bypass the explicit title menu");
+    assert.doesNotMatch(bootstrapSource, /handleTitleStartKeydown/, "a generic title key handler must not launch a new campaign");
+    assert.match(bootstrapSource, /titleStartButton\?\.addEventListener\("click"[\s\S]*startNewGameFromTitle\(\)/, "Start New Game should require activation of its dedicated menu action");
 }
 
 function testGamepadHapticsRespectActiveInputDevice() {
@@ -13752,14 +14008,18 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.equal(DEFAULT_GAME_SETTINGS.sfxVolume, 0.8, "effects should default to 80 percent");
     assert.equal(DEFAULT_GAME_SETTINGS.musicVolume, 0.1, "music should default to 10 percent");
     assert.equal(DEFAULT_GAME_SETTINGS.difficulty, "normal", "normal damage should remain the default");
-    assert.equal(DEFAULT_GAME_SETTINGS.renderingQuality, "medium", "medium particle quality should remain the default");
-    assert.equal(DEFAULT_GAME_SETTINGS.autoFullscreen, true, "browser play should default to automatic fullscreen transitions");
+    assert.equal(DEFAULT_GAME_SETTINGS.renderingQuality, "medium", "medium effects quality should remain the default");
+    assert.equal(DEFAULT_GAME_SETTINGS.fullscreen, true, "browser play should default to fullscreen when a user gesture permits it");
     assert.equal(DEFAULT_GAME_SETTINGS.showMinimap, true, "the minimap should be visible by default");
     assert.equal(DEFAULT_GAME_SETTINGS.developmentMode, true, "development tools should remain visible by default in development builds");
-    assert.equal(DEFAULT_GAME_SETTINGS.bakingMode, "off", "static baking should default off until explicitly enabled");
-    assert.equal(GAME_DIFFICULTY_PRESETS.length, 3, "the initial settings UI should expose three damage presets");
-    assert.equal(GAME_RENDERING_QUALITY_PRESETS.length, 3, "the initial settings UI should expose three particle presets");
-    assert.deepEqual(GAME_BAKING_MODE_PRESETS.map((preset) => preset.id), ["off", "tiles", "full"], "the baking setting should expose the three renderer modes");
+    assert.equal(DEFAULT_GAME_SETTINGS.renderingMode, "hardwareRegular", "the safe WebGL2 live renderer should remain the default");
+    assert.equal(GAME_DIFFICULTY_PRESETS.length, 3, "the settings UI should expose three damage presets");
+    assert.equal(GAME_RENDERING_QUALITY_PRESETS.length, 3, "the settings UI should expose three particle presets");
+    assert.deepEqual(
+        GAME_RENDERING_MODE_PRESETS.map((preset) => preset.id),
+        ["hardwareRegular", "hardwareSpeedhack", "softwareRegular", "softwareSpeedhack"],
+        "the browser settings should expose the four consolidated renderer modes"
+    );
     assert.equal(difficultyDamageScale("easy"), 0.75, "easy should reduce incoming damage");
     assert.equal(difficultyDamageScale("hard"), 1.5, "hard should increase incoming damage");
     assert.equal(renderingParticleScale("low"), 0.5, "low quality should halve particle density");
@@ -13770,20 +14030,24 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
         musicVolume: -3,
         difficulty: "unknown",
         renderingQuality: "HIGH",
-        autoFullscreen: false,
+        fullscreen: false,
         showMinimap: false,
         developmentMode: false,
-        bakingMode: "TILES"
+        renderingMode: "SOFTWARESPEEDHACK"
     });
     assert.equal(normalized.sfxVolume, 1, "effects volume should clamp to one");
     assert.equal(normalized.musicVolume, 0, "music volume should clamp to zero");
     assert.equal(normalized.difficulty, "normal", "unknown difficulties should fall back safely");
     assert.equal(normalized.renderingQuality, "high", "quality ids should normalize case-insensitively");
-    assert.equal(normalized.autoFullscreen, false, "the automatic fullscreen preference should normalize as a boolean");
+    assert.equal(normalized.fullscreen, false, "the fullscreen preference should normalize as a boolean");
     assert.equal(normalized.showMinimap, false, "the minimap visibility preference should normalize as a boolean");
     assert.equal(normalized.developmentMode, false, "the development tool visibility preference should normalize as a boolean");
-    assert.equal(normalized.bakingMode, "tiles", "the baking mode should normalize case-insensitively");
-    assert.equal(gameBakingModePreset(normalized).label, "Tiles", "the baking preset helper should expose the user-facing label");
+    assert.equal(normalized.renderingMode, "softwareSpeedhack", "renderer mode ids should normalize case-insensitively");
+    assert.equal(normalized.useHardwareRendering, false, "software modes should select Canvas2D");
+    assert.equal(normalized.usePixmapPyramids, true, "software modes should select pixmap pyramids");
+    assert.equal(normalized.bakingMode, "tiles", "speedhack modes should select baked tiles");
+    assert.equal(gameRenderingModePreset(normalized).label, "Software + speedhack", "the mode helper should expose the user-facing label");
+
     assert.equal(STATIC_TILE_SIZE, 256, "rolling baking should use sparse 256-pixel logical tiles");
     assert.equal(normalizeStaticTileBakeMode("FULL"), "full", "renderer baking modes should normalize case-insensitively");
     assert.equal(staticTileRecordKey("foreground", -2, 3), "foreground:-2:3", "tile cache keys should remain stable across negative world coordinates");
@@ -13799,89 +14063,53 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     );
     assert.equal(tileRegions.bakeRects.length, 2, "tile scheduling should combine a normal margin with a predicted travel corridor");
     assert.ok(tileRegions.predictedVisible.x > tileRegions.visible.x && tileRegions.predictedVisible.y > tileRegions.visible.y, "the predictive corridor should follow camera velocity");
-    assert.equal(normalizeGameSettings({}).autoFullscreen, true, "older stored settings should migrate to the safe default");
-    assert.equal(normalizeGameSettings({}).showMinimap, true, "settings without a minimap preference should default to visible");
-    assert.equal(normalizeGameSettings({}).developmentMode, true, "settings without a development-mode preference should default to visible tools");
-    assert.equal(normalizeGameSettings({}).bakingMode, "off", "settings without a baking preference should default to live rendering");
-    assert.equal(normalizeGameSettings({ useBakedLayers: true }).bakingMode, "full", "legacy checked settings should normalize to Full");
 
     const values = new Map();
     const storage = {
-        getItem(key) {
-            return values.has(key) ? values.get(key) : null;
-        },
-        setItem(key, value) {
-            values.set(key, String(value));
-        }
+        getItem(key) { return values.has(key) ? values.get(key) : null; },
+        setItem(key, value) { values.set(key, String(value)); },
+        removeItem(key) { values.delete(key); }
     };
-    const saved = saveStoredGameSettings({ musicVolume: 0.33, difficulty: "hard", autoFullscreen: false, showMinimap: false, developmentMode: false, bakingMode: "full" }, storage);
+    const saved = saveStoredGameSettings({
+        musicVolume: 0.33,
+        difficulty: "hard",
+        fullscreen: false,
+        showMinimap: false,
+        developmentMode: false,
+        renderingMode: "softwareSpeedhack"
+    }, storage);
     assert.equal(values.has(GAME_SETTINGS_STORAGE_KEY), true, "settings should use a stable namespaced storage key");
     assert.equal(saved.musicVolume, 0.33, "saved settings should retain authored volume");
     assert.equal(loadStoredGameSettings(storage).difficulty, "hard", "stored difficulty should round-trip");
-    assert.equal(loadStoredGameSettings(storage).autoFullscreen, false, "the fullscreen policy should round-trip through storage");
+    assert.equal(loadStoredGameSettings(storage).fullscreen, false, "the fullscreen preference should round-trip through storage");
     assert.equal(loadStoredGameSettings(storage).showMinimap, false, "the minimap preference should round-trip through storage");
     assert.equal(loadStoredGameSettings(storage).developmentMode, false, "the development-mode preference should round-trip through storage");
-    assert.equal(loadStoredGameSettings(storage).bakingMode, "full", "the baking mode should round-trip through storage");
+    assert.equal(loadStoredGameSettings(storage).renderingMode, "softwareSpeedhack", "the rendering mode should round-trip through storage");
 
-    const legacyValues = new Map([[GAME_SETTINGS_STORAGE_KEY, JSON.stringify({
-        version: 2,
-        sfxVolume: 0.8,
-        musicVolume: 0.6,
-        difficulty: "normal",
-        renderingQuality: "medium",
-        autoFullscreen: true
-    })]]);
-    const legacyStorage = {
-        getItem(key) {
-            return legacyValues.has(key) ? legacyValues.get(key) : null;
-        },
-        setItem(key, value) {
-            legacyValues.set(key, String(value));
-        }
-    };
-    const migratedLegacySettings = loadStoredGameSettings(legacyStorage);
-    assert.equal(migratedLegacySettings.musicVolume, 0.1, "the former untouched 60 percent default should migrate to the new 10 percent default");
-    assert.equal(migratedLegacySettings.bakingMode, "off", "legacy stored settings without a baking preference should migrate to the safe off default");
-
-    const legacyBakedOnValues = new Map([[GAME_SETTINGS_STORAGE_KEY, JSON.stringify({
-        version: 6,
-        sfxVolume: 0.8,
-        musicVolume: 0.1,
-        difficulty: "normal",
-        renderingQuality: "medium",
-        autoFullscreen: true,
-        showMinimap: true,
-        useBakedLayers: true
-    })]]);
-    const legacyBakedOnStorage = {
-        getItem(key) {
-            return legacyBakedOnValues.has(key) ? legacyBakedOnValues.get(key) : null;
-        },
-        setItem(key, value) {
-            legacyBakedOnValues.set(key, String(value));
-        }
-    };
-    assert.equal(loadStoredGameSettings(legacyBakedOnStorage).bakingMode, "full", "explicit legacy baked-layer opt-in should migrate to Full");
-
-    const fallbackValues = new Map([[GAME_SETTINGS_STORAGE_KEY, JSON.stringify({
-        version: 7,
-        sfxVolume: 0.8,
-        musicVolume: 0.1,
-        difficulty: "normal",
-        renderingQuality: "medium",
-        autoFullscreen: true,
-        showMinimap: true,
-        useBakedLayers: false
-    })]]);
-    const fallbackStorage = {
-        getItem(key) {
-            return fallbackValues.has(key) ? fallbackValues.get(key) : null;
-        },
-        setItem(key, value) {
-            fallbackValues.set(key, String(value));
-        }
-    };
-    assert.equal(loadStoredGameSettings(fallbackStorage).bakingMode, "off", "post-493 fallback-disabled profiles should not be re-enabled by migration");
+    const manual = createSaveGameRecord({
+        slotId: "slot2",
+        levelId: "level_4",
+        levelTitle: "Fourth Level",
+        score: 1234
+    });
+    assert.equal(manual.schema, SAVE_GAME_SCHEMA, "save records should carry a stable schema identifier");
+    assert.equal(manual.levelId, "level_004", "save records should normalize level ids");
+    assert.equal(manual.checkpointLabel, "Level start", "level entry should serve as the initial implicit checkpoint");
+    saveStoredSaveGame("slot2", manual, storage);
+    assert.equal(values.has(`${SAVE_GAME_STORAGE_PREFIX}slot2`), true, "manual saves should use a stable slot key");
+    assert.equal(loadStoredSaveGame("slot2", storage).score, 1234, "manual saves should round-trip through storage");
+    assert.equal(loadManualSaveGames(storage)[1].levelTitle, "Fourth Level", "the three manual slots should retain their stable ordering");
+    assert.deepEqual(MANUAL_SAVE_SLOT_IDS, ["slot1", "slot2", "slot3"], "the public save screen should expose exactly three slots");
+    const autosave = normalizeSaveGameRecord({
+        slotId: AUTOSAVE_SLOT_ID,
+        levelId: "level_002",
+        levelTitle: "Second Level",
+        savedAt: "2026-07-19T08:00:00Z"
+    }, AUTOSAVE_SLOT_ID);
+    saveStoredSaveGame(AUTOSAVE_SLOT_ID, autosave, storage);
+    assert.equal(loadStoredAutosave(storage).levelId, "level_002", "Resume should load the hidden autosave slot");
+    clearStoredSaveGame("slot2", storage);
+    assert.equal(loadStoredSaveGame("slot2", storage), null, "manual slots should be clearable");
 
     const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
     const manualHtml = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
@@ -13890,102 +14118,72 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     const electronPackageSource = readFileSync(new URL("../electron/package.json", import.meta.url), "utf8");
     const electronMainSource = readFileSync(new URL("../electron/main.cjs", import.meta.url), "utf8");
     const electronBuildSource = readFileSync(new URL("../electron/build-package.cjs", import.meta.url), "utf8");
-    assert.match(gameHtml, /id="game-menu-dialog"/, "the game should contain a modal pause menu");
-    assert.match(gameHtml, /id="show-minimap"[^>]*type="checkbox"/, "settings should expose a checkbox for minimap visibility");
-    assert.match(gameHtml, /#game-menu-controls\[hidden\]\s*\{[^}]*display:\s*none/s, "hidden minimaps should leave no HUD footprint");
-    assert.match(gameHtml, /id="game-menu-exit-desktop"[^>]*hidden/, "desktop exit should start hidden in ordinary browsers");
-    assert.match(gameHtml, /id="title-screen"[^>]*hidden/, "the game should contain an initially hidden title overlay shown after loading");
-    assert.match(gameHtml, /id="title-card-art"[^>]*src="assets\/title_card\.png"/, "the in-game title screen should use the title card art");
-    assert.match(gameHtml, /id="title-start-button"[\s\S]*id="title-resume-button"[\s\S]*id="title-manual-link"/, "the title screen should place Resume beside Start and keep the manual below");
-    assert.match(gameHtml, /id="title-manual-link"[^>]*class="[^"]*title-manual-action[^"]*"[^>]*href="GameManual\.html"[\s\S]*>Game manual<\//, "the title screen should link to the renamed manual action with a distinct secondary style");
-    assert.match(gameHtml, /\.title-action-small\s*\{[^}]*min-height:\s*34px/s, "the manual action should use the smaller second-row button style");
-    assert.match(gameHtml, /\.title-manual-action\s*\{[^}]*border-radius:\s*999px[^}]*background:\s*rgba\(6, 6, 12, 0\.34\)/s, "the manual action should avoid the primary Start and Resume button treatment");
-    assert.match(gameHtml, /id="game-menu-settings"[\s\S]*id="game-menu-restart"[\s\S]*id="game-menu-exit-title"/, "the menu should keep Settings, Restart level, and Exit to Title in order");
-    assert.match(gameHtml, /id="sfx-volume"[^>]*value="0\.8"/, "the effects slider should visibly default to 80 percent");
-    assert.match(gameHtml, /id="music-volume"[^>]*value="0\.1"/, "the music slider should visibly default to 10 percent");
-    assert.match(gameHtml, /data-difficulty="easy"/, "the settings dialog should expose difficulty choices");
-    assert.match(gameHtml, /data-rendering-quality="high"/, "the settings dialog should expose particle quality choices");
-    assert.doesNotMatch(gameHtml, /id="fullscreen-toggle"/, "the upper-right HUD should no longer contain a fullscreen button");
-    assert.match(gameHtml, /id="game-menu-controls"[\s\S]*id="open-game-menu"[\s\S]*id="minimap-canvas"/, "the upper-right panel should be a clickable minimap that opens the menu");
-    assert.match(gameHtml, /id="meters"[^>]*role="button"[^>]*aria-haspopup="dialog"[^>]*data-ignore-game-pointer/, "the top-left meter panel should also be an accessible menu trigger");
-    assert.match(gameHtml, /--hud-panel-natural-width:\s*430px;[\s\S]*--hud-panel-scale:\s*1;[\s\S]*#hud\s*\{[^}]*width:\s*var\(--hud-panel-natural-width\)[^}]*transform:\s*scale\(var\(--hud-panel-scale\)\)/s, "the left HUD should retain one natural size and use a shared viewport scale");
-    assert.match(gameHtml, /#game-menu-controls\s*\{[^}]*width:\s*auto[^}]*min-width:\s*1px/s, "the minimap panel should be allowed to shrink below the former hard minimum on tiny screens");
-    assert.match(gameHtml, /id="development-mode"[^>]*type="checkbox"/, "settings should expose a Development mode checkbox for browser and Electron tool visibility");
-    assert.match(gameHtml, /id="baking-mode-select"[\s\S]*<option value="off">Off<\/option>[\s\S]*<option value="tiles">Tiles<\/option>[\s\S]*<option value="full">Full<\/option>/, "settings should expose a three-way baking dropdown rather than buttons or a tool-strip control");
-    assert.doesNotMatch(gameHtml, /body\.electron #tool-links/, "Electron should no longer hard-code hidden development tool buttons in CSS");
-    assert.match(gameHtml, /id="auto-fullscreen"[^>]*type="checkbox"/, "settings should expose automatic fullscreen as a checkbox rather than an immediate action");
-    assert.match(gameHtml, /Automatically switch to fullscreen/, "the automatic fullscreen preference should use the requested wording");
-    assert.doesNotMatch(gameHtml, /id="settings-fullscreen-toggle"/, "settings must not contain the obsolete live fullscreen button");
-    assert.doesNotMatch(gameHtml, /id="game-menu-resume"/, "the top-level menu should rely on the header Back button instead of duplicating Resume");
-    assert.doesNotMatch(gameHtml, /Reserved for the forthcoming music system/, "the compact settings dialog should not contain the obsolete music explanation");
-    assert.doesNotMatch(gameHtml, /For now difficulty changes only/, "the compact settings dialog should omit the difficulty explanation");
-    assert.doesNotMatch(gameHtml, /Controls the particle density/, "the compact settings dialog should omit the rendering explanation");
-    assert.doesNotMatch(gameHtml, /Enter fullscreen while playing/, "the compact settings dialog should omit the fullscreen explanation");
+
+    assert.match(gameHtml, /<title>Ignatius Rocketfrock - HTML BUILD 122<\/title>/, "the browser title should report revision 121");
+    assert.match(gameHtml, /id="title-start-button"[^>]*>\s*Start New Game/s, "the title menu should expose Start New Game");
+    assert.match(gameHtml, /id="title-resume-button"[^>]*>\s*Resume Game/s, "the title menu should expose Resume Game");
+    assert.match(gameHtml, /id="title-load-button"[^>]*>\s*Load Game/s, "the title menu should expose Load Game");
+    assert.match(gameHtml, /id="title-settings-button"[^>]*>\s*Settings/s, "the title menu should expose Settings");
+    assert.match(gameHtml, /id="title-exit-desktop-button"[^>]*>\s*Exit to Desktop/s, "the title menu should expose Exit to Desktop");
+    assert.match(gameHtml, /id="game-menu-resume"[^>]*>\s*Resume Game/s, "the in-game menu should expose Resume Game");
+    assert.match(gameHtml, /id="game-menu-save"[^>]*>\s*Save Game/s, "the in-game menu should expose Save Game");
+    assert.match(gameHtml, /id="game-menu-load"[^>]*>\s*Load Game/s, "the in-game menu should expose Load Game");
+    assert.match(gameHtml, /id="game-menu-settings"[^>]*>\s*Settings/s, "the in-game menu should expose Settings");
+    assert.match(gameHtml, /id="game-menu-exit-title"[^>]*>\s*Exit to Title/s, "the in-game menu should expose Exit to Title");
+    assert.equal((gameHtml.match(/data-save-slot="slot[123]"/g) || []).length, 3, "save and load should use three manual slots");
+    assert.match(gameHtml, /id="fullscreen-setting"[^>]*type="checkbox"/, "settings should expose a direct Fullscreen preference");
+    assert.match(gameHtml, /id="show-minimap"[^>]*type="checkbox"/, "settings should expose a Minimap preference");
+    assert.match(gameHtml, /Effects quality/, "rendering quality should use the less ambiguous Effects quality label");
+    for (const preset of GAME_RENDERING_MODE_PRESETS) {
+        assert.match(gameHtml, new RegExp(`option value="${preset.id}"`), `the browser settings should expose ${preset.label}`);
+    }
+    assert.match(gameHtml, /#title-actions\s*\{[^}]*display:\s*flex/s, "the browser title actions should share one horizontal strip");
+    assert.match(gameHtml, /\.settings-inline-row\s*\{[^}]*grid-template-columns:\s*repeat\(2,/s, "Fullscreen and Minimap should remain on one row");
+    assert.doesNotMatch(gameHtml, /@media\s*\(max-width:\s*860px\)[\s\S]*?\.settings-inline-row\s*,?[\s\S]*?grid-template-columns:\s*1fr/s, "narrow layouts should not split Fullscreen and Minimap onto separate rows");
     assert.match(gameHtml, /#game-settings-panel\s*\{[^}]*grid-template-columns:\s*repeat\(2,/s, "settings should use a compact two-column layout on wide screens");
-    assert.match(gameHtml, /--menu-accent:\s*#c9a7ff/, "the menu should share the main index's deep-purple accent");
-    assert.match(gameHtml, /--panel-strong:\s*#171120/, "loading and tuning should use the shared solid dark-purple surface");
-    assert.match(gameHtml, /--menu-panel:\s*#171120/, "the menu should use the same solid dark-purple surface as other strong panels");
-    assert.match(gameHtml, /--menu-panel-raised:\s*#21182d/, "settings should use a solid raised shade from the shared purple family");
-    assert.match(gameHtml, /#loading-bar-fill\s*\{[^}]*#a579dc/s, "the loading progress fill should use purple rather than earth or brass tones");
+    assert.match(gameHtml, /--menu-accent:\s*#c9a7ff/, "the menu should retain the shared purple accent");
     assert.match(gameHtml, /\.game-menu-card\s*\{[^}]*background:\s*var\(--menu-panel\)/s, "the menu card should use a solid shared surface");
     assert.doesNotMatch(gameHtml, /repeating-linear-gradient/, "game-facing menus must not restore the near-vertical stripe texture");
-    assert.doesNotMatch(gameHtml, /--earth-|#b98a48|#c59a58|#f3ead7|#c9bda6/, "the retired brown game-overlay palette should not remain in the game page");
-    assert.match(bootstrapSource, /setGamePaused\(true, \{ clearInput: true \}\)/, "opening the menu should pause portable simulation stepping through the central pause path");
+
+    assert.match(bootstrapSource, /function setupTitleScreen\(\)/, "the browser bootstrap should own title-screen interaction wiring");
+    assert.match(bootstrapSource, /function handleTitleMenuNavigationKey\(event\)/, "the horizontal title strip should support arrow-key navigation");
+    assert.match(bootstrapSource, /function startNewGameFromTitle\(\)/, "Start New Game should have a dedicated transition");
+    assert.match(bootstrapSource, /async function resumeGameFromTitle\(\)/, "Resume Game should load the hidden autosave");
+    assert.match(bootstrapSource, /loadStoredAutosave\(\)/, "Resume Game should use the autosave store");
+    assert.match(bootstrapSource, /saveStoredSaveGame\(AUTOSAVE_SLOT_ID/, "level entry should update the hidden autosave");
+    assert.match(bootstrapSource, /function saveManualSlot\(slotId\)/, "manual save slots should share a central save function");
+    assert.match(bootstrapSource, /function handleSaveSlotSelection\(slotId\)/, "save and load slot actions should share one selection path");
+    assert.match(bootstrapSource, /function setGameMenuView\(view\)/, "the game menu should have an explicit view state machine");
+    assert.match(bootstrapSource, /setGamePaused\(true, \{ clearInput: true \}\)/, "opening the in-game menu should pause portable simulation stepping");
     assert.match(bootstrapSource, /function handleGameMenuNavigationKey/, "menu and settings should have explicit keyboard navigation");
-    assert.match(bootstrapSource, /event\.code === "ArrowDown"/, "arrow keys should traverse visible dialog controls");
-    assert.match(bootstrapSource, /function applyAutoFullscreenPolicy/, "fullscreen should follow play and pause state through a policy function");
+    assert.match(bootstrapSource, /function applyFullscreenPreference\(\)/, "fullscreen should use the direct shared preference");
     assert.match(bootstrapSource, /window\.addEventListener\("blur", pauseForPageFocusLoss\)/, "losing page focus should invoke the central pause path");
     assert.match(bootstrapSource, /document\.addEventListener\("visibilitychange", handlePageVisibilityChange\)/, "hidden tabs should pause even when blur delivery differs by browser");
     assert.match(bootstrapSource, /function syncGameAudioState\(\)/, "pause state should centrally control browser audio muting");
-    assert.match(bootstrapSource, /titleScreenActive \|\| gameState\.debug\.paused \|\| pageFocusLost/, "title mode should mute audio until the first start interaction");
-    assert.match(bootstrapSource, /function setupTitleScreen\(\)/, "the browser bootstrap should own title-screen interaction wiring");
-    assert.match(bootstrapSource, /window\.addEventListener\("keydown", handleTitleStartKeydown, \{ capture: true, passive: false \}\)/, "title key start should capture before gameplay input consumes the gesture");
-    assert.match(bootstrapSource, /function titleStartRequested\(inputFrame\)/, "the title screen should accept sampled gameplay input as well as DOM keyboard and pointer gestures");
-    assert.match(bootstrapSource, /function startGameFromTitle\(\)/, "the title screen should have a central start transition");
-    assert.match(bootstrapSource, /async function resumeGameFromTitle\(\)/, "the title screen should have a central resume transition");
-    assert.match(bootstrapSource, /RESUME_SAVE_STORAGE_KEY/, "resume progress should use a stable browser-storage key");
-    assert.match(bootstrapSource, /saveResumeLevelId\(loadedLevelId\)/, "level completion should save the loaded destination for Resume");
-    assert.match(bootstrapSource, /restartCurrentLevel\(\{[\s\S]*levelId:\s*resumeLevelId[\s\S]*useBrowserCopy:\s*false/s, "Resume should reload the saved level rather than the default browser-copy path");
-    assert.match(bootstrapSource, /void musicDirector\.unlock\(\)/, "starting from the title screen should unlock the music director from that gesture");
-    assert.match(bootstrapSource, /function restartCurrentLevel\(\)/, "Restart level should reset the level in-place instead of navigating away");
-    assert.match(bootstrapSource, /function exitToTitleFromMenu\(\)/, "Exit to Title should be an in-game menu action");
-    assert.match(bootstrapSource, /gameMenuExitTitleButton\.hidden = titleScreenActive/, "Exit to Title should be hidden while already on the title screen");
+    assert.match(bootstrapSource, /renderingModeSelect\?\.addEventListener\("change"/, "the renderer preset should use a compact dropdown control");
     assert.match(bootstrapSource, /effectiveSfxVolume = muted \? 0/, "the sound-effects bus should have zero effective volume while paused");
     assert.match(bootstrapSource, /musicDirector\.setMuted\(muted\)/, "music should be silenced by the same pause policy");
-    assert.match(bootstrapSource, /autoFullscreenRow\.hidden = Boolean\(electronWindowBridge\)/, "the browser-only fullscreen policy should be hidden in Electron");
-    assert.match(bootstrapSource, /toolLinks\.hidden = !Boolean\(gameState\.settings\?\.developmentMode\)/, "Development mode should own browser and Electron tool-link visibility");
-    assert.match(bootstrapSource, /function syncHudPanelsToViewport\(\)/, "the browser bootstrap should scale both HUD corners against the current viewport");
-    assert.match(bootstrapSource, /calculateHudPanelScale\([\s\S]*minimapVisible:\s*Boolean\(minimapPanel && !minimapPanel\.hidden\)/, "HUD scaling should release the right-side reservation when the minimap is hidden");
-    assert.match(bootstrapSource, /metersPanel\?\.addEventListener\("click"[\s\S]*openGameMenu\(\)/, "clicking the top-left meter panel should open the game menu");
-    assert.match(bootstrapSource, /metersPanel\?\.addEventListener\("keydown"[\s\S]*event\.code !== "Enter"[\s\S]*event\.code !== "Space"[\s\S]*openGameMenu\(\)/, "the top-left meter panel should support keyboard menu activation");
-    assert.match(bootstrapSource, /function setupMinimap\(\)/, "the browser bootstrap should size and initialize the minimap panel");
-    assert.match(bootstrapSource, /new ResizeObserver\(syncSize\)/, "the minimap should track the exact rendered height of the top-left meter panel");
-    assert.match(bootstrapSource, /function resizeMinimapToLevel\(bounds = minimapBounds\(\)\)/, "the minimap should derive its horizontal size from the current level bounds");
-    assert.match(bootstrapSource, /panelHeight - inset \* 2[\s\S]*drawableHeight \* worldWidth \/ worldHeight/, "the minimap width should tightly preserve the level aspect ratio at the shared panel height");
-    assert.match(bootstrapSource, /function drawMinimap\(force = false\)/, "the browser bootstrap should render the current level and player into the minimap");
-    assert.match(bootstrapSource, /Math\.min\(Math\.round\(meterRect\.width\), aspectWidth\)/, "the minimap width should never exceed the top-left meter panel");
-    assert.match(bootstrapSource, /rgba\(216,190,126,0\.78\)/, "the minimap should restore a readable platform-surface colour");
-    assert.match(bootstrapSource, /segment\?\.kind !== "walkable"[\s\S]*Math\.abs\(dy\) > Math\.abs\(dx\) \* 0\.45/, "the minimap should draw only useful horizontal walkable and blockable platform surfaces");
-    assert.match(bootstrapSource, /showMinimapInput\?\.addEventListener\("change"[\s\S]*minimapPanel\.hidden = !settings\.showMinimap/, "the settings checkbox should persistently hide and restore the minimap");
-    assert.doesNotMatch(bootstrapSource, /CLICK FOR MENU/, "the minimap should no longer render the click-for-menu caption");
-    assert.doesNotMatch(bootstrapSource, /rgba\(214,188,121,0\.76\)/, "the minimap should no longer draw internal yellow world-geometry guides");
-    assert.match(bootstrapSource, /gameMenuExitTitleButton\.textContent = "Exit to Title"/, "the menu should expose an in-game Exit to Title action");
+    assert.match(bootstrapSource, /toolLinks\.hidden = !Boolean\(gameState\.settings\?\.developmentMode\)/, "Development mode should own tool-link visibility");
+    assert.match(bootstrapSource, /showMinimapInput\?\.addEventListener\("change"[\s\S]*minimapPanel\.hidden = !settings\.showMinimap/, "the Minimap checkbox should persistently hide and restore the minimap");
+    assert.doesNotMatch(bootstrapSource, /handleTitleStartKeydown|titleStartRequested\(/, "arbitrary title-screen input must not launch a new campaign");
+    assert.doesNotMatch(bootstrapSource, /RESUME_SAVE_STORAGE_KEY/, "the former one-value resume key should be replaced by the hidden autosave record");
     assert.doesNotMatch(bootstrapSource, /window\.location\.href = "index\.html"/, "game menu actions should not navigate to the browser landing page");
     assert.match(bootstrapSource, /electronWindowBridge\.quit/, "Electron-only exit should call the narrow preload bridge");
+
     assert.match(manualHtml, /Ignatius Rocketfrock Manual/, "the title manual should exist");
     assert.match(manualHtml, /href="game\.html"/, "the manual should link back to the game");
     assert.match(electronBuildSource, /"GameManual\.html"/, "the Electron package should include the manual page");
     assert.match(electronBuildSource, /"favicon\.ico"/, "the Electron stage should include the shared webpage favicon");
     assert.match(electronBuildSource, /icon:\s*"favicon\.ico"/, "the Windows package should embed the shared favicon as its application icon");
     assert.match(electronBuildSource, /signExecutable:\s*false/, "the portable build should disable code signing without disabling executable resource editing");
-    assert.match(electronBuildSource, /author:\s*"CJF"/, "the staged Electron package should declare author metadata for electron-builder");
+    assert.match(electronBuildSource, /author:\s*"CJF"/, "the staged Electron package should declare author metadata");
     assert.doesNotMatch(packageSource, /"main": "electron\/main\.cjs"/, "root package metadata should not own Electron-specific entrypoints");
     assert.match(electronPackageSource, /"main": "main\.cjs"/, "Electron-local package metadata should point at the prepared shell");
     assert.match(electronPackageSource, /"build:win-portable"/, "Electron-local package metadata should expose a portable Windows build script");
     assert.match(electronPackageSource, /"electron-builder"/, "Electron-local package metadata should own its packaging dependency");
     assert.match(electronMainSource, /registerSchemesAsPrivileged/, "Electron should serve dynamic modules and fetches through a privileged local scheme");
     assert.match(electronMainSource, /supportFetchAPI:\s*true/, "the local Electron scheme should support the game's JSON and module fetches");
-    assert.match(electronMainSource, /fullscreen:\s*true/, "the Electron host should launch in its fullscreen-only mode");
+    assert.match(electronMainSource, /setFullScreen\(Boolean\(enabled\)\)/, "Electron fullscreen should honor the shared boolean preference");
     assert.match(electronMainSource, /icon:\s*resolveWindowIconPath\(\)/, "the live Electron window should use the shared webpage favicon");
     assert.doesNotMatch(electronMainSource, /webSecurity:\s*false/, "Electron preparation must not disable web security");
 }
@@ -14046,9 +14244,31 @@ async function testOggLevelMusicSystem() {
     assert.equal(getMusicTrack("none", catalog).file, "", "the no-music choice should not point at an audio file");
 
     const audioCalls = [];
+    const fakeAudio = createFakeAudioElement(audioCalls);
+    let fakeNow = 0;
+    const scheduledFrames = [];
+    const scheduleFrame = (callback) => {
+        scheduledFrames.push(callback);
+        return callback;
+    };
+    const cancelFrame = (callback) => {
+        const index = scheduledFrames.indexOf(callback);
+        if (index >= 0) scheduledFrames.splice(index, 1);
+    };
+    const advanceFade = async (milliseconds) => {
+        fakeNow += milliseconds;
+        const callbacks = scheduledFrames.splice(0, scheduledFrames.length);
+        for (const callback of callbacks) callback(fakeNow);
+        await Promise.resolve();
+        await Promise.resolve();
+    };
     const director = createMusicDirector({
-        audioElementFactory: () => createFakeAudioElement(audioCalls),
-        volume: 0.1
+        audioElementFactory: () => fakeAudio,
+        volume: 0.1,
+        now: () => fakeNow,
+        scheduleFrame,
+        cancelFrame,
+        fadeDurationMs: 1000
     });
     director.setCatalog(catalog);
     director.setTrack("music_002");
@@ -14059,6 +14279,19 @@ async function testOggLevelMusicSystem() {
     const playCountAfterInitialUnlock = audioCalls.filter((call) => call[0] === "play").length;
     assert.deepEqual(await Promise.all([director.unlock(), director.unlock()]), [true, true], "repeated gameplay gestures should still report an unlocked active track");
     assert.equal(audioCalls.filter((call) => call[0] === "play").length, playCountAfterInitialUnlock, "repeated gameplay gestures must not restart an already playing track");
+    director.setTrack("music_002");
+    assert.equal(audioCalls.filter((call) => call[0] === "play").length, playCountAfterInitialUnlock, "selecting the already-playing level song must not create another copy");
+    assert.equal(fakeAudio.loop, true, "level songs should remain configured to loop");
+
+    director.setTrack("music_003");
+    assert.equal(audioCalls.filter((call) => call[0] === "play" && call[1] === "assets/music_003.ogg").length, 0, "a replacement song must wait for the old song to fade out");
+    await advanceFade(500);
+    assert.ok(Math.abs(fakeAudio.volume - 0.05) < 0.001, "the outgoing song should be halfway faded after 500 ms");
+    assert.equal(audioCalls.filter((call) => call[0] === "play" && call[1] === "assets/music_003.ogg").length, 0, "the replacement song must not overlap the outgoing fade");
+    await advanceFade(500);
+    assert.equal(audioCalls.filter((call) => call[0] === "play" && call[1] === "assets/music_003.ogg").length, 1, "the replacement song should start after the one-second fade completes");
+    assert.equal(fakeAudio.volume, 0.1, "the replacement song should start at the configured music volume");
+
     assert.equal(director.getEffectiveVolume(), 0.1, "configured music volume should be audible while unmuted");
     director.setMuted(true);
     assert.equal(director.getEffectiveVolume(), 0, "pause muting should reduce the effective music volume to zero");
@@ -14664,7 +14897,7 @@ const tests = [
     ["left and right Ctrl weapon binding", testControlKeysLaunchWeapon],
     ["gamepad triggers fire weapon", testGamepadTriggersLaunchWeapon],
     ["keyboard interaction binding", testInteractKeyBinding],
-    ["gamepad jump starts title screen", testGamepadJumpProducesTitleStartEdge],
+    ["gamepad jump does not bypass title menu", testGamepadJumpDoesNotBypassTitleMenu],
     ["gamepad haptics follow active input device", testGamepadHapticsRespectActiveInputDevice],
     ["timed story text layout", testTimedTextViewportLayout],
     ["responsive viewport scaling", testResponsiveViewportScaling],
@@ -14708,6 +14941,7 @@ const tests = [
     ["interactive item atlas and entity visuals", testInteractiveItemAtlasAndEntityVisuals],
     ["Score HUD and treasure chest collection", testScoreHudAndTreasureChestCollection],
     ["Overdrive, Shield, and wrench power-up arsenal", testRocketPowerUpArsenal],
+    ["rocket-fuel governed Flight mode", testRocketFuelFlightMode],
     ["cached wrench rocket glow kernels", testCachedWrenchRocketGlowKernels],
     ["scripted mailbox letter", testMailboxLetterSequence],
     ["one-shot location thought trigger", testLocationThoughtTrigger],

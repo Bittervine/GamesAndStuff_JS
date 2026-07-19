@@ -111,17 +111,11 @@ app.whenReady().then(() => {
         const window = BrowserWindow.fromWebContents(event.sender);
         return Boolean(window?.isFullScreen());
     });
-    ipcMain.handle(CHANNELS.setFullscreen, (event) => {
+    ipcMain.handle(CHANNELS.setFullscreen, (event, enabled) => {
         const window = BrowserWindow.fromWebContents(event.sender);
-        if (!window) {
-            return false;
-        }
-        // The packaged game is fullscreen-only. Keep this compatibility endpoint
-        // for older renderer builds, but never expose a desktop windowed mode.
-        if (!window.isFullScreen()) {
-            window.setFullScreen(true);
-        }
-        return true;
+        if (!window) return false;
+        window.setFullScreen(Boolean(enabled));
+        return window.isFullScreen();
     });
 
     mainWindow = createMainWindow();

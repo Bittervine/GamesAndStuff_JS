@@ -50,6 +50,7 @@ export class RocketfrockInput {
             debugPanel: false
         };
         this.pointer = createPointerState();
+        this.rightMouseButtonDown = false;
         this.eventLog = [];
         this.consoleLogging = false;
         this.jumpSuppressedUntilRelease = false;
@@ -60,6 +61,9 @@ export class RocketfrockInput {
         target.addEventListener("keydown", (event) => this.onKeyDown(event), { passive: false });
         target.addEventListener("keyup", (event) => this.onKeyUp(event), { passive: false });
         target.addEventListener("blur", () => this.clear());
+        target.addEventListener("contextmenu", (event) => {
+            if (!event.target?.closest?.(POINTER_IGNORED_SELECTOR)) event.preventDefault();
+        }, { passive: false });
 
         this.preferNativeTouchEvents = supportsTouchEvents();
 
@@ -68,6 +72,11 @@ export class RocketfrockInput {
             target.addEventListener("pointermove", (event) => this.onPointerMove(event), { passive: false });
             target.addEventListener("pointerup", (event) => this.onPointerEnd(event), { passive: false });
             target.addEventListener("pointercancel", (event) => this.onPointerEnd(event), { passive: false });
+            // Pointer Events only dispatch pointerdown for the first pressed mouse
+            // button. Additional-button transitions may arrive as pointermove and
+            // browser-specific mousedown events, so observe both independently of
+            // the active movement pointer.
+            target.addEventListener("mousedown", (event) => this.syncRightMouseWeaponButton(event), { passive: false });
         } else {
             target.addEventListener("mousedown", (event) => this.onMouseDown(event), { passive: false });
             target.addEventListener("mousemove", (event) => this.onMouseMove(event), { passive: false });
@@ -124,6 +133,9 @@ export class RocketfrockInput {
         if (event.pointerType === "touch" && this.preferNativeTouchEvents) {
             return;
         }
+        if (this.syncRightMouseWeaponButton(event)) {
+            return;
+        }
         if (!this.shouldUsePointerEvent(event)) {
             return;
         }
@@ -133,6 +145,7 @@ export class RocketfrockInput {
     }
 
     onPointerMove(event) {
+        this.syncRightMouseWeaponButton(event);
         if (!this.pointer.active || event.pointerId !== this.pointer.pointerId) {
             return;
         }
@@ -141,6 +154,7 @@ export class RocketfrockInput {
     }
 
     onPointerEnd(event) {
+        this.syncRightMouseWeaponButton(event);
         if (!this.pointer.active || event.pointerId !== this.pointer.pointerId) {
             return;
         }
@@ -154,6 +168,9 @@ export class RocketfrockInput {
     }
 
     onMouseDown(event) {
+        if (this.syncRightMouseWeaponButton(event)) {
+            return;
+        }
         if (!this.shouldUsePointerEvent(event)) {
             return;
         }
@@ -161,6 +178,7 @@ export class RocketfrockInput {
     }
 
     onMouseMove(event) {
+        this.syncRightMouseWeaponButton(event);
         if (!this.pointer.active || this.pointer.pointerId !== "mouse") {
             return;
         }
@@ -168,6 +186,7 @@ export class RocketfrockInput {
     }
 
     onMouseEnd(event) {
+        this.syncRightMouseWeaponButton(event);
         if (!this.pointer.active || this.pointer.pointerId !== "mouse") {
             return;
         }
@@ -318,6 +337,33 @@ export class RocketfrockInput {
         return touchList.length === 1 ? touchList[0] : null;
     }
 
+    syncRightMouseWeaponButton(event) {
+        if (pointerTypeFromEvent(event) !== "mouse") {
+            return false;
+        }
+
+        const rightPressedNow = event.button === 2 || ((Number(event.buttons) || 0) & 2) !== 0;
+        const rightReleasedNow = event.button === 2 && event.type?.endsWith?.("up");
+        if (rightReleasedNow || (!rightPressedNow && event.buttons !== undefined)) {
+            this.rightMouseButtonDown = false;
+            return false;
+        }
+        if (!rightPressedNow) {
+            return false;
+        }
+        if (event.target?.closest?.(POINTER_IGNORED_SELECTOR)) {
+            return false;
+        }
+
+        event.preventDefault();
+        if (!this.rightMouseButtonDown) {
+            this.pendingGameplayEdges.weaponPressed = true;
+            this.recordPointerEvent("rightClickWeapon", event, "mouse");
+        }
+        this.rightMouseButtonDown = true;
+        return event.button === 2;
+    }
+
     shouldUsePointerEvent(event) {
         if (event.button !== undefined && event.button !== 0) {
             return false;
@@ -377,6 +423,7 @@ export class RocketfrockInput {
         this.pointer.dropHeld = false;
         this.pointer.dropPulse = false;
         this.pointer.weaponPulse = false;
+        this.rightMouseButtonDown = false;
         this.gamepad = createEmptyGamepadState();
         this.pendingGameplayEdges = createPendingGameplayEdges();
         this.lastInputDevice = "none";

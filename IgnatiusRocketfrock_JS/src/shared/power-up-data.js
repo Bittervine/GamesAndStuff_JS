@@ -1,5 +1,6 @@
 export const POWER_UP_EFFECT_IDS = Object.freeze({
     OVERDRIVE: "overdrive",
+    FLIGHT: "flight",
     SHIELD: "shield",
     WRENCH_TRIPLE: "wrenchYellow",
     WRENCH_DART: "wrenchCyan",
@@ -20,6 +21,10 @@ export const NON_HOMING_ROCKET_SPEED_FACTOR = 2;
 export const HOMING_TRIPLE_MEANDER_INTERVAL_SECONDS = 0.16;
 export const HOMING_TRIPLE_MEANDER_TURN_DEGREES = 7;
 export const OVERDRIVE_PASSIVE_FUEL_RECOVERY_DRAIN_FACTOR = 0.9;
+
+function defaultPowerUpPickupWorldScale(effectId) {
+    return effectId === POWER_UP_EFFECT_IDS.FLIGHT ? 2 : 1;
+}
 
 export const DEFAULT_WRENCH_POWER_UP_EFFECT_ID = POWER_UP_EFFECT_IDS.WRENCH_DART;
 
@@ -131,6 +136,24 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
             ...DEFAULT_ROCKET_PROFILE,
             launchFuelCostMultiplier: 0.5
         })
+    }),
+    [POWER_UP_EFFECT_IDS.FLIGHT]: Object.freeze({
+        version: 1,
+        id: POWER_UP_EFFECT_IDS.FLIGHT,
+        label: "Flight",
+        durationSeconds: 60,
+        permanent: false,
+        stacking: POWER_UP_STACKING_RULES.REFRESH,
+        clearOnDeath: true,
+        groupId: null,
+        exclusiveGroup: false,
+        hud: Object.freeze({
+            iconFrame: "rocket_fuel_canister",
+            glowFrame: "powerup_glow_white",
+            glowTint: "#ff8c32",
+            priority: 190
+        }),
+        rocket: DEFAULT_ROCKET_PROFILE
     }),
     [POWER_UP_EFFECT_IDS.WRENCH_TRIPLE]: wrenchEffect({
         id: POWER_UP_EFFECT_IDS.WRENCH_TRIPLE,
@@ -398,6 +421,7 @@ export function normalizePowerUpPickup(rawPickup) {
         effectId: effect.id,
         effect,
         radius: Math.max(4, finiteNumber(source.radius, 30)),
+        worldScale: Math.max(0.1, finiteNumber(source.worldScale, defaultPowerUpPickupWorldScale(effect.id))),
         atlasId: String(source.atlasId || "it_atlas_001"),
         iconFrame: String(source.iconFrame || effect.hud.iconFrame),
         glowFrame: String(source.glowFrame || effect.hud.glowFrame),

@@ -171,7 +171,7 @@
                 <tr><td>Double-jump kick and hover</td><td>Press jump again in the air, then hold jump.</td><td>Drag upward again, then keep holding upward.</td></tr>
                 <tr><td>Trim an ordinary jump</td><td>Hold <code>Down</code> or <code>S</code> while Ignatius is still rising.</td><td>Drag downward during the rising half of the jump.</td></tr>
                 <tr><td>Drop through a green platform</td><td><code>Down</code> or <code>S</code>, while standing or falling.</td><td>Swipe or drag downward. Yellow lines and areas always remain solid.</td></tr>
-                <tr><td>Launch rocket</td><td><code>Space</code>, <code>X</code>, <code>K</code>, or either <code>Ctrl</code></td><td>Quick double-tap the playfield.</td></tr>
+                <tr><td>Launch rocket</td><td><code>Space</code>, <code>X</code>, <code>K</code>, or either <code>Ctrl</code></td><td>Right-click once, or quick double-tap the playfield.</td></tr>
                 <tr><td>Interact</td><td><code>Down</code>, <code>S</code>, <code>Enter</code>, or <code>Numpad Enter</code></td><td>Use keyboard input when near levers, keyholes, or story objects.</td></tr>
                 <tr><td>Menu</td><td><code>Escape</code></td><td>Click or tap the score-and-bars panel or the minimap.</td></tr>
             </tbody>
@@ -189,7 +189,7 @@
             <li>The rocket pack can boost, slow falls, and fire homing rockets.</li>
             <li>Rocket launches have no firing cooldown. Each distinct launch press fires immediately whenever enough fuel is available.</li>
             <li>When a gamepad is the active control device, supported controllers rumble strongly when Ignatius is hurt and more gently for rocket fire, the double-jump kick, and sustained hover. Keyboard or touch control keeps controller vibration silent.</li>
-            <li>Fuel normally begins recharging after Ignatius returns to the ground. Overdrive provides its smaller passive recovery even in the air and while hovering.</li>
+            <li>Fuel normally begins recharging after Ignatius returns to the ground. Overdrive and Flight provide the same smaller passive recovery even in the air and during ordinary recharge delay.</li>
             <li>Homing rockets only lock onto enemies that are at least partly visible on the current screen. They prefer visible active targets in the direction Ignatius is facing, and release a target that leaves the screen.</li>
             <li>A standard rocket deals 30 damage to the enemy it directly hits. Its small impact splash deals exactly 1 damage to other nearby enemies within a diameter of about two wizard heights. Overdrive retains this splash; wrench rockets use only their own behavior.</li>
             <li>The old target dummy is now the stationary <code>enemy_900</code> training enemy in the normal enemy pipeline. It has no contact damage, no attacks, and it shakes briefly before fading out when destroyed.</li>
@@ -201,8 +201,9 @@
             <li>Automatically generated levels aim for roughly one treasure chest per 500 pixels and one genuine power-up per 1,000 pixels of route travel at the default Reward density. Chests may appear on the main route, lower recovery routes, upper access steps, or reachable upper perches. Power-ups are placed directly on a walkable surface for easy collection; about half are authored wrench pickups, with the remainder split evenly between Shield and Overdrive.</li>
             <li>Generated static platforms that overlap horizontally keep their walking surfaces at least 180 pixels apart vertically.</li>
             <li>Generated vertical lifts reserve a full rider-height corridor and dock beside solid yellow platforms rather than carrying riders into their undersides.</li>
-            <li>The top-left Power bar shows the highest-priority active effect and its remaining duration. Any active wrench upgrade is shown ahead of Shield and Overdrive; all compatible effects remain active at the same time.</li>
-            <li><strong>Shield</strong> lasts 10 seconds and blocks all ordinary incoming damage. The pickup glows blue, and Ignatius flashes blue while protected. The blue flash takes priority over the red critical-health flash.</li>
+            <li>The top-left Power bar shows the highest-priority active effect and its remaining duration. Any active wrench upgrade is shown first, followed by Flight, Shield, and Overdrive; all compatible effects remain active at the same time.</li>
+            <li><strong>Flight</strong> is granted by a rocket-fuel canister and lasts 60 seconds. With no vertical control Ignatius hovers at a steady height. Hold Up to ease into a climb and Down to ease into a descent; releasing either control eases back toward a hover. Left and Right retain running-style acceleration and braking. Flying itself costs no fuel. Fuel instead replenishes continuously at the same 90%-of-hover-drain rate as Overdrive, while every fired rocket still pays its normal fuel cost, allowing rapid but not unlimited shooting.</li>
+<li><strong>Shield</strong> lasts 10 seconds and blocks all ordinary incoming damage. The pickup glows blue, and Ignatius flashes blue while protected. The blue flash takes priority over the red critical-health flash.</li>
             <li><strong>Overdrive</strong> lasts 20 seconds and halves the fuel cost of each launch. It also recovers fuel continuously at a minimum rate equal to 90% of hover consumption, including while hovering or during the ordinary recharge delay. Normal grounded recovery may be faster, but the two rates do not add together. Rocket firing itself has no cooldown. While active, Ignatius also gets a small yellow spark shimmer around his body.</li>
             <li>Wrench power-ups last 20 seconds and replace any other active wrench. A wrench pickup has an authored type selected in the Level Editor; if the field is missing, it defaults to the blue Homing Triple wrench.</li>
             <li>Rockets modified by a wrench carry a fuzzy outline in that wrench's colour, so the current payload remains visible even after launch. The six powered rockets use precomposited atlas frames, avoiding first-shot stutter and extra glow drawing during play.</li>
@@ -238,27 +239,32 @@
             <li>After the death sparks burst, the camera remains on the death site for two seconds before Ignatius respawns.</li>
         </ul>
 
-        <h2>Menu</h2>
+        <h2>Menus and saved games</h2>
+        <p>The title screen provides five primary actions:</p>
         <ul>
-            <li><strong>Settings</strong> adjusts effects volume, music volume, difficulty, rendering quality, minimap visibility, renderer preferences, development-tool visibility, and browser fullscreen policy.</li>
-            <li><strong>Restart level</strong> restarts the current level and resumes play.</li>
-            <li><strong>Exit to Title</strong> appears while the game is running and returns to the title card.</li>
-            <li><strong>Exit to desktop</strong> appears only in the Electron build.</li>
+            <li><strong>Start New Game</strong> begins at Level 1 and replaces the hidden autosave without deleting any manual save slot.</li>
+            <li><strong>Resume Game</strong> restores the hidden autosave. It is unavailable until an autosave exists.</li>
+            <li><strong>Load Game</strong> opens the three manual save slots.</li>
+            <li><strong>Settings</strong> opens the same gameplay and display controls available while paused.</li>
+            <li><strong>Exit to Desktop</strong> closes the Electron or SDL application. An ordinary browser may require you to close its tab or window manually.</li>
         </ul>
+        <p>During play, open the pause menu with <code>Escape</code> or either upper HUD panel. It provides <strong>Resume Game</strong>, <strong>Save Game</strong>, <strong>Load Game</strong>, <strong>Settings</strong>, and <strong>Exit to Title</strong>.</p>
+        <p>There are three visible manual slots and one hidden autosave slot. Entering a level currently acts as a checkpoint. Saves therefore restore the beginning of the saved level rather than an exact mid-action frame. Future authored checkpoints can use the same save slots.</p>
 
         <h2>Settings</h2>
         <ul>
-            <li>Effects volume controls sound effects.</li>
-            <li>Music volume controls OGG level music. Levels choose from the tracks listed in <code>assets/music.json</code>, and each selected file loops during play.</li>
-            <li>Difficulty currently changes only incoming damage to Ignatius.</li>
-            <li>Rendering quality changes visual particle density without changing gameplay timing or collision.</li>
-            <li><strong>Use hardware rendering</strong> selects WebGL2 by default after the next reload. An explicit <code>?webgl=0</code> or <code>?webgl=1</code> URL option overrides the saved preference.</li>
-            <li><strong>Development mode</strong> shows or hides the lower-right development tool strip in both browser and Electron builds.</li>
-            <li>The development <strong>Profiler</strong> button records every requested frame until pressed again, then copies a JSON report. While <strong>Baking: Tiles</strong> is active, the report also separates tile-worker collection, cache planning, adoption, atlas upload, eviction, scheduling, and drawing without changing the tile-cache policy.</li>
-            <li><strong>Use pixmap pyramids</strong> enables prefiltered reduced copies of isolated character artwork after the next reload. Disable it to compare direct drawing from the original full-size pixmaps.</li>
-            <li><strong>Baking</strong> chooses how static background, terrain, and foreground artwork is reused. <strong>Off</strong> draws static scenery live every frame. <strong>Tiles</strong> continuously bakes nearby 256-pixel tiles in the background, reuses them while they remain near the camera, and falls back to live drawing until a visible layer is ready. <strong>Full</strong> keeps the experimental complete-level bake for renderer comparison testing. WebGL Full baking has a 2 GiB estimated texture ceiling; an oversized or failed bake returns the setting to Off.</li>
-            <li>Show minimap controls whether the upper-right minimap is visible.</li>
+            <li><strong>Effects volume</strong> controls sound effects.</li>
+            <li><strong>Music volume</strong> controls looping OGG level music.</li>
+            <li><strong>Difficulty</strong> currently changes only incoming damage to Ignatius.</li>
+            <li><strong>Effects quality</strong> changes visual particle density without changing gameplay timing or collision.</li>
+            <li><strong>Fullscreen</strong> controls fullscreen presentation. Browser fullscreen entry may require a click or key press.</li>
+            <li><strong>Minimap</strong> controls whether the upper-right minimap is visible.</li>
+            <li><strong>Hardware regular</strong> uses WebGL2 with live scenery.</li>
+            <li><strong>Hardware + speedhack</strong> uses WebGL2 with baked scenery tiles.</li>
+            <li><strong>Software regular</strong> uses Canvas2D with pixmap pyramids and live scenery.</li>
+            <li><strong>Software + speedhack</strong> uses Canvas2D with pixmap pyramids and baked scenery tiles.</li>
         </ul>
+        <p>Rendering-mode changes take effect after the game is reloaded. Explicit development URL options may still override the saved browser renderer while testing.</p>
 
         <h2>Ranged enemy attacks</h2>
         <p>Ranged enemies may begin an attack as soon as Ignatius is inside their awareness range and facing cone, even while they are still moving toward their preferred combat distance. They do not deliberately fire through solid scenery, and they cancel the projectile release if the shot becomes blocked or Ignatius leaves their current view during the wind-up. Skeleton Casters launch green undeath orbs with a bubbly trail. The Tri-fireball Goblin launches three slightly smaller, non-homing fireballs in a straight ±15-degree fan; it commits to the volley when at least one of the three real trajectories can reach Ignatius without hitting solid scenery first. Each fireball deals the same damage as the ordinary Fireball Goblin's homing shot. Bombing bats only release rocks when the predicted falling path can plausibly cross Ignatius and is not blocked by a platform or other solid obstacle.</p>
@@ -288,7 +294,6 @@
         <h2>Level authoring: selection and assets</h2>
         <p>Use <strong>Shift-drag</strong> on the canvas to select every fully enclosed entity or asset. <strong>Ctrl-click</strong> toggles one object, and <strong>Ctrl+Shift-drag</strong> toggles all objects enclosed by the rectangle. The last selected object remains the primary white-outlined object whose properties appear in <strong>Selected object</strong>; the other gray-outlined objects participate in group movement and clipboard actions. Position, size, angle, layer, mirror settings, entity state, and other inspector controls commit directly, so there is no Apply button. X, Y, W, H, angle, enemy scale, and the single-line Notes field update while edited. The toolbar provides standard <strong>Cut</strong>, <strong>Copy</strong>, <strong>Paste</strong>, and <strong>Delete</strong> actions for either one object or a multi-selection. The corresponding Ctrl/Cmd+X, Ctrl/Cmd+C, Ctrl/Cmd+V, Delete, and Backspace shortcuts work whenever a text field is not being edited. The first paste after Cut restores the objects at their original coordinates; copied objects paste with a small snapped offset, and repeated pastes continue to cascade. The Asset palette lists every asset from every loaded atlas, so no separate atlas dropdown is needed. Both the Asset and Entity palettes use matching two-column thumbnail cards, compact filter fields, and their own full-height scroll areas. Thumbnail rows keep a useful fixed height and scroll rather than being compressed to fit; previews use the displayed card aspect ratio and are centered from the final visible artwork, including complete composed enemy poses. Selecting an asset card enters Place Asset mode; choosing an entity card enters Place Entity mode, while the toolbar placement buttons reuse the current palette choices without duplicate dropdowns. Moving over the canvas shows the selected item as a snapped translucent preview. One click places it, after which both asset and entity placement return automatically to Select mode.</p>
     
-        <p><strong>Rendering defaults:</strong> Fresh profiles use hardware rendering with baking Off. Existing saved rendering preferences are preserved.</p>
 </main>
 </body>
 </html>

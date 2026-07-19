@@ -23,12 +23,24 @@ import { GamepadHaptics } from "./gamepad-haptics.js";
 import { createRenderer } from "../presentation/canvas-renderer.js";
 import { normalizeCaveWindow } from "../shared/cave-window-data.js";
 import {
-    gameBakingModePreset,
     gameDifficultyPreset,
+    gameRenderingModePreset,
     gameRenderingQualityPreset,
     normalizeGameSettings
 } from "../shared/game-settings-data.js";
 import { loadStoredGameSettings, saveStoredGameSettings } from "./game-settings-store.js";
+import {
+    AUTOSAVE_SLOT_ID,
+    MANUAL_SAVE_SLOT_IDS,
+    createSaveGameRecord,
+    saveGameSlotLabel
+} from "../shared/save-game-data.js";
+import {
+    loadManualSaveGames,
+    loadStoredAutosave,
+    loadStoredSaveGame,
+    saveStoredSaveGame
+} from "./save-game-store.js";
 import { normalizeLevelMusic, normalizeMusicCatalog } from "../shared/music-data.js";
 import { powerUpHudLabel, prioritizedActivePowerUpEffect } from "../shared/power-up-data.js";
 import { createMusicDirector } from "./music-director.js";
@@ -93,8 +105,13 @@ const loadingTrack = document.getElementById("loading-track");
 const loadingBarFill = document.getElementById("loading-bar-fill");
 const loadingDetail = document.getElementById("loading-detail");
 const titleScreen = document.getElementById("title-screen");
+const titleActions = document.getElementById("title-actions");
 const titleStartButton = document.getElementById("title-start-button");
 const titleResumeButton = document.getElementById("title-resume-button");
+const titleLoadButton = document.getElementById("title-load-button");
+const titleSettingsButton = document.getElementById("title-settings-button");
+const titleExitDesktopButton = document.getElementById("title-exit-desktop-button");
+const titleActionButtons = [titleStartButton, titleResumeButton, titleLoadButton, titleSettingsButton, titleExitDesktopButton].filter(Boolean);
 const hudPanelGroup = document.getElementById("hud");
 const metersPanel = document.getElementById("meters");
 const minimapPanel = document.getElementById("game-menu-controls");
@@ -108,10 +125,13 @@ const gameMenuSubtitle = document.getElementById("game-menu-subtitle");
 const gameMenuBackButton = document.getElementById("game-menu-back");
 const gameMenuMain = document.getElementById("game-menu-main");
 const gameSettingsPanel = document.getElementById("game-settings-panel");
+const gameSaveSlotsPanel = document.getElementById("game-save-slots-panel");
+const gameSaveSlotButtons = [...document.querySelectorAll("[data-save-slot]")];
+const gameMenuResumeButton = document.getElementById("game-menu-resume");
+const gameMenuSaveButton = document.getElementById("game-menu-save");
+const gameMenuLoadButton = document.getElementById("game-menu-load");
 const gameMenuSettingsButton = document.getElementById("game-menu-settings");
-const gameMenuRestartButton = document.getElementById("game-menu-restart");
 const gameMenuExitTitleButton = document.getElementById("game-menu-exit-title");
-const gameMenuExitDesktopButton = document.getElementById("game-menu-exit-desktop");
 const sfxVolumeInput = document.getElementById("sfx-volume");
 const sfxVolumeValue = document.getElementById("sfx-volume-value");
 const musicVolumeInput = document.getElementById("music-volume");
@@ -120,18 +140,13 @@ const difficultyValue = document.getElementById("difficulty-value");
 const difficultyButtons = [...document.querySelectorAll("[data-difficulty]")];
 const renderingQualityValue = document.getElementById("rendering-quality-value");
 const renderingQualityButtons = [...document.querySelectorAll("[data-rendering-quality]")];
-const autoFullscreenRow = document.getElementById("auto-fullscreen-row");
-const autoFullscreenInput = document.getElementById("auto-fullscreen");
+const fullscreenInput = document.getElementById("fullscreen-setting");
 const showMinimapInput = document.getElementById("show-minimap");
-const useHardwareRenderingInput = document.getElementById("use-hardware-rendering");
-const useHardwareRenderingStatus = document.getElementById("use-hardware-rendering-status");
-const developmentModeInput = document.getElementById("development-mode");
-const usePixmapPyramidsInput = document.getElementById("use-pixmap-pyramids");
-const usePixmapPyramidsStatus = document.getElementById("use-pixmap-pyramids-status");
-const bakingModeRow = document.getElementById("baking-mode-row");
-const bakingModeSelect = document.getElementById("baking-mode-select");
+const renderingModeValue = document.getElementById("rendering-mode-value");
+const renderingModeStatus = document.getElementById("rendering-mode-status");
+const renderingModeSelect = document.getElementById("rendering-mode-select");
 
-const GAME_REVISION = "530";
+const GAME_REVISION = "532";
 const START_LEVEL_ID = "level_001";
 const launchParams = new URLSearchParams(window.location.search || "");
 const launchLevelId = normalizeLaunchLevelQuery(launchParams.get("level"), START_LEVEL_ID);
@@ -139,7 +154,6 @@ const launchLevelSpecified = launchParams.has("level");
 const launchRecordRequested = ["1", "true", "on", "yes"].includes(String(launchParams.get("record") || "").trim().toLowerCase());
 const launchPlaybackUrl = playbackUrlFromQueryValue(launchParams.get("playback"));
 const launchPlaybackPauseAtSec = finiteNonNegativeNumber(launchParams.get("playback_pause"), null);
-const RESUME_SAVE_STORAGE_KEY = "ignatius_rocketfrock_resume_v1";
 
 function assetUrl(requestPath) {
     const text = String(requestPath || "");
@@ -173,6 +187,7 @@ const musicDirector = createMusicDirector({ volume: gameState.settings.musicVolu
 let musicCatalog = normalizeMusicCatalog(null);
 let activeLevelMusic = normalizeLevelMusic(null);
 let gameMenuView = "menu";
+let saveSlotMode = "load";
 let gameMenuPreviousPause = false;
 let pageFocusLost = document.hidden;
 let effectiveSfxVolume = pageFocusLost ? 0 : gameState.settings.sfxVolume;
@@ -181,7 +196,6 @@ let fullscreenRequestPending = false;
 let stopElectronFullscreenListener = null;
 let titleScreenActive = true;
 let gameHasStarted = false;
-let suppressPostTitleStartInputUntil = 0;
 let minimapResizeObserver = null;
 let minimapLastDrawAt = -Infinity;
 let minimapLastSizeKey = "";
@@ -192,6 +206,7 @@ let activeNoticeOverlay = null;
 const preferWebGL2Renderer = shouldPreferWebGL2Renderer();
 const activePixmapPyramids = Boolean(gameState.settings.usePixmapPyramids);
 let activeHardwareRendering = false;
+let activeBakingMode = gameState.settings.bakingMode;
 const hudBackdropBlurDisabled = shouldDisableHudBackdropBlur();
 document.documentElement.classList.toggle("dev-no-hud-blur", hudBackdropBlurDisabled);
 gameState.debug.revision = GAME_REVISION;
@@ -776,44 +791,46 @@ function normalizedLevelId(value, fallback = START_LEVEL_ID) {
     return `level_${match[1].padStart(3, "0")}`;
 }
 
-function storedResumeLevelId() {
-    try {
-        const raw = localStorage.getItem(RESUME_SAVE_STORAGE_KEY);
-        if (!raw) return "";
-        const parsed = JSON.parse(raw);
-        const id = normalizedLevelId(typeof parsed === "string" ? parsed : parsed?.levelId, "");
-        return id || "";
-    } catch (error) {
-        console.warn("Stored resume data could not be read.", error);
-        return "";
-    }
+function currentSaveGameRecord(slotId) {
+    return createSaveGameRecord({
+        slotId,
+        levelId: gameState.world?.levelId || START_LEVEL_ID,
+        levelTitle: gameState.world?.title || gameState.story?.levelTitle || "Ignatius Rocketfrock",
+        checkpointId: "",
+        checkpointLabel: "Level start",
+        score: gameState.score,
+        campaign: {}
+    });
+}
+
+function storedResumeSave() {
+    return loadStoredAutosave();
 }
 
 function saveResumeLevelId(levelId) {
     const id = normalizedLevelId(levelId, "");
     if (!id) return false;
-    try {
-        localStorage.setItem(RESUME_SAVE_STORAGE_KEY, JSON.stringify({
-            version: 1,
-            levelId: id,
-            savedAt: new Date().toISOString()
-        }));
-        syncTitleScreenUi();
-        addEvent(gameState, "RESUME_LEVEL_SAVED", { levelId: id });
-        return true;
-    } catch (error) {
-        console.warn(`Resume level ${id} could not be saved.`, error);
-        return false;
-    }
+    const record = createSaveGameRecord({
+        ...currentSaveGameRecord(AUTOSAVE_SLOT_ID),
+        slotId: AUTOSAVE_SLOT_ID,
+        levelId: id,
+        levelTitle: gameState.world?.title || gameState.story?.levelTitle || id.replace("_", " ")
+    });
+    saveStoredSaveGame(AUTOSAVE_SLOT_ID, record);
+    syncTitleScreenUi();
+    addEvent(gameState, "AUTOSAVE_WRITTEN", { levelId: id });
+    return true;
 }
 
-function clearStoredResumeLevel() {
-    try {
-        localStorage.removeItem(RESUME_SAVE_STORAGE_KEY);
-    } catch (error) {
-        console.warn("Stored resume data could not be cleared.", error);
+function saveManualSlot(slotId) {
+    const existing = loadStoredSaveGame(slotId);
+    if (existing && !globalThis.confirm?.(`Overwrite ${saveGameSlotLabel(slotId)}?`)) {
+        return false;
     }
-    syncTitleScreenUi();
+    saveStoredSaveGame(slotId, currentSaveGameRecord(slotId));
+    syncSaveSlotUi();
+    addEvent(gameState, "MANUAL_SAVE_WRITTEN", { slotId, levelId: gameState.world?.levelId });
+    return true;
 }
 
 async function fetchOptionalLevel(levelId) {
@@ -981,10 +998,12 @@ function handleStaticBakeRendererFailure(payload = {}) {
     if (staticBakeFailureNoticeKey === key) return;
     staticBakeFailureNoticeKey = key;
     window.setTimeout(() => {
+        const currentMode = gameState.settings?.renderingMode || "hardwareRegular";
         gameState.settings = saveStoredGameSettings({
             ...normalizeGameSettings(gameState.settings),
-            bakingMode: "off"
+            renderingMode: currentMode.startsWith("software") ? "softwareRegular" : "hardwareRegular"
         });
+        activeBakingMode = "off";
         syncGameSettingsUi();
         const suffix = detail ? `\n\n${detail}` : "";
         showGameNotice(`${message}${suffix}`, { okText: "OK" });
@@ -994,81 +1013,50 @@ function handleStaticBakeRendererFailure(payload = {}) {
 function setupTitleScreen() {
     titleStartButton?.addEventListener("click", (event) => {
         event.preventDefault();
-        startGameFromTitle();
+        void startNewGameFromTitle();
     });
-
     titleResumeButton?.addEventListener("click", (event) => {
         event.preventDefault();
         void resumeGameFromTitle();
     });
-
+    titleLoadButton?.addEventListener("click", (event) => {
+        event.preventDefault();
+        setGameMenuView("load");
+        openGameMenu("load");
+    });
+    titleSettingsButton?.addEventListener("click", (event) => {
+        event.preventDefault();
+        openGameMenu("settings");
+    });
+    titleExitDesktopButton?.addEventListener("click", (event) => {
+        event.preventDefault();
+        void exitToDesktop();
+    });
+    titleActions?.addEventListener("keydown", handleTitleMenuNavigationKey);
     window.addEventListener("keydown", handleGameplayPlaybackResumeKeydown, { capture: true, passive: false });
-    window.addEventListener("keydown", handleTitleStartKeydown, { capture: true, passive: false });
-    window.addEventListener("pointerdown", handleTitleStartPointer, { capture: true, passive: false });
-    window.addEventListener("mousedown", handleTitleStartPointer, { capture: true, passive: false });
-    window.addEventListener("touchstart", handleTitleStartPointer, { capture: true, passive: false });
+}
+
+function handleTitleMenuNavigationKey(event) {
+    if (!titleScreenActive || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+    const enabledButtons = titleActionButtons.filter((button) => !button.disabled);
+    if (!enabledButtons.length) return;
+    event.preventDefault();
+    const currentIndex = Math.max(0, enabledButtons.indexOf(document.activeElement));
+    let nextIndex = currentIndex;
+    if (event.key === "Home") nextIndex = 0;
+    else if (event.key === "End") nextIndex = enabledButtons.length - 1;
+    else {
+        const direction = event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 1;
+        nextIndex = (currentIndex + direction + enabledButtons.length) % enabledButtons.length;
+    }
+    enabledButtons[nextIndex].focus({ preventScroll: true });
 }
 
 function handleGameplayPlaybackResumeKeydown(event) {
-    if (!gameplayPlayback?.pausedForKey) {
-        return;
-    }
+    if (!gameplayPlayback?.pausedForKey) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     resumeGameplayPlaybackFromPause();
-}
-
-function handleTitleStartKeydown(event) {
-    if (!titleScreenActive && shouldSuppressPostTitleStartInput()) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        return;
-    }
-    if (!titleScreenActive || isGameMenuOpen() || event.repeat || shouldIgnoreTitleStartTarget(event.target)) {
-        return;
-    }
-    if (["Escape", "Tab", "F11"].includes(event.code) || event.altKey || event.ctrlKey || event.metaKey) {
-        return;
-    }
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    startGameFromTitle();
-}
-
-function handleTitleStartPointer(event) {
-    if (!titleScreenActive && shouldSuppressPostTitleStartInput()) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        return;
-    }
-    if (!titleScreenActive || isGameMenuOpen() || shouldIgnoreTitleStartTarget(event.target)) {
-        return;
-    }
-    if (event.button !== undefined && event.button !== 0) {
-        return;
-    }
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    startGameFromTitle();
-}
-
-function shouldSuppressPostTitleStartInput() {
-    return performance.now() < suppressPostTitleStartInputUntil;
-}
-
-function shouldIgnoreTitleStartTarget(target) {
-    return Boolean(target instanceof Element && target.closest([
-        "#title-manual-link",
-        "#title-resume-button",
-        "#game-menu-controls",
-        "#game-menu-dialog",
-        "#tool-links",
-        "input",
-        "select",
-        "textarea",
-        "label",
-        "[data-ignore-game-pointer]"
-    ].join(",")));
 }
 
 function showTitleScreen() {
@@ -1078,30 +1066,61 @@ function showTitleScreen() {
     syncTitleScreenUi();
 }
 
-function titleStartRequested(inputFrame) {
-    return Boolean(inputFrame?.jumpPressed);
-}
-
 function startGameFromTitle() {
-    if (!titleScreenActive) {
-        return;
-    }
+    if (!titleScreenActive) return;
     titleScreenActive = false;
     gameHasStarted = true;
-    suppressPostTitleStartInputUntil = performance.now() + 360;
     input.clear();
     setGamePaused(false, { clearInput: true });
     syncTitleScreenUi();
     void musicDirector.unlock();
-    void applyAutoFullscreenPolicy();
+    void applyFullscreenPreference();
+}
+
+async function startNewGameFromTitle() {
+    if (!titleScreenActive) return false;
+    void musicDirector.unlock();
+    const loaded = await restartCurrentLevel({
+        levelId: START_LEVEL_ID,
+        loadingLabel: "Starting new game",
+        useBrowserCopy: false
+    });
+    if (!loaded) return false;
+    saveResumeLevelId(START_LEVEL_ID);
+    startGameFromTitle();
+    return true;
+}
+
+async function loadSaveGameRecord(record, { startFromTitle = titleScreenActive } = {}) {
+    if (!record?.levelId) return false;
+    const levelAvailable = Boolean(await fetchOptionalLevel(record.levelId));
+    if (!levelAvailable) {
+        showGameNotice(`The saved level ${record.levelId} is not available.`);
+        return false;
+    }
+    const loaded = await restartCurrentLevel({
+        levelId: record.levelId,
+        loadingLabel: "Loading saved game",
+        useBrowserCopy: false
+    });
+    if (!loaded) return false;
+    gameState.score = Math.max(0, Number(record.score) || 0);
+    saveResumeLevelId(record.levelId);
+    if (startFromTitle) {
+        startGameFromTitle();
+    } else {
+        titleScreenActive = false;
+        gameHasStarted = true;
+        setGamePaused(false, { clearInput: true });
+        syncTitleScreenUi();
+    }
+    return true;
 }
 
 async function resumeGameFromTitle() {
-    if (!titleScreenActive) {
-        return false;
-    }
-    const resumeLevelId = storedResumeLevelId();
-    if (!resumeLevelId) {
+    if (!titleScreenActive) return false;
+    const autosave = storedResumeSave();
+    if (!autosave) {
         syncTitleScreenUi();
         return false;
     }
@@ -1111,43 +1130,40 @@ async function resumeGameFromTitle() {
     }
     void musicDirector.unlock();
     try {
-        const levelAvailable = Boolean(await fetchOptionalLevel(resumeLevelId));
-        if (!levelAvailable) {
-            clearStoredResumeLevel();
-            return false;
-        }
-        const loaded = await restartCurrentLevel({
-            levelId: resumeLevelId,
-            loadingLabel: "Loading saved level",
-            useBrowserCopy: false
-        });
-        if (!loaded) {
-            return false;
-        }
-        startGameFromTitle();
-        return true;
+        return await loadSaveGameRecord(autosave, { startFromTitle: true });
     } finally {
-        if (titleResumeButton) {
-            titleResumeButton.removeAttribute("aria-busy");
-        }
+        titleResumeButton?.removeAttribute("aria-busy");
         syncTitleScreenUi();
     }
 }
 
-function syncTitleScreenUi() {
-    if (titleScreen) {
-        titleScreen.hidden = !titleScreenActive;
+async function exitToDesktop() {
+    if (electronWindowBridge && typeof electronWindowBridge.quit === "function") {
+        await electronWindowBridge.quit();
+        return;
     }
+    window.close();
+    setTimeout(() => {
+        if (!window.closed) {
+            showGameNotice("This browser does not allow a webpage to close its tab. You can close this tab or window normally.");
+        }
+    }, 0);
+}
+
+function syncTitleScreenUi() {
+    if (titleScreen) titleScreen.hidden = !titleScreenActive;
     document.body.classList.toggle("title-screen-active", titleScreenActive);
     document.body.classList.toggle("game-running", gameHasStarted && !titleScreenActive);
-    if (gameMenuExitTitleButton) {
-        gameMenuExitTitleButton.hidden = titleScreenActive;
-    }
+    if (gameMenuExitTitleButton) gameMenuExitTitleButton.hidden = titleScreenActive;
+    if (gameMenuSaveButton) gameMenuSaveButton.hidden = titleScreenActive;
+    if (gameMenuResumeButton) gameMenuResumeButton.hidden = titleScreenActive;
+    const autosave = storedResumeSave();
     if (titleResumeButton) {
-        const resumeLevelId = storedResumeLevelId();
-        titleResumeButton.disabled = !resumeLevelId;
-        titleResumeButton.setAttribute("aria-disabled", resumeLevelId ? "false" : "true");
-        titleResumeButton.title = resumeLevelId ? `Resume from ${resumeLevelId.replace("_", " ")}` : "Complete a level to unlock Resume";
+        titleResumeButton.disabled = !autosave;
+        titleResumeButton.setAttribute("aria-disabled", autosave ? "false" : "true");
+        titleResumeButton.title = autosave
+            ? `Resume ${autosave.levelTitle}`
+            : "No autosave is available yet";
     }
     syncGameAudioState();
 }
@@ -1362,78 +1378,47 @@ function drawMinimap(force = false) {
 }
 
 function setupGameMenuAndSettings() {
-    if (!gameMenuDialog || (!openGameMenuButton && !metersPanel)) {
-        return;
-    }
+    if (!gameMenuDialog || (!openGameMenuButton && !metersPanel)) return;
 
-    const isElectron = Boolean(electronWindowBridge);
-    document.body.classList.toggle("electron", isElectron);
-    if (fullscreenToggleButton) {
-        fullscreenToggleButton.hidden = isElectron;
-    }
+    document.body.classList.toggle("electron", Boolean(electronWindowBridge));
     if (gameMenuExitTitleButton) {
         gameMenuExitTitleButton.textContent = "Exit to Title";
         gameMenuExitTitleButton.setAttribute("aria-label", "Exit to Title");
-        gameMenuExitTitleButton.hidden = titleScreenActive;
-    }
-    if (gameMenuExitDesktopButton) {
-        gameMenuExitDesktopButton.hidden = !electronWindowBridge;
-    }
-    if (autoFullscreenRow) {
-        autoFullscreenRow.hidden = Boolean(electronWindowBridge);
     }
 
     openGameMenuButton?.addEventListener("click", () => {
-        if (isGameMenuOpen()) {
-            closeGameMenu();
-        } else {
-            openGameMenu();
-        }
+        if (isGameMenuOpen()) closeGameMenu();
+        else openGameMenu("menu");
     });
     metersPanel?.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
-        openGameMenu();
+        openGameMenu("menu");
     });
     metersPanel?.addEventListener("keydown", (event) => {
-        if (event.code !== "Enter" && event.code !== "NumpadEnter" && event.code !== "Space") return;
+        if (!["Enter", "NumpadEnter", "Space"].includes(event.code)) return;
         event.preventDefault();
         event.stopPropagation();
-        openGameMenu();
+        openGameMenu("menu");
     });
-    fullscreenToggleButton?.addEventListener("click", () => {
-        if (electronWindowBridge) {
-            return;
-        }
-        void toggleFullscreen();
-    });
+    fullscreenToggleButton?.addEventListener("click", () => void toggleFullscreen());
+    gameMenuResumeButton?.addEventListener("click", closeGameMenu);
+    gameMenuSaveButton?.addEventListener("click", () => setGameMenuView("save"));
+    gameMenuLoadButton?.addEventListener("click", () => setGameMenuView("load"));
     gameMenuSettingsButton?.addEventListener("click", () => setGameMenuView("settings"));
     gameMenuBackButton?.addEventListener("click", () => {
-        if (gameMenuView === "settings") {
-            setGameMenuView("menu");
-        } else {
-            closeGameMenu();
-        }
+        if (gameMenuView !== "menu" && !titleScreenActive) setGameMenuView("menu");
+        else closeGameMenu();
     });
-    gameMenuRestartButton?.addEventListener("click", () => {
-        void restartLevelFromMenu();
-    });
-    gameMenuExitTitleButton?.addEventListener("click", () => {
-        void exitToTitleFromMenu();
-    });
-    gameMenuExitDesktopButton?.addEventListener("click", () => {
-        if (electronWindowBridge && typeof electronWindowBridge.quit === "function") {
-            void electronWindowBridge.quit();
-        }
-    });
+    for (const button of gameSaveSlotButtons) {
+        button.addEventListener("click", () => void handleSaveSlotSelection(button.dataset.saveSlot));
+    }
+    gameMenuExitTitleButton?.addEventListener("click", () => void exitToTitleFromMenu());
 
     gameMenuDialog.addEventListener("cancel", (event) => {
         event.preventDefault();
-        if (gameMenuView === "settings") {
-            setGameMenuView("menu");
-        } else {
-            closeGameMenu();
-        }
+        if (gameMenuView !== "menu" && !titleScreenActive) setGameMenuView("menu");
+        else closeGameMenu();
     });
     gameMenuDialog.addEventListener("close", restorePauseAfterMenu);
     gameMenuDialog.addEventListener("click", (event) => {
@@ -1444,7 +1429,6 @@ function setupGameMenuAndSettings() {
     });
 
     window.addEventListener("keydown", handleMenuAndFullscreenKeydown, { passive: false });
-    window.addEventListener("pointerdown", maybeApplyAutoFullscreenFromGameplayGesture, { capture: true, passive: true });
     window.addEventListener("pointerdown", unlockMusicFromGesture, { capture: true, passive: true });
     window.addEventListener("keydown", unlockMusicFromGesture, { capture: true, passive: true });
     window.addEventListener("blur", pauseForPageFocusLoss);
@@ -1457,26 +1441,12 @@ function setupGameMenuAndSettings() {
     musicVolumeInput?.addEventListener("input", () => updatePersistentGameSettings({
         musicVolume: Number(musicVolumeInput.value)
     }));
-    autoFullscreenInput?.addEventListener("change", () => {
-        updatePersistentGameSettings({ autoFullscreen: autoFullscreenInput.checked });
-        void applyAutoFullscreenPolicy();
+    fullscreenInput?.addEventListener("change", () => {
+        updatePersistentGameSettings({ fullscreen: fullscreenInput.checked });
+        void requestFullscreenState(fullscreenInput.checked);
     });
     showMinimapInput?.addEventListener("change", () => {
         updatePersistentGameSettings({ showMinimap: showMinimapInput.checked });
-    });
-    useHardwareRenderingInput?.addEventListener("change", () => {
-        updatePersistentGameSettings({ useHardwareRendering: useHardwareRenderingInput.checked });
-    });
-    developmentModeInput?.addEventListener("change", () => {
-        updatePersistentGameSettings({ developmentMode: developmentModeInput.checked });
-    });
-    usePixmapPyramidsInput?.addEventListener("change", () => {
-        updatePersistentGameSettings({ usePixmapPyramids: usePixmapPyramidsInput.checked });
-    });
-    bakingModeSelect?.addEventListener("change", () => {
-        const bakingMode = bakingModeSelect.value || "off";
-        if (bakingMode !== "off") staticBakeFailureNoticeKey = "";
-        updatePersistentGameSettings({ bakingMode });
     });
     for (const button of difficultyButtons) {
         button.addEventListener("click", () => updatePersistentGameSettings({
@@ -1488,62 +1458,74 @@ function setupGameMenuAndSettings() {
             renderingQuality: button.dataset.renderingQuality
         }));
     }
+    renderingModeSelect?.addEventListener("change", () => {
+        const renderingMode = renderingModeSelect.value;
+        if (renderingMode?.endsWith("Speedhack")) staticBakeFailureNoticeKey = "";
+        updatePersistentGameSettings({ renderingMode });
+    });
 
     document.addEventListener("fullscreenchange", () => {
         fullscreenActive = Boolean(document.fullscreenElement);
+        if (!electronWindowBridge && gameState.settings?.fullscreen !== fullscreenActive) {
+            gameState.settings = saveStoredGameSettings({
+                ...normalizeGameSettings(gameState.settings),
+                fullscreen: fullscreenActive
+            });
+        }
         syncFullscreenUi();
+        syncGameSettingsUi();
     });
     if (electronWindowBridge && typeof electronWindowBridge.onFullscreenChanged === "function") {
         stopElectronFullscreenListener = electronWindowBridge.onFullscreenChanged((active) => {
             fullscreenActive = Boolean(active);
+            if (gameState.settings?.fullscreen !== fullscreenActive) {
+                gameState.settings = saveStoredGameSettings({
+                    ...normalizeGameSettings(gameState.settings),
+                    fullscreen: fullscreenActive
+                });
+            }
             syncFullscreenUi();
+            syncGameSettingsUi();
         });
     }
     window.addEventListener("beforeunload", () => {
-        if (typeof stopElectronFullscreenListener === "function") {
-            stopElectronFullscreenListener();
-        }
+        if (typeof stopElectronFullscreenListener === "function") stopElectronFullscreenListener();
         musicDirector.dispose();
     }, { once: true });
 
     syncGameSettingsUi();
+    syncSaveSlotUi();
     setGameMenuView("menu");
     void initializeFullscreenUi();
 }
 
 function handleMenuAndFullscreenKeydown(event) {
     if (isGameMenuOpen()) {
-        if (handleGameMenuNavigationKey(event)) {
-            return;
-        }
+        if (handleGameMenuNavigationKey(event)) return;
         if (event.code === "Escape" && !event.repeat) {
             event.preventDefault();
-            if (gameMenuView === "settings") {
-                setGameMenuView("menu");
-            } else {
-                closeGameMenu();
-            }
+            if (gameMenuView !== "menu") setGameMenuView("menu");
+            else closeGameMenu();
         }
         return;
     }
 
-    if (event.code === "Escape" && !event.repeat) {
+    if (event.code === "F11" && !event.repeat) {
         event.preventDefault();
-        openGameMenu();
+        void toggleFullscreen();
         return;
     }
 
-    if (event.code === "KeyP" && !event.repeat && !electronWindowBridge && gameState.settings?.autoFullscreen) {
-        const willPause = !gameState.debug.paused;
-        void requestFullscreenState(!willPause);
-        return;
+    if (event.code === "Escape" && !event.repeat && !titleScreenActive) {
+        event.preventDefault();
+        openGameMenu("menu");
     }
-
-    maybeApplyAutoFullscreenFromGameplayGesture(event);
 }
 
 function visibleDialogFocusItems() {
-    const view = gameMenuView === "settings" ? gameSettingsPanel : gameMenuMain;
+    const view = gameMenuView === "settings"
+        ? gameSettingsPanel
+        : (gameMenuView === "save" || gameMenuView === "load" ? gameSaveSlotsPanel : gameMenuMain);
     if (!view) {
         return [];
     }
@@ -1674,63 +1656,66 @@ function isGameMenuOpen() {
     return Boolean(gameMenuDialog?.open);
 }
 
-function openGameMenu() {
-    if (!gameMenuDialog || isGameMenuOpen()) {
-        return;
-    }
+function openGameMenu(initialView = "menu") {
+    if (!gameMenuDialog || isGameMenuOpen()) return;
     gameMenuPreviousPause = Boolean(gameState.debug.paused);
     setGamePaused(true, { clearInput: true });
-    setGameMenuView("menu");
+    setGameMenuView(initialView);
     document.body.classList.add("game-menu-open");
     openGameMenuButton?.setAttribute("aria-pressed", "true");
     metersPanel?.setAttribute("aria-expanded", "true");
-    if (typeof gameMenuDialog.showModal === "function") {
-        gameMenuDialog.showModal();
-    } else {
-        gameMenuDialog.setAttribute("open", "");
-    }
-    gameMenuSettingsButton?.focus();
-    void applyAutoFullscreenPolicy();
+    if (typeof gameMenuDialog.showModal === "function") gameMenuDialog.showModal();
+    else gameMenuDialog.setAttribute("open", "");
+    focusDialogBoundary(false);
 }
 
 function closeGameMenu() {
-    if (!gameMenuDialog || !isGameMenuOpen()) {
-        return;
-    }
-    // Restore the intended play state before requesting fullscreen. This keeps
-    // requestFullscreen inside the resume click/key gesture required by browsers.
+    if (!gameMenuDialog || !isGameMenuOpen()) return;
     setGamePaused(gameMenuPreviousPause);
-    if (typeof gameMenuDialog.close === "function") {
-        gameMenuDialog.close();
-    } else {
+    if (typeof gameMenuDialog.close === "function") gameMenuDialog.close();
+    else {
         gameMenuDialog.removeAttribute("open");
         restorePauseAfterMenu();
     }
-    void applyAutoFullscreenPolicy();
 }
 
-async function restartLevelFromMenu() {
-    const returnToTitle = titleScreenActive;
-    if (isGameMenuOpen()) {
-        closeGameMenu();
+function syncSaveSlotUi() {
+    const saves = loadManualSaveGames();
+    for (const [index, button] of gameSaveSlotButtons.entries()) {
+        const slotId = MANUAL_SAVE_SLOT_IDS[index] || button.dataset.saveSlot;
+        const save = saves[index];
+        const title = document.createElement("strong");
+        title.textContent = saveGameSlotLabel(slotId);
+        const level = document.createElement("span");
+        level.textContent = save ? save.levelTitle : "Empty";
+        const checkpoint = document.createElement("small");
+        checkpoint.textContent = save
+            ? `${save.checkpointLabel || "Level start"} · ${new Date(save.savedAt).toLocaleString()}`
+            : (saveSlotMode === "save" ? "Save current level here" : "No saved game");
+        button.replaceChildren(title, level, checkpoint);
+        button.disabled = saveSlotMode === "load" && !save;
+        button.setAttribute("aria-disabled", button.disabled ? "true" : "false");
     }
-    await restartCurrentLevel();
-    if (returnToTitle) {
-        showTitleScreen();
-    } else {
-        titleScreenActive = false;
-        gameHasStarted = true;
-        setGamePaused(false, { clearInput: true });
-        syncTitleScreenUi();
-        void applyAutoFullscreenPolicy();
+}
+
+async function handleSaveSlotSelection(slotId) {
+    if (!MANUAL_SAVE_SLOT_IDS.includes(slotId)) return false;
+    if (saveSlotMode === "save") {
+        if (saveManualSlot(slotId)) setGameMenuView("menu");
+        return true;
     }
+    const save = loadStoredSaveGame(slotId);
+    if (!save) {
+        syncSaveSlotUi();
+        return false;
+    }
+    const startFromTitle = titleScreenActive;
+    closeGameMenu();
+    return loadSaveGameRecord(save, { startFromTitle });
 }
 
 async function exitToTitleFromMenu() {
-    if (isGameMenuOpen()) {
-        closeGameMenu();
-    }
-    await restartCurrentLevel();
+    if (isGameMenuOpen()) closeGameMenu();
     showTitleScreen();
 }
 
@@ -1832,7 +1817,6 @@ function pauseForPageFocusLoss() {
     } else {
         setGamePaused(true, { clearInput: true });
     }
-    void applyAutoFullscreenPolicy();
 }
 
 function restorePageFocusAudioState() {
@@ -1849,21 +1833,33 @@ function handlePageVisibilityChange() {
 }
 
 function setGameMenuView(view) {
-    gameMenuView = view === "settings" ? "settings" : "menu";
+    const validViews = new Set(["menu", "settings", "save", "load"]);
+    gameMenuView = validViews.has(view) ? view : "menu";
+    saveSlotMode = gameMenuView === "save" ? "save" : "load";
     const inSettings = gameMenuView === "settings";
-    if (gameMenuMain) gameMenuMain.hidden = inSettings;
+    const inSaveSlots = gameMenuView === "save" || gameMenuView === "load";
+    if (gameMenuMain) gameMenuMain.hidden = gameMenuView !== "menu";
     if (gameSettingsPanel) gameSettingsPanel.hidden = !inSettings;
-    if (gameMenuTitle) gameMenuTitle.textContent = inSettings ? "Settings" : (titleScreenActive ? "Menu" : "Paused");
-    if (gameMenuSubtitle) {
-        gameMenuSubtitle.textContent = inSettings
-            ? "Tune the machinery without disturbing the cave dust."
-            : (titleScreenActive ? "Choose where to go next." : "The cave can wait. Probably.");
-    }
-    if (gameMenuBackButton) gameMenuBackButton.textContent = "BACK";
+    if (gameSaveSlotsPanel) gameSaveSlotsPanel.hidden = !inSaveSlots;
+
+    const title = gameMenuView === "settings"
+        ? "Settings"
+        : (gameMenuView === "save" ? "Save Game" : (gameMenuView === "load" ? "Load Game" : (titleScreenActive ? "Menu" : "Paused")));
+    const subtitle = gameMenuView === "settings"
+        ? "Tune the machinery without disturbing the cave dust."
+        : (gameMenuView === "save"
+            ? `Current: ${gameState.world?.title || gameState.story?.levelTitle || gameState.world?.levelId || START_LEVEL_ID}. Progress resumes from level start.`
+            : (gameMenuView === "load"
+                ? "Choose a saved level to continue from its checkpoint."
+                : (titleScreenActive ? "Choose where to go next." : "The cave can wait. Probably.")));
+    if (gameMenuTitle) gameMenuTitle.textContent = title;
+    if (gameMenuSubtitle) gameMenuSubtitle.textContent = subtitle;
+    if (gameMenuBackButton) gameMenuBackButton.textContent = gameMenuView === "menu" ? "CLOSE" : "BACK";
     if (gameMenuExitTitleButton) gameMenuExitTitleButton.hidden = titleScreenActive;
-    if (isGameMenuOpen()) {
-        (inSettings ? sfxVolumeInput : gameMenuSettingsButton)?.focus();
-    }
+    if (gameMenuSaveButton) gameMenuSaveButton.hidden = titleScreenActive;
+    if (gameMenuResumeButton) gameMenuResumeButton.hidden = titleScreenActive;
+    if (inSaveSlots) syncSaveSlotUi();
+    if (isGameMenuOpen()) focusDialogBoundary(false);
 }
 
 function updatePersistentGameSettings(patch) {
@@ -1874,11 +1870,11 @@ function updatePersistentGameSettings(patch) {
     syncGameSettingsUi();
 }
 
-function reloadSettingStatus(active, requested) {
-    if (active === requested) {
-        return active ? "Enabled" : "Disabled";
-    }
-    return requested ? "Reload to enable" : "Reload to disable";
+function activeRenderingModeId() {
+    const software = !activeHardwareRendering;
+    const speedhack = activeBakingMode === "tiles";
+    if (software) return speedhack ? "softwareSpeedhack" : "softwareRegular";
+    return speedhack ? "hardwareSpeedhack" : "hardwareRegular";
 }
 
 function syncGameSettingsUi() {
@@ -1886,28 +1882,11 @@ function syncGameSettingsUi() {
     const settings = gameState.settings;
     const difficulty = gameDifficultyPreset(settings);
     const quality = gameRenderingQualityPreset(settings);
+    const renderingMode = gameRenderingModePreset(settings);
     if (sfxVolumeInput) sfxVolumeInput.value = String(settings.sfxVolume);
     if (musicVolumeInput) musicVolumeInput.value = String(settings.musicVolume);
-    if (autoFullscreenInput) autoFullscreenInput.checked = Boolean(settings.autoFullscreen);
+    if (fullscreenInput) fullscreenInput.checked = Boolean(settings.fullscreen);
     if (showMinimapInput) showMinimapInput.checked = Boolean(settings.showMinimap);
-    if (useHardwareRenderingInput) useHardwareRenderingInput.checked = Boolean(settings.useHardwareRendering);
-    if (useHardwareRenderingStatus) {
-        useHardwareRenderingStatus.textContent = reloadSettingStatus(
-            activeHardwareRendering,
-            Boolean(settings.useHardwareRendering)
-        );
-    }
-    if (developmentModeInput) developmentModeInput.checked = Boolean(settings.developmentMode);
-    if (usePixmapPyramidsInput) usePixmapPyramidsInput.checked = Boolean(settings.usePixmapPyramids);
-    if (usePixmapPyramidsStatus) {
-        usePixmapPyramidsStatus.textContent = reloadSettingStatus(
-            activePixmapPyramids,
-            Boolean(settings.usePixmapPyramids)
-        );
-    }
-    const bakingMode = gameBakingModePreset(settings);
-    if (bakingModeSelect) bakingModeSelect.value = bakingMode.id;
-    if (bakingModeRow) bakingModeRow.hidden = !ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER;
     syncDevelopmentToolVisibility();
     syncStaticBakeRendererSetting();
     if (minimapPanel) minimapPanel.hidden = !settings.showMinimap;
@@ -1916,109 +1895,82 @@ function syncGameSettingsUi() {
         resizeMinimapToLevel();
         drawMinimap(true);
     }
-    if (autoFullscreenRow) autoFullscreenRow.hidden = Boolean(electronWindowBridge);
     if (sfxVolumeValue) sfxVolumeValue.textContent = `${Math.round(settings.sfxVolume * 100)}%`;
     if (musicVolumeValue) musicVolumeValue.textContent = `${Math.round(settings.musicVolume * 100)}%`;
     musicDirector.setVolume(settings.musicVolume);
     syncGameAudioState();
     if (difficultyValue) difficultyValue.textContent = difficulty.label;
     if (renderingQualityValue) renderingQualityValue.textContent = quality.label;
+    if (renderingModeValue) renderingModeValue.textContent = renderingMode.label;
+    if (renderingModeSelect) renderingModeSelect.value = settings.renderingMode;
     for (const button of difficultyButtons) {
         button.setAttribute("aria-pressed", String(button.dataset.difficulty === settings.difficulty));
     }
     for (const button of renderingQualityButtons) {
         button.setAttribute("aria-pressed", String(button.dataset.renderingQuality === settings.renderingQuality));
     }
+    if (renderingModeStatus) {
+        renderingModeStatus.textContent = activeRenderingModeId() === settings.renderingMode
+            ? `${renderingMode.detail} is active.`
+            : `${renderingMode.detail} will be active after reloading the game.`;
+    }
 }
 
 async function initializeFullscreenUi() {
     fullscreenActive = await readFullscreenState(electronWindowBridge, document);
     syncFullscreenUi();
+    syncGameSettingsUi();
 }
 
 async function requestFullscreenState(nextState) {
-    if (fullscreenRequestPending || electronWindowBridge) {
-        return fullscreenActive;
-    }
+    if (fullscreenRequestPending) return fullscreenActive;
     const enabled = Boolean(nextState);
-    if (enabled === fullscreenActive) {
-        return fullscreenActive;
-    }
+    if (enabled === fullscreenActive) return fullscreenActive;
     fullscreenRequestPending = true;
     try {
-        fullscreenActive = await setFullscreenState(enabled, null, document);
+        fullscreenActive = await setFullscreenState(enabled, electronWindowBridge, document);
     } catch (error) {
         console.warn("Fullscreen could not be changed.", error);
-        fullscreenActive = await readFullscreenState(null, document);
+        fullscreenActive = await readFullscreenState(electronWindowBridge, document);
     } finally {
         fullscreenRequestPending = false;
         syncFullscreenUi();
+        syncGameSettingsUi();
     }
     return fullscreenActive;
 }
 
 async function toggleFullscreen() {
-    if (electronWindowBridge) {
-        return fullscreenActive;
-    }
-    return requestFullscreenState(!fullscreenActive);
+    const next = !fullscreenActive;
+    gameState.settings = saveStoredGameSettings({
+        ...normalizeGameSettings(gameState.settings),
+        fullscreen: next
+    });
+    return requestFullscreenState(next);
 }
 
-function shouldAutomaticallyUseFullscreen() {
-    return !electronWindowBridge &&
-        Boolean(gameState.settings?.autoFullscreen) &&
-        !titleScreenActive &&
-        !isGameMenuOpen() &&
-        !gameState.debug.paused;
+async function applyFullscreenPreference() {
+    if (!gameState.settings?.fullscreen || fullscreenActive || fullscreenRequestPending) return fullscreenActive;
+    return requestFullscreenState(true);
 }
-
-async function applyAutoFullscreenPolicy() {
-    if (electronWindowBridge) {
-        return;
-    }
-    await requestFullscreenState(shouldAutomaticallyUseFullscreen());
-}
-
-function maybeApplyAutoFullscreenFromGameplayGesture(event) {
-    if (!shouldAutomaticallyUseFullscreen() || fullscreenActive || fullscreenRequestPending) {
-        return;
-    }
-    const target = event?.target;
-    if (target instanceof Element && target.closest("button, a, input, select, textarea, label, dialog, [data-ignore-game-pointer]")) {
-        return;
-    }
-    if (event?.type === "keydown" && ["Escape", "Tab", "F11", "KeyP", "KeyO"].includes(event.code)) {
-        return;
-    }
-    void requestFullscreenState(true);
-}
-
 
 function unlockMusicFromGesture() {
     void musicDirector.unlock();
 }
 
 function attemptVisibleLevelMusicStart() {
-    if (titleScreenActive || isGameAudioMuted()) {
-        return Promise.resolve(false);
-    }
-    // Attempt as soon as the first level frame is visible. Browsers that still
-    // require a fresh user gesture fall back to unlockMusicFromGesture below.
+    if (titleScreenActive || isGameAudioMuted()) return Promise.resolve(false);
     return musicDirector.unlock();
 }
 
 function syncFullscreenUi() {
-    if (!fullscreenToggleButton) {
-        return;
+    if (fullscreenToggleButton) {
+        fullscreenToggleButton.hidden = false;
+        fullscreenToggleButton.textContent = fullscreenActive ? "WINDOWED" : "FULLSCREEN";
+        fullscreenToggleButton.setAttribute("aria-pressed", String(fullscreenActive));
+        fullscreenToggleButton.setAttribute("aria-label", fullscreenActive ? "Exit fullscreen" : "Enter fullscreen");
     }
-    if (electronWindowBridge) {
-        fullscreenToggleButton.hidden = true;
-        fullscreenToggleButton.setAttribute("aria-pressed", "false");
-        return;
-    }
-    fullscreenToggleButton.textContent = fullscreenActive ? "WINDOWED" : "FULLSCREEN";
-    fullscreenToggleButton.setAttribute("aria-pressed", String(fullscreenActive));
-    fullscreenToggleButton.setAttribute("aria-label", fullscreenActive ? "Exit fullscreen" : "Enter fullscreen");
+    if (fullscreenInput) fullscreenInput.checked = Boolean(gameState.settings?.fullscreen);
 }
 
 function staticBakeRendererAvailable() {
@@ -2029,28 +1981,16 @@ function staticBakeRendererAvailable() {
 }
 
 function syncDevelopmentToolVisibility() {
-    if (toolLinks) {
-        toolLinks.hidden = !Boolean(gameState.settings?.developmentMode);
-    }
+    if (toolLinks) toolLinks.hidden = !Boolean(gameState.settings?.developmentMode);
 }
 
 function syncStaticBakeRendererSetting() {
-    const available = staticBakeRendererAvailable();
-    const requestedMode = gameBakingModePreset(gameState.settings).id;
-    const activeMode = available ? requestedMode : "off";
-    if (bakingModeSelect) {
-        for (const option of bakingModeSelect.options) {
-            option.disabled = !available && option.value !== "off";
-        }
-        bakingModeSelect.title = available
-            ? (requestedMode === "tiles"
-                ? "Continuously bake and recycle nearby 256-pixel static tiles."
-                : (requestedMode === "full"
-                    ? "Bake the complete static level for renderer comparison testing."
-                    : "Draw static scenery live every frame."))
-            : "Experimental static-layer baking is unavailable; Off remains selectable.";
-    }
-    renderer?.setStaticLayerBakeMode?.(activeMode);
+    const settings = normalizeGameSettings(gameState.settings);
+    const requestedHardware = Boolean(settings.useHardwareRendering);
+    if (requestedHardware !== activeHardwareRendering) return;
+    const requestedMode = settings.bakingMode === "tiles" && staticBakeRendererAvailable() ? "tiles" : "off";
+    renderer?.setStaticLayerBakeMode?.(requestedMode);
+    activeBakingMode = requestedMode;
 }
 
 function setupPanelToggleButtons() {
@@ -2278,14 +2218,6 @@ function frame(now) {
         realDt = 0;
     } else {
         inputFrame = input.sample({ consumeGameplayEdges: false });
-        if (titleScreenActive && !isGameMenuOpen() && titleStartRequested(inputFrame)) {
-            startGameFromTitle();
-            // Consume the title gesture until the physical gamepad control is released.
-            // Clearing the input alone would otherwise turn a held A button into a new
-            // jump edge on the following animation frame.
-            input.suppressJumpUntilRelease();
-            inputFrame = createInputFrame();
-        }
         if (!isGameMenuOpen() && !titleScreenActive) {
             handleDebugInput(inputFrame);
         }
