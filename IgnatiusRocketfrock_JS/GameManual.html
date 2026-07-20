@@ -191,7 +191,7 @@
             <li>When a gamepad is the active control device, supported controllers rumble strongly when Ignatius is hurt and more gently for rocket fire, the double-jump kick, and sustained hover. Keyboard or touch control keeps controller vibration silent.</li>
             <li>Fuel normally begins recharging after Ignatius returns to the ground. Overdrive and Flight provide the same smaller passive recovery even in the air and during ordinary recharge delay.</li>
             <li>Homing rockets only lock onto enemies that are at least partly visible on the current screen. They prefer visible active targets in the direction Ignatius is facing, and release a target that leaves the screen.</li>
-            <li>A standard rocket deals 30 damage to the enemy it directly hits. Its small impact splash deals exactly 1 damage to other nearby enemies within a diameter of about two wizard heights. Overdrive retains this splash; wrench rockets use only their own behavior.</li>
+            <li>A standard rocket deals 30 damage to the enemy it directly hits. Its small impact splash deals exactly 1 damage to other nearby enemies within a diameter of about two wizard heights. While Flight is active, standard rockets fired without a wrench deal half direct and splash damage: 15 damage to the direct target and 0.5 splash damage to nearby enemies. Overdrive retains this splash; wrench rockets keep their authored damage and use only their own behavior.</li>
             <li>The old target dummy is now the stationary <code>enemy_900</code> training enemy in the normal enemy pipeline. It has no contact damage, no attacks, and it shakes briefly before fading out when destroyed.</li>
         </ul>
 

@@ -9810,6 +9810,7 @@ function testRocketFuelFlightMode() {
     assert.equal(normalizePowerUpPickup({ effectId: POWER_UP_EFFECT_IDS.FLIGHT })?.worldScale, 2, "Flight pickups should render at double size in the world");
     assert.equal(flight.hud.priority, 190, "Flight should rank immediately below wrench effects");
     assert.equal(flight.rocket.launchFuelCostMultiplier, 1, "Flight should not discount projectile fuel cost");
+    assert.equal(DEFAULT_TUNING.flightStandardRocketDamageMultiplier, 0.5, "Flight should halve standard rocket damage");
 
     const wrench = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.WRENCH_DART);
     const shield = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.SHIELD);
@@ -9926,6 +9927,54 @@ function testRocketFuelFlightMode() {
         0.0001,
         "Flight should keep full shooting cost while passive recovery permits frequent but finite fire"
     );
+    assert.equal(state.projectiles.length, 1, "Flight should launch one standard rocket without a wrench");
+    approx(
+        state.projectiles[0].damage,
+        DEFAULT_TUNING.rocketProjectileDamage * DEFAULT_TUNING.flightStandardRocketDamageMultiplier,
+        0.0001,
+        "Flight should halve the direct damage of a standard rocket"
+    );
+    approx(
+        state.projectiles[0].secondaryEnemySplashDamage,
+        DEFAULT_TUNING.standardRocketSecondarySplashDamage * DEFAULT_TUNING.flightStandardRocketDamageMultiplier,
+        0.0001,
+        "Flight should halve the secondary splash damage of a standard rocket"
+    );
+
+    for (const wrenchEffectId of WRENCH_POWER_UP_EFFECT_IDS) {
+        const flightWrench = powerUpEffectDefinition(wrenchEffectId);
+        assert.ok(flightWrench, `the ${wrenchEffectId} definition should exist`);
+        state.projectiles = [];
+        state.fuel.amount = 100;
+        state.statusEffects.active[flightWrench.id] = {
+            id: flightWrench.id,
+            definition: flightWrench,
+            remainingSeconds: flightWrench.durationSeconds,
+            sourceId: "flight_wrench_test",
+            activatedAt: state.clock.time,
+            refreshCount: 0
+        };
+        stepSimulation(state, createInputFrame({ weaponPressed: true }), FIXED_DT);
+        assert.equal(
+            state.projectiles.length,
+            flightWrench.rocket.projectileCount,
+            `Flight with ${wrenchEffectId} should launch the authored projectile count`
+        );
+        for (const projectile of state.projectiles) {
+            approx(
+                projectile.damage,
+                DEFAULT_TUNING.rocketProjectileDamage * flightWrench.rocket.damageMultiplier,
+                0.0001,
+                `Flight should not reduce ${wrenchEffectId} rocket damage`
+            );
+            assert.equal(
+                projectile.secondaryEnemySplashDamage,
+                0,
+                `${wrenchEffectId} rockets should still omit standard splash while flying`
+            );
+        }
+        delete state.statusEffects.active[flightWrench.id];
+    }
 
     state.statusEffects.active[POWER_UP_EFFECT_IDS.FLIGHT].remainingSeconds = FIXED_DT * 0.5;
     stepSimulation(state, createInputFrame(), FIXED_DT);

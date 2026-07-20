@@ -261,6 +261,7 @@ export const DEFAULT_TUNING = Object.freeze({
     rocketProjectileExplosionSeconds: 0.24,
     rocketProjectileImpactRadius: 24,
     rocketProjectileDamage: 30,
+    flightStandardRocketDamageMultiplier: 0.5,
     standardRocketSecondarySplashDamage: 1,
     standardRocketSecondarySplashRadiusWizardHeights: 1,
     enemyHitFlashSeconds: 0.16,
@@ -8043,13 +8044,20 @@ function launchHomingRocket(state) {
         ? rocketProfile.initialAnglesDegrees
         : [0];
     const projectileSpeed = t.rocketProjectileSpeed * Math.max(0.05, Number(rocketProfile.speedMultiplier) || 1);
-    const projectileDamage = Math.max(0, (t.rocketProjectileDamage ?? 30) * Math.max(0, Number(rocketProfile.damageMultiplier) || 0));
+    const flightStandardRocketDamageMultiplier = !activeWrenchEffect && flightPowerUpActive(state)
+        ? Math.max(0, Number(t.flightStandardRocketDamageMultiplier) || 0)
+        : 1;
+    const projectileDamage = Math.max(0,
+        (t.rocketProjectileDamage ?? 30)
+        * Math.max(0, Number(rocketProfile.damageMultiplier) || 0)
+        * flightStandardRocketDamageMultiplier
+    );
     const projectileRadius = 15 * Math.max(0.1, Number(rocketProfile.radiusMultiplier) || 1);
     const launchSequenceIntervalSeconds = Math.max(0, Number(rocketProfile.launchSequenceIntervalSeconds) || 0);
     const areaDamageRadius = Math.max(0, Number(rocketProfile.areaDamageRadiusWizardHeights) || 0) * Math.max(1, Number(t.wizardHeight) || Number(p.height) || 104);
     const standardRocketSecondarySplashDamage = wrenchEffectId
         ? 0
-        : Math.max(0, Number(t.standardRocketSecondarySplashDamage) || 0);
+        : Math.max(0, Number(t.standardRocketSecondarySplashDamage) || 0) * flightStandardRocketDamageMultiplier;
     const standardRocketSecondarySplashRadius = standardRocketSecondarySplashDamage > 0
         ? Math.max(0, Number(t.standardRocketSecondarySplashRadiusWizardHeights) || 0) * Math.max(1, Number(t.wizardHeight) || Number(p.height) || 104)
         : 0;
