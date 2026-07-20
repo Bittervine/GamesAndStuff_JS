@@ -1,0 +1,14 @@
+{
+  "meta": {
+    "version": 1,
+    "note": "Initial Raptor character project with the parent-constrained rig and idle animation."
+  },
+  "characterId": "ct_char_enemy_040",
+  "displayName": "Raptor",
+  "rig": "ct_rig_enemy_040.json",
+  "defaultFacing": "right",
+  "mirrorable": true,
+  "animationMap": {
+    "idle": "ct_anim_enemy_040_idle.json"
+  }
+}

@@ -730,16 +730,6 @@ touch-action: none;
                 <span>Known project</span>
                 <select id="project-select">
                     <option value="wizard">Ignatius Rocketfrock</option>
-                    <option value="enemy_001">Enemy 001: Skeleton Guard</option>
-                    <option value="enemy_002">Enemy 002: Skeleton Caster</option>
-                    <option value="enemy_010">Enemy 010: Fireball Goblin</option>
-                    <option value="enemy_011">Enemy 011: Musket Goblin</option>
-                    <option value="enemy_012">Enemy 012: Tri-fireball Goblin</option>
-                    <option value="enemy_020">Enemy 020: Bombing Bat</option>
-                    <option value="enemy_030">Enemy 030: Human Raider</option>
-                    <option value="enemy_031">Enemy 031: Human Raider II</option>
-                    <option value="enemy_032">Enemy 032: Human Knife Thrower</option>
-                    <option value="enemy_033">Enemy 033: Human Knife Thrower II</option>
                 </select>
             </label>
             <div class="row">
@@ -1162,6 +1152,7 @@ import {
     markCharacterProjectClean,
     markCharacterProjectDirty
 } from "./src/tools/character-editor/character-dirty-state.js";
+import { characterEditorKnownProjects, enemyCharacterProjectUrl } from "./src/tools/character-editor/enemy-project-catalog.js";
 import {
     availableParentConstraintParts,
     bakeParentConstraintTracks,
@@ -1375,19 +1366,7 @@ const els = {
     status: document.getElementById("status")
 };
 
-const KNOWN_PROJECTS = Object.freeze({
-    wizard: "assets/ct_char_wizard_1.json",
-    enemy_001: "assets/ct_char_enemy_001.json",
-    enemy_002: "assets/ct_char_enemy_002.json",
-    enemy_010: "assets/ct_char_enemy_010.json",
-    enemy_011: "assets/ct_char_enemy_011.json",
-    enemy_012: "assets/ct_char_enemy_012.json",
-    enemy_020: "assets/ct_char_enemy_020.json",
-    enemy_030: "assets/ct_char_enemy_030.json",
-    enemy_031: "assets/ct_char_enemy_031.json",
-    enemy_032: "assets/ct_char_enemy_032.json",
-    enemy_033: "assets/ct_char_enemy_033.json"
-});
+const DEFAULT_CHARACTER_PROJECT_URL = "assets/ct_char_wizard_1.json";
 const PANEL_STORAGE_KEY = "ignatiusRocketfrock.characterEditor.collapsedPanels.v1";
 const SHOW_HITBOX_GUIDE_STORAGE_KEY = "ignatiusRocketfrock.characterEditor.showHitboxGuide.v1";
 
@@ -1396,7 +1375,8 @@ const state = {
     enemyCatalog: null,
     enemyCatalogUrl: "assets/ct_enemies_001.json",
     selectedEnemyId: null,
-    characterUrl: "assets/ct_char_wizard_1.json",
+    knownProjects: new Map(),
+    characterUrl: DEFAULT_CHARACTER_PROJECT_URL,
     projectMode: "url",
     projectLabel: "Ignatius Rocketfrock",
     localFiles: new Map(),
@@ -1963,9 +1943,28 @@ function drawOrder() {
     return state.rig?.parts ? Object.keys(state.rig.parts) : [];
 }
 
+function refreshKnownProjectOptions() {
+    const previousSelection = String(els.projectSelect.value || "wizard");
+    const entries = characterEditorKnownProjects(state.enemyCatalog);
+    state.knownProjects = new Map(entries.map((entry) => [entry.id, entry]));
+    els.projectSelect.replaceChildren(...entries.map((entry) => {
+        const option = document.createElement("option");
+        option.value = entry.id;
+        option.textContent = entry.label;
+        return option;
+    }));
+    const selectedEnemyProject = state.selectedEnemyId && state.knownProjects.has(state.selectedEnemyId)
+        ? state.selectedEnemyId
+        : null;
+    els.projectSelect.value = state.knownProjects.has(previousSelection)
+        ? previousSelection
+        : selectedEnemyProject || "wizard";
+}
+
 async function ensureEnemyCatalog() {
     if (!state.enemyCatalog) {
         state.enemyCatalog = await loadJson(state.enemyCatalogUrl);
+        refreshKnownProjectOptions();
     }
     return state.enemyCatalog;
 }
@@ -1992,6 +1991,7 @@ async function applyEnemyCatalogJson() {
         throw new Error("Enemy catalog JSON must be an object with an enemies object.");
     }
     state.enemyCatalog = catalog;
+    refreshKnownProjectOptions();
     markDirty("enemyCatalog");
     await selectEnemyDefinitionForCharacter();
     refreshEnemyCatalogJson();
@@ -2059,6 +2059,7 @@ function applyEnemyTypeFields() {
     state.enemyCatalog.meta.version = Math.max(1, Number(state.enemyCatalog.meta.version) || 1) + 1;
     refreshEnemyTypeFields();
     refreshEnemyCatalogJson();
+    refreshKnownProjectOptions();
     markDirty("enemyCatalog");
     setStatus(`Applied type-wide defaults for ${state.selectedEnemyId}. Download ct_enemies_001.json to save them.`);
 }
@@ -2066,15 +2067,21 @@ function applyEnemyTypeFields() {
 async function selectEnemyDefinitionForCharacter() {
     state.selectedEnemyId = null;
     if (!state.character?.characterId || state.character.characterId === "ct_char_wizard_1") {
+        if (state.knownProjects.has("wizard")) els.projectSelect.value = "wizard";
         refreshEnemyTypeFields();
         return;
     }
     const catalog = await ensureEnemyCatalog();
     for (const [enemyId, definition] of Object.entries(catalog.enemies || {})) {
-        if (String(definition.characterId || "") === String(state.character.characterId)) {
+        const characterIdMatches = String(definition.characterId || "") === String(state.character.characterId);
+        const projectUrlMatches = enemyCharacterProjectUrl(definition) === state.characterUrl;
+        if (characterIdMatches || projectUrlMatches) {
             state.selectedEnemyId = enemyId;
             break;
         }
+    }
+    if (state.selectedEnemyId && state.knownProjects.has(state.selectedEnemyId)) {
+        els.projectSelect.value = state.selectedEnemyId;
     }
     refreshEnemyTypeFields();
 }
@@ -5526,6 +5533,7 @@ for (const input of [els.enemyLabel, els.enemyIcon, els.enemyDescription, els.en
             definition.defaults = defaults;
             els.enemyDefaultsJson.value = JSON.stringify(defaults, null, 4);
             refreshEnemyCatalogJson();
+            refreshKnownProjectOptions();
             markDirty("enemyCatalog");
         } catch (error) {
             setStatus(`Enemy defaults could not be applied: ${error.message || error}`);
@@ -5538,12 +5546,12 @@ els.loadKnownProject.addEventListener("click", () => {
         return;
     }
     const projectId = els.projectSelect.value;
-    const url = KNOWN_PROJECTS[projectId];
-    if (!url) {
+    const project = state.knownProjects.get(projectId);
+    if (!project?.url) {
         setStatus(`Unknown known-project entry: ${projectId}`);
         return;
     }
-    loadUrlProject(url, els.projectSelect.options[els.projectSelect.selectedIndex]?.textContent)
+    loadUrlProject(project.url, project.label)
         .catch((error) => setStatus(error.stack || error.message));
 });
 els.loadCharacterUrl.addEventListener("click", () => {
@@ -5860,8 +5868,16 @@ updateKeyButtons();
 updateProjectSource();
 updateDirtySummary();
 setEditorMode("animation");
-loadUrlProject(KNOWN_PROJECTS.wizard, "Ignatius Rocketfrock")
-    .catch((error) => setStatus(error.stack || error.message));
+refreshKnownProjectOptions();
+async function initializeCharacterEditor() {
+    try {
+        await ensureEnemyCatalog();
+    } catch (error) {
+        console.warn(`Could not load ${state.enemyCatalogUrl}; only the wizard project will be listed.`, error);
+    }
+    await loadUrlProject(DEFAULT_CHARACTER_PROJECT_URL, "Ignatius Rocketfrock");
+}
+initializeCharacterEditor().catch((error) => setStatus(error.stack || error.message));
 requestAnimationFrame(render);
 </script>
 </body>

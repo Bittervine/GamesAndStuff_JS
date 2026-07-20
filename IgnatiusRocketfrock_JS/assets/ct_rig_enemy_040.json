@@ -1,0 +1,514 @@
+{
+    "meta": {
+        "version": 1,
+        "note": "Initial parent-constrained Raptor rig. Body is the root; right limbs reuse the left-side atlas frames."
+    },
+    "rigId": "ct_rig_enemy_040",
+    "atlasId": "ct_atlas_enemy_040",
+    "atlasManifest": "ct_atlas_enemy_040.json",
+    "drawOrder": [
+        "leftUpperArm",
+        "leftLowerArm",
+        "leftUpperLeg",
+        "leftLowerLeg",
+        "leftFoot",
+        "tailTip",
+        "tailBack",
+        "tailMiddle",
+        "tailFront",
+        "body",
+        "neck",
+        "head",
+        "rightUpperArm",
+        "rightFoot",
+        "rightLowerLeg",
+        "rightUpperLeg",
+        "rightLowerArm"
+    ],
+    "global": {
+        "scale": 0.19,
+        "lean": 0,
+        "rootX": 0,
+        "rootYOffsetFromGround": 0,
+        "groundOffset": 0,
+        "debugPivots": false
+    },
+    "anchors": {
+        "tailBase": {
+            "x": -269.494,
+            "y": -428.355
+        },
+        "neck": {
+            "x": 238.573,
+            "y": -467.348
+        },
+        "leftHip": {
+            "x": -201.501,
+            "y": -368.352
+        },
+        "rightHip": {
+            "x": -159.79,
+            "y": -368.352
+        },
+        "leftShoulder": {
+            "x": 128.493,
+            "y": -376.352
+        },
+        "rightShoulder": {
+            "x": 104.69,
+            "y": -376.352
+        }
+    },
+    "pivots": {
+        "tailTip": {
+            "x": 0.94,
+            "y": 0.357
+        },
+        "tailBack": {
+            "x": 0.9,
+            "y": 0.47
+        },
+        "tailMiddle": {
+            "x": 0.92,
+            "y": 0.475
+        },
+        "tailFront": {
+            "x": 0.915,
+            "y": 0.51
+        },
+        "body": {
+            "x": 0.5,
+            "y": 0.55
+        },
+        "neck": {
+            "x": 0.29,
+            "y": 0.785
+        },
+        "head": {
+            "x": 0.185,
+            "y": 0.535
+        },
+        "leftUpperLeg": {
+            "x": 0.42,
+            "y": 0.2
+        },
+        "leftLowerLeg": {
+            "x": 0.8274,
+            "y": 0.2256
+        },
+        "leftFoot": {
+            "x": 0.1784,
+            "y": 0.163
+        },
+        "rightUpperLeg": {
+            "x": 0.42,
+            "y": 0.2
+        },
+        "rightLowerLeg": {
+            "x": 0.8274,
+            "y": 0.2256
+        },
+        "rightFoot": {
+            "x": 0.1784,
+            "y": 0.163
+        },
+        "leftUpperArm": {
+            "x": 0.52,
+            "y": 0.38
+        },
+        "leftLowerArm": {
+            "x": 0.1519,
+            "y": 0.1237
+        },
+        "rightUpperArm": {
+            "x": 0.52,
+            "y": 0.38
+        },
+        "rightLowerArm": {
+            "x": 0.1519,
+            "y": 0.1237
+        }
+    },
+    "parts": {
+        "tailTip": {
+            "frame": "tail_tip",
+            "role": "tailTip",
+            "tags": [
+                "tail",
+                "tip"
+            ],
+            "offset": {
+                "x": -885.504,
+                "y": -405.351
+            },
+            "scale": 1,
+            "targetHeight": 42,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "tailBack",
+                "parentPoint": {
+                    "x": 0.085,
+                    "y": 0.725
+                }
+            }
+        },
+        "tailBack": {
+            "frame": "tail_back",
+            "role": "tailBack",
+            "tags": [
+                "tail",
+                "back"
+            ],
+            "offset": {
+                "x": -638.511,
+                "y": -417.351
+            },
+            "scale": 1,
+            "targetHeight": 49,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "tailMiddle",
+                "parentPoint": {
+                    "x": 0.09,
+                    "y": 0.43
+                }
+            }
+        },
+        "tailMiddle": {
+            "frame": "tail_middle",
+            "role": "tailMiddle",
+            "tags": [
+                "tail",
+                "middle"
+            ],
+            "offset": {
+                "x": -421.499,
+                "y": -421.351
+            },
+            "scale": 1,
+            "targetHeight": 80,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "tailFront",
+                "parentPoint": {
+                    "x": 0.18,
+                    "y": 0.435
+                }
+            }
+        },
+        "tailFront": {
+            "frame": "tail_front",
+            "role": "tailFront",
+            "tags": [
+                "tail",
+                "front"
+            ],
+            "offset": {
+                "x": -269.494,
+                "y": -428.355
+            },
+            "scale": 1,
+            "targetHeight": 111,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "body",
+                "parentPoint": {
+                    "x": 0.035,
+                    "y": 0.495
+                }
+            }
+        },
+        "body": {
+            "frame": "body",
+            "role": "body",
+            "tags": [
+                "body",
+                "root",
+                "raptor"
+            ],
+            "offset": {
+                "x": 0,
+                "y": -410
+            },
+            "scale": 1,
+            "targetHeight": 177,
+            "alpha": 1
+        },
+        "neck": {
+            "frame": "neck",
+            "role": "neck",
+            "tags": [
+                "neck"
+            ],
+            "offset": {
+                "x": 238.573,
+                "y": -467.348
+            },
+            "scale": 1,
+            "targetHeight": 152,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "body",
+                "parentPoint": {
+                    "x": 0.955,
+                    "y": 0.28
+                }
+            }
+        },
+        "head": {
+            "frame": "head",
+            "role": "head",
+            "tags": [
+                "head",
+                "idle"
+            ],
+            "offset": {
+                "x": 326.562,
+                "y": -558.35
+            },
+            "scale": 1,
+            "targetHeight": 105,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "neck",
+                "parentPoint": {
+                    "x": 0.66,
+                    "y": 0.34
+                }
+            }
+        },
+        "leftUpperLeg": {
+            "frame": "leg_upper_left",
+            "role": "leftUpperLeg",
+            "tags": [
+                "leg",
+                "upper",
+                "front"
+            ],
+            "offset": {
+                "x": -201.501,
+                "y": -368.352
+            },
+            "scale": 1,
+            "targetHeight": 204,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "body",
+                "parentPoint": {
+                    "x": 0.25,
+                    "y": 0.44
+                }
+            }
+        },
+        "leftLowerLeg": {
+            "frame": "leg_lower_left",
+            "role": "leftLowerLeg",
+            "tags": [
+                "leg",
+                "lower",
+                "front"
+            ],
+            "offset": {
+                "x": -152.509,
+                "y": -232.366
+            },
+            "scale": 1,
+            "targetHeight": 133,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "leftUpperLeg",
+                "parentPoint": {
+                    "x": 0.7253189304592221,
+                    "y": 0.8609940176791129
+                }
+            }
+        },
+        "leftFoot": {
+            "frame": "foot_left",
+            "role": "leftFoot",
+            "tags": [
+                "foot",
+                "front"
+            ],
+            "offset": {
+                "x": -289.503,
+                "y": -154.374
+            },
+            "scale": 1,
+            "targetHeight": 184,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "leftLowerLeg",
+                "parentPoint": {
+                    "x": 0.132,
+                    "y": 0.812
+                }
+            }
+        },
+        "rightUpperLeg": {
+            "frame": "leg_upper_left",
+            "role": "rightUpperLeg",
+            "tags": [
+                "leg",
+                "upper",
+                "rear",
+                "copiedLeftArt"
+            ],
+            "offset": {
+                "x": -159.79,
+                "y": -368.352
+            },
+            "scale": 1,
+            "targetHeight": 204,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "body",
+                "parentPoint": {
+                    "x": 0.21,
+                    "y": 0.44
+                }
+            }
+        },
+        "rightLowerLeg": {
+            "frame": "leg_lower_left",
+            "role": "rightLowerLeg",
+            "tags": [
+                "leg",
+                "lower",
+                "rear",
+                "copiedLeftArt"
+            ],
+            "offset": {
+                "x": -110.798,
+                "y": -232.366
+            },
+            "scale": 1,
+            "targetHeight": 133,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "rightUpperLeg",
+                "parentPoint": {
+                    "x": 0.725,
+                    "y": 0.8627
+                }
+            }
+        },
+        "rightFoot": {
+            "frame": "foot_left",
+            "role": "rightFoot",
+            "tags": [
+                "foot",
+                "rear",
+                "copiedLeftArt"
+            ],
+            "offset": {
+                "x": -247.792,
+                "y": -154.374
+            },
+            "scale": 1,
+            "targetHeight": 184,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "rightLowerLeg",
+                "parentPoint": {
+                    "x": 0.132,
+                    "y": 0.812
+                }
+            }
+        },
+        "leftUpperArm": {
+            "frame": "arm_upper_left",
+            "role": "leftUpperArm",
+            "tags": [
+                "arm",
+                "upper",
+                "front"
+            ],
+            "offset": {
+                "x": 128.493,
+                "y": -376.352
+            },
+            "scale": 1,
+            "targetHeight": 176,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "body",
+                "parentPoint": {
+                    "x": 0.73,
+                    "y": 0.6
+                }
+            }
+        },
+        "leftLowerArm": {
+            "frame": "arm_lower_left",
+            "role": "leftLowerArm",
+            "tags": [
+                "arm",
+                "lower",
+                "front"
+            ],
+            "offset": {
+                "x": 94.489,
+                "y": -261.354
+            },
+            "scale": 1,
+            "targetHeight": 194,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "leftUpperArm",
+                "parentPoint": {
+                    "x": 0.1869,
+                    "y": 0.8977
+                }
+            }
+        },
+        "rightUpperArm": {
+            "frame": "arm_upper_left",
+            "role": "rightUpperArm",
+            "tags": [
+                "arm",
+                "upper",
+                "rear",
+                "copiedLeftArt"
+            ],
+            "offset": {
+                "x": 104.69,
+                "y": -376.352
+            },
+            "scale": 1,
+            "targetHeight": 176,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "body",
+                "parentPoint": {
+                    "x": 0.69,
+                    "y": 0.6
+                }
+            }
+        },
+        "rightLowerArm": {
+            "frame": "arm_lower_left",
+            "role": "rightLowerArm",
+            "tags": [
+                "arm",
+                "lower",
+                "rear",
+                "copiedLeftArt"
+            ],
+            "offset": {
+                "x": 70.685,
+                "y": -261.354
+            },
+            "scale": 1,
+            "targetHeight": 194,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "rightUpperArm",
+                "parentPoint": {
+                    "x": 0.1869,
+                    "y": 0.8977
+                }
+            }
+        }
+    }
+}

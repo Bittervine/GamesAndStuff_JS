@@ -292,6 +292,10 @@ import {
     resolveCharacterProjectReference
 } from "../src/tools/character-editor/character-project.js";
 import {
+    characterEditorKnownProjects,
+    enemyCharacterProjectUrl
+} from "../src/tools/character-editor/enemy-project-catalog.js";
+import {
     createEditableAnimationClip,
     deleteAnimationKeyframe,
     disableExclusiveFramePresentation,
@@ -533,7 +537,8 @@ function testSourceOrganization() {
         "../src/tools/character-editor/dopesheet-data.js",
         "../src/tools/character-editor/parent-constraint-data.js",
         "../src/tools/character-editor/reference-plate.js",
-        "../src/tools/character-editor/character-project.js"
+        "../src/tools/character-editor/character-project.js",
+        "../src/tools/character-editor/enemy-project-catalog.js"
     ];
     for (const relativePath of expectedFiles) {
         assert.equal(existsSync(new URL(relativePath, import.meta.url)), true, `${relativePath} should exist in the organized source tree`);
@@ -1821,7 +1826,11 @@ function testLevelEditorMultiSelectionAndPaletteWorkflow() {
 function testEnemyCatalogAndLevelEditorIntegration() {
     const catalog = JSON.parse(readFileSync("./assets/ct_enemies_001.json", "utf8"));
     const skeleton = catalog.enemies?.enemy_001;
+    const raptor = catalog.enemies?.enemy_040;
     assert.ok(skeleton, "enemy catalog should register enemy_001");
+    assert.ok(raptor, "enemy catalog should register the new Raptor enemy_040");
+    assert.equal(raptor.characterId, "ct_char_enemy_040", "Raptor should reference its generic character project");
+    assert.equal(raptor.defaults.animationSlot, "idle", "the initial Raptor should use its authored idle animation");
     assert.equal(skeleton.characterId, "ct_char_enemy_001", "enemy_001 should reference its generic character project");
     assert.equal(skeleton.defaults.behavior, undefined, "enemy catalog should not duplicate strategy with legacy behavior");
     assert.equal(skeleton.defaults.strategy, "hunter", "Skeleton Guard should use jumping hunter navigation so raised encounters can pursue Ignatius");
@@ -1987,25 +1996,40 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(characterEditorHtml.includes("characterArtworkOffset(renderOffsetX, renderOffsetY, CHARACTER_EDITOR_WORLD_SCALE)"), "Puppet Forge should scale character-local artwork offsets with its preview-world transform");
     assert.ok(characterEditorHtml.includes("animationPoseToRuntimeTransforms("), "Puppet Forge should use the same pose-to-transform path as the runtime and Level Editor");
     assert.ok(characterEditorHtml.includes("transform.x += artworkOffset.x"), "Puppet Forge should apply the local X offset before its facing mirror");
-    assert.ok(characterEditorHtml.includes('enemy_020: "assets/ct_char_enemy_020.json"'), "Puppet Forge should expose replacement Atlas 020");
-    assert.ok(characterEditorHtml.includes('enemy_030: "assets/ct_char_enemy_030.json"'), "Puppet Forge should expose the modular Human Raider project");
-    assert.ok(characterEditorHtml.includes('enemy_031: "assets/ct_char_enemy_031.json"'), "Puppet Forge should expose the second modular Human Raider project");
-    assert.ok(characterEditorHtml.includes('enemy_032: "assets/ct_char_enemy_032.json"'), "Puppet Forge should expose the first Human Knife Thrower project");
-    assert.ok(characterEditorHtml.includes('enemy_033: "assets/ct_char_enemy_033.json"'), "Puppet Forge should expose the second Human Knife Thrower project");
-    assert.ok(characterEditorHtml.includes('<option value="enemy_030">Enemy 030: Human Raider</option>'), "Puppet Forge known-project dropdown should list Human Raider");
-    assert.ok(characterEditorHtml.includes('<option value="enemy_031">Enemy 031: Human Raider II</option>'), "Puppet Forge known-project dropdown should list the second Human Raider");
-    assert.ok(characterEditorHtml.includes('<option value="enemy_032">Enemy 032: Human Knife Thrower</option>'), "Puppet Forge known-project dropdown should list the first knife thrower");
-    assert.ok(characterEditorHtml.includes('<option value="enemy_033">Enemy 033: Human Knife Thrower II</option>'), "Puppet Forge known-project dropdown should list the second knife thrower");
+    assert.ok(characterEditorHtml.includes("characterEditorKnownProjects(state.enemyCatalog)"), "Puppet Forge should build its known-project selector from the loaded enemy catalog");
+    assert.ok(characterEditorHtml.includes("state.knownProjects = new Map"), "Puppet Forge should retain the catalog-derived project URLs without a hardcoded enemy map");
+    assert.equal(characterEditorHtml.includes('enemy_033: "assets/ct_char_enemy_033.json"'), false, "Puppet Forge should not require a hardcoded entry for each enemy project");
+    assert.equal(characterEditorHtml.includes('<option value="enemy_033">'), false, "Puppet Forge should not require static enemy options in the HTML");
+    const knownProjects = characterEditorKnownProjects(catalog);
+    const knownRaptor = knownProjects.find((entry) => entry.id === "enemy_040");
+    assert.ok(knownRaptor, "Puppet Forge project discovery should include every catalog enemy with a character project");
+    assert.equal(knownRaptor.label, "Enemy 040: Raptor", "Puppet Forge should derive the Raptor selector label from the catalog");
+    assert.equal(knownRaptor.url, "assets/ct_char_enemy_040.json", "Puppet Forge should derive the Raptor character URL from characterId");
+    assert.equal(enemyCharacterProjectUrl({ characterUrl: "custom/raptor-project.json" }), "custom/raptor-project.json", "an explicit catalog characterUrl should override characterId discovery");
     assert.ok(characterEditorHtml.includes('inferredCharacterUrlFromProjectJson'), "Puppet Forge should resolve rig and atlas project URLs to matching character definitions");
     for (const discardedSuffix of ["006", "007", "008"]) {
         assert.ok(!characterEditorHtml.includes(`ct_char_enemy_${discardedSuffix}.json`), `Puppet Forge should not expose discarded enemy ${discardedSuffix}`);
     }
-    for (const retainedSuffix of ["020", "030", "031", "032", "033"]) {
+    for (const retainedSuffix of ["020", "030", "031", "032", "033", "040"]) {
         assert.ok(rendererSource.includes(`assets/ct_char_enemy_${retainedSuffix}.json`), `renderer should preload retained enemy ${retainedSuffix}`);
     }
     for (const discardedSuffix of ["006", "007", "008"]) {
         assert.ok(!rendererSource.includes(`assets/ct_char_enemy_${discardedSuffix}.json`), `renderer should not preload discarded enemy ${discardedSuffix}`);
     }
+
+    const raptorCharacter = JSON.parse(readFileSync(new URL("../assets/ct_char_enemy_040.json", import.meta.url), "utf8"));
+    const raptorRig = JSON.parse(readFileSync(new URL("../assets/ct_rig_enemy_040.json", import.meta.url), "utf8"));
+    const raptorAtlas = JSON.parse(readFileSync(new URL("../assets/ct_atlas_enemy_040.json", import.meta.url), "utf8"));
+    const raptorIdle = JSON.parse(readFileSync(new URL("../assets/ct_anim_enemy_040_idle.json", import.meta.url), "utf8"));
+    assert.equal(raptorCharacter.rig, "ct_rig_enemy_040.json", "Raptor character project should reference its rig");
+    assert.equal(raptorCharacter.animationMap.idle, "ct_anim_enemy_040_idle.json", "Raptor character project should expose the initial idle slot");
+    assert.equal(raptorRig.atlasManifest, "ct_atlas_enemy_040.json", "Raptor rig should reference the uploaded atlas manifest");
+    assert.deepEqual([...raptorRig.drawOrder].sort(), Object.keys(raptorRig.parts).sort(), "Raptor draw order should cover every articulated rig part exactly once");
+    for (const [partName, part] of Object.entries(raptorRig.parts)) {
+        assert.ok(raptorAtlas.frames[part.frame], `Raptor part ${partName} should reference an atlas frame`);
+        assert.ok(raptorIdle.referencePose[partName], `Raptor idle should include reference pose data for ${partName}`);
+    }
+    assert.ok(raptorAtlas.frames.head_open && raptorAtlas.frames.head_alt_01 && raptorAtlas.frames.head_alt_02, "Raptor atlas should retain the unused alternate head frames for later animations");
 
     const human030 = JSON.parse(readFileSync(new URL("../assets/ct_char_enemy_030.json", import.meta.url), "utf8"));
     const human031 = JSON.parse(readFileSync(new URL("../assets/ct_char_enemy_031.json", import.meta.url), "utf8"));
@@ -5864,13 +5888,10 @@ function testCharacterProjectWorkspace() {
     assert.ok(toolHtml.includes("Atlas JSON"), "character tool should expose atlas-manifest editing and export");
     assert.ok(toolHtml.includes("Atlas parts"), "character tool should expose atlas rectangle authoring mode");
     assert.ok(toolHtml.includes("Add selected to rig"), "character tool should expose atlas-frame to rig assignment");
-    assert.ok(toolHtml.includes("Enemy 001: Skeleton Guard"), "character tool should expose enemy_001 as a known project");
-    assert.ok(toolHtml.includes("Enemy 010: Fireball Goblin"), "character tool should expose the Fireball Goblin as a known project");
-    assert.ok(toolHtml.includes("Enemy 011: Musket Goblin"), "character tool should expose the Musket Goblin as a known project");
-    assert.ok(toolHtml.includes('enemy_001: "assets/ct_char_enemy_001.json"'), "known enemy_001 project should use the numbered enemy filename convention");
-    assert.ok(toolHtml.includes('enemy_010: "assets/ct_char_enemy_010.json"'), "known enemy_010 project should resolve to its character definition");
-    assert.ok(toolHtml.includes('enemy_011: "assets/ct_char_enemy_011.json"'), "known enemy_011 project should resolve to its character definition");
-    assert.ok(toolHtml.includes('enemy_012: "assets/ct_char_enemy_012.json"'), "known enemy_012 project should resolve to its character definition");
+    assert.ok(toolHtml.includes('from "./src/tools/character-editor/enemy-project-catalog.js"'), "character tool should use the catalog-driven project helper");
+    assert.ok(toolHtml.includes("characterEditorKnownProjects(state.enemyCatalog)"), "character tool should derive all enemy project options from ct_enemies_001.json");
+    assert.ok(toolHtml.includes("await ensureEnemyCatalog();"), "character tool should load the enemy catalog before presenting known projects");
+    assert.equal(toolHtml.includes('enemy_001: "assets/ct_char_enemy_001.json"'), false, "character tool should not retain a hand-maintained enemy project map");
     assert.ok(toolHtml.includes("state.rig = await loadJson(state.rigUrl)"), "character tool should load the referenced rig directly");
     assert.ok(!toolHtml.includes("rigPartOverrides") && !toolHtml.includes("rigPivotOverrides") && !toolHtml.includes("applyCharacterRigOverrides"), "character tool should not support character-level rig overrides");
     assert.ok(toolHtml.includes('id="apply-preview-alpha"'), "character tool should expose an animation-preview alpha toggle");

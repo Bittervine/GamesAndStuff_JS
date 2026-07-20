@@ -1,5 +1,5 @@
 {
-  "version": 7,
+  "version": 8,
   "catalogId": "cavern-enemy-generation-v1",
   "enemies": {
     "enemy_900": {
@@ -212,6 +212,25 @@
       "preferredProgressMax": 0.99,
       "requiresNavigation": true,
       "notes": "Dormant metadata for Human Knife Thrower II. It uses body_03/head_03 and shares Enemy 032's three-knife +/-5 degree point-first volley; it remains excluded from ordinary generated levels until the human family is tuned."
+    },
+    "enemy_040": {
+      "placementClass": "groundMelee",
+      "groupMin": 1,
+      "groupMax": 1,
+      "difficultyCost": 3.2,
+      "weight": 0.05,
+      "minDifficulty": 1,
+      "maxDifficulty": 1,
+      "minWalkableWidth": 380,
+      "edgeClearance": 70,
+      "landingBuffer": 150,
+      "headroom": 180,
+      "patrolRoom": 250,
+      "minGroupSpacing": 110,
+      "preferredProgressMin": 0.95,
+      "preferredProgressMax": 0.99,
+      "requiresNavigation": true,
+      "notes": "Dormant metadata for the initial articulated Raptor. It remains excluded from ordinary generated levels until locomotion, attack, hurt, and death animations are authored and tuned."
     }
   }
 }

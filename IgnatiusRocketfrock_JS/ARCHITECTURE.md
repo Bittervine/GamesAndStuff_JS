@@ -68,6 +68,7 @@ IgnatiusRocketfrock_JS/
 │           ├── character-dirty-state.js
 │           ├── character-editor-view.js
 │           ├── character-project.js
+│           ├── enemy-project-catalog.js
 │           ├── dopesheet-data.js
 │           ├── parent-constraint-data.js
 │           └── reference-plate.js
@@ -92,6 +93,8 @@ The root HTML files are thin browser entry points. Their larger inline editor ap
 Revision 143 aligns editor inspector ergonomics across all three authoring tools. Puppet Forge, the Level Editor, and the Asset Tool attach an accessible expand/collapse control to each right-side panel heading and remember each tool's state under its own local-storage key. This is UI-only state: collapsing a panel never removes controls, mutates project data, or affects exported JSON.
 
 Revision 146 adds a left-side full dopesheet to Puppet Forge. Dopesheet row discovery and ordering live in the editor-only `src/tools/character-editor/dopesheet-data.js`; DOM construction, selection, and scrubbing remain in `character-editor.html`. The helper reads animation authoring data but does not participate in runtime sampling, simulation, exported schemas, or future C++ parity.
+
+SDL build revision 138 removes Puppet Forge's hardcoded enemy-project registry. `src/tools/character-editor/enemy-project-catalog.js` converts each loaded `ct_enemies_001.json` definition with a `characterId` or explicit `characterUrl` into a selector entry. The editor owns DOM option construction, while this helper remains pure editor-only catalog normalization.
 
 Revision 145 adds an editor-only authoring diagnostic without moving cave semantics into gameplay. `src/shared/cave-window-data.js` can classify a placement polygon against the sampled closed cave spline and report exterior separation distance. The Level Editor applies that neutral geometry helper only to collision-bearing atlas placements, warns when they are completely exterior beyond a conservative margin, and draws the warning above the preview shade. The diagnostic does not alter level data, collision, navigation, rendering order, or runtime simulation.
 

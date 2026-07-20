@@ -1,0 +1,291 @@
+{
+    "meta": {
+        "version": 1,
+        "note": "Initial Raptor atlas. The three alternate lower-left heads are catalogued but are not used by the idle rig."
+    },
+    "atlasId": "ct_atlas_enemy_040",
+    "image": "ct_atlas_enemy_040.png",
+    "frames": {
+        "tail_tip": {
+            "x": 48,
+            "y": 199,
+            "w": 228,
+            "h": 42
+        },
+        "tail_back": {
+            "x": 310,
+            "y": 178,
+            "w": 255,
+            "h": 49
+        },
+        "tail_middle": {
+            "x": 590,
+            "y": 169,
+            "w": 225,
+            "h": 80
+        },
+        "tail_front": {
+            "x": 851,
+            "y": 157,
+            "w": 162,
+            "h": 111
+        },
+        "body": {
+            "x": 1056,
+            "y": 126,
+            "w": 554,
+            "h": 177
+        },
+        "neck": {
+            "x": 1639,
+            "y": 63,
+            "w": 142,
+            "h": 156
+        },
+        "head": {
+            "x": 1801,
+            "y": 51,
+            "w": 175,
+            "h": 105
+        },
+        "leg_upper_left": {
+            "x": 1061,
+            "y": 304,
+            "w": 160,
+            "h": 204
+        },
+        "leg_lower_left": {
+            "x": 1004,
+            "y": 529,
+            "w": 197,
+            "h": 133
+        },
+        "foot_left": {
+            "x": 1003,
+            "y": 683,
+            "w": 185,
+            "h": 184
+        },
+        "arm_upper_left": {
+            "x": 1408,
+            "y": 324,
+            "w": 107,
+            "h": 176
+        },
+        "arm_lower_left": {
+            "x": 1406,
+            "y": 534,
+            "w": 158,
+            "h": 194
+        },
+        "head_alt_01": {
+            "x": 64,
+            "y": 698,
+            "w": 195,
+            "h": 112
+        },
+        "head_alt_02": {
+            "x": 301,
+            "y": 704,
+            "w": 195,
+            "h": 113
+        },
+        "head_open": {
+            "x": 531,
+            "y": 692,
+            "w": 226,
+            "h": 219
+        }
+    },
+    "objects": {
+        "tail_tip": {
+            "id": "tail_tip",
+            "frame": "tail_tip",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "raptor",
+                "tail",
+                "tip"
+            ]
+        },
+        "tail_back": {
+            "id": "tail_back",
+            "frame": "tail_back",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "raptor",
+                "tail",
+                "back"
+            ]
+        },
+        "tail_middle": {
+            "id": "tail_middle",
+            "frame": "tail_middle",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "raptor",
+                "tail",
+                "middle"
+            ]
+        },
+        "tail_front": {
+            "id": "tail_front",
+            "frame": "tail_front",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "raptor",
+                "tail",
+                "front"
+            ]
+        },
+        "body": {
+            "id": "body",
+            "frame": "body",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "raptor",
+                "body",
+                "root"
+            ]
+        },
+        "neck": {
+            "id": "neck",
+            "frame": "neck",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "raptor",
+                "neck"
+            ]
+        },
+        "head": {
+            "id": "head",
+            "frame": "head",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "raptor",
+                "head",
+                "idle"
+            ]
+        },
+        "leg_upper_left": {
+            "id": "leg_upper_left",
+            "frame": "leg_upper_left",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "raptor",
+                "leg",
+                "upper",
+                "left",
+                "shared"
+            ]
+        },
+        "leg_lower_left": {
+            "id": "leg_lower_left",
+            "frame": "leg_lower_left",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "raptor",
+                "leg",
+                "lower",
+                "left",
+                "shared"
+            ]
+        },
+        "foot_left": {
+            "id": "foot_left",
+            "frame": "foot_left",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "raptor",
+                "foot",
+                "left",
+                "shared"
+            ]
+        },
+        "arm_upper_left": {
+            "id": "arm_upper_left",
+            "frame": "arm_upper_left",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "raptor",
+                "arm",
+                "upper",
+                "left",
+                "shared"
+            ]
+        },
+        "arm_lower_left": {
+            "id": "arm_lower_left",
+            "frame": "arm_lower_left",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "raptor",
+                "arm",
+                "lower",
+                "left",
+                "shared"
+            ]
+        },
+        "head_alt_01": {
+            "id": "head_alt_01",
+            "frame": "head_alt_01",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "raptor",
+                "head",
+                "alternate"
+            ]
+        },
+        "head_alt_02": {
+            "id": "head_alt_02",
+            "frame": "head_alt_02",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "raptor",
+                "head",
+                "alternate"
+            ]
+        },
+        "head_open": {
+            "id": "head_open",
+            "frame": "head_open",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "raptor",
+                "head",
+                "openMouth",
+                "attack"
+            ]
+        }
+    }
+}

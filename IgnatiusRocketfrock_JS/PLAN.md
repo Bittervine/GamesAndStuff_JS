@@ -44,7 +44,7 @@ IgnatiusRocketfrock_JS/
 │   └── tools/character-editor/
 │       ├── animation-editor.js, atlas-editor.js
 │       ├── character-dirty-state.js, character-editor-view.js
-│       ├── character-project.js
+│       ├── character-project.js, enemy-project-catalog.js
 │       └── dopesheet-data.js
 ├── tests/testbench.mjs
 ├── assets/
@@ -67,6 +67,8 @@ Fixed after the SDL parity pass exposed a runtime/editor mismatch in the split-l
 The JS testbench also had stale modular-human default-hitbox expectations after the human catalog was tightened from the older oversized profile. The current `ct_enemies_001.json` defaults for enemies 030-033 are 60×170, with existing shipped levels still carrying their authored baked 67.5×194 navigation profiles until those level records are deliberately regenerated.
 
 Enemy 033's walk clip may intentionally diverge from Enemy 032 in constrained-part X/Y placement so hands and limbs sit at the corrected depth for the body/head variant. Tests should preserve matching motion channels and rig coverage without forcing those constrained X/Y tracks back to an exact Enemy 032 copy.
+
+Fixed in SDL build revision 138: Puppet Forge's Known project dropdown had accumulated a hardcoded enemy list, so adding a valid `ct_enemies_001.json` entry did not make a new character selectable. `src/tools/character-editor/enemy-project-catalog.js` now derives every enemy project URL and label from the loaded catalog, while the wizard remains the single built-in non-enemy entry. The Raptor `enemy_040` asset set is the regression case.
 
 
 ## Near-Term Cave-Window Authoring Track

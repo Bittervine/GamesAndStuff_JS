@@ -1,8 +1,8 @@
 {
     "meta": {
-        "version": 57,
-        "note": "Revision 482 adds a passive training dummy enemy in the 900 range so practice targets can use the normal enemy pipeline.",
-        "revision": 482
+        "version": 60,
+        "note": "Adds enemy 040, an articulated Raptor with an initial idle animation.",
+        "revision": 483
     },
     "catalogId": "ct_enemies_001",
     "enemies": {
@@ -686,6 +686,59 @@
                 "projectileKnockbackY": -90
             },
             "description": "A dark-haired human knife thrower using the fresh body_03/head_03 pair. He shares Enemy 032's user-authored articulated throw and releases three non-spinning, point-first daggers in a +/-5 degree fan."
+        },
+        "enemy_040": {
+            "label": "Raptor",
+            "icon": "🦖",
+            "characterId": "ct_char_enemy_040",
+            "defaultSize": {
+                "w": 148,
+                "h": 118
+            },
+            "defaults": {
+                "facing": -1,
+                "patrolDistance": 250,
+                "walkSpeed": 58,
+                "idleDuration": 1,
+                "turnPause": 0.46,
+                "groundSnapDistance": 96,
+                "maxStepHeight": 26,
+                "maxDropDistance": 34,
+                "renderScale": 1,
+                "health": 90,
+                "animationSlot": "idle",
+                "targetAnchor": {
+                    "x": 0.54,
+                    "y": 0.42
+                },
+                "showTargetMarker": false,
+                "attackMode": "melee",
+                "attackDamage": 26,
+                "attackRange": 72,
+                "attackVerticalRange": 108,
+                "attackDuration": 0.46,
+                "attackHitTime": 0.35,
+                "attackCooldown": 0.14,
+                "attackKnockbackX": 340,
+                "attackKnockbackY": -255,
+                "awarenessRange": 820,
+                "awarenessHoldDuration": 1.2,
+                "attackLungeDistance": 22,
+                "attackLungeSpeed": 190,
+                "strategy": "hunter",
+                "runSpeed": 200,
+                "jumpHeight": 200,
+                "unreachableGlareDuration": 5,
+                "awarenessViewHalfAngle": 60,
+                "renderOffsetX": -22,
+                "renderOffsetY": 0,
+                "locomotion": "ground",
+                "jumpGravity": 1250,
+                "maxFallDistance": 600,
+                "routeRepathInterval": 0.34,
+                "homeRetryInterval": 4
+            },
+            "description": "A fast ground-hunting raptor assembled from a parent-constrained articulated rig."
         }
     }
 }

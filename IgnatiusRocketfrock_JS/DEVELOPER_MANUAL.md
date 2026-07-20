@@ -62,6 +62,10 @@ Each mailbox owns its letter, thought, trigger distance, and timing. Long text s
 
 Entry doors replace the legacy wizard-start marker. Exit doors are mirrored by default. An empty exit destination resolves to the next numbered level; if loading fails, the current level is restored.
 
+## Puppet Forge project discovery
+
+The Known project dropdown is catalog-driven. At startup Puppet Forge loads `assets/ct_enemies_001.json` and creates one selector entry for every enemy definition that provides `characterId` or `characterUrl`. A normal `characterId` such as `ct_char_enemy_040` resolves to `assets/ct_char_enemy_040.json`; `characterUrl` may override that convention. Adding a new enemy therefore requires only the catalog entry and its referenced character, rig, atlas, image, and animation files. The wizard remains the only built-in non-catalog project.
+
 ## Character enemies
 
 The placement point is the enemy foot position. Awareness uses distance and facing cone rather than line-of-sight collision, although terrain may still block movement and attacks. Simple patrol retains local movement. Hunters leave patrol, choose reachable attack positions, cross gaps with one jump, glare while the target is unreachable, and attempt to return home. A hunter unable to climb home adopts its current support as a temporary patrol and periodically retries.
