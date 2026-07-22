@@ -192,7 +192,9 @@ export function bakeParentConstraintTracks(rawClip, rig, assets, options = {}) {
         const normalizedTime = clamp(time, 0, normalized.duration);
         const cacheKey = normalizedTime.toFixed(9);
         if (!sampleCache.has(cacheKey)) {
-            const authored = sampleAnimationClipAtPlayhead(normalized, normalizedTime);
+            const authored = sampleAnimationClipAtPlayhead(normalized, normalizedTime, {
+                loop: normalized.loop
+            });
             sampleCache.set(cacheKey, resolveParentConstrainedPose(rig, authored, assets));
         }
         return sampleCache.get(cacheKey);
@@ -211,7 +213,9 @@ export function bakeParentConstraintTracks(rawClip, rig, assets, options = {}) {
             0
         );
     }
-    const times = [...requiredTimes].sort((a, b) => a - b);
+    const times = [...requiredTimes]
+        .filter((time) => !normalized.loop || Math.abs(time - normalized.duration) > 0.0000001)
+        .sort((a, b) => a - b);
     rawClip.tracks = rawClip.tracks || {};
     rawClip.referencePose = rawClip.referencePose || {};
     const startPose = sample(0);
@@ -232,10 +236,16 @@ export function bakeParentConstraintTracks(rawClip, rig, assets, options = {}) {
             rawClip.referencePose[partName].y = startPose[partName].y;
         }
     }
+    const keyCount = times.length * constrainedParts.length * 2;
+    rawClip.meta = rawClip.meta && typeof rawClip.meta === "object" && !Array.isArray(rawClip.meta)
+        ? rawClip.meta
+        : {};
+    rawClip.meta.bakedParentConstraintParts = [...constrainedParts];
+    rawClip.meta.bakedPositionKeyCount = keyCount;
     return {
         changed: true,
         parts: constrainedParts,
-        keyCount: times.length * constrainedParts.length * 2
+        keyCount
     };
 }
 

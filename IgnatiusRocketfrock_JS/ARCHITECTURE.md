@@ -96,6 +96,18 @@ Revision 146 adds a left-side full dopesheet to Puppet Forge. Dopesheet row disc
 
 SDL build revision 138 removes Puppet Forge's hardcoded enemy-project registry. `src/tools/character-editor/enemy-project-catalog.js` converts each loaded `ct_enemies_001.json` definition with a `characterId` or explicit `characterUrl` into a selector entry. The editor owns DOM option construction, while this helper remains pure editor-only catalog normalization.
 
+SDL build revision 139 fixes combined-transform key easing in Puppet Forge. A selected transform diamond can represent X, Y, and rotation keys at one time, or only rotation for a parent-constrained part. Changing the interpolation selector now updates every editable key represented by that diamond and the Apply Selected button remains available. The easing value continues to describe interpolation after the selected key, including the final-to-first segment of a looping clip.
+
+
+SDL build revision 140 keeps browser Level Editor playtesting inside the browser startup layer. `playBrowserCopy()` serializes the current level to the editor storage key and opens `game.html?playtest_browser_copy=1`; `game-bootstrap.js` applies that level before renderer creation and now treats a successfully loaded browser copy as a direct-play launch condition. The title screen remains the default for ordinary game launches, while explicit level, recording, playback, and editor-playtest launches retain their specialized startup behavior.
+
+
+SDL build revision 142 adds a shared user-facing Development features concept while retaining platform-specific presentation. The browser submenu delegates to its existing guide, tuning, recording, playback, and debug-panel machinery. SDL owns equivalent menu entries and lightweight native drawing in `src/runtime/ignatius-app.cpp`: green/yellow asset collision guides, enemy hitbox/FOV/state guides, and a compact fixed-text panel. Native and browser verbose logging both sample structured runtime snapshots no more than once per second and perform no snapshot work while disabled. SDL writes NDJSON under `logs/`; the browser buffers rows only while enabled and downloads the NDJSON when logging stops. These diagnostics remain presentation/runtime-adapter facilities and do not enter portable simulation decisions.
+
+SDL build revision 143 makes raw GPU resize recovery transactional. `scenePresentationSizeDirty` is set by logical resize, pixel-size, display-scale, and fullscreen events. Normal acquisition and render checks return through one cached branch; transition frames query the current output, rebuild both scene textures before swapchain acquisition, suppress stale queued presentation, and reacquire if texture recreation invalidated an earlier target. A transient fullscreen resize must never call the permanent renderer fallback merely because the old acquisition was released.
+
+SDL build revision 144 treats native file-dialog callbacks as foreign-thread adapters. The callback may copy callback-owned strings and package a result, but it must not touch menu state, recordings, simulation objects, renderer resources, or diagnostic streams. `SDL_RunOnMainThread` transfers the owned result to the event-processing thread, where playback loading and level reconstruction proceed through the ordinary runtime path.
+
 Revision 145 adds an editor-only authoring diagnostic without moving cave semantics into gameplay. `src/shared/cave-window-data.js` can classify a placement polygon against the sampled closed cave spline and report exterior separation distance. The Level Editor applies that neutral geometry helper only to collision-bearing atlas placements, warns when they are completely exterior beyond a conservative margin, and draws the warning above the preview shade. The diagnostic does not alter level data, collision, navigation, rendering order, or runtime simulation.
 
 Revision 149 adds a browser-owned pause menu and persistent settings shell without moving browser APIs into portable core. `src/shared/game-settings-data.js` owns normalized volume, difficulty, and rendering-quality presets. `src/browser/game-settings-store.js` owns local-storage persistence, while `src/browser/electron-window-bridge.js` normalizes the optional preload contract. Core reads the normalized difficulty damage multiplier only inside `damagePlayer`, and uses the normalized rendering-quality particle multiplier only for visual smoke emission. The current default music volume is 10% and effects volume is 80%. The browser music engine added later remains separate from the portable simulation.
@@ -1518,6 +1530,8 @@ Constraint mathematics and adaptive X/Y baking live in `src/tools/character-edit
 
 This is an authoring-only boundary. Runtime character rendering and animation sampling remain unchanged. Before animation JSON is refreshed or downloaded, Puppet Forge replaces constrained child X/Y tracks with ordinary linear keyframes. Adaptive midpoint subdivision adds keys where a rotating or scaling parent would otherwise make straight X/Y interpolation visibly leave the socket. The rig constraint remains the source of truth; baked tracks are disposable runtime-compatible output.
 
+For a looping clip, the baker treats `duration` as an internal boundary equivalent to time zero. It samples and refines the final-to-first interval, but must not serialize an X/Y key exactly at `duration`; the runtime loop endpoint is the first key. Non-looping clips may serialize their final-duration key normally. This prevents editor-generated terminal keys from creating hidden loop seams or failing the shipped-animation endpoint contract.
+
 Rig JSON application must reject missing parents and circular links. The parent picker excludes the child and its descendants. Disabling a constraint leaves the most recently baked X/Y tracks as normal editable animation data, providing a non-destructive escape route.
 
 
@@ -2161,3 +2175,8 @@ Revision 528 keeps gameplay recording and visual capture separated. The browser 
 ## Revision 530 package revision synchronization
 
 Revision 530 makes no architecture changes; it only synchronizes the active package revision labels.
+
+## Revision 145 menu navigation presentation contract
+
+Non-title game menus own one presentation-layer Back action in their header. Browser views share `#game-menu-back`; SDL views retain a `back` menu entry but layout excludes it from ordinary rows and places it in the panel's upper-right corner. Back from the pause root closes the menu and resumes gameplay. Back from nested views returns to the owning parent view. The title screen remains a separate horizontal action strip and does not receive this header control.
+

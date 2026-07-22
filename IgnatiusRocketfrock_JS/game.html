@@ -1033,7 +1033,7 @@ font-size: 14px;
         <a class="tool-link" href="asset-editor.html">Asset tool</a>
         <a class="tool-link" href="character-editor.html">Puppet Forge</a>
         <button id="toggle-asset-guides" class="tool-button" type="button">Asset guides: off</button>
-        <button id="toggle-puppet-guide" class="tool-button" type="button">Puppet guide: off</button>
+        <button id="toggle-puppet-guide" class="tool-button" type="button">Enemy guide: off</button>
         <button id="toggle-debug-panel" class="tool-button" type="button">Debug panel: off</button>
         <button id="toggle-micro-profiler" class="tool-button" type="button">Profiler: off</button>
         <button id="toggle-gameplay-recording" class="tool-button" type="button">Recording: Off</button>
@@ -1064,7 +1064,6 @@ font-size: 14px;
 
             <section id="game-menu-main" class="game-menu-view">
                 <div class="game-menu-actions">
-                    <button id="game-menu-resume" class="game-menu-action" type="button">Resume Game</button>
                     <button id="game-menu-save" class="game-menu-action" type="button">Save Game</button>
                     <button id="game-menu-load" class="game-menu-action" type="button">Load Game</button>
                     <button id="game-menu-settings" class="game-menu-action" type="button">Settings</button>
@@ -1144,6 +1143,37 @@ font-size: 14px;
                         <option value="softwareSpeedhack">Software + speedhack</option>
                     </select>
                     <div id="rendering-mode-status" class="settings-note">Renderer changes take effect after reloading the game.</div>
+                </div>
+
+                <button id="development-features-button" class="game-menu-action settings-wide" type="button">Development features...</button>
+            </section>
+
+            <section id="game-development-panel" class="game-menu-view" hidden>
+                <div class="settings-inline-row">
+                    <label class="settings-toggle" for="development-asset-guides">
+                        <span class="settings-toggle-copy"><span class="settings-toggle-title">Asset guides</span></span>
+                        <input id="development-asset-guides" type="checkbox">
+                    </label>
+                    <label class="settings-toggle" for="development-enemy-guide">
+                        <span class="settings-toggle-copy"><span class="settings-toggle-title">Enemy guide</span></span>
+                        <input id="development-enemy-guide" type="checkbox">
+                    </label>
+                    <label class="settings-toggle" for="development-debug-panel">
+                        <span class="settings-toggle-copy"><span class="settings-toggle-title">Debug panel</span></span>
+                        <input id="development-debug-panel" type="checkbox">
+                    </label>
+                    <label class="settings-toggle" for="development-debug-logging">
+                        <span class="settings-toggle-copy">
+                            <span class="settings-toggle-title">Debug logging</span>
+                            <span class="settings-note">Periodic snapshots are downloaded when logging stops.</span>
+                        </span>
+                        <input id="development-debug-logging" type="checkbox">
+                    </label>
+                </div>
+                <div class="game-menu-actions settings-wide">
+                    <button id="development-game-tuning" class="game-menu-action" type="button">Game tuning...</button>
+                    <button id="development-recording" class="game-menu-action" type="button">Recording: Off</button>
+                    <button id="development-playback" class="game-menu-action" type="button">Playback JSON...</button>
                 </div>
             </section>
         </div>

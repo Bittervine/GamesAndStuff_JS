@@ -307,6 +307,7 @@ import {
     setExclusiveFrameAtTime,
     updateAnimationClipMetadata,
     updateAnimationKeyframe,
+    updateAnimationKeyframeEasingAtTime,
     upsertAnimationKeyframe
 } from "../src/tools/character-editor/animation-editor.js";
 import { animationDopesheetRows } from "../src/tools/character-editor/dopesheet-data.js";
@@ -613,6 +614,31 @@ function testSourceOrganization() {
     const rendererAudit = readFileSync(new URL("../devel/audit_renderer_boundary.mjs", import.meta.url), "utf8");
     assert.match(rendererAudit, /APPROVED_DIRECT_CANVAS_OWNERS/, "the renderer audit should carry an explicit ownership allowlist");
     assert.match(rendererAudit, /src\/browser\/game-bootstrap\.js", "small HUD minimap only"/, "browser bootstrap should retain only the documented minimap exception");
+
+    const windowsBuildScript = readFileSync(new URL("../../build.bat", import.meta.url), "utf8");
+    assert.match(windowsBuildScript, /cmake --build "%BUILD_DIR%" --config %CONFIG% --parallel/, "the normal Windows build should delegate incremental rebuild decisions to CMake and MSBuild");
+    assert.equal(windowsBuildScript.includes('if not "%LAST_REVISION%"=="%REVISION%" set "FORCE_PROJECT=1"'), false, "a revision change should not pre-emptively touch every project source");
+    assert.ok(windowsBuildScript.includes("if errorlevel 1 goto retry_for_stale_objects"), "revision verification should retain the stale-ZIP fallback after an incremental build");
+    assert.ok(windowsBuildScript.includes("call :touch_project_sources") && windowsBuildScript.includes("Retrying once after refreshing project source timestamps"), "the timestamp refresh should remain available only after verification detects stale objects");
+    assert.equal(windowsBuildScript.includes('rmdir /S /Q "%CONTENT_DEST%"'), false, "runtime content synchronization should not delete and recopy the complete destination on every build");
+    assert.match(windowsBuildScript, /robocopy "%CONTENT_SOURCE%" "%CONTENT_DEST%" \/MIR/, "runtime content should use robocopy's incremental mirror behavior");
+
+    const nativeAppSource = readFileSync(new URL("../../src/runtime/ignatius-app.cpp", import.meta.url), "utf8");
+    const gpuPresenterHeader = readFileSync(new URL("../../src/runtime/gpu-presenter.h", import.meta.url), "utf8");
+    assert.equal(nativeAppSource.includes("if (!sceneTextureGpu && !ensureScenePresentationTexture())"), false, "raw GPU acquisition should validate scene-texture dimensions even when old textures remain allocated");
+    assert.ok(nativeAppSource.includes("bool scenePresentationSizeDirty = true") && nativeAppSource.includes("!scenePresentationSizeDirty"), "raw GPU scene sizing should use a cached dirty flag so normal frames avoid repeated SDL size queries");
+    for (const eventName of ["SDL_EVENT_WINDOW_RESIZED", "SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED", "SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED", "SDL_EVENT_WINDOW_ENTER_FULLSCREEN", "SDL_EVENT_WINDOW_LEAVE_FULLSCREEN"]) {
+        assert.ok(nativeAppSource.includes(eventName), `raw GPU scene sizing should react to ${eventName}`);
+    }
+    assert.ok(nativeAppSource.includes("if (!gpuPresenter.hasAcquiredTarget())") && nativeAppSource.includes("raw GPU presentation target reacquiring after resize"), "raw GPU submission should recover when a fullscreen resize invalidates the earlier swapchain acquisition");
+    assert.ok(gpuPresenterHeader.includes("bool hasAcquiredTarget() const"), "the raw GPU presenter should expose whether a complete swapchain target is still acquired");
+    assert.ok(nativeAppSource.includes("SDL_RunOnMainThread(") && nativeAppSource.includes("applyGameplayPlaybackFileDialogResultOnMainThread"), "native playback file selection should marshal asynchronous dialog results onto SDL's main thread");
+    assert.ok(nativeAppSource.includes("result->selectedPath = filelist[0]") && nativeAppSource.includes("scene->startGameplayPlaybackFromFile(result->selectedPath)"), "native playback should copy the callback-owned path before returning, then start playback from the main-thread callback");
+    assert.equal(nativeAppSource.includes("scene->startGameplayPlaybackFromFile(filelist[0])"), false, "the file-dialog callback must not reload simulation or renderer resources directly from a possible worker thread");
+    assert.match(nativeAppSource, /case MenuView::Pause:[\s\S]*addMenuEntry\("save", "Save Game"\)[\s\S]*addMenuEntry\("back", "Back"\)[\s\S]*break;/, "the SDL pause menu should use the shared top-right Back action instead of a duplicate Resume Game row");
+    assert.doesNotMatch(nativeAppSource, /addMenuEntry\("resumePlay", "Resume Game"\)/, "the SDL pause menu should not retain the redundant Resume Game entry");
+    assert.match(nativeAppSource, /entry\.id != "back"/, "SDL menu height calculations should exclude the shared top-right Back button from ordinary rows");
+    assert.match(nativeAppSource, /if \(id == "back"\)[\s\S]*menuPanelRect\.x \+ menuPanelRect\.w - 96\.0f/, "every non-title SDL menu should place Back in the panel header");
 
     const packageHelper = readFileSync(new URL("../devel/package_update.py", import.meta.url), "utf8");
     assert.ok(packageHelper.includes("RETIRED_FILES") && packageHelper.includes("src/presentation/rocket-glow-cache.js"), "release packaging should reject known retired files before creating an archive");
@@ -1831,6 +1857,8 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(raptor, "enemy catalog should register the new Raptor enemy_040");
     assert.equal(raptor.characterId, "ct_char_enemy_040", "Raptor should reference its generic character project");
     assert.equal(raptor.defaults.animationSlot, "idle", "the initial Raptor should use its authored idle animation");
+    assert.deepEqual(raptor.defaultSize, { w: 159, h: 126 }, "Raptor should use the latest tuned gameplay body size");
+    assert.equal(raptor.defaults.renderOffsetX, -25, "Raptor should use the latest tuned horizontal artwork offset");
     assert.equal(skeleton.characterId, "ct_char_enemy_001", "enemy_001 should reference its generic character project");
     assert.equal(skeleton.defaults.behavior, undefined, "enemy catalog should not duplicate strategy with legacy behavior");
     assert.equal(skeleton.defaults.strategy, "hunter", "Skeleton Guard should use jumping hunter navigation so raised encounters can pursue Ignatius");
@@ -2021,15 +2049,39 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     const raptorRig = JSON.parse(readFileSync(new URL("../assets/ct_rig_enemy_040.json", import.meta.url), "utf8"));
     const raptorAtlas = JSON.parse(readFileSync(new URL("../assets/ct_atlas_enemy_040.json", import.meta.url), "utf8"));
     const raptorIdle = JSON.parse(readFileSync(new URL("../assets/ct_anim_enemy_040_idle.json", import.meta.url), "utf8"));
+    const raptorWalk = JSON.parse(readFileSync(new URL("../assets/ct_anim_enemy_040_walk.json", import.meta.url), "utf8"));
     assert.equal(raptorCharacter.rig, "ct_rig_enemy_040.json", "Raptor character project should reference its rig");
     assert.equal(raptorCharacter.animationMap.idle, "ct_anim_enemy_040_idle.json", "Raptor character project should expose the initial idle slot");
+    assert.equal(raptorCharacter.animationMap.walk, "ct_anim_enemy_040_walk.json", "Raptor character project should expose the authored walk slot");
     assert.equal(raptorRig.atlasManifest, "ct_atlas_enemy_040.json", "Raptor rig should reference the uploaded atlas manifest");
     assert.deepEqual([...raptorRig.drawOrder].sort(), Object.keys(raptorRig.parts).sort(), "Raptor draw order should cover every articulated rig part exactly once");
     for (const [partName, part] of Object.entries(raptorRig.parts)) {
         assert.ok(raptorAtlas.frames[part.frame], `Raptor part ${partName} should reference an atlas frame`);
         assert.ok(raptorIdle.referencePose[partName], `Raptor idle should include reference pose data for ${partName}`);
+        assert.ok(raptorWalk.referencePose[partName], `Raptor walk should include reference pose data for ${partName}`);
     }
     assert.ok(raptorAtlas.frames.head_open && raptorAtlas.frames.head_alt_01 && raptorAtlas.frames.head_alt_02, "Raptor atlas should retain the unused alternate head frames for later animations");
+    assert.ok(raptorRig.parts.jaw && raptorAtlas.frames.jaw && raptorIdle.referencePose.jaw, "Raptor should load the separately articulated jaw from the revised atlas");
+    assert.equal(raptorRig.parts.jaw.parentConstraint.parentPart, "head", "Raptor jaw should remain constrained to the head");
+    assert.equal(raptorIdle.tracks.jaw.rotation.length, 2, "Raptor idle should author open and closed jaw rotation keys");
+    assert.ok(raptorIdle.tracks.jaw.rotation.every((key) => key.easing === "easeInOut"), "Raptor jaw loop should ease smoothly through both authored rotation segments");
+    const normalizedRaptorIdle = normalizeAnimationClip(raptorIdle, "Raptor idle");
+    const normalizedRaptorWalk = normalizeAnimationClip(raptorWalk, "Raptor walk");
+    const jawOpenRotation = raptorIdle.tracks.jaw.rotation[0].value;
+    const jawClosedRotation = raptorIdle.tracks.jaw.rotation[1].value;
+    const jawReturnRotation = sampleAnimationClip(normalizedRaptorIdle, 1.2).jaw.rotation;
+    assert.ok(
+        jawReturnRotation > Math.min(jawOpenRotation, jawClosedRotation)
+            && jawReturnRotation < Math.max(jawOpenRotation, jawClosedRotation),
+        "Raptor jaw should interpolate back toward its first key during the second half of the loop"
+    );
+    assert.equal(raptorWalk.loop, true, "Raptor walk should be authored as a looping gait clip");
+    assert.ok(!raptorWalk.tracks.leftUpperLeg.x && !raptorWalk.tracks.leftUpperLeg.y, "Raptor walk should author leg motion through rotations rather than regenerated endpoint X/Y tracks");
+    const walkStartPose = sampleAnimationClip(normalizedRaptorWalk, 0.0);
+    const walkHalfPose = sampleAnimationClip(normalizedRaptorWalk, normalizedRaptorWalk.duration * 0.5);
+    assert.ok(walkStartPose.leftUpperLeg.rotation < walkHalfPose.leftUpperLeg.rotation, "Raptor walk should swap the left hind leg from forward support to trailing support across half a cycle");
+    assert.ok(walkStartPose.rightUpperLeg.rotation > walkHalfPose.rightUpperLeg.rotation, "Raptor walk should swap the right hind leg opposite the left hind leg");
+    assert.ok(walkStartPose.tailTip.rotation > walkHalfPose.tailTip.rotation, "Raptor walk should counterbalance its gait by reversing tail-tip sway across the loop");
 
     const human030 = JSON.parse(readFileSync(new URL("../assets/ct_char_enemy_030.json", import.meta.url), "utf8"));
     const human031 = JSON.parse(readFileSync(new URL("../assets/ct_char_enemy_031.json", import.meta.url), "utf8"));
@@ -2073,7 +2125,8 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(humanRig032.drawOrder.includes("weapon"), false, "enemy_032 draw order should contain no held sword");
     assert.equal(humanRig032.parts.throwingKnife.frame, "dagger", "enemy_032 hidden launch marker should use the throwing-knife atlas frame");
     assert.equal(humanRig032.parts.throwingKnife.alpha, 0, "the authored knife launch marker should stay invisible on the character");
-    assert.equal(humanRig032.parts.throwingKnife.projectile.releaseTime, 0.34, "the throwing attack should release at the authored hand-extension frame");
+    assert.equal(humanRig032.parts.throwingKnife.projectile.releaseTime, 0.311, "the throwing attack should release at the authored hand-extension frame");
+    assert.equal(humanRig032.drawOrder[0], "throwingKnife", "the held knife should render behind the throwing arm during the wind-up");
     assert.equal(humanRig032.parts.throwingKnife.projectile.projectileKind, "throwingKnife", "the hidden marker should compile a throwing-knife projectile profile");
     assert.equal(human032.projectilePart, "throwingKnife", "the character definition should select only the hidden knife projectile marker");
     assert.equal(human033.projectilePart, "throwingKnife", "enemy_033 should select the same hidden knife marker");
@@ -2118,12 +2171,22 @@ function testEnemyCatalogAndLevelEditorIntegration() {
         }
         assert.equal(clip033.animationId, `ct_anim_enemy_033_${slot}`, `enemy_033 ${slot} should keep its own animation identity`);
     }
+    const human033Attack = JSON.parse(readFileSync(new URL("../assets/ct_anim_enemy_033_attack.json", import.meta.url), "utf8"));
+    for (const [label, attack] of [["enemy_032", human032Attack], ["enemy_033", human033Attack]]) {
+        const bakedKeyCount = attack.meta.bakedParentConstraintParts.reduce((count, partName) => (
+            count + attack.tracks[partName].x.length + attack.tracks[partName].y.length
+        ), 0);
+        assert.equal(attack.meta.bakedPositionKeyCount, bakedKeyCount, `${label} attack bake metadata should match its serialized X/Y tracks`);
+    }
     const throwUpperArm = human032Attack.tracks.rightUpperArm.rotation.map((key) => key.value);
     const throwLowerArm = human032Attack.tracks.rightLowerArm.rotation.map((key) => key.value);
     assert.ok(Math.max(...throwUpperArm) - Math.min(...throwUpperArm) > 1.5, "the throwing shoulder should visibly cock and snap forward");
     assert.ok(Math.max(...throwLowerArm) - Math.min(...throwLowerArm) > 2, "the throwing elbow should lead an anatomical extension and follow-through");
     assert.equal(human032Attack.duration, 0.62, "the throwing animation should match the ranged attack duration");
-    assert.ok(Number.isFinite(human032Attack.tracks.throwingKnife.x[0].value) && human032Attack.tracks.throwingKnife.y[0].value < -250, "the three knives should spawn from the raised throwing hand");
+    assert.equal(human032Attack.tracks.throwingKnife.x.at(-1).time, 0.311, "the authored knife path should end exactly at the projectile handoff");
+    assert.equal(human032Attack.tracks.throwingKnife.scale.at(-1).value, 0.9, "the held knife should use the user-authored handoff scale");
+    assert.equal(human032Attack.tracks.throwingKnife.alpha.at(-1).value, 1, "the held knife should stay visible until runtime performs the handoff");
+    assert.ok(Number.isFinite(human032Attack.tracks.throwingKnife.x.at(-1).value) && human032Attack.tracks.throwingKnife.y.at(-1).value < -250, "the three knives should spawn from the raised throwing hand");
 
     const hurtTorsoRotations = human032Hurt.tracks.torso.rotation.map((key) => key.value);
     const hurtHeadRotations = human032Hurt.tracks.head.rotation.map((key) => key.value);
@@ -6036,7 +6099,7 @@ function testPuppetGuideDebugOverlay() {
     const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
     const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
     const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
-    assert.ok(gameHtml.includes('id="toggle-puppet-guide"') && gameHtml.includes("Puppet guide: off"), "game page should expose the off-by-default Puppet Guide button");
+    assert.ok(gameHtml.includes('id="toggle-puppet-guide"') && gameHtml.includes("Enemy guide: off"), "game page should expose the off-by-default Enemy guide button");
     assert.ok(bootstrapSource.includes("showPuppetGuide") && bootstrapSource.includes("updatePuppetGuide"), "browser bootstrap should toggle Puppet Guide state");
     assert.ok(rendererSource.includes("drawEnemyPuppetGuide") && rendererSource.includes("awarenessViewHalfAngle") && rendererSource.includes("lastSeenPlayerX"), "renderer should draw enemy body, awareness, and last-seen diagnostics");
 
@@ -9618,6 +9681,11 @@ function testRocketPowerUpArsenal() {
     );
     assert.ok(!tileQueueSource.includes("mirrorY: true"), "atlas-backed tile sprites should no longer mirror clipped source rectangles at draw time");
     assert.ok(bootstrapSource.includes("titleStartButton") && bootstrapSource.includes("startNewGameFromTitle"), "the title screen should use explicit menu actions instead of treating arbitrary pointer input as Start");
+    assert.ok(
+        bootstrapSource.includes("const shouldAutoStartGameplay = loadedBrowserCopy || launchLevelSpecified || launchRecordRequested;")
+            && bootstrapSource.includes("} else if (shouldAutoStartGameplay) {\n    startGameFromTitle();"),
+        "a Level Editor browser-copy playtest should bypass the title screen after its authored level is applied"
+    );
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const characterEditorSource = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
@@ -10682,11 +10750,68 @@ function testCharacterParentPivotConstraints() {
     };
     const baked = bakeParentConstraintTracks(clip, rig, assets, { tolerance: 0.1 });
     assert.equal(baked.changed, true, "constraint baking should report generated tracks");
+    assert.deepEqual(
+        clip.meta.bakedParentConstraintParts,
+        baked.parts,
+        "constraint export metadata should identify every generated part"
+    );
+    assert.equal(
+        clip.meta.bakedPositionKeyCount,
+        baked.keyCount,
+        "constraint export metadata should report the generated X/Y key count"
+    );
+    assert.equal(
+        baked.keyCount,
+        baked.parts.reduce((count, partName) => (
+            count + clip.tracks[partName].x.length + clip.tracks[partName].y.length
+        ), 0),
+        "constraint export metadata should match the serialized tracks"
+    );
     assert.ok(clip.tracks.arm.x.length > 2, "rotating parent anchors should receive adaptive intermediate X keys");
     assert.equal(clip.tracks.arm.x.length, clip.tracks.arm.y.length, "generated X/Y tracks should share key times");
     assert.equal(clip.tracks.arm.rotation[0].value, 0.2, "constraint baking must not alter child rotation tracks");
     approx(clip.tracks.arm.x[0].value, 60, 0.000001, "baked arm should begin at the torso socket x");
+    assert.equal(clip.tracks.arm.x.at(-1).time, clip.duration, "non-looping constraint baking should retain the authored endpoint");
     approx(clip.tracks.arm.y.at(-1).value, 70, 0.000001, "baked arm should end at the rotated socket y");
+
+    const loopClip = {
+        animationId: "constraint_loop_bake_test",
+        duration: 1,
+        loop: true,
+        referencePose: {
+            torso: { x: 10, y: 20, rotation: 0, scale: 1, alpha: 1 },
+            arm: { x: -500, y: -500, rotation: 0.2, scale: 1, alpha: 1 },
+            weapon: { x: -500, y: -500, rotation: -0.1, scale: 1, alpha: 1 }
+        },
+        tracks: {
+            torso: {
+                rotation: [
+                    { time: 0, value: 0, easing: "easeInOut" },
+                    { time: 0.5, value: Math.PI / 2, easing: "easeInOut" }
+                ]
+            },
+            arm: {
+                x: [{ time: 0, value: -500, easing: "linear" }],
+                y: [{ time: 0, value: -500, easing: "linear" }],
+                rotation: [{ time: 0, value: 0.2, easing: "linear" }]
+            },
+            weapon: {
+                x: [{ time: 0, value: -500, easing: "linear" }],
+                y: [{ time: 0, value: -500, easing: "linear" }],
+                rotation: [{ time: 0, value: -0.1, easing: "linear" }]
+            }
+        }
+    };
+    bakeParentConstraintTracks(loopClip, rig, assets, { tolerance: 0.1 });
+    assert.ok(loopClip.tracks.arm.x.some((key) => key.time > 0.5), "looping constraint baking should sample the return interval");
+    for (const partName of ["arm", "weapon"]) {
+        for (const property of ["x", "y"]) {
+            assert.ok(
+                loopClip.tracks[partName][property].every((key) => Math.abs(key.time - loopClip.duration) > 0.0000001),
+                `looping constraint baking should omit the phantom terminal key on ${partName}.${property}`
+            );
+        }
+    }
 
     const toolHtml = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     assert.ok(toolHtml.includes('id="parent-constraint-enabled"'), "Puppet Forge should expose parent pivot constraints");
@@ -10773,6 +10898,42 @@ function testAnimationEditorOperations() {
     approx(track[movedIndex].value, 0.3, 0.000001, "edited key value");
     assert.equal(track[movedIndex].easing, "easeOut", "edited easing should persist");
 
+    const groupedClip = createEditableAnimationClip({
+        animationId: "ct_anim_grouped_transform_easing_test",
+        duration: 1.6,
+        loop: true,
+        mirrorable: true,
+        referencePose: {
+            jaw: { x: 0, y: 0, rotation: 0, scale: 1, alpha: 1 }
+        },
+        tracks: {
+            jaw: {
+                x: [
+                    { time: 0, value: 0, easing: "linear" },
+                    { time: 0.8, value: 4, easing: "step" }
+                ],
+                y: [
+                    { time: 0, value: 0, easing: "linear" },
+                    { time: 0.8, value: 2, easing: "step" }
+                ],
+                rotation: [
+                    { time: 0, value: -0.7, easing: "linear" },
+                    { time: 0.8, value: -0.8, easing: "step" }
+                ]
+            }
+        }
+    }, "grouped transform easing test");
+    assert.equal(
+        updateAnimationKeyframeEasingAtTime(groupedClip, "jaw", ["x", "y", "rotation"], 0.8, "easeInOut"),
+        3,
+        "combined transform easing should update every key represented by the selected timeline diamond"
+    );
+    for (const property of ["x", "y", "rotation"]) {
+        const groupedTrack = getAnimationTrack(groupedClip, "jaw", property, false);
+        assert.equal(groupedTrack[0].easing, "linear", `${property} start easing should remain unchanged`);
+        assert.equal(groupedTrack[1].easing, "easeInOut", `${property} selected easing should persist`);
+    }
+
     assert.equal(deleteAnimationKeyframe(editable, "hat", "rotation", movedIndex), true, "selected key should delete");
     assert.equal(getAnimationTrack(editable, "hat", "rotation", false).length, originalCount, "deleting should restore track length");
 
@@ -10815,6 +10976,8 @@ function testAnimationEditorOperations() {
     assert.ok(toolHtml.includes("Add at playhead"), "character tool should expose keyframe creation");
     assert.ok(toolHtml.includes("Drag a diamond") || toolHtml.includes("drag a yellow corner"), "character tool should explain direct keyframe manipulation");
     assert.ok(toolHtml.includes("previewSelectedKeyValue"), "numeric key values should preview and commit directly");
+    assert.ok(toolHtml.includes("updateAnimationKeyframeEasingAtTime"), "combined transform mode should persist interpolation changes for the selected timeline diamond");
+    assert.ok(toolHtml.includes("transformMode ? state.selectedTransformTime === null : !selected"), "Apply selected should remain available for a selected combined-transform key");
     assert.ok(toolHtml.includes('id="animation-duration"'), "character tool should expose animation duration metadata");
     assert.ok(toolHtml.includes('id="animation-mirrorable"'), "character tool should expose animation mirroring metadata");
     assert.ok(toolHtml.includes('id="duplicate-animation"'), "character tool should expose animation duplication");
@@ -14195,7 +14358,8 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.match(gameHtml, /id="title-load-button"[^>]*>\s*Load Game/s, "the title menu should expose Load Game");
     assert.match(gameHtml, /id="title-settings-button"[^>]*>\s*Settings/s, "the title menu should expose Settings");
     assert.match(gameHtml, /id="title-exit-desktop-button"[^>]*>\s*Exit to Desktop/s, "the title menu should expose Exit to Desktop");
-    assert.match(gameHtml, /id="game-menu-resume"[^>]*>\s*Resume Game/s, "the in-game menu should expose Resume Game");
+    assert.doesNotMatch(gameHtml, /id="game-menu-resume"/, "the in-game menu should use its top-right Back button instead of a duplicate Resume Game action");
+    assert.match(gameHtml, /id="game-menu-back"[^>]*class="game-menu-back"[^>]*>BACK<\/button>/, "all browser menu views should share the top-right Back button");
     assert.match(gameHtml, /id="game-menu-save"[^>]*>\s*Save Game/s, "the in-game menu should expose Save Game");
     assert.match(gameHtml, /id="game-menu-load"[^>]*>\s*Load Game/s, "the in-game menu should expose Load Game");
     assert.match(gameHtml, /id="game-menu-settings"[^>]*>\s*Settings/s, "the in-game menu should expose Settings");
@@ -14203,6 +14367,9 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.equal((gameHtml.match(/data-save-slot="slot[123]"/g) || []).length, 3, "save and load should use three manual slots");
     assert.match(gameHtml, /id="fullscreen-setting"[^>]*type="checkbox"/, "settings should expose a direct Fullscreen preference");
     assert.match(gameHtml, /id="show-minimap"[^>]*type="checkbox"/, "settings should expose a Minimap preference");
+    assert.match(gameHtml, /id="development-features-button"[^>]*>Development features\.\.\.<\/button>/, "settings should expose the compact Development features submenu");
+    assert.match(gameHtml, /id="game-development-panel"[\s\S]*id="development-asset-guides"[\s\S]*id="development-enemy-guide"[\s\S]*id="development-debug-panel"[\s\S]*id="development-debug-logging"/, "Development features should expose the four requested guide and diagnostic toggles");
+    assert.match(gameHtml, /id="development-game-tuning"[\s\S]*id="development-recording"[\s\S]*id="development-playback"/, "Development features should retain convenient access to tuning, recording, and playback");
     assert.match(gameHtml, /Effects quality/, "rendering quality should use the less ambiguous Effects quality label");
     for (const preset of GAME_RENDERING_MODE_PRESETS) {
         assert.match(gameHtml, new RegExp(`option value="${preset.id}"`), `the browser settings should expose ${preset.label}`);
@@ -14224,6 +14391,14 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.match(bootstrapSource, /function saveManualSlot\(slotId\)/, "manual save slots should share a central save function");
     assert.match(bootstrapSource, /function handleSaveSlotSelection\(slotId\)/, "save and load slot actions should share one selection path");
     assert.match(bootstrapSource, /function setGameMenuView\(view\)/, "the game menu should have an explicit view state machine");
+    assert.match(bootstrapSource, /gameMenuBackButton\?\.addEventListener\("click"[\s\S]*else closeGameMenu\(\)/, "Back should resume gameplay from the top-level pause menu and return from nested views");
+    assert.match(bootstrapSource, /gameMenuBackButton\.textContent = "BACK"/, "the shared menu control should remain labelled Back at every menu depth");
+    assert.doesNotMatch(bootstrapSource, /gameMenuResumeButton|game-menu-resume/, "the browser runtime should not retain the redundant in-game Resume Game button");
+    assert.match(bootstrapSource, /new Set\(\["menu", "settings", "development", "save", "load"\]\)/, "the game-menu state machine should include Development features as a nested settings view");
+    assert.match(bootstrapSource, /function startGameplayDebugLogging\(source = "development-menu"\)/, "the browser should provide an explicit structured debug-log start path");
+    assert.match(bootstrapSource, /sampleMs - gameplayDebugLogLastSampleMs < 1000/, "browser debug logging should sample at most once per second rather than adding per-frame overhead");
+    assert.match(bootstrapSource, /application\/x-ndjson/, "stopping browser debug logging should export a compact structured NDJSON file");
+    assert.match(bootstrapSource, /appendGameplayDebugLogSample\(callbackArrivalNow\)/, "the browser frame loop should feed the low-frequency debug logger");
     assert.match(bootstrapSource, /setGamePaused\(true, \{ clearInput: true \}\)/, "opening the in-game menu should pause portable simulation stepping");
     assert.match(bootstrapSource, /function handleGameMenuNavigationKey/, "menu and settings should have explicit keyboard navigation");
     assert.match(bootstrapSource, /function applyFullscreenPreference\(\)/, "fullscreen should use the direct shared preference");

@@ -308,6 +308,9 @@ The Export panel now shows only a compact summary. Use `serializeLevelJson()` in
 
 The Level Editor no longer has an Export panel. Use the three controls in **Level**: **Save Level (json)** downloads the current level, **Save in Browser** stores an on-demand browser copy, and **Load in Browser** restores it. Do not reintroduce Copy JSON, Open JSON in new tab, a JSON summary panel, or any persistent serialized text surface.
 
+
+**Play in Browser** uses the same browser copy but adds `playtest_browser_copy=1` to the game URL. A successful browser-copy load is a direct-play launch: the game must initialize the authored level, finish renderer preparation, and leave the title screen immediately. Do not require a second click on Start, and do not move this decision into portable simulation state. Ordinary `game.html` launches still begin at the title screen.
+
 For static editor and diagnostic cameras, call `renderer.setViewOverride({ x, y, cssZoom })`. Do not multiply editor zoom by `devicePixelRatio` outside the renderer. The renderer resolves CSS zoom after resize from the exact backing/client ratio, and the editor overlay resolves its own backing transform the same way. Ordinary playing-area guides use the unmodified editor camera. Apply `computeCaveWindowParallaxOffset` only to cave-window geometry and `caveForeground` records. Apply `computeWorldParallaxOffset` with `level.layerVisuals.background.parallax` only to level-owned Background placements; entity-local `decorBack` parts remain attached to their actor.
 
 ## Revision 362 Level data controls and renderer-cache terminology
@@ -335,6 +338,8 @@ The stage fills `#game-shell` with percentage dimensions. The renderer ignores t
 In **Base rig / setup values**, enable **Pin this part's pivot to a parent part** to keep the selected part's existing pivot fixed to a point on another rig part. Choose the parent and edit the normalized parent-point X/Y values, or drag inside the selected constrained part in the preview. The cyan marker shows the resulting joint. Dragging a yellow corner still edits the child's rotation.
 
 A constrained part's X/Y animation tracks are read-only because Puppet Forge calculates them from the parent. Refreshing or downloading animation JSON bakes the calculated positions into ordinary X/Y keys for the game. Rotation and scale remain independent. Disable the constraint to return to ordinary X/Y editing; the latest baked positions remain available as normal keys.
+
+Puppet Forge may therefore add X/Y keys that you did not place manually. They are adaptive samples used to keep the child socket attached while its parent rotates or scales. In looping animations, exported generated tracks end before the clip duration and interpolate back to the time-zero pose; a key exactly at the duration is redundant and must not be emitted. Non-looping animations may end with a generated key at the exact duration.
 
 Each child may have only one parent constraint. Puppet Forge prevents self-links and circular chains such as torso to arm to torso.
 
@@ -499,6 +504,15 @@ Revision 511 adds browser-side gameplay recordings for comparing the JavaScript 
 A recording can be replayed from the UI with `Playback JSON…`, or by placing it in a hosted `recordings/` folder and launching `game.html?playback=record001.json`. The playback path restores the recording's initial game state and feeds the recorded frame timing and input snapshots into the ordinary fixed-step loop. For screenshot parity checks, add `playback_pause=120.2`; playback pauses after the first recorded frame at or beyond that timestamp and resumes on any key press.
 
 The JSON schema is `ignatius.gameplayRecording` version 1. Each frame records the rAF requested timestamp, callback-arrival timing, real delta used by the accumulator, fixed-step count, input frame, player position, camera visible rectangle in level coordinates, and visible enemy/projectile summaries. This is a browser-adapter diagnostic format and does not add file or DOM dependencies to portable simulation.
+
+
+SDL build revision 142 groups the most useful diagnostics under **Settings → Development features...** in both implementations. Asset guides show the canonical walkable lines in green and blocking geometry in yellow. Enemy guide shows each visible enemy's hitbox, awareness cone, and current AI state. The native Debug panel is intentionally compact: renderer/FIFO mode, timing and fixed-step information, player/enemy summaries, and recording/playback/logging state. It has no scrolling event log and performs its overlay work only while visible.
+
+**Debug logging** is an explicit session-only toggle. SDL creates `logs/ignatius_debug_rev142_<timestamp>.ndjson` and appends one structured runtime snapshot per second. It flushes periodically and closes cleanly when disabled or when the application exits. The browser follows the same one-second cadence, buffers only while enabled, and downloads the NDJSON when the toggle is switched off because an ordinary page cannot silently maintain an arbitrary writable file handle. Use this low-rate log for timing and state history; use gameplay recording when deterministic input/frame reproduction is required.
+
+### Windows incremental builds
+
+Run `build.bat` for the normal Windows build. It preserves `build\` and delegates dependency decisions to CMake and Visual Studio/MSBuild, so unchanged C++ translation units are not rebuilt. It also uses `robocopy` to synchronize only changed runtime assets, shader content, reference modules, and development HTML. A packaged ZIP can occasionally carry source timestamps older than existing object files; after the first incremental pass, `build.bat` verifies the executable against `BUILD_REVISION.txt`. Only when that verification fails does it refresh project-source timestamps and retry. If that retry still fails, it performs one clean rebuild. To force a fresh configure and compile manually, delete `build\` before running the script. No custom hash database is involved.
 
 
 ## Revision 532 rocket-fuel Flight governor

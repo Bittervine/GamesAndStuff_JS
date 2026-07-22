@@ -1,7 +1,7 @@
 {
   "meta": {
-    "version": 1,
-    "note": "Initial Raptor character project with the parent-constrained rig and idle animation."
+    "version": 2,
+    "note": "Revision 141 Raptor character project with hierarchical idle and authored walk animation slots."
   },
   "characterId": "ct_char_enemy_040",
   "displayName": "Raptor",
@@ -9,6 +9,7 @@
   "defaultFacing": "right",
   "mirrorable": true,
   "animationMap": {
-    "idle": "ct_anim_enemy_040_idle.json"
+    "idle": "ct_anim_enemy_040_idle.json",
+    "walk": "ct_anim_enemy_040_walk.json"
   }
 }

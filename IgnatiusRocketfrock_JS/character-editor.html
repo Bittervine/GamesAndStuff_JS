@@ -893,7 +893,7 @@ touch-action: none;
                 <button id="copy-key" type="button">Copy key</button>
                 <button id="paste-key" type="button">Paste at playhead</button>
             </div>
-            <p>For X, Y and Angle mode, drag inside the selected yellow rectangle to move the part and drag a yellow corner handle to rotate it. When a parent pivot constraint is active, dragging inside the part moves its cyan parent point instead; X/Y tracks are read-only and regenerated automatically. Drag a diamond in the bottom timeline to move its editable key time. For single properties, edit the numeric value directly; typing at an unkeyed playhead creates a key automatically.</p>
+            <p>For X, Y and Angle mode, drag inside the selected yellow rectangle to move the part and drag a yellow corner handle to rotate it. The interpolation selector applies to every editable transform key represented by the selected diamond. When a parent pivot constraint is active, dragging inside the part moves its cyan parent point instead; X/Y tracks are read-only and regenerated automatically. Drag a diamond in the bottom timeline to move its editable key time. For single properties, edit the numeric value directly; typing at an unkeyed playhead creates a key automatically.</p>
         </section>
         <section class="box mode-panel animation-panel">
             <h2>Rigging</h2>
@@ -1099,6 +1099,7 @@ import {
     setExclusiveFrameAtTime,
     updateAnimationClipMetadata,
     updateAnimationKeyframe,
+    updateAnimationKeyframeEasingAtTime,
     upsertAnimationKeyframe
 } from "./src/tools/character-editor/animation-editor.js";
 import { animationDopesheetRows } from "./src/tools/character-editor/dopesheet-data.js";
@@ -4166,7 +4167,7 @@ function updateKeyButtons() {
     els.addKey.disabled = !state.animation || generated;
     els.keyTime.disabled = transformMode || generated;
     els.keyValue.disabled = transformMode || generated;
-    els.applyKey.disabled = transformMode || generated || !selected;
+    els.applyKey.disabled = generated || (transformMode ? state.selectedTransformTime === null : !selected);
     els.deleteKey.disabled = generated || (transformMode ? state.selectedTransformTime === null : !selected);
     els.copyKey.disabled = transformMode || generated || !selected;
     els.pasteKey.disabled = transformMode || generated || !state.copiedKey;
@@ -4230,10 +4231,34 @@ function addKeyAtPlayhead() {
 }
 
 function applySelectedKey(announce = true) {
-    if (isTransformEditMode() || selectedTrackIsConstraintGenerated()) {
+    if (selectedTrackIsConstraintGenerated()) {
         return;
     }
     try {
+        if (isTransformEditMode()) {
+            if (state.selectedTransformTime === null) {
+                return;
+            }
+            const partName = selectedPartName();
+            const selectedTime = Number(state.selectedTransformTime);
+            const updatedCount = updateAnimationKeyframeEasingAtTime(
+                state.animation,
+                partName,
+                editableTransformProperties(partName),
+                selectedTime,
+                els.keyEasing.value || "linear"
+            );
+            if (!updatedCount) {
+                throw new Error(`No editable transform keys exist for ${partName} at ${selectedTime.toFixed(3)} seconds.`);
+            }
+            state.time = selectedTime;
+            invalidateAnimation();
+            selectTransformTime(selectedTime);
+            if (announce) {
+                setStatus(`Applied ${els.keyEasing.value} interpolation after ${updatedCount} transform key${updatedCount === 1 ? "" : "s"} on ${partName}.`);
+            }
+            return;
+        }
         const index = updateAnimationKeyframe(
             state.animation,
             selectedPartName(),

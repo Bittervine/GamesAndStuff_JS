@@ -284,6 +284,25 @@ export function updateAnimationKeyframe(rawClip, partName, property, index, upda
     return track.findIndex((item) => item === updated);
 }
 
+export function updateAnimationKeyframeEasingAtTime(rawClip, partName, properties, timeSeconds, easing, tolerance = 0.0005) {
+    const normalizedEasing = String(easing || "linear");
+    if (!ANIMATION_EASINGS.includes(normalizedEasing)) {
+        throw new Error(`Unsupported easing "${normalizedEasing}".`);
+    }
+    const propertyNames = [...new Set((properties || []).map(String))];
+    let updatedCount = 0;
+    for (const property of propertyNames) {
+        assertProperty(property);
+        const index = findKeyframeIndex(rawClip, partName, property, timeSeconds, tolerance);
+        if (index < 0) {
+            continue;
+        }
+        updateAnimationKeyframe(rawClip, partName, property, index, { easing: normalizedEasing });
+        updatedCount += 1;
+    }
+    return updatedCount;
+}
+
 export function deleteAnimationKeyframe(rawClip, partName, property, index) {
     const track = getAnimationTrack(rawClip, partName, property, false);
     if (!track || !Number.isInteger(index) || index < 0 || index >= track.length) {

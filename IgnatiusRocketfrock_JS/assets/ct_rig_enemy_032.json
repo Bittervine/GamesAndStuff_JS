@@ -7,6 +7,7 @@
     "atlasId": "ct_atlas_enemy_030",
     "atlasManifest": "ct_atlas_enemy_030.json",
     "drawOrder": [
+        "throwingKnife",
         "leftLowerArm",
         "leftUpperLeg",
         "leftLowerLeg",
@@ -18,8 +19,7 @@
         "torso",
         "head",
         "rightUpperArm",
-        "rightLowerArm",
-        "throwingKnife"
+        "rightLowerArm"
     ],
     "global": {
         "scale": 0.5,
@@ -407,7 +407,7 @@
                 "id": "throwingKnife",
                 "animationSlot": "attack",
                 "launchType": "straight",
-                "releaseTime": 0.34,
+                "releaseTime": 0.311,
                 "projectileKind": "throwingKnife"
             }
         }

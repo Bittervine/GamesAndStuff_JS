@@ -248,7 +248,7 @@
             <li><strong>Settings</strong> opens the same gameplay and display controls available while paused.</li>
             <li><strong>Exit to Desktop</strong> closes the Electron or SDL application. An ordinary browser may require you to close its tab or window manually.</li>
         </ul>
-        <p>During play, open the pause menu with <code>Escape</code> or either upper HUD panel. It provides <strong>Resume Game</strong>, <strong>Save Game</strong>, <strong>Load Game</strong>, <strong>Settings</strong>, and <strong>Exit to Title</strong>.</p>
+        <p>During play, open the pause menu with <code>Escape</code> or either upper HUD panel. It provides <strong>Save Game</strong>, <strong>Load Game</strong>, <strong>Settings</strong>, and <strong>Exit to Title</strong>. Every non-title menu has a top-right <strong>Back</strong> button. From the top-level pause menu, Back resumes the game.</p>
         <p>There are three visible manual slots and one hidden autosave slot. Entering a level currently acts as a checkpoint. Saves therefore restore the beginning of the saved level rather than an exact mid-action frame. Future authored checkpoints can use the same save slots.</p>
 
         <h2>Settings</h2>
@@ -263,7 +263,9 @@
             <li><strong>Hardware + speedhack</strong> uses WebGL2 with baked scenery tiles.</li>
             <li><strong>Software regular</strong> uses Canvas2D with pixmap pyramids and live scenery.</li>
             <li><strong>Software + speedhack</strong> uses Canvas2D with pixmap pyramids and baked scenery tiles.</li>
+            <li><strong>Development features...</strong> opens optional testing aids: Asset guides, Enemy guide, Game tuning, Recording, Playback, a compact Debug panel, and Debug logging.</li>
         </ul>
+        <p>Development features are disabled by default and apply only to the current run. Asset guides show walkable geometry in green and blocking geometry in yellow. Enemy guide shows enemy hitboxes, awareness fields, and AI states. Debug logging records one structured snapshot per second while enabled; SDL writes under <code>logs/</code>, while the browser downloads the collected log when logging is switched off.</p>
         <p>Rendering-mode changes take effect after the game is reloaded. Explicit development URL options may still override the saved browser renderer while testing.</p>
 
         <h2>Ranged enemy attacks</h2>

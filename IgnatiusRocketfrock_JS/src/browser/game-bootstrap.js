@@ -127,7 +127,6 @@ const gameMenuMain = document.getElementById("game-menu-main");
 const gameSettingsPanel = document.getElementById("game-settings-panel");
 const gameSaveSlotsPanel = document.getElementById("game-save-slots-panel");
 const gameSaveSlotButtons = [...document.querySelectorAll("[data-save-slot]")];
-const gameMenuResumeButton = document.getElementById("game-menu-resume");
 const gameMenuSaveButton = document.getElementById("game-menu-save");
 const gameMenuLoadButton = document.getElementById("game-menu-load");
 const gameMenuSettingsButton = document.getElementById("game-menu-settings");
@@ -145,6 +144,15 @@ const showMinimapInput = document.getElementById("show-minimap");
 const renderingModeValue = document.getElementById("rendering-mode-value");
 const renderingModeStatus = document.getElementById("rendering-mode-status");
 const renderingModeSelect = document.getElementById("rendering-mode-select");
+const developmentFeaturesButton = document.getElementById("development-features-button");
+const gameDevelopmentPanel = document.getElementById("game-development-panel");
+const developmentAssetGuidesInput = document.getElementById("development-asset-guides");
+const developmentEnemyGuideInput = document.getElementById("development-enemy-guide");
+const developmentDebugPanelInput = document.getElementById("development-debug-panel");
+const developmentDebugLoggingInput = document.getElementById("development-debug-logging");
+const developmentGameTuningButton = document.getElementById("development-game-tuning");
+const developmentRecordingButton = document.getElementById("development-recording");
+const developmentPlaybackButton = document.getElementById("development-playback");
 
 const GAME_REVISION = "532";
 const START_LEVEL_ID = "level_001";
@@ -263,10 +271,13 @@ const microStutterProfiler = new MicroStutterProfiler();
 let updateMicroProfilerControls = () => {};
 let updateGameplayRecordingControls = () => {};
 let updateGameplayPlaybackControls = () => {};
+let updateDebugLoggingControls = () => {};
 let gameplayRecording = null;
 let gameplayRecordingClockSec = 0;
 let gameplayRecordingFrameIndex = 0;
 let gameplayPlayback = null;
+let gameplayDebugLog = null;
+let gameplayDebugLogLastSampleMs = 0;
 
 setupTuningControls();
 setupTuningJsonControls();
@@ -276,13 +287,14 @@ setupMinimap();
 setupGameMenuAndSettings();
 setLoadingProgress(1, "Ready");
 showTitleScreen();
+const shouldAutoStartGameplay = loadedBrowserCopy || launchLevelSpecified || launchRecordRequested;
 if (launchPlaybackRecording) {
     await startGameplayPlayback(launchPlaybackRecording, {
         source: launchPlaybackUrl,
         pauseAtSec: launchPlaybackPauseAtSec,
         restoreInitialState: true
     });
-} else if (launchLevelSpecified || launchRecordRequested) {
+} else if (shouldAutoStartGameplay) {
     startGameFromTitle();
     if (launchRecordRequested) {
         startGameplayRecording("launch-query");
@@ -428,6 +440,7 @@ function startGameplayRecording(source = "manual") {
     window.__rocketfrockLastGameplayRecording = gameplayRecording;
     addEvent(gameState, "GAMEPLAY_RECORDING_STARTED", { source, levelId: gameplayRecording.levelId });
     updateGameplayRecordingControls("Recording gameplay. Click again to stop and save JSON.");
+    updateGameplayPlaybackControls();
     return gameplayRecording;
 }
 
@@ -442,6 +455,7 @@ function stopGameplayRecording(reason = "manual", { save = true } = {}) {
     gameplayRecordingFrameIndex = 0;
     window.__rocketfrockLastGameplayRecording = finished;
     updateGameplayRecordingControls(`Recording stopped: ${finished.summary.frames} frame${finished.summary.frames === 1 ? "" : "s"}.`);
+    updateGameplayPlaybackControls();
     addEvent(gameState, "GAMEPLAY_RECORDING_STOPPED", { reason, frames: finished.summary.frames });
     if (save) {
         void saveGameplayRecordingJson(finished);
@@ -468,6 +482,82 @@ function recordGameplayFrame({ requestedAtMs, callbackArrivalMs, callbackEntryGa
         input: inputFrame,
         debug: snapshotGameplayDebug(gameState)
     });
+}
+
+function startGameplayDebugLogging(source = "development-menu") {
+    if (gameplayDebugLog) {
+        updateDebugLoggingControls();
+        return gameplayDebugLog;
+    }
+    gameplayDebugLog = {
+        startedAtIso: new Date().toISOString(),
+        source,
+        rows: [JSON.stringify({
+            type: "debugLogStart",
+            revision: GAME_REVISION,
+            levelId: gameState.world?.levelId || START_LEVEL_ID,
+            startedAtIso: new Date().toISOString(),
+            source,
+            settings: normalizeGameSettings(gameState.settings)
+        })]
+    };
+    gameplayDebugLogLastSampleMs = 0;
+    updateDebugLoggingControls("Debug logging is collecting one structured snapshot per second.");
+    addEvent(gameState, "DEBUG_LOGGING_STARTED", { source });
+    return gameplayDebugLog;
+}
+
+function appendGameplayDebugLogSample(nowMs) {
+    if (!gameplayDebugLog) return;
+    const sampleMs = Number(nowMs) || performance.now();
+    if (gameplayDebugLogLastSampleMs > 0 && sampleMs - gameplayDebugLogLastSampleMs < 1000) return;
+    gameplayDebugLogLastSampleMs = sampleMs;
+    gameplayDebugLog.rows.push(JSON.stringify({
+        type: "runtimeSnapshot",
+        revision: GAME_REVISION,
+        sampledAtIso: new Date().toISOString(),
+        sampledAtMs: sampleMs,
+        levelId: gameState.world?.levelId || START_LEVEL_ID,
+        gameTimeSec: Number(gameState.clock?.time) || 0,
+        tick: Number(gameState.clock?.tick) || 0,
+        debug: snapshotGameplayDebug(gameState),
+        renderer: renderer?.getPerformanceDiagnostics?.() || null,
+        recording: Boolean(gameplayRecording),
+        playback: Boolean(gameplayPlayback?.active)
+    }));
+}
+
+function stopGameplayDebugLogging(reason = "development-menu", { save = true } = {}) {
+    if (!gameplayDebugLog) {
+        updateDebugLoggingControls();
+        return null;
+    }
+    const finished = gameplayDebugLog;
+    finished.rows.push(JSON.stringify({
+        type: "debugLogStop",
+        revision: GAME_REVISION,
+        stoppedAtIso: new Date().toISOString(),
+        reason,
+        snapshots: Math.max(0, finished.rows.length - 1)
+    }));
+    gameplayDebugLog = null;
+    gameplayDebugLogLastSampleMs = 0;
+    const text = `${finished.rows.join("\n")}\n`;
+    const safeLevel = sanitizeRecordingFilename(gameState.world?.levelId || START_LEVEL_ID, START_LEVEL_ID).replace(/\.json$/i, "");
+    const filename = sanitizeRecordingFilename(`ignatius_debug_rev${GAME_REVISION}_${safeLevel}_${Date.now()}.ndjson`);
+    window.__rocketfrockLastDebugLog = text;
+    if (save) downloadTextFile(filename, text, "application/x-ndjson");
+    updateDebugLoggingControls(save
+        ? `Downloaded ${Math.max(0, finished.rows.length - 2)} debug snapshots as ${filename}.`
+        : "Debug logging stopped.");
+    addEvent(gameState, "DEBUG_LOGGING_STOPPED", { reason, save });
+    return { filename, text, rows: finished.rows.length };
+}
+
+function toggleGameplayDebugLogging(source = "development-menu") {
+    return gameplayDebugLog
+        ? stopGameplayDebugLogging(source)
+        : startGameplayDebugLogging(source);
 }
 
 async function saveGameplayRecordingJson(recording) {
@@ -1156,7 +1246,6 @@ function syncTitleScreenUi() {
     document.body.classList.toggle("game-running", gameHasStarted && !titleScreenActive);
     if (gameMenuExitTitleButton) gameMenuExitTitleButton.hidden = titleScreenActive;
     if (gameMenuSaveButton) gameMenuSaveButton.hidden = titleScreenActive;
-    if (gameMenuResumeButton) gameMenuResumeButton.hidden = titleScreenActive;
     const autosave = storedResumeSave();
     if (titleResumeButton) {
         titleResumeButton.disabled = !autosave;
@@ -1402,12 +1491,13 @@ function setupGameMenuAndSettings() {
         openGameMenu("menu");
     });
     fullscreenToggleButton?.addEventListener("click", () => void toggleFullscreen());
-    gameMenuResumeButton?.addEventListener("click", closeGameMenu);
     gameMenuSaveButton?.addEventListener("click", () => setGameMenuView("save"));
     gameMenuLoadButton?.addEventListener("click", () => setGameMenuView("load"));
     gameMenuSettingsButton?.addEventListener("click", () => setGameMenuView("settings"));
+    developmentFeaturesButton?.addEventListener("click", () => setGameMenuView("development"));
     gameMenuBackButton?.addEventListener("click", () => {
-        if (gameMenuView !== "menu" && !titleScreenActive) setGameMenuView("menu");
+        if (gameMenuView === "development") setGameMenuView("settings");
+        else if (gameMenuView !== "menu" && !titleScreenActive) setGameMenuView("menu");
         else closeGameMenu();
     });
     for (const button of gameSaveSlotButtons) {
@@ -1417,7 +1507,8 @@ function setupGameMenuAndSettings() {
 
     gameMenuDialog.addEventListener("cancel", (event) => {
         event.preventDefault();
-        if (gameMenuView !== "menu" && !titleScreenActive) setGameMenuView("menu");
+        if (gameMenuView === "development") setGameMenuView("settings");
+        else if (gameMenuView !== "menu" && !titleScreenActive) setGameMenuView("menu");
         else closeGameMenu();
     });
     gameMenuDialog.addEventListener("close", restorePauseAfterMenu);
@@ -1490,6 +1581,7 @@ function setupGameMenuAndSettings() {
     }
     window.addEventListener("beforeunload", () => {
         if (typeof stopElectronFullscreenListener === "function") stopElectronFullscreenListener();
+        if (gameplayDebugLog) stopGameplayDebugLogging("page-unload", { save: false });
         musicDirector.dispose();
     }, { once: true });
 
@@ -1504,7 +1596,8 @@ function handleMenuAndFullscreenKeydown(event) {
         if (handleGameMenuNavigationKey(event)) return;
         if (event.code === "Escape" && !event.repeat) {
             event.preventDefault();
-            if (gameMenuView !== "menu") setGameMenuView("menu");
+            if (gameMenuView === "development") setGameMenuView("settings");
+            else if (gameMenuView !== "menu") setGameMenuView("menu");
             else closeGameMenu();
         }
         return;
@@ -1525,7 +1618,9 @@ function handleMenuAndFullscreenKeydown(event) {
 function visibleDialogFocusItems() {
     const view = gameMenuView === "settings"
         ? gameSettingsPanel
-        : (gameMenuView === "save" || gameMenuView === "load" ? gameSaveSlotsPanel : gameMenuMain);
+        : (gameMenuView === "development"
+            ? gameDevelopmentPanel
+            : (gameMenuView === "save" || gameMenuView === "load" ? gameSaveSlotsPanel : gameMenuMain));
     if (!view) {
         return [];
     }
@@ -1833,31 +1928,36 @@ function handlePageVisibilityChange() {
 }
 
 function setGameMenuView(view) {
-    const validViews = new Set(["menu", "settings", "save", "load"]);
+    const validViews = new Set(["menu", "settings", "development", "save", "load"]);
     gameMenuView = validViews.has(view) ? view : "menu";
     saveSlotMode = gameMenuView === "save" ? "save" : "load";
     const inSettings = gameMenuView === "settings";
+    const inDevelopment = gameMenuView === "development";
     const inSaveSlots = gameMenuView === "save" || gameMenuView === "load";
     if (gameMenuMain) gameMenuMain.hidden = gameMenuView !== "menu";
     if (gameSettingsPanel) gameSettingsPanel.hidden = !inSettings;
+    if (gameDevelopmentPanel) gameDevelopmentPanel.hidden = !inDevelopment;
     if (gameSaveSlotsPanel) gameSaveSlotsPanel.hidden = !inSaveSlots;
 
     const title = gameMenuView === "settings"
         ? "Settings"
-        : (gameMenuView === "save" ? "Save Game" : (gameMenuView === "load" ? "Load Game" : (titleScreenActive ? "Menu" : "Paused")));
+        : (gameMenuView === "development"
+            ? "Development features"
+            : (gameMenuView === "save" ? "Save Game" : (gameMenuView === "load" ? "Load Game" : (titleScreenActive ? "Menu" : "Paused"))));
     const subtitle = gameMenuView === "settings"
         ? "Tune the machinery without disturbing the cave dust."
-        : (gameMenuView === "save"
+        : (gameMenuView === "development"
+            ? "Compact guides and diagnostics for testing this build."
+            : (gameMenuView === "save"
             ? `Current: ${gameState.world?.title || gameState.story?.levelTitle || gameState.world?.levelId || START_LEVEL_ID}. Progress resumes from level start.`
             : (gameMenuView === "load"
                 ? "Choose a saved level to continue from its checkpoint."
-                : (titleScreenActive ? "Choose where to go next." : "The cave can wait. Probably.")));
+                : (titleScreenActive ? "Choose where to go next." : "The cave can wait. Probably."))));
     if (gameMenuTitle) gameMenuTitle.textContent = title;
     if (gameMenuSubtitle) gameMenuSubtitle.textContent = subtitle;
-    if (gameMenuBackButton) gameMenuBackButton.textContent = gameMenuView === "menu" ? "CLOSE" : "BACK";
+    if (gameMenuBackButton) gameMenuBackButton.textContent = "BACK";
     if (gameMenuExitTitleButton) gameMenuExitTitleButton.hidden = titleScreenActive;
     if (gameMenuSaveButton) gameMenuSaveButton.hidden = titleScreenActive;
-    if (gameMenuResumeButton) gameMenuResumeButton.hidden = titleScreenActive;
     if (inSaveSlots) syncSaveSlotUi();
     if (isGameMenuOpen()) focusDialogBoundary(false);
 }
@@ -1995,40 +2095,42 @@ function syncStaticBakeRendererSetting() {
 
 function setupPanelToggleButtons() {
     const updateAssetGuides = () => {
-        if (!assetGuidesButton) {
-            return;
+        const active = Boolean(gameState.debug.showAssetGuides);
+        if (assetGuidesButton) {
+            assetGuidesButton.textContent = `Asset guides: ${active ? "on" : "off"}`;
+            assetGuidesButton.setAttribute("aria-pressed", active ? "true" : "false");
         }
-        assetGuidesButton.textContent = `Asset guides: ${gameState.debug.showAssetGuides ? "on" : "off"}`;
-        assetGuidesButton.setAttribute("aria-pressed", gameState.debug.showAssetGuides ? "true" : "false");
+        if (developmentAssetGuidesInput) developmentAssetGuidesInput.checked = active;
     };
 
     const updatePuppetGuide = () => {
-        if (!puppetGuideButton) {
-            return;
+        const active = Boolean(gameState.debug.showPuppetGuide);
+        if (puppetGuideButton) {
+            puppetGuideButton.textContent = `Enemy guide: ${active ? "on" : "off"}`;
+            puppetGuideButton.setAttribute("aria-pressed", active ? "true" : "false");
         }
-        puppetGuideButton.textContent = `Puppet guide: ${gameState.debug.showPuppetGuide ? "on" : "off"}`;
-        puppetGuideButton.setAttribute("aria-pressed", gameState.debug.showPuppetGuide ? "true" : "false");
+        if (developmentEnemyGuideInput) developmentEnemyGuideInput.checked = active;
     };
 
     const updateDebugPanel = () => {
-        if (!debugPanelButton || !debugEl) {
-            return;
+        const visible = Boolean(debugEl && !debugEl.hidden);
+        if (debugPanelButton) {
+            debugPanelButton.textContent = `Debug panel: ${visible ? "on" : "off"}`;
+            debugPanelButton.setAttribute("aria-pressed", visible ? "true" : "false");
         }
-        const visible = !debugEl.hidden;
-        debugPanelButton.textContent = `Debug panel: ${visible ? "on" : "off"}`;
-        debugPanelButton.setAttribute("aria-pressed", visible ? "true" : "false");
+        if (developmentDebugPanelInput) developmentDebugPanelInput.checked = visible;
         if (visible) {
             updateDebugText();
         }
     };
 
     const updateGameTuning = () => {
-        if (!gameTuningButton || !tuningPanel) {
-            return;
+        const visible = Boolean(tuningPanel && !tuningPanel.hidden);
+        if (gameTuningButton) {
+            gameTuningButton.textContent = `Game tuning: ${visible ? "on" : "off"}`;
+            gameTuningButton.setAttribute("aria-pressed", visible ? "true" : "false");
         }
-        const visible = !tuningPanel.hidden;
-        gameTuningButton.textContent = `Game tuning: ${visible ? "on" : "off"}`;
-        gameTuningButton.setAttribute("aria-pressed", visible ? "true" : "false");
+        if (developmentGameTuningButton) developmentGameTuningButton.textContent = visible ? "Close game tuning" : "Game tuning...";
     };
 
     const updateHelpPanel = () => {
@@ -2052,30 +2154,57 @@ function setupPanelToggleButtons() {
     };
 
     updateGameplayRecordingControls = (message = "") => {
-        if (!gameplayRecordingButton) return;
         const active = Boolean(gameplayRecording);
         const disabled = Boolean(gameplayPlayback?.active);
-        gameplayRecordingButton.textContent = `Recording: ${active ? "On" : "Off"}`;
-        gameplayRecordingButton.setAttribute("aria-pressed", active ? "true" : "false");
-        gameplayRecordingButton.disabled = disabled;
-        gameplayRecordingButton.title = message || (disabled
+        const title = message || (disabled
             ? "Gameplay recording is disabled while playback is active."
             : active
                 ? "Click to stop gameplay recording and save JSON."
                 : "Click to start gameplay recording from the current state.");
+        if (gameplayRecordingButton) {
+            gameplayRecordingButton.textContent = `Recording: ${active ? "On" : "Off"}`;
+            gameplayRecordingButton.setAttribute("aria-pressed", active ? "true" : "false");
+            gameplayRecordingButton.disabled = disabled;
+            gameplayRecordingButton.title = title;
+        }
+        if (developmentRecordingButton) {
+            developmentRecordingButton.textContent = `Recording: ${active ? "On" : "Off"}`;
+            developmentRecordingButton.setAttribute("aria-pressed", active ? "true" : "false");
+            developmentRecordingButton.disabled = disabled;
+            developmentRecordingButton.title = title;
+        }
     };
 
     updateGameplayPlaybackControls = (message = "") => {
-        if (!gameplayPlaybackButton) return;
         const active = Boolean(gameplayPlayback?.active);
         const paused = Boolean(gameplayPlayback?.pausedForKey);
-        gameplayPlaybackButton.textContent = active
-            ? `Playback: ${paused ? "Paused" : "On"}`
-            : "Playback JSON…";
-        gameplayPlaybackButton.setAttribute("aria-pressed", active ? "true" : "false");
-        gameplayPlaybackButton.title = message || (active
+        const label = active ? `Playback: ${paused ? "Paused" : "On"}` : "Playback JSON...";
+        const title = message || (active
             ? "Playback is active. Press any key when paused, or use the developer console to stop playback."
             : "Load a gameplay recording JSON and replay it visually.");
+        if (gameplayPlaybackButton) {
+            gameplayPlaybackButton.textContent = label;
+            gameplayPlaybackButton.setAttribute("aria-pressed", active ? "true" : "false");
+            gameplayPlaybackButton.title = title;
+        }
+        if (developmentPlaybackButton) {
+            developmentPlaybackButton.textContent = label;
+            developmentPlaybackButton.setAttribute("aria-pressed", active ? "true" : "false");
+            developmentPlaybackButton.disabled = Boolean(gameplayRecording);
+            developmentPlaybackButton.title = gameplayRecording
+                ? "Gameplay playback is disabled while recording is active."
+                : title;
+        }
+    };
+
+    updateDebugLoggingControls = (message = "") => {
+        const active = Boolean(gameplayDebugLog);
+        if (developmentDebugLoggingInput) {
+            developmentDebugLoggingInput.checked = active;
+            developmentDebugLoggingInput.title = message || (active
+                ? "One structured runtime snapshot is being collected per second. Disable to download the log."
+                : "Enable periodic structured runtime snapshots. The browser downloads the NDJSON log when disabled.");
+        }
     };
 
     const copyCurrentMicroProfile = (message = "Copying micro-stutter profile to the clipboard…") => {
@@ -2117,6 +2246,32 @@ function setupPanelToggleButtons() {
         updateGameTuning();
     });
 
+    developmentAssetGuidesInput?.addEventListener("change", () => {
+        gameState.debug.showAssetGuides = developmentAssetGuidesInput.checked;
+        updateAssetGuides();
+    });
+
+    developmentEnemyGuideInput?.addEventListener("change", () => {
+        gameState.debug.showPuppetGuide = developmentEnemyGuideInput.checked;
+        updatePuppetGuide();
+    });
+
+    developmentDebugPanelInput?.addEventListener("change", () => {
+        if (debugEl) debugEl.hidden = !developmentDebugPanelInput.checked;
+        updateDebugPanel();
+    });
+
+    developmentDebugLoggingInput?.addEventListener("change", () => {
+        if (developmentDebugLoggingInput.checked) startGameplayDebugLogging("development-menu");
+        else stopGameplayDebugLogging("development-menu");
+    });
+
+    developmentGameTuningButton?.addEventListener("click", () => {
+        tuningPanel.hidden = !tuningPanel.hidden;
+        updateGameTuning();
+        closeGameMenu();
+    });
+
     helpPanelButton?.addEventListener("click", () => {
         helpPanel.hidden = !helpPanel.hidden;
         updateHelpPanel();
@@ -2155,6 +2310,21 @@ function setupPanelToggleButtons() {
         gameplayPlaybackFileInput?.click();
     });
 
+
+    developmentRecordingButton?.addEventListener("click", () => {
+        if (gameplayRecording) stopGameplayRecording("development-menu");
+        else startGameplayRecording("development-menu");
+    });
+
+    developmentPlaybackButton?.addEventListener("click", () => {
+        if (gameplayRecording) return;
+        if (gameplayPlayback?.active) {
+            stopGameplayPlayback("development-menu");
+            return;
+        }
+        gameplayPlaybackFileInput?.click();
+    });
+
     gameplayPlaybackFileInput?.addEventListener("change", () => {
         const file = gameplayPlaybackFileInput.files?.[0] || null;
         gameplayPlaybackFileInput.value = "";
@@ -2176,6 +2346,7 @@ function setupPanelToggleButtons() {
     updateMicroProfilerControls();
     updateGameplayRecordingControls();
     updateGameplayPlaybackControls();
+    updateDebugLoggingControls();
     syncDevelopmentToolVisibility();
     syncStaticBakeRendererSetting();
 }
@@ -2272,6 +2443,7 @@ function frame(now) {
         accumulatorMs: accumulator * 1000,
         interpolationBlend: presentationBlend
     });
+    appendGameplayDebugLogSample(callbackArrivalNow);
     processLevelTransitionRequest();
     updateHud();
     if (profileEnabled) profileAfterHudMs = performance.now();

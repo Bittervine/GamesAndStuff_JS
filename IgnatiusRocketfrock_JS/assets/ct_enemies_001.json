@@ -1,6 +1,6 @@
 {
     "meta": {
-        "version": 60,
+        "version": 61,
         "note": "Adds enemy 040, an articulated Raptor with an initial idle animation.",
         "revision": 483
     },
@@ -574,7 +574,7 @@
                 "attackRange": 440,
                 "attackVerticalRange": 220,
                 "attackDuration": 0.62,
-                "attackHitTime": 0.34,
+                "attackHitTime": 0.311,
                 "attackCooldown": 0.55,
                 "attackKnockbackX": 340,
                 "attackKnockbackY": -255,
@@ -599,7 +599,7 @@
                 "preferredAttackMinRange": 120,
                 "projectileKind": "throwingKnife",
                 "projectileLaunchType": "straight",
-                "projectileReleaseTime": 0.34,
+                "projectileReleaseTime": 0.311,
                 "projectilePartName": "throwingKnife",
                 "projectileFrameId": "dagger",
                 "projectileSpeed": 380,
@@ -645,7 +645,7 @@
                 "attackRange": 440,
                 "attackVerticalRange": 220,
                 "attackDuration": 0.62,
-                "attackHitTime": 0.34,
+                "attackHitTime": 0.311,
                 "attackCooldown": 0.55,
                 "attackKnockbackX": 340,
                 "attackKnockbackY": -255,
@@ -670,7 +670,7 @@
                 "preferredAttackMinRange": 120,
                 "projectileKind": "throwingKnife",
                 "projectileLaunchType": "straight",
-                "projectileReleaseTime": 0.34,
+                "projectileReleaseTime": 0.311,
                 "projectilePartName": "throwingKnife",
                 "projectileFrameId": "dagger",
                 "projectileSpeed": 380,
@@ -692,8 +692,8 @@
             "icon": "🦖",
             "characterId": "ct_char_enemy_040",
             "defaultSize": {
-                "w": 148,
-                "h": 118
+                "w": 159,
+                "h": 126
             },
             "defaults": {
                 "facing": -1,
@@ -730,7 +730,7 @@
                 "jumpHeight": 200,
                 "unreachableGlareDuration": 5,
                 "awarenessViewHalfAngle": 60,
-                "renderOffsetX": -22,
+                "renderOffsetX": -25,
                 "renderOffsetY": 0,
                 "locomotion": "ground",
                 "jumpGravity": 1250,

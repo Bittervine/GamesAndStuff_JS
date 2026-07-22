@@ -14,7 +14,6 @@
         "leftFoot",
         "body",
         "neck",
-        "head",
         "rightUpperArm",
         "rightFoot",
         "rightLowerLeg",
@@ -23,7 +22,9 @@
         "tailFront",
         "tailMiddle",
         "tailBack",
-        "tailTip"
+        "tailTip",
+        "jaw",
+        "head"
     ],
     "global": {
         "scale": 0.19,
@@ -85,8 +86,8 @@
             "y": 0.815
         },
         "head": {
-            "x": 0.185,
-            "y": 0.535
+            "x": 0.145,
+            "y": 0.715
         },
         "leftUpperLeg": {
             "x": 0.42,
@@ -127,6 +128,10 @@
         "rightLowerArm": {
             "x": 0.1519,
             "y": 0.1237
+        },
+        "jaw": {
+            "x": 0.135,
+            "y": 0.13
         }
     },
     "parts": {
@@ -272,8 +277,8 @@
             "parentConstraint": {
                 "parentPart": "neck",
                 "parentPoint": {
-                    "x": 0.66,
-                    "y": 0.34
+                    "x": 0.62,
+                    "y": 0.2
                 }
             }
         },
@@ -507,6 +512,25 @@
                 "parentPoint": {
                     "x": 0.1869,
                     "y": 0.8977
+                }
+            }
+        },
+        "jaw": {
+            "frame": "jaw",
+            "role": "jaw",
+            "tags": [],
+            "offset": {
+                "x": 0,
+                "y": 0
+            },
+            "scale": 1,
+            "targetHeight": 167,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "head",
+                "parentPoint": {
+                    "x": 0.04,
+                    "y": 0.8396
                 }
             }
         }

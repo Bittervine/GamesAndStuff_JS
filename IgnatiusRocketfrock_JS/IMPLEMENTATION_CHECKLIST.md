@@ -67,6 +67,9 @@ Goal: make each level read as a window into a larger cavern without coupling pre
 * [x] Default new cave windows to 1.1 parallax and 2× generated asset scale. Parallax was tuned in revision 141; scale returned to 2× in revision 142.
 * [x] Shift generated perimeter decorations inward across the spline and use a broad eased fade with a fully black outward cap. Revision 141.
 * [x] Clamp smooth spline handles and regress the wide world-bounds starter loop against self-intersection. Revision 141.
+* [x] Add the compact Settings → Development features submenu to HTML/JS and SDL/C++, with green/yellow Asset guides, Enemy hitbox/FOV/state guides, a small native debug panel, existing tuning/recording/playback access, and off-by-default one-second structured Debug logging. SDL build revision 142.
+* [x] Make `build.bat` use the standard CMake/MSBuild incremental path before invoking the stale-ZIP timestamp fallback, and synchronize staged content with incremental `robocopy` mirrors instead of deleting the entire destination. SDL build revision 142.
+* [x] Preserve raw SDL_GPU world presentation across fullscreen, window-size, and DPI transitions with an event-driven scene-size dirty flag, pre-acquisition texture validation, stale-queue suppression, and one-shot target reacquisition. SDL build revision 143.
 
 Revisions 137–145 complete runtime masking, deterministic inert decoration, performance work, tuning, editor ergonomics, and hidden-gameplay-geometry warnings. The remaining cave-track gate is representative target-browser validation before any WebGL2 decision.
 
@@ -4658,3 +4661,20 @@ Manual profiling workflow: open the game, run `window.__rocketfrockDev.profiler.
 ## Revision 530 checks
 
 - [x] Synchronize active game, editor, tool, and release-test revision labels to 530 without gameplay or data changes.
+
+
+## Revision 144 checks
+
+- [x] Copy the native playback filename before SDL releases the file-dialog callback list.
+- [x] Marshal playback selection to SDL's main thread before changing menus, logging, simulation state, or renderer resources.
+- [x] Retain command-line playback behavior and recording schema compatibility.
+- [x] Add a source-contract regression that rejects direct playback startup inside the asynchronous dialog callback.
+
+## Revision 145 checks
+
+- [x] Give every non-title browser and SDL game menu a top-right Back button.
+- [x] Make Back from the top-level pause menu resume gameplay.
+- [x] Remove the redundant in-game Resume Game row while preserving title-screen Resume Game.
+- [x] Keep nested menu return destinations unchanged.
+- [x] Exclude the SDL Back control from ordinary row sizing and scrolling layout.
+

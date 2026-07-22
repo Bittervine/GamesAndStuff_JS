@@ -43,10 +43,10 @@
             "h": 171
         },
         "head": {
-            "x": 1801,
-            "y": 51,
-            "w": 175,
-            "h": 105
+            "x": 70,
+            "y": 317,
+            "w": 196,
+            "h": 91
         },
         "leg_upper_left": {
             "x": 1061,
@@ -95,6 +95,12 @@
             "y": 692,
             "w": 226,
             "h": 219
+        },
+        "jaw": {
+            "x": 73,
+            "y": 435,
+            "w": 150,
+            "h": 167
         }
     },
     "objects": {
@@ -286,6 +292,14 @@
                 "openMouth",
                 "attack"
             ]
+        },
+        "jaw": {
+            "id": "jaw",
+            "frame": "jaw",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": []
         }
     }
 }
