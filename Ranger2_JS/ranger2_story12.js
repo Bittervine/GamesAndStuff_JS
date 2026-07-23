@@ -17,29 +17,29 @@ window.RANGER2_STORIES.push({
       "title": "The frost line - clear sign",
       "narrative": [
         "A hard frost draws a straight white line across Elderwood’s southern meadows, though the ground beyond it is still soft. Duke Aldric sends you after a shepherd disappears beside the strange boundary.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "Nera checks the exposed ground at the frost line while you preserve the freshest signs.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Acting from the frost line now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Question the nearby shepherds about the missing man.",
           "scoreDelta": 0,
           "nextNodeId": "X02B"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Ride Thorne straight across the white line.",
+          "failTitle": "Failure at The frost line",
+          "failText": "A reckless decision at the frost line gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Inspect the unnatural frost boundary before crossing it.",
           "scoreDelta": 1,
           "nextNodeId": "X02A"
         }
@@ -50,32 +50,32 @@ window.RANGER2_STORIES.push({
       "turn": 1,
       "title": "The frost line - steady trail",
       "narrative": [
-        "A hard frost draws a straight white line across Elderwood’s southern meadows, though the ground beyond it is still soft. Duke Aldric sends you after a shepherd disappears beside the strange boundary.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "After securing the previous scene, you continue to the frost line. A hard frost draws a straight white line across Elderwood’s southern meadows, though the ground beyond it is still soft. Duke Aldric sends you after a shepherd disappears beside the strange boundary.",
+        "At the frost line, Nera keeps watch as you separate old boundary lore from present evidence.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Leaving the frost line in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Ride Thorne straight across the white line, taking time to verify each step.",
+          "failTitle": "Failure at The frost line",
+          "failText": "A reckless decision at the frost line gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Inspect the unnatural frost boundary before crossing it, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "X02A"
+          "nextNodeId": "X02B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Question the nearby shepherds about the missing man, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "X02B"
+          "nextNodeId": "X02C"
         }
       ]
     },
@@ -84,31 +84,31 @@ window.RANGER2_STORIES.push({
       "turn": 1,
       "title": "The frost line - late arrival",
       "narrative": [
-        "A hard frost draws a straight white line across Elderwood’s southern meadows, though the ground beyond it is still soft. Duke Aldric sends you after a shepherd disappears beside the strange boundary.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "The slower trail costs time, but it eventually leads to the frost line. A hard frost draws a straight white line across Elderwood’s southern meadows, though the ground beyond it is still soft. Duke Aldric sends you after a shepherd disappears beside the strange boundary.",
+        "Nera helps rebuild the weakened trail at the frost line before wind and snow erase it.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. A careful decision at the frost line can still recover the lost ground."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Inspect the unnatural frost boundary before crossing it, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "X02A"
+          "nextNodeId": "X02C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Question the nearby shepherds about the missing man, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "X02B"
+          "nextNodeId": "X02A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Ride Thorne straight across the white line, despite the ground already lost.",
+          "failTitle": "Failure at The frost line",
+          "failText": "A reckless decision at the frost line gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -118,30 +118,30 @@ window.RANGER2_STORIES.push({
       "turn": 2,
       "title": "A vanished shepherd - clear sign",
       "narrative": [
-        "At first light, the shepherd’s crook is found upright in the grass. A gray silver tabby with green eyes watches from the stone wall, then slips toward the dark trees.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "Following the strongest evidence brings you to a vanished shepherd. At first light, the shepherd’s crook is found upright in the grass. A gray silver tabby with green eyes watches from the stone wall, then slips toward the dark trees.",
+        "Nera checks the exposed ground at a vanished shepherd while you preserve the freshest signs.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Acting from a vanished shepherd now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Call loudly into the trees and reveal your approach.",
+          "failTitle": "Failure at A vanished shepherd",
+          "failText": "A reckless decision at a vanished shepherd gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Follow the tabby toward the crook and sheltered ground.",
           "scoreDelta": 1,
           "nextNodeId": "X03A"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Preserve the tracks around the upright staff.",
           "scoreDelta": 0,
           "nextNodeId": "X03B"
         }
@@ -152,31 +152,31 @@ window.RANGER2_STORIES.push({
       "turn": 2,
       "title": "A vanished shepherd - steady trail",
       "narrative": [
-        "At first light, the shepherd’s crook is found upright in the grass. A gray silver tabby with green eyes watches from the stone wall, then slips toward the dark trees.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "After securing the previous scene, you continue to a vanished shepherd. At first light, the shepherd’s crook is found upright in the grass. A gray silver tabby with green eyes watches from the stone wall, then slips toward the dark trees.",
+        "At a vanished shepherd, Nera keeps watch as you separate old boundary lore from present evidence.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Leaving a vanished shepherd in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Follow the tabby toward the crook and sheltered ground, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "X03A"
+          "nextNodeId": "X03B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Preserve the tracks around the upright staff, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "X03B"
+          "nextNodeId": "X03C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Call loudly into the trees and reveal your approach, taking time to verify each step.",
+          "failTitle": "Failure at A vanished shepherd",
+          "failText": "A reckless decision at a vanished shepherd gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -186,32 +186,32 @@ window.RANGER2_STORIES.push({
       "turn": 2,
       "title": "A vanished shepherd - late arrival",
       "narrative": [
-        "At first light, the shepherd’s crook is found upright in the grass. A gray silver tabby with green eyes watches from the stone wall, then slips toward the dark trees.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "The slower trail costs time, but it eventually leads to a vanished shepherd. At first light, the shepherd’s crook is found upright in the grass. A gray silver tabby with green eyes watches from the stone wall, then slips toward the dark trees.",
+        "Nera helps rebuild the weakened trail at a vanished shepherd before wind and snow erase it.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. A careful decision at a vanished shepherd can still recover the lost ground."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Preserve the tracks around the upright staff, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "X03B"
+          "nextNodeId": "X03A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Call loudly into the trees and reveal your approach, despite the ground already lost.",
+          "failTitle": "Failure at A vanished shepherd",
+          "failText": "A reckless decision at a vanished shepherd gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Follow the tabby toward the crook and sheltered ground, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "X03A"
+          "nextNodeId": "X03C"
         }
       ]
     },
@@ -220,31 +220,31 @@ window.RANGER2_STORIES.push({
       "turn": 3,
       "title": "Marks in the ice - clear sign",
       "narrative": [
-        "Small marks in the ice resemble dragged branches, but the pattern repeats around boot prints. The tabby appears beside a half-buried trail marker and vanishes again.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "Following the strongest evidence brings you to marks in the ice. Small marks in the ice resemble dragged branches, but the pattern repeats around boot prints. A half-buried trail marker stands where the false grooves cross.",
+        "Nera checks the exposed ground at marks in the ice while you preserve the freshest signs.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Acting from marks in the ice now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Compare the dragged branches with the concealed boot prints.",
           "scoreDelta": 1,
           "nextNodeId": "X04A"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Raise the half-buried marker without moving it.",
           "scoreDelta": 0,
           "nextNodeId": "X04B"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Follow the first icy groove as though it were a true trail.",
+          "failTitle": "Failure at Marks in the ice",
+          "failText": "A reckless decision at marks in the ice gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -254,32 +254,32 @@ window.RANGER2_STORIES.push({
       "turn": 3,
       "title": "Marks in the ice - steady trail",
       "narrative": [
-        "Small marks in the ice resemble dragged branches, but the pattern repeats around boot prints. The tabby appears beside a half-buried trail marker and vanishes again.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "After securing the previous scene, you continue to marks in the ice. Small marks in the ice resemble dragged branches, but the pattern repeats around boot prints. A half-buried trail marker stands where the false grooves cross.",
+        "At marks in the ice, Nera keeps watch as you separate old boundary lore from present evidence.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Leaving marks in the ice in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Raise the half-buried marker without moving it, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "X04B"
+          "nextNodeId": "X04C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Follow the first icy groove as though it were a true trail, taking time to verify each step.",
+          "failTitle": "Failure at Marks in the ice",
+          "failText": "A reckless decision at marks in the ice gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Compare the dragged branches with the concealed boot prints, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "X04A"
+          "nextNodeId": "X04B"
         }
       ]
     },
@@ -288,32 +288,32 @@ window.RANGER2_STORIES.push({
       "turn": 3,
       "title": "Marks in the ice - late arrival",
       "narrative": [
-        "Small marks in the ice resemble dragged branches, but the pattern repeats around boot prints. The tabby appears beside a half-buried trail marker and vanishes again.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "The slower trail costs time, but it eventually leads to marks in the ice. Small marks in the ice resemble dragged branches, but the pattern repeats around boot prints. A half-buried trail marker stands where the false grooves cross.",
+        "Nera helps rebuild the weakened trail at marks in the ice before wind and snow erase it.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. A careful decision at marks in the ice can still recover the lost ground."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Follow the first icy groove as though it were a true trail, despite the ground already lost.",
+          "failTitle": "Failure at Marks in the ice",
+          "failText": "A reckless decision at marks in the ice gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Compare the dragged branches with the concealed boot prints, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "X04A"
+          "nextNodeId": "X04C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Raise the half-buried marker without moving it, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "X04B"
+          "nextNodeId": "X04A"
         }
       ]
     },
@@ -322,30 +322,30 @@ window.RANGER2_STORIES.push({
       "turn": 4,
       "title": "The charcoal hut - clear sign",
       "narrative": [
-        "An abandoned charcoal hut contains fresh ashes, a blood-stained bandage, and a map of old border paths. Nothing suggests a beast; someone is using the forest as cover.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "Following the strongest evidence brings you to the charcoal hut. An abandoned charcoal hut contains fresh ashes, a blood-stained bandage, and a map of old border paths. Nothing suggests a beast; someone is using the forest as cover.",
+        "Nera checks the exposed ground at the charcoal hut while you preserve the freshest signs.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Acting from the charcoal hut now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Use the warm ashes to judge how recently it was left.",
           "scoreDelta": 0,
           "nextNodeId": "X05B"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Burn the bloodied bandage and hidden map.",
+          "failTitle": "Failure at The charcoal hut",
+          "failText": "A reckless decision at the charcoal hut gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Search the charcoal hut for the wounded traveler’s route.",
           "scoreDelta": 1,
           "nextNodeId": "X05A"
         }
@@ -356,32 +356,32 @@ window.RANGER2_STORIES.push({
       "turn": 4,
       "title": "The charcoal hut - steady trail",
       "narrative": [
-        "An abandoned charcoal hut contains fresh ashes, a blood-stained bandage, and a map of old border paths. Nothing suggests a beast; someone is using the forest as cover.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "After securing the previous scene, you continue to the charcoal hut. An abandoned charcoal hut contains fresh ashes, a blood-stained bandage, and a map of old border paths. Nothing suggests a beast; someone is using the forest as cover.",
+        "At the charcoal hut, Nera keeps watch as you separate old boundary lore from present evidence.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Leaving the charcoal hut in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Burn the bloodied bandage and hidden map, taking time to verify each step.",
+          "failTitle": "Failure at The charcoal hut",
+          "failText": "A reckless decision at the charcoal hut gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Search the charcoal hut for the wounded traveler’s route, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "X05A"
+          "nextNodeId": "X05B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Use the warm ashes to judge how recently it was left, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "X05B"
+          "nextNodeId": "X05C"
         }
       ]
     },
@@ -390,31 +390,31 @@ window.RANGER2_STORIES.push({
       "turn": 4,
       "title": "The charcoal hut - late arrival",
       "narrative": [
-        "An abandoned charcoal hut contains fresh ashes, a blood-stained bandage, and a map of old border paths. Nothing suggests a beast; someone is using the forest as cover.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "The slower trail costs time, but it eventually leads to the charcoal hut. An abandoned charcoal hut contains fresh ashes, a blood-stained bandage, and a map of old border paths. Nothing suggests a beast; someone is using the forest as cover.",
+        "Nera helps rebuild the weakened trail at the charcoal hut before wind and snow erase it.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. A careful decision at the charcoal hut can still recover the lost ground."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Search the charcoal hut for the wounded traveler’s route, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "X05A"
+          "nextNodeId": "X05C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Use the warm ashes to judge how recently it was left, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "X05B"
+          "nextNodeId": "X05A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Burn the bloodied bandage and hidden map, despite the ground already lost.",
+          "failTitle": "Failure at The charcoal hut",
+          "failText": "A reckless decision at the charcoal hut gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -424,30 +424,30 @@ window.RANGER2_STORIES.push({
       "turn": 5,
       "title": "Nera’s lantern - clear sign",
       "narrative": [
-        "Nera Holt, a border scout, arrives with a lantern and says the missing shepherd saw men moving stone at night. She believes an old mountain boundary is being rebuilt in secret.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "Following the strongest evidence brings you to nera’s lantern. Nera Holt, a border scout, arrives with a lantern and says the missing shepherd saw men moving stone at night. She believes an old mountain boundary is being rebuilt in secret.",
+        "Nera checks the exposed ground at nera’s lantern while you preserve the freshest signs.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Acting from nera’s lantern now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Reject the scout’s warning because no survey was registered.",
+          "failTitle": "Failure at Nera’s lantern",
+          "failText": "A reckless decision at nera’s lantern gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Check Nera’s account against the moved boundary stones.",
           "scoreDelta": 1,
           "nextNodeId": "X06A"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Join Nera’s lantern patrol along the lower path.",
           "scoreDelta": 0,
           "nextNodeId": "X06B"
         }
@@ -458,31 +458,31 @@ window.RANGER2_STORIES.push({
       "turn": 5,
       "title": "Nera’s lantern - steady trail",
       "narrative": [
-        "Nera Holt, a border scout, arrives with a lantern and says the missing shepherd saw men moving stone at night. She believes an old mountain boundary is being rebuilt in secret.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "After securing the previous scene, you continue to nera’s lantern. Nera Holt, a border scout, arrives with a lantern and says the missing shepherd saw men moving stone at night. She believes an old mountain boundary is being rebuilt in secret.",
+        "At nera’s lantern, Nera keeps watch as you separate old boundary lore from present evidence.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Leaving nera’s lantern in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Check Nera’s account against the moved boundary stones, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "X06A"
+          "nextNodeId": "X06B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Join Nera’s lantern patrol along the lower path, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "X06B"
+          "nextNodeId": "X06C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Reject the scout’s warning because no survey was registered, taking time to verify each step.",
+          "failTitle": "Failure at Nera’s lantern",
+          "failText": "A reckless decision at nera’s lantern gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -492,32 +492,32 @@ window.RANGER2_STORIES.push({
       "turn": 5,
       "title": "Nera’s lantern - late arrival",
       "narrative": [
-        "Nera Holt, a border scout, arrives with a lantern and says the missing shepherd saw men moving stone at night. She believes an old mountain boundary is being rebuilt in secret.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "The slower trail costs time, but it eventually leads to nera’s lantern. Nera Holt, a border scout, arrives with a lantern and says the missing shepherd saw men moving stone at night. She believes an old mountain boundary is being rebuilt in secret.",
+        "Nera helps rebuild the weakened trail at nera’s lantern before wind and snow erase it.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. A careful decision at nera’s lantern can still recover the lost ground."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Join Nera’s lantern patrol along the lower path, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "X06B"
+          "nextNodeId": "X06A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Reject the scout’s warning because no survey was registered, despite the ground already lost.",
+          "failTitle": "Failure at Nera’s lantern",
+          "failText": "A reckless decision at nera’s lantern gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Check Nera’s account against the moved boundary stones, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "X06A"
+          "nextNodeId": "X06C"
         }
       ]
     },
@@ -526,31 +526,31 @@ window.RANGER2_STORIES.push({
       "turn": 6,
       "title": "The buried road - clear sign",
       "narrative": [
-        "The buried road climbs toward the Gray Mountains, where forgotten stones once marked the duke’s limit. A cart has passed recently despite the snow.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "Following the strongest evidence brings you to the buried road. The buried road climbs toward the Gray Mountains, where forgotten stones once marked the duke’s limit. A cart has passed recently despite the snow.",
+        "Nera checks the exposed ground at the buried road while you preserve the freshest signs.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Acting from the buried road now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Follow the loaded cart marks up the buried road.",
           "scoreDelta": 1,
           "nextNodeId": "X07A"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Send Nera ahead to watch the next turning.",
           "scoreDelta": 0,
           "nextNodeId": "X07B"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Force Thorne onto the steepest snow-covered slope.",
+          "failTitle": "Failure at The buried road",
+          "failText": "A reckless decision at the buried road gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -560,32 +560,32 @@ window.RANGER2_STORIES.push({
       "turn": 6,
       "title": "The buried road - steady trail",
       "narrative": [
-        "The buried road climbs toward the Gray Mountains, where forgotten stones once marked the duke’s limit. A cart has passed recently despite the snow.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "After securing the previous scene, you continue to the buried road. The buried road climbs toward the Gray Mountains, where forgotten stones once marked the duke’s limit. A cart has passed recently despite the snow.",
+        "At the buried road, Nera keeps watch as you separate old boundary lore from present evidence.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Leaving the buried road in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Send Nera ahead to watch the next turning, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "X07B"
+          "nextNodeId": "X07C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Force Thorne onto the steepest snow-covered slope, taking time to verify each step.",
+          "failTitle": "Failure at The buried road",
+          "failText": "A reckless decision at the buried road gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Follow the loaded cart marks up the buried road, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "X07A"
+          "nextNodeId": "X07B"
         }
       ]
     },
@@ -594,64 +594,64 @@ window.RANGER2_STORIES.push({
       "turn": 6,
       "title": "The buried road - late arrival",
       "narrative": [
-        "The buried road climbs toward the Gray Mountains, where forgotten stones once marked the duke’s limit. A cart has passed recently despite the snow.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "The slower trail costs time, but it eventually leads to the buried road. The buried road climbs toward the Gray Mountains, where forgotten stones once marked the duke’s limit. A cart has passed recently despite the snow.",
+        "Nera helps rebuild the weakened trail at the buried road before wind and snow erase it.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. A careful decision at the buried road can still recover the lost ground."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Force Thorne onto the steepest snow-covered slope, despite the ground already lost.",
+          "failTitle": "Failure at The buried road",
+          "failText": "A reckless decision at the buried road gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Follow the loaded cart marks up the buried road, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "X07A"
+          "nextNodeId": "X07C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Send Nera ahead to watch the next turning, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "X07B"
+          "nextNodeId": "X07A"
         }
       ]
     },
     {
       "id": "X07A",
       "turn": 7,
-      "title": "A green-eyed guide - clear sign",
+      "title": "The patrol buckle - clear sign",
       "narrative": [
-        "The tabby startles a crow from a fallen log, revealing a silver buckle beneath the leaves. The buckle belongs to a Brackenwald patrol cloak.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "Following the strongest evidence brings you to the patrol buckle. A crow rising from a fallen log reveals a silver buckle beneath the leaves. The buckle belongs to a Brackenwald patrol cloak.",
+        "Nera checks the exposed ground at the patrol buckle while you preserve the freshest signs.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Acting from the patrol buckle now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Search the fallen log while Nera watches the brush.",
           "scoreDelta": 0,
           "nextNodeId": "X08B"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Ignore Nera’s signal and leave the buckle buried.",
+          "failTitle": "Failure at The patrol buckle",
+          "failText": "A reckless decision at the patrol buckle gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Recover the patrol buckle exposed by the startled crow.",
           "scoreDelta": 1,
           "nextNodeId": "X08A"
         }
@@ -660,67 +660,67 @@ window.RANGER2_STORIES.push({
     {
       "id": "X07B",
       "turn": 7,
-      "title": "A green-eyed guide - steady trail",
+      "title": "The patrol buckle - steady trail",
       "narrative": [
-        "The tabby startles a crow from a fallen log, revealing a silver buckle beneath the leaves. The buckle belongs to a Brackenwald patrol cloak.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "After securing the previous scene, you continue to the patrol buckle. A crow rising from a fallen log reveals a silver buckle beneath the leaves. The buckle belongs to a Brackenwald patrol cloak.",
+        "At the patrol buckle, Nera keeps watch as you separate old boundary lore from present evidence.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Leaving the patrol buckle in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Ignore Nera’s signal and leave the buckle buried, taking time to verify each step.",
+          "failTitle": "Failure at The patrol buckle",
+          "failText": "A reckless decision at the patrol buckle gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Recover the patrol buckle exposed by the startled crow, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "X08A"
+          "nextNodeId": "X08B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Search the fallen log while Nera watches the brush, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "X08B"
+          "nextNodeId": "X08C"
         }
       ]
     },
     {
       "id": "X07C",
       "turn": 7,
-      "title": "A green-eyed guide - late arrival",
+      "title": "The patrol buckle - late arrival",
       "narrative": [
-        "The tabby startles a crow from a fallen log, revealing a silver buckle beneath the leaves. The buckle belongs to a Brackenwald patrol cloak.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "The slower trail costs time, but it eventually leads to the patrol buckle. A crow rising from a fallen log reveals a silver buckle beneath the leaves. The buckle belongs to a Brackenwald patrol cloak.",
+        "Nera helps rebuild the weakened trail at the patrol buckle before wind and snow erase it.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. A careful decision at the patrol buckle can still recover the lost ground."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Recover the patrol buckle exposed by the startled crow, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "X08A"
+          "nextNodeId": "X08C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Search the fallen log while Nera watches the brush, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "X08B"
+          "nextNodeId": "X08A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Ignore Nera’s signal and leave the buckle buried, despite the ground already lost.",
+          "failTitle": "Failure at The patrol buckle",
+          "failText": "A reckless decision at the patrol buckle gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -730,30 +730,30 @@ window.RANGER2_STORIES.push({
       "turn": 8,
       "title": "The broken cairn - clear sign",
       "narrative": [
-        "A boundary cairn has been broken apart and rebuilt several paces away. The new position quietly gives a hidden valley to another lord’s claim.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "Following the strongest evidence brings you to the broken cairn. A boundary cairn has been broken apart and rebuilt several paces away. The new position quietly gives a hidden valley to another lord’s claim.",
+        "Nera checks the exposed ground at the broken cairn while you preserve the freshest signs.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Acting from the broken cairn now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Scatter the stones before proving where they belonged.",
+          "failTitle": "Failure at The broken cairn",
+          "failText": "A reckless decision at the broken cairn gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Measure the shifted cairn against the old foundation.",
           "scoreDelta": 1,
           "nextNodeId": "X09A"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Record the false position and compare it with the old foundation.",
           "scoreDelta": 0,
           "nextNodeId": "X09B"
         }
@@ -764,31 +764,31 @@ window.RANGER2_STORIES.push({
       "turn": 8,
       "title": "The broken cairn - steady trail",
       "narrative": [
-        "A boundary cairn has been broken apart and rebuilt several paces away. The new position quietly gives a hidden valley to another lord’s claim.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "After securing the previous scene, you continue to the broken cairn. A boundary cairn has been broken apart and rebuilt several paces away. The new position quietly gives a hidden valley to another lord’s claim.",
+        "At the broken cairn, Nera keeps watch as you separate old boundary lore from present evidence.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Leaving the broken cairn in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Measure the shifted cairn against the old foundation, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "X09A"
+          "nextNodeId": "X09B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Record the false position and compare it with the old foundation, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "X09B"
+          "nextNodeId": "X09C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Scatter the stones before proving where they belonged, taking time to verify each step.",
+          "failTitle": "Failure at The broken cairn",
+          "failText": "A reckless decision at the broken cairn gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -798,32 +798,32 @@ window.RANGER2_STORIES.push({
       "turn": 8,
       "title": "The broken cairn - late arrival",
       "narrative": [
-        "A boundary cairn has been broken apart and rebuilt several paces away. The new position quietly gives a hidden valley to another lord’s claim.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "The slower trail costs time, but it eventually leads to the broken cairn. A boundary cairn has been broken apart and rebuilt several paces away. The new position quietly gives a hidden valley to another lord’s claim.",
+        "Nera helps rebuild the weakened trail at the broken cairn before wind and snow erase it.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. A careful decision at the broken cairn can still recover the lost ground."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Record the false position and compare it with the old foundation, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "X09B"
+          "nextNodeId": "X09A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Scatter the stones before proving where they belonged, despite the ground already lost.",
+          "failTitle": "Failure at The broken cairn",
+          "failText": "A reckless decision at the broken cairn gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Measure the shifted cairn against the old foundation, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "X09A"
+          "nextNodeId": "X09C"
         }
       ]
     },
@@ -832,31 +832,31 @@ window.RANGER2_STORIES.push({
       "turn": 9,
       "title": "The mountain answer - clear sign",
       "narrative": [
-        "A deep horn answers from the mountains. Nera says it is the signal used by surveyors, but no survey party is registered in Aldric’s records.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "Following the strongest evidence brings you to the mountain answer. A deep horn answers from the mountains. Nera says it is the signal used by surveyors, but no survey party is registered in Aldric’s records.",
+        "Nera checks the exposed ground at the mountain answer while you preserve the freshest signs.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Acting from the mountain answer now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Answer the survey horn with Nera’s recognized signal.",
           "scoreDelta": 1,
           "nextNodeId": "X10A"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Take cover and watch for movement after the horn.",
           "scoreDelta": 0,
           "nextNodeId": "X10B"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Sound a war call that warns the hidden surveyors.",
+          "failTitle": "Failure at The mountain answer",
+          "failText": "A reckless decision at the mountain answer gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -866,32 +866,32 @@ window.RANGER2_STORIES.push({
       "turn": 9,
       "title": "The mountain answer - steady trail",
       "narrative": [
-        "A deep horn answers from the mountains. Nera says it is the signal used by surveyors, but no survey party is registered in Aldric’s records.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "After securing the previous scene, you continue to the mountain answer. A deep horn answers from the mountains. Nera says it is the signal used by surveyors, but no survey party is registered in Aldric’s records.",
+        "At the mountain answer, Nera keeps watch as you separate old boundary lore from present evidence.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Leaving the mountain answer in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Take cover and watch for movement after the horn, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "X10B"
+          "nextNodeId": "X10C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Sound a war call that warns the hidden surveyors, taking time to verify each step.",
+          "failTitle": "Failure at The mountain answer",
+          "failText": "A reckless decision at the mountain answer gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Answer the survey horn with Nera’s recognized signal, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "X10A"
+          "nextNodeId": "X10B"
         }
       ]
     },
@@ -900,32 +900,32 @@ window.RANGER2_STORIES.push({
       "turn": 9,
       "title": "The mountain answer - late arrival",
       "narrative": [
-        "A deep horn answers from the mountains. Nera says it is the signal used by surveyors, but no survey party is registered in Aldric’s records.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "The slower trail costs time, but it eventually leads to the mountain answer. A deep horn answers from the mountains. Nera says it is the signal used by surveyors, but no survey party is registered in Aldric’s records.",
+        "Nera helps rebuild the weakened trail at the mountain answer before wind and snow erase it.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. A careful decision at the mountain answer can still recover the lost ground."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Sound a war call that warns the hidden surveyors, despite the ground already lost.",
+          "failTitle": "Failure at The mountain answer",
+          "failText": "A reckless decision at the mountain answer gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Answer the survey horn with Nera’s recognized signal, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "X10A"
+          "nextNodeId": "X10C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Take cover and watch for movement after the horn, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "X10B"
+          "nextNodeId": "X10A"
         }
       ]
     },
@@ -934,30 +934,30 @@ window.RANGER2_STORIES.push({
       "turn": 10,
       "title": "The empty lookout - clear sign",
       "narrative": [
-        "The old lookout stands empty except for warm stones and a coil of red cord. Someone has been watching the roads below and reporting movements uphill.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "Following the strongest evidence brings you to the empty lookout. The old lookout stands empty except for warm stones and a coil of red cord. Someone has been watching the roads below and reporting movements uphill.",
+        "Nera checks the exposed ground at the empty lookout while you preserve the freshest signs.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Acting from the empty lookout now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Take the red cord as evidence and leave a watcher.",
           "scoreDelta": 0,
           "nextNodeId": "X11B"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Light the lookout beacon and expose the search.",
+          "failTitle": "Failure at The empty lookout",
+          "failText": "A reckless decision at the empty lookout gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Search the warm lookout stones for the observer’s route.",
           "scoreDelta": 1,
           "nextNodeId": "X11A"
         }
@@ -968,32 +968,32 @@ window.RANGER2_STORIES.push({
       "turn": 10,
       "title": "The empty lookout - steady trail",
       "narrative": [
-        "The old lookout stands empty except for warm stones and a coil of red cord. Someone has been watching the roads below and reporting movements uphill.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "After securing the previous scene, you continue to the empty lookout. The old lookout stands empty except for warm stones and a coil of red cord. Someone has been watching the roads below and reporting movements uphill.",
+        "At the empty lookout, Nera keeps watch as you separate old boundary lore from present evidence.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Leaving the empty lookout in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Light the lookout beacon and expose the search, taking time to verify each step.",
+          "failTitle": "Failure at The empty lookout",
+          "failText": "A reckless decision at the empty lookout gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Search the warm lookout stones for the observer’s route, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "X11A"
+          "nextNodeId": "X11B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Take the red cord as evidence and leave a watcher, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "X11B"
+          "nextNodeId": "X11C"
         }
       ]
     },
@@ -1002,31 +1002,31 @@ window.RANGER2_STORIES.push({
       "turn": 10,
       "title": "The empty lookout - late arrival",
       "narrative": [
-        "The old lookout stands empty except for warm stones and a coil of red cord. Someone has been watching the roads below and reporting movements uphill.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "The slower trail costs time, but it eventually leads to the empty lookout. The old lookout stands empty except for warm stones and a coil of red cord. Someone has been watching the roads below and reporting movements uphill.",
+        "Nera helps rebuild the weakened trail at the empty lookout before wind and snow erase it.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. A careful decision at the empty lookout can still recover the lost ground."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Search the warm lookout stones for the observer’s route, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "X11A"
+          "nextNodeId": "X11C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Take the red cord as evidence and leave a watcher, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "X11B"
+          "nextNodeId": "X11A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Light the lookout beacon and expose the search, despite the ground already lost.",
+          "failTitle": "Failure at The empty lookout",
+          "failText": "A reckless decision at the empty lookout gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -1036,30 +1036,30 @@ window.RANGER2_STORIES.push({
       "turn": 11,
       "title": "A map in birchbark - clear sign",
       "narrative": [
-        "A birchbark map shows springs, goat tracks, and a route through a pass erased from every current chart. The shepherd’s name is written beside the pass.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "Following the strongest evidence brings you to a map in birchbark. A birchbark map shows springs, goat tracks, and a route through a pass erased from every current chart. The shepherd’s name is written beside the pass.",
+        "Nera checks the exposed ground at a map in birchbark while you preserve the freshest signs.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Acting from a map in birchbark now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Discard the bark map as an obsolete border sketch.",
+          "failTitle": "Failure at A map in birchbark",
+          "failText": "A reckless decision at a map in birchbark gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Compare the birchbark map with Aldric’s current charts.",
           "scoreDelta": 1,
           "nextNodeId": "X12A"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Follow the marked springs toward the erased pass.",
           "scoreDelta": 0,
           "nextNodeId": "X12B"
         }
@@ -1070,31 +1070,31 @@ window.RANGER2_STORIES.push({
       "turn": 11,
       "title": "A map in birchbark - steady trail",
       "narrative": [
-        "A birchbark map shows springs, goat tracks, and a route through a pass erased from every current chart. The shepherd’s name is written beside the pass.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "After securing the previous scene, you continue to a map in birchbark. A birchbark map shows springs, goat tracks, and a route through a pass erased from every current chart. The shepherd’s name is written beside the pass.",
+        "At a map in birchbark, Nera keeps watch as you separate old boundary lore from present evidence.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Leaving a map in birchbark in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Compare the birchbark map with Aldric’s current charts, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "X12A"
+          "nextNodeId": "X12B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Follow the marked springs toward the erased pass, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "X12B"
+          "nextNodeId": "X12C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Discard the bark map as an obsolete border sketch, taking time to verify each step.",
+          "failTitle": "Failure at A map in birchbark",
+          "failText": "A reckless decision at a map in birchbark gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -1104,32 +1104,32 @@ window.RANGER2_STORIES.push({
       "turn": 11,
       "title": "A map in birchbark - late arrival",
       "narrative": [
-        "A birchbark map shows springs, goat tracks, and a route through a pass erased from every current chart. The shepherd’s name is written beside the pass.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "The slower trail costs time, but it eventually leads to a map in birchbark. A birchbark map shows springs, goat tracks, and a route through a pass erased from every current chart. The shepherd’s name is written beside the pass.",
+        "Nera helps rebuild the weakened trail at a map in birchbark before wind and snow erase it.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. A careful decision at a map in birchbark can still recover the lost ground."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Follow the marked springs toward the erased pass, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "X12B"
+          "nextNodeId": "X12A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Discard the bark map as an obsolete border sketch, despite the ground already lost.",
+          "failTitle": "Failure at A map in birchbark",
+          "failText": "A reckless decision at a map in birchbark gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Compare the birchbark map with Aldric’s current charts, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "X12A"
+          "nextNodeId": "X12C"
         }
       ]
     },
@@ -1138,31 +1138,31 @@ window.RANGER2_STORIES.push({
       "turn": 12,
       "title": "The old boundary - clear sign",
       "narrative": [
-        "The map leads to an ancient boundary post. Its iron plate has been pried loose, exposing a message hidden inside by a former warden.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "Following the strongest evidence brings you to the old boundary. The map leads to an ancient boundary post. Its iron plate has been pried loose, exposing a message hidden inside by a former warden.",
+        "Nera checks the exposed ground at the old boundary while you preserve the freshest signs.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Acting from the old boundary now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Open the boundary post and preserve the former warden’s message.",
           "scoreDelta": 1,
           "nextNodeId": "X13A"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Reset the iron plate before following the warning.",
           "scoreDelta": 0,
           "nextNodeId": "X13B"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Move the ancient post without recording its position.",
+          "failTitle": "Failure at The old boundary",
+          "failText": "A reckless decision at the old boundary gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -1172,32 +1172,32 @@ window.RANGER2_STORIES.push({
       "turn": 12,
       "title": "The old boundary - steady trail",
       "narrative": [
-        "The map leads to an ancient boundary post. Its iron plate has been pried loose, exposing a message hidden inside by a former warden.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "After securing the previous scene, you continue to the old boundary. The map leads to an ancient boundary post. Its iron plate has been pried loose, exposing a message hidden inside by a former warden.",
+        "At the old boundary, Nera keeps watch as you separate old boundary lore from present evidence.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Leaving the old boundary in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Reset the iron plate before following the warning, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "X13B"
+          "nextNodeId": "X13C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Move the ancient post without recording its position, taking time to verify each step.",
+          "failTitle": "Failure at The old boundary",
+          "failText": "A reckless decision at the old boundary gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Open the boundary post and preserve the former warden’s message, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "X13A"
+          "nextNodeId": "X13B"
         }
       ]
     },
@@ -1206,32 +1206,32 @@ window.RANGER2_STORIES.push({
       "turn": 12,
       "title": "The old boundary - late arrival",
       "narrative": [
-        "The map leads to an ancient boundary post. Its iron plate has been pried loose, exposing a message hidden inside by a former warden.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "The slower trail costs time, but it eventually leads to the old boundary. The map leads to an ancient boundary post. Its iron plate has been pried loose, exposing a message hidden inside by a former warden.",
+        "Nera helps rebuild the weakened trail at the old boundary before wind and snow erase it.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. A careful decision at the old boundary can still recover the lost ground."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Move the ancient post without recording its position, despite the ground already lost.",
+          "failTitle": "Failure at The old boundary",
+          "failText": "A reckless decision at the old boundary gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Open the boundary post and preserve the former warden’s message, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "X13A"
+          "nextNodeId": "X13C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Reset the iron plate before following the warning, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "X13B"
+          "nextNodeId": "X13A"
         }
       ]
     },
@@ -1240,30 +1240,30 @@ window.RANGER2_STORIES.push({
       "turn": 13,
       "title": "Men below the snow - clear sign",
       "narrative": [
-        "The message warns that Lord Veyr’s men are placing false markers to claim the pass before winter closes it. Several armed men now camp below the snowline.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "Following the strongest evidence brings you to men below the snow. The message warns that Lord Veyr’s men are placing false markers to claim the pass before winter closes it. Several armed men now camp below the snowline.",
+        "Nera checks the exposed ground at men below the snow while you preserve the freshest signs.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Acting from men below the snow now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Wait for darkness while Nera locates the prisoners.",
           "scoreDelta": 0,
           "nextNodeId": "X14B"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Descend openly into the armed camp.",
+          "failTitle": "Failure at Men below the snow",
+          "failText": "A reckless decision at men below the snow gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Count Lord Veyr’s campfires from concealed high ground.",
           "scoreDelta": 1,
           "nextNodeId": "X14A"
         }
@@ -1274,32 +1274,32 @@ window.RANGER2_STORIES.push({
       "turn": 13,
       "title": "Men below the snow - steady trail",
       "narrative": [
-        "The message warns that Lord Veyr’s men are placing false markers to claim the pass before winter closes it. Several armed men now camp below the snowline.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "After securing the previous scene, you continue to men below the snow. The message warns that Lord Veyr’s men are placing false markers to claim the pass before winter closes it. Several armed men now camp below the snowline.",
+        "At men below the snow, Nera keeps watch as you separate old boundary lore from present evidence.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Leaving men below the snow in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Descend openly into the armed camp, taking time to verify each step.",
+          "failTitle": "Failure at Men below the snow",
+          "failText": "A reckless decision at men below the snow gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Count Lord Veyr’s campfires from concealed high ground, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "X14A"
+          "nextNodeId": "X14B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Wait for darkness while Nera locates the prisoners, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "X14B"
+          "nextNodeId": "X14C"
         }
       ]
     },
@@ -1308,31 +1308,31 @@ window.RANGER2_STORIES.push({
       "turn": 13,
       "title": "Men below the snow - late arrival",
       "narrative": [
-        "The message warns that Lord Veyr’s men are placing false markers to claim the pass before winter closes it. Several armed men now camp below the snowline.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "The slower trail costs time, but it eventually leads to men below the snow. The message warns that Lord Veyr’s men are placing false markers to claim the pass before winter closes it. Several armed men now camp below the snowline.",
+        "Nera helps rebuild the weakened trail at men below the snow before wind and snow erase it.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. A careful decision at men below the snow can still recover the lost ground."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Count Lord Veyr’s campfires from concealed high ground, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "X14A"
+          "nextNodeId": "X14C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Wait for darkness while Nera locates the prisoners, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "X14B"
+          "nextNodeId": "X14A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Descend openly into the armed camp, despite the ground already lost.",
+          "failTitle": "Failure at Men below the snow",
+          "failText": "A reckless decision at men below the snow gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -1342,30 +1342,30 @@ window.RANGER2_STORIES.push({
       "turn": 14,
       "title": "The split patrol - clear sign",
       "narrative": [
-        "A Brackenwald patrol has been captured without a fight. Their captain says the enemy wore familiar colors and spoke with local accents.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "Following the strongest evidence brings you to the split patrol. A Brackenwald patrol has been captured without a fight. Their captain says the enemy wore familiar colors and spoke with local accents.",
+        "Nera checks the exposed ground at the split patrol while you preserve the freshest signs.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Acting from the split patrol now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Attack the familiar uniforms before learning who wears them.",
+          "failTitle": "Failure at The split patrol",
+          "failText": "A reckless decision at the split patrol gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Speak to the captured captain from outside bow range.",
           "scoreDelta": 1,
           "nextNodeId": "X15A"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Create a diversion while Nera cuts one prisoner free.",
           "scoreDelta": 0,
           "nextNodeId": "X15B"
         }
@@ -1376,31 +1376,31 @@ window.RANGER2_STORIES.push({
       "turn": 14,
       "title": "The split patrol - steady trail",
       "narrative": [
-        "A Brackenwald patrol has been captured without a fight. Their captain says the enemy wore familiar colors and spoke with local accents.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "After securing the previous scene, you continue to the split patrol. A Brackenwald patrol has been captured without a fight. Their captain says the enemy wore familiar colors and spoke with local accents.",
+        "At the split patrol, Nera keeps watch as you separate old boundary lore from present evidence.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Leaving the split patrol in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Speak to the captured captain from outside bow range, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "X15A"
+          "nextNodeId": "X15B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Create a diversion while Nera cuts one prisoner free, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "X15B"
+          "nextNodeId": "X15C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Attack the familiar uniforms before learning who wears them, taking time to verify each step.",
+          "failTitle": "Failure at The split patrol",
+          "failText": "A reckless decision at the split patrol gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -1410,32 +1410,32 @@ window.RANGER2_STORIES.push({
       "turn": 14,
       "title": "The split patrol - late arrival",
       "narrative": [
-        "A Brackenwald patrol has been captured without a fight. Their captain says the enemy wore familiar colors and spoke with local accents.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "The slower trail costs time, but it eventually leads to the split patrol. A Brackenwald patrol has been captured without a fight. Their captain says the enemy wore familiar colors and spoke with local accents.",
+        "Nera helps rebuild the weakened trail at the split patrol before wind and snow erase it.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. A careful decision at the split patrol can still recover the lost ground."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Create a diversion while Nera cuts one prisoner free, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "X15B"
+          "nextNodeId": "X15A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Attack the familiar uniforms before learning who wears them, despite the ground already lost.",
+          "failTitle": "Failure at The split patrol",
+          "failText": "A reckless decision at the split patrol gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Speak to the captured captain from outside bow range, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "X15A"
+          "nextNodeId": "X15C"
         }
       ]
     },
@@ -1444,31 +1444,31 @@ window.RANGER2_STORIES.push({
       "turn": 15,
       "title": "The hidden pass - clear sign",
       "narrative": [
-        "The hidden pass is narrow and defensible, but its far side opens toward Riverland trade roads. Whoever controls it can move soldiers unseen.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "Following the strongest evidence brings you to the hidden pass. The hidden pass is narrow and defensible, but its far side opens toward Riverland trade roads. Whoever controls it can move soldiers unseen.",
+        "Nera checks the exposed ground at the hidden pass while you preserve the freshest signs.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Acting from the hidden pass now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Mark both entrances to the hidden pass for Aldric’s wardens.",
           "scoreDelta": 1,
           "nextNodeId": "X16A"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Hold the narrow approach while Nera scouts the far side.",
           "scoreDelta": 0,
           "nextNodeId": "X16B"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Advance through the pass without checking the heights.",
+          "failTitle": "Failure at The hidden pass",
+          "failText": "A reckless decision at the hidden pass gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         }
       ]
@@ -1478,32 +1478,32 @@ window.RANGER2_STORIES.push({
       "turn": 15,
       "title": "The hidden pass - steady trail",
       "narrative": [
-        "The hidden pass is narrow and defensible, but its far side opens toward Riverland trade roads. Whoever controls it can move soldiers unseen.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "After securing the previous scene, you continue to the hidden pass. The hidden pass is narrow and defensible, but its far side opens toward Riverland trade roads. Whoever controls it can move soldiers unseen.",
+        "At the hidden pass, Nera keeps watch as you separate old boundary lore from present evidence.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Leaving the hidden pass in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Hold the narrow approach while Nera scouts the far side, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "X16B"
+          "nextNodeId": "X16C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Advance through the pass without checking the heights, taking time to verify each step.",
+          "failTitle": "Failure at The hidden pass",
+          "failText": "A reckless decision at the hidden pass gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Mark both entrances to the hidden pass for Aldric’s wardens, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "X16A"
+          "nextNodeId": "X16B"
         }
       ]
     },
@@ -1512,32 +1512,32 @@ window.RANGER2_STORIES.push({
       "turn": 15,
       "title": "The hidden pass - late arrival",
       "narrative": [
-        "The hidden pass is narrow and defensible, but its far side opens toward Riverland trade roads. Whoever controls it can move soldiers unseen.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "The slower trail costs time, but it eventually leads to the hidden pass. The hidden pass is narrow and defensible, but its far side opens toward Riverland trade roads. Whoever controls it can move soldiers unseen.",
+        "Nera helps rebuild the weakened trail at the hidden pass before wind and snow erase it.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. A careful decision at the hidden pass can still recover the lost ground."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Advance through the pass without checking the heights, despite the ground already lost.",
+          "failTitle": "Failure at The hidden pass",
+          "failText": "A reckless decision at the hidden pass gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Mark both entrances to the hidden pass for Aldric’s wardens, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "X16A"
+          "nextNodeId": "X16C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Hold the narrow approach while Nera scouts the far side, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "X16B"
+          "nextNodeId": "X16A"
         }
       ]
     },
@@ -1546,30 +1546,30 @@ window.RANGER2_STORIES.push({
       "turn": 16,
       "title": "A dangerous bargain - clear sign",
       "narrative": [
-        "Lord Veyr’s envoy offers a bargain: abandon the old boundary and the shepherd and patrol will be released. Nera refuses to trust the promise.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "Following the strongest evidence brings you to a dangerous bargain. Lord Veyr’s envoy offers a bargain: abandon the old boundary and the shepherd and patrol will be released. Nera refuses to trust the promise.",
+        "Nera checks the exposed ground at a dangerous bargain while you preserve the freshest signs.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Acting from a dangerous bargain now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Delay the bargain while Nera searches for another route.",
           "scoreDelta": 0,
           "nextNodeId": "X17B"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Accept Veyr’s promise and surrender the old boundary.",
+          "failTitle": "Failure at A dangerous bargain",
+          "failText": "A reckless decision at a dangerous bargain gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Demand proof the prisoners are alive before answering the envoy.",
           "scoreDelta": 1,
           "nextNodeId": "X17A"
         }
@@ -1580,32 +1580,32 @@ window.RANGER2_STORIES.push({
       "turn": 16,
       "title": "A dangerous bargain - steady trail",
       "narrative": [
-        "Lord Veyr’s envoy offers a bargain: abandon the old boundary and the shepherd and patrol will be released. Nera refuses to trust the promise.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "After securing the previous scene, you continue to a dangerous bargain. Lord Veyr’s envoy offers a bargain: abandon the old boundary and the shepherd and patrol will be released. Nera refuses to trust the promise.",
+        "At a dangerous bargain, Nera keeps watch as you separate old boundary lore from present evidence.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Leaving a dangerous bargain in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Accept Veyr’s promise and surrender the old boundary, taking time to verify each step.",
+          "failTitle": "Failure at A dangerous bargain",
+          "failText": "A reckless decision at a dangerous bargain gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Demand proof the prisoners are alive before answering the envoy, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "X17A"
+          "nextNodeId": "X17B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Delay the bargain while Nera searches for another route, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "X17B"
+          "nextNodeId": "X17C"
         }
       ]
     },
@@ -1614,31 +1614,31 @@ window.RANGER2_STORIES.push({
       "turn": 16,
       "title": "A dangerous bargain - late arrival",
       "narrative": [
-        "Lord Veyr’s envoy offers a bargain: abandon the old boundary and the shepherd and patrol will be released. Nera refuses to trust the promise.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "The slower trail costs time, but it eventually leads to a dangerous bargain. Lord Veyr’s envoy offers a bargain: abandon the old boundary and the shepherd and patrol will be released. Nera refuses to trust the promise.",
+        "Nera helps rebuild the weakened trail at a dangerous bargain before wind and snow erase it.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. A careful decision at a dangerous bargain can still recover the lost ground."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Demand proof the prisoners are alive before answering the envoy, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "X17A"
+          "nextNodeId": "X17C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Delay the bargain while Nera searches for another route, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "X17B"
+          "nextNodeId": "X17A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Accept Veyr’s promise and surrender the old boundary, despite the ground already lost.",
+          "failTitle": "Failure at A dangerous bargain",
+          "failText": "A reckless decision at a dangerous bargain gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         }
       ]
@@ -1648,30 +1648,30 @@ window.RANGER2_STORIES.push({
       "turn": 17,
       "title": "The white wall - clear sign",
       "narrative": [
-        "A white wall of wind-driven snow blocks the pass. Beneath it lies a rope line leading toward the prisoners’ camp and a second line leading to the false cairn.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "Following the strongest evidence brings you to the white wall. A white wall of wind-driven snow blocks the pass. Beneath it lies a rope line leading toward the prisoners’ camp and a second line leading to the false cairn.",
+        "Nera checks the exposed ground at the white wall while you preserve the freshest signs.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Acting from the white wall now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Cut the lines and walk blind into the driven snow.",
+          "failTitle": "Failure at The white wall",
+          "failText": "A reckless decision at the white wall gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Test both rope lines before the white wall closes in.",
           "scoreDelta": 1,
           "nextNodeId": "X18A"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Send Nera along the line leading toward the prisoners.",
           "scoreDelta": 0,
           "nextNodeId": "X18B"
         }
@@ -1682,31 +1682,31 @@ window.RANGER2_STORIES.push({
       "turn": 17,
       "title": "The white wall - steady trail",
       "narrative": [
-        "A white wall of wind-driven snow blocks the pass. Beneath it lies a rope line leading toward the prisoners’ camp and a second line leading to the false cairn.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "After securing the previous scene, you continue to the white wall. A white wall of wind-driven snow blocks the pass. Beneath it lies a rope line leading toward the prisoners’ camp and a second line leading to the false cairn.",
+        "At the white wall, Nera keeps watch as you separate old boundary lore from present evidence.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Leaving the white wall in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Test both rope lines before the white wall closes in, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "X18A"
+          "nextNodeId": "X18B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Send Nera along the line leading toward the prisoners, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "X18B"
+          "nextNodeId": "X18C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Cut the lines and walk blind into the driven snow, taking time to verify each step.",
+          "failTitle": "Failure at The white wall",
+          "failText": "A reckless decision at the white wall gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         }
       ]
@@ -1716,32 +1716,32 @@ window.RANGER2_STORIES.push({
       "turn": 17,
       "title": "The white wall - late arrival",
       "narrative": [
-        "A white wall of wind-driven snow blocks the pass. Beneath it lies a rope line leading toward the prisoners’ camp and a second line leading to the false cairn.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "The slower trail costs time, but it eventually leads to the white wall. A white wall of wind-driven snow blocks the pass. Beneath it lies a rope line leading toward the prisoners’ camp and a second line leading to the false cairn.",
+        "Nera helps rebuild the weakened trail at the white wall before wind and snow erase it.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. A careful decision at the white wall can still recover the lost ground."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Send Nera along the line leading toward the prisoners, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "X18B"
+          "nextNodeId": "X18A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Cut the lines and walk blind into the driven snow, despite the ground already lost.",
+          "failTitle": "Failure at The white wall",
+          "failText": "A reckless decision at the white wall gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Test both rope lines before the white wall closes in, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "X18A"
+          "nextNodeId": "X18C"
         }
       ]
     },
@@ -1750,31 +1750,31 @@ window.RANGER2_STORIES.push({
       "turn": 18,
       "title": "The last signal - clear sign",
       "narrative": [
-        "The tabby darts across the snow and draws your eye to a loose stone above the camp. Behind it is the signal horn that can call Nera’s scattered scouts.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "Following the strongest evidence brings you to the last signal. The tabby darts across the snow and draws your eye to a loose stone above the camp. Behind it is the signal horn that can call Nera’s scattered scouts.",
+        "Nera checks the exposed ground at the last signal while you preserve the freshest signs.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Acting from the last signal now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Use the tabby’s movement to locate the hidden signal horn.",
           "scoreDelta": 1,
           "nextNodeId": "X19A"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Hold the loose stone while Nera reaches the camp.",
           "scoreDelta": 0,
           "nextNodeId": "X19B"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Dislodge the rock above the prisoners without warning.",
+          "failTitle": "Failure at The last signal",
+          "failText": "A reckless decision at the last signal gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         }
       ]
@@ -1784,32 +1784,32 @@ window.RANGER2_STORIES.push({
       "turn": 18,
       "title": "The last signal - steady trail",
       "narrative": [
-        "The tabby darts across the snow and draws your eye to a loose stone above the camp. Behind it is the signal horn that can call Nera’s scattered scouts.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "After securing the previous scene, you continue to the last signal. The tabby darts across the snow and draws your eye to a loose stone above the camp. Behind it is the signal horn that can call Nera’s scattered scouts.",
+        "At the last signal, Nera keeps watch as you separate old boundary lore from present evidence.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Leaving the last signal in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Hold the loose stone while Nera reaches the camp, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "X19B"
+          "nextNodeId": "X19C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Dislodge the rock above the prisoners without warning, taking time to verify each step.",
+          "failTitle": "Failure at The last signal",
+          "failText": "A reckless decision at the last signal gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Use the tabby’s movement to locate the hidden signal horn, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "X19A"
+          "nextNodeId": "X19B"
         }
       ]
     },
@@ -1818,32 +1818,32 @@ window.RANGER2_STORIES.push({
       "turn": 18,
       "title": "The last signal - late arrival",
       "narrative": [
-        "The tabby darts across the snow and draws your eye to a loose stone above the camp. Behind it is the signal horn that can call Nera’s scattered scouts.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "The slower trail costs time, but it eventually leads to the last signal. The tabby darts across the snow and draws your eye to a loose stone above the camp. Behind it is the signal horn that can call Nera’s scattered scouts.",
+        "Nera helps rebuild the weakened trail at the last signal before wind and snow erase it.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. A careful decision at the last signal can still recover the lost ground."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Dislodge the rock above the prisoners without warning, despite the ground already lost.",
+          "failTitle": "Failure at The last signal",
+          "failText": "A reckless decision at the last signal gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Use the tabby’s movement to locate the hidden signal horn, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "X19A"
+          "nextNodeId": "X19C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Hold the loose stone while Nera reaches the camp, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "X19B"
+          "nextNodeId": "X19A"
         }
       ]
     },
@@ -1852,30 +1852,30 @@ window.RANGER2_STORIES.push({
       "turn": 19,
       "title": "The thawing camp - clear sign",
       "narrative": [
-        "With the horn restored, the scouts cut off the camp while you recover the prisoners. The false markers are gathered as proof, but the pass is still at risk.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "Following the strongest evidence brings you to the thawing camp. With the horn restored, the scouts cut off the camp while you recover the prisoners. The false markers are gathered as proof, but the pass is still at risk.",
+        "Nera checks the exposed ground at the thawing camp while you preserve the freshest signs.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Acting from the thawing camp now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Recover the false markers while the scouts secure Veyr’s men.",
           "scoreDelta": 0,
           "nextNodeId": "X20B"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Pursue the envoy and leave the prisoners unguarded.",
+          "failTitle": "Failure at The thawing camp",
+          "failText": "A reckless decision at the thawing camp gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Sound the true warden signal and close both camp exits.",
           "scoreDelta": 1,
           "nextNodeId": "X20A"
         }
@@ -1886,32 +1886,32 @@ window.RANGER2_STORIES.push({
       "turn": 19,
       "title": "The thawing camp - steady trail",
       "narrative": [
-        "With the horn restored, the scouts cut off the camp while you recover the prisoners. The false markers are gathered as proof, but the pass is still at risk.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "After securing the previous scene, you continue to the thawing camp. With the horn restored, the scouts cut off the camp while you recover the prisoners. The false markers are gathered as proof, but the pass is still at risk.",
+        "At the thawing camp, Nera keeps watch as you separate old boundary lore from present evidence.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Leaving the thawing camp in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Pursue the envoy and leave the prisoners unguarded, taking time to verify each step.",
+          "failTitle": "Failure at The thawing camp",
+          "failText": "A reckless decision at the thawing camp gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Sound the true warden signal and close both camp exits, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "X20A"
+          "nextNodeId": "X20B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Recover the false markers while the scouts secure Veyr’s men, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "X20B"
+          "nextNodeId": "X20C"
         }
       ]
     },
@@ -1920,31 +1920,31 @@ window.RANGER2_STORIES.push({
       "turn": 19,
       "title": "The thawing camp - late arrival",
       "narrative": [
-        "With the horn restored, the scouts cut off the camp while you recover the prisoners. The false markers are gathered as proof, but the pass is still at risk.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "The slower trail costs time, but it eventually leads to the thawing camp. With the horn restored, the scouts cut off the camp while you recover the prisoners. The false markers are gathered as proof, but the pass is still at risk.",
+        "Nera helps rebuild the weakened trail at the thawing camp before wind and snow erase it.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. A careful decision at the thawing camp can still recover the lost ground."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Sound the true warden signal and close both camp exits, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "X20A"
+          "nextNodeId": "X20C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Recover the false markers while the scouts secure Veyr’s men, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "X20B"
+          "nextNodeId": "X20A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Pursue the envoy and leave the prisoners unguarded, despite the ground already lost.",
+          "failTitle": "Failure at The thawing camp",
+          "failText": "A reckless decision at the thawing camp gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         }
       ]
@@ -1954,23 +1954,23 @@ window.RANGER2_STORIES.push({
       "turn": 20,
       "title": "Spring at the border - clear sign",
       "narrative": [
-        "At spring thaw, Aldric’s wardens reset the stones in public view. The shepherd returns home, Nera takes command of the border watch, and the tabby leaves no tracks in the mud.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "Following the strongest evidence brings you to spring at the border. At spring thaw, Aldric’s wardens reset the stones in public view. The shepherd returns home, Nera takes command of the border watch, and the first supply carts cross the restored boundary road.",
+        "Nera checks the exposed ground at spring at the border while you preserve the freshest signs.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Acting from spring at the border now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Settle the border privately with Veyr’s remaining officers.",
+          "failTitle": "Failure at Spring at the border",
+          "failText": "A reckless decision at spring at the border gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Present the old message and false cairns at the spring hearing.",
           "scoreDelta": 1,
           "endStory": true,
           "endType": "high",
@@ -1979,7 +1979,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Keep the pass watched until every marker is reset.",
           "scoreDelta": 0,
           "endStory": true,
           "endType": "low",
@@ -1992,15 +1992,15 @@ window.RANGER2_STORIES.push({
       "turn": 20,
       "title": "Spring at the border - steady trail",
       "narrative": [
-        "At spring thaw, Aldric’s wardens reset the stones in public view. The shepherd returns home, Nera takes command of the border watch, and the tabby leaves no tracks in the mud.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "After securing the previous scene, you continue to spring at the border. At spring thaw, Aldric’s wardens reset the stones in public view. The shepherd returns home, Nera takes command of the border watch, and the first supply carts cross the restored boundary road.",
+        "At spring at the border, Nera keeps watch as you separate old boundary lore from present evidence.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. Leaving spring at the border in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Present the old message and false cairns at the spring hearing, taking time to verify each step.",
           "scoreDelta": 1,
           "endStory": true,
           "endType": "high",
@@ -2009,7 +2009,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Keep the pass watched until every marker is reset, taking time to verify each step.",
           "scoreDelta": 0,
           "endStory": true,
           "endType": "low",
@@ -2018,9 +2018,9 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Settle the border privately with Veyr’s remaining officers, taking time to verify each step.",
+          "failTitle": "Failure at Spring at the border",
+          "failText": "A reckless decision at spring at the border gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         }
       ]
@@ -2030,15 +2030,15 @@ window.RANGER2_STORIES.push({
       "turn": 20,
       "title": "Spring at the border - late arrival",
       "narrative": [
-        "At spring thaw, Aldric’s wardens reset the stones in public view. The shepherd returns home, Nera takes command of the border watch, and the tabby leaves no tracks in the mud.",
-        "The gray silver tabby keeps near the edges of the search, its green eyes bright whenever the trail changes. You trust no single sign, but you do not ignore a useful one.",
-        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground."
+        "The slower trail costs time, but it eventually leads to spring at the border. At spring thaw, Aldric’s wardens reset the stones in public view. The shepherd returns home, Nera takes command of the border watch, and the first supply carts cross the restored boundary road.",
+        "Nera helps rebuild the weakened trail at spring at the border before wind and snow erase it.",
+        "The mountain boundary is being altered by careful hands, and every hour gives those hands more ground. A careful decision at spring at the border can still recover the lost ground."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the trail, then continue with the wardens.",
+          "label": "Keep the pass watched until every marker is reset, despite the ground already lost.",
           "scoreDelta": 0,
           "endStory": true,
           "endType": "low",
@@ -2047,15 +2047,15 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cross the strange boundary without scouting the ground.",
-          "failTitle": "Lost Beyond the Line",
-          "failText": "The hidden patrol surrounds you before the border can be understood. The shepherd and the evidence disappear into the mountain.",
+          "label": "Settle the border privately with Veyr’s remaining officers, despite the ground already lost.",
+          "failTitle": "Failure at Spring at the border",
+          "failText": "A reckless decision at spring at the border gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the boundary signs carefully and protect the witnesses.",
+          "label": "Present the old message and false cairns at the spring hearing, despite the ground already lost.",
           "scoreDelta": 1,
           "endStory": true,
           "endType": "high",

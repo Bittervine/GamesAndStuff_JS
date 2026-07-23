@@ -75,8 +75,8 @@
         "arm_lower_left": {
             "x": 1406,
             "y": 534,
-            "w": 158,
-            "h": 194
+            "w": 141,
+            "h": 92
         },
         "head_alt_01": {
             "x": 64,
@@ -101,6 +101,18 @@
             "y": 435,
             "w": 150,
             "h": 167
+        },
+        "hand_left": {
+            "x": 1466,
+            "y": 653,
+            "w": 106,
+            "h": 155
+        },
+        "hand_right": {
+            "x": 1467,
+            "y": 651,
+            "w": 106,
+            "h": 155
         }
     },
     "objects": {
@@ -296,6 +308,22 @@
         "jaw": {
             "id": "jaw",
             "frame": "jaw",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": []
+        },
+        "hand_left": {
+            "id": "hand_left",
+            "frame": "hand_left",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": []
+        },
+        "hand_right": {
+            "id": "hand_right",
+            "frame": "hand_right",
             "type": "characterPart",
             "layer": "character",
             "mirrorable": true,

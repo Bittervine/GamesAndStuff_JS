@@ -4236,6 +4236,14 @@ function characterEnemyCanUseProjectile(state, enemy) {
     return characterEnemyProjectilePathClearFromPoint(state, enemy, { x: enemy.currentTransform.x, y: enemy.currentTransform.y });
 }
 
+function characterEnemyArtworkOriginAt(enemy, x, y, facing = enemy.facing) {
+    const direction = Number(facing) < 0 ? -1 : 1;
+    return {
+        x: x + direction * finiteNumberOr(enemy.renderOffsetX, 0),
+        y: y + finiteNumberOr(enemy.renderOffsetY, 0)
+    };
+}
+
 function enemyProjectileSpawnPointAt(enemy, x, y, facing = enemy.facing) {
     const hasAuthoredOrigin = enemy.projectileOriginLocalX !== null && enemy.projectileOriginLocalX !== undefined &&
         enemy.projectileOriginLocalY !== null && enemy.projectileOriginLocalY !== undefined;
@@ -4243,10 +4251,11 @@ function enemyProjectileSpawnPointAt(enemy, x, y, facing = enemy.facing) {
     const localY = Number(enemy.projectileOriginLocalY);
     const direction = Number(facing) < 0 ? -1 : 1;
     if (hasAuthoredOrigin && Number.isFinite(localX) && Number.isFinite(localY)) {
+        const artworkOrigin = characterEnemyArtworkOriginAt(enemy, x, y, facing);
         const authoredScale = Math.max(0.0001, Number(enemy.projectileRigScale) || 1) * Math.max(0.05, Number(enemy.currentTransform.scaleX) || 1);
         return {
-            x: x + localX * authoredScale * direction,
-            y: y + localY * authoredScale
+            x: artworkOrigin.x + localX * authoredScale * direction,
+            y: artworkOrigin.y + localY * authoredScale
         };
     }
     return {

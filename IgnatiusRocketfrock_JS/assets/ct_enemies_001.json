@@ -1,6 +1,6 @@
 {
     "meta": {
-        "version": 61,
+        "version": 63,
         "note": "Adds enemy 040, an articulated Raptor with an initial idle animation.",
         "revision": 483
     },

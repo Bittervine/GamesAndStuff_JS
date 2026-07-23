@@ -5428,6 +5428,10 @@ function testTriFireballGoblinVolleyUsesAnyClearTrajectory() {
 function testHumanKnifeThrowerVolley() {
     const catalog = JSON.parse(readFileSync("./assets/ct_enemies_001.json", "utf8"));
     const definition = catalog.enemies.enemy_032;
+    const knifeRig = JSON.parse(readFileSync("./assets/ct_rig_enemy_032.json", "utf8"));
+    const knifeAttack = normalizeAnimationClip(JSON.parse(readFileSync("./assets/ct_anim_enemy_032_attack.json", "utf8")), "Human Knife Thrower attack");
+    const knifeReleaseTime = knifeRig.parts.throwingKnife.projectile.releaseTime;
+    const knifeReleasePose = sampleAnimationClip(knifeAttack, knifeReleaseTime).throwingKnife;
     const state = createInitialGameState({
         tuning: {
             playerDamageInvulnerabilitySeconds: 0.1,
@@ -5455,6 +5459,20 @@ function testHumanKnifeThrowerVolley() {
             awarenessViewHalfAngle: 90
         }]
     });
+    applyCharacterCombatProfiles(state, new Map([[definition.characterId, {
+        attackDuration: knifeAttack.duration,
+        projectiles: [{
+            partName: "throwingKnife",
+            frameId: knifeRig.parts.throwingKnife.frame,
+            animationSlot: "attack",
+            launchType: knifeRig.parts.throwingKnife.projectile.launchType,
+            projectileKind: knifeRig.parts.throwingKnife.projectile.projectileKind,
+            releaseTime: knifeReleaseTime,
+            localX: knifeReleasePose.x,
+            localY: knifeReleasePose.y,
+            rigScale: knifeRig.global.scale
+        }]
+    }]]));
     state.world.segments = [{ id: "floor", kind: "walkable", x1: -100, y1: 600, x2: 700, y2: 600 }];
     state.world.solids = [];
     state.world.collisionPolygons = [];
@@ -5473,6 +5491,16 @@ function testHumanKnifeThrowerVolley() {
     assert.deepEqual(fired.map((event) => event.volleyAngleOffsetDegrees), [-5, 0, 5], "the three knives should use the authored +/-5 degree fan");
     assert.ok(fired.every((event) => event.projectileKind === "enemyKnife"), "throwing-knife projectiles should use their dedicated simulation/render kind");
     assert.ok(fired.every((event) => event.projectilePartName === "throwingKnife"), "the volley should be attributed to the hidden hand launch marker");
+    const throwingEnemy = state.enemies.find((enemy) => enemy.id === "human_knife_thrower");
+    const knifeLocalScale = knifeRig.global.scale * throwingEnemy.currentTransform.scaleX;
+    const expectedKnifeX = throwingEnemy.currentTransform.x
+        + throwingEnemy.facing * throwingEnemy.renderOffsetX
+        + throwingEnemy.facing * knifeReleasePose.x * knifeLocalScale;
+    const expectedKnifeY = throwingEnemy.currentTransform.y
+        + throwingEnemy.renderOffsetY
+        + knifeReleasePose.y * knifeLocalScale;
+    assert.ok(fired.every((event) => Math.abs(event.x - expectedKnifeX) < 0.01), "the three projectile clones should begin at the held knife's rendered handoff X");
+    assert.ok(fired.every((event) => Math.abs(event.y - expectedKnifeY) < 0.01), "the three projectile clones should include the character artwork offset and begin at the held knife's rendered handoff Y");
     const knifeProjectiles = state.projectiles.filter((projectile) => projectile.enemyId === "human_knife_thrower");
     assert.ok(knifeProjectiles.length > 0, "at least one thrown knife should remain in flight after release");
     assert.ok(knifeProjectiles.every((projectile) => projectile.kind === "enemyKnife" && projectile.frameId === "dagger"), "every in-flight knife should render the dagger frame");

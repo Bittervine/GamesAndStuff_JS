@@ -17,29 +17,29 @@ window.RANGER2_STORIES.push({
       "title": "Ash on the river - swift trail",
       "narrative": [
         "A gray ash begins falling over Riverland, and Duke Aldric sends you to find its source before the wells are spoiled.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At ash on the river, the fresh details give you a narrow advantage.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Acting from ash on the river now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Question Willow Ford’s ferrymen about the first gray fall.",
           "scoreDelta": 0,
           "nextNodeId": "R02B"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Declare the river cursed and order every crossing abandoned.",
+          "failTitle": "Failure at Ash on the river",
+          "failText": "A reckless decision at ash on the river gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Inspect the ash at the nearest well before riding upstream.",
           "scoreDelta": 1,
           "nextNodeId": "R02A"
         }
@@ -50,32 +50,32 @@ window.RANGER2_STORIES.push({
       "turn": 1,
       "title": "Ash on the river - careful inquiry",
       "narrative": [
-        "A gray ash begins falling over Riverland, and Duke Aldric sends you to find its source before the wells are spoiled.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "After securing the previous scene, you continue to ash on the river. A gray ash begins falling over Riverland, and Duke Aldric sends you to find its source before the wells are spoiled.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At ash on the river, patience keeps uncertain testimony separate from proven fact.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Leaving ash on the river in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Declare the river cursed and order every crossing abandoned, taking time to verify each step.",
+          "failTitle": "Failure at Ash on the river",
+          "failText": "A reckless decision at ash on the river gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Inspect the ash at the nearest well before riding upstream, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "R02A"
+          "nextNodeId": "R02B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Question Willow Ford’s ferrymen about the first gray fall, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "R02B"
+          "nextNodeId": "R02C"
         }
       ]
     },
@@ -84,31 +84,31 @@ window.RANGER2_STORIES.push({
       "turn": 1,
       "title": "Ash on the river - late discovery",
       "narrative": [
-        "A gray ash begins falling over Riverland, and Duke Aldric sends you to find its source before the wells are spoiled.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "The slower trail costs time, but it eventually leads to ash on the river. A gray ash begins falling over Riverland, and Duke Aldric sends you to find its source before the wells are spoiled.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At ash on the river, you rebuild the weakened trail from the signs that remain.",
+        "The current is rising, and every delay gives the hidden scheme another chance. A careful decision at ash on the river can still recover the lost ground."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Inspect the ash at the nearest well before riding upstream, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "R02A"
+          "nextNodeId": "R02C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Question Willow Ford’s ferrymen about the first gray fall, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "R02B"
+          "nextNodeId": "R02A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Declare the river cursed and order every crossing abandoned, despite the ground already lost.",
+          "failTitle": "Failure at Ash on the river",
+          "failText": "A reckless decision at ash on the river gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -118,30 +118,30 @@ window.RANGER2_STORIES.push({
       "turn": 2,
       "title": "The dead fish - swift trail",
       "narrative": [
-        "Dead fish gather beneath Willow Ford while a sealed barge passes upstream under a false ducal pennant.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "Following the strongest evidence brings you to the dead fish. Dead fish gather beneath Willow Ford while a sealed barge passes upstream under a false ducal pennant.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the dead fish, the fresh details give you a narrow advantage.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Acting from the dead fish now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Follow the false ducal pennant without checking the ford.",
+          "failTitle": "Failure at The dead fish",
+          "failText": "A reckless decision at the dead fish gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Read the barge wake and recover the brass toll token.",
           "scoreDelta": 1,
           "nextNodeId": "R03A"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Collect the dead fish for examination before moving on.",
           "scoreDelta": 0,
           "nextNodeId": "R03B"
         }
@@ -152,31 +152,31 @@ window.RANGER2_STORIES.push({
       "turn": 2,
       "title": "The dead fish - careful inquiry",
       "narrative": [
-        "Dead fish gather beneath Willow Ford while a sealed barge passes upstream under a false ducal pennant.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "After securing the previous scene, you continue to the dead fish. Dead fish gather beneath Willow Ford while a sealed barge passes upstream under a false ducal pennant.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the dead fish, patience keeps uncertain testimony separate from proven fact.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Leaving the dead fish in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Read the barge wake and recover the brass toll token, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "R03A"
+          "nextNodeId": "R03B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Collect the dead fish for examination before moving on, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "R03B"
+          "nextNodeId": "R03C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Follow the false ducal pennant without checking the ford, taking time to verify each step.",
+          "failTitle": "Failure at The dead fish",
+          "failText": "A reckless decision at the dead fish gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -186,32 +186,32 @@ window.RANGER2_STORIES.push({
       "turn": 2,
       "title": "The dead fish - late discovery",
       "narrative": [
-        "Dead fish gather beneath Willow Ford while a sealed barge passes upstream under a false ducal pennant.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "The slower trail costs time, but it eventually leads to the dead fish. Dead fish gather beneath Willow Ford while a sealed barge passes upstream under a false ducal pennant.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the dead fish, you rebuild the weakened trail from the signs that remain.",
+        "The current is rising, and every delay gives the hidden scheme another chance. A careful decision at the dead fish can still recover the lost ground."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Collect the dead fish for examination before moving on, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "R03B"
+          "nextNodeId": "R03A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Follow the false ducal pennant without checking the ford, despite the ground already lost.",
+          "failTitle": "Failure at The dead fish",
+          "failText": "A reckless decision at the dead fish gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Read the barge wake and recover the brass toll token, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "R03A"
+          "nextNodeId": "R03C"
         }
       ]
     },
@@ -220,31 +220,31 @@ window.RANGER2_STORIES.push({
       "turn": 3,
       "title": "The abandoned barge - swift trail",
       "narrative": [
-        "The empty barge holds wet straw, broken jars, and lamp oil; a boot trail climbs toward an abandoned limeworks.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "Following the strongest evidence brings you to the abandoned barge. The empty barge holds wet straw, broken jars, and lamp oil; a boot trail climbs toward an abandoned limeworks.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the abandoned barge, the fresh details give you a narrow advantage.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Acting from the abandoned barge now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Search the barge seals and trace the boot trail ashore.",
           "scoreDelta": 1,
           "nextNodeId": "R04A"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Moor the abandoned vessel and inventory its broken jars.",
           "scoreDelta": 0,
           "nextNodeId": "R04B"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Burn the barge and destroy the cargo evidence.",
+          "failTitle": "Failure at The abandoned barge",
+          "failText": "A reckless decision at the abandoned barge gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -254,32 +254,32 @@ window.RANGER2_STORIES.push({
       "turn": 3,
       "title": "The abandoned barge - careful inquiry",
       "narrative": [
-        "The empty barge holds wet straw, broken jars, and lamp oil; a boot trail climbs toward an abandoned limeworks.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "After securing the previous scene, you continue to the abandoned barge. The empty barge holds wet straw, broken jars, and lamp oil; a boot trail climbs toward an abandoned limeworks.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the abandoned barge, patience keeps uncertain testimony separate from proven fact.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Leaving the abandoned barge in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Moor the abandoned vessel and inventory its broken jars, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "R04B"
+          "nextNodeId": "R04C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Burn the barge and destroy the cargo evidence, taking time to verify each step.",
+          "failTitle": "Failure at The abandoned barge",
+          "failText": "A reckless decision at the abandoned barge gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Search the barge seals and trace the boot trail ashore, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "R04A"
+          "nextNodeId": "R04B"
         }
       ]
     },
@@ -288,32 +288,32 @@ window.RANGER2_STORIES.push({
       "turn": 3,
       "title": "The abandoned barge - late discovery",
       "narrative": [
-        "The empty barge holds wet straw, broken jars, and lamp oil; a boot trail climbs toward an abandoned limeworks.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "The slower trail costs time, but it eventually leads to the abandoned barge. The empty barge holds wet straw, broken jars, and lamp oil; a boot trail climbs toward an abandoned limeworks.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the abandoned barge, you rebuild the weakened trail from the signs that remain.",
+        "The current is rising, and every delay gives the hidden scheme another chance. A careful decision at the abandoned barge can still recover the lost ground."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Burn the barge and destroy the cargo evidence, despite the ground already lost.",
+          "failTitle": "Failure at The abandoned barge",
+          "failText": "A reckless decision at the abandoned barge gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Search the barge seals and trace the boot trail ashore, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "R04A"
+          "nextNodeId": "R04C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Moor the abandoned vessel and inventory its broken jars, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "R04B"
+          "nextNodeId": "R04A"
         }
       ]
     },
@@ -322,30 +322,30 @@ window.RANGER2_STORIES.push({
       "turn": 4,
       "title": "The limeworks - swift trail",
       "narrative": [
-        "The limeworks contain pale grit, a torn courier cloak, and a careful list of village wells.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "Following the strongest evidence brings you to the limeworks. The limeworks contain pale grit, a torn courier cloak, and a careful list of village wells.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the limeworks, the fresh details give you a narrow advantage.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Acting from the limeworks now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Search the limeworks room by room with Jorin.",
           "scoreDelta": 0,
           "nextNodeId": "R05B"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Taste the unknown mineral to judge whether it is poison.",
+          "failTitle": "Failure at The limeworks",
+          "failText": "A reckless decision at the limeworks gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Compare the pale grit with the list of village wells.",
           "scoreDelta": 1,
           "nextNodeId": "R05A"
         }
@@ -356,32 +356,32 @@ window.RANGER2_STORIES.push({
       "turn": 4,
       "title": "The limeworks - careful inquiry",
       "narrative": [
-        "The limeworks contain pale grit, a torn courier cloak, and a careful list of village wells.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "After securing the previous scene, you continue to the limeworks. The limeworks contain pale grit, a torn courier cloak, and a careful list of village wells.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the limeworks, patience keeps uncertain testimony separate from proven fact.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Leaving the limeworks in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Taste the unknown mineral to judge whether it is poison, taking time to verify each step.",
+          "failTitle": "Failure at The limeworks",
+          "failText": "A reckless decision at the limeworks gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Compare the pale grit with the list of village wells, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "R05A"
+          "nextNodeId": "R05B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Search the limeworks room by room with Jorin, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "R05B"
+          "nextNodeId": "R05C"
         }
       ]
     },
@@ -390,31 +390,31 @@ window.RANGER2_STORIES.push({
       "turn": 4,
       "title": "The limeworks - late discovery",
       "narrative": [
-        "The limeworks contain pale grit, a torn courier cloak, and a careful list of village wells.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "The slower trail costs time, but it eventually leads to the limeworks. The limeworks contain pale grit, a torn courier cloak, and a careful list of village wells.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the limeworks, you rebuild the weakened trail from the signs that remain.",
+        "The current is rising, and every delay gives the hidden scheme another chance. A careful decision at the limeworks can still recover the lost ground."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Compare the pale grit with the list of village wells, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "R05A"
+          "nextNodeId": "R05C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Search the limeworks room by room with Jorin, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "R05B"
+          "nextNodeId": "R05A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Taste the unknown mineral to judge whether it is poison, despite the ground already lost.",
+          "failTitle": "Failure at The limeworks",
+          "failText": "A reckless decision at the limeworks gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -424,30 +424,30 @@ window.RANGER2_STORIES.push({
       "turn": 5,
       "title": "Jorin’s warning - swift trail",
       "narrative": [
-        "Ferryman Jorin admits he was paid to look away and names Ansa Reed, a disgraced Riverland surveyor.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "Following the strongest evidence brings you to jorin’s warning. Ferryman Jorin admits he was paid to look away and names Ansa Reed, a disgraced Riverland surveyor.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At jorin’s warning, the fresh details give you a narrow advantage.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Acting from jorin’s warning now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Beat a confession from the ferryman and lose his trust.",
+          "failTitle": "Failure at Jorin’s warning",
+          "failText": "A reckless decision at jorin’s warning gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Offer Jorin protection in exchange for the full payment trail.",
           "scoreDelta": 1,
           "nextNodeId": "R06A"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Keep Jorin under watch while following the towpath.",
           "scoreDelta": 0,
           "nextNodeId": "R06B"
         }
@@ -458,31 +458,31 @@ window.RANGER2_STORIES.push({
       "turn": 5,
       "title": "Jorin’s warning - careful inquiry",
       "narrative": [
-        "Ferryman Jorin admits he was paid to look away and names Ansa Reed, a disgraced Riverland surveyor.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "After securing the previous scene, you continue to jorin’s warning. Ferryman Jorin admits he was paid to look away and names Ansa Reed, a disgraced Riverland surveyor.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At jorin’s warning, patience keeps uncertain testimony separate from proven fact.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Leaving jorin’s warning in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Offer Jorin protection in exchange for the full payment trail, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "R06A"
+          "nextNodeId": "R06B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Keep Jorin under watch while following the towpath, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "R06B"
+          "nextNodeId": "R06C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Beat a confession from the ferryman and lose his trust, taking time to verify each step.",
+          "failTitle": "Failure at Jorin’s warning",
+          "failText": "A reckless decision at jorin’s warning gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -492,32 +492,32 @@ window.RANGER2_STORIES.push({
       "turn": 5,
       "title": "Jorin’s warning - late discovery",
       "narrative": [
-        "Ferryman Jorin admits he was paid to look away and names Ansa Reed, a disgraced Riverland surveyor.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "The slower trail costs time, but it eventually leads to jorin’s warning. Ferryman Jorin admits he was paid to look away and names Ansa Reed, a disgraced Riverland surveyor.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At jorin’s warning, you rebuild the weakened trail from the signs that remain.",
+        "The current is rising, and every delay gives the hidden scheme another chance. A careful decision at jorin’s warning can still recover the lost ground."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Keep Jorin under watch while following the towpath, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "R06B"
+          "nextNodeId": "R06A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Beat a confession from the ferryman and lose his trust, despite the ground already lost.",
+          "failTitle": "Failure at Jorin’s warning",
+          "failText": "A reckless decision at jorin’s warning gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Offer Jorin protection in exchange for the full payment trail, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "R06A"
+          "nextNodeId": "R06C"
         }
       ]
     },
@@ -526,31 +526,31 @@ window.RANGER2_STORIES.push({
       "turn": 6,
       "title": "The willow camp - swift trail",
       "narrative": [
-        "A hidden camp holds river maps marking wells, ferries, and forgotten plague roads.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "Following the strongest evidence brings you to the willow camp. A hidden camp holds river maps marking wells, ferries, and forgotten plague roads.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the willow camp, the fresh details give you a narrow advantage.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Acting from the willow camp now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Study the camp maps for the route connecting the marked wells.",
           "scoreDelta": 1,
           "nextNodeId": "R07A"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Wait in concealment for the lone rider to return.",
           "scoreDelta": 0,
           "nextNodeId": "R07B"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Scatter the maps as worthless surveyor’s work.",
+          "failTitle": "Failure at The willow camp",
+          "failText": "A reckless decision at the willow camp gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -560,32 +560,32 @@ window.RANGER2_STORIES.push({
       "turn": 6,
       "title": "The willow camp - careful inquiry",
       "narrative": [
-        "A hidden camp holds river maps marking wells, ferries, and forgotten plague roads.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "After securing the previous scene, you continue to the willow camp. A hidden camp holds river maps marking wells, ferries, and forgotten plague roads.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the willow camp, patience keeps uncertain testimony separate from proven fact.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Leaving the willow camp in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Wait in concealment for the lone rider to return, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "R07B"
+          "nextNodeId": "R07C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Scatter the maps as worthless surveyor’s work, taking time to verify each step.",
+          "failTitle": "Failure at The willow camp",
+          "failText": "A reckless decision at the willow camp gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Study the camp maps for the route connecting the marked wells, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "R07A"
+          "nextNodeId": "R07B"
         }
       ]
     },
@@ -594,32 +594,32 @@ window.RANGER2_STORIES.push({
       "turn": 6,
       "title": "The willow camp - late discovery",
       "narrative": [
-        "A hidden camp holds river maps marking wells, ferries, and forgotten plague roads.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "The slower trail costs time, but it eventually leads to the willow camp. A hidden camp holds river maps marking wells, ferries, and forgotten plague roads.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the willow camp, you rebuild the weakened trail from the signs that remain.",
+        "The current is rising, and every delay gives the hidden scheme another chance. A careful decision at the willow camp can still recover the lost ground."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Scatter the maps as worthless surveyor’s work, despite the ground already lost.",
+          "failTitle": "Failure at The willow camp",
+          "failText": "A reckless decision at the willow camp gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Study the camp maps for the route connecting the marked wells, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "R07A"
+          "nextNodeId": "R07C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Wait in concealment for the lone rider to return, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "R07B"
+          "nextNodeId": "R07A"
         }
       ]
     },
@@ -628,30 +628,30 @@ window.RANGER2_STORIES.push({
       "turn": 7,
       "title": "The red ochre mark - swift trail",
       "narrative": [
-        "Ansa explains that the ash is mineral waste being used to turn villages against one another.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "Following the strongest evidence brings you to the red ochre mark. Ansa explains that the ash is mineral waste being used to turn villages against one another.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the red ochre mark, the fresh details give you a narrow advantage.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Acting from the red ochre mark now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Hear Ansa’s account but retain the suspicious jars.",
           "scoreDelta": 0,
           "nextNodeId": "R08B"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Seize Ansa before checking any of her evidence.",
+          "failTitle": "Failure at The red ochre mark",
+          "failText": "A reckless decision at the red ochre mark gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Let Ansa test the ochre while you cover the riverbank.",
           "scoreDelta": 1,
           "nextNodeId": "R08A"
         }
@@ -662,32 +662,32 @@ window.RANGER2_STORIES.push({
       "turn": 7,
       "title": "The red ochre mark - careful inquiry",
       "narrative": [
-        "Ansa explains that the ash is mineral waste being used to turn villages against one another.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "After securing the previous scene, you continue to the red ochre mark. Ansa explains that the ash is mineral waste being used to turn villages against one another.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the red ochre mark, patience keeps uncertain testimony separate from proven fact.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Leaving the red ochre mark in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Seize Ansa before checking any of her evidence, taking time to verify each step.",
+          "failTitle": "Failure at The red ochre mark",
+          "failText": "A reckless decision at the red ochre mark gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Let Ansa test the ochre while you cover the riverbank, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "R08A"
+          "nextNodeId": "R08B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Hear Ansa’s account but retain the suspicious jars, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "R08B"
+          "nextNodeId": "R08C"
         }
       ]
     },
@@ -696,31 +696,31 @@ window.RANGER2_STORIES.push({
       "turn": 7,
       "title": "The red ochre mark - late discovery",
       "narrative": [
-        "Ansa explains that the ash is mineral waste being used to turn villages against one another.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "The slower trail costs time, but it eventually leads to the red ochre mark. Ansa explains that the ash is mineral waste being used to turn villages against one another.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the red ochre mark, you rebuild the weakened trail from the signs that remain.",
+        "The current is rising, and every delay gives the hidden scheme another chance. A careful decision at the red ochre mark can still recover the lost ground."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Let Ansa test the ochre while you cover the riverbank, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "R08A"
+          "nextNodeId": "R08C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Hear Ansa’s account but retain the suspicious jars, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "R08B"
+          "nextNodeId": "R08A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Seize Ansa before checking any of her evidence, despite the ground already lost.",
+          "failTitle": "Failure at The red ochre mark",
+          "failText": "A reckless decision at the red ochre mark gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -730,30 +730,30 @@ window.RANGER2_STORIES.push({
       "turn": 8,
       "title": "Ansa’s evidence - swift trail",
       "narrative": [
-        "Her jars show two layers: harmless dye above material that thickens in water and blocks channels.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "Following the strongest evidence brings you to ansa’s evidence. Her jars show two layers: harmless dye above material that thickens in water and blocks channels.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At ansa’s evidence, the fresh details give you a narrow advantage.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Acting from ansa’s evidence now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Pour the contents into the river to see what happens.",
+          "failTitle": "Failure at Ansa’s evidence",
+          "failText": "A reckless decision at ansa’s evidence gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Separate the jar layers and compare them with river sediment.",
           "scoreDelta": 1,
           "nextNodeId": "R09A"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Hide the jars and move toward the old plague pits.",
           "scoreDelta": 0,
           "nextNodeId": "R09B"
         }
@@ -764,31 +764,31 @@ window.RANGER2_STORIES.push({
       "turn": 8,
       "title": "Ansa’s evidence - careful inquiry",
       "narrative": [
-        "Her jars show two layers: harmless dye above material that thickens in water and blocks channels.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "After securing the previous scene, you continue to ansa’s evidence. Her jars show two layers: harmless dye above material that thickens in water and blocks channels.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At ansa’s evidence, patience keeps uncertain testimony separate from proven fact.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Leaving ansa’s evidence in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Separate the jar layers and compare them with river sediment, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "R09A"
+          "nextNodeId": "R09B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Hide the jars and move toward the old plague pits, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "R09B"
+          "nextNodeId": "R09C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Pour the contents into the river to see what happens, taking time to verify each step.",
+          "failTitle": "Failure at Ansa’s evidence",
+          "failText": "A reckless decision at ansa’s evidence gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -798,32 +798,32 @@ window.RANGER2_STORIES.push({
       "turn": 8,
       "title": "Ansa’s evidence - late discovery",
       "narrative": [
-        "Her jars show two layers: harmless dye above material that thickens in water and blocks channels.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "The slower trail costs time, but it eventually leads to ansa’s evidence. Her jars show two layers: harmless dye above material that thickens in water and blocks channels.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At ansa’s evidence, you rebuild the weakened trail from the signs that remain.",
+        "The current is rising, and every delay gives the hidden scheme another chance. A careful decision at ansa’s evidence can still recover the lost ground."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Hide the jars and move toward the old plague pits, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "R09B"
+          "nextNodeId": "R09A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Pour the contents into the river to see what happens, despite the ground already lost.",
+          "failTitle": "Failure at Ansa’s evidence",
+          "failText": "A reckless decision at ansa’s evidence gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Separate the jar layers and compare them with river sediment, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "R09A"
+          "nextNodeId": "R09C"
         }
       ]
     },
@@ -832,31 +832,31 @@ window.RANGER2_STORIES.push({
       "turn": 9,
       "title": "The toll riders - swift trail",
       "narrative": [
-        "False toll riders arrive with forged papers and know too much about the hidden cargo.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "Following the strongest evidence brings you to the toll riders. False toll riders arrive with forged papers and know too much about the hidden cargo.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the toll riders, the fresh details give you a narrow advantage.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Acting from the toll riders now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Expose the riders’ dead seal and protect the ferry rope.",
           "scoreDelta": 1,
           "nextNodeId": "R10A"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Delay them with questions while Ansa secures the jars.",
           "scoreDelta": 0,
           "nextNodeId": "R10B"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Surrender Ansa to men carrying forged papers.",
+          "failTitle": "Failure at The toll riders",
+          "failText": "A reckless decision at the toll riders gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -866,32 +866,32 @@ window.RANGER2_STORIES.push({
       "turn": 9,
       "title": "The toll riders - careful inquiry",
       "narrative": [
-        "False toll riders arrive with forged papers and know too much about the hidden cargo.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "After securing the previous scene, you continue to the toll riders. False toll riders arrive with forged papers and know too much about the hidden cargo.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the toll riders, patience keeps uncertain testimony separate from proven fact.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Leaving the toll riders in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Delay them with questions while Ansa secures the jars, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "R10B"
+          "nextNodeId": "R10C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Surrender Ansa to men carrying forged papers, taking time to verify each step.",
+          "failTitle": "Failure at The toll riders",
+          "failText": "A reckless decision at the toll riders gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Expose the riders’ dead seal and protect the ferry rope, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "R10A"
+          "nextNodeId": "R10B"
         }
       ]
     },
@@ -900,32 +900,32 @@ window.RANGER2_STORIES.push({
       "turn": 9,
       "title": "The toll riders - late discovery",
       "narrative": [
-        "False toll riders arrive with forged papers and know too much about the hidden cargo.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "The slower trail costs time, but it eventually leads to the toll riders. False toll riders arrive with forged papers and know too much about the hidden cargo.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the toll riders, you rebuild the weakened trail from the signs that remain.",
+        "The current is rising, and every delay gives the hidden scheme another chance. A careful decision at the toll riders can still recover the lost ground."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Surrender Ansa to men carrying forged papers, despite the ground already lost.",
+          "failTitle": "Failure at The toll riders",
+          "failText": "A reckless decision at the toll riders gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Expose the riders’ dead seal and protect the ferry rope, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "R10A"
+          "nextNodeId": "R10C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Delay them with questions while Ansa secures the jars, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "R10B"
+          "nextNodeId": "R10A"
         }
       ]
     },
@@ -934,30 +934,30 @@ window.RANGER2_STORIES.push({
       "turn": 10,
       "title": "The drowned marker - swift trail",
       "narrative": [
-        "A drowned stone marker reveals a forgotten intake beneath the old city wall.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "Following the strongest evidence brings you to the drowned marker. A drowned stone marker reveals a forgotten intake beneath the old city wall.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the drowned marker, the fresh details give you a narrow advantage.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Acting from the drowned marker now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Mark the intake’s position before returning to the road.",
           "scoreDelta": 0,
           "nextNodeId": "R11B"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Break the marker apart and leave its meaning unread.",
+          "failTitle": "Failure at The drowned marker",
+          "failText": "A reckless decision at the drowned marker gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Raise the drowned marker and locate the forgotten intake.",
           "scoreDelta": 1,
           "nextNodeId": "R11A"
         }
@@ -968,32 +968,32 @@ window.RANGER2_STORIES.push({
       "turn": 10,
       "title": "The drowned marker - careful inquiry",
       "narrative": [
-        "A drowned stone marker reveals a forgotten intake beneath the old city wall.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "After securing the previous scene, you continue to the drowned marker. A drowned stone marker reveals a forgotten intake beneath the old city wall.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the drowned marker, patience keeps uncertain testimony separate from proven fact.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Leaving the drowned marker in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Break the marker apart and leave its meaning unread, taking time to verify each step.",
+          "failTitle": "Failure at The drowned marker",
+          "failText": "A reckless decision at the drowned marker gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Raise the drowned marker and locate the forgotten intake, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "R11A"
+          "nextNodeId": "R11B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Mark the intake’s position before returning to the road, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "R11B"
+          "nextNodeId": "R11C"
         }
       ]
     },
@@ -1002,31 +1002,31 @@ window.RANGER2_STORIES.push({
       "turn": 10,
       "title": "The drowned marker - late discovery",
       "narrative": [
-        "A drowned stone marker reveals a forgotten intake beneath the old city wall.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "The slower trail costs time, but it eventually leads to the drowned marker. A drowned stone marker reveals a forgotten intake beneath the old city wall.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the drowned marker, you rebuild the weakened trail from the signs that remain.",
+        "The current is rising, and every delay gives the hidden scheme another chance. A careful decision at the drowned marker can still recover the lost ground."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Raise the drowned marker and locate the forgotten intake, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "R11A"
+          "nextNodeId": "R11C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Mark the intake’s position before returning to the road, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "R11B"
+          "nextNodeId": "R11A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Break the marker apart and leave its meaning unread, despite the ground already lost.",
+          "failTitle": "Failure at The drowned marker",
+          "failText": "A reckless decision at the drowned marker gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -1036,30 +1036,30 @@ window.RANGER2_STORIES.push({
       "turn": 11,
       "title": "The lockhouse - swift trail",
       "narrative": [
-        "The lockhouse cabinet has been opened, and Clerk Pell’s night signatures fill the ledger.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "Following the strongest evidence brings you to the lockhouse. The lockhouse cabinet has been opened, and Clerk Pell’s night signatures fill the ledger.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the lockhouse, the fresh details give you a narrow advantage.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Acting from the lockhouse now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Assume every signed entry proves lawful access.",
+          "failTitle": "Failure at The lockhouse",
+          "failText": "A reckless decision at the lockhouse gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Compare Pell’s night entries with the missing lockhouse key.",
           "scoreDelta": 1,
           "nextNodeId": "R12A"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Seal the lockhouse and send a warden to find Pell.",
           "scoreDelta": 0,
           "nextNodeId": "R12B"
         }
@@ -1070,31 +1070,31 @@ window.RANGER2_STORIES.push({
       "turn": 11,
       "title": "The lockhouse - careful inquiry",
       "narrative": [
-        "The lockhouse cabinet has been opened, and Clerk Pell’s night signatures fill the ledger.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "After securing the previous scene, you continue to the lockhouse. The lockhouse cabinet has been opened, and Clerk Pell’s night signatures fill the ledger.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the lockhouse, patience keeps uncertain testimony separate from proven fact.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Leaving the lockhouse in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Compare Pell’s night entries with the missing lockhouse key, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "R12A"
+          "nextNodeId": "R12B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Seal the lockhouse and send a warden to find Pell, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "R12B"
+          "nextNodeId": "R12C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Assume every signed entry proves lawful access, taking time to verify each step.",
+          "failTitle": "Failure at The lockhouse",
+          "failText": "A reckless decision at the lockhouse gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -1104,32 +1104,32 @@ window.RANGER2_STORIES.push({
       "turn": 11,
       "title": "The lockhouse - late discovery",
       "narrative": [
-        "The lockhouse cabinet has been opened, and Clerk Pell’s night signatures fill the ledger.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "The slower trail costs time, but it eventually leads to the lockhouse. The lockhouse cabinet has been opened, and Clerk Pell’s night signatures fill the ledger.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the lockhouse, you rebuild the weakened trail from the signs that remain.",
+        "The current is rising, and every delay gives the hidden scheme another chance. A careful decision at the lockhouse can still recover the lost ground."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Seal the lockhouse and send a warden to find Pell, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "R12B"
+          "nextNodeId": "R12A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Assume every signed entry proves lawful access, despite the ground already lost.",
+          "failTitle": "Failure at The lockhouse",
+          "failText": "A reckless decision at the lockhouse gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Compare Pell’s night entries with the missing lockhouse key, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "R12A"
+          "nextNodeId": "R12C"
         }
       ]
     },
@@ -1138,31 +1138,31 @@ window.RANGER2_STORIES.push({
       "turn": 12,
       "title": "Pell’s secret - swift trail",
       "narrative": [
-        "Pell confesses that someone ordered the diversions, then gives you a scrap bearing House Vey’s crest.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "Following the strongest evidence brings you to pell’s secret. Pell confesses that someone ordered the diversions, then gives you a scrap bearing House Vey’s crest.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At pell’s secret, the fresh details give you a narrow advantage.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Acting from pell’s secret now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Keep Pell talking until he explains the House Vey cloth.",
           "scoreDelta": 1,
           "nextNodeId": "R13A"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Take Pell into custody and preserve his muddy clothing.",
           "scoreDelta": 0,
           "nextNodeId": "R13B"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Let the frightened clerk flee with the remaining records.",
+          "failTitle": "Failure at Pell’s secret",
+          "failText": "A reckless decision at pell’s secret gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -1172,32 +1172,32 @@ window.RANGER2_STORIES.push({
       "turn": 12,
       "title": "Pell’s secret - careful inquiry",
       "narrative": [
-        "Pell confesses that someone ordered the diversions, then gives you a scrap bearing House Vey’s crest.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "After securing the previous scene, you continue to pell’s secret. Pell confesses that someone ordered the diversions, then gives you a scrap bearing House Vey’s crest.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At pell’s secret, patience keeps uncertain testimony separate from proven fact.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Leaving pell’s secret in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Take Pell into custody and preserve his muddy clothing, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "R13B"
+          "nextNodeId": "R13C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Let the frightened clerk flee with the remaining records, taking time to verify each step.",
+          "failTitle": "Failure at Pell’s secret",
+          "failText": "A reckless decision at pell’s secret gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Keep Pell talking until he explains the House Vey cloth, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "R13A"
+          "nextNodeId": "R13B"
         }
       ]
     },
@@ -1206,32 +1206,32 @@ window.RANGER2_STORIES.push({
       "turn": 12,
       "title": "Pell’s secret - late discovery",
       "narrative": [
-        "Pell confesses that someone ordered the diversions, then gives you a scrap bearing House Vey’s crest.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "The slower trail costs time, but it eventually leads to pell’s secret. Pell confesses that someone ordered the diversions, then gives you a scrap bearing House Vey’s crest.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At pell’s secret, you rebuild the weakened trail from the signs that remain.",
+        "The current is rising, and every delay gives the hidden scheme another chance. A careful decision at pell’s secret can still recover the lost ground."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Let the frightened clerk flee with the remaining records, despite the ground already lost.",
+          "failTitle": "Failure at Pell’s secret",
+          "failText": "A reckless decision at pell’s secret gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Keep Pell talking until he explains the House Vey cloth, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "R13A"
+          "nextNodeId": "R13C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Take Pell into custody and preserve his muddy clothing, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "R13B"
+          "nextNodeId": "R13A"
         }
       ]
     },
@@ -1240,30 +1240,30 @@ window.RANGER2_STORIES.push({
       "turn": 13,
       "title": "House Vey’s mill - swift trail",
       "narrative": [
-        "House Vey’s mill runs through a hidden channel cut from the river.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "Following the strongest evidence brings you to house vey’s mill. House Vey’s mill runs through a hidden channel cut from the river.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At house vey’s mill, the fresh details give you a narrow advantage.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Acting from house vey’s mill now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Question the mill hands away from their mistress.",
           "scoreDelta": 0,
           "nextNodeId": "R14B"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Accept Corra’s road-repair story without viewing the cargo.",
+          "failTitle": "Failure at House Vey’s mill",
+          "failText": "A reckless decision at house vey’s mill gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Inspect the hidden mill channel before confronting Lady Corra.",
           "scoreDelta": 1,
           "nextNodeId": "R14A"
         }
@@ -1274,32 +1274,32 @@ window.RANGER2_STORIES.push({
       "turn": 13,
       "title": "House Vey’s mill - careful inquiry",
       "narrative": [
-        "House Vey’s mill runs through a hidden channel cut from the river.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "After securing the previous scene, you continue to house vey’s mill. House Vey’s mill runs through a hidden channel cut from the river.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At house vey’s mill, patience keeps uncertain testimony separate from proven fact.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Leaving house vey’s mill in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Accept Corra’s road-repair story without viewing the cargo, taking time to verify each step.",
+          "failTitle": "Failure at House Vey’s mill",
+          "failText": "A reckless decision at house vey’s mill gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Inspect the hidden mill channel before confronting Lady Corra, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "R14A"
+          "nextNodeId": "R14B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Question the mill hands away from their mistress, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "R14B"
+          "nextNodeId": "R14C"
         }
       ]
     },
@@ -1308,31 +1308,31 @@ window.RANGER2_STORIES.push({
       "turn": 13,
       "title": "House Vey’s mill - late discovery",
       "narrative": [
-        "House Vey’s mill runs through a hidden channel cut from the river.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "The slower trail costs time, but it eventually leads to house vey’s mill. House Vey’s mill runs through a hidden channel cut from the river.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At house vey’s mill, you rebuild the weakened trail from the signs that remain.",
+        "The current is rising, and every delay gives the hidden scheme another chance. A careful decision at house vey’s mill can still recover the lost ground."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Inspect the hidden mill channel before confronting Lady Corra, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "R14A"
+          "nextNodeId": "R14C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Question the mill hands away from their mistress, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "R14B"
+          "nextNodeId": "R14A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Accept Corra’s road-repair story without viewing the cargo, despite the ground already lost.",
+          "failTitle": "Failure at House Vey’s mill",
+          "failText": "A reckless decision at house vey’s mill gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -1342,30 +1342,30 @@ window.RANGER2_STORIES.push({
       "turn": 14,
       "title": "The millrace - swift trail",
       "narrative": [
-        "The millrace carries pale waste toward a marsh hollow, threatening to redirect the river.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "Following the strongest evidence brings you to the millrace. The millrace carries pale waste toward a marsh hollow, threatening to redirect the river.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the millrace, the fresh details give you a narrow advantage.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Acting from the millrace now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Open every sluice at once and flood the lower farms.",
+          "failTitle": "Failure at The millrace",
+          "failText": "A reckless decision at the millrace gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Test where the thickened water flows beyond the millrace.",
           "scoreDelta": 1,
           "nextNodeId": "R15A"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Block the side channel while Ansa surveys the hollow.",
           "scoreDelta": 0,
           "nextNodeId": "R15B"
         }
@@ -1376,31 +1376,31 @@ window.RANGER2_STORIES.push({
       "turn": 14,
       "title": "The millrace - careful inquiry",
       "narrative": [
-        "The millrace carries pale waste toward a marsh hollow, threatening to redirect the river.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "After securing the previous scene, you continue to the millrace. The millrace carries pale waste toward a marsh hollow, threatening to redirect the river.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the millrace, patience keeps uncertain testimony separate from proven fact.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Leaving the millrace in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Test where the thickened water flows beyond the millrace, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "R15A"
+          "nextNodeId": "R15B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Block the side channel while Ansa surveys the hollow, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "R15B"
+          "nextNodeId": "R15C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Open every sluice at once and flood the lower farms, taking time to verify each step.",
+          "failTitle": "Failure at The millrace",
+          "failText": "A reckless decision at the millrace gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -1410,32 +1410,32 @@ window.RANGER2_STORIES.push({
       "turn": 14,
       "title": "The millrace - late discovery",
       "narrative": [
-        "The millrace carries pale waste toward a marsh hollow, threatening to redirect the river.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "The slower trail costs time, but it eventually leads to the millrace. The millrace carries pale waste toward a marsh hollow, threatening to redirect the river.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the millrace, you rebuild the weakened trail from the signs that remain.",
+        "The current is rising, and every delay gives the hidden scheme another chance. A careful decision at the millrace can still recover the lost ground."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Block the side channel while Ansa surveys the hollow, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "R15B"
+          "nextNodeId": "R15A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Open every sluice at once and flood the lower farms, despite the ground already lost.",
+          "failTitle": "Failure at The millrace",
+          "failText": "A reckless decision at the millrace gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Test where the thickened water flows beyond the millrace, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "R15A"
+          "nextNodeId": "R15C"
         }
       ]
     },
@@ -1444,31 +1444,31 @@ window.RANGER2_STORIES.push({
       "turn": 15,
       "title": "The old plague pits - swift trail",
       "narrative": [
-        "The old plague pits conceal fresh excavation and a tunnel toward the forgotten intake.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "Following the strongest evidence brings you to the old plague pits. The old plague pits conceal fresh excavation and a tunnel toward the forgotten intake.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the old plague pits, the fresh details give you a narrow advantage.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Acting from the old plague pits now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Enter the plague-pit tunnel with ropes and marked exits.",
           "scoreDelta": 1,
           "nextNodeId": "R16A"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Question the captured worker outside the excavation.",
           "scoreDelta": 0,
           "nextNodeId": "R16B"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Send villagers into the unsupported tunnel ahead of you.",
+          "failTitle": "Failure at The old plague pits",
+          "failText": "A reckless decision at the old plague pits gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         }
       ]
@@ -1478,32 +1478,32 @@ window.RANGER2_STORIES.push({
       "turn": 15,
       "title": "The old plague pits - careful inquiry",
       "narrative": [
-        "The old plague pits conceal fresh excavation and a tunnel toward the forgotten intake.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "After securing the previous scene, you continue to the old plague pits. The old plague pits conceal fresh excavation and a tunnel toward the forgotten intake.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the old plague pits, patience keeps uncertain testimony separate from proven fact.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Leaving the old plague pits in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Question the captured worker outside the excavation, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "R16B"
+          "nextNodeId": "R16C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Send villagers into the unsupported tunnel ahead of you, taking time to verify each step.",
+          "failTitle": "Failure at The old plague pits",
+          "failText": "A reckless decision at the old plague pits gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Enter the plague-pit tunnel with ropes and marked exits, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "R16A"
+          "nextNodeId": "R16B"
         }
       ]
     },
@@ -1512,32 +1512,32 @@ window.RANGER2_STORIES.push({
       "turn": 15,
       "title": "The old plague pits - late discovery",
       "narrative": [
-        "The old plague pits conceal fresh excavation and a tunnel toward the forgotten intake.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "The slower trail costs time, but it eventually leads to the old plague pits. The old plague pits conceal fresh excavation and a tunnel toward the forgotten intake.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the old plague pits, you rebuild the weakened trail from the signs that remain.",
+        "The current is rising, and every delay gives the hidden scheme another chance. A careful decision at the old plague pits can still recover the lost ground."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Send villagers into the unsupported tunnel ahead of you, despite the ground already lost.",
+          "failTitle": "Failure at The old plague pits",
+          "failText": "A reckless decision at the old plague pits gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Enter the plague-pit tunnel with ropes and marked exits, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "R16A"
+          "nextNodeId": "R16C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Question the captured worker outside the excavation, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "R16B"
+          "nextNodeId": "R16A"
         }
       ]
     },
@@ -1546,30 +1546,30 @@ window.RANGER2_STORIES.push({
       "turn": 16,
       "title": "The buried chamber - swift trail",
       "narrative": [
-        "The buried chamber holds correspondence proving a bargain between House Vey and a foreign grain broker.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "Following the strongest evidence brings you to the buried chamber. The buried chamber holds correspondence proving a bargain between House Vey and a foreign grain broker.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the buried chamber, the fresh details give you a narrow advantage.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Acting from the buried chamber now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Copy the names and seals while Jorin guards the chamber.",
           "scoreDelta": 0,
           "nextNodeId": "R17B"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Burn the letters because foreign names appear upon them.",
+          "failTitle": "Failure at The buried chamber",
+          "failText": "A reckless decision at the buried chamber gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Secure the correspondence before examining the barrels.",
           "scoreDelta": 1,
           "nextNodeId": "R17A"
         }
@@ -1580,32 +1580,32 @@ window.RANGER2_STORIES.push({
       "turn": 16,
       "title": "The buried chamber - careful inquiry",
       "narrative": [
-        "The buried chamber holds correspondence proving a bargain between House Vey and a foreign grain broker.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "After securing the previous scene, you continue to the buried chamber. The buried chamber holds correspondence proving a bargain between House Vey and a foreign grain broker.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the buried chamber, patience keeps uncertain testimony separate from proven fact.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Leaving the buried chamber in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Burn the letters because foreign names appear upon them, taking time to verify each step.",
+          "failTitle": "Failure at The buried chamber",
+          "failText": "A reckless decision at the buried chamber gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Secure the correspondence before examining the barrels, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "R17A"
+          "nextNodeId": "R17B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Copy the names and seals while Jorin guards the chamber, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "R17B"
+          "nextNodeId": "R17C"
         }
       ]
     },
@@ -1614,31 +1614,31 @@ window.RANGER2_STORIES.push({
       "turn": 16,
       "title": "The buried chamber - late discovery",
       "narrative": [
-        "The buried chamber holds correspondence proving a bargain between House Vey and a foreign grain broker.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "The slower trail costs time, but it eventually leads to the buried chamber. The buried chamber holds correspondence proving a bargain between House Vey and a foreign grain broker.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the buried chamber, you rebuild the weakened trail from the signs that remain.",
+        "The current is rising, and every delay gives the hidden scheme another chance. A careful decision at the buried chamber can still recover the lost ground."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Secure the correspondence before examining the barrels, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "R17A"
+          "nextNodeId": "R17C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Copy the names and seals while Jorin guards the chamber, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "R17B"
+          "nextNodeId": "R17A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Burn the letters because foreign names appear upon them, despite the ground already lost.",
+          "failTitle": "Failure at The buried chamber",
+          "failText": "A reckless decision at the buried chamber gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         }
       ]
@@ -1648,30 +1648,30 @@ window.RANGER2_STORIES.push({
       "turn": 17,
       "title": "The rising water - swift trail",
       "narrative": [
-        "Rain begins upstream, and the blocked intake is close to breaking.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "Following the strongest evidence brings you to the rising water. Rain begins upstream, and the blocked intake is close to breaking.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the rising water, the fresh details give you a narrow advantage.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Acting from the rising water now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Keep everyone together and leave the villages unwarned.",
+          "failTitle": "Failure at The rising water",
+          "failText": "A reckless decision at the rising water gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Send Jorin to warn villages while Ansa clears the intake.",
           "scoreDelta": 1,
           "nextNodeId": "R18A"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Move the evidence uphill before the flood arrives.",
           "scoreDelta": 0,
           "nextNodeId": "R18B"
         }
@@ -1682,31 +1682,31 @@ window.RANGER2_STORIES.push({
       "turn": 17,
       "title": "The rising water - careful inquiry",
       "narrative": [
-        "Rain begins upstream, and the blocked intake is close to breaking.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "After securing the previous scene, you continue to the rising water. Rain begins upstream, and the blocked intake is close to breaking.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the rising water, patience keeps uncertain testimony separate from proven fact.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Leaving the rising water in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Send Jorin to warn villages while Ansa clears the intake, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "R18A"
+          "nextNodeId": "R18B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Move the evidence uphill before the flood arrives, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "R18B"
+          "nextNodeId": "R18C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Keep everyone together and leave the villages unwarned, taking time to verify each step.",
+          "failTitle": "Failure at The rising water",
+          "failText": "A reckless decision at the rising water gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         }
       ]
@@ -1716,32 +1716,32 @@ window.RANGER2_STORIES.push({
       "turn": 17,
       "title": "The rising water - late discovery",
       "narrative": [
-        "Rain begins upstream, and the blocked intake is close to breaking.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "The slower trail costs time, but it eventually leads to the rising water. Rain begins upstream, and the blocked intake is close to breaking.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the rising water, you rebuild the weakened trail from the signs that remain.",
+        "The current is rising, and every delay gives the hidden scheme another chance. A careful decision at the rising water can still recover the lost ground."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Move the evidence uphill before the flood arrives, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "R18B"
+          "nextNodeId": "R18A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Keep everyone together and leave the villages unwarned, despite the ground already lost.",
+          "failTitle": "Failure at The rising water",
+          "failText": "A reckless decision at the rising water gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Send Jorin to warn villages while Ansa clears the intake, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "R18A"
+          "nextNodeId": "R18C"
         }
       ]
     },
@@ -1750,31 +1750,31 @@ window.RANGER2_STORIES.push({
       "turn": 18,
       "title": "The night crossing - swift trail",
       "narrative": [
-        "Lanterns move along the mill side as Corra’s men carry barrels toward the waterworks.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "Following the strongest evidence brings you to the night crossing. Lanterns move along the mill side as Corra’s men carry barrels toward the waterworks.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the night crossing, the fresh details give you a narrow advantage.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Acting from the night crossing now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Cross under cover of rain and cut off Corra’s barrel crew.",
           "scoreDelta": 1,
           "nextNodeId": "R19A"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Hold the near bank until Jorin’s warning boats return.",
           "scoreDelta": 0,
           "nextNodeId": "R19B"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Charge the rotten footbridge with the whole party.",
+          "failTitle": "Failure at The night crossing",
+          "failText": "A reckless decision at the night crossing gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         }
       ]
@@ -1784,32 +1784,32 @@ window.RANGER2_STORIES.push({
       "turn": 18,
       "title": "The night crossing - careful inquiry",
       "narrative": [
-        "Lanterns move along the mill side as Corra’s men carry barrels toward the waterworks.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "After securing the previous scene, you continue to the night crossing. Lanterns move along the mill side as Corra’s men carry barrels toward the waterworks.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the night crossing, patience keeps uncertain testimony separate from proven fact.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Leaving the night crossing in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Hold the near bank until Jorin’s warning boats return, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "R19B"
+          "nextNodeId": "R19C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Charge the rotten footbridge with the whole party, taking time to verify each step.",
+          "failTitle": "Failure at The night crossing",
+          "failText": "A reckless decision at the night crossing gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Cross under cover of rain and cut off Corra’s barrel crew, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "R19A"
+          "nextNodeId": "R19B"
         }
       ]
     },
@@ -1818,32 +1818,32 @@ window.RANGER2_STORIES.push({
       "turn": 18,
       "title": "The night crossing - late discovery",
       "narrative": [
-        "Lanterns move along the mill side as Corra’s men carry barrels toward the waterworks.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "The slower trail costs time, but it eventually leads to the night crossing. Lanterns move along the mill side as Corra’s men carry barrels toward the waterworks.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the night crossing, you rebuild the weakened trail from the signs that remain.",
+        "The current is rising, and every delay gives the hidden scheme another chance. A careful decision at the night crossing can still recover the lost ground."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Charge the rotten footbridge with the whole party, despite the ground already lost.",
+          "failTitle": "Failure at The night crossing",
+          "failText": "A reckless decision at the night crossing gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Cross under cover of rain and cut off Corra’s barrel crew, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "R19A"
+          "nextNodeId": "R19C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Hold the near bank until Jorin’s warning boats return, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "R19B"
+          "nextNodeId": "R19A"
         }
       ]
     },
@@ -1852,30 +1852,30 @@ window.RANGER2_STORIES.push({
       "turn": 19,
       "title": "The river remembers - swift trail",
       "narrative": [
-        "At the final crossing, the river rises against rotten bridge supports and the letters may still be destroyed.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "Following the strongest evidence brings you to the river remembers. At the final crossing, the river rises against rotten bridge supports and the letters may still be destroyed.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the river remembers, the fresh details give you a narrow advantage.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Acting from the river remembers now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Brace the bridge and demand the mill hands surrender.",
           "scoreDelta": 0,
           "nextNodeId": "R20B"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Pursue Corra while the blocked intake begins to burst.",
+          "failTitle": "Failure at The river remembers",
+          "failText": "A reckless decision at the river remembers gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Save the letters and open the lock gate before taking Corra.",
           "scoreDelta": 1,
           "nextNodeId": "R20A"
         }
@@ -1886,32 +1886,32 @@ window.RANGER2_STORIES.push({
       "turn": 19,
       "title": "The river remembers - careful inquiry",
       "narrative": [
-        "At the final crossing, the river rises against rotten bridge supports and the letters may still be destroyed.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "After securing the previous scene, you continue to the river remembers. At the final crossing, the river rises against rotten bridge supports and the letters may still be destroyed.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the river remembers, patience keeps uncertain testimony separate from proven fact.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Leaving the river remembers in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Pursue Corra while the blocked intake begins to burst, taking time to verify each step.",
+          "failTitle": "Failure at The river remembers",
+          "failText": "A reckless decision at the river remembers gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Save the letters and open the lock gate before taking Corra, taking time to verify each step.",
           "scoreDelta": 1,
-          "nextNodeId": "R20A"
+          "nextNodeId": "R20B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Brace the bridge and demand the mill hands surrender, taking time to verify each step.",
           "scoreDelta": 0,
-          "nextNodeId": "R20B"
+          "nextNodeId": "R20C"
         }
       ]
     },
@@ -1920,31 +1920,31 @@ window.RANGER2_STORIES.push({
       "turn": 19,
       "title": "The river remembers - late discovery",
       "narrative": [
-        "At the final crossing, the river rises against rotten bridge supports and the letters may still be destroyed.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "The slower trail costs time, but it eventually leads to the river remembers. At the final crossing, the river rises against rotten bridge supports and the letters may still be destroyed.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At the river remembers, you rebuild the weakened trail from the signs that remain.",
+        "The current is rising, and every delay gives the hidden scheme another chance. A careful decision at the river remembers can still recover the lost ground."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Save the letters and open the lock gate before taking Corra, despite the ground already lost.",
           "scoreDelta": 1,
-          "nextNodeId": "R20A"
+          "nextNodeId": "R20C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Brace the bridge and demand the mill hands surrender, despite the ground already lost.",
           "scoreDelta": 0,
-          "nextNodeId": "R20B"
+          "nextNodeId": "R20A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Pursue Corra while the blocked intake begins to burst, despite the ground already lost.",
+          "failTitle": "Failure at The river remembers",
+          "failText": "A reckless decision at the river remembers gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         }
       ]
@@ -1954,23 +1954,23 @@ window.RANGER2_STORIES.push({
       "turn": 20,
       "title": "A clear bank - swift trail",
       "narrative": [
-        "By dawn, the intake stands open, the conspirators face judgment, and Riverland’s water runs clear again.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "Following the strongest evidence brings you to a clear bank. By dawn, the intake stands open, the conspirators face judgment, and Riverland’s water runs clear again.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At a clear bank, the fresh details give you a narrow advantage.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Acting from a clear bank now may keep you ahead of the threat."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Allow House Vey to remove the remaining mineral in secret.",
+          "failTitle": "Failure at A clear bank",
+          "failText": "A reckless decision at a clear bank gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Present the surviving records and water samples to Aldric.",
           "scoreDelta": 1,
           "endStory": true,
           "endType": "high",
@@ -1979,7 +1979,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Keep the intake guarded while the wells recover.",
           "scoreDelta": 0,
           "endStory": true,
           "endType": "low",
@@ -1992,15 +1992,15 @@ window.RANGER2_STORIES.push({
       "turn": 20,
       "title": "A clear bank - careful inquiry",
       "narrative": [
-        "By dawn, the intake stands open, the conspirators face judgment, and Riverland’s water runs clear again.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "After securing the previous scene, you continue to a clear bank. By dawn, the intake stands open, the conspirators face judgment, and Riverland’s water runs clear again.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At a clear bank, patience keeps uncertain testimony separate from proven fact.",
+        "The current is rising, and every delay gives the hidden scheme another chance. Leaving a clear bank in order matters as much as gaining speed."
       ],
       "options": [
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Present the surviving records and water samples to Aldric, taking time to verify each step.",
           "scoreDelta": 1,
           "endStory": true,
           "endType": "high",
@@ -2009,7 +2009,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Keep the intake guarded while the wells recover, taking time to verify each step.",
           "scoreDelta": 0,
           "endStory": true,
           "endType": "low",
@@ -2018,9 +2018,9 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Allow House Vey to remove the remaining mineral in secret, taking time to verify each step.",
+          "failTitle": "Failure at A clear bank",
+          "failText": "A reckless decision at a clear bank gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         }
       ]
@@ -2030,15 +2030,15 @@ window.RANGER2_STORIES.push({
       "turn": 20,
       "title": "A clear bank - late discovery",
       "narrative": [
-        "By dawn, the intake stands open, the conspirators face judgment, and Riverland’s water runs clear again.",
-        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events.",
-        "The current is rising, and every delay gives the hidden scheme another chance."
+        "The slower trail costs time, but it eventually leads to a clear bank. By dawn, the intake stands open, the conspirators face judgment, and Riverland’s water runs clear again.",
+        "You keep the evidence dry and your attention on practical signs: rope, iron, footprints, and the way frightened people remember events. At a clear bank, you rebuild the weakened trail from the signs that remain.",
+        "The current is rising, and every delay gives the hidden scheme another chance. A careful decision at a clear bank can still recover the lost ground."
       ],
       "options": [
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the nearest people, then continue with measured caution.",
+          "label": "Keep the intake guarded while the wells recover, despite the ground already lost.",
           "scoreDelta": 0,
           "endStory": true,
           "endType": "low",
@@ -2047,15 +2047,15 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Trust the convenient official story without checking it.",
-          "failTitle": "The River Turns Against You",
-          "failText": "The false trail wins the time it needs. The river works fail, and danger spreads beyond the reach of your search.",
+          "label": "Allow House Vey to remove the remaining mineral in secret, despite the ground already lost.",
+          "failTitle": "Failure at A clear bank",
+          "failText": "A reckless decision at a clear bank gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the physical evidence and protect the villages first.",
+          "label": "Present the surviving records and water samples to Aldric, despite the ground already lost.",
           "scoreDelta": 1,
           "endStory": true,
           "endType": "high",

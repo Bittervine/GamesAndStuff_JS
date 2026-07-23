@@ -17,14 +17,16 @@
         "rightUpperArm",
         "rightFoot",
         "rightLowerLeg",
-        "rightUpperLeg",
-        "rightLowerArm",
         "tailFront",
         "tailMiddle",
         "tailBack",
         "tailTip",
         "jaw",
-        "head"
+        "head",
+        "hand_left",
+        "rightLowerArm",
+        "hand_left_copy",
+        "rightUpperLeg"
     ],
     "global": {
         "scale": 0.19,
@@ -94,11 +96,11 @@
             "y": 0.2
         },
         "leftLowerLeg": {
-            "x": 0.8274,
-            "y": 0.2256
+            "x": 0.827,
+            "y": 0.226
         },
         "leftFoot": {
-            "x": 0.1784,
+            "x": 0.178,
             "y": 0.163
         },
         "rightUpperLeg": {
@@ -106,11 +108,11 @@
             "y": 0.2
         },
         "rightLowerLeg": {
-            "x": 0.8274,
-            "y": 0.2256
+            "x": 0.827,
+            "y": 0.226
         },
         "rightFoot": {
-            "x": 0.1784,
+            "x": 0.178,
             "y": 0.163
         },
         "leftUpperArm": {
@@ -118,20 +120,28 @@
             "y": 0.38
         },
         "leftLowerArm": {
-            "x": 0.1519,
-            "y": 0.1237
+            "x": 0.152,
+            "y": 0.124
         },
         "rightUpperArm": {
             "x": 0.52,
             "y": 0.38
         },
         "rightLowerArm": {
-            "x": 0.1519,
-            "y": 0.1237
+            "x": 0.152,
+            "y": 0.124
         },
         "jaw": {
             "x": 0.135,
             "y": 0.13
+        },
+        "hand_left": {
+            "x": 0.58,
+            "y": 0.13
+        },
+        "hand_left_copy": {
+            "x": 0.57,
+            "y": 0.14
         }
     },
     "parts": {
@@ -300,8 +310,8 @@
             "parentConstraint": {
                 "parentPart": "body",
                 "parentPoint": {
-                    "x": 0.25,
-                    "y": 0.44
+                    "x": 0.205,
+                    "y": 0.4
                 }
             }
         },
@@ -318,7 +328,7 @@
                 "y": -232.366
             },
             "scale": 1,
-            "targetHeight": 133,
+            "targetHeight": 120,
             "alpha": 1,
             "parentConstraint": {
                 "parentPart": "leftUpperLeg",
@@ -340,13 +350,13 @@
                 "y": -154.374
             },
             "scale": 1,
-            "targetHeight": 184,
+            "targetHeight": 165,
             "alpha": 1,
             "parentConstraint": {
                 "parentPart": "leftLowerLeg",
                 "parentPoint": {
-                    "x": 0.132,
-                    "y": 0.812
+                    "x": 0.18363315480459563,
+                    "y": 0.8711187312375569
                 }
             }
         },
@@ -370,7 +380,7 @@
                 "parentPart": "body",
                 "parentPoint": {
                     "x": 0.21,
-                    "y": 0.44
+                    "y": 0.4
                 }
             }
         },
@@ -388,7 +398,7 @@
                 "y": -232.366
             },
             "scale": 1,
-            "targetHeight": 133,
+            "targetHeight": 120,
             "alpha": 1,
             "parentConstraint": {
                 "parentPart": "rightUpperLeg",
@@ -411,7 +421,7 @@
                 "y": -154.374
             },
             "scale": 1,
-            "targetHeight": 184,
+            "targetHeight": 165,
             "alpha": 1,
             "parentConstraint": {
                 "parentPart": "rightLowerLeg",
@@ -457,7 +467,7 @@
                 "y": -261.354
             },
             "scale": 1,
-            "targetHeight": 194,
+            "targetHeight": 100,
             "alpha": 1,
             "parentConstraint": {
                 "parentPart": "leftUpperArm",
@@ -505,13 +515,13 @@
                 "y": -261.354
             },
             "scale": 1,
-            "targetHeight": 194,
+            "targetHeight": 100,
             "alpha": 1,
             "parentConstraint": {
                 "parentPart": "rightUpperArm",
                 "parentPoint": {
-                    "x": 0.1869,
-                    "y": 0.8977
+                    "x": 0.2429713301110199,
+                    "y": 0.9370075188007961
                 }
             }
         },
@@ -531,6 +541,44 @@
                 "parentPoint": {
                     "x": 0.04,
                     "y": 0.8396
+                }
+            }
+        },
+        "hand_left": {
+            "frame": "hand_left",
+            "role": "hand_left",
+            "tags": [],
+            "offset": {
+                "x": 0,
+                "y": 0
+            },
+            "scale": 1,
+            "targetHeight": 154,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "leftLowerArm",
+                "parentPoint": {
+                    "x": 0.8565633213169774,
+                    "y": 0.7772961725955312
+                }
+            }
+        },
+        "hand_left_copy": {
+            "frame": "hand_right",
+            "role": "hand_left_copy",
+            "tags": [],
+            "offset": {
+                "x": 0,
+                "y": 0
+            },
+            "scale": 1,
+            "targetHeight": 155,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "rightLowerArm",
+                "parentPoint": {
+                    "x": 0.8756250515898187,
+                    "y": 0.7533399497374244
                 }
             }
         }
