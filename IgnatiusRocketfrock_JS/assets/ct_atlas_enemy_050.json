@@ -1,0 +1,167 @@
+{
+    "meta": {
+        "version": 1,
+        "note": "Initial Snake atlas. The full-body reference at the bottom of the PNG remains uncatalogued; only the isolated top-row pieces and attack heads are rigged."
+    },
+    "atlasId": "ct_atlas_enemy_050",
+    "image": "ct_atlas_enemy_050.png",
+    "frames": {
+        "tail": {
+            "x": 52,
+            "y": 56,
+            "w": 278,
+            "h": 45
+        },
+        "section_round": {
+            "x": 364,
+            "y": 55,
+            "w": 165,
+            "h": 64
+        },
+        "section_taper": {
+            "x": 360,
+            "y": 137,
+            "w": 179,
+            "h": 63
+        },
+        "head_idle": {
+            "x": 591,
+            "y": 37,
+            "w": 198,
+            "h": 95
+        },
+        "head_attack_01": {
+            "x": 894,
+            "y": 29,
+            "w": 199,
+            "h": 97
+        },
+        "head_attack_02": {
+            "x": 1129,
+            "y": 26,
+            "w": 195,
+            "h": 116
+        },
+        "head_attack_03": {
+            "x": 1372,
+            "y": 23,
+            "w": 193,
+            "h": 155
+        },
+        "head_attack_04": {
+            "x": 1599,
+            "y": 25,
+            "w": 190,
+            "h": 181
+        },
+        "head_idle_alt": {
+            "x": 1748,
+            "y": 393,
+            "w": 198,
+            "h": 95
+        }
+    },
+    "objects": {
+        "tail": {
+            "id": "tail",
+            "frame": "tail",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "snake",
+                "tail"
+            ]
+        },
+        "section_round": {
+            "id": "section_round",
+            "frame": "section_round",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "snake",
+                "body",
+                "section"
+            ]
+        },
+        "section_taper": {
+            "id": "section_taper",
+            "frame": "section_taper",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "snake",
+                "body",
+                "section"
+            ]
+        },
+        "head_idle": {
+            "id": "head_idle",
+            "frame": "head_idle",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "snake",
+                "head"
+            ]
+        },
+        "head_attack_01": {
+            "id": "head_attack_01",
+            "frame": "head_attack_01",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "snake",
+                "head"
+            ]
+        },
+        "head_attack_02": {
+            "id": "head_attack_02",
+            "frame": "head_attack_02",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "snake",
+                "head"
+            ]
+        },
+        "head_attack_03": {
+            "id": "head_attack_03",
+            "frame": "head_attack_03",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "snake",
+                "head"
+            ]
+        },
+        "head_attack_04": {
+            "id": "head_attack_04",
+            "frame": "head_attack_04",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "snake",
+                "head"
+            ]
+        },
+        "head_idle_alt": {
+            "id": "head_idle_alt",
+            "frame": "head_idle_alt",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "snake",
+                "head"
+            ]
+        }
+    }
+}

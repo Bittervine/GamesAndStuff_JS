@@ -1,0 +1,277 @@
+{
+    "meta": {
+        "version": 1,
+        "note": "Hobgoblin rig retargeted from Enemy 011. Part names, setup coordinates, draw order, and animation-space anchors remain compatible with the copied Enemy 010 family clips; pivots are remapped to this atlas's transparent sprite bounds."
+    },
+    "rigId": "ct_rig_enemy_018",
+    "atlasId": "ct_atlas_enemy_018",
+    "atlasManifest": "ct_atlas_enemy_018.json",
+    "drawOrder": [
+        "leftArm",
+        "leftArmClosed",
+        "leftLeg",
+        "rightLeg",
+        "head",
+        "torso",
+        "weapon",
+        "rightArm",
+        "cannonball",
+        "fireball"
+    ],
+    "global": {
+        "scale": 0.5,
+        "lean": 0,
+        "rootX": 0,
+        "rootYOffsetFromGround": 0,
+        "groundOffset": 0,
+        "debugPivots": false
+    },
+    "anchors": {
+        "neck": {
+            "x": 2,
+            "y": -230
+        },
+        "rightShoulder": {
+            "x": 22,
+            "y": -205
+        },
+        "leftShoulder": {
+            "x": 45,
+            "y": -201
+        },
+        "rightHip": {
+            "x": -22,
+            "y": -88
+        },
+        "leftHip": {
+            "x": 26,
+            "y": -88
+        },
+        "rightHand": {
+            "x": 164,
+            "y": -186
+        },
+        "leftHand": {
+            "x": 190,
+            "y": -176
+        },
+        "weaponGrip": {
+            "x": 145,
+            "y": -179
+        }
+    },
+    "pivots": {
+        "rightArm": {
+            "x": 0.1792231999653216,
+            "y": 0.3080220769092328
+        },
+        "leftArm": {
+            "x": 0.07407429329040212,
+            "y": 0.4973977902090118
+        },
+        "rightLeg": {
+            "x": 0.45990844062947084,
+            "y": 0.1837282972890648
+        },
+        "leftLeg": {
+            "x": 0.26360887096774194,
+            "y": 0.17770412196499144
+        },
+        "torso": {
+            "x": 0.4414261619957589,
+            "y": 0.8389653707636902
+        },
+        "head": {
+            "x": 0.1061962532209764,
+            "y": 0.9110395500522019
+        },
+        "weapon": {
+            "x": 0.18667782489828424,
+            "y": 0.6050608519269777
+        },
+        "leftArmClosed": {
+            "x": 0.17860659340659363,
+            "y": 0.26354601006470174
+        },
+        "cannonball": {
+            "x": 0.4859544583954034,
+            "y": 0.4790625
+        },
+        "fireball": {
+            "x": 0.5192960135708226,
+            "y": 0.49077588824779844
+        }
+    },
+    "parts": {
+        "rightLeg": {
+            "frame": "rightLeg",
+            "role": "rightLeg",
+            "tags": [
+                "leg",
+                "rear"
+            ],
+            "offset": {
+                "x": -22,
+                "y": -88
+            },
+            "scale": 1,
+            "targetHeight": 170,
+            "alpha": 1
+        },
+        "rightArm": {
+            "frame": "rightArmClosed",
+            "role": "rightArm",
+            "tags": [
+                "arm",
+                "rear",
+                "holder"
+            ],
+            "offset": {
+                "x": 22,
+                "y": -205
+            },
+            "scale": 1,
+            "targetHeight": 110,
+            "alpha": 1,
+            "rotation": {}
+        },
+        "torso": {
+            "frame": "torso",
+            "role": "torso",
+            "tags": [
+                "body"
+            ],
+            "offset": {
+                "x": 0,
+                "y": -110
+            },
+            "scale": 1,
+            "targetHeight": 186,
+            "alpha": 1
+        },
+        "head": {
+            "frame": "head",
+            "role": "head",
+            "tags": [
+                "head"
+            ],
+            "offset": {
+                "x": 2,
+                "y": -230
+            },
+            "scale": 1,
+            "targetHeight": 138,
+            "alpha": 1
+        },
+        "weapon": {
+            "frame": "musket",
+            "role": "weapon",
+            "tags": [
+                "equipment",
+                "held",
+                "musket"
+            ],
+            "offset": {
+                "x": 105,
+                "y": -178
+            },
+            "scale": 1,
+            "targetHeight": 78,
+            "alpha": 1,
+            "rotation": {}
+        },
+        "leftLeg": {
+            "frame": "leftLeg",
+            "role": "leftLeg",
+            "tags": [
+                "leg",
+                "front"
+            ],
+            "offset": {
+                "x": 26,
+                "y": -88
+            },
+            "scale": 1,
+            "targetHeight": 166,
+            "alpha": 1
+        },
+        "leftArm": {
+            "frame": "leftArmOpen",
+            "role": "leftArm",
+            "tags": [
+                "arm",
+                "front",
+                "holder"
+            ],
+            "offset": {
+                "x": 45,
+                "y": -201
+            },
+            "scale": 1,
+            "targetHeight": 94,
+            "alpha": 1,
+            "rotation": {}
+        },
+        "leftArmClosed": {
+            "frame": "leftArmClosed",
+            "role": "leftArmClosed",
+            "tags": [],
+            "offset": {
+                "x": 0,
+                "y": 52
+            },
+            "scale": 0.46,
+            "targetHeight": 229,
+            "alpha": 1
+        },
+        "cannonball": {
+            "frame": "cannonball",
+            "role": "cannonball",
+            "tags": [],
+            "offset": {
+                "x": 0,
+                "y": 52
+            },
+            "scale": 0.2,
+            "targetHeight": 144,
+            "alpha": 1,
+            "projectile": {
+                "enabled": true,
+                "id": "cannonball",
+                "launchType": "ballistic",
+                "projectileKind": "musketBall",
+                "animationSlot": "attack",
+                "releaseTime": 0.49531814840382643
+            }
+        },
+        "fireball": {
+            "frame": "fireball",
+            "role": "fireball",
+            "tags": [],
+            "offset": {
+                "x": 0,
+                "y": 52
+            },
+            "scale": 1,
+            "targetHeight": 163,
+            "alpha": 1,
+            "projectile": {
+                "enabled": true,
+                "id": "fireball",
+                "launchType": "homing_lo",
+                "projectileKind": "fireball",
+                "animationSlot": "attack",
+                "releaseTime": 0.372
+            }
+        }
+    },
+    "attachments": {
+        "weapon": {
+            "holders": [
+                "rightArm",
+                "leftArm"
+            ],
+            "note": "Musket is drawn between the rear and front arms. Projectile sprites are atlas resources and are not attached to the rig."
+        }
+    }
+}

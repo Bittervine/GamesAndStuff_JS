@@ -224,9 +224,9 @@ These controls deliberately do not modify `ct_enemies_001.json`, level JSON, or 
 
 ## Enemy family numbering
 
-The current enemy namespace is grouped by creature family. Skeleton variants use `enemy_001` through `enemy_009`, goblins use `enemy_010` through `enemy_019`, and bats use `enemy_020` through `enemy_029`. The active entries are Skeleton Guard `enemy_001`, Fireball Goblin `enemy_010`, Musket Goblin `enemy_011`, and Bombing Bat `enemy_020`.
+The current enemy namespace is grouped by creature family. Skeletons use `001-009`, goblins `010-019`, bats `020-029`, humans `030-039`, raptors `040-049`, snakes `050-059`, porkers `060-069`, crockers `070-079`, and ogres `080-089`. The latest modular additions are Hobgoblin `enemy_018`, Porker `enemy_060`, Crocker `enemy_070`, and Ogre `enemy_080`.
 
-The goblins share `ct_atlas_enemy_010.png` but use separate character, rig, and animation stems for `010` and `011`. Bombing Bat uses the `020` stem throughout. Numeric enemy-pool fields refer to these suffixes, so use `10,11` for both ordinary goblins and `20` for the bombing bat. Gaps are valid because catalogs enumerate actual entries. Do not add aliases for the retired live identifiers; update all bundled levels and tools together when a future family migration is intentional.
+The three original goblin variants share `ct_atlas_enemy_010.png`. Hobgoblin, Porker, Crocker, and Ogre each own a dedicated atlas and rig, plus isolated copies of the Enemy 010 family animation clips so later tuning cannot disturb another species. Hobgoblin follows the Musket Goblin attack project, while the other three follow the Fireball Goblin caster project. Numeric enemy-pool fields refer to these suffixes. Gaps are valid because catalogs enumerate actual entries. Do not add aliases for retired identifiers; update bundled levels and tools together when a future family migration is intentional.
 
 
 ## Ranged attack validation

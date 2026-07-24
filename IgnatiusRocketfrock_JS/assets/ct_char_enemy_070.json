@@ -1,0 +1,19 @@
+{
+    "meta": {
+        "version": 1,
+        "note": "Crocker character project. It reuses Enemy 010's animation timing and gameplay handoff conventions while owning an independently tunable atlas, rig, and animation set."
+    },
+    "characterId": "ct_char_enemy_070",
+    "displayName": "Crocker",
+    "rig": "ct_rig_enemy_070.json",
+    "defaultFacing": "right",
+    "mirrorable": true,
+    "animationMap": {
+        "idle": "ct_anim_enemy_070_idle.json",
+        "walk": "ct_anim_enemy_070_walk.json",
+        "attack": "ct_anim_enemy_070_attack.json",
+        "hurt": "ct_anim_enemy_070_hurt.json",
+        "death": "ct_anim_enemy_070_death.json"
+    },
+    "projectilePart": "fireball"
+}

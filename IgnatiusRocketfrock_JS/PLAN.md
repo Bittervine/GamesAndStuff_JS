@@ -4331,3 +4331,8 @@ Revision 532 changes the old instant rocket-fuel refill into a sixty-second `fli
 
 Revision 145 gives every non-title game menu a shared top-right Back button in both browser and SDL presentation layers. The top-level in-game pause menu uses Back to resume gameplay, so the duplicate Resume Game row is removed. Nested save, load, Settings, Custom rendering, Development features, and Game tuning views keep their existing return destinations while moving Back out of the scrolling/action rows and into the stable header position.
 
+
+
+## SDL build revision 151 modular enemy retargets
+
+SDL build revision 151 adds Hobgoblin `enemy_018`, Porker `enemy_060`, Crocker `enemy_070`, and Ogre `enemy_080` to both the browser/reference and SDL data paths. Each uploaded atlas receives an independent manifest, rig, character project, and copied idle, walk, attack, hurt, and death animation set. The Hobgoblin follows the Musket Goblin projectile handoff; the other three follow the Fireball Goblin caster handoff. First-pass transparent-bounds pivot retargeting, scaled gameplay bodies, catalog/editor discovery, browser preloading, dormant generator metadata, and dependency/asset regression coverage are included.

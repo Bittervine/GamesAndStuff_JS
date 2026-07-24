@@ -1,0 +1,191 @@
+{
+    "meta": {
+        "version": 1,
+        "note": "Porker atlas. The ten template parts retain the Enemy 010 frame and object names so copied goblin-family animations remain directly reusable."
+    },
+    "atlasId": "ct_atlas_enemy_060",
+    "image": "ct_atlas_enemy_060.png",
+    "frames": {
+        "head": {
+            "x": 12,
+            "y": 12,
+            "w": 356,
+            "h": 285
+        },
+        "torso": {
+            "x": 388,
+            "y": 12,
+            "w": 417,
+            "h": 551
+        },
+        "leftArmOpen": {
+            "x": 825,
+            "y": 12,
+            "w": 457,
+            "h": 196
+        },
+        "rightArmClosed": {
+            "x": 12,
+            "y": 583,
+            "w": 410,
+            "h": 179
+        },
+        "fireball": {
+            "x": 442,
+            "y": 583,
+            "w": 387,
+            "h": 168
+        },
+        "leftArmClosed": {
+            "x": 849,
+            "y": 583,
+            "w": 443,
+            "h": 181
+        },
+        "musket": {
+            "x": 12,
+            "y": 784,
+            "w": 496,
+            "h": 204
+        },
+        "cannonball": {
+            "x": 528,
+            "y": 784,
+            "w": 175,
+            "h": 174
+        },
+        "rightLeg": {
+            "x": 723,
+            "y": 784,
+            "w": 217,
+            "h": 398
+        },
+        "leftLeg": {
+            "x": 960,
+            "y": 784,
+            "w": 218,
+            "h": 366
+        }
+    },
+    "objects": {
+        "head": {
+            "id": "head",
+            "frame": "head",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "head"
+            ]
+        },
+        "leftArmOpen": {
+            "id": "leftArmOpen",
+            "frame": "leftArmOpen",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "leftArm",
+                "arm",
+                "openHand",
+                "front"
+            ]
+        },
+        "fireball": {
+            "id": "fireball",
+            "frame": "fireball",
+            "type": "projectileSprite",
+            "layer": "projectile",
+            "mirrorable": true,
+            "tags": [
+                "projectile",
+                "fireball"
+            ]
+        },
+        "torso": {
+            "id": "torso",
+            "frame": "torso",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "torso",
+                "body"
+            ]
+        },
+        "leftArmClosed": {
+            "id": "leftArmClosed",
+            "frame": "leftArmClosed",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "leftArm",
+                "arm",
+                "closedHand",
+                "front"
+            ]
+        },
+        "rightArmClosed": {
+            "id": "rightArmClosed",
+            "frame": "rightArmClosed",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "rightArm",
+                "arm",
+                "closedHand",
+                "rear"
+            ]
+        },
+        "musket": {
+            "id": "musket",
+            "frame": "musket",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "weapon",
+                "musket",
+                "equipment"
+            ]
+        },
+        "leftLeg": {
+            "id": "leftLeg",
+            "frame": "leftLeg",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "leftLeg",
+                "leg",
+                "front"
+            ]
+        },
+        "rightLeg": {
+            "id": "rightLeg",
+            "frame": "rightLeg",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "rightLeg",
+                "leg",
+                "rear"
+            ]
+        },
+        "cannonball": {
+            "id": "cannonball",
+            "frame": "cannonball",
+            "type": "projectileSprite",
+            "layer": "projectile",
+            "mirrorable": true,
+            "tags": [
+                "projectile",
+                "cannonball",
+                "musketBall"
+            ]
+        }
+    }
+}

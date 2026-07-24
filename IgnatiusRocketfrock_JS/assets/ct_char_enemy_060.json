@@ -1,0 +1,19 @@
+{
+    "meta": {
+        "version": 1,
+        "note": "Porker character project. It reuses Enemy 010's animation timing and gameplay handoff conventions while owning an independently tunable atlas, rig, and animation set."
+    },
+    "characterId": "ct_char_enemy_060",
+    "displayName": "Porker",
+    "rig": "ct_rig_enemy_060.json",
+    "defaultFacing": "right",
+    "mirrorable": true,
+    "animationMap": {
+        "idle": "ct_anim_enemy_060_idle.json",
+        "walk": "ct_anim_enemy_060_walk.json",
+        "attack": "ct_anim_enemy_060_attack.json",
+        "hurt": "ct_anim_enemy_060_hurt.json",
+        "death": "ct_anim_enemy_060_death.json"
+    },
+    "projectilePart": "fireball"
+}

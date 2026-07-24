@@ -1,0 +1,426 @@
+{
+    "meta": {
+        "version": 1,
+        "note": "Initial parent-constrained Snake rig. The tail is the root and repeated tapered sections overlap by their circular joins to form a seamless articulated body."
+    },
+    "rigId": "ct_rig_enemy_050",
+    "atlasId": "ct_atlas_enemy_050",
+    "atlasManifest": "ct_atlas_enemy_050.json",
+    "drawOrder": [
+        "tail",
+        "section01",
+        "section02",
+        "section03",
+        "section04",
+        "section05",
+        "section06",
+        "section07",
+        "section08",
+        "head_idle",
+        "head_attack_01",
+        "head_attack_02",
+        "head_attack_03",
+        "head_attack_04"
+    ],
+    "global": {
+        "scale": 0.21,
+        "lean": 0,
+        "rootX": 0,
+        "rootYOffsetFromGround": 0,
+        "groundOffset": 0,
+        "debugPivots": false
+    },
+    "anchors": {
+        "tailRoot": {
+            "x": -965,
+            "y": -130
+        },
+        "neck": {
+            "x": 340,
+            "y": -124
+        }
+    },
+    "pivots": {
+        "tail": {
+            "x": 0.915,
+            "y": 0.53
+        },
+        "section01": {
+            "x": 0.18,
+            "y": 0.508
+        },
+        "section02": {
+            "x": 0.185,
+            "y": 0.508
+        },
+        "section03": {
+            "x": 0.185,
+            "y": 0.508
+        },
+        "section04": {
+            "x": 0.185,
+            "y": 0.508
+        },
+        "section05": {
+            "x": 0.185,
+            "y": 0.508
+        },
+        "section06": {
+            "x": 0.18,
+            "y": 0.508
+        },
+        "section07": {
+            "x": 0.175,
+            "y": 0.508
+        },
+        "section08": {
+            "x": 0.18,
+            "y": 0.508
+        },
+        "head_idle": {
+            "x": 0.08,
+            "y": 0.505
+        },
+        "head_attack_01": {
+            "x": 0.08,
+            "y": 0.505
+        },
+        "head_attack_02": {
+            "x": 0.082,
+            "y": 0.44
+        },
+        "head_attack_03": {
+            "x": 0.083,
+            "y": 0.432
+        },
+        "head_attack_04": {
+            "x": 0.084,
+            "y": 0.418
+        }
+    },
+    "parts": {
+        "tail": {
+            "frame": "tail",
+            "role": "tail",
+            "tags": [
+                "snake",
+                "tail",
+                "root"
+            ],
+            "offset": {
+                "x": -1240,
+                "y": -150
+            },
+            "scale": 1,
+            "targetHeight": 45,
+            "alpha": 1
+        },
+        "section01": {
+            "frame": "section_taper",
+            "role": "bodySection",
+            "tags": [
+                "snake",
+                "body",
+                "section",
+                "section01"
+            ],
+            "offset": {
+                "x": -1020,
+                "y": -139
+            },
+            "scale": 1,
+            "targetHeight": 47,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "tail",
+                "parentPoint": {
+                    "x": 0.905,
+                    "y": 0.53
+                }
+            }
+        },
+        "section02": {
+            "frame": "section_taper",
+            "role": "bodySection",
+            "tags": [
+                "snake",
+                "body",
+                "section",
+                "section02"
+            ],
+            "offset": {
+                "x": -882,
+                "y": -139
+            },
+            "scale": 1,
+            "targetHeight": 49,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "section01",
+                "parentPoint": {
+                    "x": 0.795,
+                    "y": 0.508
+                }
+            }
+        },
+        "section03": {
+            "frame": "section_taper",
+            "role": "bodySection",
+            "tags": [
+                "snake",
+                "body",
+                "section",
+                "section03"
+            ],
+            "offset": {
+                "x": -744,
+                "y": -139
+            },
+            "scale": 1,
+            "targetHeight": 51,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "section02",
+                "parentPoint": {
+                    "x": 0.795,
+                    "y": 0.508
+                }
+            }
+        },
+        "section04": {
+            "frame": "section_taper",
+            "role": "bodySection",
+            "tags": [
+                "snake",
+                "body",
+                "section",
+                "section04"
+            ],
+            "offset": {
+                "x": -606,
+                "y": -139
+            },
+            "scale": 1,
+            "targetHeight": 53,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "section03",
+                "parentPoint": {
+                    "x": 0.795,
+                    "y": 0.508
+                }
+            }
+        },
+        "section05": {
+            "frame": "section_taper",
+            "role": "bodySection",
+            "tags": [
+                "snake",
+                "body",
+                "section",
+                "section05"
+            ],
+            "offset": {
+                "x": -468,
+                "y": -139
+            },
+            "scale": 1,
+            "targetHeight": 55,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "section04",
+                "parentPoint": {
+                    "x": 0.795,
+                    "y": 0.508
+                }
+            }
+        },
+        "section06": {
+            "frame": "section_taper",
+            "role": "bodySection",
+            "tags": [
+                "snake",
+                "body",
+                "section",
+                "section06"
+            ],
+            "offset": {
+                "x": -330,
+                "y": -139
+            },
+            "scale": 1,
+            "targetHeight": 57,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "section05",
+                "parentPoint": {
+                    "x": 0.775,
+                    "y": 0.508
+                }
+            }
+        },
+        "section07": {
+            "frame": "section_taper",
+            "role": "bodySection",
+            "tags": [
+                "snake",
+                "body",
+                "section",
+                "section07"
+            ],
+            "offset": {
+                "x": -192,
+                "y": -139
+            },
+            "scale": 1,
+            "targetHeight": 59,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "section06",
+                "parentPoint": {
+                    "x": 0.78,
+                    "y": 0.508
+                }
+            }
+        },
+        "section08": {
+            "frame": "section_taper",
+            "role": "bodySection",
+            "tags": [
+                "snake",
+                "body",
+                "section",
+                "section08"
+            ],
+            "offset": {
+                "x": -54,
+                "y": -139
+            },
+            "scale": 1,
+            "targetHeight": 61,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "section07",
+                "parentPoint": {
+                    "x": 0.785,
+                    "y": 0.508
+                }
+            }
+        },
+        "head_idle": {
+            "frame": "head_idle",
+            "role": "head",
+            "tags": [
+                "snake",
+                "head",
+                "head_idle"
+            ],
+            "offset": {
+                "x": 95,
+                "y": -170
+            },
+            "scale": 1,
+            "targetHeight": 95,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "section08",
+                "parentPoint": {
+                    "x": 0.8397391846748736,
+                    "y": 0.47947623256599814
+                }
+            }
+        },
+        "head_attack_01": {
+            "frame": "head_attack_01",
+            "role": "head",
+            "tags": [
+                "snake",
+                "head",
+                "head_attack_01"
+            ],
+            "offset": {
+                "x": 95,
+                "y": -170
+            },
+            "scale": 1,
+            "targetHeight": 97,
+            "alpha": 0,
+            "parentConstraint": {
+                "parentPart": "section08",
+                "parentPoint": {
+                    "x": 0.89,
+                    "y": 0.508
+                }
+            }
+        },
+        "head_attack_02": {
+            "frame": "head_attack_02",
+            "role": "head",
+            "tags": [
+                "snake",
+                "head",
+                "head_attack_02"
+            ],
+            "offset": {
+                "x": 95,
+                "y": -170
+            },
+            "scale": 1,
+            "targetHeight": 116,
+            "alpha": 0,
+            "parentConstraint": {
+                "parentPart": "section08",
+                "parentPoint": {
+                    "x": 0.89,
+                    "y": 0.508
+                }
+            }
+        },
+        "head_attack_03": {
+            "frame": "head_attack_03",
+            "role": "head",
+            "tags": [
+                "snake",
+                "head",
+                "head_attack_03"
+            ],
+            "offset": {
+                "x": 95,
+                "y": -170
+            },
+            "scale": 1,
+            "targetHeight": 155,
+            "alpha": 0,
+            "parentConstraint": {
+                "parentPart": "section08",
+                "parentPoint": {
+                    "x": 0.89,
+                    "y": 0.508
+                }
+            }
+        },
+        "head_attack_04": {
+            "frame": "head_attack_04",
+            "role": "head",
+            "tags": [
+                "snake",
+                "head",
+                "head_attack_04"
+            ],
+            "offset": {
+                "x": 95,
+                "y": -170
+            },
+            "scale": 1,
+            "targetHeight": 181,
+            "alpha": 0,
+            "parentConstraint": {
+                "parentPart": "section08",
+                "parentPoint": {
+                    "x": 0.89,
+                    "y": 0.508
+                }
+            }
+        }
+    }
+}

@@ -1525,7 +1525,7 @@ function testAutomaticEnemySpawning() {
     assert.deepEqual(normalizeAutoSpawnEnemies(null), DEFAULT_AUTO_SPAWN_ENEMIES, "automatic enemy spawning should default to disabled, zero percent, and enemies 001-999");
     assert.deepEqual(
         resolveAutoSpawnEnemyIds({ enabled: true, probabilityPercent: 25, enemyPool: "1-20,!10,!19" }, JSON.parse(readFileSync("./assets/ct_enemies_001.json", "utf8"))).resolvedIds,
-        ["enemy_001", "enemy_002", "enemy_011", "enemy_012", "enemy_020"],
+        ["enemy_001", "enemy_002", "enemy_011", "enemy_012", "enemy_018", "enemy_020"],
         "automatic spawning should share the level generator enemy-pool expression format"
     );
 
@@ -1852,13 +1852,41 @@ function testLevelEditorMultiSelectionAndPaletteWorkflow() {
 function testEnemyCatalogAndLevelEditorIntegration() {
     const catalog = JSON.parse(readFileSync("./assets/ct_enemies_001.json", "utf8"));
     const skeleton = catalog.enemies?.enemy_001;
+    const hobgoblin = catalog.enemies?.enemy_018;
     const raptor = catalog.enemies?.enemy_040;
+    const snake = catalog.enemies?.enemy_050;
+    const porker = catalog.enemies?.enemy_060;
+    const crocker = catalog.enemies?.enemy_070;
+    const ogre = catalog.enemies?.enemy_080;
     assert.ok(skeleton, "enemy catalog should register enemy_001");
+    assert.ok(hobgoblin, "enemy catalog should register the Hobgoblin enemy_018");
     assert.ok(raptor, "enemy catalog should register the new Raptor enemy_040");
+    assert.ok(snake, "enemy catalog should register the new Snake enemy_050");
+    assert.ok(porker, "enemy catalog should register the Porker enemy_060");
+    assert.ok(crocker, "enemy catalog should register the Crocker enemy_070");
+    assert.ok(ogre, "enemy catalog should register the Ogre enemy_080");
     assert.equal(raptor.characterId, "ct_char_enemy_040", "Raptor should reference its generic character project");
     assert.equal(raptor.defaults.animationSlot, "idle", "the initial Raptor should use its authored idle animation");
     assert.deepEqual(raptor.defaultSize, { w: 159, h: 126 }, "Raptor should use the latest tuned gameplay body size");
     assert.equal(raptor.defaults.renderOffsetX, -25, "Raptor should use the latest tuned horizontal artwork offset");
+    assert.equal(snake.characterId, "ct_char_enemy_050", "Snake should reference its generic character project");
+    assert.equal(snake.defaults.attackMode, "melee", "Snake should use the generic melee attack pipeline");
+    assert.deepEqual(snake.defaultSize, { w: 248, h: 27 }, "Snake should expose its user-tuned gameplay body size");
+    assert.equal(snake.defaults.renderOffsetX, 185, "Snake should retain the user-tuned horizontal artwork offset");
+    assert.equal(snake.defaults.renderOffsetY, 21, "Snake should retain the user-tuned vertical artwork offset");
+    assert.equal(hobgoblin.characterId, "ct_char_enemy_018", "Hobgoblin should reference its independent musket project");
+    assert.equal(hobgoblin.defaults.projectileKind, "musketBall", "Hobgoblin should inherit the musket projectile pipeline");
+    assert.deepEqual(hobgoblin.defaultSize, { w: 79, h: 119 }, "Hobgoblin should use its first-pass enlarged body size");
+    for (const [enemyId, enemy, characterId, size] of [
+        ["enemy_060", porker, "ct_char_enemy_060", { w: 92, h: 137 }],
+        ["enemy_070", crocker, "ct_char_enemy_070", { w: 87, h: 130 }],
+        ["enemy_080", ogre, "ct_char_enemy_080", { w: 99, h: 149 }]
+    ]) {
+        assert.equal(enemy.characterId, characterId, `${enemyId} should reference its independent caster project`);
+        assert.equal(enemy.defaults.projectileKind, "fireball", `${enemyId} should inherit the Enemy 010 caster projectile`);
+        assert.equal(enemy.defaults.projectileLaunchType, "homing_lo", `${enemyId} should retain the homing caster launch type`);
+        assert.deepEqual(enemy.defaultSize, size, `${enemyId} should expose its first-pass scaled body size`);
+    }
     assert.equal(skeleton.characterId, "ct_char_enemy_001", "enemy_001 should reference its generic character project");
     assert.equal(skeleton.defaults.behavior, undefined, "enemy catalog should not duplicate strategy with legacy behavior");
     assert.equal(skeleton.defaults.strategy, "hunter", "Skeleton Guard should use jumping hunter navigation so raised encounters can pursue Ignatius");
@@ -2030,19 +2058,57 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(characterEditorHtml.includes('<option value="enemy_033">'), false, "Puppet Forge should not require static enemy options in the HTML");
     const knownProjects = characterEditorKnownProjects(catalog);
     const knownRaptor = knownProjects.find((entry) => entry.id === "enemy_040");
+    const knownSnake = knownProjects.find((entry) => entry.id === "enemy_050");
+    const knownHobgoblin = knownProjects.find((entry) => entry.id === "enemy_018");
+    const knownPorker = knownProjects.find((entry) => entry.id === "enemy_060");
+    const knownCrocker = knownProjects.find((entry) => entry.id === "enemy_070");
+    const knownOgre = knownProjects.find((entry) => entry.id === "enemy_080");
     assert.ok(knownRaptor, "Puppet Forge project discovery should include every catalog enemy with a character project");
+    assert.ok(knownSnake, "Puppet Forge project discovery should include the new Snake project");
     assert.equal(knownRaptor.label, "Enemy 040: Raptor", "Puppet Forge should derive the Raptor selector label from the catalog");
     assert.equal(knownRaptor.url, "assets/ct_char_enemy_040.json", "Puppet Forge should derive the Raptor character URL from characterId");
+    assert.equal(knownSnake.label, "Enemy 050: Snake", "Puppet Forge should derive the Snake selector label from the catalog");
+    assert.equal(knownSnake.url, "assets/ct_char_enemy_050.json", "Puppet Forge should derive the Snake character URL from characterId");
+    assert.equal(knownHobgoblin?.label, "Enemy 018: Hobgoblin", "Puppet Forge should discover the Hobgoblin project from the catalog");
+    assert.equal(knownPorker?.url, "assets/ct_char_enemy_060.json", "Puppet Forge should discover the Porker project from the catalog");
+    assert.equal(knownCrocker?.url, "assets/ct_char_enemy_070.json", "Puppet Forge should discover the Crocker project from the catalog");
+    assert.equal(knownOgre?.url, "assets/ct_char_enemy_080.json", "Puppet Forge should discover the Ogre project from the catalog");
     assert.equal(enemyCharacterProjectUrl({ characterUrl: "custom/raptor-project.json" }), "custom/raptor-project.json", "an explicit catalog characterUrl should override characterId discovery");
     assert.ok(characterEditorHtml.includes('inferredCharacterUrlFromProjectJson'), "Puppet Forge should resolve rig and atlas project URLs to matching character definitions");
     for (const discardedSuffix of ["006", "007", "008"]) {
         assert.ok(!characterEditorHtml.includes(`ct_char_enemy_${discardedSuffix}.json`), `Puppet Forge should not expose discarded enemy ${discardedSuffix}`);
     }
-    for (const retainedSuffix of ["020", "030", "031", "032", "033", "040"]) {
+    for (const retainedSuffix of ["018", "020", "030", "031", "032", "033", "040", "050", "060", "070", "080"]) {
         assert.ok(rendererSource.includes(`assets/ct_char_enemy_${retainedSuffix}.json`), `renderer should preload retained enemy ${retainedSuffix}`);
     }
     for (const discardedSuffix of ["006", "007", "008"]) {
         assert.ok(!rendererSource.includes(`assets/ct_char_enemy_${discardedSuffix}.json`), `renderer should not preload discarded enemy ${discardedSuffix}`);
+    }
+
+    for (const [suffix, expectedProjectilePart] of [["018", "cannonball"], ["060", "fireball"], ["070", "fireball"], ["080", "fireball"]]) {
+        const character = JSON.parse(readFileSync(new URL(`../assets/ct_char_enemy_${suffix}.json`, import.meta.url), "utf8"));
+        const rig = JSON.parse(readFileSync(new URL(`../assets/ct_rig_enemy_${suffix}.json`, import.meta.url), "utf8"));
+        const atlas = JSON.parse(readFileSync(new URL(`../assets/ct_atlas_enemy_${suffix}.json`, import.meta.url), "utf8"));
+        assert.equal(character.rig, `ct_rig_enemy_${suffix}.json`, `Enemy ${suffix} should reference its independent rig`);
+        assert.equal(character.projectilePart, expectedProjectilePart, `Enemy ${suffix} should expose the expected projectile preview part`);
+        assert.equal(rig.atlasManifest, `ct_atlas_enemy_${suffix}.json`, `Enemy ${suffix} rig should reference its independent atlas`);
+        assert.deepEqual([...rig.drawOrder].sort(), Object.keys(rig.parts).sort(), `Enemy ${suffix} draw order should cover every rig part`);
+        for (const [partName, part] of Object.entries(rig.parts)) {
+            assert.ok(atlas.frames[part.frame], `Enemy ${suffix} part ${partName} should reference an atlas frame`);
+        }
+        for (const slot of ["idle", "walk", "attack", "hurt", "death"]) {
+            const clip = JSON.parse(readFileSync(new URL(`../assets/ct_anim_enemy_${suffix}_${slot}.json`, import.meta.url), "utf8"));
+            assert.equal(clip.animationId, `ct_anim_enemy_${suffix}_${slot}`, `Enemy ${suffix} ${slot} should keep an independent animation identity`);
+            for (const requiredPart of ["torso", "head", "rightLeg", "leftLeg"]) {
+                assert.ok(clip.referencePose[requiredPart], `Enemy ${suffix} ${slot} should include copied reference data for ${requiredPart}`);
+            }
+            if (slot === "attack") {
+                assert.ok(clip.referencePose[expectedProjectilePart], `Enemy ${suffix} attack should include copied projectile reference data for ${expectedProjectilePart}`);
+            }
+            for (const partName of Object.keys(clip.referencePose)) {
+                assert.ok(rig.parts[partName], `Enemy ${suffix} ${slot} should not reference an unknown rig part ${partName}`);
+            }
+        }
     }
 
     const raptorCharacter = JSON.parse(readFileSync(new URL("../assets/ct_char_enemy_040.json", import.meta.url), "utf8"));
@@ -2050,6 +2116,13 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     const raptorAtlas = JSON.parse(readFileSync(new URL("../assets/ct_atlas_enemy_040.json", import.meta.url), "utf8"));
     const raptorIdle = JSON.parse(readFileSync(new URL("../assets/ct_anim_enemy_040_idle.json", import.meta.url), "utf8"));
     const raptorWalk = JSON.parse(readFileSync(new URL("../assets/ct_anim_enemy_040_walk.json", import.meta.url), "utf8"));
+    const snakeCharacter = JSON.parse(readFileSync(new URL("../assets/ct_char_enemy_050.json", import.meta.url), "utf8"));
+    const snakeRig = JSON.parse(readFileSync(new URL("../assets/ct_rig_enemy_050.json", import.meta.url), "utf8"));
+    const snakeAtlas = JSON.parse(readFileSync(new URL("../assets/ct_atlas_enemy_050.json", import.meta.url), "utf8"));
+    const snakeIdle = JSON.parse(readFileSync(new URL("../assets/ct_anim_enemy_050_idle.json", import.meta.url), "utf8"));
+    const snakeWalk = JSON.parse(readFileSync(new URL("../assets/ct_anim_enemy_050_walk.json", import.meta.url), "utf8"));
+    const snakeAttack = JSON.parse(readFileSync(new URL("../assets/ct_anim_enemy_050_attack.json", import.meta.url), "utf8"));
+    const snakeDeath = JSON.parse(readFileSync(new URL("../assets/ct_anim_enemy_050_death.json", import.meta.url), "utf8"));
     assert.equal(raptorCharacter.rig, "ct_rig_enemy_040.json", "Raptor character project should reference its rig");
     assert.equal(raptorCharacter.animationMap.idle, "ct_anim_enemy_040_idle.json", "Raptor character project should expose the initial idle slot");
     assert.equal(raptorCharacter.animationMap.walk, "ct_anim_enemy_040_walk.json", "Raptor character project should expose the authored walk slot");
@@ -2061,6 +2134,38 @@ function testEnemyCatalogAndLevelEditorIntegration() {
         assert.ok(raptorWalk.referencePose[partName], `Raptor walk should include reference pose data for ${partName}`);
     }
     assert.ok(raptorAtlas.frames.head_open && raptorAtlas.frames.head_alt_01 && raptorAtlas.frames.head_alt_02, "Raptor atlas should retain the unused alternate head frames for later animations");
+    assert.equal(snakeCharacter.rig, "ct_rig_enemy_050.json", "Snake character project should reference its rig");
+    assert.equal(snakeCharacter.animationMap.attack, "ct_anim_enemy_050_attack.json", "Snake character project should expose its bite attack slot");
+    assert.equal(snakeCharacter.animationMap.death, "ct_anim_enemy_050_death.json", "Snake character project should expose its belly-up death slot");
+    assert.equal(snakeRig.atlasManifest, "ct_atlas_enemy_050.json", "Snake rig should reference the uploaded atlas manifest");
+    assert.deepEqual([...snakeRig.drawOrder].sort(), Object.keys(snakeRig.parts).sort(), "Snake draw order should cover every articulated rig part exactly once");
+    assert.ok(snakeAtlas.frames.section_taper && snakeAtlas.frames.head_attack_04, "Snake atlas should keep the tapered body section and widest bite head frame");
+    assert.equal(Object.keys(snakeRig.parts).filter((part) => part.startsWith("section")).length, 8, "Snake rig should duplicate eight articulated body sections");
+    assert.equal(snakeRig.parts.section01.parentConstraint.parentPart, "tail", "Snake section01 should attach directly to the tail root");
+    assert.equal(snakeRig.parts.head_idle.parentConstraint.parentPart, "section08", "Snake heads should attach to the foremost body section");
+    assert.equal(snakeRig.parts.head_attack_04.alpha, 0, "Snake alternate bite heads should remain hidden outside the bite animation");
+    const normalizedSnakeWalk = normalizeAnimationClip(snakeWalk, "Snake walk");
+    const normalizedSnakeAttack = normalizeAnimationClip(snakeAttack, "Snake attack");
+    const normalizedSnakeDeath = normalizeAnimationClip(snakeDeath, "Snake death");
+    const snakeWalkStart = sampleAnimationClip(normalizedSnakeWalk, 0.0);
+    const snakeWalkHalf = sampleAnimationClip(normalizedSnakeWalk, normalizedSnakeWalk.duration * 0.5);
+    assert.ok(Math.abs(snakeWalkStart.section02.rotation - snakeWalkHalf.section02.rotation) > 0.18, "Snake walk should reverse a clearly visible organic body wave across half a cycle");
+    const snakeAttackClosed = sampleAnimationClip(normalizedSnakeAttack, 0.0);
+    const snakeAttackRaised = sampleAnimationClip(normalizedSnakeAttack, 0.22);
+    const snakeAttackPeak = sampleAnimationClip(normalizedSnakeAttack, 0.40);
+    assert.equal(snakeAttackClosed.head_idle.alpha, 1, "Snake attack should start from the closed idle head");
+    assert.ok(snakeAttackRaised.section08.rotation < -0.25 && snakeAttackRaised.head_idle.rotation < -0.3, "Snake attack should raise its foremost section and head before striking");
+    assert.equal(snakeAttackPeak.head_attack_04.alpha, 1, "Snake attack should reveal the widest bite head near the strike peak");
+    assert.equal(snakeAttackPeak.head_idle.alpha, 0, "Snake attack should hide the idle head during the bite peak");
+    const snakeDeathEnd = sampleAnimationClip(normalizedSnakeDeath, 1.23);
+    assert.ok(Math.abs(snakeDeathEnd.tail.rotation) > 2.9 && Math.abs(snakeDeathEnd.section08.rotation) > 3, "Snake death should finish with the complete body inverted belly-up");
+    assert.ok(Math.abs(snakeDeathEnd.head_idle.rotation) > 3, "Snake death should finish with its head inverted and facing left");
+    for (const [label, clip] of [["idle", snakeIdle], ["walk", snakeWalk], ["attack", snakeAttack], ["death", snakeDeath]]) {
+        const count = clip.meta.bakedParentConstraintParts.reduce((sum, partName) => (
+            sum + (clip.tracks[partName]?.x?.length || 0) + (clip.tracks[partName]?.y?.length || 0)
+        ), 0);
+        assert.equal(clip.meta.bakedPositionKeyCount, count, `Snake ${label} bake metadata should match its serialized X/Y tracks`);
+    }
     assert.ok(raptorRig.parts.jaw && raptorAtlas.frames.jaw && raptorIdle.referencePose.jaw, "Raptor should load the separately articulated jaw from the revised atlas");
     assert.equal(raptorRig.parts.jaw.parentConstraint.parentPart, "head", "Raptor jaw should remain constrained to the head");
     assert.equal(raptorIdle.tracks.jaw.rotation.length, 2, "Raptor idle should author open and closed jaw rotation keys");
@@ -2076,7 +2181,11 @@ function testEnemyCatalogAndLevelEditorIntegration() {
         "Raptor jaw should interpolate back toward its first key during the second half of the loop"
     );
     assert.equal(raptorWalk.loop, true, "Raptor walk should be authored as a looping gait clip");
-    assert.ok(!raptorWalk.tracks.leftUpperLeg.x && !raptorWalk.tracks.leftUpperLeg.y, "Raptor walk should author leg motion through rotations rather than regenerated endpoint X/Y tracks");
+    assert.ok(raptorWalk.tracks.leftUpperLeg.x && raptorWalk.tracks.leftUpperLeg.y, "Raptor walk export should retain regenerated parent-constraint endpoint tracks");
+    const raptorWalkBakedCount = raptorWalk.meta.bakedParentConstraintParts.reduce((sum, partName) => (
+        sum + (raptorWalk.tracks[partName]?.x?.length || 0) + (raptorWalk.tracks[partName]?.y?.length || 0)
+    ), 0);
+    assert.equal(raptorWalk.meta.bakedPositionKeyCount, raptorWalkBakedCount, "Raptor walk bake metadata should match the supplied editor export");
     const walkStartPose = sampleAnimationClip(normalizedRaptorWalk, 0.0);
     const walkHalfPose = sampleAnimationClip(normalizedRaptorWalk, normalizedRaptorWalk.duration * 0.5);
     assert.ok(walkStartPose.leftUpperLeg.rotation < walkHalfPose.leftUpperLeg.rotation, "Raptor walk should swap the left hind leg from forward support to trailing support across half a cycle");
@@ -11012,8 +11121,13 @@ function testAnimationEditorOperations() {
     assert.ok(toolHtml.includes("duplicateCurrentAnimation"), "character tool should wire animation duplication into the current project");
     assert.ok(toolHtml.includes('id="pause"') && toolHtml.includes('playing ? "PAUSE" : "PLAY"'), "character tool play button should toggle between PLAY and PAUSE");
     assert.equal(toolHtml.includes("<span>Playhead</span>"), false, "character tool should not retain the redundant Playhead label");
-    assert.ok(toolHtml.includes('id="loop"') && toolHtml.includes("Cykle animation"), "cycle control should sit with the timeline controls");
-    assert.ok(toolHtml.includes('id="show-full-dopesheet"'), "character tool should expose the full dopesheet toggle");
+    assert.ok(toolHtml.includes('id="loop"') && toolHtml.includes("> Cykle</label>"), "cycle control should use the compact Cykle label");
+    assert.ok(toolHtml.includes('id="show-full-dopesheet"') && toolHtml.includes("> Dopesheet</label>"), "character tool should expose the compact Dopesheet toggle");
+    assert.ok(toolHtml.includes('id="apply-preview-alpha"') && toolHtml.includes("> Alpha</label>"), "character tool should expose the compact Alpha toggle");
+    assert.ok(toolHtml.includes('id="show-hitbox-guide-dock"') && toolHtml.includes("> Hitbox</label>"), "character tool should expose the compact Hitbox toggle");
+    assert.ok(toolHtml.includes('id="dock-animation-select"') && toolHtml.includes('title="Animation slot"'), "timeline dock should expose an unlabeled compact animation-slot selector");
+    assert.ok(toolHtml.includes('id="dock-delete-key"') && toolHtml.includes("Delete keyframe"), "timeline dock should expose a compact delete-keyframe button");
+    assert.ok(toolHtml.includes("els.dockAnimationSelect.value = slot") && toolHtml.includes("els.dockDeleteKey.disabled = deleteDisabled"), "timeline dock controls should stay synchronized with the existing animation and keyframe panels");
     assert.ok(toolHtml.includes('id="dopesheet-panel"'), "character tool should provide a left-side dopesheet panel");
 
     const dopesheetRows = animationDopesheetRows({

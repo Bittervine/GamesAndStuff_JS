@@ -578,6 +578,25 @@ touch-action: none;
             margin: 0;
         }
 
+        .dock-animation-select {
+            display: inline-flex;
+            align-items: center;
+            margin-left: auto;
+        }
+
+        .dock-animation-select select {
+            width: auto;
+            min-width: 112px;
+            max-width: 180px;
+            margin: 0;
+            padding: 6px 28px 6px 9px;
+        }
+
+        #dock-delete-key {
+            min-width: 112px;
+            padding: 6px 10px;
+        }
+
         #animation-dock #timeline {
             height: 44px;
             margin: 0;
@@ -688,10 +707,14 @@ touch-action: none;
                 <div id="timeline-playhead"></div>
             </div>
             <div class="dock-options">
-                <label class="check-row"><input id="loop" type="checkbox" checked> Cykle animation</label>
-                <label class="check-row"><input id="show-full-dopesheet" type="checkbox"> Show full dopesheet</label>
-                <label class="check-row"><input id="apply-preview-alpha" type="checkbox"> Apply alpha values in preview</label>
-                <label class="check-row"><input id="show-hitbox-guide-dock" type="checkbox" checked> Show hitbox guide</label>
+                <label class="check-row"><input id="loop" type="checkbox" checked> Cykle</label>
+                <label class="check-row"><input id="show-full-dopesheet" type="checkbox"> Dopesheet</label>
+                <label class="check-row"><input id="apply-preview-alpha" type="checkbox"> Alpha</label>
+                <label class="check-row"><input id="show-hitbox-guide-dock" type="checkbox" checked> Hitbox</label>
+                <label class="dock-animation-select" aria-label="Animation slot">
+                    <select id="dock-animation-select" title="Animation slot"></select>
+                </label>
+                <button id="dock-delete-key" type="button">Delete keyframe</button>
             </div>
         </section>
     </div>
@@ -1272,6 +1295,7 @@ const els = {
     validateAtlas: document.getElementById("validate-atlas"),
     atlasValidation: document.getElementById("atlas-validation"),
     animationSelect: document.getElementById("animation-select"),
+    dockAnimationSelect: document.getElementById("dock-animation-select"),
     animationId: document.getElementById("animation-id"),
     animationDuration: document.getElementById("animation-duration"),
     baseCyclesPerSecond: document.getElementById("base-cycles-per-second"),
@@ -1316,6 +1340,7 @@ const els = {
     addKey: document.getElementById("add-key"),
     applyKey: document.getElementById("apply-key"),
     deleteKey: document.getElementById("delete-key"),
+    dockDeleteKey: document.getElementById("dock-delete-key"),
     copyKey: document.getElementById("copy-key"),
     pasteKey: document.getElementById("paste-key"),
     pivotX: document.getElementById("pivot-x"),
@@ -3024,25 +3049,35 @@ function drawAtlasEditor() {
 }
 
 function setupAnimationSelect() {
-    const previous = els.animationSelect.value;
-    els.animationSelect.innerHTML = "";
+    const previous = els.animationSelect.value || els.dockAnimationSelect.value;
+    const selectors = [els.animationSelect, els.dockAnimationSelect];
+    for (const selector of selectors) {
+        selector.innerHTML = "";
+    }
     const entries = Object.entries(state.character.animationMap || {}).filter(([, url]) => Boolean(url));
     for (const [slot] of entries) {
-        const option = document.createElement("option");
-        option.value = slot;
-        option.textContent = slot;
-        els.animationSelect.appendChild(option);
+        for (const selector of selectors) {
+            const option = document.createElement("option");
+            option.value = slot;
+            option.textContent = slot;
+            selector.appendChild(option);
+        }
     }
     if (!entries.length) {
-        const option = document.createElement("option");
-        option.value = "";
-        option.textContent = "(no mapped animations)";
-        els.animationSelect.appendChild(option);
-        els.animationSelect.disabled = true;
+        for (const selector of selectors) {
+            const option = document.createElement("option");
+            option.value = "";
+            option.textContent = "(no mapped animations)";
+            selector.appendChild(option);
+            selector.disabled = true;
+        }
         return;
     }
-    els.animationSelect.disabled = false;
-    els.animationSelect.value = entries.some(([slot]) => slot === previous) ? previous : entries[0][0];
+    const selectedSlot = entries.some(([slot]) => slot === previous) ? previous : entries[0][0];
+    for (const selector of selectors) {
+        selector.disabled = false;
+        selector.value = selectedSlot;
+    }
 }
 
 function clearAnimationState() {
@@ -3075,6 +3110,8 @@ async function loadAnimationSlot(slot) {
     state.animation = editable;
     state.animationUrl = url;
     state.animationSlot = slot;
+    els.animationSelect.value = slot;
+    els.dockAnimationSelect.value = slot;
     state.normalizedAnimation = null;
     state.time = 0;
     state.selectedKeyIndex = -1;
@@ -3882,6 +3919,7 @@ async function duplicateCurrentAnimation() {
         refreshCharacterJson();
         setupAnimationSelect();
         els.animationSelect.value = slot;
+        els.dockAnimationSelect.value = slot;
         els.duplicateAnimationSlot.value = "";
         await loadAnimationSlot(slot);
         state.paused = true;
@@ -4168,7 +4206,9 @@ function updateKeyButtons() {
     els.keyTime.disabled = transformMode || generated;
     els.keyValue.disabled = transformMode || generated;
     els.applyKey.disabled = generated || (transformMode ? state.selectedTransformTime === null : !selected);
-    els.deleteKey.disabled = generated || (transformMode ? state.selectedTransformTime === null : !selected);
+    const deleteDisabled = generated || (transformMode ? state.selectedTransformTime === null : !selected);
+    els.deleteKey.disabled = deleteDisabled;
+    els.dockDeleteKey.disabled = deleteDisabled;
     els.copyKey.disabled = transformMode || generated || !selected;
     els.pasteKey.disabled = transformMode || generated || !state.copiedKey;
 }
@@ -5663,9 +5703,12 @@ els.downloadAtlasJson.addEventListener("click", async () => {
 });
 els.applyRigJson.addEventListener("click", applyRigJson);
 
-els.animationSelect.addEventListener("change", () => {
-    loadAnimationSlot(els.animationSelect.value).catch((error) => setStatus(error.stack || error.message));
-});
+function selectAnimationSlotFrom(selector) {
+    loadAnimationSlot(selector.value).catch((error) => setStatus(error.stack || error.message));
+}
+
+els.animationSelect.addEventListener("change", () => selectAnimationSlotFrom(els.animationSelect));
+els.dockAnimationSelect.addEventListener("change", () => selectAnimationSlotFrom(els.dockAnimationSelect));
 els.partSelect.addEventListener("change", () => {
     selectPart(selectedPartName());
     syncFrameAnimationControls();
@@ -5834,6 +5877,7 @@ window.addEventListener("pointercancel", (event) => {
 els.addKey.addEventListener("click", addKeyAtPlayhead);
 els.applyKey.addEventListener("click", () => applySelectedKey(true));
 els.deleteKey.addEventListener("click", deleteSelectedKey);
+els.dockDeleteKey.addEventListener("click", deleteSelectedKey);
 els.copyKey.addEventListener("click", copySelectedKey);
 els.pasteKey.addEventListener("click", pasteKeyAtPlayhead);
 els.keyValue.addEventListener("input", previewSelectedKeyValue);
