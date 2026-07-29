@@ -82,6 +82,7 @@ import { createWebGL2RendererBackend } from "./webgl2-renderer.js";
 import { createPixmapPyramid, drawPixmap } from "./pixmap-pyramid.js";
 import { ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER } from "../shared/experimental-renderer-flags.js";
 import { shownTransformOf } from "../shared/presentation-transform-data.js";
+import { computeFullscreenPresentationMetrics } from "../shared/fullscreen-presentation-data.js";
 import { resourceUrl } from "../shared/resource-paths.js";
 import {
     STATIC_TILE_GUTTER,
@@ -100,6 +101,26 @@ import {
 
 const transientPixmapPyramids = new WeakMap();
 let pixmapPyramidsEnabled = true;
+
+export const ROCKET_TRAIL_LATERAL_OFFSET_PX = 2;
+export const ROCKET_FLAME_FORWARD_OFFSET_PX = 6;
+
+export function rocketPresentationOffsets(angle, zoom = 1) {
+    const safeAngle = Number.isFinite(Number(angle)) ? Number(angle) : 0;
+    const safeZoom = Number.isFinite(Number(zoom)) ? Number(zoom) : 1;
+    const directionX = Math.cos(safeAngle);
+    const directionY = Math.sin(safeAngle);
+    const rightX = -directionY;
+    const rightY = directionX;
+    const trailX = rightX * ROCKET_TRAIL_LATERAL_OFFSET_PX * safeZoom;
+    const trailY = rightY * ROCKET_TRAIL_LATERAL_OFFSET_PX * safeZoom;
+    return {
+        trailX,
+        trailY,
+        flameX: trailX + directionX * ROCKET_FLAME_FORWARD_OFFSET_PX * safeZoom,
+        flameY: trailY + directionY * ROCKET_FLAME_FORWARD_OFFSET_PX * safeZoom
+    };
+}
 
 function pixmapPyramidFor(source) {
     if (!source) return null;
@@ -511,14 +532,31 @@ export function computeTimedTextViewportLayout(
     };
 }
 
-export function computeResponsiveViewportMetrics(clientWidth, clientHeight, dpr = 1, minVirtualWidth = MIN_TOUCH_VIEWPORT_WIDTH) {
+export function computeResponsiveViewportMetrics(
+    clientWidth,
+    clientHeight,
+    dpr = 1,
+    minVirtualWidth = MIN_TOUCH_VIEWPORT_WIDTH,
+    fullscreenReference = false
+) {
     const safeClientWidth = Math.max(1, Number(clientWidth) || 1);
     const safeClientHeight = Math.max(1, Number(clientHeight) || 1);
     const safeDpr = Math.max(1, Math.min(2.5, Number(dpr) || 1));
     const safeMinVirtualWidth = Math.max(1, Number(minVirtualWidth) || 1);
-    const cssScale = safeClientWidth < safeMinVirtualWidth ? safeClientWidth / safeMinVirtualWidth : 1;
-    const virtualWidth = safeClientWidth / cssScale;
-    const virtualHeight = safeClientHeight / cssScale;
+    const fullscreenMetrics = computeFullscreenPresentationMetrics(
+        safeClientWidth,
+        safeClientHeight,
+        Boolean(fullscreenReference)
+    );
+    const cssScale = fullscreenMetrics.referenceActive
+        ? fullscreenMetrics.scale
+        : (safeClientWidth < safeMinVirtualWidth ? safeClientWidth / safeMinVirtualWidth : 1);
+    const virtualWidth = fullscreenMetrics.referenceActive
+        ? fullscreenMetrics.viewportWidth
+        : safeClientWidth / cssScale;
+    const virtualHeight = fullscreenMetrics.referenceActive
+        ? fullscreenMetrics.viewportHeight
+        : safeClientHeight / cssScale;
     const backingWidth = Math.max(1, Math.floor(safeClientWidth * safeDpr));
     const backingHeight = Math.max(1, Math.floor(safeClientHeight * safeDpr));
 
@@ -532,7 +570,8 @@ export function computeResponsiveViewportMetrics(clientWidth, clientHeight, dpr 
         dpr: safeDpr,
         cssScale,
         zoom: safeDpr * cssScale,
-        minVirtualWidth: safeMinVirtualWidth
+        minVirtualWidth: safeMinVirtualWidth,
+        fullscreenReference: fullscreenMetrics.referenceActive
     };
 }
 
@@ -894,6 +933,7 @@ class RocketfrockRenderer {
         this.lastObservedFrameDt = 1 / 60;
         this.lastRenderStartedAtMs = 0;
         this.viewport = { w: canvas.width, h: canvas.height, dpr: 1 };
+        this.fullscreenPresentationEnabled = Boolean(options.fullscreenPresentationEnabled);
         this.viewOverride = null;
         this.lastBounds = null;
         this.lastCharacterDraws = [];
@@ -1602,6 +1642,15 @@ class RocketfrockRenderer {
         return true;
     }
 
+    setFullscreenPresentationEnabled(enabled) {
+        const next = Boolean(enabled);
+        if (next === this.fullscreenPresentationEnabled) return false;
+        this.fullscreenPresentationEnabled = next;
+        this.invalidateStaticLayerBake("fullscreen presentation changed");
+        this.resize();
+        return true;
+    }
+
     resize() {
         // Mobile browser chrome and fullscreen transitions can briefly report a
         // zero-sized client box. Resizing a visible canvas to 1x1 clears its
@@ -1618,7 +1667,9 @@ class RocketfrockRenderer {
         const metrics = computeResponsiveViewportMetrics(
             clientWidth,
             clientHeight,
-            typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1
+            typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1,
+            MIN_TOUCH_VIEWPORT_WIDTH,
+            this.fullscreenPresentationEnabled
         );
         if (this.displayCanvas.width !== metrics.backingWidth || this.displayCanvas.height !== metrics.backingHeight) {
             this.displayCanvas.width = metrics.backingWidth;
@@ -6690,10 +6741,16 @@ class RocketfrockRenderer {
         const trail = rawTrail.concat([{ x: projectile.shownTransform.x, y: projectile.shownTransform.y, time: state.clock.time }]);
         if (trail.length < 2) return false;
 
-        const screenTrail = trail.map((point) => ({
-            ...this.worldToScreen(view, point.x, point.y),
-            time: point.time ?? state.clock.time
-        }));
+        const presentationOffsets = rocketPresentationOffsets(projectile.shownTransform.angle, view.zoom);
+
+        const screenTrail = trail.map((point) => {
+            const screen = this.worldToScreen(view, point.x, point.y);
+            return {
+                x: screen.x + presentationOffsets.trailX,
+                y: screen.y + presentationOffsets.trailY,
+                time: point.time ?? state.clock.time
+            };
+        });
         const maxScreenLength = view.w * 0.075;
         const visible = [screenTrail[screenTrail.length - 1]];
         let distanceSoFar = 0;
@@ -6793,7 +6850,7 @@ class RocketfrockRenderer {
         return drew;
     }
 
-    drawProjectileRocketFlameWebGL(projectile, state, centerX, centerY, angle, baseAsset, pivot, targetHeight, visualScale = 1) {
+    drawProjectileRocketFlameWebGL(projectile, state, centerX, centerY, angle, baseAsset, pivot, targetHeight, visualScale = 1, viewZoom = 1) {
         const backend = this.webglBackend;
         if (!backend?.available) {
             return false;
@@ -6813,8 +6870,9 @@ class RocketfrockRenderer {
         const nozzleOffset = nozzleLocalY * (targetHeight / Math.max(1, baseAsset.height));
         const cos = Math.cos(angle);
         const sin = Math.sin(angle);
-        const flameCenterX = centerX - nozzleOffset * sin;
-        const flameCenterY = centerY + nozzleOffset * cos;
+        const presentationOffsets = rocketPresentationOffsets(angle - Math.PI * 0.5, viewZoom);
+        const flameCenterX = centerX - nozzleOffset * sin + presentationOffsets.flameX;
+        const flameCenterY = centerY + nozzleOffset * cos + presentationOffsets.flameY;
 
         let drew = backend.queueSprite({
             source: flameSprite,
@@ -6872,7 +6930,7 @@ class RocketfrockRenderer {
         const localCenterY = drawOffsetY + drawAsset.height * 0.5;
 
         let drew = this.drawRocketPathTrailWebGL(projectile, state, view);
-        drew = this.drawProjectileRocketFlameWebGL(projectile, state, p.x, p.y, angle, baseAsset, pivot, targetHeight, visualScale) || drew;
+        drew = this.drawProjectileRocketFlameWebGL(projectile, state, p.x, p.y, angle, baseAsset, pivot, targetHeight, visualScale, view.zoom) || drew;
         drew = this.queueWebGLAssetSprite(drawAsset, p.x, p.y, targetHeight, angle, {
             localOffsetX: localCenterX,
             localOffsetY: localCenterY
@@ -7048,7 +7106,17 @@ class RocketfrockRenderer {
         ctx.rotate(angle);
         ctx.scale(spriteScale, spriteScale);
         drawRuntimePixmap(ctx, drawAsset, drawOffsetX, drawOffsetY);
-        drawRocketFlameLocal(ctx, baseAsset, pivot, state.clock.time + projectile.age * 11, 0.55, projectile.id.length * 13);
+        const referencePixelToLocal = view.zoom / Math.max(0.0001, spriteScale);
+        drawRocketFlameLocal(
+            ctx,
+            baseAsset,
+            pivot,
+            state.clock.time + projectile.age * 11,
+            0.55,
+            projectile.id.length * 13,
+            ROCKET_TRAIL_LATERAL_OFFSET_PX * referencePixelToLocal,
+            ROCKET_FLAME_FORWARD_OFFSET_PX * referencePixelToLocal
+        );
         ctx.restore();
     }
 
@@ -7314,12 +7382,18 @@ class RocketfrockRenderer {
             return;
         }
 
-        const screenTrail = trail.map((point) => ({
-            ...this.worldToScreen(view, point.x, point.y),
-            worldX: point.x,
-            worldY: point.y,
-            time: point.time ?? state.clock.time
-        }));
+        const presentationOffsets = rocketPresentationOffsets(projectile.shownTransform.angle, view.zoom);
+
+        const screenTrail = trail.map((point) => {
+            const screen = this.worldToScreen(view, point.x, point.y);
+            return {
+                x: screen.x + presentationOffsets.trailX,
+                y: screen.y + presentationOffsets.trailY,
+                worldX: point.x,
+                worldY: point.y,
+                time: point.time ?? state.clock.time
+            };
+        });
 
         const maxScreenLength = this.canvas.width * 0.075;
         const visible = [screenTrail[screenTrail.length - 1]];
@@ -8861,7 +8935,7 @@ function drawRocketFuelBulbLocal(ctx, asset, pivot, state, time) {
     ctx.restore();
 }
 
-function drawRocketFlameLocal(ctx, asset, pivot, time, power = 1, seed = 0) {
+function drawRocketFlameLocal(ctx, asset, pivot, time, power = 1, seed = 0, rightOffset = 0, forwardOffset = 0) {
     const nozzleX = (0.5 - pivot.x) * asset.width;
     const nozzleY = (0.965 - pivot.y) * asset.height;
     const stablePower = clamp(power, 0.15, 1.2);
@@ -8870,7 +8944,7 @@ function drawRocketFlameLocal(ctx, asset, pivot, time, power = 1, seed = 0) {
     const width = asset.width * (0.16 + 0.08 * stablePower);
 
     ctx.save();
-    ctx.translate(nozzleX, nozzleY);
+    ctx.translate(nozzleX + rightOffset, nozzleY - forwardOffset);
     ctx.globalCompositeOperation = "lighter";
 
     // The rocket artwork points upward in local space, so the nozzle flame is a straight +Y plume.

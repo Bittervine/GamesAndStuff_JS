@@ -4830,3 +4830,33 @@ Manual profiling workflow: open the game, run `window.__rocketfrockDev.profiler.
 - [x] Keep the generated filename outside authored `level_###` and test-only `level_tNN` namespaces.
 - [x] Resolve native music catalog basenames through the `music/` resource category.
 - [x] Add native and browser source-contract coverage for the corrected path.
+
+## Revision 229 selected-map colour treatment preview
+
+- [x] Keep the selected palette asset preview in the Colormap panel.
+- [x] Preview pending hue rotation and GIMP Color Exchange on every selected map asset, including multi-selections.
+- [x] Redraw the map preview during native colour-input interaction without committing level data or rebuilding full atlases.
+- [x] Cache only the selected frame surfaces for the current pending treatment key.
+- [x] Preserve placement transform, mirror, alpha, background brightness, and cave-foreground treatment in the transient preview.
+- [x] Advance browser and native build labels to revision 229.
+
+## Revision 230 fixed fullscreen reference presentation
+
+- [x] Define shared 1920x1080 fullscreen reference metrics in JavaScript and C++.
+- [x] Use uniform crop-to-fill scaling without letterboxing or pillarboxing.
+- [x] Keep 16:9 world, HUD, minimap, menu, and overlay composition independent of physical fullscreen resolution.
+- [x] Preserve physical backing resolution so higher-resolution displays render sharper source artwork rather than additional world.
+- [x] Retain variable viewport behavior in windowed mode.
+- [x] Convert SDL pointer events through the active presentation transform.
+- [x] Add browser and native regression coverage for 720p, 1080p, 4K, ultrawide, portrait, and windowed metrics.
+- [x] Advance browser and native build labels to revision 230.
+
+
+## Revision 231 rocket exhaust alignment
+
+- [x] Move the complete rocket smoke and sparkle trail two reference pixels toward the rocket's local right.
+- [x] Move the flame with the trail and an additional six reference pixels toward the rocket nose.
+- [x] Rotate the correction with the projectile heading in browser Canvas2D, browser WebGL2, and SDL rendering.
+- [x] Keep simulation positions and trail samples unchanged.
+- [x] Add browser regression coverage for upward and rightward reference orientations plus native-source parity.
+- [x] Advance browser and native build labels to revision 231.

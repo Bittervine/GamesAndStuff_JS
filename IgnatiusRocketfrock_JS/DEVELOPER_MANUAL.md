@@ -580,7 +580,7 @@ The trigger point is independent of the artwork position. In the Level Editor, s
 
 The Level Editor **Colormap** panel has two independent treatments: selective hue rotation and GIMP Color Exchange. Both source/target pairs use native colour inputs, so the host colour picker and sampler are available without permanent help text in the panel. GIMP exchange thresholds default to `1.0` for red, green, and blue in both Level Editor and Character Editor controls.
 
-Changing any Colormap value updates only the preview canvas for the currently selected asset. The level, world canvas, and atlas palette continue showing the last applied settings until **Apply** is pressed. **Reset** loads the default values into the pending controls and preview; press **Apply** to commit that reset.
+Changing any Colormap value keeps the preview canvas for the currently selected palette asset, and also redraws every selected atlas placement on the map with the pending treatment. This map preview is transient overlay artwork: it does not alter level JSON, the runtime world, or atlas-wide caches, and it works for multi-selection while the native colour picker remains open. Unselected map artwork and the atlas palette continue showing the last applied settings until **Apply** is pressed. **Reset** loads the default values into the pending controls and both previews; press **Apply** to commit that reset.
 
 The level schema stores the treatments at top level as `colorMap` and `colorExchange`. `colorExchange` uses `enabled`, `fromColor`, `toColor`, `redThreshold`, `greenThreshold`, and `blueThreshold`. Application order is GIMP exchange first, then selective hue rotation. This order is shared by the browser runtime, native SDL atlas loader, foreground brightness/saturation derivatives, and editor preview.
 
@@ -596,3 +596,10 @@ When adding a projectile variant, author the projectile frame or recolour its pr
 ## Revision 225 resource organization
 
 Runtime files are organized under `resources/atlases`, `characters`, `editor`, `fonts`, `generator`, `items`, `levels`, `music`, `sfx`, and `ui`. Use category-relative paths in authored JSON and editor code. Run `npm run audit:resources` before committing resource changes; it is also invoked automatically by every browser test gate. Editable XCF source material belongs under `reference/authoring`, not in runtime resources.
+
+## Fullscreen reference presentation (revision 230)
+
+Fullscreen uses a 1920x1080 virtual reference rather than the physical display dimensions as the camera viewport. The shared helper is `src/shared/fullscreen-presentation-data.js` in the reference port and `src/shared/fullscreen-presentation-data.{h,cpp}` in the native port. Use one uniform crop-to-fill scale, `max(outputWidth / 1920, outputHeight / 1080)`. Do not add black bars and do not widen the camera merely because the display has more pixels.
+
+The physical backing surface must remain at the actual output resolution. At 3840x2160 the logical view is still 1920x1080, but textures are rasterized across the complete 4K target. On non-16:9 outputs the visible logical width or height is smaller because the reference frame is center-cropped. Windowed mode intentionally keeps the physical window dimensions as its variable logical viewport. Mouse, touch, and pen input must be transformed back into logical render coordinates before menu or gameplay hit testing.
+

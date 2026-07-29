@@ -15,7 +15,7 @@ Whenever implementation work uncovers a bug, stale behavior, or deprecated field
 
 ## VIEWPORT SCALING RULE ##
 
-The game uses a shared virtual viewport. On narrow mobile screens the renderer scales the whole canvas down instead of scaling individual sprites or physics values. Keep gameplay, collision, camera, particle, and level coordinates in virtual game coordinates. Convert mouse, touch, and pointer screen coordinates through the viewport transform before passing them into gameplay controls.
+The game uses a shared virtual viewport. On narrow mobile screens the renderer scales the whole canvas down instead of scaling individual sprites or physics values. Revision 230 adds a 1920x1080 fullscreen reference presentation in both ports. Fullscreen uses a uniform crop-to-fill scale, never letterboxing or pillarboxing: 16:9 outputs expose exactly the reference world area, while other aspect ratios crop one logical axis instead of revealing additional world. The backing target remains at the physical display resolution so higher-resolution displays preserve additional texture detail. Windowed presentation retains its variable viewport. Keep gameplay, collision, camera, particle, and level coordinates in virtual game coordinates. Convert mouse, touch, and pointer screen coordinates through the viewport transform before passing them into gameplay controls.
 
 ## BROWSER STARTUP LOADING RULE ##
 

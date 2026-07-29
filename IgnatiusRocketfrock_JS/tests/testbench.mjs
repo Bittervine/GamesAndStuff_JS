@@ -12,7 +12,10 @@ import {
     computeResponsiveViewportMetrics,
     computeThoughtBubblePlacement,
     computeTimedTextViewportLayout,
-    probeWebGL2RendererSupport
+    probeWebGL2RendererSupport,
+    ROCKET_FLAME_FORWARD_OFFSET_PX,
+    ROCKET_TRAIL_LATERAL_OFFSET_PX,
+    rocketPresentationOffsets
 } from "../src/presentation/canvas-renderer.js";
 import { WebGL2RendererBackend } from "../src/presentation/webgl2-renderer.js";
 import {
@@ -80,6 +83,11 @@ import {
     snapshotGameplayInput
 } from "../src/browser/gameplay-recording.js";
 import { calculateHudPanelScale } from "../src/browser/hud-panel-layout.js";
+import {
+    FULLSCREEN_REFERENCE_HEIGHT,
+    FULLSCREEN_REFERENCE_WIDTH,
+    computeFullscreenPresentationMetrics
+} from "../src/shared/fullscreen-presentation-data.js";
 import { GamepadHaptics, GAMEPAD_HAPTIC_PATTERNS } from "../src/browser/gamepad-haptics.js";
 import { createSoundEffectsDirector } from "../src/browser/sound-effects-director.js";
 import {
@@ -952,6 +960,32 @@ function testResponsiveViewportScaling() {
     approx(highResolution.virtualWidth, 1920, 0.001, "1080p presentation pixels do not leak into browser simulation coordinates");
     approx(highResolution.virtualHeight, 1080, 0.001, "1080p presentation height remains a virtual viewport measurement");
     approx(highResolution.zoom, 2, 0.001, "1080p world-to-backing conversion applies presentation scale exactly once");
+
+    const fullscreen720 = computeFullscreenPresentationMetrics(1280, 720, true);
+    approx(fullscreen720.scale, 2 / 3, 0.000001, "720p fullscreen should scale the 1080p reference composition down uniformly");
+    approx(fullscreen720.viewportWidth, FULLSCREEN_REFERENCE_WIDTH, 0.000001, "720p fullscreen should retain the reference world width");
+    approx(fullscreen720.viewportHeight, FULLSCREEN_REFERENCE_HEIGHT, 0.000001, "720p fullscreen should retain the reference world height");
+
+    const fullscreen4k = computeResponsiveViewportMetrics(3840, 2160, 1, 600, true);
+    assert.equal(fullscreen4k.backingWidth, 3840, "4K fullscreen should retain the full physical backing width for art detail");
+    assert.equal(fullscreen4k.backingHeight, 2160, "4K fullscreen should retain the full physical backing height for art detail");
+    approx(fullscreen4k.virtualWidth, FULLSCREEN_REFERENCE_WIDTH, 0.000001, "4K fullscreen should not reveal more world horizontally");
+    approx(fullscreen4k.virtualHeight, FULLSCREEN_REFERENCE_HEIGHT, 0.000001, "4K fullscreen should not reveal more world vertically");
+    approx(fullscreen4k.zoom, 2, 0.000001, "4K fullscreen should rasterize the reference composition at double scale");
+
+    const fullscreenUltrawide = computeFullscreenPresentationMetrics(3440, 1440, true);
+    approx(fullscreenUltrawide.viewportWidth, FULLSCREEN_REFERENCE_WIDTH, 0.000001, "ultrawide fullscreen should preserve the reference width");
+    assert.ok(fullscreenUltrawide.viewportHeight < FULLSCREEN_REFERENCE_HEIGHT, "ultrawide fullscreen should crop vertically rather than reveal more world");
+    approx(fullscreenUltrawide.viewportHeight, 1440 / (3440 / 1920), 0.000001, "ultrawide crop should use a uniform crop-to-fill scale");
+
+    const fullscreenPortrait = computeFullscreenPresentationMetrics(1080, 1920, true);
+    approx(fullscreenPortrait.viewportHeight, FULLSCREEN_REFERENCE_HEIGHT, 0.000001, "portrait fullscreen should preserve the reference height");
+    assert.ok(fullscreenPortrait.viewportWidth < FULLSCREEN_REFERENCE_WIDTH, "portrait fullscreen should crop horizontally rather than reveal more world");
+
+    const windowed4k = computeFullscreenPresentationMetrics(3840, 2160, false);
+    assert.equal(windowed4k.referenceActive, false, "windowed presentation should retain the variable viewport contract");
+    approx(windowed4k.viewportWidth, 3840, 0.000001, "windowed presentation may expose the full window width");
+    approx(windowed4k.viewportHeight, 2160, 0.000001, "windowed presentation may expose the full window height");
 }
 
 function testThoughtBubbleTailAndResponsiveTypography() {
@@ -7071,8 +7105,10 @@ function testSelectiveLevelColorMap() {
     assert.ok(levelEditorHtml.includes('id="color-map-source" type="color"') && levelEditorHtml.includes('id="color-map-target" type="color"'), "level hue rotation should use native sampled colour controls");
     assert.ok(levelEditorHtml.includes('id="color-exchange-enabled"') && levelEditorHtml.includes('id="color-exchange-from" type="color"'), "level editor should expose GIMP colour exchange with sampled colours");
     assert.ok(levelEditorHtml.includes('id="color-exchange-red-threshold" type="number" min="0" max="1" step="0.001" value="1"'), "level editor should default GIMP channel thresholds to 1.0");
-    assert.ok(levelEditorHtml.includes('id="color-treatment-preview"') && levelEditorHtml.includes('id="color-map-apply"'), "level colour treatment should preview the selected asset and defer atlas rebuilding until Apply");
-    assert.ok(levelEditorHtml.includes("createLevelColorTreatedCanvas"), "level editor should build cached colour-treated atlases");
+    assert.ok(levelEditorHtml.includes('id="color-treatment-preview"') && levelEditorHtml.includes('id="color-map-apply"'), "level colour treatment should keep the palette preview and defer atlas rebuilding until Apply");
+    assert.ok(levelEditorHtml.includes("function drawSelectedColorTreatmentPreview()") && levelEditorHtml.includes("selectedMapAssetsForColorTreatmentPreview"), "pending colour treatment should also preview every selected map asset");
+    assert.ok(levelEditorHtml.includes("drawSelectedColorTreatmentPreview();") && levelEditorHtml.includes("updateAssetPaletteSelection();\n            draw();"), "map previews should redraw live while native colour controls are open");
+    assert.ok(levelEditorHtml.includes("createLevelColorTreatedCanvas"), "level editor should build cached colour-treated atlases and selected-frame previews");
     assert.ok(levelEditorHtml.includes("function scheduleColorMapRefresh()") && levelEditorHtml.includes("function applyColorMapControls"), "preview refresh and full atlas application should use separate paths");
     const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
     assert.ok(rendererSource.includes("environmentColorMapKey"), "runtime should track the active atlas colour cache key");
@@ -10091,6 +10127,16 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     assert.ok(maskSource.includes("gradientVertices") && maskSource.includes("exteriorStencilVertices"), "cave-window data should compile into resident gradient and odd-even exterior meshes");
     assert.ok(rendererSource.includes("drawPlayerRocketsWebGL") && rendererSource.includes("drawProjectileRocketWebGL") && rendererSource.includes("rocketFlame"), "player rocket bodies and flame treatment should also have a direct WebGL2 pass when the GPU backend is active");
     assert.ok(rendererSource.includes("Do not add a separate large soft-glow core at the newest trail sample") && !rendererSource.includes("width: 40 * view.zoom"), "the direct WebGL rocket trail must not add a large sample-snapped orange beacon behind the nozzle flame");
+    assert.equal(ROCKET_TRAIL_LATERAL_OFFSET_PX, 2, "rocket trail presentation should move two reference pixels to the rocket's right");
+    assert.equal(ROCKET_FLAME_FORWARD_OFFSET_PX, 6, "the rocket flame should move six additional reference pixels toward the nose");
+    const upwardRocketOffsets = rocketPresentationOffsets(-Math.PI * 0.5, 1);
+    assert.ok(Math.abs(upwardRocketOffsets.trailX - 2) < 0.000001 && Math.abs(upwardRocketOffsets.trailY) < 0.000001, "an upward rocket should shift its entire trail two pixels right");
+    assert.ok(Math.abs(upwardRocketOffsets.flameX - 2) < 0.000001 && Math.abs(upwardRocketOffsets.flameY + 6) < 0.000001, "an upward rocket should shift its flame two pixels right and six pixels up");
+    const rightwardRocketOffsets = rocketPresentationOffsets(0, 1);
+    assert.ok(Math.abs(rightwardRocketOffsets.trailX) < 0.000001 && Math.abs(rightwardRocketOffsets.trailY - 2) < 0.000001, "the trail correction should rotate with a rightward rocket");
+    assert.ok(Math.abs(rightwardRocketOffsets.flameX - 6) < 0.000001 && Math.abs(rightwardRocketOffsets.flameY - 2) < 0.000001, "the flame correction should retain its rocket-relative orientation");
+    const nativeRendererSource = readFileSync(new URL("../../src/runtime/ignatius-app.cpp", import.meta.url), "utf8");
+    assert.ok(nativeRendererSource.includes("ROCKET_TRAIL_LATERAL_OFFSET_PX = 2.0") && nativeRendererSource.includes("ROCKET_FLAME_FORWARD_OFFSET_PX = 6.0"), "the native renderer should use the same rocket-relative trail and flame offsets as the browser renderer");
     const fireballWebGLSource = rendererSource.slice(
         rendererSource.indexOf("drawProjectileFireballWebGL(projectile, state, view)"),
         rendererSource.indexOf("drawProjectileMusketBallWebGL(projectile, state, view)")
@@ -16682,8 +16728,9 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     const electronPackageSource = readFileSync(new URL("../electron/package.json", import.meta.url), "utf8");
     const electronMainSource = readFileSync(new URL("../electron/main.cjs", import.meta.url), "utf8");
     const electronBuildSource = readFileSync(new URL("../electron/build-package.cjs", import.meta.url), "utf8");
+    const packagedRevision = readFileSync(new URL("../BUILD_REVISION.txt", import.meta.url), "utf8").trim();
 
-    assert.match(gameHtml, /<title>Ignatius Rocketfrock - HTML BUILD 225<\/title>/, "the browser title should report revision 225");
+    assert.ok(gameHtml.includes(`<title>Ignatius Rocketfrock - HTML BUILD ${packagedRevision}</title>`), "the browser title should report the packaged revision");
     assert.match(gameHtml, /id="title-start-button"[^>]*>\s*Start New Game/s, "the title menu should expose Start New Game");
     assert.match(gameHtml, /id="title-resume-button"[^>]*>\s*Resume Game/s, "the title menu should expose Resume Game");
     assert.match(gameHtml, /id="title-load-button"[^>]*>\s*Load Game/s, "the title menu should expose Load Game");

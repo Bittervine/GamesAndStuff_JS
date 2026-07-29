@@ -56,6 +56,7 @@ import {
     setFullscreenState
 } from "./electron-window-bridge.js";
 import { calculateHudPanelScale } from "./hud-panel-layout.js";
+import { computeFullscreenPresentationMetrics } from "../shared/fullscreen-presentation-data.js";
 import { MicroStutterProfiler } from "./micro-stutter-profiler.js";
 import {
     appendGameplayRecordingFrame,
@@ -161,7 +162,7 @@ const developmentGameTuningButton = document.getElementById("development-game-tu
 const developmentRecordingButton = document.getElementById("development-recording");
 const developmentPlaybackButton = document.getElementById("development-playback");
 
-const GAME_REVISION = "228";
+const GAME_REVISION = "231";
 const START_LEVEL_ID = "level_001";
 const launchParams = new URLSearchParams(window.location.search || "");
 const launchLevelId = normalizeLaunchLevelQuery(launchParams.get("level"), START_LEVEL_ID);
@@ -1398,6 +1399,11 @@ function syncHudPanelsToViewport() {
     const topInset = Math.max(0, Number.parseFloat(hudStyle.top) || 0);
     const rightInset = Math.max(0, Number.parseFloat(minimapStyle?.right) || leftInset);
     const panelGap = Math.max(4, Math.min(12, viewportWidth * 0.015));
+    const fullscreenPresentation = computeFullscreenPresentationMetrics(
+        viewportWidth,
+        viewportHeight,
+        fullscreenActive
+    );
     const nextScale = calculateHudPanelScale({
         viewportWidth,
         viewportHeight,
@@ -1408,7 +1414,8 @@ function syncHudPanelsToViewport() {
         topInset,
         bottomInset: topInset,
         panelGap,
-        minimapVisible: Boolean(minimapPanel && !minimapPanel.hidden)
+        minimapVisible: Boolean(minimapPanel && !minimapPanel.hidden),
+        maximumScale: fullscreenPresentation.referenceActive ? fullscreenPresentation.scale : 1
     });
     const changed = Math.abs(nextScale - hudPanelScale) > 0.0001;
     hudPanelScale = nextScale;
@@ -2192,6 +2199,8 @@ function attemptVisibleLevelMusicStart() {
 }
 
 function syncFullscreenUi() {
+    renderer?.setFullscreenPresentationEnabled?.(fullscreenActive);
+    syncHudPanelsToViewport();
     if (fullscreenToggleButton) {
         fullscreenToggleButton.hidden = false;
         fullscreenToggleButton.textContent = fullscreenActive ? "WINDOWED" : "FULLSCREEN";

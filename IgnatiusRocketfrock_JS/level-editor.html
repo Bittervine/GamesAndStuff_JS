@@ -931,7 +931,7 @@
                 <label>Green threshold<input id="color-exchange-green-threshold" type="number" min="0" max="1" step="0.001" value="1"></label>
                 <label>Blue threshold<input id="color-exchange-blue-threshold" type="number" min="0" max="1" step="0.001" value="1"></label>
             </div>
-            <canvas id="color-treatment-preview" class="color-treatment-preview" width="300" height="104" aria-label="Selected asset color preview"></canvas>
+            <canvas id="color-treatment-preview" class="color-treatment-preview" width="300" height="104" aria-label="Selected palette asset color preview"></canvas>
             <div class="row color-treatment-actions">
                 <button id="color-map-apply" type="button">Apply</button>
                 <button id="color-map-reset" type="button">Reset</button>
@@ -1350,10 +1350,7 @@ import {
     normalizeRgbColor,
     rgbColorToHex
 } from "./src/shared/color-exchange-data.js";
-import {
-    applyLevelColorTreatmentToImageData,
-    createLevelColorTreatedCanvas
-} from "./src/presentation/level-color-map-cache.js";
+import { createLevelColorTreatedCanvas } from "./src/presentation/level-color-map-cache.js";
 import { computeCaveWindowParallaxOffset } from "./src/presentation/cave-window-mask.js";
 import {
     computeWorldParallaxOffset,
@@ -1858,6 +1855,7 @@ import {
         frameImageScale: 1,
         colorMapCacheKey: "",
         colorTreatmentPreviewKey: "",
+        colorTreatmentPreviewFrames: new Map(),
         colorTreatmentAppliedControlKey: "",
         level: null,
         availableLevels: [],
@@ -2891,6 +2889,8 @@ import {
             state.atlasImage = record.renderImage || record.image;
         }
         state.editorForegroundSpriteCache.clear();
+        state.colorTreatmentPreviewKey = "";
+        state.colorTreatmentPreviewFrames.clear();
         state.editorOverlapBlendCache = null;
         state.editorWorldVisualCache = null;
         invalidateEditorSceneCache({ caveForeground: true });
@@ -5207,6 +5207,7 @@ import {
             drawAutomaticRouteOverlay();
             drawAutomaticValidationOverlay();
             drawPlacementPreview();
+            drawSelectedColorTreatmentPreview();
             drawSelection();
             drawSelectionBox();
         });
@@ -8397,14 +8398,64 @@ import {
         return `${colorMapCacheKey(readColorMapControls())}|${levelColorExchangeCacheKey(readColorExchangeControls())}`;
     }
 
+    function colorTreatmentPreviewIsDirty() {
+        return pendingColorTreatmentKey() !== state.colorTreatmentAppliedControlKey;
+    }
+
+    function resetColorTreatmentPreviewFramesIfNeeded() {
+        const previewKey = pendingColorTreatmentKey();
+        if (state.colorTreatmentPreviewKey !== previewKey) {
+            state.colorTreatmentPreviewKey = previewKey;
+            state.colorTreatmentPreviewFrames.clear();
+        }
+        return previewKey;
+    }
+
+    function colorTreatmentPreviewFrame(atlasId, assetId, { foregroundVisual = null } = {}) {
+        const record = atlasRecord(atlasId);
+        const frame = frameFor(assetId, atlasId);
+        if (!record?.image || !frame) return null;
+        const previewKey = resetColorTreatmentPreviewFramesIfNeeded();
+        const foregroundKey = foregroundVisual
+            ? foregroundTreatmentCacheKey({ atlasId, frameName: assetId, colorMapKey: previewKey, visual: foregroundVisual })
+            : "plain";
+        const cacheKey = `${atlasId}|${assetId}|${foregroundKey}`;
+        const cached = state.colorTreatmentPreviewFrames.get(cacheKey);
+        if (cached) return cached;
+
+        const scratch = document.createElement("canvas");
+        scratch.width = Math.max(1, frame.w);
+        scratch.height = Math.max(1, frame.h);
+        const scratchContext = scratch.getContext("2d", { willReadFrequently: true });
+        if (!scratchContext) return null;
+        scratchContext.drawImage(record.image, frame.x, frame.y, frame.w, frame.h, 0, 0, frame.w, frame.h);
+        let surface = createLevelColorTreatedCanvas(
+            scratch,
+            readColorMapControls(),
+            readColorExchangeControls(),
+            undefined,
+            atlasId
+        ) || scratch;
+        if (foregroundVisual) {
+            surface = createForegroundSpriteCanvas({
+                ownerDocument: document,
+                sourceImage: surface,
+                frame: { x: 0, y: 0, w: frame.w, h: frame.h },
+                visual: foregroundVisual
+            });
+        }
+        const result = { surface, frame };
+        state.colorTreatmentPreviewFrames.set(cacheKey, result);
+        return result;
+    }
+
     function drawColorTreatmentPreview() {
         const canvas = els.colorTreatmentPreview;
         const context = canvas?.getContext("2d", { willReadFrequently: true });
         if (!canvas || !context) return;
         context.clearRect(0, 0, canvas.width, canvas.height);
-        const record = atlasRecord(state.activeAtlasId);
-        const frame = frameFor(state.selectedAssetId, state.activeAtlasId);
-        if (!record?.image || !frame) {
+        const preview = colorTreatmentPreviewFrame(state.activeAtlasId, state.selectedAssetId);
+        if (!preview?.surface) {
             context.fillStyle = "rgba(205,191,220,0.72)";
             context.font = "700 12px system-ui, sans-serif";
             context.textAlign = "center";
@@ -8412,20 +8463,48 @@ import {
             context.fillText("Select an asset", canvas.width * 0.5, canvas.height * 0.5);
             return;
         }
-        const scratch = document.createElement("canvas");
-        scratch.width = Math.max(1, frame.w);
-        scratch.height = Math.max(1, frame.h);
-        const scratchContext = scratch.getContext("2d", { willReadFrequently: true });
-        scratchContext.drawImage(record.image, frame.x, frame.y, frame.w, frame.h, 0, 0, frame.w, frame.h);
-        const imageData = scratchContext.getImageData(0, 0, scratch.width, scratch.height);
-        applyLevelColorTreatmentToImageData(imageData, readColorMapControls(), readColorExchangeControls());
-        scratchContext.putImageData(imageData, 0, 0);
-        const visible = paletteOpaqueBounds(scratch, 0, 0, scratch.width, scratch.height);
+        const visible = paletteOpaqueBounds(preview.surface, 0, 0, preview.surface.width, preview.surface.height);
         const pad = 10;
         const scale = Math.min((canvas.width - pad * 2) / visible.w, (canvas.height - pad * 2) / visible.h);
         const width = visible.w * scale;
         const height = visible.h * scale;
-        context.drawImage(scratch, visible.x, visible.y, visible.w, visible.h, (canvas.width - width) * 0.5, (canvas.height - height) * 0.5, width, height);
+        context.drawImage(preview.surface, visible.x, visible.y, visible.w, visible.h, (canvas.width - width) * 0.5, (canvas.height - height) * 0.5, width, height);
+    }
+
+    function selectedMapAssetsForColorTreatmentPreview() {
+        if (!colorTreatmentPreviewIsDirty()) return [];
+        return selectedRecords()
+            .filter((selected) => selected.kind === "asset")
+            .map((selected) => selected.record)
+            .filter((placement) => placement?.kind === "atlasAsset"
+                && generatedCavePlacementVisible(placement)
+                && frameFor(placement.assetId, placement.atlasId || DEFAULT_ATLAS_ID));
+    }
+
+    function drawSelectedColorTreatmentPreview() {
+        for (const placement of selectedMapAssetsForColorTreatmentPreview()) {
+            const atlasId = placement.atlasId || DEFAULT_ATLAS_ID;
+            const displayPlacement = displayedLayerPlacement(placement);
+            const caveForeground = placement.layer === CAVE_FOREGROUND_LAYER;
+            const background = placement.layer === BACKGROUND_LAYER;
+            const foregroundVisual = caveForeground
+                ? { ...placement, foregroundBrightness: currentLayerVisuals().foreground.brightness }
+                : null;
+            const preview = colorTreatmentPreviewFrame(atlasId, placement.assetId, { foregroundVisual });
+            if (!preview?.surface) continue;
+            const centerWorld = placementCenter(displayPlacement);
+            const center = worldToScreen(centerWorld.x, centerWorld.y);
+            const w = displayPlacement.w * state.camera.zoom;
+            const h = displayPlacement.h * state.camera.zoom;
+            ctx.save();
+            ctx.globalAlpha *= Number.isFinite(Number(placement.alpha)) ? Number(placement.alpha) : 1;
+            if (background) ctx.filter = `brightness(${currentLayerVisuals().background.brightness})`;
+            ctx.translate(center.x, center.y);
+            ctx.rotate(normalizeRotationRadians(placement.rotation));
+            ctx.scale(placement.mirrorX ? -1 : 1, placement.mirrorY ? -1 : 1);
+            ctx.drawImage(preview.surface, -w * 0.5, -h * 0.5, w, h);
+            ctx.restore();
+        }
     }
 
     function updateColorMapPreview() {
@@ -8434,11 +8513,15 @@ import {
         const treatments = [];
         if (colorMap.enabled && Math.abs(colorMap.rotation) > 0.0001) treatments.push(`Hue ${Math.round(colorMap.rotation)}°`);
         if (colorExchange.enabled) treatments.push("GIMP exchange");
-        const selected = state.selectedAssetId ? `${state.activeAtlasId}:${state.selectedAssetId}` : "selected asset";
-        const dirty = pendingColorTreatmentKey() !== state.colorTreatmentAppliedControlKey;
+        const paletteSelected = state.selectedAssetId ? `${state.activeAtlasId}:${state.selectedAssetId}` : "selected palette asset";
+        const mapSelectionCount = selectedMapAssetsForColorTreatmentPreview().length;
+        const selectionText = mapSelectionCount
+            ? `${mapSelectionCount} selected map asset${mapSelectionCount === 1 ? "" : "s"} and ${paletteSelected}`
+            : paletteSelected;
+        const dirty = colorTreatmentPreviewIsDirty();
         els.colorMapStatus.textContent = treatments.length
-            ? `${dirty ? "Preview" : "Applied"}: ${treatments.join(" + ")} on ${selected}`
-            : `${dirty ? "Preview" : "Applied"}: original colours on ${selected}`;
+            ? `${dirty ? "Preview" : "Applied"}: ${treatments.join(" + ")} on ${selectionText}`
+            : `${dirty ? "Preview" : "Applied"}: original colours on ${selectionText}`;
         els.colorMapApply.disabled = !dirty;
         drawColorTreatmentPreview();
     }
@@ -8474,6 +8557,7 @@ import {
         colorMapRefreshTimer = window.setTimeout(() => {
             updateColorMapPreview();
             updateAssetPaletteSelection();
+            draw();
         }, 35);
     }
 
@@ -9166,6 +9250,8 @@ import {
         els.colorExchangeGreenThreshold.value = Number(colorExchange.greenThreshold).toFixed(3);
         els.colorExchangeBlueThreshold.value = Number(colorExchange.blueThreshold).toFixed(3);
         updateColorMapPreview();
+        updateAssetPaletteSelection();
+        draw();
     });
 
 

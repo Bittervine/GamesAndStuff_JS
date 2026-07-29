@@ -4515,3 +4515,20 @@ Revision 225 completes the move from the flat `assets` directory to categorized 
 ## Revision 227 normal-path DevTool playtests
 
 Revision 227 removes the SDL DevTool's external temporary-level launch seam. The Level Editor snapshot is written as `content/resources/levels/level_temp.json` and launched through the ordinary `--level` resource loader, while the source resource audit rejects that generated filename if it is accidentally copied into authored content. Native music playback now resolves catalog basenames through `music/`, matching the browser music director and allowing direct-start playtests to load their selected track.
+
+## Revision 229 selected-map colour treatment preview
+
+The Level Editor retains the compact palette-frame preview introduced in revision 221, but pending hue rotation and GIMP Color Exchange now also render over every currently selected atlas placement in the map view. Multi-selection therefore previews a coherent group while the browser or host colour picker is still open and obscuring the right-hand panel.
+
+Selected-map previews are frame-sized cached surfaces built from original atlas pixels and the pending control key. They are drawn only in the editor overlay, preserve placement transform, mirroring, alpha, background brightness, and cave-foreground treatment, and never mutate level JSON or rebuild complete atlases before **Apply**. Applying still performs the existing committed atlas-cache invalidation path shared with browser and SDL runtime presentation.
+
+## SDL build revision 230 fixed fullscreen reference presentation
+
+Fullscreen presentation now uses a shared 1920x1080 reference composition in the browser and SDL ports. A uniform crop-to-fill scale maps that composition directly onto the physical display, so 1280x720, 1920x1080, and 3840x2160 expose the same gameplay area and retain the same HUD and minimap proportions. Higher-resolution targets keep their full backing resolution and therefore reveal finer source-art detail rather than additional world space.
+
+Non-16:9 displays deliberately crop one logical axis instead of adding letterbox or pillarbox bars. Windowed mode retains the previous variable viewport behavior. SDL_Renderer applies the presentation scale to the window target and converts pointer events back through the same transform. The raw SDL_GPU path maps the cropped logical view directly to the acquired swapchain texture. Browser Canvas2D and WebGL2 retain full-DPR backing stores while using the same shared fullscreen metrics.
+
+
+## SDL build revision 231 rocket exhaust alignment
+
+Rocket projectile presentation now applies one shared rocket-relative correction in both ports. Relative to a rocket flying straight upward, the complete curved smoke and sparkle trail moves two reference pixels to the right, while the flame moves with that lateral correction and an additional six reference pixels toward the rocket nose. The correction rotates with the projectile heading and scales with the presentation zoom, so it retains the same visual relationship at other directions and display scales without changing projectile simulation or recorded trail points.

@@ -2285,3 +2285,14 @@ Runtime data is rooted at `reference/resources` in the browser source tree and `
 ## Revision 227 generated DevTool level contract
 
 The Windows DevTool writes the current Level Editor browser copy into packaged resources at `content/resources/levels/level_temp.json`, then starts the SDL game with `--level level_temp --start-in-game`. This deliberately uses the same level-resource loader as authored levels. The generated filename is not an authored campaign level or a `level_tNN` test fixture, and the source resource audit rejects it under `reference/resources/levels`. Browser-only playtesting continues to use local storage because a normal browser cannot write into the source tree.
+
+## SDL build revision 230 fullscreen presentation boundary
+
+`src/shared/fullscreen-presentation-data.js` and `src/shared/fullscreen-presentation-data.cpp` define the common 1920x1080 fullscreen reference and the crop-to-fill metric calculation. This helper is presentation data only. Simulation continues to operate in world units and receives only the resulting virtual camera dimensions.
+
+Fullscreen scale is `max(targetWidth / 1920, targetHeight / 1080)`. The visible logical viewport is the physical target divided by that uniform scale, so a 16:9 target remains exactly 1920x1080 and a different aspect ratio crops one axis. Browser Canvas2D/WebGL2 and native SDL_GPU render directly into the physical-resolution backing target. SDL_Renderer uses the same scale on its window render target. Windowed mode bypasses the reference transform and preserves its variable viewport. Input adapters must invert the active transform before gameplay consumes pointer coordinates.
+
+
+## SDL build revision 231 rocket exhaust presentation offsets
+
+Rocket exhaust alignment remains presentation-only. The browser renderer exposes `rocketPresentationOffsets()` with a two-reference-pixel local-right trail offset and a six-reference-pixel forward-only flame offset. Canvas2D, WebGL2, and SDL apply the same rocket-relative vectors after world-to-screen conversion; simulation-owned projectile positions, velocities, homing, collision, and serialized trail samples remain unchanged.
