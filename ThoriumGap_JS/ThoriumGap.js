@@ -265,8 +265,8 @@
   const ASTEROID_MIN_ROT = Math.PI / 4;
   const ASTEROID_BASE_LAYER = 1.35;
   const SURVIVAL_CHALLENGE_DURATION = 60;
-  const SURVIVAL_CHALLENGE_INTRO = 10;
-  const SURVIVAL_CHALLENGE_ASTEROID_DENSITY = 12;
+  const SURVIVAL_CHALLENGE_INTRO = 5;
+  const SURVIVAL_CHALLENGE_ASTEROID_DENSITY = 12 * 4;
   const asteroidArtLoadKeys = new Set();
   const asteroidArtCache = new Map();
   const ENEMY_3D_QUERY_PARAM = 'enemy3d';
@@ -4291,7 +4291,8 @@
         sub: 'DODGE THE ASTEROIDS',
         lines: [
           'Survive 60 seconds.',
-          'Lots of asteroids incoming.',
+          'Four times as many asteroids incoming.',
+          'One collision or bullet hit kills you.',
           'Survive to keep your extra life.'
         ]
       };
@@ -4302,8 +4303,9 @@
         sub: 'OUTLAST THE NEMESIS',
         lines: [
           'Survive 60 seconds.',
-          'Nemesis arrive once per second.',
-          '30 shots only. No bombs.',
+          'Normal enemies and Nemesis arrive.',
+          'No pickups. One collision or bullet hit kills you.',
+          '100 shots only. No bombs.',
           'Survive to keep your extra life.'
         ]
       };
@@ -4314,7 +4316,8 @@
         sub: 'BOMBS ONLY',
         lines: [
           'Survive 60 seconds.',
-          'Nemesis arrive once per second.',
+          'Normal enemies and Nemesis arrive.',
+          'No pickups. One collision or bullet hit kills you.',
           'No shots. One bomb every 10 seconds.',
           'Survive to keep your extra life.'
         ]
@@ -4341,7 +4344,7 @@
       elapsed: 0,
       nextBombAt: 10,
       bombsGranted: 0,
-      shotsRemaining: config.type === 'nemesis' ? 30 : null,
+      shotsRemaining: config.type === 'nemesis' ? 100 : null,
       asteroidTheme: asteroidTheme,
       completedLevel: completedLevel,
       result: null
@@ -4358,6 +4361,7 @@
     clearAsteroids();
     state.boss = null;
     state.player.respawnTimer = 0;
+    state.player.invuln = 0;
     state.player.fireHeld = false;
     state.input.fire = false;
     state.banner = 'SURVIVAL CHALLENGE!';
@@ -5831,6 +5835,8 @@
   }
 
   function maybeDropPickup(x, y, elite, forceType) {
+    const challenge = activeSurvivalChallenge();
+    if (challenge && (challenge.type === 'nemesis' || challenge.type === 'bombs')) return;
     const p = 0.6 * (0.95 ** (state.levelIndex-1))
     if (forceType || Math.random() < p) {
       const type = forceType || choosePickup();
@@ -6419,7 +6425,7 @@
       return;
     }
     p.bombs--;
-    p.invuln = 1.0;
+    p.invuln = activeSurvivalChallenge() ? 0 : 1.0;
     state.flash = Math.max(state.flash, 0.5);
     state.shake = Math.max(state.shake, 15);
     sfx('bomb');
@@ -6543,7 +6549,12 @@
 
   function hurtPlayer(damage, source) {
     const p = state.player;
-    if (p.invuln > 0 || state.mode !== 'playing') return;
+    if (state.mode !== 'playing') return;
+    if (activeSurvivalChallenge()) {
+      killPlayerInstant(source);
+      return;
+    }
+    if (p.invuln > 0) return;
     const actualDamage = Math.max(1, Math.round(damage * 3));
     state.lastHitInfo = {
       at: state.animClock,
@@ -6889,7 +6900,7 @@
       sfx('boss');
     }
     updateBossMotion(b, phaseDef, dt);
-    if (p.invuln <= 0 && bossBodyAlphaHit(b, p.x, p.y, playerCollisionRadius())) {
+    if ((p.invuln <= 0 || activeSurvivalChallenge()) && bossBodyAlphaHit(b, p.x, p.y, playerCollisionRadius())) {
       pushDebugEvent('bossContactHit', {
         boss: {
           name: b.name || '',
@@ -7254,7 +7265,7 @@
           }
         }
       }
-      if (p.invuln <= 0 && d2(b.x, b.y, p.x, p.y) < (b.r + playerCollisionRadius()) * (b.r + playerCollisionRadius())) {
+      if ((p.invuln <= 0 || activeSurvivalChallenge()) && d2(b.x, b.y, p.x, p.y) < (b.r + playerCollisionRadius()) * (b.r + playerCollisionRadius())) {
         remove = true;
         pushDebugEvent('enemyBulletHit', {
           bullet: {
@@ -7636,6 +7647,10 @@
     const a = playArea();
     for (let i = state.enemies.length - 1; i >= 0; i--) {
       const e = state.enemies[i];
+      if (!e) {
+        state.enemies.splice(i, 1);
+        continue;
+      }
       if (e.dead) {
         state.enemies.splice(i, 1); continue;
       }
@@ -7689,7 +7704,7 @@
         state.enemies.splice(i, 1); continue;
       }
       if (d2(e.x, e.y, p.x, p.y) < (e.r + playerCollisionRadius()) * (e.r + playerCollisionRadius())) {
-        if (p.invuln > 0) continue;
+        if (p.invuln > 0 && !activeSurvivalChallenge()) continue;
         const contactDamage = currentDifficulty().contact;
         pushDebugEvent('enemyContactHit', {
           enemy: {
@@ -7709,6 +7724,7 @@
         });
         damageEnemy(e, contactDamage, false);
         hurtPlayer(contactDamage, { kind: 'enemy-contact', sourceKind: e.kind, sourceName: e.name || e.kind });
+        if (state.challenge && state.challenge.phase === 'complete') return;
         if (e.kind !== 'mine' || e.hp <= 0) {
           state.enemies.splice(i, 1); continue;
         }
@@ -7871,6 +7887,10 @@
       const spawnInterval = clamp(1.3 - state.levelIndex * 0.01, 0.5, 2.0);
       while (state.waveClock >= spawnInterval) { state.waveClock -= spawnInterval; spawnWave(theme); }
       if (!state.boss && state.levelClock >= 40 + state.levelIndex * 2) spawnBoss(theme);
+    } else if (state.challenge && state.challenge.phase === 'active' && (state.challenge.type === 'nemesis' || state.challenge.type === 'bombs')) {
+      const theme = state.currentTheme;
+      const spawnInterval = clamp(1.3 - state.levelIndex * 0.01, 0.5, 2.0);
+      while (state.waveClock >= spawnInterval) { state.waveClock -= spawnInterval; spawnWave(theme); }
     }
     if (state.flash > 0) state.flash = Math.max(0, state.flash - dt * 0.85);
     if (state.shake > 0) state.shake = Math.max(0, state.shake - dt * 12);
@@ -8576,7 +8596,7 @@
     if (!info.slots || !state.asteroids || !state.asteroids.length) return;
     const p = state.player;
     const contactDamage = Math.max(1, currentDifficulty().contact);
-    if (p.invuln > 0) return;
+    if (p.invuln > 0 && !activeSurvivalChallenge()) return;
     for (let i = 0; i < state.asteroids.length; i++) {
       const asteroid = state.asteroids[i];
       if (!asteroid || asteroid.dead || asteroid.respawnTimer > 0) continue;
