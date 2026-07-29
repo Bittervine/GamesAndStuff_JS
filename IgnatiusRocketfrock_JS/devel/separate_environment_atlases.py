@@ -187,8 +187,8 @@ def pack_sprites(sprites: List[Tuple[str, np.ndarray]]) -> Tuple[Dict[str, Tuple
 
 
 def repack_atlas(base_dir: Path, atlas_no: int):
-    png_path = base_dir / 'assets' / f'at_atlas_{atlas_no:03d}.png'
-    json_path = base_dir / 'assets' / f'at_atlas_{atlas_no:03d}.json'
+    png_path = base_dir / 'resources' / 'atlases' / f'at_atlas_{atlas_no:03d}.png'
+    json_path = base_dir / 'resources' / 'atlases' / f'at_atlas_{atlas_no:03d}.json'
     data = load_json(json_path)
     frames: OrderedDict = data['frames']
     objects: OrderedDict = data['objects']

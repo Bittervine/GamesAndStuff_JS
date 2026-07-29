@@ -1,0 +1,21 @@
+{
+    "meta": {
+        "version": 3,
+        "note": "Revision 150 Snake character project with corrected pattern-centred overlap pivots, organic slither loops, raised-head bite anticipation, and a belly-up death. Revision 204 moves attack, hurt, and death WAV selection into the character definition."
+    },
+    "characterId": "ct_char_enemy_050",
+    "displayName": "Snake",
+    "rig": "ct_rig_enemy_050.json",
+    "defaultFacing": "right",
+    "mirrorable": true,
+    "animationMap": {
+        "idle": "ct_anim_enemy_050_idle.json",
+        "walk": "ct_anim_enemy_050_walk.json",
+        "attack": "ct_anim_enemy_050_attack.json",
+        "death": "ct_anim_enemy_050_death.json"
+    },
+    "sounds": {
+        "hurt": "sfx/enemy_damage.wav",
+        "death": "sfx/enemy_death.wav"
+    }
+}

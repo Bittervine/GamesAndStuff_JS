@@ -1,0 +1,44 @@
+{
+  "themeId": "forest",
+  "label": "Forest",
+  "description": "Forest ground, wooden platforms, and vegetation-oriented assets.",
+  "defaultColorModifierId": "original",
+  "assetPools": {
+    "terrain": {
+      "all": [
+        "layer.terrain"
+      ],
+      "any": [
+        "biome.forest"
+      ]
+    },
+    "movingPlatform": {
+      "all": [
+        "layer.terrain",
+        "capability.movingPlatform"
+      ],
+      "any": [
+        "biome.forest"
+      ]
+    },
+    "foreground": {
+      "all": [
+        "layer.foreground"
+      ],
+      "any": [
+        "biome.forest"
+      ]
+    },
+    "background": {
+      "all": [
+        "layer.background"
+      ],
+      "any": [
+        "biome.forest"
+      ]
+    }
+  },
+  "decorationPolicy": {
+    "populatePerimeter": false
+  }
+}

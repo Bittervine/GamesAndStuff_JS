@@ -1,6 +1,15 @@
 const COLOR_CHANNEL_MAX = 255;
 const FLOAT_EPSILON = 1e-7;
 
+export const DEFAULT_LEVEL_COLOR_EXCHANGE = Object.freeze({
+    enabled: false,
+    fromColor: Object.freeze([255, 255, 255]),
+    toColor: Object.freeze([0, 0, 0]),
+    redThreshold: 1,
+    greenThreshold: 1,
+    blueThreshold: 1
+});
+
 export function normalizeColorExchange(raw) {
     if (!raw || typeof raw !== "object" || Array.isArray(raw) || raw.enabled === false) {
         return null;
@@ -12,6 +21,36 @@ export function normalizeColorExchange(raw) {
         greenThreshold: clampUnit(raw.greenThreshold ?? raw.thresholds?.green ?? raw.threshold ?? 0),
         blueThreshold: clampUnit(raw.blueThreshold ?? raw.thresholds?.blue ?? raw.threshold ?? 0)
     };
+}
+
+export function normalizeLevelColorExchange(raw) {
+    const source = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+    const normalized = normalizeColorExchange({
+        ...source,
+        enabled: true,
+        fromColor: source.fromColor ?? source.from ?? DEFAULT_LEVEL_COLOR_EXCHANGE.fromColor,
+        toColor: source.toColor ?? source.to ?? DEFAULT_LEVEL_COLOR_EXCHANGE.toColor,
+        redThreshold: source.redThreshold ?? source.thresholds?.red ?? source.threshold ?? DEFAULT_LEVEL_COLOR_EXCHANGE.redThreshold,
+        greenThreshold: source.greenThreshold ?? source.thresholds?.green ?? source.threshold ?? DEFAULT_LEVEL_COLOR_EXCHANGE.greenThreshold,
+        blueThreshold: source.blueThreshold ?? source.thresholds?.blue ?? source.threshold ?? DEFAULT_LEVEL_COLOR_EXCHANGE.blueThreshold
+    });
+    return {
+        enabled: Boolean(source.enabled),
+        fromColor: normalized?.fromColor || [...DEFAULT_LEVEL_COLOR_EXCHANGE.fromColor],
+        toColor: normalized?.toColor || [...DEFAULT_LEVEL_COLOR_EXCHANGE.toColor],
+        redThreshold: normalized?.redThreshold ?? DEFAULT_LEVEL_COLOR_EXCHANGE.redThreshold,
+        greenThreshold: normalized?.greenThreshold ?? DEFAULT_LEVEL_COLOR_EXCHANGE.greenThreshold,
+        blueThreshold: normalized?.blueThreshold ?? DEFAULT_LEVEL_COLOR_EXCHANGE.blueThreshold
+    };
+}
+
+export function isEffectiveLevelColorExchange(raw) {
+    return normalizeLevelColorExchange(raw).enabled;
+}
+
+export function levelColorExchangeCacheKey(raw) {
+    const value = normalizeLevelColorExchange(raw);
+    return value.enabled ? `1:${colorExchangeCacheKey(value)}` : "0";
 }
 
 export function normalizeRgbColor(raw, fallback = [0, 0, 0]) {

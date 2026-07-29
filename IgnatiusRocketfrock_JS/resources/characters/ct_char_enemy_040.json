@@ -1,0 +1,19 @@
+{
+    "meta": {
+        "version": 3,
+        "note": "Revision 141 Raptor character project with hierarchical idle and authored walk animation slots. Revision 204 moves attack, hurt, and death WAV selection into the character definition."
+    },
+    "characterId": "ct_char_enemy_040",
+    "displayName": "Raptor",
+    "rig": "ct_rig_enemy_040.json",
+    "defaultFacing": "right",
+    "mirrorable": true,
+    "animationMap": {
+        "idle": "ct_anim_enemy_040_idle.json",
+        "walk": "ct_anim_enemy_040_walk.json"
+    },
+    "sounds": {
+        "hurt": "sfx/enemy_damage.wav",
+        "death": "sfx/enemy_death.wav"
+    }
+}

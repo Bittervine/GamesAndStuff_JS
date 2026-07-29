@@ -761,11 +761,11 @@ touch-action: none;
             </div>
             <label>
                 <span>Project JSON URL</span>
-                <input id="character-url" type="text" value="assets/ct_char_wizard_1.json" spellcheck="false">
+                <input id="character-url" type="text" value="resources/characters/ct_char_wizard_1.json" spellcheck="false">
             </label>
             <button id="load-character-url" type="button">Load project URL</button>
             <p>Accepts a character definition, rig manifest, or atlas manifest. Rig/atlas URLs resolve to their matching character project when one exists.</p>
-            <p id="project-source" class="project-source">URL project: assets/ct_char_wizard_1.json</p>
+            <p id="project-source" class="project-source">URL project: resources/characters/ct_char_wizard_1.json</p>
         </section>
         <section class="box" id="enemy-type-panel" title="Type-wide defaults for the selected known enemy in ct_enemies_001.json. These values do not edit one placed level instance.">
             <h2>Metadata</h2>
@@ -795,6 +795,13 @@ touch-action: none;
                 <button id="apply-enemy-defaults" type="button">Apply</button>
                 <button id="refresh-enemy-defaults" type="button">Refresh fields</button>
             </div>
+        </section>
+        <section class="box" id="character-sounds-panel" data-panel-key="character-sounds">
+            <h2>Character sounds</h2>
+            <p>These WAV references are stored in this character definition. URL projects discover files listed by sound-effects.json; local project folders discover every selected WAV.</p>
+            <label><span>Attack WAV</span><select id="character-sound-attack"></select></label>
+            <label><span>Hurt WAV</span><select id="character-sound-hurt"></select></label>
+            <label><span>Death WAV</span><select id="character-sound-death"></select></label>
         </section>
         <section class="box mode-panel atlas-panel" hidden>
             <h2>Atlas parts</h2>
@@ -940,9 +947,9 @@ touch-action: none;
                     <label><span>To color</span><input id="color-exchange-to" type="color" value="#000000"></label>
                 </div>
                 <div class="row three">
-                    <label><span>Red threshold</span><input id="color-exchange-red-threshold" type="number" min="0" max="1" step="0.001" value="0"></label>
-                    <label><span>Green threshold</span><input id="color-exchange-green-threshold" type="number" min="0" max="1" step="0.001" value="0"></label>
-                    <label><span>Blue threshold</span><input id="color-exchange-blue-threshold" type="number" min="0" max="1" step="0.001" value="0"></label>
+                    <label><span>Red threshold</span><input id="color-exchange-red-threshold" type="number" min="0" max="1" step="0.001" value="1"></label>
+                    <label><span>Green threshold</span><input id="color-exchange-green-threshold" type="number" min="0" max="1" step="0.001" value="1"></label>
+                    <label><span>Blue threshold</span><input id="color-exchange-blue-threshold" type="number" min="0" max="1" step="0.001" value="1"></label>
                 </div>
             </div>
             <p id="color-exchange-help">Threshold 0.0 changes only an exact channel match. Threshold 1.0 accepts the complete channel range. Alpha is preserved, and the recolored sprite is generated once and cached.</p>
@@ -993,11 +1000,11 @@ touch-action: none;
             <p>Select a complete folder or a portable group of files. Puppet Forge resolves the references inside the character, rig, atlas, and animation JSON in memory; browsers never grant silent folder access.</p>
             <label>
                 <span>Project files</span>
-                <input id="project-files" type="file" accept=".json,.png,application/json,image/png" multiple>
+                <input id="project-files" type="file" accept=".json,.png,.wav,application/json,image/png,audio/wav,audio/x-wav" multiple>
             </label>
             <label>
                 <span>Project directory, where supported</span>
-                <input id="project-directory" type="file" accept=".json,.png,application/json,image/png" multiple webkitdirectory directory>
+                <input id="project-directory" type="file" accept=".json,.png,.wav,application/json,image/png,audio/wav,audio/x-wav" multiple webkitdirectory directory>
             </label>
             <div class="file-grid">
                 <label><span>Character JSON</span><input id="character-file" type="file" accept=".json,application/json"></label>
@@ -1097,6 +1104,11 @@ import {
     normalizeAnimationClip,
     sampleAnimationClipAtPlayhead
 } from "./src/shared/animation-data.js";
+import { normalizeResourcePath, resourceUrl } from "./src/shared/resource-paths.js";
+import {
+    CHARACTER_SOUND_SLOTS,
+    normalizeCharacterSounds
+} from "./src/shared/character-sound-data.js";
 import {
     addAtlasFrameToRig,
     addRigPartToAnimation,
@@ -1244,6 +1256,9 @@ const els = {
     characterUrl: document.getElementById("character-url"),
     loadCharacterUrl: document.getElementById("load-character-url"),
     projectSource: document.getElementById("project-source"),
+    characterSoundAttack: document.getElementById("character-sound-attack"),
+    characterSoundHurt: document.getElementById("character-sound-hurt"),
+    characterSoundDeath: document.getElementById("character-sound-death"),
     editorMode: document.getElementById("editor-mode"),
     dirtyCharacter: document.getElementById("dirty-character"),
     enemyTypePanel: document.getElementById("enemy-type-panel"),
@@ -1392,14 +1407,14 @@ const els = {
     status: document.getElementById("status")
 };
 
-const DEFAULT_CHARACTER_PROJECT_URL = "assets/ct_char_wizard_1.json";
+const DEFAULT_CHARACTER_PROJECT_URL = resourceUrl("characters/ct_char_wizard_1.json");
 const PANEL_STORAGE_KEY = "ignatiusRocketfrock.characterEditor.collapsedPanels.v1";
 const SHOW_HITBOX_GUIDE_STORAGE_KEY = "ignatiusRocketfrock.characterEditor.showHitboxGuide.v1";
 
 const state = {
     character: null,
     enemyCatalog: null,
-    enemyCatalogUrl: "assets/ct_enemies_001.json",
+    enemyCatalogUrl: resourceUrl("characters/ct_enemies_001.json"),
     selectedEnemyId: null,
     knownProjects: new Map(),
     characterUrl: DEFAULT_CHARACTER_PROJECT_URL,
@@ -1408,6 +1423,7 @@ const state = {
     localFiles: new Map(),
     localAliases: new Map(),
     localObjectUrls: new Set(),
+    discoveredWavReferences: [],
     generatedAnimations: new Map(),
     animationCache: new Map(),
     dirty: createCharacterDirtyTracker(),
@@ -1901,6 +1917,85 @@ function fileBasename(value) {
     return slash >= 0 ? normalized.slice(slash + 1) : normalized;
 }
 
+function relativeWorkspaceReference(fromUrl, toUrl) {
+    const fromParts = normalizeWorkspacePath(fromUrl).split("/").filter(Boolean);
+    const toParts = normalizeWorkspacePath(toUrl).split("/").filter(Boolean);
+    fromParts.pop();
+    while (fromParts.length && toParts.length && fromParts[0] === toParts[0]) {
+        fromParts.shift();
+        toParts.shift();
+    }
+    return `${"../".repeat(fromParts.length)}${toParts.join("/")}` || fileBasename(toUrl);
+}
+
+function characterSoundSelect(slot) {
+    return slot === "attack"
+        ? els.characterSoundAttack
+        : slot === "hurt"
+            ? els.characterSoundHurt
+            : els.characterSoundDeath;
+}
+
+function refreshCharacterSoundFields() {
+    const sounds = normalizeCharacterSounds(state.character?.sounds);
+    for (const slot of CHARACTER_SOUND_SLOTS) {
+        const select = characterSoundSelect(slot);
+        if (!select) continue;
+        const current = sounds[slot] || "";
+        const references = new Set(state.discoveredWavReferences);
+        if (current) references.add(current);
+        const options = [""].concat([...references].sort((a, b) => a.localeCompare(b)));
+        select.replaceChildren(...options.map((reference) => {
+            const option = document.createElement("option");
+            option.value = reference;
+            option.textContent = reference || "None";
+            return option;
+        }));
+        select.value = current;
+        select.disabled = !state.character;
+    }
+}
+
+async function discoverCharacterWavs() {
+    const references = new Set(Object.values(normalizeCharacterSounds(state.character?.sounds)));
+    if (state.projectMode === "local") {
+        for (const key of state.localFiles.keys()) {
+            if (key.toLowerCase().endsWith(".wav")) {
+                references.add(relativeWorkspaceReference(state.characterUrl, key));
+            }
+        }
+    }
+    const bundledCharacterProject = normalizeResourcePath(state.characterUrl).startsWith("characters/");
+    const catalogUrl = state.projectMode === "generated" || bundledCharacterProject
+        ? resourceUrl("sfx/sound-effects.json")
+        : resolveRelativeUrl(state.characterUrl, "sound-effects.json");
+    try {
+        const catalog = await loadJson(catalogUrl);
+        for (const definition of Object.values(catalog?.effects || {})) {
+            const file = String(definition?.file || "").trim().replace(/\\/g, "/");
+            if (file.toLowerCase().endsWith(".wav")) references.add(file);
+        }
+    } catch {
+        // A local character folder does not need a catalog when its WAV files were selected directly.
+    }
+    state.discoveredWavReferences = [...references].filter(Boolean).sort((a, b) => a.localeCompare(b));
+    refreshCharacterSoundFields();
+}
+
+function writeCharacterSoundsFromUi() {
+    if (!state.character) return;
+    const sounds = {};
+    for (const slot of CHARACTER_SOUND_SLOTS) {
+        const reference = String(characterSoundSelect(slot)?.value || "").trim().replace(/\\/g, "/");
+        if (reference) sounds[slot] = reference;
+    }
+    if (Object.keys(sounds).length) state.character.sounds = sounds;
+    else delete state.character.sounds;
+    refreshCharacterJson();
+    markDirty("character");
+    setStatus(`Updated ${state.character.characterId || "character"} sound references. Download the Character JSON to save them.`);
+}
+
 function localFileForUrl(url) {
     const normalized = normalizeWorkspacePath(url);
     const aliasKey = state.localAliases.get(normalized);
@@ -1926,9 +2021,10 @@ async function loadJson(url) {
             throw new Error(`Could not parse ${file.name}: ${error.message}`);
         }
     }
-    const response = await fetch(url, { cache: "no-store" });
+    const resolvedUrl = resourceUrl(url);
+    const response = await fetch(resolvedUrl, { cache: "no-store" });
     if (!response.ok) {
-        throw new Error(`Could not load ${url}: HTTP ${response.status}`);
+        throw new Error(`Could not load ${resolvedUrl}: HTTP ${response.status}`);
     }
     return response.json();
 }
@@ -1949,7 +2045,7 @@ function loadImage(url) {
             state.localObjectUrls.add(objectUrl);
             img.src = objectUrl;
         } else {
-            img.src = url;
+            img.src = resourceUrl(url);
         }
     });
 }
@@ -2116,6 +2212,7 @@ async function loadCharacter() {
     state.generatedAnimations.clear();
     state.animationCache.clear();
     state.character = await loadJson(state.characterUrl);
+    await discoverCharacterWavs();
     state.rigUrl = resolveRelativeUrl(state.characterUrl, state.character.rig);
     state.rig = await loadJson(state.rigUrl);
     state.atlasUrl = resolveRelativeUrl(state.rigUrl, state.rig.atlasManifest || `${state.rig.atlasId}.json`);
@@ -2155,6 +2252,7 @@ async function loadGeneratedProject(project) {
     state.localAliases.clear();
     state.character = project.character;
     state.characterUrl = project.filenames.character;
+    await discoverCharacterWavs();
     state.rig = project.rig;
     state.rigUrl = project.filenames.rig;
     state.atlas = project.atlas;
@@ -2411,6 +2509,7 @@ function refreshAtlasJson() {
 
 function refreshAllJsonEditors() {
     refreshCharacterJson();
+    refreshCharacterSoundFields();
     refreshAtlasJson();
     refreshRigJson();
     refreshAnimationJson();
@@ -2424,6 +2523,7 @@ async function applyCharacterJson() {
         }
         state.character = parsed;
         state.projectLabel = parsed.displayName || parsed.characterId || state.projectLabel;
+        await discoverCharacterWavs();
         state.animationCache.clear();
         setupAnimationSelect();
         if (els.animationSelect.value) {
@@ -3332,9 +3432,9 @@ function syncColorExchangeControls(partName = selectedPartName()) {
     els.colorExchangeBlueThreshold.disabled = !enabled;
     els.colorExchangeFrom.value = rgbColorToHex(modifier?.fromColor || [255, 255, 255]);
     els.colorExchangeTo.value = rgbColorToHex(modifier?.toColor || [0, 0, 0]);
-    els.colorExchangeRedThreshold.value = Number(modifier?.redThreshold ?? 0).toFixed(3);
-    els.colorExchangeGreenThreshold.value = Number(modifier?.greenThreshold ?? 0).toFixed(3);
-    els.colorExchangeBlueThreshold.value = Number(modifier?.blueThreshold ?? 0).toFixed(3);
+    els.colorExchangeRedThreshold.value = Number(modifier?.redThreshold ?? 1).toFixed(3);
+    els.colorExchangeGreenThreshold.value = Number(modifier?.greenThreshold ?? 1).toFixed(3);
+    els.colorExchangeBlueThreshold.value = Number(modifier?.blueThreshold ?? 1).toFixed(3);
     const changedPixels = Number(state.assets?.get(partName)?.colorExchangeChangedPixelCount) || 0;
     els.colorExchangeHelp.textContent = enabled
         ? `GIMP-compatible channel exchange is active. ${changedPixels.toLocaleString()} source pixels matched. Threshold 0.0 means exact match; 1.0 accepts the complete channel range. Alpha is preserved.`
@@ -5678,7 +5778,13 @@ els.validateAtlas.addEventListener("click", () => {
     setStatus(validation.valid ? "Atlas frame validation passed." : `Atlas validation found ${validation.errors.length} error(s).`);
 });
 els.applyCharacterJson.addEventListener("click", applyCharacterJson);
-els.refreshCharacterJson.addEventListener("click", refreshCharacterJson);
+for (const slot of CHARACTER_SOUND_SLOTS) {
+    characterSoundSelect(slot)?.addEventListener("change", writeCharacterSoundsFromUi);
+}
+els.refreshCharacterJson.addEventListener("click", () => {
+    refreshCharacterJson();
+    refreshCharacterSoundFields();
+});
 els.downloadCharacterJson.addEventListener("click", async () => {
     if (!state.character) {
         return;

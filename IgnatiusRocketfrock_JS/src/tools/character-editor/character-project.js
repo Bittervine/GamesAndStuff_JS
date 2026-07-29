@@ -1,3 +1,5 @@
+import { normalizeCharacterSounds } from "../../shared/character-sound-data.js";
+
 const FILE_KIND = Object.freeze({
     CHARACTER: "character",
     RIG: "rig",
@@ -169,7 +171,8 @@ export function createBlankCharacterProject(displayName = "New Character") {
         mirrorable: true,
         animationMap: {
             idle: filenames.animation
-        }
+        },
+        sounds: normalizeCharacterSounds(null)
     };
 
     return {

@@ -19,7 +19,8 @@ export function visualSortKey(visual, index = 0) {
         return Number(visual.order);
     }
     const layer = visual?.layer || "terrain";
-    const layerOrder = layer === "decorBack"
+    const entityBackVisual = layer === "decorBack" && Boolean(visual?.entityId);
+    const layerOrder = layer === "decorBack" && !entityBackVisual
         ? 0
         : layer === "terrain"
             ? 10000
@@ -143,24 +144,34 @@ export function buildWorldVisualCache(visuals = [], options = {}) {
     }));
     entries.sort((a, b) => a.sortKey - b.sortKey || a.index - b.index);
 
-    const background = entries.filter(({ visual }) => isWorldBackgroundVisual(visual));
-    const main = entries.filter(({ visual }) => !isWorldBackgroundVisual(visual) && visual?.layer !== "actorFront" && visual?.layer !== CAVE_FOREGROUND_LAYER_ID);
+    const background = entries.filter(({ visual }) => isWorldBackgroundVisual(visual) && visual?.onTop !== true);
+    const backgroundOnTop = entries.filter(({ visual }) => isWorldBackgroundVisual(visual) && visual?.onTop === true);
+    const ordinaryWorld = ({ visual }) => !isWorldBackgroundVisual(visual) && visual?.layer !== "actorFront" && visual?.layer !== CAVE_FOREGROUND_LAYER_ID;
+    const main = entries.filter((entry) => ordinaryWorld(entry) && entry.visual?.onTop !== true);
+    const mainOnTop = entries.filter((entry) => ordinaryWorld(entry) && entry.visual?.onTop === true);
     const actorFront = entries.filter(({ visual }) => visual?.layer === "actorFront");
-    const caveForeground = entries.filter(({ visual }) => visual?.layer === CAVE_FOREGROUND_LAYER_ID);
+    const caveForeground = entries.filter(({ visual }) => visual?.layer === CAVE_FOREGROUND_LAYER_ID && visual?.onTop !== true);
+    const caveForegroundOnTop = entries.filter(({ visual }) => visual?.layer === CAVE_FOREGROUND_LAYER_ID && visual?.onTop === true);
     const binSize = options.binSize || DEFAULT_SPATIAL_BIN_SIZE;
 
     return {
         source,
         sourceLength: source.length,
         background,
+        backgroundOnTop,
         main,
+        mainOnTop,
         actorFront,
         caveForeground,
+        caveForegroundOnTop,
         spatial: {
             background: buildSpatialPartition(background, binSize),
+            backgroundOnTop: buildSpatialPartition(backgroundOnTop, binSize),
             main: buildSpatialPartition(main, binSize),
+            mainOnTop: buildSpatialPartition(mainOnTop, binSize),
             actorFront: buildSpatialPartition(actorFront, binSize),
-            caveForeground: buildSpatialPartition(caveForeground, binSize)
+            caveForeground: buildSpatialPartition(caveForeground, binSize),
+            caveForegroundOnTop: buildSpatialPartition(caveForegroundOnTop, binSize)
         }
     };
 }

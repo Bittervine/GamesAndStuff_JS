@@ -5,17 +5,9 @@ import {
     createInputFrame
 } from "../core/simulation.js";
 import { createRenderer } from "../presentation/canvas-renderer.js";
+import { resourceUrl } from "../shared/resource-paths.js";
 
-function assetUrl(requestPath) {
-    const text = String(requestPath || "");
-    if (!text) {
-        return "";
-    }
-    if (/^(?:[a-z]+:)?\/\//i.test(text) || text.startsWith("/") || text.startsWith("data:") || text.startsWith("blob:")) {
-        return text;
-    }
-    return `assets/${text.replace(/^(?:\.\/|assets\/)+/, "")}`;
-}
+const assetUrl = resourceUrl;
 
 const STORAGE_KEY = "ignatius_level_editor_v2";
 const canvas = document.getElementById("stage");
@@ -29,9 +21,9 @@ const readoutCamera = document.getElementById("readout-camera");
 const loading = document.getElementById("loading");
 
 const params = new URLSearchParams(location.search);
-const requestedLevel = ["level_001", "level_002", "browser_copy"].includes(params.get("level"))
+const requestedLevel = ["level_001", "level_800", "browser_copy"].includes(params.get("level"))
     ? params.get("level")
-    : "level_002";
+    : "level_800";
 const initialZoom = clamp(Number(params.get("zoom")) || 0.55, 0.02, 5);
 levelSelect.value = requestedLevel;
 zoomInput.value = String(initialZoom);
@@ -72,7 +64,7 @@ function loadBrowserCopy() {
 async function loadRequestedLevel() {
     return requestedLevel === "browser_copy"
         ? loadBrowserCopy()
-        : fetchJson(`${requestedLevel}.json`);
+        : fetchJson(`levels/${requestedLevel}.json`);
 }
 
 function enemyCharacterUrls(catalog) {
@@ -81,7 +73,7 @@ function enemyCharacterUrls(catalog) {
             const configured = String(definition?.characterUrl || definition?.characterId || "").trim();
             if (!configured) return "";
             const withExtension = configured.endsWith(".json") ? configured : `${configured}.json`;
-            return withExtension.startsWith("assets/") ? withExtension : `assets/${withExtension}`;
+            return withExtension.includes("/") ? withExtension : `characters/${withExtension}`;
         })
         .filter(Boolean))];
 }
@@ -186,7 +178,7 @@ async function start() {
     try {
         const [loadedLevel, enemyCatalog] = await Promise.all([
             loadRequestedLevel(),
-            fetchJson("ct_enemies_001.json")
+            fetchJson("characters/ct_enemies_001.json")
         ]);
         level = loadedLevel;
         gameState = createInitialGameState();
@@ -203,7 +195,7 @@ async function start() {
             }
         });
         renderer.syncCaveWindow(gameState.world.caveWindow);
-        renderer.syncEnvironmentColorMap(gameState.world.colorMap);
+        renderer.syncEnvironmentColorMap(gameState.world.colorMap, gameState.world.colorExchange);
         if (needsFit) fitLevel();
         applyViewOverride();
         loading.hidden = true;

@@ -12,10 +12,14 @@ import {
     applyEditorLevelToWorld,
     applyEnemyDefinitionCatalog,
     applyCharacterCombatProfiles,
+    applyCharacterDropProfiles,
+    applyLootCatalog,
     resetPlayer,
     cloneGameState,
     serializeGameState,
     syncEnemyTuningHealthScales,
+    normalizePlayerProgression,
+    applyPlayerProgression,
     addEvent
 } from "../core/simulation.js";
 import { RocketfrockInput } from "./browser-input.js";
@@ -23,6 +27,7 @@ import { GamepadHaptics } from "./gamepad-haptics.js";
 import { createRenderer } from "../presentation/canvas-renderer.js";
 import { normalizeCaveWindow } from "../shared/cave-window-data.js";
 import {
+    DEVELOPMENT,
     gameDifficultyPreset,
     gameRenderingModePreset,
     gameRenderingQualityPreset,
@@ -44,6 +49,7 @@ import {
 import { normalizeLevelMusic, normalizeMusicCatalog } from "../shared/music-data.js";
 import { powerUpHudLabel, prioritizedActivePowerUpEffect } from "../shared/power-up-data.js";
 import { createMusicDirector } from "./music-director.js";
+import { createSoundEffectsDirector } from "./sound-effects-director.js";
 import {
     detectElectronWindowBridge,
     readFullscreenState,
@@ -64,6 +70,7 @@ import {
     snapshotGameplayDebug
 } from "./gameplay-recording.js";
 import { ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER } from "../shared/experimental-renderer-flags.js";
+import { resourceUrl } from "../shared/resource-paths.js";
 
 const canvas = document.getElementById("stage");
 const fuelText = document.getElementById("fuel-text");
@@ -154,7 +161,7 @@ const developmentGameTuningButton = document.getElementById("development-game-tu
 const developmentRecordingButton = document.getElementById("development-recording");
 const developmentPlaybackButton = document.getElementById("development-playback");
 
-const GAME_REVISION = "532";
+const GAME_REVISION = "228";
 const START_LEVEL_ID = "level_001";
 const launchParams = new URLSearchParams(window.location.search || "");
 const launchLevelId = normalizeLaunchLevelQuery(launchParams.get("level"), START_LEVEL_ID);
@@ -163,16 +170,15 @@ const launchRecordRequested = ["1", "true", "on", "yes"].includes(String(launchP
 const launchPlaybackUrl = playbackUrlFromQueryValue(launchParams.get("playback"));
 const launchPlaybackPauseAtSec = finiteNonNegativeNumber(launchParams.get("playback_pause"), null);
 
-function assetUrl(requestPath) {
-    const text = String(requestPath || "");
-    if (!text) {
-        return "";
-    }
-    if (/^(?:[a-z]+:)?\/\//i.test(text) || text.startsWith("/") || text.startsWith("data:") || text.startsWith("blob:")) {
-        return text;
-    }
-    return `assets/${text.replace(/^(?:\.\/|assets\/)+/, "")}`;
+async function loadBundledProximityTextFonts() {
+    if (!document.fonts?.load) return;
+    await Promise.allSettled([
+        document.fonts.load("700 16px 'Ignatius Inter'"),
+        document.fonts.load("700 16px 'Ignatius Caveat'")
+    ]);
 }
+
+const assetUrl = resourceUrl;
 
 let displayedLoadingProgress = 0;
 let activeCaveWindow = normalizeCaveWindow(null);
@@ -190,9 +196,12 @@ let gameState = launchPlaybackRecording?.initialState
         randomSeed: launchPlaybackRecording?.initial?.randomSeed || browserRandomSeed()
     });
 gameState.settings = normalizeGameSettings(gameState.settings);
-let musicBaseUrl = "assets/";
+const musicBaseUrl = resourceUrl("music/");
+const soundEffectsBaseUrl = resourceUrl("");
 const musicDirector = createMusicDirector({ volume: gameState.settings.musicVolume, baseUrl: musicBaseUrl });
+const soundEffectsDirector = createSoundEffectsDirector({ volume: gameState.settings.sfxVolume, baseUrl: soundEffectsBaseUrl });
 let musicCatalog = normalizeMusicCatalog(null);
+let lootCatalog = { items: {}, pools: {} };
 let activeLevelMusic = normalizeLevelMusic(null);
 let gameMenuView = "menu";
 let saveSlotMode = "load";
@@ -222,9 +231,13 @@ addEvent(gameState, `BUILD_REVISION_${GAME_REVISION}`);
 const input = new RocketfrockInput(window);
 const gamepadHaptics = new GamepadHaptics();
 gamepadHaptics.prime(gameState.debug.lastEvents);
+showLoadingScreen("Loading bundled text fonts", 0.015);
+await loadBundledProximityTextFonts();
 showLoadingScreen("Loading level data", 0.02);
 await loadEnemyDefinitionCatalog();
+await loadLootCatalog();
 await loadMusicCatalog();
+await soundEffectsDirector.load(assetUrl("sfx/sound-effects.json")).catch((error) => console.warn("Sound effects unavailable:", error));
 const loadedBrowserCopy = !launchPlaybackRecording && !launchLevelSpecified && maybeApplyBrowserCopyLevel();
 if (launchPlaybackRecording?.initialState?.world?.levelId) {
     syncPresentationFromWorldState();
@@ -250,12 +263,12 @@ activeHardwareRendering = String(renderer.getPerformanceDiagnostics?.().backend 
 renderer.syncCaveWindow(activeCaveWindow);
 syncLoadedCharacterCombatProfiles();
 if (!applyLoadedAtlasCollisions()) {
-    failStartup("Required atlas collision data could not be applied. Check assets/at_atlas_001.json and the level atlasRefs.");
+    failStartup("Required atlas collision data could not be applied. Check resources/atlases/at_atlas_001.json and the level atlasRefs.");
 }
 // Build any level-wide recoloured atlas copies once during level startup. The
 // render loop only compares the cache key and uses ordinary drawImage calls.
 setLoadingProgress(0.965, preferWebGL2Renderer ? "Uploading persistent renderer textures" : "Preparing environment textures");
-renderer.syncEnvironmentColorMap(gameState.world.colorMap);
+renderer.syncEnvironmentColorMap(gameState.world.colorMap, gameState.world.colorExchange);
 setLoadingProgress(0.98, "Prewarming level foreground textures");
 renderer.prewarmLevelPresentationCaches?.(gameState.world);
 setLoadingProgress(0.99, "Preparing the first frame");
@@ -278,6 +291,10 @@ let gameplayRecordingFrameIndex = 0;
 let gameplayPlayback = null;
 let gameplayDebugLog = null;
 let gameplayDebugLogLastSampleMs = 0;
+let processedDebugExceptionSequence = 0;
+let debugExceptionAlertActive = false;
+let debugExceptionAlertFilename = "";
+let debugExceptionAlertSummary = "";
 
 setupTuningControls();
 setupTuningJsonControls();
@@ -560,6 +577,66 @@ function toggleGameplayDebugLogging(source = "development-menu") {
         : startGameplayDebugLogging(source);
 }
 
+function processDebugExceptionAlerts() {
+    const latestSequence = Number(gameState.debug?.exceptionAlertSequence) || 0;
+    if (latestSequence < processedDebugExceptionSequence) {
+        processedDebugExceptionSequence = 0;
+    }
+    if (latestSequence <= processedDebugExceptionSequence) return;
+    const pending = (Array.isArray(gameState.debug?.exceptionAlerts) ? gameState.debug.exceptionAlerts : [])
+        .filter((incident) => (Number(incident?.sequence) || 0) > processedDebugExceptionSequence)
+        .sort((left, right) => (Number(left?.sequence) || 0) - (Number(right?.sequence) || 0));
+    if (!pending.length) return;
+
+    const safeLevel = sanitizeRecordingFilename(gameState.world?.levelId || START_LEVEL_ID, START_LEVEL_ID)
+        .replace(/\.json$/i, "");
+    const filename = sanitizeRecordingFilename(
+        `ignatius_exception_rev${GAME_REVISION}_${safeLevel}_tick${gameState.clock?.tick || 0}_${Date.now()}.ndjson`
+    );
+    const header = {
+        type: "ignatius.exceptionLog",
+        revision: GAME_REVISION,
+        levelId: gameState.world?.levelId || START_LEVEL_ID,
+        createdAtIso: new Date().toISOString(),
+        development: DEVELOPMENT,
+        platform: "browser"
+    };
+    const rows = pending.map((incident) => ({
+        ...incident,
+        type: "debugException",
+        exceptionType: incident.type || "unknown",
+        revision: GAME_REVISION,
+        levelId: gameState.world?.levelId || START_LEVEL_ID,
+        capturedAtIso: new Date().toISOString(),
+        debug: snapshotGameplayDebug(gameState),
+        renderer: renderer?.getPerformanceDiagnostics?.() || null
+    }));
+    const text = `${[header, ...rows].map((row) => JSON.stringify(row)).join("\n")}\n`;
+    window.__rocketfrockLastExceptionLog = text;
+    window.__rocketfrockLastExceptionLogFilename = filename;
+    downloadTextFile(filename, text, "application/x-ndjson");
+
+    processedDebugExceptionSequence = Math.max(
+        processedDebugExceptionSequence,
+        ...pending.map((incident) => Number(incident?.sequence) || 0)
+    );
+    const lastIncident = pending[pending.length - 1];
+    debugExceptionAlertFilename = filename;
+    debugExceptionAlertSummary = `${lastIncident.exceptionType || lastIncident.type || "watchdog"}: ${lastIncident.enemyId || "unknown enemy"} timeout ${lastIncident.timeoutCount || "?"}`;
+
+    if (DEVELOPMENT && debugEl) {
+        debugExceptionAlertActive = true;
+        debugEl.hidden = false;
+        debugEl.classList.add("exception-alert");
+        if (debugPanelButton) {
+            debugPanelButton.textContent = "Debug panel: on";
+            debugPanelButton.setAttribute("aria-pressed", "true");
+        }
+        if (developmentDebugPanelInput) developmentDebugPanelInput.checked = true;
+        updateDebugText();
+    }
+}
+
 async function saveGameplayRecordingJson(recording) {
     const safeLevel = sanitizeRecordingFilename(recording?.levelId || START_LEVEL_ID, START_LEVEL_ID).replace(/\.json$/i, "");
     const filename = sanitizeRecordingFilename(`ignatius_recording_rev${GAME_REVISION}_${safeLevel}_${Date.now()}.json`);
@@ -656,7 +733,7 @@ async function restoreGameplayPlaybackInitialState(recording) {
         renderer.syncCaveWindow(activeCaveWindow);
         syncLoadedCharacterCombatProfiles();
         applyLoadedAtlasCollisions();
-        renderer.syncEnvironmentColorMap(gameState.world.colorMap);
+        renderer.syncEnvironmentColorMap(gameState.world.colorMap, gameState.world.colorExchange);
         renderer.prewarmLevelPresentationCaches?.(gameState.world);
         accumulator = 0;
         lastRafNow = performance.now();
@@ -756,8 +833,17 @@ function nextPaint() {
 }
 
 function syncLoadedCharacterCombatProfiles() {
+    const projects = [...renderer.getRuntimeCharacterProjects().values()];
+    soundEffectsDirector.setCharacterSounds(projects.map((project) => ({
+        characterId: project.characterId,
+        sounds: project.sounds
+    })));
+    applyLootCatalog(gameState, lootCatalog);
+    applyCharacterDropProfiles(gameState, new Map(projects.map((project) => [project.characterId, {
+        drops: project.dropProfile?.drops || []
+    }])));
     const profiles = new Map();
-    for (const project of renderer.getRuntimeCharacterProjects().values()) {
+    for (const project of projects) {
         const projectiles = project.projectiles instanceof Map ? [...project.projectiles.values()] : [];
         if (!projectiles.length) {
             continue;
@@ -772,7 +858,7 @@ function syncLoadedCharacterCombatProfiles() {
 }
 
 async function loadEnemyDefinitionCatalog() {
-    const url = assetUrl("ct_enemies_001.json");
+    const url = assetUrl("characters/ct_enemies_001.json");
     try {
         const response = await fetch(url, { cache: "no-store" });
         if (!response.ok) throw new Error(`${response.status}`);
@@ -782,7 +868,7 @@ async function loadEnemyDefinitionCatalog() {
                 const configured = String(definition?.characterUrl || definition?.characterId || "").trim();
                 if (!configured) return "";
                 const withExtension = configured.endsWith(".json") ? configured : `${configured}.json`;
-                return withExtension.startsWith("assets/") ? withExtension : `assets/${withExtension}`;
+                return withExtension.includes("/") ? withExtension : `characters/${withExtension}`;
             })
             .filter(Boolean))];
         if (!applyEnemyDefinitionCatalog(gameState, catalog)) {
@@ -818,8 +904,23 @@ function maybeApplyBrowserCopyLevel() {
     }
 }
 
+async function loadLootCatalog() {
+    const url = assetUrl("items/it_loot_001.json");
+    try {
+        const response = await fetch(url, { cache: "no-store" });
+        if (!response.ok) throw new Error(`${response.status}`);
+        lootCatalog = await response.json();
+        applyLootCatalog(gameState, lootCatalog);
+    } catch (error) {
+        console.warn(`Enemy loot catalog could not be loaded: ${url}. Enemy drops will remain disabled.`, error);
+        lootCatalog = { items: {}, pools: {} };
+        applyLootCatalog(gameState, lootCatalog);
+    }
+    return lootCatalog;
+}
+
 async function loadMusicCatalog() {
-    const url = assetUrl("music.json");
+    const url = assetUrl("music/music.json");
     try {
         const response = await fetch(url, { cache: "no-store" });
         if (!response.ok) {
@@ -842,7 +943,7 @@ async function applyRequiredDefaultLevel() {
 
 async function applyRequiredLevel(levelId = START_LEVEL_ID) {
     const id = normalizedLevelId(levelId, START_LEVEL_ID);
-    const url = assetUrl(`${id}.json`);
+    const url = assetUrl(`levels/${id}.json`);
     let response;
     try {
         response = await fetch(url, { cache: "no-store" });
@@ -889,7 +990,9 @@ function currentSaveGameRecord(slotId) {
         checkpointId: "",
         checkpointLabel: "Level start",
         score: gameState.score,
-        campaign: {}
+        campaign: {
+            playerProgression: normalizePlayerProgression(gameState.playerProgression)
+        }
     });
 }
 
@@ -925,7 +1028,7 @@ function saveManualSlot(slotId) {
 
 async function fetchOptionalLevel(levelId) {
     const id = normalizedLevelId(levelId);
-    const url = assetUrl(`${id}.json`);
+    const url = assetUrl(`levels/${id}.json`);
     try {
         const response = await fetch(url, { cache: "no-store" });
         if (!response.ok) return null;
@@ -974,6 +1077,7 @@ async function loadRequestedLevel(request) {
             gameState.player.visible = true;
             return false;
         }
+        applyPlayerProgression(gameState, gameState.playerProgression, { refillResources: true });
         saveResumeLevelId(loadedLevelId);
         syncPresentationLevelData(level);
         await renderer.ensureEnvironmentAtlases(gameState.world.atlasManifests, {
@@ -985,7 +1089,7 @@ async function loadRequestedLevel(request) {
         if (!applyLoadedAtlasCollisions()) {
             console.error(`Level transition loaded ${loadedLevelId}, but its atlas collision could not be applied.`);
         }
-        renderer.syncEnvironmentColorMap(gameState.world.colorMap);
+        renderer.syncEnvironmentColorMap(gameState.world.colorMap, gameState.world.colorExchange);
         setLoadingProgress(0.9, "Prewarming level foreground textures");
         renderer.prewarmLevelPresentationCaches?.(gameState.world);
         accumulator = 0;
@@ -1164,16 +1268,19 @@ function startGameFromTitle() {
     setGamePaused(false, { clearInput: true });
     syncTitleScreenUi();
     void musicDirector.unlock();
+    void soundEffectsDirector.unlock();
     void applyFullscreenPreference();
 }
 
 async function startNewGameFromTitle() {
     if (!titleScreenActive) return false;
     void musicDirector.unlock();
+    void soundEffectsDirector.unlock();
     const loaded = await restartCurrentLevel({
         levelId: START_LEVEL_ID,
         loadingLabel: "Starting new game",
-        useBrowserCopy: false
+        useBrowserCopy: false,
+        playerProgression: {}
     });
     if (!loaded) return false;
     saveResumeLevelId(START_LEVEL_ID);
@@ -1191,7 +1298,8 @@ async function loadSaveGameRecord(record, { startFromTitle = titleScreenActive }
     const loaded = await restartCurrentLevel({
         levelId: record.levelId,
         loadingLabel: "Loading saved game",
-        useBrowserCopy: false
+        useBrowserCopy: false,
+        playerProgression: record.campaign?.playerProgression || {}
     });
     if (!loaded) return false;
     gameState.score = Math.max(0, Number(record.score) || 0);
@@ -1219,6 +1327,7 @@ async function resumeGameFromTitle() {
         titleResumeButton.setAttribute("aria-busy", "true");
     }
     void musicDirector.unlock();
+    void soundEffectsDirector.unlock();
     try {
         return await loadSaveGameRecord(autosave, { startFromTitle: true });
     } finally {
@@ -1453,6 +1562,14 @@ function drawMinimap(force = false) {
         ctx.arc(exitPoint.x, exitPoint.y, 3.1, 0, Math.PI * 2);
         ctx.fill();
     }
+    for (const entity of gameState.world?.entities || []) {
+        if (entity?.type !== "wizard_exit_point") continue;
+        const exitPoint = point(Number(entity.x) || 0, Number(entity.y) || 0);
+        ctx.fillStyle = "rgba(255,112,211,0.95)";
+        ctx.beginPath();
+        ctx.arc(exitPoint.x, exitPoint.y, 3.1, 0, Math.PI * 2);
+        ctx.fill();
+    }
 
     const playerPoint = point(Number(gameState.player?.x) || 0, Number(gameState.player?.y) || 0);
     ctx.fillStyle = "#73d37c";
@@ -1582,6 +1699,7 @@ function setupGameMenuAndSettings() {
     window.addEventListener("beforeunload", () => {
         if (typeof stopElectronFullscreenListener === "function") stopElectronFullscreenListener();
         if (gameplayDebugLog) stopGameplayDebugLogging("page-unload", { save: false });
+        soundEffectsDirector.dispose();
         musicDirector.dispose();
     }, { once: true });
 
@@ -1822,7 +1940,14 @@ async function restartCurrentLevel() {
     setGamePaused(true, { clearInput: true });
     try {
         const preservedSettings = normalizeGameSettings(gameState.settings);
-        gameState = createInitialGameState({ settings: preservedSettings, randomSeed: browserRandomSeed() });
+        const preservedProgression = normalizePlayerProgression(
+            options.playerProgression !== undefined ? options.playerProgression : gameState.playerProgression
+        );
+        gameState = createInitialGameState({
+            settings: preservedSettings,
+            randomSeed: browserRandomSeed(),
+            playerProgression: preservedProgression
+        });
         if (gameplayRecording) {
             stopGameplayRecording("level-restart", { save: false });
         }
@@ -1850,7 +1975,7 @@ renderer.syncCaveWindow(activeCaveWindow);
         if (!applyLoadedAtlasCollisions()) {
             console.error("Restarted level, but its atlas collision data could not be applied.");
         }
-        renderer.syncEnvironmentColorMap(gameState.world.colorMap);
+        renderer.syncEnvironmentColorMap(gameState.world.colorMap, gameState.world.colorExchange);
         setLoadingProgress(0.9, "Prewarming level foreground textures");
         renderer.prewarmLevelPresentationCaches?.(gameState.world);
         accumulator = 0;
@@ -1888,6 +2013,7 @@ function syncGameAudioState() {
     const muted = isGameAudioMuted();
     effectiveSfxVolume = muted ? 0 : clamp01(gameState.settings?.sfxVolume);
     musicDirector.setMuted(muted);
+    soundEffectsDirector.setMuted(muted);
     return muted;
 }
 
@@ -1998,6 +2124,7 @@ function syncGameSettingsUi() {
     if (sfxVolumeValue) sfxVolumeValue.textContent = `${Math.round(settings.sfxVolume * 100)}%`;
     if (musicVolumeValue) musicVolumeValue.textContent = `${Math.round(settings.musicVolume * 100)}%`;
     musicDirector.setVolume(settings.musicVolume);
+    soundEffectsDirector.setVolume(settings.sfxVolume);
     syncGameAudioState();
     if (difficultyValue) difficultyValue.textContent = difficulty.label;
     if (renderingQualityValue) renderingQualityValue.textContent = quality.label;
@@ -2056,6 +2183,7 @@ async function applyFullscreenPreference() {
 
 function unlockMusicFromGesture() {
     void musicDirector.unlock();
+    void soundEffectsDirector.unlock();
 }
 
 function attemptVisibleLevelMusicStart() {
@@ -2413,6 +2541,9 @@ function frame(now) {
     while (accumulator >= FIXED_DT && safety < 8) {
         const stepInput = createSubstepInputFrame(inputFrame, safety);
         stepSimulation(gameState, stepInput, FIXED_DT);
+        soundEffectsDirector.processEvents(gameState.debug?.lastEvents);
+        soundEffectsDirector.processState(gameState, gameState.clock?.fixedDt || (1 / 60));
+        processDebugExceptionAlerts();
         if (safety === 0) {
             input.consumeGameplayEdges(stepInput);
         }
@@ -2698,6 +2829,9 @@ function updateDebugText() {
     const staticBakeText = `staticBake:${staticBakeStatus.enabled ? "on" : "off"}/${staticBakeStatus.ready ? "ready" : "not-ready"} mode:${staticBakeStatus.mode || "off"} ${Math.round((staticBakeStatus.bytes || 0) / 1048576)}MiB chunks:${staticBakeStatus.chunks || 0} failures:${staticBakeStatus.failures || 0} ${staticBakeStatus.status || ""}`;
 
     debugEl.textContent = [
+        ...(debugExceptionAlertActive
+            ? [`DEBUG EXCEPTION LOG WRITTEN: ${debugExceptionAlertFilename || "downloaded log"}`, debugExceptionAlertSummary || "Hunter watchdog recovery was required."]
+            : []),
         `rev:${GAME_REVISION}  hudBlur:${hudBackdropBlurDisabled ? "off" : "on"}  ${gameState.debug.paused ? "PAUSED" : "RUNNING"}  tick:${gameState.clock.tick}  t:${gameState.clock.time.toFixed(2)}`,
         `difficulty:${gameState.settings?.difficulty || "normal"} damageScale:${gameDifficultyPreset(gameState.settings).damageScale.toFixed(2)} quality:${gameState.settings?.renderingQuality || "medium"} particleScale:${gameRenderingQualityPreset(gameState.settings).particleScale.toFixed(2)} music:${Math.round((gameState.settings?.musicVolume ?? 0.1) * 100)}% sfx:${Math.round(effectiveSfxVolume * 100)}% track:${activeLevelMusic.trackId} audio:${isGameAudioMuted() ? "muted" : (musicDirector.isUnlocked() ? "on" : "locked")}`,
         viewText,
@@ -2884,15 +3018,15 @@ ${error.message}`);
 
 function applyTuningSideEffects(key) {
     if (key === "maxRunSpeed") {
-        gameState.player.vx = Math.max(-gameState.tuning.maxRunSpeed, Math.min(gameState.tuning.maxRunSpeed, gameState.player.vx));
+        applyPlayerProgression(gameState);
+        const speedLimit = gameState.tuning.maxRunSpeed * (gameState.playerStats?.movementSpeedScale || 1);
+        gameState.player.vx = Math.max(-speedLimit, Math.min(speedLimit, gameState.player.vx));
     }
     if (key === "attachedBoostKickChargeMax") {
         gameState.equipment.rocket.boostKickCharge = Math.min(gameState.equipment.rocket.boostKickCharge, gameState.tuning.attachedBoostKickChargeMax);
     }
-    if (["fuelMax", "baseRechargeCap", "initialFuel", "rechargeRate", "attachedBoostDrainRate", "rocketLaunchCost"].includes(key)) {
-        gameState.fuel.max = gameState.tuning.fuelMax;
-        gameState.fuel.rechargeCap = Math.min(gameState.tuning.baseRechargeCap, gameState.fuel.max);
-        gameState.fuel.amount = Math.min(gameState.fuel.amount, gameState.fuel.max);
+    if (["fuelMax", "baseRechargeCap", "initialFuel", "rechargeRate", "healthRegenRate", "maxHealth", "attachedBoostDrainRate", "rocketLaunchCost"].includes(key)) {
+        applyPlayerProgression(gameState);
     }
     if (key === "meleeEnemyHealthScale" || key === "rangedEnemyHealthScale") {
         syncEnemyTuningHealthScales(gameState);
@@ -2941,6 +3075,7 @@ window.getRocketfrockState = () => cloneGameState(gameState);
 window.setRocketfrockState = (nextState) => {
     gameState = cloneGameState(nextState);
     gamepadHaptics.reset(gameState.debug?.lastEvents || []);
+    soundEffectsDirector.reset();
     gameState.settings = normalizeGameSettings(gameState.settings);
     syncGameSettingsUi();
     syncGameAudioState();
@@ -2960,10 +3095,12 @@ window.__rocketfrockDev = {
     reset() {
         gameState = createInitialGameState({
             settings: gameState.settings,
-            enemyCatalog: gameState.enemyCatalog
+            enemyCatalog: gameState.enemyCatalog,
+            playerProgression: gameState.playerProgression
         });
         gameState.debug.revision = GAME_REVISION;
         gamepadHaptics.reset(gameState.debug.lastEvents);
+        soundEffectsDirector.reset();
         syncLoadedCharacterCombatProfiles();
         applyLoadedAtlasCollisions();
         syncGameSettingsUi();

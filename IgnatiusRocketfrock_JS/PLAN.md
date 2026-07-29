@@ -47,9 +47,11 @@ IgnatiusRocketfrock_JS/
 │       ├── character-project.js, enemy-project-catalog.js
 │       └── dopesheet-data.js
 ├── tests/testbench.mjs
-├── assets/
-│   ├── music.json
-│   └── music_001.ogg, music_002.ogg, ...
+├── resources/
+│   ├── atlases/, characters/, items/, levels/
+│   ├── music/, sfx/, fonts/, ui/
+│   ├── generator/themes/
+│   └── editor/
 ├── devel/package_update.py
 ├── electron/
 ├── package.json
@@ -59,6 +61,20 @@ IgnatiusRocketfrock_JS/
 ```
 
 `package.json` declares the browser-style ES-module format and provides the dependency-free `npm test` command. `ARCHITECTURE.md` is the authoritative directory, dependency, classification, and JavaScript-to-C++ parity map. The root HTML pages remain stable browser entry points. Their large inline editor applications should be extracted one editor at a time into uniquely named modules such as `level-editor-app.js`; do not use several ambiguous files all named `app.js`.
+
+SDL build revision 228 adds manifests for cave-background atlases 015 through 019, with every isolated asset tagged for the cave biome and background layer. The reusable `blendMode: "brightenOnly"` asset attribute is hydrated by both runtimes. WebGL2 and SDL_GPU use fixed-function maximum color blending, accelerated SDL_Renderer uses the equivalent custom blend operation, and Canvas 2D uses its compositor `lighten` fallback. These paths keep dark atlas surrounds from dimming scenery without CPU pixel processing.
+
+SDL build revision 210 treats every enemy `drops` array as one weighted table that emits zero or one item. Ordinary enemies use their character table; a boss entity owns a complete replacement table. The four boss upgrades each occupy a 0.25 probability slice, guaranteeing exactly one upgrade without also inheriting the goblin coin. Any table total below 1.0 leaves the remainder as no drop. Permanent upgrades emit reusable on-screen notices with the agreed health, fuel, regeneration, and movement-speed messages.
+
+SDL build revision 205 moves Puppet Forge's attack, hurt, and death WAV selectors out of the general Character panel and into their own collapsible **Character sounds** panel, ordered between Metadata and Animation in the right-hand inspector.
+
+SDL build revision 204 moves enemy combat audio ownership into character definitions. `sounds.attack`, `sounds.hurt`, and `sounds.death` are optional WAV references selected in Puppet Forge and loaded by both presentation adapters; simulation events carry `characterId` so each monster can choose its own cue without global `enemy_*.wav` event mappings. The wizard ground animation slot and active clip are renamed from `run` to `walk`, with `hurt` and `death` slots added to the wizard character map.
+
+SDL build revision 203 rebuilds `devel/sound-synthesizer.html` as a compact four-column workbench whose controls and narrow waveform monitor fit one ordinary desktop viewport. The standalone renderer now combines two oscillators, white/pink/brown/blue noise, ADSR and pitch envelopes, vibrato, tremolo, FM wobble, sweeping resonant filters, three-band EQ, saturation, ring modulation, bit crushing, sample-rate reduction, reverse, echo, edge fading, preview, and 16-bit mono PCM WAV export.
+
+SDL build revision 202 removes cross-effect sound priority from both presentation adapters. Every distinct cue selected by the gameplay events in a simulation tick now reaches its ordinary voice pool and mixes with the others; only duplicate mappings to the same WAV within that tick remain coalesced. The new standalone `devel/sound-synthesizer.html` tool layers an oscillator and deterministic white noise, shapes them with ADSR, high-pass/low-pass filters and three-band EQ, previews the result, and exports 16-bit mono PCM WAV files from editable gameplay templates.
+
+SDL build revision 201 repairs the initial effects rollout across both presentation adapters. Native ordinary jumps now emit the same `PLAYER_JUMPED` event as the browser simulation, the SDL loop start uses a zero `SDL_PropertiesID` followed by `MIX_SetTrackLoops` to avoid the Windows signed/unsigned warning, and browser sound-catalog loading resolves its relative asset base against the page URL. Rocket boost is a state-driven continuous loop with a quick fade-in and a 0.5-second fade-out; all loop and one-shot gains remain multiplied by the Effects-volume setting. The three rocket placeholders are conservative white-noise-only WAVs whose identities come from distinct amplitude envelopes rather than tones.
 
 The shipped practice target now uses `enemy_900`, a passive training enemy that stays in the ordinary enemy pipeline. Its death presentation is a short shake followed by the normal corpse fade, and the core now treats `strategy: "passive"` as a first-class non-combat enemy mode so future passive props can reuse the same route safely.
 
@@ -1275,14 +1291,14 @@ It established:
 * Ignatius movement, running, jumping, and attached vertical rocket boost.
 * Fuel and health HUD.
 * Detached rocket launch and terrain impact.
-* Atlas-based level loading from `assets/level_001.json`.
+* Atlas-based level loading from `resources/levels/level_001.json`.
 * Multi-atlas level references.
 * Atlas collision lines and closed collision areas.
 * Level editor and asset tool.
 * Debug overlays and asset guides.
 * Headless movement, fuel, collision, and game-state tests.
 
-Going forward, the browser game should load real level and atlas files from `assets/`. It may fail loudly when required files are missing. Hardcoded geometry should be limited to explicit test fixtures and blank editor documents.
+Going forward, the browser game should load real level files from `resources/levels/` and atlas files from their categorized resource directories. It may fail loudly when required files are missing. Hardcoded geometry should be limited to explicit test fixtures and blank editor documents.
 
 ## Milestone 2: Character Atlas, Rigging, and Animation Pipeline
 
@@ -1439,7 +1455,7 @@ Both physical Control keys now act as alternate weapon-launch buttons. The input
 
 ### Revision 093 first placed character enemy
 
-An explicit `assets/ct_enemies_001.json` catalog now registers enemy projects for browser tools that cannot enumerate the assets directory. The Level Editor exposes the Skeleton Guard (`enemy_001`) as a placeable entity, previews it through the shared runtime character loader and draw-command pipeline, snaps its foot position to nearby authored support lines, and provides guard/patrol controls for facing, patrol span, speed, pauses, and visual scale.
+An explicit `resources/characters/ct_enemies_001.json` catalog now registers enemy projects for browser tools that cannot enumerate the assets directory. The Level Editor exposes the Skeleton Guard (`enemy_001`) as a placeable entity, previews it through the shared runtime character loader and draw-command pipeline, snaps its foot position to nearby authored support lines, and provides guard/patrol controls for facing, patrol span, speed, pauses, and visual scale.
 
 Placed character enemies now own simulation state for guard and patrol behaviour. Patrols alternate between idle and walk animation slots, follow nearby walkable or blockable support, reverse at their authored limits, ledges, or blocking geometry, and keep their homing target anchor synchronized while moving. `level_001` includes the first Skeleton Guard patrol on the right gallery. Rendering remains presentation-only; enemy movement and animation-state selection live in `src/core/simulation.js`.
 
@@ -2099,9 +2115,11 @@ The active catalog and every matching placement in `level_001.json` are rebalanc
 Wrench damage remains derived from the shared 30-damage standard rocket. Triple now uses a one-half multiplier per projectile, producing three 15-damage rockets and 45 total volley damage when all three connect. Twin now uses a two-thirds multiplier per projectile, producing two 20-damage rockets and 40 total volley damage. Dart now deals standard 30-damage rocket damage while retaining its straight, faster, non-homing flight, first-impact explosion, and two-thirds fuel cost. Bigbomb remains at triple damage, 90, and Boomerang remains at 30.
 
 
-## Revision 222 archive repack
+## Revision 222 projectile-art fireball trail palettes
 
-Revision 222 is an unchanged repack of revision 221. It introduces no gameplay, data, presentation, or tool behavior and exists only as the supplied handoff archive.
+Revision 222 makes ordinary enemy fireball trails inherit their colour family from the authored projectile artwork. Character loading samples four representative non-transparent projectile-frame colours once, orders them from dark to bright, and caches that palette on the projectile asset. Canvas, WebGL2, SDL_Renderer, and SDL_GPU particle paths interpolate the same cached palette as each spark cools, with no texture readback or atlas scan on the gameplay frame path.
+
+Per-part GIMP Color Exchange is included because the browser samples the final exchanged projectile canvas and the native loader samples an equivalently exchanged frame. The projectile itself and its trail therefore remain visually coupled when a fireball is recoloured, including blue or other future variants. Skeleton Caster undeath orbs remain an explicit exception and keep their existing procedural green bubble trail. The browser projectile draw path now also selects the authored projectile-part asset, matching the native path and ensuring per-part exchanges affect both the projectile core and its sampled trail.
 
 
 ## Revision 223 Shield power-up and completion of the current power-up set
@@ -2581,7 +2599,7 @@ Revision 237 materializes only optional branches selected by the independent rew
 
 A selected branch becomes a lower returnable detour. The main route reserves a collision-open shaft through a catalogued `shaftBridge` assembly, two alternating narrow footholds descend through the opening, and broad lower supports form a reward alcove. The branch's abstract merge edge remains preview-only because a solid upper merge platform would behave as a low ceiling. Every materialized detour has bidirectional transition records, an explicit shaft record, and exactly one positive-Score treasure chest at the authored optional-reward destination.
 
-`assets/level-generator-rewards.json` records stable generation metadata for treasure, contextual power-ups, utility pickups, and optional narrative triggers. Contextual rewards are restrained, progression-aware, kept away from endpoint calm zones, and checked against generated enemies. Power-up types avoid repeats until the available pool has been used, after which longer routes may repeat types to meet their route-scaled density target. Entrance and exit doors remain Endpoint Placer-owned. Location thoughts are disabled by default and require explicit theme or Level Editor opt-in; when enabled, at most one invisible one-shot trigger may be placed on a quiet suitable support.
+`resources/generator/level-generator-rewards.json` records stable generation metadata for treasure, contextual power-ups, utility pickups, and optional narrative triggers. Contextual rewards are restrained, progression-aware, kept away from endpoint calm zones, and checked against generated enemies. Power-up types avoid repeats until the available pool has been used, after which longer routes may repeat types to meet their route-scaled density target. Entrance and exit doors remain Endpoint Placer-owned. Location thoughts are disabled by default and require explicit theme or Level Editor opt-in; when enabled, at most one invisible one-shot trigger may be placed on a quiet suitable support.
 
 Validation now covers the complete route, cavern, traversal, endpoints, encounters, and rewards. It rejects missing or narrow branch shafts, footholds without standing and turning room, undersized lower landings, invalid return transitions, inaccessible rewards, missing branch treasure, endpoint crowding, reward-enemy overlap, and narrative additions that were not requested. The editor overlay draws actual materialized detours separately from unmaterialized reservations and preview-only merge hints.
 
@@ -2666,7 +2684,7 @@ Validation records the number of mandatory vertical moving platforms, any forbid
 
 ## Revision 245 layered upper traversal, staggered recovery floors, and formation-only perimeter
 
-Revision 245 uses the manually authored `assets/level_001.json` as the traversal-shape reference without replacing its authored placements. The important lesson is that the main route is a sequence of distinct jump targets, not a collision line drawn over the macro route. Horizontal traversal therefore permits substantially larger deterministic vertical departures from ThePath74 while preserving conservative local rise, drop, and collision-edge gap limits.
+Revision 245 uses the manually authored `resources/levels/level_001.json` as the traversal-shape reference without replacing its authored placements. The important lesson is that the main route is a sequence of distinct jump targets, not a collision line drawn over the macro route. Horizontal traversal therefore permits substantially larger deterministic vertical departures from ThePath74 while preserving conservative local rise, drop, and collision-edge gap limits.
 
 The new default Traversal implementation is `layered-recovery-traversal-v3`. Its upper route uses separated static landing assets with deliberately varied elevations. Beneath suitable horizontal sequences it builds a broad, level recovery lane from multiple recovery supports. Each upper jump gap has solid recovery geometry below it, while the recovery lane's own gaps are placed between those landing zones so upper and lower gaps never overlap. The lower path is therefore forgiving without becoming an effortless uninterrupted floor.
 
@@ -2680,7 +2698,7 @@ Validation records recovery-lane count, lower-lane gap count, upper-gap coverage
 
 Revision 246 adds `at_atlas_004` as the dedicated long earth-platform atlas. Its sixteen visual islands are individually framed and carry closed blockable collision polygons. The upper blockable segment is deliberately placed through the middle of the rendered walkway, following the collision convention of `at_atlas_001` rather than tracing loose alpha pixels along the top fringe.
 
-All sixteen platforms are registered in `assets/level-generator-platforms.json`. Their authored widths range from compact long ledges to very broad recovery-floor spans. Layered horizontal traversal may request a longer landing asset on sufficiently broad route edges while preserving the existing collision-edge jump-gap, vertical-variation, recovery-lane, and thin-moving-platform contracts. The selection remains conservative so large art does not collapse a jump sequence into touching platforms.
+All sixteen platforms are registered in `resources/generator/level-generator-platforms.json`. Their authored widths range from compact long ledges to very broad recovery-floor spans. Layered horizontal traversal may request a longer landing asset on sufficiently broad route edges while preserving the existing collision-edge jump-gap, vertical-variation, recovery-lane, and thin-moving-platform contracts. The selection remains conservative so large art does not collapse a jump sequence into touching platforms.
 
 Earth and Ice colour-map atlas allowlists include `at_atlas_004`. Generated levels add the atlas reference through their ordinary placement-derived atlas list; manually authored levels remain unchanged until one of the new assets is placed.
 
@@ -2748,7 +2766,7 @@ The minimap now shares only the top-left meter panel's height. Its width is calc
 
 Automatic endpoint generation now treats the two large mossy door platforms as a mirrored composition. The exit support reuses the entrance support asset and scale, mirrors it horizontally, and places the exit door at the corresponding far-right usable location. The entrance remains at the far-left usable location.
 
-`assets/at_atlas_004.json` advances to manifest version 5. The thick top-row platform retains its closed yellow blockable silhouette. Every thinner platform now has only one green walkable line across its inset standing surface, allowing Ignatius to jump upward through it from below.
+`resources/atlases/at_atlas_004.json` advances to manifest version 5. The thick top-row platform retains its closed yellow blockable silhouette. Every thinner platform now has only one green walkable line across its inset standing surface, allowing Ignatius to jump upward through it from below.
 
 ## Revision 253 smoothed contour perimeter and denser cave-wall coverage
 
@@ -2774,7 +2792,7 @@ The Wide, upward-expanding cavern reuses the current occupancy-contour architect
 
 ## Revision 256 collision-aware platform composition and larger upward rooms
 
-Revision 256 makes platform overlap depend on collision semantics. `assets/level-generator-platforms.json` now marks generated platform families as `blockable` or `oneWay`. The mostly-horizontal ground role belongs only to the thick Atlas 004 platform with its closed yellow blockable area, so overlapping pieces form a genuinely continuous floor. The fifteen thin green-line Atlas 004 platforms remain one-way assets and are excluded from the overlapping ground family. Traversal validation rejects any generated pair where a one-way platform visually overlaps another platform in both axes. The same rule protects Standard lower recovery paths: their intentionally overlapping bridge pieces are selected from blockable assets only.
+Revision 256 makes platform overlap depend on collision semantics. `resources/generator/level-generator-platforms.json` now marks generated platform families as `blockable` or `oneWay`. The mostly-horizontal ground role belongs only to the thick Atlas 004 platform with its closed yellow blockable area, so overlapping pieces form a genuinely continuous floor. The fifteen thin green-line Atlas 004 platforms remain one-way assets and are excluded from the overlapping ground family. Traversal validation rejects any generated pair where a one-way platform visually overlaps another platform in both axes. The same rule protects Standard lower recovery paths: their intentionally overlapping bridge pieces are selected from blockable assets only.
 
 The Wide, upward-expanding cavern now adds two to four auxiliary room ellipses distributed along the main ground route. These rooms are substantially wider while remaining shallow, keep their bottom close to the floor, and place most of their volume above the route. This produces more reliable space for existing raised combat and reward perches without turning the lower route into a deep pit.
 
@@ -2957,7 +2975,7 @@ The compatibility debt recorded across earlier revisions is removed instead of b
 
 The automatic cavern generator no longer computes or serializes the old top/bottom `profile`, and cavern containment no longer has a profile fallback. The arbitrary closed polygon is now the sole cavern geometry representation. State initialization also drops the old raw `jumpVelocity` tuning migration and derives that internal value only from `ordinaryJumpHeight` and gravity.
 
-A stale-data bug was found during the audit: `assets/level_001.json` still contained `caveWindow.decoration.spacing` even though revision 279 removed the field from normalization and editor authoring. The property is now deleted from the active level. Regression coverage verifies that production runtime and power-up code contain no retired migration aliases, the editor strips unsupported retired records and fields instead of preserving them, generated caverns contain no profile record, the obsolete spacing control remains absent, and revision labels are synchronized at 281. The fast suite passes 148 tests, the isolated generator suite passes all 9 tests, and the complete headless suite passes all 157 tests. No Game Manual change is required because current gameplay, controls, durations, damage, and editor controls are unchanged; only unsupported historical data formats were removed.
+A stale-data bug was found during the audit: `resources/levels/level_001.json` still contained `caveWindow.decoration.spacing` even though revision 279 removed the field from normalization and editor authoring. The property is now deleted from the active level. Regression coverage verifies that production runtime and power-up code contain no retired migration aliases, the editor strips unsupported retired records and fields instead of preserving them, generated caverns contain no profile record, the obsolete spacing control remains absent, and revision labels are synchronized at 281. The fast suite passes 148 tests, the isolated generator suite passes all 9 tests, and the complete headless suite passes all 157 tests. No Game Manual change is required because current gameplay, controls, durations, damage, and editor controls are unchanged; only unsupported historical data formats were removed.
 
 
 ## Revision 282 shorter post-death camera hold
@@ -3022,7 +3040,7 @@ Documentation housekeeping updates the stale project-layout diagram to reflect t
 
 ## Revision 291 level_002 and first boss encounter
 
-`assets/level_002.json` is now a complete generated-and-refined Earth cavern titled **The Incandescent Goblin Gallery**. Its reproducible generator foundation uses seed `cinder-vault-291-8f6c2b`, default-scale route settings, and Fireball Goblins exclusively. Six ordinary Fireball Goblins populate the journey before a manually enlarged final cavern.
+`resources/levels/level_002.json` is now a complete generated-and-refined Earth cavern titled **The Incandescent Goblin Gallery**. Its reproducible generator foundation uses seed `cinder-vault-291-8f6c2b`, default-scale route settings, and Fireball Goblins exclusively. Six ordinary Fireball Goblins populate the journey before a manually enlarged final cavern.
 
 The final arena has four vertically staggered long platforms on each side, with the opposing columns offset so enemies and Ignatius can move between firing heights rather than occupying flat mirrored rows. Six invisible on-screen enemy spawners sit on the lower three platforms of each column and resolve only `enemy_002`. Four random-wrench pickups are distributed across the platform columns. The central boss, **Gorblax the Incandescent**, is an ordinary Fireball Goblin placement enlarged to 1.95 render scale and 900 HP with stronger fireballs and wider awareness.
 
@@ -3520,7 +3538,7 @@ This is intentionally a content-foundation revision rather than a final gameplay
 
 Status: implemented.
 
-The first Human Raider content existed in revision 365, but Puppet Forge's manually maintained known-project list still ended at enemy 020. As a result, `enemy_030` did not appear in the Character Editor dropdown. The URL field also accepted only a character-definition JSON, so entering the otherwise valid `assets/ct_atlas_enemy_030.json` atlas manifest failed before it could reach the matching character project.
+The first Human Raider content existed in revision 365, but Puppet Forge's manually maintained known-project list still ended at enemy 020. As a result, `enemy_030` did not appear in the Character Editor dropdown. The URL field also accepted only a character-definition JSON, so entering the otherwise valid `resources/characters/ct_atlas_enemy_030.json` atlas manifest failed before it could reach the matching character project.
 
 Revision 366 adds **Enemy 030: Human Raider** to the Puppet Forge dropdown and known-project map. The URL loader is now a project-JSON loader: it accepts a character definition directly, or infers the matching `ct_char_*` definition from a `ct_rig_*` or `ct_atlas_*` manifest in the same directory. The Canvas renderer's fallback preload list also includes `ct_char_enemy_030.json`, while normal game/editor startup continues to prefer catalog-derived character URLs.
 
@@ -3597,7 +3615,7 @@ The game soundtrack catalog is replaced by the 18 tunes marked `accept` in the e
 
 Playback now uses the exact version 2, 3, and 4 engines embedded in the long-form selector rather than approximating their arrangements with the game's former short oscillator scheduler. Hidden same-origin `srcdoc` frames preserve local-file compatibility and expose the selector's own `selectTune`, `setOctave`, `setVolume`, `play`, `pause`, and `stop` API. Browser pause/focus muting uses the active engine pause control; resuming invokes the same jukebox play path and therefore begins the selected opening again; level changes stop the previous engine, configure the new accepted version/octave, and begin its opening-once pass.
 
-Regression coverage verifies the exact accepted ID order, representative version/octave choices, long-form timing, level schema migration, hidden-engine host wiring, and director volume/mute behavior. The exact selector export is packaged at `assets/music/ignatius_music_selections.json`, and `MUSIC_SOURCES.md` records the catalog and implementation provenance. Browser verification found that the export timing objects repeat generic values for each version rather than the selected tune's live values; this is fixed in the game catalog by querying the exact embedded engine for every accepted tune.
+Regression coverage verifies the exact accepted ID order, representative version/octave choices, long-form timing, level schema migration, hidden-engine host wiring, and director volume/mute behavior. The exact selector export is packaged at `resources/music/ignatius_music_selections.json`, and `MUSIC_SOURCES.md` records the catalog and implementation provenance. Browser verification found that the export timing objects repeat generic values for each version rather than the selected tune's live values; this is fixed in the game catalog by querying the exact embedded engine for every accepted tune.
 
 Revision 373 validation: the focused synthesized-music regression passes, and a headless-browser smoke test loaded the exact version 2, 3, and 4 engines, verified live tune selection, chosen octave, playback state, and tune-specific full-pass/loop timing. Game test shards 2–4 pass. The complete shared/game release gate remains blocked only by four files already absent from the supplied revision 372 archive: `devel/enemy-hit-effect-lab.html`, `devel/enemy-hit-effect-lab.js`, `level-editor-2.html`, and `src/tools/level-editor-2.js`.
 
@@ -3936,7 +3954,7 @@ Generator schema version 35 stores the actual entrance and exit coordinates. Enc
 
 ## Revision 454 OGG music reset
 
-Revision 454 cleans out the retired synthesized/jukebox music path and makes numbered OGG tracks the only game music source. Levels now store `music.version: 3` with `trackId: "music_001"` by default, the Level Editor loads choices from `assets/music.json`, and runtime playback uses a browser-owned looping audio element. Update zips exclude `.png`, `.xcf`, and `.ogg` files.
+Revision 454 cleans out the retired synthesized/jukebox music path and makes numbered OGG tracks the only game music source. Levels now store `music.version: 3` with `trackId: "music_001"` by default, the Level Editor loads choices from `resources/music/music.json`, and runtime playback uses a browser-owned looping audio element. Update zips exclude `.png`, `.xcf`, and `.ogg` files.
 
 ## Revision 456 title resume save
 
@@ -3965,7 +3983,7 @@ The compact update archive still excludes PNG, OGG, XCF, and EXE files, so the n
 
 ## Revision 461 asset forge atlas loader and title manual button polish
 
-Revision 461 streamlines the Asset Tool file panel for the growing numbered atlas library. The old hard-coded `at_atlas_001` image and JSON buttons are replaced by a numbered atlas selector and a single load action that loads both `assets/at_atlas_<nnn>.json` and its referenced image. The custom PNG and JSON pickers remain underneath for one-off imports. The Asset Tool canvas also now matches the Level Editor navigation feel: holding the right mouse button while dragging pans the viewport, and the mouse wheel zooms around the cursor.
+Revision 461 streamlines the Asset Tool file panel for the growing numbered atlas library. The old hard-coded `at_atlas_001` image and JSON buttons are replaced by a numbered atlas selector and a single load action that loads both `resources/atlases/at_atlas_<nnn>.json` and its referenced image. The custom PNG and JSON pickers remain underneath for one-off imports. The Asset Tool canvas also now matches the Level Editor navigation feel: holding the right mouse button while dragging pans the viewport, and the mouse wheel zooms around the cursor.
 
 The title screen keeps Start and Resume as the primary actions, while the Game manual link now uses a quieter pill-shaped secondary style so it reads as supporting documentation rather than another main launch button.
 
@@ -4001,7 +4019,7 @@ Revision 468 makes placed `thoughtTrigger` entities editable from the Level Edit
 
 ## Revision 470 testbench level fixtures
 
-Revision 470 reserves the `assets/level_tNN.json` namespace for testbench-only levels. Regression tests should use `level_t01`, `level_t02`, and later `level_t03` through `level_t99` as needed instead of depending on mutable campaign files such as `level_001.json`. These fixtures are intentionally unreachable through normal campaign progression and may be edited as needed for stable tests.
+Revision 470 reserves the `resources/level_tNN.json` namespace for testbench-only levels. Regression tests should use `level_t01`, `level_t02`, and later `level_t03` through `level_t99` as needed instead of depending on mutable campaign files such as `level_001.json`. These fixtures are intentionally unreachable through normal campaign progression and may be edited as needed for stable tests.
 
 ## Revision 471 inspector precommit guard
 
@@ -4024,7 +4042,7 @@ Green walkables remain one-way: holding Down still opts out of them, and upward/
 
 ## Revision 475 hidden debug-panel throttling
 
-Revision 475 carries forward the newest authored `assets/level_001.json` supplied after revision 474. It also stops building the game debug diagnostics while the debug panel is hidden. `updateDebugText()` now returns before collecting renderer metrics, animation diagnostics, input history, event strings, or assigning text content when the debug `<pre>` is hidden. Showing the panel through either the menu button or debug shortcut immediately refreshes it once, then resumes ordinary per-frame updates only while visible.
+Revision 475 carries forward the newest authored `resources/levels/level_001.json` supplied after revision 474. It also stops building the game debug diagnostics while the debug panel is hidden. `updateDebugText()` now returns before collecting renderer metrics, animation diagnostics, input history, event strings, or assigning text content when the debug `<pre>` is hidden. Showing the panel through either the menu button or debug shortcut immediately refreshes it once, then resumes ordinary per-frame updates only while visible.
 
 ## Revision 476 low-risk cleanup and HUD write coalescing
 
@@ -4336,3 +4354,164 @@ Revision 145 gives every non-title game menu a shared top-right Back button in b
 ## SDL build revision 151 modular enemy retargets
 
 SDL build revision 151 adds Hobgoblin `enemy_018`, Porker `enemy_060`, Crocker `enemy_070`, and Ogre `enemy_080` to both the browser/reference and SDL data paths. Each uploaded atlas receives an independent manifest, rig, character project, and copied idle, walk, attack, hurt, and death animation set. The Hobgoblin follows the Musket Goblin projectile handoff; the other three follow the Fireball Goblin caster handoff. First-pass transparent-bounds pivot retargeting, scaled gameplay bodies, catalog/editor discovery, browser preloading, dormant generator metadata, and dependency/asset regression coverage are included.
+
+
+## SDL build revision 154 generator recipes and tagged themes
+
+SDL build revision 154 begins the Level Generator architecture migration. The Level Editor now selects an appearance-only Theme, an independent Colour modifier, a curated Recipe, and an Enemy pool. Raw Route, Cavern, and Length controls are removed from the ordinary panel; Domed Compact, Domed Standard, and Domed Long recipes lock those coupled implementation details into tested combinations. Cave, Forest, and Castle themes select terrain through symbolic tag queries, while Frost is a colour-map modifier over the same tagged assets.
+
+`resources/editor/asset-generation-tags.json` defines the valid symbolic tags and stable 64-bit positions. The Asset Editor loads that catalog and authors `generationTags` on atlas objects. The platform generation catalog now includes tagged Cave, Forest, and Castle terrain, dedicated wide door supports, theme-specific moving-platform choices, and the explicitly tagged `rubble_long` placeholder. Horizontal route realization now corrects a small final platform-overlap shortfall without sacrificing the preceding 72-unit seam, making the recipe independent of one particular native platform width. The curated 3-theme by 3-recipe matrix is covered by deterministic generation tests and an additional 90-seed sweep.
+
+## SDL build revision 155 native Level Editor pause
+
+SDL build revision 155 pauses the native SDL/C++ Level Editor. `IgnatiusLevelEditor` is removed from the Windows and Linux build graphs, while the former source path `src/tools/level-editor.cpp` is retained with the exact marker `RESERVED FOR LEVEL EDITOR` so the filename remains reserved for a possible future native editor. The HTML Level Editor remains the supported authoring interface and continues to run through `IgnatiusDevTool` on Windows.
+
+## SDL build revision 160 On top collision parity
+
+SDL build revision 160 fixes a Level Editor guide-culling regression introduced with the per-placement **On top** draw partitions. Editor overlay queries now include both ordinary and On-top placements, so collision lines and labels remain visible. Browser and native regression coverage also confirms that On-top Terrain records still produce stationary walkable segments, moving-platform-owned segments, and blockable obstruction polygons.
+
+
+## SDL build revision 162 resolution-safe raw GPU world coordinates
+
+SDL build revision 162 fixes the raw SDL_GPU world disappearing after selecting a 1920×1080 or larger custom resolution. The failure was confined to the native presentation path: static scenery batches kept simulation/world coordinates in their vertex data and changed the GPU camera uniform between static world, dynamic actor, foreground, and HUD passes. On the affected Windows backend, the high-resolution multi-pass command stream could leave the early terrain pass interpreted with the later screen-space camera, pushing the starting terrain outside the render target while foreground edge art and HUD chrome remained visible.
+
+The native raw-world path now follows the same boundary as Canvas2D and SDL_Renderer. Simulation, collision, camera, and authored level data stay in world units; every visible static placement is converted once to render-target pixels before batching, and every gameplay pass uses the same screen-space GPU camera. Direct-present and offscreen frames also build their view from the dimensions of the actual acquired GPU target rather than assuming that the SDL_Renderer output and swapchain are identical after a custom-resolution, DPI, or fullscreen transition. Cave-mask sizing uses those same view dimensions. The browser already maintained separate virtual and backing-pixel viewport metrics, so its implementation is unchanged; its 1080p/high-DPI regression coverage is extended.
+
+## SDL build revision 177 attached-rocket plume parity
+
+SDL build revision 177 moves the attached rocket smoke source down toward the visible engine bell and slightly inward in both the browser/reference simulation and SDL/C++ simulation. The native simulation now applies the shared rendering-quality particle scale to sustained plume spacing and multi-puff launch bursts, matching the existing browser behavior so High quality emits roughly fifty percent more particles than Medium.
+
+The raw SDL_GPU filled-circle texture is no longer a broad radial fade masquerading as a solid disc. It now has a solid interior with a narrow anti-aliased edge, restoring the apparent size and mass of smoke layers, rocket sparks, and the Overdrive shimmer to the SDL_Renderer presentation without changing their authored world-space radii.
+
+## SDL build revision 178 attached-rocket nozzle follow-up
+
+After direct GPU comparison, revision 178 moves the attached rocket smoke source another eight world pixels downward in both simulations while retaining the richer quality-scaled plume and corrected GPU particle footprint from revision 177. Flight keeps the user's deliberate 1.5 movement multiplier; the temporary 2.0 reintroduction is removed, and the browser plus native regression expectations now agree on the 50-percent speed increase.
+
+
+
+## SDL build revision 185 axe presentation and persistent bomber swarm
+
+SDL build revision 185 makes dwarf throwing axes render at 170 percent of their previous visual size and rotate at 25 radians per second, five times their prior spin rate, in Canvas2D, WebGL, SDL_Renderer, and raw SDL_GPU presentation. Their straight, gravity-free, non-homing simulation path and gameplay collision radius remain unchanged.
+
+Bombing bats now retain their complete deterministic meander after reaching Ignatius rather than fading to a small station drift. Horizontal swarm amplitude is multiplied by 2.5 and vertical movement uses a larger bounded amplitude, keeping grouped bats visibly separated while they circle above the player. Rock release no longer uses the broad navigation tolerance: a bat must cross a narrow 8-to-12-world-unit lane directly over Ignatius, be near its bombing altitude, and have a clear falling path. Browser and native regression coverage verifies deterministic replay, substantial late-station spread, the wider swarm envelope, and direct-overhead release timing.
+
+
+## SDL build revision 186 synchronized human crossbows
+
+SDL build revision 186 transfers Enemy 034's revised split-limb rigging and complete idle, walk, attack, hurt, and death animation set to the second human crossbow, Enemy 035, while preserving Enemy 035's distinct `head_14` and `body_07` atlas choices. Both crossbowmen now share the revised crossbow pivot, weapon-arm attachment, draw order, and 0.48-second projectile release handoff.
+
+Enemy 034's newly reauthored attack export still carried its source idle animation ID, 1.2-second duration, and baked hold keys after the intended endpoint. The clip is corrected to its own attack identity, trimmed to 0.720 seconds without changing the authored motion before that point, and then used as the authoritative source for Enemy 035. Regression coverage now protects the shared motion data, unique artwork choices, corrected duration, and matching bake metadata.
+
+## SDL build revision 187 active enemy navigation optimization
+
+SDL build revision 187 removes the pathological active-enemy navigation cost exposed by the 36-enemy stress level without introducing distance-based dormancy. Reachable-approach selection now performs one heap-based shortest-path expansion and extracts routes for all candidate supports from that shared search tree, replacing the former full route-planner invocation for every support. Browser and native implementations retain matching APIs, route scoring, and regression coverage.
+
+Ground hunters keep committed traversals while airborne, recognize landing back on a jump's launch support as a failed traversal, and temporarily reject repeated failed navigation instead of rebuilding the same jump indefinitely. Fixed last-seen and return-home targets no longer repath on a periodic timer. Active pursuit routes are retained until the player's support or position changes materially, the route ends, a blocker invalidates it, or traversal actually fails. Ordinary unaware patrol enemies also avoid constructing a complete navigation context until engagement requires one.
+
+Flying bombers cache long-range obstacle steering probes for 100 milliseconds while preserving per-step movement collision safety, and they defer expensive rock-drop trajectory tests until alignment, altitude, visibility, and cooldown checks already permit a release. The native performance harness now enters real gameplay before timing fixed updates, repairing its former title-menu early return. On the supplied 36-enemy level, the rev186 harness exceeded 1.23 seconds for its worst simulation step and could not complete 7,200 ticks within three minutes; revision 187 completes all 7,200 ticks at about 1.09 milliseconds average with a 14.96-millisecond worst step and no update above the 20.8-millisecond budget in the final packaged-build validation. Distance-based enemy deactivation remains deliberately deferred so further stress tests continue exercising the complete active AI population.
+## SDL build revision 188 navigation cache and route-search stabilization
+
+SDL build revision 188 removes the remaining active-enemy navigation spikes without adding distance-based dormancy. The world-scoped moving-platform navigation cache is now indexed directly by normalized enemy navigation profile, so cache hits no longer rebuild a serialized signature for every static support or reconstruct merged edge maps in the browser implementation. Moving-platform endpoint geometry is immutable for a loaded world, while endpoint availability remains evaluated dynamically, making the compact profile key both correct and substantially cheaper.
+
+The native one-to-many route planner now performs its working search in reusable thread-local scratch storage. Support and arrival states use compact integer keys, heap and lookup containers retain their capacity across searches, and transient states reference immutable navigation edges instead of copying full edge records. The returned search tree contains only the compact predecessor data needed for candidate scoring and final route extraction. Browser routing uses matching millipixel arrival quantization without constructing textual route-state keys.
+
+On the supplied 36-enemy stress level, twenty consecutive 7,200-tick release-mode probes averaged about 0.062 milliseconds per simulation update. No run exceeded 10 milliseconds; the largest observed update was 9.34 milliseconds, with most run maxima near or below 1.2 milliseconds. This compares with revision 187's ordinary average around 0.31 milliseconds and observed residual outliers between 10 and 38 milliseconds. All 36 enemies remain simulated regardless of camera distance so later stress work still measures active AI honestly.
+
+
+## SDL build revision 189 hunter air-traversal recovery and distance watchdog
+
+SDL build revision 189 fixes a native-only dispatcher conflict exposed by several Skeleton Guards in the supplied level 005 debug run. The shared hunter planner correctly selected a vertical jump from a yellow blockable floor to a green one-way platform, and green lines already permit upward passage. However, the SDL enemy loop handed the newly airborne hunter to the legacy non-hunter traversal updater on the following tick. That updater did not recognize the character-navigation traversal state, cancelled it without moving the enemy, and allowed the same launch to restart indefinitely. Hunter air movement now remains exclusively inside the character-navigation traversal updater, matching the browser/reference implementation. Regression coverage protects upward jumps through one-way lines and verifies that the hunter advances beyond its launch frame.
+
+Ground hunters also gain a parity-matched distance watchdog. It records an anchor position and considers progress proven only after at least 20 world pixels of displacement; animation changes, velocity changes, and one-frame launch twitches cannot reset it. Three seconds without proven progress triggers bounded local recovery on the current support. A second consecutive timeout retries that recovery, and a third abandons the failed hunt and returns home. Ordinary timeout history resets after genuine 20-pixel movement, while a third-timeout forced return remains committed until the hunter actually reaches home so renewed sight cannot pull it straight back into the failed target. Intentional attacks and ranged firing-position holds are excluded. Both melee and projectile hunters use the same recovery navigation states, and final route legs retain their real purpose (`last_seen` or `return_home`) instead of masquerading as firing-position holds. The browser also now accepts a valid navigation target at world coordinate x=0. Native debug snapshots include airborne, route, navigation-failure, and watchdog fields so future stalls can be diagnosed directly from recordings.
+
+## SDL build revision 190 development exception alerts and watchdog hardening
+
+SDL build revision 190 adds a product-wide `DEVELOPMENT` constant that is independent from compiler configuration, release/debug builds, and the user-facing development-menu setting. It remains enabled throughout the long development phase. Hunter watchdog timeouts always create structured exception incidents before recovery mutates the enemy. The SDL runtime appends those incidents, plus a complete compact gameplay snapshot, to `logs/ignatius_exception_rev190_<timestamp>.ndjson`. The browser/reference runtime emits an equivalent standalone NDJSON download because an ordinary browser page cannot silently write into a project-local logs directory.
+
+When `DEVELOPMENT` is true, the first incident forces the debug panel visible and latches a red exception treatment that includes the log filename and the latest watchdog action. File logging itself is not conditional on `DEVELOPMENT`; disabling the constant later only suppresses the intrusive visual alert.
+
+The simple displacement watchdog remains an emergency fuse rather than a second route planner. Intentional attacks, hurt reactions, glare, platform waits/rides, and firing-position holds now pause its timer without erasing the anchor or timeout history. Moving at least 20 world pixels refreshes the anchor and timer but no longer launders prior timeouts through a recovery shuffle. The first two no-progress intervals use bounded local recovery, the third forces return home, and a further failure while already returning home enters a terminal local guard state instead of recursively retrying forever. Both ports retain the same field names, incident schema, thresholds, and recovery ladder.
+
+
+## SDL build revision 191 invisible portal points and hidden blockers
+
+SDL build revision 191 adds invisible, animation-free `wizard_entry_point` and `wizard_exit_point` entities beside the existing animated doorway entities. Entry points place Ignatius directly at their authored floor baseline when a level loads. Exit points preserve destination-level configuration and ordinary boss locking, but request the level transition immediately when their trigger is reached. Both are visible only as purpose-built markers in the Level Editor.
+
+Atlas 001 now exposes `horizontal_blocker` and `vertical_blocker` editor utilities from completely transparent unused atlas rectangles. Each utility uses a closed four-sided blockable collision loop and remains visible in the editor through collision guides rather than artwork. Explicit negative `paletteOrder` values place the utilities first in the all-atlas palette; no underscore prefix is used. Manually placed copies still respect the chosen placement layer, so they collide on Terrain and remain inert on Foreground or Background. The editor previews any fully transparent colliding frame by drawing its collision geometry, and generation/perimeter catalogs exclude these utilities simply because their `generationTags` arrays are empty.
+
+## SDL build revision 192 revision-verification correction
+
+Revision 192 corrects the revision 191 packaging omission where `BUILD_REVISION.txt` was advanced but the native `BUILD_REVISION` constant remained at 190. Windows `build.bat` correctly rejected that mismatch during its post-build executable verification. Both native revision sources now identify revision 192, and the cumulative update is rebuilt and verified against the immutable revision 185 baseline.
+
+## SDL build revision 193 permanent player upgrades
+
+Revision 193 adds the first complete character-progression slice in both ports. The playthrough stores four rebalanceable levels rather than calculated stat values: `healthLevel`, `fuelLevel`, `regenLevel`, and `speedLevel`. Current balance is +20 maximum Health per Health level, +20 maximum fuel and ordinary recharge cap per Fuel level, +15 percent of both base regeneration rates per Regen level, and +10 percent directional player movement speed and acceleration per Speed level. The red mushroom speed upgrade affects running, airborne steering, and Flight movement, but not detached projectile speed or attached-boost thrust.
+
+The Level Editor entity palette groups `UpgradeFuel`, `UpgradeHealth`, `UpgradeRegen`, and `UpgradeSpeed` alphabetically. Their internal types remain the art-neutral `fuelUpgrade`, `healthUpgrade`, `regenUpgrade`, and `speedUpgrade`; blue, purple, and yellow herbs plus the red mushroom are only the current visuals and may be replaced without changing gameplay or saves. Collected pickups enter an empty visual state and are remembered by a level-scoped identity (`levelId:entityId`), preventing repeated collection after a restart or revisit without allowing identical local entity IDs in different levels to collide.
+
+Progression is application-owned playthrough state rather than disposable level state. It survives normal transitions and restarts, is serialized under `campaign.playerProgression` in save schema version 2, and is restored before a saved level starts. Normal level entry refills Health and fuel to their upgraded maxima. Collecting a capacity upgrade during play adds only the newly earned capacity to the current amount. Browser and native regression coverage verifies derived values, actual regeneration and movement effects, stable-ID deduplication, visual removal, restart persistence, simulation serialization, and save-record round trips.
+
+
+
+## Revision 533 / SDL build revision 194 rocket-relative homing range
+
+Player homing rockets no longer use the camera rectangle as their targeting boundary. A target remains eligible while its target point is within one current viewport width of the rocket itself, even when the enemy is just outside the visible screen. Targets farther away are rejected before line-of-sight sorting, preventing rockets from turning toward enemies abandoned elsewhere in a long level. Existing locks are checked every fixed tick with one squared-distance comparison. Presentation camera framing may change without dropping a valid lock at the screen edge.
+
+## Revision 534 / SDL build revision 195 staggered homing reacquisition
+
+An unlocked homing rocket now waits 0.25 seconds between complete candidate scans. The projectile update grants at most one due rocket a full target-search slot in each fixed simulation tick; other due rockets remain eligible and receive later ticks in stable projectile order. This guarantees that a volley cannot bunch several line-of-sight scans and target sorts into the same frame. Initial volley targeting still computes the ordered candidate set once and shares it across the launched rockets, while existing locks retain their inexpensive per-tick validity check. Losing a lock makes that rocket immediately due, but it still respects the shared one-search-per-tick budget. Browser and native regression coverage verifies the quarter-second cadence and one-by-one distribution across a four-rocket burst.
+
+
+## Revision 535 incoming-damage rebalance
+
+Difficulty remains an incoming-damage-only setting, but its multipliers are now Easy 1x, Normal 2x, and Hard 4x. Skeleton Guard melee and Skeleton Caster projectiles use 49 authored damage so neither can one-shot an unupgraded 100-HP Ignatius on Normal. Human Raider-family, Pirate, Crossbow, Knife Thrower, and Raptor melee use 24 authored damage so they remain just below a Hard one-shot. Existing authored level placements were updated alongside the catalog.
+
+## Revision 197: initial unobtrusive WAV sound effects
+
+Added one-file-per-effect PCM WAV placeholders for player damage, enemy damage, rocket launch, rocket explosion, rocket boost/double-jump, and pickup collection. Browser and SDL presentation layers map existing portable simulation events to these cues, use bounded overlapping voice pools, honor the existing Effects volume setting independently from music, and avoid replaying events retained in the debug history. No footsteps were added. The files are intentionally simple placeholders that can be replaced in place later.
+
+## Revision 199: expanded sound hooks and overhead reaction symbols
+
+The one-file-per-effect WAV system now includes replaceable cues for level start/exit, reading and thinking loops, question/exclamation reactions, jumping and landing, fall-damage landing, wizard death, signal triggers, enemy and boss deaths, permanent upgrades, enemy projectiles, portal opening, and reactive-object changes. Reading and thinking are looped with short gain fades and remain under the normal Effects-volume setting in both browser and SDL presentation layers. Same-tick priority suppresses redundant cues: wizard death overrides damage and damaging-landing sounds, damaging landing overrides ordinary damage and landing, boss death overrides ordinary enemy death, and permanent upgrades use their dedicated pickup cue. Revision 202 retires that cross-effect priority policy so those distinct cues mix normally; duplicate event names that map to the same cue still coalesce within one tick.
+
+`questionMarkTrigger` and `exclamationMarkTrigger` are invisible one-shot editor entities. Entering either trigger shows the matching item-atlas symbol above Ignatius for two seconds, follows his current player position, consumes the trigger, and emits its dedicated sound event without pausing gameplay.
+
+
+## SDL build revision 200 rocket cue redesign
+
+The former rocket-launch placeholder is preserved byte-for-byte as `player_jumping.wav`, where its compact rising character better matches Ignatius's jump. The three rocket cues are regenerated as distinct 48 kHz mono PCM effects built from shaped white noise rather than raw noise: launch adds an ignition crack and rising resonant chirp, boost uses a softer filtered exhaust with turbine flutter, and explosion combines a bright crack, filtered noise body, low falling thump, and sparse sizzling fragments. File names and event routing remain unchanged, so both browser and SDL continue consuming the same sound catalog and Effects-volume gain.
+
+
+## Revision 219 asset-centered hidden-geometry diagnostics
+
+The Level Editor now evaluates hidden gameplay geometry against the full-black cave contour rather than the cyan opening spline. The contour is translated with the same foreground-parallax equation used during play, assuming the camera is aimed directly at the placement center. Classification uses the placement's actual manifest collision lines and closed collision areas instead of its sprite rectangle, and the reported distance is the amount beyond full black. The automatic level generator is unaffected because it constructs route and traversal platforms before it constructs the cave envelope and never calls the editor warning path.
+
+## SDL build revision 220 proximity-triggered world text
+
+Revision 220 adds a catalogued **TEXT** entity for authored introductions, hints, and narrative fragments. Each notification renders as bold world-space text with configurable content, size, fill color, one of four portable font-family categories, and an optional independently colored outline. The visual center and trigger center are separate authored points; the Level Editor exposes both numerical offsets and a draggable trigger handle.
+
+The portable simulation owns the one-shot armed, fade-in, display, fade-out, and complete lifecycle. Defaults are a 100-unit font size, dark blue fill, 300-unit trigger radius, one-second fades, and five seconds fully visible. Canvas/WebGL2 and SDL render the same state, while the native runtime prewarms text layouts during level loading to keep trigger frames allocation-free. Browser and native regressions cover distant trigger placement, timing, completion, events, font selection, and outline data.
+
+
+## SDL build revision 221 deferred level colour treatment preview
+
+Revision 221 replaces live whole-library recolouring in the Level Editor with a selected-asset preview and an explicit **Apply** command. Hue rotation and level-wide GIMP Color Exchange share compact native colour inputs, including the browser/host colour sampler. The preview crops the currently selected atlas frame from its original image, applies the pending GIMP exchange followed by selective hue rotation, and redraws only that small surface while controls are edited.
+
+Apply commits `colorMap` and the new canonical top-level `colorExchange` record to the level. Atlases referenced by the current level and the active palette atlas are rebuilt immediately; other loaded palette atlases are invalidated and rebuilt lazily when first displayed. Browser Canvas/WebGL preparation and SDL_Renderer/raw SDL_GPU atlas loading apply the same exchange-then-hue order. Foreground brightness/saturation derivatives start from the already level-treated pixels in both presentations.
+
+GIMP channel-threshold controls now default to 1.0 in Character Editor and Level Editor authoring UI. Existing authored character exchange values remain exact and are not migrated or silently changed. New level exchange records default all three missing thresholds to 1.0.
+
+Validation note: revision 221 originally inherited two stale assertions that treated production `level_002` as an immutable scaffold. Revision 223 removes that dependency and moves the remaining file-backed level regressions into the reserved `level_tNN` namespace.
+
+## Revision 223 reserved level-test isolation
+
+Revision 223 removes the last unit-test dependencies on mutable campaign and experimental levels. The stale `level_002` scaffold assertions are replaced by a dedicated `level_t07` scaffold fixture, and stable snapshots for the remaining full-level regressions are reserved as `level_t03` through `level_t06`. Both browser and native tests now reject the old pattern by containing no file-backed `resources/levels/level_###.json` references outside the `level_tNN` namespace.
+
+
+## Revision 225 categorized resource migration
+
+Revision 225 completes the move from the flat `assets` directory to categorized `resources` directories. Browser and SDL loaders now share category-relative logical paths, editor exports preserve those paths, character subresources can resolve both local files and explicit cross-category references, and every build/package path stages `content/resources`. A strict pre-gate audit turns stale paths, missing resources, filename-case errors, and root-level strays into immediate failures. Authoring-only XCF material remains under `reference/authoring` and is excluded from runtime packaging.
+
+## Revision 227 normal-path DevTool playtests
+
+Revision 227 removes the SDL DevTool's external temporary-level launch seam. The Level Editor snapshot is written as `content/resources/levels/level_temp.json` and launched through the ordinary `--level` resource loader, while the source resource audit rejects that generated filename if it is accidentally copied into authored content. Native music playback now resolves catalog basenames through `music/`, matching the browser music director and allowing direct-start playtests to load their selected track.

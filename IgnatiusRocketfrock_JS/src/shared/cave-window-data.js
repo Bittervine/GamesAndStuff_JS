@@ -446,6 +446,77 @@ export function cavePolygonSeparation(cavePolygon, polygon) {
     };
 }
 
+export function caveGameplayGeometrySeparation(cavePolygon, geometry = {}) {
+    const contour = Array.isArray(cavePolygon)
+        ? cavePolygon
+            .filter((point) => point && Number.isFinite(Number(point.x)) && Number.isFinite(Number(point.y)))
+            .map((point) => ({ x: Number(point.x), y: Number(point.y) }))
+        : [];
+    const segments = [];
+    for (const segment of Array.isArray(geometry?.segments) ? geometry.segments : []) {
+        const a = segment?.a || (Number.isFinite(Number(segment?.x1)) && Number.isFinite(Number(segment?.y1))
+            ? { x: Number(segment.x1), y: Number(segment.y1) }
+            : null);
+        const b = segment?.b || (Number.isFinite(Number(segment?.x2)) && Number.isFinite(Number(segment?.y2))
+            ? { x: Number(segment.x2), y: Number(segment.y2) }
+            : null);
+        if (!a || !b || !Number.isFinite(Number(a.x)) || !Number.isFinite(Number(a.y))
+            || !Number.isFinite(Number(b.x)) || !Number.isFinite(Number(b.y))) continue;
+        segments.push({
+            a: { x: Number(a.x), y: Number(a.y) },
+            b: { x: Number(b.x), y: Number(b.y) }
+        });
+    }
+    const polygons = (Array.isArray(geometry?.polygons) ? geometry.polygons : [])
+        .map((polygon) => Array.isArray(polygon)
+            ? polygon
+                .filter((point) => point && Number.isFinite(Number(point.x)) && Number.isFinite(Number(point.y)))
+                .map((point) => ({ x: Number(point.x), y: Number(point.y) }))
+            : [])
+        .filter((polygon) => polygon.length >= 3);
+    for (const polygon of polygons) {
+        for (let index = 0; index < polygon.length; index += 1) {
+            segments.push({ a: polygon[index], b: polygon[(index + 1) % polygon.length] });
+        }
+    }
+    if (contour.length < 3 || segments.length === 0) {
+        return { outside: false, distance: 0 };
+    }
+
+    for (const segment of segments) {
+        if (pointInPolygon(segment.a, contour) || pointInPolygon(segment.b, contour)) {
+            return { outside: false, distance: 0 };
+        }
+        for (let caveIndex = 0; caveIndex < contour.length; caveIndex += 1) {
+            if (segmentsIntersect(segment.a, segment.b, contour[caveIndex], contour[(caveIndex + 1) % contour.length])) {
+                return { outside: false, distance: 0 };
+            }
+        }
+    }
+    if (polygons.some((polygon) => contour.some((point) => pointInPolygon(point, polygon)))) {
+        return { outside: false, distance: 0 };
+    }
+
+    let minimumDistanceSquared = Infinity;
+    for (const segment of segments) {
+        for (let caveIndex = 0; caveIndex < contour.length; caveIndex += 1) {
+            minimumDistanceSquared = Math.min(
+                minimumDistanceSquared,
+                segmentSegmentDistanceSquared(
+                    segment.a,
+                    segment.b,
+                    contour[caveIndex],
+                    contour[(caveIndex + 1) % contour.length]
+                )
+            );
+        }
+    }
+    return {
+        outside: true,
+        distance: Math.sqrt(minimumDistanceSquared)
+    };
+}
+
 export function caveWindowPolygonSeparation(points, polygon, stepsPerSegment = 20) {
     const cavePolygon = sampleClosedCaveSpline(points, stepsPerSegment).slice(0, -1);
     return cavePolygonSeparation(cavePolygon, polygon);

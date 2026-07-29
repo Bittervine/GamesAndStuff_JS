@@ -1,0 +1,52 @@
+{
+    "meta": {
+        "version": 2,
+        "note": "Atlas 009 is a single full-image castle stone wall decoration/background asset."
+    },
+    "atlasId": "at_atlas_009",
+    "image": "at_atlas_009.png",
+    "frames": {
+        "castle_stone_wall_background": {
+            "x": 0,
+            "y": 0,
+            "w": 1672,
+            "h": 941
+        }
+    },
+    "objects": {
+        "castle_stone_wall_background": {
+            "id": "castle_stone_wall_background",
+            "frame": "castle_stone_wall_background",
+            "type": "decor",
+            "layer": "decorBack",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "castle",
+                "stone",
+                "wall",
+                "background",
+                "decoration"
+            ],
+            "notes": "Single full-image background wall asset; no collision.",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.castle",
+                "layer.background"
+            ]
+        }
+    }
+}

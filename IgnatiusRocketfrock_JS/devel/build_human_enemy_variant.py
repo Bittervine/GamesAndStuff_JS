@@ -52,7 +52,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     root = Path(__file__).resolve().parents[1]
-    assets = root / "assets"
+    assets = root / "resources" / "characters"
 
     source_rig_path = assets / f"ct_rig_enemy_{args.source}.json"
     source_char_path = assets / f"ct_char_enemy_{args.source}.json"

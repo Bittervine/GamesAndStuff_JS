@@ -1,5 +1,5 @@
 export const SAVE_GAME_SCHEMA = "ignatius.saveGame";
-export const SAVE_GAME_SCHEMA_VERSION = 1;
+export const SAVE_GAME_SCHEMA_VERSION = 2;
 export const MANUAL_SAVE_SLOT_IDS = Object.freeze(["slot1", "slot2", "slot3"]);
 export const AUTOSAVE_SLOT_ID = "autosave";
 

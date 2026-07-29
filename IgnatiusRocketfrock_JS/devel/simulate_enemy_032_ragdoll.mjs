@@ -12,7 +12,7 @@ import {
 } from "../src/tools/character-editor/parent-constraint-data.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const ASSETS = path.join(ROOT, "assets");
+const ASSETS = path.join(ROOT, "resources", "characters");
 const OUTPUT = path.join(ASSETS, "ct_anim_enemy_032_death.json");
 const TRACE_OUTPUT = path.join(ROOT, "devel", "enemy_032_ragdoll_trace.json");
 

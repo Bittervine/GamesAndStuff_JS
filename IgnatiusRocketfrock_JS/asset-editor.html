@@ -355,6 +355,39 @@
                 border-top: 1px solid var(--line);
             }
         }
+    
+        .generation-tag-groups {
+            display: grid;
+            gap: 8px;
+            max-height: 360px;
+            overflow: auto;
+            padding: 8px;
+            border: 1px solid rgba(255,255,255,0.16);
+            border-radius: 6px;
+            background: rgba(0,0,0,0.18);
+        }
+        .generation-tag-group {
+            display: grid;
+            gap: 4px;
+        }
+        .generation-tag-group > strong {
+            color: #c9f5ff;
+            font-size: 12px;
+        }
+        .generation-tag-option {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 7px;
+            align-items: start;
+            font-size: 12px;
+        }
+        .generation-tag-option span {
+            display: grid;
+            gap: 1px;
+        }
+        .generation-tag-option small {
+            color: rgba(255,255,255,0.62);
+        }
     </style>
 </head>
 <body>
@@ -368,6 +401,7 @@
             <select id="line-kind">
                 <option value="walkable">walkable</option>
                 <option value="blockable">blockable</option>
+                <option value="water">water</option>
                 <option value="damaging">damaging</option>
                 <option value="killable">killable</option>
             </select>
@@ -385,7 +419,7 @@
         <a class="toplink" href="index.html">Back to main</a>
         <h1>Asset Tool</h1>
         <p>
-            Cyan boxes are visual islands/assets. Feature lines use shared nodes: green walkable, yellow blockable, orange damaging, red killable.
+            Cyan boxes are visual islands/assets. Feature lines use shared nodes: green walkable, yellow blockable, blue water, orange damaging, red killable.
         </p>
 
         <div class="box">
@@ -470,6 +504,11 @@
                 <label>Explosion radius<input id="destroy-radius" type="number" step="1"></label>
             </div>
             <label>Tags<input id="object-tags"></label>
+            <label>Generator tags</label>
+            <div id="object-generation-tags" class="generation-tag-groups" aria-label="Valid generator tags"></div>
+            <p id="generation-tag-status" class="small">Loading the shared generation-tag catalog…</p>
+            <button id="autotag-asset-attributes" type="button" disabled>Autotag asset attributes</button>
+            <p id="autotag-asset-status" class="small">Autotagging replaces Platform, Door-suitable, and Run-and-gun suggestions for every asset in the current atlas. Biome, layer, and Moving platform choices are preserved.</p>
             <label>Notes<textarea id="object-notes"></textarea></label>
         </div>
 
@@ -502,6 +541,7 @@
                     <select id="selected-line-kind">
                         <option value="walkable">walkable</option>
                         <option value="blockable">blockable</option>
+                        <option value="water">water</option>
                         <option value="damaging">damaging</option>
                         <option value="killable">killable</option>
                     </select>
@@ -538,6 +578,15 @@
 
     const DEFAULT_ASSET_ATLAS_ID = "at_atlas_001";
     const NUMBERED_ATLAS_MAX = 99;
+
+    function resourceUrl(requestPath) {
+        const text = String(requestPath || "");
+        if (!text) return "";
+        if (/^(?:[a-z]+:)?\/\//i.test(text) || text.startsWith("/") || text.startsWith("data:") || text.startsWith("blob:")) {
+            return text;
+        }
+        return `resources/${text.replace(/^(?:\.\/|resources\/)+/, "")}`;
+    }
 
     function atlasIdFromNumber(number) {
         return `at_atlas_${String(number).padStart(3, "0")}`;
@@ -625,9 +674,11 @@
         frame: "#56e6ff",
         walkable: "#58ff9e",
         blockable: "#ffe15e",
+        water: "#4da6ff",
         damaging: "#ff9f43",
         killable: "#ff4f61",
         blockableArea: "rgba(255,225,94,0.18)",
+        waterArea: "rgba(77,166,255,0.24)",
         damagingArea: "rgba(255,159,67,0.20)",
         killableArea: "rgba(255,79,97,0.22)",
         selected: "#ffffff",
@@ -666,6 +717,10 @@
     const destroyHpEl = document.getElementById("destroy-hp");
     const destroyRadiusEl = document.getElementById("destroy-radius");
     const objectTagsEl = document.getElementById("object-tags");
+    const objectGenerationTagsEl = document.getElementById("object-generation-tags");
+    const generationTagStatusEl = document.getElementById("generation-tag-status");
+    const autotagAssetAttributesEl = document.getElementById("autotag-asset-attributes");
+    const autotagAssetStatusEl = document.getElementById("autotag-asset-status");
     const objectNotesEl = document.getElementById("object-notes");
     const pivotXEl = document.getElementById("pivot-x");
     const pivotYEl = document.getElementById("pivot-y");
@@ -697,9 +752,232 @@
     let lineStart = null;
     let suppressSync = false;
     let panDrag = null;
+    let generationTagCatalog = { tags: [] };
+    let assetAutotagging = null;
+    let assetAutotaggingConfig = null;
+    let platformCatalogByAsset = new Map();
+    const generationTagInputs = new Map();
 
     function splitCsv(text) {
         return String(text || "").split(",").map((value) => value.trim()).filter(Boolean);
+    }
+
+    function normalizedGenerationTagIds(value) {
+        const valid = new Set((generationTagCatalog.tags || []).map((entry) => String(entry.id || "")));
+        return [...new Set((Array.isArray(value) ? value : splitCsv(value)).map(String).filter((tag) => valid.has(tag)))].sort();
+    }
+
+    function selectedGenerationTagIds() {
+        return [...generationTagInputs.entries()].filter(([, input]) => input.checked).map(([id]) => id).sort();
+    }
+
+    function syncGenerationTagInputs(value) {
+        const selected = new Set(Array.isArray(value) ? value.map(String) : []);
+        for (const [id, input] of generationTagInputs) input.checked = selected.has(id);
+    }
+
+
+    function enforceGenerationCapabilityDependencies(changedId) {
+        const platformInput = generationTagInputs.get("capability.platform");
+        const dependentIds = [
+            "capability.doorSupport",
+            "capability.runAndGunGround",
+            "capability.movingPlatform"
+        ];
+        if (!platformInput) return;
+        if (dependentIds.includes(changedId) && generationTagInputs.get(changedId)?.checked) {
+            platformInput.checked = true;
+        }
+        if (changedId === "capability.platform" && !platformInput.checked) {
+            for (const id of dependentIds) {
+                const input = generationTagInputs.get(id);
+                if (input) input.checked = false;
+            }
+        }
+    }
+
+    function renderGenerationTagCatalog() {
+        objectGenerationTagsEl.innerHTML = "";
+        generationTagInputs.clear();
+        const groups = new Map();
+        for (const entry of generationTagCatalog.tags || []) {
+            const group = String(entry.group || "Other");
+            if (!groups.has(group)) groups.set(group, []);
+            groups.get(group).push(entry);
+        }
+        for (const [groupName, entries] of groups) {
+            const group = document.createElement("div");
+            group.className = "generation-tag-group";
+            const heading = document.createElement("strong");
+            heading.textContent = groupName;
+            group.appendChild(heading);
+            for (const entry of entries) {
+                const label = document.createElement("label");
+                label.className = "generation-tag-option";
+                const input = document.createElement("input");
+                input.type = "checkbox";
+                input.value = String(entry.id);
+                const text = document.createElement("span");
+                const title = document.createElement("span");
+                title.textContent = String(entry.label || entry.id);
+                const detail = document.createElement("small");
+                detail.textContent = `${entry.id} — ${entry.description || ""}`;
+                text.append(title, detail);
+                label.append(input, text);
+                group.appendChild(label);
+                generationTagInputs.set(String(entry.id), input);
+                input.addEventListener("change", () => {
+                    if (suppressSync) return;
+                    enforceGenerationCapabilityDependencies(String(entry.id));
+                    applyObjectFields();
+                });
+            }
+            objectGenerationTagsEl.appendChild(group);
+        }
+        generationTagStatusEl.textContent = `${generationTagInputs.size} valid shared tags loaded. Atlas manifests store their readable symbolic IDs.`;
+        syncGenerationTagInputs(object()?.generationTags || []);
+    }
+
+    async function loadGenerationTagCatalog() {
+        try {
+            const response = await fetch("resources/editor/asset-generation-tags.json", { cache: "no-store" });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const loaded = await response.json();
+            generationTagCatalog = {
+                ...loaded,
+                tags: Array.isArray(loaded?.tags) ? loaded.tags.filter((entry) => entry?.id) : []
+            };
+            renderGenerationTagCatalog();
+        } catch (error) {
+            generationTagCatalog = { tags: [] };
+            renderGenerationTagCatalog();
+            generationTagStatusEl.textContent = `Could not load resources/editor/asset-generation-tags.json. ${error.message || error}`;
+        }
+    }
+
+
+    async function loadAutotaggingResources() {
+        try {
+            const [module, configResponse, platformResponse] = await Promise.all([
+                import("./src/shared/asset-autotagging.js"),
+                fetch("resources/editor/asset-autotagging-config.json", { cache: "no-store" }),
+                fetch("resources/generator/level-generator-platforms.json", { cache: "no-store" })
+            ]);
+            if (!configResponse.ok) throw new Error(`Autotag configuration HTTP ${configResponse.status}`);
+            if (!platformResponse.ok) throw new Error(`Platform catalog HTTP ${platformResponse.status}`);
+            assetAutotagging = module;
+            assetAutotaggingConfig = await configResponse.json();
+            const platformCatalog = await platformResponse.json();
+            platformCatalogByAsset = new Map((Array.isArray(platformCatalog?.assets) ? platformCatalog.assets : [])
+                .filter((entry) => entry?.atlasId && entry?.assetId)
+                .map((entry) => [`${entry.atlasId}:${entry.assetId}`, entry]));
+            autotagAssetAttributesEl.disabled = false;
+        } catch (error) {
+            assetAutotagging = null;
+            assetAutotaggingConfig = null;
+            platformCatalogByAsset = new Map();
+            autotagAssetAttributesEl.disabled = true;
+            autotagAssetStatusEl.textContent = `Autotagging is unavailable. ${error.message || error}`;
+        }
+    }
+
+    function frameAlphaBytes(frameValue) {
+        if (!atlasImage || !frameValue) throw new Error("Load the atlas image before autotagging.");
+        const width = Math.max(1, Math.round(Number(frameValue.w) || 1));
+        const height = Math.max(1, Math.round(Number(frameValue.h) || 1));
+        const scratch = document.createElement("canvas");
+        scratch.width = width;
+        scratch.height = height;
+        const scratchContext = scratch.getContext("2d", { willReadFrequently: true });
+        scratchContext.clearRect(0, 0, width, height);
+        scratchContext.drawImage(
+            atlasImage,
+            Number(frameValue.x) || 0,
+            Number(frameValue.y) || 0,
+            width,
+            height,
+            0,
+            0,
+            width,
+            height
+        );
+        const rgba = scratchContext.getImageData(0, 0, width, height).data;
+        const alpha = new Uint8Array(width * height);
+        for (let index = 0, pixel = 0; index < rgba.length; index += 4, pixel += 1) alpha[pixel] = rgba[index + 3];
+        return { alpha, width, height };
+    }
+
+    function autotagScaleRange(atlasId, assetId, obj) {
+        const entry = platformCatalogByAsset.get(`${atlasId}:${assetId}`);
+        return assetAutotagging.normalizeAutotagScaleRange(entry, obj?.defaultScale);
+    }
+
+    async function autotagAssetAttributes() {
+        if (!assetAutotagging || !assetAutotaggingConfig) {
+            autotagAssetStatusEl.textContent = "Autotagging resources are not loaded.";
+            return;
+        }
+        if (!atlasImage) {
+            autotagAssetStatusEl.textContent = "Load the atlas image before autotagging.";
+            return;
+        }
+        const managedLabels = "Platform, Door-suitable, and Run-and-gun";
+        if (!window.confirm(`Autotag ${managedLabels} attributes for every asset in ${manifest.atlasId || "this atlas"}? Existing values for those three attributes will be replaced. Biome, layer, and Moving platform choices will be preserved.`)) return;
+
+        autotagAssetAttributesEl.disabled = true;
+        autotagAssetStatusEl.textContent = "Analyzing atlas collision geometry and alpha masks…";
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+
+        const counts = { platform: 0, doorSupport: 0, runAndGunGround: 0, analyzed: 0, skipped: 0 };
+        const analyses = new Map();
+        const originalGenerationTags = new Map(Object.entries(manifest.objects || {}).map(([assetId, obj]) => [assetId, Array.isArray(obj?.generationTags) ? [...obj.generationTags] : []]));
+        const atlasId = String(manifest.atlasId || "");
+        try {
+            let analyzedSinceYield = 0;
+            for (const [assetId, obj] of Object.entries(manifest.objects || {})) {
+                const frameValue = manifest.frames?.[obj?.frame || assetId];
+                if (!obj || !frameValue) {
+                    counts.skipped += 1;
+                    continue;
+                }
+                const pixels = frameAlphaBytes(frameValue);
+                const analysis = assetAutotagging.analyzeAssetGenerationCapabilities({
+                    object: obj,
+                    frame: frameValue,
+                    alpha: pixels.alpha,
+                    width: pixels.width,
+                    height: pixels.height,
+                    scaleRange: autotagScaleRange(atlasId, assetId, obj),
+                    config: assetAutotaggingConfig
+                });
+                obj.generationTags = assetAutotagging.applyAutotagCapabilityTags(obj.generationTags, analysis);
+                analyses.set(assetId, analysis);
+                counts.analyzed += 1;
+                if (analysis.tags.platform) counts.platform += 1;
+                if (analysis.tags.doorSupport) counts.doorSupport += 1;
+                if (analysis.tags.runAndGunGround) counts.runAndGunGround += 1;
+                analyzedSinceYield += 1;
+                if (analyzedSinceYield >= 5) {
+                    analyzedSinceYield = 0;
+                    autotagAssetStatusEl.textContent = `Analyzing atlas collision geometry and alpha masks… ${counts.analyzed} assets checked.`;
+                    await new Promise((resolve) => requestAnimationFrame(resolve));
+                }
+            }
+            persistAndRedraw();
+            const selectedAnalysis = analyses.get(selectedObjectId);
+            const selectedDetail = selectedAnalysis
+                ? ` Selected asset: ${selectedAnalysis.tags.platform ? "Platform" : "not a platform"}, ${selectedAnalysis.tags.doorSupport ? "door-suitable" : "not door-suitable"}, ${selectedAnalysis.tags.runAndGunGround ? "run-and-gun" : "not run-and-gun"}.`
+                : "";
+            autotagAssetStatusEl.textContent = `Autotagged ${counts.analyzed} assets: ${counts.platform} platforms, ${counts.doorSupport} door-suitable, ${counts.runAndGunGround} run-and-gun.${counts.skipped ? ` Skipped ${counts.skipped}.` : ""}${selectedDetail}`;
+        } catch (error) {
+            for (const [assetId, tags] of originalGenerationTags) {
+                if (manifest.objects?.[assetId]) manifest.objects[assetId].generationTags = tags;
+            }
+            syncAll();
+            autotagAssetStatusEl.textContent = `Autotagging failed without saving partial results. ${error.message || error}`;
+        } finally {
+            autotagAssetAttributesEl.disabled = false;
+        }
     }
 
     function inferType(id) {
@@ -723,6 +1001,7 @@
             targetableByRocket: false,
             destroy: { hp: 1, explosionRadius: 64, fadeToBlackSeconds: 0.18, removeAfterSeconds: 0.22 },
             tags: [],
+            generationTags: [],
             notes: "",
             nodes: [],
             lines: []
@@ -744,6 +1023,7 @@
             object.defaultScale = Number.isFinite(Number(object.defaultScale)) ? Number(object.defaultScale) : 1;
             object.pivot = object.pivot || { x: 0.5, y: 1 };
             object.tags = Array.isArray(object.tags) ? object.tags : splitCsv(object.tags);
+            object.generationTags = Array.isArray(object.generationTags) ? object.generationTags.map(String) : splitCsv(object.generationTags);
             object.notes = object.notes || "";
             object.nodes = Array.isArray(object.nodes) ? object.nodes : [];
             object.lines = Array.isArray(object.lines) ? object.lines : [];
@@ -828,7 +1108,12 @@
         return kind === "blockable" || kind === "damaging" || kind === "killable";
     }
 
+    function isWaterLineKind(kind) {
+        return kind === "water";
+    }
+
     function collisionAreaColor(kind) {
+        if (kind === "water") return COLOR.waterArea;
         if (kind === "killable") return COLOR.killableArea;
         if (kind === "damaging") return COLOR.damagingArea;
         return COLOR.blockableArea;
@@ -840,14 +1125,18 @@
         }
 
         const nodeById = new Map(obj.nodes.map((node) => [node.id, node]));
+        const waterLines = obj.lines.filter((line) => isWaterLineKind(line.kind) && nodeById.has(line.from) && nodeById.has(line.to));
+        const waterLoops = findClosedLoopsFromLines(waterLines, nodeById);
         const blockerLines = obj.lines.filter((line) => isAreaBlockingLineKind(line.kind) && nodeById.has(line.from) && nodeById.has(line.to));
         const blockerLoops = findClosedLoopsFromLines(blockerLines, nodeById);
         if (blockerLoops.length) {
-            return blockerLoops;
+            return [...blockerLoops, ...waterLoops];
         }
 
         const solidLines = obj.lines.filter((line) => isSolidGuideLineKind(line.kind) && nodeById.has(line.from) && nodeById.has(line.to));
-        return findClosedLoopsFromLines(solidLines, nodeById).filter((loop) => loop.lines.some((line) => isAreaBlockingLineKind(line.kind)));
+        const fallbackBlockers = findClosedLoopsFromLines(solidLines, nodeById)
+            .filter((loop) => loop.lines.some((line) => isAreaBlockingLineKind(line.kind)));
+        return [...fallbackBlockers, ...waterLoops];
     }
 
     function findClosedLoopsFromLines(lines, nodeById) {
@@ -954,6 +1243,7 @@
     }
 
     function collisionLoopKind(lines) {
+        if (lines.some((line) => line.kind === "water")) return "water";
         if (lines.some((line) => line.kind === "killable")) return "killable";
         if (lines.some((line) => line.kind === "damaging")) return "damaging";
         return "blockable";
@@ -1126,6 +1416,7 @@
                     const kinds = obj.lines.filter((line) => line.from === node.id || line.to === node.id).map((line) => line.kind);
                     const color = kinds.includes("killable") ? COLOR.killable :
                         kinds.includes("damaging") ? COLOR.damaging :
+                        kinds.includes("water") ? COLOR.water :
                         kinds.includes("blockable") ? COLOR.blockable :
                         kinds.includes("walkable") ? COLOR.walkable :
                         COLOR.node;
@@ -1262,6 +1553,7 @@
         pivotXEl.value = obj?.pivot?.x ?? 0.5;
         pivotYEl.value = obj?.pivot?.y ?? 1;
         objectTagsEl.value = (obj?.tags || []).join(", ");
+        syncGenerationTagInputs(obj?.generationTags || []);
         objectNotesEl.value = obj?.notes || "";
         for (const key of ["x", "y", "w", "h"]) frameFields[key].value = f ? f[key] : "";
     }
@@ -1318,6 +1610,7 @@
             removeAfterSeconds: obj.destroy?.removeAfterSeconds ?? 0.22
         };
         obj.tags = splitCsv(objectTagsEl.value);
+        obj.generationTags = normalizedGenerationTagIds(selectedGenerationTagIds());
         obj.notes = objectNotesEl.value;
         obj.pivot = { x: Number(pivotXEl.value) || 0.5, y: Number(pivotYEl.value) || 1 };
         manifest.frames[selectedObjectId] = {
@@ -1655,6 +1948,8 @@
                 resolve(img);
             };
             img.onerror = () => {
+                atlasImage = null;
+                draw();
                 const error = new Error(`Could not load ${src}`);
                 if (!quiet) {
                     alert(`Could not load ${src}. Open this page beside the assets folder, or use the custom atlas image picker.`);
@@ -1694,7 +1989,7 @@
 
     async function loadAtlasManifest(atlasId, options = {}) {
         const quiet = Boolean(options.quiet);
-        const manifestUrl = `assets/${atlasId}.json`;
+        const manifestUrl = resourceUrl(`atlases/${atlasId}.json`);
         try {
             const response = await fetch(manifestUrl, { cache: "no-store" });
             if (!response.ok) {
@@ -1721,8 +2016,12 @@
         const quiet = Boolean(options.quiet);
         const manifestLoaded = await loadAtlasManifest(atlasId, { quiet, save: options.save });
         if (!manifestLoaded) return false;
+        // Never retain the previous atlas image while a newly loaded manifest is active.
+        // Otherwise autotagging could silently analyze the new frame rectangles against stale pixels.
+        atlasImage = null;
+        draw();
         const imageName = manifest.image || `${atlasId}.png`;
-        const imageUrl = imageName.includes("/") ? imageName : `assets/${imageName}`;
+        const imageUrl = resourceUrl(imageName.includes("/") ? imageName : `atlases/${imageName}`);
         try {
             await loadImageSrc(imageUrl, { quiet });
         } catch (error) {
@@ -1804,6 +2103,7 @@
     manifestFile.addEventListener("change", async () => {
         const file = manifestFile.files?.[0];
         if (!file) return;
+        atlasImage = null;
         manifest = JSON.parse(await file.text());
         ensureObjects();
         selectedObjectId = Object.keys(manifest.objects)[0] || Object.keys(manifest.frames)[0] || null;
@@ -1824,6 +2124,10 @@
     document.getElementById("apply-object-fields").addEventListener("click", applyObjectFields);
     document.getElementById("apply-node").addEventListener("click", applyNodeFields);
     document.getElementById("apply-line").addEventListener("click", applyLineFields);
+
+    autotagAssetAttributesEl.addEventListener("click", () => {
+        autotagAssetAttributes();
+    });
 
     document.getElementById("save-local").addEventListener("click", () => {
         applyAtlasFields();
@@ -1871,6 +2175,7 @@
         zoomEl.value = "1.00";
         hitRadiusEl.value = "12";
         setMode("select");
+        await Promise.all([loadGenerationTagCatalog(), loadAutotaggingResources()]);
         syncAll();
         await loadNumberedAssetFiles(DEFAULT_ASSET_ATLAS_ID, { quiet: true });
     }

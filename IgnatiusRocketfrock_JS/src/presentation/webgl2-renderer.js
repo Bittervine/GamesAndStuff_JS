@@ -799,7 +799,9 @@ export class WebGL2RendererBackend {
     }
 
     normalizeBlendMode(mode) {
-        return mode === "additive" ? "additive" : "alpha";
+        if (mode === "additive") return "additive";
+        if (mode === "brightenOnly") return "brightenOnly";
+        return "alpha";
     }
 
     applyBlendMode(mode, force = false) {
@@ -809,9 +811,16 @@ export class WebGL2RendererBackend {
         this.currentBlendMode = normalized;
         const gl = this.gl;
         if (normalized === "additive") {
-            gl.blendFunc(gl.ONE, gl.ONE);
+            gl.blendEquationSeparate(gl.FUNC_ADD, gl.FUNC_ADD);
+            gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ONE, gl.ONE);
+        } else if (normalized === "brightenOnly") {
+            // Fixed-function GPU maximum blending: source pixels can raise a
+            // destination channel, but can never make that channel darker.
+            gl.blendEquationSeparate(gl.MAX, gl.FUNC_ADD);
+            gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
         } else {
-            gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+            gl.blendEquationSeparate(gl.FUNC_ADD, gl.FUNC_ADD);
+            gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
         }
     }
 

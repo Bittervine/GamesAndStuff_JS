@@ -1,8 +1,10 @@
-const DEFAULT_ASSET_PREFIX = "assets/";
+import { resourceUrl } from "../../shared/resource-paths.js";
+
+const DEFAULT_ASSET_PREFIX = resourceUrl("characters/");
 const WIZARD_PROJECT = Object.freeze({
     id: "wizard",
     label: "Ignatius Rocketfrock",
-    url: "assets/ct_char_wizard_1.json",
+    url: resourceUrl("characters/ct_char_wizard_1.json"),
     enemy: false
 });
 

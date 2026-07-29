@@ -38,7 +38,8 @@ export function overlapIntersectionBounds(a, b) {
 
 export function overlapBlendVisualEligible(visual) {
     if (!visual || (visual.kind !== "atlasSprite" && visual.kind !== "atlasAsset")) return false;
-    if (visual.dynamicPosition || visual.movingPlatformId || visual.movement || visual.entityId) return false;
+    if (visual.dynamicPosition || visual.movingPlatformId || visual.movement || visual.entityId || visual.onTop === true) return false;
+    if (visual.blendMode === "brightenOnly") return false;
     if (visual.layer === "actorFront" || visual.layer === "caveForeground") return false;
     if (visual.blendOverlaps === false) return false;
     if (!(finiteNumber(visual.w, 0) > 0) || !(finiteNumber(visual.h, 0) > 0)) return false;

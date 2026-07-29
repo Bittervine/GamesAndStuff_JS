@@ -1,0 +1,258 @@
+{
+  "meta": {
+    "version": 1,
+    "editor": "Ignatius Rocketfrock Level Editor",
+    "note": "Cave-campaign authoring scaffold: one gameplay-invisible horizontal platform, one entry door, and one sequential exit door.",
+    "scaffoldBuild": 207
+  },
+  "levelId": "level_008",
+  "title": "Cave Level 008",
+  "world": {
+    "bounds": {
+      "x": -320,
+      "y": -420,
+      "w": 3200,
+      "h": 1500
+    },
+    "resetY": 1080
+  },
+  "atlasRefs": [
+    {
+      "atlasId": "at_atlas_001",
+      "manifest": "atlases/at_atlas_001.json",
+      "image": "atlases/at_atlas_001.png"
+    },
+    {
+      "atlasId": "it_atlas_001",
+      "manifest": "items/it_atlas_001.json",
+      "image": "items/it_atlas_001.png"
+    }
+  ],
+  "colorMap": {
+    "enabled": false,
+    "sourceHue": 200,
+    "range": 80,
+    "feather": 24,
+    "rotation": 0,
+    "atlasIds": []
+  },
+  "music": {
+    "version": 3,
+    "trackId": "music_001"
+  },
+  "layerVisuals": {
+    "version": 2,
+    "background": {
+      "parallax": 0.925926,
+      "brightness": 1,
+      "scale": 1
+    },
+    "foreground": {
+      "parallax": 1.08,
+      "brightness": 0.46,
+      "scale": 2
+    }
+  },
+  "autoSpawnEnemies": {
+    "enabled": false,
+    "probabilityPercent": 0,
+    "enemyPool": "1-999"
+  },
+  "caveWindow": {
+    "version": 1,
+    "enabled": true,
+    "feather": 160,
+    "gradientNoise": {
+      "seed": 207008,
+      "amplitude": 38,
+      "period": 64
+    },
+    "decoration": {
+      "seed": 208008,
+      "saturation": 0.62,
+      "inwardFractionMin": 0.3,
+      "inwardFractionMax": 0.5,
+      "occlusionAccentChance": 0.02
+    },
+    "points": [
+      {
+        "id": "cave_point_001",
+        "x": -320,
+        "y": -300,
+        "mode": "smooth"
+      },
+      {
+        "id": "cave_point_002",
+        "x": 1120,
+        "y": -420,
+        "mode": "smooth"
+      },
+      {
+        "id": "cave_point_003",
+        "x": 2880,
+        "y": -300,
+        "mode": "smooth"
+      },
+      {
+        "id": "cave_point_004",
+        "x": 2880,
+        "y": 900,
+        "mode": "smooth"
+      },
+      {
+        "id": "cave_point_005",
+        "x": 1120,
+        "y": 980,
+        "mode": "smooth"
+      },
+      {
+        "id": "cave_point_006",
+        "x": -320,
+        "y": 900,
+        "mode": "smooth"
+      }
+    ]
+  },
+  "placements": [
+    {
+      "id": "campaign_scaffold_floor_008",
+      "kind": "atlasAsset",
+      "atlasId": "at_atlas_001",
+      "assetId": "horizontal_blocker",
+      "x": -160,
+      "y": 640,
+      "w": 3040,
+      "h": 24,
+      "mirrorX": false,
+      "mirrorY": false,
+      "rotation": 0,
+      "layer": "terrain",
+      "collisionFromManifest": true,
+      "editorLocked": false,
+      "notes": "Gameplay-invisible authoring floor. Replace or reshape it while building the level.",
+      "order": 0
+    }
+  ],
+  "entities": [
+    {
+      "id": "wizard_entry_door_008",
+      "type": "wizard_entry_door",
+      "catalogId": "it_entities_001",
+      "x": 200,
+      "y": 640,
+      "w": 125,
+      "h": 164,
+      "state": "closed",
+      "visualStates": {
+        "closed": [
+          {
+            "atlasId": "it_atlas_001",
+            "assetId": "portal_closed",
+            "layer": "decorFront"
+          }
+        ],
+        "open": [
+          {
+            "atlasId": "it_atlas_001",
+            "assetId": "portal_open",
+            "layer": "decorBack",
+            "widthFactor": 1.1366120218579234,
+            "heightFactor": 1,
+            "offsetXFactor": 0.06830601092896176
+          },
+          {
+            "atlasId": "it_atlas_001",
+            "assetId": "portal_foreground",
+            "layer": "actorFront",
+            "widthFactor": 0.6229508196721312,
+            "heightFactor": 1,
+            "offsetXFactor": -0.1885245901639344
+          }
+        ]
+      },
+      "stateLabels": {
+        "closed": "Closed",
+        "open": "Open"
+      },
+      "interaction": "levelPortal",
+      "startsOpen": false,
+      "portalRole": "entrance",
+      "exitDirection": 1,
+      "walkSpeed": 105,
+      "closedDuration": 0.55,
+      "openDuration": 0.38,
+      "clearDuration": 0.28,
+      "closeDuration": 0.42,
+      "notes": "Campaign entry door for this authoring scaffold.",
+      "walkDirection": 1,
+      "emergeDistance": 190,
+      "groundSnapDistance": 72,
+      "floorAnchorYFactor": 0.908745247148289,
+      "wizardInsideScale": 0.84,
+      "mirrorX": false
+    },
+    {
+      "id": "wizard_exit_door_008",
+      "type": "wizard_exit_door",
+      "catalogId": "it_entities_001",
+      "x": 2600,
+      "y": 640,
+      "w": 125,
+      "h": 164,
+      "state": "closed",
+      "visualStates": {
+        "closed": [
+          {
+            "atlasId": "it_atlas_001",
+            "assetId": "portal_closed",
+            "layer": "decorFront"
+          }
+        ],
+        "open": [
+          {
+            "atlasId": "it_atlas_001",
+            "assetId": "portal_open",
+            "layer": "decorBack",
+            "widthFactor": 1.1366120218579234,
+            "heightFactor": 1,
+            "offsetXFactor": 0.06830601092896176
+          },
+          {
+            "atlasId": "it_atlas_001",
+            "assetId": "portal_foreground",
+            "layer": "actorFront",
+            "widthFactor": 0.6229508196721312,
+            "heightFactor": 1,
+            "offsetXFactor": -0.1885245901639344
+          }
+        ]
+      },
+      "stateLabels": {
+        "closed": "Closed",
+        "open": "Open"
+      },
+      "interaction": "levelPortal",
+      "startsOpen": false,
+      "portalRole": "exit",
+      "exitDirection": 1,
+      "walkSpeed": 105,
+      "closedDuration": 0.55,
+      "openDuration": 0.38,
+      "clearDuration": 0.28,
+      "closeDuration": 0.42,
+      "notes": "Campaign exit door leading to level_009.",
+      "walkDirection": 1,
+      "groundSnapDistance": 72,
+      "mirrorX": true,
+      "triggerDistance": 96,
+      "destinationLevel": "level_009",
+      "floorAnchorYFactor": 0.908745247148289,
+      "wizardInsideScale": 0.84
+    }
+  ],
+  "navigationGraphs": {
+    "version": 1,
+    "profiles": []
+  },
+  "navigationBlockers": []
+}

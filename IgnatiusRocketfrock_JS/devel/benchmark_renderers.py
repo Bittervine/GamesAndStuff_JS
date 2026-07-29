@@ -21,7 +21,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_NODE = Path(r"C:\Portable\NodeJS\node.exe")
 DEFAULT_PLAYWRIGHT_DIR = Path(r"C:\Portable\Playwright")
 DEFAULT_URL = "http://127.0.0.1:8000/IgnatiusRocketfrock_JS/game.html"
-DEFAULT_LEVEL = PROJECT_ROOT / "assets" / "level_002.json"
+DEFAULT_LEVEL = PROJECT_ROOT / "resources" / "levels" / "level_002.json"
 
 
 def first_existing(paths: list[Path]) -> Path | None:

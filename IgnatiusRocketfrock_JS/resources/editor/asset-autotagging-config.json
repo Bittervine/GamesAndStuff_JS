@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "description": "Conservative geometry and alpha-mask thresholds used by the Asset Tool's optional capability autotagger.",
+  "alphaThreshold": 32,
+  "platform": {
+    "maximumSlope": 0.25,
+    "minimumSurfaceLength": 64,
+    "minimumTopInset": 10,
+    "requiredInsetCoverage": 0.72,
+    "requiredSurfaceCoverage": 0.72,
+    "surfaceBandAbove": 2,
+    "surfaceBandBelow": 6,
+    "sampleSpacing": 3
+  },
+  "runAndGun": {
+    "maximumSlope": 0.08,
+    "minimumWorldLength": 900
+  },
+  "door": {
+    "renderWidth": 125,
+    "renderHeight": 164,
+    "sourceWidth": 183,
+    "sourceHeight": 263,
+    "floorAnchorYSource": 239,
+    "footprintSource": [
+      [0, 227],
+      [58, 261],
+      [182, 219],
+      [124, 185]
+    ],
+    "defaultPassCoverage": 0.985,
+    "defaultPassCornerCoverage": 0.55,
+    "placementStepWorld": 12,
+    "maximumPlacementsPerSurface": 48,
+    "cornerRadius": 2,
+    "scaleSamples": 7
+  }
+}

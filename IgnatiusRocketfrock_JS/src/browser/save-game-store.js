@@ -1,10 +1,12 @@
 import {
     AUTOSAVE_SLOT_ID,
     MANUAL_SAVE_SLOT_IDS,
+    SAVE_GAME_SCHEMA,
+    SAVE_GAME_SCHEMA_VERSION,
     normalizeSaveGameRecord
 } from "../shared/save-game-data.js";
 
-export const SAVE_GAME_STORAGE_PREFIX = "ignatius_rocketfrock_save_v1_";
+export const SAVE_GAME_STORAGE_PREFIX = "ignatius_rocketfrock_save_v2_";
 
 function storageKey(slotId) {
     return `${SAVE_GAME_STORAGE_PREFIX}${slotId}`;
@@ -14,7 +16,13 @@ export function loadStoredSaveGame(slotId, storage = globalThis.localStorage) {
     if (!storage || typeof storage.getItem !== "function") return null;
     try {
         const raw = storage.getItem(storageKey(slotId));
-        return raw ? normalizeSaveGameRecord(JSON.parse(raw), slotId) : null;
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (parsed?.schema !== SAVE_GAME_SCHEMA || Number(parsed?.schemaVersion) !== SAVE_GAME_SCHEMA_VERSION) {
+            console.warn(`Ignored incompatible Ignatius Rocketfrock save ${slotId}.`);
+            return null;
+        }
+        return normalizeSaveGameRecord(parsed, slotId);
     } catch (error) {
         console.warn(`Could not load Ignatius Rocketfrock save ${slotId}.`, error);
         return null;

@@ -40,14 +40,14 @@ function defaultCancelFrame(handle) {
 function trackSourceUrl(track, baseUrl) {
     if (!track || track.id === NO_MUSIC_TRACK.id || !track.file) return "";
     if (/^(?:https?:|data:|blob:|\/)/i.test(track.file)) return track.file;
-    const base = String(baseUrl || "assets/");
+    const base = String(baseUrl || "resources/music/");
     return `${base}${track.file}`;
 }
 
 export function createMusicDirector({
     volume = 0.1,
     audioElementFactory = defaultAudioElementFactory,
-    baseUrl = "assets/",
+    baseUrl = "resources/music/",
     fadeDurationMs = 1000,
     now = defaultNow,
     scheduleFrame = defaultScheduleFrame,

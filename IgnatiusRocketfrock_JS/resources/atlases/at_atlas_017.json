@@ -1,0 +1,572 @@
+{
+    "meta": {
+        "version": 5,
+        "note": "Atlas 017 cave-biome background artwork. Every asset uses brightenOnly blending and is tagged biome.cave / layer.background."
+    },
+    "atlasId": "at_atlas_017",
+    "image": "at_atlas_017.png",
+    "frames": {
+        "cave_background_scene_017_01": {
+            "x": 43,
+            "y": 32,
+            "w": 796,
+            "h": 261
+        },
+        "cave_background_scene_017_02": {
+            "x": 866,
+            "y": 32,
+            "w": 218,
+            "h": 246
+        },
+        "cave_background_scene_017_03": {
+            "x": 1104,
+            "y": 41,
+            "w": 183,
+            "h": 234
+        },
+        "cave_background_scene_017_04": {
+            "x": 1307,
+            "y": 32,
+            "w": 203,
+            "h": 260
+        },
+        "cave_background_scene_017_05": {
+            "x": 39,
+            "y": 309,
+            "w": 349,
+            "h": 210
+        },
+        "cave_background_scene_017_06": {
+            "x": 404,
+            "y": 306,
+            "w": 498,
+            "h": 198
+        },
+        "cave_background_scene_017_07": {
+            "x": 934,
+            "y": 300,
+            "w": 561,
+            "h": 252
+        },
+        "cave_background_scene_017_08": {
+            "x": 34,
+            "y": 533,
+            "w": 533,
+            "h": 194
+        },
+        "cave_background_scene_017_09": {
+            "x": 597,
+            "y": 511,
+            "w": 390,
+            "h": 223
+        },
+        "cave_background_scene_017_10": {
+            "x": 1011,
+            "y": 558,
+            "w": 418,
+            "h": 183
+        },
+        "cave_background_scene_017_11": {
+            "x": 34,
+            "y": 744,
+            "w": 414,
+            "h": 236
+        },
+        "cave_background_scene_017_12": {
+            "x": 459,
+            "y": 747,
+            "w": 214,
+            "h": 233
+        },
+        "cave_background_scene_017_13": {
+            "x": 703,
+            "y": 742,
+            "w": 423,
+            "h": 238
+        },
+        "cave_background_scene_017_14": {
+            "x": 1152,
+            "y": 748,
+            "w": 358,
+            "h": 232
+        }
+    },
+    "objects": {
+        "cave_background_scene_017_01": {
+            "id": "cave_background_scene_017_01",
+            "frame": "cave_background_scene_017_01",
+            "type": "decor",
+            "layer": "decorBack",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "blendMode": "brightenOnly",
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "background",
+                "scene",
+                "decoration"
+            ],
+            "notes": "Uses brighten-only GPU blending so the dark surround never dims the cave background.",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.background"
+            ]
+        },
+        "cave_background_scene_017_02": {
+            "id": "cave_background_scene_017_02",
+            "frame": "cave_background_scene_017_02",
+            "type": "decor",
+            "layer": "decorBack",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "blendMode": "brightenOnly",
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "background",
+                "scene",
+                "decoration"
+            ],
+            "notes": "Uses brighten-only GPU blending so the dark surround never dims the cave background.",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.background"
+            ]
+        },
+        "cave_background_scene_017_03": {
+            "id": "cave_background_scene_017_03",
+            "frame": "cave_background_scene_017_03",
+            "type": "decor",
+            "layer": "decorBack",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "blendMode": "brightenOnly",
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "background",
+                "scene",
+                "decoration"
+            ],
+            "notes": "Uses brighten-only GPU blending so the dark surround never dims the cave background.",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.background"
+            ]
+        },
+        "cave_background_scene_017_04": {
+            "id": "cave_background_scene_017_04",
+            "frame": "cave_background_scene_017_04",
+            "type": "decor",
+            "layer": "decorBack",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "blendMode": "brightenOnly",
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "background",
+                "scene",
+                "decoration"
+            ],
+            "notes": "Uses brighten-only GPU blending so the dark surround never dims the cave background.",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.background"
+            ]
+        },
+        "cave_background_scene_017_05": {
+            "id": "cave_background_scene_017_05",
+            "frame": "cave_background_scene_017_05",
+            "type": "decor",
+            "layer": "decorBack",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "blendMode": "brightenOnly",
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "background",
+                "scene",
+                "decoration"
+            ],
+            "notes": "Uses brighten-only GPU blending so the dark surround never dims the cave background.",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.background"
+            ]
+        },
+        "cave_background_scene_017_06": {
+            "id": "cave_background_scene_017_06",
+            "frame": "cave_background_scene_017_06",
+            "type": "decor",
+            "layer": "decorBack",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "blendMode": "brightenOnly",
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "background",
+                "scene",
+                "decoration"
+            ],
+            "notes": "Uses brighten-only GPU blending so the dark surround never dims the cave background.",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.background"
+            ]
+        },
+        "cave_background_scene_017_07": {
+            "id": "cave_background_scene_017_07",
+            "frame": "cave_background_scene_017_07",
+            "type": "decor",
+            "layer": "decorBack",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "blendMode": "brightenOnly",
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "background",
+                "scene",
+                "decoration"
+            ],
+            "notes": "Uses brighten-only GPU blending so the dark surround never dims the cave background.",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.background"
+            ]
+        },
+        "cave_background_scene_017_08": {
+            "id": "cave_background_scene_017_08",
+            "frame": "cave_background_scene_017_08",
+            "type": "decor",
+            "layer": "decorBack",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "blendMode": "brightenOnly",
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "background",
+                "scene",
+                "decoration"
+            ],
+            "notes": "Uses brighten-only GPU blending so the dark surround never dims the cave background.",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.background"
+            ]
+        },
+        "cave_background_scene_017_09": {
+            "id": "cave_background_scene_017_09",
+            "frame": "cave_background_scene_017_09",
+            "type": "decor",
+            "layer": "decorBack",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "blendMode": "brightenOnly",
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "background",
+                "scene",
+                "decoration"
+            ],
+            "notes": "Uses brighten-only GPU blending so the dark surround never dims the cave background.",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.background"
+            ]
+        },
+        "cave_background_scene_017_10": {
+            "id": "cave_background_scene_017_10",
+            "frame": "cave_background_scene_017_10",
+            "type": "decor",
+            "layer": "decorBack",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "blendMode": "brightenOnly",
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "background",
+                "scene",
+                "decoration"
+            ],
+            "notes": "Uses brighten-only GPU blending so the dark surround never dims the cave background.",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.background"
+            ]
+        },
+        "cave_background_scene_017_11": {
+            "id": "cave_background_scene_017_11",
+            "frame": "cave_background_scene_017_11",
+            "type": "decor",
+            "layer": "decorBack",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "blendMode": "brightenOnly",
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "background",
+                "scene",
+                "decoration"
+            ],
+            "notes": "Uses brighten-only GPU blending so the dark surround never dims the cave background.",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.background"
+            ]
+        },
+        "cave_background_scene_017_12": {
+            "id": "cave_background_scene_017_12",
+            "frame": "cave_background_scene_017_12",
+            "type": "decor",
+            "layer": "decorBack",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "blendMode": "brightenOnly",
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "background",
+                "scene",
+                "decoration"
+            ],
+            "notes": "Uses brighten-only GPU blending so the dark surround never dims the cave background.",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.background"
+            ]
+        },
+        "cave_background_scene_017_13": {
+            "id": "cave_background_scene_017_13",
+            "frame": "cave_background_scene_017_13",
+            "type": "decor",
+            "layer": "decorBack",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "blendMode": "brightenOnly",
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "background",
+                "scene",
+                "decoration"
+            ],
+            "notes": "Uses brighten-only GPU blending so the dark surround never dims the cave background.",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.background"
+            ]
+        },
+        "cave_background_scene_017_14": {
+            "id": "cave_background_scene_017_14",
+            "frame": "cave_background_scene_017_14",
+            "type": "decor",
+            "layer": "decorBack",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "blendMode": "brightenOnly",
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "background",
+                "scene",
+                "decoration"
+            ],
+            "notes": "Uses brighten-only GPU blending so the dark surround never dims the cave background.",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.background"
+            ]
+        }
+    }
+}

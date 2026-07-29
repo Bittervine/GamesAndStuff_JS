@@ -5,7 +5,7 @@ import {
     normalizeGeneratorTheme
 } from "../src/shared/level-generator-data.js";
 
-const themePath = new URL("../assets/level-generator-themes/earth-cavern.json", import.meta.url);
+const themePath = new URL("../resources/generator/themes/earth-cavern.json", import.meta.url);
 const earthTheme = normalizeGeneratorTheme(JSON.parse(readFileSync(themePath, "utf8")));
 const enemyIds = ["enemy_001", "enemy_010", "enemy_011", "enemy_012", "enemy_020"];
 const sampleCount = Math.max(1, Math.floor(Number(process.argv[2]) || 80));

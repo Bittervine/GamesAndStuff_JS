@@ -1,0 +1,931 @@
+{
+  "version": 4,
+  "catalogId": "themed-platform-generation-v4",
+  "description": "Platform-generation geometry and recipe roles. Theme and capability attributes use the minimal shared symbolic tag catalog.",
+  "assets": [
+    {
+      "atlasId": "at_atlas_001",
+      "assetId": "floor_long_terrace",
+      "roles": [
+        "bridge"
+      ],
+      "weight": 8,
+      "nativeWidth": 744,
+      "nativeHeight": 162,
+      "surfaceYRatio": 0.1,
+      "scaleMin": 0.72,
+      "scaleMax": 1.08,
+      "minimumDoorWidth": 620,
+      "minimumVisibleDepth": 118,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.013441,
+      "walkableRightInsetRatio": 0.639785,
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_001",
+      "assetId": "floor_big_moss",
+      "roles": [
+        "routeFloor",
+        "doorSupport",
+        "recoveryPlatform"
+      ],
+      "weight": 5,
+      "nativeWidth": 290,
+      "nativeHeight": 142,
+      "surfaceYRatio": 0.105,
+      "scaleMin": 1.55,
+      "scaleMax": 2.35,
+      "minimumDoorWidth": 540,
+      "minimumVisibleDepth": 190,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.041379,
+      "walkableRightInsetRatio": 0.037931,
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform",
+        "capability.doorSupport"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_001",
+      "assetId": "floor_mossy_low",
+      "roles": [
+        "routeFloor",
+        "landingPlatform",
+        "recoveryPlatform"
+      ],
+      "weight": 7,
+      "nativeWidth": 342,
+      "nativeHeight": 88,
+      "surfaceYRatio": 0.145,
+      "scaleMin": 0.82,
+      "scaleMax": 1.35,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.026316,
+      "walkableRightInsetRatio": 0.108187,
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_001",
+      "assetId": "floor_cold_platform",
+      "roles": [
+        "routeFloor",
+        "landingPlatform",
+        "recoveryPlatform"
+      ],
+      "weight": 6,
+      "nativeWidth": 336,
+      "nativeHeight": 85,
+      "surfaceYRatio": 0.15,
+      "scaleMin": 0.82,
+      "scaleMax": 1.34,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.020833,
+      "walkableRightInsetRatio": 0.017857,
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_001",
+      "assetId": "ledge_flat_long_a",
+      "roles": [
+        "landingPlatform",
+        "bridge",
+        "recoveryPlatform"
+      ],
+      "weight": 9,
+      "nativeWidth": 290,
+      "nativeHeight": 88,
+      "surfaceYRatio": 0.18,
+      "scaleMin": 0.78,
+      "scaleMax": 1.28,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.027586,
+      "walkableRightInsetRatio": 0.058621,
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_001",
+      "assetId": "ledge_flat_long_b",
+      "roles": [
+        "landingPlatform",
+        "bridge",
+        "recoveryPlatform"
+      ],
+      "weight": 9,
+      "nativeWidth": 335,
+      "nativeHeight": 89,
+      "surfaceYRatio": 0.17,
+      "scaleMin": 0.72,
+      "scaleMax": 1.2,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.053731,
+      "walkableRightInsetRatio": 0.047761,
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_001",
+      "assetId": "ledge_flat_mid",
+      "roles": [
+        "landingPlatform",
+        "bridge",
+        "recoveryPlatform"
+      ],
+      "weight": 8,
+      "nativeWidth": 264,
+      "nativeHeight": 94,
+      "surfaceYRatio": 0.145,
+      "scaleMin": 0.82,
+      "scaleMax": 1.35,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.049242,
+      "walkableRightInsetRatio": 0.049242,
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_001",
+      "assetId": "ledge_small_flat",
+      "roles": [
+        "recoveryPlatform"
+      ],
+      "weight": 7,
+      "nativeWidth": 156,
+      "nativeHeight": 59,
+      "surfaceYRatio": 0.44,
+      "scaleMin": 0.35,
+      "scaleMax": 1.45,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.141026,
+      "walkableRightInsetRatio": 0.134615,
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_001",
+      "assetId": "rubble_long",
+      "roles": [
+        "movingPlatform"
+      ],
+      "weight": 10,
+      "nativeWidth": 278,
+      "nativeHeight": 41,
+      "surfaceYRatio": 0.5,
+      "scaleMin": 0.78,
+      "scaleMax": 1.0,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.071942,
+      "walkableRightInsetRatio": 0.05036,
+      "generationTags": [
+        "biome.cave",
+        "biome.forest",
+        "biome.castle",
+        "layer.terrain",
+        "capability.platform",
+        "capability.movingPlatform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r1_a",
+      "roles": [
+        "bridge",
+        "recoveryPlatform",
+        "landingPlatform",
+        "routeFloor",
+        "runAndGunGround"
+      ],
+      "weight": 7,
+      "nativeWidth": 1897,
+      "nativeHeight": 101,
+      "surfaceYRatio": 0.227723,
+      "scaleMin": 0.55,
+      "scaleMax": 1.05,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.003163,
+      "walkableRightInsetRatio": 0.00738,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r2_a",
+      "roles": [
+        "bridge",
+        "recoveryPlatform",
+        "landingPlatform",
+        "routeFloor"
+      ],
+      "weight": 7,
+      "nativeWidth": 1724,
+      "nativeHeight": 66,
+      "surfaceYRatio": 0.242424,
+      "scaleMin": 0.55,
+      "scaleMax": 1.05,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.0029,
+      "walkableRightInsetRatio": 0.006381,
+      "collisionMode": "oneWay",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r2_b",
+      "roles": [
+        "recoveryPlatform",
+        "bridge"
+      ],
+      "weight": 6,
+      "nativeWidth": 198,
+      "nativeHeight": 60,
+      "surfaceYRatio": 0.233333,
+      "scaleMin": 0.78,
+      "scaleMax": 1.32,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.025253,
+      "walkableRightInsetRatio": 0.035354,
+      "collisionMode": "oneWay",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r3_a",
+      "roles": [
+        "bridge",
+        "recoveryPlatform",
+        "landingPlatform",
+        "routeFloor"
+      ],
+      "weight": 7,
+      "nativeWidth": 1493,
+      "nativeHeight": 66,
+      "surfaceYRatio": 0.242424,
+      "scaleMin": 0.55,
+      "scaleMax": 1.05,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.003349,
+      "walkableRightInsetRatio": 0.007368,
+      "collisionMode": "oneWay",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r3_b",
+      "roles": [
+        "routeFloor",
+        "landingPlatform",
+        "recoveryPlatform",
+        "bridge"
+      ],
+      "weight": 7,
+      "nativeWidth": 365,
+      "nativeHeight": 61,
+      "surfaceYRatio": 0.245902,
+      "scaleMin": 0.72,
+      "scaleMax": 1.28,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.013699,
+      "walkableRightInsetRatio": 0.016438,
+      "collisionMode": "oneWay",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r4_a",
+      "roles": [
+        "bridge",
+        "recoveryPlatform",
+        "landingPlatform",
+        "routeFloor"
+      ],
+      "weight": 8,
+      "nativeWidth": 1305,
+      "nativeHeight": 65,
+      "surfaceYRatio": 0.230769,
+      "scaleMin": 0.62,
+      "scaleMax": 1.12,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.004598,
+      "walkableRightInsetRatio": 0.005364,
+      "collisionMode": "oneWay",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r4_b",
+      "roles": [
+        "recoveryPlatform",
+        "bridge"
+      ],
+      "weight": 6,
+      "nativeWidth": 222,
+      "nativeHeight": 59,
+      "surfaceYRatio": 0.237288,
+      "scaleMin": 0.78,
+      "scaleMax": 1.32,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.022523,
+      "walkableRightInsetRatio": 0.031532,
+      "collisionMode": "oneWay",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r4_c",
+      "roles": [
+        "recoveryPlatform",
+        "bridge"
+      ],
+      "weight": 6,
+      "nativeWidth": 220,
+      "nativeHeight": 60,
+      "surfaceYRatio": 0.233333,
+      "scaleMin": 0.78,
+      "scaleMax": 1.32,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.027273,
+      "walkableRightInsetRatio": 0.027273,
+      "collisionMode": "oneWay",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r5_a",
+      "roles": [
+        "bridge",
+        "recoveryPlatform",
+        "landingPlatform",
+        "routeFloor"
+      ],
+      "weight": 8,
+      "nativeWidth": 1119,
+      "nativeHeight": 69,
+      "surfaceYRatio": 0.231884,
+      "scaleMin": 0.62,
+      "scaleMax": 1.12,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.004468,
+      "walkableRightInsetRatio": 0.012511,
+      "collisionMode": "oneWay",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r5_b",
+      "roles": [
+        "bridge",
+        "recoveryPlatform",
+        "landingPlatform",
+        "routeFloor"
+      ],
+      "weight": 8,
+      "nativeWidth": 521,
+      "nativeHeight": 61,
+      "surfaceYRatio": 0.245902,
+      "scaleMin": 0.68,
+      "scaleMax": 1.22,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.009597,
+      "walkableRightInsetRatio": 0.011516,
+      "collisionMode": "oneWay",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r6_a",
+      "roles": [
+        "bridge",
+        "recoveryPlatform",
+        "landingPlatform",
+        "routeFloor"
+      ],
+      "weight": 8,
+      "nativeWidth": 947,
+      "nativeHeight": 66,
+      "surfaceYRatio": 0.242424,
+      "scaleMin": 0.62,
+      "scaleMax": 1.12,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.00528,
+      "walkableRightInsetRatio": 0.013728,
+      "collisionMode": "oneWay",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r6_b",
+      "roles": [
+        "routeFloor",
+        "landingPlatform",
+        "recoveryPlatform",
+        "bridge"
+      ],
+      "weight": 7,
+      "nativeWidth": 448,
+      "nativeHeight": 62,
+      "surfaceYRatio": 0.241935,
+      "scaleMin": 0.72,
+      "scaleMax": 1.28,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.011161,
+      "walkableRightInsetRatio": 0.013393,
+      "collisionMode": "oneWay",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r6_c",
+      "roles": [
+        "landingPlatform",
+        "recoveryPlatform",
+        "bridge"
+      ],
+      "weight": 6,
+      "nativeWidth": 284,
+      "nativeHeight": 60,
+      "surfaceYRatio": 0.233333,
+      "scaleMin": 0.78,
+      "scaleMax": 1.32,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.021127,
+      "walkableRightInsetRatio": 0.021127,
+      "collisionMode": "oneWay",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r7_a",
+      "roles": [
+        "bridge",
+        "recoveryPlatform",
+        "landingPlatform",
+        "routeFloor"
+      ],
+      "weight": 8,
+      "nativeWidth": 741,
+      "nativeHeight": 62,
+      "surfaceYRatio": 0.241935,
+      "scaleMin": 0.68,
+      "scaleMax": 1.22,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.008097,
+      "walkableRightInsetRatio": 0.013495,
+      "collisionMode": "oneWay",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r7_b",
+      "roles": [
+        "bridge",
+        "recoveryPlatform",
+        "landingPlatform",
+        "routeFloor"
+      ],
+      "weight": 8,
+      "nativeWidth": 594,
+      "nativeHeight": 60,
+      "surfaceYRatio": 0.233333,
+      "scaleMin": 0.68,
+      "scaleMax": 1.22,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.008418,
+      "walkableRightInsetRatio": 0.015152,
+      "collisionMode": "oneWay",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_004",
+      "assetId": "earth_long_platform_r7_c",
+      "roles": [
+        "routeFloor",
+        "landingPlatform",
+        "recoveryPlatform",
+        "bridge"
+      ],
+      "weight": 7,
+      "nativeWidth": 468,
+      "nativeHeight": 59,
+      "surfaceYRatio": 0.237288,
+      "scaleMin": 0.72,
+      "scaleMax": 1.28,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.010684,
+      "walkableRightInsetRatio": 0.014957,
+      "collisionMode": "oneWay",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_014",
+      "assetId": "forest_grass_ground_block",
+      "roles": [
+        "routeFloor",
+        "landingPlatform",
+        "recoveryPlatform",
+        "bridge",
+        "runAndGunGround"
+      ],
+      "weight": 9,
+      "nativeWidth": 1423,
+      "nativeHeight": 162,
+      "surfaceYRatio": 0.2222222222222222,
+      "scaleMin": 0.2,
+      "scaleMax": 1.15,
+      "minimumDoorWidth": 620,
+      "minimumVisibleDepth": 120,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.0021082220660576245,
+      "walkableRightInsetRatio": 0.004919184820801124,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.forest",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_008",
+      "assetId": "wood_plank_extra_long_straight",
+      "roles": [
+        "routeFloor",
+        "bridge",
+        "landingPlatform",
+        "recoveryPlatform"
+      ],
+      "weight": 8,
+      "nativeWidth": 1338,
+      "nativeHeight": 51,
+      "surfaceYRatio": 0.29411764705882354,
+      "scaleMin": 0.45,
+      "scaleMax": 1.15,
+      "minimumDoorWidth": 0,
+      "minimumVisibleDepth": 0,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.006726457399103139,
+      "walkableRightInsetRatio": 0.009715994020926755,
+      "collisionMode": "oneWay",
+      "generationTags": [
+        "biome.forest",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_008",
+      "assetId": "wood_plank_short_a",
+      "roles": [
+        "landingPlatform",
+        "recoveryPlatform",
+        "movingPlatform"
+      ],
+      "weight": 9,
+      "nativeWidth": 391,
+      "nativeHeight": 44,
+      "surfaceYRatio": 0.2840909090909091,
+      "scaleMin": 0.55,
+      "scaleMax": 1.25,
+      "minimumDoorWidth": 0,
+      "minimumVisibleDepth": 0,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.017902813299232736,
+      "walkableRightInsetRatio": 0.01278772378516624,
+      "collisionMode": "oneWay",
+      "generationTags": [
+        "biome.forest",
+        "layer.terrain",
+        "capability.platform",
+        "capability.movingPlatform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_008",
+      "assetId": "wood_plank_short_b",
+      "roles": [
+        "landingPlatform",
+        "recoveryPlatform"
+      ],
+      "weight": 8,
+      "nativeWidth": 378,
+      "nativeHeight": 44,
+      "surfaceYRatio": 0.26136363636363635,
+      "scaleMin": 0.55,
+      "scaleMax": 1.25,
+      "minimumDoorWidth": 0,
+      "minimumVisibleDepth": 0,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.023809523809523808,
+      "walkableRightInsetRatio": 0.018518518518518517,
+      "collisionMode": "oneWay",
+      "generationTags": [
+        "biome.forest",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_011",
+      "assetId": "castle_stone_ground_ledge",
+      "roles": [
+        "routeFloor",
+        "landingPlatform",
+        "recoveryPlatform",
+        "bridge",
+        "runAndGunGround"
+      ],
+      "weight": 9,
+      "nativeWidth": 1456,
+      "nativeHeight": 78,
+      "surfaceYRatio": 0.30128205128205127,
+      "scaleMin": 0.2,
+      "scaleMax": 1.15,
+      "minimumDoorWidth": 620,
+      "minimumVisibleDepth": 52,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.017857142857142856,
+      "walkableRightInsetRatio": 0.017170329670329672,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.castle",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_012",
+      "assetId": "castle_stone_platform_extra_long_top",
+      "roles": [
+        "routeFloor",
+        "landingPlatform",
+        "recoveryPlatform",
+        "bridge",
+        "runAndGunGround"
+      ],
+      "weight": 9,
+      "nativeWidth": 1055,
+      "nativeHeight": 93,
+      "surfaceYRatio": 0.0967741935483871,
+      "scaleMin": 0.28,
+      "scaleMax": 1.25,
+      "minimumDoorWidth": 620,
+      "minimumVisibleDepth": 80,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.0018957345971563982,
+      "walkableRightInsetRatio": 0.0037914691943127963,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.castle",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_012",
+      "assetId": "castle_stone_platform_medium_a",
+      "roles": [
+        "landingPlatform",
+        "recoveryPlatform"
+      ],
+      "weight": 8,
+      "nativeWidth": 431,
+      "nativeHeight": 86,
+      "surfaceYRatio": 0.11627906976744186,
+      "scaleMin": 0.65,
+      "scaleMax": 1.35,
+      "minimumDoorWidth": 0,
+      "minimumVisibleDepth": 0,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.002320185614849188,
+      "walkableRightInsetRatio": 0.004640371229698376,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.castle",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_012",
+      "assetId": "castle_stone_platform_medium_b",
+      "roles": [
+        "landingPlatform",
+        "recoveryPlatform"
+      ],
+      "weight": 8,
+      "nativeWidth": 300,
+      "nativeHeight": 85,
+      "surfaceYRatio": 0.12352941176470589,
+      "scaleMin": 0.75,
+      "scaleMax": 1.45,
+      "minimumDoorWidth": 0,
+      "minimumVisibleDepth": 0,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.006666666666666667,
+      "walkableRightInsetRatio": 0.01,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.castle",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_012",
+      "assetId": "castle_wood_platform_extra_long",
+      "roles": [
+        "routeFloor",
+        "bridge",
+        "landingPlatform",
+        "recoveryPlatform"
+      ],
+      "weight": 8,
+      "nativeWidth": 902,
+      "nativeHeight": 92,
+      "surfaceYRatio": 0.1358695652173913,
+      "scaleMin": 0.32,
+      "scaleMax": 1.25,
+      "minimumDoorWidth": 0,
+      "minimumVisibleDepth": 0,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.004434589800443459,
+      "walkableRightInsetRatio": 0.007760532150776054,
+      "collisionMode": "oneWay",
+      "generationTags": [
+        "biome.castle",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_012",
+      "assetId": "castle_wood_platform_medium_a",
+      "roles": [
+        "landingPlatform",
+        "recoveryPlatform",
+        "movingPlatform"
+      ],
+      "weight": 9,
+      "nativeWidth": 295,
+      "nativeHeight": 85,
+      "surfaceYRatio": 0.13529411764705881,
+      "scaleMin": 0.65,
+      "scaleMax": 1.25,
+      "minimumDoorWidth": 0,
+      "minimumVisibleDepth": 0,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.01694915254237288,
+      "walkableRightInsetRatio": 0.01694915254237288,
+      "collisionMode": "oneWay",
+      "generationTags": [
+        "biome.castle",
+        "layer.terrain",
+        "capability.platform",
+        "capability.movingPlatform"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_014",
+      "assetId": "forest_grass_ground_block",
+      "roles": [
+        "doorSupport"
+      ],
+      "weight": 10,
+      "nativeWidth": 1423,
+      "nativeHeight": 162,
+      "surfaceYRatio": 0.2222222222222222,
+      "scaleMin": 0.75,
+      "scaleMax": 1.15,
+      "minimumDoorWidth": 620,
+      "minimumVisibleDepth": 120,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.0021082220660576245,
+      "walkableRightInsetRatio": 0.004919184820801124,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.forest",
+        "layer.terrain",
+        "capability.platform",
+        "capability.doorSupport"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_012",
+      "assetId": "castle_stone_platform_extra_long_top",
+      "roles": [
+        "doorSupport"
+      ],
+      "weight": 10,
+      "nativeWidth": 1055,
+      "nativeHeight": 93,
+      "surfaceYRatio": 0.0967741935483871,
+      "scaleMin": 1.2,
+      "scaleMax": 1.5,
+      "minimumDoorWidth": 620,
+      "minimumVisibleDepth": 80,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.0018957345971563982,
+      "walkableRightInsetRatio": 0.0037914691943127963,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.castle",
+        "layer.terrain",
+        "capability.platform",
+        "capability.doorSupport"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,192 @@
+{
+    "meta": {
+        "version": 1,
+        "note": "Grey-bearded dwarf axethrower using the modular Porker/Crocker/Ogre atlas template with an added bearded accessory and throwable double-headed axe. The loose beard atlas part is included for future use but is intentionally left unattached in the runtime rig."
+    },
+    "atlasId": "ct_atlas_enemy_090",
+    "image": "ct_atlas_enemy_090.png",
+    "frames": {
+        "head": {
+            "x": 90,
+            "y": 0,
+            "w": 259,
+            "h": 277
+        },
+        "leftArmOpen": {
+            "x": 454,
+            "y": 12,
+            "w": 488,
+            "h": 211
+        },
+        "fireball": {
+            "x": 957,
+            "y": 22,
+            "w": 424,
+            "h": 181
+        },
+        "torso": {
+            "x": 0,
+            "y": 263,
+            "w": 449,
+            "h": 575
+        },
+        "rightArmClosed": {
+            "x": 449,
+            "y": 227,
+            "w": 401,
+            "h": 191
+        },
+        "leftArmClosed": {
+            "x": 931,
+            "y": 234,
+            "w": 441,
+            "h": 191
+        },
+        "axe": {
+            "x": 1432,
+            "y": 400,
+            "w": 344,
+            "h": 579
+        },
+        "beard": {
+            "x": 1008,
+            "y": 474,
+            "w": 303,
+            "h": 506
+        },
+        "rightLeg": {
+            "x": 501,
+            "y": 558,
+            "w": 214,
+            "h": 409
+        },
+        "leftLeg": {
+            "x": 738,
+            "y": 564,
+            "w": 223,
+            "h": 401
+        }
+    },
+    "objects": {
+        "head": {
+            "id": "head",
+            "frame": "head",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "head"
+            ]
+        },
+        "torso": {
+            "id": "torso",
+            "frame": "torso",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "torso",
+                "body"
+            ]
+        },
+        "leftArmOpen": {
+            "id": "leftArmOpen",
+            "frame": "leftArmOpen",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "leftArm",
+                "arm",
+                "openHand",
+                "front"
+            ]
+        },
+        "rightArmClosed": {
+            "id": "rightArmClosed",
+            "frame": "rightArmClosed",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "rightArm",
+                "arm",
+                "closedHand",
+                "rear"
+            ]
+        },
+        "leftArmClosed": {
+            "id": "leftArmClosed",
+            "frame": "leftArmClosed",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "leftArm",
+                "arm",
+                "closedHand",
+                "front"
+            ]
+        },
+        "fireball": {
+            "id": "fireball",
+            "frame": "fireball",
+            "type": "projectileSprite",
+            "layer": "projectile",
+            "mirrorable": true,
+            "tags": [
+                "projectile",
+                "unusedTemplateProjectile"
+            ]
+        },
+        "axe": {
+            "id": "axe",
+            "frame": "axe",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "weapon",
+                "axe",
+                "equipment",
+                "projectile"
+            ]
+        },
+        "rightLeg": {
+            "id": "rightLeg",
+            "frame": "rightLeg",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "rightLeg",
+                "leg",
+                "rear"
+            ]
+        },
+        "leftLeg": {
+            "id": "leftLeg",
+            "frame": "leftLeg",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "leftLeg",
+                "leg",
+                "front"
+            ]
+        },
+        "beard": {
+            "id": "beard",
+            "frame": "beard",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "beard",
+                "accessory",
+                "unused"
+            ]
+        }
+    }
+}

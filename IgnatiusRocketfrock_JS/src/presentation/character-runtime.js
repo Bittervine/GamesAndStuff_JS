@@ -7,17 +7,11 @@ import {
 import { normalizeColorExchange, colorExchangeCacheKey } from "../shared/color-exchange-data.js";
 import { createColorExchangedSpriteCanvas } from "./sprite-color-exchange.js";
 import { shownTransformOf } from "../shared/presentation-transform-data.js";
+import { normalizeCharacterSounds } from "../shared/character-sound-data.js";
+import { normalizeCharacterDropProfile } from "../shared/enemy-drop-data.js";
+import { resourceUrl } from "../shared/resource-paths.js";
 
-function assetUrl(requestPath) {
-    const text = String(requestPath || "");
-    if (!text) {
-        return "";
-    }
-    if (/^(?:[a-z]+:)?\/\//i.test(text) || text.startsWith("/") || text.startsWith("data:") || text.startsWith("blob:")) {
-        return text;
-    }
-    return `assets/${text.replace(/^(?:\.\/|assets\/)+/, "")}`;
-}
+const assetUrl = resourceUrl;
 
 export function characterArtworkOffset(renderOffsetX = 0, renderOffsetY = 0, scale = 1) {
     const safeScale = finitePositive(scale, 1);
@@ -45,6 +39,102 @@ export const CHARACTER_PROJECTILE_LAUNCH_TYPES = Object.freeze([
     "pathing_lo",
     "pathing_hi"
 ]);
+
+function projectilePaletteLuminance(color) {
+    return color[0] * 0.2126 + color[1] * 0.7152 + color[2] * 0.0722;
+}
+
+export function sampleProjectileTrailPalette(imageData) {
+    const pixels = imageData?.data;
+    if (!pixels || typeof pixels.length !== "number" || pixels.length < 4) {
+        return null;
+    }
+
+    const collectBuckets = (minimumChroma) => {
+        const buckets = new Map();
+        for (let index = 0; index + 3 < pixels.length; index += 4) {
+            const alpha = Number(pixels[index + 3]) || 0;
+            if (alpha < 32) {
+                continue;
+            }
+            const red = Number(pixels[index]) || 0;
+            const green = Number(pixels[index + 1]) || 0;
+            const blue = Number(pixels[index + 2]) || 0;
+            const maximum = Math.max(red, green, blue);
+            const minimum = Math.min(red, green, blue);
+            const chroma = maximum - minimum;
+            if (maximum < 20 || chroma < minimumChroma) {
+                continue;
+            }
+            const key = ((red >> 3) << 10) | ((green >> 3) << 5) | (blue >> 3);
+            const bucket = buckets.get(key) || { red: 0, green: 0, blue: 0, alpha: 0, count: 0 };
+            bucket.red += red;
+            bucket.green += green;
+            bucket.blue += blue;
+            bucket.alpha += alpha;
+            bucket.count += 1;
+            buckets.set(key, bucket);
+        }
+        return buckets;
+    };
+
+    let buckets = collectBuckets(12);
+    if (!buckets.size) {
+        buckets = collectBuckets(0);
+    }
+    if (!buckets.size) {
+        return null;
+    }
+
+    const candidates = [...buckets.values()].map((bucket) => {
+        const inverseCount = 1 / Math.max(1, bucket.count);
+        const color = [
+            bucket.red * inverseCount,
+            bucket.green * inverseCount,
+            bucket.blue * inverseCount
+        ];
+        const maximum = Math.max(...color);
+        const minimum = Math.min(...color);
+        const chroma = maximum - minimum;
+        return {
+            color,
+            luminance: projectilePaletteLuminance(color),
+            weight: Math.sqrt(bucket.count) * (bucket.alpha * inverseCount / 255) * (0.35 + 0.65 * chroma / 255)
+        };
+    }).sort((a, b) => a.luminance - b.luminance);
+
+    const totalWeight = candidates.reduce((sum, candidate) => sum + candidate.weight, 0);
+    if (!(totalWeight > 0)) {
+        return null;
+    }
+    const quantileColor = (quantile) => {
+        const target = totalWeight * quantile;
+        let accumulated = 0;
+        for (const candidate of candidates) {
+            accumulated += candidate.weight;
+            if (accumulated >= target) {
+                return candidate.color.map((channel) => Math.round(channel));
+            }
+        }
+        return candidates.at(-1).color.map((channel) => Math.round(channel));
+    };
+
+    return [0.08, 0.36, 0.68, 0.94]
+        .map(quantileColor)
+        .sort((a, b) => projectilePaletteLuminance(a) - projectilePaletteLuminance(b));
+}
+
+function projectileTrailPaletteFromCanvas(canvas) {
+    const context = canvas?.getContext?.("2d", { willReadFrequently: true });
+    if (!context || typeof context.getImageData !== "function") {
+        return null;
+    }
+    try {
+        return sampleProjectileTrailPalette(context.getImageData(0, 0, canvas.width, canvas.height));
+    } catch (_error) {
+        return null;
+    }
+}
 
 const CHARACTER_PROJECTILE_LAUNCH_TYPE_SET = new Set(CHARACTER_PROJECTILE_LAUNCH_TYPES);
 const DEFAULT_PARENT_CONSTRAINT_POINT = Object.freeze({ x: 0.5, y: 0.5 });
@@ -146,12 +236,32 @@ export function resolveRuntimeAnimationSlot(project, requestedSlot = "idle") {
     if (animations.has(requested)) {
         return requested;
     }
-    for (const fallback of ["idle", "walk", "run"]) {
+    for (const fallback of ["idle", "walk"]) {
         if (animations.has(fallback)) {
             return fallback;
         }
     }
     return animations.keys().next().value || null;
+}
+
+export function runtimeLoopVariantAnimationTime(
+    project,
+    requestedSlot = "idle",
+    timeSeconds = 0,
+    phaseOffsetCycles = 0,
+    periodScale = 1
+) {
+    const baseTime = finiteOr(timeSeconds, 0);
+    const requested = String(requestedSlot || "idle");
+    const resolvedSlot = resolveRuntimeAnimationSlot(project, requested);
+    const clip = resolvedSlot ? project?.animations?.get(resolvedSlot) : null;
+    if (requested !== "fly" || resolvedSlot !== "fly" || clip?.loop !== true) {
+        return baseTime;
+    }
+    const safePeriodScale = finitePositive(periodScale, 1);
+    const safePhaseOffset = finiteOr(phaseOffsetCycles, 0);
+    const duration = Math.max(0, finiteOr(clip.duration, 0));
+    return baseTime / safePeriodScale + safePhaseOffset * duration;
 }
 
 export function sampleRuntimeCharacterPose(project, slot = "idle", timeSeconds = 0) {
@@ -515,6 +625,11 @@ export async function loadRuntimeCharacterProject(characterUrl, options = {}) {
             name: partName,
             image: null,
             canvas: exchanged.canvas,
+            // The atlas asset pyramid contains the untreated source pixels.
+            // Build a replacement pyramid from the exchanged canvas so editor
+            // zoom levels and reduced runtime draws cannot resurrect the
+            // original colours.
+            pixmapPyramid: usePixmapPyramids ? createPixmapPyramid(exchanged.canvas, { createCanvas }) : null,
             sourceX: 0,
             sourceY: 0,
             sourceWidth: atlasAsset.width,
@@ -543,6 +658,17 @@ export async function loadRuntimeCharacterProject(characterUrl, options = {}) {
         throw new Error(`Character definition ${characterSourceUrl} references untagged projectile part(s): ${missing.join(", ")}.`);
     }
 
+    for (const projectile of projectiles.values()) {
+        const partAsset = assets.get(projectile.partName);
+        if (partAsset && !partAsset.projectileTrailPalette) {
+            partAsset.projectileTrailPalette = projectileTrailPaletteFromCanvas(partAsset.canvas);
+        }
+        const atlasAsset = atlasAssets.get(projectile.frameId);
+        if (atlasAsset && !atlasAsset.projectileTrailPalette) {
+            atlasAsset.projectileTrailPalette = projectileTrailPaletteFromCanvas(atlasAsset.canvas);
+        }
+    }
+
     progressParts.finalize = 1;
     reportProgress(`Prepared ${character.displayName || character.characterId || "character"}`);
     return {
@@ -563,18 +689,26 @@ export async function loadRuntimeCharacterProject(characterUrl, options = {}) {
         atlasAssets,
         animations,
         animationSources,
-        projectiles
+        projectiles,
+        sounds: normalizeCharacterSounds(character.sounds),
+        dropProfile: normalizeCharacterDropProfile(character)
     };
 }
 
 export function resolveRelativeUrl(baseUrl, relativeUrl) {
-    const relative = String(relativeUrl || "");
+    const relative = String(relativeUrl || "").replace(/\\/g, "/");
     if (/^(?:[a-z]+:)?\/\//i.test(relative) || relative.startsWith("data:") || relative.startsWith("blob:")) {
         return relative;
     }
+    if (/^(?:atlases|characters|editor|fonts|generator|items|levels|music|sfx|ui)\//.test(relative)) {
+        return assetUrl(relative);
+    }
+    if (/^it_/.test(relative)) return assetUrl(`items/${relative}`);
+    if (/^at_atlas_/.test(relative)) return assetUrl(`atlases/${relative}`);
+    if (/^ct_/.test(relative)) return assetUrl(`characters/${relative}`);
     const base = String(baseUrl || "");
     const slash = base.lastIndexOf("/");
-    return slash >= 0 ? `${base.slice(0, slash + 1)}${relative}` : relative;
+    return slash >= 0 ? `${base.slice(0, slash + 1)}${relative}` : assetUrl(relative);
 }
 
 function makeRuntimeAtlasFrameAsset(image, frame, partName, frameId, imageUrl, atlasId, createCanvas, objectMeta = null, usePixmapPyramids = true) {

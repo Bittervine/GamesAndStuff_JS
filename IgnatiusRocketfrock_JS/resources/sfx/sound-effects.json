@@ -1,0 +1,127 @@
+{
+  "version": 2,
+  "effects": {
+    "playerDamage": {
+      "file": "sfx/player_damage.wav",
+      "volume": 0.55,
+      "maxInstances": 2
+    },
+    "enemyDamage": {
+      "file": "sfx/enemy_damage.wav",
+      "volume": 0.45,
+      "maxInstances": 4
+    },
+    "rocketLaunch": {
+      "file": "sfx/rocket_launch.wav",
+      "volume": 0.48,
+      "maxInstances": 4
+    },
+    "rocketExplosion": {
+      "file": "sfx/rocket_explosion.wav",
+      "volume": 0.5,
+      "maxInstances": 5
+    },
+    "rocketBoost": {
+      "file": "sfx/rocket_boost.wav",
+      "volume": 0.18,
+      "maxInstances": 1,
+      "loop": true,
+      "fadeInSeconds": 0.08,
+      "fadeOutSeconds": 0.5
+    },
+    "pickupChime": {
+      "file": "sfx/pickup_chime.wav",
+      "volume": 0.52,
+      "maxInstances": 3
+    },
+    "levelStart": {
+      "file": "sfx/level_start.wav",
+      "volume": 0.6,
+      "maxInstances": 1
+    },
+    "levelExit": {
+      "file": "sfx/level_exit.wav",
+      "volume": 0.6,
+      "maxInstances": 1
+    },
+    "playerReading": {
+      "file": "sfx/player_reading.wav",
+      "volume": 0.45,
+      "maxInstances": 1,
+      "loop": true,
+      "fadeSeconds": 0.2
+    },
+    "playerThinking": {
+      "file": "sfx/player_thinking.wav",
+      "volume": 0.45,
+      "maxInstances": 1,
+      "loop": true,
+      "fadeSeconds": 0.2
+    },
+    "playerQuestionMark": {
+      "file": "sfx/player_question_mark.wav",
+      "volume": 0.55,
+      "maxInstances": 1
+    },
+    "playerExclamationMark": {
+      "file": "sfx/player_exclamation_mark.wav",
+      "volume": 0.55,
+      "maxInstances": 1
+    },
+    "playerJumping": {
+      "file": "sfx/player_jumping.wav",
+      "volume": 0.45,
+      "maxInstances": 2
+    },
+    "playerLanding": {
+      "file": "sfx/player_landing.wav",
+      "volume": 0.45,
+      "maxInstances": 2
+    },
+    "playerLandingDamage": {
+      "file": "sfx/player_landing_damage.wav",
+      "volume": 0.55,
+      "maxInstances": 2
+    },
+    "wizardDeath": {
+      "file": "sfx/wizard_death.wav",
+      "volume": 0.65,
+      "maxInstances": 1
+    },
+    "trigger": {
+      "file": "sfx/trigger.wav",
+      "volume": 0.55,
+      "maxInstances": 2
+    },
+    "enemyDeath": {
+      "file": "sfx/enemy_death.wav",
+      "volume": 0.55,
+      "maxInstances": 4
+    },
+    "bossDeath": {
+      "file": "sfx/boss_death.wav",
+      "volume": 0.7,
+      "maxInstances": 1
+    },
+    "permanentUpgradePickup": {
+      "file": "sfx/permanent_upgrade_pickup.wav",
+      "volume": 0.52,
+      "maxInstances": 2
+    },
+    "enemyProjectile": {
+      "file": "sfx/enemy_projectile.wav",
+      "volume": 0.45,
+      "maxInstances": 4
+    },
+    "portalOpen": {
+      "file": "sfx/portal_open.wav",
+      "volume": 0.5,
+      "maxInstances": 2
+    },
+    "reactiveObject": {
+      "file": "sfx/reactive_object.wav",
+      "volume": 0.5,
+      "maxInstances": 3
+    }
+  }
+}

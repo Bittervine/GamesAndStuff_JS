@@ -35,11 +35,11 @@ RETIRED_FILES = {
     "MUSIC_SOURCES.md",
     "src/browser/music-engine-host.js",
     "src/browser/music-engine-sources.js",
-    "assets/music/ignatius_music_selections.json",
+    "resources/music/ignatius_music_selections.json",
     "devel/ignatius_music_selections.json",
     "devel/ignatius_public_domain_jukebox_v7_long_form_loops.html",
     "devel/old/ct_char_enemy_004.json",
-    "assets/ct_rig_enemy_030 .json",
+    "resources/characters/ct_rig_enemy_030 .json",
     "generate_level002_temp.mjs",
 }
 
@@ -56,6 +56,7 @@ REQUIRED_FILES = {
     "level-renderer-baseline.html",
     "package.json",
     "devel/audit_renderer_boundary.mjs",
+    "devel/audit_resource_layout.mjs",
     "devel/inspect_editor_stress_fixture.mjs",
     "devel/run_generator_tests.mjs",
     "devel/run_test_gate.mjs",
@@ -69,7 +70,7 @@ REQUIRED_FILES = {
     "tests/testbench.mjs",
     "EDITOR_STRESS_BASELINE.md",
     "RENDERER_BOUNDARY_AUDIT.md",
-    "assets/music.json",
+    "resources/music/music.json",
 }
 
 
@@ -197,6 +198,7 @@ def validate_project(project_root: Path, revision: int) -> None:
         "test:editor": "node devel/run_test_gate.mjs editor",
         "test:game": "node devel/run_test_gate.mjs game",
         "test:generator": "node devel/run_generator_tests.mjs",
+        "audit:resources": "node devel/audit_resource_layout.mjs",
     }
     mismatched_scripts = [
         name for name, command in expected_scripts.items()
@@ -217,7 +219,7 @@ def validate_project(project_root: Path, revision: int) -> None:
         if f"Revision {revision}" not in documentation:
             raise ValueError(f"{documentation_name} has no Revision {revision} release note")
 
-    for level_path in sorted((project_root / "assets").glob("level_*.json")):
+    for level_path in sorted((project_root / "resources" / "levels").glob("level_*.json")):
         level = json.loads(level_path.read_text(encoding="utf-8"))
         hunters = [
             entity for entity in level.get("entities", [])

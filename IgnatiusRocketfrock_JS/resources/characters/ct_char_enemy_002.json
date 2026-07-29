@@ -1,0 +1,24 @@
+{
+    "meta": {
+        "version": 2,
+        "note": "Enemy 002 character definition. Skeleton caster variant that reuses the base skeleton motion set with a caster attack and the undeath-orb projectile. Revision 204 moves attack, hurt, and death WAV selection into the character definition."
+    },
+    "characterId": "ct_char_enemy_002",
+    "displayName": "Skeleton Caster",
+    "rig": "ct_rig_enemy_002.json",
+    "defaultFacing": "right",
+    "mirrorable": true,
+    "projectilePart": "undeathOrb",
+    "animationMap": {
+        "idle": "ct_anim_enemy_002_idle.json",
+        "walk": "ct_anim_enemy_002_walk.json",
+        "attack": "ct_anim_enemy_002_attack.json",
+        "hurt": "ct_anim_enemy_002_hurt.json",
+        "death": "ct_anim_enemy_002_death.json"
+    },
+    "sounds": {
+        "attack": "sfx/enemy_projectile.wav",
+        "hurt": "sfx/enemy_damage.wav",
+        "death": "sfx/enemy_death.wav"
+    }
+}

@@ -1,0 +1,640 @@
+{
+    "meta": {
+        "version": 3,
+        "note": "Revision 180 tunes the smaller blue bomber to use full-range GIMP-style Color Exchange so the shared atlas shifts cleanly toward the supplied blue swatch without blotchy partial replacement."
+    },
+    "rigId": "ct_rig_enemy_021",
+    "atlasId": "ct_atlas_enemy_020",
+    "atlasManifest": "ct_atlas_enemy_020.json",
+    "drawOrder": [
+        "frame_01",
+        "frame_02",
+        "frame_03",
+        "frame_04",
+        "frame_05",
+        "frame_06",
+        "frame_07",
+        "frame_08",
+        "frame_09",
+        "frame_10",
+        "frame_11",
+        "frame_12",
+        "frame_13",
+        "frame_14",
+        "frame_15",
+        "frame_16",
+        "frame_17",
+        "frame_18",
+        "frame_19",
+        "frame_20",
+        "frame_21",
+        "frame_22"
+    ],
+    "global": {
+        "scale": 0.28,
+        "lean": 0,
+        "rootX": 0,
+        "rootYOffsetFromGround": 0,
+        "groundOffset": 0,
+        "debugPivots": false
+    },
+    "anchors": {},
+    "pivots": {
+        "frame_01": {
+            "x": 0.58385744,
+            "y": 0.6558327
+        },
+        "frame_02": {
+            "x": 0.58506289,
+            "y": 0.65396825
+        },
+        "frame_03": {
+            "x": 0.58064516,
+            "y": 0.63738275
+        },
+        "frame_04": {
+            "x": 0.57163462,
+            "y": 0.60582011
+        },
+        "frame_05": {
+            "x": 0.56196335,
+            "y": 0.52690426
+        },
+        "frame_06": {
+            "x": 0.55848764,
+            "y": 0.43025078
+        },
+        "frame_07": {
+            "x": 0.54702194,
+            "y": 0.42871901
+        },
+        "frame_08": {
+            "x": 0.53459041,
+            "y": 0.3666427
+        },
+        "frame_09": {
+            "x": 0.52876244,
+            "y": 0.27967626
+        },
+        "frame_10": {
+            "x": 0.53218267,
+            "y": 0.22931914
+        },
+        "frame_11": {
+            "x": 0.5430137,
+            "y": 0.21325843
+        },
+        "frame_12": {
+            "x": 0.56390244,
+            "y": 0.21582418
+        },
+        "frame_13": {
+            "x": 0.5759773,
+            "y": 0.21905393
+        },
+        "frame_14": {
+            "x": 0.56714876,
+            "y": 0.23337029
+        },
+        "frame_15": {
+            "x": 0.564324,
+            "y": 0.24347826
+        },
+        "frame_16": {
+            "x": 0.56788477,
+            "y": 0.24665026
+        },
+        "frame_17": {
+            "x": 0.55267016,
+            "y": 0.2632
+        },
+        "frame_18": {
+            "x": 0.53728395,
+            "y": 0.2979798
+        },
+        "frame_19": {
+            "x": 0.54009434,
+            "y": 0.38036304
+        },
+        "frame_20": {
+            "x": 0.54573171,
+            "y": 0.4478022
+        },
+        "frame_21": {
+            "x": 0.55247158,
+            "y": 0.49771516
+        },
+        "frame_22": {
+            "x": 0.56150077,
+            "y": 0.55545113
+        }
+    },
+    "parts": {
+        "frame_01": {
+            "frame": "frame_01",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 147,
+            "alpha": 1,
+            "colorExchange": {
+                "fromColor": "#5f2483",
+                "toColor": "#34348f",
+                "redThreshold": 1.0,
+                "greenThreshold": 1.0,
+                "blueThreshold": 1.0
+            }
+        },
+        "frame_02": {
+            "frame": "frame_02",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 147,
+            "alpha": 0,
+            "colorExchange": {
+                "fromColor": "#5f2483",
+                "toColor": "#34348f",
+                "redThreshold": 1.0,
+                "greenThreshold": 1.0,
+                "blueThreshold": 1.0
+            }
+        },
+        "frame_03": {
+            "frame": "frame_03",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 141,
+            "alpha": 0,
+            "colorExchange": {
+                "fromColor": "#5f2483",
+                "toColor": "#34348f",
+                "redThreshold": 1.0,
+                "greenThreshold": 1.0,
+                "blueThreshold": 1.0
+            }
+        },
+        "frame_04": {
+            "frame": "frame_04",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 126,
+            "alpha": 0,
+            "colorExchange": {
+                "fromColor": "#5f2483",
+                "toColor": "#34348f",
+                "redThreshold": 1.0,
+                "greenThreshold": 1.0,
+                "blueThreshold": 1.0
+            }
+        },
+        "frame_05": {
+            "frame": "frame_05",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 106,
+            "alpha": 0,
+            "colorExchange": {
+                "fromColor": "#5f2483",
+                "toColor": "#34348f",
+                "redThreshold": 1.0,
+                "greenThreshold": 1.0,
+                "blueThreshold": 1.0
+            }
+        },
+        "frame_06": {
+            "frame": "frame_06",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 88,
+            "alpha": 0,
+            "colorExchange": {
+                "fromColor": "#5f2483",
+                "toColor": "#34348f",
+                "redThreshold": 1.0,
+                "greenThreshold": 1.0,
+                "blueThreshold": 1.0
+            }
+        },
+        "frame_07": {
+            "frame": "frame_07",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 88,
+            "alpha": 0,
+            "colorExchange": {
+                "fromColor": "#5f2483",
+                "toColor": "#34348f",
+                "redThreshold": 1.0,
+                "greenThreshold": 1.0,
+                "blueThreshold": 1.0
+            }
+        },
+        "frame_08": {
+            "frame": "frame_08",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 107,
+            "alpha": 0,
+            "colorExchange": {
+                "fromColor": "#5f2483",
+                "toColor": "#34348f",
+                "redThreshold": 1.0,
+                "greenThreshold": 1.0,
+                "blueThreshold": 1.0
+            }
+        },
+        "frame_09": {
+            "frame": "frame_09",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 139,
+            "alpha": 0,
+            "colorExchange": {
+                "fromColor": "#5f2483",
+                "toColor": "#34348f",
+                "redThreshold": 1.0,
+                "greenThreshold": 1.0,
+                "blueThreshold": 1.0
+            }
+        },
+        "frame_10": {
+            "frame": "frame_10",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 167,
+            "alpha": 0,
+            "colorExchange": {
+                "fromColor": "#5f2483",
+                "toColor": "#34348f",
+                "redThreshold": 1.0,
+                "greenThreshold": 1.0,
+                "blueThreshold": 1.0
+            }
+        },
+        "frame_11": {
+            "frame": "frame_11",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 178,
+            "alpha": 0,
+            "colorExchange": {
+                "fromColor": "#5f2483",
+                "toColor": "#34348f",
+                "redThreshold": 1.0,
+                "greenThreshold": 1.0,
+                "blueThreshold": 1.0
+            }
+        },
+        "frame_12": {
+            "frame": "frame_12",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 182,
+            "alpha": 0,
+            "colorExchange": {
+                "fromColor": "#5f2483",
+                "toColor": "#34348f",
+                "redThreshold": 1.0,
+                "greenThreshold": 1.0,
+                "blueThreshold": 1.0
+            }
+        },
+        "frame_13": {
+            "frame": "frame_13",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 174,
+            "alpha": 0,
+            "colorExchange": {
+                "fromColor": "#5f2483",
+                "toColor": "#34348f",
+                "redThreshold": 1.0,
+                "greenThreshold": 1.0,
+                "blueThreshold": 1.0
+            }
+        },
+        "frame_14": {
+            "frame": "frame_14",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 164,
+            "alpha": 0,
+            "colorExchange": {
+                "fromColor": "#5f2483",
+                "toColor": "#34348f",
+                "redThreshold": 1.0,
+                "greenThreshold": 1.0,
+                "blueThreshold": 1.0
+            }
+        },
+        "frame_15": {
+            "frame": "frame_15",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 160,
+            "alpha": 0,
+            "colorExchange": {
+                "fromColor": "#5f2483",
+                "toColor": "#34348f",
+                "redThreshold": 1.0,
+                "greenThreshold": 1.0,
+                "blueThreshold": 1.0
+            }
+        },
+        "frame_16": {
+            "frame": "frame_16",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 159,
+            "alpha": 0,
+            "colorExchange": {
+                "fromColor": "#5f2483",
+                "toColor": "#34348f",
+                "redThreshold": 1.0,
+                "greenThreshold": 1.0,
+                "blueThreshold": 1.0
+            }
+        },
+        "frame_17": {
+            "frame": "frame_17",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 150,
+            "alpha": 0,
+            "colorExchange": {
+                "fromColor": "#5f2483",
+                "toColor": "#34348f",
+                "redThreshold": 1.0,
+                "greenThreshold": 1.0,
+                "blueThreshold": 1.0
+            }
+        },
+        "frame_18": {
+            "frame": "frame_18",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 132,
+            "alpha": 0,
+            "colorExchange": {
+                "fromColor": "#5f2483",
+                "toColor": "#34348f",
+                "redThreshold": 1.0,
+                "greenThreshold": 1.0,
+                "blueThreshold": 1.0
+            }
+        },
+        "frame_19": {
+            "frame": "frame_19",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 101,
+            "alpha": 0,
+            "colorExchange": {
+                "fromColor": "#5f2483",
+                "toColor": "#34348f",
+                "redThreshold": 1.0,
+                "greenThreshold": 1.0,
+                "blueThreshold": 1.0
+            }
+        },
+        "frame_20": {
+            "frame": "frame_20",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 91,
+            "alpha": 0,
+            "colorExchange": {
+                "fromColor": "#5f2483",
+                "toColor": "#34348f",
+                "redThreshold": 1.0,
+                "greenThreshold": 1.0,
+                "blueThreshold": 1.0
+            }
+        },
+        "frame_21": {
+            "frame": "frame_21",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 101,
+            "alpha": 0,
+            "colorExchange": {
+                "fromColor": "#5f2483",
+                "toColor": "#34348f",
+                "redThreshold": 1.0,
+                "greenThreshold": 1.0,
+                "blueThreshold": 1.0
+            }
+        },
+        "frame_22": {
+            "frame": "frame_22",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 114,
+            "alpha": 0,
+            "colorExchange": {
+                "fromColor": "#5f2483",
+                "toColor": "#34348f",
+                "redThreshold": 1.0,
+                "greenThreshold": 1.0,
+                "blueThreshold": 1.0
+            }
+        }
+    }
+}

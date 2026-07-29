@@ -1,0 +1,30 @@
+{
+    "meta": {
+        "version": 9,
+        "note": "Tri-fireball Goblin. Shares the goblin atlas and copies the Fireball Goblin animation set. Its attack handoff launches a configurable straight projectile volley; revision 332 introduces the three-shot +/-15 degree fireball fan. Revision 204 moves attack, hurt, and death WAV selection into the character definition. Revision 208 gives goblins a data-driven 100% coin drop."
+    },
+    "characterId": "ct_char_enemy_012",
+    "displayName": "Tri-fireball Goblin",
+    "rig": "ct_rig_enemy_012.json",
+    "defaultFacing": "right",
+    "mirrorable": true,
+    "animationMap": {
+        "idle": "ct_anim_enemy_012_idle.json",
+        "walk": "ct_anim_enemy_012_walk.json",
+        "attack": "ct_anim_enemy_012_attack.json",
+        "hurt": "ct_anim_enemy_012_hurt.json",
+        "death": "ct_anim_enemy_012_death.json"
+    },
+    "projectilePart": "fireball",
+    "sounds": {
+        "attack": "sfx/enemy_projectile.wav",
+        "hurt": "sfx/enemy_damage.wav",
+        "death": "sfx/enemy_death.wav"
+    },
+    "drops": [
+        {
+            "itemId": "coin",
+            "chance": 1.0
+        }
+    ]
+}

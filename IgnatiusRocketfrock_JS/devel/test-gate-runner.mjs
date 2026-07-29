@@ -17,7 +17,7 @@ const FINGERPRINT_ROOT_FILES = new Set([
     "character-editor.html",
     "renderer-smoke.html"
 ]);
-const FINGERPRINT_DIRECTORIES = new Set(["assets", "devel", "electron", "src", "tests"]);
+const FINGERPRINT_DIRECTORIES = new Set(["resources", "devel", "electron", "src", "tests"]);
 const FINGERPRINT_EXTENSIONS = new Set([".cjs", ".html", ".js", ".json", ".mjs", ".py"]);
 
 function extensionOf(path) {

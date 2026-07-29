@@ -12,7 +12,7 @@ import {
 } from "../src/tools/character-editor/parent-constraint-data.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const ASSETS = path.join(ROOT, "assets");
+const ASSETS = path.join(ROOT, "resources", "characters");
 
 function readJson(filename) {
     return JSON.parse(fs.readFileSync(path.join(ASSETS, filename), "utf8"));

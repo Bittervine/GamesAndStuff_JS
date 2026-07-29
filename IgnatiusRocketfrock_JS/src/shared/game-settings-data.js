@@ -1,7 +1,12 @@
+// Product-development switch. This is intentionally independent from build
+// mode and the user-facing developmentMode setting. Keep enabled until the
+// product itself is ready to stop surfacing intrusive diagnostic alerts.
+export const DEVELOPMENT = true;
+
 export const GAME_DIFFICULTY_PRESETS = Object.freeze([
-    Object.freeze({ id: "easy", label: "Easy", damageScale: 0.75 }),
-    Object.freeze({ id: "normal", label: "Normal", damageScale: 1 }),
-    Object.freeze({ id: "hard", label: "Hard", damageScale: 1.5 })
+    Object.freeze({ id: "easy", label: "Easy", damageScale: 1 }),
+    Object.freeze({ id: "normal", label: "Normal", damageScale: 2 }),
+    Object.freeze({ id: "hard", label: "Hard", damageScale: 4 })
 ]);
 
 export const GAME_RENDERING_QUALITY_PRESETS = Object.freeze([

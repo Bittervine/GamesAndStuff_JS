@@ -24,6 +24,10 @@ import {
     normalizeLevelColorMap
 } from "../shared/level-color-map-data.js";
 import {
+    levelColorExchangeCacheKey,
+    normalizeLevelColorExchange
+} from "../shared/color-exchange-data.js";
+import {
     normalizeBackgroundParallax,
     normalizeForegroundParallax,
     normalizeLayerBrightness
@@ -36,7 +40,7 @@ import {
     powerUpEffectDefinition,
     wrenchRocketGlowAtlasFrameId
 } from "../shared/power-up-data.js";
-import { createColorMappedCanvas } from "./level-color-map-cache.js";
+import { createLevelColorTreatedCanvas } from "./level-color-map-cache.js";
 import {
     buildCaveWindowGpuMaskGeometry,
     computeCaveWindowParallaxOffset,
@@ -66,6 +70,7 @@ import {
     buildRuntimeCharacterDrawCommands,
     characterArtworkOrigin,
     loadRuntimeCharacterProject,
+    runtimeLoopVariantAnimationTime,
     sampleRuntimeCharacterPose
 } from "./character-runtime.js";
 import {
@@ -77,6 +82,7 @@ import { createWebGL2RendererBackend } from "./webgl2-renderer.js";
 import { createPixmapPyramid, drawPixmap } from "./pixmap-pyramid.js";
 import { ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER } from "../shared/experimental-renderer-flags.js";
 import { shownTransformOf } from "../shared/presentation-transform-data.js";
+import { resourceUrl } from "../shared/resource-paths.js";
 import {
     STATIC_TILE_GUTTER,
     STATIC_TILE_SIZE,
@@ -129,37 +135,46 @@ const FIXED_DRAW_ORDER = [
     "rightArm"
 ];
 
-const DEFAULT_CHARACTER_URL = "assets/ct_char_wizard_1.json";
+const DEFAULT_CHARACTER_URL = "characters/ct_char_wizard_1.json";
 const KNOWN_ENEMY_CHARACTER_URLS = [
-    "assets/ct_char_enemy_001.json",
-    "assets/ct_char_enemy_002.json",
-    "assets/ct_char_enemy_010.json",
-    "assets/ct_char_enemy_011.json",
-    "assets/ct_char_enemy_012.json",
-    "assets/ct_char_enemy_018.json",
-    "assets/ct_char_enemy_020.json",
-    "assets/ct_char_enemy_030.json",
-    "assets/ct_char_enemy_031.json",
-    "assets/ct_char_enemy_032.json",
-    "assets/ct_char_enemy_033.json",
-    "assets/ct_char_enemy_040.json",
-    "assets/ct_char_enemy_050.json",
-    "assets/ct_char_enemy_060.json",
-    "assets/ct_char_enemy_070.json",
-    "assets/ct_char_enemy_080.json"
+    "characters/ct_char_enemy_001.json",
+    "characters/ct_char_enemy_002.json",
+    "characters/ct_char_enemy_010.json",
+    "characters/ct_char_enemy_011.json",
+    "characters/ct_char_enemy_012.json",
+    "characters/ct_char_enemy_018.json",
+    "characters/ct_char_enemy_020.json",
+    "characters/ct_char_enemy_021.json",
+    "characters/ct_char_enemy_030.json",
+    "characters/ct_char_enemy_031.json",
+    "characters/ct_char_enemy_032.json",
+    "characters/ct_char_enemy_033.json",
+    "characters/ct_char_enemy_034.json",
+    "characters/ct_char_enemy_035.json",
+    "characters/ct_char_enemy_036.json",
+    "characters/ct_char_enemy_037.json",
+    "characters/ct_char_enemy_040.json",
+    "characters/ct_char_enemy_050.json",
+    "characters/ct_char_enemy_060.json",
+    "characters/ct_char_enemy_070.json",
+    "characters/ct_char_enemy_080.json",
+    "characters/ct_char_enemy_090.json",
+    "characters/ct_char_enemy_091.json",
+    "characters/ct_char_enemy_092.json",
+    "characters/ct_char_enemy_093.json"
 ];
 
 const ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES = [
     ...Array.from({ length: 20 }, (_, index) => {
         const atlasId = `at_atlas_${String(index + 1).padStart(3, "0")}`;
         return {
-            url: `assets/${atlasId}.json`,
+            url: `atlases/${atlasId}.json`,
             forceAtlasId: atlasId,
             forceImage: `${atlasId}.png`
         };
     }),
     {
-        url: "assets/it_atlas_001.json",
+        url: "items/it_atlas_001.json",
         forceAtlasId: "it_atlas_001",
         forceImage: "it_atlas_001.png"
     }
@@ -167,16 +182,7 @@ const ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES = [
 
 const REQUIRED_RIG_SECTIONS = ["global", "animation", "anchors", "legMotion", "pivots", "parts"];
 
-function assetUrl(requestPath) {
-    const text = String(requestPath || "");
-    if (!text) {
-        return "";
-    }
-    if (/^(?:[a-z]+:)?\/\//i.test(text) || text.startsWith("/") || text.startsWith("data:") || text.startsWith("blob:")) {
-        return text;
-    }
-    return `assets/${text.replace(/^(?:\.\/|assets\/)+/, "")}`;
-}
+const assetUrl = resourceUrl;
 
 // IMPORTANT VIEWPORT RULE:
 // The game uses virtual viewport coordinates. On narrow mobile screens the
@@ -197,6 +203,10 @@ function visualPresentationAlpha(visual) {
     const transform = shownTransformOf(visual);
     const value = visual?.dynamicPosition ? transform?.alpha : visual?.alpha;
     return Number.isFinite(Number(value)) ? Number(value) : 1;
+}
+
+function worldHasOnTopVisuals(state) {
+    return (state?.world?.visuals || []).some((visual) => visual?.onTop === true && !visual?.entityId);
 }
 const WEBGL_DIRECT_WORLD_EFFECT_KINDS = new Set([
     "rocketSmokePuff",
@@ -404,7 +414,7 @@ function classifyStaticLayerBakeVisual(visual) {
     // Conservative attic-gnome rule: this experimental mode may only bake visuals
     // that are plainly static. Do not reshape the normal renderer or authored
     // visual schema for this path without asking the project owner first.
-    if (!visual || visual.entityId || visual.dynamicPosition || visual.movement) {
+    if (!visual || visual.entityId || visual.dynamicPosition || visual.movement || visual.blendMode === "brightenOnly") {
         return STATIC_LAYER_BAKE_VISUAL_CLASSIFICATION.DYNAMIC;
     }
     return STATIC_LAYER_BAKE_VISUAL_CLASSIFICATION.STATIC;
@@ -734,6 +744,7 @@ class RocketfrockRenderer {
         this.environmentAtlases = environmentAtlases;
         this.environmentManifestUrls = new Set((environmentManifestUrls || []).map(String));
         this.environmentColorMap = normalizeLevelColorMap(null);
+        this.environmentColorExchange = normalizeLevelColorExchange(null);
         this.environmentColorMapKey = "";
         this.caveWindow = null;
         this.caveWindowMaskCanvas = null;
@@ -767,9 +778,12 @@ class RocketfrockRenderer {
         this.frameHandledProjectileIds = new Set();
         this.worldVisualQueryScratch = {
             background: createWorldVisualQueryScratch(),
+            backgroundOnTop: createWorldVisualQueryScratch(),
             main: createWorldVisualQueryScratch(),
+            mainOnTop: createWorldVisualQueryScratch(),
             actorFront: createWorldVisualQueryScratch(),
-            caveForeground: createWorldVisualQueryScratch()
+            caveForeground: createWorldVisualQueryScratch(),
+            caveForegroundOnTop: createWorldVisualQueryScratch()
         };
         this.staticTileQueryScratch = {
             background: createWorldVisualQueryScratch(),
@@ -887,6 +901,10 @@ class RocketfrockRenderer {
         this.scorePopups = [];
         this.processedScoreEventKeys = new Set();
         this.processedScoreEventOrder = [];
+        this.screenMessageState = null;
+        this.screenMessages = [];
+        this.processedScreenMessageEventKeys = new Set();
+        this.processedScreenMessageEventOrder = [];
         this.actorShadowOpacity = new WeakMap();
         this.staticLayerBake = {
             enabled: false,
@@ -1303,7 +1321,7 @@ class RocketfrockRenderer {
         for (const surface of this.layerBrightnessCache.values()) this.webglBackend?.invalidateTexture(surface);
         this.layerBrightnessCache.clear();
         this.overlapBlendCache.source = null;
-        this.syncEnvironmentColorMap(this.environmentColorMap);
+        this.syncEnvironmentColorMap(this.environmentColorMap, this.environmentColorExchange);
         this.invalidateStaticLayerBake("level atlases changed");
         return loaded.size > 0;
     }
@@ -1560,27 +1578,27 @@ class RocketfrockRenderer {
         return new Map(this.characterProjects);
     }
 
-    syncEnvironmentColorMap(value) {
+    syncEnvironmentColorMap(value, colorExchangeValue = null) {
         const colorMap = normalizeLevelColorMap(value);
-        const cacheKey = colorMapCacheKey(colorMap);
+        const colorExchange = normalizeLevelColorExchange(colorExchangeValue);
+        const cacheKey = `${colorMapCacheKey(colorMap)}|${levelColorExchangeCacheKey(colorExchange)}`;
         if (cacheKey === this.environmentColorMapKey) {
             return false;
         }
         this.environmentColorMap = colorMap;
+        this.environmentColorExchange = colorExchange;
         this.environmentColorMapKey = cacheKey;
         this.foregroundSpriteCache.clear();
         for (const surface of this.layerBrightnessCache.values()) this.webglBackend?.invalidateTexture(surface);
         this.layerBrightnessCache.clear();
         this.overlapBlendCache.source = null;
         for (const atlas of this.environmentAtlases.values()) {
-            if (!atlas?.image) {
-                continue;
-            }
-            atlas.renderImage = createColorMappedCanvas(atlas.image, colorMap, undefined, atlas.id);
+            if (!atlas?.image) continue;
+            atlas.renderImage = createLevelColorTreatedCanvas(atlas.image, colorMap, colorExchange, undefined, atlas.id);
             atlas.colorMapCacheKey = cacheKey;
         }
         this.prewarmWebGLTextures();
-        this.invalidateStaticLayerBake("environment colour map changed");
+        this.invalidateStaticLayerBake("environment colour treatment changed");
         return true;
     }
 
@@ -1629,8 +1647,8 @@ class RocketfrockRenderer {
             this.phase = this.forcePhase;
             return;
         }
-        const runClip = this.animations.get("run");
-        const playback = runClip?.playback || {
+        const walkClip = this.animations.get("walk");
+        const playback = walkClip?.playback || {
             idleThreshold: 0.04,
             baseCyclesPerSecond: 0.55,
             speedCyclesPerSecond: 2.6,
@@ -1711,6 +1729,75 @@ class RocketfrockRenderer {
             ctx.fillText(popup.text, point.x, point.y);
             this.markDynamicDrawn();
         }
+        ctx.restore();
+    }
+
+    syncScreenMessages(state) {
+        if (this.screenMessageState !== state) {
+            this.screenMessageState = state;
+            this.screenMessages.length = 0;
+            this.processedScreenMessageEventKeys.clear();
+            this.processedScreenMessageEventOrder.length = 0;
+        }
+        for (const event of state?.debug?.lastEvents || []) {
+            if (event?.type !== "SCREEN_MESSAGE_REQUESTED") continue;
+            const message = String(event.message || "").trim();
+            if (!message) continue;
+            const key = `${event.tick}:${event.sourceId || event.messageKind || "message"}:${message}`;
+            if (this.processedScreenMessageEventKeys.has(key)) continue;
+            this.processedScreenMessageEventKeys.add(key);
+            this.processedScreenMessageEventOrder.push(key);
+            this.screenMessages.push({
+                message,
+                kind: String(event.messageKind || "notice"),
+                age: 0,
+                duration: Math.max(0.5, Number(event.duration) || 2.6)
+            });
+        }
+        while (this.processedScreenMessageEventOrder.length > 64) {
+            this.processedScreenMessageEventKeys.delete(this.processedScreenMessageEventOrder.shift());
+        }
+        const elapsed = Math.max(0, this.lastRenderDt);
+        for (const item of this.screenMessages) item.age += elapsed;
+        this.screenMessages = this.screenMessages.filter((item) => item.age < item.duration);
+        return this.screenMessages.length > 0;
+    }
+
+    drawScreenMessages(state, view, sync = true) {
+        if (sync) this.syncScreenMessages(state);
+        if (!this.screenMessages.length) return;
+        const ctx = this.ctx;
+        const visible = this.screenMessages.slice(-3);
+        const fontSize = Math.max(22, Math.min(34, view.viewportWidth * 0.024));
+        ctx.save();
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = `bold ${fontSize}px ui-sans-serif, system-ui, sans-serif`;
+        ctx.lineJoin = "round";
+        visible.forEach((item, index) => {
+            const ratio = clamp(item.age / Math.max(0.001, item.duration), 0, 1);
+            const fadeIn = clamp(ratio / 0.08, 0, 1);
+            const fadeOut = ratio < 0.76 ? 1 : 1 - (ratio - 0.76) / 0.24;
+            const alpha = clamp(Math.min(fadeIn, fadeOut), 0, 1);
+            const y = 76 + index * (fontSize + 18) - (1 - fadeIn) * 8;
+            const textWidth = ctx.measureText(item.message).width;
+            const panelWidth = Math.min(view.viewportWidth - 32, textWidth + 42);
+            const panelHeight = fontSize + 20;
+            const x = view.viewportWidth * 0.5;
+            ctx.globalAlpha = alpha * 0.86;
+            ctx.fillStyle = "rgba(20, 14, 30, 0.92)";
+            ctx.fillRect(x - panelWidth * 0.5, y - panelHeight * 0.5, panelWidth, panelHeight);
+            ctx.globalAlpha = alpha * 0.9;
+            ctx.strokeStyle = "rgba(225, 190, 255, 0.88)";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x - panelWidth * 0.5, y - panelHeight * 0.5, panelWidth, panelHeight);
+            ctx.globalAlpha = alpha;
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = "rgba(24, 12, 34, 0.95)";
+            ctx.fillStyle = "rgba(255, 244, 188, 0.99)";
+            ctx.strokeText(item.message, x, y + 1);
+            ctx.fillText(item.message, x, y + 1);
+        });
         ctx.restore();
     }
 
@@ -1861,7 +1948,7 @@ class RocketfrockRenderer {
     renderCanvas2D(state, inputFrame, dt) {
         const frameStart = rendererNowMs();
         const view = this.prepareFrame(state, dt, frameStart);
-        if (!state.debug.showCollision && !state.debug.showAssetGuides) {
+        if (!worldHasOnTopVisuals(state) && !state.debug.showCollision && !state.debug.showAssetGuides) {
             if (this.isStaticTileBakeEnabled()) {
                 const rendered = this.renderCanvas2DStaticTiles(state, inputFrame, view, frameStart);
                 if (rendered) return;
@@ -1881,6 +1968,7 @@ class RocketfrockRenderer {
         this.drawBackdrop(view);
         const backgroundStart = rendererNowMs();
         this.drawBackgroundVisuals(state, view);
+        this.drawBackgroundVisuals(state, view, "backgroundOnTop");
         const backgroundEnd = rendererNowMs();
         this.drawWorld(state, view);
         const worldMainEnd = rendererNowMs();
@@ -1891,8 +1979,9 @@ class RocketfrockRenderer {
         this.frameRenderBreakdown.portalMs = worldEnd - worldMainEnd;
 
         this.drawTargets(state, view);
-        this.drawPickups(state, view);
+        this.drawPickups(state, view, false);
         this.drawEnemies(state, view);
+        this.drawPickups(state, view, true);
         this.drawWorldEffects(state, view);
         this.drawProjectiles(state, view);
         this.drawPlayer(state, view);
@@ -1900,14 +1989,18 @@ class RocketfrockRenderer {
         this.drawScorePopups(state, view);
         const actorsEnd = rendererNowMs();
 
-        this.drawOrderedWorldVisuals(state, view, true);
+        this.drawOrderedWorldVisuals(state, view, "actorFront");
+        this.drawOrderedWorldVisuals(state, view, "mainOnTop");
         this.drawCaveForegroundVisuals(state, view);
+        this.drawCaveForegroundVisuals(state, view, "caveForegroundOnTop");
         const foregroundEnd = rendererNowMs();
 
         this.drawCaveWindow(state, view);
         const maskEnd = rendererNowMs();
 
+        this.drawProximityTexts(state, view);
         this.drawMailboxStoryOverlay(state, view);
+        this.drawScreenMessages(state, view);
         this.drawDebug(state, view, inputFrame);
         const frameEnd = rendererNowMs();
         this.updatePerformanceDiagnostics({
@@ -2786,8 +2879,9 @@ class RocketfrockRenderer {
         this.frameRenderBreakdown.portalMs = worldEnd - worldMainEnd;
 
         this.drawTargets(state, view);
-        this.drawPickups(state, view);
+        this.drawPickups(state, view, false);
         this.drawEnemies(state, view);
+        this.drawPickups(state, view, true);
         this.drawWorldEffects(state, view);
         this.drawProjectiles(state, view);
         this.drawPlayer(state, view);
@@ -2809,7 +2903,9 @@ class RocketfrockRenderer {
         const foregroundEnd = rendererNowMs();
         this.drawCaveWindow(state, view);
         const maskEnd = rendererNowMs();
+        this.drawProximityTexts(state, view);
         this.drawMailboxStoryOverlay(state, view);
+        this.drawScreenMessages(state, view);
         this.drawDebug(state, view, inputFrame);
         const frameEnd = rendererNowMs();
 
@@ -2857,8 +2953,9 @@ class RocketfrockRenderer {
         this.frameRenderBreakdown.portalMs = worldEnd - worldMainEnd;
 
         this.drawTargets(state, view);
-        this.drawPickups(state, view);
+        this.drawPickups(state, view, false);
         this.drawEnemies(state, view);
+        this.drawPickups(state, view, true);
         this.drawWorldEffects(state, view);
         this.drawProjectiles(state, view);
         this.drawPlayer(state, view);
@@ -2875,7 +2972,9 @@ class RocketfrockRenderer {
 
         const maskEnd = foregroundEnd;
         this.frameRenderBreakdown.worldVisualsMs += Math.max(0, foregroundEnd - foregroundBakeStart);
+        this.drawProximityTexts(state, view);
         this.drawMailboxStoryOverlay(state, view);
+        this.drawScreenMessages(state, view);
         this.drawDebug(state, view, inputFrame);
         const frameEnd = rendererNowMs();
         this.updatePerformanceDiagnostics({
@@ -3411,8 +3510,9 @@ class RocketfrockRenderer {
         this.frameRenderBreakdown.portalMs = worldEnd - worldMainEnd;
 
         this.drawTargetsWebGL(state, view);
-        this.drawPickupsWebGL(state, view);
+        this.drawPickupsWebGL(state, view, false);
         this.drawEnemiesWebGL(state, view);
+        this.drawPickupsWebGL(state, view, true);
         this.drawWorldEffectsWebGL(state, view);
 
         const hasResidualWorldEffects = (state.effects?.smokePuffs || []).some((puff) => (
@@ -3475,10 +3575,14 @@ class RocketfrockRenderer {
 
         const story = state.story?.mailboxEvent;
         const hasStoryOverlay = Boolean(story?.active && (story.phase === "letter" || story.phase === "thought"));
+        const hasProximityTextOverlay = this.hasActiveProximityText(state);
         const hasDebugOverlay = Boolean(state.debug?.showHitboxes || state.debug?.showVelocity);
-        if (hasStoryOverlay || hasDebugOverlay) {
+        const hasScreenMessageOverlay = this.syncScreenMessages(state);
+        if (hasProximityTextOverlay || hasStoryOverlay || hasDebugOverlay || hasScreenMessageOverlay) {
             this.clearStagingLayer();
+            if (hasProximityTextOverlay) this.drawProximityTexts(state, view);
             if (hasStoryOverlay) this.drawMailboxStoryOverlay(state, view);
+            if (hasScreenMessageOverlay) this.drawScreenMessages(state, view, false);
             if (hasDebugOverlay) this.drawDebug(state, view, inputFrame);
             this.uploadStagingLayer(view);
         }
@@ -3539,8 +3643,9 @@ class RocketfrockRenderer {
         this.frameRenderBreakdown.portalMs = worldEnd - worldMainEnd;
 
         this.drawTargetsWebGL(state, view);
-        this.drawPickupsWebGL(state, view);
+        this.drawPickupsWebGL(state, view, false);
         this.drawEnemiesWebGL(state, view);
+        this.drawPickupsWebGL(state, view, true);
         this.drawWorldEffectsWebGL(state, view);
 
         const hasResidualWorldEffects = (state.effects?.smokePuffs || []).some((puff) => (
@@ -3598,13 +3703,17 @@ class RocketfrockRenderer {
         this.frameRenderBreakdown.worldVisualsMs += Math.max(0, foregroundEnd - foregroundBakeStart);
         const story = state.story?.mailboxEvent;
         const hasStoryOverlay = Boolean(story?.active && (story.phase === "letter" || story.phase === "thought"));
+        const hasProximityTextOverlay = this.hasActiveProximityText(state);
         const hasDebugOverlay = Boolean(
             state.debug?.showHitboxes ||
             state.debug?.showVelocity
         );
-        if (hasStoryOverlay || hasDebugOverlay) {
+        const hasScreenMessageOverlay = this.syncScreenMessages(state);
+        if (hasProximityTextOverlay || hasStoryOverlay || hasDebugOverlay || hasScreenMessageOverlay) {
             this.clearStagingLayer();
+            if (hasProximityTextOverlay) this.drawProximityTexts(state, view);
             if (hasStoryOverlay) this.drawMailboxStoryOverlay(state, view);
+            if (hasScreenMessageOverlay) this.drawScreenMessages(state, view, false);
             if (hasDebugOverlay) this.drawDebug(state, view, inputFrame);
             this.uploadStagingLayer(view);
         }
@@ -3629,15 +3738,18 @@ class RocketfrockRenderer {
         if (!backend.beginFrame(view.w, view.h, LEVEL_BACKGROUND_COLOR)) {
             return;
         }
-        if (this.isStaticTileBakeEnabled() && this.renderWebGL2StaticTiles(state, inputFrame, view, frameStart)) {
-            return;
-        }
-        if (this.isFullStaticLayerBakeEnabled() && this.renderWebGL2StaticBake(state, inputFrame, view, frameStart)) {
-            return;
+        if (!worldHasOnTopVisuals(state)) {
+            if (this.isStaticTileBakeEnabled() && this.renderWebGL2StaticTiles(state, inputFrame, view, frameStart)) {
+                return;
+            }
+            if (this.isFullStaticLayerBakeEnabled() && this.renderWebGL2StaticBake(state, inputFrame, view, frameStart)) {
+                return;
+            }
         }
 
         this.drawBackgroundVisualsWebGL(state, view);
-        const visualResult = this.drawOrderedWorldVisualsWebGL(state, view, false);
+        this.drawBackgroundVisualsWebGL(state, view, "backgroundOnTop");
+        const visualResult = this.drawOrderedWorldVisualsWebGL(state, view, "main");
         const needsWorldCanvasLayer = Boolean(
             state.debug.showCollision ||
             state.debug.showAssetGuides ||
@@ -3654,8 +3766,9 @@ class RocketfrockRenderer {
 
         this.drawPortalIntroGlowWebGL(state, view);
         this.drawTargetsWebGL(state, view);
-        this.drawPickupsWebGL(state, view);
+        this.drawPickupsWebGL(state, view, false);
         this.drawEnemiesWebGL(state, view);
+        this.drawPickupsWebGL(state, view, true);
         this.drawWorldEffectsWebGL(state, view);
 
         const hasResidualWorldEffects = (state.effects?.smokePuffs || []).some((puff) => (
@@ -3699,8 +3812,10 @@ class RocketfrockRenderer {
         backend.flush();
         const actorsEnd = rendererNowMs();
 
-        this.drawOrderedWorldVisualsWebGL(state, view, true);
+        this.drawOrderedWorldVisualsWebGL(state, view, "actorFront");
+        this.drawOrderedWorldVisualsWebGL(state, view, "mainOnTop");
         this.drawCaveForegroundVisualsWebGL(state, view);
+        this.drawCaveForegroundVisualsWebGL(state, view, "caveForegroundOnTop");
         backend.flush();
         const foregroundEnd = rendererNowMs();
 
@@ -3710,14 +3825,18 @@ class RocketfrockRenderer {
 
         const story = state.story?.mailboxEvent;
         const hasStoryOverlay = Boolean(story?.active && (story.phase === "letter" || story.phase === "thought"));
+        const hasProximityTextOverlay = this.hasActiveProximityText(state);
         const hasDebugOverlay = Boolean(
             state.debug.showCollision ||
             state.debug.showHitboxes ||
             state.debug.showVelocity
         );
-        if (hasStoryOverlay || hasDebugOverlay) {
+        const hasScreenMessageOverlay = this.syncScreenMessages(state);
+        if (hasProximityTextOverlay || hasStoryOverlay || hasDebugOverlay || hasScreenMessageOverlay) {
             this.clearStagingLayer();
+            if (hasProximityTextOverlay) this.drawProximityTexts(state, view);
             if (hasStoryOverlay) this.drawMailboxStoryOverlay(state, view);
+            if (hasScreenMessageOverlay) this.drawScreenMessages(state, view, false);
             if (hasDebugOverlay) this.drawDebug(state, view, inputFrame);
             this.uploadStagingLayer(view);
         }
@@ -4121,18 +4240,18 @@ class RocketfrockRenderer {
         ctx.restore();
     }
 
-    drawOrderedWorldVisualsWebGL(state, view, actorFrontOnly = false) {
+    drawOrderedWorldVisualsWebGL(state, view, requestedPartition = "main") {
         const backend = this.webglBackend;
         if (!backend?.available) {
             return { drewAny: false, hasRenderableVisuals: false };
         }
         const cache = this.getWorldVisualCache(state);
-        const partitionName = actorFrontOnly ? "actorFront" : "main";
+        const partitionName = requestedPartition === true ? "actorFront" : (requestedPartition === false ? "main" : requestedPartition);
         const query = queryWorldVisualEntries(cache, partitionName, view, null, VISUAL_CULL_MARGIN_PX, this.worldVisualQueryScratchFor(partitionName));
         this.frameVisualCounters.spatialCulled += query.spatialCulled;
         const partition = query.partition;
         const hasRenderableVisuals = this.partitionHasRenderableVisuals(partition);
-        const overlapCache = actorFrontOnly ? null : this.ensureOverlapBlendCache(state);
+        const overlapCache = partitionName === "main" ? this.ensureOverlapBlendCache(state) : null;
         const drawnBlendGroups = this.frameDrawnBlendGroups;
         drawnBlendGroups.clear();
         let drewAny = false;
@@ -4168,15 +4287,15 @@ class RocketfrockRenderer {
         return queued;
     }
 
-    drawBackgroundVisualsWebGL(state, view) {
+    drawBackgroundVisualsWebGL(state, view, partitionName = "background") {
         const cache = this.getWorldVisualCache(state);
         const query = queryWorldVisualEntries(
             cache,
-            "background",
+            partitionName,
             view,
             this.frameBackgroundOffset,
             VISUAL_CULL_MARGIN_PX,
-            this.worldVisualQueryScratchFor("background")
+            this.worldVisualQueryScratchFor(partitionName)
         );
         this.frameVisualCounters.spatialCulled += query.spatialCulled;
         let drewAny = false;
@@ -4188,15 +4307,15 @@ class RocketfrockRenderer {
         return drewAny;
     }
 
-    drawCaveForegroundVisualsWebGL(state, view) {
+    drawCaveForegroundVisualsWebGL(state, view, partitionName = "caveForeground") {
         const cache = this.getWorldVisualCache(state);
         const query = queryWorldVisualEntries(
             cache,
-            "caveForeground",
+            partitionName,
             view,
             this.frameForegroundOffset,
             VISUAL_CULL_MARGIN_PX,
-            this.worldVisualQueryScratchFor("caveForeground")
+            this.worldVisualQueryScratchFor(partitionName)
         );
         this.frameVisualCounters.spatialCulled += query.spatialCulled;
         let drewAny = false;
@@ -4282,22 +4401,23 @@ class RocketfrockRenderer {
             rotation: visualPresentationAngle(visual),
             mirrorX: Boolean(visual.mirrorX),
             mirrorY: Boolean(visual.mirrorY),
-            alpha: visualPresentationAlpha(visual)
+            alpha: visualPresentationAlpha(visual),
+            blendMode: visual.blendMode === "brightenOnly" ? "brightenOnly" : "alpha"
         });
         if (queued) this.frameVisualCounters.drawn += 1;
         return queued;
     }
 
-    drawOrderedWorldVisuals(state, view, actorFrontOnly = false) {
+    drawOrderedWorldVisuals(state, view, requestedPartition = "main") {
         const cache = this.getWorldVisualCache(state);
-        const partitionName = actorFrontOnly ? "actorFront" : "main";
+        const partitionName = requestedPartition === true ? "actorFront" : (requestedPartition === false ? "main" : requestedPartition);
         const query = queryWorldVisualEntries(cache, partitionName, view, null, VISUAL_CULL_MARGIN_PX, this.worldVisualQueryScratchFor(partitionName));
         const entries = query.entries;
         this.frameVisualCounters.spatialCulled += query.spatialCulled;
         let drewAny = false;
         const partition = query.partition;
         const hasRenderableVisuals = this.partitionHasRenderableVisuals(partition);
-        const overlapCache = actorFrontOnly ? null : this.ensureOverlapBlendCache(state);
+        const overlapCache = partitionName === "main" ? this.ensureOverlapBlendCache(state) : null;
         const drawnBlendGroups = this.frameDrawnBlendGroups;
         drawnBlendGroups.clear();
         for (const { visual, bounds } of entries) {
@@ -4336,15 +4456,15 @@ class RocketfrockRenderer {
         return true;
     }
 
-    drawBackgroundVisuals(state, view) {
+    drawBackgroundVisuals(state, view, partitionName = "background") {
         const cache = this.getWorldVisualCache(state);
         const query = queryWorldVisualEntries(
             cache,
-            "background",
+            partitionName,
             view,
             this.frameBackgroundOffset,
             VISUAL_CULL_MARGIN_PX,
-            this.worldVisualQueryScratchFor("background")
+            this.worldVisualQueryScratchFor(partitionName)
         );
         this.frameVisualCounters.spatialCulled += query.spatialCulled;
         let drewAny = false;
@@ -4356,15 +4476,15 @@ class RocketfrockRenderer {
         return drewAny;
     }
 
-    drawCaveForegroundVisuals(state, view) {
+    drawCaveForegroundVisuals(state, view, partitionName = "caveForeground") {
         const cache = this.getWorldVisualCache(state);
         const query = queryWorldVisualEntries(
             cache,
-            "caveForeground",
+            partitionName,
             view,
             this.frameForegroundOffset,
             VISUAL_CULL_MARGIN_PX,
-            this.worldVisualQueryScratchFor("caveForeground")
+            this.worldVisualQueryScratchFor(partitionName)
         );
         this.frameVisualCounters.spatialCulled += query.spatialCulled;
         let drewAny = false;
@@ -4449,6 +4569,9 @@ class RocketfrockRenderer {
         const h = visual.h * view.zoom;
         ctx.save();
         ctx.globalAlpha *= visualPresentationAlpha(visual);
+        if (visual.blendMode === "brightenOnly") {
+            ctx.globalCompositeOperation = "lighten";
+        }
         ctx.translate(center.x, center.y);
         ctx.rotate(visualPresentationAngle(visual));
         ctx.scale(visual.mirrorX ? -1 : 1, visual.mirrorY ? -1 : 1);
@@ -5045,12 +5168,17 @@ class RocketfrockRenderer {
         return drew;
     }
 
-    drawPickupsWebGL(state, view) {
+    pickupRendersInFrontOfEnemies(pickup) {
+        return pickup?.dropped === true;
+    }
+
+    drawPickupsWebGL(state, view, frontLayer = false) {
         const backend = this.webglBackend;
         if (!backend?.available) return;
         const pickupDisc = this.getWebGLParticleSpriteCanvas("pickupDisc");
         for (const pickup of state.pickups || []) {
             if (pickup.collected || pickup.visualized) continue;
+            if (this.pickupRendersInFrontOfEnemies(pickup) !== frontLayer) continue;
             const pickupScale = pickup.kind === "powerUp" ? Math.max(0.1, Number(pickup.powerUp?.worldScale) || 1) : 1;
             const pickupExtent = Math.max(1, Number(pickup.radius) || 1) * pickupScale;
             const centerY = Number.isFinite(Number(pickup.centerY)) ? Number(pickup.centerY) : Number(pickup.y) || 0;
@@ -5060,12 +5188,31 @@ class RocketfrockRenderer {
                 maxX: pickup.x + pickupExtent,
                 maxY: centerY + pickupExtent
             }, view, 48)) continue;
-            const bob = pickup.kind === "powerUp" ? Math.sin(state.clock.time * 2.8 + pickup.x * 0.01) * 7 : 0;
+            const bob = (pickup.kind === "powerUp" || pickup.bob === true)
+                ? Math.sin(state.clock.time * 2.8 + pickup.x * 0.01) * 7
+                : 0;
             const point = this.worldToScreen(view, pickup.x, centerY + bob);
             const radius = Math.max(1, Number(pickup.radius) || 1) * view.zoom;
             let drew = false;
             if (pickup.kind === "powerUp" && pickup.powerUp) {
                 drew = this.drawPowerUpCompositeWebGL(pickup.powerUp, point.x, point.y, Math.max(44 * view.zoom, radius * 2.25) * pickupScale, state.clock.time);
+            } else if (pickup.assetId) {
+                const atlas = this.environmentAtlases.get(pickup.atlasId || "it_atlas_001");
+                const frame = atlas?.frames?.[pickup.assetId];
+                if (atlas && frame) {
+                    drew = backend.queueSprite({
+                        source: atlas.renderImage || atlas.image,
+                        sourceX: frame.x,
+                        sourceY: frame.y,
+                        sourceWidth: frame.w,
+                        sourceHeight: frame.h,
+                        centerX: point.x,
+                        centerY: point.y,
+                        width: Math.max(1, Number(pickup.width) || frame.w) * view.zoom,
+                        height: Math.max(1, Number(pickup.height) || frame.h) * view.zoom,
+                        alpha: 1
+                    });
+                }
             } else if (pickupDisc) {
                 drew = backend.queueSprite({
                     source: pickupDisc,
@@ -5169,7 +5316,14 @@ class RocketfrockRenderer {
         const groundPoint = actorGroundPoint(enemy);
         const groundScreen = this.worldToScreen(view, groundPoint.x, groundPoint.y);
         const requestedSlot = enemy.animationSlot || enemy.state || "idle";
-        const time = Number.isFinite(Number(enemy.animationClock?.shown)) ? Number(enemy.animationClock?.shown) : state.clock.time + (Number(enemy.animationTimeOffset) || 0);
+        const baseTime = Number.isFinite(Number(enemy.animationClock?.shown)) ? Number(enemy.animationClock?.shown) : state.clock.time + (Number(enemy.animationTimeOffset) || 0);
+        const time = runtimeLoopVariantAnimationTime(
+            project,
+            requestedSlot,
+            baseTime,
+            enemy.loopAnimationPhaseOffsetCycles,
+            enemy.loopAnimationPeriodScale
+        );
         const sampled = sampleRuntimeCharacterPose(project, requestedSlot, time);
         const transforms = animationPoseToRuntimeTransforms(sampled.pose, project.rig, view.zoom, actorScale);
         applyRuntimeProjectileHandoffVisibility(project, sampled.slot, time, transforms);
@@ -5272,10 +5426,11 @@ class RocketfrockRenderer {
         }
     }
 
-    drawPickups(state, view) {
+    drawPickups(state, view, frontLayer = false) {
         const ctx = this.ctx;
         for (const pickup of state.pickups) {
             if (pickup.collected || pickup.visualized) continue;
+            if (this.pickupRendersInFrontOfEnemies(pickup) !== frontLayer) continue;
             const pickupScale = pickup.kind === "powerUp" ? Math.max(0.1, Number(pickup.powerUp?.worldScale) || 1) : 1;
             const pickupExtent = Math.max(1, Number(pickup.radius) || 1) * pickupScale;
             const centerY = Number.isFinite(Number(pickup.centerY)) ? Number(pickup.centerY) : Number(pickup.y) || 0;
@@ -5287,11 +5442,21 @@ class RocketfrockRenderer {
             }, view, 48)) {
                 continue;
             }
-            const bob = pickup.kind === "powerUp" ? Math.sin(state.clock.time * 2.8 + pickup.x * 0.01) * 7 : 0;
+            const bob = (pickup.kind === "powerUp" || pickup.bob === true)
+                ? Math.sin(state.clock.time * 2.8 + pickup.x * 0.01) * 7
+                : 0;
             const p = this.worldToScreen(view, pickup.x, centerY + bob);
             const r = pickup.radius * view.zoom;
             if (pickup.kind === "powerUp" && pickup.powerUp) {
                 this.drawPowerUpComposite(pickup.powerUp, p.x, p.y, Math.max(44 * view.zoom, r * 2.25) * pickupScale, state.clock.time);
+            } else if (pickup.assetId) {
+                const atlas = this.environmentAtlases.get(pickup.atlasId || "it_atlas_001");
+                const frame = atlas?.frames?.[pickup.assetId];
+                if (atlas?.image && frame) {
+                    const width = Math.max(1, Number(pickup.width) || frame.w) * view.zoom;
+                    const height = Math.max(1, Number(pickup.height) || frame.h) * view.zoom;
+                    ctx.drawImage(atlas.image, frame.x, frame.y, frame.w, frame.h, p.x - width * 0.5, p.y - height * 0.5, width, height);
+                }
             } else {
                 ctx.save();
                 ctx.globalAlpha = 0.82 + 0.18 * Math.sin(state.clock.time * 5 + pickup.x);
@@ -5399,6 +5564,51 @@ class RocketfrockRenderer {
         return project?.atlasAssets instanceof Map ? project.atlasAssets.get(frameId) || null : null;
     }
 
+    getCharacterProjectileAsset(projectile, fallbackCharacterId = "ct_char_enemy_010", fallbackFrameId = "fireball") {
+        const findInProject = (characterId, frameId, partName) => {
+            const project = this.getCharacterProject(characterId);
+            if (!project) {
+                return null;
+            }
+            if (partName && project.assets instanceof Map) {
+                const partAsset = project.assets.get(partName);
+                if (partAsset) {
+                    return partAsset;
+                }
+            }
+            return project.atlasAssets instanceof Map ? project.atlasAssets.get(frameId) || null : null;
+        };
+
+        const characterId = projectile?.characterId || fallbackCharacterId;
+        const frameId = projectile?.frameId || fallbackFrameId;
+        const partName = projectile?.projectilePartName || "";
+        return findInProject(characterId, frameId, partName)
+            || findInProject(fallbackCharacterId, fallbackFrameId, "");
+    }
+
+    projectileTrailPalette(projectile) {
+        const palette = this.getCharacterProjectileAsset(projectile)?.projectileTrailPalette;
+        return Array.isArray(palette) && palette.length >= 4 ? palette : null;
+    }
+
+    projectileTrailColorAtHeat(palette, heat) {
+        if (!Array.isArray(palette) || palette.length < 4) {
+            return null;
+        }
+        const scaled = clamp(Number(heat) || 0, 0, 1) * (palette.length - 1);
+        const lowerIndex = Math.min(palette.length - 1, Math.floor(scaled));
+        const upperIndex = Math.min(palette.length - 1, lowerIndex + 1);
+        const blend = scaled - lowerIndex;
+        const lower = palette[lowerIndex];
+        const upper = palette[upperIndex];
+        if (!Array.isArray(lower) || !Array.isArray(upper)) {
+            return null;
+        }
+        return [0, 1, 2].map((channel) => Math.round(
+            (Number(lower[channel]) || 0) + ((Number(upper[channel]) || 0) - (Number(lower[channel]) || 0)) * blend
+        ));
+    }
+
     drawRuntimeCharacterEnemy(project, enemy, state, view) {
         const renderOpacity = enemy.health <= 0
             ? clamp(Number(enemy.shownTransform.alpha ?? 1), 0, 1)
@@ -5413,9 +5623,16 @@ class RocketfrockRenderer {
         const groundPoint = actorGroundPoint(enemy);
         const groundScreen = this.worldToScreen(view, groundPoint.x, groundPoint.y);
         const requestedSlot = enemy.animationSlot || enemy.state || "idle";
-        const time = Number.isFinite(Number(enemy.animationClock?.shown))
+        const baseTime = Number.isFinite(Number(enemy.animationClock?.shown))
             ? Number(enemy.animationClock?.shown)
             : state.clock.time + (Number(enemy.animationTimeOffset) || 0);
+        const time = runtimeLoopVariantAnimationTime(
+            project,
+            requestedSlot,
+            baseTime,
+            enemy.loopAnimationPhaseOffsetCycles,
+            enemy.loopAnimationPeriodScale
+        );
         const sampled = sampleRuntimeCharacterPose(project, requestedSlot, time);
         const transforms = animationPoseToRuntimeTransforms(sampled.pose, project.rig, view.zoom, actorScale);
         applyRuntimeProjectileHandoffVisibility(project, sampled.slot, time, transforms);
@@ -6264,7 +6481,11 @@ class RocketfrockRenderer {
         ];
     }
 
-    fireballHeatTint(heat) {
+    fireballHeatTint(heat, sampledPalette = null) {
+        const sampled = this.projectileTrailColorAtHeat(sampledPalette, heat);
+        if (sampled) {
+            return [sampled[0] / 255, sampled[1] / 255, sampled[2] / 255, 1];
+        }
         if (heat > 0.78) {
             return [1, 240 / 255, 165 / 255, 1];
         }
@@ -6318,6 +6539,7 @@ class RocketfrockRenderer {
             return false;
         }
         let drew = false;
+        const trailPalette = undeath ? null : this.projectileTrailPalette(projectile);
         const particles = Array.isArray(projectile.trail) ? projectile.trail : [];
         for (const particle of particles) {
             const age = state.clock.time - Number(particle.birth || 0);
@@ -6332,7 +6554,10 @@ class RocketfrockRenderer {
             const radius = Math.max(0.15 * view.zoom, Number(particle.radius || 2) * fade * view.zoom);
             const tint = undeath
                 ? [1, 1, 1, 1]
-                : this.fireballHeatTint(clamp((Number(particle.heat ?? 0.5)) * (0.45 + fade * 0.55), 0, 1));
+                : this.fireballHeatTint(
+                    clamp((Number(particle.heat ?? 0.5)) * (0.45 + fade * 0.55), 0, 1),
+                    trailPalette
+                );
             const queued = backend.queueSprite({
                 source: particleSprite,
                 centerX: screen.x,
@@ -6365,8 +6590,7 @@ class RocketfrockRenderer {
             drew = this.drawEnemyFireballParticlesWebGL(projectile, state, view) || drew;
         }
         if (!undeath) {
-            const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_010", projectile.frameId || "fireball") ||
-                this.getCharacterAtlasFrame("ct_char_enemy_010", "fireball");
+            const asset = this.getCharacterProjectileAsset(projectile, "ct_char_enemy_010", "fireball");
             if (asset && !asset.missing) {
                 const targetHeight = Math.max(8, Number(projectile.radius) || 10) * 2 * view.zoom;
                 drew = this.queueWebGLAssetSprite(asset, p.x, p.y, targetHeight, angle) || drew;
@@ -6422,8 +6646,11 @@ class RocketfrockRenderer {
             return false;
         }
         const p = this.worldToScreen(view, projectile.shownTransform.x, projectile.shownTransform.y);
-        const targetHeight = Math.max(8, Number(projectile.radius) || 10) * 2.35 * view.zoom;
-        const rotation = (Number(projectile.age) || 0) * 5 + projectile.shownTransform.x * 0.01;
+        const isThrowingAxe = projectile.projectileKind === "throwingAxe";
+        const visualScale = isThrowingAxe ? 1.7 : 1;
+        const rotationSpeed = isThrowingAxe ? 25 : 5;
+        const targetHeight = Math.max(8, Number(projectile.radius) || 10) * 2.35 * visualScale * view.zoom;
+        const rotation = (Number(projectile.age) || 0) * rotationSpeed + projectile.shownTransform.x * 0.01;
         const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_020", projectile.frameId || "rock") ||
             this.getCharacterAtlasFrame("ct_char_enemy_020", "rock");
         if (asset && !asset.missing) {
@@ -6850,22 +7077,25 @@ class RocketfrockRenderer {
         const p = this.worldToScreen(view, projectile.shownTransform.x, projectile.shownTransform.y);
         const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_020", projectile.frameId || "rock") ||
             this.getCharacterAtlasFrame("ct_char_enemy_020", "rock");
+        const isThrowingAxe = projectile.projectileKind === "throwingAxe";
+        const visualScale = isThrowingAxe ? 1.7 : 1;
+        const rotationSpeed = isThrowingAxe ? 25 : 5;
         if (asset && !asset.missing) {
-            const targetHeight = Math.max(8, Number(projectile.radius) || 10) * 2.35 * view.zoom;
+            const targetHeight = Math.max(8, Number(projectile.radius) || 10) * 2.35 * visualScale * view.zoom;
             const spriteScale = targetHeight / Math.max(1, asset.height);
             ctx.save();
             ctx.translate(p.x, p.y);
-            ctx.rotate((Number(projectile.age) || 0) * 5 + projectile.shownTransform.x * 0.01);
+            ctx.rotate((Number(projectile.age) || 0) * rotationSpeed + projectile.shownTransform.x * 0.01);
             ctx.scale(spriteScale, spriteScale);
             drawRuntimePixmap(ctx, asset, -asset.width * 0.5, -asset.height * 0.5);
             ctx.restore();
             return;
         }
 
-        const radius = Math.max(4, Number(projectile.radius) || 10) * view.zoom;
+        const radius = Math.max(4, Number(projectile.radius) || 10) * visualScale * view.zoom;
         ctx.save();
         ctx.translate(p.x, p.y);
-        ctx.rotate((Number(projectile.age) || 0) * 5 + projectile.shownTransform.x * 0.01);
+        ctx.rotate((Number(projectile.age) || 0) * rotationSpeed + projectile.shownTransform.x * 0.01);
         ctx.beginPath();
         for (let i = 0; i < 8; i += 1) {
             const angle = i / 8 * Math.PI * 2;
@@ -6893,7 +7123,22 @@ class RocketfrockRenderer {
         return seed;
     }
 
-    fireballHeatPalette(heat) {
+    fireballHeatPalette(heat, sampledPalette = null) {
+        if (sampledPalette) {
+            const rgba = (color, alpha) => `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${alpha})`;
+            const core = this.projectileTrailColorAtHeat(sampledPalette, clamp(heat + 0.20, 0, 1));
+            const middle = this.projectileTrailColorAtHeat(sampledPalette, heat);
+            const outer = this.projectileTrailColorAtHeat(sampledPalette, clamp(heat - 0.26, 0, 1));
+            const edge = this.projectileTrailColorAtHeat(sampledPalette, clamp(heat - 0.48, 0, 1));
+            if (core && middle && outer && edge) {
+                return [
+                    rgba(core, 1),
+                    rgba(middle, 0.96),
+                    rgba(outer, 0.64),
+                    rgba(edge, 0)
+                ];
+            }
+        }
         if (heat > 0.78) {
             return [
                 "rgba(255, 255, 245, 1)",
@@ -6949,6 +7194,7 @@ class RocketfrockRenderer {
             return;
         }
         const undeath = this.isUndeathProjectile(projectile);
+        const trailPalette = undeath ? null : this.projectileTrailPalette(projectile);
         const undeathBubble = undeath ? this.getWebGLParticleSpriteCanvas("undeathBubble") : null;
         ctx.save();
         ctx.globalCompositeOperation = undeath ? "source-over" : "lighter";
@@ -6972,7 +7218,14 @@ class RocketfrockRenderer {
                 continue;
             }
             const cooledHeat = clamp((Number(particle.heat ?? 0.5)) * (0.45 + fade * 0.55), 0, 1);
-            this.drawFireballGlowCircle(ctx, screen.x, screen.y, radius, this.fireballHeatPalette(cooledHeat), fade * 0.92);
+            this.drawFireballGlowCircle(
+                ctx,
+                screen.x,
+                screen.y,
+                radius,
+                this.fireballHeatPalette(cooledHeat, trailPalette),
+                fade * 0.92
+            );
         }
         ctx.restore();
     }
@@ -6993,8 +7246,7 @@ class RocketfrockRenderer {
         }
 
         if (!undeath) {
-            const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_010", projectile.frameId || "fireball") ||
-                this.getCharacterAtlasFrame("ct_char_enemy_010", "fireball");
+            const asset = this.getCharacterProjectileAsset(projectile, "ct_char_enemy_010", "fireball");
             if (asset && !asset.missing) {
                 const targetHeight = Math.max(8, Number(projectile.radius) || 10) * 2 * view.zoom;
                 const spriteScale = targetHeight / Math.max(1, asset.height);
@@ -7215,7 +7467,56 @@ class RocketfrockRenderer {
         ctx.restore();
     }
 
+    hasActiveProximityText(state) {
+        return (state.story?.proximityTexts || []).some((notification) =>
+            notification?.active && Number(notification.alpha) > 0 && String(notification.text || "").length > 0
+        );
+    }
+
+    proximityTextFontStack(fontFamily) {
+        return String(fontFamily || "inter").toLowerCase() === "caveat"
+            ? "'Ignatius Caveat', Caveat, cursive"
+            : "'Ignatius Inter', Inter, ui-sans-serif, system-ui, sans-serif";
+    }
+
+    drawProximityTexts(state, view) {
+        const active = (state.story?.proximityTexts || []).filter((notification) =>
+            notification?.active && Number(notification.alpha) > 0 && String(notification.text || "").length > 0
+        );
+        if (!active.length) return;
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.lineJoin = "round";
+        for (const notification of active) {
+            const center = this.worldToScreen(view, Number(notification.x) || 0, Number(notification.y) || 0);
+            const fontSize = Math.max(8, Number(notification.fontSize) || 100) * view.zoom;
+            const lineHeight = fontSize * 1.15;
+            const lines = String(notification.text || "Lorem ipsum").split(/\r?\n/);
+            const firstY = center.y - (lines.length - 1) * lineHeight * 0.5;
+            const alpha = clamp(Number(notification.alpha) || 0, 0, 1);
+            ctx.globalAlpha = alpha;
+            ctx.font = `700 ${fontSize}px ${this.proximityTextFontStack(notification.fontFamily)}`;
+            ctx.fillStyle = String(notification.color || "#723891");
+            const authoredOutlineWidth = Number(notification.outlineWidth);
+            const outlineWidth = Math.max(0, Number.isFinite(authoredOutlineWidth) ? authoredOutlineWidth : 3) * view.zoom;
+            if (outlineWidth > 0) {
+                ctx.strokeStyle = String(notification.outlineColor || "#0f0113");
+                ctx.lineWidth = outlineWidth * 2;
+            }
+            lines.forEach((line, index) => {
+                const y = firstY + index * lineHeight;
+                if (outlineWidth > 0) ctx.strokeText(line, center.x, y);
+                ctx.fillText(line, center.x, y);
+            });
+            this.markDynamicDrawn();
+        }
+        ctx.restore();
+    }
+
     drawMailboxStoryOverlay(state, view) {
+        this.drawPlayerOverheadSymbol(state, view);
         const story = state.story?.mailboxEvent;
         if (!story?.active || (story.phase !== "letter" && story.phase !== "thought")) return;
 
@@ -7230,6 +7531,25 @@ class RocketfrockRenderer {
         } else {
             this.drawThoughtOverlay(state, story, view);
         }
+    }
+
+    drawPlayerOverheadSymbol(state, view) {
+        const symbol = state.story?.overheadSymbol;
+        if (!symbol || symbol.remaining <= 0 || state.player?.visible === false) return;
+        const atlas = this.environmentAtlases.get(symbol.atlasId || "it_atlas_001");
+        const frame = atlas?.frames?.[symbol.assetId];
+        if (!atlas?.image || !frame) return;
+        const height = 84 * view.zoom;
+        const width = height * frame.w / Math.max(1, frame.h);
+        const playerX = state.player.shownTransform?.x ?? state.player.currentTransform?.x ?? 0;
+        const playerY = state.player.shownTransform?.y ?? state.player.currentTransform?.y ?? 0;
+        const screen = this.worldToScreen(view, playerX, playerY - state.player.height - 54);
+        const alpha = Math.min(1, symbol.remaining / 0.22);
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.drawImage(atlas.renderImage || atlas.image, frame.x, frame.y, frame.w, frame.h, screen.x - width * 0.5, screen.y - height, width, height);
+        ctx.restore();
     }
 
     drawLetterOverlay(story, view) {
@@ -7893,15 +8213,15 @@ class RocketfrockRenderer {
     }
 
     computeRigPose(state, zoom = 1) {
-        const runClip = this.animations.get("run");
+        const walkClip = this.animations.get("walk");
         if (state.player.onGround) {
-            if (!runClip) {
-                throw new Error("Character is missing its required run animation clip.");
+            if (!walkClip) {
+                throw new Error("Character is missing its required walk animation clip.");
             }
-            const dataResult = this.computeDataDrivenGroundPose(state, zoom, runClip);
+            const dataResult = this.computeDataDrivenGroundPose(state, zoom, walkClip);
             this.lastAnimationDiagnostics = {
                 mode: "data",
-                clipId: runClip.animationId,
+                clipId: walkClip.animationId,
                 available: true
             };
             return dataResult.pose;
@@ -8712,12 +9032,15 @@ function findClosedCollisionLoops(object) {
     const nodeById = new Map(object.nodes.map((node) => [node.id, node]));
     const blockerLines = object.lines.filter((line) => isAreaBlockingLineKind(line.kind) && nodeById.has(line.from) && nodeById.has(line.to));
     const blockerLoops = findClosedLoopsFromLines(blockerLines, nodeById);
+    const waterLines = object.lines.filter((line) => line.kind === "water" && nodeById.has(line.from) && nodeById.has(line.to));
+    const waterLoops = findClosedLoopsFromLines(waterLines, nodeById);
     if (blockerLoops.length) {
-        return blockerLoops;
+        return [...blockerLoops, ...waterLoops];
     }
 
     const solidLines = object.lines.filter((line) => isSolidGuideLineKind(line.kind) && nodeById.has(line.from) && nodeById.has(line.to));
-    return findClosedLoopsFromLines(solidLines, nodeById).filter((loop) => loop.lines.some((line) => isAreaBlockingLineKind(line.kind)));
+    const fallbackBlockers = findClosedLoopsFromLines(solidLines, nodeById).filter((loop) => loop.lines.some((line) => isAreaBlockingLineKind(line.kind)));
+    return [...fallbackBlockers, ...waterLoops];
 }
 
 function isSolidGuideLineKind(kind) {
@@ -8852,6 +9175,7 @@ function orderClosedLineLoop(lines, nodeById) {
 }
 
 function collisionLoopKind(lines) {
+    if (lines.some((line) => line.kind === "water")) return "water";
     if (lines.some((line) => line.kind === "killable")) return "killable";
     if (lines.some((line) => line.kind === "damaging")) return "damaging";
     return "blockable";
@@ -8870,12 +9194,14 @@ function polygonArea(points) {
 function assetLineColor(kind) {
     if (kind === "walkable") return "rgba(88, 255, 158, 0.92)";
     if (kind === "blockable") return "rgba(255, 225, 94, 0.92)";
+    if (kind === "water") return "rgba(77, 166, 255, 0.95)";
     if (kind === "damaging") return "rgba(255, 159, 67, 0.95)";
     if (kind === "killable") return "rgba(255, 79, 97, 0.95)";
     return "rgba(255, 255, 255, 0.85)";
 }
 
 function assetAreaColor(kind) {
+    if (kind === "water") return "rgba(77, 166, 255, 0.22)";
     if (kind === "damaging") return "rgba(255, 159, 67, 0.20)";
     if (kind === "killable") return "rgba(255, 79, 97, 0.22)";
     return "rgba(255, 225, 94, 0.18)";

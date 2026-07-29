@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "catalogId": "level-generator-color-modifiers-v1",
+  "modifiers": [
+    {
+      "colorModifierId": "original",
+      "label": "Original colours",
+      "description": "Use the authored atlas colours.",
+      "colorMap": {
+        "enabled": false,
+        "sourceHue": 28,
+        "range": 100,
+        "feather": 28,
+        "rotation": 0,
+        "atlasIds": []
+      }
+    },
+    {
+      "colorModifierId": "frost",
+      "label": "Frost",
+      "description": "Selective cold-blue reskin for environment atlases only.",
+      "colorMap": {
+        "enabled": true,
+        "sourceHue": 28,
+        "range": 112,
+        "feather": 30,
+        "rotation": 172,
+        "atlasIds": [
+          "at_atlas_001",
+          "at_atlas_002",
+          "at_atlas_003",
+          "at_atlas_004",
+          "at_atlas_005",
+          "at_atlas_006",
+          "at_atlas_007",
+          "at_atlas_008",
+          "at_atlas_009",
+          "at_atlas_010",
+          "at_atlas_011",
+          "at_atlas_012",
+          "at_atlas_013",
+          "at_atlas_014"
+        ]
+      }
+    }
+  ]
+}

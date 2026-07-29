@@ -1,0 +1,44 @@
+{
+  "themeId": "castle",
+  "label": "Castle",
+  "description": "Castle stonework and wooden architectural platforms.",
+  "defaultColorModifierId": "original",
+  "assetPools": {
+    "terrain": {
+      "all": [
+        "layer.terrain"
+      ],
+      "any": [
+        "biome.castle"
+      ]
+    },
+    "movingPlatform": {
+      "all": [
+        "layer.terrain",
+        "capability.movingPlatform"
+      ],
+      "any": [
+        "biome.castle"
+      ]
+    },
+    "foreground": {
+      "all": [
+        "layer.foreground"
+      ],
+      "any": [
+        "biome.castle"
+      ]
+    },
+    "background": {
+      "all": [
+        "layer.background"
+      ],
+      "any": [
+        "biome.castle"
+      ]
+    }
+  },
+  "decorationPolicy": {
+    "populatePerimeter": false
+  }
+}

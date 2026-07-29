@@ -1,0 +1,1816 @@
+{
+    "meta": {
+        "version": 2,
+        "note": "Revision 182 Human Crossbow idle clip cloned from the articulated Human Raider and resized for the crossbow presentation.",
+        "bakedParentConstraintParts": [
+            "leftUpperArm",
+            "leftLowerArm",
+            "rightUpperLeg",
+            "rightLowerLeg",
+            "rightFoot",
+            "leftUpperLeg",
+            "leftLowerLeg",
+            "leftFoot",
+            "head",
+            "weapon",
+            "rightUpperArm",
+            "rightLowerArm"
+        ],
+        "bakedPositionKeyCount": 240
+    },
+    "animationId": "ct_anim_enemy_034_idle",
+    "duration": 1.2,
+    "loop": true,
+    "mirrorable": true,
+    "playback": {
+        "idleThreshold": 0.04,
+        "baseCyclesPerSecond": 0.833333,
+        "speedCyclesPerSecond": 0.833333,
+        "maxSpeedRatio": 1
+    },
+    "rootMotion": {
+        "enabled": false,
+        "xTrack": null,
+        "yTrack": null
+    },
+    "referencePose": {
+        "leftUpperArm": {
+            "x": 8.779751270156623,
+            "y": -298.31700702069486,
+            "rotation": 0.1,
+            "scale": 1,
+            "alpha": 1
+        },
+        "leftLowerArm": {
+            "x": -3.971102514820158,
+            "y": -256.5289670249718,
+            "rotation": 0.1,
+            "scale": 1,
+            "alpha": 1
+        },
+        "rightUpperLeg": {
+            "x": -3.811696790967519,
+            "y": -220.21797718931725,
+            "rotation": -0.02,
+            "scale": 1,
+            "alpha": 1
+        },
+        "rightLowerLeg": {
+            "x": 5.393708209135324,
+            "y": -163.71829356570547,
+            "rotation": -0.02,
+            "scale": 1,
+            "alpha": 1
+        },
+        "rightFoot": {
+            "x": -11.044366844706706,
+            "y": -111.41388080013,
+            "rotation": -0.02,
+            "scale": 1,
+            "alpha": 1
+        },
+        "leftUpperLeg": {
+            "x": -4.10488009703765,
+            "y": -221.224970578289,
+            "rotation": 0.02,
+            "scale": 1,
+            "alpha": 1
+        },
+        "leftLowerLeg": {
+            "x": 17.5063122605871,
+            "y": -171.27004578255168,
+            "rotation": 0.02,
+            "scale": 1,
+            "alpha": 1
+        },
+        "leftFoot": {
+            "x": -0.4606698698642071,
+            "y": -115.19382251922679,
+            "rotation": 0.02,
+            "scale": 1,
+            "alpha": 1
+        },
+        "torso": {
+            "x": 0,
+            "y": -166,
+            "rotation": 0,
+            "scale": 0.8,
+            "alpha": 1
+        },
+        "head": {
+            "x": -6.4011831985458745,
+            "y": -312.641669022669,
+            "rotation": 0.02,
+            "scale": 1,
+            "alpha": 1
+        },
+        "weapon": {
+            "x": -10.2854245349912,
+            "y": -204.2144572393988,
+            "rotation": 0.125,
+            "scale": 0.85,
+            "alpha": 1
+        },
+        "rightUpperArm": {
+            "x": -24.928356326788414,
+            "y": -293.666514250393,
+            "rotation": -0.16,
+            "scale": 1,
+            "alpha": 1
+        },
+        "rightLowerArm": {
+            "x": -36.40391783683877,
+            "y": -254.78660575892823,
+            "rotation": -0.16,
+            "scale": 1,
+            "alpha": 1
+        },
+        "crossbowBolt": {
+            "x": 108,
+            "y": -286,
+            "rotation": 0,
+            "scale": 0.55,
+            "alpha": 0
+        }
+    },
+    "tracks": {
+        "leftUpperArm": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": 8.779751270156623,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00471327336617389,
+                    "value": 8.773339658303481,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.007,
+                    "value": 8.770228938401011,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00848389475607094,
+                    "value": 8.768210335611105,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.4859000000060836,
+                    "value": 8.11855489001369,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.48717047451669593,
+                    "value": 8.1168255226871,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": 7.963231098232828,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6004713405966606,
+                    "value": 7.963232106398748,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6089552510849862,
+                    "value": 7.963595028167301,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": 8.089783338552088,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -298.31700702069486,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00471327336617389,
+                    "value": -298.3176701556282,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.007,
+                    "value": -298.3179917441282,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00848389475607094,
+                    "value": -298.3182003782572,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.4859000000060836,
+                    "value": -298.383282240257,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.48717047451669593,
+                    "value": -298.38344999890467,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": -298.398233416475,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6004713405966606,
+                    "value": -298.398233320193,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6089552510849862,
+                    "value": -298.39819865974374,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": -298.3860694595589,
+                    "easing": "linear"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0.00848389475607094,
+                    "value": 0.3176573373829116,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": 0.3332062565321593,
+                    "easing": "easeInOut"
+                }
+            ],
+            "scale": [
+                {
+                    "time": 0,
+                    "value": 0.6,
+                    "easing": "linear"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "leftLowerArm": {
+            "rotation": [
+                {
+                    "time": 0.00848389475607094,
+                    "value": 0.3176573373829116,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": 0.3332062565321593,
+                    "easing": "easeInOut"
+                }
+            ],
+            "scale": [
+                {
+                    "time": 0,
+                    "value": 0.6,
+                    "easing": "linear"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ],
+            "x": [
+                {
+                    "time": 0,
+                    "value": -3.971102514820158,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00471327336617389,
+                    "value": -3.9775141266733005,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.007,
+                    "value": -3.98062484657577,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00848389475607094,
+                    "value": -3.9826434493656766,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.4859000000060836,
+                    "value": -5.232363847130383,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.48717047451669593,
+                    "value": -5.235159191272375,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": -5.435814011639426,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6004713405966606,
+                    "value": -5.43581220542125,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6089552510849862,
+                    "value": -5.435161998690566,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": -5.2090398593455625,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -256.5289670249718,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00471327336617389,
+                    "value": -256.52963015990514,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.007,
+                    "value": -256.52995174840515,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00848389475607094,
+                    "value": -256.5301603825341,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.4859000000060836,
+                    "value": -256.7830715700671,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.48717047451669593,
+                    "value": -256.7835814518984,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": -256.81349884868416,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6004713405966606,
+                    "value": -256.81349849526123,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6089552510849862,
+                    "value": -256.81337126963376,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": -256.76917552835505,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "rightUpperLeg": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": -3.811696790967519,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00471327336617389,
+                    "value": -3.813337327567235,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.007,
+                    "value": -3.8141332594699358,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00848389475607094,
+                    "value": -3.8146497518075813,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.4859000000060836,
+                    "value": -3.9807779093482902,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.48717047451669593,
+                    "value": -3.9812198812815818,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": -4.020468344302431,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6004713405966606,
+                    "value": -4.020468086717978,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6089552510849862,
+                    "value": -4.02037536087367,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": -3.988130836013784,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -220.21797718931725,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00471327336617389,
+                    "value": -220.21784307139131,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.007,
+                    "value": -220.21777796516594,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00848389475607094,
+                    "value": -220.21773570387302,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.4859000000060836,
+                    "value": -220.20361653211307,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.48717047451669593,
+                    "value": -220.2035775696818,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": -220.2000879549845,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6004713405966606,
+                    "value": -220.20008797807887,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6089552510849862,
+                    "value": -220.20009629148387,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": -220.20296736180134,
+                    "easing": "linear"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0.4859000000060836,
+                    "value": 0.2967263580691504,
+                    "easing": "step"
+                }
+            ],
+            "scale": [
+                {
+                    "time": 0,
+                    "value": 0.6,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": 0.6,
+                    "easing": "linear"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.48717047451669593,
+                    "value": 1,
+                    "easing": "step"
+                }
+            ]
+        },
+        "rightLowerLeg": {
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": -0.02,
+                    "easing": "easeInOut"
+                }
+            ],
+            "scale": [
+                {
+                    "time": 0,
+                    "value": 0.6,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": 0.6,
+                    "easing": "linear"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ],
+            "x": [
+                {
+                    "time": 0,
+                    "value": 5.393708209135324,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00471327336617389,
+                    "value": 5.3920676725356085,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.007,
+                    "value": 5.391271740632908,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00848389475607094,
+                    "value": 5.390755248295262,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.4859000000060836,
+                    "value": 5.224627090754554,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.48717047451669593,
+                    "value": 5.2241851188212625,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": 5.184936655800415,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6004713405966606,
+                    "value": 5.184936913384869,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6089552510849862,
+                    "value": 5.185029639229173,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": 5.21727416408906,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -163.71829356570547,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00471327336617389,
+                    "value": -163.71815944777953,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.007,
+                    "value": -163.71809434155415,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00848389475607094,
+                    "value": -163.71805208026123,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.4859000000060836,
+                    "value": -163.7039329085013,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.48717047451669593,
+                    "value": -163.70389394607002,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": -163.7004043313727,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6004713405966606,
+                    "value": -163.70040435446708,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6089552510849862,
+                    "value": -163.7004126678721,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": -163.70328373818955,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "rightFoot": {
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": -0.02,
+                    "easing": "easeInOut"
+                }
+            ],
+            "scale": [
+                {
+                    "time": 0,
+                    "value": 0.6,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": 0.6,
+                    "easing": "linear"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ],
+            "x": [
+                {
+                    "time": 0,
+                    "value": -11.044366844706706,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00471327336617389,
+                    "value": -11.046007381306422,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.007,
+                    "value": -11.046803313209123,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00848389475607094,
+                    "value": -11.047319805546769,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.4859000000060836,
+                    "value": -11.213447963087477,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.48717047451669593,
+                    "value": -11.213889935020768,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": -11.253138398041616,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6004713405966606,
+                    "value": -11.253138140457162,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6089552510849862,
+                    "value": -11.253045414612858,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": -11.22080088975297,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -111.41388080013,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00471327336617389,
+                    "value": -111.41374668220406,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.007,
+                    "value": -111.41368157597869,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00848389475607094,
+                    "value": -111.41363931468577,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.4859000000060836,
+                    "value": -111.39952014292582,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.48717047451669593,
+                    "value": -111.39948118049456,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": -111.39599156579725,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6004713405966606,
+                    "value": -111.39599158889162,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6089552510849862,
+                    "value": -111.39599990229662,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": -111.39887097261409,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "leftUpperLeg": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": -4.10488009703765,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00471327336617389,
+                    "value": -4.106520633637366,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.007,
+                    "value": -4.107316565540067,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00848389475607094,
+                    "value": -4.107833057877713,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.4859000000060836,
+                    "value": -4.273961215418422,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.48717047451669593,
+                    "value": -4.274403187351713,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": -4.313651650372563,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6004713405966606,
+                    "value": -4.31365139278811,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6089552510849862,
+                    "value": -4.313558666943802,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": -4.281314142083915,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -221.224970578289,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00471327336617389,
+                    "value": -221.22483646036306,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.007,
+                    "value": -221.2247713541377,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00848389475607094,
+                    "value": -221.22472909284477,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.4859000000060836,
+                    "value": -221.21060992108482,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.48717047451669593,
+                    "value": -221.21057095865356,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": -221.20708134395625,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6004713405966606,
+                    "value": -221.20708136705062,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6089552510849862,
+                    "value": -221.20708968045562,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": -221.2099607507731,
+                    "easing": "linear"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": 0.012,
+                    "easing": "easeInOut"
+                }
+            ],
+            "scale": [
+                {
+                    "time": 0,
+                    "value": 0.6,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": 0.6,
+                    "easing": "linear"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "leftLowerLeg": {
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": 0.012,
+                    "easing": "easeInOut"
+                }
+            ],
+            "scale": [
+                {
+                    "time": 0,
+                    "value": 0.6,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": 0.6,
+                    "easing": "linear"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ],
+            "x": [
+                {
+                    "time": 0,
+                    "value": 17.5063122605871,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00471327336617389,
+                    "value": 17.504671723987386,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.007,
+                    "value": 17.503875792084685,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00848389475607094,
+                    "value": 17.50335929974704,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.4859000000060836,
+                    "value": 17.33723114220633,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.48717047451669593,
+                    "value": 17.33678917027304,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": 17.29754070725219,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6004713405966606,
+                    "value": 17.297540964836642,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6089552510849862,
+                    "value": 17.29763369068095,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": 17.329878215540838,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -171.27004578255168,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00471327336617389,
+                    "value": -171.26991166462574,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.007,
+                    "value": -171.26984655840033,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00848389475607094,
+                    "value": -171.26980429710744,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.4859000000060836,
+                    "value": -171.2556851253475,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.48717047451669593,
+                    "value": -171.2556461629162,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": -171.25215654821892,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6004713405966606,
+                    "value": -171.25215657131326,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6089552510849862,
+                    "value": -171.2521648847183,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": -171.25503595503574,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "leftFoot": {
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": 0.012,
+                    "easing": "easeInOut"
+                }
+            ],
+            "scale": [
+                {
+                    "time": 0,
+                    "value": 0.6,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": 0.6,
+                    "easing": "linear"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ],
+            "x": [
+                {
+                    "time": 0,
+                    "value": -0.4606698698642071,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00471327336617389,
+                    "value": -0.46231040646392296,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.007,
+                    "value": -0.46310633836662385,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00848389475607094,
+                    "value": -0.46362283070426935,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.4859000000060836,
+                    "value": -0.6297509882449774,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.48717047451669593,
+                    "value": -0.630192960178269,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": -0.6694414231991197,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6004713405966606,
+                    "value": -0.6694411656146664,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6089552510849862,
+                    "value": -0.6693484397703586,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": -0.6371039149104711,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -115.19382251922679,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00471327336617389,
+                    "value": -115.19368840130085,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.007,
+                    "value": -115.19362329507544,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00848389475607094,
+                    "value": -115.19358103378255,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.4859000000060836,
+                    "value": -115.1794618620226,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.48717047451669593,
+                    "value": -115.17942289959132,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": -115.17593328489403,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6004713405966606,
+                    "value": -115.17593330798837,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6089552510849862,
+                    "value": -115.1759416213934,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": -115.17881269171085,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "torso": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": -1.9385835319205869,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": -1.9385835319205869,
+                    "easing": "easeInOut"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -194.71663136396884,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": -194.71663136396884,
+                    "easing": "easeInOut"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": -0.0025418623149069397,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": -0.010420173373526076,
+                    "easing": "easeInOut"
+                }
+            ],
+            "scale": [
+                {
+                    "time": 0,
+                    "value": 0.8,
+                    "easing": "linear"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "head": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": -6.4011831985458745,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00471327336617389,
+                    "value": -6.408481302037532,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.007,
+                    "value": -6.41202209784354,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00848389475607094,
+                    "value": -6.414319776681715,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.4859000000060836,
+                    "value": -7.153463029624213,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.48717047451669593,
+                    "value": -7.155429738073251,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": -7.330085225047386,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6004713405966606,
+                    "value": -7.330084078760409,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6089552510849862,
+                    "value": -7.329671435770109,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": -7.186182631789842,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -312.641669022669,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00471327336617389,
+                    "value": -312.64139261670624,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.007,
+                    "value": -312.6412583508172,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00848389475607094,
+                    "value": -312.64117116658053,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.4859000000060836,
+                    "value": -312.6107971840587,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.48717047451669593,
+                    "value": -312.6107101730921,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": -312.6028519840372,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6004713405966606,
+                    "value": -312.60285203646237,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6089552510849862,
+                    "value": -312.6028709078757,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": -312.6093453300044,
+                    "easing": "linear"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": 0.012544500172393374,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6004713405966606,
+                    "value": 0.02605538940975725,
+                    "easing": "easeInOut"
+                }
+            ],
+            "scale": [
+                {
+                    "time": 0.007,
+                    "value": 0.4,
+                    "easing": "linear"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "weapon": {
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": 0.43930842054672925,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6089552510849862,
+                    "value": 0.4122256845880221,
+                    "easing": "easeInOut"
+                }
+            ],
+            "scale": [
+                {
+                    "time": 0,
+                    "value": 0.85,
+                    "easing": "linear"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ],
+            "x": [
+                {
+                    "time": 0,
+                    "value": -10.2854245349912,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00471327336617389,
+                    "value": -10.291548273884509,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.007,
+                    "value": -10.294474341309208,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00848389475607094,
+                    "value": -10.296325018242523,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.4859000000060836,
+                    "value": -9.5058230753378,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.48717047451669593,
+                    "value": -9.504989986874968,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": -9.541329202904219,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6004713405966606,
+                    "value": -9.541326338870576,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6089552510849862,
+                    "value": -9.54158964771964,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": -9.655455740132364,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -204.2144572393988,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00471327336617389,
+                    "value": -204.2130342652201,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.007,
+                    "value": -204.2123511043871,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00848389475607094,
+                    "value": -204.21191561376287,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.4859000000060836,
+                    "value": -204.30809809897053,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.48717047451669593,
+                    "value": -204.3081505916952,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": -204.29291501515166,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6004713405966606,
+                    "value": -204.29291559131582,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6089552510849862,
+                    "value": -204.29288840384882,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": -204.27963284263694,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "rightUpperArm": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": -24.928356326788414,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00471327336617389,
+                    "value": -24.934480065681722,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.007,
+                    "value": -24.937451072492408,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00848389475607094,
+                    "value": -24.93937899688648,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.4859000000060836,
+                    "value": -25.55919615398967,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.48717047451669593,
+                    "value": -25.560844351106883,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": -25.707192760718495,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6004713405966606,
+                    "value": -25.70719180035326,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6089552510849862,
+                    "value": -25.70684608577502,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": -25.586616071540416,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -293.666514250393,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00471327336617389,
+                    "value": -293.6650912762143,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.007,
+                    "value": -293.6644007589781,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00848389475607094,
+                    "value": -293.6639526231899,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.4859000000060836,
+                    "value": -293.5178238454103,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.48717047451669593,
+                    "value": -293.51742979286325,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": -293.48232475861573,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6004713405966606,
+                    "value": -293.4823249897339,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6089552510849862,
+                    "value": -293.48240818756165,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": -293.51126448440596,
+                    "easing": "linear"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0.00471327336617389,
+                    "value": 0.1,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6004713405966606,
+                    "value": 0.0829502432130326,
+                    "easing": "easeInOut"
+                }
+            ],
+            "scale": [
+                {
+                    "time": 0,
+                    "value": 0.6,
+                    "easing": "linear"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "rightLowerArm": {
+            "rotation": [
+                {
+                    "time": 0.00471327336617389,
+                    "value": 0.1,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6004713405966606,
+                    "value": 0.0829502432130326,
+                    "easing": "easeInOut"
+                }
+            ],
+            "scale": [
+                {
+                    "time": 0,
+                    "value": 0.6,
+                    "easing": "linear"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ],
+            "x": [
+                {
+                    "time": 0,
+                    "value": -36.40391783683877,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00471327336617389,
+                    "value": -36.41004157573208,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.007,
+                    "value": -36.41299304985146,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00848389475607094,
+                    "value": -36.414887398992,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.4859000000060836,
+                    "value": -36.41949256581632,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.48717047451669593,
+                    "value": -36.4200544430549,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": -36.51822633784127,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6004713405966606,
+                    "value": -36.51822454356379,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6089552510849862,
+                    "value": -36.51814561457759,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": -36.50040074406438,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -254.78660575892823,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00471327336617389,
+                    "value": -254.78518278474954,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.007,
+                    "value": -254.78448650236618,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.00848389475607094,
+                    "value": -254.78402845674083,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.4859000000060836,
+                    "value": -254.46158544329472,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.48717047451669593,
+                    "value": -254.4608893360517,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": -254.41242138952674,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6004713405966606,
+                    "value": -254.41242138989307,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6089552510849862,
+                    "value": -254.41257841094065,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.767,
+                    "value": -254.46993893829514,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "crossbowBolt": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": 108,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -286,
+                    "easing": "linear"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": 0,
+                    "easing": "linear"
+                }
+            ],
+            "scale": [
+                {
+                    "time": 0,
+                    "value": 0.55,
+                    "easing": "linear"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 0,
+                    "easing": "linear"
+                }
+            ]
+        }
+    }
+}

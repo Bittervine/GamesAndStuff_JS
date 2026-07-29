@@ -99,7 +99,7 @@ def retarget_clip(clip: dict[str, Any], idle_pose: dict[str, dict[str, float]], 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--assets", type=Path, default=Path(__file__).resolve().parents[1] / "assets")
+    parser.add_argument("--assets", type=Path, default=Path(__file__).resolve().parents[1] / "resources" / "characters")
     parser.add_argument("--revision", type=int, default=368)
     parser.add_argument("slots", nargs="*", default=list(DEFAULT_SLOTS))
     args = parser.parse_args()

@@ -1,0 +1,44 @@
+{
+  "themeId": "cave",
+  "label": "Cave",
+  "description": "Natural cavern assets. Colour reskins are selected independently.",
+  "defaultColorModifierId": "original",
+  "assetPools": {
+    "terrain": {
+      "all": [
+        "layer.terrain"
+      ],
+      "any": [
+        "biome.cave"
+      ]
+    },
+    "movingPlatform": {
+      "all": [
+        "layer.terrain",
+        "capability.movingPlatform"
+      ],
+      "any": [
+        "biome.cave"
+      ]
+    },
+    "foreground": {
+      "all": [
+        "layer.foreground"
+      ],
+      "any": [
+        "biome.cave"
+      ]
+    },
+    "background": {
+      "all": [
+        "layer.background"
+      ],
+      "any": [
+        "biome.cave"
+      ]
+    }
+  },
+  "decorationPolicy": {
+    "populatePerimeter": true
+  }
+}

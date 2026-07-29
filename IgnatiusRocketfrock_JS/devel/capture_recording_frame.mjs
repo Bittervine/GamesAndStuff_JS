@@ -115,7 +115,7 @@ async function main() {
     });
 
     renderer.syncCaveWindow?.(caveWindowData.normalizeCaveWindow(state.world?.caveWindow));
-    renderer.syncEnvironmentColorMap?.(state.world?.colorMap);
+    renderer.syncEnvironmentColorMap?.(state.world?.colorMap, state.world?.colorExchange);
     if (options.prewarm) {
         renderer.prewarmLevelPresentationCaches?.(state.world);
     }

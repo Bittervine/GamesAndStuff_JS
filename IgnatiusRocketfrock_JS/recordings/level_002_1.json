@@ -956,10 +956,10 @@
         "y": 485.5066637021857
       },
       "atlasManifests": [
-        "assets/at_atlas_001.json",
-        "assets/at_atlas_002.json",
-        "assets/at_atlas_003.json",
-        "assets/it_atlas_001.json"
+        "atlases/at_atlas_001.json",
+        "atlases/at_atlas_002.json",
+        "atlases/at_atlas_003.json",
+        "items/it_atlas_001.json"
       ],
       "visuals": [
         {

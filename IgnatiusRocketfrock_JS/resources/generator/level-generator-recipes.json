@@ -1,0 +1,298 @@
+{
+  "version": 1,
+  "catalogId": "level-generator-recipes-v1",
+  "description": "Curated and tested generator combinations. Route, cavern and length are locked together by recipe.",
+  "recipes": [
+    {
+      "recipeId": "domed-compact-v1",
+      "label": "Domed Compact",
+      "description": "Validated Horizontal + Domed generator recipe with compact route length.",
+      "defaults": {
+        "length": "compact",
+        "verticality": 0.42,
+        "winding": 0.32,
+        "difficulty": 0.34,
+        "safety": 0.74,
+        "enemyDensity": 0.42,
+        "rewardDensity": 0.38,
+        "allowThoughts": false
+      },
+      "route": {
+        "nodeSpacing": 900,
+        "verticalStep": 190,
+        "startX": 640,
+        "baselineY": 900,
+        "candidateAttempts": 40,
+        "macroVerticalSpan": 1250,
+        "roomScale": 1.0
+      },
+      "cavern": {
+        "chamberRadiusX": 720,
+        "chamberRadiusY": 560,
+        "corridorRadiusX": 500,
+        "corridorRadiusY": 455,
+        "floorOffsetY": 115,
+        "sampleStep": 140,
+        "worldMargin": 220,
+        "endpointRadiusX": 900,
+        "endpointRadiusY": 650,
+        "roomRadiusXMin": 850,
+        "roomRadiusXMax": 2560,
+        "roomRadiusYMin": 520,
+        "roomRadiusYMax": 1080,
+        "platformWallClearanceX": 250,
+        "platformFloorClearance": 250,
+        "platformCeilingClearance": 340,
+        "endpointSideClearance": 520
+      },
+      "traversal": {
+        "maxHopX": 380,
+        "maxHopRise": 112,
+        "mandatoryGap": 150,
+        "mandatoryRise": 112,
+        "mandatoryDrop": 270,
+        "endpointWidth": 720,
+        "chamberWidth": 420,
+        "traversalWidth": 340,
+        "intermediateWidth": 250
+      },
+      "endpoints": {
+        "doorWidth": 125,
+        "doorHeight": 164,
+        "calmDistance": 300
+      },
+      "encounters": {
+        "calmDistance": 520,
+        "minimumEncounterSpacing": 700,
+        "landingBuffer": 132,
+        "spawnSafetyBuffer": 150,
+        "maximumEncounterShare": 0.72
+      },
+      "rewards": {
+        "endpointExclusionDistance": 300,
+        "minimumRewardSpacing": 480,
+        "treasureChestScore": 100,
+        "maximumContextualPowerUps": 3,
+        "thoughtChance": 0.34,
+        "maximumThoughts": 1,
+        "thoughts": [
+          "This tunnel has the architectural confidence of a collapsed pudding.",
+          "I suspect the cave has been extended without planning permission.",
+          "A sensible wizard would turn back here. Fortunately, Wilfred hired me."
+        ]
+      },
+      "decoration": {
+        "populatePerimeter": true,
+        "protectGameplay": true,
+        "supportPaddingX": 54,
+        "supportPaddingY": 82,
+        "endpointPadding": 210,
+        "rewardPadding": 72
+      },
+      "implementations": {
+        "route": "mostly-horizontal-route-v1",
+        "cavern": "wide-upper-contour-cavern-v1",
+        "traversal": "layered-safety-network-traversal-v6",
+        "endpoints": "grounded-chamber-endpoints-v2",
+        "encounters": "difficulty-budgeted-encounters-v1",
+        "rewards": "basic-rewards-v1",
+        "decoration": "perimeter-decoration-v1",
+        "validation": "the-path74-cavern-validation-v4"
+      }
+    },
+    {
+      "recipeId": "domed-standard-v1",
+      "label": "Domed Standard",
+      "description": "Validated Horizontal + Domed generator recipe with standard route length.",
+      "defaults": {
+        "length": "standard",
+        "verticality": 0.42,
+        "winding": 0.32,
+        "difficulty": 0.34,
+        "safety": 0.74,
+        "enemyDensity": 0.42,
+        "rewardDensity": 0.38,
+        "allowThoughts": false
+      },
+      "route": {
+        "nodeSpacing": 900,
+        "verticalStep": 190,
+        "startX": 640,
+        "baselineY": 900,
+        "candidateAttempts": 40,
+        "macroVerticalSpan": 1250,
+        "roomScale": 1.0
+      },
+      "cavern": {
+        "chamberRadiusX": 720,
+        "chamberRadiusY": 560,
+        "corridorRadiusX": 500,
+        "corridorRadiusY": 455,
+        "floorOffsetY": 115,
+        "sampleStep": 140,
+        "worldMargin": 220,
+        "endpointRadiusX": 900,
+        "endpointRadiusY": 650,
+        "roomRadiusXMin": 850,
+        "roomRadiusXMax": 2560,
+        "roomRadiusYMin": 520,
+        "roomRadiusYMax": 1080,
+        "platformWallClearanceX": 250,
+        "platformFloorClearance": 250,
+        "platformCeilingClearance": 340,
+        "endpointSideClearance": 520
+      },
+      "traversal": {
+        "maxHopX": 380,
+        "maxHopRise": 112,
+        "mandatoryGap": 150,
+        "mandatoryRise": 112,
+        "mandatoryDrop": 270,
+        "endpointWidth": 720,
+        "chamberWidth": 420,
+        "traversalWidth": 340,
+        "intermediateWidth": 250
+      },
+      "endpoints": {
+        "doorWidth": 125,
+        "doorHeight": 164,
+        "calmDistance": 300
+      },
+      "encounters": {
+        "calmDistance": 520,
+        "minimumEncounterSpacing": 700,
+        "landingBuffer": 132,
+        "spawnSafetyBuffer": 150,
+        "maximumEncounterShare": 0.72
+      },
+      "rewards": {
+        "endpointExclusionDistance": 300,
+        "minimumRewardSpacing": 480,
+        "treasureChestScore": 100,
+        "maximumContextualPowerUps": 3,
+        "thoughtChance": 0.34,
+        "maximumThoughts": 1,
+        "thoughts": [
+          "This tunnel has the architectural confidence of a collapsed pudding.",
+          "I suspect the cave has been extended without planning permission.",
+          "A sensible wizard would turn back here. Fortunately, Wilfred hired me."
+        ]
+      },
+      "decoration": {
+        "populatePerimeter": true,
+        "protectGameplay": true,
+        "supportPaddingX": 54,
+        "supportPaddingY": 82,
+        "endpointPadding": 210,
+        "rewardPadding": 72
+      },
+      "implementations": {
+        "route": "mostly-horizontal-route-v1",
+        "cavern": "wide-upper-contour-cavern-v1",
+        "traversal": "layered-safety-network-traversal-v6",
+        "endpoints": "grounded-chamber-endpoints-v2",
+        "encounters": "difficulty-budgeted-encounters-v1",
+        "rewards": "basic-rewards-v1",
+        "decoration": "perimeter-decoration-v1",
+        "validation": "the-path74-cavern-validation-v4"
+      }
+    },
+    {
+      "recipeId": "domed-long-v1",
+      "label": "Domed Long",
+      "description": "Validated Horizontal + Domed generator recipe with extended route length.",
+      "defaults": {
+        "length": "extended",
+        "verticality": 0.42,
+        "winding": 0.32,
+        "difficulty": 0.34,
+        "safety": 0.74,
+        "enemyDensity": 0.42,
+        "rewardDensity": 0.38,
+        "allowThoughts": false
+      },
+      "route": {
+        "nodeSpacing": 900,
+        "verticalStep": 190,
+        "startX": 640,
+        "baselineY": 900,
+        "candidateAttempts": 40,
+        "macroVerticalSpan": 1250,
+        "roomScale": 1.0
+      },
+      "cavern": {
+        "chamberRadiusX": 720,
+        "chamberRadiusY": 560,
+        "corridorRadiusX": 500,
+        "corridorRadiusY": 455,
+        "floorOffsetY": 115,
+        "sampleStep": 140,
+        "worldMargin": 220,
+        "endpointRadiusX": 900,
+        "endpointRadiusY": 650,
+        "roomRadiusXMin": 850,
+        "roomRadiusXMax": 2560,
+        "roomRadiusYMin": 520,
+        "roomRadiusYMax": 1080,
+        "platformWallClearanceX": 250,
+        "platformFloorClearance": 250,
+        "platformCeilingClearance": 340,
+        "endpointSideClearance": 520
+      },
+      "traversal": {
+        "maxHopX": 380,
+        "maxHopRise": 112,
+        "mandatoryGap": 150,
+        "mandatoryRise": 112,
+        "mandatoryDrop": 270,
+        "endpointWidth": 720,
+        "chamberWidth": 420,
+        "traversalWidth": 340,
+        "intermediateWidth": 250
+      },
+      "endpoints": {
+        "doorWidth": 125,
+        "doorHeight": 164,
+        "calmDistance": 300
+      },
+      "encounters": {
+        "calmDistance": 520,
+        "minimumEncounterSpacing": 700,
+        "landingBuffer": 132,
+        "spawnSafetyBuffer": 150,
+        "maximumEncounterShare": 0.72
+      },
+      "rewards": {
+        "endpointExclusionDistance": 300,
+        "minimumRewardSpacing": 480,
+        "treasureChestScore": 100,
+        "maximumContextualPowerUps": 3,
+        "thoughtChance": 0.34,
+        "maximumThoughts": 1,
+        "thoughts": [
+          "This tunnel has the architectural confidence of a collapsed pudding.",
+          "I suspect the cave has been extended without planning permission.",
+          "A sensible wizard would turn back here. Fortunately, Wilfred hired me."
+        ]
+      },
+      "decoration": {
+        "populatePerimeter": true,
+        "protectGameplay": true,
+        "supportPaddingX": 54,
+        "supportPaddingY": 82,
+        "endpointPadding": 210,
+        "rewardPadding": 72
+      },
+      "implementations": {
+        "route": "mostly-horizontal-route-v1",
+        "cavern": "wide-upper-contour-cavern-v1",
+        "traversal": "layered-safety-network-traversal-v6",
+        "endpoints": "grounded-chamber-endpoints-v2",
+        "encounters": "difficulty-budgeted-encounters-v1",
+        "rewards": "basic-rewards-v1",
+        "decoration": "perimeter-decoration-v1",
+        "validation": "the-path74-cavern-validation-v4"
+      }
+    }
+  ]
+}

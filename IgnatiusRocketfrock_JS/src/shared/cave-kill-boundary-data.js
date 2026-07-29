@@ -4,6 +4,8 @@ import {
 } from "./cave-window-data.js";
 
 export const CAVE_FULL_BLACK_BOUNDARY_SOURCE = "caveFullBlackOutset";
+export const CAVE_BOUNDARY_OVERSHOOT_RATIO = 0.2;
+export const CAVE_KILL_INWARD_NORMAL_Y_MAX = -0.35;
 
 const EPSILON = 0.000001;
 
@@ -20,17 +22,58 @@ function normalizedPoint(point) {
 }
 
 function pointSegmentDistanceSquared(point, a, b) {
+    const nearest = closestPointOnSegment(point, a, b);
+    const offsetX = point.x - nearest.x;
+    const offsetY = point.y - nearest.y;
+    return offsetX * offsetX + offsetY * offsetY;
+}
+
+function closestPointOnSegment(point, a, b) {
     const dx = b.x - a.x;
     const dy = b.y - a.y;
     const lengthSquared = dx * dx + dy * dy;
     const t = lengthSquared > 0
         ? Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSquared))
         : 0;
-    const nearestX = a.x + dx * t;
-    const nearestY = a.y + dy * t;
-    const offsetX = point.x - nearestX;
-    const offsetY = point.y - nearestY;
-    return offsetX * offsetX + offsetY * offsetY;
+    return {
+        x: a.x + dx * t,
+        y: a.y + dy * t
+    };
+}
+
+function polygonSignedArea(points) {
+    let twiceArea = 0;
+    for (let index = 0; index < points.length; index += 1) {
+        const current = points[index];
+        const next = points[(index + 1) % points.length];
+        twiceArea += current.x * next.y - next.x * current.y;
+    }
+    return twiceArea * 0.5;
+}
+
+function normalizedVector(x, y) {
+    const length = Math.hypot(x, y);
+    if (length <= EPSILON) return { x: 0, y: 0 };
+    return { x: x / length, y: y / length };
+}
+
+function buildBoundarySegments(points) {
+    if (!Array.isArray(points) || points.length < 3) return [];
+    const positiveArea = polygonSignedArea(points) >= 0;
+    return points.map((rawA, index) => {
+        const a = normalizedPoint(rawA);
+        const b = normalizedPoint(points[(index + 1) % points.length]);
+        const tangent = normalizedVector(b.x - a.x, b.y - a.y);
+        const inwardNormal = positiveArea
+            ? { x: -tangent.y, y: tangent.x }
+            : { x: tangent.y, y: -tangent.x };
+        return {
+            a,
+            b,
+            inwardNormal,
+            kind: inwardNormal.y < CAVE_KILL_INWARD_NORMAL_Y_MAX ? "killable" : "blockable"
+        };
+    });
 }
 
 export function pointInClosedPolygon(point, polygon) {
@@ -126,17 +169,25 @@ export function closedPolygonIntersectsRect(polygon, rect) {
 export function deriveCaveFullBlackKillBoundary(rawCaveWindow, { stepsPerSegment = 20 } = {}) {
     const caveWindow = normalizeCaveWindow(rawCaveWindow);
     const valid = caveWindow.enabled && caveWindow.points.length >= 3;
-    const points = valid
+    const interactionMargin = caveWindow.feather * CAVE_BOUNDARY_OVERSHOOT_RATIO;
+    const fullBlackPoints = valid
         ? sampleCaveWindowOutset(caveWindow.points, caveWindow.feather, stepsPerSegment)
             .map(normalizedPoint)
         : [];
+    const points = valid
+        ? sampleCaveWindowOutset(caveWindow.points, caveWindow.feather + interactionMargin, stepsPerSegment)
+            .map(normalizedPoint)
+        : [];
     return {
-        version: 1,
+        version: 2,
         enabled: valid && points.length >= 3,
         source: CAVE_FULL_BLACK_BOUNDARY_SOURCE,
         feather: caveWindow.feather,
+        interactionMargin,
         stepsPerSegment: Math.max(1, Math.floor(finiteNumber(stepsPerSegment, 20))),
-        points
+        fullBlackPoints,
+        points,
+        segments: buildBoundarySegments(points)
     };
 }
 
@@ -145,4 +196,63 @@ export function rectFullyOutsideCaveKillBoundary(boundary, rect) {
         return false;
     }
     return !closedPolygonIntersectsRect(boundary.points, rect);
+}
+
+export function evaluateCaveBoundaryRect(boundary, rect) {
+    if (!rectFullyOutsideCaveKillBoundary(boundary, rect) || !Array.isArray(boundary?.segments) || boundary.segments.length === 0) {
+        return {
+            outside: false,
+            segmentIndex: -1,
+            kind: null,
+            inwardNormal: { x: 0, y: 0 },
+            correction: { x: 0, y: 0 }
+        };
+    }
+
+    const box = normalizedRect(rect);
+    const center = { x: box.x + box.w * 0.5, y: box.y + box.h * 0.5 };
+    let segmentIndex = -1;
+    let nearestPoint = null;
+    let nearestDistanceSquared = Infinity;
+    for (let index = 0; index < boundary.segments.length; index += 1) {
+        const segment = boundary.segments[index];
+        const candidate = closestPointOnSegment(center, segment.a, segment.b);
+        const offsetX = center.x - candidate.x;
+        const offsetY = center.y - candidate.y;
+        const distanceSquared = offsetX * offsetX + offsetY * offsetY;
+        if (distanceSquared >= nearestDistanceSquared) continue;
+        segmentIndex = index;
+        nearestPoint = candidate;
+        nearestDistanceSquared = distanceSquared;
+    }
+
+    if (segmentIndex < 0 || !nearestPoint) {
+        return {
+            outside: false,
+            segmentIndex: -1,
+            kind: null,
+            inwardNormal: { x: 0, y: 0 },
+            correction: { x: 0, y: 0 }
+        };
+    }
+
+    const segment = boundary.segments[segmentIndex];
+    let correctionDirection = normalizedVector(nearestPoint.x - center.x, nearestPoint.y - center.y);
+    if (Math.abs(correctionDirection.x) <= EPSILON && Math.abs(correctionDirection.y) <= EPSILON) {
+        correctionDirection = segment.inwardNormal;
+    }
+    const centerDistance = Math.sqrt(Math.max(0, nearestDistanceSquared));
+    const rectangleSupport = box.w * 0.5 * Math.abs(correctionDirection.x)
+        + box.h * 0.5 * Math.abs(correctionDirection.y);
+    const correctionDistance = Math.max(0.02, centerDistance - rectangleSupport + 0.02);
+    return {
+        outside: true,
+        segmentIndex,
+        kind: segment.kind,
+        inwardNormal: { ...segment.inwardNormal },
+        correction: {
+            x: correctionDirection.x * correctionDistance,
+            y: correctionDirection.y * correctionDistance
+        }
+    };
 }

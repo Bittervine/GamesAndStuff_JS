@@ -6,6 +6,7 @@ import {
 import { atlasNodeToPlacementWorld, normalizeRotationRadians } from "../shared/level-transform.js";
 import { characterEnemyMeleeAttackRect, enemyProjectileHitbox } from "../shared/actor-geometry.js";
 import { normalizeLevelColorMap } from "../shared/level-color-map-data.js";
+import { normalizeLevelColorExchange } from "../shared/color-exchange-data.js";
 import {
     BACKGROUND_LAYER,
     CAVE_FOREGROUND_LAYER_ID,
@@ -14,7 +15,7 @@ import {
 import { normalizeCaveWindow } from "../shared/cave-window-data.js";
 import {
     deriveCaveFullBlackKillBoundary,
-    rectFullyOutsideCaveKillBoundary
+    evaluateCaveBoundaryRect
 } from "../shared/cave-kill-boundary-data.js";
 import { normalizeMovingPlatform } from "../shared/moving-platform-data.js";
 import {
@@ -38,6 +39,7 @@ import {
     normalizeSignalReceiver
 } from "../shared/signal-channel-data.js";
 import { normalizeLevelMusic } from "../shared/music-data.js";
+import { normalizeCharacterDropProfile, normalizeLootCatalog } from "../shared/enemy-drop-data.js";
 import { normalizeEnemyScale, scaledEnemyDimensions, scaledEnemyProjectileRadius, scaledEnemyRenderScale } from "../shared/enemy-scale-data.js";
 import {
     enemyEntityFromDefinition,
@@ -75,17 +77,21 @@ import {
     ENEMY_DROP_SOURCE_CLEARANCE_WIDTH_FACTOR,
     buildEnemyNavigationSupports,
     enemyNavigationEdgeMapFromFlat,
+    enemyNavigationRouteFromSearch,
     enemyNavigationProfileKey,
     enemyNavigationSupportsSignature,
     findBakedEnemyNavigationGraph,
     findEnemyNavigationSupport,
     navigationSupportById,
     planEnemyNavigationRoute,
+    planEnemyNavigationRoutesFrom,
     supportPoint
 } from "./enemy-navigation.js";
 
 export const FIXED_DT = 1 / 60;
 const AUTOMATIC_STEP_HEIGHT_RATIO = 0.2;
+const FLIGHT_MOVEMENT_SPEED_MULTIPLIER = 1.5;
+const HOMING_TARGET_SEARCH_INTERVAL_SECONDS = 0.25;
 
 const PRESENTATION_SNAP_DIAGNOSTICS = {
     sequence: 0,
@@ -190,6 +196,7 @@ export function ordinaryJumpVelocity(gravity, jumpHeight) {
 
 const MOVING_PLATFORM_NAVIGATION_CACHE = new WeakMap();
 const STATIC_ENEMY_NAVIGATION_CACHE = new WeakMap();
+const CHARACTER_ENEMY_TRAVERSAL_EDGE_CACHE = new WeakMap();
 
 const WIZARD_DOOR_FLOOR_ANCHOR_Y_FACTOR = 239 / 263;
 const DEFAULT_WIZARD_DOOR_INSIDE_SCALE = 0.84;
@@ -222,6 +229,14 @@ export const DEFAULT_TUNING = Object.freeze({
     flightVerticalAcceleration: 900,
     landingFriction: 550,
     airDrag: 0.12,
+    waterHorizontalSpeedScale: 0.45,
+    waterHorizontalAccelerationScale: 0.5,
+    waterGravityBuoyancyRatio: 0.92,
+    waterSwimAcceleration: 550,
+    waterLinearDrag: 2.4,
+    waterQuadraticDrag: 0.003,
+    waterHorizontalLinearDrag: 2.8,
+    waterHorizontalQuadraticDrag: 0.0015,
     attachedBoostAcceleration: -1580,
     attachedBoostStartImpulse: -600,
     attachedBoostKickFuelCost: 5,
@@ -341,6 +356,189 @@ export const DEFAULT_TUNING = Object.freeze({
     maxDebugEvents: 14
 });
 
+export const PLAYER_PROGRESSION_SCHEMA_VERSION = 1;
+export const PLAYER_UPGRADE_KINDS = Object.freeze({
+    HEALTH: "healthUpgrade",
+    FUEL: "fuelUpgrade",
+    REGEN: "regenUpgrade",
+    SPEED: "speedUpgrade"
+});
+export const PLAYER_UPGRADE_BALANCE = Object.freeze({
+    healthPerLevel: 20,
+    fuelPerLevel: 20,
+    regenRatePerLevel: 0.15,
+    movementSpeedPerLevel: 0.10
+});
+
+function normalizedUpgradeLevel(value) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? Math.max(0, Math.min(999, Math.trunc(numeric))) : 0;
+}
+
+export function normalizePlayerProgression(value = {}) {
+    const source = value && typeof value === "object" && !Array.isArray(value)
+        ? (value.playerProgression && typeof value.playerProgression === "object" && !Array.isArray(value.playerProgression)
+            ? value.playerProgression
+            : value)
+        : {};
+    const collectedUpgradeIds = [...new Set(
+        (Array.isArray(source.collectedUpgradeIds) ? source.collectedUpgradeIds : [])
+            .map((id) => String(id || "").trim())
+            .filter(Boolean)
+    )].sort();
+    return {
+        schemaVersion: PLAYER_PROGRESSION_SCHEMA_VERSION,
+        healthLevel: normalizedUpgradeLevel(source.healthLevel),
+        fuelLevel: normalizedUpgradeLevel(source.fuelLevel),
+        regenLevel: normalizedUpgradeLevel(source.regenLevel),
+        speedLevel: normalizedUpgradeLevel(source.speedLevel),
+        collectedUpgradeIds
+    };
+}
+
+export function playerProgressionStats(tuning = DEFAULT_TUNING, progression = {}) {
+    const normalized = normalizePlayerProgression(progression);
+    const regenScale = 1 + normalized.regenLevel * PLAYER_UPGRADE_BALANCE.regenRatePerLevel;
+    const movementSpeedScale = 1 + normalized.speedLevel * PLAYER_UPGRADE_BALANCE.movementSpeedPerLevel;
+    const maxHealth = Math.max(1, Number(tuning.maxHealth) || DEFAULT_TUNING.maxHealth)
+        + normalized.healthLevel * PLAYER_UPGRADE_BALANCE.healthPerLevel;
+    const maxFuel = Math.max(1, Number(tuning.fuelMax) || DEFAULT_TUNING.fuelMax)
+        + normalized.fuelLevel * PLAYER_UPGRADE_BALANCE.fuelPerLevel;
+    const rechargeCap = Math.max(0, Number(tuning.baseRechargeCap) || 0)
+        + normalized.fuelLevel * PLAYER_UPGRADE_BALANCE.fuelPerLevel;
+    return {
+        maxHealth,
+        maxFuel,
+        rechargeCap: Math.min(maxFuel, rechargeCap),
+        healthRegenRate: Math.max(0, Number(tuning.healthRegenRate) || 0) * regenScale,
+        fuelRechargeRate: Math.max(0, Number(tuning.rechargeRate) || 0) * regenScale,
+        movementSpeedScale,
+        healthLevel: normalized.healthLevel,
+        fuelLevel: normalized.fuelLevel,
+        regenLevel: normalized.regenLevel,
+        speedLevel: normalized.speedLevel
+    };
+}
+
+export function applyPlayerProgression(state, progression = state?.playerProgression, {
+    refillResources = false,
+    addCapacityToCurrent = false
+} = {}) {
+    if (!state || typeof state !== "object") return null;
+    const previousHealthMax = Math.max(0, Number(state.health?.max) || 0);
+    const previousFuelMax = Math.max(0, Number(state.fuel?.max) || 0);
+    const normalized = normalizePlayerProgression(progression);
+    const stats = playerProgressionStats(state.tuning || DEFAULT_TUNING, normalized);
+    state.playerProgression = normalized;
+    state.playerStats = stats;
+    state.health = state.health || {};
+    state.fuel = state.fuel || {};
+    state.health.max = stats.maxHealth;
+    state.fuel.max = stats.maxFuel;
+    state.fuel.rechargeCap = stats.rechargeCap;
+    if (refillResources) {
+        state.health.amount = stats.maxHealth;
+        state.fuel.amount = stats.maxFuel;
+    } else if (addCapacityToCurrent) {
+        state.health.amount = Math.min(stats.maxHealth, Math.max(0, Number(state.health.amount) || 0) + Math.max(0, stats.maxHealth - previousHealthMax));
+        state.fuel.amount = Math.min(stats.maxFuel, Math.max(0, Number(state.fuel.amount) || 0) + Math.max(0, stats.maxFuel - previousFuelMax));
+    } else {
+        state.health.amount = Math.min(stats.maxHealth, Math.max(0, Number(state.health.amount) || 0));
+        state.fuel.amount = Math.min(stats.maxFuel, Math.max(0, Number(state.fuel.amount) || 0));
+    }
+    return stats;
+}
+
+function playerProgressionLevel(state, property) {
+    return normalizedUpgradeLevel(state?.playerProgression?.[property]);
+}
+
+function effectiveHealthRegenRate(state) {
+    return Math.max(0, Number(state?.tuning?.healthRegenRate) || 0)
+        * (1 + playerProgressionLevel(state, "regenLevel") * PLAYER_UPGRADE_BALANCE.regenRatePerLevel);
+}
+
+function effectiveFuelRechargeRate(state) {
+    return Math.max(0, Number(state?.tuning?.rechargeRate) || 0)
+        * (1 + playerProgressionLevel(state, "regenLevel") * PLAYER_UPGRADE_BALANCE.regenRatePerLevel);
+}
+
+function playerMovementSpeedScale(state) {
+    return 1 + playerProgressionLevel(state, "speedLevel") * PLAYER_UPGRADE_BALANCE.movementSpeedPerLevel;
+}
+
+function normalizedPlayerUpgradeKind(value) {
+    const kind = String(value || "").trim();
+    return Object.values(PLAYER_UPGRADE_KINDS).includes(kind) ? kind : "";
+}
+
+export function playerUpgradeMessage(upgradeKind) {
+    const kind = normalizedPlayerUpgradeKind(upgradeKind);
+    if (kind === PLAYER_UPGRADE_KINDS.HEALTH) return "Max health upgraded!";
+    if (kind === PLAYER_UPGRADE_KINDS.FUEL) return "Max fuel upgraded!";
+    if (kind === PLAYER_UPGRADE_KINDS.REGEN) return "Regeneration upgraded!";
+    if (kind === PLAYER_UPGRADE_KINDS.SPEED) return "Movement speed upgraded!";
+    return "";
+}
+
+export function requestScreenMessage(state, message, detail = {}) {
+    const text = String(message || "").trim();
+    if (!state || !text) return null;
+    return addEvent(state, "SCREEN_MESSAGE_REQUESTED", {
+        message: text,
+        messageKind: String(detail.messageKind || detail.kind || "notice").trim() || "notice",
+        sourceId: detail.sourceId || null,
+        duration: Math.max(0.5, Number(detail.duration) || 2.6)
+    });
+}
+
+export function playerUpgradeCollectionId(levelId, pickupId) {
+    const normalizedLevelId = String(levelId || "").trim() || "unknown_level";
+    const normalizedPickupId = String(pickupId || "").trim();
+    return normalizedPickupId ? `${normalizedLevelId}:${normalizedPickupId}` : "";
+}
+
+export function collectPlayerUpgrade(state, upgradeKind, pickupId = "") {
+    const kind = normalizedPlayerUpgradeKind(upgradeKind);
+    if (!state || !kind) return false;
+    const normalized = normalizePlayerProgression(state.playerProgression);
+    const stablePickupId = String(pickupId || "").trim();
+    const collectionId = playerUpgradeCollectionId(state.world?.levelId, stablePickupId);
+    if (collectionId && normalized.collectedUpgradeIds.includes(collectionId)) return false;
+    const levelProperty = kind === PLAYER_UPGRADE_KINDS.HEALTH
+        ? "healthLevel"
+        : kind === PLAYER_UPGRADE_KINDS.FUEL
+            ? "fuelLevel"
+            : kind === PLAYER_UPGRADE_KINDS.REGEN
+                ? "regenLevel"
+                : "speedLevel";
+    normalized[levelProperty] = normalizedUpgradeLevel(normalized[levelProperty] + 1);
+    if (collectionId) normalized.collectedUpgradeIds = [...normalized.collectedUpgradeIds, collectionId].sort();
+    const stats = applyPlayerProgression(state, normalized, { addCapacityToCurrent: true });
+    const message = playerUpgradeMessage(kind);
+    addEvent(state, "PLAYER_UPGRADE_COLLECTED", {
+        pickupId: stablePickupId || null,
+        collectionId: collectionId || null,
+        upgradeKind: kind,
+        message,
+        healthLevel: normalized.healthLevel,
+        fuelLevel: normalized.fuelLevel,
+        regenLevel: normalized.regenLevel,
+        speedLevel: normalized.speedLevel,
+        maxHealth: round(stats.maxHealth),
+        maxFuel: round(stats.maxFuel),
+        healthRegenRate: round(stats.healthRegenRate),
+        fuelRechargeRate: round(stats.fuelRechargeRate),
+        movementSpeedScale: round(stats.movementSpeedScale)
+    });
+    requestScreenMessage(state, message, {
+        sourceId: stablePickupId || collectionId || kind,
+        messageKind: "permanentUpgrade",
+        duration: 2.8
+    });
+    return true;
+}
+
 export function deepClone(value) {
     return JSON.parse(JSON.stringify(value));
 }
@@ -426,6 +624,8 @@ export function createInitialGameState(overrides = {}) {
     const world = createTestArena(tuning);
     const spawn = overrides.spawn || world.start || { x: 120, y: 600 };
     const settings = normalizeGameSettings(overrides.settings);
+    const playerProgression = normalizePlayerProgression(overrides.playerProgression || overrides.progression);
+    const playerStats = playerProgressionStats(tuning, playerProgression);
 
     const state = {
         meta: {
@@ -444,8 +644,12 @@ export function createInitialGameState(overrides = {}) {
         },
         tuning,
         settings,
+        playerProgression,
+        playerStats,
         enemyCatalog: normalizeEnemyDefinitionCatalog(overrides.enemyCatalog),
+        lootCatalog: normalizeLootCatalog(overrides.lootCatalog),
         characterCombatProfiles: {},
+        characterDropProfiles: {},
         world,
         camera: {
             ...createTransformTriplet({ x: spawn.x, y: spawn.y - 170 }),
@@ -484,6 +688,9 @@ export function createInitialGameState(overrides = {}) {
             visible: true,
             supportId: null,
             dropThroughTimer: 0,
+            inWater: false,
+            waterSubmersion: 0,
+            waterRegionId: null,
             crushCandidateTicks: 0,
             crushCandidateKey: null,
             crushCandidateDetail: null,
@@ -496,16 +703,16 @@ export function createInitialGameState(overrides = {}) {
             deathResetReason: null
         },
         fuel: {
-            amount: tuning.initialFuel,
-            max: tuning.fuelMax,
-            rechargeCap: tuning.baseRechargeCap,
+            amount: playerStats.maxFuel,
+            max: playerStats.maxFuel,
+            rechargeCap: playerStats.rechargeCap,
             rechargeDelayTimer: 0,
             rechargeLatched: false,
             lastUsedAt: null
         },
         health: {
-            amount: tuning.maxHealth,
-            max: tuning.maxHealth,
+            amount: playerStats.maxHealth,
+            max: playerStats.maxHealth,
             lastDamagedAt: null,
             invulnerabilityTimer: 0,
             contactInvulnerabilityTimer: 0,
@@ -547,9 +754,7 @@ export function createInitialGameState(overrides = {}) {
             nextPuffId: 1,
             smokePuffs: []
         },
-        targets: [
-            { id: "homing_dot", kind: "debugHomingDot", x: 1800, y: 395, radius: 15, state: "active" }
-        ],
+        targets: [],
         enemies: [],
         pickups: [
             { id: "fuel_001", entityId: "fuel_001", kind: "fuel", pickupKind: "fuel", x: 835, y: 315, radius: 14, amount: 40, collected: false },
@@ -571,6 +776,9 @@ export function createInitialGameState(overrides = {}) {
             portalExit: null,
             mailboxEvent: null,
             mailboxEvents: [],
+            symbolTriggers: [],
+            overheadSymbol: null,
+            proximityTexts: [],
             levelTransitionRequest: null
         },
         debug: {
@@ -585,6 +793,8 @@ export function createInitialGameState(overrides = {}) {
             eventFilterIncludeInput: false,
             inputConsoleLogging: false,
             lastEvents: [],
+            exceptionAlertSequence: 0,
+            exceptionAlerts: [],
             lastInputFrame: createInputFrame(),
             exportedAt: null
         }
@@ -661,14 +871,12 @@ export function applyEnemyDefinitionCatalog(state, catalog) {
 
 function createTestArena(tuning) {
     // This is a compact headless-test fixture, not the browser game's authored level.
-    // Browser play loads assets/level_001.json and replaces this world before play.
-    // Keep this arena deliberately small: tests need a floor at y=600, side walls,
+    // Browser play loads resources/levels/level_001.json and replaces this world before play.
+    // Keep this arena deliberately small: tests need a floor at y=600,
     // a valid atlas visual for optional manifest-collision checks, and a little room
     // for run/jump/rocket mechanics.
     const atlasId = "at_atlas_001";
     const solids = [
-        { id: "left_wall", kind: "wall", x: -320, y: -520, w: 60, h: 1580 },
-        { id: "right_wall", kind: "wall", x: 2360, y: -520, w: 60, h: 1580 },
         { id: "test_floor", kind: "floor", x: -260, y: 600, w: 2620, h: 110 }
     ];
     const visuals = [
@@ -684,7 +892,7 @@ function createTestArena(tuning) {
             h: 110,
             layer: "terrain",
             collisionFromManifest: false,
-            note: "Visual marker for the headless test arena. Authored gameplay levels come from assets/level_001.json."
+            note: "Visual marker for the headless test arena. Authored gameplay levels come from resources/levels/level_001.json."
         }
     ];
 
@@ -692,10 +900,9 @@ function createTestArena(tuning) {
         levelId: "headless_test_arena",
         gravityDirection: { x: 0, y: 1 },
         bounds: { x: -360, y: -520, w: 2820, h: 1580 },
-        resetY: 1080,
         start: { x: 135, y: 520 },
         atlasManifests: [
-            "assets/at_atlas_001.json"
+            "atlases/at_atlas_001.json"
         ],
         visuals,
         movingPlatforms: [],
@@ -710,7 +917,7 @@ function createTestArena(tuning) {
         collisionMode: "fallbackRectangles",
         labels: [
             { text: "headless test arena", x: 20, y: 555 },
-            { text: "browser play loads assets/level_001.json", x: 520, y: 555 }
+            { text: "browser play loads resources/levels/level_001.json", x: 520, y: 555 }
         ]
     };
 }
@@ -725,7 +932,7 @@ export function applyAtlasManifestsToWorld(state, environmentManifests) {
     const visuals = Array.isArray(state.world.visuals) ? state.world.visuals : [];
 
     for (const visual of visuals) {
-        if (visual.kind !== "atlasSprite" || visual.collisionFromManifest === false || (visual.layer === CAVE_FOREGROUND_LAYER_ID || (visual.layer === BACKGROUND_LAYER && !visual.entityId))) {
+        if (visual.kind !== "atlasSprite") {
             continue;
         }
 
@@ -739,7 +946,15 @@ export function applyAtlasManifestsToWorld(state, environmentManifests) {
         const frameName = visual.frame || assetId;
         const object = manifest.objects[assetId] || manifest.objects[frameName];
         const frame = manifest.frames[frameName] || manifest.frames[assetId];
-        if (!object || !frame || !Array.isArray(object.nodes) || !Array.isArray(object.lines)) {
+        if (!object || !frame) {
+            continue;
+        }
+
+        visual.blendMode = object.blendMode === "brightenOnly" ? "brightenOnly" : "alpha";
+        if (visual.collisionFromManifest === false || visual.layer === CAVE_FOREGROUND_LAYER_ID || (visual.layer === BACKGROUND_LAYER && !visual.entityId)) {
+            continue;
+        }
+        if (!Array.isArray(object.nodes) || !Array.isArray(object.lines)) {
             continue;
         }
 
@@ -818,9 +1033,9 @@ export function applyAtlasManifestsToWorld(state, environmentManifests) {
         state.world.playerStartGroundSnapResolved = true;
         doorSnaps = snapWizardDoorsToNearbyGround(state);
         enemySnaps = snapCharacterEnemiesToNearbyGround(state);
-        const entryDoor = wizardEntryDoorEntity(state.world.entities || []);
+        const entryDoor = wizardEntryPortalEntity(state.world.entities || []);
         if (entryDoor) {
-            applyEntryDoorAsPlayerStart(state, entryDoor, { resetPlayer: true });
+            applyEntryPortalAsPlayerStart(state, entryDoor, { resetPlayer: true });
             startSnap = snapPlayerStartToNearbyGround(state);
             configurePortalIntro(state, state.world.entities || []);
             configurePortalExit(state, state.world.entities || []);
@@ -926,14 +1141,18 @@ function findClosedCollisionLoops(object) {
     }
 
     const nodeById = new Map(object.nodes.map((node) => [node.id, node]));
+    const waterLines = object.lines.filter((line) => line.kind === "water" && nodeById.has(line.from) && nodeById.has(line.to));
+    const waterLoops = findClosedLoopsFromLines(waterLines, nodeById);
     const blockerLines = object.lines.filter((line) => isAreaBlockingSegmentKind(line.kind) && nodeById.has(line.from) && nodeById.has(line.to));
-    const loops = findClosedLoopsFromLines(blockerLines, nodeById);
-    if (loops.length) {
-        return loops;
+    const blockerLoops = findClosedLoopsFromLines(blockerLines, nodeById);
+    if (blockerLoops.length) {
+        return [...blockerLoops, ...waterLoops];
     }
 
     const solidLines = object.lines.filter((line) => isSolidSegmentKind(line.kind) && nodeById.has(line.from) && nodeById.has(line.to));
-    return findClosedLoopsFromLines(solidLines, nodeById).filter((loop) => loop.lines.some((line) => isAreaBlockingSegmentKind(line.kind)));
+    const fallbackBlockers = findClosedLoopsFromLines(solidLines, nodeById)
+        .filter((loop) => loop.lines.some((line) => isAreaBlockingSegmentKind(line.kind)));
+    return [...fallbackBlockers, ...waterLoops];
 }
 
 function findClosedLoopsFromLines(lines, nodeById) {
@@ -1057,6 +1276,7 @@ function orderClosedLineLoop(lines, nodeById) {
 }
 
 function collisionLoopKind(lines) {
+    if (lines.some((line) => line.kind === "water")) return "water";
     if (lines.some((line) => line.kind === "killable")) return "killable";
     if (lines.some((line) => line.kind === "damaging")) return "damaging";
     return "blockable";
@@ -1224,12 +1444,32 @@ function isWizardExitDoor(entity) {
     return Boolean(entity) && entity.type === "wizard_exit_door";
 }
 
+function isWizardEntryPoint(entity) {
+    return Boolean(entity) && entity.type === "wizard_entry_point";
+}
+
+function isWizardExitPoint(entity) {
+    return Boolean(entity) && entity.type === "wizard_exit_point";
+}
+
+function isWizardEntryPortal(entity) {
+    return isWizardEntryDoor(entity) || isWizardEntryPoint(entity);
+}
+
+function isWizardExitPortal(entity) {
+    return isWizardExitDoor(entity) || isWizardExitPoint(entity);
+}
+
 function hasLivingBoss(state) {
     return (state?.enemies || []).some((enemy) => enemy?.isBoss === true && Number(enemy.health) > 0);
 }
 
 function isWizardDoor(entity) {
     return isWizardEntryDoor(entity) || isWizardExitDoor(entity);
+}
+
+function isWizardPortal(entity) {
+    return isWizardEntryPortal(entity) || isWizardExitPortal(entity);
 }
 
 function entityFloorAnchorYFactor(entity) {
@@ -1243,12 +1483,12 @@ function wizardDoorInsideScale(entity) {
     return clamp(Number.isFinite(authored) ? authored : DEFAULT_WIZARD_DOOR_INSIDE_SCALE, 0.5, 1);
 }
 
-function wizardEntryDoorEntity(entities) {
-    return (entities || []).find(isWizardEntryDoor) || null;
+function wizardEntryPortalEntity(entities) {
+    return (entities || []).find(isWizardEntryPortal) || null;
 }
 
-function wizardExitDoorEntity(entities) {
-    return (entities || []).find(isWizardExitDoor) || null;
+function wizardExitPortalEntity(entities) {
+    return (entities || []).find(isWizardExitPortal) || null;
 }
 
 export function defaultNextLevelId(levelId) {
@@ -1317,20 +1557,21 @@ function snapEntityBaselineToNearbyGround(state, entity, maxDistance = null) {
 export function snapWizardDoorsToNearbyGround(state) {
     const results = [];
     for (const entity of state.world?.entities || []) {
-        if (!isWizardEntryDoor(entity) && !isWizardExitDoor(entity)) continue;
+        if (!isWizardPortal(entity)) continue;
         const result = snapEntityBaselineToNearbyGround(state, entity);
         if (result) results.push(result);
     }
     return results;
 }
 
-function applyEntryDoorAsPlayerStart(state, entryDoor, { resetPlayer = false } = {}) {
-    if (!entryDoor) return false;
-    const direction = doorWalkDirection(entryDoor, 1);
-    const distance = Math.max(48, Number(entryDoor.emergeDistance) || Math.max(120, Number(entryDoor.w) || 150));
+function applyEntryPortalAsPlayerStart(state, entryPortal, { resetPlayer = false } = {}) {
+    if (!entryPortal) return false;
+    const isPoint = isWizardEntryPoint(entryPortal);
+    const direction = doorWalkDirection(entryPortal, 1);
+    const distance = isPoint ? 0 : Math.max(48, Number(entryPortal.emergeDistance) || Math.max(120, Number(entryPortal.w) || 150));
     const start = {
-        x: Number(entryDoor.x) + direction * distance,
-        y: Number(entryDoor.y)
+        x: Number(entryPortal.x) + direction * distance,
+        y: Number(entryPortal.y)
     };
     state.world.start = start;
     if (resetPlayer && state.player) {
@@ -1349,9 +1590,22 @@ function applyEntryDoorAsPlayerStart(state, entryDoor, { resetPlayer = false } =
     return true;
 }
 
+function entryPortalPlayerStart(entryPortal) {
+    if (!entryPortal) return null;
+    const distance = isWizardEntryPoint(entryPortal)
+        ? 0
+        : Math.max(48, Number(entryPortal.emergeDistance) || Math.max(120, Number(entryPortal.w) || 150));
+    const authoredX = Number(entryPortal.x);
+    const authoredY = Number(entryPortal.y);
+    return {
+        x: (Number.isFinite(authoredX) ? authoredX : 0) + doorWalkDirection(entryPortal, 1) * distance,
+        y: Number.isFinite(authoredY) ? authoredY : 360
+    };
+}
+
 function configurePortalIntro(state, entities) {
-    const portal = wizardEntryDoorEntity(entities);
-    if (!portal) {
+    const portal = wizardEntryPortalEntity(entities);
+    if (!portal || isWizardEntryPoint(portal)) {
         state.story.portalIntro = null;
         state.player.visible = true;
         setCurrentUniformScale(state.player, 1);
@@ -1486,7 +1740,7 @@ function updatePortalIntro(state, dt) {
 }
 
 function configurePortalExit(state, entities) {
-    const portal = wizardExitDoorEntity(entities);
+    const portal = wizardExitPortalEntity(entities);
     if (!portal) {
         state.story.portalExit = null;
         return false;
@@ -1496,12 +1750,13 @@ function configurePortalExit(state, entities) {
     state.story.portalExit = {
         active: false,
         completed: false,
+        instant: isWizardExitPoint(portal),
         portalId: portal.id,
         phase: "armed",
         phaseTime: 0,
         direction,
-        insideScale: wizardDoorInsideScale(portal),
-        triggerDistance: Math.max(24, Number(portal.triggerDistance) || 96),
+        insideScale: isWizardExitPoint(portal) ? 1 : wizardDoorInsideScale(portal),
+        triggerDistance: Math.max(24, Number(portal.triggerDistance) || (isWizardExitPoint(portal) ? 64 : 96)),
         verticalTolerance: Math.max(32, Number(portal.verticalTolerance) || Math.max(state.player.height, Number(portal.h) || 197)),
         walkSpeed: Math.max(40, Number(portal.walkSpeed) || 105),
         openDuration: Math.max(0.05, Number(portal.openDuration) || 0.38),
@@ -1511,8 +1766,21 @@ function configurePortalExit(state, entities) {
         hiddenX: Number(portal.x || 0) + direction * Math.max(10, Number(portal.w || 150) * 0.10),
         groundY: Number(portal.y) || state.player.currentTransform.y
     };
-    setWorldEntityState(state, portal.id, "closed");
+    if (!isWizardExitPoint(portal)) setWorldEntityState(state, portal.id, "closed");
     return true;
+}
+
+function completeImmediateExit(state, exit) {
+    exit.active = true;
+    exit.completed = true;
+    exit.phase = "awaitingLevel";
+    exit.phaseTime = 0;
+    state.story.levelTransitionRequest = {
+        portalId: exit.portalId,
+        requestedLevelId: exit.requestedLevelId,
+        fallbackLevelId: state.world.levelId
+    };
+    addEvent(state, "LEVEL_TRANSITION_REQUESTED", state.story.levelTransitionRequest);
 }
 
 function startPortalExit(state, exit) {
@@ -1537,7 +1805,7 @@ function updatePortalExit(state, dt) {
     if (!exit.active) {
         if (hasLivingBoss(state)) {
             exit.lockedByBoss = true;
-            if (state.world.entityStates?.[exit.portalId] !== "closed") {
+            if (!exit.instant && state.world.entityStates?.[exit.portalId] !== "closed") {
                 setWorldEntityState(state, exit.portalId, "closed");
             }
             return false;
@@ -1546,6 +1814,10 @@ function updatePortalExit(state, dt) {
         const horizontalDistance = Math.abs(state.player.currentTransform.x - Number(portal.x || 0));
         const verticalDistance = Math.abs(state.player.currentTransform.y - Number(portal.y || 0));
         if (horizontalDistance > exit.triggerDistance || verticalDistance > exit.verticalTolerance) return false;
+        if (exit.instant) {
+            completeImmediateExit(state, exit);
+            return true;
+        }
         startPortalExit(state, exit);
     }
 
@@ -1662,6 +1934,149 @@ function configureMailboxStory(state, entities) {
     state.story.mailboxEvents = mailboxStoryEntities(entities).map((mailbox) => mailboxStoryRecord(state, mailbox));
     state.story.mailboxEvent = null;
     return state.story.mailboxEvents.length > 0;
+}
+
+function configureOverheadSymbolTriggers(state, entities) {
+    state.story.symbolTriggers = (entities || []).filter((entity) =>
+        (entity.type === "questionMarkTrigger" || entity.type === "exclamationMarkTrigger")
+        && entity.interaction === "playerOverheadSymbol"
+    ).map((entity) => ({
+        id: String(entity.id || ""),
+        type: entity.type,
+        completed: entity.state === "consumed",
+        triggerDistance: Math.max(8, Number(entity.triggerDistance) || 96),
+        verticalTolerance: Math.max(24, Number(entity.verticalTolerance) || 150),
+        duration: Math.max(0.1, Number(entity.duration) || 2),
+        atlasId: entity.symbolAtlasId || "it_atlas_001",
+        assetId: entity.symbolAssetId || (entity.type === "questionMarkTrigger" ? "thought_bubble_question" : "thought_bubble_exclamation")
+    }));
+    state.story.overheadSymbol = null;
+}
+
+function proximityTextEntities(entities) {
+    return (entities || []).filter((entity) =>
+        entity?.type === "proximityText" || entity?.interaction === "proximityText"
+    );
+}
+
+function normalizeProximityTextFontFamily(value) {
+    const family = String(value || "inter").trim().toLowerCase();
+    return family === "caveat" || family === "cursive" ? "caveat" : "inter";
+}
+
+function proximityTextNumber(entity, field, fallback) {
+    const value = Number(entity?.[field]);
+    return Number.isFinite(value) ? value : fallback;
+}
+
+function proximityTextRecord(entity) {
+    const initialState = String(entity?.state || "armed");
+    const completed = initialState === "complete";
+    return {
+        id: String(entity?.id || ""),
+        entityId: String(entity?.id || ""),
+        x: proximityTextNumber(entity, "x", 0),
+        y: proximityTextNumber(entity, "y", 0),
+        triggerX: proximityTextNumber(entity, "x", 0) + proximityTextNumber(entity, "triggerOffsetX", 0),
+        triggerY: proximityTextNumber(entity, "y", 0) + proximityTextNumber(entity, "triggerOffsetY", 0),
+        triggerDistance: Math.max(8, proximityTextNumber(entity, "triggerDistance", 300)),
+        text: String(entity?.text || "Lorem ipsum"),
+        fontSize: Math.max(8, proximityTextNumber(entity, "fontSize", 100)),
+        fontFamily: normalizeProximityTextFontFamily(entity?.fontFamily),
+        color: String(entity?.color || "#723891"),
+        outlineWidth: Math.max(0, proximityTextNumber(entity, "outlineWidth", 3)),
+        outlineColor: String(entity?.outlineColor || "#0f0113"),
+        fadeInDuration: Math.max(0.01, proximityTextNumber(entity, "fadeInDuration", 1)),
+        displayDuration: Math.max(0, proximityTextNumber(entity, "displayDuration", 5)),
+        fadeOutDuration: Math.max(0.01, proximityTextNumber(entity, "fadeOutDuration", 1)),
+        phase: completed ? "complete" : "armed",
+        phaseTime: 0,
+        alpha: 0,
+        active: false,
+        completed
+    };
+}
+
+function configureProximityTexts(state, entities) {
+    state.story.proximityTexts = proximityTextEntities(entities).map(proximityTextRecord);
+    return state.story.proximityTexts.length > 0;
+}
+
+function updateProximityTexts(state, dt) {
+    const player = state.player;
+    const playerX = Number(player?.currentTransform?.x) || Number(player?.x) || 0;
+    const playerY = (Number(player?.currentTransform?.y) || Number(player?.y) || 0) - Math.max(1, Number(player?.height) || 104) * 0.5;
+    for (const notification of state.story?.proximityTexts || []) {
+        if (notification.completed) continue;
+        if (notification.phase === "armed") {
+            if (player?.visible === false || player?.combatState === "dead") continue;
+            if (Math.hypot(playerX - notification.triggerX, playerY - notification.triggerY) > notification.triggerDistance) continue;
+            notification.phase = "fadeIn";
+            notification.phaseTime = 0;
+            notification.alpha = 0;
+            notification.active = true;
+            addEvent(state, "PROXIMITY_TEXT_TRIGGERED", { sourceId: notification.entityId });
+        }
+
+        notification.phaseTime += dt;
+        if (notification.phase === "fadeIn") {
+            notification.alpha = clamp(notification.phaseTime / notification.fadeInDuration, 0, 1);
+            if (notification.phaseTime >= notification.fadeInDuration) {
+                notification.phase = "display";
+                notification.phaseTime = 0;
+                notification.alpha = 1;
+            }
+        } else if (notification.phase === "display") {
+            notification.alpha = 1;
+            if (notification.phaseTime >= notification.displayDuration) {
+                notification.phase = "fadeOut";
+                notification.phaseTime = 0;
+            }
+        } else if (notification.phase === "fadeOut") {
+            notification.alpha = 1 - clamp(notification.phaseTime / notification.fadeOutDuration, 0, 1);
+            if (notification.phaseTime >= notification.fadeOutDuration) {
+                notification.phase = "complete";
+                notification.phaseTime = 0;
+                notification.alpha = 0;
+                notification.active = false;
+                notification.completed = true;
+                if (notification.entityId) setWorldEntityState(state, notification.entityId, "complete");
+                addEvent(state, "PROXIMITY_TEXT_COMPLETED", { sourceId: notification.entityId });
+            }
+        }
+    }
+}
+
+function updateOverheadSymbol(state, dt) {
+    const active = state.story?.overheadSymbol;
+    if (active) {
+        active.remaining = Math.max(0, (Number(active.remaining) || 0) - dt);
+        if (active.remaining <= 0) state.story.overheadSymbol = null;
+    }
+    if (state.story?.overheadSymbol) return;
+    for (const trigger of state.story?.symbolTriggers || []) {
+        if (trigger.completed) continue;
+        const entity = worldEntityById(state, trigger.id);
+        if (!entity) { trigger.completed = true; continue; }
+        const horizontalDistance = Math.abs(state.player.currentTransform.x - (Number(entity.x) || 0));
+        const verticalDistance = Math.abs(state.player.currentTransform.y - (Number(entity.y) || 0));
+        if (horizontalDistance > trigger.triggerDistance || verticalDistance > trigger.verticalTolerance) continue;
+        trigger.completed = true;
+        if (!setWorldEntityState(state, trigger.id, "consumed")) {
+            entity.state = "consumed";
+            if (!state.world.entityStates) state.world.entityStates = {};
+            state.world.entityStates[trigger.id] = "consumed";
+        }
+        state.story.overheadSymbol = {
+            triggerId: trigger.id,
+            atlasId: trigger.atlasId,
+            assetId: trigger.assetId,
+            remaining: trigger.duration,
+            duration: trigger.duration
+        };
+        addEvent(state, trigger.type === "questionMarkTrigger" ? "PLAYER_QUESTION_MARK_TRIGGERED" : "PLAYER_EXCLAMATION_MARK_TRIGGERED", { triggerId: trigger.id });
+        break;
+    }
 }
 
 function startMailboxStory(state, story) {
@@ -1973,7 +2388,8 @@ function activatePowerUpEffect(state, pickup) {
         rocket.attachedSmokeTimer = 0;
         state.player.ordinaryJumpActive = false;
         state.player.airBoostArmed = false;
-        const flightSpeed = Math.max(1, Number(state.tuning.flightVerticalSpeed) || DEFAULT_TUNING.flightVerticalSpeed);
+        const flightSpeed = Math.max(1, Number(state.tuning.flightVerticalSpeed) || DEFAULT_TUNING.flightVerticalSpeed)
+            * playerMovementSpeedScale(state);
         state.player.vy = clamp(state.player.vy, -flightSpeed, flightSpeed);
         if (boostWasActive) {
             addEvent(state, "PLAYER_BOOST_ENDED", { reason: "flightActivated" });
@@ -2052,7 +2468,22 @@ function updatePickups(state) {
 
         pickup.collected = true;
         pickup.respawnTimer = Math.max(0, Number(pickup.respawnSeconds) || 0);
-        if (pickup.kind === "fuel" || pickup.pickupKind === "fuel") {
+        const entity = worldEntityById(state, pickup.entityId || pickup.id);
+        if (entity) {
+            entity.state = "collected";
+            setWorldEntityState(state, entity.id, "collected");
+        }
+        if (pickup.kind === "score" || Number(pickup.scoreValue) > 0) {
+            const scoreValue = Math.max(1, Math.floor(Number(pickup.scoreValue) || Number(pickup.amount) || 1));
+            const score = addScore(state, scoreValue, {
+                sourceId: pickup.id,
+                x: pickup.x,
+                y: pickupCenterY
+            });
+            addEvent(state, "SCORE_PICKUP_COLLECTED", { pickupId: pickup.id, scoreValue, score });
+        } else if (pickup.kind === "upgrade" || pickup.upgradeKind) {
+            collectPlayerUpgrade(state, pickup.upgradeKind || pickup.pickupKind, pickup.id);
+        } else if (pickup.kind === "fuel" || pickup.pickupKind === "fuel") {
             const flightPickup = {
                 ...pickup,
                 kind: "powerUp",
@@ -2764,8 +3195,19 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
     const health = tuningBaseMaxHealth * tuningHealthScaleApplied;
     const renderScale = scaledEnemyRenderScale(entity, 1);
     const animationTime = Number.isFinite(Number(entity.animationTime)) ? Number(entity.animationTime) : 0;
+    const enemyId = entity.id || `characterEnemy_${index + 1}`;
+    const characterId = String(entity.characterId || entity.characterProject || "ct_char_enemy_001");
+    const loadedDropProfile = state.characterDropProfiles?.[characterId] || {};
+    const bossDropProfile = normalizeCharacterDropProfile(entity);
+    const usesBossDropTable = entity.isBoss === true;
+    const dropTable = (usesBossDropTable
+        ? bossDropProfile.drops
+        : (Array.isArray(loadedDropProfile.drops) ? loadedDropProfile.drops : [])
+    ).map((entry) => ({ ...entry }));
+    const loopAnimationVariant = resolveLoopAnimationVariant(state, entity, enemyId, characterId, x, y);
+    const bomberMeanderVariant = resolveBomberMeanderVariant(state, entity, enemyId, characterId, x, y);
     return {
-        id: entity.id || `characterEnemy_${index + 1}`,
+        id: enemyId,
         kind: "characterEnemy",
         isBoss: entity.isBoss === true,
         bossName: String(entity.bossName || "").trim() || "Boss",
@@ -2774,7 +3216,11 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         autoSpawned: entity.autoSpawned === true,
         enemyDefinitionId: entity.enemyDefinitionId ? String(entity.enemyDefinitionId) : null,
         enemySpawnerId: entity.enemySpawnerId ? String(entity.enemySpawnerId) : null,
-        characterId: String(entity.characterId || entity.characterProject || "ct_char_enemy_001"),
+        characterId,
+        bossDropTable: bossDropProfile.drops.map((entry) => ({ ...entry })),
+        usesBossDropTable,
+        dropTable,
+        dropsEmitted: false,
         ...createTransformTriplet({ x, y, scaleX: renderScale, scaleY: renderScale, alpha: 1 }),
         animationClock: createAnimationClock(animationTime),
         spawnX: x,
@@ -2789,6 +3235,10 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         state: health > 0 ? "idle" : "death",
         animationSlot: health > 0 ? "idle" : "death",
         animationTimeOffset: Number(entity.animationTimeOffset) || 0,
+        loopAnimationPhaseVariation: loopAnimationVariant.phaseVariation,
+        loopAnimationPeriodVariation: loopAnimationVariant.periodVariation,
+        loopAnimationPhaseOffsetCycles: loopAnimationVariant.phaseOffsetCycles,
+        loopAnimationPeriodScale: loopAnimationVariant.periodScale,
         facing,
         strategy,
         locomotion,
@@ -2810,8 +3260,18 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         routeIndex: 0,
         routeTargetSupportId: null,
         routeTargetX: null,
+        routeTargetY: null,
+        routePurpose: null,
+        routeObservedTargetSupportId: null,
+        routeObservedTargetX: null,
+        routeObservedTargetY: null,
         routeRepathTimer: 0,
         navigationFailureCount: 0,
+        hunterWatchdogX: null,
+        hunterWatchdogY: null,
+        hunterWatchdogElapsed: 0,
+        hunterWatchdogTimeoutCount: 0,
+        hunterWatchdogRecoveryTimer: 0,
         airborne: locomotion === "flying",
         velocityX: 0,
         velocityY: 0,
@@ -2866,6 +3326,15 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         bomberScreenTopMargin: Math.max(20, finiteNumberOr(entity.bomberScreenTopMargin, 72)),
         bomberSteeringResponse: Math.max(0.5, finiteNumberOr(entity.bomberSteeringResponse, 4.5)),
         bomberWanderAmplitude: Math.max(0, finiteNumberOr(entity.bomberWanderAmplitude, 28)),
+        bomberObstacleProbeTimer: 0,
+        bomberAvoidanceOffsetX: 0,
+        bomberAvoidanceOffsetY: 0,
+        bomberMeanderPhaseX: bomberMeanderVariant.phaseX,
+        bomberMeanderPhaseY: bomberMeanderVariant.phaseY,
+        bomberMeanderRateScale: bomberMeanderVariant.rateScale,
+        bomberMeanderAmplitudeScale: bomberMeanderVariant.amplitudeScale,
+        bomberMeanderBiasX: bomberMeanderVariant.biasX,
+        bomberMeanderBiasY: bomberMeanderVariant.biasY,
         bomberApproachArcHeight: Math.max(0, finiteNumberOr(entity.bomberApproachArcHeight, 64)),
         bomberDropTimer: Math.max(0, finiteNumberOr(entity.bomberInitialDelay, 0.4)),
         bomberState: strategy === "bomber" ? "perched" : null,
@@ -2956,13 +3425,8 @@ export function applyEditorLevelToWorld(state, editorLevel) {
     const placements = Array.isArray(source.placements) ? source.placements : [];
     const entities = Array.isArray(source.entities) ? source.entities : [];
     const enemyCatalog = normalizeEnemyDefinitionCatalog(state.enemyCatalog);
-    const entryDoorSource = wizardEntryDoorEntity(entities);
-    const playerStart = entryDoorSource
-        ? {
-            x: Number(entryDoorSource.x) + doorWalkDirection(entryDoorSource, 1) * Math.max(48, Number(entryDoorSource.emergeDistance) || Math.max(120, Number(entryDoorSource.w) || 150)),
-            y: Number(entryDoorSource.y) || 360
-        }
-        : null;
+    const entryPortalSource = wizardEntryPortalEntity(entities);
+    const playerStart = entryPortalPlayerStart(entryPortalSource);
 
     const visuals = [];
     for (const placement of placements) {
@@ -3022,6 +3486,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             mirrorY: Boolean(placement.mirrorY),
             rotation: normalizeRotationRadians(placement.rotation),
             layer,
+            onTop: placement.onTop === true,
             collisionFromManifest: inertCosmetic ? false : placement.collisionFromManifest !== false,
             foregroundBrightness: foreground ? layerVisuals.foreground.brightness : undefined,
             foregroundSaturation: Number.isFinite(Number(placement.foregroundSaturation)) ? Number(placement.foregroundSaturation) : undefined,
@@ -3107,15 +3572,15 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         : estimateEditorLevelBounds(visuals, playerStart, entities);
     const atlasManifests = Array.isArray(source.atlasRefs)
         ? source.atlasRefs.map((ref) => ref.manifest).filter(Boolean).map(normalizeAtlasManifestPath)
-        : ["assets/at_atlas_001.json"];
+        : ["atlases/at_atlas_001.json"];
     state.world = {
         ...state.world,
         levelId: source.levelId || "browser_copy_playtest",
         bounds,
-        resetY: Number(source.world?.resetY) || bounds.y + bounds.h + 240,
         start: playerStart ? { x: Number(playerStart.x) || 120, y: Number(playerStart.y) || 360 } : state.world.start,
         atlasManifests,
         colorMap: normalizeLevelColorMap(source.colorMap),
+        colorExchange: normalizeLevelColorExchange(source.colorExchange),
         music: normalizeLevelMusic(source.music),
         layerVisuals,
         autoSpawnEnemies: {
@@ -3137,10 +3602,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         signalReceivers: [],
         entities: runtimeEntities,
         entityStates: Object.fromEntries(runtimeEntities.filter((entity) => entity.id).map((entity) => [entity.id, entity.state || ""])),
-        solids: [
-            { id: "left_wall", kind: "wall", x: bounds.x - 80, y: bounds.y - 400, w: 60, h: bounds.h + 800 },
-            { id: "right_wall", kind: "wall", x: bounds.x + bounds.w + 20, y: bounds.y - 400, w: 60, h: bounds.h + 800 }
-        ],
+        solids: [],
         segments: [],
         collisionMode: "editorLevelPendingManifest",
         collisionSegmentCount: 0,
@@ -3156,6 +3618,9 @@ export function applyEditorLevelToWorld(state, editorLevel) {
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
     state.story.mailboxEvents = [];
+    state.story.symbolTriggers = [];
+    state.story.overheadSymbol = null;
+    state.story.proximityTexts = [];
     state.story.levelTransitionRequest = null;
 
     if (playerStart) {
@@ -3176,6 +3641,8 @@ export function applyEditorLevelToWorld(state, editorLevel) {
     configurePortalIntro(state, runtimeEntities);
     configurePortalExit(state, runtimeEntities);
     configureMailboxStory(state, runtimeEntities);
+    configureOverheadSymbolTriggers(state, runtimeEntities);
+    configureProximityTexts(state, runtimeEntities);
     configureSignalSystem(state, runtimeEntities);
 
     const legacyTrainingEnemy = (entity) => {
@@ -3211,10 +3678,10 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             "ornateKeyPickup",
             "ironKeyPickup",
             "magicRingPickup",
-            "herbPickupBlue",
-            "herbPickupPurple",
-            "herbPickupYellow",
-            "mushroomPickup"
+            PLAYER_UPGRADE_KINDS.HEALTH,
+            PLAYER_UPGRADE_KINDS.FUEL,
+            PLAYER_UPGRADE_KINDS.REGEN,
+            PLAYER_UPGRADE_KINDS.SPEED
         ].includes(type);
     };
     state.pickups = runtimeEntities.filter(pickupLike).map((entity, index) => {
@@ -3235,18 +3702,24 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             })
             : null;
         const pickupKind = String(entity.pickupKind || (type === "fuel" ? "fuel" : type || "item"));
-        const kind = powerUp ? "powerUp" : (pickupKind === "fuel" ? "fuel" : "item");
+        const upgradeKind = normalizedPlayerUpgradeKind(entity.upgradeKind || pickupKind || type);
+        const kind = upgradeKind ? "upgrade" : (powerUp ? "powerUp" : (pickupKind === "fuel" ? "fuel" : "item"));
         const width = Math.max(1, Number(entity.w) || (powerUp ? 96 : 42));
         const height = Math.max(1, Number(entity.h) || (powerUp ? 96 : 80));
         const respawnSeconds = powerUp
             ? Math.max(0, finiteNumberOr(entity.respawnSeconds, 60))
             : Math.max(0, finiteNumberOr(entity.respawnSeconds, 0));
-        const collected = entity.state === "collected";
+        const id = entity.id || `${pickupKind}_${index + 1}`;
+        const collectionId = upgradeKind ? playerUpgradeCollectionId(state.world.levelId, id) : "";
+        const collected = entity.state === "collected"
+            || (collectionId && state.playerProgression.collectedUpgradeIds.includes(collectionId));
         return {
-            id: entity.id || `${pickupKind}_${index + 1}`,
-            entityId: entity.id || `${pickupKind}_${index + 1}`,
+            id,
+            entityId: id,
+            collectionId,
             kind,
-            pickupKind: powerUp ? powerUp.effectId : pickupKind,
+            pickupKind: upgradeKind || (powerUp ? powerUp.effectId : pickupKind),
+            upgradeKind,
             powerUp,
             x: Number(entity.x) || 0,
             y: Number(entity.y) || 0,
@@ -3263,6 +3736,10 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             visualized: editorEntityVisuals(entity).length > 0
         };
     });
+    for (const pickup of state.pickups) {
+        if (!pickup.collected) continue;
+        setWorldEntityState(state, pickup.entityId || pickup.id, "collected");
+    }
     if (!state.inventory || typeof state.inventory !== "object") state.inventory = { items: {} };
     if (!state.inventory.items || typeof state.inventory.items !== "object") state.inventory.items = {};
 
@@ -3336,7 +3813,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         syncReactiveObjectCollision(state, object);
     }
 
-    state.targets = state.enemies.length ? state.enemies.map((enemy) => ({
+    state.targets = state.enemies.map((enemy) => ({
         id: `${enemy.id}_target`,
         kind: "enemyBullseye",
         enemyId: enemy.id,
@@ -3345,9 +3822,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         radius: enemy.targetRadius,
         state: enemy.health > 0 ? "active" : "inactive",
         showMarker: enemy.showTargetMarker
-    })) : [
-        { id: "homing_dot", kind: "debugHomingDot", x: state.player.currentTransform.x + 520, y: state.player.currentTransform.y - 160, radius: 15, state: "active", showMarker: true }
-    ];
+    }));
 
     state.story.levelTitle = source.title || source.levelTitle || "Ignatius Rocketfrock and the Loaded Level of Reasonable Expectations";
     snapAllPresentationSubjects(state, "editorLevelApplied");
@@ -3400,6 +3875,32 @@ export function applyCharacterCombatProfiles(state, profiles) {
         syncEnemyTuningHealthScales(state);
         addEvent(state, "CHARACTER_COMBAT_PROFILES_APPLIED", { enemies: applied });
     }
+    return applied;
+}
+
+export function applyLootCatalog(state, catalog) {
+    state.lootCatalog = normalizeLootCatalog(catalog);
+    return Object.keys(state.lootCatalog.items).length;
+}
+
+export function applyCharacterDropProfiles(state, profiles) {
+    const profileMap = profiles instanceof Map
+        ? profiles
+        : new Map(Object.entries(profiles && typeof profiles === "object" ? profiles : {}));
+    state.characterDropProfiles = Object.fromEntries(
+        [...profileMap.entries()].map(([characterId, profile]) => [String(characterId), deepClone(profile)])
+    );
+    let applied = 0;
+    for (const enemy of state.enemies || []) {
+        const profile = state.characterDropProfiles[enemy.characterId];
+        if (!profile) continue;
+        enemy.dropTable = (enemy.usesBossDropTable
+            ? (Array.isArray(enemy.bossDropTable) ? enemy.bossDropTable : [])
+            : (Array.isArray(profile.drops) ? profile.drops : [])
+        ).map((entry) => ({ ...entry }));
+        applied += 1;
+    }
+    if (applied > 0) addEvent(state, "CHARACTER_DROP_PROFILES_APPLIED", { enemies: applied });
     return applied;
 }
 
@@ -3506,6 +4007,57 @@ function mixedUint32(value) {
     return x >>> 0;
 }
 
+function deterministicEnemyUnit(identity, salt) {
+    return mixedUint32(stableStringHash(`${salt}|${identity}`)) / 4294967296;
+}
+
+function deterministicEnemyIdentity(state, entity, enemyId, characterId, x, y) {
+    const hasAuthoredId = String(entity.id || "").trim().length > 0;
+    const fallbackPosition = hasAuthoredId ? "" : `|${Math.round(x * 1000)}|${Math.round(y * 1000)}`;
+    return [
+        String(state?.world?.levelId || ""),
+        String(enemyId || ""),
+        String(entity.enemyCatalogId || entity.enemyDefinitionId || ""),
+        String(characterId || "")
+    ].join("|") + fallbackPosition;
+}
+
+function resolveLoopAnimationVariant(state, entity, enemyId, characterId, x, y) {
+    const phaseVariation = clamp(Math.abs(finiteNumberOr(entity.loopAnimationPhaseVariation, 0)), 0, 1);
+    const periodVariation = clamp(Math.abs(finiteNumberOr(entity.loopAnimationPeriodVariation, 0)), 0, 0.95);
+    const identity = deterministicEnemyIdentity(state, entity, enemyId, characterId, x, y);
+    const explicitPhase = Number(entity.loopAnimationPhaseOffsetCycles);
+    const explicitPeriod = Number(entity.loopAnimationPeriodScale);
+    const phaseOffsetCycles = Number.isFinite(explicitPhase)
+        ? explicitPhase
+        : phaseVariation > 0
+            ? (deterministicEnemyUnit(identity, "loop-animation-phase") * 2 - 1) * phaseVariation
+            : 0;
+    const periodScale = Number.isFinite(explicitPeriod) && explicitPeriod > 0
+        ? explicitPeriod
+        : periodVariation > 0
+            ? Math.max(0.05, 1 + (deterministicEnemyUnit(identity, "loop-animation-period") * 2 - 1) * periodVariation)
+            : 1;
+    return {
+        phaseVariation,
+        periodVariation,
+        phaseOffsetCycles,
+        periodScale
+    };
+}
+
+function resolveBomberMeanderVariant(state, entity, enemyId, characterId, x, y) {
+    const identity = deterministicEnemyIdentity(state, entity, enemyId, characterId, x, y);
+    return {
+        phaseX: finiteNumberOr(entity.bomberMeanderPhaseX, deterministicEnemyUnit(identity, "bomber-meander-phase-x") * Math.PI * 2),
+        phaseY: finiteNumberOr(entity.bomberMeanderPhaseY, deterministicEnemyUnit(identity, "bomber-meander-phase-y") * Math.PI * 2),
+        rateScale: Math.max(0.2, finiteNumberOr(entity.bomberMeanderRateScale, 0.82 + deterministicEnemyUnit(identity, "bomber-meander-rate") * 0.36)),
+        amplitudeScale: Math.max(0, finiteNumberOr(entity.bomberMeanderAmplitudeScale, 0.85 + deterministicEnemyUnit(identity, "bomber-meander-amplitude") * 0.30)),
+        biasX: clamp(finiteNumberOr(entity.bomberMeanderBiasX, deterministicEnemyUnit(identity, "bomber-meander-bias-x") * 2 - 1), -1, 1),
+        biasY: clamp(finiteNumberOr(entity.bomberMeanderBiasY, deterministicEnemyUnit(identity, "bomber-meander-bias-y") * 2 - 1), -1, 1)
+    };
+}
+
 function ensureRandomState(state) {
     if (!state.random || typeof state.random !== "object") {
         state.random = { seed: 0x1a2b3c4d, levelLoadCount: 0 };
@@ -3566,10 +4118,10 @@ function enemySpawnerOnScreen(state, spawner) {
 function expectedAutoSpawnDirection(state) {
     const playerX = Number(state.player?.currentTransform.x) || 0;
     const entities = state.world?.entities || [];
-    const exitDoor = wizardExitDoorEntity(entities);
+    const exitDoor = wizardExitPortalEntity(entities);
     const exitDx = Number(exitDoor?.x) - playerX;
     if (Number.isFinite(exitDx) && Math.abs(exitDx) > 1) return exitDx < 0 ? -1 : 1;
-    const entryDoor = wizardEntryDoorEntity(entities);
+    const entryDoor = wizardEntryPortalEntity(entities);
     const authoredRouteDx = Number(exitDoor?.x) - Number(entryDoor?.x);
     if (Number.isFinite(authoredRouteDx) && Math.abs(authoredRouteDx) > 1) return authoredRouteDx < 0 ? -1 : 1;
     return 1;
@@ -3694,7 +4246,6 @@ function activateSpawnedEnemy(state, enemy, position, { flash = false } = {}) {
     applyCharacterCombatProfileToEnemy(state, enemy);
     state.enemies = Array.isArray(state.enemies) ? state.enemies : [];
     state.enemies.push(enemy);
-    state.targets = (state.targets || []).filter((target) => target.kind !== "debugHomingDot");
     state.targets.push(autoSpawnTargetForEnemy(enemy));
     return enemy;
 }
@@ -4127,7 +4678,7 @@ function characterEnemyBodyBlockedAt(state, enemy, x, groundY, options = {}) {
         if (options.ignoreObstacleId && polygon.id === options.ignoreObstacleId) {
             continue;
         }
-        if (isAreaBlockingSegmentKind(polygon.kind) && polygonOverlapsRect(polygon, rect)) {
+        if ((isAreaBlockingSegmentKind(polygon.kind) || polygon.kind === "water") && polygonOverlapsRect(polygon, rect)) {
             return true;
         }
     }
@@ -4666,11 +5217,11 @@ export function launchCharacterEnemyProjectile(state, enemy, angleOffset = 0, vo
         frameId: enemy.projectileFrameId,
         projectilePartName: enemy.projectilePartName,
         launchType,
-        kind: projectileKind === "throwingKnife"
+        kind: projectileKind === "throwingKnife" || projectileKind === "crossbowBolt"
             ? "enemyKnife"
             : projectileKind === "musketBall" || launchType === "ballistic"
                 ? "enemyMusketBall"
-                : projectileKind === "rock" || projectileKind === "bomb"
+                : projectileKind === "rock" || projectileKind === "bomb" || projectileKind === "throwingAxe"
                     ? "enemyRock"
                     : "enemyFireball",
         state: "launched",
@@ -4688,7 +5239,7 @@ export function launchCharacterEnemyProjectile(state, enemy, angleOffset = 0, vo
         damage,
         knockbackX,
         knockbackY,
-        trail: projectileKind === "throwingKnife" ? [] : trail,
+        trail: projectileKind === "throwingKnife" || projectileKind === "crossbowBolt" ? [] : trail,
         projectileKind,
         visualStyle: projectileKind === "undeathOrb" ? "undeath" : null,
         pathMargin: Math.max(0, Number(enemy.projectilePathMargin) || 0),
@@ -4906,6 +5457,7 @@ function startCharacterEnemyAttack(state, enemy) {
     setCharacterEnemyAnimation(enemy, "attack");
     addEvent(state, "ENEMY_ATTACK_STARTED", {
         enemyId: enemy.id,
+        characterId: enemy.characterId,
         damage: round(enemy.attackMode === "projectile" ? enemy.projectileDamage : enemy.attackDamage),
         attackMode: enemy.attackMode,
         facing: enemy.facing
@@ -4935,6 +5487,7 @@ function updateCharacterEnemyAttack(state, enemy, dt) {
                 for (const projectile of projectiles) {
                     addEvent(state, "ENEMY_PROJECTILE_FIRED", {
                         enemyId: enemy.id,
+                        characterId: enemy.characterId,
                         projectileId: projectile.id,
                         projectileKind: projectile.kind,
                         projectilePartName: projectile.projectilePartName,
@@ -5192,31 +5745,22 @@ function movingPlatformNavigationBundle(state, options, staticSupports, staticEd
     if (!world || !(staticEdgeMap instanceof Map)) {
         return { supports: staticSupports, edgeMap: staticEdgeMap };
     }
-    const platformSupports = movingPlatformNavigationSupports(state);
-    if (!platformSupports.length) {
-        return { supports: staticSupports, edgeMap: staticEdgeMap };
-    }
-    const platformSignature = platformSupports.map((support) => [
-        support.id,
-        support.x1,
-        support.y1,
-        support.x2,
-        support.y2
-    ].join(":")).join("|");
-    const cacheKey = `${enemyNavigationProfileKey(options)}::${enemyNavigationSupportsSignature(staticSupports)}::${platformSignature}`;
+    const profileKey = enemyNavigationProfileKey(options);
     let worldCache = MOVING_PLATFORM_NAVIGATION_CACHE.get(world);
     if (!worldCache) {
         worldCache = new Map();
         MOVING_PLATFORM_NAVIGATION_CACHE.set(world, worldCache);
     }
-    const cached = worldCache.get(cacheKey);
+    const cached = worldCache.get(profileKey);
     if (cached) {
-        const edgeMap = new Map();
-        for (const support of cached.supports) {
-            const staticEdges = staticEdgeMap.get(support.id);
-            edgeMap.set(support.id, staticEdges ? [...staticEdges, ...(cached.extraEdges.get(support.id) || [])] : [...(cached.extraEdges.get(support.id) || [])]);
-        }
-        return { supports: cached.supports, edgeMap };
+        return cached;
+    }
+
+    const platformSupports = movingPlatformNavigationSupports(state);
+    if (!platformSupports.length) {
+        const staticBundle = { supports: staticSupports, edgeMap: staticEdgeMap };
+        worldCache.set(profileKey, staticBundle);
+        return staticBundle;
     }
 
     const supports = [...staticSupports, ...platformSupports];
@@ -5290,13 +5834,14 @@ function movingPlatformNavigationBundle(state, options, staticSupports, staticEd
             blockerIds: []
         });
     }
-    worldCache.set(cacheKey, { supports, extraEdges });
     const edgeMap = new Map();
     for (const support of supports) {
         const staticEdges = staticEdgeMap.get(support.id);
         edgeMap.set(support.id, staticEdges ? [...staticEdges, ...(extraEdges.get(support.id) || [])] : [...(extraEdges.get(support.id) || [])]);
     }
-    return { supports, edgeMap };
+    const bundle = { supports, edgeMap };
+    worldCache.set(profileKey, bundle);
+    return bundle;
 }
 
 function movingPlatformSupportAvailable(state, support) {
@@ -5385,14 +5930,32 @@ function characterEnemyNavigationContext(state, enemy) {
     const movingBundle = movingPlatformNavigationBundle(state, options, staticSupports, staticEdgeMap);
     const supports = movingBundle.supports;
     const rawEdgeMap = movingBundle.edgeMap;
-    const edgeMap = new Map();
-    for (const support of supports) {
-        edgeMap.set(support.id, (rawEdgeMap.get(support.id) || [])
-            .map((edge) => characterEnemyNavigationAdjustedEdge(state, edge, bakedGraph))
-            .filter((edge) => edge && characterEnemyTraversalAllowedFromSupport(edge, support)));
+    let edgeMap = rawEdgeMap;
+    if ((state.world?.navigationBlockers?.length || 0) > 0 || (bakedGraph?.dynamicCostRules?.length || 0) > 0) {
+        edgeMap = new Map();
+        for (const support of supports) {
+            edgeMap.set(support.id, (rawEdgeMap.get(support.id) || [])
+                .map((edge) => characterEnemyNavigationAdjustedEdge(state, edge, bakedGraph))
+                .filter((edge) => edge && characterEnemyTraversalAllowedFromSupport(edge, support)));
+        }
+    } else {
+        const cached = CHARACTER_ENEMY_TRAVERSAL_EDGE_CACHE.get(rawEdgeMap);
+        if (cached?.supports === supports) {
+            edgeMap = cached.edgeMap;
+        } else {
+            edgeMap = new Map();
+            for (const support of supports) {
+                edgeMap.set(support.id, (rawEdgeMap.get(support.id) || [])
+                    .filter((edge) => characterEnemyTraversalAllowedFromSupport(edge, support)));
+            }
+            CHARACTER_ENEMY_TRAVERSAL_EDGE_CACHE.set(rawEdgeMap, { supports, edgeMap });
+        }
     }
     const riderCurrent = translatedRiderNavigationSupport(state, enemy, supports);
-    const current = riderCurrent || findEnemyNavigationSupport(supports.filter((support) => movingPlatformSupportAvailable(state, support)), enemy.currentTransform.x, enemy.currentTransform.y, {
+    const availableSupports = (state.world?.movingPlatforms?.length || 0) > 0
+        ? supports.filter((support) => movingPlatformSupportAvailable(state, support))
+        : supports;
+    const current = riderCurrent || findEnemyNavigationSupport(availableSupports, enemy.currentTransform.x, enemy.currentTransform.y, {
         maxRise: Math.max(8, Number(enemy.maxStepHeight) || 0),
         maxDrop: Math.max(12, Number(enemy.maxDropDistance) || 0),
         width: enemy.width,
@@ -5429,6 +5992,19 @@ function characterEnemyRoute(state, enemy, supports, startSupportId, targetSuppo
             edgeMap,
             startX: enemy.currentTransform.x,
             targetX
+        }
+    );
+}
+
+function characterEnemyRouteSearch(state, enemy, supports, startSupportId, edgeMap = null) {
+    return planEnemyNavigationRoutesFrom(
+        supports,
+        startSupportId,
+        {
+            ...characterEnemyNavigationOptions(enemy, state),
+            world: state.world,
+            edgeMap,
+            startX: enemy.currentTransform.x
         }
     );
 }
@@ -5600,6 +6176,16 @@ function chooseCharacterEnemyAttackPlan(state, enemy, navigation) {
         ...characterEnemyNavigationOptions(enemy, state),
         world: state.world
     });
+    const routeSearch = characterEnemyRouteSearch(
+        state,
+        enemy,
+        navigation.supports,
+        startSupport.id,
+        edgeMap
+    );
+    if (!routeSearch) {
+        return null;
+    }
 
     const bestAttackPositionOnSupport = (support, route) => {
         const arrivalX = route.edges.at(-1)?.landingX ?? enemy.currentTransform.x;
@@ -5632,14 +6218,7 @@ function chooseCharacterEnemyAttackPlan(state, enemy, navigation) {
 
     const playerSupport = characterEnemyPlayerSupport(state, enemy, navigation.supports);
     if (playerSupport) {
-        let routeToPlayer = characterEnemyRoute(
-            state,
-            enemy,
-            navigation.supports,
-            startSupport.id,
-            playerSupport.support.id,
-            edgeMap
-        );
+        let routeToPlayer = enemyNavigationRouteFromSearch(routeSearch, playerSupport.support.id);
 
         if (enemy.hunterPursuePlayerSupport === true && routeToPlayer) {
             const exactSupportPlan = bestAttackPositionOnSupport(playerSupport.support, routeToPlayer);
@@ -5652,15 +6231,7 @@ function chooseCharacterEnemyAttackPlan(state, enemy, navigation) {
                 player.currentTransform.x + approachSide * Math.max(12, Math.min(preferredRange, Number(enemy.attackRange) * 0.82)),
                 Math.max(4, enemy.width * 0.35)
             );
-            routeToPlayer = characterEnemyRoute(
-                state,
-                enemy,
-                navigation.supports,
-                startSupport.id,
-                playerSupport.support.id,
-                edgeMap,
-                approach.x
-            ) || routeToPlayer;
+            routeToPlayer = enemyNavigationRouteFromSearch(routeSearch, playerSupport.support.id, approach.x) || routeToPlayer;
             return {
                 kind: "pursue",
                 supportId: playerSupport.support.id,
@@ -5692,7 +6263,7 @@ function chooseCharacterEnemyAttackPlan(state, enemy, navigation) {
             }
             const route = support.id === playerSupport.support.id
                 ? routeToPlayer
-                : characterEnemyRoute(state, enemy, navigation.supports, startSupport.id, support.id, edgeMap);
+                : enemyNavigationRouteFromSearch(routeSearch, support.id);
             if (!route) {
                 continue;
             }
@@ -5711,15 +6282,7 @@ function chooseCharacterEnemyAttackPlan(state, enemy, navigation) {
                 player.currentTransform.x + approachSide * Math.max(12, Math.min(preferredRange, Number(enemy.attackRange) * 0.82)),
                 Math.max(4, enemy.width * 0.35)
             );
-            routeToPlayer = characterEnemyRoute(
-                state,
-                enemy,
-                navigation.supports,
-                startSupport.id,
-                playerSupport.support.id,
-                edgeMap,
-                approach.x
-            ) || routeToPlayer;
+            routeToPlayer = enemyNavigationRouteFromSearch(routeSearch, playerSupport.support.id, approach.x) || routeToPlayer;
             return {
                 kind: "pursue",
                 supportId: playerSupport.support.id,
@@ -5733,7 +6296,7 @@ function chooseCharacterEnemyAttackPlan(state, enemy, navigation) {
 
     let fallback = null;
     for (const support of navigation.supports) {
-        const route = characterEnemyRoute(state, enemy, navigation.supports, startSupport.id, support.id, edgeMap);
+        const route = enemyNavigationRouteFromSearch(routeSearch, support.id);
         if (!route) {
             continue;
         }
@@ -5758,7 +6321,8 @@ function chooseCharacterEnemyAttackPlan(state, enemy, navigation) {
         navigation,
         player.currentTransform.x,
         player.currentTransform.y,
-        "blocked_approach"
+        "blocked_approach",
+        routeSearch
     );
     const verticalApproachLimit = Math.max(
         80,
@@ -5825,7 +6389,7 @@ function rememberCharacterEnemyPlayerPosition(state, enemy, navigation) {
     enemy.lastSeenSupportId = support?.support?.id || null;
 }
 
-function chooseCharacterEnemyReachableApproachPlan(state, enemy, navigation, targetX, targetY, kind = "pursue") {
+function chooseCharacterEnemyReachableApproachPlan(state, enemy, navigation, targetX, targetY, kind = "pursue", sharedRouteSearch = null) {
     const startSupport = navigation.current?.support;
     const resolvedTargetX = Number(targetX);
     const resolvedTargetY = Number(targetY);
@@ -5837,23 +6401,28 @@ function chooseCharacterEnemyReachableApproachPlan(state, enemy, navigation, tar
         ...characterEnemyNavigationOptions(enemy, state),
         world: state.world
     });
+    const routeSearch = sharedRouteSearch || characterEnemyRouteSearch(
+        state,
+        enemy,
+        navigation.supports,
+        startSupport.id,
+        edgeMap
+    );
+    if (!routeSearch) {
+        return null;
+    }
     const inset = Math.max(4, enemy.width * 0.35);
     let best = null;
 
     for (const support of navigation.supports) {
+        if (support.id !== startSupport.id && !(routeSearch.stateIndicesBySupport.get(support.id)?.length)) {
+            continue;
+        }
         const point = supportPoint(support, resolvedTargetX, inset);
         if (characterEnemyBodyBlockedAt(state, enemy, point.x, point.y, { groundSlope: characterEnemySupportSlope(support) })) {
             continue;
         }
-        const route = characterEnemyRoute(
-            state,
-            enemy,
-            navigation.supports,
-            startSupport.id,
-            support.id,
-            edgeMap,
-            point.x
-        );
+        const route = enemyNavigationRouteFromSearch(routeSearch, support.id, point.x);
         if (!route) {
             continue;
         }
@@ -5946,7 +6515,7 @@ function updateCharacterEnemyLastSeenInvestigation(state, enemy, navigation, dt,
         return;
     }
 
-    if ((enemy.routeRepathTimer <= 0 || !enemy.routeTargetSupportId) && !characterEnemyHasCommittedTraversal(enemy)) {
+    if (!enemy.routeTargetSupportId && !characterEnemyHasCommittedTraversal(enemy)) {
         const plan = chooseCharacterEnemyLastSeenPlan(state, enemy, navigation);
         if (!plan) {
             if (allowGlare) {
@@ -6014,7 +6583,38 @@ function setCharacterEnemyNavigationPlan(enemy, plan) {
     enemy.routeTargetX = Number.isFinite(Number(plan?.targetX)) ? Number(plan.targetX) : null;
     enemy.routeTargetY = Number.isFinite(Number(plan?.targetY)) ? Number(plan.targetY) : null;
     enemy.routePurpose = plan?.kind ? String(plan.kind) : null;
+    enemy.routeObservedTargetSupportId = null;
+    enemy.routeObservedTargetX = null;
+    enemy.routeObservedTargetY = null;
     enemy.routeRepathTimer = Math.max(FIXED_DT, Number(enemy.routeRepathInterval) || FIXED_DT);
+}
+
+function rememberCharacterEnemyRoutePlayerTarget(state, enemy) {
+    enemy.routeObservedTargetSupportId = enemy.lastSeenSupportId || null;
+    enemy.routeObservedTargetX = Number(state.player.currentTransform.x) || 0;
+    enemy.routeObservedTargetY = Number(state.player.currentTransform.y) || 0;
+}
+
+function setCharacterEnemyAttackNavigationPlan(state, enemy, plan) {
+    setCharacterEnemyNavigationPlan(enemy, plan);
+    rememberCharacterEnemyRoutePlayerTarget(state, enemy);
+}
+
+function characterEnemyHasRoutePlayerTargetSnapshot(enemy) {
+    return typeof enemy.routeObservedTargetX === "number" && Number.isFinite(enemy.routeObservedTargetX) &&
+        typeof enemy.routeObservedTargetY === "number" && Number.isFinite(enemy.routeObservedTargetY);
+}
+
+function characterEnemyRoutePlayerTargetMoved(state, enemy) {
+    if (!characterEnemyHasRoutePlayerTargetSnapshot(enemy)) {
+        return false;
+    }
+    const supportChanged = (enemy.routeObservedTargetSupportId || null) !== (enemy.lastSeenSupportId || null);
+    const movementThreshold = Math.max(24, Math.min(64, (Number(enemy.width) || 0) * 0.5));
+    return supportChanged || Math.hypot(
+        (Number(state.player.currentTransform.x) || 0) - Number(enemy.routeObservedTargetX),
+        (Number(state.player.currentTransform.y) || 0) - Number(enemy.routeObservedTargetY)
+    ) >= movementThreshold;
 }
 
 function clearCharacterEnemyNavigationPlan(enemy) {
@@ -6027,6 +6627,9 @@ function clearCharacterEnemyNavigationPlan(enemy) {
     enemy.routeTargetX = null;
     enemy.routeTargetY = null;
     enemy.routePurpose = null;
+    enemy.routeObservedTargetSupportId = null;
+    enemy.routeObservedTargetX = null;
+    enemy.routeObservedTargetY = null;
 }
 
 function beginCharacterEnemyAirTraversal(enemy, edge) {
@@ -6114,7 +6717,7 @@ function updateCharacterEnemyAirTraversal(state, enemy, dt, supports) {
         enemy,
         previousX,
         nextX,
-        { ignoreIds: horizontalIgnoreIds }
+        { ignoreIds: horizontalIgnoreIds, blockWater: true }
     );
     enemy.currentTransform.x = horizontalCollision ? horizontalCollision.x : nextX;
     if (horizontalCollision) {
@@ -6134,7 +6737,7 @@ function updateCharacterEnemyAirTraversal(state, enemy, dt, supports) {
         enemy,
         previousY,
         nextY,
-        { ignoreIds: verticalIgnoreIds }
+        { ignoreIds: verticalIgnoreIds, blockWater: true }
     );
     enemy.currentTransform.y = verticalCollision ? verticalCollision.y : nextY;
 
@@ -6147,6 +6750,7 @@ function updateCharacterEnemyAirTraversal(state, enemy, dt, supports) {
         enemy.airTimer = 0;
         enemy.airTraversalType = null;
         const intendedSupportId = enemy.airTargetSupportId;
+        const sourceSupportId = enemy.airSourceSupportId;
         const landedSupport = findEnemyNavigationSupport(supports, enemy.currentTransform.x, enemy.currentTransform.y, {
             maxRise: 5,
             maxDrop: 5,
@@ -6185,10 +6789,21 @@ function updateCharacterEnemyAirTraversal(state, enemy, dt, supports) {
                 );
                 enemy.currentTransform.x = recoveredPoint.x;
                 enemy.currentTransform.y = recoveredPoint.y;
-                enemy.navigationFailureCount = 0;
-                enemy.aiState = enemy.engaged ? "pursue" : "return_home";
-                enemy.movementPhase = enemy.aiState;
-                setCharacterEnemyAnimation(enemy, "walk");
+                if (sourceSupportId && enemy.currentSupportId === sourceSupportId) {
+                    enemy.navigationFailureCount = (Number(enemy.navigationFailureCount) || 0) + 1;
+                    if (enemy.navigationFailureCount >= 2) {
+                        enterCharacterEnemyGlare(state, enemy);
+                    } else {
+                        enemy.aiState = enemy.engaged ? "pursue" : "return_home";
+                        enemy.movementPhase = enemy.aiState;
+                        setCharacterEnemyAnimation(enemy, "idle");
+                    }
+                } else {
+                    enemy.navigationFailureCount = 0;
+                    enemy.aiState = enemy.engaged ? "pursue" : "return_home";
+                    enemy.movementPhase = enemy.aiState;
+                    setCharacterEnemyAnimation(enemy, "walk");
+                }
             } else {
                 enemy.navigationFailureCount = (Number(enemy.navigationFailureCount) || 0) + 1;
                 if (enemy.navigationFailureCount >= 2) {
@@ -6235,7 +6850,15 @@ function updateCharacterEnemyAirTraversal(state, enemy, dt, supports) {
 }
 
 function characterEnemyHasCommittedTraversal(enemy) {
-    return enemy.routeTraversalPhase === "approach_run_up" || enemy.routeTraversalPhase === "run_up";
+    if (enemy.airborne === true) return true;
+    const runUpPhase = enemy.routeTraversalPhase === "approach_run_up" || enemy.routeTraversalPhase === "run_up";
+    const routeIndex = Number(enemy.routeIndex) || 0;
+    const traversalEdgeIndex = Number.isFinite(Number(enemy.routeTraversalEdgeIndex))
+        ? Number(enemy.routeTraversalEdgeIndex)
+        : -1;
+    const validRouteEdge = Array.isArray(enemy.route) && traversalEdgeIndex >= 0 &&
+        traversalEdgeIndex === routeIndex && traversalEdgeIndex < enemy.route.length;
+    return runUpPhase && validRouteEdge;
 }
 
 function prepareCharacterEnemyRunUp(enemy, edge) {
@@ -6416,7 +7039,19 @@ function followCharacterEnemyNavigationPlan(state, enemy, navigation, dt) {
     }
 
     const targetSupport = navigationSupportById(navigation.supports, enemy.routeTargetSupportId) || current;
-    const finalPoint = supportPoint(targetSupport, Number(enemy.routeTargetX) || enemy.currentTransform.x, Math.max(4, enemy.width * 0.3));
+    const routeTargetX = Number(enemy.routeTargetX);
+    const finalPoint = supportPoint(
+        targetSupport,
+        Number.isFinite(routeTargetX) ? routeTargetX : enemy.currentTransform.x,
+        Math.max(4, enemy.width * 0.3)
+    );
+    const finalMovementPhase = enemy.routePurpose === "return_home"
+        ? "return_home"
+        : enemy.routePurpose === "last_seen"
+            ? "investigate_last_seen"
+            : enemy.routePurpose === "blocked_approach"
+                ? "blocked_approach"
+                : "position_for_attack";
     if (Math.abs(enemy.currentTransform.x - finalPoint.x) <= 2) {
         enemy.currentTransform.x = finalPoint.x;
         enemy.currentTransform.y = finalPoint.y;
@@ -6426,7 +7061,7 @@ function followCharacterEnemyNavigationPlan(state, enemy, navigation, dt) {
                 enemy.facing = dx < 0 ? -1 : 1;
             }
         }
-        enemy.movementPhase = enemy.routePurpose === "blocked_approach" ? "blocked_approach" : "position_for_attack";
+        enemy.movementPhase = finalMovementPhase;
         setCharacterEnemyAnimation(enemy, "idle");
         return true;
     }
@@ -6434,15 +7069,268 @@ function followCharacterEnemyNavigationPlan(state, enemy, navigation, dt) {
     if (moved <= 0) {
         return false;
     }
-    enemy.movementPhase = "position_for_attack";
+    enemy.movementPhase = enemy.routePurpose === "return_home"
+        ? "return_home"
+        : enemy.routePurpose === "last_seen"
+            ? "investigate_last_seen"
+            : "pursue";
     setCharacterEnemyAnimation(enemy, "walk");
     return true;
 }
 
 const CHARACTER_ENEMY_REENGAGE_COOLDOWN_SECONDS = 2;
+const CHARACTER_ENEMY_HUNTER_WATCHDOG_PROGRESS_DISTANCE = 20;
+const CHARACTER_ENEMY_HUNTER_WATCHDOG_TIMEOUT_SECONDS = 3;
+const CHARACTER_ENEMY_HUNTER_WATCHDOG_RETURN_HOME_TIMEOUTS = 3;
+const CHARACTER_ENEMY_HUNTER_WATCHDOG_GUARD_TIMEOUTS = 4;
+const CHARACTER_ENEMY_HUNTER_WATCHDOG_RECOVERY_SECONDS = 1.5;
+
+function resetCharacterEnemyHunterWatchdog(enemy, resetTimeoutCount = true) {
+    enemy.hunterWatchdogX = Number(enemy.currentTransform.x) || 0;
+    enemy.hunterWatchdogY = Number(enemy.currentTransform.y) || 0;
+    enemy.hunterWatchdogElapsed = 0;
+    if (resetTimeoutCount) {
+        enemy.hunterWatchdogTimeoutCount = 0;
+    }
+}
+
+function characterEnemyHunterWatchdogActive(enemy) {
+    if (enemy.strategy !== "hunter" || enemy.locomotion !== "ground" || enemy.health <= 0) {
+        return false;
+    }
+    if (enemy.combatState === ENEMY_COMBAT_STATE.ATTACKING || enemy.combatState === ENEMY_COMBAT_STATE.HURT ||
+        enemy.combatState === ENEMY_COMBAT_STATE.DEAD || enemy.deathPendingLanding === true) {
+        return false;
+    }
+    if (enemy.movementPhase === "glare" || enemy.movementPhase === "wait_for_platform" ||
+        enemy.movementPhase === "ride_platform" || enemy.movementPhase === "position_for_attack") {
+        return false;
+    }
+    // The recovery timer may outlive the short stranded-patrol state. It must
+    // not keep the watchdog armed after normal patrol resumes, otherwise an
+    // ordinary idle patrol can be reported as a stall.
+    if (enemy.aiState === "stranded_patrol" && (Number(enemy.hunterWatchdogTimeoutCount) || 0) > 0) {
+        return true;
+    }
+    return enemy.engaged === true || enemy.airborne === true || characterEnemyHasCommittedTraversal(enemy) ||
+        enemy.aiState === "pursue" || enemy.aiState === "investigate_last_seen" ||
+        enemy.aiState === "return_home" || enemy.aiState === "jump" || enemy.aiState === "drop";
+}
+
+function characterEnemyHunterWatchdogPaused(enemy) {
+    if (enemy.combatState === ENEMY_COMBAT_STATE.ATTACKING || enemy.combatState === ENEMY_COMBAT_STATE.HURT ||
+        enemy.combatState === ENEMY_COMBAT_STATE.DEAD || enemy.deathPendingLanding === true) {
+        return true;
+    }
+    return enemy.movementPhase === "glare" || enemy.movementPhase === "wait_for_platform" ||
+        enemy.movementPhase === "ride_platform" || enemy.movementPhase === "position_for_attack";
+}
+
+function recordCharacterEnemyHunterWatchdogException(state, enemy, timeoutCount, recoveryAction) {
+    state.debug.exceptionAlertSequence = (Number(state.debug.exceptionAlertSequence) || 0) + 1;
+    const incident = {
+        type: "hunterWatchdogTimeout",
+        sequence: state.debug.exceptionAlertSequence,
+        tick: Number(state.clock?.tick) || 0,
+        time: Number(state.clock?.time) || 0,
+        enemyId: enemy.id || null,
+        enemyCatalogId: enemy.enemyCatalogId || null,
+        characterId: enemy.characterId || null,
+        timeoutCount,
+        recoveryAction,
+        x: Number(enemy.currentTransform?.x) || 0,
+        y: Number(enemy.currentTransform?.y) || 0,
+        vx: Number(enemy.velocityX) || 0,
+        vy: Number(enemy.velocityY) || 0,
+        watchdogX: Number.isFinite(Number(enemy.hunterWatchdogX)) ? Number(enemy.hunterWatchdogX) : null,
+        watchdogY: Number.isFinite(Number(enemy.hunterWatchdogY)) ? Number(enemy.hunterWatchdogY) : null,
+        watchdogElapsed: Number(enemy.hunterWatchdogElapsed) || 0,
+        aiState: enemy.aiState || null,
+        movementPhase: enemy.movementPhase || null,
+        combatState: enemy.combatState || null,
+        engaged: enemy.engaged === true,
+        alerted: enemy.alerted === true,
+        airborne: enemy.airborne === true,
+        supportId: enemy.supportId || null,
+        currentSupportId: enemy.currentSupportId || null,
+        homeSupportId: enemy.homeSupportId || null,
+        routePurpose: enemy.routePurpose || null,
+        routeIndex: Number(enemy.routeIndex) || 0,
+        routeLength: Array.isArray(enemy.route) ? enemy.route.length : 0,
+        routeTargetSupportId: enemy.routeTargetSupportId || null,
+        routeTargetX: Number.isFinite(Number(enemy.routeTargetX)) ? Number(enemy.routeTargetX) : null,
+        routeTargetY: Number.isFinite(Number(enemy.routeTargetY)) ? Number(enemy.routeTargetY) : null,
+        routeTraversalPhase: enemy.routeTraversalPhase || null,
+        routeTraversalEdgeIndex: Number.isFinite(Number(enemy.routeTraversalEdgeIndex))
+            ? Number(enemy.routeTraversalEdgeIndex)
+            : -1,
+        airTraversalType: enemy.airTraversalType || null,
+        airSourceSupportId: enemy.airSourceSupportId || null,
+        airTargetSupportId: enemy.airTargetSupportId || null,
+        lastSeenPlayerX: Number.isFinite(Number(enemy.lastSeenPlayerX)) ? Number(enemy.lastSeenPlayerX) : null,
+        lastSeenPlayerY: Number.isFinite(Number(enemy.lastSeenPlayerY)) ? Number(enemy.lastSeenPlayerY) : null,
+        lastSeenSupportId: enemy.lastSeenSupportId || null,
+        spawnX: Number(enemy.spawnX) || 0,
+        spawnY: Number(enemy.spawnY) || 0,
+        playerX: Number(state.player?.currentTransform?.x) || 0,
+        playerY: Number(state.player?.currentTransform?.y) || 0
+    };
+    if (!Array.isArray(state.debug.exceptionAlerts)) state.debug.exceptionAlerts = [];
+    state.debug.exceptionAlerts.push(incident);
+    while (state.debug.exceptionAlerts.length > 32) state.debug.exceptionAlerts.shift();
+    return incident;
+}
+
+function abortCharacterEnemyTraversalForWatchdog(state, enemy) {
+    enemy.velocityX = 0;
+    enemy.velocityY = 0;
+    enemy.groundVelocityX = 0;
+    enemy.routeTraversalPhase = null;
+    enemy.routeTraversalEdgeIndex = -1;
+    enemy.airTimer = 0;
+    enemy.airTraversalType = null;
+    enemy.airSourceSupportId = null;
+    enemy.airSourceObstacleId = null;
+    enemy.airTargetSupportId = null;
+
+    const support = findCharacterEnemyGroundSupport(
+        state,
+        enemy.currentTransform.x,
+        enemy.currentTransform.y,
+        Math.max(8, Number(enemy.groundSnapDistance) || 0, Number(enemy.maxStepHeight) || 0),
+        Math.max(12, Number(enemy.groundSnapDistance) || 0, Number(enemy.maxDropDistance) || 0),
+        enemy.width
+    );
+    if (support) {
+        enemy.currentTransform.y = support.y;
+        enemy.airborne = false;
+        setCharacterEnemyGroundSupportIdentity(state, enemy, support);
+    } else {
+        // A watchdog recovery in mid-air must still obey gravity rather than
+        // pinning the enemy in place. The normal hunter air integrator will
+        // settle it onto the next valid support before another route is chosen.
+        enemy.airborne = true;
+        enemy.velocityY = Math.max(0, Number(enemy.velocityY) || 0);
+    }
+}
+
+function onCharacterEnemyHunterWatchdogTimeout(state, enemy) {
+    const returnHomeAlreadyFailed = enemy.aiState === "return_home" &&
+        (Number(enemy.hunterWatchdogTimeoutCount) || 0) >= CHARACTER_ENEMY_HUNTER_WATCHDOG_RETURN_HOME_TIMEOUTS;
+    enemy.hunterWatchdogTimeoutCount = (Number(enemy.hunterWatchdogTimeoutCount) || 0) + 1;
+    const timeoutCount = enemy.hunterWatchdogTimeoutCount;
+    const recoveryAction = returnHomeAlreadyFailed
+        ? "guard_current_support"
+        : timeoutCount >= CHARACTER_ENEMY_HUNTER_WATCHDOG_RETURN_HOME_TIMEOUTS
+            ? "return_home"
+            : "local_recovery";
+    // Capture the full stalled interval before refreshing the anchor.
+    recordCharacterEnemyHunterWatchdogException(state, enemy, timeoutCount, recoveryAction);
+    resetCharacterEnemyHunterWatchdog(enemy, false);
+    abortCharacterEnemyTraversalForWatchdog(state, enemy);
+    clearCharacterEnemyNavigationPlan(enemy);
+    enemy.routeRepathTimer = 0;
+
+    if (returnHomeAlreadyFailed && timeoutCount >= CHARACTER_ENEMY_HUNTER_WATCHDOG_GUARD_TIMEOUTS) {
+        enemy.engaged = false;
+        enemy.alerted = false;
+        enemy.aiState = "guard";
+        enemy.movementPhase = "guard";
+        enemy.hunterWatchdogRecoveryTimer = 0;
+        enemy.phaseTimer = 0;
+        setCharacterEnemyAnimation(enemy, "idle");
+        addEvent(state, "ENEMY_HUNTER_WATCHDOG_GUARD", {
+            enemyId: enemy.id,
+            timeoutCount,
+            recoveryAction
+        });
+        return;
+    }
+
+    if (timeoutCount >= CHARACTER_ENEMY_HUNTER_WATCHDOG_RETURN_HOME_TIMEOUTS) {
+        enemy.engaged = false;
+        enemy.alerted = false;
+        enemy.aiState = "return_home";
+        enemy.movementPhase = "return_home";
+        enemy.unreachableReengageCooldownTimer = CHARACTER_ENEMY_REENGAGE_COOLDOWN_SECONDS;
+        enemy.hunterWatchdogRecoveryTimer = 0;
+        setCharacterEnemyAnimation(enemy, "idle");
+        addEvent(state, "ENEMY_HUNTER_WATCHDOG_RETURN_HOME", {
+            enemyId: enemy.id,
+            timeoutCount,
+            recoveryAction
+        });
+        return;
+    }
+
+    const navigation = characterEnemyNavigationContext(state, enemy);
+    enterCharacterEnemyStrandedPatrol(state, enemy, navigation);
+    enemy.hunterWatchdogRecoveryTimer = CHARACTER_ENEMY_HUNTER_WATCHDOG_RECOVERY_SECONDS;
+    enemy.phaseTimer = 0;
+    enemy.movementPhase = "stranded_patrol";
+    const minX = Number(enemy.temporaryPatrolMinX);
+    const maxX = Number(enemy.temporaryPatrolMaxX);
+    if (Number.isFinite(minX) && Number.isFinite(maxX)) {
+        enemy.facing = (maxX - enemy.currentTransform.x) >= (enemy.currentTransform.x - minX) ? 1 : -1;
+    }
+    setCharacterEnemyAnimation(enemy, "walk");
+    addEvent(state, "ENEMY_HUNTER_WATCHDOG_RECOVERY", {
+        enemyId: enemy.id,
+        timeoutCount,
+        recoveryAction,
+        supportId: navigation.current?.support?.id || null
+    });
+}
+
+function updateCharacterEnemyHunterWatchdog(state, enemy, dt) {
+    enemy.hunterWatchdogRecoveryTimer = Math.max(
+        0,
+        (Number(enemy.hunterWatchdogRecoveryTimer) || 0) - Math.max(0, Number(dt) || 0)
+    );
+
+    if (enemy.strategy !== "hunter" || enemy.locomotion !== "ground" || enemy.health <= 0) {
+        resetCharacterEnemyHunterWatchdog(enemy, true);
+        return;
+    }
+
+    // Intentional holds and reactions pause the watchdog. They do not erase
+    // accumulated failures or replace the persistent position anchor.
+    if (characterEnemyHunterWatchdogPaused(enemy)) {
+        return;
+    }
+
+    if (!characterEnemyHunterWatchdogActive(enemy)) {
+        resetCharacterEnemyHunterWatchdog(enemy, true);
+        return;
+    }
+
+    const x = Number(enemy.currentTransform.x) || 0;
+    const y = Number(enemy.currentTransform.y) || 0;
+    if (!Number.isFinite(Number(enemy.hunterWatchdogX)) || !Number.isFinite(Number(enemy.hunterWatchdogY))) {
+        resetCharacterEnemyHunterWatchdog(enemy, false);
+        return;
+    }
+
+    const distance = Math.hypot(x - Number(enemy.hunterWatchdogX), y - Number(enemy.hunterWatchdogY));
+    if (distance >= CHARACTER_ENEMY_HUNTER_WATCHDOG_PROGRESS_DISTANCE) {
+        // Real displacement refreshes the timer, but a recovery shuffle must
+        // not forgive earlier stalls and reopen the same failed hunt forever.
+        resetCharacterEnemyHunterWatchdog(enemy, false);
+        return;
+    }
+
+    enemy.hunterWatchdogElapsed = Math.max(0, Number(enemy.hunterWatchdogElapsed) || 0) + Math.max(0, Number(dt) || 0);
+    if (enemy.hunterWatchdogElapsed + 0.000001 < CHARACTER_ENEMY_HUNTER_WATCHDOG_TIMEOUT_SECONDS) {
+        return;
+    }
+
+    onCharacterEnemyHunterWatchdogTimeout(state, enemy);
+}
 
 function enterCharacterEnemyGlare(state, enemy, options = {}) {
     clearCharacterEnemyNavigationPlan(enemy);
+    rememberCharacterEnemyRoutePlayerTarget(state, enemy);
+    enemy.routeRepathTimer = Math.max(1, (Number(enemy.routeRepathInterval) || FIXED_DT) * 3);
     enemy.engaged = false;
     enemy.alerted = false;
     enemy.unreachableReengageCooldownTimer = 0;
@@ -6530,6 +7418,23 @@ function updateCharacterEnemyPatrolRange(state, enemy, dt, minX, maxX, phase = "
 }
 
 function updateHunterCharacterEnemy(state, enemy, dt) {
+    const seesPlayer = enemy.airborne ? false : characterEnemyCanNoticePlayer(state, enemy);
+    if (!enemy.airborne && !enemy.engaged && enemy.aiState === "patrol" && !seesPlayer) {
+        const { bakedGraph } = staticEnemyNavigationBundle(state, characterEnemyNavigationOptions(enemy, state));
+        enemy.navigationGraphSource = bakedGraph ? "baked" : "runtime";
+        enemy.navigationGraphId = bakedGraph?.id || null;
+        enemy.alerted = false;
+        updateCharacterEnemyPatrolRange(
+            state,
+            enemy,
+            dt,
+            finiteNumberOr(enemy.homePatrolMinX, enemy.patrolMinX),
+            finiteNumberOr(enemy.homePatrolMaxX, enemy.patrolMaxX),
+            "patrol"
+        );
+        syncCharacterEnemyTarget(state, enemy);
+        return;
+    }
     const navigation = characterEnemyNavigationContext(state, enemy);
     if (enemy.airborne) {
         updateCharacterEnemyAirTraversal(state, enemy, dt, navigation.supports);
@@ -6537,7 +7442,6 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
         return;
     }
 
-    const seesPlayer = characterEnemyCanNoticePlayer(state, enemy);
     if (seesPlayer) {
         enemy.awarenessTimer = Math.max(
             FIXED_DT,
@@ -6586,14 +7490,18 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
         }
         enemy.glareTimer = Math.max(0, (Number(enemy.glareTimer) || 0) - dt);
         enemy.routeRepathTimer = Math.max(0, (Number(enemy.routeRepathTimer) || 0) - dt);
+        if (seesPlayer && characterEnemyRoutePlayerTargetMoved(state, enemy)) {
+            enemy.routeRepathTimer = 0;
+        }
         if (seesPlayer && enemy.routeRepathTimer <= 0) {
             const plan = chooseCharacterEnemyAttackPlan(state, enemy, navigation);
-            enemy.routeRepathTimer = Math.max(FIXED_DT, Number(enemy.routeRepathInterval) || FIXED_DT);
+            rememberCharacterEnemyRoutePlayerTarget(state, enemy);
+            enemy.routeRepathTimer = Math.max(1, (Number(enemy.routeRepathInterval) || FIXED_DT) * 3);
             if (plan && plan.kind !== "blocked_approach") {
                 enemy.engaged = true;
                 enemy.alerted = true;
                 enemy.aiState = "pursue";
-                setCharacterEnemyNavigationPlan(enemy, plan);
+                setCharacterEnemyAttackNavigationPlan(state, enemy, plan);
                 addEvent(state, "ENEMY_REENGAGED", { enemyId: enemy.id });
                 syncCharacterEnemyTarget(state, enemy);
                 return;
@@ -6638,7 +7546,9 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
             0,
             (Number(enemy.unreachableReengageCooldownTimer) || 0) - dt
         );
-        if (seesPlayer && enemy.unreachableReengageCooldownTimer <= 0) {
+        const watchdogForcedReturnHome = (Number(enemy.hunterWatchdogTimeoutCount) || 0) >=
+            CHARACTER_ENEMY_HUNTER_WATCHDOG_RETURN_HOME_TIMEOUTS;
+        if (seesPlayer && enemy.unreachableReengageCooldownTimer <= 0 && !watchdogForcedReturnHome) {
             const canAttack = characterEnemyReadyToAttackFromCurrentPosition(state, enemy);
             if (canAttack) {
                 enemy.engaged = true;
@@ -6655,7 +7565,7 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
                 enemy.alerted = true;
                 enemy.aiState = "pursue";
                 enemy.unreachableReengageCooldownTimer = 0;
-                setCharacterEnemyNavigationPlan(enemy, plan);
+                setCharacterEnemyAttackNavigationPlan(state, enemy, plan);
                 addEvent(state, "ENEMY_REENGAGED", { enemyId: enemy.id, reason: "return_home_sight" });
                 syncCharacterEnemyTarget(state, enemy);
                 return;
@@ -6677,7 +7587,7 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
             return;
         }
         enemy.routeRepathTimer = Math.max(0, (Number(enemy.routeRepathTimer) || 0) - dt);
-        if ((enemy.routeRepathTimer <= 0 || !enemy.route?.length) && !characterEnemyHasCommittedTraversal(enemy)) {
+        if (!enemy.routeTargetSupportId && !characterEnemyHasCommittedTraversal(enemy)) {
             const homeSupport = navigationSupportById(navigation.supports, enemy.homeSupportId);
             const route = homeSupport && navigation.current
                 ? characterEnemyRoute(state, enemy, navigation.supports, navigation.current.support.id, homeSupport.id, navigation.edgeMap)
@@ -6688,6 +7598,7 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
                 return;
             }
             setCharacterEnemyNavigationPlan(enemy, {
+                kind: "return_home",
                 supportId: homeSupport.id,
                 targetX: enemy.spawnX,
                 targetY: enemy.spawnY,
@@ -6703,7 +7614,8 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
 
     if (enemy.aiState === "stranded_patrol") {
         enemy.homeRetryTimer = Math.max(0, (Number(enemy.homeRetryTimer) || 0) - dt);
-        if (seesPlayer) {
+        const watchdogRecovering = (Number(enemy.hunterWatchdogRecoveryTimer) || 0) > 0;
+        if (seesPlayer && !watchdogRecovering) {
             if (updateCharacterEnemyLocalGroundPursuit(state, enemy, dt)) {
                 addEvent(state, "ENEMY_REENGAGED_LOCAL", { enemyId: enemy.id });
                 syncCharacterEnemyTarget(state, enemy);
@@ -6714,13 +7626,13 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
                 enemy.engaged = true;
                 enemy.alerted = true;
                 enemy.aiState = "pursue";
-                setCharacterEnemyNavigationPlan(enemy, plan);
+                setCharacterEnemyAttackNavigationPlan(state, enemy, plan);
                 addEvent(state, "ENEMY_ALERTED", { enemyId: enemy.id });
                 syncCharacterEnemyTarget(state, enemy);
                 return;
             }
         }
-        if (enemy.homeRetryTimer <= 0) {
+        if (enemy.homeRetryTimer <= 0 && !watchdogRecovering) {
             enemy.homeRetryTimer = Math.max(FIXED_DT, Number(enemy.homeRetryInterval) || state.tuning.enemyDefaultHomeRetrySeconds || 4);
             const homeSupport = navigationSupportById(navigation.supports, enemy.homeSupportId);
             const route = homeSupport && navigation.current
@@ -6764,9 +7676,17 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
                 return;
             }
         }
-        if (seesPlayer && (enemy.routeRepathTimer <= 0 || !enemy.routeTargetSupportId) && !characterEnemyHasCommittedTraversal(enemy)) {
+        const routeNeedsRefresh = !enemy.routeTargetSupportId || (
+            enemy.routeRepathTimer <= 0 && (
+                !characterEnemyHasRoutePlayerTargetSnapshot(enemy) ||
+                characterEnemyRoutePlayerTargetMoved(state, enemy) ||
+                characterEnemyReachedNavigationTarget(enemy, navigation)
+            )
+        );
+        if (seesPlayer && routeNeedsRefresh && !characterEnemyHasCommittedTraversal(enemy)) {
             const plan = chooseCharacterEnemyAttackPlan(state, enemy, navigation);
             if (!plan) {
+                rememberCharacterEnemyRoutePlayerTarget(state, enemy);
                 if (updateCharacterEnemyLocalGroundPursuit(state, enemy, dt)) {
                     syncCharacterEnemyTarget(state, enemy);
                     return;
@@ -6775,7 +7695,11 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
                 syncCharacterEnemyTarget(state, enemy);
                 return;
             }
-            setCharacterEnemyNavigationPlan(enemy, plan);
+            setCharacterEnemyAttackNavigationPlan(state, enemy, plan);
+        } else if (seesPlayer && enemy.routeRepathTimer <= 0) {
+            // The player is still close to the target snapshot used by this route.
+            // Keep the valid plan instead of rebuilding the whole navigation search.
+            enemy.routeRepathTimer = Math.max(FIXED_DT, Number(enemy.routeRepathInterval) || FIXED_DT);
         }
         if (!followCharacterEnemyNavigationPlan(state, enemy, navigation, dt)) {
             if (seesPlayer && updateCharacterEnemyLocalGroundPursuit(state, enemy, dt)) {
@@ -6912,19 +7836,31 @@ function updateFlyingCharacterEnemy(state, enemy, dt) {
             const screenTop = (Number(state.camera?.currentTransform.y) || desiredHoverY) - approximateViewportHalfHeight;
             const topMargin = Math.max(20, Number(enemy.bomberScreenTopMargin) || 72);
             const targetY = Math.max(screenTop + topMargin + enemy.height * 0.5, desiredHoverY);
-            const wander = Math.sin(phase * 0.57 + (Number(enemy.flightPhaseOffset) || 0) * 3.1) *
-                Math.max(0, Number(enemy.bomberWanderAmplitude) || 0);
             const playerDxBeforeSteering = targetX - enemy.currentTransform.x;
+            const playerDyBeforeSteering = targetY - enemy.currentTransform.y;
             const approachDistance = Math.max(140, hoverHeight * 1.35);
-            const approachBlend = Math.min(1, Math.abs(playerDxBeforeSteering) / approachDistance);
-            // Keep a little lateral life even after the bat reaches its bombing station.
-            // The previous curve faded to exactly zero over Ignatius, which made the last
-            // part of every run look like a ruler-straight homing line.
-            const wanderBlend = 0.32 + approachBlend * 0.68;
+            const stationDistance = Math.hypot(playerDxBeforeSteering, playerDyBeforeSteering);
+            const approachBlend = Math.min(1, stationDistance / approachDistance);
+            // Keep the complete deterministic swarm pattern at the bombing station.
+            // Bats circle through the true vertical drop lane and release only while crossing it.
+            const meanderClock = enemy.flightTime * Math.max(0.05, cycles) * Math.PI * 2 *
+                Math.max(0.2, Number(enemy.bomberMeanderRateScale) || 1);
+            const horizontalPattern =
+                (Number(enemy.bomberMeanderBiasX) || 0) * 0.34 +
+                Math.sin(meanderClock * 0.61 + (Number(enemy.bomberMeanderPhaseX) || 0)) * 0.46 +
+                Math.sin(meanderClock * 1.17 + (Number(enemy.bomberMeanderPhaseY) || 0)) * 0.20;
+            const verticalPattern =
+                (Number(enemy.bomberMeanderBiasY) || 0) * 0.24 +
+                Math.sin(meanderClock * 0.53 + (Number(enemy.bomberMeanderPhaseY) || 0)) * 0.52 +
+                Math.sin(meanderClock * 1.31 + (Number(enemy.bomberMeanderPhaseX) || 0)) * 0.24;
+            const authoredWanderAmplitude = Math.max(0, Number(enemy.bomberWanderAmplitude) || 0);
+            const individualAmplitudeScale = Math.max(0, Number(enemy.bomberMeanderAmplitudeScale) || 0);
+            const horizontalMeanderAmplitude = authoredWanderAmplitude * individualAmplitudeScale * 2.5;
+            const verticalMeanderAmplitude = Math.min(64, authoredWanderAmplitude * individualAmplitudeScale * 1.05);
             const approachArcHeight = Math.max(0, Number(enemy.bomberApproachArcHeight) || 0);
             const approachArc = Math.sin(approachBlend * Math.PI * 0.5) * approachArcHeight;
-            let desiredX = targetX + wander * wanderBlend;
-            let desiredY = targetY + Math.sin(phase * 0.83) * Math.min(18, amplitude) - approachArc;
+            let desiredX = targetX + horizontalPattern * horizontalMeanderAmplitude;
+            let desiredY = targetY + verticalPattern * verticalMeanderAmplitude - approachArc;
             const obstacleMargin = Math.max(8, Number(enemy.bomberObstacleClearance) || 56);
             const clearance = Math.max(enemy.width, enemy.height) * 0.5 + obstacleMargin;
             // Use a compact body probe while retaining the larger clearance value for
@@ -6947,12 +7883,20 @@ function updateFlyingCharacterEnemy(state, enemy, dt) {
                 y: desiredCenterY,
                 radius: flightProbeRadius
             };
-            const directHit = findProjectileTerrainImpact(state, directProbe, enemy.currentTransform.x, enemyCenterY);
-            if (directHit) {
-                const sidestep = enemy.currentTransform.x <= directHit.x ? -1 : 1;
-                desiredX += sidestep * clearance * 1.4;
-                desiredY = Math.min(desiredY, directHit.y - clearance);
+            enemy.bomberObstacleProbeTimer = Math.max(0, (Number(enemy.bomberObstacleProbeTimer) || 0) - dt);
+            if (enemy.bomberObstacleProbeTimer <= 0) {
+                enemy.bomberAvoidanceOffsetX = 0;
+                enemy.bomberAvoidanceOffsetY = 0;
+                const directHit = findProjectileTerrainImpact(state, directProbe, enemy.currentTransform.x, enemyCenterY);
+                if (directHit) {
+                    const sidestep = enemy.currentTransform.x <= directHit.x ? -1 : 1;
+                    enemy.bomberAvoidanceOffsetX = sidestep * clearance * 1.4;
+                    enemy.bomberAvoidanceOffsetY = Math.min(0, directHit.y - clearance - desiredY);
+                }
+                enemy.bomberObstacleProbeTimer = 0.1;
             }
+            desiredX += Number(enemy.bomberAvoidanceOffsetX) || 0;
+            desiredY += Number(enemy.bomberAvoidanceOffsetY) || 0;
             const dx = desiredX - enemy.currentTransform.x;
             const dy = desiredY - enemy.currentTransform.y;
             const distance = Math.hypot(dx, dy);
@@ -6992,12 +7936,22 @@ function updateFlyingCharacterEnemy(state, enemy, dt) {
             const dropDx = targetX - enemy.currentTransform.x;
             enemy.projectileLaunchType = "drop";
             enemy.attackMode = "projectile";
-            const clearDrop = seesPlayer && characterEnemyProjectilePathClearFromPoint(state, enemy, { x: enemy.currentTransform.x, y: enemy.currentTransform.y });
-            if (Math.abs(dropDx) <= tolerance && nearBombingHeight && verticallyAbove && enemy.bomberDropTimer <= 0 && clearDrop) {
+            const directDropTolerance = Math.min(tolerance, Math.max(8, Math.min(12, enemy.width * 0.15)));
+            const readyToCheckDropPath = seesPlayer &&
+                Math.abs(dropDx) <= directDropTolerance &&
+                nearBombingHeight &&
+                verticallyAbove &&
+                enemy.bomberDropTimer <= 0;
+            if (readyToCheckDropPath && characterEnemyProjectilePathClearFromPoint(
+                state,
+                enemy,
+                { x: enemy.currentTransform.x, y: enemy.currentTransform.y }
+            )) {
                 const projectile = launchCharacterEnemyProjectile(state, enemy);
                 if (projectile) {
                     addEvent(state, "ENEMY_PROJECTILE_FIRED", {
                         enemyId: enemy.id,
+                        characterId: enemy.characterId,
                         projectileId: projectile.id,
                         projectileKind: projectile.kind,
                         projectilePartName: projectile.projectilePartName,
@@ -7144,14 +8098,14 @@ function updateDeadCharacterEnemyPhysics(state, enemy, dt) {
     const previousX = enemy.currentTransform.x;
     const previousY = enemy.currentTransform.y;
     const nextX = previousX + (Number(enemy.velocityX) || 0) * dt;
-    const horizontalCollision = findActorHorizontalSweepCollision(state, enemy, previousX, nextX);
+    const horizontalCollision = findActorHorizontalSweepCollision(state, enemy, previousX, nextX, { blockWater: true });
     enemy.currentTransform.x = horizontalCollision ? horizontalCollision.x : nextX;
     if (horizontalCollision) {
         enemy.velocityX = 0;
     }
 
     const nextY = previousY + (Number(enemy.velocityY) || 0) * dt;
-    const verticalCollision = findActorVerticalSweepCollision(state, enemy, previousY, nextY);
+    const verticalCollision = findActorVerticalSweepCollision(state, enemy, previousY, nextY, { blockWater: true });
     enemy.currentTransform.y = verticalCollision ? verticalCollision.y : nextY;
     if (verticalCollision?.ceiling) {
         enemy.velocityY = 0;
@@ -7313,6 +8267,7 @@ function updateCharacterEnemies(state, dt) {
 
         if (enemy.strategy === "hunter") {
             updateHunterCharacterEnemy(state, enemy, dt);
+            updateCharacterEnemyHunterWatchdog(state, enemy, dt);
             continue;
         }
 
@@ -7436,32 +8391,140 @@ function updateCharacterEnemies(state, dt) {
     }
 }
 
-function applyPlayerCaveKillBoundary(state) {
+function caveBoundaryParallaxOffset(state) {
+    const bounds = state.world?.bounds || {};
+    const camera = state.camera?.currentTransform || state.camera || {};
+    const parallax = clamp(Number(state.world?.layerVisuals?.foreground?.parallax) || 1, 1, 1.25);
+    const extraScroll = parallax - 1;
+    const worldCenterX = (Number(bounds.x) || 0) + Math.max(0, Number(bounds.w) || 0) * 0.5;
+    const worldCenterY = (Number(bounds.y) || 0) + Math.max(0, Number(bounds.h) || 0) * 0.5;
+    return {
+        x: ((Number(camera.x) || 0) - worldCenterX) * extraScroll,
+        y: ((Number(camera.y) || 0) - worldCenterY) * extraScroll
+    };
+}
+
+function caveBoundaryQueryRect(state) {
+    const rect = getPlayerRect(state);
+    const parallaxOffset = caveBoundaryParallaxOffset(state);
+    // Foreground points render at authoredPoint - parallaxOffset. Moving the
+    // wizard query by +parallaxOffset compares against that same apparent line.
+    return {
+        x: rect.x + parallaxOffset.x,
+        y: rect.y + parallaxOffset.y,
+        w: rect.w,
+        h: rect.h
+    };
+}
+
+function markCaveBoundaryTouching(state, inwardNormal) {
+    const touching = state.collisions?.playerTouching;
+    if (!touching) return;
+    if (Math.abs(inwardNormal.x) >= Math.abs(inwardNormal.y)) {
+        if (inwardNormal.x > 0) touching.left = true;
+        else touching.right = true;
+    } else if (inwardNormal.y > 0) {
+        touching.up = true;
+    } else {
+        touching.down = true;
+    }
+}
+
+function applyPlayerCaveBoundary(state) {
     const player = state.player;
     const boundary = state.world?.caveKillBoundary;
     if (!player || playerDeathActive(state) || player.combatState === "dead" || !player.targetable) {
         return false;
     }
-    const rect = getPlayerRect(state);
-    if (!rectFullyOutsideCaveKillBoundary(boundary, rect)) {
+
+    let blocked = false;
+    for (let iteration = 0; iteration < 6; iteration += 1) {
+        const contact = evaluateCaveBoundaryRect(boundary, caveBoundaryQueryRect(state));
+        if (!contact.outside) {
+            if (blocked) {
+                addEvent(state, "PLAYER_CAVE_BLACK_BOUNDARY_BLOCKED", {
+                    boundarySource: boundary.source || "caveFullBlackOutset",
+                    x: round(player.currentTransform.x),
+                    y: round(player.currentTransform.y)
+                });
+            }
+            return false;
+        }
+
+        if (contact.kind === "killable") {
+            const rect = getPlayerRect(state);
+            addEvent(state, "PLAYER_CAVE_BLACK_BOUNDARY_CROSSED", {
+                boundarySource: boundary.source || "caveFullBlackOutset",
+                x: round(player.currentTransform.x),
+                y: round(player.currentTransform.y),
+                rect: {
+                    x: round(rect.x),
+                    y: round(rect.y),
+                    w: round(rect.w),
+                    h: round(rect.h)
+                }
+            });
+            return triggerPlayerDeath(state, {
+                sourceId: boundary.source || "caveFullBlackOutset",
+                resetReason: "crossedCaveFullBlackBoundary",
+                cause: "caveFullBlackBoundary"
+            });
+        }
+
+        blocked = true;
+        player.currentTransform.x += contact.correction.x;
+        player.currentTransform.y += contact.correction.y;
+        const inwardSpeed = player.vx * contact.inwardNormal.x + player.vy * contact.inwardNormal.y;
+        if (inwardSpeed < 0) {
+            player.vx -= contact.inwardNormal.x * inwardSpeed;
+            player.vy -= contact.inwardNormal.y * inwardSpeed;
+        }
+        markCaveBoundaryTouching(state, contact.inwardNormal);
+    }
+
+    if (blocked) {
+        addEvent(state, "PLAYER_CAVE_BLACK_BOUNDARY_BLOCKED", {
+            boundarySource: boundary.source || "caveFullBlackOutset",
+            x: round(player.currentTransform.x),
+            y: round(player.currentTransform.y)
+        });
+    }
+    return false;
+}
+
+function applyPlayerWorldBoundsKill(state) {
+    const player = state.player;
+    const bounds = state.world?.bounds;
+    if (!player || playerDeathActive(state) || player.combatState === "dead" || !player.targetable ||
+        !bounds || ![bounds.x, bounds.y, bounds.w, bounds.h].every(Number.isFinite) || bounds.w <= 0 || bounds.h <= 0) {
         return false;
     }
 
-    addEvent(state, "PLAYER_CAVE_BLACK_BOUNDARY_CROSSED", {
-        boundarySource: boundary.source || "caveFullBlackOutset",
+    const rect = getPlayerRect(state);
+    const right = bounds.x + bounds.w;
+    const bottom = bounds.y + bounds.h;
+    const crossedLeft = rect.x < bounds.x;
+    const crossedRight = rect.x + rect.w > right;
+    const crossedTop = rect.y < bounds.y;
+    const crossedBottom = rect.y + rect.h > bottom;
+    if (!crossedLeft && !crossedRight && !crossedTop && !crossedBottom) {
+        return false;
+    }
+
+    const sides = [];
+    if (crossedLeft) sides.push("left");
+    if (crossedRight) sides.push("right");
+    if (crossedTop) sides.push("top");
+    if (crossedBottom) sides.push("bottom");
+    addEvent(state, "PLAYER_WORLD_BOUNDS_CROSSED", {
+        side: sides.join("+"),
         x: round(player.currentTransform.x),
-        y: round(player.currentTransform.y),
-        rect: {
-            x: round(rect.x),
-            y: round(rect.y),
-            w: round(rect.w),
-            h: round(rect.h)
-        }
+        y: round(player.currentTransform.y)
     });
     return triggerPlayerDeath(state, {
-        sourceId: boundary.source || "caveFullBlackOutset",
-        resetReason: "crossedCaveFullBlackBoundary",
-        cause: "caveFullBlackBoundary"
+        sourceId: "worldBounds",
+        resetReason: "worldBounds",
+        cause: "worldBounds"
     });
 }
 
@@ -7535,10 +8598,12 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     if (updatePlayerDeath(state, dt)) {
         return state;
     }
-    if (applyPlayerCaveKillBoundary(state)) {
+    if (applyPlayerCaveBoundary(state)) {
         return state;
     }
 
+    updateProximityTexts(state, dt);
+    updateOverheadSymbol(state, dt);
     if (updatePortalIntro(state, dt)) {
         return;
     }
@@ -7548,10 +8613,17 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     if (updatePortalExit(state, dt)) {
         return;
     }
+    if (applyPlayerWorldBoundsKill(state)) {
+        return state;
+    }
 
     updateTreasureChests(state, dt);
     updatePickups(state);
-    const flightActive = flightPowerUpActive(state);
+    const waterBefore = refreshPlayerWaterState(state);
+    if (waterBefore.inWater && rocket.attachedBoosting) {
+        stopAttachedBoost(state, "water");
+    }
+    const flightActive = flightPowerUpActive(state) && !waterBefore.inWater;
     if (!flightActive && rocket.state === "flight") {
         rocket.state = "mountedReady";
         rocket.attachedBoostTime = 0;
@@ -7572,7 +8644,7 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
 
     p.dropThroughTimer = Math.max(0, (Number(p.dropThroughTimer) || 0) - Math.max(0, Number(dt) || 0));
     const dropIntent = Boolean(input.dropHeld || input.dropPressed);
-    const mayStartDropThrough = flightActive || (p.onGround && !input.jumpPressed) || (!p.onGround && p.vy >= 0);
+    const mayStartDropThrough = flightActive || waterBefore.inWater || (p.onGround && !input.jumpPressed) || (!p.onGround && p.vy >= 0);
     if (dropIntent && mayStartDropThrough) {
         p.dropThroughTimer = Math.max(
             p.dropThroughTimer,
@@ -7588,20 +8660,42 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     const digitalMoveAxis = (input.moveRight ? 1 : 0) - (input.moveLeft ? 1 : 0);
     const analogMoveAxis = Number.isFinite(input.moveAxis) ? clamp(input.moveAxis, -1, 1) : 0;
     const moveAxis = Math.abs(analogMoveAxis) > 0.001 ? analogMoveAxis : digitalMoveAxis;
-    if (Math.abs(moveAxis) > 0.001) {
+    const movementSpeedScale = playerMovementSpeedScale(state);
+    if (waterBefore.inWater) {
+        const submergedControl = Math.max(0.12, waterBefore.submersion);
+        if (Math.abs(moveAxis) > 0.001) {
+            p.facing = moveAxis > 0 ? 1 : -1;
+            const accel = t.groundAcceleration * movementSpeedScale
+                * Math.max(0, Number(t.waterHorizontalAccelerationScale) || 0)
+                * submergedControl;
+            p.vx += moveAxis * accel * dt;
+            p.ax = moveAxis * accel;
+        }
+        p.vx = applyWaterDrag(
+            p.vx,
+            waterBefore.submersion,
+            t.waterHorizontalLinearDrag,
+            t.waterHorizontalQuadraticDrag,
+            dt
+        );
+    } else if (Math.abs(moveAxis) > 0.001) {
         p.facing = moveAxis > 0 ? 1 : -1;
-        const accel = (wasOnGround || flightActive) ? t.groundAcceleration : t.airAcceleration;
+        const accel = ((wasOnGround || flightActive) ? t.groundAcceleration : t.airAcceleration) * movementSpeedScale;
         p.vx += moveAxis * accel * dt;
         p.ax = moveAxis * accel;
     } else if (wasOnGround || flightActive) {
-        p.vx = approach(p.vx, 0, t.groundFriction * dt);
+        p.vx = approach(p.vx, 0, t.groundFriction * movementSpeedScale * dt);
     } else {
         p.vx *= Math.max(0, 1 - t.airDrag * dt);
     }
 
-    p.vx = clamp(p.vx, -t.maxRunSpeed, t.maxRunSpeed);
+    const horizontalSpeedLimit = t.maxRunSpeed * movementSpeedScale
+        * (waterBefore.inWater
+            ? Math.max(0.05, Number(t.waterHorizontalSpeedScale) || 0.45)
+            : (flightActive ? FLIGHT_MOVEMENT_SPEED_MULTIPLIER : 1));
+    p.vx = clamp(p.vx, -horizontalSpeedLimit, horizontalSpeedLimit);
 
-    if (!flightActive) {
+    if (!flightActive && !waterBefore.inWater) {
         if (input.jumpReleased && !wasOnGround) {
             p.airBoostArmed = true;
         }
@@ -7660,14 +8754,25 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     }
 
     moveAndCollideX(state, p.vx * dt);
-    integratePlayerVerticalMotion(state, input, dt, wasOnGround, Boolean(input.dropHeld || input.dropPressed));
+    if (waterBefore.inWater) {
+        integratePlayerWaterMotion(state, input, dt, wasOnGround, waterBefore);
+    } else {
+        integratePlayerVerticalMotion(state, input, dt, wasOnGround, Boolean(input.dropHeld || input.dropPressed));
+    }
     if (playerDeathActive(state)) {
         return state;
     }
     if (resolvePlayerPenetrations(state, wasOnGround)) {
         return state;
     }
-    if (applyPlayerCaveKillBoundary(state)) {
+    const waterAfter = refreshPlayerWaterState(state);
+    if (waterAfter.inWater && rocket.attachedBoosting) {
+        stopAttachedBoost(state, "water");
+    }
+    if (applyPlayerWorldBoundsKill(state)) {
+        return state;
+    }
+    if (applyPlayerCaveBoundary(state)) {
         return state;
     }
     applyPlayerSurfaceHazards(state);
@@ -7684,10 +8789,6 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
         p.airborneTime += dt;
     } else {
         p.airborneTime = 0;
-    }
-
-    if (p.currentTransform.y > state.world.resetY) {
-        resetPlayer(state, "fellOutOfArena");
     }
 
     updateFuelRecharge(state, dt);
@@ -7708,6 +8809,10 @@ function startAttachedBoost(state) {
     const rocket = state.equipment.rocket;
     const p = state.player;
     const t = state.tuning;
+    if (p?.inWater) {
+        addEvent(state, "PLAYER_BOOST_BLOCKED", { reason: "water" });
+        return false;
+    }
     const kickMax = t.attachedBoostKickChargeMax ?? 1;
     const kickCharge = clamp(rocket.boostKickCharge ?? kickMax, 0, kickMax);
     const kickFuelCost = Math.max(0, t.attachedBoostKickFuelCost ?? 5);
@@ -7777,8 +8882,10 @@ function applyFlightGovernor(state, input, dt) {
     const upIntent = Boolean(input?.jumpHeld || input?.jumpPressed || input?.boostHeld || input?.boostPressed);
     const downIntent = Boolean(input?.dropHeld || input?.dropPressed);
     const verticalInput = (downIntent ? 1 : 0) - (upIntent ? 1 : 0);
-    const speed = Math.max(1, Number(state.tuning.flightVerticalSpeed) || DEFAULT_TUNING.flightVerticalSpeed);
-    const acceleration = Math.max(1, Number(state.tuning.flightVerticalAcceleration) || DEFAULT_TUNING.flightVerticalAcceleration);
+    const movementScale = playerMovementSpeedScale(state);
+    const speed = Math.max(1, Number(state.tuning.flightVerticalSpeed) || DEFAULT_TUNING.flightVerticalSpeed)
+        * movementScale * FLIGHT_MOVEMENT_SPEED_MULTIPLIER;
+    const acceleration = Math.max(1, Number(state.tuning.flightVerticalAcceleration) || DEFAULT_TUNING.flightVerticalAcceleration) * movementScale;
     const targetVelocity = verticalInput * speed;
     const previousVelocity = state.player.vy;
 
@@ -7942,52 +9049,34 @@ function sortRocketTargets(state, targets, originX, originY, facing, options = {
         .map((entry) => entry.target);
 }
 
-function orderedForwardTargets(state) {
-    const activeTargets = (state.targets || []).filter((target) => target.state === "active");
-    if (!activeTargets.length) return [];
-    const player = state.player || { x: 0, y: 0, height: 0, facing: 1 };
-    const facing = player.facing < 0 ? -1 : 1;
-    const originX = Number(player.currentTransform.x) || 0;
-    const originY = (Number(player.currentTransform.y) || 0) - (Number(player.height) || 0) * 0.72;
-    return sortRocketTargets(state, activeTargets, originX, originY, facing, { requireForward: true });
+function homingTargetSearchRange(state) {
+    return Math.max(1, Number(cameraVisibleWorldRect(state).w) || 1280);
 }
 
-function homingTargetVisibleOnScreen(state, target, visibleRect = cameraVisibleWorldRect(state)) {
+function homingTargetWithinRange(state, target, originX, originY) {
     if (!target || target.state !== "active") return false;
 
     const enemyId = String(target.enemyId || "").trim();
     const enemy = enemyId
         ? (state.enemies || []).find((candidate) => candidate?.id === enemyId)
         : null;
-    if (enemy) {
-        if (enemy.visible === false || Number(enemy.health) <= 0) return false;
-        const width = Math.max(1, Number(enemy.width) || Number(target.radius) * 2 || 1);
-        const height = Math.max(1, Number(enemy.height) || Number(target.radius) * 2 || 1);
-        return rectsOverlap(visibleRect, {
-            x: (Number(enemy.currentTransform.x) || 0) - width * 0.5,
-            y: (Number(enemy.currentTransform.y) || 0) - height,
-            w: width,
-            h: height
-        });
-    }
+    if (enemy && (enemy.visible === false || Number(enemy.health) <= 0)) return false;
 
-    const radius = Math.max(1, Number(target.radius) || 1);
-    return rectsOverlap(visibleRect, {
-        x: (Number(target.x) || 0) - radius,
-        y: (Number(target.y) || 0) - radius,
-        w: radius * 2,
-        h: radius * 2
-    });
+    const dx = (Number(target.x) || 0) - (Number(originX) || 0);
+    const dy = (Number(target.y) || 0) - (Number(originY) || 0);
+    const range = homingTargetSearchRange(state);
+    return dx * dx + dy * dy <= range * range;
 }
 
-function orderedHomingTargets(state) {
-    const visibleRect = cameraVisibleWorldRect(state);
-    const activeTargets = (state.targets || []).filter((target) => homingTargetVisibleOnScreen(state, target, visibleRect));
+function orderedForwardTargets(state, originX, originY, facing) {
+    const activeTargets = (state.targets || []).filter((target) => homingTargetWithinRange(state, target, originX, originY));
     if (!activeTargets.length) return [];
-    const player = state.player || { x: 0, y: 0, height: 0, facing: 1 };
-    const facing = player.facing < 0 ? -1 : 1;
-    const originX = Number(player.currentTransform.x) || 0;
-    const originY = (Number(player.currentTransform.y) || 0) - (Number(player.height) || 0) * 0.72;
+    return sortRocketTargets(state, activeTargets, originX, originY, facing, { requireForward: true });
+}
+
+function orderedHomingTargets(state, originX, originY, facing) {
+    const activeTargets = (state.targets || []).filter((target) => homingTargetWithinRange(state, target, originX, originY));
+    if (!activeTargets.length) return [];
     return sortRocketTargets(state, activeTargets, originX, originY, facing);
 }
 
@@ -8017,6 +9106,10 @@ function activeRocketProfile(state) {
 
 function launchHomingRocket(state) {
     const t = state.tuning;
+    if (state.player?.inWater) {
+        addEvent(state, "ROCKET_LAUNCH_BLOCKED", { reason: "water" });
+        return false;
+    }
     const weapons = state.weapons;
     const powerUpMultipliers = rocketPowerUpMultipliers(state);
     const activeWrenchEffect = activeWrenchPowerUpEffect(state);
@@ -8032,16 +9125,17 @@ function launchHomingRocket(state) {
 
     const p = state.player;
     const projectileCount = Math.max(1, Math.floor(Number(rocketProfile.projectileCount) || 1));
-    const targets = orderedHomingTargets(state);
     const launchOrigin = {
         x: Number(p.currentTransform.x) || 0,
         y: (Number(p.currentTransform.y) || 0) - (Number(p.height) || 0) * 0.72
     };
+    const launchFacing = p.facing < 0 ? -1 : 1;
+    const targets = orderedHomingTargets(state, launchOrigin.x, launchOrigin.y, launchFacing);
     const defaultDirection = rocketProfile.launchMode === "forward"
         ? { x: p.facing < 0 ? -1 : 1, y: 0 }
         : { x: 0, y: -1 };
     const aimedTarget = rocketProfile.aimAtNearestForwardTarget
-        ? orderedForwardTargets(state)[0] || null
+        ? orderedForwardTargets(state, launchOrigin.x, launchOrigin.y, launchFacing)[0] || null
         : null;
     const aimedVector = aimedTarget
         ? { x: Number(aimedTarget.x) - launchOrigin.x, y: Number(aimedTarget.y) - launchOrigin.y }
@@ -8122,6 +9216,7 @@ function launchHomingRocket(state) {
             vy: launchDir.y * projectileSpeed,
             facing: p.facing,
             targetId: target ? target.id : null,
+            homingTargetSearchTimer: target ? HOMING_TARGET_SEARCH_INTERVAL_SECONDS : 0,
             homing: Boolean(rocketProfile.homing),
             homingStrength: Math.max(0, t.rocketProjectileHomingStrength * (Number(rocketProfile.homingStrengthMultiplier) || 0)),
             initialHomingStrength: Math.max(0, t.rocketProjectileInitialHomingStrength * (Number(rocketProfile.homingStrengthMultiplier) || 0)),
@@ -8315,6 +9410,7 @@ function detonatePlayerProjectile(state, projectile, reason, detail = {}) {
 
 function updateProjectiles(state, dt) {
     const t = state.tuning;
+    let homingTargetSearchPerformed = false;
 
     for (const projectile of state.projectiles) {
         if (projectile.state === "queued") {
@@ -8380,11 +9476,22 @@ function updateProjectiles(state, dt) {
                 projectile.vx = projectile.vx / nextSpeed * speed;
                 projectile.vy = projectile.vy / nextSpeed * speed;
             } else if (projectile.homing) {
-                let target = findTargetById(state, projectile.targetId);
+                const originX = Number(projectile.currentTransform.x) || 0;
+                const originY = Number(projectile.currentTransform.y) || 0;
+                let target = findTargetById(state, projectile.targetId, originX, originY);
+                if (!target && projectile.targetId) {
+                    projectile.targetId = null;
+                    projectile.homingTargetSearchTimer = 0;
+                }
                 if (!target && projectile.boomerang && projectile.boomerangOutboundTimer <= 0) {
                     beginBoomerangReturn(state, projectile, "targetUnavailable");
                 } else {
-                    target = target || findHomingTarget(state);
+                    projectile.homingTargetSearchTimer = Math.max(0, (Number(projectile.homingTargetSearchTimer) || 0) - dt);
+                    if (!target && projectile.homingTargetSearchTimer <= 0 && !homingTargetSearchPerformed) {
+                        homingTargetSearchPerformed = true;
+                        target = findHomingTarget(state, originX, originY, projectile.facing < 0 ? -1 : 1);
+                        projectile.homingTargetSearchTimer = HOMING_TARGET_SEARCH_INTERVAL_SECONDS;
+                    }
                     if (target) {
                         projectile.targetId = target.id;
                         applyRocketHomingMeander(state, projectile, dt);
@@ -8884,9 +9991,12 @@ function addSmokePuff(state, spec) {
 
 function attachedRocketNozzlePoint(state) {
     const p = state.player;
+    const nozzleBackOffset = 26;
+    const nozzleHeightRatio = 0.30;
+    const nozzleDownCorrection = 8;
     return {
-        x: p.currentTransform.x - p.facing * 28,
-        y: p.currentTransform.y - p.height * 0.42
+        x: p.currentTransform.x - p.facing * nozzleBackOffset,
+        y: p.currentTransform.y - p.height * nozzleHeightRatio + nozzleDownCorrection
     };
 }
 
@@ -9009,16 +10119,16 @@ function hash01(seed) {
     return x - Math.floor(x);
 }
 
-function findHomingTarget(state) {
-    return orderedHomingTargets(state)[0] || null;
+function findHomingTarget(state, originX, originY, facing) {
+    return orderedHomingTargets(state, originX, originY, facing)[0] || null;
 }
 
-function findTargetById(state, id) {
+function findTargetById(state, id, originX, originY) {
     if (!id) {
         return null;
     }
     const target = state.targets.find((candidate) => candidate.id === id && candidate.state === "active") || null;
-    return homingTargetVisibleOnScreen(state, target) ? target : null;
+    return homingTargetWithinRange(state, target, originX, originY) ? target : null;
 }
 
 function distance(a, b) {
@@ -9128,6 +10238,103 @@ function applyProjectileDamageToPlayer(state, projectile) {
     };
 }
 
+function enemyDropRandomUnit(state, enemy, channel) {
+    const random = ensureRandomState(state);
+    const salt = stableStringHash([
+        "enemy-drop",
+        state.world?.levelId || "level",
+        random.levelLoadCount,
+        enemy?.id || "enemy",
+        String(channel || "roll")
+    ].join(":"));
+    return mixedUint32(random.seed ^ salt) / 4294967296;
+}
+
+function lootPickupCollectionId(state, pickupId, item) {
+    return item?.kind === "upgrade" && item?.upgradeKind
+        ? playerUpgradeCollectionId(state.world?.levelId, pickupId)
+        : "";
+}
+
+function enemyLootPickupId(enemy, itemId, ordinal, channel) {
+    const safeOrdinal = Math.max(0, Math.floor(Number(ordinal) || 0));
+    const safeChannel = String(channel || "direct").replace(/[^a-z0-9_]+/gi, "_");
+    return `drop_${enemy.id}_${safeChannel}_${safeOrdinal}_${itemId}`;
+}
+
+function spawnEnemyLootPickup(state, enemy, itemId, ordinal, channel) {
+    const item = state.lootCatalog?.items?.[itemId];
+    if (!item) return null;
+    const safeOrdinal = Math.max(0, Math.floor(Number(ordinal) || 0));
+    const pickupId = enemyLootPickupId(enemy, item.itemId, safeOrdinal, channel);
+    const collectionId = lootPickupCollectionId(state, pickupId, item);
+    if (collectionId && state.playerProgression?.collectedUpgradeIds?.includes(collectionId)) return null;
+    const spread = safeOrdinal > 0
+        ? (enemyDropRandomUnit(state, enemy, `${channel}:spread:${safeOrdinal}`) * 2 - 1) * 28
+        : 0;
+    const width = Math.max(1, Number(item.width) || 52);
+    const height = Math.max(1, Number(item.height) || 52);
+    const dropOffsetY = Math.max(0, Number(item.dropOffsetY) || 0);
+    const spawnX = (Number(enemy.currentTransform?.x) || Number(enemy.x) || 0) + spread;
+    const spawnY = (Number(enemy.currentTransform?.y) || Number(enemy.y) || 0) - dropOffsetY;
+    const pickup = {
+        id: pickupId,
+        entityId: pickupId,
+        collectionId,
+        kind: item.kind || "item",
+        pickupKind: item.pickupKind || item.itemId,
+        upgradeKind: item.upgradeKind || "",
+        x: spawnX,
+        y: spawnY,
+        centerY: spawnY - height * 0.5,
+        width,
+        height,
+        radius: Math.max(4, Number(item.radius) || Math.min(width, height) * 0.42),
+        amount: Math.max(1, Math.floor(Number(item.amount) || 1)),
+        scoreValue: Math.max(0, Math.floor(Number(item.scoreValue) || 0)),
+        atlasId: item.atlasId || "it_atlas_001",
+        assetId: item.assetId || "",
+        bob: item.bob !== false,
+        dropped: true,
+        collected: false,
+        respawnSeconds: 0,
+        respawnTimer: 0,
+        randomEffectIds: [],
+        randomRollCount: 0,
+        visualized: false
+    };
+    state.pickups.push(pickup);
+    addEvent(state, "ENEMY_LOOT_DROPPED", {
+        enemyId: enemy.id,
+        characterId: enemy.characterId,
+        pickupId,
+        itemId: item.itemId,
+        dropGroupId: String(channel || "").startsWith("group:") ? String(channel).slice(6) : null
+    });
+    return pickup;
+}
+
+function selectEnemyDropEntry(state, enemy, entries) {
+    let cursor = enemyDropRandomUnit(state, enemy, "table:select");
+    for (let index = 0; index < entries.length; index += 1) {
+        const entry = entries[index];
+        const chance = Math.max(0, Math.min(1, Number(entry?.chance) || 0));
+        if (!(chance > 0) || !state.lootCatalog?.items?.[entry.itemId]) continue;
+        cursor -= chance;
+        if (cursor < 0) return { entry, index };
+    }
+    return null;
+}
+
+function emitEnemyDrops(state, enemy) {
+    if (!enemy || enemy.dropsEmitted) return 0;
+    enemy.dropsEmitted = true;
+    const entries = Array.isArray(enemy.dropTable) ? enemy.dropTable : [];
+    const selected = selectEnemyDropEntry(state, enemy, entries);
+    if (!selected) return 0;
+    return spawnEnemyLootPickup(state, enemy, selected.entry.itemId, selected.index, "table") ? 1 : 0;
+}
+
 function findProjectileEnemyImpact(state, projectile, previousX, previousY) {
     const start = { x: previousX, y: previousY };
     const end = { x: projectile.currentTransform.x, y: projectile.currentTransform.y };
@@ -9210,8 +10417,11 @@ function applyProjectileDamageToEnemy(state, projectile, enemy) {
         target.y = enemy.targetY ?? target.y;
     }
 
+    if (defeated) emitEnemyDrops(state, enemy);
+
     addEvent(state, defeated ? "ENEMY_DEFEATED" : "ENEMY_DAMAGED", {
         enemyId: enemy.id,
+        characterId: enemy.characterId,
         projectileId: projectile.id,
         damage: round(damage),
         health: round(enemy.health),
@@ -9222,6 +10432,7 @@ function applyProjectileDamageToEnemy(state, projectile, enemy) {
         enemy.bossDefeatEmitted = true;
         addEvent(state, "BOSS_DEFEATED", {
             enemyId: enemy.id,
+            characterId: enemy.characterId,
             bossName: enemy.bossName,
             signalChannel: enemy.bossDefeatSignalChannel
         });
@@ -9778,7 +10989,8 @@ function findActorHorizontalSweepCollision(state, actor, previousX, nextX, optio
     }
 
     for (const polygon of queryWorldCollisionPolygons(state.world, collisionQueryBounds)) {
-        if (collisionIdIgnored(polygon.id, options) || !isAreaBlockingSegmentKind(polygon.kind)) {
+        const blocksActor = isAreaBlockingSegmentKind(polygon.kind) || (options.blockWater && polygon.kind === "water");
+        if (collisionIdIgnored(polygon.id, options) || !blocksActor) {
             continue;
         }
         for (const y of ySamples) {
@@ -9947,7 +11159,8 @@ function findActorVerticalSweepCollision(state, actor, previousY, nextY, options
     }
 
     for (const polygon of queryWorldCollisionPolygons(state.world, collisionQueryBounds)) {
-        if (collisionIdIgnored(polygon.id, options) || !isAreaBlockingSegmentKind(polygon.kind)) {
+        const blocksActor = isAreaBlockingSegmentKind(polygon.kind) || (options.blockWater && polygon.kind === "water");
+        if (collisionIdIgnored(polygon.id, options) || !blocksActor) {
             continue;
         }
         for (let sampleIndex = 0; sampleIndex < samples.length; sampleIndex += 1) {
@@ -11060,6 +12273,123 @@ function polygonYIntervalsAtX(polygon, x) {
     return intervals;
 }
 
+
+function applyWaterDrag(velocity, submersion, linearDrag, quadraticDrag, dt) {
+    const immersed = clamp(Number(submersion) || 0, 0, 1);
+    if (immersed <= 0 || Math.abs(velocity) <= 0.000001) {
+        return velocity;
+    }
+    const coefficient = immersed * (
+        Math.max(0, Number(linearDrag) || 0) +
+        Math.max(0, Number(quadraticDrag) || 0) * Math.abs(velocity)
+    );
+    return velocity / (1 + coefficient * Math.max(0, Number(dt) || 0));
+}
+
+function actorWaterImmersion(state, actor) {
+    if (!state?.world || !actor) {
+        return { inWater: false, submersion: 0, regionId: null, surfaceY: null };
+    }
+    const transform = currentTransformOf(actor);
+    const width = Math.max(1, Number(actor.width) || 1);
+    const height = Math.max(1, Number(actor.height) || 1);
+    const top = Number(transform.y) - height;
+    const bottom = Number(transform.y);
+    const samples = [
+        Number(transform.x),
+        Number(transform.x) - width * 0.36,
+        Number(transform.x) + width * 0.36
+    ];
+    const bounds = {
+        minX: Math.min(...samples),
+        minY: top,
+        maxX: Math.max(...samples),
+        maxY: bottom
+    };
+    let totalOverlap = 0;
+    let primaryOverlap = 0;
+    let regionId = null;
+    let surfaceY = null;
+
+    for (const polygon of queryWorldCollisionPolygons(state.world, bounds)) {
+        if (polygon?.kind !== "water") {
+            continue;
+        }
+        let polygonOverlap = 0;
+        let polygonSurface = null;
+        for (const x of samples) {
+            for (const interval of polygonYIntervalsAtX(polygon, x)) {
+                const overlap = Math.max(0, Math.min(bottom, interval[1]) - Math.max(top, interval[0]));
+                if (overlap <= 0) {
+                    continue;
+                }
+                polygonOverlap += overlap;
+                polygonSurface = polygonSurface === null ? interval[0] : Math.min(polygonSurface, interval[0]);
+            }
+        }
+        totalOverlap += polygonOverlap;
+        if (polygonOverlap > primaryOverlap) {
+            primaryOverlap = polygonOverlap;
+            regionId = polygon.id || null;
+            surfaceY = polygonSurface;
+        }
+    }
+
+    const submersion = clamp(totalOverlap / (height * samples.length), 0, 1);
+    return {
+        inWater: submersion > 0.0001,
+        submersion,
+        regionId,
+        surfaceY
+    };
+}
+
+function refreshPlayerWaterState(state, options = {}) {
+    const previous = Boolean(state.player?.inWater);
+    const immersion = actorWaterImmersion(state, state.player);
+    state.player.inWater = immersion.inWater;
+    state.player.waterSubmersion = immersion.submersion;
+    state.player.waterRegionId = immersion.regionId;
+    if (options.emitEvents !== false && immersion.inWater !== previous) {
+        addEvent(state, immersion.inWater ? "PLAYER_ENTERED_WATER" : "PLAYER_LEFT_WATER", {
+            regionId: immersion.regionId,
+            submersion: round(immersion.submersion),
+            x: round(state.player.currentTransform.x),
+            y: round(state.player.currentTransform.y),
+            vy: round(state.player.vy)
+        });
+    }
+    return immersion;
+}
+
+function integratePlayerWaterMotion(state, input, dt, wasOnGround, immersion) {
+    const p = state.player;
+    const t = state.tuning;
+    const safeDt = Math.max(0.000001, Number(dt) || FIXED_DT);
+    const submersion = clamp(Number(immersion?.submersion) || 0, 0, 1);
+    const upIntent = Boolean(input?.jumpHeld || input?.jumpPressed || input?.boostHeld || input?.boostPressed);
+    const downIntent = Boolean(input?.dropHeld || input?.dropPressed);
+    const verticalInput = (downIntent ? 1 : 0) - (upIntent ? 1 : 0);
+    const gravity = Math.max(1, Number(t.gravity) || DEFAULT_TUNING.gravity);
+    const buoyancyRatio = clamp(Number(t.waterGravityBuoyancyRatio) || 0, 0, 0.99);
+    const acceleration = gravity * (1 - buoyancyRatio * submersion)
+        + verticalInput * Math.max(0, Number(t.waterSwimAcceleration) || 0) * submersion;
+    const previousVy = p.vy;
+    p.vy += acceleration * safeDt;
+    p.vy = applyWaterDrag(
+        p.vy,
+        submersion,
+        t.waterLinearDrag,
+        t.waterQuadraticDrag,
+        safeDt
+    );
+    p.vy = Math.min(p.vy, t.terminalVelocity);
+    p.ay = (p.vy - previousVy) / safeDt;
+    p.ordinaryJumpActive = false;
+    p.airBoostArmed = false;
+    moveAndCollideY(state, p.vy * safeDt, wasOnGround);
+}
+
 function landPlayerOn(state, y, wasOnGround, id, kind = "blockable") {
     const p = state.player;
     p.ordinaryJumpActive = false;
@@ -11257,10 +12587,10 @@ function updateFuelRecharge(state, dt) {
             if (state.player.onGround) {
                 fuel.rechargeLatched = true;
                 addEvent(state, "FUEL_RECHARGE_STARTED", { grounded: true });
-                normalRecoveryRate = Math.max(0, Number(t.rechargeRate) || 0);
+                normalRecoveryRate = effectiveFuelRechargeRate(state);
             }
         } else {
-            normalRecoveryRate = Math.max(0, Number(t.rechargeRate) || 0);
+            normalRecoveryRate = effectiveFuelRechargeRate(state);
         }
     }
 
@@ -11349,19 +12679,21 @@ function updateHealth(state, dt) {
     const t = state.tuning;
     health.invulnerabilityTimer = Math.max(0, (Number(health.invulnerabilityTimer) || 0) - dt);
     health.contactInvulnerabilityTimer = Math.max(0, (Number(health.contactInvulnerabilityTimer) || 0) - dt);
-    health.low = health.amount <= t.lowHealthThreshold;
+    const lowHealthRatio = clamp((Number(t.lowHealthThreshold) || 0) / Math.max(1, Number(t.maxHealth) || DEFAULT_TUNING.maxHealth), 0, 1);
+    health.low = health.amount / Math.max(1, health.max) <= lowHealthRatio;
 
     const rawLastDamagedAt = health.lastDamagedAt;
     const lastDamagedAt = rawLastDamagedAt !== null && rawLastDamagedAt !== undefined && Number.isFinite(Number(rawLastDamagedAt))
         ? Number(rawLastDamagedAt)
         : null;
     const delayElapsed = lastDamagedAt === null || state.clock.time - lastDamagedAt >= t.healthRegenDelay;
-    const shouldRegenerate = delayElapsed && health.amount > 0 && health.amount < health.max && t.healthRegenRate > 0;
+    const healthRegenRate = effectiveHealthRegenRate(state);
+    const shouldRegenerate = delayElapsed && health.amount > 0 && health.amount < health.max && healthRegenRate > 0;
     if (shouldRegenerate) {
         const wasRegenerating = health.regenerating === true;
         health.regenerating = true;
         const before = health.amount;
-        health.amount = Math.min(health.max, health.amount + t.healthRegenRate * dt);
+        health.amount = Math.min(health.max, health.amount + healthRegenRate * dt);
         if (!wasRegenerating) {
             addEvent(state, "PLAYER_HEALTH_REGEN_STARTED", { health: round(before) });
         }
@@ -11482,6 +12814,9 @@ export function resetPlayer(state, reason = "manualReset") {
     p.onGround = false;
     p.supportId = null;
     p.dropThroughTimer = 0;
+    p.inWater = false;
+    p.waterSubmersion = 0;
+    p.waterRegionId = null;
     p.wasOnGround = false;
     p.airBoostArmed = false;
     p.ordinaryJumpActive = false;
@@ -11500,7 +12835,7 @@ export function resetPlayer(state, reason = "manualReset") {
     p.deathElapsed = 0;
     p.deathSourceId = null;
     p.deathResetReason = null;
-    state.fuel.amount = state.tuning.initialFuel;
+    state.fuel.amount = state.fuel.max;
     state.fuel.rechargeDelayTimer = 0;
     state.fuel.rechargeLatched = false;
     state.equipment.rocket.boostKickCharge = state.tuning.attachedBoostKickChargeMax ?? 1;

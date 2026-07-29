@@ -6,6 +6,22 @@
     <link rel="icon" href="favicon.ico" sizes="any">
     <title>Ignatius Level Editor</title>
     <style>
+        @font-face {
+            font-family: "Ignatius Inter";
+            src: url("resources/fonts/Inter%5Bopsz%2Cwght%5D.ttf") format("truetype");
+            font-style: normal;
+            font-weight: 100 900;
+            font-display: swap;
+        }
+
+        @font-face {
+            font-family: "Ignatius Caveat";
+            src: url("resources/fonts/Caveat%5Bwght%5D.ttf") format("truetype");
+            font-style: normal;
+            font-weight: 400 700;
+            font-display: swap;
+        }
+
         :root {
             color-scheme: dark;
             --bg: #111019;
@@ -208,6 +224,10 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 8px;
+        }
+
+        .row.three {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
         }
 
         .layer-visual-grid {
@@ -570,18 +590,17 @@
             outline-offset: -4px;
         }
 
-        .color-map-preview {
-            display: grid;
-            grid-template-columns: 1fr auto 1fr;
-            gap: 8px;
-            align-items: center;
+        .color-treatment-preview {
+            width: 100%;
+            height: 104px;
             margin-top: 8px;
-        }
-
-        .color-chip {
-            min-height: 34px;
             border: 1px solid var(--line);
             border-radius: 8px;
+            background: rgba(0,0,0,0.18);
+        }
+
+        .color-treatment-actions {
+            margin-top: 8px;
         }
 
 
@@ -893,39 +912,44 @@
 
         <div class="box">
             <h2>Colormap</h2>
-            <div class="inline"><input id="color-map-enabled" type="checkbox"><span class="small">Apply selective hue rotation to all environment assets</span></div>
+            <div class="inline"><input id="color-map-enabled" type="checkbox"><span class="small">Hue rotation</span></div>
             <div class="row">
-                <label>Source hue °<input id="color-map-source" type="number" min="0" max="359" step="1"></label>
+                <label>Source color<input id="color-map-source" type="color" value="#2d7fd1"></label>
+                <label>Target color<input id="color-map-target" type="color" value="#2d7fd1"></label>
+            </div>
+            <div class="row">
                 <label>Selected width °<input id="color-map-range" type="number" min="0" max="360" step="1"></label>
-            </div>
-            <div class="row">
                 <label>Feather °<input id="color-map-feather" type="number" min="0" max="180" step="1"></label>
-                <label>Rotation °<input id="color-map-rotation" type="number" min="-360" max="360" step="1"></label>
             </div>
-            <div class="color-map-preview" aria-label="Hue mapping preview">
-                <div id="color-map-source-chip" class="color-chip"></div>
-                <span>to</span>
-                <div id="color-map-target-chip" class="color-chip"></div>
-            </div>
+            <div class="inline"><input id="color-exchange-enabled" type="checkbox"><span class="small">GIMP Color Exchange</span></div>
             <div class="row">
-                <button id="color-map-reset" type="button">Reset colour map</button>
-                <span id="color-map-status" class="small">Original atlas colours</span>
+                <label>From color<input id="color-exchange-from" type="color" value="#ffffff"></label>
+                <label>To color<input id="color-exchange-to" type="color" value="#000000"></label>
             </div>
+            <div class="row three">
+                <label>Red threshold<input id="color-exchange-red-threshold" type="number" min="0" max="1" step="0.001" value="1"></label>
+                <label>Green threshold<input id="color-exchange-green-threshold" type="number" min="0" max="1" step="0.001" value="1"></label>
+                <label>Blue threshold<input id="color-exchange-blue-threshold" type="number" min="0" max="1" step="0.001" value="1"></label>
+            </div>
+            <canvas id="color-treatment-preview" class="color-treatment-preview" width="300" height="104" aria-label="Selected asset color preview"></canvas>
+            <div class="row color-treatment-actions">
+                <button id="color-map-apply" type="button">Apply</button>
+                <button id="color-map-reset" type="button">Reset</button>
+            </div>
+            <p id="color-map-status" class="small">Original atlas colours</p>
         </div>
 
         <div class="box" data-panel-key="automatic-level-generator">
             <h2>Generator</h2>
             <label>Theme<select id="generator-theme"></select></label>
             <div class="row">
+                <label>Colour modifier<select id="generator-color-modifier"></select></label>
+                <label>Recipe<select id="generator-recipe"></select></label>
+            </div>
+            <div class="row">
                 <label>Seed<input id="generator-seed" value="rocketfrock"></label>
                 <button id="generator-randomize-seed" type="button">Randomize seed</button>
             </div>
-            <label>Approximate length<select id="generator-length">
-                <option value="compact">Compact</option>
-                <option value="standard">Standard</option>
-                <option value="extended">Extended</option>
-                <option value="grand">Grand</option>
-            </select></label>
             <label>Verticality<div class="generator-range"><input id="generator-verticality" type="range" min="0" max="100" step="1"><output id="generator-verticality-value">0</output></div></label>
             <label>Winding / backtracking<div class="generator-range"><input id="generator-winding" type="range" min="0" max="100" step="1"><output id="generator-winding-value">0</output></div></label>
             <div class="row">
@@ -937,13 +961,9 @@
                 <label>Reward density<div class="generator-range"><input id="generator-reward-density" type="range" min="0" max="100" step="1"><output id="generator-reward-density-value">0</output></div></label>
             </div>
             <div class="inline"><input id="generator-allow-thoughts" type="checkbox"><span class="small">Allow generated location thoughts</span></div>
-            <label>Allowed enemies<input id="generator-enemy-filter" value="1-999" placeholder="1-20,!10,!19"></label>
+            <label>Enemy pool<input id="generator-enemy-filter" value="1-999" placeholder="1-20,!10,!19"></label>
             <p id="generator-enemy-preview" class="small generator-enemies">Enemy catalog not loaded yet.</p>
-            <details class="generator-advanced">
-                <summary>Generator variants</summary>
-                <label>Route<select id="generator-impl-route" data-generator-stage="route"></select></label>
-                <label>Cavern<select id="generator-impl-cavern" data-generator-stage="cavern"></select></label>
-            </details>
+            <p id="generator-recipe-summary" class="small">Recipes lock route, cavern shape, and length into a tested combination.</p>
             <button id="generator-generate" class="generator-primary" type="button">Generate cavern + encounters + rewards</button>
             <div class="generator-stage-tools">
                 <label>Regenerate stage<select id="generator-regenerate-stage">
@@ -1058,10 +1078,13 @@
                     </label>
                     <label>Angle (degrees)<input id="inspect-angle" type="number" step="1"></label>
                 </div>
-                <div class="triple">
+                <div class="row">
                     <label class="inline"><input id="inspect-mirror-x" type="checkbox"> Mirror X</label>
                     <label class="inline"><input id="inspect-mirror-y" type="checkbox"> Mirror Y</label>
-                    <label class="inline"><input id="inspect-collision" type="checkbox"> Atlas collision</label>
+                </div>
+                <div class="row">
+                    <label class="inline"><input id="inspect-collision" type="checkbox"> Collision</label>
+                    <label class="inline"><input id="inspect-on-top" type="checkbox"> On top</label>
                 </div>
             </div>
             <div id="moving-platform-row" style="display:none">
@@ -1165,6 +1188,40 @@
                     <textarea id="inspect-mailbox-thought" rows="7" placeholder="Ignatius's response after reading the letter"></textarea>
                 </label>
             </div>
+            <div id="proximity-text-settings-row" style="display:none">
+                <h3>Proximity text</h3>
+                <label>Text
+                    <textarea id="inspect-proximity-text" rows="5" placeholder="Lorem ipsum"></textarea>
+                </label>
+                <div class="row">
+                    <label>Letter height (px)<input id="inspect-proximity-font-size" type="number" min="8" step="1" value="100"></label>
+                    <label>Font
+                        <select id="inspect-proximity-font-family">
+                            <option value="inter">Inter</option>
+                            <option value="caveat">Caveat</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="row">
+                    <label>Text color<input id="inspect-proximity-color" type="color" value="#723891"></label>
+                    <label>Outline color<input id="inspect-proximity-outline-color" type="color" value="#0f0113"></label>
+                </div>
+                <label>Outline thickness (px)<input id="inspect-proximity-outline-width" type="number" min="0" step="1" value="3"></label>
+                <div class="row">
+                    <label>Trigger offset X<input id="inspect-proximity-trigger-x" type="number" step="8" value="0"></label>
+                    <label>Trigger offset Y<input id="inspect-proximity-trigger-y" type="number" step="8" value="0"></label>
+                </div>
+                <div class="row">
+                    <label>Trigger distance<input id="inspect-proximity-trigger-distance" type="number" min="8" step="8" value="300"></label>
+                    <button id="inspect-proximity-trigger-reset" type="button">Center trigger</button>
+                </div>
+                <div class="row">
+                    <label>Fade in seconds<input id="inspect-proximity-fade-in" type="number" min="0.01" step="0.1" value="1"></label>
+                    <label>Visible seconds<input id="inspect-proximity-display-duration" type="number" min="0" step="0.25" value="5"></label>
+                </div>
+                <label>Fade out seconds<input id="inspect-proximity-fade-out" type="number" min="0.01" step="0.1" value="1"></label>
+                <p class="small">The circular trigger handle may also be dragged directly in the level view.</p>
+            </div>
             <div id="treasure-settings-row" style="display:none">
                 <h3>Treasure chest</h3>
                 <div class="row">
@@ -1173,11 +1230,11 @@
                 </div>
             </div>
             <div id="door-settings-row" style="display:none">
-                <h3>Wizard doorway</h3>
+                <h3 id="door-settings-heading">Wizard portal</h3>
                 <label id="door-destination-label">Destination level<input id="inspect-door-destination" placeholder="level_002"></label>
                 <div class="row">
                     <label id="door-distance-label">Trigger distance<input id="inspect-door-distance" type="number" min="24" step="1"></label>
-                    <label>Walk speed<input id="inspect-door-walk-speed" type="number" min="40" step="1"></label>
+                    <label id="door-walk-speed-label">Walk speed<input id="inspect-door-walk-speed" type="number" min="40" step="1"></label>
                 </div>
             </div>
             <div id="enemy-settings-row" style="display:none">
@@ -1277,34 +1334,51 @@ import {
     placementCorners,
     pointInPlacement
 } from "./src/shared/level-transform.js";
+import { resourceUrl } from "./src/shared/resource-paths.js";
 import {
     colorMapCacheKey,
     DEFAULT_LEVEL_COLOR_MAP,
+    hslToRgb,
     normalizeHueDegrees,
-    normalizeLevelColorMap
+    normalizeLevelColorMap,
+    rgbToHsl
 } from "./src/shared/level-color-map-data.js";
-import { createColorMappedCanvas } from "./src/presentation/level-color-map-cache.js";
+import {
+    DEFAULT_LEVEL_COLOR_EXCHANGE,
+    levelColorExchangeCacheKey,
+    normalizeLevelColorExchange,
+    normalizeRgbColor,
+    rgbColorToHex
+} from "./src/shared/color-exchange-data.js";
+import {
+    applyLevelColorTreatmentToImageData,
+    createLevelColorTreatedCanvas
+} from "./src/presentation/level-color-map-cache.js";
 import { computeCaveWindowParallaxOffset } from "./src/presentation/cave-window-mask.js";
-import { computeWorldParallaxOffset } from "./src/presentation/world-parallax.js";
+import {
+    computeWorldParallaxOffset,
+    computeWorldParallaxOffsetAtPoint
+} from "./src/presentation/world-parallax.js";
 import {
     BACKGROUND_LAYER,
     normalizeLevelLayerVisuals
 } from "./src/shared/level-layer-data.js";
 import {
     AUTOMATIC_LEVEL_GENERATOR_ID,
-    LEVEL_GENERATOR_REGISTRIES,
-    LEVEL_GENERATOR_STAGE_ORDER,
     automaticLevelDraftBounds,
     buildAutomaticLevelValidationOverlay,
     generateAutomaticLevelDraft,
+    generationTagsMatchQuery,
     incrementGeneratorStageRevision,
     normalizeGenerationAssetCatalog,
     normalizeEnemyGenerationCatalog,
     normalizeRewardGenerationCatalog,
-    normalizeGeneratorImplementations,
+    normalizeGeneratorColorModifier,
+    normalizeGeneratorRecipe,
     normalizeGeneratorSettings,
     normalizeGeneratorStageRevisions,
     normalizeGeneratorTheme,
+    resolveGeneratorThemeRecipe,
     normalizeLevelGeneration,
     parseEnemySelection,
     routeGraphBounds,
@@ -1317,6 +1391,7 @@ import {
     foregroundTreatmentCacheKey
 } from "./src/presentation/foreground-sprite-treatment.js";
 import {
+    caveGameplayGeometrySeparation,
     cavePolygonSeparation,
     caveSplineSegmentControls,
     caveWindowBounds,
@@ -1457,13 +1532,13 @@ import {
     }
 
     const DEFAULT_ATLAS_ID = "at_atlas_001";
-    const DEFAULT_LEVEL_URL = "assets/level_001.json";
+    const DEFAULT_LEVEL_URL = "levels/level_001.json";
     const ATLAS_AUTOLOAD_LIMIT = 20;
     const LEVEL_AUTOLOAD_LIMIT = 20;
     const SPECIAL_ATLAS_IDS = ["it_atlas_001"];
     const ENTITY_ONLY_ATLAS_ID_PREFIXES = ["it_atlas_"];
-    const ENTITY_CATALOG_URL = "assets/it_entities_001.json";
-    const ENEMY_CATALOG_URL = "assets/ct_enemies_001.json";
+    const ENTITY_CATALOG_URL = "items/it_entities_001.json";
+    const ENEMY_CATALOG_URL = "characters/ct_enemies_001.json";
     const WIZARD_EDITOR_WIDTH = 36;
     const WIZARD_EDITOR_HEIGHT = 104;
     const WIZARD_DOOR_FLOOR_ANCHOR_Y_FACTOR = 239 / 263;
@@ -1475,11 +1550,11 @@ import {
     }
 
     function atlasManifestUrl(atlasId) {
-        return `assets/${atlasId}.json`;
+        return `${isEntityOnlyAtlasId(atlasId) ? "items" : "atlases"}/${atlasId}.json`;
     }
 
     function atlasImageUrl(atlasId) {
-        return `assets/${atlasId}.png`;
+        return `${isEntityOnlyAtlasId(atlasId) ? "items" : "atlases"}/${atlasId}.png`;
     }
 
     function isEntityOnlyAtlasId(atlasId) {
@@ -1565,9 +1640,11 @@ import {
         autoSpawnEnemiesPool: document.getElementById("auto-spawn-enemies-pool"),
         autoSpawnEnemiesPreview: document.getElementById("auto-spawn-enemies-preview"),
         generatorTheme: document.getElementById("generator-theme"),
+        generatorColorModifier: document.getElementById("generator-color-modifier"),
+        generatorRecipe: document.getElementById("generator-recipe"),
+        generatorRecipeSummary: document.getElementById("generator-recipe-summary"),
         generatorSeed: document.getElementById("generator-seed"),
         generatorRandomizeSeed: document.getElementById("generator-randomize-seed"),
-        generatorLength: document.getElementById("generator-length"),
         generatorVerticality: document.getElementById("generator-verticality"),
         generatorWinding: document.getElementById("generator-winding"),
         generatorDifficulty: document.getElementById("generator-difficulty"),
@@ -1611,12 +1688,18 @@ import {
         caveGeometryWarning: document.getElementById("cave-geometry-warning"),
         colorMapEnabled: document.getElementById("color-map-enabled"),
         colorMapSource: document.getElementById("color-map-source"),
+        colorMapTarget: document.getElementById("color-map-target"),
         colorMapRange: document.getElementById("color-map-range"),
         colorMapFeather: document.getElementById("color-map-feather"),
-        colorMapRotation: document.getElementById("color-map-rotation"),
-        colorMapSourceChip: document.getElementById("color-map-source-chip"),
-        colorMapTargetChip: document.getElementById("color-map-target-chip"),
+        colorExchangeEnabled: document.getElementById("color-exchange-enabled"),
+        colorExchangeFrom: document.getElementById("color-exchange-from"),
+        colorExchangeTo: document.getElementById("color-exchange-to"),
+        colorExchangeRedThreshold: document.getElementById("color-exchange-red-threshold"),
+        colorExchangeGreenThreshold: document.getElementById("color-exchange-green-threshold"),
+        colorExchangeBlueThreshold: document.getElementById("color-exchange-blue-threshold"),
+        colorTreatmentPreview: document.getElementById("color-treatment-preview"),
         colorMapStatus: document.getElementById("color-map-status"),
+        colorMapApply: document.getElementById("color-map-apply"),
         colorMapReset: document.getElementById("color-map-reset"),
         entitySearch: document.getElementById("entity-search"),
         entityPaletteStatus: document.getElementById("entity-palette-status"),
@@ -1637,6 +1720,7 @@ import {
         inspectMirrorX: document.getElementById("inspect-mirror-x"),
         inspectMirrorY: document.getElementById("inspect-mirror-y"),
         inspectCollision: document.getElementById("inspect-collision"),
+        inspectOnTop: document.getElementById("inspect-on-top"),
         movingPlatformRow: document.getElementById("moving-platform-row"),
         movingPlatformFields: document.getElementById("moving-platform-fields"),
         movingPlatformEndFields: document.getElementById("moving-platform-end-fields"),
@@ -1684,12 +1768,28 @@ import {
         inspectMailboxTitle: document.getElementById("inspect-mailbox-title"),
         inspectMailboxLetter: document.getElementById("inspect-mailbox-letter"),
         inspectMailboxThought: document.getElementById("inspect-mailbox-thought"),
+        proximityTextSettingsRow: document.getElementById("proximity-text-settings-row"),
+        inspectProximityText: document.getElementById("inspect-proximity-text"),
+        inspectProximityFontSize: document.getElementById("inspect-proximity-font-size"),
+        inspectProximityFontFamily: document.getElementById("inspect-proximity-font-family"),
+        inspectProximityColor: document.getElementById("inspect-proximity-color"),
+        inspectProximityOutlineColor: document.getElementById("inspect-proximity-outline-color"),
+        inspectProximityOutlineWidth: document.getElementById("inspect-proximity-outline-width"),
+        inspectProximityTriggerX: document.getElementById("inspect-proximity-trigger-x"),
+        inspectProximityTriggerY: document.getElementById("inspect-proximity-trigger-y"),
+        inspectProximityTriggerDistance: document.getElementById("inspect-proximity-trigger-distance"),
+        inspectProximityTriggerReset: document.getElementById("inspect-proximity-trigger-reset"),
+        inspectProximityFadeIn: document.getElementById("inspect-proximity-fade-in"),
+        inspectProximityDisplayDuration: document.getElementById("inspect-proximity-display-duration"),
+        inspectProximityFadeOut: document.getElementById("inspect-proximity-fade-out"),
         treasureSettingsRow: document.getElementById("treasure-settings-row"),
         inspectTreasureScore: document.getElementById("inspect-treasure-score"),
         inspectTreasureDistance: document.getElementById("inspect-treasure-distance"),
         doorSettingsRow: document.getElementById("door-settings-row"),
+        doorSettingsHeading: document.getElementById("door-settings-heading"),
         doorDestinationLabel: document.getElementById("door-destination-label"),
         doorDistanceLabel: document.getElementById("door-distance-label"),
+        doorWalkSpeedLabel: document.getElementById("door-walk-speed-label"),
         inspectDoorDestination: document.getElementById("inspect-door-destination"),
         inspectDoorDistance: document.getElementById("inspect-door-distance"),
         inspectDoorWalkSpeed: document.getElementById("inspect-door-walk-speed"),
@@ -1757,6 +1857,8 @@ import {
         atlasImage: null,
         frameImageScale: 1,
         colorMapCacheKey: "",
+        colorTreatmentPreviewKey: "",
+        colorTreatmentAppliedControlKey: "",
         level: null,
         availableLevels: [],
         entityCatalog: new Map(),
@@ -1795,6 +1897,8 @@ import {
         caveGeometryWarningText: "",
         caveGeometryWarningCache: null,
         generatorThemes: new Map(),
+        generatorRecipes: new Map(),
+        generatorColorModifiers: new Map(),
         generatorAssetCatalog: normalizeGenerationAssetCatalog(null),
         generatorEnemyCatalog: normalizeEnemyGenerationCatalog(null),
         generatorRewardCatalog: normalizeRewardGenerationCatalog(null),
@@ -1851,11 +1955,11 @@ import {
             levelId: "level_new",
             title: "Ignatius Rocketfrock and the Untitled Experiment",
             world: {
-                bounds: { x: -320, y: -420, w: 5600, h: 1500 },
-                resetY: 1080
+                bounds: { x: -320, y: -420, w: 5600, h: 1500 }
             },
             atlasRefs: [],
             colorMap: normalizeLevelColorMap(DEFAULT_LEVEL_COLOR_MAP),
+            colorExchange: normalizeLevelColorExchange(DEFAULT_LEVEL_COLOR_EXCHANGE),
             music: normalizeLevelMusic(null),
             layerVisuals,
             autoSpawnEnemies: normalizeAutoSpawnEnemies({ ...DEFAULT_AUTO_SPAWN_ENEMIES, probabilityPercent: 10 }),
@@ -1868,7 +1972,7 @@ import {
     }
 
     function levelUrlForIndex(index) {
-        return `assets/level_${String(index).padStart(3, "0")}.json`;
+        return `levels/level_${String(index).padStart(3, "0")}.json`;
     }
 
     function levelIdForIndex(index) {
@@ -2167,14 +2271,16 @@ import {
         els.caveStatus.textContent = `${cave.points.length} perimeter point${cave.points.length === 1 ? "" : "s"}; ${closure}.${blackBoundaryText}${gradientText}${generatedText}${selectedText} The viewport previews the same camera-relative parallax used during play.`;
     }
 
-    function caveGeometryWarningDistance(cave) {
-        return Math.max(96, Math.min(240, finiteEditorNumber(cave?.feather, 0) * 0.5));
-    }
-
     function caveGeometryWarningCaveSignature(cave) {
+        const bounds = state.level?.world?.bounds || {};
         return [
             cave.enabled ? 1 : 0,
             finiteEditorNumber(cave.feather, 0),
+            finiteEditorNumber(bounds.x, 0),
+            finiteEditorNumber(bounds.y, 0),
+            finiteEditorNumber(bounds.w, 1),
+            finiteEditorNumber(bounds.h, 1),
+            currentLayerVisuals().foreground.parallax,
             ...cave.points.flatMap((point) => [
                 finiteEditorNumber(point.x, 0),
                 finiteEditorNumber(point.y, 0),
@@ -2185,12 +2291,45 @@ import {
 
     function caveGeometryWarningPlacementSignature(placement) {
         return [
+            placement.atlasId || DEFAULT_ATLAS_ID,
+            placement.assetId || "",
             finiteEditorNumber(placement.x, 0),
             finiteEditorNumber(placement.y, 0),
             finiteEditorNumber(placement.w, 0),
             finiteEditorNumber(placement.h, 0),
-            finiteEditorNumber(placement.rotation, 0)
+            finiteEditorNumber(placement.rotation, 0),
+            placement.mirrorX ? 1 : 0,
+            placement.mirrorY ? 1 : 0,
+            placement.collisionFromManifest === false ? 0 : 1
         ].join("|");
+    }
+
+    function caveGeometryWarningParallaxOffset(placement) {
+        return computeWorldParallaxOffsetAtPoint(
+            placementCenter(placement),
+            state.level?.world?.bounds,
+            currentLayerVisuals().foreground.parallax,
+            { min: 1, max: 1.25 }
+        );
+    }
+
+    function placementGameplayGeometry(placement, frame, object) {
+        const nodeById = new Map((object?.nodes || []).map((node) => [node.id, node]));
+        const segments = [];
+        for (const line of object?.lines || []) {
+            if (!isSolidGuideLineKind(line.kind)) continue;
+            const a = nodeById.get(line.from);
+            const b = nodeById.get(line.to);
+            if (!a || !b) continue;
+            const worldA = assetNodeToWorld(placement, frame, a);
+            const worldB = assetNodeToWorld(placement, frame, b);
+            if (Math.hypot(worldB.x - worldA.x, worldB.y - worldA.y) < 0.5) continue;
+            segments.push({ a: worldA, b: worldB });
+        }
+        const polygons = findClosedCollisionLoops(object).map((loop) => (
+            loop.points.map((point) => assetNodeToWorld(placement, frame, point))
+        ));
+        return { segments, polygons };
     }
 
     function gameplayGeometryCaveWarnings() {
@@ -2205,35 +2344,48 @@ import {
         if (!cache || cache.caveSignature !== caveSignature) {
             cache = {
                 caveSignature,
-                cavePolygon: sampleClosedCaveSpline(cave.points, 20).slice(0, -1),
+                fullBlackPolygon: sampleCaveWindowOutset(cave.points, cave.feather, 20),
                 placementSeparations: new WeakMap()
             };
             state.caveGeometryWarningCache = cache;
         }
 
-        const warningDistance = caveGeometryWarningDistance(cave);
         const warnings = [];
         for (const placement of state.level.placements || []) {
             if (!placement || placement.kind !== "atlasAsset" || placement.layer === CAVE_FOREGROUND_LAYER) continue;
             if (placement.collisionFromManifest === false) continue;
-            const object = objectFor(placement.assetId, placement.atlasId || DEFAULT_ATLAS_ID);
-            if (object && !hasRuntimeLines(object)) continue;
+            const atlasId = placement.atlasId || DEFAULT_ATLAS_ID;
+            const frame = frameFor(placement.assetId, atlasId);
+            const object = objectFor(placement.assetId, atlasId);
+            if (!frame || !object || isInvisibleBlockerObject(object) || !hasRuntimeLines(object)) continue;
 
             const placementSignature = caveGeometryWarningPlacementSignature(placement);
             let cachedSeparation = cache.placementSeparations.get(placement);
-            if (!cachedSeparation || cachedSeparation.placementSignature !== placementSignature) {
+            if (!cachedSeparation
+                || cachedSeparation.placementSignature !== placementSignature
+                || cachedSeparation.frame !== frame
+                || cachedSeparation.object !== object) {
+                const parallaxOffset = caveGeometryWarningParallaxOffset(placement);
+                const displayedFullBlackPolygon = cache.fullBlackPolygon.map((point) => ({
+                    x: point.x - parallaxOffset.x,
+                    y: point.y - parallaxOffset.y
+                }));
                 cachedSeparation = {
                     placementSignature,
-                    separation: cavePolygonSeparation(cache.cavePolygon, placementCorners(placement))
+                    frame,
+                    object,
+                    separation: caveGameplayGeometrySeparation(
+                        displayedFullBlackPolygon,
+                        placementGameplayGeometry(placement, frame, object)
+                    )
                 };
                 cache.placementSeparations.set(placement, cachedSeparation);
             }
             const separation = cachedSeparation.separation;
-            if (!separation.outside || separation.distance <= warningDistance) continue;
+            if (!separation.outside || separation.distance <= 0.5) continue;
             warnings.push({
                 placement,
-                distance: separation.distance,
-                warningDistance
+                distance: separation.distance
             });
         }
         return warnings;
@@ -2242,7 +2394,7 @@ import {
     function refreshCaveGeometryWarningUi(warnings) {
         const items = Array.isArray(warnings) ? warnings : gameplayGeometryCaveWarnings();
         const text = items.length
-            ? `${items.length} collision-bearing placement${items.length === 1 ? " is" : "s are"} far outside the visible cave opening: ${items.slice(0, 4).map((item) => item.placement.id).join(", ")}${items.length > 4 ? ", …" : ""}. Move gameplay geometry inward or reshape the perimeter.`
+            ? `${items.length} collision-bearing placement${items.length === 1 ? " is" : "s are"} fully beyond the full-black cave mask with the camera centered on each asset: ${items.slice(0, 4).map((item) => item.placement.id).join(", ")}${items.length > 4 ? ", …" : ""}. Move gameplay geometry inward or reshape the perimeter.`
             : "";
         if (state.caveGeometryWarningText === text) return;
         state.caveGeometryWarningText = text;
@@ -2303,13 +2455,17 @@ import {
         setStatus(`${point.id} is now a ${point.mode} point.`);
     }
 
-    function caveDecorationCatalog() {
+    function caveDecorationCatalog(theme = null) {
         const entries = [];
+        const foregroundQuery = theme?.assetPools?.foreground || null;
         for (const [atlasId, record] of state.atlases.entries()) {
             const manifest = record?.manifest || {};
             for (const [assetId, object] of Object.entries(manifest.objects || {})) {
                 const frame = manifest.frames?.[object?.frame || assetId];
                 if (!frame) continue;
+                const generationTags = Array.isArray(object?.generationTags) ? object.generationTags : [];
+                if (!generationTags.length) continue;
+                if (foregroundQuery && !generationTagsMatchQuery(generationTags, foregroundQuery)) continue;
                 entries.push({
                     atlasId,
                     assetId,
@@ -2351,14 +2507,14 @@ import {
         const maxOrder = Math.max(0, ...state.level.placements.map((placement) => finiteEditorNumber(placement.order, 0)));
         const generated = generateCavePerimeterPlacements({
             caveWindow: cave,
-            catalog: caveDecorationCatalog(),
+            catalog: caveDecorationCatalog(currentGeneratorTheme()),
             decoration: cave.decoration,
             firstOrder: maxOrder + 1000,
             protectedRegions: [],
             foregroundScale: currentLayerVisuals().foreground.scale
         });
         if (!generated.length) {
-            setStatus("No suitable tagged cave assets were found in the loaded atlases.", false);
+            setStatus(`No suitable ${currentGeneratorTheme().label} Foreground assets were found in the loaded atlases.`, false);
             persistUi();
             return [];
         }
@@ -2403,6 +2559,30 @@ import {
         return record?.type === "wizard_entry_door" || record?.type === "wizard_exit_door";
     }
 
+    function isWizardEntryPoint(record) {
+        return record?.type === "wizard_entry_point";
+    }
+
+    function isWizardExitPoint(record) {
+        return record?.type === "wizard_exit_point";
+    }
+
+    function isWizardEntryPortal(record) {
+        return record?.type === "wizard_entry_door" || isWizardEntryPoint(record);
+    }
+
+    function isWizardExitPortal(record) {
+        return record?.type === "wizard_exit_door" || isWizardExitPoint(record);
+    }
+
+    function isWizardPortal(record) {
+        return isWizardEntryPortal(record) || isWizardExitPortal(record);
+    }
+
+    function wizardEntryPortalCount() {
+        return (state.level?.entities || []).filter(isWizardEntryPortal).length;
+    }
+
     function isTreasureChest(record) {
         return record?.type === "treasureChest" || record?.interaction === "openChest";
     }
@@ -2440,6 +2620,44 @@ import {
         return record?.reactiveKind === "destructible" || type === "breakableCrate" || type === "destructibleBarrier";
     }
 
+    function isProximityTextEntity(record) {
+        return record?.type === "proximityText" || record?.interaction === "proximityText";
+    }
+
+    function normalizeProximityTextFontFamily(value) {
+        const family = String(value || "inter").trim().toLowerCase();
+        return family === "caveat" || family === "cursive" ? "caveat" : "inter";
+    }
+
+    function proximityTextFontStack(value) {
+        return normalizeProximityTextFontFamily(value) === "caveat"
+            ? "'Ignatius Caveat', Caveat, cursive"
+            : "'Ignatius Inter', Inter, ui-sans-serif, system-ui, sans-serif";
+    }
+
+    const proximityTextMeasureCanvas = document.createElement("canvas");
+    const proximityTextMeasureContext = proximityTextMeasureCanvas.getContext("2d");
+
+    function syncProximityTextBounds(record) {
+        if (!isProximityTextEntity(record)) return record;
+        const fontSize = Math.max(8, finiteEditorNumber(record.fontSize, 100));
+        const outlineWidth = Math.max(0, finiteEditorNumber(record.outlineWidth, 3));
+        const lines = String(record.text || "Lorem ipsum").split(/\r?\n/);
+        proximityTextMeasureContext.font = `700 ${fontSize}px ${proximityTextFontStack(record.fontFamily)}`;
+        const width = lines.reduce((maximum, line) => Math.max(maximum, proximityTextMeasureContext.measureText(line || " ").width), 1);
+        record.w = Math.max(1, Math.ceil(width + outlineWidth * 4 + fontSize * 0.12));
+        record.h = Math.max(1, Math.ceil(lines.length * fontSize * 1.15 + outlineWidth * 4));
+        record.floorAnchorYFactor = 0.5;
+        return record;
+    }
+
+    function proximityTextTriggerPoint(record) {
+        return {
+            x: finiteEditorNumber(record?.x, 0) + finiteEditorNumber(record?.triggerOffsetX, 0),
+            y: finiteEditorNumber(record?.y, 0) + finiteEditorNumber(record?.triggerOffsetY, 0)
+        };
+    }
+
     function entityFloorAnchorYFactor(record) {
         const authored = Number(record?.floorAnchorYFactor);
         if (Number.isFinite(authored)) return Math.max(0, Math.min(1, authored));
@@ -2453,7 +2671,7 @@ import {
     }
 
     function snapWizardDoorToNearbyGround(door, { announce = false } = {}) {
-        if (!isWizardDoor(door)) return null;
+        if (!isWizardPortal(door)) return null;
         const doorX = Number(door.x);
         const doorY = Number(door.y);
         if (!Number.isFinite(doorX) || !Number.isFinite(doorY)) return null;
@@ -2618,7 +2836,8 @@ import {
     }
 
     async function loadJsonUrl(url) {
-        const response = await fetch(url, { cache: "no-store" });
+        const resolvedUrl = resourceUrl(url);
+        const response = await fetch(resolvedUrl, { cache: "no-store" });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.json();
     }
@@ -2628,7 +2847,7 @@ import {
             const image = new Image();
             image.onload = () => resolve(image);
             image.onerror = () => reject(new Error(`Could not load ${url}`));
-            image.src = url;
+            image.src = resourceUrl(url);
         });
     }
 
@@ -2769,11 +2988,11 @@ import {
                 bounds: {
                     ...fallback.world.bounds,
                     ...(source.world?.bounds && typeof source.world.bounds === "object" ? source.world.bounds : {})
-                },
-                resetY: Number(source.world?.resetY ?? fallback.world.resetY) || fallback.world.resetY
+                }
             },
             atlasRefs: Array.isArray(source.atlasRefs) ? cloneData(source.atlasRefs) : [],
             colorMap: normalizeLevelColorMap(source.colorMap),
+            colorExchange: normalizeLevelColorExchange(source.colorExchange),
             music: normalizeLevelMusic(source.music),
             layerVisuals,
             autoSpawnEnemies: normalizeAutoSpawnEnemies(source.autoSpawnEnemies),
@@ -2999,8 +3218,13 @@ import {
         return atlasRecord(atlasId)?.manifest?.objects?.[assetId] || null;
     }
 
+    function committedColorTreatmentKey() {
+        return `${colorMapCacheKey(state.level?.colorMap)}|${levelColorExchangeCacheKey(state.level?.colorExchange)}`;
+    }
+
     function imageForAtlas(atlasId = state.activeAtlasId) {
         const record = atlasRecord(atlasId);
+        if (record) rebuildAtlasColorCache(record);
         return record?.renderImage || record?.image || null;
     }
 
@@ -3008,24 +3232,46 @@ import {
         if (!record?.image) {
             return false;
         }
-        const colorMap = normalizeLevelColorMap(state.level?.colorMap);
-        const cacheKey = colorMapCacheKey(colorMap);
+        const cacheKey = committedColorTreatmentKey();
         if (record.colorMapCacheKey === cacheKey && record.renderImage) {
             return false;
         }
-        record.renderImage = createColorMappedCanvas(record.image, colorMap, undefined, record.atlasId);
+        record.renderImage = createLevelColorTreatedCanvas(
+            record.image,
+            state.level?.colorMap,
+            state.level?.colorExchange,
+            undefined,
+            record.atlasId
+        );
         record.colorMapCacheKey = cacheKey;
         return true;
     }
 
+    function referencedLevelAtlasIds() {
+        const atlasIds = new Set((state.level?.atlasRefs || []).map((ref) => String(ref?.atlasId || "")).filter(Boolean));
+        for (const placement of state.level?.placements || []) {
+            if (placement?.kind === "atlasAsset") atlasIds.add(placement.atlasId || DEFAULT_ATLAS_ID);
+        }
+        for (const entity of state.level?.entities || []) {
+            for (const visual of entityVisuals(entity)) if (visual.atlasId) atlasIds.add(visual.atlasId);
+        }
+        if (state.activeAtlasId) atlasIds.add(state.activeAtlasId);
+        return atlasIds;
+    }
+
     function refreshColorMappedAtlases({ redraw = true, announce = false } = {}) {
-        const colorMap = normalizeLevelColorMap(state.level?.colorMap);
-        const cacheKey = colorMapCacheKey(colorMap);
-        let rebuilt = 0;
+        markEditorRuntimeWorldDirty();
+        const cacheKey = committedColorTreatmentKey();
         for (const record of state.atlases.values()) {
-            if (rebuildAtlasColorCache(record)) {
-                rebuilt += 1;
+            if (record.colorMapCacheKey !== cacheKey) {
+                record.renderImage = record.image;
+                record.colorMapCacheKey = "";
             }
+        }
+        let rebuilt = 0;
+        for (const atlasId of referencedLevelAtlasIds()) {
+            const record = atlasRecord(atlasId);
+            if (record && rebuildAtlasColorCache(record)) rebuilt += 1;
         }
         state.colorMapCacheKey = cacheKey;
         state.editorForegroundSpriteCache.clear();
@@ -3036,19 +3282,19 @@ import {
         state.atlasImage = active?.renderImage || active?.image || null;
         updateColorMapPreview();
         renderAssetList();
-        if (redraw) {
-            draw();
-        }
+        if (redraw) draw();
         if (announce) {
-            const status = colorMap.enabled && Math.abs(colorMap.rotation) > 0.0001
-                ? `Cached recoloured copies of ${rebuilt || state.atlases.size} loaded atlas${state.atlases.size === 1 ? "" : "es"}.`
-                : "Restored original atlas colours.";
-            setStatus(status);
+            const remaining = Math.max(0, state.atlases.size - rebuilt);
+            setStatus(`Applied level colour treatment to ${rebuilt} active atlas${rebuilt === 1 ? "" : "es"}; ${remaining} palette atlas${remaining === 1 ? "" : "es"} will update lazily.`);
         }
     }
 
     function hasRuntimeLines(object) {
         return Array.isArray(object?.lines) && object.lines.some((line) => ["walkable", "blockable", "damaging", "killable"].includes(line.kind));
+    }
+
+    function isInvisibleBlockerObject(object) {
+        return object?.type === "invisibleBlocker";
     }
 
     function isSolidGuideLineKind(kind) {
@@ -3603,7 +3849,7 @@ import {
                 if (characterId) {
                     const configuredUrl = String(definition.characterUrl || characterId);
                     const withExtension = configuredUrl.endsWith(".json") ? configuredUrl : `${configuredUrl}.json`;
-                    const characterUrl = withExtension.startsWith("assets/") ? withExtension : `assets/${withExtension}`;
+                    const characterUrl = withExtension.includes("/") ? withExtension : `characters/${withExtension}`;
                     projectLoads.push(
                         loadRuntimeCharacterProject(characterUrl)
                             .then((project) => state.characterProjects.set(project.characterId, project))
@@ -3627,8 +3873,8 @@ import {
     function entityPaletteCategory(type, definition, kind) {
         if (kind === "enemy") return "Enemy";
         if (definition?.category) return definition.category;
-        if (type === "wizard_entry_door" || type === "wizard_exit_door") return "Portal";
-        if (/pickup$/i.test(type) || type === "fuel") return "Pickup";
+        if (["wizard_entry_door", "wizard_exit_door", "wizard_entry_point", "wizard_exit_point"].includes(type)) return "Portal";
+        if (/pickup$|upgrade$/i.test(type) || type === "fuel") return "Pickup";
         if (/trigger|switch|spawner/i.test(type)) return "Logic";
         if (/gate|barrier|hazard|crate|chest/i.test(type)) return "World";
         return "Entity";
@@ -3774,7 +4020,7 @@ import {
         const y = Math.max(0, Math.min(sourceHeight - 1, Math.floor(Number(sy) || 0)));
         const width = Math.max(1, Math.min(sourceWidth - x, Math.floor(Number(sw) || sourceWidth)));
         const height = Math.max(1, Math.min(sourceHeight - y, Math.floor(Number(sh) || sourceHeight)));
-        if (!source || !paletteAlphaScratchContext) return { x, y, w: width, h: height };
+        if (!source || !paletteAlphaScratchContext) return { x, y, w: width, h: height, hasVisiblePixels: true };
 
         let sourceCache = paletteOpaqueBoundsCache.get(source);
         if (!sourceCache) {
@@ -3792,7 +4038,7 @@ import {
         paletteAlphaScratch.height = sampleHeight;
         paletteAlphaScratchContext.clearRect(0, 0, sampleWidth, sampleHeight);
 
-        let result = { x, y, w: width, h: height };
+        let result = { x, y, w: width, h: height, hasVisiblePixels: false };
         try {
             paletteAlphaScratchContext.drawImage(source, x, y, width, height, 0, 0, sampleWidth, sampleHeight);
             const pixels = paletteAlphaScratchContext.getImageData(0, 0, sampleWidth, sampleHeight).data;
@@ -3822,11 +4068,13 @@ import {
                     x: x + localX,
                     y: y + localY,
                     w: Math.max(1, localRight - localX),
-                    h: Math.max(1, localBottom - localY)
+                    h: Math.max(1, localBottom - localY),
+                    hasVisiblePixels: true
                 };
             }
         } catch {
             // A full-frame fallback still produces a usable preview if pixel reads are unavailable.
+            result.hasVisiblePixels = true;
         }
         sourceCache.set(cacheKey, result);
         return result;
@@ -3848,11 +4096,67 @@ import {
         pctx.restore();
     }
 
-    function drawAtlasFrameThumbnail(canvas, atlasId, frame) {
+    function drawTransparentCollisionThumbnail(canvas, frame, object) {
+        if (!frame || !object || !hasRuntimeLines(object)) return false;
+        const pctx = clearPaletteCanvas(canvas);
+        const pad = 12;
+        const availableW = Math.max(1, canvas.width - pad * 2);
+        const availableH = Math.max(1, canvas.height - pad * 2);
+        const scale = Math.min(availableW / Math.max(1, frame.w), availableH / Math.max(1, frame.h));
+        let drawW = Math.max(18, frame.w * scale);
+        let drawH = Math.max(18, frame.h * scale);
+        drawW = Math.min(availableW, drawW);
+        drawH = Math.min(availableH, drawH);
+        const left = (canvas.width - drawW) * 0.5;
+        const top = (canvas.height - drawH) * 0.5;
+        const nodeById = new Map((object.nodes || []).map((node) => [node.id, node]));
+        const mapNode = (node) => ({
+            x: left + (Number(node.x) || 0) / Math.max(1, frame.w) * drawW,
+            y: top + (Number(node.y) || 0) / Math.max(1, frame.h) * drawH
+        });
+
+        pctx.save();
+        pctx.fillStyle = "rgba(255,212,72,0.22)";
+        pctx.strokeStyle = "rgba(255,224,91,0.98)";
+        pctx.lineWidth = 2.5;
+        for (const loop of findClosedCollisionLoops(object)) {
+            if (!loop.points.length) continue;
+            const first = mapNode(loop.points[0]);
+            pctx.beginPath();
+            pctx.moveTo(first.x, first.y);
+            for (let index = 1; index < loop.points.length; index += 1) {
+                const point = mapNode(loop.points[index]);
+                pctx.lineTo(point.x, point.y);
+            }
+            pctx.closePath();
+            pctx.fill();
+        }
+        for (const line of object.lines || []) {
+            const a = nodeById.get(line.from);
+            const b = nodeById.get(line.to);
+            if (!a || !b) continue;
+            const ap = mapNode(a);
+            const bp = mapNode(b);
+            pctx.beginPath();
+            pctx.moveTo(ap.x, ap.y);
+            pctx.lineTo(bp.x, bp.y);
+            pctx.stroke();
+        }
+        pctx.fillStyle = "rgba(255,245,190,0.96)";
+        pctx.font = "700 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+        pctx.textAlign = "center";
+        pctx.textBaseline = "middle";
+        pctx.fillText(frame.w >= frame.h ? "INVISIBLE H" : "INVISIBLE V", canvas.width * 0.5, canvas.height * 0.5);
+        pctx.restore();
+        return true;
+    }
+
+    function drawAtlasFrameThumbnail(canvas, atlasId, frame, object = null) {
         const pctx = clearPaletteCanvas(canvas);
         const image = imageForAtlas(atlasId);
         if (!image || !frame) return false;
         const visible = paletteOpaqueBounds(image, frame.x, frame.y, frame.w, frame.h);
+        if (!visible.hasVisiblePixels && drawTransparentCollisionThumbnail(canvas, frame, object)) return true;
         const pad = 12;
         const scale = Math.min((canvas.width - pad * 2) / visible.w, (canvas.height - pad * 2) / visible.h);
         const w = visible.w * scale;
@@ -4153,7 +4457,10 @@ import {
             const searchable = `${entry.atlasId} ${entry.id} ${entry.object.type || ""} ${entry.tags}`.toLowerCase();
             return !query || searchable.includes(query);
         });
-        rows.sort((a, b) => a.atlasId.localeCompare(b.atlasId) || a.id.localeCompare(b.id));
+        rows.sort((a, b) => {
+            const orderDelta = (Number(a.object?.paletteOrder) || 0) - (Number(b.object?.paletteOrder) || 0);
+            return orderDelta || a.atlasId.localeCompare(b.atlasId) || a.id.localeCompare(b.id);
+        });
         discardPaletteThumbnails(els.assetList);
         els.assetList.innerHTML = "";
         for (const entry of rows) {
@@ -4170,13 +4477,14 @@ import {
                     setActiveAtlas(atlasId, { redraw: false, renderPalette: false });
                     setTool("placeAsset");
                     updateAssetPaletteSelection();
+                    updateColorMapPreview();
                     draw();
                 }
             });
             button.dataset.atlasId = atlasId;
             button.dataset.assetId = id;
             els.assetList.appendChild(button);
-            deferPaletteThumbnail(thumbnail, () => drawAtlasFrameThumbnail(thumbnail, atlasId, frame));
+            deferPaletteThumbnail(thumbnail, () => drawAtlasFrameThumbnail(thumbnail, atlasId, frame, object));
         }
         if (!rows.length) {
             const empty = document.createElement("div");
@@ -4308,6 +4616,7 @@ import {
         const frame = frameFor(state.selectedAssetId, atlasId);
         const object = objectFor(state.selectedAssetId, atlasId);
         const caveDecoration = normalizeCaveDecoration(caveWindowRecord().decoration);
+        const utility = isInvisibleBlockerObject(object);
         const normalizedLayer = normalizeNewAssetLayer(layer);
         const foreground = normalizedLayer === CAVE_FOREGROUND_LAYER;
         const background = normalizedLayer === BACKGROUND_LAYER;
@@ -4331,7 +4640,7 @@ import {
             layer: normalizedLayer,
             collisionFromManifest: inertCosmetic ? false : hasRuntimeLines(object),
             foregroundSaturation: foreground ? caveDecoration.saturation : undefined,
-            notes: foreground ? "Inert manually placed Foreground artwork." : (background ? "Inert cosmetic Background artwork." : "")
+            notes: utility ? (object.notes || "Invisible collision barrier.") : (foreground ? "Inert manually placed Foreground artwork." : (background ? "Inert cosmetic Background artwork." : ""))
         };
     }
 
@@ -4381,12 +4690,13 @@ import {
             entity.amount = 40;
             entity.radius = 14;
         }
-        if (type === "wizard_exit_door") {
+        if (type === "wizard_exit_door" || type === "wizard_exit_point") {
             entity.destinationLevel = entity.destinationLevel || defaultNextLevelId(state.level.levelId);
-            entity.mirrorX = entity.mirrorX !== false;
+            if (type === "wizard_exit_door") entity.mirrorX = entity.mirrorX !== false;
         }
+        if (isProximityTextEntity(entity)) syncProximityTextBounds(entity);
         if (preview) {
-            if (isWizardDoor(entity)) snapWizardDoorToNearbyGround(entity);
+            if (isWizardPortal(entity)) snapWizardDoorToNearbyGround(entity);
             if (isCharacterEnemy(entity)) snapCharacterEnemyToNearbyGround(entity);
         }
         return { kind: "entity", record: entity };
@@ -4404,9 +4714,12 @@ import {
         const entity = created.record;
         state.level.entities.push(entity);
         selectOnly(entity.id);
-        if (isWizardDoor(entity)) snapWizardDoorToNearbyGround(entity, { announce: true });
+        if (isWizardPortal(entity)) snapWizardDoorToNearbyGround(entity, { announce: true });
         if (isCharacterEnemy(entity)) snapCharacterEnemyToNearbyGround(entity, { announce: true });
         persistUi();
+        if (isWizardEntryPortal(entity) && wizardEntryPortalCount() > 1) {
+            setStatus("This level has more than one wizard entry door/point. Only the first authored entry is used.", false);
+        }
         return entity;
     }
 
@@ -4614,6 +4927,16 @@ import {
             canvas.classList.add("panning");
             return;
         }
+        const proximityHandle = proximityTextTriggerHandleHit(point);
+        if (proximityHandle) {
+            selectOnly(proximityHandle.entity.id);
+            state.drag = {
+                kind: "proximityTextTrigger",
+                id: proximityHandle.entity.id,
+                pointerId: event.pointerId
+            };
+            return;
+        }
         const movingHandle = movingPlatformEndHandleHit(point);
         if (movingHandle) {
             if (generatedRecordLocked(movingHandle.placement)) {
@@ -4697,6 +5020,16 @@ import {
             draw();
             return;
         }
+        if (state.drag.kind === "proximityTextTrigger") {
+            const entity = entityById(state.drag.id);
+            if (!entity || !isProximityTextEntity(entity)) return;
+            entity.triggerOffsetX = snapped(point.x - finiteEditorNumber(entity.x, 0));
+            entity.triggerOffsetY = snapped(point.y - finiteEditorNumber(entity.y, 0));
+            els.inspectProximityTriggerX.value = String(Math.round(entity.triggerOffsetX));
+            els.inspectProximityTriggerY.value = String(Math.round(entity.triggerOffsetY));
+            draw();
+            return;
+        }
         if (state.drag.kind === "movingPlatformEnd") {
             const placement = placementById(state.drag.id);
             const movement = placement ? normalizeMovingPlatform(placement.movement) : null;
@@ -4756,6 +5089,8 @@ import {
             persistUi();
         } else if (completedDrag.kind === "selectionBox") {
             completeSelectionBox(completedDrag);
+        } else if (completedDrag.kind === "proximityTextTrigger") {
+            persistUi();
         } else if (completedDrag.kind === "movingPlatformEnd") {
             persistUi();
         } else if (completedDrag.kind === "cavePoint") {
@@ -4892,7 +5227,7 @@ import {
             const configured = String(definition?.characterUrl || definition?.characterId || "").trim();
             if (!configured) return "";
             const withExtension = configured.endsWith(".json") ? configured : `${configured}.json`;
-            return withExtension.startsWith("assets/") ? withExtension : `assets/${withExtension}`;
+            return withExtension.includes("/") ? withExtension : `characters/${withExtension}`;
         }).filter(Boolean))];
     }
 
@@ -4955,7 +5290,7 @@ import {
             throw new Error("The Level Editor could not convert the authored level to runtime world data.");
         }
         renderer.syncCaveWindow(runtimeState.world.caveWindow);
-        renderer.syncEnvironmentColorMap(runtimeState.world.colorMap);
+        renderer.syncEnvironmentColorMap(runtimeState.world.colorMap, runtimeState.world.colorExchange);
         state.editorRuntimeWorldDirty = false;
         state.editorPerformance.syncMs = performance.now() - syncStart;
 
@@ -5297,7 +5632,7 @@ import {
             ctx.setLineDash([]);
             const labelPoint = corners.reduce((best, point) => point.y < best.y ? point : best, corners[0]);
             ctx.font = "bold 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
-            ctx.fillText(`Hidden gameplay geometry: ${Math.round(warning.distance)} px outside`, labelPoint.x + 6, labelPoint.y - 8);
+            ctx.fillText(`Hidden gameplay geometry: ${Math.round(warning.distance)} px beyond full black`, labelPoint.x + 6, labelPoint.y - 8);
             ctx.restore();
         }
     }
@@ -5356,6 +5691,19 @@ import {
         }, null, 0);
     }
 
+    function mergeEditorVisualQueryResults(...queries) {
+        const results = queries.filter(Boolean);
+        const entries = results
+            .flatMap((result) => Array.isArray(result.entries) ? result.entries : [])
+            .sort((a, b) => (a.sortKey ?? a.index ?? 0) - (b.sortKey ?? b.index ?? 0) || (a.index ?? 0) - (b.index ?? 0));
+        return {
+            entries,
+            total: results.reduce((sum, result) => sum + Math.max(0, Number(result.total) || 0), 0),
+            spatialCulled: results.reduce((sum, result) => sum + Math.max(0, Number(result.spatialCulled) || 0), 0),
+            partition: null
+        };
+    }
+
     function editorBackgroundViewportQuery(rect) {
         const placementGroups = sortedPlacementGroups();
         if (!state.editorWorldVisualCache) {
@@ -5370,17 +5718,19 @@ import {
             virtualW: rect.width / Math.max(MIN_EDITOR_ZOOM, finiteEditorNumber(state.camera.zoom, 1)),
             virtualH: rect.height / Math.max(MIN_EDITOR_ZOOM, finiteEditorNumber(state.camera.zoom, 1))
         };
-        return queryWorldVisualEntries(
-            state.editorWorldVisualCache,
-            "background",
-            view,
-            editorBackgroundParallaxOffset(rect),
-            160
+        const parallaxOffset = editorBackgroundParallaxOffset(rect);
+        return mergeEditorVisualQueryResults(
+            queryWorldVisualEntries(state.editorWorldVisualCache, "background", view, parallaxOffset, 160),
+            queryWorldVisualEntries(state.editorWorldVisualCache, "backgroundOnTop", view, parallaxOffset, 160)
         );
     }
 
     function editorMainViewportQuery(rect) {
-        return editorPlacementEntriesForBounds("main", editorViewportWorldBounds());
+        const bounds = editorViewportWorldBounds();
+        return mergeEditorVisualQueryResults(
+            editorPlacementEntriesForBounds("main", bounds),
+            editorPlacementEntriesForBounds("mainOnTop", bounds)
+        );
     }
 
     function editorForegroundViewportQuery(rect) {
@@ -5397,12 +5747,10 @@ import {
             virtualW: rect.width / Math.max(MIN_EDITOR_ZOOM, finiteEditorNumber(state.camera.zoom, 1)),
             virtualH: rect.height / Math.max(MIN_EDITOR_ZOOM, finiteEditorNumber(state.camera.zoom, 1))
         };
-        return queryWorldVisualEntries(
-            state.editorWorldVisualCache,
-            "caveForeground",
-            view,
-            editorCaveParallaxOffset(rect),
-            160
+        const parallaxOffset = editorCaveParallaxOffset(rect);
+        return mergeEditorVisualQueryResults(
+            queryWorldVisualEntries(state.editorWorldVisualCache, "caveForeground", view, parallaxOffset, 160),
+            queryWorldVisualEntries(state.editorWorldVisualCache, "caveForegroundOnTop", view, parallaxOffset, 160)
         );
     }
 
@@ -5653,7 +6001,8 @@ import {
     function drawPlacementDetails(placement, { preview = false, atlasId = placement.atlasId || DEFAULT_ATLAS_ID } = {}) {
         const generated = isGeneratedCaveForeground(placement);
         const showDetails = !preview && (!generated || state.selectedId === placement.id);
-        if (showDetails && els.showAssetGuides.checked) drawPlacementGuides(placement);
+        const utility = isInvisibleBlockerObject(objectFor(placement.assetId, atlasId));
+        if (showDetails && (els.showAssetGuides.checked || utility)) drawPlacementGuides(placement);
         if (showDetails && els.showLabels.checked) {
             const displayPlacement = displayedLayerPlacement(placement);
             const topLeft = placementCorners(displayPlacement)[0];
@@ -5903,6 +6252,73 @@ import {
         return true;
     }
 
+    function drawWizardPointEntityPreview(entity) {
+        if (!isWizardEntryPoint(entity) && !isWizardExitPoint(entity)) return false;
+        const baseline = worldToScreen(Number(entity.x) || 0, Number(entity.y) || 0);
+        const markerHeight = Math.max(28, Math.min(72, (Number(entity.h) || 80) * state.camera.zoom));
+        const markerWidth = Math.max(22, Math.min(48, (Number(entity.w) || 48) * state.camera.zoom));
+        const entry = isWizardEntryPoint(entity);
+        const color = entry ? "rgba(88,255,158,0.98)" : "rgba(255,112,211,0.98)";
+        const fill = entry ? "rgba(88,255,158,0.18)" : "rgba(255,112,211,0.18)";
+        const top = baseline.y - markerHeight;
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.fillStyle = fill;
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(baseline.x, baseline.y);
+        ctx.lineTo(baseline.x, top + markerWidth * 0.35);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.arc(baseline.x, top, markerWidth * 0.36, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        if (entry) {
+            ctx.moveTo(baseline.x - markerWidth * 0.16, top - markerWidth * 0.12);
+            ctx.lineTo(baseline.x + markerWidth * 0.18, top);
+            ctx.lineTo(baseline.x - markerWidth * 0.16, top + markerWidth * 0.12);
+        } else {
+            ctx.moveTo(baseline.x - markerWidth * 0.18, top - markerWidth * 0.14);
+            ctx.lineTo(baseline.x + markerWidth * 0.10, top);
+            ctx.lineTo(baseline.x - markerWidth * 0.18, top + markerWidth * 0.14);
+            ctx.closePath();
+        }
+        ctx.stroke();
+        ctx.restore();
+        return true;
+    }
+
+    function drawProximityTextPreview(entity) {
+        if (!isProximityTextEntity(entity)) return false;
+        syncProximityTextBounds(entity);
+        const center = worldToScreen(finiteEditorNumber(entity.x, 0), finiteEditorNumber(entity.y, 0));
+        const fontSize = Math.max(8, finiteEditorNumber(entity.fontSize, 100)) * state.camera.zoom;
+        const lineHeight = fontSize * 1.15;
+        const lines = String(entity.text || "Lorem ipsum").split(/\r?\n/);
+        const firstY = center.y - (lines.length - 1) * lineHeight * 0.5;
+        const outlineWidth = Math.max(0, finiteEditorNumber(entity.outlineWidth, 3)) * state.camera.zoom;
+        ctx.save();
+        ctx.font = `700 ${fontSize}px ${proximityTextFontStack(entity.fontFamily)}`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.lineJoin = "round";
+        ctx.fillStyle = String(entity.color || "#723891");
+        if (outlineWidth > 0) {
+            ctx.strokeStyle = String(entity.outlineColor || "#0f0113");
+            ctx.lineWidth = outlineWidth * 2;
+        }
+        lines.forEach((line, index) => {
+            const y = firstY + index * lineHeight;
+            if (outlineWidth > 0) ctx.strokeText(line, center.x, y);
+            ctx.fillText(line, center.x, y);
+        });
+        ctx.restore();
+        return true;
+    }
+
     function drawEntity(entity, {
         preview = false,
         viewportBounds = null,
@@ -5922,7 +6338,7 @@ import {
                 const rank = (layer) => layer === "decorBack" ? 0 : layer === "decorFront" ? 1 : layer === "actorFront" ? 2 : 1;
                 return rank(a.layer) - rank(b.layer);
             });
-            drewVisual = drawCharacterEnemyPreview(entity) || drawEnemySpawnerPreview(entity) || drawPowerUpEntityPreview(entity);
+            drewVisual = drawProximityTextPreview(entity) || drawWizardPointEntityPreview(entity) || drawCharacterEnemyPreview(entity) || drawEnemySpawnerPreview(entity) || drawPowerUpEntityPreview(entity);
             for (const visual of visuals) {
                 const frame = frameFor(visual.assetId, visual.atlasId);
                 const image = imageForAtlas(visual.atlasId);
@@ -6007,6 +6423,49 @@ import {
         placement.movement = movement;
         persistUi();
         setStatus(`Swapped the start and end of ${placement.id}.`);
+    }
+
+    function selectedProximityTextEntity() {
+        if (selectedRecords().length !== 1) return null;
+        const selected = selectedRecord();
+        return selected?.kind === "entity" && isProximityTextEntity(selected.record) ? selected.record : null;
+    }
+
+    function proximityTextTriggerHandleHit(point) {
+        const entity = selectedProximityTextEntity();
+        if (!entity) return null;
+        const center = proximityTextTriggerPoint(entity);
+        const radius = Math.max(10 / state.camera.zoom, 5);
+        return Math.hypot(point.x - center.x, point.y - center.y) <= radius ? { entity, center } : null;
+    }
+
+    function drawProximityTextTriggerGuide(entity) {
+        if (!entity) return;
+        const textCenter = worldToScreen(finiteEditorNumber(entity.x, 0), finiteEditorNumber(entity.y, 0));
+        const triggerWorld = proximityTextTriggerPoint(entity);
+        const trigger = worldToScreen(triggerWorld.x, triggerWorld.y);
+        const triggerDistance = Math.max(8, finiteEditorNumber(entity.triggerDistance, 300)) * state.camera.zoom;
+        ctx.save();
+        ctx.strokeStyle = "rgba(255,190,72,0.92)";
+        ctx.fillStyle = "rgba(255,210,96,0.98)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 6]);
+        ctx.beginPath();
+        ctx.moveTo(textCenter.x, textCenter.y);
+        ctx.lineTo(trigger.x, trigger.y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(trigger.x, trigger.y, triggerDistance, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.arc(trigger.x, trigger.y, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(62,35,8,0.98)";
+        ctx.stroke();
+        ctx.font = "bold 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+        ctx.fillText(`TRIGGER ${Math.round(Math.max(8, finiteEditorNumber(entity.triggerDistance, 300)))} px`, trigger.x + 12, trigger.y - 12);
+        ctx.restore();
     }
 
     function selectedMovingPlatformPlacement() {
@@ -6170,6 +6629,7 @@ import {
             drawObjectSelectionOutline(selected);
         }
         if (primary?.kind === "asset" && selections.length === 1) drawMovingPlatformGuide(primary.record);
+        if (primary?.kind === "entity" && selections.length === 1 && isProximityTextEntity(primary.record)) drawProximityTextTriggerGuide(primary.record);
         drawObjectSelectionOutline(primary, { primary: true });
     }
 
@@ -6215,6 +6675,7 @@ import {
             els.signalSettingsRow.style.display = "none";
             els.keyholeSettingsRow.style.display = "none";
             els.mailboxStoryRow.style.display = "none";
+            els.proximityTextSettingsRow.style.display = "none";
             els.treasureSettingsRow.style.display = "none";
             els.doorSettingsRow.style.display = "none";
             els.enemySettingsRow.style.display = "none";
@@ -6227,6 +6688,7 @@ import {
         const rec = selected.record;
         const selectionCount = selectedRecords().length;
         const selectedEnemy = selected.kind === "entity" && isCharacterEnemy(rec);
+        const selectedProximityText = selected.kind === "entity" && isProximityTextEntity(rec);
         els.selectionSummary.textContent = `${selectionCount > 1 ? `${selectionCount} objects selected · primary ` : ""}${selected.kind}: ${rec.id || state.selectedId}${generatedRecordLocked(rec) ? " · locked" : manualizedGenerationRecord(rec) ? " · manualized generator record" : automaticGeneratedRecord(rec) ? ` · generated ${generationRecordStage(rec) || "record"}` : ""}`;
         if (syncFields) {
             els.inspectId.value = rec.id || state.selectedId;
@@ -6236,20 +6698,22 @@ import {
             const enemyDimensions = selectedEnemy ? scaledEnemyDimensions(rec, 72, 150) : null;
             els.inspectW.value = selectedEnemy ? String(Math.round(enemyDimensions.width * 100) / 100) : Math.round(rec.w || 0);
             els.inspectH.value = selectedEnemy ? String(Math.round(enemyDimensions.height * 100) / 100) : Math.round(rec.h || 0);
-            els.inspectW.disabled = selectedEnemy;
-            els.inspectH.disabled = selectedEnemy;
-            els.inspectW.title = selectedEnemy ? "Effective hitbox width: Character Editor base width × Enemy scale." : "";
-            els.inspectH.title = selectedEnemy ? "Effective hitbox height: Character Editor base height × Enemy scale." : "";
+            els.inspectW.disabled = selectedEnemy || selectedProximityText;
+            els.inspectH.disabled = selectedEnemy || selectedProximityText;
+            els.inspectW.title = selectedEnemy ? "Effective hitbox width: Character Editor base width × Enemy scale." : (selectedProximityText ? "Text bounds are calculated from the text, font, size, and outline." : "");
+            els.inspectH.title = selectedEnemy ? "Effective hitbox height: Character Editor base height × Enemy scale." : (selectedProximityText ? "Text bounds are calculated from the text, font, size, and outline." : "");
             els.inspectLayer.value = rec.layer || (selected.kind === "cutoutMask" ? "mask" : "terrain");
             els.inspectAngle.value = ((normalizeRotationRadians(rec.rotation) * 180 / Math.PI) || 0).toFixed(1).replace(/\.0$/, "");
             els.inspectMirrorX.checked = Boolean(rec.mirrorX);
             els.inspectMirrorY.checked = Boolean(rec.mirrorY);
+            els.inspectLayer.disabled = false;
             const inertCosmetic = selected.kind === "asset" && (
                 els.inspectLayer.value === CAVE_FOREGROUND_LAYER ||
                 els.inspectLayer.value === BACKGROUND_LAYER
             );
             els.inspectCollision.checked = inertCosmetic ? false : rec.collisionFromManifest !== false;
             els.inspectCollision.disabled = inertCosmetic;
+            els.inspectOnTop.checked = rec.onTop === true;
             const authoredMovement = normalizeMovingPlatform(rec.movement);
             const movingDraft = authoredMovement || createDefaultMovingPlatform();
             els.inspectMovingEnabled.checked = Boolean(authoredMovement);
@@ -6286,6 +6750,18 @@ import {
             els.inspectMailboxTitle.value = rec.letterTitle || "A Letter from Your Humble Editor";
             els.inspectMailboxLetter.value = rec.letterText || "";
             els.inspectMailboxThought.value = formatMailboxThoughtText(rec);
+            els.inspectProximityText.value = String(rec.text || "Lorem ipsum");
+            els.inspectProximityFontSize.value = String(Math.max(8, finiteEditorNumber(rec.fontSize, 100)));
+            els.inspectProximityFontFamily.value = normalizeProximityTextFontFamily(rec.fontFamily);
+            els.inspectProximityColor.value = /^#[0-9a-f]{6}$/i.test(String(rec.color || "")) ? String(rec.color) : "#723891";
+            els.inspectProximityOutlineColor.value = /^#[0-9a-f]{6}$/i.test(String(rec.outlineColor || "")) ? String(rec.outlineColor) : "#0f0113";
+            els.inspectProximityOutlineWidth.value = String(Math.max(0, finiteEditorNumber(rec.outlineWidth, 3)));
+            els.inspectProximityTriggerX.value = String(finiteEditorNumber(rec.triggerOffsetX, 0));
+            els.inspectProximityTriggerY.value = String(finiteEditorNumber(rec.triggerOffsetY, 0));
+            els.inspectProximityTriggerDistance.value = String(Math.max(8, finiteEditorNumber(rec.triggerDistance, 300)));
+            els.inspectProximityFadeIn.value = String(Math.max(0.01, finiteEditorNumber(rec.fadeInDuration, 1)));
+            els.inspectProximityDisplayDuration.value = String(Math.max(0, finiteEditorNumber(rec.displayDuration, 5)));
+            els.inspectProximityFadeOut.value = String(Math.max(0.01, finiteEditorNumber(rec.fadeOutDuration, 1)));
             els.inspectTreasureScore.value = Math.max(1, Math.floor(finiteEditorNumber(rec.scoreValue, 100)));
             els.inspectTreasureDistance.value = Math.max(8, finiteEditorNumber(rec.collectionDistance, 88));
             const enemySpawnerConfig = normalizeEnemySpawner(isEnemySpawner(rec) ? rec : DEFAULT_ENEMY_SPAWNER);
@@ -6293,14 +6769,18 @@ import {
             els.inspectEnemySpawnerPool.value = enemySpawnerConfig.enemyPool;
             els.inspectEnemySpawnerDisableSignal.value = String(rec.disableSignalChannel || "");
             refreshSelectedEnemySpawnerPreview();
-            const isEntryDoor = rec.type === "wizard_entry_door";
-            const isExitDoor = rec.type === "wizard_exit_door";
-            els.inspectDoorDestination.value = rec.destinationLevel || (isExitDoor ? defaultNextLevelId(state.level.levelId) : "");
-            els.inspectDoorDestination.disabled = isEntryDoor;
-            els.doorDestinationLabel.style.display = isEntryDoor ? "none" : "grid";
-            els.doorDistanceLabel.firstChild.textContent = isEntryDoor ? "Emergence distance" : "Trigger distance";
-            els.inspectDoorDistance.value = isEntryDoor ? (Number(rec.emergeDistance) || 180) : (Number(rec.triggerDistance) || 96);
+            const isEntryPortal = isWizardEntryPortal(rec);
+            const isExitPortal = isWizardExitPortal(rec);
+            const isPointPortal = isWizardEntryPoint(rec) || isWizardExitPoint(rec);
+            els.inspectDoorDestination.value = rec.destinationLevel || (isExitPortal ? defaultNextLevelId(state.level.levelId) : "");
+            els.inspectDoorDestination.disabled = isEntryPortal;
+            els.doorDestinationLabel.style.display = isEntryPortal ? "none" : "grid";
+            els.doorDistanceLabel.style.display = isWizardEntryPoint(rec) ? "none" : "grid";
+            els.doorDistanceLabel.firstChild.textContent = rec.type === "wizard_entry_door" ? "Emergence distance" : "Trigger distance";
+            els.inspectDoorDistance.value = rec.type === "wizard_entry_door" ? (Number(rec.emergeDistance) || 180) : (Number(rec.triggerDistance) || (isWizardExitPoint(rec) ? 64 : 96));
             els.inspectDoorWalkSpeed.value = Number(rec.walkSpeed) || 105;
+            els.doorWalkSpeedLabel.style.display = isPointPortal ? "none" : "grid";
+            els.doorSettingsHeading.textContent = isPointPortal ? "Wizard point" : "Wizard doorway";
             els.inspectEnemyCharacter.value = characterEnemyCharacterId(rec);
             els.inspectEnemyStrategy.value = characterEnemyStrategy(rec);
             els.inspectEnemyFacing.value = Number(rec.facing) < 0 ? "-1" : "1";
@@ -6338,8 +6818,9 @@ import {
         const isMailboxStory = selected.kind === "entity" && (rec.type === "mailbox" || rec.interaction === "editorLetter");
         const isLocationThought = selected.kind === "entity" && isLocationThoughtTrigger(rec);
         const isStoryEntity = isMailboxStory || isLocationThought;
+        const isProximityText = selected.kind === "entity" && isProximityTextEntity(rec);
         const isTreasure = selected.kind === "entity" && isTreasureChest(rec);
-        const isDoor = selected.kind === "entity" && isWizardDoor(rec);
+        const isDoor = selected.kind === "entity" && isWizardPortal(rec);
         const isEnemy = selectedEnemy;
         const isSpawner = selected.kind === "entity" && isEnemySpawner(rec);
         const isReactive = selected.kind === "entity" && isReactiveObject(rec);
@@ -6351,6 +6832,7 @@ import {
         els.gateSettingsRow.style.display = isSignalReceiver ? "block" : "none";
         els.keyholeSettingsRow.style.display = isKeyhole ? "block" : "none";
         els.mailboxStoryRow.style.display = isStoryEntity ? "block" : "none";
+        els.proximityTextSettingsRow.style.display = isProximityText ? "block" : "none";
         els.storyInspectorHeading.textContent = isLocationThought ? "Location thought trigger" : "Mailbox story";
         els.storyLetterDurationLabel.style.display = isLocationThought ? "none" : "grid";
         els.storyThoughtDurationLabel.style.display = isLocationThought ? "none" : "grid";
@@ -6364,9 +6846,11 @@ import {
         els.enemySpawnerSettingsRow.style.display = isSpawner ? "block" : "none";
         els.reactiveSettingsRow.style.display = isReactive ? "block" : "none";
         els.wrenchSettingsRow.style.display = isWrench ? "block" : "none";
-        els.assetSizeRow.style.display = selected.kind === "asset" || selected.kind === "cutoutMask" || selected.kind === "entity" ? "grid" : "none";
+        els.assetSizeRow.style.display = (selected.kind === "asset" || selected.kind === "cutoutMask" || (selected.kind === "entity" && !isProximityText)) ? "grid" : "none";
         els.assetExtraRow.style.display = selected.kind === "asset" ? "grid" : "none";
-        const movingPlatformAvailable = selected.kind === "asset" && ![BACKGROUND_LAYER, CAVE_FOREGROUND_LAYER].includes(rec.layer || "terrain");
+        const movingPlatformAvailable = selected.kind === "asset"
+            && !isInvisibleBlockerObject(objectFor(rec.assetId, rec.atlasId || DEFAULT_ATLAS_ID))
+            && ![BACKGROUND_LAYER, CAVE_FOREGROUND_LAYER].includes(rec.layer || "terrain");
         els.movingPlatformRow.style.display = movingPlatformAvailable ? "block" : "none";
         if (movingPlatformAvailable) refreshMovingPlatformControlVisibility();
         els.entityTypeRow.style.display = selected.kind === "entity" ? "grid" : "none";
@@ -6389,11 +6873,34 @@ import {
         setFinite("x", els.inspectX, 0);
         setFinite("y", els.inspectY, 0);
         const editingCharacterEnemy = selected.kind === "entity" && isCharacterEnemy(rec);
-        if (!editingCharacterEnemy) {
+        const editingProximityText = selected.kind === "entity" && isProximityTextEntity(rec);
+        if (!editingCharacterEnemy && !editingProximityText) {
             setFinite("w", els.inspectW, rec.w || 1);
             setFinite("h", els.inspectH, rec.h || 1);
             rec.w = Math.max(1, finiteEditorNumber(rec.w, 1));
             rec.h = Math.max(1, finiteEditorNumber(rec.h, 1));
+        }
+        if (editingProximityText) {
+            rec.type = "proximityText";
+            rec.interaction = "proximityText";
+            rec.text = els.inspectProximityText.value || "Lorem ipsum";
+            rec.fontSize = Math.max(8, Number(els.inspectProximityFontSize.value) || 100);
+            rec.fontFamily = normalizeProximityTextFontFamily(els.inspectProximityFontFamily.value);
+            rec.color = els.inspectProximityColor.value || "#723891";
+            rec.outlineColor = els.inspectProximityOutlineColor.value || "#0f0113";
+            {
+                const outlineWidth = Number(els.inspectProximityOutlineWidth.value);
+                rec.outlineWidth = Math.max(0, Number.isFinite(outlineWidth) ? outlineWidth : 3);
+            }
+            rec.triggerOffsetX = Number(els.inspectProximityTriggerX.value) || 0;
+            rec.triggerOffsetY = Number(els.inspectProximityTriggerY.value) || 0;
+            rec.triggerDistance = Math.max(8, Number(els.inspectProximityTriggerDistance.value) || 300);
+            rec.fadeInDuration = Math.max(0.01, Number(els.inspectProximityFadeIn.value) || 1);
+            rec.displayDuration = Math.max(0, Number(els.inspectProximityDisplayDuration.value) || 0);
+            rec.fadeOutDuration = Math.max(0.01, Number(els.inspectProximityFadeOut.value) || 1);
+            syncProximityTextBounds(rec);
+            els.inspectW.value = String(rec.w);
+            els.inspectH.value = String(rec.h);
         }
         if (selected.kind === "asset") {
             const degrees = Number(els.inspectAngle.value);
@@ -6463,7 +6970,8 @@ import {
         rec.x = Number(els.inspectX.value) || 0;
         rec.y = Number(els.inspectY.value) || 0;
         const editingCharacterEnemy = selected.kind === "entity" && isCharacterEnemy(rec);
-        if (!editingCharacterEnemy) {
+        const editingProximityText = selected.kind === "entity" && isProximityTextEntity(rec);
+        if (!editingCharacterEnemy && !editingProximityText) {
             rec.w = Number(els.inspectW.value) || rec.w || 1;
             rec.h = Number(els.inspectH.value) || rec.h || 1;
         }
@@ -6473,6 +6981,8 @@ import {
             rec.rotation = (Number(els.inspectAngle.value) || 0) * Math.PI / 180;
             rec.mirrorX = els.inspectMirrorX.checked;
             rec.mirrorY = els.inspectMirrorY.checked;
+            if (els.inspectOnTop.checked) rec.onTop = true;
+            else delete rec.onTop;
             rec.atlasId = rec.atlasId || DEFAULT_ATLAS_ID;
             if (![BACKGROUND_LAYER, CAVE_FOREGROUND_LAYER].includes(rec.layer) && els.inspectMovingEnabled.checked) {
                 rec.movement = normalizeMovingPlatform({
@@ -6521,6 +7031,31 @@ import {
         } else if (selected.kind === "entity") {
             rec.type = els.inspectEntityType.value;
             if (els.inspectEntityState.value) rec.state = els.inspectEntityState.value;
+            if (rec.type === "proximityText") {
+                rec.type = "proximityText";
+                rec.interaction = "proximityText";
+                rec.state = rec.state === "complete" ? "complete" : "armed";
+                rec.text = els.inspectProximityText.value || "Lorem ipsum";
+                rec.fontSize = Math.max(8, Number(els.inspectProximityFontSize.value) || 100);
+                rec.fontFamily = normalizeProximityTextFontFamily(els.inspectProximityFontFamily.value);
+                rec.color = els.inspectProximityColor.value || "#723891";
+                rec.outlineColor = els.inspectProximityOutlineColor.value || "#0f0113";
+                {
+                    const outlineWidth = Number(els.inspectProximityOutlineWidth.value);
+                    rec.outlineWidth = Math.max(0, Number.isFinite(outlineWidth) ? outlineWidth : 3);
+                }
+                rec.triggerOffsetX = Number(els.inspectProximityTriggerX.value) || 0;
+                rec.triggerOffsetY = Number(els.inspectProximityTriggerY.value) || 0;
+                rec.triggerDistance = Math.max(8, Number(els.inspectProximityTriggerDistance.value) || 300);
+                rec.fadeInDuration = Math.max(0.01, Number(els.inspectProximityFadeIn.value) || 1);
+                rec.displayDuration = Math.max(0, Number(els.inspectProximityDisplayDuration.value) || 0);
+                rec.fadeOutDuration = Math.max(0.01, Number(els.inspectProximityFadeOut.value) || 1);
+                rec.visualStates = rec.visualStates || { armed: [], complete: [] };
+                rec.stateLabels = rec.stateLabels || { armed: "Armed", complete: "Complete" };
+                syncProximityTextBounds(rec);
+            } else if (rec.interaction === "proximityText") {
+                delete rec.interaction;
+            }
             if (isWrenchPickupEntity(rec)) {
                 applyWrenchEffectDefaults(rec, els.inspectWrenchEffect.value);
             }
@@ -6582,18 +7117,31 @@ import {
                 rec.collectionDistance = Math.max(8, Number(els.inspectTreasureDistance.value) || 88);
                 rec.lootDisplaySeconds = Math.max(0.05, Number(rec.lootDisplaySeconds) || 0.8);
             }
-            if (isWizardDoor(rec)) {
+            if (isWizardPortal(rec)) {
                 rec.interaction = "levelPortal";
-                rec.portalRole = rec.type === "wizard_entry_door" ? "entrance" : "exit";
-                rec.walkSpeed = Math.max(40, Number(els.inspectDoorWalkSpeed.value) || 105);
+                rec.portalRole = isWizardEntryPortal(rec) ? "entrance" : "exit";
                 rec.groundSnapDistance = Math.max(0, Number(rec.groundSnapDistance) || 72);
                 if (rec.type === "wizard_entry_door") {
+                    rec.walkSpeed = Math.max(40, Number(els.inspectDoorWalkSpeed.value) || 105);
                     rec.emergeDistance = Math.max(48, Number(els.inspectDoorDistance.value) || 180);
                     delete rec.destinationLevel;
-                } else {
+                } else if (rec.type === "wizard_exit_door") {
+                    rec.walkSpeed = Math.max(40, Number(els.inspectDoorWalkSpeed.value) || 105);
                     rec.triggerDistance = Math.max(24, Number(els.inspectDoorDistance.value) || 96);
                     rec.destinationLevel = els.inspectDoorDestination.value.trim() || defaultNextLevelId(state.level.levelId);
                     rec.mirrorX = rec.mirrorX !== false;
+                } else if (isWizardEntryPoint(rec)) {
+                    delete rec.walkSpeed;
+                    delete rec.emergeDistance;
+                    delete rec.triggerDistance;
+                    delete rec.destinationLevel;
+                    delete rec.mirrorX;
+                } else {
+                    delete rec.walkSpeed;
+                    delete rec.emergeDistance;
+                    rec.triggerDistance = Math.max(24, Number(els.inspectDoorDistance.value) || 64);
+                    rec.destinationLevel = els.inspectDoorDestination.value.trim() || defaultNextLevelId(state.level.levelId);
+                    delete rec.mirrorX;
                 }
                 if (geometryCommit) snapWizardDoorToNearbyGround(rec, { announce: true });
             }
@@ -6718,7 +7266,6 @@ import {
 
     function setGeneratorSettingsControls(value) {
         const settings = normalizeGeneratorSettings(value);
-        els.generatorLength.value = settings.length;
         els.generatorVerticality.value = String(Math.round(settings.verticality * 100));
         els.generatorWinding.value = String(Math.round(settings.winding * 100));
         els.generatorDifficulty.value = String(Math.round(settings.difficulty * 100));
@@ -6732,8 +7279,10 @@ import {
     }
 
     function readGeneratorSettingsControls() {
+        const recipe = currentGeneratorRecipe();
         return normalizeGeneratorSettings({
-            length: els.generatorLength.value,
+            ...recipe.defaults,
+            length: recipe.defaults.length,
             verticality: (Number(els.generatorVerticality.value) || 0) / 100,
             winding: (Number(els.generatorWinding.value) || 0) / 100,
             difficulty: (Number(els.generatorDifficulty.value) || 0) / 100,
@@ -6745,33 +7294,43 @@ import {
         });
     }
 
-    function populateGeneratorImplementationControls(value = null) {
-        const selected = normalizeGeneratorImplementations(value || {});
-        for (const stage of LEVEL_GENERATOR_STAGE_ORDER) {
-            const select = document.querySelector(`select[data-generator-stage="${stage}"]`);
-            if (!select) continue;
-            select.innerHTML = "";
-            for (const entry of LEVEL_GENERATOR_REGISTRIES[stage] || []) {
-                const option = document.createElement("option");
-                option.value = entry.id;
-                option.textContent = entry.label;
-                select.appendChild(option);
-            }
-            select.value = selected[stage] || select.options[0]?.value || "";
-        }
-    }
-
-    function readGeneratorImplementationControls() {
-        const result = {};
-        for (const stage of LEVEL_GENERATOR_STAGE_ORDER) {
-            const select = document.querySelector(`select[data-generator-stage="${stage}"]`);
-            result[stage] = select?.value || "";
-        }
-        return normalizeGeneratorImplementations(result);
-    }
-
     function currentGeneratorTheme() {
         return state.generatorThemes.get(els.generatorTheme.value) || state.generatorThemes.values().next().value || normalizeGeneratorTheme(null);
+    }
+
+    function currentGeneratorRecipe() {
+        return state.generatorRecipes.get(els.generatorRecipe.value) || state.generatorRecipes.values().next().value || normalizeGeneratorRecipe(null);
+    }
+
+    function currentGeneratorColorModifier() {
+        return state.generatorColorModifiers.get(els.generatorColorModifier.value)
+            || state.generatorColorModifiers.values().next().value
+            || normalizeGeneratorColorModifier(null);
+    }
+
+    function resolvedGeneratorProfile(theme = currentGeneratorTheme(), recipe = currentGeneratorRecipe(), colorModifier = currentGeneratorColorModifier()) {
+        return resolveGeneratorThemeRecipe(theme, recipe, colorModifier);
+    }
+
+    function refreshGeneratorRecipeSummary() {
+        if (!els.generatorRecipeSummary) return;
+        const recipe = currentGeneratorRecipe();
+        const theme = currentGeneratorTheme();
+        const modifier = currentGeneratorColorModifier();
+        const lengthLabel = String(recipe.defaults.length || "standard");
+        els.generatorRecipeSummary.textContent = `${recipe.label}: ${lengthLabel} length, ${theme.label} asset pools, ${modifier.label}. Route and cavern implementations are locked by the recipe.`;
+    }
+
+    function applyGeneratorRecipeDefaults(recipeId, { preserveSeed = true, preserveEnemyPool = true } = {}) {
+        const recipe = state.generatorRecipes.get(recipeId) || currentGeneratorRecipe();
+        if (!recipe) return;
+        const seed = els.generatorSeed.value;
+        const enemyPool = els.generatorEnemyFilter.value;
+        els.generatorRecipe.value = recipe.recipeId;
+        setGeneratorSettingsControls({ ...recipe.defaults, allowedEnemies: preserveEnemyPool ? enemyPool : recipe.defaults.allowedEnemies });
+        if (preserveSeed) els.generatorSeed.value = seed;
+        refreshGeneratorRecipeSummary();
+        refreshAutomaticGeneratorUi();
     }
 
     function applyGeneratorThemeDefaults(themeId, { preserveSeed = true } = {}) {
@@ -6779,15 +7338,75 @@ import {
         if (!theme) return;
         const seed = els.generatorSeed.value;
         els.generatorTheme.value = theme.themeId;
-        setGeneratorSettingsControls(theme.defaults);
-        populateGeneratorImplementationControls(theme.implementations);
+        if (state.generatorColorModifiers.has(theme.defaultColorModifierId)) {
+            els.generatorColorModifier.value = theme.defaultColorModifierId;
+        }
         if (preserveSeed) els.generatorSeed.value = seed;
+        refreshGeneratorRecipeSummary();
         refreshAutomaticGeneratorUi();
+    }
+
+    async function loadAutomaticGeneratorRecipes() {
+        state.generatorRecipes.clear();
+        try {
+            const raw = await loadJsonUrl("generator/level-generator-recipes.json");
+            for (const entry of Array.isArray(raw?.recipes) ? raw.recipes : []) {
+                const recipe = normalizeGeneratorRecipe(entry);
+                state.generatorRecipes.set(recipe.recipeId, recipe);
+            }
+        } catch (error) {
+            els.generatorValidation.className = "small generator-validation error";
+            els.generatorValidation.textContent = `Generator recipes could not load. ${error.message || error}`;
+        }
+        if (!state.generatorRecipes.size) {
+            const fallback = normalizeGeneratorRecipe(null);
+            state.generatorRecipes.set(fallback.recipeId, fallback);
+        }
+        els.generatorRecipe.innerHTML = "";
+        for (const recipe of state.generatorRecipes.values()) {
+            const option = document.createElement("option");
+            option.value = recipe.recipeId;
+            option.textContent = recipe.label;
+            option.title = recipe.description;
+            els.generatorRecipe.appendChild(option);
+        }
+        els.generatorRecipe.value = state.generatorRecipes.keys().next().value;
+        applyGeneratorRecipeDefaults(els.generatorRecipe.value, { preserveSeed: true, preserveEnemyPool: true });
+        return state.generatorRecipes.size;
+    }
+
+    async function loadAutomaticGeneratorColorModifiers() {
+        state.generatorColorModifiers.clear();
+        try {
+            const raw = await loadJsonUrl("generator/level-generator-color-modifiers.json");
+            for (const entry of Array.isArray(raw?.modifiers) ? raw.modifiers : []) {
+                const modifier = normalizeGeneratorColorModifier(entry);
+                state.generatorColorModifiers.set(modifier.colorModifierId, modifier);
+            }
+        } catch (error) {
+            els.generatorValidation.className = "small generator-validation error";
+            els.generatorValidation.textContent = `Generator colour modifiers could not load. ${error.message || error}`;
+        }
+        if (!state.generatorColorModifiers.size) {
+            const fallback = normalizeGeneratorColorModifier(null);
+            state.generatorColorModifiers.set(fallback.colorModifierId, fallback);
+        }
+        els.generatorColorModifier.innerHTML = "";
+        for (const modifier of state.generatorColorModifiers.values()) {
+            const option = document.createElement("option");
+            option.value = modifier.colorModifierId;
+            option.textContent = modifier.label;
+            option.title = modifier.description;
+            els.generatorColorModifier.appendChild(option);
+        }
+        els.generatorColorModifier.value = state.generatorColorModifiers.keys().next().value;
+        refreshGeneratorRecipeSummary();
+        return state.generatorColorModifiers.size;
     }
 
     async function loadAutomaticGeneratorAssetCatalog() {
         try {
-            state.generatorAssetCatalog = normalizeGenerationAssetCatalog(await loadJsonUrl("assets/level-generator-platforms.json"));
+            state.generatorAssetCatalog = normalizeGenerationAssetCatalog(await loadJsonUrl("generator/level-generator-platforms.json"));
             if (!state.generatorAssetCatalog.assets.length) throw new Error("The catalog contains no usable platform assets.");
             return state.generatorAssetCatalog.assets.length;
         } catch (error) {
@@ -6800,7 +7419,7 @@ import {
 
     async function loadAutomaticGeneratorEnemyCatalog() {
         try {
-            state.generatorEnemyCatalog = normalizeEnemyGenerationCatalog(await loadJsonUrl("assets/level-generator-enemies.json"));
+            state.generatorEnemyCatalog = normalizeEnemyGenerationCatalog(await loadJsonUrl("generator/level-generator-enemies.json"));
             if (!state.generatorEnemyCatalog.enemies.length) throw new Error("The catalog contains no usable enemy metadata.");
             return state.generatorEnemyCatalog.enemies.length;
         } catch (error) {
@@ -6813,7 +7432,7 @@ import {
 
     async function loadAutomaticGeneratorRewardCatalog() {
         try {
-            state.generatorRewardCatalog = normalizeRewardGenerationCatalog(await loadJsonUrl("assets/level-generator-rewards.json"));
+            state.generatorRewardCatalog = normalizeRewardGenerationCatalog(await loadJsonUrl("generator/level-generator-rewards.json"));
             if (!state.generatorRewardCatalog.rewards.length) throw new Error("The catalog contains no usable reward metadata.");
             return state.generatorRewardCatalog.rewards.length;
         } catch (error) {
@@ -6826,8 +7445,9 @@ import {
 
     async function loadAutomaticGeneratorThemes() {
         const urls = [
-            "assets/level-generator-themes/earth-cavern.json",
-            "assets/level-generator-themes/ice-cavern.json"
+            "generator/themes/cave.json",
+            "generator/themes/forest.json",
+            "generator/themes/castle.json"
         ];
         state.generatorThemes.clear();
         const failures = [];
@@ -6851,7 +7471,6 @@ import {
             option.title = theme.description;
             els.generatorTheme.appendChild(option);
         }
-        populateGeneratorImplementationControls(currentGeneratorTheme().implementations);
         applyGeneratorThemeDefaults(state.generatorThemes.keys().next().value, { preserveSeed: true });
         if (failures.length) {
             els.generatorValidation.className = "small generator-validation error";
@@ -6931,9 +7550,11 @@ import {
             return;
         }
         if (state.generatorThemes.has(generation.themeId)) els.generatorTheme.value = generation.themeId;
+        if (state.generatorRecipes.has(generation.recipeId)) els.generatorRecipe.value = generation.recipeId;
+        if (state.generatorColorModifiers.has(generation.colorModifierId)) els.generatorColorModifier.value = generation.colorModifierId;
         els.generatorSeed.value = generation.seed;
         setGeneratorSettingsControls(generation.settings);
-        populateGeneratorImplementationControls(generation.implementations);
+        refreshGeneratorRecipeSummary();
         refreshAutomaticGeneratorUi();
     }
 
@@ -7143,12 +7764,17 @@ import {
         const normalized = normalizeLevelGeneration(generation);
         if (!normalized) throw new Error("Generate a complete cavern before regenerating an individual stage.");
         const theme = state.generatorThemes.get(normalized.themeId) || currentGeneratorTheme();
+        const recipe = state.generatorRecipes.get(normalized.recipeId) || currentGeneratorRecipe();
+        const colorModifier = state.generatorColorModifiers.get(normalized.colorModifierId) || currentGeneratorColorModifier();
+        const profile = resolvedGeneratorProfile(theme, recipe, colorModifier);
         if (!state.generatorAssetCatalog.assets.length) throw new Error("The platform generation catalog is unavailable.");
         return {
             theme,
+            recipe,
+            colorModifier,
             assetCatalog: state.generatorAssetCatalog,
-            decorationCatalog: caveDecorationCatalog(),
-            requirePopulatedPerimeter: true,
+            decorationCatalog: caveDecorationCatalog(profile),
+            requirePopulatedPerimeter: profile.decoration.populatePerimeter,
             enemyGenerationCatalog: state.generatorEnemyCatalog,
             rewardGenerationCatalog: state.generatorRewardCatalog,
             enemyCatalog: Object.fromEntries(state.enemyCatalog),
@@ -7218,12 +7844,14 @@ import {
 
     function validateAutomaticGenerationSnapshot(generation, placements, entities, world = state.level.world) {
         const theme = state.generatorThemes.get(generation?.themeId) || currentGeneratorTheme();
+        const recipe = state.generatorRecipes.get(generation?.recipeId) || currentGeneratorRecipe();
+        const colorModifier = state.generatorColorModifiers.get(generation?.colorModifierId) || currentGeneratorColorModifier();
         return validateAutomaticLevelDraftSnapshot({
             generation,
             placements,
             entities,
             world,
-            theme,
+            theme: resolvedGeneratorProfile(theme, recipe, colorModifier),
             assetCatalog: state.generatorAssetCatalog,
             enemyGenerationCatalog: state.generatorEnemyCatalog,
             rewardGenerationCatalog: state.generatorRewardCatalog,
@@ -7428,6 +8056,9 @@ import {
             if (!existing && manualLayoutCount > 0 && !window.confirm("This level already contains manually authored objects. Generate a new cavern shell around them? The objects will be preserved, but they may overlap the generated route until you reposition them.")) return;
             if (!state.generatorAssetCatalog.assets.length) throw new Error("The platform generation catalog is unavailable.");
             const theme = currentGeneratorTheme();
+            const recipe = currentGeneratorRecipe();
+            const colorModifier = currentGeneratorColorModifier();
+            const profile = resolvedGeneratorProfile(theme, recipe, colorModifier);
             const settings = readGeneratorSettingsControls();
             const enemySelection = parseEnemySelection(settings.allowedEnemies, [...state.enemyCatalog.keys()]);
             if (!enemySelection.valid) throw new Error(enemySelection.errors.join(" "));
@@ -7442,16 +8073,17 @@ import {
                 };
             const draft = generateAutomaticLevelDraft({
                 theme,
+                recipe,
+                colorModifier,
                 assetCatalog: state.generatorAssetCatalog,
-                decorationCatalog: caveDecorationCatalog(),
-                requirePopulatedPerimeter: true,
+                decorationCatalog: caveDecorationCatalog(profile),
+                requirePopulatedPerimeter: profile.decoration.populatePerimeter,
                 enemyGenerationCatalog: state.generatorEnemyCatalog,
                 rewardGenerationCatalog: state.generatorRewardCatalog,
                 enemyCatalog: Object.fromEntries(state.enemyCatalog),
                 entityCatalog: Object.fromEntries(state.entityCatalog),
                 seed: els.generatorSeed.value,
                 settings,
-                implementations: readGeneratorImplementationControls(),
                 availableEnemyIds: [...state.enemyCatalog.keys()],
                 destinationLevel: defaultNextLevelId(state.level.levelId)
             });
@@ -7464,7 +8096,7 @@ import {
             state.level.layerVisuals = normalizeLevelLayerVisuals(draft.layerVisuals);
             state.level.world = cloneData(draft.world);
             ensureGeneratedAtlasRefs(draft.requiredAtlasIds);
-            state.level.colorMap = normalizeLevelColorMap(theme.colorMap);
+            state.level.colorMap = normalizeLevelColorMap(colorModifier.colorMap);
             const graphResult = buildPlacedHunterNavigationGraphs({ silent: true, refreshUi: false });
             state.generatorLoadedRunId = draft.generation.runId;
             const after = captureAutomaticGenerationState();
@@ -7484,7 +8116,7 @@ import {
             const perimeterCount = draft.generation.decoration?.placementCount || 0;
             const macroPattern = draft.generation.cavern?.macroPatternLabel || draft.generation.cavern?.macroPatternId || "room-and-tunnel";
             const roomCount = draft.generation.cavern?.rooms?.length || 0;
-            setStatus(`Generated playable ${draft.generation.themeId} ${macroPattern} cavern ${draft.generation.runId} from seed “${draft.generation.seed}”: ${platformCount} platforms through ${roomCount} macro room${roomCount === 1 ? "" : "s"}, ${perimeterCount} cave-wall foreground pieces, ${encounterCount} encounter${encounterCount === 1 ? "" : "s"} with ${enemyCount} enem${enemyCount === 1 ? "y" : "ies"}, ${rewardCount} reward${rewardCount === 1 ? "" : "s"} including ${chestCount} upper-perch chest${chestCount === 1 ? "" : "s"}, and 2 grounded doors.${graphSummary}`);
+            setStatus(`Generated playable ${draft.generation.themeId} / ${draft.generation.recipeId} ${macroPattern} cavern ${draft.generation.runId} from seed “${draft.generation.seed}”: ${platformCount} platforms through ${roomCount} macro room${roomCount === 1 ? "" : "s"}, ${perimeterCount} cave-wall foreground pieces, ${encounterCount} encounter${encounterCount === 1 ? "" : "s"} with ${enemyCount} enem${enemyCount === 1 ? "y" : "ies"}, ${rewardCount} reward${rewardCount === 1 ? "" : "s"} including ${chestCount} upper-perch chest${chestCount === 1 ? "" : "s"}, and 2 grounded doors.${graphSummary}`);
         } catch (error) {
             els.generatorValidation.className = "small generator-validation error";
             els.generatorValidation.textContent = error.message || String(error);
@@ -7721,58 +8353,132 @@ import {
         ctx.restore();
     }
 
+    function hueColorHex(hue) {
+        return rgbColorToHex(hslToRgb(normalizeHueDegrees(hue), 0.78, 0.52));
+    }
+
+    function colorHue(value) {
+        const [r, g, b] = normalizeRgbColor(value, [0, 0, 0]);
+        return rgbToHsl(r, g, b).h;
+    }
+
+    function shortestHueRotation(sourceHue, targetHue) {
+        let rotation = normalizeHueDegrees(targetHue) - normalizeHueDegrees(sourceHue);
+        if (rotation > 180) rotation -= 360;
+        if (rotation < -180) rotation += 360;
+        return rotation;
+    }
+
     function readColorMapControls() {
+        const sourceHue = colorHue(els.colorMapSource.value);
+        const targetHue = colorHue(els.colorMapTarget.value);
         return normalizeLevelColorMap({
             enabled: els.colorMapEnabled.checked,
-            sourceHue: els.colorMapSource.value,
+            sourceHue,
             range: els.colorMapRange.value,
             feather: els.colorMapFeather.value,
-            rotation: els.colorMapRotation.value,
+            rotation: shortestHueRotation(sourceHue, targetHue),
             atlasIds: state.level?.colorMap?.atlasIds || []
         });
     }
 
+    function readColorExchangeControls() {
+        return normalizeLevelColorExchange({
+            enabled: els.colorExchangeEnabled.checked,
+            fromColor: els.colorExchangeFrom.value,
+            toColor: els.colorExchangeTo.value,
+            redThreshold: els.colorExchangeRedThreshold.value,
+            greenThreshold: els.colorExchangeGreenThreshold.value,
+            blueThreshold: els.colorExchangeBlueThreshold.value
+        });
+    }
+
+    function pendingColorTreatmentKey() {
+        return `${colorMapCacheKey(readColorMapControls())}|${levelColorExchangeCacheKey(readColorExchangeControls())}`;
+    }
+
+    function drawColorTreatmentPreview() {
+        const canvas = els.colorTreatmentPreview;
+        const context = canvas?.getContext("2d", { willReadFrequently: true });
+        if (!canvas || !context) return;
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        const record = atlasRecord(state.activeAtlasId);
+        const frame = frameFor(state.selectedAssetId, state.activeAtlasId);
+        if (!record?.image || !frame) {
+            context.fillStyle = "rgba(205,191,220,0.72)";
+            context.font = "700 12px system-ui, sans-serif";
+            context.textAlign = "center";
+            context.textBaseline = "middle";
+            context.fillText("Select an asset", canvas.width * 0.5, canvas.height * 0.5);
+            return;
+        }
+        const scratch = document.createElement("canvas");
+        scratch.width = Math.max(1, frame.w);
+        scratch.height = Math.max(1, frame.h);
+        const scratchContext = scratch.getContext("2d", { willReadFrequently: true });
+        scratchContext.drawImage(record.image, frame.x, frame.y, frame.w, frame.h, 0, 0, frame.w, frame.h);
+        const imageData = scratchContext.getImageData(0, 0, scratch.width, scratch.height);
+        applyLevelColorTreatmentToImageData(imageData, readColorMapControls(), readColorExchangeControls());
+        scratchContext.putImageData(imageData, 0, 0);
+        const visible = paletteOpaqueBounds(scratch, 0, 0, scratch.width, scratch.height);
+        const pad = 10;
+        const scale = Math.min((canvas.width - pad * 2) / visible.w, (canvas.height - pad * 2) / visible.h);
+        const width = visible.w * scale;
+        const height = visible.h * scale;
+        context.drawImage(scratch, visible.x, visible.y, visible.w, visible.h, (canvas.width - width) * 0.5, (canvas.height - height) * 0.5, width, height);
+    }
+
     function updateColorMapPreview() {
-        const colorMap = normalizeLevelColorMap(state.level?.colorMap);
-        const targetHue = normalizeHueDegrees(colorMap.sourceHue + colorMap.rotation);
-        els.colorMapSourceChip.style.background = `hsl(${colorMap.sourceHue} 78% 52%)`;
-        els.colorMapTargetChip.style.background = `hsl(${targetHue} 78% 52%)`;
-        els.colorMapSourceChip.title = `Source hue ${Math.round(colorMap.sourceHue)}°`;
-        els.colorMapTargetChip.title = `Target hue ${Math.round(targetHue)}°`;
-        const atlasScope = colorMap.atlasIds.length ? `; ${colorMap.atlasIds.length} environment atlas${colorMap.atlasIds.length === 1 ? "" : "es"}` : "";
-        els.colorMapStatus.textContent = colorMap.enabled && Math.abs(colorMap.rotation) > 0.0001
-            ? `${Math.round(colorMap.range)}° around ${Math.round(colorMap.sourceHue)}°, feather ${Math.round(colorMap.feather)}°, rotate ${Math.round(colorMap.rotation)}°${atlasScope}`
-            : "Original atlas colours";
+        const colorMap = readColorMapControls();
+        const colorExchange = readColorExchangeControls();
+        const treatments = [];
+        if (colorMap.enabled && Math.abs(colorMap.rotation) > 0.0001) treatments.push(`Hue ${Math.round(colorMap.rotation)}°`);
+        if (colorExchange.enabled) treatments.push("GIMP exchange");
+        const selected = state.selectedAssetId ? `${state.activeAtlasId}:${state.selectedAssetId}` : "selected asset";
+        const dirty = pendingColorTreatmentKey() !== state.colorTreatmentAppliedControlKey;
+        els.colorMapStatus.textContent = treatments.length
+            ? `${dirty ? "Preview" : "Applied"}: ${treatments.join(" + ")} on ${selected}`
+            : `${dirty ? "Preview" : "Applied"}: original colours on ${selected}`;
+        els.colorMapApply.disabled = !dirty;
+        drawColorTreatmentPreview();
     }
 
     function syncColorMapToUi() {
         const colorMap = normalizeLevelColorMap(state.level?.colorMap);
+        const colorExchange = normalizeLevelColorExchange(state.level?.colorExchange);
         els.colorMapEnabled.checked = colorMap.enabled;
-        els.colorMapSource.value = String(Math.round(colorMap.sourceHue * 1000) / 1000);
+        els.colorMapSource.value = hueColorHex(colorMap.sourceHue);
+        els.colorMapTarget.value = hueColorHex(colorMap.sourceHue + colorMap.rotation);
         els.colorMapRange.value = String(Math.round(colorMap.range * 1000) / 1000);
         els.colorMapFeather.value = String(Math.round(colorMap.feather * 1000) / 1000);
-        els.colorMapRotation.value = String(Math.round(colorMap.rotation * 1000) / 1000);
+        els.colorExchangeEnabled.checked = colorExchange.enabled;
+        els.colorExchangeFrom.value = rgbColorToHex(colorExchange.fromColor);
+        els.colorExchangeTo.value = rgbColorToHex(colorExchange.toColor);
+        els.colorExchangeRedThreshold.value = Number(colorExchange.redThreshold).toFixed(3);
+        els.colorExchangeGreenThreshold.value = Number(colorExchange.greenThreshold).toFixed(3);
+        els.colorExchangeBlueThreshold.value = Number(colorExchange.blueThreshold).toFixed(3);
+        state.colorTreatmentAppliedControlKey = pendingColorTreatmentKey();
         updateColorMapPreview();
     }
 
     function applyColorMapControls({ announce = true } = {}) {
         state.level.colorMap = readColorMapControls();
+        state.level.colorExchange = readColorExchangeControls();
+        state.colorTreatmentAppliedControlKey = pendingColorTreatmentKey();
         refreshColorMappedAtlases({ redraw: true, announce });
         updateJson();
     }
 
     function scheduleColorMapRefresh() {
-        state.level.colorMap = readColorMapControls();
-        updateColorMapPreview();
         window.clearTimeout(colorMapRefreshTimer);
         colorMapRefreshTimer = window.setTimeout(() => {
-            refreshColorMappedAtlases({ redraw: true, announce: false });
-            updateJson();
-        }, 140);
+            updateColorMapPreview();
+            updateAssetPaletteSelection();
+        }, 35);
     }
 
     async function loadMusicCatalog() {
-        const url = "assets/music.json";
+        const url = "music/music.json";
         try {
             const response = await fetch(url, { cache: "no-store" });
             if (!response.ok) {
@@ -7805,7 +8511,7 @@ import {
         const option = document.createElement("option");
         option.value = id;
         const number = musicTrackNumber(id);
-        option.textContent = number ? `${number}: ${id} (missing from assets/music.json)` : `${id} (missing from assets/music.json)`;
+        option.textContent = number ? `${number}: ${id} (missing from resources/music/music.json)` : `${id} (missing from resources/music/music.json)`;
         els.levelMusic.appendChild(option);
     }
 
@@ -7824,7 +8530,6 @@ import {
 
     function syncMetadataFromUi() {
         markEditorRuntimeWorldDirty();
-        state.level.colorMap = readColorMapControls();
         syncCaveWindowFromUi();
         syncAutoSpawnEnemiesFromUi();
         state.level.levelId = els.levelId.value.trim() || state.level.levelId;
@@ -7976,6 +8681,7 @@ import {
         for (const placement of state.level.placements) {
             if (!placement || placement.kind !== "atlasAsset") continue;
             placement.atlasId = placement.atlasId || DEFAULT_ATLAS_ID;
+            if (placement.onTop !== true) delete placement.onTop;
             if (placement.layer === CAVE_FOREGROUND_LAYER) {
                 const decoration = normalizeCaveDecoration(state.level.caveWindow?.decoration);
                 placement.collisionFromManifest = false;
@@ -7999,6 +8705,9 @@ import {
                     }
                 }
             }
+        }
+        for (const entity of state.level.entities || []) {
+            if (isProximityTextEntity(entity)) syncProximityTextBounds(entity);
         }
     }
 
@@ -8169,7 +8878,7 @@ import {
                 draw();
                 return;
             }
-            if (movingPlatformEndHandleHit(point)) {
+            if (proximityTextTriggerHandleHit(point) || movingPlatformEndHandleHit(point)) {
                 startDrag(point, event);
                 return;
             }
@@ -8238,6 +8947,8 @@ import {
     if (els.entityPalette) updateEntityPalette();
 
     els.generatorTheme.addEventListener("change", () => applyGeneratorThemeDefaults(els.generatorTheme.value, { preserveSeed: true }));
+    els.generatorRecipe.addEventListener("change", () => applyGeneratorRecipeDefaults(els.generatorRecipe.value, { preserveSeed: true, preserveEnemyPool: true }));
+    els.generatorColorModifier.addEventListener("change", refreshGeneratorRecipeSummary);
     els.generatorRandomizeSeed.addEventListener("click", () => {
         const values = new Uint32Array(2);
         if (globalThis.crypto?.getRandomValues) globalThis.crypto.getRandomValues(values);
@@ -8325,13 +9036,34 @@ import {
         "inspect-w",
         "inspect-h",
         "inspect-angle",
-        "inspect-notes"
+        "inspect-notes",
+        "inspect-proximity-text",
+        "inspect-proximity-font-size",
+        "inspect-proximity-font-family",
+        "inspect-proximity-color",
+        "inspect-proximity-outline-color",
+        "inspect-proximity-outline-width",
+        "inspect-proximity-trigger-x",
+        "inspect-proximity-trigger-y",
+        "inspect-proximity-trigger-distance",
+        "inspect-proximity-fade-in",
+        "inspect-proximity-display-duration",
+        "inspect-proximity-fade-out"
     ]);
     for (const control of document.querySelectorAll("#selected-object-panel input, #selected-object-panel select, #selected-object-panel textarea")) {
         if (!control.id || control.readOnly || control.id === "inspect-kind" || control.id === "inspect-enemy-render-scale") continue;
         control.addEventListener("change", applyInspector);
         if (liveInspectorVisualIds.has(control.id)) control.addEventListener("input", applyInspectorVisuals);
     }
+    els.inspectProximityTriggerReset.addEventListener("click", () => {
+        const entity = selectedProximityTextEntity();
+        if (!entity) return;
+        entity.triggerOffsetX = 0;
+        entity.triggerOffsetY = 0;
+        els.inspectProximityTriggerX.value = "0";
+        els.inspectProximityTriggerY.value = "0";
+        persistUi();
+    });
     document.getElementById("to-front").addEventListener("click", raiseSelectedToTop);
     document.getElementById("to-back").addEventListener("click", lowerSelectedToBottom);
     document.getElementById("play-browser-copy").addEventListener("click", playBrowserCopy);
@@ -8403,16 +9135,37 @@ import {
     els.caveAutoPopulate.addEventListener("click", populateCavePerimeter);
     els.caveClearGenerated.addEventListener("click", () => clearGeneratedCaveForeground());
 
-    [els.colorMapSource, els.colorMapRange, els.colorMapFeather, els.colorMapRotation].forEach((el) => {
-        el.addEventListener("input", scheduleColorMapRefresh);
-        el.addEventListener("change", () => applyColorMapControls({ announce: true }));
+    [
+        els.colorMapSource,
+        els.colorMapTarget,
+        els.colorMapRange,
+        els.colorMapFeather,
+        els.colorExchangeFrom,
+        els.colorExchangeTo,
+        els.colorExchangeRedThreshold,
+        els.colorExchangeGreenThreshold,
+        els.colorExchangeBlueThreshold
+    ].forEach((element) => {
+        element.addEventListener("input", scheduleColorMapRefresh);
+        element.addEventListener("change", scheduleColorMapRefresh);
     });
-    els.colorMapEnabled.addEventListener("change", () => applyColorMapControls({ announce: true }));
+    [els.colorMapEnabled, els.colorExchangeEnabled].forEach((element) => element.addEventListener("change", scheduleColorMapRefresh));
+    els.colorMapApply.addEventListener("click", () => applyColorMapControls({ announce: true }));
     els.colorMapReset.addEventListener("click", () => {
-        state.level.colorMap = normalizeLevelColorMap(DEFAULT_LEVEL_COLOR_MAP);
-        syncColorMapToUi();
-        refreshColorMappedAtlases({ redraw: true, announce: true });
-        updateJson();
+        const colorMap = normalizeLevelColorMap(DEFAULT_LEVEL_COLOR_MAP);
+        const colorExchange = normalizeLevelColorExchange(DEFAULT_LEVEL_COLOR_EXCHANGE);
+        els.colorMapEnabled.checked = colorMap.enabled;
+        els.colorMapSource.value = hueColorHex(colorMap.sourceHue);
+        els.colorMapTarget.value = hueColorHex(colorMap.sourceHue + colorMap.rotation);
+        els.colorMapRange.value = String(colorMap.range);
+        els.colorMapFeather.value = String(colorMap.feather);
+        els.colorExchangeEnabled.checked = colorExchange.enabled;
+        els.colorExchangeFrom.value = rgbColorToHex(colorExchange.fromColor);
+        els.colorExchangeTo.value = rgbColorToHex(colorExchange.toColor);
+        els.colorExchangeRedThreshold.value = Number(colorExchange.redThreshold).toFixed(3);
+        els.colorExchangeGreenThreshold.value = Number(colorExchange.greenThreshold).toFixed(3);
+        els.colorExchangeBlueThreshold.value = Number(colorExchange.blueThreshold).toFixed(3);
+        updateColorMapPreview();
     });
 
 
@@ -8522,7 +9275,16 @@ import {
         editorResizeObserver.observe(wrap);
     }
 
+    async function loadBundledProximityTextFonts() {
+        if (!document.fonts?.load) return;
+        await Promise.allSettled([
+            document.fonts.load("700 16px 'Ignatius Inter'"),
+            document.fonts.load("700 16px 'Ignatius Caveat'")
+        ]);
+    }
+
     async function initializeEditor() {
+        await loadBundledProximityTextFonts();
         await loadMusicCatalog();
         populateLevelMusicOptions();
         state.level = makeEmptyLevel();
@@ -8537,6 +9299,8 @@ import {
         await loadAutomaticGeneratorAssetCatalog();
         await loadAutomaticGeneratorEnemyCatalog();
         await loadAutomaticGeneratorRewardCatalog();
+        await loadAutomaticGeneratorRecipes();
+        await loadAutomaticGeneratorColorModifiers();
         await loadAutomaticGeneratorThemes();
         const levelCount = await scanAvailableLevels();
         if (levelCount > 0) {
@@ -8551,7 +9315,7 @@ import {
         } else {
             syncMetadataToUi();
             persistUi();
-            setStatus("Loaded atlas library. No assets/level_001.json could be auto-detected; created an empty level. Use Import level JSON or add assets/level_001.json.", false);
+            setStatus("Loaded atlas library. No resources/levels/level_001.json could be auto-detected; created an empty level. Use Import level JSON or add resources/levels/level_001.json.", false);
         }
         fitContentView();
     }

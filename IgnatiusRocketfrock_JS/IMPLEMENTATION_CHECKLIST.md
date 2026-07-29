@@ -43,6 +43,8 @@ The HTML and JavaScript game remains the reference implementation, but new gamep
 
 The project now has a working browser game loop, deterministic simulation layer, asset-atlas based level construction, atlas and level editor tools, atlas-derived collision lines and filled collision loops, detached rocket terrain impacts, health/fuel HUD, and headless tests. Revision 099 also places implementation modules under explicit core, shared, browser, presentation, and tool directories, with `ARCHITECTURE.md` serving as the dependency and future C++ parity map.
 
+Revision 228 adds cave-background atlases 015 through 019 and a shared `brightenOnly` atlas blend attribute. Both ports hydrate the attribute from manifests; browser WebGL2, SDL_GPU, and accelerated SDL_Renderer use fixed-function maximum blending, while Canvas 2D uses compositor `lighten`. The new assets are tagged `biome.cave` and `layer.background`, default to `decorBack`, and remain collision-free.
+
 Revision 100 provides the first destructible/reactive-world slice: an editor-placeable breakable crate with authoritative health/state, dynamic collision, rocket interception, state-authored visuals, destruction smoke, events, and serialization. Revision 126 adds the second shape class, a tall destructible iron barrier, and an off-by-default Puppet Guide that exposes exact enemy hitboxes, awareness, attack windows, routes, target anchors, patrol spans, and last-seen state. Exact projectile and melee rectangles now live in shared actor geometry used by both core and renderer. The falling-tree bridge remains the next reactive-world target, but it is postponed until its artwork can be authored and reviewed. The immediate track is a presentation-only cave perimeter, whole-level spline editing, black exterior mask, and dark non-colliding foreground formations using existing atlas material. In parallel, portability preparation should continue establishing language-neutral schemas and parity fixtures before Phase 8 procedural generation expands the simulation surface.
 
 
@@ -90,8 +92,8 @@ Goal: establish a playable and testable foundation for movement, rocket behavior
 * [x] Keep input mapping separate from simulation rules.
 * [x] Store gameplay state inside a serializable `gameState`.
 * [x] Support running, jumping, airborne boost, fuel, health, and detached rocket launch.
-* [x] Support level loading from `assets/level_001.json`.
-* [x] Support asset manifests from `assets/at_atlas_001.json`, `assets/at_atlas_002.json`, and so on.
+* [x] Support level loading from `resources/levels/level_001.json`.
+* [x] Support asset manifests from `resources/atlases/at_atlas_001.json`, `resources/atlases/at_atlas_002.json`, and so on.
 * [x] Support level placements that reference `atlasId` plus `assetId`.
 * [x] Support atlas collision lines: `walkable`, `blockable`, `damaging`, and `killable`.
 * [x] Support filled closed collision loops when collision lines form areas.
@@ -112,7 +114,7 @@ Goal: establish a playable and testable foundation for movement, rocket behavior
 
 ### Phase 1 Rule Going Forward
 
-The browser game should load real level and atlas files from `assets/`. It is acceptable for the game to fail loudly if `assets/level_001.json` or referenced atlas files are missing or invalid.
+The browser game should load real level files from `resources/levels/` and atlas files from their categorized resource directories. It is acceptable for the game to fail loudly if `resources/levels/level_001.json` or referenced atlas files are missing or invalid.
 
 Hardcoded test data may remain only when it is explicitly used as a test fixture or blank editor starting state.
 
@@ -820,8 +822,8 @@ Goal: grow the game beyond isolated prototype levels.
 
 ### Revision 102 Puppet Forge goblin project loading fix
 
-* [x] Map the visible `enemy_002` selector entry to `assets/ct_char_enemy_002.json`.
-* [x] Map the visible `enemy_003` selector entry to `assets/ct_char_enemy_003.json`.
+* [x] Map the visible `enemy_002` selector entry to `resources/characters/ct_char_enemy_002.json`.
+* [x] Map the visible `enemy_003` selector entry to `resources/characters/ct_char_enemy_003.json`.
 * [x] Guard against future known-project selector entries without a corresponding URL mapping.
 * [x] Load each known project's referenced rig directly in Puppet Forge.
 * [x] Add source regression checks for the goblin mappings and direct rig-loading path.
@@ -1407,7 +1409,7 @@ Goal: grow the game beyond isolated prototype levels.
 
 ## Revision 156 named signal activation
 
-- [x] Merge the user-authored revision of `assets/level_001.json` without replacing its placements, entities, cave perimeter, music, or moving-platform settings.
+- [x] Merge the user-authored revision of `resources/levels/level_001.json` without replacing its placements, entities, cave perimeter, music, or moving-platform settings.
 - [x] Add a shared, version-independent named-channel normalizer and reusable lever/keyhole emitter schema.
 - [x] Add `signal` as a moving-platform activation mode with an authored channel.
 - [x] Emit discrete channel revisions from nearby lever interaction and one-shot keyhole unlocking.
@@ -1668,6 +1670,16 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Update browser and portable build labels to revision 200.
 
 
+## SDL build revision 202 mixed sound events and WAV authoring tool
+
+- [x] Remove browser and native same-tick suppression between distinct sound effects.
+- [x] Keep retained-debug-event protection and same-cue coalescing so one logical cue is not replayed accidentally.
+- [x] Add a standalone HTML sound synthesizer under `devel/` with tone and deterministic white-noise sources.
+- [x] Provide ADSR, high-pass/low-pass filtering, low/mid/high EQ, preview, clipping diagnostics, and 16-bit mono PCM WAV export.
+- [x] Include editable templates for common Ignatius gameplay cues.
+- [x] Update the native build title and packaged revision to 202.
+
+
 ## Revision 201 implemented the chosen E1 procedural fireball
 
 - [x] Replace the gameplay goblin fireball with the E1-style circle-based procedural fireball.
@@ -1894,9 +1906,14 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Pass the complete aggregate headless test suite.
 
 
-## Revision 222 archive repack
+## Revision 222 projectile-art fireball trail palettes
 
-- [x] Record revision 222 as an unchanged repack of revision 221 with no invented feature delta.
+- [x] Sample a compact dark-to-bright trail palette from ordinary authored projectile frames during character loading.
+- [x] Re-sample projectile parts after GIMP Color Exchange so recoloured cores and trails remain visually coupled.
+- [x] Interpolate the cached palette in Canvas, WebGL2, SDL_Renderer, and SDL_GPU particle paths without frame-time image reads.
+- [x] Keep Skeleton Caster undeath orbs on their existing procedural green bubble palette.
+- [x] Draw browser projectiles from the same final projectile-part asset used for palette lookup.
+- [x] Add browser and native regression coverage and update build labels to revision 222.
 
 
 ## Revision 223 Shield power-up
@@ -2160,7 +2177,7 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 
 ## Revision 236 Automatic Level Generator 2 encounters
 
-- [x] Add `assets/level-generator-enemies.json` as a versioned behavior and placement metadata catalog for every currently supported generated enemy.
+- [x] Add `resources/generator/level-generator-enemies.json` as a versioned behavior and placement metadata catalog for every currently supported generated enemy.
 - [x] Keep encounter randomness on its own named deterministic stream so population changes do not perturb route or cavern selection.
 - [x] Compute a difficulty budget from route scale, enemy density, difficulty, and safety, while preserving a genuinely empty zero-density result.
 - [x] Guarantee entrance and exit calm zones at least as large as the maximum selected enemy awareness range plus a safety buffer.
@@ -2177,7 +2194,7 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 
 ## Revision 237 Automatic Level Generator 3 rewards and props
 
-- [x] Add `assets/level-generator-rewards.json` as a versioned catalog for branch treasure, contextual power-ups, utility pickups, narrative triggers, spacing, progression ranges, and per-draft limits.
+- [x] Add `resources/generator/level-generator-rewards.json` as a versioned catalog for branch treasure, contextual power-ups, utility pickups, narrative triggers, spacing, progression ranges, and per-draft limits.
 - [x] Keep branch and reward selection on the independent rewards random stream so tuning rewards does not perturb route, cavern, or encounter streams.
 - [x] Prefer reward-rich candidates that materialize eligible branches instead of accepting a marginally higher-scoring branchless draft.
 - [x] Materialize selected branches as lower returnable detours rather than upper shelves that create accidental ceilings.
@@ -2326,7 +2343,7 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 
 ## Revision 245 layered recovery traversal and stalactite/stalagmite perimeter
 
-- [x] Inspect the manually authored `assets/level_001.json` platform structure as the reference for a vertically varied upper route and a broad lower recovery path.
+- [x] Inspect the manually authored `resources/levels/level_001.json` platform structure as the reference for a vertically varied upper route and a broad lower recovery path.
 - [x] Register `layered-recovery-traversal-v3` and make it the Earth and Ice default while retaining `spaced-platform-traversal-v2` and `forgiving-traversal-v1` as legacy alternatives.
 - [x] Increase deterministic vertical variation among horizontal upper-route platforms while keeping every local transition inside the conservative movement envelope.
 - [x] Keep explicit collision-edge jump gaps between upper-route platforms.
@@ -2344,7 +2361,7 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 
 ## Revision 246 Atlas 004 long platforms
 
-- [x] Add `assets/at_atlas_004.json` with frames for all sixteen uploaded platform islands.
+- [x] Add `resources/atlases/at_atlas_004.json` with frames for all sixteen uploaded platform islands.
 - [x] Give every platform a closed blockable collision polygon.
 - [x] Place the upper blockable surface through the middle of the visible walkway rather than on the alpha fringe.
 - [x] Register every Atlas 004 platform in generation catalog version 2.
@@ -3354,7 +3371,7 @@ The editor now reuses `computeCaveWindowParallaxOffset` with its own current vie
 - [x] Add an effect-copy multiplier and an automatic full sequence.
 - [x] Keep the lab development-only and outside simulation, level data, and production renderer authority.
 - [x] Add a headless contract test and explicit shared-gate ownership.
-- [x] Adopt the supplied updated `assets/level_002.json`.
+- [x] Adopt the supplied updated `resources/levels/level_002.json`.
 - [x] Synchronize visible game and Level Editor labels to revision 334.
 
 ## Revision 335 Chrome enemy-hit stutter diagnosis and mitigation
@@ -4119,14 +4136,14 @@ Revision 399 keeps the shipped Enemy 032 death clip unchanged but replaces the t
 - [x] Remove the embedded synthesized/jukebox engine host, source bundle, accepted-selection data, and score-source documentation.
 - [x] Replace level music normalization with version 3 `trackId` metadata for numbered OGG files.
 - [x] Convert authored levels to `music_001`.
-- [x] Load `assets/music.json` in the Level Editor and expose its OGG tracks as selectable music.
-- [x] Load `assets/music.json` in browser bootstrap and play selected tracks through the music director.
+- [x] Load `resources/music/music.json` in the Level Editor and expose its OGG tracks as selectable music.
+- [x] Load `resources/music/music.json` in browser bootstrap and play selected tracks through the music director.
 - [x] Update regression coverage for the OGG catalog and retired music cleanup.
 - [x] Exclude `.ogg` files from compact update archives alongside `.png` and `.xcf`.
 
 ## Revision 456 title resume save
 
-- [x] Validate and repair `assets/music.json` after the new default OGG track was inserted.
+- [x] Validate and repair `resources/music/music.json` after the new default OGG track was inserted.
 - [x] Keep all authored levels pointed at `music_001`.
 - [x] Add a title-screen Resume button beside Start.
 - [x] Move the manual link to a smaller second-row Game manual action.
@@ -4159,7 +4176,7 @@ Revision 399 keeps the shipped Enemy 032 death clip unchanged but replaces the t
 
 ## Revision 460 castle and forest atlas manifest pass
 
-- [x] Add `assets/at_atlas_005.json` through `assets/at_atlas_014.json` for the new castle, cave-clutter, furniture, bridge, and forest atlases.
+- [x] Add `resources/atlases/at_atlas_005.json` through `resources/atlases/at_atlas_014.json` for the new castle, cave-clutter, furniture, bridge, and forest atlases.
 - [x] Use searchable names such as `castle_stone_platform_extra_long_top`, `forest_tree_branch_platform`, and `cave_weapon_chest` without locking assets to a specific level.
 - [x] Keep ordinary decorations inert with no collision lines.
 - [x] Add walkable or blockable collision metadata only to the user-marked gameplay assets.
@@ -4167,7 +4184,7 @@ Revision 399 keeps the shipped Enemy 032 death clip unchanged but replaces the t
 
 ## Revision 461 asset forge atlas loader and title manual button polish
 
-Revision 461 streamlines the Asset Tool file panel for the growing numbered atlas library. The old hard-coded `at_atlas_001` image and JSON buttons are replaced by a numbered atlas selector and a single load action that loads both `assets/at_atlas_<nnn>.json` and its referenced image. The custom PNG and JSON pickers remain underneath for one-off imports. The Asset Tool canvas also now matches the Level Editor navigation feel: holding the right mouse button while dragging pans the viewport, and the mouse wheel zooms around the cursor.
+Revision 461 streamlines the Asset Tool file panel for the growing numbered atlas library. The old hard-coded `at_atlas_001` image and JSON buttons are replaced by a numbered atlas selector and a single load action that loads both `resources/atlases/at_atlas_<nnn>.json` and its referenced image. The custom PNG and JSON pickers remain underneath for one-off imports. The Asset Tool canvas also now matches the Level Editor navigation feel: holding the right mouse button while dragging pans the viewport, and the mouse wheel zooms around the cursor.
 
 The title screen keeps Start and Resume as the primary actions, while the Game manual link now uses a quieter pill-shaped secondary style so it reads as supporting documentation rather than another main launch button.
 
@@ -4208,8 +4225,8 @@ The Asset Tool also gains a faster line-editing gesture: in Add Node Mode, click
 
 ## Revision 470 testbench level fixtures
 
-- [x] Add `assets/level_t01.json` as the stable old-introductory-cave test fixture.
-- [x] Add `assets/level_t02.json` as the stable goblin-boss-arena test fixture.
+- [x] Add `resources/levels/level_t01.json` as the stable old-introductory-cave test fixture.
+- [x] Add `resources/levels/level_t02.json` as the stable goblin-boss-arena test fixture.
 - [x] Retarget authored-level regression reads away from campaign `level_001` and `level_002`.
 - [x] Reserve `level_tNN` for future testbench levels so normal level rearrangement does not break tests.
 - [x] Synchronize visible revision labels to 470.
@@ -4231,8 +4248,8 @@ The Asset Tool also gains a faster line-editing gesture: in Add Node Mode, click
 
 ## Revision 473 walkable bridge ramp stability
 
-- [x] Import the latest authored `assets/level_001.json`.
-- [x] Import the latest authored `assets/at_atlas_013.json` and `assets/at_atlas_014.json`.
+- [x] Import the latest authored `resources/levels/level_001.json`.
+- [x] Import the latest authored `resources/atlases/at_atlas_013.json` and `resources/atlases/at_atlas_014.json`.
 - [x] Keep grounded players attached to nearby sloped walkable support after horizontal movement.
 - [x] Add a regression test for running across `forest_arched_bridge_walkable`'s steep uphill line.
 - [x] Synchronize visible revision labels to 473.
@@ -4250,7 +4267,7 @@ The Asset Tool also gains a faster line-editing gesture: in Add Node Mode, click
 
 ## Revision 475 hidden debug-panel performance guard
 
-- [x] Import the latest authored `assets/level_001.json`.
+- [x] Import the latest authored `resources/levels/level_001.json`.
 - [x] Return immediately from `updateDebugText()` while the debug panel is hidden.
 - [x] Refresh debug text once when the debug panel is made visible from the menu button or keyboard shortcut.
 - [x] Add a source regression assertion for the hidden-panel guard.
@@ -4258,7 +4275,7 @@ The Asset Tool also gains a faster line-editing gesture: in Add Node Mode, click
 
 ## Revision 476 safe cleanup and performance polish
 
-- [x] Delete the obsolete `assets/ct_rig_enemy_030 .json` duplicate with the stray filename space.
+- [x] Delete the obsolete `resources/characters/ct_rig_enemy_030 .json` duplicate with the stray filename space.
 - [x] Add that duplicate path to the retired-file packaging guard.
 - [x] Remove unused Level Editor helper functions left from old import, preview, cutout, and placement-layer paths.
 - [x] Update the overlap-composite source regression to track the active helper name.
@@ -4300,7 +4317,7 @@ Revision 481 verifies that the active enemy catalog gives `enemy_010`, `enemy_01
 
 ## Revision 482 stutter diagnostics checklist
 
-Revision 482 verifies that the retired `assets/ct_rig_enemy_030 .json` file is absent, the Character Editor reports malformed enemy defaults JSON instead of silently swallowing it, and renderer frame scratch structures are reused for visibility, world-visual broadphase queries, overlap blend groups, projectile skip IDs, visual counters, and parallax offsets.
+Revision 482 verifies that the retired `resources/characters/ct_rig_enemy_030 .json` file is absent, the Character Editor reports malformed enemy defaults JSON instead of silently swallowing it, and renderer frame scratch structures are reused for visibility, world-visual broadphase queries, overlap blend groups, projectile skip IDs, visual counters, and parallax offsets.
 
 Manual profiling workflow: open the game, run `window.__rocketfrockDev.profiler.start({ thresholdMs: 10, rafGapMs: 20, label: "test run" })`, play until a hitch occurs, then run `window.__rocketfrockDev.profiler.download()` or `window.__rocketfrockDev.profiler.copy()`. The exported JSON should include sampled frame timings, renderer phase diagnostics, fixed-step counts, accumulator state, and GPU counters when WebGL2 is active.
 
@@ -4678,3 +4695,138 @@ Manual profiling workflow: open the game, run `window.__rocketfrockDev.profiler.
 - [x] Keep nested menu return destinations unchanged.
 - [x] Exclude the SDL Back control from ordinary row sizing and scrolling layout.
 
+## SDL build revision 203 compact sound workbench
+
+- [x] Replace the vertically scrolling sound synthesizer with a dense four-column desktop workbench.
+- [x] Keep every synthesis control visible at 1366x768 and reduce the waveform to a narrow monitor strip.
+- [x] Add a second oscillator plus white, pink, brown, and blue noise primitives.
+- [x] Add pitch envelope, vibrato, tremolo, FM wobble, resonant filter sweep, drive, ring modulation, bit crushing, sample-rate reduction, reverse, echo, and edge fading.
+- [x] Preserve deterministic seeded rendering, preview, clipping trim, editable templates, and 16-bit mono WAV export.
+- [x] Update the native build title and packaged revision to 203.
+
+## SDL build revision 204 character-owned combat audio
+
+- [x] Add optional `sounds.attack`, `sounds.hurt`, and `sounds.death` WAV references to runtime character projects.
+- [x] Add Puppet Forge WAV selectors backed by discovered catalog/local-project files.
+- [x] Carry character IDs on browser and native enemy combat events.
+- [x] Resolve attack, hurt, and death playback from the emitting character in both ports.
+- [x] Migrate every shipped monster without overwriting WAV assets.
+- [x] Rename the wizard ground animation slot and active clip from run to walk, and add hurt/death slots.
+- [x] Update the native build title and packaged revision to 204.
+
+## SDL build revision 205 collapsible character-sounds panel
+
+- [x] Move Attack WAV, Hurt WAV, and Death WAV out of the general Character panel.
+- [x] Add a dedicated collapsible Character sounds panel in the right-hand inspector.
+- [x] Order Character sounds between Metadata and Animation.
+- [x] Preserve the existing selectors, discovered-WAV population, and character JSON bindings.
+- [x] Update the native build title and packaged revision to 205.
+
+
+## SDL build revision 206 water regions and swimming
+
+- [x] Add closed blue `water` guide polygons to Atlas Forge beside walkable, blockable, damaging, and killable guides.
+- [x] Keep water guides editor/debug-only and exclude water edges from ordinary solid collision segments and navigation supports.
+- [x] Derive player submersion from body overlap with water polygons in both portable simulations.
+- [x] Apply speed-dependent horizontal and vertical drag, near-neutral buoyancy, reduced swim speed, and four-direction swimming.
+- [x] Let deep water arrest high-speed falls without surface damage while shallow water preserves enough impact velocity for submerged solid floors to hurt.
+- [x] Prevent backpack thrust and player rocket launches while submerged without consuming fuel.
+- [x] Treat water as forbidden navigation and body-collision space for ordinary enemies.
+- [x] Add browser and native parity benches for deep/shallow falls, swimming controls, rocket inhibition, and manifest hydration.
+- [x] Update the native build title and packaged revision to 206.
+
+## SDL build revision 207 campaign level scaffolds
+
+- [x] Leave release `level_001` in place and preserve its exit to `level_002`.
+- [x] Relocate the existing experimental `level_002`, `level_003`, and `level_005` content to `level_800`, `level_801`, and `level_802`.
+- [x] Chain relocated experiment exits as `800 → 801 → 802 → 803`.
+- [x] Create cave-authoring scaffolds for every campaign level from `level_002` through `level_020`.
+- [x] Give each scaffold exactly one gameplay-invisible horizontal floor, one entry door, and one exit door leading to `level_(n+1)`.
+- [x] Move fixture-specific native compatibility checks and browser/native tests to the relocated 800-series levels.
+- [x] Validate scaffold and relocated-level loading in both browser data tests and the native SDL scene pipeline.
+- [x] Update the native build title and packaged revision to 207.
+
+
+## SDL build revision 209 character-owned boss loot
+
+- [x] Add a shared loot catalog with atlas-backed score and permanent-upgrade item definitions.
+- [x] Add extensible per-character and per-entity `drops` tables in both runtimes.
+- [x] Give goblins a guaranteed coin and humans a deterministic fifty-percent coin chance.
+- [x] Award 25 score and reuse the treasure-chest floating-score presentation when a coin is collected.
+- [x] Add exclusive probability-grouped `group` entries so each boss directly authors one guaranteed permanent-upgrade choice.
+- [x] Combine boss-authored grouped rewards with ordinary character-owned drops and prevent repeated death emission.
+- [x] Draw dynamic loot through the existing item atlas in Canvas, WebGL2, and SDL.
+- [x] Add browser and native deterministic drop, collection, score, and grouped boss-table regressions.
+- [x] Update the native build title and packaged revision to 209.
+
+
+## SDL build revision 210 weighted replacement boss loot and screen messages
+
+- [x] Treat every enemy drop array as one deterministic weighted table that emits zero or one item.
+- [x] Preserve a no-drop result when authored probability slices total less than 100 percent.
+- [x] Make boss entity drop tables replace, rather than append to, the underlying character table.
+- [x] Remove the retired drop `group` field from shared normalization and current boss data.
+- [x] Add reusable portable screen-message events and matched Canvas, WebGL2, and SDL presentation.
+- [x] Show the agreed permanent-upgrade messages and keep regeneration affecting both health and fuel.
+- [x] Add browser and native deterministic regressions for replacement tables, one-drop maximum, no-drop gaps, and message text.
+- [x] Update the native build title and packaged revision to 210.
+
+
+## SDL build revision 219 asset-centered hidden-geometry diagnostics
+
+- [x] Compare gameplay geometry with the full-black contour rather than the cyan cave opening.
+- [x] Evaluate foreground parallax with the camera anchor centered on each placement.
+- [x] Use manifest collision lines and closed collision areas instead of placement rectangles.
+- [x] Cache the full-black contour and per-placement results without making warnings depend on editor panning.
+- [x] Add browser and native geometry-separation regressions.
+- [x] Confirm the automatic level generator does not consume the editor warning classification.
+- [x] Update build labels to revision 219.
+
+## SDL build revision 220 proximity-triggered world text
+
+- [x] Add a catalogued `proximityText` entity displayed as **TEXT** in the Level Editor palette.
+- [x] Render always-bold, multiline world-space text with configurable size, fill color, font-family category, outline color, and outline thickness.
+- [x] Give each notification an independently movable trigger point and configurable trigger radius.
+- [x] Implement one-shot fade-in, display, and fade-out timing in the portable simulation with matching browser/native events and completion state.
+- [x] Draw editor-only trigger guides and calculate text bounds automatically from its typography settings.
+- [x] Prewarm native font layouts and textures at level load rather than at first trigger.
+- [x] Add browser and native regression coverage for independent triggers, timing, style data, and one-shot completion.
+- [x] Update build labels to revision 220.
+
+
+## SDL build revision 223 reserved level-test isolation
+
+- [x] Replace the stale production `level_002` scaffold assertions with reserved `level_t07` fixture coverage.
+- [x] Move native collision, loot, item, dependency-scan, and full-level parity inputs away from ordinary campaign and 800-series files.
+- [x] Move browser loot, Flight, and fixture contracts to `level_tNN` assets.
+- [x] Add stable `level_t03` through `level_t07` snapshots with test-only portal destinations.
+- [x] Document that ordinary numbered levels are mutable authored content and cannot be unit-test fixtures.
+- [x] Update browser and native build labels to revision 223.
+
+
+## SDL build revision 224 bundled proximity-text fonts
+
+- [x] Restrict Level Editor proximity-text font choices to Inter and Caveat.
+- [x] Make browser and SDL presentation prefer the same exact bundled TTF filenames.
+- [x] Retain the complete OFL 1.1 text and copyright notice for each family.
+- [x] Keep development builds usable before the user supplies the font binaries.
+- [x] Default new TEXT entities to `Lorem ipsum`, RGB `(114, 56, 145)`, outline RGB `(15, 1, 19)`, and 3-pixel outline width.
+- [x] Update browser and native build labels to revision 224.
+
+
+## Revision 225 categorized resources
+
+- [x] Move all runtime data consumers from flat `assets` paths to categorized `resources` paths.
+- [x] Keep browser, SDL, editors, tests, development helpers, Electron, CMake, Linux, Windows, and portable packaging in sync.
+- [x] Resolve local character dependencies and explicit category-root references identically in JavaScript and C++.
+- [x] Add a pre-gate resource audit for missing files, exact-case mismatches, stale paths, and root-level strays.
+- [x] Keep authoring artwork outside the packaged runtime resource tree.
+- [x] Advance browser and native build labels to revision 225.
+
+## Revision 227 DevTool playtest resource-path correction
+
+- [x] Store the native editor playtest snapshot beside packaged normal levels as `level_temp.json`.
+- [x] Launch it through the ordinary `--level` loader rather than `--level-file`.
+- [x] Keep the generated filename outside authored `level_###` and test-only `level_tNN` namespaces.
+- [x] Resolve native music catalog basenames through the `music/` resource category.
+- [x] Add native and browser source-contract coverage for the corrected path.

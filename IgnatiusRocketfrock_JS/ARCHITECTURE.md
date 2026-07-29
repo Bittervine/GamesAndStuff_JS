@@ -1,5 +1,19 @@
 # Ignatius Rocketfrock Architecture
 
+## Revision 210 weighted enemy and replacement boss drop tables
+
+Enemy loot belongs directly to authored enemy data. Character projects provide the ordinary species-wide `drops` table. A boss entity provides its own replacement `drops` table, so promoting a goblin to a boss does not also preserve the goblin coin table.
+
+Every `drops` array is one deterministic ordered weighted choice and can emit at most one pickup. Each entry's `chance` is an absolute probability slice. A table totaling 1.0 always selects one item; a table totaling 0.6 leaves a 0.4 no-drop outcome. Reusable item presentation and reward definitions remain in `resources/items/it_loot_001.json`. Simulation owns selection and pickup creation; presentation draws the resulting atlas-backed item.
+
+Permanent-upgrade collection also emits the portable `SCREEN_MESSAGE_REQUESTED` event. Browser Canvas/WebGL2 and SDL presentation adapters consume that event to show reusable centered notices without moving message policy into rendering code.
+
+## Revision 204 character-owned combat audio
+
+Character definitions may contain a `sounds` object with optional `attack`, `hurt`, and `death` WAV references. The browser and SDL character loaders preserve/resolve these fields, simulation combat events carry `characterId`, and presentation audio directors select the cue from the loaded character project. Catalogued WAV definitions may still provide shared pool volume and instance limits, but enemy events never choose a global `enemyDamage`, `enemyDeath`, `bossDeath`, or `enemyProjectile` cue directly. Puppet Forge discovers WAVs from `sound-effects.json` for URL projects and from selected `.wav` files for local workspaces.
+
+The wizard character map uses `walk` as its ground-motion slot and declares `hurt` and `death` setup-pose slots for schema symmetry with monsters.
+
 This document is the directory and dependency map for the browser reference implementation and the planned C++ / Unreal Engine 5 port.
 
 ## Source classifications
@@ -53,7 +67,7 @@ IgnatiusRocketfrock_JS/
 │   │   ├── cave-window-decoration.js
 │   │   ├── game-settings-data.js
 │   │   ├── level-color-map-data.js
-│   │   ├── enemy-pool-data.js
+│   │   ├── enemy-pool-data.js, enemy-drop-data.js
 │   │   ├── level-generator-data.js
 │   │   ├── level-transform.js
 │   │   ├── moving-platform-data.js
@@ -74,10 +88,11 @@ IgnatiusRocketfrock_JS/
 │           └── reference-plate.js
 ├── tests/
 │   └── testbench.mjs
-├── assets/
-│   ├── music.json
-│   ├── music_001.ogg, music_002.ogg, ...
-│   └── level-generator-themes/
+├── resources/
+│   ├── atlases/, characters/, items/, levels/
+│   ├── music/, sfx/, fonts/, ui/
+│   ├── generator/themes/
+│   └── editor/
 ├── devel/
 ├── package.json
 ├── AGENTS.md
@@ -211,7 +226,7 @@ Navigation is deliberately platform-oriented rather than a generic polygon navme
 
 Hunters remember their original support and patrol interval. Planning first tries to reach the wizard's step-connected support region. Ranged hunters only fall back to another support when that region is genuinely unreachable; the fallback search validates the actual authored projectile origin and either the direct fireball path or solved ballistic musket-ball arc. Once an engaged hunter loses current cone contact, it records no new hidden information: it keeps the last genuinely seen player foot position and immediately continues an already selected route or begins routing to the reachable support point with the smallest remaining world-space distance to that position. The awareness-hold timer keeps the engagement alive and delays glare/give-up, but does not impose an idle pause. Glare begins only after the remembered point is reached, no closer route exists, and the hold has expired. If the original support cannot then be reached, the enemy adopts the reachable support as a bounded temporary patrol and periodically retries the home route. This fallback is deterministic and visible; no enemy despawns merely because it made an unfortunate jump.
 
-Movement capability and behaviour flavour are enemy-archetype/runtime data, not character-art data. The enemy catalog and level entity may author `strategy`, `walkSpeed`, `runSpeed`, `jumpHeight`, `jumpGravity`, `maxFallDistance`, `awarenessRange`, `awarenessViewHalfAngle`, `unreachableGlareDuration`, `routeRepathInterval`, and `homeRetryInterval`. Awareness is independent of collision geometry: blockable and walkable level shapes may obstruct movement or an actual attack, but they do not hide Ignatius. First notice is controlled only by radial distance and the monster's facing cone, which currently defaults to ±60 degrees in the enemy catalog. `strategy` and `runSpeed` are the only supported behaviour and pursuit-speed fields; retired `behavior`, `chaseSpeed`, and `awarenessVerticalRange` records are not migrated. Character JSON remains concerned with rig, animation, and projectile handoff, preserving the presentation/gameplay boundary.
+Movement capability and behaviour flavour are enemy-archetype/runtime data, not character-art data. The enemy catalog and level entity may author `strategy`, `walkSpeed`, `runSpeed`, `jumpHeight`, `jumpGravity`, `maxFallDistance`, `awarenessRange`, `awarenessViewHalfAngle`, `unreachableGlareDuration`, `routeRepathInterval`, and `homeRetryInterval`. Awareness is independent of collision geometry: blockable and walkable level shapes may obstruct movement or an actual attack, but they do not hide Ignatius. First notice is controlled only by radial distance and the monster's facing cone, which currently defaults to ±60 degrees in the enemy catalog. `strategy` and `runSpeed` are the only supported behaviour and pursuit-speed fields; retired `behavior`, `chaseSpeed`, and `awarenessVerticalRange` records are not migrated. Character JSON remains concerned with rig, animation, projectile handoff, and presentation-only combat sound references, preserving the presentation/gameplay boundary.
 
 Revision 167 adds `locomotion: "flying"` as an orthogonal movement qualifier rather than a new strategy. Portable simulation owns the deterministic horizontal patrol, vertical bobbing, target synchronization, and death fly-off distance. Flying enemies do not ground-snap, acquire moving-platform support IDs, use terrain sweeps for voluntary patrol motion, or enter the support-graph navigation system. The Level Editor preserves the authored field and exempts these records from its automatic ground snap. Rendering only suppresses the ordinary ground shadow and presents the same character-project draw commands as every other enemy.
 
@@ -362,7 +377,7 @@ Portable simulation owns the kinematic state machine, translated collision geome
 
 The menu is browser UI, not gameplay state. Opening it sets the existing simulation pause flag and records the prior pause state; closing it restores that prior state. Settings data itself is plain and serializable so the portable simulation can consume the two values that currently matter: incoming damage scale and visual particle-density scale. Difficulty is intentionally centralized in `damagePlayer`; outgoing weapon damage and enemy behaviour remain unchanged. Explicit kill semantics can opt out of scaling with `bypassDifficulty`.
 
-Rendering quality currently changes smoke-particle generation for homing-rocket trails and impact explosions. It must not alter fixed-step timing or collision. Volume sliders are persisted browser preferences. Music defaults to 10% and effects to 80%; pause muting is transient and must not rewrite those values. The current music system plays imported OGG tracks listed in `assets/music.json`; only the browser adapter owns audio playback.
+Rendering quality currently changes smoke-particle generation for homing-rocket trails and impact explosions. It must not alter fixed-step timing or collision. Volume sliders are persisted browser preferences. Music defaults to 10% and effects to 80%; pause muting is transient and must not rewrite those values. The current music system plays imported OGG tracks listed in `resources/music/music.json`; only the browser adapter owns audio playback.
 
 The Electron shell is optional. `game.html` runs unchanged in normal browsers. In Electron, `preload.cjs` exposes an immutable `electronWindow` object through `contextBridge`; the game reveals Exit to desktop and routes fullscreen through IPC. The renderer process has no Node integration and cannot access Electron directly.
 
@@ -378,7 +393,7 @@ Keyboard menu handling remains browser-owned. The adapter enumerates only visibl
 
 Level soundtrack choice remains ordinary authored data, but the current schema is `music.version: 3` plus `music.trackId`. The shared `src/shared/music-data.js` module normalizes only numbered OGG track IDs such as `music_001` and the explicit `none` option. Older synthesized `tuneId` values normalize to the first imported track rather than silently restoring the retired catalog.
 
-`assets/music.json` is the sole runtime metadata catalog. It lists the numbered `.ogg` files stored beside it in `assets/`, including display titles and import provenance. The Level Editor fetches this catalog to populate the music selector, and browser bootstrap fetches it before handing the catalog to `src/browser/music-director.js`. Portable simulation stores the normalized track metadata in `state.world.music` but never creates audio elements, decodes files, or advances music time.
+`resources/music/music.json` is the sole runtime metadata catalog. It lists the numbered `.ogg` files stored beside it in `resources/music/`, including display titles and import provenance. The Level Editor fetches this catalog to populate the music selector, and browser bootstrap fetches it before handing the catalog to `src/browser/music-director.js`. Portable simulation stores the normalized track metadata in `state.world.music` but never creates audio elements, decodes files, or advances music time.
 
 `src/browser/music-director.js` now wraps a normal looping HTML audio element. It handles selected track changes, persisted music volume, pause/focus muting, user-gesture autoplay unlocking, and cleanup. The retired embedded jukebox path is removed: no hidden engine host, source bundle, accepted-selection JSON, score-source notes, oscillator scheduler, or iframe API is part of the active architecture.
 
@@ -450,7 +465,7 @@ Revision 164 varies primary cave-perimeter penetration deterministically between
 The wing parts use explicit `leftWing` and `rightWing` names but carry arm-like roles and tags so Puppet Forge can treat them as manipulable limb controls without imposing humanoid animation inheritance. Flying movement and death escape remain portable state in `src/core/simulation.js`; the character files contain only visual identity and animation mapping. The renderer's known-project list merely ensures the character is decoded before first use.
 
 ## Revision 170 enemy type defaults and bomber strategy
-`character-editor.html` loads `assets/ct_enemies_001.json` alongside known enemy character projects and exposes both common type fields and the complete defaults object. Browser security means saving is an explicit JSON download rather than silent source-tree mutation. Portable bomber movement and projectile release live in `src/core/simulation.js`; catalogs select the behavior with `defaults.strategy = "bomber"` and `defaults.locomotion = "flying"`.
+`character-editor.html` loads `resources/characters/ct_enemies_001.json` alongside known enemy character projects and exposes both common type fields and the complete defaults object. Browser security means saving is an explicit JSON download rather than silent source-tree mutation. Portable bomber movement and projectile release live in `src/core/simulation.js`; catalogs select the behavior with `defaults.strategy = "bomber"` and `defaults.locomotion = "flying"`.
 
 ## Revision 171 perched bomber lifecycle
 Flying enemies using `strategy: "bomber"` store their spawn point as `bomberPerchX/Y`. Their runtime state cycles between `perched`, `bomber`, and `return_to_perch`, using the same authored awareness range and view cone as grounded enemies. Dropped rocks use the normal projectile collision pipeline with the dedicated `enemyRock` kind and a procedural renderer, so no additional image asset is required.
@@ -547,9 +562,11 @@ Sixty HP is the canonical fallback for a newly authored `characterEnemy`. Catalo
 Wrench projectile damage uses multipliers against `DEFAULT_TUNING.rocketProjectileDamage`, currently 30. Triple uses `0.5` per projectile for three 15-damage homing rockets and a 45-damage maximum volley. Dart uses `1.0`; its advantage is straight, predictable flight and a two-thirds fuel cost rather than extra impact damage. Burst uses `0.5` per projectile for three 15-damage unguided rockets launched in quick succession and a 45-damage maximum burst. Bigbomb uses `4.0` for 120 damage across its authored AoE. Boomerang and Phase each use `1.0`.
 
 
-## Revision 222 archive repack boundary
+## Revision 222 projectile-art fireball trail palettes
 
-Revision 222 is a packaging-only handoff of revision 221 and does not alter any source, runtime, data, editor, or presentation contract.
+Ordinary enemy projectile trails use a four-colour palette sampled from the authored projectile frame when the character project loads. Transparent and near-black pixels are ignored, representative colours are ordered from dark to bright, and the cached palette is interpolated by particle heat in Canvas, WebGL2, SDL_Renderer, and SDL_GPU presentation. No atlas scan, pixel readback, or palette extraction occurs on the gameplay frame path.
+
+Projectile-part GIMP Color Exchange is applied before native sampling and is already present in the final browser part canvas, so a recoloured projectile core and its trail remain coupled. The projectile draw path selects the same final part asset used for palette lookup. Skeleton Caster undeath orbs are an explicit exception: they bypass artwork palette lookup and keep their procedural green bubble particles.
 
 
 ## Revision 223 Shield invulnerability contract
@@ -605,7 +622,7 @@ The portable projectile state now stores `secondaryEnemySplashDamage` and `secon
 
 ## Revision 234 generator-route architecture
 
-Automatic Level Generator 0 is a shared-data foundation plus an editor projection. Portable generator contracts live in `src/shared/level-generator-data.js`; theme choices live in `assets/level-generator-themes/*.json`; and `level-editor.html` supplies controls, history guarding, status text, and the route overlay. The simulation and runtime renderer do not import the generator and do not interpret the abstract graph as collision or navigation.
+Automatic Level Generator 0 is a shared-data foundation plus an editor projection. Portable generator contracts live in `src/shared/level-generator-data.js`; theme choices live in `resources/generator/themes/*.json`; and `level-editor.html` supplies controls, history guarding, status text, and the route overlay. The simulation and runtime renderer do not import the generator and do not interpret the abstract graph as collision or navigation.
 
 Randomness is divided into stable named stage streams. Adding or regenerating a later stage must not perturb the route stream or unrelated stages. Route generation evaluates a deterministic candidate set and selects by validation and quality rather than accepting the first graph. Provenance records generator ID/version, seed, selected attempt, implementation IDs, normalized settings, resolved enemy IDs, diagnostics, and a run ID.
 
@@ -621,7 +638,7 @@ Automatic Level Generator 1 consumes the accepted abstract route and emits only 
 
 The cavern is a connected sampled envelope formed from overlapping route chambers and corridor capsules, then projected into the existing closed cave-window spline contract. Sample positions include generated support centers so a visually valid support cannot drift outside the opening between sparse route nodes. The derived world bounds and reset height surround the complete envelope rather than the abstract graph alone.
 
-Traversal geometry is collision aware. `assets/level-generator-platforms.json` is the versioned allowlist and role catalog for generated supports. Each entry declares native dimensions, valid generation roles, scaling, surface height, door suitability, mirroring, and left/right walkable-edge insets measured from authored atlas collision. The planner measures gaps from those walkable edges, not from transparent frame rectangles or decorative overhangs. `floor_long_terrace` remains bridge-only because its top collision is split, and `ledge_small_flat` remains recovery-only because its true landing width is too narrow for a mandatory destination.
+Traversal geometry is collision aware. `resources/generator/level-generator-platforms.json` is the versioned allowlist and role catalog for generated supports. Each entry declares native dimensions, valid generation roles, scaling, surface height, door suitability, mirroring, and left/right walkable-edge insets measured from authored atlas collision. The planner measures gaps from those walkable edges, not from transparent frame rectangles or decorative overhangs. `floor_long_terrace` remains bridge-only because its top collision is split, and `ledge_small_flat` remains recovery-only because its true landing width is too narrow for a mandatory destination.
 
 The mandatory spine is the only collision-bearing route materialized in Generator 1. Optional branch nodes and edges remain under `level.generation.route` and are copied into traversal reservation IDs for overlay and later-stage planning. This prevents purposeless branch platforms from becoming low ceilings or obstructing the guaranteed path before rewards and encounters give those detours a reason to exist.
 
@@ -630,7 +647,7 @@ A generation run evaluates multiple deterministic complete geometry candidates, 
 
 ## Revision 236 encounter-generation architecture
 
-Automatic Level Generator 2 adds a deterministic population stage without teaching runtime simulation about procedural generation. `assets/level-generator-enemies.json` is the versioned generation catalog. It maps existing enemy IDs to placement class, group range, difficulty cost, selection weight, difficulty and progression ranges, walkable-width needs, edge and landing clearances, headroom, patrol room, group spacing, flying spawn height, and navigation requirements. The shared generator consumes this data together with the ordinary enemy catalog; display names and DOM labels are never treated as behavior metadata.
+Automatic Level Generator 2 adds a deterministic population stage without teaching runtime simulation about procedural generation. `resources/generator/level-generator-enemies.json` is the versioned generation catalog. It maps existing enemy IDs to placement class, group range, difficulty cost, selection weight, difficulty and progression ranges, walkable-width needs, edge and landing clearances, headroom, patrol room, group spacing, flying spawn height, and navigation requirements. The shared generator consumes this data together with the ordinary enemy catalog; display names and DOM labels are never treated as behavior metadata.
 
 Encounter generation uses its own named random stream, so adding or tuning population does not perturb the accepted route or cavern geometry for the same seed. A normalized difficulty budget combines route size, enemy density, difficulty, and safety. Candidate encounter anchors come from collision-bearing mandatory supports. The endpoint calm distance is at least the theme value and at least the largest selected awareness range plus the configured spawn-safety buffer.
 
@@ -643,7 +660,7 @@ The combined validator checks the complete playable cavern plus population. It r
 
 ## Revision 237 reward-generation architecture
 
-Automatic Level Generator 3 adds rewards without coupling reward choices back into route or encounter randomness. `assets/level-generator-rewards.json` is the versioned reward-generation catalog. It describes branch treasure, contextual power-ups, utility pickups, and optional narrative triggers through stable IDs, placement contexts, progression ranges, spacing, edge clearances, and per-draft limits. Branch selection uses the dedicated rewards random stream. Traversal consumes only the selected branch IDs and remains the sole owner of physical branch geometry, so reward tuning cannot silently redraw the accepted mandatory route.
+Automatic Level Generator 3 adds rewards without coupling reward choices back into route or encounter randomness. `resources/generator/level-generator-rewards.json` is the versioned reward-generation catalog. It describes branch treasure, contextual power-ups, utility pickups, and optional narrative triggers through stable IDs, placement contexts, progression ranges, spacing, edge clearances, and per-draft limits. Branch selection uses the dedicated rewards random stream. Traversal consumes only the selected branch IDs and remains the sole owner of physical branch geometry, so reward tuning cannot silently redraw the accepted mandatory route.
 
 A selected optional reservation becomes a lower returnable detour rather than an upper parallel shelf. The outgoing mandatory edge uses a catalogued `shaftBridge` assembly that leaves a real 116-unit collision opening. Two alternating `branchStep` footholds descend through that opening, after which broad lower supports form the reward alcove. The first foothold must fit entirely inside the shaft and leave at least one player-width side opening. The abstract merge edge remains a muted preview-only hint because materializing it as a solid platform would create an accidental ceiling over the main route. Branch transitions are recorded as ordinary traversal transitions and must validate bidirectionally.
 
@@ -735,15 +752,15 @@ The Cavern stage consumes moving-platform travel as geometry input. Each vertica
 
 Each suitable horizontal edge may also own one `recoveryLane` record. The lane is generated after mandatory-edge and branch-shaft geometry has stabilized. Its level supports are centred beneath upper jump gaps, so every dangerous opening in the upper sequence has collision below it. Gaps between recovery supports consequently fall beneath upper platforms rather than beneath upper gaps. Recovery supports remain optional collision geometry and are excluded from the mandatory support path; they provide a recoverable lower route without changing the authoritative progression chain.
 
-Moving-platform visual identity is data-driven. `assets/level-generator-platforms.json` reserves `rubble_long` exclusively for the `movingPlatform` role. Mandatory vertical edges select that role but retain ordinary landing-support traversal semantics, automatic shuttle movement, and complete travel-shaft cave stamps. Static branch bridges use a separate catalog role and cannot accidentally acquire the thin moving-platform visual.
+Moving-platform visual identity is data-driven. `resources/generator/level-generator-platforms.json` reserves `rubble_long` exclusively for the `movingPlatform` role. Mandatory vertical edges select that role but retain ordinary landing-support traversal semantics, automatic shuttle movement, and complete travel-shaft cave stamps. Static branch bridges use a separate catalog role and cannot accidentally acquire the thin moving-platform visual.
 
 `src/shared/cave-window-decoration.js` now builds perimeter catalogs only from entries tagged `stalactite` or `stalagmite`. Floor normals select stalagmites, ceiling normals select stalactites, and side-wall normals may rotate either family. The generated foreground remains inert presentation data with the same protection, radial stacking, ownership, and world-space perimeter-mask fade contract; only the admitted visual vocabulary changed.
 
 ## Revision 246 Atlas 004 platform-manifest architecture
 
-`assets/at_atlas_004.json` is a normal environment-atlas manifest with sixteen platform objects. Each object owns a padded frame and ordinary platform metadata. The thick upper platform, `earth_long_platform_r1_a`, retains a closed sequence of `blockable` edges because its visible rock mass is intended to obstruct movement from every side. The fifteen thinner platforms expose only one inset horizontal `walkable` line, making them one-way platforms that Ignatius can jump through from below while using the existing line-collision contract without renderer or simulation special cases.
+`resources/atlases/at_atlas_004.json` is a normal environment-atlas manifest with sixteen platform objects. Each object owns a padded frame and ordinary platform metadata. The thick upper platform, `earth_long_platform_r1_a`, retains a closed sequence of `blockable` edges because its visible rock mass is intended to obstruct movement from every side. The fifteen thinner platforms expose only one inset horizontal `walkable` line, making them one-way platforms that Ignatius can jump through from below while using the existing line-collision contract without renderer or simulation special cases.
 
-`assets/level-generator-platforms.json` version 2 registers the Atlas 004 family for static landing, bridge, route-floor, and recovery-floor selection. It does not grant the family the `movingPlatform` role; `rubble_long` remains the exclusive thin shuttle visual. `layered-recovery-traversal-v3` may increase the requested width of a horizontal intermediate support only on broad edges and within the existing maximum-width fit loop, so collision-edge gaps and transition validation remain authoritative.
+`resources/generator/level-generator-platforms.json` version 2 registers the Atlas 004 family for static landing, bridge, route-floor, and recovery-floor selection. It does not grant the family the `movingPlatform` role; `rubble_long` remains the exclusive thin shuttle visual. `layered-recovery-traversal-v3` may increase the requested width of a horizontal intermediate support only on broad edges and within the existing maximum-width fit loop, so collision-edge gaps and transition validation remain authoritative.
 
 Atlas loading remains placement-driven at runtime and sequentially discoverable in the Level Editor. Theme colour-map allowlists include Atlas 004 so Earth and Ice recolouring treats it consistently with the existing environment atlases.
 
@@ -921,7 +938,7 @@ The top-left meter panel is now an accessible browser menu trigger alongside the
 
 Revision 268 adds a level-owned `autoSpawnEnemies` record with `enabled`, `probabilityPercent`, and `enemyPool`. `src/shared/enemy-pool-data.js` owns the exact numeric range/exclusion grammar shared with the automatic level generator. `src/shared/auto-spawn-enemy-data.js` owns schema defaults and conversion from the browser-loaded enemy catalog into plain entity data. The Level Editor only authors and previews those values.
 
-The browser adapter loads `assets/ct_enemies_001.json` and projects the renderer's current virtual viewport dimensions into camera state. The portable simulation owns the one-second clock, deterministic chance and selection rolls, route-direction estimate, off-screen placement, spawn safety checks, authoritative enemy creation, immediate awareness, and cleanup. Ground enemies enter hunter pursuit with the player's current position as their last-seen location. Flying catalog types retain the flying strategy required by their locomotion but begin already alerted and engaged toward the player. Spawn positions lie 10-100 percent of one current viewport width beyond the forward screen edge, preferring the horizontal direction of the exit door and falling back to the right.
+The browser adapter loads `resources/characters/ct_enemies_001.json` and projects the renderer's current virtual viewport dimensions into camera state. The portable simulation owns the one-second clock, deterministic chance and selection rolls, route-direction estimate, off-screen placement, spawn safety checks, authoritative enemy creation, immediate awareness, and cleanup. Ground enemies enter hunter pursuit with the player's current position as their last-seen location. Flying catalog types retain the flying strategy required by their locomotion but begin already alerted and engaged toward the player. Spawn positions lie 10-100 percent of one current viewport width beyond the forward screen edge, preferring the horizontal direction of the exit door and falling back to the right.
 
 ## Revision 269 route-distance reward density and one-way actor probes
 
@@ -957,7 +974,7 @@ This is a generator invariant, not a request to author lethal moving-platform pu
 
 ### Generated reward seating
 
-`src/shared/level-generator-data.js` treats the interactive entity `x,y` coordinate as a bottom-center floor anchor. `normalizeRewardGenerationCatalog` therefore forces the normalized vertical offset of the `powerUp` category to zero regardless of stale catalog values. `buildBasicRewards` continues to select safe authored walkable spans and now emits power-ups with `entity.y === support.surfaceY`. `validateGeneratedRewards` independently recomputes that relation and marks a floating power-up inaccessible. `assets/level-generator-rewards.json` records zero offsets for Overdrive, Shield, and Random Wrench pickups. Narrative thought triggers are invisible activation regions and do not participate in visual reward-spacing metrics, though they still require a distinct support and all endpoint/cavern clearances.
+`src/shared/level-generator-data.js` treats the interactive entity `x,y` coordinate as a bottom-center floor anchor. `normalizeRewardGenerationCatalog` therefore forces the normalized vertical offset of the `powerUp` category to zero regardless of stale catalog values. `buildBasicRewards` continues to select safe authored walkable spans and now emits power-ups with `entity.y === support.surfaceY`. `validateGeneratedRewards` independently recomputes that relation and marks a floating power-up inaccessible. `resources/generator/level-generator-rewards.json` records zero offsets for Overdrive, Shield, and Random Wrench pickups. Narrative thought triggers are invisible activation regions and do not participate in visual reward-spacing metrics, though they still require a distinct support and all endpoint/cavern clearances.
 
 ### One-way support ownership for monsters
 
@@ -983,7 +1000,7 @@ Domed cavern output version 6 adds an upward-expansion stamp for every eligible 
 
 `src/core/enemy-navigation.js` now treats every lower destination from a green `walkable` source as an endpoint walk-off problem. It no longer emits downward jump arcs or overlapping downward step transitions from a one-way support. Small descents below the ordinary automatic-step threshold are also represented as gravity-driven walk-offs, preserving valid routes without ever asking a monster to pass through the line.
 
-`src/core/simulation.js` applies the same invariant while consuming navigation. Before route search, it filters both live and baked edges so a downward transition from a green support is accepted only when it is a horizontally moving `drop` explicitly marked `walkOff`, launched at the authored endpoint and moving outward. The executor repeats that check immediately before traversal. This makes old baked graphs safe and removes the loop where a hunter repeatedly launched upward toward a player below, landed back on the source line, and selected the same invalid jump again. `assets/level_001.json` was rebaked with the corrected graph builder.
+`src/core/simulation.js` applies the same invariant while consuming navigation. Before route search, it filters both live and baked edges so a downward transition from a green support is accepted only when it is a horizontally moving `drop` explicitly marked `walkOff`, launched at the authored endpoint and moving outward. The executor repeats that check immediately before traversal. This makes old baked graphs safe and removes the loop where a hunter repeatedly launched upward toward a player below, landed back on the source line, and selected the same invalid jump again. `resources/levels/level_001.json` was rebaked with the corrected graph builder.
 
 ## Revision 275 input, Twin phasing, and cave-authoring defaults
 
@@ -999,7 +1016,7 @@ New Level Editor levels keep automatic enemy spawning disabled but prefill its o
 
 Generated reward planning now targets one genuine power-up per 1,000 pixels of mandatory-route travel at the default Reward density. Density scaling remains available, with the upper multiplier capped at 1.5 so high-density Grand routes remain placeable without crowding rewards into unsafe geometry.
 
-`assets/level-generator-rewards.json` version 2 assigns Random Wrench twice the share of Shield or Overdrive. `buildBasicRewards` tracks the current generated counts and selects the type with the largest weighted deficit, producing approximately 50 percent wrenches and 25 percent each Shield and Overdrive within each individual draft rather than only across a large statistical sample. Dense placement scans eligible supports from their safe edges inward and preserves ordinary reward spacing and endpoint clearance.
+`resources/generator/level-generator-rewards.json` version 2 assigns Random Wrench twice the share of Shield or Overdrive. `buildBasicRewards` tracks the current generated counts and selects the type with the largest weighted deficit, producing approximately 50 percent wrenches and 25 percent each Shield and Overdrive within each individual draft rather than only across a large statistical sample. Dense placement scans eligible supports from their safe edges inward and preserves ordinary reward spacing and endpoint clearance.
 
 All three generated power-up types share the same support, edge, and progression constraints. Reward-only rerolls can therefore change pickup types without moving their slots. Rewards are resolved before encounters, and fixed non-narrative pickup-clearance envelopes are supplied to the encounter populator. Monsters avoid pickups while the encounter and reward stages retain independent deterministic random streams.
 
@@ -1016,9 +1033,9 @@ The shared built-in durations in `src/shared/power-up-data.js` are now authorita
 
 ## Revision 281 current-schema-only level cleanup
 
-Revision 281 removes the remaining compatibility paths explicitly retained for retired level and snapshot records. Runtime and the Level Editor now recognize only `wizard_entry_door` and `wizard_exit_door`; root-level player-start fields, `magicPortal`, and plain `exit` entities are no longer migrated. Mailbox entities use only `thoughtText`. Character enemies use only `strategy` and `runSpeed`, and the old vertical-awareness field has no import path. Overdrive uses only the `overdrive` identity and `overdrivePickup` type.
+Revision 281 removes the remaining compatibility paths explicitly retained for retired level and snapshot records. Runtime and the Level Editor recognize the current wizard portal family: animated `wizard_entry_door` / `wizard_exit_door` entities and the later invisible immediate `wizard_entry_point` / `wizard_exit_point` alternatives. Root-level player-start fields, `magicPortal`, and plain `exit` entities are no longer migrated. Mailbox entities use only `thoughtText`. Character enemies use only `strategy` and `runSpeed`, and the old vertical-awareness field has no import path. Overdrive uses only the `overdrive` identity and `overdrivePickup` type.
 
-Automatic cavern records now contain the arbitrary closed polygon, stamps, rooms, bounds, and contour metadata without the old top/bottom `profile`. Every containment query uses polygon intersections. State tuning likewise accepts only `ordinaryJumpHeight` plus gravity and derives `jumpVelocity` internally. The lingering `caveWindow.decoration.spacing` property found in `assets/level_001.json` was removed. These are schema cleanups rather than player-facing gameplay changes, so current authored levels, controls, timing, damage, and the Game Manual remain unchanged.
+Automatic cavern records now contain the arbitrary closed polygon, stamps, rooms, bounds, and contour metadata without the old top/bottom `profile`. Every containment query uses polygon intersections. State tuning likewise accepts only `ordinaryJumpHeight` plus gravity and derives `jumpVelocity` internally. The lingering `caveWindow.decoration.spacing` property found in `resources/levels/level_001.json` was removed. These are schema cleanups rather than player-facing gameplay changes, so current authored levels, controls, timing, damage, and the Game Manual remain unchanged.
 
 
 ## Revision 282 shorter post-death camera hold
@@ -1084,7 +1101,7 @@ Signal-controlled gates are normalized by `src/shared/signal-channel-data.js` an
 
 Placeable enemy-spawner runtime records may carry `disableSignalChannel`. `updateEnemySpawners` checks that channel before camera visibility or timing, resets the one-second timer while disabled, and performs no further rolls. This keeps the existing off-screen dormancy and deterministic spawn sequence intact.
 
-`assets/level_002.json` is explicit authored level data produced from generator seed `cinder-vault-291-8f6c2b` and then manually refined. It contains only Fireball Goblin enemy identities, a large final arena, six signal-disabled reinforcement spawners, four wrench pickups, one 900-HP boss, and a full-height collision gate listening to `BOSS_002_DEFEATED`. Runtime does not know or care that the route began as generated content.
+`resources/levels/level_002.json` is explicit authored level data produced from generator seed `cinder-vault-291-8f6c2b` and then manually refined. It contains only Fireball Goblin enemy identities, a large final arena, six signal-disabled reinforcement spawners, four wrench pickups, one 900-HP boss, and a full-height collision gate listening to `BOSS_002_DEFEATED`. Runtime does not know or care that the route began as generated content.
 
 Generator regression execution is owned by `devel/run_generator_tests.mjs`. It starts each geometry-heavy contract in a fresh sequential Node child with inherited output and explicit GC support, failing immediately if any child fails. Process isolation prevents temporary drafts from accumulating between tests, while sequential execution avoids concurrent memory contention. This is test infrastructure only; production generation remains synchronous and deterministic.
 
@@ -1092,11 +1109,11 @@ Generator regression execution is owned by `devel/run_generator_tests.mjs`. It s
 
 Hunter navigation has two release layers. Authored levels should carry exact baked profiles in `navigationGraphs.profiles`. `characterEnemyNavigationContext` still validates a baked graph against the current support signature, but static support extraction and edge construction are now cached per world object and normalized mobility-profile key. The cache records the solid, segment, and collision-polygon array identities plus their lengths. Replacing or resizing one of those topology arrays creates a fresh profile cache. Moving-platform endpoint supports and ride edges remain outside this static cache and continue through `MOVING_PLATFORM_NAVIGATION_CACHE`, preserving dynamic boarding and disembarking behavior.
 
-This fallback cache prevents missing or stale baked data from multiplying full graph construction by enemy count and simulation tick. It does not replace release baking. `devel/package_update.py` scans each `assets/level_*.json` and refuses to package a level containing hunter enemies when `navigationGraphs.profiles` is empty. `level_002` now contains two baked profiles: the shared 70 by 105, run-200 goblin profile and the uniformly scaled 196 by 294, run-170 boss profile.
+This fallback cache prevents missing or stale baked data from multiplying full graph construction by enemy count and simulation tick. It does not replace release baking. `devel/package_update.py` scans each `resources/levels/level_*.json` and refuses to package a level containing hunter enemies when `navigationGraphs.profiles` is empty. `level_002` now contains two baked profiles: the shared 70 by 105, run-200 goblin profile and the uniformly scaled 196 by 294, run-170 boss profile.
 
 Boss exit locking is a general simulation rule rather than an authored gate convention. Before an inactive `portalExit` measures player proximity, `updatePortalExit` checks the authoritative runtime enemy list. If any record has `isBoss === true` and positive health, the exit remains closed and the sequence does not activate. Once no living boss remains, the unchanged opening, walking, closing, and level-transition sequence proceeds. Boss defeat signals remain independent event channels for spawners, gates, moving platforms, rewards, and later music or story systems.
 
-`assets/level_002.json` retains generator seed `cinder-vault-291-8f6c2b` but replaces its oversized manual arena with a compact authored chamber. Four staggered platforms on each side, six camera-bound spawners, four wrench pickups, the boss, and the exit occupy less than one standard wide viewport. The old signal gate is absent. The route and arena contain Fireball Goblins, Musket Goblins, and three two-bat groups, with no Skeleton Guard records. The spawners use pool `2,3`, remain dormant outside the camera rectangle, and disable when `BOSS_002_DEFEATED` becomes active.
+`resources/levels/level_002.json` retains generator seed `cinder-vault-291-8f6c2b` but replaces its oversized manual arena with a compact authored chamber. Four staggered platforms on each side, six camera-bound spawners, four wrench pickups, the boss, and the exit occupy less than one standard wide viewport. The old signal gate is absent. The route and arena contain Fireball Goblins, Musket Goblins, and three two-bat groups, with no Skeleton Guard records. The spawners use pool `2,3`, remain dormant outside the camera rectangle, and disable when `BOSS_002_DEFEATED` becomes active.
 
 The authoritative `npm test` command now composes `test:fast` and `test:generator` as separate processes. This retains the complete assertion set while preventing the generator macro contracts from inheriting the fast suite's accumulated geometry heap.
 
@@ -1365,11 +1382,11 @@ Editor interactions remain coordinate-safe. Cave-point insertion and foreground 
 
 The diagnostic keeps no gameplay-authoritative state. Its local effect envelopes reproduce the browser primitives used by an enemy hit and report requestAnimationFrame delay, synchronous draw time, late-frame count, and WebGL texture uploads. Resetting and prewarming the WebGL texture cache are explicit diagnostic operations on the lab-owned backend only. They must not be wired into the game loop or used to mutate portable simulation behavior. A future production fix should be made in `src/presentation/` and verified both in the game and in this lab.
 
-Revision 334 also replaces `assets/level_002.json` with the supplied authored update. Level JSON remains portable input data and is not coupled to the diagnostic page.
+Revision 334 also replaces `resources/levels/level_002.json` with the supplied authored update. Level JSON remains portable input data and is not coupled to the diagnostic page.
 
 ## Revision 335 enemy-hit diagnostic attribution and presentation seam
 
-The enemy-hit laboratory now separates scheduling, synchronous action, renderer submission, long-task, and texture-upload signals. Measurements are baseline-relative and invalidated by visibility/focus pauses. Its production probes may instantiate portable simulation state from `assets/level_002.json`, but remain development-only and must not mutate campaign data or become a second gameplay implementation.
+The enemy-hit laboratory now separates scheduling, synchronous action, renderer submission, long-task, and texture-upload signals. Measurements are baseline-relative and invalidated by visibility/focus pauses. Its production probes may instantiate portable simulation state from `resources/levels/level_002.json`, but remain development-only and must not mutate campaign data or become a second gameplay implementation.
 
 Canvas and WebGL character hit flashes now share the same prepared-surface architecture. `canvas-renderer.js` creates `hitFlashCanvas` once during character loading; the Canvas path composites it with `lighter`, while the WebGL path queues the same source as an additive resident sprite. Live enemy-hit rendering must not reintroduce per-frame `ctx.filter` changes.
 
@@ -1562,7 +1579,7 @@ Level music schema version 2 keeps the portable authored surface intentionally s
 
 `src/browser/music-director.js` remains the browser-facing control boundary, but revision 373 supersedes its original short-loop oscillator scheduler. It now coordinates tune changes, persisted volume, transient pause/focus muting, and resume state through `src/browser/music-engine-host.js`. The host mounts only the three historical engines actually used by accepted tunes, versions 2, 3, and 4. Their exact HTML sources are embedded as base64 in `src/browser/music-engine-sources.js` and loaded into hidden same-origin `srcdoc` frames. This preserves the jukebox's own synthesizers, instrument renderers, long-form arrangement development, opening-once pass, and musical return point even when the project runs from local files.
 
-The selected source-of-truth export is retained at `assets/music/ignatius_music_selections.json`. Its accepted IDs, versions, and octave choices are authoritative. Its timing objects contain repeated per-version template values, so revision 373 records the tune-specific values reported by the embedded engine instead of copying those stale templates. The browser host calls each engine's existing API in this order: select the tune, apply the saved octave, apply the current effective game volume, then play. Pause/focus mute calls the engine pause operation. The embedded jukebox player resets its long-form phase on pause, so resuming through `play` begins the selected opening again exactly as the selector does. Tune changes and the explicit silence choice stop all engines. No iframe, AudioContext, or scheduling object enters portable core state.
+The selected source-of-truth export is retained at `resources/music/ignatius_music_selections.json`. Its accepted IDs, versions, and octave choices are authoritative. Its timing objects contain repeated per-version template values, so revision 373 records the tune-specific values reported by the embedded engine instead of copying those stale templates. The browser host calls each engine's existing API in this order: select the tune, apply the saved octave, apply the current effective game volume, then play. Pause/focus mute calls the engine pause operation. The embedded jukebox player resets its long-form phase on pause, so resuming through `play` begins the selected opening again exactly as the selector does. Tune changes and the explicit silence choice stop all engines. No iframe, AudioContext, or scheduling object enters portable core state.
 
 
 ## Revision 374 music unlock idempotency boundary
@@ -1832,11 +1849,11 @@ Reward generation treats door supports as ordinary mandatory route surfaces outs
 
 ## Revision 454 OGG music reset release note
 
-Revision 454 removes the failed synthesized/jukebox music path from the active source tree and switches levels, editor selection, runtime playback, and regression coverage to the numbered OGG tracks described by `assets/music.json`. Packaged update archives now exclude OGG files alongside PNG and XCF assets.
+Revision 454 removes the failed synthesized/jukebox music path from the active source tree and switches levels, editor selection, runtime playback, and regression coverage to the numbered OGG tracks described by `resources/music/music.json`. Packaged update archives now exclude OGG files alongside PNG and XCF assets.
 
 ## Revision 456 title resume save release note
 
-Revision 456 keeps the OGG-only music contract intact while accepting the new `music_001` default track order from `assets/music.json`. The browser shell now owns a tiny resume-save record in `localStorage`, keyed by the next level id reached after a completed portal transition. Title-screen layout is updated with Start and Resume in the primary action row and a smaller Game manual link beneath them.
+Revision 456 keeps the OGG-only music contract intact while accepting the new `music_001` default track order from `resources/music/music.json`. The browser shell now owns a tiny resume-save record in `localStorage`, keyed by the next level id reached after a completed portal transition. Title-screen layout is updated with Start and Resume in the primary action row and a smaller Game manual link beneath them.
 
 ## Revision 457 editor music labels and package exclusion release note
 
@@ -1857,11 +1874,11 @@ Revision 459 is a narrow release-gate housekeeping pass. It aligns the game boot
 
 Revision 460 extends the ordinary numbered environment-atlas discovery path with manifests for `at_atlas_005` through `at_atlas_014`. No special level binding or decoration-specific runtime path was added. These assets use the same manifest schema as the earlier cave atlases: frames identify alpha-isolated sprites, ordinary decorative props have empty node/line graphs, one-way platforms use `walkable` line segments, and solid props use closed `blockable` loops. The atlas IDs remain discoverable through the existing numbered environment-atlas loader.
 
-Because update packages intentionally omit heavyweight image files, these manifests are packaged separately from their matching PNGs. A full working tree must still contain the matching `assets/at_atlas_###.png` images for the editor and browser renderer to display the art.
+Because update packages intentionally omit heavyweight image files, these manifests are packaged separately from their matching PNGs. A full working tree must still contain the matching `resources/atlases/at_atlas_###.png` images for the editor and browser renderer to display the art.
 
 ## Revision 461 asset forge atlas loader and title manual button polish
 
-Revision 461 streamlines the Asset Tool file panel for the growing numbered atlas library. The old hard-coded `at_atlas_001` image and JSON buttons are replaced by a numbered atlas selector and a single load action that loads both `assets/at_atlas_<nnn>.json` and its referenced image. The custom PNG and JSON pickers remain underneath for one-off imports. The Asset Tool canvas also now matches the Level Editor navigation feel: holding the right mouse button while dragging pans the viewport, and the mouse wheel zooms around the cursor.
+Revision 461 streamlines the Asset Tool file panel for the growing numbered atlas library. The old hard-coded `at_atlas_001` image and JSON buttons are replaced by a numbered atlas selector and a single load action that loads both `resources/atlases/at_atlas_<nnn>.json` and its referenced image. The custom PNG and JSON pickers remain underneath for one-off imports. The Asset Tool canvas also now matches the Level Editor navigation feel: holding the right mouse button while dragging pans the viewport, and the mouse wheel zooms around the cursor.
 
 The title screen keeps Start and Resume as the primary actions, while the Game manual link now uses a quieter pill-shaped secondary style so it reads as supporting documentation rather than another main launch button.
 
@@ -1889,7 +1906,7 @@ The Asset Tool also gains a faster line-editing gesture: in Add Node Mode, click
 
 ## Revision 467 wizard-sized manual doors
 
-Interactive doorway placement remains catalog-driven. The `wizard_entry_door` and `wizard_exit_door` definitions in `assets/it_entities_001.json` now author 125×164 as their default size, aligning manual Level Editor placement with generated endpoint doors while preserving the existing floor-anchor factor and transition behaviour.
+Interactive doorway placement remains catalog-driven. The `wizard_entry_door` and `wizard_exit_door` definitions in `resources/items/it_entities_001.json` now author 125×164 as their default size, aligning manual Level Editor placement with generated endpoint doors while preserving the existing floor-anchor factor and transition behaviour.
 
 ## Revision 468 editable thought triggers
 
@@ -1897,7 +1914,7 @@ Location thoughts remain ordinary `thoughtTrigger` entities with `interaction: "
 
 ## Revision 470 testbench level fixtures
 
-Revision 470 stops regression tests from depending on mutable campaign level numbers. The authored-level contracts that previously inspected `assets/level_001.json` and `assets/level_002.json` now read reserved testbench fixtures instead: `assets/level_t01.json` for the old introductory cave/navigation fixture and `assets/level_t02.json` for the goblin boss arena fixture. The `level_tNN` namespace is reserved for tests only; those files may be edited freely to satisfy regression coverage and must not be linked from normal campaign progression.
+Revision 470 stops regression tests from depending on mutable campaign level numbers. The authored-level contracts that previously inspected `resources/levels/level_001.json` and `resources/levels/level_002.json` now read reserved testbench fixtures instead: `resources/levels/level_t01.json` for the old introductory cave/navigation fixture and `resources/levels/level_t02.json` for the goblin boss arena fixture. The `level_tNN` namespace is reserved for tests only; those files may be edited freely to satisfy regression coverage and must not be linked from normal campaign progression.
 
 ## Revision 471 Level Editor inspector precommit
 
@@ -1926,7 +1943,7 @@ The browser bootstrap treats the debug panel as an opt-in diagnostics surface. B
 
 The browser bootstrap keeps HUD rendering on the normal animation-frame cadence, but revision 476 treats DOM writes as change-triggered side effects. `updateHud()` computes the same displayed strings and meter percentages as before, then writes only values that differ from the cached last render. This preserves visible HUD behaviour while avoiding unnecessary per-frame text, title, style-width, hidden, and class updates on machines where DOM churn can show up as micro-stutter.
 
-The fixed-step simulation now records `state.debug.lastInputFrame` with a purpose-built input-frame copy instead of the general JSON deep clone. This keeps the debug state isolated from the live input object without allocating JSON strings every simulation tick. Dead Level Editor helper functions and the obsolete spaced Human Raider rig duplicate are removed from the active project tree; the canonical `assets/ct_rig_enemy_030.json` remains authoritative.
+The fixed-step simulation now records `state.debug.lastInputFrame` with a purpose-built input-frame copy instead of the general JSON deep clone. This keeps the debug state isolated from the live input object without allocating JSON strings every simulation tick. Dead Level Editor helper functions and the obsolete spaced Human Raider rig duplicate are removed from the active project tree; the canonical `resources/characters/ct_rig_enemy_030.json` remains authoritative.
 
 
 ## Revision 477 reachable approach plans for blocked hunters
@@ -2180,3 +2197,91 @@ Revision 530 makes no architecture changes; it only synchronizes the active pack
 
 Non-title game menus own one presentation-layer Back action in their header. Browser views share `#game-menu-back`; SDL views retain a `back` menu entry but layout excludes it from ordinary rows and places it in the panel's upper-right corner. Back from the pause root closes the menu and resumes gameplay. Back from nested views returns to the owning parent view. The title screen remains a separate horizontal action strip and does not receive this header control.
 
+
+
+## Revision 159 per-placement On top ordering and themed perimeter population
+
+Atlas placements may author `onTop: true`; omission remains the canonical false/default form. Browser level conversion and native `FWorldVisual` preserve the flag. Presentation caches partition authored Background, ordinary world/Terrain, and cave Foreground visuals into ordinary and On-top buckets. The final order is Background, Background On top, ordinary Terrain/Decoration, actors and projectiles, actor-front entity visuals, Terrain/Decoration On top, Foreground, Foreground On top, then the cave-window black mask. Entity-local `actorFront` visuals remain part of the actor presentation contract rather than the placement flag. Browser static baking is bypassed for levels containing On-top placements so an old three-surface bake cannot flatten the new actor boundary.
+
+The Level Editor manual perimeter command now calls `caveDecorationCatalog(currentGeneratorTheme())`. The selected theme's `assetPools.foreground` query requires the appropriate biome and `layer.foreground` tags, replacing the previous unfiltered manual catalog. Generated placements remain ordinary Foreground records unless explicitly edited later.
+
+## Revision 160 On top collision-guide parity
+
+`onTop` remains a presentation-only placement flag. Atlas-manifest collision extraction in both JavaScript and C++ ignores the flag, so stationary platforms, moving platforms, and blockable obstructions keep their gameplay geometry when drawn after actors. The Level Editor overlay now merges ordinary and On-top spatial partitions for Background, Terrain/Decoration, and Foreground guide queries; toggling **On top** therefore no longer hides green/yellow lines, collision areas, labels, or placement guides.
+
+
+## Development exception alert boundary
+
+The shared settings-data modules expose a product-wide `DEVELOPMENT` constant. It is deliberately separate from compiler build type and from the persisted `developmentMode` UI preference. Simulation code never performs file or UI work directly. Instead, rare invariant-recovery paths append structured records to `state.debug.exceptionAlerts` and increment `exceptionAlertSequence`. Presentation/runtime hosts consume each sequence exactly once.
+
+Hunter watchdog incidents are captured before recovery changes navigation state, preserving enemy identity, position and velocity, watchdog anchor and elapsed time, support and route state, traversal state, target information, player position, timeout count, and selected recovery action. SDL writes an append-only NDJSON exception log in the ordinary `logs` directory and flushes every incident. Browser builds create an equivalent NDJSON download because the browser sandbox cannot guarantee silent filesystem writes. Under `DEVELOPMENT`, the host also forces the opt-in debug panel visible and applies a latched red alert surface. Disabling `DEVELOPMENT` suppresses only that intrusive visual presentation, not the incident record.
+
+
+## SDL build revision 191 invisible portal points and collision utilities
+
+SDL build revision 191 adds `wizard_entry_point` and `wizard_exit_point` as catalogued alternatives to the animated portal doors. The entry point owns the level's initial floor-anchored player position and leaves Ignatius visible and controllable immediately. The exit point retains the normal destination-level, boss-lock, save, and transition request path, but requests the transition as soon as Ignatius enters its trigger volume. Neither point creates runtime visuals or doorway phases. The Level Editor renders distinct editor-only vector markers and exposes only the fields meaningful to each point.
+
+Atlas 001 contains the editor utilities `horizontal_blocker` and `vertical_blocker`. Their frame rectangles reference genuinely transparent unused regions of the existing PNG, while closed yellow `blockable` loops provide solid collision in every direction. Explicit negative `paletteOrder` values place them first without naming conventions, and empty `generationTags` keep them out of decoration and level-generation catalogs. Transparent frames with collision receive collision-derived palette thumbnails, and invisible blocker placements retain editor-only collision guides even when ordinary asset guides are disabled. Gameplay presentation remains fully transparent.
+
+## SDL build revision 193 persistent player progression
+
+SDL build revision 193 introduces one portable `playerProgression` record shared by the browser/reference and SDL/C++ simulations. It stores schema version 1, four integer upgrade levels (`healthLevel`, `fuelLevel`, `regenLevel`, and `speedLevel`), and a sorted set of stable `collectedUpgradeIds`. Save schema version 2 carries that record under `campaign.playerProgression`. Application-level playthrough ownership preserves it while disposable level state is rebuilt for transitions, restarts, and save loading. New games begin with an empty progression record.
+
+Base tuning remains the authority for unupgraded rules. `playerProgressionStats()` derives effective maximum Health, maximum fuel, fuel recharge cap, both regeneration rates, and the player movement-speed scale from base tuning plus upgrade levels. `applyPlayerProgression()` is the only path that installs those derived values into runtime state. Capacity collection adds only the newly earned capacity to the current resource, while normal level entry and save restore refill to the upgraded maxima. Low-health and fuel-bulb presentation remain ratio-based, so increased capacity does not distort warning thresholds.
+
+The shared interactive catalog exposes art-neutral `healthUpgrade`, `fuelUpgrade`, `regenUpgrade`, and `speedUpgrade` entity types with the palette labels `UpgradeHealth`, `UpgradeFuel`, `UpgradeRegen`, and `UpgradeSpeed`. Their current purple, blue, yellow herb and red mushroom visuals are presentation data only. A level-scoped collection identity (`levelId:entityId`) is committed to `collectedUpgradeIds` on collection; subsequent construction of that level begins the entity in its empty `collected` visual state and prevents duplicate rewards, while another level may safely reuse the same local entity ID.
+
+
+
+## SDL build revision 194 rocket-relative homing envelope
+
+Player homing target eligibility is simulation-owned and camera-independent. The portable rule uses a circular world-space envelope centered on each rocket with radius equal to the current virtual viewport width. Candidate rejection uses squared distance before line-of-sight work. A locked target is cheaply revalidated each fixed tick. Presentation camera framing may change without dropping a valid lock at the screen edge.
+
+## SDL build revision 195 staggered homing search budget
+
+Unlocked homing rockets gate complete target acquisition behind a 0.25-second per-projectile timer. `updateProjectiles()` also owns one transient search token per fixed update, so no more than one due rocket performs candidate filtering, line-of-sight ranking, and sorting in the same simulation tick. Due rockets that do not receive the token keep a zero timer and naturally advance on following ticks in stable projectile order. The token is deliberately local to the update call and adds no serialized state. Initial volley targeting remains one shared acquisition pass before projectile creation.
+
+## Revision 197 sound-effect layer
+
+Short gameplay effects use individual 48 kHz, 16-bit mono PCM WAV files under `resources/sfx/`; music and long ambience remain OGG. `resources/sfx/sound-effects.json` names the browser-facing files, volume trims, and small voice-pool limits. The browser `sound-effects-director.js` and native SDL_mixer voice pools consume portable simulation events rather than owning gameplay decisions. Retained debug events are de-duplicated before playback, settings SFX volume is applied independently of music volume, and replacement artwork/content may swap a WAV without changing simulation code.
+
+### Sound-effect cue arbitration and reaction-symbol triggers
+
+Sound effects remain presentation-owned and data-driven through `resources/sfx/sound-effects.json`. Simulation debug events are grouped by simulation tick only to coalesce duplicate mappings to the same cue; distinct cues are never suppressed and may mix through their independent voice pools. Looping reading/thinking/rocket-boost cues use presentation-side envelopes and the same persisted Effects-volume multiplier as one-shot cues. `devel/sound-synthesizer.html` is an isolated authoring helper: its compact single-screen DSP workbench renders two oscillators, coloured noise, envelopes, modulation, filters, EQ, texture effects, and echo into previewable/exportable WAV data, but it is not imported by runtime code and owns no gameplay decisions.
+
+The simulation owns transient `story.overheadSymbol` state and one-shot symbol-trigger records. Rendering resolves `thought_bubble_question` or `thought_bubble_exclamation` from `it_atlas_001` above the current player position; the trigger itself has no gameplay visual and does not interrupt movement.
+
+
+## Rocket sound identity boundary
+
+Rocket launch, sustained boost, and explosion remain independent replaceable WAV assets. Their placeholder synthesis is content-only: simulation emits the existing portable events, presentation resolves the catalog entry, and the global Effects-volume multiplier is applied after the per-cue trim. The jump cue intentionally reuses the former launch sample, while rocket cues use newly shaped white-noise-based content without changing event semantics.
+
+## SDL build revision 206 water-region fluid model
+
+Water is authored as a closed atlas-guide loop with kind `water`. Atlas Forge and the optional runtime asset-guide overlays render it in blue, but ordinary gameplay presentation never draws the guide. Hydration creates a `world.collisionPolygons` entry whose kind remains `water`; its edges do not become solid collision segments, walkable supports, or ordinary platform geometry.
+
+The browser and native simulations derive a continuous `waterSubmersion` value from three vertical body samples rather than switching at a single point. Horizontal and vertical drag increase with both submersion and speed. Gravity remains active but is opposed by near-neutral buoyancy, producing a slow idle sink, while directional input supplies reduced horizontal acceleration and explicit upward/downward swim acceleration. The model is intentionally game-scale rather than computational fluid dynamics, but preserves the requested depth relationship: entering faster takes more water depth to remove the velocity. Crossing the surface never causes damage. If a submerged blockable floor is reached before drag has arrested the fall, the ordinary landing system evaluates the remaining vertical speed and may still inflict damage.
+
+Submersion is portable simulation state (`inWater`, `waterSubmersion`, and `waterRegionId`) and is included in native recording/playback snapshots. While submerged, Flight control, attached backpack boost, and player rocket launch are unavailable and do not spend fuel. Ordinary enemies treat water polygons as navigation obstacles and as blocked body/swept space, reserving true aquatic movement for a future character capability rather than silently changing every existing enemy.
+
+## Revision 223 reserved level-test isolation
+
+Revision 223 enforces the existing `level_tNN` test-fixture boundary across both test suites. Browser and native unit tests no longer load ordinary campaign or 800-series level files. Stable snapshots needed for collision, item, boss, dependency, and full-level loader coverage live under `resources/levels/level_t03.json` through `resources/levels/level_t07.json`; their portal destinations remain inside the test namespace.
+
+Production `level_###` files are mutable authored content. Tests may exercise level IDs as ordinary strings or construct focused levels in memory, but file-backed regression data must come from `level_tNN`. This prevents legitimate level editing from breaking the release gate through stale entity-count or scaffold assumptions.
+
+
+## Revision 224 bundled proximity-text typography
+
+Proximity-triggered TEXT typography remains presentation-owned while the portable simulation carries only the normalized family ID and styling fields. The authored family domain is now exactly `inter` or `caveat`; legacy generic values normalize deterministically. Browser Canvas resolves those IDs through local `@font-face` declarations, and SDL loads the same original TTF assets into cached memory before prewarming per-entity text textures. The runtime frame path performs no file access or font discovery.
+
+The expected files are `resources/fonts/Inter[opsz,wght].ttf` and `resources/fonts/Caveat[wght].ttf`. Their unmodified OFL 1.1 notices travel beside them under `resources/fonts/licenses/`, and the proprietary copyright notice explicitly excludes licensed third-party material. Missing font binaries are tolerated only as a development staging state and fall back to system candidates; present but unreadable files fail loading rather than silently substituting. New TEXT entities default to `Lorem ipsum`, `#723891`, a 3-pixel `#0f0113` outline, and Inter.
+
+
+## Revision 225 resource-root architecture
+
+Runtime data is rooted at `reference/resources` in the browser source tree and `content/resources` in packaged native builds. Authored JSON stores resource-root-relative category paths such as `levels/level_001.json`, `atlases/at_atlas_001.json`, and `characters/ct_char_enemy_010.json`. Browser adapters prepend `resources/` through `src/shared/resource-paths.js`; native adapters join the same logical paths to the detected resource root. Relative character dependencies remain local to `characters/`, while known category prefixes and filename families resolve cross-category references without filesystem searching. `devel/audit_resource_layout.mjs` validates the entire graph before browser test gates.
+
+## Revision 227 generated DevTool level contract
+
+The Windows DevTool writes the current Level Editor browser copy into packaged resources at `content/resources/levels/level_temp.json`, then starts the SDL game with `--level level_temp --start-in-game`. This deliberately uses the same level-resource loader as authored levels. The generated filename is not an authored campaign level or a `level_tNN` test fixture, and the source resource audit rejects it under `reference/resources/levels`. Browser-only playtesting continues to use local storage because a normal browser cannot write into the source tree.

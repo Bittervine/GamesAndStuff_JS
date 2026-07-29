@@ -1,0 +1,632 @@
+{
+  "meta": {
+    "version": 6,
+    "note": "Revision 182 records the crossbow assemblies for enemies 034-035 and rapier pirate assemblies for enemies 036-037."
+  },
+  "partsManifestId": "ct_human_parts_030",
+  "atlasId": "ct_atlas_enemy_030",
+  "atlasManifest": "ct_atlas_enemy_030.json",
+  "image": "ct_atlas_enemy_030.png",
+  "groups": {
+    "bodies": {
+      "cellSize": {
+        "w": 555,
+        "h": 1155
+      },
+      "primaryShoulderAnchor": {
+        "x": 112,
+        "y": 329
+      },
+      "neckAnchor": {
+        "x": 166,
+        "y": 200
+      },
+      "variants": [
+        {
+          "id": "body_00",
+          "frame": "body_00",
+          "frameRect": {
+            "x": 20,
+            "y": 19,
+            "w": 555,
+            "h": 1155
+          }
+        },
+        {
+          "id": "body_01",
+          "frame": "body_01",
+          "frameRect": {
+            "x": 604,
+            "y": 2,
+            "w": 555,
+            "h": 1155
+          }
+        },
+        {
+          "id": "body_02",
+          "frame": "body_02",
+          "frameRect": {
+            "x": 1185,
+            "y": 6,
+            "w": 555,
+            "h": 1155
+          }
+        },
+        {
+          "id": "body_03",
+          "frame": "body_03",
+          "frameRect": {
+            "x": 1766,
+            "y": 5,
+            "w": 555,
+            "h": 1155
+          }
+        },
+        {
+          "id": "body_04",
+          "frame": "body_04",
+          "frameRect": {
+            "x": 2343,
+            "y": 8,
+            "w": 555,
+            "h": 1155
+          }
+        },
+        {
+          "id": "body_05",
+          "frame": "body_05",
+          "frameRect": {
+            "x": 30,
+            "y": 1187,
+            "w": 555,
+            "h": 1155
+          }
+        },
+        {
+          "id": "body_06",
+          "frame": "body_06",
+          "frameRect": {
+            "x": 604,
+            "y": 1192,
+            "w": 555,
+            "h": 1155
+          }
+        },
+        {
+          "id": "body_07",
+          "frame": "body_07",
+          "frameRect": {
+            "x": 1185,
+            "y": 1208,
+            "w": 555,
+            "h": 1155
+          }
+        },
+        {
+          "id": "body_08",
+          "frame": "body_08",
+          "frameRect": {
+            "x": 1757,
+            "y": 1212,
+            "w": 555,
+            "h": 1155
+          }
+        },
+        {
+          "id": "body_09",
+          "frame": "body_09",
+          "frameRect": {
+            "x": 2331,
+            "y": 1200,
+            "w": 555,
+            "h": 1155
+          }
+        }
+      ]
+    },
+    "heads": {
+      "cellSize": {
+        "w": 416,
+        "h": 393
+      },
+      "neckAnchor": {
+        "x": 228.5,
+        "y": 382
+      },
+      "variants": [
+        {
+          "id": "head_00",
+          "frame": "head_00",
+          "sourceIndex": 0,
+          "frameRect": {
+            "x": 57,
+            "y": 2374,
+            "w": 416,
+            "h": 393
+          },
+          "anchor": {
+            "x": 201.5,
+            "y": 381.5
+          }
+        },
+        {
+          "id": "head_01",
+          "frame": "head_01",
+          "sourceIndex": 1,
+          "frameRect": {
+            "x": 556,
+            "y": 2375,
+            "w": 416,
+            "h": 393
+          },
+          "anchor": {
+            "x": 216.5,
+            "y": 382
+          }
+        },
+        {
+          "id": "head_02",
+          "frame": "head_02",
+          "sourceIndex": 2,
+          "frameRect": {
+            "x": 1063,
+            "y": 2375,
+            "w": 416,
+            "h": 393
+          },
+          "anchor": {
+            "x": 228.5,
+            "y": 381
+          }
+        },
+        {
+          "id": "head_03",
+          "frame": "head_03",
+          "sourceIndex": 3,
+          "frameRect": {
+            "x": 1536,
+            "y": 2374,
+            "w": 416,
+            "h": 393
+          },
+          "anchor": {
+            "x": 217,
+            "y": 381.5
+          }
+        },
+        {
+          "id": "head_04",
+          "frame": "head_04",
+          "sourceIndex": 4,
+          "frameRect": {
+            "x": 2035,
+            "y": 2374,
+            "w": 416,
+            "h": 393
+          },
+          "anchor": {
+            "x": 224.75,
+            "y": 381.5
+          }
+        },
+        {
+          "id": "head_05",
+          "frame": "head_05",
+          "sourceIndex": 6,
+          "frameRect": {
+            "x": 52,
+            "y": 2832,
+            "w": 416,
+            "h": 393
+          },
+          "anchor": {
+            "x": 227.75,
+            "y": 380.5
+          }
+        },
+        {
+          "id": "head_06",
+          "frame": "head_06",
+          "sourceIndex": 7,
+          "frameRect": {
+            "x": 553,
+            "y": 2834,
+            "w": 416,
+            "h": 393
+          },
+          "anchor": {
+            "x": 181.25,
+            "y": 381.5
+          }
+        },
+        {
+          "id": "head_07",
+          "frame": "head_07",
+          "sourceIndex": 8,
+          "frameRect": {
+            "x": 1042,
+            "y": 2833,
+            "w": 416,
+            "h": 393
+          },
+          "anchor": {
+            "x": 220.5,
+            "y": 381
+          }
+        },
+        {
+          "id": "head_08",
+          "frame": "head_08",
+          "sourceIndex": 9,
+          "frameRect": {
+            "x": 1550,
+            "y": 2833,
+            "w": 416,
+            "h": 393
+          },
+          "anchor": {
+            "x": 216,
+            "y": 380
+          }
+        },
+        {
+          "id": "head_09",
+          "frame": "head_09",
+          "sourceIndex": 10,
+          "frameRect": {
+            "x": 2034,
+            "y": 2832,
+            "w": 416,
+            "h": 393
+          },
+          "anchor": {
+            "x": 212,
+            "y": 380
+          }
+        },
+        {
+          "id": "head_10",
+          "frame": "head_10",
+          "sourceIndex": 11,
+          "frameRect": {
+            "x": 2530,
+            "y": 2832,
+            "w": 416,
+            "h": 393
+          },
+          "anchor": {
+            "x": 202.5,
+            "y": 380.5
+          }
+        },
+        {
+          "id": "head_11",
+          "frame": "head_11",
+          "sourceIndex": 12,
+          "frameRect": {
+            "x": 55,
+            "y": 3292,
+            "w": 416,
+            "h": 393
+          },
+          "anchor": {
+            "x": 183.5,
+            "y": 380
+          }
+        },
+        {
+          "id": "head_12",
+          "frame": "head_12",
+          "sourceIndex": 13,
+          "frameRect": {
+            "x": 545,
+            "y": 3292,
+            "w": 416,
+            "h": 393
+          },
+          "anchor": {
+            "x": 213.75,
+            "y": 380.5
+          }
+        },
+        {
+          "id": "head_13",
+          "frame": "head_13",
+          "sourceIndex": 14,
+          "frameRect": {
+            "x": 1044,
+            "y": 3292,
+            "w": 416,
+            "h": 393
+          },
+          "anchor": {
+            "x": 215.5,
+            "y": 379.5
+          }
+        },
+        {
+          "id": "head_14",
+          "frame": "head_14",
+          "sourceIndex": 15,
+          "frameRect": {
+            "x": 1542,
+            "y": 3292,
+            "w": 416,
+            "h": 393
+          },
+          "anchor": {
+            "x": 218.5,
+            "y": 381
+          }
+        },
+        {
+          "id": "head_15",
+          "frame": "head_15",
+          "sourceIndex": 16,
+          "frameRect": {
+            "x": 2032,
+            "y": 3292,
+            "w": 416,
+            "h": 393
+          },
+          "anchor": {
+            "x": 218.25,
+            "y": 381.5
+          }
+        },
+        {
+          "id": "head_16",
+          "frame": "head_16",
+          "sourceIndex": 17,
+          "frameRect": {
+            "x": 2536,
+            "y": 3292,
+            "w": 416,
+            "h": 393
+          },
+          "anchor": {
+            "x": 182.75,
+            "y": 380.5
+          }
+        }
+      ],
+      "qaNotes": {
+        "scrapped": [
+          "head_05"
+        ],
+        "note": "The original top-right head was dropped from the shared-pivot variant list because it remained the least cooperative alignment subject during preprocessing review."
+      }
+    },
+    "limbs": {
+      "rearArm": {
+        "frame": "arm_00"
+      },
+      "frontArm": {
+        "frame": "arm_01"
+      },
+      "rearLeg": {
+        "frame": "leg_00"
+      },
+      "frontLeg": {
+        "frame": "leg_01"
+      }
+    },
+    "weapons": [
+      {
+        "frame": "dagger"
+      },
+      {
+        "frame": "throwingAxe"
+      },
+      {
+        "frame": "bow"
+      },
+      {
+        "frame": "arrow"
+      },
+      {
+        "frame": "sword"
+      },
+      {
+        "frame": "rapier"
+      },
+      {
+        "frame": "crossbow"
+      }
+    ],
+    "splitLimbs": {
+      "rearArm": {
+        "upper": {
+          "frame": "arm_upper_00"
+        },
+        "lower": {
+          "frame": "arm_lower_00"
+        }
+      },
+      "frontArm": {
+        "upper": {
+          "frame": "arm_upper_01"
+        },
+        "lower": {
+          "frame": "arm_lower_01"
+        }
+      },
+      "rearLeg": {
+        "upper": {
+          "frame": "leg_upper_00"
+        },
+        "lower": {
+          "frame": "leg_lower_00"
+        },
+        "foot": {
+          "frame": "foot_00"
+        }
+      },
+      "frontLeg": {
+        "upper": {
+          "frame": "leg_upper_01"
+        },
+        "lower": {
+          "frame": "leg_lower_01"
+        },
+        "foot": {
+          "frame": "foot_01"
+        }
+      }
+    }
+  },
+  "firstAssembly": {
+    "body": "body_00",
+    "head": "head_00",
+    "rearArm": "arm_00",
+    "frontArm": "arm_01",
+    "rearLeg": "leg_00",
+    "frontLeg": "leg_01",
+    "weapon": "sword"
+  },
+  "notes": [
+    "Shoulder/neck anchors are a first-pass common placement for the shared limb rig. Fine-tuning per enemy can happen in later rig revisions.",
+    "Heads use a common neck pivot. Bodies share one common extraction cell and one common first-pass shoulder/neck placement.",
+    "This file is intended to be the future source for swapping body/head variants over the same shared limb rig.",
+    "Revision 394 replaces Enemy 032 rear/front assembly aliases with corrected anatomical left/right names; no legacy aliases are retained."
+  ],
+  "assemblies": {
+    "enemy_030": {
+      "body": "body_00",
+      "head": "head_00",
+      "leftArmUpper": "arm_upper_01",
+      "leftArmLower": "arm_lower_01",
+      "rightArmUpper": "arm_upper_00",
+      "rightArmLower": "arm_lower_00",
+      "leftLegUpper": "leg_upper_01",
+      "leftLegLower": "leg_lower_01",
+      "leftFoot": "foot_01",
+      "rightLegUpper": "leg_upper_00",
+      "rightLegLower": "leg_lower_00",
+      "rightFoot": "foot_00",
+      "weapon": "sword"
+    },
+    "enemy_031": {
+      "body": "body_01",
+      "head": "head_01",
+      "leftArmUpper": "arm_upper_01",
+      "leftArmLower": "arm_lower_01",
+      "rightArmUpper": "arm_upper_00",
+      "rightArmLower": "arm_lower_00",
+      "leftLegUpper": "leg_upper_01",
+      "leftLegLower": "leg_lower_01",
+      "leftFoot": "foot_01",
+      "rightLegUpper": "leg_upper_00",
+      "rightLegLower": "leg_lower_00",
+      "rightFoot": "foot_00",
+      "weapon": "sword",
+      "armColorExchange": {
+        "fromColor": [
+          224,
+          148,
+          94
+        ],
+        "toColor": [
+          140,
+          81,
+          38
+        ],
+        "redThreshold": 1,
+        "greenThreshold": 1,
+        "blueThreshold": 1
+      }
+    },
+    "enemy_032": {
+      "body": "body_02",
+      "head": "head_02",
+      "leftArmUpper": "arm_upper_01",
+      "leftArmLower": "arm_lower_01",
+      "rightArmUpper": "arm_upper_00",
+      "rightArmLower": "arm_lower_00",
+      "leftLegUpper": "leg_upper_01",
+      "leftLegLower": "leg_lower_01",
+      "leftFoot": "foot_01",
+      "rightLegUpper": "leg_upper_00",
+      "rightLegLower": "leg_lower_00",
+      "rightFoot": "foot_00",
+      "projectile": "dagger"
+    },
+    "enemy_033": {
+      "body": "body_03",
+      "head": "head_03",
+      "leftArmUpper": "arm_upper_01",
+      "leftArmLower": "arm_lower_01",
+      "rightArmUpper": "arm_upper_00",
+      "rightArmLower": "arm_lower_00",
+      "leftLegUpper": "leg_upper_01",
+      "leftLegLower": "leg_lower_01",
+      "leftFoot": "foot_01",
+      "rightLegUpper": "leg_upper_00",
+      "rightLegLower": "leg_lower_00",
+      "rightFoot": "foot_00",
+      "projectile": "dagger"
+    },
+    "enemy_034": {
+      "body": "body_06",
+      "head": "head_04",
+      "leftArmUpper": "arm_upper_01",
+      "leftArmLower": "arm_lower_01",
+      "rightArmUpper": "arm_upper_00",
+      "rightArmLower": "arm_lower_00",
+      "leftLegUpper": "leg_upper_01",
+      "leftLegLower": "leg_lower_01",
+      "leftFoot": "foot_01",
+      "rightLegUpper": "leg_upper_00",
+      "rightLegLower": "leg_lower_00",
+      "rightFoot": "foot_00",
+      "weapon": "crossbow",
+      "projectile": "arrow"
+    },
+    "enemy_035": {
+      "body": "body_07",
+      "head": "head_14",
+      "leftArmUpper": "arm_upper_01",
+      "leftArmLower": "arm_lower_01",
+      "rightArmUpper": "arm_upper_00",
+      "rightArmLower": "arm_lower_00",
+      "leftLegUpper": "leg_upper_01",
+      "leftLegLower": "leg_lower_01",
+      "leftFoot": "foot_01",
+      "rightLegUpper": "leg_upper_00",
+      "rightLegLower": "leg_lower_00",
+      "rightFoot": "foot_00",
+      "weapon": "crossbow",
+      "projectile": "arrow"
+    },
+    "enemy_036": {
+      "body": "body_08",
+      "head": "head_07",
+      "leftArmUpper": "arm_upper_01",
+      "leftArmLower": "arm_lower_01",
+      "rightArmUpper": "arm_upper_00",
+      "rightArmLower": "arm_lower_00",
+      "leftLegUpper": "leg_upper_01",
+      "leftLegLower": "leg_lower_01",
+      "leftFoot": "foot_01",
+      "rightLegUpper": "leg_upper_00",
+      "rightLegLower": "leg_lower_00",
+      "rightFoot": "foot_00",
+      "weapon": "rapier"
+    },
+    "enemy_037": {
+      "body": "body_09",
+      "head": "head_15",
+      "leftArmUpper": "arm_upper_01",
+      "leftArmLower": "arm_lower_01",
+      "rightArmUpper": "arm_upper_00",
+      "rightArmLower": "arm_lower_00",
+      "leftLegUpper": "leg_upper_01",
+      "leftLegLower": "leg_lower_01",
+      "leftFoot": "foot_01",
+      "rightLegUpper": "leg_upper_00",
+      "rightLegLower": "leg_lower_00",
+      "rightFoot": "foot_00",
+      "weapon": "rapier"
+    }
+  }
+}

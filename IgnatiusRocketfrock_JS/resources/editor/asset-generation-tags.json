@@ -1,0 +1,67 @@
+{
+  "version": 2,
+  "catalogId": "asset-generation-tags-v2",
+  "description": "Purposeful symbolic attributes used by level-generator themes and platform selection. Atlas manifests store readable IDs; no fixed bit allocation is used.",
+  "tags": [
+    {
+      "id": "biome.cave",
+      "group": "Biome",
+      "label": "Cave",
+      "description": "Aesthetically suitable for cave-themed generation."
+    },
+    {
+      "id": "biome.forest",
+      "group": "Biome",
+      "label": "Forest",
+      "description": "Aesthetically suitable for forest-themed generation."
+    },
+    {
+      "id": "biome.castle",
+      "group": "Biome",
+      "label": "Castle",
+      "description": "Aesthetically suitable for castle-themed generation."
+    },
+    {
+      "id": "layer.terrain",
+      "group": "Layer",
+      "label": "Terrain",
+      "description": "May be used as generated terrain."
+    },
+    {
+      "id": "layer.foreground",
+      "group": "Layer",
+      "label": "Foreground",
+      "description": "May be used as foreground decoration."
+    },
+    {
+      "id": "layer.background",
+      "group": "Layer",
+      "label": "Background",
+      "description": "May be used as background decoration."
+    },
+    {
+      "id": "capability.platform",
+      "group": "Capability",
+      "label": "Platform",
+      "description": "Intended to be walked on. The autotagger checks authored collision geometry and visible top-surface depth."
+    },
+    {
+      "id": "capability.doorSupport",
+      "group": "Capability",
+      "label": "Door-suitable platform",
+      "description": "May support an entry or exit portal. Placement still has to pass footprint and blockable-polygon safety checks."
+    },
+    {
+      "id": "capability.runAndGunGround",
+      "group": "Capability",
+      "label": "Run-and-gun platform",
+      "description": "Provides a broad, nearly horizontal playable surface for combat."
+    },
+    {
+      "id": "capability.movingPlatform",
+      "group": "Capability",
+      "label": "Moving platform",
+      "description": "Looks appropriate while moving or floating. This aesthetic attribute is always assigned manually."
+    }
+  ]
+}

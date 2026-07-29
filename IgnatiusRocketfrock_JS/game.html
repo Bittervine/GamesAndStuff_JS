@@ -4,8 +4,24 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <link rel="icon" href="favicon.ico" sizes="any">
-    <title>Ignatius Rocketfrock - HTML BUILD 122</title>
+    <title>Ignatius Rocketfrock - HTML BUILD 225</title>
     <style>
+        @font-face {
+            font-family: "Ignatius Inter";
+            src: url("resources/fonts/Inter%5Bopsz%2Cwght%5D.ttf") format("truetype");
+            font-style: normal;
+            font-weight: 100 900;
+            font-display: swap;
+        }
+
+        @font-face {
+            font-family: "Ignatius Caveat";
+            src: url("resources/fonts/Caveat%5Bwght%5D.ttf") format("truetype");
+            font-style: normal;
+            font-weight: 400 700;
+            font-display: swap;
+        }
+
         :root {
             color-scheme: dark;
             --ink: #f2edf8;
@@ -458,6 +474,12 @@ backdrop-filter: none;
             overscroll-behavior: contain;
             scrollbar-gutter: stable;
             pointer-events: auto;
+        }
+
+        #debug.exception-alert {
+            border-color: rgba(255, 124, 124, 0.95);
+            background: rgba(112, 12, 22, 0.96);
+            color: #fff4f4;
         }
 
         #tuning {
@@ -1015,7 +1037,7 @@ font-size: 14px;
     </div>
     <section id="title-screen" aria-label="Ignatius Rocketfrock title screen" hidden>
         <div id="title-content">
-            <img id="title-card-art" src="assets/title_card.png" alt="Ignatius Rocketfrock">
+            <img id="title-card-art" src="resources/ui/title_card.png" alt="Ignatius Rocketfrock">
             <div id="title-actions" role="menu" aria-label="Main menu">
                 <button id="title-start-button" class="title-action" type="button" role="menuitem">Start New Game</button>
                 <button id="title-resume-button" class="title-action" type="button" role="menuitem">Resume Game</button>

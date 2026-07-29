@@ -123,7 +123,7 @@ function matchingPolygonEdge(edgesByVisualId, segment) {
 function polygonTopEdgeMetadata(world) {
     const metadata = new Map();
     for (const polygon of world?.collisionPolygons || []) {
-        if (polygon.movingPlatformId) {
+        if (polygon.movingPlatformId || polygon.kind === "water") {
             continue;
         }
         const points = Array.isArray(polygon.points) ? polygon.points : [];
@@ -171,7 +171,7 @@ function navigationBlockingObstacles(world) {
         if (polygon.movingPlatformId) {
             continue;
         }
-        if (polygon.kind !== "blockable" && polygon.kind !== "damaging" && polygon.kind !== "killable") {
+        if (polygon.kind !== "blockable" && polygon.kind !== "damaging" && polygon.kind !== "killable" && polygon.kind !== "water") {
             continue;
         }
         const bounds = polygonBounds(polygon.points || []);
@@ -435,6 +435,31 @@ export function findEnemyNavigationSupport(supports, x, y, options = {}) {
     const sampleHalfWidthFactor = clamp(finite(options.sampleHalfWidthFactor, 0.22), 0, 0.5);
     const halfWidth = Math.max(0, finite(options.width, 1)) * sampleHalfWidthFactor;
     const samples = [x, x - halfWidth, x + halfWidth];
+    if (options.preferredSupportId) {
+        const preferredSupport = navigationSupportById(supports, String(options.preferredSupportId));
+        if (preferredSupport) {
+            let preferredBest = null;
+            for (let sampleIndex = 0; sampleIndex < samples.length; sampleIndex += 1) {
+                const sampleX = samples[sampleIndex];
+                if (sampleX < preferredSupport.xMin - EPSILON || sampleX > preferredSupport.xMax + EPSILON) {
+                    continue;
+                }
+                const supportY = supportYAt(preferredSupport, sampleX);
+                const delta = supportY - y;
+                if (delta < -maxRise || delta > maxDrop) {
+                    continue;
+                }
+                const score = Math.abs(delta) + sampleIndex * 0.25 - 0.5;
+                if (!preferredBest || score < preferredBest.score) {
+                    preferredBest = { support: preferredSupport, y: supportY, x: sampleX, delta, score };
+                }
+            }
+            if (preferredBest) {
+                return preferredBest;
+            }
+        }
+    }
+
     let best = null;
     for (const support of supports || []) {
         for (let sampleIndex = 0; sampleIndex < samples.length; sampleIndex += 1) {
@@ -1257,21 +1282,62 @@ export function findBakedEnemyNavigationGraph(graphCollection, rawProfile = {}) 
     return graphs.find((graph) => graph?.id === key || enemyNavigationProfileKey(graph?.profile || {}) === key) || null;
 }
 
-function routeStateKey(supportId, arrivalX) {
-    return `${supportId}@${finite(arrivalX).toFixed(3)}`;
+function routeStateArrivalMilli(arrivalX) {
+    return Math.round(finite(arrivalX) * 1000);
 }
 
-export function planEnemyNavigationRoute(supports, startSupportId, targetSupportId, options = {}) {
-    if (!startSupportId || !targetSupportId) {
+function routePendingPush(heap, item) {
+    heap.push(item);
+    let index = heap.length - 1;
+    while (index > 0) {
+        const parent = Math.floor((index - 1) / 2);
+        if (heap[parent].cost <= item.cost) {
+            break;
+        }
+        heap[index] = heap[parent];
+        index = parent;
+    }
+    heap[index] = item;
+}
+
+function routePendingPop(heap) {
+    if (!heap.length) {
         return null;
     }
-    if (startSupportId === targetSupportId) {
-        return { edges: [], cost: 0, supportIds: [startSupportId] };
+    const root = heap[0];
+    const tail = heap.pop();
+    if (!heap.length) {
+        return root;
+    }
+    let index = 0;
+    while (true) {
+        const left = index * 2 + 1;
+        const right = left + 1;
+        if (left >= heap.length) {
+            break;
+        }
+        let child = left;
+        if (right < heap.length && heap[right].cost < heap[left].cost) {
+            child = right;
+        }
+        if (heap[child].cost >= tail.cost) {
+            break;
+        }
+        heap[index] = heap[child];
+        index = child;
+    }
+    heap[index] = tail;
+    return root;
+}
+
+function buildEnemyNavigationRouteSearch(supports, startSupportId, options = {}, stopSupportId = null) {
+    if (!startSupportId) {
+        return null;
     }
     const edgeMap = options.edgeMap instanceof Map
         ? options.edgeMap
         : buildEnemyNavigationEdges(supports, options);
-    if (!edgeMap.has(startSupportId) || !edgeMap.has(targetSupportId)) {
+    if (!edgeMap.has(startSupportId) || (stopSupportId && !edgeMap.has(stopSupportId))) {
         return null;
     }
 
@@ -1279,34 +1345,32 @@ export function planEnemyNavigationRoute(supports, startSupportId, targetSupport
     const startX = Number.isFinite(Number(options.startX))
         ? clamp(Number(options.startX), startSupport?.xMin ?? Number(options.startX), startSupport?.xMax ?? Number(options.startX))
         : (startSupport ? (startSupport.xMin + startSupport.xMax) * 0.5 : 0);
-    const targetX = Number.isFinite(Number(options.targetX)) ? Number(options.targetX) : null;
-    const startKey = routeStateKey(startSupportId, startX);
-    const states = new Map([[startKey, {
-        key: startKey,
+    const states = [{
         supportId: startSupportId,
         arrivalX: startX,
         cost: 0,
-        previousKey: null,
+        previousIndex: -1,
         viaEdge: null
-    }]]);
-    const pending = [{ key: startKey, cost: 0 }];
-    let bestGoal = null;
+    }];
+    const stateIndexBySupportAndArrival = new Map([[startSupportId, new Map([[routeStateArrivalMilli(startX), 0]])]]);
+    const stateIndicesBySupport = new Map([[startSupportId, [0]]]);
+    const pending = [];
+    routePendingPush(pending, { index: 0, cost: 0 });
+    const targetX = Number.isFinite(Number(options.targetX)) ? Number(options.targetX) : null;
+    let bestStopCost = Number.POSITIVE_INFINITY;
 
     while (pending.length) {
-        pending.sort((a, b) => a.cost - b.cost);
-        const queued = pending.shift();
-        const current = queued ? states.get(queued.key) : null;
+        const queued = routePendingPop(pending);
+        const current = queued ? states[queued.index] : null;
         if (!current || Math.abs(current.cost - queued.cost) > EPSILON) {
             continue;
         }
-        if (bestGoal && current.cost >= bestGoal.cost - EPSILON) {
+        if (current.cost >= bestStopCost - EPSILON) {
             break;
         }
-        if (current.supportId === targetSupportId) {
+        if (stopSupportId && current.supportId === stopSupportId) {
             const goalCost = current.cost + (targetX === null ? 0 : Math.abs(targetX - current.arrivalX));
-            if (!bestGoal || goalCost < bestGoal.cost) {
-                bestGoal = { key: current.key, cost: goalCost };
-            }
+            bestStopCost = Math.min(bestStopCost, goalCost);
             if (targetX === null) {
                 break;
             }
@@ -1316,35 +1380,100 @@ export function planEnemyNavigationRoute(supports, startSupportId, targetSupport
             const approachX = Number.isFinite(Number(edge.runUpX)) ? Number(edge.runUpX) : edge.launchX;
             const approachCost = Math.abs(approachX - current.arrivalX);
             const nextCost = current.cost + approachCost + Math.max(0, finite(edge.cost));
-            const nextKey = routeStateKey(edge.to, edge.landingX);
-            const known = states.get(nextKey);
-            if (known && nextCost + EPSILON >= known.cost) {
+            const nextArrivalMilli = routeStateArrivalMilli(edge.landingX);
+            const stateIndicesByArrival = stateIndexBySupportAndArrival.get(edge.to);
+            const knownIndex = stateIndicesByArrival?.get(nextArrivalMilli);
+            if (knownIndex !== undefined && nextCost + EPSILON >= states[knownIndex].cost) {
                 continue;
             }
-            states.set(nextKey, {
-                key: nextKey,
+            if (knownIndex !== undefined) {
+                states[knownIndex] = {
+                    supportId: edge.to,
+                    arrivalX: edge.landingX,
+                    cost: nextCost,
+                    previousIndex: queued.index,
+                    viaEdge: edge
+                };
+                routePendingPush(pending, { index: knownIndex, cost: nextCost });
+                continue;
+            }
+            const nextIndex = states.length;
+            states.push({
                 supportId: edge.to,
                 arrivalX: edge.landingX,
                 cost: nextCost,
-                previousKey: current.key,
+                previousIndex: queued.index,
                 viaEdge: edge
             });
-            pending.push({ key: nextKey, cost: nextCost });
+            if (stateIndicesByArrival) {
+                stateIndicesByArrival.set(nextArrivalMilli, nextIndex);
+            } else {
+                stateIndexBySupportAndArrival.set(edge.to, new Map([[nextArrivalMilli, nextIndex]]));
+            }
+            if (!stateIndicesBySupport.has(edge.to)) {
+                stateIndicesBySupport.set(edge.to, []);
+            }
+            stateIndicesBySupport.get(edge.to).push(nextIndex);
+            routePendingPush(pending, { index: nextIndex, cost: nextCost });
         }
     }
 
-    if (!bestGoal) {
+    return { startSupportId, states, stateIndicesBySupport };
+}
+
+export function planEnemyNavigationRoutesFrom(supports, startSupportId, options = {}) {
+    return buildEnemyNavigationRouteSearch(supports, startSupportId, options, null);
+}
+
+export function enemyNavigationRouteFromSearch(search, targetSupportId, targetX = null) {
+    if (!search || !targetSupportId) {
+        return null;
+    }
+    if (search.startSupportId === targetSupportId) {
+        return { edges: [], cost: 0, supportIds: [targetSupportId] };
+    }
+    const targetIndices = search.stateIndicesBySupport.get(targetSupportId) || [];
+    const resolvedTargetX = Number.isFinite(Number(targetX)) ? Number(targetX) : null;
+    let bestIndex = -1;
+    let bestCost = Number.POSITIVE_INFINITY;
+    for (const index of targetIndices) {
+        const state = search.states[index];
+        const cost = state.cost + (resolvedTargetX === null ? 0 : Math.abs(resolvedTargetX - state.arrivalX));
+        if (cost < bestCost) {
+            bestCost = cost;
+            bestIndex = index;
+        }
+    }
+    if (bestIndex < 0) {
         return null;
     }
     const routeEdges = [];
-    let cursor = states.get(bestGoal.key);
-    while (cursor && cursor.previousKey) {
+    let cursorIndex = bestIndex;
+    while (cursorIndex >= 0) {
+        const cursor = search.states[cursorIndex];
+        if (!cursor || cursor.previousIndex < 0) {
+            break;
+        }
         routeEdges.push(cursor.viaEdge);
-        cursor = states.get(cursor.previousKey);
+        cursorIndex = cursor.previousIndex;
     }
     routeEdges.reverse();
-    const supportIds = [startSupportId, ...routeEdges.map((edge) => edge.to)];
-    return { edges: routeEdges, cost: bestGoal.cost, supportIds };
+    return {
+        edges: routeEdges,
+        cost: bestCost,
+        supportIds: [search.startSupportId, ...routeEdges.map((edge) => edge.to)]
+    };
+}
+
+export function planEnemyNavigationRoute(supports, startSupportId, targetSupportId, options = {}) {
+    if (!startSupportId || !targetSupportId) {
+        return null;
+    }
+    if (startSupportId === targetSupportId) {
+        return { edges: [], cost: 0, supportIds: [startSupportId] };
+    }
+    const search = buildEnemyNavigationRouteSearch(supports, startSupportId, options, targetSupportId);
+    return enemyNavigationRouteFromSearch(search, targetSupportId, options.targetX);
 }
 
 export function supportPoint(support, x, inset = 0) {

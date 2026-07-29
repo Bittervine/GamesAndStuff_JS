@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ignatius Door Support Review</title>
+<style>
+:root {
+    color-scheme: dark;
+    --bg: #101217;
+    --panel: #181c24;
+    --panel-2: #202633;
+    --line: #394258;
+    --text: #eef2ff;
+    --muted: #aab4ca;
+    --accent: #78a7ff;
+    --good: #62de8d;
+    --bad: #ff7c84;
+    --warn: #ffd66d;
+}
+* { box-sizing: border-box; }
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+button, input, select { font: inherit; }
+header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    padding: 18px 22px 14px;
+    background: rgba(16, 18, 23, 0.96);
+    border-bottom: 1px solid var(--line);
+    backdrop-filter: blur(10px);
+}
+h1 { margin: 0 0 5px; font-size: 25px; }
+header p { margin: 0; color: var(--muted); max-width: 1100px; }
+.controls {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(140px, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+}
+.control {
+    min-width: 0;
+    padding: 9px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel);
+}
+.control label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 5px; }
+.control input[type="search"], .control select, .control input[type="range"] { width: 100%; }
+.checks { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.checks label { margin: 0; color: var(--text); font-size: 13px; }
+.summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    margin-top: 12px;
+    align-items: center;
+}
+.pill {
+    padding: 5px 9px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--panel-2);
+    color: var(--muted);
+}
+.pill strong { color: var(--text); }
+.action-row { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+button {
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 7px 11px;
+    color: var(--text);
+    background: var(--panel-2);
+    cursor: pointer;
+}
+button:hover { border-color: var(--accent); }
+main { padding: 18px 22px 32px; }
+.explainer {
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: var(--panel);
+    color: var(--muted);
+}
+.explainer strong { color: var(--text); }
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
+    gap: 16px;
+}
+.card {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--panel);
+}
+.card.accepted { border-color: var(--good); }
+.card.rejected { border-color: var(--bad); }
+.card-header {
+    display: flex;
+    gap: 10px;
+    justify-content: space-between;
+    align-items: start;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+}
+.card-title { font-weight: 700; overflow-wrap: anywhere; }
+.card-subtitle { color: var(--muted); font-size: 12px; }
+.badge {
+    flex: 0 0 auto;
+    padding: 3px 7px;
+    border-radius: 999px;
+    font-size: 12px;
+    border: 1px solid var(--line);
+}
+.badge.pass { color: var(--good); border-color: color-mix(in srgb, var(--good), transparent 40%); }
+.badge.fail { color: var(--warn); border-color: color-mix(in srgb, var(--warn), transparent 40%); }
+.preview-wrap {
+    padding: 10px;
+    background:
+        linear-gradient(45deg, #181b22 25%, transparent 25%),
+        linear-gradient(-45deg, #181b22 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #181b22 75%),
+        linear-gradient(-45deg, transparent 75%, #181b22 75%),
+        #222631;
+    background-size: 24px 24px;
+    background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+}
+canvas { display: block; width: 100%; height: 360px; }
+.metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    padding: 10px 12px;
+}
+.metric {
+    padding: 7px;
+    background: var(--panel-2);
+    border-radius: 6px;
+}
+.metric span { display: block; color: var(--muted); font-size: 11px; }
+.metric strong { font-size: 14px; }
+.review-buttons {
+    display: flex;
+    gap: 8px;
+    padding: 0 12px 12px;
+}
+.review-buttons button { flex: 1; }
+.review-buttons .accept.active { background: color-mix(in srgb, var(--good), transparent 76%); border-color: var(--good); }
+.review-buttons .reject.active { background: color-mix(in srgb, var(--bad), transparent 76%); border-color: var(--bad); }
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-top: 18px;
+}
+.empty {
+    padding: 32px;
+    text-align: center;
+    color: var(--muted);
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+}
+@media (max-width: 980px) {
+    .controls { grid-template-columns: repeat(2, minmax(140px, 1fr)); }
+    .grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<header>
+    <h1>Door support review</h1>
+    <p>The detector places the real closed portal on authored terrain platforms. The blue quadrilateral is the complete stone-arch floorplan. Its whole area must land on opaque platform pixels while the door floor-anchor line meets a green or yellow collision segment.</p>
+    <div class="controls">
+        <div class="control">
+            <label for="candidate-filter">Geometry filter</label>
+            <select id="candidate-filter">
+                <option value="candidates">Detected candidates</option>
+                <option value="near">Near misses</option>
+                <option value="all">All tested platforms</option>
+            </select>
+        </div>
+        <div class="control">
+            <label for="review-filter">Review state</label>
+            <select id="review-filter">
+                <option value="all">All review states</option>
+                <option value="undecided">Undecided</option>
+                <option value="accepted">Accepted</option>
+                <option value="rejected">Rejected</option>
+            </select>
+        </div>
+        <div class="control">
+            <label for="atlas-filter">Atlas</label>
+            <select id="atlas-filter"><option value="all">All atlases</option></select>
+        </div>
+        <div class="control">
+            <label for="search">Asset search</label>
+            <input id="search" type="search" placeholder="ledge, castle, forest...">
+        </div>
+        <div class="control">
+            <label for="view-mode">Preview framing</label>
+            <select id="view-mode">
+                <option value="close">Door close-up</option>
+                <option value="whole">Whole asset</option>
+            </select>
+        </div>
+        <div class="control">
+            <label for="coverage">Minimum area coverage: <span id="coverage-value"></span></label>
+            <input id="coverage" type="range" min="90" max="100" step="0.1">
+        </div>
+        <div class="control">
+            <label for="corner">Minimum corner support: <span id="corner-value"></span></label>
+            <input id="corner" type="range" min="0" max="100" step="1">
+        </div>
+    </div>
+    <div class="summary">
+        <span class="pill">Tested <strong id="tested-count"></strong></span>
+        <span class="pill">Visible <strong id="visible-count"></strong></span>
+        <span class="pill">Accepted <strong id="accepted-count"></strong></span>
+        <span class="pill">Rejected <strong id="rejected-count"></strong></span>
+        <div class="checks">
+            <label><input id="show-footprint" type="checkbox" checked> Footprint</label>
+            <label><input id="show-collision" type="checkbox" checked> Collision line</label>
+            <label><input id="show-anchor" type="checkbox" checked> Door anchor line</label>
+        </div>
+        <div class="action-row">
+            <button id="copy-json">Copy decisions JSON</button>
+            <button id="download-json">Download decisions JSON</button>
+            <button id="clear-decisions">Clear decisions</button>
+        </div>
+    </div>
+</header>
+<main>
+    <div class="explainer">
+        <strong>Detector scope:</strong> only assets carrying <code>capability.platform</code> are considered. Green walkable lines and only the top-facing edges of closed yellow blockable polygons may support a portal. The complete four-corner foundation footprint must land on opaque pixels, and any placement whose portal body is inside a blockable polygon is rejected unconditionally. Review decisions stay in this browser until exported.
+    </div>
+    <div id="grid" class="grid"></div>
+    <div id="pagination" class="pagination"></div>
+</main>
+<script src="door-support-review-data.js"></script>
+<script>
+(() => {
+    "use strict";
+    const data = window.DOOR_SUPPORT_REVIEW_DATA;
+    if (!data) throw new Error("door-support-review-data.js was not loaded.");
+
+    const STORAGE_KEY = "ignatius-door-support-review-v2";
+    const PAGE_SIZE = 24;
+    const imageCache = new Map();
+    let currentPage = 0;
+    let decisions = loadDecisions();
+
+    const elements = Object.fromEntries([
+        "candidate-filter", "review-filter", "atlas-filter", "search", "view-mode", "coverage", "coverage-value",
+        "corner", "corner-value", "show-footprint", "show-collision", "show-anchor", "tested-count",
+        "visible-count", "accepted-count", "rejected-count", "copy-json", "download-json",
+        "clear-decisions", "grid", "pagination"
+    ].map(id => [id, document.getElementById(id)]));
+
+    elements.coverage.value = String(data.meta.defaultPassCoverage * 100);
+    elements.corner.value = String(data.meta.defaultPassCornerCoverage * 100);
+    elements["tested-count"].textContent = String(data.meta.testedCount);
+
+    const atlasIds = [...new Set(data.results.map(result => result.atlasId))].sort();
+    for (const atlasId of atlasIds) {
+        const option = document.createElement("option");
+        option.value = atlasId;
+        option.textContent = atlasId;
+        elements["atlas-filter"].append(option);
+    }
+
+    function assetKey(result) {
+        return `${result.atlasId}:${result.assetId}`;
+    }
+
+    function loadDecisions() {
+        try {
+            const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+            return parsed && typeof parsed === "object" ? parsed : {};
+        } catch {
+            return {};
+        }
+    }
+
+    function saveDecisions() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(decisions));
+    }
+
+    function currentThresholds() {
+        return {
+            coverage: Number(elements.coverage.value) / 100,
+            corner: Number(elements.corner.value) / 100
+        };
+    }
+
+    function passes(result) {
+        const threshold = currentThresholds();
+        return !result.insideBlockablePolygon
+            && result.coverage >= threshold.coverage
+            && result.minimumCornerCoverage >= threshold.corner;
+    }
+
+    function filteredResults() {
+        const search = elements.search.value.trim().toLowerCase();
+        const geometryFilter = elements["candidate-filter"].value;
+        const reviewFilter = elements["review-filter"].value;
+        const atlasFilter = elements["atlas-filter"].value;
+        return data.results.filter(result => {
+            const detected = passes(result);
+            if (geometryFilter === "candidates" && !detected) return false;
+            if (geometryFilter === "near" && detected) return false;
+            if (atlasFilter !== "all" && result.atlasId !== atlasFilter) return false;
+            if (search && !`${result.atlasId} ${result.assetId}`.toLowerCase().includes(search)) return false;
+            const decision = decisions[assetKey(result)] || "undecided";
+            if (reviewFilter !== "all" && decision !== reviewFilter) return false;
+            return true;
+        });
+    }
+
+    function loadImage(path) {
+        if (!imageCache.has(path)) {
+            imageCache.set(path, new Promise((resolve, reject) => {
+                const image = new Image();
+                image.onload = () => resolve(image);
+                image.onerror = () => reject(new Error(`Could not load ${path}`));
+                image.src = path;
+            }));
+        }
+        return imageCache.get(path);
+    }
+
+    function drawCheckerboard(context, width, height) {
+        context.fillStyle = "#252a35";
+        context.fillRect(0, 0, width, height);
+        const size = 18;
+        context.fillStyle = "#1d212a";
+        for (let y = 0; y < height; y += size) {
+            for (let x = 0; x < width; x += size) {
+                if (((x / size) + (y / size)) % 2 === 0) context.fillRect(x, y, size, size);
+            }
+        }
+    }
+
+    async function drawPreview(canvas, result) {
+        const [platformImage, doorImage] = await Promise.all([
+            loadImage(result.atlasImage),
+            loadImage(data.door.atlasImage)
+        ]);
+        const context = canvas.getContext("2d");
+        const cssWidth = Math.max(320, Math.floor(canvas.getBoundingClientRect().width));
+        const cssHeight = 360;
+        const pixelRatio = Math.max(1, window.devicePixelRatio || 1);
+        canvas.width = Math.round(cssWidth * pixelRatio);
+        canvas.height = Math.round(cssHeight * pixelRatio);
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        context.imageSmoothingEnabled = true;
+        drawCheckerboard(context, cssWidth, cssHeight);
+
+        const platformWidth = result.frame.w * result.platformScale;
+        const platformHeight = result.frame.h * result.platformScale;
+        const door = result.door;
+        const closeUp = elements["view-mode"].value === "close";
+        const footprintXs = result.footprintWorld.map(point => point[0]);
+        const footprintYs = result.footprintWorld.map(point => point[1]);
+        const minimumX = closeUp
+            ? Math.min(door.left, ...footprintXs) - 82
+            : Math.min(0, door.left) - 22;
+        const maximumX = closeUp
+            ? Math.max(door.left + door.width, ...footprintXs) + 82
+            : Math.max(platformWidth, door.left + door.width) + 22;
+        const minimumY = closeUp
+            ? Math.min(door.top, ...footprintYs) - 28
+            : Math.min(0, door.top) - 22;
+        const maximumY = closeUp
+            ? Math.max(door.top + door.height, ...footprintYs) + 60
+            : Math.max(platformHeight, door.top + door.height) + 22;
+        const worldWidth = maximumX - minimumX;
+        const worldHeight = maximumY - minimumY;
+        const fit = Math.min((cssWidth - 24) / worldWidth, (cssHeight - 24) / worldHeight, 2.2);
+        const offsetX = (cssWidth - worldWidth * fit) * 0.5 - minimumX * fit;
+        const offsetY = (cssHeight - worldHeight * fit) * 0.5 - minimumY * fit;
+        const tx = value => offsetX + value * fit;
+        const ty = value => offsetY + value * fit;
+
+        context.drawImage(
+            platformImage,
+            result.frame.x, result.frame.y, result.frame.w, result.frame.h,
+            tx(0), ty(0), platformWidth * fit, platformHeight * fit
+        );
+        context.drawImage(
+            doorImage,
+            data.door.frame.x, data.door.frame.y, data.door.frame.w, data.door.frame.h,
+            tx(door.left), ty(door.top), door.width * fit, door.height * fit
+        );
+
+        if (elements["show-footprint"].checked) {
+            context.save();
+            context.beginPath();
+            result.footprintWorld.forEach((point, index) => {
+                const x = tx(point[0]);
+                const y = ty(point[1]);
+                if (index === 0) context.moveTo(x, y);
+                else context.lineTo(x, y);
+            });
+            context.closePath();
+            context.fillStyle = "rgba(32, 156, 255, 0.26)";
+            context.strokeStyle = "#25a9ff";
+            context.lineWidth = 3;
+            context.fill();
+            context.stroke();
+            context.fillStyle = "#ff25d7";
+            for (const point of result.footprintWorld) {
+                context.beginPath();
+                context.arc(tx(point[0]), ty(point[1]), 4.5, 0, Math.PI * 2);
+                context.fill();
+            }
+            context.restore();
+        }
+
+        if (elements["show-collision"].checked) {
+            context.save();
+            context.strokeStyle = result.line.kind === "walkable" ? "#39e46a" : "#ffd23f";
+            context.lineWidth = 3;
+            context.beginPath();
+            context.moveTo(tx(result.line.start[0] * result.platformScale), ty(result.line.start[1] * result.platformScale));
+            context.lineTo(tx(result.line.end[0] * result.platformScale), ty(result.line.end[1] * result.platformScale));
+            context.stroke();
+            context.restore();
+        }
+
+        if (elements["show-anchor"].checked) {
+            context.save();
+            context.strokeStyle = "#74f7ff";
+            context.setLineDash([8, 5]);
+            context.lineWidth = 2;
+            context.beginPath();
+            context.moveTo(tx(door.left - 18), ty(door.floorAnchorY));
+            context.lineTo(tx(door.left + door.width + 18), ty(door.floorAnchorY));
+            context.stroke();
+            context.fillStyle = "#ff25d7";
+            context.beginPath();
+            context.arc(tx(door.centerX), ty(door.floorAnchorY), 4, 0, Math.PI * 2);
+            context.fill();
+            context.restore();
+        }
+    }
+
+    function percentage(value, digits = 1) {
+        return `${(value * 100).toFixed(digits)}%`;
+    }
+
+    function createCard(result) {
+        const key = assetKey(result);
+        const decision = decisions[key] || "undecided";
+        const detected = passes(result);
+        const card = document.createElement("article");
+        card.className = `card ${decision === "accepted" ? "accepted" : decision === "rejected" ? "rejected" : ""}`;
+        card.innerHTML = `
+            <div class="card-header">
+                <div>
+                    <div class="card-title">${result.assetId}</div>
+                    <div class="card-subtitle">${result.atlasId} · ${result.catalogued ? "generator catalogued" : "not in generator catalog"}</div>
+                </div>
+                <span class="badge ${detected ? "pass" : "fail"}">${detected ? "candidate" : "near miss"}</span>
+            </div>
+            <div class="preview-wrap"><canvas aria-label="Door composed on ${result.assetId}"></canvas></div>
+            <div class="metrics">
+                <div class="metric"><span>Area coverage</span><strong>${percentage(result.coverage, 2)}</strong></div>
+                <div class="metric"><span>Weakest corner</span><strong>${percentage(result.minimumCornerCoverage, 0)}</strong></div>
+                <div class="metric"><span>Platform scale</span><strong>${result.platformScale.toFixed(3)}</strong></div>
+                <div class="metric"><span>Collision</span><strong>${result.line.kind}</strong></div>
+                <div class="metric"><span>Blockable polygon</span><strong>${result.insideBlockablePolygon ? "HARD VETO" : "clear"}</strong></div>
+                <div class="metric"><span>Door tag</span><strong>${result.doorCapabilityTagged ? "checked" : "not checked"}</strong></div>
+            </div>
+            <div class="review-buttons">
+                <button class="accept ${decision === "accepted" ? "active" : ""}" ${result.insideBlockablePolygon ? "disabled title='Portal body is inside a blockable polygon'" : ""}>Accept</button>
+                <button class="reject ${decision === "rejected" ? "active" : ""}">Reject</button>
+                <button class="clear">Undecided</button>
+            </div>`;
+        const canvas = card.querySelector("canvas");
+        drawPreview(canvas, result).catch(error => {
+            const context = canvas.getContext("2d");
+            context.fillStyle = "#ff7c84";
+            context.fillText(error.message, 12, 24);
+        });
+        card.querySelector(".accept").addEventListener("click", () => setDecision(key, "accepted"));
+        card.querySelector(".reject").addEventListener("click", () => setDecision(key, "rejected"));
+        card.querySelector(".clear").addEventListener("click", () => setDecision(key, "undecided"));
+        return card;
+    }
+
+    function setDecision(key, decision) {
+        if (decision === "undecided") delete decisions[key];
+        else decisions[key] = decision;
+        saveDecisions();
+        render();
+    }
+
+    function renderPagination(total) {
+        const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+        currentPage = Math.min(currentPage, pageCount - 1);
+        elements.pagination.replaceChildren();
+        if (pageCount <= 1) return;
+        const previous = document.createElement("button");
+        previous.textContent = "Previous";
+        previous.disabled = currentPage === 0;
+        previous.addEventListener("click", () => { currentPage -= 1; render(); window.scrollTo({ top: 0, behavior: "smooth" }); });
+        const label = document.createElement("span");
+        label.textContent = `Page ${currentPage + 1} of ${pageCount}`;
+        const next = document.createElement("button");
+        next.textContent = "Next";
+        next.disabled = currentPage >= pageCount - 1;
+        next.addEventListener("click", () => { currentPage += 1; render(); window.scrollTo({ top: 0, behavior: "smooth" }); });
+        elements.pagination.append(previous, label, next);
+    }
+
+    function render() {
+        elements["coverage-value"].textContent = `${Number(elements.coverage.value).toFixed(1)}%`;
+        elements["corner-value"].textContent = `${Number(elements.corner.value).toFixed(0)}%`;
+        const results = filteredResults();
+        const accepted = Object.values(decisions).filter(value => value === "accepted").length;
+        const rejected = Object.values(decisions).filter(value => value === "rejected").length;
+        elements["visible-count"].textContent = String(results.length);
+        elements["accepted-count"].textContent = String(accepted);
+        elements["rejected-count"].textContent = String(rejected);
+        elements.grid.replaceChildren();
+        if (!results.length) {
+            const empty = document.createElement("div");
+            empty.className = "empty";
+            empty.textContent = "No assets match the current filters.";
+            elements.grid.append(empty);
+            renderPagination(0);
+            return;
+        }
+        const start = currentPage * PAGE_SIZE;
+        for (const result of results.slice(start, start + PAGE_SIZE)) elements.grid.append(createCard(result));
+        renderPagination(results.length);
+    }
+
+    function exportedDecisions() {
+        const accepted = [];
+        const rejected = [];
+        for (const result of data.results) {
+            const key = assetKey(result);
+            if (decisions[key] === "accepted") accepted.push({ atlasId: result.atlasId, assetId: result.assetId });
+            if (decisions[key] === "rejected") rejected.push({ atlasId: result.atlasId, assetId: result.assetId });
+        }
+        return {
+            version: 1,
+            generatedBy: "door-support-review.html",
+            thresholds: currentThresholds(),
+            accepted,
+            rejected
+        };
+    }
+
+    async function copyText(text) {
+        if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+            return;
+        }
+        const area = document.createElement("textarea");
+        area.value = text;
+        document.body.append(area);
+        area.select();
+        document.execCommand("copy");
+        area.remove();
+    }
+
+    elements["copy-json"].addEventListener("click", async () => {
+        await copyText(JSON.stringify(exportedDecisions(), null, 2));
+        elements["copy-json"].textContent = "Copied";
+        setTimeout(() => { elements["copy-json"].textContent = "Copy decisions JSON"; }, 1200);
+    });
+    elements["download-json"].addEventListener("click", () => {
+        const blob = new Blob([JSON.stringify(exportedDecisions(), null, 2) + "\n"], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = "door-support-review-decisions.json";
+        anchor.click();
+        URL.revokeObjectURL(url);
+    });
+    elements["clear-decisions"].addEventListener("click", () => {
+        if (!confirm("Clear every accept/reject decision?")) return;
+        decisions = {};
+        saveDecisions();
+        render();
+    });
+
+    for (const id of ["candidate-filter", "review-filter", "atlas-filter", "search", "view-mode", "coverage", "corner"]) {
+        elements[id].addEventListener("input", () => { currentPage = 0; render(); });
+    }
+    for (const id of ["show-footprint", "show-collision", "show-anchor"]) {
+        elements[id].addEventListener("change", render);
+    }
+    window.addEventListener("resize", () => {
+        clearTimeout(window.__doorReviewResize);
+        window.__doorReviewResize = setTimeout(render, 120);
+    });
+
+    render();
+})();
+</script>
+</body>
+</html>

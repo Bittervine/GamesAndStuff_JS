@@ -6,7 +6,7 @@ import { normalizeLevelLayerVisuals } from "./level-layer-data.js";
 import { parseEnemySelection } from "./enemy-pool-data.js";
 export { parseEnemySelection } from "./enemy-pool-data.js";
 
-export const AUTOMATIC_LEVEL_GENERATOR_VERSION = 38;
+export const AUTOMATIC_LEVEL_GENERATOR_VERSION = 39;
 export const AUTOMATIC_LEVEL_GENERATOR_ID = "automatic-level-generator-9";
 
 const GENERATED_PLAYER_BODY_WIDTH = 34;
@@ -89,6 +89,14 @@ const DEFAULT_THEME = Object.freeze({
     themeId: "earth-cavern",
     label: "Earth Cavern",
     description: "Existing cavern materials with their authored colours.",
+    defaultColorModifierId: "original",
+    assetPools: Object.freeze({
+        terrain: Object.freeze({ all: Object.freeze(["layer.terrain"]), any: Object.freeze(["biome.cave"]), none: Object.freeze([]) }),
+        movingPlatform: Object.freeze({ all: Object.freeze(["layer.terrain", "capability.movingPlatform"]), any: Object.freeze(["biome.cave"]), none: Object.freeze([]) }),
+        foreground: Object.freeze({ all: Object.freeze(["layer.foreground"]), any: Object.freeze(["biome.cave"]), none: Object.freeze([]) }),
+        background: Object.freeze({ all: Object.freeze(["layer.background"]), any: Object.freeze(["biome.cave"]), none: Object.freeze([]) })
+    }),
+    decorationPolicy: Object.freeze({ populatePerimeter: true }),
     defaults: DEFAULT_GENERATOR_SETTINGS,
     route: Object.freeze({
         nodeSpacing: 900,
@@ -178,6 +186,117 @@ const DEFAULT_THEME = Object.freeze({
     })
 });
 
+
+const DEFAULT_GENERATOR_RECIPE = Object.freeze({
+    recipeId: "domed-standard-v1",
+    label: "Domed Standard",
+    description: "Validated Horizontal + Domed generator recipe.",
+    defaults: DEFAULT_GENERATOR_SETTINGS,
+    route: DEFAULT_THEME.route,
+    cavern: DEFAULT_THEME.cavern,
+    traversal: DEFAULT_THEME.traversal,
+    endpoints: DEFAULT_THEME.endpoints,
+    encounters: DEFAULT_THEME.encounters,
+    rewards: DEFAULT_THEME.rewards,
+    decoration: DEFAULT_THEME.decoration,
+    implementations: DEFAULT_THEME.implementations
+});
+
+const DEFAULT_GENERATOR_COLOR_MODIFIER = Object.freeze({
+    colorModifierId: "original",
+    label: "Original colours",
+    description: "Use the authored atlas colours.",
+    colorMap: DEFAULT_THEME.colorMap
+});
+
+export function normalizeGenerationTagQuery(value) {
+    const source = value && typeof value === "object" ? value : {};
+    return {
+        all: normalizeStringArray(source.all),
+        any: normalizeStringArray(source.any),
+        none: normalizeStringArray(source.none)
+    };
+}
+
+export function generationTagsMatchQuery(tags, query) {
+    const selected = new Set(normalizeStringArray(tags));
+    const normalized = normalizeGenerationTagQuery(query);
+    return normalized.all.every((tag) => selected.has(tag))
+        && (!normalized.any.length || normalized.any.some((tag) => selected.has(tag)))
+        && normalized.none.every((tag) => !selected.has(tag));
+}
+
+export function normalizeGeneratorColorModifier(value) {
+    const source = value && typeof value === "object" ? value : {};
+    const colorMapSource = source.colorMap && typeof source.colorMap === "object" ? source.colorMap : DEFAULT_GENERATOR_COLOR_MODIFIER.colorMap;
+    return {
+        colorModifierId: cleanId(source.colorModifierId || source.id || DEFAULT_GENERATOR_COLOR_MODIFIER.colorModifierId, DEFAULT_GENERATOR_COLOR_MODIFIER.colorModifierId),
+        label: String(source.label || source.name || DEFAULT_GENERATOR_COLOR_MODIFIER.label),
+        description: String(source.description || ""),
+        colorMap: {
+            enabled: Boolean(colorMapSource.enabled),
+            sourceHue: finiteNumber(colorMapSource.sourceHue, DEFAULT_THEME.colorMap.sourceHue),
+            range: clampNumber(colorMapSource.range, 0, 360, DEFAULT_THEME.colorMap.range),
+            feather: clampNumber(colorMapSource.feather, 0, 180, DEFAULT_THEME.colorMap.feather),
+            rotation: clampNumber(colorMapSource.rotation, -360, 360, DEFAULT_THEME.colorMap.rotation),
+            atlasIds: normalizeStringArray(colorMapSource.atlasIds || DEFAULT_THEME.colorMap.atlasIds)
+        }
+    };
+}
+
+export function normalizeGeneratorRecipe(value) {
+    const source = value && typeof value === "object" ? value : {};
+    const legacyTheme = normalizeGeneratorTheme({
+        ...DEFAULT_THEME,
+        ...source,
+        themeId: DEFAULT_THEME.themeId,
+        label: DEFAULT_THEME.label,
+        description: DEFAULT_THEME.description,
+        colorMap: DEFAULT_THEME.colorMap
+    });
+    return {
+        recipeId: cleanId(source.recipeId || source.id || DEFAULT_GENERATOR_RECIPE.recipeId, DEFAULT_GENERATOR_RECIPE.recipeId),
+        label: String(source.label || source.name || DEFAULT_GENERATOR_RECIPE.label),
+        description: String(source.description || ""),
+        defaults: normalizeGeneratorSettings(source.defaults || DEFAULT_GENERATOR_RECIPE.defaults),
+        route: legacyTheme.route,
+        cavern: legacyTheme.cavern,
+        traversal: legacyTheme.traversal,
+        endpoints: legacyTheme.endpoints,
+        encounters: legacyTheme.encounters,
+        rewards: legacyTheme.rewards,
+        decoration: legacyTheme.decoration,
+        implementations: normalizeGeneratorImplementations(source.implementations || DEFAULT_GENERATOR_RECIPE.implementations)
+    };
+}
+
+export function resolveGeneratorThemeRecipe(themeValue, recipeValue, colorModifierValue = null) {
+    const theme = normalizeGeneratorTheme(themeValue);
+    const recipe = normalizeGeneratorRecipe(recipeValue);
+    const colorModifier = normalizeGeneratorColorModifier(colorModifierValue || {
+        colorModifierId: theme.defaultColorModifierId,
+        colorMap: theme.colorMap
+    });
+    return {
+        ...theme,
+        recipeId: recipe.recipeId,
+        colorModifierId: colorModifier.colorModifierId,
+        defaults: recipe.defaults,
+        route: recipe.route,
+        cavern: recipe.cavern,
+        traversal: recipe.traversal,
+        endpoints: recipe.endpoints,
+        encounters: recipe.encounters,
+        rewards: recipe.rewards,
+        decoration: {
+            ...recipe.decoration,
+            populatePerimeter: theme.decorationPolicy?.populatePerimeter !== false
+        },
+        implementations: recipe.implementations,
+        colorMap: colorModifier.colorMap
+    };
+}
+
 export function normalizeGeneratorTheme(value) {
     const source = value && typeof value === "object" ? value : {};
     const defaults = normalizeGeneratorSettings(source.defaults || DEFAULT_THEME.defaults);
@@ -194,6 +313,16 @@ export function normalizeGeneratorTheme(value) {
         themeId: cleanId(source.themeId || source.id || DEFAULT_THEME.themeId, DEFAULT_THEME.themeId),
         label: String(source.label || source.name || DEFAULT_THEME.label),
         description: String(source.description || ""),
+        defaultColorModifierId: cleanId(source.defaultColorModifierId || source.colorModifierId || DEFAULT_THEME.defaultColorModifierId, DEFAULT_THEME.defaultColorModifierId),
+        assetPools: {
+            terrain: normalizeGenerationTagQuery(source.assetPools?.terrain || DEFAULT_THEME.assetPools.terrain),
+            movingPlatform: normalizeGenerationTagQuery(source.assetPools?.movingPlatform || DEFAULT_THEME.assetPools.movingPlatform),
+            foreground: normalizeGenerationTagQuery(source.assetPools?.foreground || DEFAULT_THEME.assetPools.foreground),
+            background: normalizeGenerationTagQuery(source.assetPools?.background || DEFAULT_THEME.assetPools.background)
+        },
+        decorationPolicy: {
+            populatePerimeter: source.decorationPolicy?.populatePerimeter ?? DEFAULT_THEME.decorationPolicy.populatePerimeter
+        },
         defaults,
         route: {
             nodeSpacing: clampNumber(routeSource.nodeSpacing, 360, 900, DEFAULT_THEME.route.nodeSpacing),
@@ -398,7 +527,9 @@ export function createNamedRandomStream(seed, streamName, attempt = 0) {
 }
 
 function collectAutomaticLevelRouteCandidates(options = {}) {
-    const theme = normalizeGeneratorTheme(options.theme);
+    const theme = options.recipe
+        ? resolveGeneratorThemeRecipe(options.theme, options.recipe, options.colorModifier)
+        : normalizeGeneratorTheme(options.theme);
     const settings = normalizeGeneratorSettings(options.settings, theme.defaults);
     const implementations = normalizeGeneratorImplementations(options.implementations || theme.implementations);
     if (!["the-path74-route-v4", "mostly-horizontal-route-v1", "rising-cave-route-v1", "serpentine-cave-route-v1"].includes(implementations.route)) {
@@ -465,6 +596,8 @@ function buildAutomaticLevelRouteResult(context, selected) {
         generatorVersion: AUTOMATIC_LEVEL_GENERATOR_VERSION,
         seed,
         themeId: theme.themeId,
+        recipeId: theme.recipeId || "",
+        colorModifierId: theme.colorModifierId || theme.defaultColorModifierId || "original",
         settings,
         implementations,
         routeRevision: stageRevisions.route,
@@ -482,6 +615,8 @@ function buildAutomaticLevelRouteResult(context, selected) {
         generatorId: AUTOMATIC_LEVEL_GENERATOR_ID,
         runId,
         themeId: theme.themeId,
+        recipeId: theme.recipeId || "",
+        colorModifierId: theme.colorModifierId || theme.defaultColorModifierId || "original",
         seed,
         attempt: selected.attempt,
         attemptsTried: attemptsInspected || attempts,
@@ -522,6 +657,7 @@ export function normalizeGenerationAssetCatalog(value) {
                 atlasId: String(entry.atlasId),
                 assetId: String(entry.assetId),
                 roles: normalizeStringArray(entry.roles),
+                generationTags: normalizeStringArray(entry.generationTags),
                 weight: clampNumber(entry.weight, 0.1, 100, 1),
                 nativeWidth: clampNumber(entry.nativeWidth, 16, 4096, 256),
                 nativeHeight: clampNumber(entry.nativeHeight, 16, 4096, 96),
@@ -536,6 +672,26 @@ export function normalizeGenerationAssetCatalog(value) {
                 mirror: entry.mirror !== false
             }))
             .filter((entry) => entry.roles.length && entry.scaleMax >= entry.scaleMin)
+    };
+}
+
+
+export function filterGenerationAssetCatalogForTheme(catalogValue, themeValue) {
+    const catalog = normalizeGenerationAssetCatalog(catalogValue);
+    const theme = normalizeGeneratorTheme(themeValue);
+    const terrainQuery = theme.assetPools?.terrain || normalizeGenerationTagQuery(null);
+    const movingQuery = theme.assetPools?.movingPlatform || terrainQuery;
+    const hasTerrainQuery = terrainQuery.all.length || terrainQuery.any.length || terrainQuery.none.length;
+    const hasMovingQuery = movingQuery.all.length || movingQuery.any.length || movingQuery.none.length;
+    if (!hasTerrainQuery && !hasMovingQuery) return catalog;
+    return {
+        ...catalog,
+        assets: catalog.assets.map((asset) => {
+            const terrainAllowed = generationTagsMatchQuery(asset.generationTags, terrainQuery);
+            const movingAllowed = generationTagsMatchQuery(asset.generationTags, movingQuery);
+            const availableRoles = asset.roles.filter((role) => role === "movingPlatform" ? movingAllowed : terrainAllowed);
+            return { ...asset, availableRoles };
+        }).filter((asset) => asset.availableRoles.length)
     };
 }
 
@@ -910,7 +1066,10 @@ function buildBasicRewards({
                 - (counts.get(metadata.entityType) || 0)
         }));
         const bestDeficit = Math.max(...scored.map((entry) => entry.deficit));
-        const nearBest = scored.filter((entry) => entry.deficit >= bestDeficit - 0.24);
+        // Keep weighted proportions close to target while leaving enough room
+        // for the dedicated reward stream to choose a different valid mix on
+        // a reward-only reroll.
+        const nearBest = scored.filter((entry) => entry.deficit >= bestDeficit - 0.5);
         return rng.pick(nearBest)?.metadata || null;
     };
     const thoughtMetadata = metadataByType.get("thoughtTrigger");
@@ -1702,7 +1861,9 @@ export function validateGeneratedCavernPresentation(value = {}) {
 }
 
 export function generateAutomaticLevelDraft(options = {}) {
-    const theme = normalizeGeneratorTheme(options.theme);
+    const theme = options.recipe
+        ? resolveGeneratorThemeRecipe(options.theme, options.recipe, options.colorModifier)
+        : normalizeGeneratorTheme(options.theme);
     const implementations = normalizeGeneratorImplementations(options.implementations || theme.implementations);
     if (!["the-path74-contour-cavern-v4", "wide-upper-contour-cavern-v1"].includes(implementations.cavern)) throw new Error(`Unsupported cavern builder “${implementations.cavern}”.`);
     if (implementations.traversal !== "layered-safety-network-traversal-v6") throw new Error(`Unsupported traversal builder “${implementations.traversal}”.`);
@@ -1712,8 +1873,8 @@ export function generateAutomaticLevelDraft(options = {}) {
     if (!["perimeter-decoration-v1", "suppressed-by-theme", "not-generated-yet"].includes(implementations.decoration)) throw new Error(`Unsupported decoration populator “${implementations.decoration}”.`);
     if (implementations.validation !== "the-path74-cavern-validation-v4") throw new Error(`Unsupported level validator “${implementations.validation}”.`);
 
-    const assetCatalog = normalizeGenerationAssetCatalog(options.assetCatalog);
-    if (!assetCatalog.assets.length) throw new Error("The generation platform catalog is empty.");
+    const assetCatalog = filterGenerationAssetCatalogForTheme(options.assetCatalog, theme);
+    if (!assetCatalog.assets.length) throw new Error(`The generation platform catalog has no assets allowed by theme “${theme.label}”.`);
     for (const requiredRole of [
         "routeFloor",
         "landingPlatform",
@@ -1722,7 +1883,7 @@ export function generateAutomaticLevelDraft(options = {}) {
         "recoveryPlatform",
         ...(implementations.route === "mostly-horizontal-route-v1" ? ["runAndGunGround"] : [])
     ]) {
-        if (!assetCatalog.assets.some((entry) => entry.roles.includes(requiredRole))) {
+        if (!assetCatalog.assets.some((entry) => (entry.availableRoles || entry.roles).includes(requiredRole))) {
             throw new Error(`The generation platform catalog has no “${requiredRole}” asset.`);
         }
     }
@@ -3046,7 +3207,7 @@ export function validateAutomaticLevelDraftSnapshot(value = {}) {
         };
     }
     const theme = normalizeGeneratorTheme(value.theme);
-    const assetCatalog = normalizeGenerationAssetCatalog(value.assetCatalog);
+    const assetCatalog = filterGenerationAssetCatalogForTheme(value.assetCatalog, theme);
     const enemyGenerationCatalog = normalizeEnemyGenerationCatalog(value.enemyGenerationCatalog);
     const rewardGenerationCatalog = normalizeRewardGenerationCatalog(value.rewardGenerationCatalog);
     const enemyCatalog = normalizeEnemyCatalogDefinitions(value.enemyCatalog);
@@ -4530,9 +4691,32 @@ function buildStandardTraversal({
             previousEdgeX = nextEdgeX;
         }
 
-        const finalOverlap = direction > 0
+        let finalOverlap = direction > 0
             ? previousEdgeX - endSupport.walkableLeftX
             : endSupport.walkableRightX - previousEdgeX;
+        // Different theme assets have different transparent edge insets and
+        // native widths. Nudge the final ground segment toward its destination
+        // when the generated chain is only a few pixels short of the required
+        // overlap. This consumes some of the intentionally generous overlap
+        // with the previous segment instead of making route validity depend on
+        // one particular platform silhouette.
+        if (intermediate.length && finalOverlap < 72 && finalOverlap > -48) {
+            const lastSupport = intermediate.at(-1);
+            const previousSupport = intermediate.length > 1 ? intermediate.at(-2) : startSupport;
+            const previousOverlap = direction > 0
+                ? previousSupport.walkableRightX - lastSupport.walkableLeftX
+                : lastSupport.walkableRightX - previousSupport.walkableLeftX;
+            const requestedCorrection = 76 - finalOverlap;
+            const maximumSafeCorrection = Math.max(0, previousOverlap - 72);
+            const correction = Math.min(requestedCorrection, maximumSafeCorrection);
+            if (correction > 0) {
+                moveSupportCenter(lastSupport, lastSupport.centerX + direction * correction);
+                previousEdgeX = direction > 0 ? lastSupport.walkableRightX : lastSupport.walkableLeftX;
+                finalOverlap = direction > 0
+                    ? previousEdgeX - endSupport.walkableLeftX
+                    : endSupport.walkableRightX - previousEdgeX;
+            }
+        }
         if (finalOverlap < 72 || !intermediate.length) {
             for (const support of intermediate) {
                 const placement = placements.find((candidate) => candidate.id === support.placementId);
@@ -6289,7 +6473,7 @@ function selectGenerationAsset(catalog, role, targetWidth, rng, doorSupport = fa
         ? constraints.collisionMode
         : null;
     const candidates = catalog.assets
-        .filter((asset) => asset.roles.includes(role))
+        .filter((asset) => (asset.availableRoles || asset.roles).includes(role))
         .filter((asset) => !requiredCollisionMode || asset.collisionMode === requiredCollisionMode)
         .map((asset) => {
             const minimumRequestedWidth = 64;
@@ -6997,8 +7181,7 @@ function deriveGeneratedWorld(cavern, traversal, theme) {
     const right = Math.ceil(bounds.x + bounds.w + margin);
     const bottom = Math.ceil(Math.max(bounds.y + bounds.h + margin, platformBottom + margin));
     return {
-        bounds: { x, y, w: right - x, h: bottom - y },
-        resetY: bottom + 180
+        bounds: { x, y, w: right - x, h: bottom - y }
     };
 }
 
@@ -7412,6 +7595,8 @@ export function normalizeLevelGeneration(value) {
         generatorId: AUTOMATIC_LEVEL_GENERATOR_ID,
         runId: String(value.runId || route.runId || ""),
         themeId: String(value.themeId || DEFAULT_THEME.themeId),
+        recipeId: String(value.recipeId || DEFAULT_GENERATOR_RECIPE.recipeId),
+        colorModifierId: String(value.colorModifierId || "original"),
         seed: String(value.seed ?? "0"),
         attempt: Math.max(1, Math.floor(Number(value.attempt) || 1)),
         attemptsTried: Math.max(1, Math.floor(Number(value.attemptsTried) || 1)),

@@ -1,0 +1,64 @@
+{
+    "meta": {
+        "version": 3,
+        "note": "Shared enemy-loot item definitions. Drop arrays are single weighted tables; boss entity tables replace character tables."
+    },
+    "items": {
+        "coin": {
+            "kind": "score",
+            "pickupKind": "coin",
+            "scoreValue": 25,
+            "atlasId": "it_atlas_001",
+            "assetId": "powerup_icon_coin",
+            "w": 39,
+            "h": 39,
+            "radius": 17.25,
+            "dropOffsetY": 23,
+            "bob": true
+        },
+        "permanent_health_upgrade": {
+            "kind": "upgrade",
+            "pickupKind": "healthUpgrade",
+            "upgradeKind": "healthUpgrade",
+            "atlasId": "it_atlas_001",
+            "assetId": "herb_purple",
+            "w": 68,
+            "h": 90,
+            "radius": 30,
+            "bob": true
+        },
+        "permanent_fuel_upgrade": {
+            "kind": "upgrade",
+            "pickupKind": "fuelUpgrade",
+            "upgradeKind": "fuelUpgrade",
+            "atlasId": "it_atlas_001",
+            "assetId": "herb_blue",
+            "w": 72,
+            "h": 86,
+            "radius": 30,
+            "bob": true
+        },
+        "permanent_regen_upgrade": {
+            "kind": "upgrade",
+            "pickupKind": "regenUpgrade",
+            "upgradeKind": "regenUpgrade",
+            "atlasId": "it_atlas_001",
+            "assetId": "herb_yellow",
+            "w": 69,
+            "h": 90,
+            "radius": 30,
+            "bob": true
+        },
+        "permanent_speed_upgrade": {
+            "kind": "upgrade",
+            "pickupKind": "speedUpgrade",
+            "upgradeKind": "speedUpgrade",
+            "atlasId": "it_atlas_001",
+            "assetId": "mushroom_red",
+            "w": 66,
+            "h": 88,
+            "radius": 29,
+            "bob": true
+        }
+    }
+}

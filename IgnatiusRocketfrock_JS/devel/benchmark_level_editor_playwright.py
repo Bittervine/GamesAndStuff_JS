@@ -157,10 +157,10 @@ async def benchmark_editor(
         "document.querySelector('#level-select')?.options?.length >= 2",
         timeout=120_000,
     )
-    await page.select_option("#level-select", f"assets/{level}.json")
+    await page.select_option("#level-select", f"levels/{level}.json")
     await page.click("#load-level")
     await page.wait_for_function(
-        f"document.querySelector('#status')?.textContent.includes('Loaded assets/{level}.json')",
+        f"document.querySelector('#status')?.textContent.includes('Loaded levels/{level}.json')",
         timeout=120_000,
     )
     await page.fill("#zoom", str(zoom))

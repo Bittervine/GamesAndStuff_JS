@@ -13,7 +13,7 @@ const runtimeEntries = [
     "game.html",
     "GameManual.html",
     "favicon.ico",
-    "assets",
+    "resources",
     "src"
 ];
 
@@ -106,7 +106,7 @@ const stagedPackage = {
             "game.html",
             "GameManual.html",
             "favicon.ico",
-            "assets/**/*",
+            "resources/**/*",
             "src/**/*",
             "package.json"
         ],

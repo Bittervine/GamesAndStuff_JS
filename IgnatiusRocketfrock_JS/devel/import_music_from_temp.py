@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Import music files from devel/temp into assets/music_###.ogg.
+"""Import music files from devel/temp into resources/music/music_###.ogg.
 
 Expected layout when run from the project tree:
 
     IgnatiusRocketfrock_JS/
-      assets/
+      resources/
+        music/
       devel/
         import_music_from_temp.py
         ffmpeg.exe       # optional, Windows
@@ -13,10 +14,10 @@ Expected layout when run from the project tree:
           some tune.mp3
           another tune.wav
 
-The script scans assets/ for existing music_001.ogg, music_002.ogg, ... files,
+The script scans resources/music/ for existing music_001.ogg, music_002.ogg, ... files,
 then converts every .mp3, .wav, and .ogg in devel/temp to the next available
 numbered asset. It preserves input metadata where FFmpeg can map it, chooses a
-reasonable title from metadata or filename, and updates assets/music.json.
+reasonable title from metadata or filename, and updates resources/music/music.json.
 """
 
 from __future__ import annotations
@@ -34,7 +35,7 @@ from pathlib import Path
 from typing import Any
 
 SUPPORTED_INPUT_SUFFIXES = {".mp3", ".wav", ".ogg"}
-ASSET_MUSIC_RE = re.compile(r"^music_(\d{3})\.ogg$", re.IGNORECASE)
+MUSIC_FILE_RE = re.compile(r"^music_(\d{3})\.ogg$", re.IGNORECASE)
 DEFAULT_QUALITY = 5.0
 
 
@@ -60,10 +61,10 @@ def parse_args() -> argparse.Namespace:
         help="Source folder. Defaults to devel/temp.",
     )
     parser.add_argument(
-        "--assets-dir",
+        "--music-dir",
         type=Path,
         default=None,
-        help="Assets folder. Defaults to PROJECT_ROOT/assets.",
+        help="Music resource folder. Defaults to PROJECT_ROOT/resources/music.",
     )
     parser.add_argument(
         "--quality",
@@ -233,14 +234,14 @@ def load_music_json(path: Path) -> dict[str, Any]:
     raise ValueError(f"Unsupported music.json shape in {path}")
 
 
-def find_existing_asset_numbers(assets_dir: Path) -> set[int]:
+def find_existing_asset_numbers(music_dir: Path) -> set[int]:
     numbers: set[int] = set()
-    if not assets_dir.is_dir():
+    if not music_dir.is_dir():
         return numbers
-    for path in assets_dir.iterdir():
+    for path in music_dir.iterdir():
         if not path.is_file():
             continue
-        match = ASSET_MUSIC_RE.match(path.name)
+        match = MUSIC_FILE_RE.match(path.name)
         if match:
             numbers.add(int(match.group(1)))
     return numbers
@@ -282,7 +283,7 @@ def known_source_hashes(manifest: dict[str, Any]) -> set[str]:
 
 def ensure_existing_assets_in_manifest(
     manifest: dict[str, Any],
-    assets_dir: Path,
+    music_dir: Path,
     used_numbers: set[int],
     ffprobe: str | None,
 ) -> None:
@@ -296,7 +297,7 @@ def ensure_existing_assets_in_manifest(
             index[track_id].setdefault("file", filename)
             index[track_id].setdefault("title", guess_title_from_filename(Path(filename)))
             continue
-        asset_path = assets_dir / filename
+        asset_path = music_dir / filename
         metadata = read_metadata(ffprobe, asset_path)
         title = metadata.title or guess_title_from_filename(asset_path)
         tracks.append({
@@ -367,8 +368,8 @@ def main() -> int:
     base_dir = script_dir()
     project_root = (args.project_root or base_dir.parent).resolve()
     temp_dir = (args.temp_dir or base_dir / "temp").resolve()
-    assets_dir = (args.assets_dir or project_root / "assets").resolve()
-    music_json_path = assets_dir / "music.json"
+    music_dir = (args.music_dir or project_root / "resources" / "music").resolve()
+    music_json_path = music_dir / "music.json"
 
     ffmpeg = resolve_tool(args.ffmpeg, base_dir, ("ffmpeg.exe", "ffmpeg"))
     ffprobe = resolve_tool(args.ffprobe, base_dir, ("ffprobe.exe", "ffprobe"))
@@ -380,12 +381,12 @@ def main() -> int:
         print("ERROR: Vorbis quality should normally be between -1 and 10.", file=sys.stderr)
         return 1
 
-    assets_dir.mkdir(parents=True, exist_ok=True)
+    music_dir.mkdir(parents=True, exist_ok=True)
     temp_dir.mkdir(parents=True, exist_ok=True)
 
     manifest = load_music_json(music_json_path)
-    used_numbers = find_existing_asset_numbers(assets_dir)
-    ensure_existing_assets_in_manifest(manifest, assets_dir, used_numbers, ffprobe)
+    used_numbers = find_existing_asset_numbers(music_dir)
+    ensure_existing_assets_in_manifest(manifest, music_dir, used_numbers, ffprobe)
     known_hashes = known_source_hashes(manifest)
     tracks = manifest.setdefault("tracks", [])
 
@@ -394,14 +395,14 @@ def main() -> int:
         print(f"No .mp3, .wav, or .ogg files found in {temp_dir}")
         if not args.dry_run:
             write_music_json(music_json_path, manifest)
-            print(f"Updated {music_json_path} with any existing assets that were missing from the index.")
+            print(f"Updated {music_json_path} with any existing music files that were missing from the index.")
         return 0
 
     imported = 0
     skipped = 0
     failures: list[str] = []
     print(f"Scanning {temp_dir}")
-    print(f"Writing numbered Ogg files to {assets_dir}")
+    print(f"Writing numbered Ogg files to {music_dir}")
     print(f"Updating {music_json_path}")
     if not ffprobe:
         print("Note: ffprobe was not found, so title guessing will use filenames only.")
@@ -421,7 +422,7 @@ def main() -> int:
             number = next_available_number(used_numbers)
             used_numbers.add(number)
             track_id = f"music_{number:03d}"
-            target = assets_dir / f"{track_id}.ogg"
+            target = music_dir / f"{track_id}.ogg"
 
             print(f"IMPORT {source.name} -> {target.name}")
             print(f"       title: {title}")

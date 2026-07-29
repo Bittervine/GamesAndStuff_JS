@@ -10,7 +10,7 @@ from PIL import Image
 from scipy import ndimage
 
 ROOT = Path(__file__).resolve().parents[1]
-ASSETS = ROOT / 'assets'
+ASSETS = ROOT / 'resources' / 'characters'
 ATLAS_PNG = ASSETS / 'ct_atlas_enemy_030.png'
 ATLAS_JSON = ASSETS / 'ct_atlas_enemy_030.json'
 PARTS_JSON = ASSETS / 'ct_human_parts_030.json'

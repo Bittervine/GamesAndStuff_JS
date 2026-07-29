@@ -264,6 +264,9 @@
   const ASTEROID_MAX_ROT = Math.PI / 4;
   const ASTEROID_MIN_ROT = Math.PI / 4;
   const ASTEROID_BASE_LAYER = 1.35;
+  const SURVIVAL_CHALLENGE_DURATION = 60;
+  const SURVIVAL_CHALLENGE_INTRO = 10;
+  const SURVIVAL_CHALLENGE_ASTEROID_DENSITY = 12;
   const asteroidArtLoadKeys = new Set();
   const asteroidArtCache = new Map();
   const ENEMY_3D_QUERY_PARAM = 'enemy3d';
@@ -1706,6 +1709,9 @@
   }
 
   function asteroidSpawningAllowed(theme) {
+    if (activeSurvivalChallenge('asteroid')) {
+      return state.mode === 'playing' && !state.transition && asteroidDensityConfig(theme).density > 0;
+    }
     const bossSpawnTime = 40 + state.levelIndex * 2;
     return state.mode === 'playing' && !state.boss && !state.transition && state.levelClock < bossSpawnTime && asteroidDensityConfig(theme).density > 0;
   }
@@ -3864,6 +3870,7 @@
     boss: null,
     catalystSequence: null,
     catalystPresent: false,
+    challenge: null,
     currentTheme: THEMES[0],
     transition: null,
     player: {
@@ -4275,6 +4282,160 @@
     hudHint.classList.add('show');
     clearTimeout(hint._timer);
     hint._timer = setTimeout(function () { hudHint.classList.remove('show'); }, Math.max(300, (seconds || 2.4) * 1000));
+  }
+
+  function survivalChallengeForLevel(levelNumber) {
+    if (levelNumber === 3) {
+      return {
+        type: 'asteroid',
+        sub: 'DODGE THE ASTEROIDS',
+        lines: [
+          'Survive 60 seconds.',
+          'Lots of asteroids incoming.',
+          'Survive to keep your extra life.'
+        ]
+      };
+    }
+    if (levelNumber === 6) {
+      return {
+        type: 'nemesis',
+        sub: 'OUTLAST THE NEMESIS',
+        lines: [
+          'Survive 60 seconds.',
+          'Nemesis arrive once per second.',
+          '30 shots only. No bombs.',
+          'Survive to keep your extra life.'
+        ]
+      };
+    }
+    if (levelNumber === 9) {
+      return {
+        type: 'bombs',
+        sub: 'BOMBS ONLY',
+        lines: [
+          'Survive 60 seconds.',
+          'Nemesis arrive once per second.',
+          'No shots. One bomb every 10 seconds.',
+          'Survive to keep your extra life.'
+        ]
+      };
+    }
+    return null;
+  }
+
+  function activeSurvivalChallenge(type) {
+    const challenge = state.challenge;
+    return challenge && challenge.phase === 'active' && (!type || challenge.type === type) ? challenge : null;
+  }
+
+  function startSurvivalChallenge(completedLevel) {
+    const config = survivalChallengeForLevel(completedLevel);
+    if (!config) return false;
+    const asteroidTheme = Object.assign({}, mainTheme(), {
+      asteroidDensity: SURVIVAL_CHALLENGE_ASTEROID_DENSITY,
+      survivalChallenge: true
+    });
+    state.challenge = Object.assign({}, config, {
+      phase: 'intro',
+      introRemaining: SURVIVAL_CHALLENGE_INTRO,
+      elapsed: 0,
+      nextBombAt: 10,
+      bombsGranted: 0,
+      shotsRemaining: config.type === 'nemesis' ? 30 : null,
+      asteroidTheme: asteroidTheme,
+      completedLevel: completedLevel,
+      result: null
+    });
+    state.lives++;
+    state.nextLevelTimer = 0;
+    state.transition = null;
+    state.waveClock = 0;
+    state.waveIndex = 0;
+    state.levelClock = 0;
+    state.nemesisClock = 0;
+    clearArray(state.enemies);
+    clearProjectileLists();
+    clearAsteroids();
+    state.boss = null;
+    state.player.respawnTimer = 0;
+    state.player.fireHeld = false;
+    state.input.fire = false;
+    state.banner = 'SURVIVAL CHALLENGE!';
+    state.bannerSub = config.sub;
+    state.bannerTimer = SURVIVAL_CHALLENGE_INTRO;
+    hint('Extra life awarded. Read the challenge briefing.', 4.5);
+    markHudDirty();
+    return true;
+  }
+
+  function finishSurvivalChallenge(success) {
+    const challenge = state.challenge;
+    if (!challenge || challenge.phase === 'complete') return;
+    challenge.phase = 'complete';
+    challenge.result = success ? 'success' : 'death';
+    if (success) challenge.elapsed = SURVIVAL_CHALLENGE_DURATION;
+    clearArray(state.enemies);
+    clearProjectileLists();
+    clearAsteroids();
+    state.boss = null;
+    state.waveClock = 0;
+    state.nemesisClock = 0;
+    state.player.respawnTimer = 0;
+    state.player.fireHeld = false;
+    state.input.fire = false;
+    if (!success) {
+      state.player.health = state.player.maxHealth;
+      state.player.invuln = 0;
+    }
+    state.nextLevelTimer = success ? 2.4 : 1.6;
+    state.transition = { type: 'challenge', timer: 0 };
+    state.banner = success ? 'CHALLENGE COMPLETE' : 'CHALLENGE OVER';
+    state.bannerSub = success ? 'Extra life secured. Next stage loading...' : 'Extra life expended. Next stage loading...';
+    state.bannerTimer = state.nextLevelTimer;
+    if (success) {
+      sfx('clear');
+      hint('Challenge survived. The extra life is yours.', 2.6);
+    } else {
+      sfx('damage');
+      hint('Challenge failed. The extra life was expended.', 2.6);
+    }
+    markHudDirty();
+  }
+
+  function updateSurvivalChallenge(dt) {
+    const challenge = state.challenge;
+    if (!challenge) return;
+    if (challenge.phase === 'intro') {
+      challenge.introRemaining = Math.max(0, challenge.introRemaining - dt);
+      state.bannerTimer = challenge.introRemaining;
+      if (challenge.introRemaining <= 0) {
+        challenge.phase = 'active';
+        challenge.elapsed = 0;
+        challenge.nextBombAt = 10;
+        state.banner = '';
+        state.bannerSub = '';
+        state.bannerTimer = 0;
+        if (challenge.type === 'asteroid') seedAsteroidsForTheme(challenge.asteroidTheme);
+        sfx('spawn');
+        hint('Survive!', 1.2);
+        markHudDirty();
+      }
+      return;
+    }
+    if (challenge.phase !== 'active') return;
+    const previous = challenge.elapsed;
+    challenge.elapsed = Math.min(SURVIVAL_CHALLENGE_DURATION, challenge.elapsed + dt);
+    if (challenge.type === 'bombs') {
+      while (challenge.nextBombAt <= challenge.elapsed && challenge.nextBombAt <= SURVIVAL_CHALLENGE_DURATION) {
+        state.player.bombs++;
+        challenge.bombsGranted++;
+        challenge.nextBombAt += 10;
+        markHudDirty();
+      }
+    }
+    if (previous < SURVIVAL_CHALLENGE_DURATION && challenge.elapsed >= SURVIVAL_CHALLENGE_DURATION) {
+      finishSurvivalChallenge(true);
+    }
   }
 
   function currentDifficulty() {
@@ -4784,6 +4945,9 @@
 
   function clearArray(a) { a.length = 0; }
   function mainTheme() { return state.currentTheme || THEMES[0]; }
+  function asteroidThemeForCurrentMode() {
+    return activeSurvivalChallenge('asteroid') ? state.challenge.asteroidTheme : mainTheme();
+  }
   function filterDps(avgDps, rawDps) { return DPS_FILTER_LAMBDA * avgDps + (1 - DPS_FILTER_LAMBDA) * rawDps; }
 
   function clearPooledArray(list, pool) {
@@ -5024,6 +5188,7 @@
     state.levelClock = 0;
     state.nemesisClock = 0;
     state.transition = null;
+    state.challenge = null;
     clearDecorBackgrounds();
     clearArray(state.enemies);
     clearAsteroids();
@@ -5344,6 +5509,7 @@
 
   function beginLevel(index) {
     state.levelIndex = index;
+    state.challenge = null;
     state.currentTheme = THEMES[index];
     state.enemyShipKindMap = buildEnemyKindShipAssignments(index + 1, state.currentTheme);
     warmEnemyShipBatch(index + 1);
@@ -5794,6 +5960,14 @@
 
   function updateNemesisSpawns(dt) {
     if (state.mode !== 'playing' || state.transition || state.catalystPresent || state.catalystSequence) return;
+    if (activeSurvivalChallenge('nemesis') || activeSurvivalChallenge('bombs')) {
+      state.nemesisClock += dt;
+      while (state.nemesisClock >= 1) {
+        state.nemesisClock -= 1;
+        spawnNemesis();
+      }
+      return;
+    }
     if (state.settings.difficulty < 1) return; // Nemesis are enabled only on Hard/Nightmare difficulty.
     if (!state.currentTheme || !state.currentTheme.nemesis) return;
     state.nemesisClock += dt;
@@ -6011,6 +6185,13 @@
   function fireWeapon() {
     if (!audio.ctx || audio.ctx.state !== 'running') resumeAudio();
     const p = state.player;
+    const challenge = activeSurvivalChallenge();
+    if (challenge && challenge.type === 'bombs') return;
+    if (challenge && challenge.type === 'nemesis' && challenge.shotsRemaining <= 0) return;
+    if (challenge && challenge.type === 'nemesis') {
+      challenge.shotsRemaining--;
+      markHudDirty();
+    }
     const diff = currentDifficulty();
     const mode = p.weaponMode;
     const tier = p.weaponTier + (state.overdrive > 0 ? 1 : 0);
@@ -6233,6 +6414,10 @@
   function useBomb() {
     const p = state.player;
     if (state.mode !== 'playing' || p.bombs <= 0) return;
+    if (activeSurvivalChallenge('nemesis')) {
+      hint('Bombs are disabled during this challenge.', 1.2);
+      return;
+    }
     p.bombs--;
     p.invuln = 1.0;
     state.flash = Math.max(state.flash, 0.5);
@@ -6338,8 +6523,10 @@
         state.transition = null;
         state.nextLevelTimer = 0;
       } else {
-        state.nextLevelTimer = 2.4;
-        state.transition = { type: 'clear', timer: 0 };
+        if (!startSurvivalChallenge(state.levelIndex + 1)) {
+          state.nextLevelTimer = 2.4;
+          state.transition = { type: 'clear', timer: 0 };
+        }
       }
       finalizeStarfieldCap();
       state.player.health = Math.min(state.player.maxHealth, state.player.health + 1);
@@ -6429,6 +6616,11 @@
         }
       });
       state.lives--;
+      if (activeSurvivalChallenge()) {
+        shipDeathBurst(p.x, p.y);
+        finishSurvivalChallenge(false);
+        return;
+      }
       if (state.lives <= 0) return gameOver(state.lastDeathReason);
       shipDeathBurst(p.x, p.y);
       p.health = p.maxHealth;
@@ -7628,7 +7820,7 @@
   function updateTransition(dt) {
     if (!state.transition) return;
     state.transition.timer += dt;
-    if (state.transition.type === 'clear' && state.transition.timer >= state.nextLevelTimer) {
+    if ((state.transition.type === 'clear' || state.transition.type === 'challenge') && state.transition.timer >= state.nextLevelTimer) {
       state.transition = null;
       if (state.levelIndex >= THEMES.length - 1) victory();
       else beginLevel(state.levelIndex + 1);
@@ -7650,6 +7842,14 @@
       return;
     }
     if (state.paused) return;
+    if (state.challenge && state.challenge.phase === 'intro') {
+      updateSurvivalChallenge(dt);
+      updateParticles(dt);
+      updateTransition(dt);
+      if (state.flash > 0) state.flash = Math.max(0, state.flash - dt * 0.85);
+      if (state.shake > 0) state.shake = Math.max(0, state.shake - dt * 12);
+      return;
+    }
     updatePlayer(dt);
     if (state.boss) updateBoss(dt);
     if (!state.boss) {
@@ -7665,7 +7865,8 @@
     updateParticles(dt);
     updateTransition(dt);
     updateNemesisSpawns(dt);
-    if (!state.transition && !state.catalystPresent && !state.catalystSequence) {
+    if (state.challenge && state.challenge.phase === 'active') updateSurvivalChallenge(dt);
+    if (!state.challenge && !state.transition && !state.catalystPresent && !state.catalystSequence) {
       const theme = state.currentTheme;
       const spawnInterval = clamp(1.3 - state.levelIndex * 0.01, 0.5, 2.0);
       while (state.waveClock >= spawnInterval) { state.waveClock -= spawnInterval; spawnWave(theme); }
@@ -8176,8 +8377,9 @@
     asteroid.drawH = Math.max(1, srcH * scale);
     asteroid.hp = ASTEROID_HP;
     asteroid.maxHp = ASTEROID_HP;
-    asteroid.speed = rand(150, 240);
-    asteroid.vx = (Math.random() - 0.5) * 12;
+    asteroid.challenge = !!(theme && theme.survivalChallenge);
+    asteroid.speed = asteroid.challenge ? rand(180, 300) : rand(150, 240);
+    asteroid.vx = asteroid.challenge ? rand(-90, 90) : (Math.random() - 0.5) * 12;
     asteroid.driftPhase = Math.random() * TAU;
     asteroid.rotStart = rand(-ASTEROID_MAX_ROT, ASTEROID_MAX_ROT);
     asteroid.rotDelta = (asteroid.rotStart > 0 ? -1 : (asteroid.rotStart < 0 ? 1 : (Math.random() < 0.5 ? -1 : 1))) * rand(ASTEROID_MIN_ROT, ASTEROID_MAX_ROT);
@@ -8291,6 +8493,11 @@
       }
     });
     state.lives--;
+    if (activeSurvivalChallenge()) {
+      shipDeathBurst(p.x, p.y);
+      finishSurvivalChallenge(false);
+      return;
+    }
     if (state.lives <= 0) return gameOver(state.lastDeathReason);
     shipDeathBurst(p.x, p.y);
     p.health = p.maxHealth;
@@ -8325,7 +8532,7 @@
   }
 
   function updateAsteroids(dt) {
-    const theme = mainTheme();
+    const theme = asteroidThemeForCurrentMode();
     const info = asteroidDensityConfig(theme);
     if (!info.slots) {
       clearAsteroids();
@@ -8354,7 +8561,7 @@
       asteroid.hitSparkDamage = 0;
       asteroid.y += asteroid.speed * dt;
       asteroid.x += asteroid.vx * dt;
-      asteroid.vx += Math.sin((state.animClock + i) * 0.32 + asteroid.driftPhase) * dt * 1.8;
+      asteroid.vx += Math.sin((state.animClock + i) * 0.32 + asteroid.driftPhase) * dt * (asteroid.challenge ? 5.5 : 1.8);
       asteroid.rot = clamp(lerp(asteroid.rotStart, asteroid.rotTarget, clamp(asteroid.age / asteroid.rotationLife, 0, 1)), -ASTEROID_MAX_ROT, ASTEROID_MAX_ROT);
       if (asteroid.y - asteroid.drawH * 0.5 > h + 120 || asteroid.x < -asteroid.drawW || asteroid.x > w + asteroid.drawW) {
         asteroid.dead = true;
@@ -8364,7 +8571,7 @@
   }
 
   function resolveAsteroidContacts() {
-    const theme = mainTheme();
+    const theme = asteroidThemeForCurrentMode();
     const info = asteroidDensityConfig(theme);
     if (!info.slots || !state.asteroids || !state.asteroids.length) return;
     const p = state.player;
@@ -8379,6 +8586,7 @@
       if (circleHitsAlphaMask(art.mask, asteroid.x, asteroid.y, asteroid.drawW, asteroid.drawH, asteroid.rot, p.x, p.y, playerCollisionRadius())) {
         damageAsteroid(asteroid, contactDamage);
         hurtPlayer(contactDamage, { kind: 'asteroid-contact', sourceKind: 'asteroid', sourceName: 'asteroid' });
+        if (state.challenge && state.challenge.phase === 'complete') return;
         asteroidGone = asteroid.dead || asteroid.respawnTimer > 0;
       }
       if (asteroidGone) continue;
@@ -9934,6 +10142,40 @@
     }
     if (powerRatio > 0) {
       drawBar(view.w * 0.18, view.h - view.controlsH - 30, view.w * 0.64, 10, powerRatio, powerColor, powerBackColor, powerLabel, powerFlat);
+    }
+
+    if (state.challenge && state.challenge.phase === 'active') {
+      const challenge = state.challenge;
+      const challengeW = clamp(view.w * 0.38, 168, 300);
+      const challengeH = compact ? 28 : 32;
+      const challengeX = (view.w - challengeW) * 0.5;
+      const challengeY = Math.max(panelY + panelH + 8, view.h - view.controlsH - 70);
+      const remaining = Math.max(0, Math.ceil(SURVIVAL_CHALLENGE_DURATION - challenge.elapsed));
+      const detail = challenge.type === 'nemesis'
+        ? 'SURVIVE ' + remaining + 's   SHOTS ' + Math.max(0, challenge.shotsRemaining)
+        : challenge.type === 'bombs'
+          ? 'SURVIVE ' + remaining + 's   BOMBS ' + state.player.bombs
+          : 'SURVIVE ' + remaining + 's   ASTEROIDS';
+      drawPanel(challengeX, challengeY, challengeW, challengeH, theme.accent2);
+      hudCtx.save();
+      hudCtx.textAlign = 'center';
+      hudCtx.textBaseline = 'middle';
+      hudCtx.fillStyle = '#fff';
+      hudCtx.font = compact ? '900 10px "Trebuchet MS", "Segoe UI", sans-serif' : '900 12px "Trebuchet MS", "Segoe UI", sans-serif';
+      hudCtx.fillText(detail, view.w * 0.5, challengeY + challengeH * 0.5);
+      hudCtx.restore();
+    }
+
+    if (state.challenge && state.challenge.phase === 'intro') {
+      hudCtx.fillStyle = 'rgba(0, 0, 0, 0.56)';
+      hudCtx.fillRect(0, 0, view.w, view.h);
+      drawCenterCard(
+        'SURVIVAL',
+        'CHALLENGE!',
+        state.challenge.lines,
+        theme.accent2,
+        'STARTING IN ' + Math.max(1, Math.ceil(state.challenge.introRemaining))
+      );
     }
 
 

@@ -1,4 +1,9 @@
 import {
+    applyColorExchangeToRgbaBytes,
+    isEffectiveLevelColorExchange,
+    normalizeLevelColorExchange
+} from "../shared/color-exchange-data.js";
+import {
     colorMapAppliesToAtlas,
     isEffectiveLevelColorMap,
     normalizeLevelColorMap,
@@ -26,9 +31,30 @@ export function applyLevelColorMapToImageData(imageData, value) {
     return imageData;
 }
 
-export function createColorMappedCanvas(image, value, canvasFactory = defaultCanvasFactory, atlasId = "") {
-    const map = normalizeLevelColorMap(value);
-    if (!image || !isEffectiveLevelColorMap(map) || !colorMapAppliesToAtlas(map, atlasId)) {
+export function applyLevelColorTreatmentToImageData(imageData, colorMapValue, colorExchangeValue) {
+    if (!imageData?.data) {
+        return imageData;
+    }
+    const exchange = normalizeLevelColorExchange(colorExchangeValue);
+    if (isEffectiveLevelColorExchange(exchange)) {
+        applyColorExchangeToRgbaBytes(imageData.data, exchange);
+    }
+    applyLevelColorMapToImageData(imageData, colorMapValue);
+    return imageData;
+}
+
+export function createLevelColorTreatedCanvas(
+    image,
+    colorMapValue,
+    colorExchangeValue,
+    canvasFactory = defaultCanvasFactory,
+    atlasId = ""
+) {
+    const map = normalizeLevelColorMap(colorMapValue);
+    const exchange = normalizeLevelColorExchange(colorExchangeValue);
+    const mapApplies = colorMapAppliesToAtlas(map, atlasId);
+    const exchangeApplies = isEffectiveLevelColorExchange(exchange);
+    if (!image || (!mapApplies && !exchangeApplies)) {
         return image || null;
     }
     const width = Math.max(1, Number(image.naturalWidth || image.videoWidth || image.width) || 1);
@@ -47,13 +73,17 @@ export function createColorMappedCanvas(image, value, canvasFactory = defaultCan
         context.clearRect(0, 0, width, height);
         context.drawImage(image, 0, 0, width, height);
         const imageData = context.getImageData(0, 0, width, height);
-        applyLevelColorMapToImageData(imageData, map);
+        applyLevelColorTreatmentToImageData(imageData, mapApplies ? map : null, exchangeApplies ? exchange : null);
         context.putImageData(imageData, 0, 0);
         return canvas;
     } catch (error) {
         console.warn("Could not build recolored atlas cache; using the original atlas.", error);
         return image;
     }
+}
+
+export function createColorMappedCanvas(image, value, canvasFactory = defaultCanvasFactory, atlasId = "") {
+    return createLevelColorTreatedCanvas(image, value, null, canvasFactory, atlasId);
 }
 
 function defaultCanvasFactory(width, height) {

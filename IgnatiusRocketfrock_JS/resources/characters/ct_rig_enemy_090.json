@@ -1,0 +1,252 @@
+{
+    "meta": {
+        "version": 1,
+        "note": "Greybeard Axethrower rig cloned from Enemy 060. The unused open casting-hand presentation is suppressed by giving the ordinary left arm the closed-fist artwork, while a hidden throwingAxe part supplies the authored projectile anchor for the ranged attack."
+    },
+    "rigId": "ct_rig_enemy_090",
+    "atlasId": "ct_atlas_enemy_090",
+    "atlasManifest": "ct_atlas_enemy_090.json",
+    "drawOrder": [
+        "leftArm",
+        "leftArmClosed",
+        "leftLeg",
+        "rightLeg",
+        "head",
+        "torso",
+        "weapon",
+        "rightArm",
+        "throwingAxe"
+    ],
+    "global": {
+        "scale": 0.5,
+        "lean": 0,
+        "rootX": 0,
+        "rootYOffsetFromGround": 0,
+        "groundOffset": 0,
+        "debugPivots": false
+    },
+    "anchors": {
+        "neck": {
+            "x": 2,
+            "y": -230
+        },
+        "rightShoulder": {
+            "x": 22,
+            "y": -205
+        },
+        "leftShoulder": {
+            "x": 45,
+            "y": -201
+        },
+        "rightHip": {
+            "x": -22,
+            "y": -88
+        },
+        "leftHip": {
+            "x": 26,
+            "y": -88
+        },
+        "rightHand": {
+            "x": 164,
+            "y": -186
+        },
+        "leftHand": {
+            "x": 190,
+            "y": -176
+        },
+        "weaponGrip": {
+            "x": 145,
+            "y": -179
+        }
+    },
+    "pivots": {
+        "rightArm": {
+            "x": 0.178,
+            "y": 0.31
+        },
+        "leftArm": {
+            "x": 0.072,
+            "y": 0.497
+        },
+        "rightLeg": {
+            "x": 0.655,
+            "y": 0.27
+        },
+        "leftLeg": {
+            "x": 0.47,
+            "y": 0.295
+        },
+        "torso": {
+            "x": 0.4428138832291154,
+            "y": 0.8399277709646045
+        },
+        "head": {
+            "x": 0.111,
+            "y": 0.908
+        },
+        "weapon": {
+            "x": 0.1827227152699188,
+            "y": 0.604522905936568
+        },
+        "leftArmClosed": {
+            "x": 0.185,
+            "y": 0.295
+        }
+    },
+    "parts": {
+        "rightLeg": {
+            "frame": "rightLeg",
+            "role": "rightLeg",
+            "tags": [
+                "leg",
+                "rear"
+            ],
+            "offset": {
+                "x": -22,
+                "y": -88
+            },
+            "scale": 1,
+            "targetHeight": 170,
+            "alpha": 1
+        },
+        "rightArm": {
+            "frame": "rightArmClosed",
+            "role": "rightArm",
+            "tags": [
+                "arm",
+                "rear",
+                "holder"
+            ],
+            "offset": {
+                "x": 22,
+                "y": -205
+            },
+            "scale": 1,
+            "targetHeight": 110,
+            "alpha": 1,
+            "rotation": {}
+        },
+        "torso": {
+            "frame": "torso",
+            "role": "torso",
+            "tags": [
+                "body"
+            ],
+            "offset": {
+                "x": 0,
+                "y": -110
+            },
+            "scale": 1,
+            "targetHeight": 186,
+            "alpha": 1
+        },
+        "head": {
+            "frame": "head",
+            "role": "head",
+            "tags": [
+                "head"
+            ],
+            "offset": {
+                "x": 2,
+                "y": -230
+            },
+            "scale": 1,
+            "targetHeight": 138,
+            "alpha": 1
+        },
+        "weapon": {
+            "frame": "axe",
+            "role": "weapon",
+            "tags": [
+                "equipment",
+                "held",
+                "axe"
+            ],
+            "offset": {
+                "x": 105,
+                "y": -178
+            },
+            "scale": 1,
+            "targetHeight": 120,
+            "alpha": 1,
+            "rotation": {}
+        },
+        "leftLeg": {
+            "frame": "leftLeg",
+            "role": "leftLeg",
+            "tags": [
+                "leg",
+                "front"
+            ],
+            "offset": {
+                "x": 26,
+                "y": -88
+            },
+            "scale": 1,
+            "targetHeight": 166,
+            "alpha": 1
+        },
+        "leftArm": {
+            "frame": "leftArmClosed",
+            "role": "leftArm",
+            "tags": [
+                "arm",
+                "front",
+                "holder",
+                "closedFist"
+            ],
+            "offset": {
+                "x": 45,
+                "y": -201
+            },
+            "scale": 1,
+            "targetHeight": 94,
+            "alpha": 1,
+            "rotation": {}
+        },
+        "leftArmClosed": {
+            "frame": "leftArmClosed",
+            "role": "leftArmClosed",
+            "tags": [],
+            "offset": {
+                "x": 0,
+                "y": 52
+            },
+            "scale": 0.46,
+            "targetHeight": 229,
+            "alpha": 1
+        },
+        "throwingAxe": {
+            "frame": "axe",
+            "role": "throwingAxe",
+            "tags": [
+                "projectile",
+                "axe",
+                "hiddenAnchor"
+            ],
+            "offset": {
+                "x": 122,
+                "y": -182
+            },
+            "scale": 1,
+            "targetHeight": 120,
+            "alpha": 0,
+            "projectile": {
+                "enabled": true,
+                "projectileKind": "throwingAxe",
+                "launchType": "straight",
+                "animationSlot": "attack",
+                "releaseTime": 0.372
+            }
+        }
+    },
+    "attachments": {
+        "weapon": {
+            "holders": [
+                "rightArm",
+                "leftArm"
+            ],
+            "note": "Musket is drawn between the rear and front arms. Projectile sprites are atlas resources and are not attached to the rig."
+        }
+    }
+}

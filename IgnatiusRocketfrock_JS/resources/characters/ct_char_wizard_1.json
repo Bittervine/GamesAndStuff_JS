@@ -1,0 +1,23 @@
+{
+    "meta": {
+        "version": 2,
+        "note": "Character definition mapping Ignatius to his rig, primary atlas, supplemental powered-rocket atlas, and harmonized walk/hurt/death animation slots."
+    },
+    "characterId": "ct_char_wizard_1",
+    "displayName": "Ignatius Rocketfrock",
+    "rig": "ct_rig_wizard_1.json",
+    "defaultFacing": "right",
+    "mirrorable": true,
+    "animationMap": {
+        "walk": "ct_anim_wizard_walk_1.json",
+        "idle": null,
+        "jump": null,
+        "hurt": null,
+        "death": null,
+        "hover": null,
+        "rocketLaunch": null
+    },
+    "supplementalAtlases": [
+        "ct_atlas_wizard_2.json"
+    ]
+}

@@ -4,7 +4,7 @@ This file holds implementation-facing guidance that would otherwise crowd the Le
 
 ## Level Editor loading and navigation
 
-At startup the editor scans `assets/level_001.json`, `assets/level_002.json`, and subsequent numbered files through `level_020`, stopping at the first missing level. Environment atlases are discovered from numbered `assets/at_atlas_###` pairs, while character and independent atlases are loaded through their own manifests.
+At startup the editor scans `resources/levels/level_001.json`, `resources/levels/level_002.json`, and subsequent numbered files through `level_020`, stopping at the first missing level. Environment atlases are discovered from numbered `resources/atlases/at_atlas_###` pairs, while character and independent atlases are loaded through their own manifests.
 
 The right mouse button pans the canvas regardless of the active tool. **Fit** frames authored placements and entities. Shift-drag replaces the current selection with fully enclosed objects. Ctrl-click and Ctrl+Shift-drag toggle objects. The primary selected object is editable; secondary selections move and delete with it.
 
@@ -30,9 +30,13 @@ The editor builds one navigation profile for each distinct hunter body size and 
 
 ## Automatic Level Generator
 
-Horizontal is the run-and-gun route. It advances steadily toward the exit, favors solid overlapping ground pieces with level walking surfaces, and uses only occasional height changes. A distributed two-step upper lane now covers at least 36 percent of the playable span. Each destination has its own one-way access step and is classified as a combat perch, ordinary reward perch, or dedicated power-up detour. Thin one-way platforms remain separate and never pretend to form a continuous floor.
+The Generator panel exposes four independent choices: **Theme**, **Colour modifier**, **Recipe**, and **Enemy pool**. A theme is appearance data only. It chooses tagged terrain, moving-platform, foreground, and background asset pools, plus presentation policy such as whether the cave perimeter should be populated. A colour modifier is a separate atlas allowlisted colour map, so Frost can reskin the Cave theme without every cave asset being tagged twice. The current authored themes are Cave, Forest, and Castle.
 
-Standard remains the folded route with broad upper traversal and a nearly continuous lower recovery path. It now creates more detached first-tier side platforms and extends a subset into second-tier branches, using otherwise empty ceiling volume for monsters and rewards. Domed caverns keep the lower perimeter close to the route while expanding that upper volume.
+A **Generator recipe** is the curated level-builder choice. It locks route implementation, cavern implementation, traversal settings, validation profile, and length into one tested combination. The editor therefore does not expose raw Route, Cavern, or Length permutation controls. The initial Domed Compact, Domed Standard, and Domed Long recipes all use the horizontal run-and-gun route with a Domed cavern, while their route budgets and lengths remain recipe-owned data. New algorithms should be introduced as new recipes and seed-swept against every compatible theme before appearing in the editor.
+
+Asset membership is authored through symbolic generation tags. `resources/editor/asset-generation-tags.json` is the shared valid-tag catalog; atlas objects store readable `generationTags` arrays, and the Asset Editor presents grouped checkboxes from that catalog. Theme pool queries use `all`, `any`, and `none` clauses. The ordinary manual **Populate perimeter** command uses the currently selected Generator theme and therefore admits only objects matching both that theme's biome and its Foreground-layer query. Generator roles and measured collision constraints remain separate from semantic tags.
+
+Horizontal is the current run-and-gun route inside these recipes. It advances steadily toward the exit, favors solid overlapping ground pieces with level walking surfaces, and uses only occasional height changes. A distributed two-step upper lane covers at least 36 percent of the playable span. Theme-specific blockable ground silhouettes are allowed to differ in native width and transparent edge padding, so the final overlap segment is corrected conservatively while preserving at least 72 world units at every seam.
 
 Rewarded levels target roughly one real power-up per 3,000 route pixels at default density. The generated pool is 60 percent authored wrench, 30 percent Overdrive, and 10 percent Shield. Dedicated second-tier power-up perches receive Overdrive before ordinary reward slots are filled, so the speed reward is visibly off the main path. Reward-only rerolls retain fixed safe seats and anchored encounters while varying the pickup mix.
 
@@ -62,9 +66,18 @@ Each mailbox owns its letter, thought, trigger distance, and timing. Long text s
 
 Entry doors replace the legacy wizard-start marker. Exit doors are mirrored by default. An empty exit destination resolves to the next numbered level; if loading fails, the current level is restored.
 
+
+## Character combat sounds (revisions 204-205)
+
+Puppet Forge exposes Attack WAV, Hurt WAV, and Death WAV selectors in a separate collapsible **Character sounds** panel between **Metadata** and **Animation**. The selected values are written to the character definition as `sounds.attack`, `sounds.hurt`, and `sounds.death`. Choose **None** to remove a slot. URL projects list WAVs registered in the neighbouring `sound-effects.json`; local project loading also discovers every selected `.wav` file and writes a path relative to the character JSON.
+
+The runtime uses the character ID attached to enemy attack, projectile, damage, and defeat events to look up these fields. A missing slot is intentionally silent. The global sound-effects catalog may still define the referenced file so it can reuse tuned volume and voice-count settings, while an unlisted WAV receives a normal dynamic pool.
+
+The wizard character now names its ground animation `walk`, not `run`, and its map includes `hurt` and `death` slots. New character projects should use the same shared animation vocabulary.
+
 ## Puppet Forge project discovery
 
-The Known project dropdown is catalog-driven. At startup Puppet Forge loads `assets/ct_enemies_001.json` and creates one selector entry for every enemy definition that provides `characterId` or `characterUrl`. A normal `characterId` such as `ct_char_enemy_040` resolves to `assets/ct_char_enemy_040.json`; `characterUrl` may override that convention. Adding a new enemy therefore requires only the catalog entry and its referenced character, rig, atlas, image, and animation files. The wizard remains the only built-in non-catalog project.
+The Known project dropdown is catalog-driven. At startup Puppet Forge loads `resources/characters/ct_enemies_001.json` and creates one selector entry for every enemy definition that provides `characterId` or `characterUrl`. A normal `characterId` such as `ct_char_enemy_040` resolves to `resources/characters/ct_char_enemy_040.json`; `characterUrl` may override that convention. Adding a new enemy therefore requires only the catalog entry and its referenced character, rig, atlas, image, and animation files. The wizard remains the only built-in non-catalog project.
 
 ## Character enemies
 
@@ -346,7 +359,7 @@ Each child may have only one parent constraint. Puppet Forge prevents self-links
 
 ## Revision 454 OGG music workflow
 
-`assets/music.json` is the active music catalog. Add numbered files such as `music_006.ogg` beside it in `assets/`, then add a matching metadata record with an ID, file name, and title. Levels store only `music.version: 3` and `music.trackId`; the Level Editor populates its selector from this catalog. Runtime playback belongs to `src/browser/music-director.js`, which wraps a looping HTML audio element and obeys pause/focus muting and the persistent music-volume slider. Do not restore the embedded jukebox engines, score-source catalog, or synthesized tune data.
+`resources/music/music.json` is the active music catalog. Add numbered files such as `music_006.ogg` beside it in `resources/music/`, then add a matching metadata record with an ID, file name, and title. Levels store only `music.version: 3` and `music.trackId`; the Level Editor populates its selector from this catalog. Runtime playback belongs to `src/browser/music-director.js`, which wraps a looping HTML audio element and obeys pause/focus muting and the persistent music-volume slider. Do not restore the embedded jukebox engines, score-source catalog, or synthesized tune data.
 
 ## Revision 373 retired music integration
 
@@ -373,6 +386,8 @@ The Asset palette has one **Layer for new assets** dropdown with **Foreground**,
 Choose **Background** for distant cosmetic scenery. Background records never receive atlas collision and cannot be moving platforms. They render in a dedicated pass before all ordinary world artwork regardless of stack order. `level.layerVisuals.background.parallax` controls the entire layer. Its default is the exact reciprocal of the Foreground default: `1 / 1.08`, approximately `0.925926`. Set it to `1.0` when a level should have no Background drift. The allowed editor range is `0.25` through `1.0`.
 
 Choose **Foreground** for inert artwork in front of actors. `level.layerVisuals.foreground.parallax` defaults to `1.08`; `1.0` disables its relative movement. Foreground treatment, the cave opening, feather contours, and generated perimeter art share that offset. Runtime reads the grouped layer value directly every frame and passes the same normalized factor to Foreground culling, drawing, and the Canvas/WebGL cave mask. Do not copy it into `caveWindow`. Choose **Terrain** for ordinary placed artwork whose atlas collision may remain active.
+
+Every atlas placement also supports an optional `onTop: true` presentation flag. The Level Editor exposes it as **On top** beside the compact **Collision** checkbox. Absent or false is the default. Background placements still remain behind Terrain, but `onTop` puts them after ordinary Background artwork. Terrain and Decoration placements with `onTop` render after actors and projectiles. Foreground placements with `onTop` render after ordinary Foreground artwork, while the cave-window black mask remains the final world-space pass. `onTop` is presentation-only: it must not alter atlas collision, moving-platform ownership, obstruction polygons, navigation support, or editor collision guides. Levels using `onTop` bypass browser static-layer baking until the extra partitions gain their own bake surfaces; live Canvas2D and WebGL rendering remain authoritative.
 
 Both layers use world-bounds-centred offsets from `src/presentation/world-parallax.js`. Editor pointer operations add the active offset before storing authored coordinates, while drawing subtracts it. Never save camera-relative coordinates into the level. When adding new editor operations for these layers, pass records through `displayedLayerPlacement` or the equivalent shared transform so selection and rendering remain aligned.
 
@@ -522,3 +537,62 @@ The canonical rocket-fuel effect is `POWER_UP_EFFECT_IDS.FLIGHT` with serialized
 While Flight is active, `applyFlightGovernor()` replaces ordinary gravity, jumping, and attached-boost drain. No vertical input targets zero vertical velocity; Up/jump/boost targets `-flightVerticalSpeed`; Down/drop targets `+flightVerticalSpeed`. `flightVerticalAcceleration` approaches those targets so takeoff, stopping, and direction changes have running-like inertia. Horizontal control uses ground acceleration and friction in the air. Holding Down continuously refreshes one-way-platform drop-through grace so a direction reversal cannot outlast the drop window.
 
 Flight itself never calls `markRocketUse()` and never spends hover fuel. `updateFuelRecharge()` treats Flight and Overdrive as the same passive-recovery eligibility, using `attachedBoostDrainRate * OVERDRIVE_PASSIVE_FUEL_RECOVERY_DRAIN_FACTOR` and the full fuel maximum as the cap. Do not add this rate to normal grounded recharge; select the larger rate. Flight keeps the default rocket launch profile, so shooting still spends the full launch cost. Keep the JS and C++ helper names, tuning fields, update order, smoke presentation state, and expiry reset aligned.
+
+## Authoring and tuning water regions (revision 206)
+
+In Atlas Forge, choose **water** from the collision-guide kind selector and draw a closed loop exactly as for a blockable polygon. The editor fills a valid region in translucent blue. Keep the loop closed and non-self-intersecting. Water is invisible during normal play; enable Asset guides to inspect it in the browser or SDL runtime.
+
+Water is a volume, not a surface collider. A wizard whose body overlaps the polygon can swim left, right, up, and down at reduced speed. With no input, gravity and buoyancy leave a slow downward drift. There is currently no breath meter. The water surface itself never deals fall damage. Braking is accumulated while travelling through the volume, so a deeper pool arrests a faster fall and a shallow pool may leave enough downward speed for an underlying blockable floor to cause normal landing damage.
+
+The shared tuning fields are `waterHorizontalSpeedScale`, `waterHorizontalAccelerationScale`, `waterGravityBuoyancyRatio`, `waterSwimAcceleration`, `waterLinearDrag`, `waterQuadraticDrag`, `waterHorizontalLinearDrag`, and `waterHorizontalQuadraticDrag`. Keep JavaScript `DEFAULT_TUNING` and C++ `FGameTuning` values aligned. Test changes with both the deep-pool and shallow-pool parity benches rather than judging only low-speed swimming.
+
+Backpack boost, Flight movement, and player rocket firing are intentionally blocked while submerged. The blocked actions do not consume fuel. Existing enemies regard water as forbidden navigation/collision space; add an explicit aquatic movement capability before introducing swimming enemies such as piranhas.
+
+## Campaign level numbering and test fixtures (revisions 207 and 223)
+
+The ordinary `level_###` namespace contains mutable authored content. `level_001` through `level_020` belong to the campaign, and files that still resemble the original one-floor cave scaffold may be freely expanded as their real terrain, enemies, and story content are authored. Tools and tests must not assume that any numbered campaign level remains a scaffold or retains a particular placement/entity count.
+
+The 800-series contains playable experiments and preserved authoring work. These files are also mutable content, not regression fixtures. Their current exits may remain sequential within the experimental range, but unit tests must not depend on their exact contents.
+
+Use only `level_t01` through `level_t99` for file-backed tests. The `level_tNN` namespace is intentionally unreachable from normal campaign progression, may be copied from an authored level when a stable snapshot is needed, and may then evolve solely to support deterministic regression coverage.
+
+
+## Enemy and boss drop tables (revision 210)
+
+Ordinary enemy rewards are authored in the character project's `drops` array. A boss entity owns a complete replacement `drops` array in the level JSON. Do not merge the boss table with the underlying character table: a Fireball Goblin promoted to boss uses only the boss entity table and therefore does not also drop the ordinary goblin coin.
+
+A `drops` array is one ordered weighted table and may emit at most one pickup per death. Each entry uses `{ "itemId": "coin", "chance": 0.5 }`, where `chance` is an absolute probability slice. The first matching slice selected by the deterministic roll wins. If all chances total less than 1.0, the unused remainder means nothing drops. The current boss table contains four permanent upgrades at `chance: 0.25`, so exactly one is guaranteed and all four are equally likely.
+
+Reusable item definitions remain in `resources/items/it_loot_001.json`. Permanent upgrade collection emits `SCREEN_MESSAGE_REQUESTED`, which presentation adapters show as a short centered notice. The current messages are `Max health upgraded!`, `Max fuel upgraded!`, `Regeneration upgraded!`, and `Movement speed upgraded!`. Regeneration continues to improve both health and fuel regeneration.
+
+## Proximity-triggered world text (revision 220)
+
+The interactive entity catalog exposes `proximityText` as **TEXT**. It is a one-shot, world-space notification whose authored `x`/`y` coordinate is the visual center of the text. The portable simulation owns the trigger and fade state; renderers only consume the resulting opacity.
+
+The schema fields are `text`, `fontSize`, `fontFamily`, `color`, `outlineWidth`, `outlineColor`, `triggerOffsetX`, `triggerOffsetY`, `triggerDistance`, `fadeInDuration`, `displayDuration`, and `fadeOutDuration`. Defaults are exactly `Lorem ipsum`, 100 world units, bundled `inter`, Ignatius purple `#723891` (RGB 114, 56, 145), a 3-pixel very dark purple `#0f0113` outline, a trigger at the text center, a 300-unit trigger radius, one second fade-in, five seconds fully visible, and one second fade-out. The Level Editor exposes only `Inter` and handwriting-style `Caveat`; old generic family values normalize to the closest current choice. Text is always bold.
+
+The expected original font files are `resources/fonts/Inter[opsz,wght].ttf` and `resources/fonts/Caveat[wght].ttf`. Both browser and SDL presentation prefer those bundled files. The complete SIL Open Font License 1.1 texts and copyright notices live under `resources/fonts/licenses/`; `resources/fonts/README.md` records the official sources and exact filenames. The reorganized baseline includes both original font binaries. Development-only system fallbacks remain available for deliberately incomplete local trees, while an unreadable file at an expected path is treated as a resource error.
+
+The trigger point is independent of the artwork position. In the Level Editor, select a TEXT entity and drag its circular trigger handle or edit the X/Y trigger offsets numerically. The dashed trigger guide is editor-only. Runtime distance is measured from the wizard center to the authored trigger point. Once triggered, the notification completes its full timing sequence even if the wizard walks away, marks the entity `complete`, and does not retrigger during that level instance. Native text textures are prewarmed when the level is loaded so first display does not perform synchronous font rasterization on the frame path.
+
+
+## Deferred level colour treatment (revision 221)
+
+The Level Editor **Colormap** panel has two independent treatments: selective hue rotation and GIMP Color Exchange. Both source/target pairs use native colour inputs, so the host colour picker and sampler are available without permanent help text in the panel. GIMP exchange thresholds default to `1.0` for red, green, and blue in both Level Editor and Character Editor controls.
+
+Changing any Colormap value updates only the preview canvas for the currently selected asset. The level, world canvas, and atlas palette continue showing the last applied settings until **Apply** is pressed. **Reset** loads the default values into the pending controls and preview; press **Apply** to commit that reset.
+
+The level schema stores the treatments at top level as `colorMap` and `colorExchange`. `colorExchange` uses `enabled`, `fromColor`, `toColor`, `redThreshold`, `greenThreshold`, and `blueThreshold`. Application order is GIMP exchange first, then selective hue rotation. This order is shared by the browser runtime, native SDL atlas loader, foreground brightness/saturation derivatives, and editor preview.
+
+Apply invalidates every loaded atlas treatment cache, eagerly rebuilds atlases referenced by the level plus the active atlas, and leaves the remaining palette atlases lazy. Opening or drawing one of those atlases rebuilds it once with the committed cache key. Do not restore control-change handlers that call the atlas-wide refresh path.
+
+## Projectile-art trail palettes (revision 222)
+
+Ordinary enemy fireball trails derive four representative colours from the projectile frame during character-project loading. The palette is cached on the final projectile asset, after any projectile-part GIMP Color Exchange, and particle rendering only interpolates those cached colours. Keep palette extraction out of simulation and out of gameplay draw/update loops.
+
+When adding a projectile variant, author the projectile frame or recolour its projectile rig part; no separate trail colour field is required. Skeleton Caster undeath orbs intentionally bypass this mechanism and retain their procedural green bubble trail.
+
+
+## Revision 225 resource organization
+
+Runtime files are organized under `resources/atlases`, `characters`, `editor`, `fonts`, `generator`, `items`, `levels`, `music`, `sfx`, and `ui`. Use category-relative paths in authored JSON and editor code. Run `npm run audit:resources` before committing resource changes; it is also invoked automatically by every browser test gate. Editable XCF source material belongs under `reference/authoring`, not in runtime resources.

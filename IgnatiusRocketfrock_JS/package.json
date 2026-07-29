@@ -16,6 +16,7 @@
         "test:profile": "node tests/testbench.mjs --progress --profile",
         "audit:renderer": "node devel/audit_renderer_boundary.mjs",
         "inspect:editor-stress": "node devel/inspect_editor_stress_fixture.mjs",
-        "capture:recording": "node devel/capture_recording_frame.mjs"
+        "capture:recording": "node devel/capture_recording_frame.mjs",
+        "audit:resources": "node devel/audit_resource_layout.mjs"
     }
 }

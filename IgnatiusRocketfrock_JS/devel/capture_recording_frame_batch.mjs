@@ -65,7 +65,7 @@ async function main() {
       onProgress: ({ progress, label }) => { if (progress >= 0.92) console.error(label || "Renderer assets ready"); }
   });
   renderer.syncCaveWindow?.(caveWindowData.normalizeCaveWindow(state.world?.caveWindow));
-  renderer.syncEnvironmentColorMap?.(state.world?.colorMap);
+  renderer.syncEnvironmentColorMap?.(state.world?.colorMap, state.world?.colorExchange);
   if (options.prewarm) renderer.prewarmLevelPresentationCaches?.(state.world);
   let lastInputFrame = simulation.createInputFrame();
   let reqPos = 0;

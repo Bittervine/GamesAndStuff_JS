@@ -259,7 +259,7 @@ CATALOG_FLIGHT_CYCLES_PER_SECOND = 0
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 
-ASSETS_DIR = PROJECT_ROOT / "assets"
+ASSETS_DIR = PROJECT_ROOT / "resources" / "characters"
 CATALOG_PATH = ASSETS_DIR / "ct_enemies_001.json"
 
 
@@ -611,7 +611,7 @@ def parse_crop(
 def validate_global_settings() -> None:
     check(
         ASSETS_DIR.is_dir(),
-        f"Expected assets directory at {ASSETS_DIR}",
+        f"Expected character resource directory at {ASSETS_DIR}",
     )
 
     check(
