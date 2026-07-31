@@ -1,8 +1,8 @@
 {
     "meta": {
-        "version": 68,
-        "note": "Revision 182 adds Human Crossbow enemies 034-035 and rapier-wielding Human Pirates 036-037.",
-        "revision": 182
+        "version": 73,
+        "note": "Revision 182 adds Human Crossbow enemies 034-035 and rapier-wielding Human Pirates 036-037. Revision 232 gives both Human Crossbow variants a data-driven three-handoff burst and 2.5-second recovery cooldown. Revision 234 adds weapon-free Human Boxer enemy_038 using body_05/head_16. Revision 235 corrects Axethrowers 090-093 with open left hands and axe_copy spinning-projectile handoffs. Revision 236 preserves the final user-authored Axethrower 090-093 rig and animation refinements.",
+        "revision": 236
     },
     "catalogId": "ct_enemies_001",
     "enemies": {
@@ -803,8 +803,8 @@
                 "attackDamage": 24,
                 "attackRange": 520,
                 "attackVerticalRange": 260,
-                "attackDuration": 0.72,
-                "attackHitTime": 0.36,
+                "attackDuration": 1.68,
+                "attackHitTime": 0.48,
                 "attackCooldown": 0.25,
                 "attackKnockbackX": 340,
                 "attackKnockbackY": -255,
@@ -829,7 +829,7 @@
                 "preferredAttackMinRange": 150,
                 "projectileKind": "crossbowBolt",
                 "projectileLaunchType": "straight",
-                "projectileReleaseTime": 0.36,
+                "projectileReleaseTime": 0.48,
                 "projectilePartName": "crossbowBolt",
                 "projectileFrameId": "arrow",
                 "projectileSpeed": 540,
@@ -837,14 +837,14 @@
                 "projectileLifetime": 2.4,
                 "projectileRadius": 6,
                 "projectileDamage": 20,
-                "projectileCooldown": 1.45,
+                "projectileCooldown": 2.5,
                 "projectileHomingStrength": 0,
                 "projectileVolleyCount": 1,
                 "projectileVolleyHalfAngle": 0,
                 "projectileKnockbackX": 240,
                 "projectileKnockbackY": -120
             },
-            "description": "Human Crossbow using the shared modular-human atlas. He raises a two-handed crossbow, fires one fast point-first bolt, recoils, and recovers."
+            "description": "Human Crossbow using the shared modular-human atlas. He raises a two-handed crossbow, fires three separately aimed fast bolts at 0.4-second intervals with compact recoil/recovery beats, then lowers the weapon and reloads."
         },
         "enemy_035": {
             "label": "Human Crossbow II",
@@ -874,8 +874,8 @@
                 "attackDamage": 24,
                 "attackRange": 520,
                 "attackVerticalRange": 260,
-                "attackDuration": 0.72,
-                "attackHitTime": 0.36,
+                "attackDuration": 1.68,
+                "attackHitTime": 0.48,
                 "attackCooldown": 0.25,
                 "attackKnockbackX": 340,
                 "attackKnockbackY": -255,
@@ -900,7 +900,7 @@
                 "preferredAttackMinRange": 150,
                 "projectileKind": "crossbowBolt",
                 "projectileLaunchType": "straight",
-                "projectileReleaseTime": 0.36,
+                "projectileReleaseTime": 0.48,
                 "projectilePartName": "crossbowBolt",
                 "projectileFrameId": "arrow",
                 "projectileSpeed": 540,
@@ -908,14 +908,14 @@
                 "projectileLifetime": 2.4,
                 "projectileRadius": 6,
                 "projectileDamage": 20,
-                "projectileCooldown": 1.45,
+                "projectileCooldown": 2.5,
                 "projectileHomingStrength": 0,
                 "projectileVolleyCount": 1,
                 "projectileVolleyHalfAngle": 0,
                 "projectileKnockbackX": 240,
                 "projectileKnockbackY": -120
             },
-            "description": "Human Crossbow II using the shared modular-human atlas. He raises a two-handed crossbow, fires one fast point-first bolt, recoils, and recovers."
+            "description": "Human Crossbow II using the shared modular-human atlas. He raises a two-handed crossbow, fires three separately aimed fast bolts at 0.4-second intervals with compact recoil/recovery beats, then lowers the weapon and reloads."
         },
         "enemy_036": {
             "label": "Human Pirate",
@@ -1020,6 +1020,58 @@
                 "homeRetryInterval": 4
             },
             "description": "Human Pirate II using the shared modular-human atlas and a rapier. He reuses the articulated Raider lunge and slash timing."
+        },
+        "enemy_038": {
+            "label": "Human Boxer",
+            "icon": "\ud83e\udd4a",
+            "characterId": "ct_char_enemy_038",
+            "defaultSize": {
+                "w": 60,
+                "h": 170
+            },
+            "defaults": {
+                "facing": -1,
+                "patrolDistance": 250,
+                "walkSpeed": 58,
+                "idleDuration": 1,
+                "turnPause": 0.46,
+                "groundSnapDistance": 96,
+                "maxStepHeight": 26,
+                "maxDropDistance": 34,
+                "renderScale": 1.23,
+                "health": 90,
+                "animationSlot": "idle",
+                "targetAnchor": {
+                    "x": 0.54,
+                    "y": 0.38
+                },
+                "showTargetMarker": false,
+                "attackDamage": 24,
+                "attackRange": 72,
+                "attackVerticalRange": 108,
+                "attackDuration": 0.46,
+                "attackHitTime": 0.35,
+                "attackCooldown": 0.14,
+                "attackKnockbackX": 340,
+                "attackKnockbackY": -255,
+                "awarenessRange": 820,
+                "awarenessHoldDuration": 1.2,
+                "attackLungeDistance": 22,
+                "attackLungeSpeed": 190,
+                "strategy": "hunter",
+                "runSpeed": 200,
+                "jumpHeight": 200,
+                "unreachableGlareDuration": 5,
+                "awarenessViewHalfAngle": 60,
+                "renderOffsetX": 0,
+                "renderOffsetY": 51,
+                "locomotion": "ground",
+                "jumpGravity": 1250,
+                "maxFallDistance": 600,
+                "routeRepathInterval": 0.34,
+                "homeRetryInterval": 4
+            },
+            "description": "A weapon-free modular human using body_05/head_16. He closes to melee range and attacks with the articulated bare-knuckle swing."
         },
         "enemy_040": {
             "label": "Raptor",
@@ -1318,8 +1370,8 @@
             "icon": "\ud83e\ude93",
             "characterId": "ct_char_enemy_090",
             "defaultSize": {
-                "w": 92,
-                "h": 137
+                "w": 63,
+                "h": 124
             },
             "defaults": {
                 "facing": -1,
@@ -1343,7 +1395,7 @@
                 "attackRange": 320,
                 "attackVerticalRange": 180,
                 "attackDuration": 0.62,
-                "attackHitTime": 0.372,
+                "attackHitTime": 0.339,
                 "attackCooldown": 0.16,
                 "projectileCooldown": 1.1,
                 "projectileKind": "throwingAxe",
@@ -1361,7 +1413,7 @@
                 "awarenessHoldDuration": 1.5,
                 "attackLungeDistance": 0,
                 "attackLungeSpeed": 0,
-                "projectileReleaseTime": 0.372,
+                "projectileReleaseTime": 0.339,
                 "projectileLaunchType": "straight",
                 "strategy": "hunter",
                 "runSpeed": 250,
@@ -1372,10 +1424,13 @@
                 "routeRepathInterval": 0.3,
                 "homeRetryInterval": 4,
                 "awarenessViewHalfAngle": 60,
-                "projectilePartName": "throwingAxe",
-                "projectileFrameId": "axe"
+                "projectilePartName": "axe_copy",
+                "projectileFrameId": "axe_copy",
+                "locomotion": "ground",
+                "renderOffsetX": 0,
+                "renderOffsetY": -4
             },
-            "description": "Greybeard Axethrower reusing the modular caster-family dwarf atlas template but attacking by hurling a single double-headed axe from his right hand."
+            "description": "Greybeard Axethrower using the corrected open left hand. He hurls one independently authored, rapidly spinning double-headed axe from the axe_copy handoff at 0.339 seconds."
         },
         "enemy_091": {
             "label": "Blackbeard Axethrower",
@@ -1407,7 +1462,7 @@
                 "attackRange": 320,
                 "attackVerticalRange": 180,
                 "attackDuration": 0.62,
-                "attackHitTime": 0.372,
+                "attackHitTime": 0.339,
                 "attackCooldown": 0.16,
                 "projectileCooldown": 1.1,
                 "projectileKind": "throwingAxe",
@@ -1425,7 +1480,7 @@
                 "awarenessHoldDuration": 1.5,
                 "attackLungeDistance": 0,
                 "attackLungeSpeed": 0,
-                "projectileReleaseTime": 0.372,
+                "projectileReleaseTime": 0.339,
                 "projectileLaunchType": "straight",
                 "strategy": "hunter",
                 "runSpeed": 250,
@@ -1436,10 +1491,10 @@
                 "routeRepathInterval": 0.3,
                 "homeRetryInterval": 4,
                 "awarenessViewHalfAngle": 60,
-                "projectilePartName": "throwingAxe",
-                "projectileFrameId": "axe"
+                "projectilePartName": "axe_copy",
+                "projectileFrameId": "axe_copy"
             },
-            "description": "Blackbeard Axethrower reusing the modular caster-family dwarf atlas template but attacking by hurling a single double-headed axe from his right hand."
+            "description": "Blackbeard Axethrower using the corrected open left hand. He hurls one independently authored, rapidly spinning double-headed axe from the axe_copy handoff at 0.339 seconds."
         },
         "enemy_092": {
             "label": "Redbeard Axethrower",
@@ -1471,7 +1526,7 @@
                 "attackRange": 320,
                 "attackVerticalRange": 180,
                 "attackDuration": 0.62,
-                "attackHitTime": 0.372,
+                "attackHitTime": 0.339,
                 "attackCooldown": 0.16,
                 "projectileCooldown": 1.1,
                 "projectileKind": "throwingAxe",
@@ -1489,7 +1544,7 @@
                 "awarenessHoldDuration": 1.5,
                 "attackLungeDistance": 0,
                 "attackLungeSpeed": 0,
-                "projectileReleaseTime": 0.372,
+                "projectileReleaseTime": 0.339,
                 "projectileLaunchType": "straight",
                 "strategy": "hunter",
                 "runSpeed": 250,
@@ -1500,10 +1555,10 @@
                 "routeRepathInterval": 0.3,
                 "homeRetryInterval": 4,
                 "awarenessViewHalfAngle": 60,
-                "projectilePartName": "throwingAxe",
-                "projectileFrameId": "axe"
+                "projectilePartName": "axe_copy",
+                "projectileFrameId": "axe_copy"
             },
-            "description": "Redbeard Axethrower reusing the modular caster-family dwarf atlas template but attacking by hurling a single double-headed axe from his right hand."
+            "description": "Redbeard Axethrower using the corrected open left hand. He hurls one independently authored, rapidly spinning double-headed axe from the axe_copy handoff at 0.339 seconds."
         },
         "enemy_093": {
             "label": "Copperbeard Axethrower",
@@ -1535,7 +1590,7 @@
                 "attackRange": 320,
                 "attackVerticalRange": 180,
                 "attackDuration": 0.62,
-                "attackHitTime": 0.372,
+                "attackHitTime": 0.339,
                 "attackCooldown": 0.16,
                 "projectileCooldown": 1.1,
                 "projectileKind": "throwingAxe",
@@ -1553,7 +1608,7 @@
                 "awarenessHoldDuration": 1.5,
                 "attackLungeDistance": 0,
                 "attackLungeSpeed": 0,
-                "projectileReleaseTime": 0.372,
+                "projectileReleaseTime": 0.339,
                 "projectileLaunchType": "straight",
                 "strategy": "hunter",
                 "runSpeed": 250,
@@ -1564,10 +1619,10 @@
                 "routeRepathInterval": 0.3,
                 "homeRetryInterval": 4,
                 "awarenessViewHalfAngle": 60,
-                "projectilePartName": "throwingAxe",
-                "projectileFrameId": "axe"
+                "projectilePartName": "axe_copy",
+                "projectileFrameId": "axe_copy"
             },
-            "description": "Copperbeard Axethrower reusing the modular caster-family dwarf atlas template but attacking by hurling a single double-headed axe from his right hand."
+            "description": "Copperbeard Axethrower using the corrected open left hand. He hurls one independently authored, rapidly spinning double-headed axe from the axe_copy handoff at 0.339 seconds."
         },
         "enemy_900": {
             "label": "Training Dummy",

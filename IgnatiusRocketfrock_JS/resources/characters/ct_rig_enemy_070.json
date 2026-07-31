@@ -11,12 +11,12 @@
         "leftArmClosed",
         "leftLeg",
         "rightLeg",
-        "head",
         "torso",
         "weapon",
-        "rightArm",
         "cannonball",
-        "fireball"
+        "fireball",
+        "head",
+        "rightArm"
     ],
     "global": {
         "scale": 0.5,
@@ -82,8 +82,8 @@
             "y": 0.8399277709646045
         },
         "head": {
-            "x": 0.111,
-            "y": 0.908
+            "x": 0.18,
+            "y": 0.785
         },
         "weapon": {
             "x": 0.1827227152699188,
@@ -160,8 +160,15 @@
                 "y": -230
             },
             "scale": 1,
-            "targetHeight": 138,
-            "alpha": 1
+            "targetHeight": 103,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "torso",
+                "parentPoint": {
+                    "x": 0.4,
+                    "y": 0.05
+                }
+            }
         },
         "weapon": {
             "frame": "musket",
@@ -221,7 +228,7 @@
                 "y": 52
             },
             "scale": 0.46,
-            "targetHeight": 229,
+            "targetHeight": 199,
             "alpha": 1
         },
         "cannonball": {

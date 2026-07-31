@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 6,
-        "note": "Revision 182 Human Crossbow modular human character project with an independent rig and animation identities. Revision 204 moves attack, hurt, and death WAV selection into the character definition. Revision 208 gives humans a data-driven 50% coin drop."
+        "version": 7,
+        "note": "Revision 182 Human Crossbow modular human character project with an independent rig and animation identities. Revision 204 moves attack, hurt, and death WAV selection into the character definition. Revision 208 gives humans a data-driven 50% coin drop. Revision 232 selects three attack-animation projectile markers for the data-driven crossbow burst."
     },
     "characterId": "ct_char_enemy_034",
     "displayName": "Human Crossbow",
@@ -15,7 +15,6 @@
         "hurt": "ct_anim_enemy_034_hurt.json",
         "death": "ct_anim_enemy_034_death.json"
     },
-    "projectilePart": "crossbowBolt",
     "sounds": {
         "attack": "sfx/enemy_projectile.wav",
         "hurt": "sfx/enemy_damage.wav",
@@ -26,5 +25,10 @@
             "itemId": "coin",
             "chance": 0.5
         }
+    ],
+    "projectileParts": [
+        "crossbowBolt",
+        "crossbowBolt2",
+        "crossbowBolt3"
     ]
 }

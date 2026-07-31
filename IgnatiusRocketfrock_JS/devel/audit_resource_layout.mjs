@@ -3,11 +3,13 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { normalizeResourceIndex } from "../src/shared/resource-index-data.js";
 
 const REFERENCE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PROJECT_ROOT = path.resolve(REFERENCE_ROOT, "..");
 const RESOURCE_ROOT = path.join(REFERENCE_ROOT, "resources");
 const GENERATED_DEVTOOL_LEVEL_NAME = "level_temp.json";
+const RESOURCE_INDEX_NAME = "resources.json";
 const EXPECTED_RESOURCE_DIRECTORIES = new Set([
     "atlases", "characters", "editor", "fonts", "generator", "items", "levels", "music", "sfx", "ui"
 ]);
@@ -57,6 +59,7 @@ function requireResource(relativePath, origin) {
 function auditRootShape() {
     if (!existsSync(RESOURCE_ROOT)) fail("reference/resources is missing.");
     for (const entry of readdirSync(RESOURCE_ROOT, { withFileTypes: true })) {
+        if (entry.isFile() && entry.name === RESOURCE_INDEX_NAME) continue;
         if (!entry.isDirectory()) fail(`Stray file in reference/resources: ${entry.name}`);
         if (!EXPECTED_RESOURCE_DIRECTORIES.has(entry.name)) {
             fail(`Unexpected directory in reference/resources: ${entry.name}`);
@@ -65,6 +68,40 @@ function auditRootShape() {
     for (const required of EXPECTED_RESOURCE_DIRECTORIES) {
         if (!existsSync(path.join(RESOURCE_ROOT, required))) fail(`Missing resource category: ${required}`);
     }
+    if (!existsSync(path.join(RESOURCE_ROOT, RESOURCE_INDEX_NAME))) fail(`Missing ${RESOURCE_INDEX_NAME}.`);
+}
+
+function fileStemSet(directory, pattern) {
+    return new Set(readdirSync(directory).filter((name) => pattern.test(name)).map((name) => path.basename(name, path.extname(name))));
+}
+
+function requireExactInventory(label, declaredIds, actualIds) {
+    for (const id of declaredIds) {
+        if (!actualIds.has(id)) fail(`${RESOURCE_INDEX_NAME} declares missing ${label} ${id}.`);
+    }
+    for (const id of actualIds) {
+        if (!declaredIds.includes(id)) fail(`${label} ${id} exists but is missing from ${RESOURCE_INDEX_NAME}.`);
+    }
+}
+
+function auditResourceIndex() {
+    let index;
+    try {
+        index = normalizeResourceIndex(readJson(path.join(RESOURCE_ROOT, RESOURCE_INDEX_NAME)));
+    } catch (error) {
+        fail(`${RESOURCE_INDEX_NAME} is invalid: ${error.message}`);
+    }
+
+    const atlasDirectory = path.join(RESOURCE_ROOT, "atlases");
+    const atlasJsonIds = fileStemSet(atlasDirectory, /^at_atlas_[0-9]+\.json$/);
+    const atlasPngIds = fileStemSet(atlasDirectory, /^at_atlas_[0-9]+\.png$/);
+    requireExactInventory("asset atlas", index.assetAtlasIds, atlasJsonIds);
+    requireExactInventory("asset atlas PNG", index.assetAtlasIds, atlasPngIds);
+
+    const levelDirectory = path.join(RESOURCE_ROOT, "levels");
+    const levelIds = fileStemSet(levelDirectory, /^level_[a-z0-9]+\.json$/i);
+    levelIds.delete(path.basename(GENERATED_DEVTOOL_LEVEL_NAME, ".json"));
+    requireExactInventory("level", index.levelIds, levelIds);
 }
 
 function auditAtlases(directoryName) {
@@ -162,6 +199,7 @@ function auditNoRetiredPaths() {
 
 export function auditResourceLayout() {
     auditRootShape();
+    auditResourceIndex();
     auditAtlases("atlases");
     auditAtlases("items");
     auditAtlases("characters");

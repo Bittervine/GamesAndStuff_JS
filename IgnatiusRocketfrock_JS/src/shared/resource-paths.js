@@ -16,7 +16,7 @@ export function normalizeResourcePath(requestPath) {
 
 export function resourceUrl(requestPath) {
     const text = String(requestPath || "");
-    if (!text) return "";
+    if (!text) return RESOURCE_ROOT_URL;
     if (/^(?:[a-z]+:)?\/\//i.test(text) || text.startsWith("/") || text.startsWith("data:") || text.startsWith("blob:")) {
         return text;
     }

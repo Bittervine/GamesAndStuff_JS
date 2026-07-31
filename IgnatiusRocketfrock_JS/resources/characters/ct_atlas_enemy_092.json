@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 1,
-        "note": "Red-bearded dwarf axethrower using the modular Porker/Crocker/Ogre atlas template with an added bearded accessory and throwable double-headed axe. The loose beard atlas part is included for future use but is intentionally left unattached in the runtime rig."
+        "version": 2,
+        "note": "Revision 235 adds an independent axe_copy projectile frame to the Redbeard Axethrower atlas without duplicating texture pixels."
     },
     "atlasId": "ct_atlas_enemy_092",
     "image": "ct_atlas_enemy_092.png",
@@ -65,6 +65,12 @@
             "y": 616,
             "w": 240,
             "h": 384
+        },
+        "axe_copy": {
+            "x": 1413,
+            "y": 427,
+            "w": 362,
+            "h": 573
         }
     },
     "objects": {
@@ -186,6 +192,19 @@
                 "beard",
                 "accessory",
                 "unused"
+            ]
+        },
+        "axe_copy": {
+            "id": "axe_copy",
+            "frame": "axe_copy",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "weapon",
+                "axe",
+                "equipment",
+                "projectile"
             ]
         }
     }

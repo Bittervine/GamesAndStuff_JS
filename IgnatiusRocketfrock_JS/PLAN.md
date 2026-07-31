@@ -4532,3 +4532,57 @@ Non-16:9 displays deliberately crop one logical axis instead of adding letterbox
 ## SDL build revision 231 rocket exhaust alignment
 
 Rocket projectile presentation now applies one shared rocket-relative correction in both ports. Relative to a rocket flying straight upward, the complete curved smoke and sparkle trail moves two reference pixels to the right, while the flame moves with that lateral correction and an additional six reference pixels toward the rocket nose. The correction rotates with the projectile heading and scales with the presentation zoom, so it retains the same visual relationship at other directions and display scales without changing projectile simulation or recorded trail points.
+
+## SDL build revision 232 crossbow burst and generic timed handoffs
+
+Projectile attacks now derive a chronological release sequence from all projectile handoff parts assigned to the attack animation. Simulation launches each handoff at its authored time and reacquires the wizard's current position separately for every release. The same profile is applied to enemies already present and to enemies instantiated later, including automatic and spawner-created enemies.
+
+Both human crossbow variants use a 1.68-second raise, triple-fire, recoil, and lowering animation. Bolts release at 0.48, 0.88, and 1.28 seconds, preserving a deliberate 0.4-second firing rhythm. The attack then enters a 2.5-second cooldown. Existing one-marker attacks continue to behave as single shots without special cases.
+
+## SDL build revision 234 Human Boxer
+
+Enemy 038 adds a weapon-free modular human boxer assembled from `body_05` and `head_16`. The character owns a dedicated rig and dedicated idle, walk, attack, hurt, and death animation identities so the boxer can be edited independently later. Every clip omits the weapon pose and track entirely; the empty-hand version of the established articulated Raider attack reads as a compact bare-knuckle swing.
+
+The enemy remains ordinary authored catalog data. Browser presentation preloads the character project, SDL resolves it through the same catalog-driven dependency path as every other character enemy, and the Level Editor exposes it automatically through `enemy_038`. Dormant generator metadata is present but keeps the boxer out of generated levels until its reach and cadence have been play-tuned.
+
+## SDL build revision 239 wizard death spark parity
+
+The native death lifecycle now mirrors the established browser presentation instead of hiding Ignatius immediately. Lethal damage begins with a short cover phase in which delayed purple, yellow, and white sparks accumulate over the still-visible wizard. The rig then disappears into a three-colour outward shard burst, followed by the same two-second default afterglow hold before respawn. Particle counts still follow the shared rendering-quality scale.
+
+The portable C++ simulation now owns the same `cover`, `burst`, and `afterglow` phases, event names, timing fields, deterministic particle seeds, gravity, spin, and reset behavior as the HTML/JS implementation. The native presentation draws cover sparks after the player rig and prepares both the SDL_Renderer and raw SDL_GPU paths from that shared effect state. Killable cave-floor boundary crossings now enter this common death lifecycle rather than teleporting the wizard directly to the spawn point.
+
+Regression coverage verifies the phase transitions, three-colour particle populations, delayed cover reveal, burst velocity/lifetime ranges, rotation, afterglow, respawn, and cave-boundary entry point.
+
+## Revision 240 explicit resources.json inventory
+
+Implemented the requested data-driven atlas and level discovery contract. Added `resources/resources.json` with ordered environment-atlas and level IDs, removed the Asset Tool's generated 001-099 selector and the Level Editor's 001-020 stop-on-first-failure scans, and routed both tools through bounded retry loaders. The resource audit now requires exact agreement between the index and authored atlas JSON/PNG pairs and level JSON files, while excluding generated `level_temp.json`.
+
+IgnatiusDevTool now listens for successful new-resource saves and updates the authoring index only after the corresponding authored file exists; atlas entries additionally require the PNG. SDL enemy project loading also now respects an optional catalog `characterUrl`, removing the remaining native filename-derivation limitation. No gameplay simulation or renderer behavior changed.
+
+## SDL build revision 245 authored flight dangle and cyclic pre-roll correction
+
+Ignatius's sustained-flight pose is now sampled from the editable `ct_anim_wizard_dangle_1.json` clip rather than assembled from procedural offsets. The authored 0.000 pose represents maximum deceleration, 0.180 represents steady flight, and 0.360 represents maximum forward acceleration. Horizontal acceleration is evaluated in facing-local space, so braking while facing right and accelerating after turning left select opposite semantic indices while the mirrored artwork remains physically continuous. The complete authored pose, including both feet, both arms, robe, rocket, head, and hat, is sampled before the browser Canvas/WebGL2 paths and native SDL_Renderer/raw-GPU paths diverge. Steady flight has no synthetic oscillation.
+
+The animation sampler also now closes looping tracks correctly when their first keyframe occurs after zero. The interval from time zero to that delayed first key interpolates from the final runtime key across the loop boundary instead of freezing on the first pose. Browser runtime sampling, Character Editor loop preview, and native animation sampling share regression coverage for the corrected cyclic pre-roll behavior.
+
+## SDL build revision 246 authored wizard idle and grounded crossfade
+
+Revision 246 adds `resources/characters/ct_anim_wizard_idle_1.json` as Ignatius's editable grounded idle slot. The rear `leftFoot` is authored roughly half a rendered sole ahead of `rightFoot`, matching the wizard artwork's slight three-quarter turn, while both feet remain fixed throughout a subtle 2.4-second breathing loop. Puppet Forge loads and saves this clip through the ordinary `idle` entry in `ct_char_wizard_1.json`, so later pose and breathing adjustments remain data-only.
+
+Grounded presentation now samples the idle clip at low speed and crossfades into the existing walk clip using the same speed-derived motion amount in HTML/JS and SDL/C++. The HTML blend is prepared before Canvas2D and WebGL2 diverge. Native rendering adds a general source-animation crossfade to `FRuntimeCharacterDrawState`, and resolves the blended pose before SDL_Renderer and SDL_GPU drawing diverge. If an older character project has no idle clip, both ports retain the previous walk-reference fallback.
+
+## SDL build revision 247 center-hitbox pickup proximity
+
+Pickup collection now measures from the geometric center of Ignatius's canonical collision rectangle returned by `getPlayerRect`, rather than relying on the feet-anchored player transform. The hitbox remains 34 by 104 world units by default and is anchored at the wizard's ground point; Puppet Forge does not display it because character animation authoring edits artwork and rig poses rather than gameplay collision geometry.
+
+The existing pickup reach formula remains `pickup.radius + playerHitboxWidth * 0.45`, but the measured center-to-center distance is multiplied by 0.67 before comparison. This preserves authored pickup radii while expanding the practical collection reach by about 49 percent. Browser and native deterministic regressions cover center-of-hitbox collection, an item that lies outside the previous reach but inside the scaled reach, and an item beyond the new boundary.
+
+
+## SDL build revision 249 linear wizard pose transitions
+
+Wizard presentation now crossfades every rig part linearly over 0.3 seconds whenever the semantic pose mode changes between grounded movement, the fixed jump pose, and the acceleration-indexed dangle pose. The transition snapshots the complete currently displayed pose, so interruptions such as walking into a jump and then entering hover continue from the visible intermediate pose rather than restarting or snapping. Translation, rotation, scale, and alpha are blended for the full rig before Canvas2D/WebGL2 and SDL_Renderer/SDL_GPU drawing paths diverge.
+
+
+## SDL build revision 250 faster wizard pose transitions
+
+Wizard semantic pose transitions remain full-body linear blends, but their duration is reduced from 0.3 seconds to 0.1 seconds in both HTML/JS and SDL/C++ so state changes remain smooth without feeling sluggish.

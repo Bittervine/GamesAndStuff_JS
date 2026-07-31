@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 4,
-        "note": "Revision 186 Human Crossbow II rig synchronized to Enemy 034 while retaining head_14 and body_07. Crossbow grip, weapon-arm attachment, draw order, and bolt handoff now match the revised source rig."
+        "version": 5,
+        "note": "Revision 186 Human Crossbow II rig synchronized to Enemy 034 while retaining head_14 and body_07. Crossbow grip, weapon-arm attachment, draw order, and bolt handoff now match the revised source rig. Revision 232 adds three independently timed, data-driven projectile handoff markers for the crossbow burst."
     },
     "rigId": "ct_rig_enemy_035",
     "atlasId": "ct_atlas_enemy_030",
@@ -20,7 +20,9 @@
         "head",
         "rightUpperArm",
         "rightLowerArm",
-        "crossbowBolt"
+        "crossbowBolt",
+        "crossbowBolt2",
+        "crossbowBolt3"
     ],
     "global": {
         "scale": 0.5,
@@ -118,6 +120,14 @@
             "y": 0.155
         },
         "crossbowBolt": {
+            "x": 0.5,
+            "y": 0.5
+        },
+        "crossbowBolt2": {
+            "x": 0.5,
+            "y": 0.5
+        },
+        "crossbowBolt3": {
             "x": 0.5,
             "y": 0.5
         }
@@ -439,6 +449,56 @@
                 "projectileKind": "crossbowBolt",
                 "animationSlot": "attack",
                 "releaseTime": 0.48
+            }
+        },
+        "crossbowBolt2": {
+            "frame": "arrow",
+            "role": "crossbowBolt2",
+            "tags": [
+                "projectile",
+                "bolt",
+                "arrow",
+                "hiddenMarker"
+            ],
+            "offset": {
+                "x": 108,
+                "y": -286
+            },
+            "scale": 0.55,
+            "targetHeight": 18,
+            "alpha": 0,
+            "projectile": {
+                "enabled": true,
+                "id": "crossbowBolt2",
+                "launchType": "straight",
+                "projectileKind": "crossbowBolt",
+                "animationSlot": "attack",
+                "releaseTime": 0.88
+            }
+        },
+        "crossbowBolt3": {
+            "frame": "arrow",
+            "role": "crossbowBolt3",
+            "tags": [
+                "projectile",
+                "bolt",
+                "arrow",
+                "hiddenMarker"
+            ],
+            "offset": {
+                "x": 108,
+                "y": -286
+            },
+            "scale": 0.55,
+            "targetHeight": 18,
+            "alpha": 0,
+            "projectile": {
+                "enabled": true,
+                "id": "crossbowBolt3",
+                "launchType": "straight",
+                "projectileKind": "crossbowBolt",
+                "animationSlot": "attack",
+                "releaseTime": 1.28
             }
         }
     }

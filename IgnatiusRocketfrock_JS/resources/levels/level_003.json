@@ -1,258 +1,913 @@
 {
-  "meta": {
-    "version": 1,
-    "editor": "Ignatius Rocketfrock Level Editor",
-    "note": "Cave-campaign authoring scaffold: one gameplay-invisible horizontal platform, one entry door, and one sequential exit door.",
-    "scaffoldBuild": 207
-  },
-  "levelId": "level_003",
-  "title": "Cave Level 003",
-  "world": {
-    "bounds": {
-      "x": -320,
-      "y": -420,
-      "w": 3200,
-      "h": 1500
+    "meta": {
+        "version": 1,
+        "editor": "Ignatius Rocketfrock Level Editor",
+        "note": "Cave-campaign authoring scaffold: one gameplay-invisible horizontal platform, one entry door, and one sequential exit door.",
+        "scaffoldBuild": 207
     },
-    "resetY": 1080
-  },
-  "atlasRefs": [
-    {
-      "atlasId": "at_atlas_001",
-      "manifest": "atlases/at_atlas_001.json",
-      "image": "atlases/at_atlas_001.png"
+    "levelId": "level_003",
+    "title": "Cave Level 003",
+    "world": {
+        "bounds": {
+            "x": -320,
+            "y": -420,
+            "w": 32000,
+            "h": 1500
+        }
     },
-    {
-      "atlasId": "it_atlas_001",
-      "manifest": "items/it_atlas_001.json",
-      "image": "items/it_atlas_001.png"
-    }
-  ],
-  "colorMap": {
-    "enabled": false,
-    "sourceHue": 200,
-    "range": 80,
-    "feather": 24,
-    "rotation": 0,
-    "atlasIds": []
-  },
-  "music": {
-    "version": 3,
-    "trackId": "music_001"
-  },
-  "layerVisuals": {
-    "version": 2,
-    "background": {
-      "parallax": 0.925926,
-      "brightness": 1,
-      "scale": 1
-    },
-    "foreground": {
-      "parallax": 1.08,
-      "brightness": 0.46,
-      "scale": 2
-    }
-  },
-  "autoSpawnEnemies": {
-    "enabled": false,
-    "probabilityPercent": 0,
-    "enemyPool": "1-999"
-  },
-  "caveWindow": {
-    "version": 1,
-    "enabled": true,
-    "feather": 160,
-    "gradientNoise": {
-      "seed": 207003,
-      "amplitude": 38,
-      "period": 64
-    },
-    "decoration": {
-      "seed": 208003,
-      "saturation": 0.62,
-      "inwardFractionMin": 0.3,
-      "inwardFractionMax": 0.5,
-      "occlusionAccentChance": 0.02
-    },
-    "points": [
-      {
-        "id": "cave_point_001",
-        "x": -320,
-        "y": -300,
-        "mode": "smooth"
-      },
-      {
-        "id": "cave_point_002",
-        "x": 1120,
-        "y": -420,
-        "mode": "smooth"
-      },
-      {
-        "id": "cave_point_003",
-        "x": 2880,
-        "y": -300,
-        "mode": "smooth"
-      },
-      {
-        "id": "cave_point_004",
-        "x": 2880,
-        "y": 900,
-        "mode": "smooth"
-      },
-      {
-        "id": "cave_point_005",
-        "x": 1120,
-        "y": 980,
-        "mode": "smooth"
-      },
-      {
-        "id": "cave_point_006",
-        "x": -320,
-        "y": 900,
-        "mode": "smooth"
-      }
-    ]
-  },
-  "placements": [
-    {
-      "id": "campaign_scaffold_floor_003",
-      "kind": "atlasAsset",
-      "atlasId": "at_atlas_001",
-      "assetId": "horizontal_blocker",
-      "x": -160,
-      "y": 640,
-      "w": 3040,
-      "h": 24,
-      "mirrorX": false,
-      "mirrorY": false,
-      "rotation": 0,
-      "layer": "terrain",
-      "collisionFromManifest": true,
-      "editorLocked": false,
-      "notes": "Gameplay-invisible authoring floor. Replace or reshape it while building the level.",
-      "order": 0
-    }
-  ],
-  "entities": [
-    {
-      "id": "wizard_entry_door_003",
-      "type": "wizard_entry_door",
-      "catalogId": "it_entities_001",
-      "x": 200,
-      "y": 640,
-      "w": 125,
-      "h": 164,
-      "state": "closed",
-      "visualStates": {
-        "closed": [
-          {
+    "atlasRefs": [
+        {
+            "atlasId": "at_atlas_014",
+            "manifest": "atlases/at_atlas_014.json",
+            "image": "atlases/at_atlas_014.png"
+        },
+        {
             "atlasId": "it_atlas_001",
-            "assetId": "portal_closed",
-            "layer": "decorFront"
-          }
+            "manifest": "items/it_atlas_001.json",
+            "image": "items/it_atlas_001.png"
+        }
+    ],
+    "colorMap": {
+        "enabled": true,
+        "sourceHue": 64.57627118644069,
+        "range": 80,
+        "feather": 24,
+        "rotation": -6.461087940367406,
+        "atlasIds": []
+    },
+    "colorExchange": {
+        "enabled": false,
+        "fromColor": [
+            255,
+            255,
+            255
         ],
-        "open": [
-          {
-            "atlasId": "it_atlas_001",
-            "assetId": "portal_open",
-            "layer": "decorBack",
-            "widthFactor": 1.1366120218579234,
-            "heightFactor": 1,
-            "offsetXFactor": 0.06830601092896176
-          },
-          {
-            "atlasId": "it_atlas_001",
-            "assetId": "portal_foreground",
-            "layer": "actorFront",
-            "widthFactor": 0.6229508196721312,
-            "heightFactor": 1,
-            "offsetXFactor": -0.1885245901639344
-          }
-        ]
-      },
-      "stateLabels": {
-        "closed": "Closed",
-        "open": "Open"
-      },
-      "interaction": "levelPortal",
-      "startsOpen": false,
-      "portalRole": "entrance",
-      "exitDirection": 1,
-      "walkSpeed": 105,
-      "closedDuration": 0.55,
-      "openDuration": 0.38,
-      "clearDuration": 0.28,
-      "closeDuration": 0.42,
-      "notes": "Campaign entry door for this authoring scaffold.",
-      "walkDirection": 1,
-      "emergeDistance": 190,
-      "groundSnapDistance": 72,
-      "floorAnchorYFactor": 0.908745247148289,
-      "wizardInsideScale": 0.84,
-      "mirrorX": false
-    },
-    {
-      "id": "wizard_exit_door_003",
-      "type": "wizard_exit_door",
-      "catalogId": "it_entities_001",
-      "x": 2600,
-      "y": 640,
-      "w": 125,
-      "h": 164,
-      "state": "closed",
-      "visualStates": {
-        "closed": [
-          {
-            "atlasId": "it_atlas_001",
-            "assetId": "portal_closed",
-            "layer": "decorFront"
-          }
+        "toColor": [
+            0,
+            0,
+            0
         ],
-        "open": [
-          {
-            "atlasId": "it_atlas_001",
-            "assetId": "portal_open",
-            "layer": "decorBack",
-            "widthFactor": 1.1366120218579234,
-            "heightFactor": 1,
-            "offsetXFactor": 0.06830601092896176
-          },
-          {
-            "atlasId": "it_atlas_001",
-            "assetId": "portal_foreground",
-            "layer": "actorFront",
-            "widthFactor": 0.6229508196721312,
-            "heightFactor": 1,
-            "offsetXFactor": -0.1885245901639344
-          }
+        "redThreshold": 1,
+        "greenThreshold": 1,
+        "blueThreshold": 1
+    },
+    "music": {
+        "version": 3,
+        "trackId": "music_001"
+    },
+    "layerVisuals": {
+        "version": 2,
+        "background": {
+            "parallax": 0.925926,
+            "brightness": 1,
+            "scale": 1
+        },
+        "foreground": {
+            "parallax": 1.08,
+            "brightness": 0.46,
+            "scale": 2
+        }
+    },
+    "autoSpawnEnemies": {
+        "enabled": false,
+        "probabilityPercent": 0,
+        "enemyPool": "1-999"
+    },
+    "caveWindow": {
+        "version": 1,
+        "enabled": true,
+        "feather": 160,
+        "gradientNoise": {
+            "seed": 207003,
+            "amplitude": 38,
+            "period": 64
+        },
+        "decoration": {
+            "seed": 208003,
+            "saturation": 0.62,
+            "inwardFractionMin": 0.30000000000000004,
+            "inwardFractionMax": 0.5,
+            "occlusionAccentChance": 0.02
+        },
+        "points": [
+            {
+                "id": "cave_point_001",
+                "x": -1232,
+                "y": -288,
+                "mode": "smooth"
+            },
+            {
+                "id": "cave_point_002",
+                "x": 16096,
+                "y": -336,
+                "mode": "smooth"
+            },
+            {
+                "id": "cave_point_003",
+                "x": 32464,
+                "y": -336,
+                "mode": "smooth"
+            },
+            {
+                "id": "cave_point_004",
+                "x": 32464,
+                "y": 992,
+                "mode": "smooth"
+            },
+            {
+                "id": "cave_point_005",
+                "x": 16160,
+                "y": 912,
+                "mode": "smooth"
+            },
+            {
+                "id": "cave_point_006",
+                "x": -1232,
+                "y": 960,
+                "mode": "smooth"
+            }
         ]
-      },
-      "stateLabels": {
-        "closed": "Closed",
-        "open": "Open"
-      },
-      "interaction": "levelPortal",
-      "startsOpen": false,
-      "portalRole": "exit",
-      "exitDirection": 1,
-      "walkSpeed": 105,
-      "closedDuration": 0.55,
-      "openDuration": 0.38,
-      "clearDuration": 0.28,
-      "closeDuration": 0.42,
-      "notes": "Campaign exit door leading to level_004.",
-      "walkDirection": 1,
-      "groundSnapDistance": 72,
-      "mirrorX": true,
-      "triggerDistance": 96,
-      "destinationLevel": "level_004",
-      "floorAnchorYFactor": 0.908745247148289,
-      "wizardInsideScale": 0.84
-    }
-  ],
-  "navigationGraphs": {
-    "version": 1,
-    "profiles": []
-  },
-  "navigationBlockers": []
+    },
+    "placements": [
+        {
+            "id": "forest_grass_ground_block_001",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_014",
+            "assetId": "forest_grass_ground_block",
+            "x": -336,
+            "y": 848,
+            "w": 1423,
+            "h": 162,
+            "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "collisionFromManifest": true,
+            "notes": "",
+            "order": 0
+        },
+        {
+            "id": "forest_grass_ground_block_002",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_014",
+            "assetId": "forest_grass_ground_block",
+            "x": 30288,
+            "y": 848,
+            "w": 1423,
+            "h": 162,
+            "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "collisionFromManifest": true,
+            "notes": "",
+            "order": 1
+        },
+        {
+            "id": "forest_grass_ground_block_003",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_014",
+            "assetId": "forest_grass_ground_block",
+            "x": 992,
+            "y": 848,
+            "w": 1423,
+            "h": 162,
+            "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "collisionFromManifest": true,
+            "notes": "",
+            "order": 0,
+            "manualizedFromGeneration": {
+                "generatorId": "automatic-level-generator-9",
+                "runId": "",
+                "stage": "",
+                "role": "",
+                "supportId": "",
+                "routeNodeId": ""
+            }
+        },
+        {
+            "id": "forest_grass_ground_block_004",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_014",
+            "assetId": "forest_grass_ground_block",
+            "x": 2224,
+            "y": 848,
+            "w": 1423,
+            "h": 162,
+            "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "collisionFromManifest": true,
+            "notes": "",
+            "order": 0,
+            "manualizedFromGeneration": {
+                "generatorId": "automatic-level-generator-9",
+                "runId": "",
+                "stage": "",
+                "role": "",
+                "supportId": "",
+                "routeNodeId": ""
+            }
+        },
+        {
+            "id": "forest_grass_ground_block_005",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_014",
+            "assetId": "forest_grass_ground_block",
+            "x": 3600,
+            "y": 848,
+            "w": 1423,
+            "h": 162,
+            "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "collisionFromManifest": true,
+            "notes": "",
+            "order": 0,
+            "manualizedFromGeneration": {
+                "generatorId": "automatic-level-generator-9",
+                "runId": "",
+                "stage": "",
+                "role": "",
+                "supportId": "",
+                "routeNodeId": ""
+            }
+        },
+        {
+            "id": "forest_grass_ground_block_006",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_014",
+            "assetId": "forest_grass_ground_block",
+            "x": 4768,
+            "y": 848,
+            "w": 1423,
+            "h": 162,
+            "mirrorX": true,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "collisionFromManifest": true,
+            "notes": "",
+            "order": 0,
+            "manualizedFromGeneration": {
+                "generatorId": "automatic-level-generator-9",
+                "runId": "",
+                "stage": "",
+                "role": "",
+                "supportId": "",
+                "routeNodeId": ""
+            }
+        },
+        {
+            "id": "forest_grass_ground_block_007",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_014",
+            "assetId": "forest_grass_ground_block",
+            "x": 6144,
+            "y": 848,
+            "w": 1423,
+            "h": 162,
+            "mirrorX": true,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "collisionFromManifest": true,
+            "notes": "",
+            "order": 0,
+            "manualizedFromGeneration": {
+                "generatorId": "automatic-level-generator-9",
+                "runId": "",
+                "stage": "",
+                "role": "",
+                "supportId": "",
+                "routeNodeId": ""
+            }
+        },
+        {
+            "id": "forest_grass_ground_block_008",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_014",
+            "assetId": "forest_grass_ground_block",
+            "x": 7520,
+            "y": 848,
+            "w": 1423,
+            "h": 162,
+            "mirrorX": true,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "collisionFromManifest": true,
+            "notes": "",
+            "order": 0,
+            "manualizedFromGeneration": {
+                "generatorId": "automatic-level-generator-9",
+                "runId": "",
+                "stage": "",
+                "role": "",
+                "supportId": "",
+                "routeNodeId": ""
+            }
+        },
+        {
+            "id": "forest_grass_ground_block_009",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_014",
+            "assetId": "forest_grass_ground_block",
+            "x": 8880,
+            "y": 848,
+            "w": 1423,
+            "h": 162,
+            "mirrorX": true,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "collisionFromManifest": true,
+            "notes": "",
+            "order": 0,
+            "manualizedFromGeneration": {
+                "generatorId": "automatic-level-generator-9",
+                "runId": "",
+                "stage": "",
+                "role": "",
+                "supportId": "",
+                "routeNodeId": ""
+            }
+        },
+        {
+            "id": "forest_grass_ground_block_010",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_014",
+            "assetId": "forest_grass_ground_block",
+            "x": 10240,
+            "y": 848,
+            "w": 1423,
+            "h": 162,
+            "mirrorX": true,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "collisionFromManifest": true,
+            "notes": "",
+            "order": 0,
+            "manualizedFromGeneration": {
+                "generatorId": "automatic-level-generator-9",
+                "runId": "",
+                "stage": "",
+                "role": "",
+                "supportId": "",
+                "routeNodeId": ""
+            }
+        },
+        {
+            "id": "forest_grass_ground_block_011",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_014",
+            "assetId": "forest_grass_ground_block",
+            "x": 11616,
+            "y": 848,
+            "w": 1423,
+            "h": 162,
+            "mirrorX": true,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "collisionFromManifest": true,
+            "notes": "",
+            "order": 0,
+            "manualizedFromGeneration": {
+                "generatorId": "automatic-level-generator-9",
+                "runId": "",
+                "stage": "",
+                "role": "",
+                "supportId": "",
+                "routeNodeId": ""
+            }
+        },
+        {
+            "id": "forest_grass_ground_block_012",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_014",
+            "assetId": "forest_grass_ground_block",
+            "x": 12992,
+            "y": 848,
+            "w": 1423,
+            "h": 162,
+            "mirrorX": true,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "collisionFromManifest": true,
+            "notes": "",
+            "order": 0,
+            "manualizedFromGeneration": {
+                "generatorId": "automatic-level-generator-9",
+                "runId": "",
+                "stage": "",
+                "role": "",
+                "supportId": "",
+                "routeNodeId": ""
+            }
+        },
+        {
+            "id": "forest_grass_ground_block_013",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_014",
+            "assetId": "forest_grass_ground_block",
+            "x": 14368,
+            "y": 848,
+            "w": 1423,
+            "h": 162,
+            "mirrorX": true,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "collisionFromManifest": true,
+            "notes": "",
+            "order": 0,
+            "manualizedFromGeneration": {
+                "generatorId": "automatic-level-generator-9",
+                "runId": "",
+                "stage": "",
+                "role": "",
+                "supportId": "",
+                "routeNodeId": ""
+            }
+        },
+        {
+            "id": "forest_grass_ground_block_014",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_014",
+            "assetId": "forest_grass_ground_block",
+            "x": 15744,
+            "y": 848,
+            "w": 1423,
+            "h": 162,
+            "mirrorX": true,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "collisionFromManifest": true,
+            "notes": "",
+            "order": 0,
+            "manualizedFromGeneration": {
+                "generatorId": "automatic-level-generator-9",
+                "runId": "",
+                "stage": "",
+                "role": "",
+                "supportId": "",
+                "routeNodeId": ""
+            }
+        },
+        {
+            "id": "forest_grass_ground_block_015",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_014",
+            "assetId": "forest_grass_ground_block",
+            "x": 17104,
+            "y": 848,
+            "w": 1423,
+            "h": 162,
+            "mirrorX": true,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "collisionFromManifest": true,
+            "notes": "",
+            "order": 0,
+            "manualizedFromGeneration": {
+                "generatorId": "automatic-level-generator-9",
+                "runId": "",
+                "stage": "",
+                "role": "",
+                "supportId": "",
+                "routeNodeId": ""
+            }
+        },
+        {
+            "id": "forest_grass_ground_block_016",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_014",
+            "assetId": "forest_grass_ground_block",
+            "x": 18464,
+            "y": 848,
+            "w": 1423,
+            "h": 162,
+            "mirrorX": true,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "collisionFromManifest": true,
+            "notes": "",
+            "order": 0,
+            "manualizedFromGeneration": {
+                "generatorId": "automatic-level-generator-9",
+                "runId": "",
+                "stage": "",
+                "role": "",
+                "supportId": "",
+                "routeNodeId": ""
+            }
+        },
+        {
+            "id": "forest_grass_ground_block_017",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_014",
+            "assetId": "forest_grass_ground_block",
+            "x": 19840,
+            "y": 848,
+            "w": 1423,
+            "h": 162,
+            "mirrorX": true,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "collisionFromManifest": true,
+            "notes": "",
+            "order": 0,
+            "manualizedFromGeneration": {
+                "generatorId": "automatic-level-generator-9",
+                "runId": "",
+                "stage": "",
+                "role": "",
+                "supportId": "",
+                "routeNodeId": ""
+            }
+        },
+        {
+            "id": "forest_grass_ground_block_018",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_014",
+            "assetId": "forest_grass_ground_block",
+            "x": 21200,
+            "y": 848,
+            "w": 1423,
+            "h": 162,
+            "mirrorX": true,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "collisionFromManifest": true,
+            "notes": "",
+            "order": 0,
+            "manualizedFromGeneration": {
+                "generatorId": "automatic-level-generator-9",
+                "runId": "",
+                "stage": "",
+                "role": "",
+                "supportId": "",
+                "routeNodeId": ""
+            }
+        },
+        {
+            "id": "forest_grass_ground_block_019",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_014",
+            "assetId": "forest_grass_ground_block",
+            "x": 22576,
+            "y": 848,
+            "w": 1423,
+            "h": 162,
+            "mirrorX": true,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "collisionFromManifest": true,
+            "notes": "",
+            "order": 0,
+            "manualizedFromGeneration": {
+                "generatorId": "automatic-level-generator-9",
+                "runId": "",
+                "stage": "",
+                "role": "",
+                "supportId": "",
+                "routeNodeId": ""
+            }
+        },
+        {
+            "id": "forest_grass_ground_block_020",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_014",
+            "assetId": "forest_grass_ground_block",
+            "x": 23936,
+            "y": 848,
+            "w": 1423,
+            "h": 162,
+            "mirrorX": true,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "collisionFromManifest": true,
+            "notes": "",
+            "order": 0,
+            "manualizedFromGeneration": {
+                "generatorId": "automatic-level-generator-9",
+                "runId": "",
+                "stage": "",
+                "role": "",
+                "supportId": "",
+                "routeNodeId": ""
+            }
+        },
+        {
+            "id": "forest_grass_ground_block_021",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_014",
+            "assetId": "forest_grass_ground_block",
+            "x": 25296,
+            "y": 848,
+            "w": 1423,
+            "h": 162,
+            "mirrorX": true,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "collisionFromManifest": true,
+            "notes": "",
+            "order": 0,
+            "manualizedFromGeneration": {
+                "generatorId": "automatic-level-generator-9",
+                "runId": "",
+                "stage": "",
+                "role": "",
+                "supportId": "",
+                "routeNodeId": ""
+            }
+        },
+        {
+            "id": "forest_grass_ground_block_022",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_014",
+            "assetId": "forest_grass_ground_block",
+            "x": 26672,
+            "y": 848,
+            "w": 1423,
+            "h": 162,
+            "mirrorX": true,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "collisionFromManifest": true,
+            "notes": "",
+            "order": 0,
+            "manualizedFromGeneration": {
+                "generatorId": "automatic-level-generator-9",
+                "runId": "",
+                "stage": "",
+                "role": "",
+                "supportId": "",
+                "routeNodeId": ""
+            }
+        },
+        {
+            "id": "forest_grass_ground_block_023",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_014",
+            "assetId": "forest_grass_ground_block",
+            "x": 28048,
+            "y": 848,
+            "w": 1423,
+            "h": 162,
+            "mirrorX": true,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "collisionFromManifest": true,
+            "notes": "",
+            "order": 0,
+            "manualizedFromGeneration": {
+                "generatorId": "automatic-level-generator-9",
+                "runId": "",
+                "stage": "",
+                "role": "",
+                "supportId": "",
+                "routeNodeId": ""
+            }
+        },
+        {
+            "id": "forest_grass_ground_block_024",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_014",
+            "assetId": "forest_grass_ground_block",
+            "x": 29232,
+            "y": 848,
+            "w": 1423,
+            "h": 162,
+            "mirrorX": true,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "collisionFromManifest": true,
+            "notes": "",
+            "order": 0,
+            "manualizedFromGeneration": {
+                "generatorId": "automatic-level-generator-9",
+                "runId": "",
+                "stage": "",
+                "role": "",
+                "supportId": "",
+                "routeNodeId": ""
+            }
+        }
+    ],
+    "entities": [
+        {
+            "id": "wizard_entry_door_003",
+            "type": "wizard_entry_door",
+            "catalogId": "it_entities_001",
+            "x": 16,
+            "y": 884,
+            "w": 125,
+            "h": 164,
+            "state": "closed",
+            "visualStates": {
+                "closed": [
+                    {
+                        "atlasId": "it_atlas_001",
+                        "assetId": "portal_closed",
+                        "layer": "decorFront"
+                    }
+                ],
+                "open": [
+                    {
+                        "atlasId": "it_atlas_001",
+                        "assetId": "portal_open",
+                        "layer": "decorBack",
+                        "widthFactor": 1.1366120218579234,
+                        "heightFactor": 1,
+                        "offsetXFactor": 0.06830601092896176
+                    },
+                    {
+                        "atlasId": "it_atlas_001",
+                        "assetId": "portal_foreground",
+                        "layer": "actorFront",
+                        "widthFactor": 0.6229508196721312,
+                        "heightFactor": 1,
+                        "offsetXFactor": -0.1885245901639344
+                    }
+                ]
+            },
+            "stateLabels": {
+                "closed": "Closed",
+                "open": "Open"
+            },
+            "interaction": "levelPortal",
+            "startsOpen": false,
+            "portalRole": "entrance",
+            "exitDirection": 1,
+            "walkSpeed": 105,
+            "closedDuration": 0.55,
+            "openDuration": 0.38,
+            "clearDuration": 0.28,
+            "closeDuration": 0.42,
+            "notes": "Campaign entry door for this authoring scaffold.",
+            "walkDirection": 1,
+            "emergeDistance": 190,
+            "groundSnapDistance": 72,
+            "floorAnchorYFactor": 0.908745247148289,
+            "wizardInsideScale": 0.84,
+            "mirrorX": false
+        },
+        {
+            "id": "wizard_exit_door_003",
+            "type": "wizard_exit_door",
+            "catalogId": "it_entities_001",
+            "x": 31248,
+            "y": 884,
+            "w": 125,
+            "h": 164,
+            "state": "closed",
+            "visualStates": {
+                "closed": [
+                    {
+                        "atlasId": "it_atlas_001",
+                        "assetId": "portal_closed",
+                        "layer": "decorFront"
+                    }
+                ],
+                "open": [
+                    {
+                        "atlasId": "it_atlas_001",
+                        "assetId": "portal_open",
+                        "layer": "decorBack",
+                        "widthFactor": 1.1366120218579234,
+                        "heightFactor": 1,
+                        "offsetXFactor": 0.06830601092896176
+                    },
+                    {
+                        "atlasId": "it_atlas_001",
+                        "assetId": "portal_foreground",
+                        "layer": "actorFront",
+                        "widthFactor": 0.6229508196721312,
+                        "heightFactor": 1,
+                        "offsetXFactor": -0.1885245901639344
+                    }
+                ]
+            },
+            "stateLabels": {
+                "closed": "Closed",
+                "open": "Open"
+            },
+            "interaction": "levelPortal",
+            "startsOpen": false,
+            "portalRole": "exit",
+            "exitDirection": 1,
+            "walkSpeed": 105,
+            "closedDuration": 0.55,
+            "openDuration": 0.38,
+            "clearDuration": 0.28,
+            "closeDuration": 0.42,
+            "notes": "Campaign exit door leading to level_004.",
+            "walkDirection": 1,
+            "groundSnapDistance": 72,
+            "mirrorX": true,
+            "triggerDistance": 96,
+            "destinationLevel": "level_004",
+            "floorAnchorYFactor": 0.908745247148289,
+            "wizardInsideScale": 0.84
+        },
+        {
+            "id": "proximityText_001",
+            "type": "proximityText",
+            "catalogId": "it_entities_001",
+            "x": 1872,
+            "y": 512,
+            "w": 1249,
+            "h": 242,
+            "state": "armed",
+            "visualStates": {
+                "armed": [],
+                "complete": []
+            },
+            "stateLabels": {
+                "armed": "Armed",
+                "complete": "Complete"
+            },
+            "interaction": "proximityText",
+            "text": "I was never a very good wizard.\nSpells & incantations wasnt for me.",
+            "fontSize": 100,
+            "fontFamily": "caveat",
+            "color": "#723891",
+            "outlineWidth": 3,
+            "outlineColor": "#0f0113",
+            "triggerOffsetX": -944,
+            "triggerOffsetY": 64,
+            "triggerDistance": 300,
+            "fadeInDuration": 1,
+            "displayDuration": 5,
+            "fadeOutDuration": 1,
+            "floorAnchorYFactor": 0.5,
+            "notes": "Bold world-space text that fades in once when Ignatius enters its independently positioned trigger radius."
+        },
+        {
+            "id": "proximityText_002",
+            "type": "proximityText",
+            "catalogId": "it_entities_001",
+            "x": 4624,
+            "y": 512,
+            "w": 1303,
+            "h": 242,
+            "state": "armed",
+            "visualStates": {
+                "armed": [],
+                "complete": []
+            },
+            "stateLabels": {
+                "armed": "Armed",
+                "complete": "Complete"
+            },
+            "interaction": "proximityText",
+            "text": "But the insides of a rocket engine...\nThat's where the real magic happens!",
+            "fontSize": 100,
+            "fontFamily": "caveat",
+            "color": "#723891",
+            "outlineWidth": 3,
+            "outlineColor": "#0f0113",
+            "triggerOffsetX": -1104,
+            "triggerOffsetY": 80,
+            "triggerDistance": 300,
+            "fadeInDuration": 1,
+            "displayDuration": 5,
+            "fadeOutDuration": 1,
+            "floorAnchorYFactor": 0.5,
+            "notes": "Bold world-space text that fades in once when Ignatius enters its independently positioned trigger radius.",
+            "manualizedFromGeneration": {
+                "generatorId": "automatic-level-generator-9",
+                "runId": "",
+                "stage": "",
+                "role": "",
+                "supportId": "",
+                "routeNodeId": ""
+            }
+        }
+    ],
+    "navigationGraphs": {
+        "version": 2,
+        "profiles": []
+    },
+    "navigationBlockers": []
 }

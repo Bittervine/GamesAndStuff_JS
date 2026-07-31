@@ -3,11 +3,9 @@
         "version": 2,
         "note": "Revision 152 Crocker walk clip rebuilt from the user-refined Ogre caster baseline. Timing, posing, and follow-through mirror the improved Ogre pass while remaining an independent clip for future species-specific edits.",
         "bakedParentConstraintParts": [
-            "rightArm",
-            "head",
-            "leftArmClosed"
+            "head"
         ],
-        "bakedPositionKeyCount": 60
+        "bakedPositionKeyCount": 26
     },
     "animationId": "ct_anim_enemy_070_walk",
     "duration": 0.8,
@@ -36,8 +34,8 @@
             "alpha": 1
         },
         "head": {
-            "x": -31.330727654344923,
-            "y": -248.945151261377,
+            "x": -8.641955501375147,
+            "y": -256.79479871555475,
             "rotation": -0.018,
             "scale": 1,
             "alpha": 1
@@ -347,104 +345,134 @@
             "x": [
                 {
                     "time": 0,
-                    "value": -31.330727654344923,
+                    "value": -8.641955501375147,
                     "easing": "linear"
                 },
                 {
                     "time": 0.007541241281484138,
-                    "value": -31.31484593930486,
+                    "value": -8.625337306486603,
                     "easing": "linear"
                 },
                 {
                     "time": 0.187,
-                    "value": -25.776772771945236,
+                    "value": -2.843342010047737,
                     "easing": "linear"
                 },
                 {
                     "time": 0.2,
-                    "value": -25.729311796283216,
+                    "value": -2.793901205578253,
                     "easing": "linear"
                 },
                 {
                     "time": 0.20035149384885767,
-                    "value": -25.72931538096643,
+                    "value": -2.7939046587426004,
                     "easing": "linear"
                 },
                 {
                     "time": 0.4,
-                    "value": -26.30948245745628,
+                    "value": -3.3528847676121982,
                     "easing": "linear"
                 },
                 {
                     "time": 0.401,
-                    "value": -26.3097634290192,
+                    "value": -3.35317733531075,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.4504999999999998,
+                    "value": -4.098974042989127,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.4999999999999996,
+                    "value": -6.277995334093786,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.5499999999999998,
+                    "value": -8.47083205370022,
                     "easing": "linear"
                 },
                 {
                     "time": 0.6,
-                    "value": -31.913751837644977,
+                    "value": -9.201532877034177,
                     "easing": "linear"
                 },
                 {
                     "time": 0.601,
-                    "value": -31.913722693422347,
+                    "value": -9.201504900043691,
                     "easing": "linear"
                 },
                 {
                     "time": 0.604,
-                    "value": -31.91328552999928,
+                    "value": -9.20108524516409,
                     "easing": "linear"
                 }
             ],
             "y": [
                 {
                     "time": 0,
-                    "value": -248.945151261377,
+                    "value": -256.79479871555475,
                     "easing": "linear"
                 },
                 {
                     "time": 0.007541241281484138,
-                    "value": -248.9566211487034,
+                    "value": -256.80413954406396,
                     "easing": "linear"
                 },
                 {
                     "time": 0.187,
-                    "value": -252.87041995168445,
+                    "value": -259.97359532988753,
                     "easing": "linear"
                 },
                 {
                     "time": 0.2,
-                    "value": -252.9032288594325,
+                    "value": -260.0000089743885,
                     "easing": "linear"
                 },
                 {
                     "time": 0.20035149384885767,
-                    "value": -252.90321082259624,
+                    "value": -259.99999051250893,
                     "easing": "linear"
                 },
                 {
                     "time": 0.4,
-                    "value": -249.98278711048178,
+                    "value": -257.01072916138844,
                     "easing": "linear"
                 },
                 {
                     "time": 0.401,
-                    "value": -249.98289369964516,
+                    "value": -257.01087362892844,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.4504999999999998,
+                    "value": -257.3778565344527,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.4999999999999996,
+                    "value": -258.43539769145883,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.5499999999999998,
+                    "value": -259.47764607844135,
                     "easing": "linear"
                 },
                 {
                     "time": 0.6,
-                    "value": -252.03851805064005,
+                    "value": -259.8200639670713,
                     "easing": "linear"
                 },
                 {
                     "time": 0.601,
-                    "value": -252.03836341357572,
+                    "value": -259.8199127368397,
                     "easing": "linear"
                 },
                 {
                     "time": 0.604,
-                    "value": -252.03604385723526,
+                    "value": -259.8176442829696,
                     "easing": "linear"
                 }
             ],
@@ -462,6 +490,11 @@
                 {
                     "time": 0.4,
                     "value": 0.01183052109346128,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.4999999999999996,
+                    "value": -0.012695205739860604,
                     "easing": "easeInOut"
                 },
                 {

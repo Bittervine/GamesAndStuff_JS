@@ -11,7 +11,7 @@ Revision 303 records the direct Canvas 2D ownership map immediately before the W
 | `src/presentation/character-runtime.js` | 1 | Character visual composition helper. |
 | `src/presentation/foreground-sprite-treatment.js` | 3 | Foreground treatment cache preparation. |
 | `src/presentation/level-color-map-cache.js` | 3 | Recoloured atlas cache preparation. |
-| `src/presentation/overlap-blend-cache.js` | 5 | Static overlap-composite preparation. |
+| `src/presentation/overlap-blend-cache.js` | 5 | Asset-local overlap-mask preparation. |
 | `src/presentation/rocket-glow-baking.js` | 5 | Offline-style glow texture baking. |
 | `src/browser/game-bootstrap.js` | 8 | The small HUD minimap only. Gameplay world rendering must not migrate into browser startup code. |
 | `level-editor.html` | 97 | Level Editor palette/preview canvases and transparent authoring overlay; the base scene is delegated to the production presentation renderer. |
@@ -26,7 +26,7 @@ The counts are lexical audit counts rather than draw calls per frame. They are u
 
 The game renderer should migrate first behind the existing presentation boundary. The HUD minimap may remain Canvas 2D because it is small, infrequently redrawn, and isolated in `game-bootstrap.js`. The three editors are separate tools. Revision 356 makes the Level Editor delegate its base scene to the production Canvas renderer while retaining editor-owned palette/preview canvases and the transparent authoring overlay. Character and asset editors remain standalone Canvas tools.
 
-Texture-producing helpers such as cave masks, colour-map caches, overlap composites, and rocket-glow baking are presentation-owned inputs. A WebGL2 backend may upload their results as textures, replace them with GPU equivalents, or retain Canvas-produced textures during migration. It must not duplicate their gameplay-neutral source data in a second scene model.
+Texture-producing helpers such as cave masks, colour-map caches, asset-local overlap surfaces, and rocket-glow baking are presentation-owned inputs. A WebGL2 backend may upload their results as textures, replace them with GPU equivalents, or retain Canvas-produced textures during migration. It must not duplicate their gameplay-neutral source data in a second scene model.
 
 ## Migration guardrails
 
@@ -36,7 +36,7 @@ Do not combine the initial backend switch with gameplay changes, level-format ch
 
 ## Revision 323 resident-texture note
 
-The opt-in game renderer now consumes original character atlas images/source rectangles and pins presentation cache surfaces as WebGL textures. This does not change direct-Canvas ownership: cave masks, colour maps, overlap composites, foreground treatments, tint surfaces, text sprites, and particle stamps are still produced inside the approved presentation boundary. Normal WebGL gameplay no longer uploads the complete dynamic actor stack or final cave composition as full-screen Canvas layers; rare overlays and unsupported residual visuals use the existing conditional staging seam.
+The opt-in game renderer now consumes original character atlas images/source rectangles and pins presentation cache surfaces as WebGL textures. This does not change direct-Canvas ownership: cave masks, colour maps, asset-local overlap surfaces, foreground treatments, tint surfaces, text sprites, and particle stamps are still produced inside the approved presentation boundary. Normal WebGL gameplay no longer uploads the complete dynamic actor stack or final cave composition as full-screen Canvas layers; rare overlays and unsupported residual visuals use the existing conditional staging seam.
 
 ## Revision 324 geometric cave-mask and effect note
 

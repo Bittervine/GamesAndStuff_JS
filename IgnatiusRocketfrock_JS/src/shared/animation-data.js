@@ -107,27 +107,37 @@ export function sampleAnimationTrack(track, timeSeconds, duration, loop = true, 
         return track[0].value;
     }
 
-    const time = normalizeSampleTime(timeSeconds, duration, loop);
+    let time = normalizeSampleTime(timeSeconds, duration, loop);
     let left = track[0];
     let right = null;
+    let rightTime = 0;
 
-    for (let index = 1; index < runtimeKeyCount; index += 1) {
-        const candidate = track[index];
-        if (time <= candidate.time) {
-            right = candidate;
-            break;
+    if (loop && time < track[0].time) {
+        left = track[runtimeKeyCount - 1];
+        right = track[0];
+        time += duration;
+        rightTime = right.time + duration;
+    } else {
+        for (let index = 1; index < runtimeKeyCount; index += 1) {
+            const candidate = track[index];
+            if (time <= candidate.time) {
+                right = candidate;
+                rightTime = candidate.time;
+                break;
+            }
+            left = candidate;
         }
-        left = candidate;
+
+        if (!right) {
+            if (!loop) {
+                return track[track.length - 1].value;
+            }
+            right = track[0];
+            rightTime = right.time + duration;
+        }
     }
 
-    if (!right) {
-        if (!loop) {
-            return track[track.length - 1].value;
-        }
-        right = { ...track[0], time: duration };
-    }
-
-    const span = Math.max(0.0000001, right.time - left.time);
+    const span = Math.max(0.0000001, rightTime - left.time);
     const rawT = clamp((time - left.time) / span, 0, 1);
     const t = applyEasing(rawT, left.easing);
     if (left.easing === "step") {

@@ -7,6 +7,7 @@ import {
 } from "../src/shared/story-reading.js";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { normalizeResourcePath, resourceUrl } from "../src/shared/resource-paths.js";
+import { addResourceIndexEntry, normalizeResourceIndex, resourceIndexContains } from "../src/shared/resource-index-data.js";
 import { testNameInGroup, validateTestGateManifest } from "./test-gate-manifest.mjs";
 import {
     computeResponsiveViewportMetrics,
@@ -18,6 +19,11 @@ import {
     rocketPresentationOffsets
 } from "../src/presentation/canvas-renderer.js";
 import { WebGL2RendererBackend } from "../src/presentation/webgl2-renderer.js";
+import {
+    createPlayerFlightDangleProfile,
+    createPlayerFlightDangleState,
+    updatePlayerFlightDangle
+} from "../src/presentation/player-flight-dangle-motion.js";
 import {
     STATIC_TILE_SIZE,
     normalizeStaticTileBakeMode,
@@ -48,7 +54,9 @@ import {
     computeWorldParallaxOffsetAtPoint
 } from "../src/presentation/world-parallax.js";
 import {
-    buildOverlapBlendGroups,
+    applyOverlapBlendAlphaMask,
+    buildOverlapBlendEntries,
+    overlapBlendAlphaForWorldPoint,
     overlapBlendVisualEligible,
     overlapIntersectionBounds,
     OVERLAP_BLEND_CENTRAL_END,
@@ -435,6 +443,7 @@ import {
 } from "../src/core/enemy-navigation.js";
 import {
     FIXED_DT,
+    PICKUP_PROXIMITY_DISTANCE_SCALE,
     DEFAULT_TUNING,
     PLAYER_UPGRADE_BALANCE,
     PLAYER_UPGRADE_KINDS,
@@ -602,6 +611,9 @@ function testSourceOrganization() {
         "../src/shared/music-data.js",
         "../resources/music/music.json",
         "../src/shared/power-up-data.js",
+        "../src/shared/resource-index-data.js",
+        "../src/tools/resource-index-loader.js",
+        "../resources/resources.json",
         "../electron/main.cjs",
         "../electron/preload.cjs",
         "../electron/README.md",
@@ -704,6 +716,21 @@ function testSourceOrganization() {
     assert.equal(windowsBuildScript.includes('rmdir /S /Q "%CONTENT_DEST%"'), false, "runtime content synchronization should not delete and recopy the complete destination on every build");
     assert.match(windowsBuildScript, /robocopy "%CONTENT_SOURCE%" "%CONTENT_DEST%" \/MIR/, "runtime content should use robocopy's incremental mirror behavior");
 
+    const resourceIndex = normalizeResourceIndex(readResourceJson("resources.json"));
+    assert.ok(resourceIndex.assetAtlasIds.includes("at_atlas_019"), "resources.json should enumerate the complete asset-atlas library without numbered probing");
+    assert.ok(resourceIndex.levelIds.includes("level_800") && resourceIndex.levelIds.includes("level_t07"), "resources.json should enumerate ordinary, diagnostic, and test levels explicitly");
+    assert.equal(resourceIndexContains(resourceIndex, "assetAtlas", "at_atlas_019"), true, "resource-index lookup should recognize declared atlases");
+    assert.equal(resourceIndexContains(addResourceIndexEntry(resourceIndex, "assetAtlas", "at_atlas_100"), "assetAtlas", "at_atlas_100"), true, "resource indexes should accept atlases beyond 099");
+    assert.throws(() => normalizeResourceIndex({ ...resourceIndex, assetAtlasIds: ["at_atlas_001", "at_atlas_001"] }), /duplicate/, "resource indexes should reject duplicate ids");
+    assert.throws(() => normalizeResourceIndex({ ...resourceIndex, levelIds: ["not_a_level"] }), /valid resource id/, "resource indexes should reject malformed level ids");
+    const resourceAssetEditorSource = readFileSync(new URL("../asset-editor.html", import.meta.url), "utf8");
+    const resourceLevelEditorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    const resourceLoaderSource = readFileSync(new URL("../src/tools/resource-index-loader.js", import.meta.url), "utf8");
+    assert.equal(resourceAssetEditorSource.includes("NUMBERED_ATLAS_MAX"), false, "the Asset Tool should no longer synthesize atlas ids through 099");
+    assert.equal(resourceLevelEditorSource.includes("ATLAS_AUTOLOAD_LIMIT") || resourceLevelEditorSource.includes("LEVEL_AUTOLOAD_LIMIT"), false, "the Level Editor should no longer probe fixed numbered ranges");
+    assert.ok(resourceAssetEditorSource.includes("loadResourceIndex") && resourceLevelEditorSource.includes("loadResourceIndex"), "both authoring tools should discover resources through resources.json");
+    assert.ok(resourceLoaderSource.includes("RESOURCE_LOAD_RETRY_DELAYS_MS") && resourceLoaderSource.includes("after ${delays.length} attempts"), "declared resource retrieval should use bounded retries with explicit failure text");
+
     const nativeAppSource = readFileSync(new URL("../../src/runtime/ignatius-app.cpp", import.meta.url), "utf8");
     const devToolHostSource = readFileSync(new URL("../../src/runtime/development-tool-host.cpp", import.meta.url), "utf8");
     const launchOptionsHeader = readFileSync(new URL("../../src/runtime/launch-options.h", import.meta.url), "utf8");
@@ -712,9 +739,16 @@ function testSourceOrganization() {
     assert.match(launchOptionsHeader, /DEVTOOL_PLAYTEST_LEVEL_ID = "level_temp"/, "IgnatiusDevTool should use the exact generated filename level_temp.json");
     assert.match(devToolHostSource, /contentRoot \/ "resources" \/ "levels" \/ \(FString\(DEVTOOL_PLAYTEST_LEVEL_ID\) \+ "\.json"\)/, "IgnatiusDevTool should write its generated playtest snapshot beside ordinary packaged levels");
     assert.match(devToolHostSource, /argsStorage\.push_back\("--level"\)[\s\S]*argsStorage\.push_back\(DEVTOOL_PLAYTEST_LEVEL_ID\)/, "IgnatiusDevTool should launch playtests through the ordinary level-id loader");
+    assert.ok(devToolHostSource.includes("ignatius-resource-saved|") && devToolHostSource.includes("addResourceIndexEntry"), "IgnatiusDevTool should add newly saved atlases and levels to resources.json when their authored files exist");
     assert.equal(devToolHostSource.includes("--level-file"), false, "IgnatiusDevTool should not retain the external temporary-level launch path");
     assert.match(launchOptionsSource, /lowered == DEVTOOL_PLAYTEST_LEVEL_ID/, "the native level-id parser should accept the reserved generated DevTool playtest id");
     assert.match(nativeAppSource, /referenceMusicAssetPath\(track\.file\)/, "native music playback should resolve catalog filenames through the music resource category");
+    assert.ok(
+        nativeAppSource.includes("resolveEnemyCharacterProjectUrl")
+            && nativeAppSource.includes('jsonStringOr(it.value(), "characterUrl", characterId)')
+            && nativeAppSource.includes("loadRuntimeCharacterProject(renderer, gpuDevice, characterUrl"),
+        "native enemy loading should honor optional catalog characterUrl paths"
+    );
     assert.equal(nativeAppSource.includes("if (!sceneTextureGpu && !ensureScenePresentationTexture())"), false, "raw GPU acquisition should validate scene-texture dimensions even when old textures remain allocated");
     assert.ok(nativeAppSource.includes("bool scenePresentationSizeDirty = true") && nativeAppSource.includes("!scenePresentationSizeDirty"), "raw GPU scene sizing should use a cached dirty flag so normal frames avoid repeated SDL size queries");
     for (const eventName of ["SDL_EVENT_WINDOW_RESIZED", "SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED", "SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED", "SDL_EVENT_WINDOW_ENTER_FULLSCREEN", "SDL_EVENT_WINDOW_LEAVE_FULLSCREEN"]) {
@@ -846,6 +880,7 @@ function testSourceOrganization() {
     assert.equal(levelEditorSource.includes("RETIRED_LEVEL_ENTITY_TYPES") || levelEditorSource.includes("delete normalizedEntity.chaseSpeed"), false, "Level Editor should not contain legacy-level stripping or migration paths");
     assert.equal(levelEditorSource.includes("placement.angle") || levelEditorSource.includes("entity.visuals") || levelEditorSource.includes("entity.visual &&"), false, "Level Editor should not retain old placement rotation or entity-visual aliases");
     assert.ok(levelEditorSource.includes('id="inspect-on-top"') && levelEditorSource.includes('> On top</label>'), "Level Editor should expose the per-placement On top checkbox");
+    assert.ok(levelEditorSource.includes("onTop: placement.onTop === true ? true : undefined"), "Level Editor normalization should preserve authored On top flags when a saved level is loaded again");
     assert.ok(levelEditorSource.includes('id="inspect-collision" type="checkbox"> Collision'), "Level Editor should use the compact Collision label");
     assert.equal(levelEditorSource.includes('id="inspect-collision" type="checkbox"> Atlas collision'), false, "Level Editor should not retain the verbose Atlas collision label");
     assert.ok(levelEditorSource.includes("caveDecorationCatalog(currentGeneratorTheme())"), "manual perimeter population should filter by the selected theme's biome and Foreground tags");
@@ -2037,6 +2072,90 @@ function testPlaceableEnemySpawner() {
     assert.equal(dormant.spawnCount, 1, "the newly visible one-hundred-percent spawner should then teleport in one enemy");
 }
 
+function testPlayerFlightDangleAnimation() {
+    const dt = 1 / 60;
+    const rawDangle = JSON.parse(readFileSync(
+        new URL("../resources/characters/ct_anim_wizard_dangle_1.json", import.meta.url),
+        "utf8"
+    ));
+    const dangleClip = normalizeAnimationClip(rawDangle, "wizard dangle");
+    const profile = createPlayerFlightDangleProfile(dangleClip);
+    approx(profile.minimumPoseTime, 0, 0.000001, "dangle profile should begin at the authored maximum-deceleration pose");
+    approx(profile.maximumPoseTime, 0.36, 0.000001, "dangle profile should end at the authored maximum-acceleration pose");
+
+    const deceleratingPose = sampleAnimationClipAtPlayhead(dangleClip, profile.minimumPoseTime);
+    const acceleratingPose = sampleAnimationClipAtPlayhead(dangleClip, profile.maximumPoseTime);
+    for (const partName of Object.keys(rawDangle.tracks || {})) {
+        const properties = Object.keys(rawDangle.tracks[partName] || {});
+        assert.ok(
+            properties.some((property) => Math.abs(
+                Number(acceleratingPose[partName]?.[property]) - Number(deceleratingPose[partName]?.[property])
+            ) > 0.000001),
+            `the authored dangle clip should drive ${partName}, not only the feet`
+        );
+    }
+
+    const step = (state, input, frames = 1) => {
+        for (let index = 0; index < frames; index += 1) {
+            updatePlayerFlightDangle(state, { ...input, dt, profile });
+        }
+    };
+    const neutralPoseTime = (profile.minimumPoseTime + profile.maximumPoseTime) * 0.5;
+    const steady = createPlayerFlightDangleState(profile);
+    step(steady, { active: true, ax: 0, facing: 1, forwardAcceleration: 950, brakingAcceleration: 780 }, 180);
+    approx(steady.poseTime, neutralPoseTime, 0.000001, "steady flight should hold the neutral indexed pose without passive movement");
+
+    const accelerating = createPlayerFlightDangleState(profile);
+    step(accelerating, { active: true, ax: 950, facing: 1, forwardAcceleration: 950, brakingAcceleration: 780 }, 30);
+    assert.ok(accelerating.poseTime > 0.355, "maximum forward acceleration should settle near the 0.360 pose index");
+
+    const braking = createPlayerFlightDangleState(profile);
+    step(braking, { active: true, ax: -780, facing: 1, forwardAcceleration: 950, brakingAcceleration: 780 }, 30);
+    assert.ok(braking.poseTime < 0.005, "maximum braking should settle near the 0.000 pose index");
+
+    const reversal = createPlayerFlightDangleState(profile);
+    updatePlayerFlightDangle(reversal, {
+        active: true,
+        ax: -780,
+        facing: 1,
+        dt,
+        forwardAcceleration: 950,
+        brakingAcceleration: 780,
+        profile
+    });
+    approx(reversal.targetPoseTime, profile.minimumPoseTime, 0.000001, "releasing right while still facing right should select the forward-dangling braking pose");
+    updatePlayerFlightDangle(reversal, {
+        active: true,
+        ax: -950,
+        facing: -1,
+        dt,
+        forwardAcceleration: 950,
+        brakingAcceleration: 780,
+        profile
+    });
+    approx(reversal.targetPoseTime, profile.maximumPoseTime, 0.000001, "turning left while accelerating left should select the mirrored backward-dangling pose");
+
+    const character = JSON.parse(readFileSync(
+        new URL("../resources/characters/ct_char_wizard_1.json", import.meta.url),
+        "utf8"
+    ));
+    assert.equal(character.animationMap?.dangle, "ct_anim_wizard_dangle_1.json", "the wizard project should retain the editable dangle animation as a named slot");
+    const walkClip = normalizeAnimationClip(JSON.parse(readFileSync(
+        new URL("../resources/characters/ct_anim_wizard_walk_1.json", import.meta.url),
+        "utf8"
+    )), "wizard walk");
+    const jumpPose = sampleAnimationClip(walkClip, 0.180);
+    assert.ok(Math.abs(jumpPose.leftFoot.x - jumpPose.rightFoot.x) > 1,
+        "the authored 0.180 walk pose should keep the jump feet visibly separated");
+
+    const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
+    assert.match(rendererSource, /sampleAnimationClipAtPlayhead\([\s\S]*playerFlightDangle/, "the HTML player renderer should sample the authored dangle animation by acceleration index");
+    assert.match(rendererSource, /WIZARD_JUMP_POSE_TIME\s*=\s*0\.180/, "the HTML jump pose should use the requested 0.180-second authored walk frame");
+    assert.match(rendererSource, /poseMode === "jump"[\s\S]*sampleAnimationClip\(jumpClip, WIZARD_JUMP_POSE_TIME\)/,
+        "normal and double jumps should hold the authored walk pose until hovering begins");
+    assert.ok(!rendererSource.includes("playerFlightLimbMotion"), "the retired procedural limb-offset path should not remain in the HTML renderer");
+}
+
 function testGroundShadowAnchoringAndFade() {
     assert.equal(ACTOR_SHADOW_FADE_SECONDS, 0.2, "actor shadows should use the requested two-tenths-second transition");
 
@@ -2197,7 +2316,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
         assert.deepEqual(enemy.defaultSize, size, `${enemyId} should expose its first-pass scaled body size`);
     }
     for (const [enemyId, enemy, characterId, size] of [
-        ["enemy_090", dwarf090, "ct_char_enemy_090", { w: 92, h: 137 }],
+        ["enemy_090", dwarf090, "ct_char_enemy_090", { w: 63, h: 124 }],
         ["enemy_091", dwarf091, "ct_char_enemy_091", { w: 87, h: 130 }],
         ["enemy_092", dwarf092, "ct_char_enemy_092", { w: 99, h: 149 }],
         ["enemy_093", dwarf093, "ct_char_enemy_093", { w: 99, h: 149 }]
@@ -2205,8 +2324,8 @@ function testEnemyCatalogAndLevelEditorIntegration() {
         assert.equal(enemy.characterId, characterId, `${enemyId} should reference its independent dwarf project`);
         assert.equal(enemy.defaults.projectileKind, "throwingAxe", `${enemyId} should use the new throwing-axe projectile kind`);
         assert.equal(enemy.defaults.projectileLaunchType, "straight", `${enemyId} should throw straight-travel axes rather than homing fireballs`);
-        assert.equal(enemy.defaults.projectileFrameId, "axe", `${enemyId} should render the axe atlas frame as its projectile`);
-        assert.equal(enemy.defaults.projectilePartName, "throwingAxe", `${enemyId} should launch from the hidden throwingAxe rig marker`);
+        assert.equal(enemy.defaults.projectileFrameId, "axe_copy", `${enemyId} should render the independently authored axe_copy frame as its projectile`);
+        assert.equal(enemy.defaults.projectilePartName, "axe_copy", `${enemyId} should launch from the axe_copy rig handoff`);
         assert.deepEqual(enemy.defaultSize, size, `${enemyId} should expose its authored gameplay body size`);
     }
     assert.equal(skeleton.characterId, "ct_char_enemy_001", "enemy_001 should reference its generic character project");
@@ -2239,7 +2358,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(skeletonCaster.defaults.renderScale, 1.2, "Skeleton Caster future defaults should render 50 percent larger");
     assert.equal(skeletonCaster.defaults.projectileCooldown, 3, "Skeleton Caster should cast once every three seconds");
     assert.equal(skeletonCaster.defaults.projectileDamage, 49, "Skeleton Caster projectile should remain just below a Normal one-shot");
-    for (const enemyId of ["enemy_030", "enemy_031", "enemy_032", "enemy_033", "enemy_034", "enemy_035", "enemy_036", "enemy_037", "enemy_040"]) {
+    for (const enemyId of ["enemy_030", "enemy_031", "enemy_032", "enemy_033", "enemy_034", "enemy_035", "enemy_036", "enemy_037", "enemy_038", "enemy_040"]) {
         assert.equal(catalog.enemies[enemyId]?.defaults.attackDamage, 24, `${enemyId} melee should remain just below a Hard one-shot`);
     }
     assert.equal(skeletonCaster.defaults.projectileLifetime, catalog.enemies.enemy_010.defaults.projectileLifetime * 2, "undeath orb should retain twice the Fireball Goblin travel lifetime");
@@ -2269,7 +2388,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(Math.abs(catalog.enemies.enemy_021.defaultSize.h - 44 * (2 / 3)) < 1e-9, "Enemy 021 height should be two thirds of the retained bombing bat");
     assert.ok(Math.abs(catalog.enemies.enemy_021.defaults.renderOffsetX - (-11 * (2 / 3))) < 1e-9, "Enemy 021 X render offset should scale with the smaller body");
     assert.ok(Math.abs(catalog.enemies.enemy_021.defaults.renderOffsetY - (16 * (2 / 3))) < 1e-9, "Enemy 021 Y render offset should scale with the smaller body");
-    for (const humanId of ["enemy_030", "enemy_031", "enemy_032", "enemy_033", "enemy_034", "enemy_035", "enemy_036", "enemy_037"]) {
+    for (const humanId of ["enemy_030", "enemy_031", "enemy_032", "enemy_033", "enemy_034", "enemy_035", "enemy_036", "enemy_037", "enemy_038"]) {
         const human = catalog.enemies[humanId];
         assert.ok(human, `${humanId} should register a modular human raider`);
         assert.equal(human.defaultSize.w, 60, `${humanId} should use the compact modular-human default hitbox width`);
@@ -2456,7 +2575,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
         assert.ok(!rendererSource.includes(`characters/ct_char_enemy_${discardedSuffix}.json`), `renderer should not preload discarded enemy ${discardedSuffix}`);
     }
 
-    for (const [suffix, expectedProjectilePart] of [["018", "cannonball"], ["060", "fireball"], ["070", "fireball"], ["080", "fireball"], ["090", "throwingAxe"], ["091", "throwingAxe"], ["092", "throwingAxe"], ["093", "throwingAxe"]]) {
+    for (const [suffix, expectedProjectilePart] of [["018", "cannonball"], ["060", "fireball"], ["070", "fireball"], ["080", "fireball"], ["090", "axe_copy"], ["091", "axe_copy"], ["092", "axe_copy"], ["093", "axe_copy"]]) {
         const character = JSON.parse(readFileSync(new URL(`../resources/characters/ct_char_enemy_${suffix}.json`, import.meta.url), "utf8"));
         const rig = JSON.parse(readFileSync(new URL(`../resources/characters/ct_rig_enemy_${suffix}.json`, import.meta.url), "utf8"));
         const atlas = JSON.parse(readFileSync(new URL(`../resources/characters/ct_atlas_enemy_${suffix}.json`, import.meta.url), "utf8"));
@@ -2464,6 +2583,13 @@ function testEnemyCatalogAndLevelEditorIntegration() {
         assert.equal(character.projectilePart, expectedProjectilePart, `Enemy ${suffix} should expose the expected projectile preview part`);
         assert.equal(rig.atlasManifest, `ct_atlas_enemy_${suffix}.json`, `Enemy ${suffix} rig should reference its independent atlas`);
         assert.deepEqual([...rig.drawOrder].sort(), Object.keys(rig.parts).sort(), `Enemy ${suffix} draw order should cover every rig part`);
+        if (["090", "091", "092", "093"].includes(suffix)) {
+            assert.equal(rig.parts.leftArm?.frame, "leftArmOpen", `Enemy ${suffix} should use the anatomically correct open left arm`);
+            assert.equal(rig.parts.leftArmClosed, undefined, `Enemy ${suffix} should not retain the incorrect closed left-hand part`);
+            assert.equal(rig.parts.axe_copy?.frame, "axe_copy", `Enemy ${suffix} should define an independent axe_copy handoff part`);
+            assert.equal(rig.parts.axe_copy?.projectile?.projectileKind, "throwingAxe", `Enemy ${suffix} axe_copy should preserve spinning throwing-axe presentation`);
+            assert.equal(rig.parts.axe_copy?.projectile?.releaseTime, 0.339, `Enemy ${suffix} should hand off the axe at the authored release instant`);
+        }
         for (const [partName, part] of Object.entries(rig.parts)) {
             assert.ok(atlas.frames[part.frame], `Enemy ${suffix} part ${partName} should reference an atlas frame`);
         }
@@ -2555,6 +2681,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     const human035 = JSON.parse(readFileSync(new URL("../resources/characters/ct_char_enemy_035.json", import.meta.url), "utf8"));
     const human036 = JSON.parse(readFileSync(new URL("../resources/characters/ct_char_enemy_036.json", import.meta.url), "utf8"));
     const human037 = JSON.parse(readFileSync(new URL("../resources/characters/ct_char_enemy_037.json", import.meta.url), "utf8"));
+    const human038 = JSON.parse(readFileSync(new URL("../resources/characters/ct_char_enemy_038.json", import.meta.url), "utf8"));
     const humanRig030 = JSON.parse(readFileSync(new URL("../resources/characters/ct_rig_enemy_030.json", import.meta.url), "utf8"));
     const humanRig031 = JSON.parse(readFileSync(new URL("../resources/characters/ct_rig_enemy_031.json", import.meta.url), "utf8"));
     const humanRig032 = JSON.parse(readFileSync(new URL("../resources/characters/ct_rig_enemy_032.json", import.meta.url), "utf8"));
@@ -2563,6 +2690,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     const humanRig035 = JSON.parse(readFileSync(new URL("../resources/characters/ct_rig_enemy_035.json", import.meta.url), "utf8"));
     const humanRig036 = JSON.parse(readFileSync(new URL("../resources/characters/ct_rig_enemy_036.json", import.meta.url), "utf8"));
     const humanRig037 = JSON.parse(readFileSync(new URL("../resources/characters/ct_rig_enemy_037.json", import.meta.url), "utf8"));
+    const humanRig038 = JSON.parse(readFileSync(new URL("../resources/characters/ct_rig_enemy_038.json", import.meta.url), "utf8"));
     const humanAtlas = JSON.parse(readFileSync(new URL("../resources/characters/ct_atlas_enemy_030.json", import.meta.url), "utf8"));
 
     assert.equal(humanRig030.parts.torso.frame, "body_00", "enemy_030 should retain its original torso artwork");
@@ -2616,10 +2744,10 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.deepEqual(humanRig035.parts.rightUpperArm.parentConstraint, humanRig034.parts.rightUpperArm.parentConstraint, "enemy_035 should copy Enemy 034's revised weapon-arm attachment");
     for (const [enemyId, character, rig] of [["034", human034, humanRig034], ["035", human035, humanRig035]]) {
         assert.equal(rig.parts.weapon.frame, "crossbow", `enemy_${enemyId} should carry the shared crossbow frame`);
-        assert.equal(character.projectilePart, "crossbowBolt", `enemy_${enemyId} should select its hidden crossbow bolt marker`);
-        assert.equal(rig.parts.crossbowBolt.frame, "arrow", `enemy_${enemyId} should fire the shared arrow frame`);
-        assert.equal(rig.parts.crossbowBolt.projectile.projectileKind, "crossbowBolt", `enemy_${enemyId} should compile the crossbowBolt projectile profile`);
-        assert.equal(rig.parts.crossbowBolt.projectile.releaseTime, 0.48, `enemy_${enemyId} should use the revised authored bolt handoff`);
+        assert.deepEqual(character.projectileParts, ["crossbowBolt", "crossbowBolt2", "crossbowBolt3"], `enemy_${enemyId} should select all three authored bolt handoff markers`);
+        assert.deepEqual(character.projectileParts.map((partName) => rig.parts[partName].frame), ["arrow", "arrow", "arrow"], `enemy_${enemyId} should fire the shared arrow frame from every handoff marker`);
+        assert.deepEqual(character.projectileParts.map((partName) => rig.parts[partName].projectile.projectileKind), ["crossbowBolt", "crossbowBolt", "crossbowBolt"], `enemy_${enemyId} should compile three generic crossbowBolt projectile profiles`);
+        assert.deepEqual(character.projectileParts.map((partName) => rig.parts[partName].projectile.releaseTime), [0.48, 0.88, 1.28], `enemy_${enemyId} should author three 0.4-second-spaced projectile handoffs`);
     }
     for (const slot of ["idle", "walk", "attack", "hurt", "death"]) {
         const clip034 = JSON.parse(readFileSync(new URL(`../resources/characters/ct_anim_enemy_034_${slot}.json`, import.meta.url), "utf8"));
@@ -2643,12 +2771,16 @@ function testEnemyCatalogAndLevelEditorIntegration() {
         const maxKeyTime = Math.max(...Object.values(attack.tracks).flatMap((partTracks) => (
             Object.values(partTracks).flatMap((keys) => keys.map((key) => Number(key.time)))
         )));
-        assert.equal(attack.duration, 0.72, `enemy_${enemyId} should end at the authored 0.720-second attack endpoint`);
+        assert.equal(attack.duration, 1.68, `enemy_${enemyId} should include three recoil beats and the final lowering motion`);
         assert.ok(maxKeyTime <= attack.duration, `enemy_${enemyId} attack should contain no stale keys after its duration`);
         assert.equal(attack.loop, false, `enemy_${enemyId} attack should remain a one-shot clip`);
-        assert.ok(attack.tracks.crossbowBolt.alpha.some((key) => key.time < 0.48 && key.value === 1), `enemy_${enemyId} should reveal the held bolt before the runtime handoff`);
+        for (const [partName, releaseTime] of [["crossbowBolt", 0.48], ["crossbowBolt2", 0.88], ["crossbowBolt3", 1.28]]) {
+            assert.ok(attack.tracks[partName].alpha.some((key) => key.time < releaseTime && key.value === 1), `enemy_${enemyId} should reveal ${partName} before its runtime handoff`);
+        }
         assert.ok(Math.max(...attack.tracks.rightUpperArm.rotation.map((key) => key.value)) - Math.min(...attack.tracks.rightUpperArm.rotation.map((key) => key.value)) > 0.6, `enemy_${enemyId} should visibly raise and recoil the weapon arm`);
     }
+    assert.equal(catalog.enemies.enemy_034.defaults.projectileCooldown, 2.5, "Human Crossbow should wait 2.5 seconds after completing the burst animation");
+    assert.equal(catalog.enemies.enemy_035.defaults.projectileCooldown, 2.5, "Human Crossbow II should wait 2.5 seconds after completing the burst animation");
 
     assert.equal(human036.displayName, "Human Pirate", "enemy_036 should expose the first pirate role");
     assert.equal(human037.displayName, "Human Pirate II", "enemy_037 should expose the second pirate role");
@@ -2662,6 +2794,25 @@ function testEnemyCatalogAndLevelEditorIntegration() {
         const raiderAttack = JSON.parse(readFileSync(new URL("../resources/characters/ct_anim_enemy_030_attack.json", import.meta.url), "utf8"));
         assert.deepEqual(pirateAttack.referencePose, raiderAttack.referencePose, `enemy_${enemyId} should lift the Raider attack pose for the rapier`);
         assert.deepEqual(pirateAttack.tracks, raiderAttack.tracks, `enemy_${enemyId} should lift the Raider attack motion for the rapier`);
+    }
+
+    assert.equal(human038.displayName, "Human Boxer", "enemy_038 should expose the bare-knuckle role");
+    assert.equal(humanRig038.parts.head.frame, "head_16", "enemy_038 should use head_16");
+    assert.equal(humanRig038.parts.torso.frame, "body_05", "enemy_038 should use body_05");
+    assert.equal(humanRig038.parts.weapon, undefined, "enemy_038 should have no weapon part");
+    assert.equal(humanRig038.drawOrder.includes("weapon"), false, "enemy_038 draw order should remain weapon-free");
+    assert.equal(human038.animationMap.attack, "ct_anim_enemy_038_attack.json", "enemy_038 should keep a dedicated boxer attack identity");
+    for (const slot of ["idle", "walk", "attack", "hurt", "death"]) {
+        const boxerClip = JSON.parse(readFileSync(new URL(`../resources/characters/ct_anim_enemy_038_${slot}.json`, import.meta.url), "utf8"));
+        const raiderClip = JSON.parse(readFileSync(new URL(`../resources/characters/ct_anim_enemy_030_${slot}.json`, import.meta.url), "utf8"));
+        assert.equal(boxerClip.animationId, `ct_anim_enemy_038_${slot}`, `enemy_038 ${slot} should retain its own animation identity`);
+        assert.equal(boxerClip.referencePose.weapon, undefined, `enemy_038 ${slot} should contain no weapon pose`);
+        assert.equal(boxerClip.tracks.weapon, undefined, `enemy_038 ${slot} should contain no weapon track`);
+        const raiderPoseWithoutWeapon = Object.fromEntries(Object.entries(raiderClip.referencePose).filter(([partName]) => partName !== "weapon"));
+        const raiderTracksWithoutWeapon = Object.fromEntries(Object.entries(raiderClip.tracks).filter(([partName]) => partName !== "weapon"));
+        assert.deepEqual(boxerClip.referencePose, raiderPoseWithoutWeapon, `enemy_038 ${slot} should preserve the articulated human pose apart from the removed weapon`);
+        assert.deepEqual(boxerClip.tracks, raiderTracksWithoutWeapon, `enemy_038 ${slot} should preserve the articulated human motion apart from the removed weapon`);
+        assert.deepEqual(Object.keys(boxerClip.referencePose).sort(), Object.keys(humanRig038.parts).sort(), `enemy_038 ${slot} should animate every weapon-free rig part`);
     }
 
     for (const partName of ["leftUpperArm", "leftLowerArm", "rightUpperArm", "rightLowerArm"]) {
@@ -6357,6 +6508,97 @@ function testHumanKnifeThrowerVolley() {
     assert.equal(placedKnifeThrower.projectileVolleyHalfAngle, 5, "bundled current-level data should be patched to the new spread instead of relying on catalog fallback");
 }
 
+function testDataDrivenTimedProjectileHandoffs() {
+    const catalog = JSON.parse(readFileSync("./resources/characters/ct_enemies_001.json", "utf8"));
+    const definition = catalog.enemies.enemy_034;
+    const character = JSON.parse(readFileSync("./resources/characters/ct_char_enemy_034.json", "utf8"));
+    const rig = JSON.parse(readFileSync("./resources/characters/ct_rig_enemy_034.json", "utf8"));
+    const attack = normalizeAnimationClip(JSON.parse(readFileSync("./resources/characters/ct_anim_enemy_034_attack.json", "utf8")), "Human Crossbow triple attack");
+    const state = createInitialGameState({ tuning: { maxDebugEvents: 300, healthRegenDelay: 99 } });
+    applyEditorLevelToWorld(state, {
+        levelId: "timed_projectile_handoff_test",
+        bounds: { x: -800, y: -800, w: 1600, h: 1600 },
+        entities: [{
+            id: "timed_handoff_enemy",
+            type: "characterEnemy",
+            enemyCatalogId: "enemy_034",
+            characterId: definition.characterId,
+            x: 400,
+            y: 100,
+            w: definition.defaultSize.w,
+            h: definition.defaultSize.h,
+            ...definition.defaults,
+            strategy: "sentry",
+            awarenessRange: 1200,
+            awarenessViewHalfAngle: 180,
+            preferredAttackMinRange: 0,
+            attackRange: 1200
+        }]
+    });
+    const projectileProfiles = character.projectileParts.map((partName) => {
+        const part = rig.parts[partName];
+        const projectile = part.projectile;
+        const pose = sampleAnimationClip(attack, projectile.releaseTime)[partName];
+        return {
+            partName,
+            frameId: part.frame,
+            animationSlot: projectile.animationSlot,
+            launchType: projectile.launchType,
+            projectileKind: projectile.projectileKind,
+            releaseTime: projectile.releaseTime,
+            localX: pose.x,
+            localY: pose.y,
+            rigScale: rig.global.scale
+        };
+    });
+    applyCharacterCombatProfiles(state, new Map([[definition.characterId, {
+        attackDuration: attack.duration,
+        projectiles: projectileProfiles
+    }]]));
+    state.world.solids = [];
+    state.world.segments = [];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    const enemy = state.enemies.find((item) => item.id === "timed_handoff_enemy");
+    enemy.combatState = "attacking";
+    enemy.movementPhase = "attack";
+    enemy.attackTimer = attack.duration;
+    enemy.attackHitApplied = false;
+    enemy.nextProjectileHandoffIndex = 0;
+
+    const launchVectors = [];
+    const seenProjectileIds = new Set();
+    for (let step = 0; step < 180 && launchVectors.length < 3; step += 1) {
+        const targetY = launchVectors.length === 0 ? 100 : (launchVectors.length === 1 ? 20 : 180);
+        for (const transformName of ["currentTransform", "previousTransform", "shownTransform"]) {
+            state.player[transformName].x = 0;
+            state.player[transformName].y = targetY;
+        }
+        state.player.vx = 0;
+        state.player.vy = 0;
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        for (const projectile of state.projectiles) {
+            if (projectile.enemyId !== enemy.id || seenProjectileIds.has(projectile.id)) continue;
+            seenProjectileIds.add(projectile.id);
+            launchVectors.push({ vx: projectile.vx, vy: projectile.vy, partName: projectile.projectilePartName });
+        }
+    }
+
+    assert.equal(launchVectors.length, 3, "three attack-animation projectile markers should generically produce three timed shots");
+    assert.deepEqual(launchVectors.map((shot) => shot.partName), ["crossbowBolt", "crossbowBolt2", "crossbowBolt3"], "each timed shot should retain the marker that handed it off");
+    assert.ok(launchVectors[1].vy < launchVectors[0].vy - 20, "the second bolt should independently aim upward toward the wizard's new position");
+    assert.ok(launchVectors[2].vy > launchVectors[0].vy + 20, "the third bolt should independently aim downward toward the wizard's later position");
+    approx(projectileProfiles[1].releaseTime - projectileProfiles[0].releaseTime, 0.4, 0.000001, "first and second handoffs should be 0.4 seconds apart");
+    approx(projectileProfiles[2].releaseTime - projectileProfiles[1].releaseTime, 0.4, 0.000001, "second and third handoffs should be 0.4 seconds apart");
+
+    while (enemy.attackTimer > 0) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+    }
+    approx(enemy.attackCooldownTimer, 2.5, 0.000001, "the crossbow burst should begin a 2.5-second cooldown after the full animation");
+}
+
 function testMusketGoblinProjectileAttack() {
     const state = createInitialGameState({
         tuning: {
@@ -6586,6 +6828,71 @@ function testTerrainInterceptsRocketBeforeEnemy() {
 }
 
 function testBreakableCrateReactiveObject() {
+    const centerPickupState = createInitialGameState();
+    const centerPlayerRect = getPlayerRect(centerPickupState);
+    const centerPickupX = centerPlayerRect.x + centerPlayerRect.w * 0.5;
+    const centerPickupY = centerPlayerRect.y + centerPlayerRect.h * 0.5;
+    centerPickupState.pickups = [{
+        id: "center_of_hitbox_pickup",
+        kind: "item",
+        pickupKind: "testToken",
+        x: centerPickupX,
+        y: centerPickupY + 4,
+        centerY: centerPickupY,
+        width: 8,
+        height: 8,
+        radius: 4,
+        amount: 1,
+        collected: false,
+        respawnSeconds: 0
+    }];
+    stepSimulation(centerPickupState, createInputFrame(), FIXED_DT);
+    assert.equal(centerPickupState.pickups[0].collected, true, "pickup proximity should be measured from the center of Ignatius's collision hitbox rather than his foot anchor");
+
+    const easierPickupState = createInitialGameState();
+    const easierPlayerRect = getPlayerRect(easierPickupState);
+    const easierCenterX = easierPlayerRect.x + easierPlayerRect.w * 0.5;
+    const easierCenterY = easierPlayerRect.y + easierPlayerRect.h * 0.5;
+    const unscaledReach = 14 + easierPlayerRect.w * 0.45;
+    easierPickupState.pickups = [{
+        id: "scaled_proximity_pickup",
+        kind: "item",
+        pickupKind: "testToken",
+        x: easierCenterX + unscaledReach * 1.25,
+        y: easierCenterY + 8,
+        centerY: easierCenterY,
+        width: 16,
+        height: 16,
+        radius: 14,
+        amount: 1,
+        collected: false,
+        respawnSeconds: 0
+    }];
+    stepSimulation(easierPickupState, createInputFrame(), FIXED_DT);
+    assert.equal(easierPickupState.pickups[0].collected, true, "multiplying pickup distance by 0.67 should collect an item that was outside the previous reach");
+
+    const outsidePickupState = createInitialGameState();
+    const outsidePlayerRect = getPlayerRect(outsidePickupState);
+    const outsideCenterX = outsidePlayerRect.x + outsidePlayerRect.w * 0.5;
+    const outsideCenterY = outsidePlayerRect.y + outsidePlayerRect.h * 0.5;
+    const outsideReach = 14 + outsidePlayerRect.w * 0.45;
+    outsidePickupState.pickups = [{
+        id: "outside_scaled_proximity_pickup",
+        kind: "item",
+        pickupKind: "testToken",
+        x: outsideCenterX + outsideReach / PICKUP_PROXIMITY_DISTANCE_SCALE + 3,
+        y: outsideCenterY + 8,
+        centerY: outsideCenterY,
+        width: 16,
+        height: 16,
+        radius: 14,
+        amount: 1,
+        collected: false,
+        respawnSeconds: 0
+    }];
+    stepSimulation(outsidePickupState, createInputFrame(), FIXED_DT);
+    assert.equal(outsidePickupState.pickups[0].collected, false, "pickup proximity should remain bounded beyond the expanded 0.67-scaled reach");
+
     const catalog = JSON.parse(readFileSync(new URL("../resources/items/it_entities_001.json", import.meta.url), "utf8"));
     const definition = catalog.entities.breakableCrate;
     const levelEditorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
@@ -6858,7 +7165,7 @@ function testCharacterProjectWorkspace() {
     assert.ok(levelEditorHtml.includes("snapWizardDoorToNearbyGround"), "level editor should snap wizard entry/exit doors to nearby authored collision lines");
     assert.ok(levelEditorHtml.includes("wizard_entry_door") && levelEditorHtml.includes("wizard_exit_door"), "level editor should expose dedicated entry and exit door types");
     assert.ok(!levelEditorHtml.includes('data-entity="wizardStart"'), "the retired wizard-start entity should not remain in the palette");
-    assert.ok(levelEditorHtml.includes("drawCutoutMaskArtwork") && levelEditorHtml.includes('globalCompositeOperation = "destination-out"'), "world-tile cutout masks should erase only the transparent artwork tile so the shared editor backing remains visible");
+    assert.ok(levelEditorHtml.includes("function drawCutoutMask(mask)") && levelEditorHtml.includes("drawBackground(rect)") && levelEditorHtml.includes("drawGrid(rect)"), "editor cutout-mask guides should repaint the shared backing instead of retaining the retired artwork-tile eraser");
     const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
     assert.ok(rendererSource.includes("ctx.fillStyle = LEVEL_BACKGROUND_COLOR"), "runtime cutout masks should repaint the shared cave backing");
     assert.ok(!rendererSource.includes('globalCompositeOperation = "destination-out"'), "runtime cutout masks should not erase canvas alpha");
@@ -9323,7 +9630,7 @@ function testCaveWindowSplineAuthoring() {
     assert.equal(levelEditorHtml.includes("fitView();"), false, "the stale removed fitView startup call should not remain");
     assert.ok(levelEditorHtml.includes("fitContentView();"), "editor startup should invoke the current content-fit helper");
     assert.ok(levelEditorHtml.includes("draw({ reuseScene: true })"), "placement-preview and marquee pointer movement should remain compatible with the coalesced render scheduler");
-    assert.ok(levelEditorHtml.includes("buildOverlapBlendGroups") && levelEditorHtml.includes("createOverlapBlendSurface") && levelEditorHtml.includes("drawMainPlacementArtworkEntries"), "Level Editor should preview cached seamless overlap composites without deleting individual placements");
+    assert.ok(levelEditorHtml.includes('id="inspect-blend-overlaps"') && levelEditorHtml.includes("blendOverlaps") && levelEditorHtml.includes("createGameCanvasRenderer"), "Level Editor should expose the per-placement overlap escape hatch while previewing through the production renderer");
     assert.equal(levelEditorHtml.includes("function editorOverlapBlendSignature"), false, "Level Editor should not rebuild a whole-placement overlap signature on every scene render");
     const editorDrawFunction = levelEditorHtml.slice(levelEditorHtml.indexOf("    function draw(options = null)"), levelEditorHtml.indexOf("    function drawPlacementPreview()"));
     assert.equal(editorDrawFunction.includes("scheduleJsonUpdate"), false, "the editor render scheduler must not serialize the level document");
@@ -10035,18 +10342,43 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     assert.equal(brightenState.world.visuals[0].blendMode, "brightenOnly", "manifest presentation metadata should hydrate even for inert background visuals");
 
     const overlappingVisuals = [
-        { id: "platform_a", kind: "atlasSprite", atlasId: "at_atlas_004", assetId: "a", x: 0, y: 0, w: 220, h: 80, layer: "terrain", order: 1 },
-        { id: "platform_b", kind: "atlasSprite", atlasId: "at_atlas_004", assetId: "b", x: 180, y: 0, w: 220, h: 80, layer: "terrain", order: 2 },
-        { id: "separate", kind: "atlasSprite", atlasId: "at_atlas_004", assetId: "c", x: 500, y: 0, w: 180, h: 80, layer: "terrain", order: 3 }
+        { id: "platform_a", kind: "atlasSprite", atlasId: "at_atlas_004", assetId: "red", x: 0, y: 0, w: 220, h: 80, layer: "terrain", order: 1 },
+        { id: "unrelated", kind: "atlasSprite", atlasId: "at_atlas_004", assetId: "elsewhere", x: 900, y: 0, w: 80, h: 80, layer: "terrain", order: 2 },
+        { id: "platform_b", kind: "atlasSprite", atlasId: "at_atlas_004", assetId: "green", x: 180, y: 0, w: 220, h: 80, layer: "terrain", order: 3 },
+        { id: "platform_c", kind: "atlasSprite", atlasId: "at_atlas_004", assetId: "blue", x: 360, y: 0, w: 220, h: 80, layer: "terrain", order: 4 }
     ];
     const overlapCache = buildWorldVisualCache(overlappingVisuals);
-    const blendGroups = buildOverlapBlendGroups(overlapCache.main);
-    assert.equal(blendGroups.length, 1, "consecutive overlapping static terrain assets should become one cached blend group");
-    assert.equal(blendGroups[0].members.length, 2, "the separated platform should remain outside the overlap blend group");
-    assert.equal(overlapBlendVisualEligible({ ...overlappingVisuals[0], dynamicPosition: true }), false, "moving visuals must not be baked into a static overlap bitmap");
-    assert.equal(overlapBlendVisualEligible({ ...overlappingVisuals[0], onTop: true }), false, "On top visuals must remain separate from pre-actor overlap blends");
-    assert.equal(overlapBlendVisualEligible({ ...overlappingVisuals[0], blendMode: "brightenOnly" }), false, "brighten-only visuals must blend against the live destination rather than an intermediate overlap bitmap");
-    assert.deepEqual(overlapIntersectionBounds(overlapCache.main[0].bounds, overlapCache.main[1].bounds), { minX: 180, minY: 0, maxX: 220, maxY: 80, width: 40, height: 80 }, "overlap blending should measure the exact shared world region");
+    const blendEntries = buildOverlapBlendEntries(overlapCache.main);
+    assert.equal(blendEntries.length, 2, "each upper member of an overlap chain should receive its own bounded mask entry");
+    assert.equal(blendEntries[0].visual.id, "platform_b", "an unrelated draw-order record must not break overlap discovery");
+    assert.equal(blendEntries[1].visual.id, "platform_c", "long overlap chains should continue without a combined level-sized bitmap");
+    assert.equal(blendEntries[0].overlaps.length, 1, "the green test block should blend only against the red block beneath it");
+    assert.equal(overlapBlendVisualEligible({ ...overlappingVisuals[0], dynamicPosition: true }), false, "moving visuals must not enter the static overlap cache");
+    assert.equal(overlapBlendVisualEligible({ ...overlappingVisuals[0], onTop: true }), true, "On top assets may blend inside their own draw partition");
+    assert.equal(overlapBlendVisualEligible({ ...overlappingVisuals[0], blendMode: "brightenOnly" }), false, "brighten-only visuals must blend against the live destination");
+    assert.equal(overlapBlendVisualEligible({ ...overlappingVisuals[0], blendOverlaps: false }), false, "the per-placement escape hatch should disable overlap blending");
+    assert.deepEqual(overlapIntersectionBounds(overlapCache.main[0].bounds, overlapCache.main[2].bounds), { minX: 180, minY: 0, maxX: 220, maxY: 80, width: 40, height: 80 }, "overlap blending should measure the exact shared world region");
+    const greenOverlap = blendEntries[0].overlaps;
+    assert.equal(overlapBlendAlphaForWorldPoint({ x: 185, y: 40 }, greenOverlap), 0, "the first quarter of the red/green overlap should show only the lower red block");
+    assert.equal(overlapBlendAlphaForWorldPoint({ x: 200, y: 40 }, greenOverlap), 0.5, "the middle of the red/green overlap should mix the upper green block at half alpha");
+    assert.equal(overlapBlendAlphaForWorldPoint({ x: 215, y: 40 }, greenOverlap), 1, "the final quarter of the red/green overlap should show the upper green block fully");
+    const greenPixels = new Uint8ClampedArray(220 * 4);
+    for (let x = 0; x < 220; x += 1) {
+        greenPixels[x * 4 + 1] = 255;
+        greenPixels[x * 4 + 3] = 255;
+    }
+    applyOverlapBlendAlphaMask({
+        pixels: greenPixels,
+        width: 220,
+        height: 1,
+        visual: overlappingVisuals[2],
+        overlaps: greenOverlap
+    });
+    assert.equal(greenPixels[4 * 4 + 3], 0, "the red/green pixel fixture should make the entering edge of the green asset transparent");
+    assert.ok(greenPixels[19 * 4 + 3] >= 120 && greenPixels[19 * 4 + 3] <= 122, "the red/green pixel fixture should approach half alpha immediately before the overlap midpoint");
+    assert.ok(greenPixels[20 * 4 + 3] >= 133 && greenPixels[20 * 4 + 3] <= 135, "the red/green pixel fixture should pass half alpha immediately after the overlap midpoint");
+    assert.equal(greenPixels[34 * 4 + 3], 255, "the red/green pixel fixture should leave the departing edge of the green asset opaque");
+    assert.equal(greenPixels[20 * 4 + 1], 255, "the overlap mask should preserve the upper asset's green colour while changing only alpha");
     assert.equal(OVERLAP_BLEND_CENTRAL_START, 0.25, "the blend should begin at the first quarter of the overlap");
     assert.equal(OVERLAP_BLEND_CENTRAL_END, 0.75, "the blend should finish at the third quarter of the overlap");
 
@@ -10111,6 +10443,7 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     const maskSource = readFileSync(new URL("../src/presentation/cave-window-mask.js", import.meta.url), "utf8");
     const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
     const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
+    const levelEditorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     assert.ok(rendererSource.includes("buildWorldVisualCache") && rendererSource.includes("visualIntersectsViewport"), "Canvas renderer should cache layer organization and cull static scenery before drawing");
     assert.ok(rendererSource.includes("createWebGL2RendererBackend") && rendererSource.includes("renderWebGL2") && rendererSource.includes("renderCanvas2D"), "the game renderer should retain both the opt-in WebGL2 resident-texture path and Canvas 2D renderer");
     assert.ok(rendererSource.includes("probeWebGL2RendererSupport") && rendererSource.includes("const webglProbePassed"), "WebGL2 support should be proven on a scratch canvas before the visible canvas is committed to the GPU context family");
@@ -10170,9 +10503,11 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
         rendererSource.indexOf("drawProjectiles(state, view)")
     );
     assert.equal(genericSmokeLoop.includes("createRadialGradient"), false, "the generic smoke-puff loop must not rebuild one radial gradient per particle");
-    assert.ok(rendererSource.includes("ensureOverlapBlendCache") && rendererSource.includes("drawOverlapBlendGroup"), "overlapping static atlas assets should be composited once into reusable off-screen bitmaps");
+    assert.ok(rendererSource.includes("ensureOverlapBlendCache") && rendererSource.includes("memberToEntry") && rendererSource.includes("sourceOverride"), "overlapping static atlas assets should reuse one bounded masked source per affected upper asset");
     const overlapBlendSource = readFileSync(new URL("../src/presentation/overlap-blend-cache.js", import.meta.url), "utf8");
-    assert.ok(overlapBlendSource.includes("destination-in") && overlapBlendSource.includes("OVERLAP_BLEND_CENTRAL_START") && overlapBlendSource.includes("OVERLAP_BLEND_CENTRAL_END"), "the cached composite should crossfade through the central 50 percent of each overlap");
+    assert.ok(overlapBlendSource.includes("getImageData") && overlapBlendSource.includes("overlapBlendAlphaForWorldPoint") && overlapBlendSource.includes("DEFAULT_OVERLAP_BLEND_SPATIAL_BIN_SIZE"), "the overlap cache should create asset-local alpha masks through the central 50 percent without a combined group bitmap");
+    assert.equal(overlapBlendSource.includes("buildOverlapBlendGroups"), false, "the retired combined-group overlap implementation should not remain as dead code");
+    assert.equal(levelEditorHtml.includes("editorOverlapBlendGroups") || levelEditorHtml.includes("memberToGroup"), false, "the Level Editor should not retain its retired private combined-group renderer beside the production renderer");
     assert.equal(rendererSource.includes("ctx.filter = `brightness(${brightness})"), false, "the main render context should not apply an expensive filter per foreground placement");
     assert.ok(maskSource.includes("previousRenderKey") && maskSource.includes("DEFAULT_CAVE_MASK_RENDER_SCALE"), "cave mask should reuse stationary frames and render its layered feather at reduced resolution");
     assert.ok(maskSource.includes("DEFAULT_CAVE_MASK_SCROLL_PADDING_PX") && maskSource.includes("scrollcache") && maskSource.includes("sourceX + sourceWidth <= width"), "Canvas cave masks should scroll a padded cache across small camera movement instead of repainting every frame");
@@ -12920,7 +13255,21 @@ function testCharacterParentPivotConstraints() {
 function testDataDrivenWalkAnimation() {
     const rawClip = JSON.parse(readFileSync(new URL("../resources/characters/ct_anim_wizard_walk_1.json", import.meta.url), "utf8"));
     const clip = normalizeAnimationClip(rawClip, "wizard walk animation");
+    const rawIdleClip = JSON.parse(readFileSync(new URL("../resources/characters/ct_anim_wizard_idle_1.json", import.meta.url), "utf8"));
+    const idleClip = normalizeAnimationClip(rawIdleClip, "wizard idle animation");
+    const character = JSON.parse(readFileSync(new URL("../resources/characters/ct_char_wizard_1.json", import.meta.url), "utf8"));
     const expectedParts = ["leftArm", "leftFoot", "rocket", "rightFoot", "robe", "head", "hat", "rightArm"];
+
+    assert.equal(character.animationMap?.idle, "ct_anim_wizard_idle_1.json", "the wizard project should retain the editable idle animation as a named slot");
+    assert.equal(idleClip.animationId, "ct_anim_wizard_idle_1", "idle clip id should be stable");
+    assert.equal(idleClip.loop, true, "idle breathing should loop");
+    assert.equal(idleClip.duration, 2.4, "idle breathing duration should remain explicit data");
+    const idleExhale = sampleAnimationClip(idleClip, 0);
+    const idleInhale = sampleAnimationClip(idleClip, idleClip.duration * 0.5);
+    assert.ok(idleExhale.leftFoot.x - idleExhale.rightFoot.x >= 32, "the rear left foot should stand about half a rendered sole ahead of the right foot");
+    approx(idleInhale.leftFoot.x, idleExhale.leftFoot.x, 0.000001, "idle breathing should not slide the left foot");
+    approx(idleInhale.rightFoot.x, idleExhale.rightFoot.x, 0.000001, "idle breathing should not slide the right foot");
+    assert.ok(Math.abs(idleInhale.robe.y - idleExhale.robe.y) > 0.5, "the editable idle clip should contain a subtle breathing pose");
 
     assert.equal(clip.animationId, "ct_anim_wizard_walk_1", "walk clip id should be stable");
     assert.equal(clip.loop, true, "walk clip should loop");
@@ -12964,6 +13313,8 @@ function testDataDrivenWalkAnimation() {
     const gameSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
     const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
     assert.equal(rendererSource.includes("computeLegacyGroundAnimationPose"), false, "legacy procedural ground walk should be removed");
+    assert.ok(rendererSource.includes('this.animations.get("idle")'), "grounded rendering should sample the authored idle slot");
+    assert.ok(rendererSource.includes("blendAnimationPoses(idlePose, sampledWalkPose, motionAmount)"), "grounded rendering should crossfade from idle into the walk cycle");
     assert.equal(rendererSource.includes("comparisonPose"), false, "legacy comparison drawing should be removed");
     assert.equal(gameSource.includes("cycleAnimationMode"), false, "animation comparison mode should be removed from the game");
     assert.equal(gameHtml.includes("toggle-animation-mode"), false, "animation comparison button should be removed from the game UI");
@@ -13163,6 +13514,20 @@ function testAnimationEasingModes() {
         { time: 0.5, value: 10, easing: "linear" }
     ];
     approx(sampleAnimationTrack(loopTrack, 1.25, 1, true), 5, 0.000001, "looped tracks should wrap after their duration");
+    const offsetLoopTrack = [
+        { time: 0.25, value: 10, easing: "linear" },
+        { time: 0.75, value: 30, easing: "linear" }
+    ];
+    approx(sampleAnimationTrack(offsetLoopTrack, 0, 1, true), 20, 0.000001, "looped tracks should interpolate across the wrap before their first key");
+    approx(sampleAnimationTrack(offsetLoopTrack, 0.125, 1, true), 15, 0.000001, "moving all cyclic keys should change phase rather than freeze the pre-roll interval");
+    const offsetLoopClip = normalizeAnimationClip({
+        animationId: "offset_loop_preview",
+        duration: 1,
+        loop: true,
+        referencePose: { part: { x: 0, y: 0, rotation: 0, scale: 1, alpha: 1 } },
+        tracks: { part: { x: offsetLoopTrack } }
+    }, "offset loop preview");
+    approx(sampleAnimationClipAtPlayhead(offsetLoopClip, 0, { loop: true }).part.x, 20, 0.000001, "Puppet Forge looping preview should interpolate from the last key into a delayed first key");
 
     const stepTrack = [
         { time: 0, value: 3, easing: "step" },
@@ -15675,9 +16040,9 @@ function testAttachedSmokeDownSpeedTuning() {
     assert.ok(originPuff, "expected an attached boost puff for the nozzle-origin regression");
     approx(
         originPuff.y,
-        emissionPlayerY - originState.player.height * 0.30 + 8,
+        emissionPlayerY - originState.player.height * 0.30 - 2,
         0.001,
-        "attached smoke should begin eight pixels below the revision 177 nozzle point"
+        "attached smoke should begin ten pixels closer to the mounted rocket nozzle"
     );
 }
 
@@ -16611,6 +16976,7 @@ function testGamepadHapticsRespectActiveInputDevice() {
 }
 
 function testGameSettingsSchemaPersistenceAndMenuShell() {
+    assert.equal(resourceUrl(""), "resources/", "empty browser resource paths should resolve to the shared resource root");
     assert.equal(DEFAULT_GAME_SETTINGS.sfxVolume, 0.8, "effects should default to 80 percent");
     assert.equal(DEFAULT_GAME_SETTINGS.musicVolume, 0.1, "music should default to 10 percent");
     assert.equal(DEFAULT_GAME_SETTINGS.difficulty, "normal", "normal damage should remain the default");
@@ -16780,6 +17146,8 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.match(bootstrapSource, /setGamePaused\(true, \{ clearInput: true \}\)/, "opening the in-game menu should pause portable simulation stepping");
     assert.match(bootstrapSource, /function handleGameMenuNavigationKey/, "menu and settings should have explicit keyboard navigation");
     assert.match(bootstrapSource, /function applyFullscreenPreference\(\)/, "fullscreen should use the direct shared preference");
+    assert.match(bootstrapSource, /async function startNewGameFromTitle\(\)[\s\S]*void applyFullscreenPreference\(\);[\s\S]*await restartCurrentLevel/, "Start should request fullscreen while its user gesture is active");
+    assert.match(bootstrapSource, /navigator\.userActivation[\s\S]*!navigator\.userActivation\.isActive/, "non-gesture fullscreen sync should defer quietly");
     assert.match(bootstrapSource, /window\.addEventListener\("blur", pauseForPageFocusLoss\)/, "losing page focus should invoke the central pause path");
     assert.match(bootstrapSource, /document\.addEventListener\("visibilitychange", handlePageVisibilityChange\)/, "hidden tabs should pause even when blur delivery differs by browser");
     assert.match(bootstrapSource, /function syncGameAudioState\(\)/, "pause state should centrally control browser audio muting");
@@ -17681,6 +18049,7 @@ const tests = [
     ["gamepad haptics follow active input device", testGamepadHapticsRespectActiveInputDevice],
     ["timed story text layout", testTimedTextViewportLayout],
     ["responsive viewport scaling", testResponsiveViewportScaling],
+    ["player flight dangle animation", testPlayerFlightDangleAnimation],
     ["thought bubble tail and responsive typography", testThoughtBubbleTailAndResponsiveTypography],
     ["Puppet Guide debug overlay", testPuppetGuideDebugOverlay],
     ["selective level colour map", testSelectiveLevelColorMap],
@@ -17799,6 +18168,7 @@ const tests = [
     ["fireball goblin projectile attack", testFireballGoblinProjectileAttack],
     ["tri-fireball goblin uses any clear volley trajectory", testTriFireballGoblinVolleyUsesAnyClearTrajectory],
     ["human knife thrower releases three dagger projectiles", testHumanKnifeThrowerVolley],
+    ["data-driven timed projectile handoffs re-aim every shot", testDataDrivenTimedProjectileHandoffs],
     ["ranged enemies fire beyond preferred attack range", testRangedEnemiesFireBeyondPreferredAttackRange],
     ["ranged enemies require clear projectile lane", testRangedEnemiesRequireClearProjectileLane],
     ["ranged shot lane revalidated at release", testRangedShotLaneRevalidatedAtRelease],

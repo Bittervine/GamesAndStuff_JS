@@ -1,21 +1,20 @@
 {
     "meta": {
-        "version": 1,
-        "note": "Greybeard Axethrower rig cloned from Enemy 060. The unused open casting-hand presentation is suppressed by giving the ordinary left arm the closed-fist artwork, while a hidden throwingAxe part supplies the authored projectile anchor for the ranged attack."
+        "version": 2,
+        "note": "Revision 235 preserves the user-authored Greybeard Axethrower rig, uses leftArmOpen for the front arm, and makes axe_copy a self-contained throwingAxe projectile handoff at 0.339 seconds."
     },
     "rigId": "ct_rig_enemy_090",
     "atlasId": "ct_atlas_enemy_090",
     "atlasManifest": "ct_atlas_enemy_090.json",
     "drawOrder": [
         "leftArm",
-        "leftArmClosed",
         "leftLeg",
         "rightLeg",
-        "head",
         "torso",
+        "head",
         "weapon",
-        "rightArm",
-        "throwingAxe"
+        "axe_copy",
+        "rightArm"
     ],
     "global": {
         "scale": 0.5,
@@ -61,8 +60,8 @@
     },
     "pivots": {
         "rightArm": {
-            "x": 0.178,
-            "y": 0.31
+            "x": 0.145,
+            "y": 0.41
         },
         "leftArm": {
             "x": 0.072,
@@ -81,16 +80,20 @@
             "y": 0.8399277709646045
         },
         "head": {
-            "x": 0.111,
-            "y": 0.908
+            "x": 0.31,
+            "y": 0.855
         },
         "weapon": {
-            "x": 0.1827227152699188,
-            "y": 0.604522905936568
+            "x": 0.39,
+            "y": 0.73
         },
         "leftArmClosed": {
-            "x": 0.185,
-            "y": 0.295
+            "x": 0.18,
+            "y": 0.405
+        },
+        "axe_copy": {
+            "x": 0.5,
+            "y": 0.5
         }
     },
     "parts": {
@@ -122,9 +125,16 @@
                 "y": -205
             },
             "scale": 1,
-            "targetHeight": 110,
+            "targetHeight": 66,
             "alpha": 1,
-            "rotation": {}
+            "rotation": {},
+            "parentConstraint": {
+                "parentPart": "torso",
+                "parentPoint": {
+                    "x": 0.17,
+                    "y": 0.26
+                }
+            }
         },
         "torso": {
             "frame": "torso",
@@ -151,8 +161,15 @@
                 "y": -230
             },
             "scale": 1,
-            "targetHeight": 138,
-            "alpha": 1
+            "targetHeight": 90,
+            "alpha": 1,
+            "parentConstraint": {
+                "parentPart": "torso",
+                "parentPoint": {
+                    "x": 0.435,
+                    "y": 0.08
+                }
+            }
         },
         "weapon": {
             "frame": "axe",
@@ -169,7 +186,14 @@
             "scale": 1,
             "targetHeight": 120,
             "alpha": 1,
-            "rotation": {}
+            "rotation": {},
+            "parentConstraint": {
+                "parentPart": "rightArm",
+                "parentPoint": {
+                    "x": 0.853717920744129,
+                    "y": 0.5853572329224745
+                }
+            }
         },
         "leftLeg": {
             "frame": "leftLeg",
@@ -187,66 +211,53 @@
             "alpha": 1
         },
         "leftArm": {
-            "frame": "leftArmClosed",
+            "frame": "leftArmOpen",
             "role": "leftArm",
             "tags": [
                 "arm",
                 "front",
                 "holder",
-                "closedFist"
+                "openHand"
             ],
             "offset": {
                 "x": 45,
                 "y": -201
             },
             "scale": 1,
-            "targetHeight": 94,
+            "targetHeight": 59,
             "alpha": 1,
-            "rotation": {}
+            "rotation": {},
+            "parentConstraint": {
+                "parentPart": "torso",
+                "parentPoint": {
+                    "x": 0.5681616457530306,
+                    "y": 0.2324892746596493
+                }
+            }
         },
-        "leftArmClosed": {
-            "frame": "leftArmClosed",
-            "role": "leftArmClosed",
-            "tags": [],
-            "offset": {
-                "x": 0,
-                "y": 52
-            },
-            "scale": 0.46,
-            "targetHeight": 229,
-            "alpha": 1
-        },
-        "throwingAxe": {
-            "frame": "axe",
-            "role": "throwingAxe",
+        "axe_copy": {
+            "frame": "axe_copy",
+            "role": "axe_copy",
             "tags": [
                 "projectile",
                 "axe",
                 "hiddenAnchor"
             ],
             "offset": {
-                "x": 122,
-                "y": -182
+                "x": 0,
+                "y": 0
             },
             "scale": 1,
-            "targetHeight": 120,
-            "alpha": 0,
+            "targetHeight": 121,
+            "alpha": 1,
             "projectile": {
                 "enabled": true,
-                "projectileKind": "throwingAxe",
+                "id": "axe_copy",
                 "launchType": "straight",
                 "animationSlot": "attack",
-                "releaseTime": 0.372
+                "releaseTime": 0.339,
+                "projectileKind": "throwingAxe"
             }
-        }
-    },
-    "attachments": {
-        "weapon": {
-            "holders": [
-                "rightArm",
-                "leftArm"
-            ],
-            "note": "Musket is drawn between the rear and front arms. Projectile sprites are atlas resources and are not attached to the rig."
         }
     }
 }

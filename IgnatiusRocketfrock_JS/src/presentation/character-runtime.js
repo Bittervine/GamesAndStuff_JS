@@ -717,7 +717,7 @@ function makeRuntimeAtlasFrameAsset(image, frame, partName, frameId, imageUrl, a
     const width = Math.max(1, finiteOr(frame.w, 1));
     const height = Math.max(1, finiteOr(frame.h, 1));
     const canvas = createCanvas(width, height);
-    const ctx = canvas.getContext?.("2d");
+    const ctx = canvas.getContext?.("2d", { willReadFrequently: true });
     if (!ctx || typeof ctx.drawImage !== "function") {
         throw new Error("Runtime character canvas factory must provide a 2D drawing context.");
     }

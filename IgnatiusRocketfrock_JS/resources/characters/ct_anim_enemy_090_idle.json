@@ -1,13 +1,14 @@
 {
     "meta": {
-        "version": 2,
-        "note": "Greybeard Axethrower idle clip cloned from Enemy 060 and adapted for axe-throwing dwarves. The off-hand remains closed and the hidden throwingAxe anchor replaces the caster projectile marker.",
+        "version": 3,
+        "note": "Revision 235 preserves the user-authored Enemy 090 idle motion, uses the anatomically correct open left hand throughout, removes stale closed-arm/template projectile channels, and retains axe_copy as the spinning throwing-axe handoff.",
         "bakedParentConstraintParts": [
             "rightArm",
             "head",
-            "leftArmClosed"
+            "weapon",
+            "leftArm"
         ],
-        "bakedPositionKeyCount": 24
+        "bakedPositionKeyCount": 32
     },
     "animationId": "ct_anim_enemy_090_idle",
     "duration": 1.2,
@@ -22,8 +23,8 @@
             "alpha": 1
         },
         "rightArm": {
-            "x": -26.28103009648696,
-            "y": -233.49799128992123,
+            "x": -38.067424174219084,
+            "y": -216.92590674563723,
             "rotation": 0.1,
             "scale": 1,
             "alpha": 1
@@ -36,8 +37,8 @@
             "alpha": 1
         },
         "head": {
-            "x": -29.897563659925968,
-            "y": -241.9209134669631,
+            "x": 0.8995003700009865,
+            "y": -249.8484977461365,
             "rotation": 0,
             "scale": 1,
             "alpha": 1
@@ -50,25 +51,11 @@
             "alpha": 1
         },
         "leftArm": {
-            "x": 45,
-            "y": -201,
+            "x": 19.829920827696853,
+            "y": -221.21007653398345,
             "rotation": 0.02,
             "scale": 1,
             "alpha": 1
-        },
-        "leftArmClosed": {
-            "x": 21.498980911973124,
-            "y": -229.08987634470486,
-            "rotation": 0,
-            "scale": 1,
-            "alpha": 1
-        },
-        "throwingAxe": {
-            "x": 122,
-            "y": -182,
-            "rotation": 0,
-            "scale": 1,
-            "alpha": 0
         }
     },
     "tracks": {
@@ -114,22 +101,22 @@
             "y": [
                 {
                     "time": 0,
-                    "value": -241.9209134669631,
+                    "value": -249.8484977461365,
                     "easing": "linear"
                 },
                 {
                     "time": 0.033400000000003364,
-                    "value": -241.9268327566267,
+                    "value": -249.8515135551737,
                     "easing": "linear"
                 },
                 {
                     "time": 0.6,
-                    "value": -242.86065566730653,
+                    "value": -250.31885844948442,
                     "easing": "linear"
                 },
                 {
                     "time": 0.6085302913387899,
-                    "value": -242.86028202372154,
+                    "value": -250.3186749116639,
                     "easing": "linear"
                 }
             ],
@@ -153,22 +140,22 @@
             "x": [
                 {
                     "time": 0,
-                    "value": -29.897563659925968,
+                    "value": 0.8995003700009865,
                     "easing": "linear"
                 },
                 {
                     "time": 0.033400000000003364,
-                    "value": -29.884985066831018,
+                    "value": 0.9128262126732252,
                     "easing": "linear"
                 },
                 {
                     "time": 0.6,
-                    "value": -27.86459871168335,
+                    "value": 3.049491225216493,
                     "easing": "linear"
                 },
                 {
                     "time": 0.6085302913387899,
-                    "value": -27.865421882092644,
+                    "value": 3.0486221900747656,
                     "easing": "linear"
                 }
             ]
@@ -177,22 +164,22 @@
             "y": [
                 {
                     "time": 0,
-                    "value": -233.49799128992123,
+                    "value": -216.92590674563723,
                     "easing": "linear"
                 },
                 {
                     "time": 0.033400000000003364,
-                    "value": -233.50356966218698,
+                    "value": -216.93259637382337,
                     "easing": "linear"
                 },
                 {
                     "time": 0.6,
-                    "value": -234.38369573052012,
+                    "value": -217.99281528130354,
                     "easing": "linear"
                 },
                 {
                     "time": 0.6085302913387899,
-                    "value": -234.38334353646508,
+                    "value": -217.99238906544002,
                     "easing": "linear"
                 }
             ],
@@ -211,22 +198,22 @@
             "x": [
                 {
                     "time": 0,
-                    "value": -26.28103009648696,
+                    "value": -38.067424174219084,
                     "easing": "linear"
                 },
                 {
                     "time": 0.033400000000003364,
-                    "value": -26.269245604724617,
+                    "value": -38.05720199142863,
                     "easing": "linear"
                 },
                 {
                     "time": 0.6,
-                    "value": -24.37660742068184,
+                    "value": -36.413721260717836,
                     "easing": "linear"
                 },
                 {
                     "time": 0.6085302913387899,
-                    "value": -24.377378462171638,
+                    "value": -36.41439150641478,
                     "easing": "linear"
                 }
             ]
@@ -235,13 +222,23 @@
             "y": [
                 {
                     "time": 0,
-                    "value": -222.9835603127217,
-                    "easing": "easeInOut"
+                    "value": -221.21007653398345,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.033400000000003364,
+                    "value": -221.21130777282565,
+                    "easing": "linear"
                 },
                 {
                     "time": 0.6,
-                    "value": -227.8951512348944,
-                    "easing": "easeInOut"
+                    "value": -221.39579381281936,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6085302913387899,
+                    "value": -221.3957239956265,
+                    "easing": "linear"
                 }
             ],
             "rotation": [
@@ -259,84 +256,22 @@
             "x": [
                 {
                     "time": 0,
-                    "value": 18.205727025082183,
-                    "easing": "linear"
-                },
-                {
-                    "time": 0.6,
-                    "value": 23.979513914605164,
-                    "easing": "easeInOut"
-                }
-            ],
-            "alpha": [
-                {
-                    "time": 0,
-                    "value": 0,
-                    "easing": "linear"
-                }
-            ]
-        },
-        "leftArmClosed": {
-            "x": [
-                {
-                    "time": 0,
-                    "value": 21.498980911973124,
+                    "value": 19.829920827696853,
                     "easing": "linear"
                 },
                 {
                     "time": 0.033400000000003364,
-                    "value": 21.510349608892973,
+                    "value": 19.84054665055491,
                     "easing": "linear"
                 },
                 {
                     "time": 0.6,
-                    "value": 23.330822201831143,
+                    "value": 21.54209299600969,
                     "easing": "linear"
                 },
                 {
                     "time": 0.6085302913387899,
-                    "value": 23.330082733398672,
-                    "easing": "linear"
-                }
-            ],
-            "y": [
-                {
-                    "time": 0,
-                    "value": -229.08987634470486,
-                    "easing": "linear"
-                },
-                {
-                    "time": 0.033400000000003364,
-                    "value": -229.09095019506123,
-                    "easing": "linear"
-                },
-                {
-                    "time": 0.6,
-                    "value": -229.2492933162389,
-                    "easing": "linear"
-                },
-                {
-                    "time": 0.6085302913387899,
-                    "value": -229.24923449867094,
-                    "easing": "linear"
-                }
-            ],
-            "rotation": [
-                {
-                    "time": 0,
-                    "value": 1.1555452510477162,
-                    "easing": "linear"
-                },
-                {
-                    "time": 0.6085302913387899,
-                    "value": 1.1546331299867383,
-                    "easing": "linear"
-                }
-            ],
-            "scale": [
-                {
-                    "time": 0,
-                    "value": 0.5,
+                    "value": 21.541401822632416,
                     "easing": "linear"
                 }
             ],
@@ -352,28 +287,58 @@
             "x": [
                 {
                     "time": 0,
-                    "value": -508.58849776418583,
+                    "value": -8.335392654881046,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.033400000000003364,
+                    "value": -8.328768042787125,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": -7.26272799918892,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6085302913387899,
+                    "value": -7.263163132734935,
                     "easing": "linear"
                 }
             ],
             "y": [
                 {
                     "time": 0,
-                    "value": -277.44804747296234,
+                    "value": -122.6182024157966,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.033400000000003364,
+                    "value": -122.62375792697996,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": -123.50389325285703,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6085302913387899,
+                    "value": -123.50353957230081,
                     "easing": "linear"
                 }
             ],
             "rotation": [
                 {
                     "time": 0,
-                    "value": 0,
+                    "value": 1.232943451750204,
                     "easing": "linear"
                 }
             ],
             "alpha": [
                 {
                     "time": 0,
-                    "value": 0,
+                    "value": 1,
                     "easing": "linear"
                 }
             ]
@@ -424,25 +389,18 @@
                 }
             ]
         },
-        "cannonball": {
-            "alpha": [
-                {
-                    "time": 0,
-                    "value": 0,
-                    "easing": "linear"
-                }
-            ],
+        "axe_copy": {
             "x": [
                 {
                     "time": 0,
-                    "value": -495.9352244635826,
+                    "value": -453.2163742690059,
                     "easing": "linear"
                 }
             ],
             "y": [
                 {
                     "time": 0,
-                    "value": -401.5639362765434,
+                    "value": -335.8200442588917,
                     "easing": "linear"
                 }
             ],
@@ -452,9 +410,7 @@
                     "value": 0,
                     "easing": "linear"
                 }
-            ]
-        },
-        "throwingAxe": {
+            ],
             "alpha": [
                 {
                     "time": 0,

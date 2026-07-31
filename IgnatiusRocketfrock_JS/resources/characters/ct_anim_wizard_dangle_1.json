@@ -1,0 +1,384 @@
+{
+    "meta": {
+        "version": 2,
+        "note": "Data-driven wizard flight dangle pose map. Key indices are semantic acceleration positions rather than playback time: 0.000 is maximum deceleration, 0.180 is steady flight, and 0.360 is maximum acceleration. All rig parts are authored so the complete pose remains connected.",
+        "bakedParentConstraintParts": [
+            "leftArm",
+            "rightArm"
+        ],
+        "bakedPositionKeyCount": 8
+    },
+    "animationId": "ct_anim_wizard_dangle_1",
+    "profile": "humanoid",
+    "space": "rig",
+    "mirrorable": true,
+    "duration": 0.36,
+    "loop": false,
+    "referencePose": {
+        "leftArm": {
+            "x": 19.61890150424572,
+            "y": -182.2414587014788,
+            "rotation": -0.14,
+            "scale": 0.73,
+            "alpha": 1
+        },
+        "leftFoot": {
+            "x": -21,
+            "y": -4,
+            "rotation": 0,
+            "scale": 0.98,
+            "alpha": 1
+        },
+        "rocket": {
+            "x": -40.711086,
+            "y": -170.88714,
+            "rotation": 0.09,
+            "scale": 1,
+            "alpha": 0.98
+        },
+        "rightFoot": {
+            "x": -13,
+            "y": -4,
+            "rotation": 0,
+            "scale": 1.02,
+            "alpha": 1
+        },
+        "robe": {
+            "x": 9,
+            "y": -125,
+            "rotation": 0.02,
+            "scale": 0.73,
+            "alpha": 1
+        },
+        "head": {
+            "x": -7.320979,
+            "y": -208.893206,
+            "rotation": 0.009,
+            "scale": 1.28,
+            "alpha": 1
+        },
+        "hat": {
+            "x": -6.825945,
+            "y": -279.899979,
+            "rotation": -0.011,
+            "scale": 1.33,
+            "alpha": 1
+        },
+        "rightArm": {
+            "x": -18.44274568589545,
+            "y": -175.71596701749917,
+            "rotation": 0.05,
+            "scale": 1.03,
+            "alpha": 1
+        }
+    },
+    "tracks": {
+        "leftArm": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": 19.61890150424572,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.36,
+                    "value": 12.296395383646438,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -182.2414587014788,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.36,
+                    "value": -181.88029345778978,
+                    "easing": "linear"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": 0.10477275027247962,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.36,
+                    "value": 1.3695901424728931,
+                    "easing": "easeInOut"
+                }
+            ]
+        },
+        "leftFoot": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": 66.0126022363077,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.36,
+                    "value": -14.714470648392679,
+                    "easing": "easeInOut"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -4.308450664408464,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.36,
+                    "value": -2.8663094570729237,
+                    "easing": "easeInOut"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": -0.3776041228992168,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.36,
+                    "value": 0.21676485200285184,
+                    "easing": "easeInOut"
+                }
+            ]
+        },
+        "rocket": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": -23.114586,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.36,
+                    "value": -23.114586,
+                    "easing": "easeInOut"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -183.499336,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.36,
+                    "value": -183.499336,
+                    "easing": "easeInOut"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": 0.005858013390977811,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.36,
+                    "value": 0.12984792741768936,
+                    "easing": "easeInOut"
+                }
+            ]
+        },
+        "rightFoot": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": 25.019602831048406,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.36,
+                    "value": -48.04071724252608,
+                    "easing": "easeInOut"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": 1.0866508199265137,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.36,
+                    "value": -7.49612046902979,
+                    "easing": "easeInOut"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": -0.20557844397382627,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.36,
+                    "value": 0.373423898827438,
+                    "easing": "easeInOut"
+                }
+            ]
+        },
+        "robe": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": 22.00714077045338,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.36,
+                    "value": 5.531429127879103,
+                    "easing": "easeInOut"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -126.6,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.36,
+                    "value": -126.6,
+                    "easing": "easeInOut"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": -0.0951050517766468,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.36,
+                    "value": 0.06956082618246956,
+                    "easing": "easeInOut"
+                }
+            ]
+        },
+        "head": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": 14.276290511516372,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.36,
+                    "value": 14.276290511516372,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -203.86087,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.36,
+                    "value": -203.86087,
+                    "easing": "linear"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": 0.032389209100811445,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.36,
+                    "value": 0.10143755417078981,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "hat": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": 21.432378608137515,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.36,
+                    "value": 24.182373283423367,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -274.3793996492559,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.36,
+                    "value": -273.98708169202456,
+                    "easing": "linear"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": 0.07238110851014658,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.36,
+                    "value": 0.120235,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "rightArm": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": -18.44274568589545,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.36,
+                    "value": -26.32007524098821,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -175.71596701749917,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.36,
+                    "value": -181.68224033057845,
+                    "easing": "linear"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": -0.4020743194763675,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.36,
+                    "value": 0.4332679560568907,
+                    "easing": "easeInOut"
+                }
+            ]
+        }
+    },
+    "rootMotion": {
+        "enabled": false
+    }
+}

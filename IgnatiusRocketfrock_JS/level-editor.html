@@ -1085,6 +1085,7 @@
                 <div class="row">
                     <label class="inline"><input id="inspect-collision" type="checkbox"> Collision</label>
                     <label class="inline"><input id="inspect-on-top" type="checkbox"> On top</label>
+                    <label class="inline"><input id="inspect-blend-overlaps" type="checkbox" checked> Blend overlaps</label>
                 </div>
             </div>
             <div id="moving-platform-row" style="display:none">
@@ -1335,6 +1336,7 @@ import {
     pointInPlacement
 } from "./src/shared/level-transform.js";
 import { resourceUrl } from "./src/shared/resource-paths.js";
+import { loadImageResourceWithRetry, loadJsonResourceWithRetry, loadResourceIndex } from "./src/tools/resource-index-loader.js";
 import {
     colorMapCacheKey,
     DEFAULT_LEVEL_COLOR_MAP,
@@ -1414,10 +1416,6 @@ import {
     loadRuntimeCharacterProject,
     sampleRuntimeCharacterPose
 } from "./src/presentation/character-runtime.js";
-import {
-    buildOverlapBlendGroups,
-    createOverlapBlendSurface
-} from "./src/presentation/overlap-blend-cache.js";
 import {
     applyEditorLevelToWorld,
     applyEnemyDefinitionCatalog,
@@ -1530,8 +1528,6 @@ import {
 
     const DEFAULT_ATLAS_ID = "at_atlas_001";
     const DEFAULT_LEVEL_URL = "levels/level_001.json";
-    const ATLAS_AUTOLOAD_LIMIT = 20;
-    const LEVEL_AUTOLOAD_LIMIT = 20;
     const SPECIAL_ATLAS_IDS = ["it_atlas_001"];
     const ENTITY_ONLY_ATLAS_ID_PREFIXES = ["it_atlas_"];
     const ENTITY_CATALOG_URL = "items/it_entities_001.json";
@@ -1541,10 +1537,6 @@ import {
     const WIZARD_DOOR_FLOOR_ANCHOR_Y_FACTOR = 239 / 263;
     const MIN_EDITOR_ZOOM = 0.02;
     const MAX_EDITOR_ZOOM = 5;
-
-    function atlasIdForIndex(index) {
-        return `at_atlas_${String(index).padStart(3, "0")}`;
-    }
 
     function atlasManifestUrl(atlasId) {
         return `${isEntityOnlyAtlasId(atlasId) ? "items" : "atlases"}/${atlasId}.json`;
@@ -1562,9 +1554,6 @@ import {
     function isAssetPaletteAtlasId(atlasId) {
         return !isEntityOnlyAtlasId(atlasId);
     }
-
-    const DEFAULT_MANIFEST_URL = atlasManifestUrl(DEFAULT_ATLAS_ID);
-    const DEFAULT_IMAGE_URL = atlasImageUrl(DEFAULT_ATLAS_ID);
 
     const COLORS = {
         frame: "rgba(86,230,255,0.78)",
@@ -1718,6 +1707,7 @@ import {
         inspectMirrorY: document.getElementById("inspect-mirror-y"),
         inspectCollision: document.getElementById("inspect-collision"),
         inspectOnTop: document.getElementById("inspect-on-top"),
+        inspectBlendOverlaps: document.getElementById("inspect-blend-overlaps"),
         movingPlatformRow: document.getElementById("moving-platform-row"),
         movingPlatformFields: document.getElementById("moving-platform-fields"),
         movingPlatformEndFields: document.getElementById("moving-platform-end-fields"),
@@ -1858,6 +1848,8 @@ import {
         colorTreatmentPreviewFrames: new Map(),
         colorTreatmentAppliedControlKey: "",
         level: null,
+        resourceIndex: null,
+        resourceLoadFailures: [],
         availableLevels: [],
         entityCatalog: new Map(),
         enemyCatalog: new Map(),
@@ -1867,7 +1859,6 @@ import {
         placementBoundsCache: new WeakMap(),
         entityBoundsCache: new WeakMap(),
         editorForegroundSpriteCache: new Map(),
-        editorOverlapBlendCache: null,
         editorWorldVisualCache: null,
         editorRuntimeRenderer: null,
         editorRuntimeState: null,
@@ -1967,14 +1958,6 @@ import {
             navigationGraphs: { version: 1, profiles: [] },
             navigationBlockers: []
         };
-    }
-
-    function levelUrlForIndex(index) {
-        return `levels/level_${String(index).padStart(3, "0")}.json`;
-    }
-
-    function levelIdForIndex(index) {
-        return `level_${String(index).padStart(3, "0")}`;
     }
 
     function resizeCanvas() {
@@ -2834,25 +2817,17 @@ import {
     }
 
     async function loadJsonUrl(url) {
-        const resolvedUrl = resourceUrl(url);
-        const response = await fetch(resolvedUrl, { cache: "no-store" });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return response.json();
+        return loadJsonResourceWithRetry(url);
     }
 
     async function loadImageUrl(url) {
-        return new Promise((resolve, reject) => {
-            const image = new Image();
-            image.onload = () => resolve(image);
-            image.onerror = () => reject(new Error(`Could not load ${url}`));
-            image.src = resourceUrl(url);
-        });
+        return loadImageResourceWithRetry(url);
     }
 
     function inferAtlasIdFromName(name) {
-        const match = String(name || "").match(/atlas[_-]?(\d{1,3})/i);
+        const match = String(name || "").match(/at_atlas_(\d+)/i) || String(name || "").match(/atlas[_-]?(\d+)/i);
         if (!match) return "";
-        return atlasIdForIndex(Number(match[1]));
+        return `at_atlas_${String(match[1]).padStart(3, "0")}`;
     }
 
     function normalizeAtlasManifest(manifest, fallbackAtlasId = DEFAULT_ATLAS_ID) {
@@ -2891,7 +2866,6 @@ import {
         state.editorForegroundSpriteCache.clear();
         state.colorTreatmentPreviewKey = "";
         state.colorTreatmentPreviewFrames.clear();
-        state.editorOverlapBlendCache = null;
         state.editorWorldVisualCache = null;
         invalidateEditorSceneCache({ caveForeground: true });
         renderAssetList();
@@ -2935,16 +2909,14 @@ import {
 
     async function loadAtlasLibrary() {
         state.atlases.clear();
+        state.resourceLoadFailures = [];
         let loaded = 0;
-        let stoppedAt = "";
-        for (let index = 1; index <= ATLAS_AUTOLOAD_LIMIT; index += 1) {
-            const atlasId = atlasIdForIndex(index);
+        for (const atlasId of state.resourceIndex?.assetAtlasIds || []) {
             try {
                 await loadAtlasPair(atlasId);
                 loaded += 1;
             } catch (error) {
-                stoppedAt = atlasId;
-                break;
+                state.resourceLoadFailures.push(`Atlas ${atlasId}: ${error.message || error}`);
             }
         }
         for (const atlasId of SPECIAL_ATLAS_IDS) {
@@ -2952,16 +2924,22 @@ import {
                 await loadAtlasPair(atlasId);
                 loaded += 1;
             } catch (error) {
-                // Optional special atlases may not have been copied into a particular build yet.
+                // Item atlases remain intentional singleton resources and are optional to the asset palette.
             }
         }
         if (!loaded) {
-            setActiveAtlas(DEFAULT_ATLAS_ID, { redraw: false });
-            setStatus(`Could not auto-load ${DEFAULT_MANIFEST_URL}/${DEFAULT_IMAGE_URL}. Add the asset files or serve the project from a local web server.`, false);
+            setStatus(`resources.json lists no loadable asset atlases. ${state.resourceLoadFailures.join(" ")}`, false);
             return 0;
         }
-        setActiveAtlas(DEFAULT_ATLAS_ID, { redraw: false });
-        setStatus(`Loaded ${loaded} atlas${loaded === 1 ? "" : "es"}; numbered scan stopped before ${stoppedAt || "the scan limit"}.`);
+        const initialAtlasId = state.atlases.has(DEFAULT_ATLAS_ID)
+            ? DEFAULT_ATLAS_ID
+            : state.resourceIndex?.assetAtlasIds.find((atlasId) => state.atlases.has(atlasId)) || state.atlases.keys().next().value;
+        setActiveAtlas(initialAtlasId, { redraw: false });
+        if (state.resourceLoadFailures.length) {
+            setStatus(`Loaded ${loaded} atlas${loaded === 1 ? "" : "es"}. ${state.resourceLoadFailures.length} declared atlas load failed after retries.`, false);
+        } else {
+            setStatus(`Loaded ${loaded} atlas${loaded === 1 ? "" : "es"} from resources.json.`);
+        }
         return loaded;
     }
 
@@ -3061,6 +3039,8 @@ import {
                     mirrorY: Boolean(placement.mirrorY),
                     rotation: normalizeRotationRadians(placement.rotation),
                     layer,
+                    onTop: placement.onTop === true ? true : undefined,
+                    blendOverlaps: placement.blendOverlaps === false ? false : undefined,
                     collisionFromManifest: inertCosmetic ? false : (placement.collisionFromManifest !== undefined ? Boolean(placement.collisionFromManifest) : true),
                     foregroundSaturation: foreground ? Math.max(0, Math.min(1.5, finiteEditorNumber(placement.foregroundSaturation, 0.62))) : undefined,
                     generatedBy: placement.generatedBy || undefined,
@@ -3137,18 +3117,19 @@ import {
 
     async function scanAvailableLevels() {
         state.availableLevels = [];
-        for (let index = 1; index <= LEVEL_AUTOLOAD_LIMIT; index += 1) {
-            const levelId = levelIdForIndex(index);
-            const url = levelUrlForIndex(index);
+        for (const declaredLevelId of state.resourceIndex?.levelIds || []) {
+            const url = `levels/${declaredLevelId}.json`;
             try {
                 const level = normalizeLevelDefaults(await loadJsonUrl(url));
-                state.availableLevels.push({ levelId: level.levelId || levelId, url, title: level.title || levelId });
+                state.availableLevels.push({ levelId: level.levelId || declaredLevelId, url, title: level.title || declaredLevelId, loadError: "" });
             } catch (error) {
-                break;
+                const loadError = error.message || String(error);
+                state.availableLevels.push({ levelId: declaredLevelId, url, title: "load failed", loadError });
+                state.resourceLoadFailures.push(`Level ${declaredLevelId}: ${loadError}`);
             }
         }
         renderLevelSelect();
-        return state.availableLevels.length;
+        return state.availableLevels.filter((entry) => !entry.loadError).length;
     }
 
     function renderLevelSelect() {
@@ -3164,7 +3145,7 @@ import {
         for (const entry of state.availableLevels) {
             const option = document.createElement("option");
             option.value = entry.url;
-            option.textContent = `${entry.levelId} — ${entry.title}`;
+            option.textContent = `${entry.levelId} — ${entry.title}${entry.loadError ? " ⚠" : ""}`;
             els.levelSelect.appendChild(option);
         }
     }
@@ -3275,7 +3256,6 @@ import {
         }
         state.colorMapCacheKey = cacheKey;
         state.editorForegroundSpriteCache.clear();
-        state.editorOverlapBlendCache = null;
         state.editorWorldVisualCache = null;
         invalidateEditorSceneCache({ caveForeground: true });
         const active = atlasRecord();
@@ -5640,7 +5620,6 @@ import {
 
     function invalidateEditorPlacementCaches({ sprites = false, caveForeground = true } = {}) {
         state.placementDrawCache = null;
-        state.editorOverlapBlendCache = null;
         state.editorWorldVisualCache = null;
         state.placementBoundsCache = new WeakMap();
         state.entityBoundsCache = new WeakMap();
@@ -5864,92 +5843,6 @@ import {
         });
         state.editorForegroundSpriteCache.set(cacheKey, surface);
         return surface;
-    }
-
-    function editorOverlapBlendGroups(placements) {
-        if (
-            state.editorOverlapBlendCache?.placements === placements &&
-            state.editorOverlapBlendCache?.colorMapCacheKey === state.colorMapCacheKey
-        ) {
-            return state.editorOverlapBlendCache;
-        }
-        const entries = placements.map((placement, index) => ({
-            visual: placement,
-            index,
-            sortedIndex: index,
-            bounds: placementWorldBounds(placement)
-        }));
-        const groups = [];
-        const memberToGroup = new Map();
-        for (const definition of buildOverlapBlendGroups(entries)) {
-            const baked = createOverlapBlendSurface({
-                ownerDocument: document,
-                group: definition,
-                environmentAtlases: state.atlases
-            });
-            if (!baked) continue;
-            const group = {
-                id: definition.id,
-                bounds: baked.bounds,
-                canvas: baked.canvas,
-                members: baked.members
-            };
-            groups.push(group);
-            for (const placement of group.members) memberToGroup.set(placement, group);
-        }
-        state.editorOverlapBlendCache = {
-            placements,
-            colorMapCacheKey: state.colorMapCacheKey,
-            groups,
-            memberToGroup
-        };
-        return state.editorOverlapBlendCache;
-    }
-
-    function drawEditorOverlapBlendGroup(group, viewportBounds) {
-        if (!group?.canvas || (viewportBounds && !boundsIntersect(group.bounds, viewportBounds))) return false;
-        const topLeft = worldToScreen(group.bounds.minX, group.bounds.minY);
-        const width = (group.bounds.maxX - group.bounds.minX) * state.camera.zoom;
-        const height = (group.bounds.maxY - group.bounds.minY) * state.camera.zoom;
-        ctx.drawImage(group.canvas, topLeft.x, topLeft.y, width, height);
-        return true;
-    }
-
-    function drawCutoutMaskArtwork(mask) {
-        const p = worldToScreen(mask.x, mask.y);
-        const w = mask.w * state.camera.zoom;
-        const h = mask.h * state.camera.zoom;
-        ctx.save();
-        ctx.globalCompositeOperation = "destination-out";
-        ctx.fillStyle = "rgba(0,0,0,1)";
-        ctx.fillRect(p.x, p.y, w, h);
-        ctx.restore();
-    }
-
-    function drawMainPlacementArtworkEntries(placements, viewportBounds, overlapSource = placements) {
-        const overlapCache = editorOverlapBlendGroups(overlapSource);
-        const drawnGroups = new Set();
-        for (const placement of placements) {
-            if (recordIsTransientlyMoving(placement)) continue;
-            if (placement?.kind === "cutoutMask") {
-                drawCutoutMaskArtwork(placement);
-                continue;
-            }
-            const group = overlapCache.memberToGroup.get(placement);
-            if (!group) {
-                drawPlacement(placement, viewportBounds, { skipDetails: true });
-                continue;
-            }
-            if (drawnGroups.has(group)) continue;
-            drawnGroups.add(group);
-            if (group.members.some(recordIsTransientlyMoving)) {
-                for (const member of group.members) {
-                    if (!recordIsTransientlyMoving(member)) drawPlacement(member, viewportBounds, { skipDetails: true });
-                }
-                continue;
-            }
-            drawEditorOverlapBlendGroup(group, viewportBounds);
-        }
     }
 
     function drawPlacement(placement, viewportBounds = null, { skipArtwork = false, skipDetails = false, preview = false, useDisplayTransform = true } = {}) {
@@ -6715,6 +6608,7 @@ import {
             els.inspectCollision.checked = inertCosmetic ? false : rec.collisionFromManifest !== false;
             els.inspectCollision.disabled = inertCosmetic;
             els.inspectOnTop.checked = rec.onTop === true;
+            els.inspectBlendOverlaps.checked = rec.blendOverlaps !== false;
             const authoredMovement = normalizeMovingPlatform(rec.movement);
             const movingDraft = authoredMovement || createDefaultMovingPlatform();
             els.inspectMovingEnabled.checked = Boolean(authoredMovement);
@@ -6984,6 +6878,8 @@ import {
             rec.mirrorY = els.inspectMirrorY.checked;
             if (els.inspectOnTop.checked) rec.onTop = true;
             else delete rec.onTop;
+            if (els.inspectBlendOverlaps.checked) delete rec.blendOverlaps;
+            else rec.blendOverlaps = false;
             rec.atlasId = rec.atlasId || DEFAULT_ATLAS_ID;
             if (![BACKGROUND_LAYER, CAVE_FOREGROUND_LAYER].includes(rec.layer) && els.inspectMovingEnabled.checked) {
                 rec.movement = normalizeMovingPlatform({
@@ -8702,6 +8598,13 @@ import {
         return JSON.stringify(state.level, null, 4);
     }
 
+    function notifyDevToolResourceSaved(kind, id) {
+        const bridge = window.chrome?.webview;
+        if (typeof bridge?.postMessage === "function") {
+            bridge.postMessage(`ignatius-resource-saved|${kind}|${id}`);
+        }
+    }
+
     function downloadBlob(blob, filename) {
         const objectUrl = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -8766,6 +8669,7 @@ import {
             if (!placement || placement.kind !== "atlasAsset") continue;
             placement.atlasId = placement.atlasId || DEFAULT_ATLAS_ID;
             if (placement.onTop !== true) delete placement.onTop;
+            if (placement.blendOverlaps !== false) delete placement.blendOverlaps;
             if (placement.layer === CAVE_FOREGROUND_LAYER) {
                 const decoration = normalizeCaveDecoration(state.level.caveWindow?.decoration);
                 placement.collisionFromManifest = false;
@@ -9284,8 +9188,11 @@ import {
     });
 
     document.getElementById("download-json").addEventListener("click", async () => {
-        const filename = `${state.level.levelId || "level_001"}.json`;
+        const levelId = state.level.levelId || "level_001";
+        const filename = `${levelId}.json`;
+        const isNewLevel = !state.resourceIndex?.levelIds.includes(levelId);
         const result = await saveTextFile(filename, serializeLevelJson());
+        if (isNewLevel && result !== "cancelled") notifyDevToolResourceSaved("level", levelId);
         if (result === "file") {
             setStatus(`Saved ${filename}.`);
         } else if (result === "download") {
@@ -9371,6 +9278,16 @@ import {
 
     async function initializeEditor() {
         await loadBundledProximityTextFonts();
+        try {
+            state.resourceIndex = await loadResourceIndex();
+        } catch (error) {
+            state.resourceIndex = null;
+            state.level = makeEmptyLevel();
+            syncMetadataToUi();
+            persistUi();
+            setStatus(`Could not load resources/resources.json after retries. ${error.message || error}`, false);
+            return;
+        }
         await loadMusicCatalog();
         populateLevelMusicOptions();
         state.level = makeEmptyLevel();
@@ -9389,19 +9306,24 @@ import {
         await loadAutomaticGeneratorColorModifiers();
         await loadAutomaticGeneratorThemes();
         const levelCount = await scanAvailableLevels();
-        if (levelCount > 0) {
+        const firstLoadableLevel = state.availableLevels.find((entry) => !entry.loadError);
+        if (firstLoadableLevel) {
             try {
-                await loadLevelFromUrl(state.availableLevels[0].url);
-                setStatus(`Loaded ${levelCount} level${levelCount === 1 ? "" : "s"} and atlas library.`);
+                await loadLevelFromUrl(firstLoadableLevel.url);
+                if (state.resourceLoadFailures.length) {
+                    setStatus(`Loaded ${levelCount} level${levelCount === 1 ? "" : "s"} and the atlas library from resources.json. ${state.resourceLoadFailures.length} declared resource load failed after retries.`, false);
+                } else {
+                    setStatus(`Loaded ${levelCount} level${levelCount === 1 ? "" : "s"} and the atlas library from resources.json.`);
+                }
             } catch (error) {
                 syncMetadataToUi();
                 persistUi();
-                setStatus("Detected levels, but the first level could not be loaded. Created an empty level instead.", false);
+                setStatus("resources.json contains levels, but the first loadable level failed during initialization. Created an empty level instead.", false);
             }
         } else {
             syncMetadataToUi();
             persistUi();
-            setStatus("Loaded atlas library. No resources/levels/level_001.json could be auto-detected; created an empty level. Use Import level JSON or add resources/levels/level_001.json.", false);
+            setStatus("resources.json contains no loadable levels. Created an empty level; correct the index or the declared level files.", false);
         }
         fitContentView();
     }

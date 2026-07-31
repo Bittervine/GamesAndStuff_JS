@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 1,
-        "note": "Copper-bearded dwarf axethrower using the modular Porker/Crocker/Ogre atlas template with an added bearded accessory and throwable double-headed axe. The loose beard atlas part is included for future use but is intentionally left unattached in the runtime rig."
+        "version": 2,
+        "note": "Revision 235 adds an independent axe_copy projectile frame to the Copperbeard Axethrower atlas without duplicating texture pixels."
     },
     "atlasId": "ct_atlas_enemy_093",
     "image": "ct_atlas_enemy_093.png",
@@ -65,6 +65,12 @@
             "y": 613,
             "w": 241,
             "h": 362
+        },
+        "axe_copy": {
+            "x": 1414,
+            "y": 369,
+            "w": 345,
+            "h": 590
         }
     },
     "objects": {
@@ -186,6 +192,19 @@
                 "beard",
                 "accessory",
                 "unused"
+            ]
+        },
+        "axe_copy": {
+            "id": "axe_copy",
+            "frame": "axe_copy",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "weapon",
+                "axe",
+                "equipment",
+                "projectile"
             ]
         }
     }

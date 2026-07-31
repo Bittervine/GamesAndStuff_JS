@@ -818,7 +818,7 @@ The upper-right browser HUD is now a minimap rather than a pair of textual contr
 
 Automatic cave-perimeter orientation is owned by `src/shared/cave-window-decoration.js`. A sampled inward normal is the preliminary tip direction. Normals within 45 degrees of straight down or straight up snap to that vertical direction; all other normals remain perpendicular to the perimeter. Rotation is derived from the authored source orientation of the chosen formation, so stalactite and stalagmite tips point into the play area and their broad bases remain outside it. This rule applies equally to editor population and automatic generator decoration because both call the same shared function.
 
-`src/presentation/overlap-blend-cache.js` adds a presentation-only seam cache for consecutive, same-layer, static atlas visuals that overlap in world space. Each eligible group is baked once into an off-screen bitmap after atlas colour mapping. When a new member overlaps the existing composite, its alpha rises from zero to one across the central 50 percent of the overlap, centred on the overlap midpoint. Runtime and Level Editor draw the resulting bitmap once and retain separate placement and collision data for selection, editing, physics, and navigation. Moving platforms, entity-bound visuals, actor-front art, and cave foreground art are excluded from static blending.
+The original overlap seam experiment introduced in this revision has since been replaced by the asset-local implementation documented under Revision 238. The current renderer no longer builds connected multi-placement bitmaps.
 
 ## Revision 252 perimeter angles, aspect-fit minimap, mirrored endpoints, and Atlas 004 one-way collision
 
@@ -1175,7 +1175,7 @@ The WebGL2 path uploads each populated tile as a static texture and repositions 
 
 Editor-only vectors live on the transparent `#stage-overlay` Canvas above the world stage. Grid lines, labels, collision guides, cave controls, route diagnostics, selection outlines, placement previews, and marquees are redrawn there directly. A record being moved is temporarily omitted from its resident tile and drawn on the overlay until commit, avoiding tile rebuilds for every pointer event.
 
-Entities and placements retain conservative cached world bounds and are rejected before expensive preview composition. Overlap composites rely on explicit invalidation and stable placement-array identity. Full level JSON serialization is scheduled only by authoring mutations and metadata commits, never by the render loop.
+Entities and placements retain conservative cached world bounds and are rejected before expensive preview composition. Asset-local overlap masks rely on explicit invalidation and stable world-visual identity. Full level JSON serialization is scheduled only by authoring mutations and metadata commits, never by the render loop.
 
 
 ## Revision 302 compact Level Editor controls and generator release topology
@@ -1241,7 +1241,7 @@ The same revision renamed the visible lightning effect to Overdrive. Revision 31
 
 `src/presentation/webgl2-renderer.js` is the GPU boundary for the game canvas. It owns WebGL2 context creation, shader compilation, one dynamic interleaved sprite vertex buffer, texture caching, premultiplied-alpha blending, solid-colour quads, dynamic Canvas texture updates, context-loss recovery, and GPU diagnostics. It must not import portable core code or own gameplay state.
 
-`src/presentation/canvas-renderer.js` remains the scene coordinator and compatibility renderer. At startup it prefers WebGL2. When available, the visible canvas is WebGL2 and a hidden transparent Canvas 2D surface becomes a staging layer. Main world atlas visuals, cached overlap groups, actor-front visuals, cave foreground visuals, and cutout rectangles are queued directly as GPU quads. Procedural actors/effects and mask/overlay content are drawn into the staging surface in two ordered passes and uploaded into a reusable dynamic texture. If WebGL2 is unavailable at startup, the visible canvas uses the original Canvas 2D path without changing simulation or asset contracts.
+`src/presentation/canvas-renderer.js` remains the scene coordinator and compatibility renderer. At startup it prefers WebGL2. When available, the visible canvas is WebGL2 and a hidden transparent Canvas 2D surface becomes a staging layer. Main world atlas visuals, cached asset-local overlap surfaces, actor-front visuals, cave foreground visuals, and cutout rectangles are queued directly as GPU quads. Procedural actors/effects and mask/overlay content are drawn into the staging surface in two ordered passes and uploaded into a reusable dynamic texture. If WebGL2 is unavailable at startup, the visible canvas uses the original Canvas 2D path without changing simulation or asset contracts.
 
 The backend uses `UNPACK_PREMULTIPLY_ALPHA_WEBGL` with `ONE, ONE_MINUS_SRC_ALPHA` blending so staged Canvas content and atlas textures compose consistently. Texture uploads are static after first use except for the staging canvas, which updates with `texSubImage2D`. Colour-map changes, cave-window changes, and newly loaded atlases invalidate the GPU texture cache deliberately. WebGL context restoration recreates programs, buffers, and textures from the retained browser image/canvas sources.
 
@@ -1315,7 +1315,7 @@ The normal opt-in frame graph is:
 5. A dedicated reduced-resolution cave-mask texture, refreshed only when its render key changes.
 6. A final conditional transparent layer for active story or debug overlays.
 
-Canvas-produced colour maps, overlap composites, foreground treatments, masks, tint surfaces, text sprites, and particle stamps are presentation caches, not authoritative scene data. Their pixels may be uploaded and retained by WebGL2, but gameplay state, level records, collision, navigation, and camera transforms remain CPU-owned portable data. A future GPU-only preparation phase can replace individual cache producers without changing those boundaries.
+Canvas-produced colour maps, asset-local overlap surfaces, foreground treatments, masks, tint surfaces, text sprites, and particle stamps are presentation caches, not authoritative scene data. Their pixels may be uploaded and retained by WebGL2, but gameplay state, level records, collision, navigation, and camera transforms remain CPU-owned portable data. A future GPU-only preparation phase can replace individual cache producers without changing those boundaries.
 
 ## Revision 324 procedural-sprite and cave-mask GPU contracts
 
@@ -1978,7 +1978,7 @@ Revision 481 splits ordinary goblin mobility from human mobility again. Regular 
 
 Revision 482 adds `src/browser/micro-stutter-profiler.js` as a browser orchestration diagnostic, not as simulation state. It records wall-clock frame slices around input, fixed-step simulation, post-simulation services, renderer, HUD, and debug text while preserving the deterministic core boundary. The profiler is opt-in through the lower-right game tool-strip button or `window.__rocketfrockDev.profiler` and exports compact JSON intended for offline review. It is not auto-started from URL parameters, keeping the default runtime path profiler-free.
 
-The renderer hot path now treats frame-local collections as reusable scratch: entity visibility Sets, visual query Sets and candidate arrays, overlap-blend group Sets, projectile skip Sets, visual counters, and parallax offsets are cleared or overwritten instead of recreated on every animation frame. `world-visual-cache.js` exposes reusable query scratch and `Into` bounds helpers for callers that need broadphase culling without feeding the garbage collector.
+The renderer hot path now treats frame-local collections as reusable scratch: entity visibility Sets, visual query Sets and candidate arrays, overlap-blend query scratch, projectile skip Sets, visual counters, and parallax offsets are cleared or overwritten instead of recreated on every animation frame. `world-visual-cache.js` exposes reusable query scratch and `Into` bounds helpers for callers that need broadphase culling without feeding the garbage collector.
 
 ## Revision 483 profiler activation boundary
 
@@ -2296,3 +2296,44 @@ Fullscreen scale is `max(targetWidth / 1920, targetHeight / 1080)`. The visible 
 ## SDL build revision 231 rocket exhaust presentation offsets
 
 Rocket exhaust alignment remains presentation-only. The browser renderer exposes `rocketPresentationOffsets()` with a two-reference-pixel local-right trail offset and a six-reference-pixel forward-only flame offset. Canvas2D, WebGL2, and SDL apply the same rocket-relative vectors after world-to-screen conversion; simulation-owned projectile positions, velocities, homing, collision, and serialized trail samples remain unchanged.
+
+## SDL build revision 232 data-driven projectile handoff sequences
+
+Character attack clips may expose any number of projectile-tagged rig parts. Each part contributes an independently timed handoff containing its release time, source part, frame, launch type, projectile kind, sampled local origin, and rig scale. Browser and native simulation sort these handoffs by release time and consume every marker crossed by a fixed update. The legacy single-projectile fields remain populated from the first handoff for backward compatibility, while the sequence index is reset at every attack boundary.
+
+Projectile direction is resolved when each handoff is consumed, not when the attack begins. A moving target therefore causes successive projectiles in one animation to take distinct trajectories without predictive aiming. Character combat profiles are retained by game state and applied both to already-instantiated enemies and to enemies created later by level loading, automatic spawning, or enemy spawners. This keeps sequence behavior generic rather than coupling it to a specific enemy ID.
+
+Human Crossbow and Human Crossbow II author three arrow handoffs at 0.48, 0.88, and 1.28 seconds in a 1.68-second attack clip. Their post-animation projectile cooldown is 2.5 seconds.
+
+## SDL build revision 234 weapon-free modular human contract
+
+Enemy 038 is implemented entirely through existing character data. Its rig uses the shared modular-human atlas and articulated limb schema, selects `body_05` and `head_16`, and omits the `weapon` part from `parts`, `pivots`, and `drawOrder`. Its five dedicated animation clips likewise omit weapon reference-pose and track data, so presentation never needs a hidden or zero-alpha equipment special case.
+
+The boxer uses the ordinary melee enemy catalog profile and standard character dependency loading. No simulation branch checks `enemy_038`, boxer labels, head frames, or body frames. Browser preload and native catalog-driven loading resolve the same character project, preserving the data-driven boundary for future boxer-specific animation or balance edits.
+
+## Revision 238 asset-local overlap masks
+
+`src/presentation/overlap-blend-cache.js` now creates one bounded alpha-masked
+copy of each affected upper atlas placement instead of combining connected
+placements into a growing off-screen bitmap. A spatial broad phase discovers
+all earlier eligible overlaps within the same layer and On Top partition, even
+when unrelated draw records appear between members of a long chain. Exact
+transformed rectangle intersection polygons define the masked regions.
+
+Inside each overlap the upper asset remains transparent for the first quarter,
+fades linearly from zero to full opacity across the middle half, and remains
+opaque for the final quarter. When an asset overlaps several earlier assets,
+the minimum applicable alpha is used at each source pixel. Browser runtime and
+Level Editor share the production Canvas renderer and the same prewarmed cache;
+Canvas2D, WebGL, and static-bake paths all consume the resulting asset-local
+surface. `blendOverlaps: false` disables the effect for one placement. Moving,
+entity-bound, `brightenOnly`, and other dynamic visuals remain on their normal
+live rendering paths.
+
+## Revision 240 explicit resource inventory
+
+`resources/resources.json` is the small authoritative discovery index for authoring surfaces. Its version-1 schema contains ordered `assetAtlasIds` and `levelIds` arrays. Pure validation and update helpers live in `src/shared/resource-index-data.js`; browser retry and image/JSON loading live in the editor-only `src/tools/resource-index-loader.js`. The Asset Tool and Level Editor no longer manufacture numbered candidates or stop after the first failed request. Every declared request is retried with bounded delays, while a failed index is surfaced as a configuration error instead of silently reverting to probing.
+
+The runtime game remains demand-driven. A requested level is loaded directly, and that level's `atlasRefs` determine its environment dependencies. Character discovery continues through `characters/ct_enemies_001.json`; the SDL loader now honors the catalog's optional `characterUrl` with the same filename and category normalization used by HTML/editor code. The resource-layout audit enforces exact index/file parity for ordinary `at_atlas_*` JSON/PNG pairs and every authored `level_*` JSON other than generated `level_temp.json`.
+
+When a new level or atlas JSON is saved from a WebView2-hosted IgnatiusDevTool, the page sends a narrow resource-saved message. The host locates the authoring `reference/resources` tree, verifies that the new level file or complete atlas JSON/PNG pair actually exists there, and only then appends the ID to `resources.json`. A normal browser retains its ordinary file-picker/download behavior, and hand-editing the index remains fully supported.

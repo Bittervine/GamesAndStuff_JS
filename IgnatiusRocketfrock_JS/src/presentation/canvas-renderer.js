@@ -6,7 +6,8 @@ import {
 import {
     animationTimeFromPhase,
     blendAnimationPoses,
-    sampleAnimationClip
+    sampleAnimationClip,
+    sampleAnimationClipAtPlayhead
 } from "../shared/animation-data.js";
 import {
     atlasNodeToPlacementWorld,
@@ -61,7 +62,7 @@ import {
 } from "./world-visual-cache.js";
 import { computeWorldParallaxOffsetInto } from "./world-parallax.js";
 import {
-    buildOverlapBlendGroups,
+    buildOverlapBlendEntries,
     createOverlapBlendSurface
 } from "./overlap-blend-cache.js";
 import {
@@ -80,6 +81,11 @@ import {
 } from "./actor-shadow.js";
 import { createWebGL2RendererBackend } from "./webgl2-renderer.js";
 import { createPixmapPyramid, drawPixmap } from "./pixmap-pyramid.js";
+import {
+    createPlayerFlightDangleProfile,
+    createPlayerFlightDangleState,
+    updatePlayerFlightDangle as advancePlayerFlightDangle
+} from "./player-flight-dangle-motion.js";
 import { ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER } from "../shared/experimental-renderer-flags.js";
 import { shownTransformOf } from "../shared/presentation-transform-data.js";
 import { computeFullscreenPresentationMetrics } from "../shared/fullscreen-presentation-data.js";
@@ -104,6 +110,7 @@ let pixmapPyramidsEnabled = true;
 
 export const ROCKET_TRAIL_LATERAL_OFFSET_PX = 2;
 export const ROCKET_FLAME_FORWARD_OFFSET_PX = 6;
+export const WIZARD_JUMP_POSE_TIME = 0.180;
 
 export function rocketPresentationOffsets(angle, zoom = 1) {
     const safeAngle = Number.isFinite(Number(angle)) ? Number(angle) : 0;
@@ -174,6 +181,7 @@ const KNOWN_ENEMY_CHARACTER_URLS = [
     "characters/ct_char_enemy_035.json",
     "characters/ct_char_enemy_036.json",
     "characters/ct_char_enemy_037.json",
+    "characters/ct_char_enemy_038.json",
     "characters/ct_char_enemy_040.json",
     "characters/ct_char_enemy_050.json",
     "characters/ct_char_enemy_060.json",
@@ -779,6 +787,9 @@ class RocketfrockRenderer {
         this.rigConfig = playerProject.rig;
         this.character = playerProject.character;
         this.animations = playerProject.animations;
+        this.playerFlightDangleProfile = createPlayerFlightDangleProfile(this.animations.get("dangle"));
+        this.playerFlightDangle = createPlayerFlightDangleState(this.playerFlightDangleProfile);
+        this.playerPoseTransition = null;
         this.characterProjects = characterProjects;
         this.environmentAtlases = environmentAtlases;
         this.environmentManifestUrls = new Set((environmentManifestUrls || []).map(String));
@@ -794,8 +805,8 @@ class RocketfrockRenderer {
             source: null,
             sourceLength: 0,
             colorMapKey: "",
-            groups: [],
-            memberToGroup: new Map()
+            entries: [],
+            memberToEntry: new Map()
         };
         this.foregroundSpriteCache = new Map();
         this.layerBrightnessCache = new Map();
@@ -813,7 +824,6 @@ class RocketfrockRenderer {
         this.staticTileDiagnosticsEnabled = false;
         this.staticTileFrameDiagnostics = this.createStaticTileFrameDiagnostics();
         this.staticTileAsyncDiagnostics = this.createStaticTileAsyncDiagnostics();
-        this.frameDrawnBlendGroups = new Set();
         this.frameHandledProjectileIds = new Set();
         this.worldVisualQueryScratch = {
             background: createWorldVisualQueryScratch(),
@@ -1275,13 +1285,49 @@ class RocketfrockRenderer {
         return { ...this.performanceDiagnostics };
     }
 
+    resetOverlapBlendCache() {
+        for (const entry of this.overlapBlendCache.entries || []) {
+            if (entry?.canvas) this.webglBackend?.invalidateTexture(entry.canvas);
+        }
+        this.overlapBlendCache = {
+            source: null,
+            sourceLength: 0,
+            colorMapKey: "",
+            entries: [],
+            memberToEntry: new Map()
+        };
+    }
+
     getWorldVisualCache(state) {
         const visuals = Array.isArray(state?.world?.visuals) ? state.world.visuals : [];
         if (this.worldVisualCache.source !== visuals || this.worldVisualCache.sourceLength !== visuals.length) {
             this.worldVisualCache = buildWorldVisualCache(visuals);
-            this.overlapBlendCache.source = null;
+            this.resetOverlapBlendCache();
         }
         return this.worldVisualCache;
+    }
+
+    overlapBlendSourceForVisual(visual, atlas, frame) {
+        if (visual.layer === "caveForeground") {
+            const canvas = this.getForegroundSpriteCanvas(atlas, visual.frame || visual.assetId, frame, visual);
+            return { image: canvas, x: 0, y: 0, w: canvas.width, h: canvas.height };
+        }
+        if (isWorldBackgroundVisual(visual)) {
+            return {
+                image: this.getLayerBrightnessAtlas(atlas, visual.backgroundBrightness, "background"),
+                x: frame.x,
+                y: frame.y,
+                w: frame.w,
+                h: frame.h
+            };
+        }
+        return {
+            image: atlas.renderImage || atlas.image,
+            x: frame.x,
+            y: frame.y,
+            w: frame.w,
+            h: frame.h
+        };
     }
 
     ensureOverlapBlendCache(state) {
@@ -1295,32 +1341,43 @@ class RocketfrockRenderer {
         }
 
         const ownerDocument = this.canvas?.ownerDocument || (typeof document !== "undefined" ? document : null);
-        const groups = [];
-        const memberToGroup = new Map();
-        for (const definition of buildOverlapBlendGroups(worldCache.main)) {
-            const baked = createOverlapBlendSurface({
-                ownerDocument,
-                group: definition,
-                environmentAtlases: this.environmentAtlases
-            });
-            if (!baked) continue;
-            const group = {
-                id: definition.id,
-                layer: definition.layer,
-                bounds: baked.bounds,
-                canvas: baked.canvas,
-                members: baked.members
-            };
-            groups.push(group);
-            for (const visual of group.members) memberToGroup.set(visual, group);
+        const entries = [];
+        const memberToEntry = new Map();
+        const partitionNames = [
+            "background",
+            "backgroundOnTop",
+            "main",
+            "mainOnTop",
+            "actorFront",
+            "caveForeground",
+            "caveForegroundOnTop"
+        ];
+        for (const partitionName of partitionNames) {
+            for (const definition of buildOverlapBlendEntries(worldCache[partitionName])) {
+                const baked = createOverlapBlendSurface({
+                    ownerDocument,
+                    definition,
+                    environmentAtlases: this.environmentAtlases,
+                    sourceForVisual: (visual, atlas, frame) => this.overlapBlendSourceForVisual(visual, atlas, frame)
+                });
+                if (!baked) continue;
+                const entry = {
+                    visual: definition.visual,
+                    bounds: definition.bounds,
+                    canvas: baked.canvas,
+                    overlaps: definition.overlaps
+                };
+                entries.push(entry);
+                memberToEntry.set(definition.visual, entry);
+            }
         }
 
         this.overlapBlendCache = {
             source: worldCache.source,
             sourceLength: worldCache.sourceLength,
             colorMapKey: this.environmentColorMapKey,
-            groups,
-            memberToGroup
+            entries,
+            memberToEntry
         };
         return this.overlapBlendCache;
     }
@@ -1360,7 +1417,7 @@ class RocketfrockRenderer {
         this.foregroundSpriteCache.clear();
         for (const surface of this.layerBrightnessCache.values()) this.webglBackend?.invalidateTexture(surface);
         this.layerBrightnessCache.clear();
-        this.overlapBlendCache.source = null;
+        this.resetOverlapBlendCache();
         this.syncEnvironmentColorMap(this.environmentColorMap, this.environmentColorExchange);
         this.invalidateStaticLayerBake("level atlases changed");
         return loaded.size > 0;
@@ -1409,13 +1466,23 @@ class RocketfrockRenderer {
             foregroundSprites += 1;
         }
 
+        const overlapCache = this.ensureOverlapBlendCache({ world });
+        for (const entry of overlapCache.entries) {
+            if (entry?.canvas) derivedTextureSources.add(entry.canvas);
+        }
+
         let webglTextures = 0;
         if (this.webglBackend?.available) {
             for (const source of derivedTextureSources) {
                 if (this.webglBackend.cacheTexture(source)) webglTextures += 1;
             }
         }
-        return { backgroundAtlases, foregroundSprites, webglTextures };
+        return {
+            backgroundAtlases,
+            foregroundSprites,
+            overlapBlendTextures: overlapCache.entries.length,
+            webglTextures
+        };
     }
 
     supportsExperimentalStaticLayerBakeRenderer() {
@@ -1631,7 +1698,7 @@ class RocketfrockRenderer {
         this.foregroundSpriteCache.clear();
         for (const surface of this.layerBrightnessCache.values()) this.webglBackend?.invalidateTexture(surface);
         this.layerBrightnessCache.clear();
-        this.overlapBlendCache.source = null;
+        this.resetOverlapBlendCache();
         for (const atlas of this.environmentAtlases.values()) {
             if (!atlas?.image) continue;
             atlas.renderImage = createLevelColorTreatedCanvas(atlas.image, colorMap, colorExchange, undefined, atlas.id);
@@ -1967,6 +2034,7 @@ class RocketfrockRenderer {
         this.framePlayerRocketTransform = null;
         this.updateFrameEntityVisibility(state);
         this.updateActorShadowOpacity(state, this.lastRenderDt);
+        this.updatePlayerFlightDangle(state);
         computeWorldParallaxOffsetInto(
             this.frameBackgroundOffset,
             view,
@@ -2393,7 +2461,7 @@ class RocketfrockRenderer {
         return this.staticTileSourceDescriptors.get(id);
     }
 
-    staticTileImageCommandForVisual(visual) {
+    staticTileImageCommandForVisual(visual, sourceOverride = null) {
         const atlas = this.environmentAtlases.get(visual?.atlasId);
         if (!atlas || atlas.missing || !atlas.image) return null;
         const frameName = visual.frame || visual.assetId;
@@ -2401,15 +2469,15 @@ class RocketfrockRenderer {
         if (!frame) return null;
         const caveForeground = visual.layer === "caveForeground";
         const worldBackground = isWorldBackgroundVisual(visual);
-        let source = atlas.renderImage || atlas.image;
-        let sourceX = frame.x;
-        let sourceY = frame.y;
-        let sourceWidth = frame.w;
-        let sourceHeight = frame.h;
-        if (worldBackground) {
+        let source = sourceOverride || atlas.renderImage || atlas.image;
+        let sourceX = sourceOverride ? 0 : frame.x;
+        let sourceY = sourceOverride ? 0 : frame.y;
+        let sourceWidth = sourceOverride ? sourceOverride.width : frame.w;
+        let sourceHeight = sourceOverride ? sourceOverride.height : frame.h;
+        if (!sourceOverride && worldBackground) {
             source = this.getLayerBrightnessAtlas(atlas, visual.backgroundBrightness, "background");
         }
-        if (caveForeground) {
+        if (!sourceOverride && caveForeground) {
             source = this.getForegroundSpriteCanvas(atlas, frameName, frame, visual);
             sourceX = 0;
             sourceY = 0;
@@ -2433,7 +2501,7 @@ class RocketfrockRenderer {
         };
     }
 
-    appendStaticTilePartitionCommands(commands, state, partitionName, tileView, drawnGroups) {
+    appendStaticTilePartitionCommands(commands, state, partitionName, tileView) {
         const visualCache = this.getWorldVisualCache(state);
         const query = queryWorldVisualEntries(
             visualCache,
@@ -2443,38 +2511,12 @@ class RocketfrockRenderer {
             0,
             this.staticTileQueryScratch[partitionName]
         );
-        const overlapCache = partitionName === "main" ? this.ensureOverlapBlendCache(state) : null;
+        const overlapCache = this.ensureOverlapBlendCache(state);
         for (const { visual } of query.entries) {
             if (!visualCanBeBakedStatic(visual)) continue;
-            const blendGroup = overlapCache?.memberToGroup?.get(visual);
-            if (blendGroup) {
-                if (drawnGroups.has(blendGroup)) continue;
-                drawnGroups.add(blendGroup);
-                if (!visualIntersectsViewport(blendGroup.bounds, tileView, null, 0)) continue;
-                const descriptor = this.staticTileSourceDescriptor(
-                    blendGroup.canvas,
-                    0,
-                    0,
-                    blendGroup.canvas?.width,
-                    blendGroup.canvas?.height
-                );
-                if (!descriptor) continue;
-                commands.push({
-                    kind: "image",
-                    sourceId: descriptor.id,
-                    centerX: (blendGroup.bounds.minX + blendGroup.bounds.maxX) * 0.5,
-                    centerY: (blendGroup.bounds.minY + blendGroup.bounds.maxY) * 0.5,
-                    width: blendGroup.bounds.maxX - blendGroup.bounds.minX,
-                    height: blendGroup.bounds.maxY - blendGroup.bounds.minY,
-                    rotation: 0,
-                    mirrorX: false,
-                    mirrorY: false,
-                    alpha: 1
-                });
-                continue;
-            }
             if (visual.kind === "atlasSprite") {
-                const command = this.staticTileImageCommandForVisual(visual);
+                const blendEntry = overlapCache.memberToEntry.get(visual);
+                const command = this.staticTileImageCommandForVisual(visual, blendEntry?.canvas || null);
                 if (command) commands.push(command);
             } else if (visual.kind === "cutoutMask") {
                 commands.push({
@@ -2508,11 +2550,10 @@ class RocketfrockRenderer {
             y: originY
         };
         const commands = [];
-        const drawnGroups = new Set();
         if (record.layerName === "background") {
-            this.appendStaticTilePartitionCommands(commands, state, "background", tileView, drawnGroups);
+            this.appendStaticTilePartitionCommands(commands, state, "background", tileView);
         } else if (record.layerName === "terrain") {
-            this.appendStaticTilePartitionCommands(commands, state, "main", tileView, drawnGroups);
+            this.appendStaticTilePartitionCommands(commands, state, "main", tileView);
             const visualCache = this.getWorldVisualCache(state);
             if (!this.staticTilePartitionHasStaticVisuals(visualCache, "main")) {
                 for (const solid of state.world?.solids || []) {
@@ -2535,8 +2576,8 @@ class RocketfrockRenderer {
                 }
             }
         } else {
-            this.appendStaticTilePartitionCommands(commands, state, "actorFront", tileView, drawnGroups);
-            this.appendStaticTilePartitionCommands(commands, state, "caveForeground", tileView, drawnGroups);
+            this.appendStaticTilePartitionCommands(commands, state, "actorFront", tileView);
+            this.appendStaticTilePartitionCommands(commands, state, "caveForeground", tileView);
         }
         return {
             key: record.key,
@@ -3317,25 +3358,15 @@ class RocketfrockRenderer {
     drawStaticWorldVisualPartition(state, view, partitionName) {
         const cache = this.getWorldVisualCache(state);
         const entries = Array.isArray(cache?.[partitionName]) ? cache[partitionName] : [];
-        const overlapCache = partitionName === "main" ? this.ensureOverlapBlendCache(state) : null;
-        const drawnBlendGroups = this.frameDrawnBlendGroups;
-        if (overlapCache) drawnBlendGroups.clear();
+        const overlapCache = this.ensureOverlapBlendCache(state);
         let drewAny = false;
         let hasRenderableVisuals = false;
         for (const { visual, bounds } of entries) {
             if (!visualCanBeBakedStatic(visual)) continue;
-            const blendGroup = overlapCache?.memberToGroup?.get(visual);
-            if (blendGroup) {
-                hasRenderableVisuals = true;
-                if (!drawnBlendGroups.has(blendGroup)) {
-                    drawnBlendGroups.add(blendGroup);
-                    if (this.drawOverlapBlendGroup(blendGroup, view)) drewAny = true;
-                }
-                continue;
-            }
             if (visual.kind === "atlasSprite") {
                 hasRenderableVisuals = true;
-                if (this.drawAtlasSpriteVisual(visual, view, null, bounds)) drewAny = true;
+                const blendEntry = overlapCache.memberToEntry.get(visual);
+                if (this.drawAtlasSpriteVisual(visual, view, null, bounds, blendEntry?.canvas || null)) drewAny = true;
             } else if (visual.kind === "cutoutMask") {
                 if (this.drawCutoutMaskVisual(visual, view, bounds)) drewAny = true;
             }
@@ -4302,40 +4333,17 @@ class RocketfrockRenderer {
         this.frameVisualCounters.spatialCulled += query.spatialCulled;
         const partition = query.partition;
         const hasRenderableVisuals = this.partitionHasRenderableVisuals(partition);
-        const overlapCache = partitionName === "main" ? this.ensureOverlapBlendCache(state) : null;
-        const drawnBlendGroups = this.frameDrawnBlendGroups;
-        drawnBlendGroups.clear();
+        const overlapCache = this.ensureOverlapBlendCache(state);
         let drewAny = false;
         for (const { visual, bounds } of query.entries) {
-            const blendGroup = overlapCache?.memberToGroup?.get(visual);
-            if (blendGroup) {
-                if (!drawnBlendGroups.has(blendGroup)) {
-                    drawnBlendGroups.add(blendGroup);
-                    if (this.drawOverlapBlendGroupWebGL(blendGroup, view)) drewAny = true;
-                }
-                continue;
-            }
             if (visual.kind === "atlasSprite") {
-                if (this.queueAtlasSpriteVisualWebGL(visual, view, state, bounds)) drewAny = true;
+                const blendEntry = overlapCache.memberToEntry.get(visual);
+                if (this.queueAtlasSpriteVisualWebGL(visual, view, state, bounds, blendEntry?.canvas || null)) drewAny = true;
             } else if (visual.kind === "cutoutMask") {
                 if (this.queueCutoutMaskVisualWebGL(visual, view, bounds)) drewAny = true;
             }
         }
         return { drewAny, hasRenderableVisuals };
-    }
-
-    drawOverlapBlendGroupWebGL(group, view) {
-        this.frameVisualCounters.considered += group?.members?.length || 1;
-        if (!group?.canvas || !visualIntersectsViewport(group.bounds, view, null, VISUAL_CULL_MARGIN_PX)) {
-            this.frameVisualCounters.culled += group?.members?.length || 1;
-            return false;
-        }
-        const topLeft = this.worldToScreen(view, group.bounds.minX, group.bounds.minY);
-        const width = (group.bounds.maxX - group.bounds.minX) * view.zoom;
-        const height = (group.bounds.maxY - group.bounds.minY) * view.zoom;
-        const queued = this.webglBackend.queueSurface(group.canvas, topLeft.x, topLeft.y, width, height, 1, false);
-        if (queued) this.frameVisualCounters.drawn += 1;
-        return queued;
     }
 
     drawBackgroundVisualsWebGL(state, view, partitionName = "background") {
@@ -4349,9 +4357,12 @@ class RocketfrockRenderer {
             this.worldVisualQueryScratchFor(partitionName)
         );
         this.frameVisualCounters.spatialCulled += query.spatialCulled;
+        const overlapCache = this.ensureOverlapBlendCache(state);
         let drewAny = false;
         for (const { visual, bounds } of query.entries) {
-            if (visual.kind === "atlasSprite" && this.queueAtlasSpriteVisualWebGL(visual, view, state, bounds)) {
+            if (visual.kind !== "atlasSprite") continue;
+            const blendEntry = overlapCache.memberToEntry.get(visual);
+            if (this.queueAtlasSpriteVisualWebGL(visual, view, state, bounds, blendEntry?.canvas || null)) {
                 drewAny = true;
             }
         }
@@ -4369,9 +4380,12 @@ class RocketfrockRenderer {
             this.worldVisualQueryScratchFor(partitionName)
         );
         this.frameVisualCounters.spatialCulled += query.spatialCulled;
+        const overlapCache = this.ensureOverlapBlendCache(state);
         let drewAny = false;
         for (const { visual, bounds } of query.entries) {
-            if (visual.kind === "atlasSprite" && this.queueAtlasSpriteVisualWebGL(visual, view, state, bounds)) {
+            if (visual.kind !== "atlasSprite") continue;
+            const blendEntry = overlapCache.memberToEntry.get(visual);
+            if (this.queueAtlasSpriteVisualWebGL(visual, view, state, bounds, blendEntry?.canvas || null)) {
                 drewAny = true;
             }
         }
@@ -4397,7 +4411,7 @@ class RocketfrockRenderer {
         return queued;
     }
 
-    queueAtlasSpriteVisualWebGL(visual, view, state = null, cachedBounds = null) {
+    queueAtlasSpriteVisualWebGL(visual, view, state = null, cachedBounds = null, sourceOverride = null) {
         if (visual.entityId && state) {
             if (this.frameEntityVisibility.collectedPickups.has(visual.entityId)) return false;
             if (this.frameEntityVisibility.defeatedEnemies.has(visual.entityId)) return false;
@@ -4424,15 +4438,15 @@ class RocketfrockRenderer {
             centerWorld.x - (parallaxOffset?.x || 0),
             centerWorld.y - (parallaxOffset?.y || 0)
         );
-        let source = atlas.renderImage || atlas.image;
-        let sourceX = frame.x;
-        let sourceY = frame.y;
-        let sourceWidth = frame.w;
-        let sourceHeight = frame.h;
-        if (worldBackground) {
+        let source = sourceOverride || atlas.renderImage || atlas.image;
+        let sourceX = sourceOverride ? 0 : frame.x;
+        let sourceY = sourceOverride ? 0 : frame.y;
+        let sourceWidth = sourceOverride ? sourceOverride.width : frame.w;
+        let sourceHeight = sourceOverride ? sourceOverride.height : frame.h;
+        if (!sourceOverride && worldBackground) {
             source = this.getLayerBrightnessAtlas(atlas, visual.backgroundBrightness, "background");
         }
-        if (caveForeground) {
+        if (!sourceOverride && caveForeground) {
             source = this.getForegroundSpriteCanvas(atlas, frameName, frame, visual);
             sourceX = 0;
             sourceY = 0;
@@ -4468,20 +4482,11 @@ class RocketfrockRenderer {
         let drewAny = false;
         const partition = query.partition;
         const hasRenderableVisuals = this.partitionHasRenderableVisuals(partition);
-        const overlapCache = partitionName === "main" ? this.ensureOverlapBlendCache(state) : null;
-        const drawnBlendGroups = this.frameDrawnBlendGroups;
-        drawnBlendGroups.clear();
+        const overlapCache = this.ensureOverlapBlendCache(state);
         for (const { visual, bounds } of entries) {
-            const blendGroup = overlapCache?.memberToGroup?.get(visual);
-            if (blendGroup) {
-                if (!drawnBlendGroups.has(blendGroup)) {
-                    drawnBlendGroups.add(blendGroup);
-                    if (this.drawOverlapBlendGroup(blendGroup, view)) drewAny = true;
-                }
-                continue;
-            }
             if (visual.kind === "atlasSprite") {
-                if (this.drawAtlasSpriteVisual(visual, view, state, bounds)) {
+                const blendEntry = overlapCache.memberToEntry.get(visual);
+                if (this.drawAtlasSpriteVisual(visual, view, state, bounds, blendEntry?.canvas || null)) {
                     drewAny = true;
                 }
             } else if (visual.kind === "cutoutMask") {
@@ -4491,20 +4496,6 @@ class RocketfrockRenderer {
             }
         }
         return { drewAny, hasRenderableVisuals };
-    }
-
-    drawOverlapBlendGroup(group, view) {
-        this.frameVisualCounters.considered += group?.members?.length || 1;
-        if (!group?.canvas || !visualIntersectsViewport(group.bounds, view, null, VISUAL_CULL_MARGIN_PX)) {
-            this.frameVisualCounters.culled += group?.members?.length || 1;
-            return false;
-        }
-        const topLeft = this.worldToScreen(view, group.bounds.minX, group.bounds.minY);
-        const width = (group.bounds.maxX - group.bounds.minX) * view.zoom;
-        const height = (group.bounds.maxY - group.bounds.minY) * view.zoom;
-        this.ctx.drawImage(group.canvas, topLeft.x, topLeft.y, width, height);
-        this.frameVisualCounters.drawn += 1;
-        return true;
     }
 
     drawBackgroundVisuals(state, view, partitionName = "background") {
@@ -4518,9 +4509,12 @@ class RocketfrockRenderer {
             this.worldVisualQueryScratchFor(partitionName)
         );
         this.frameVisualCounters.spatialCulled += query.spatialCulled;
+        const overlapCache = this.ensureOverlapBlendCache(state);
         let drewAny = false;
         for (const { visual, bounds } of query.entries) {
-            if (visual.kind === "atlasSprite" && this.drawAtlasSpriteVisual(visual, view, state, bounds)) {
+            if (visual.kind !== "atlasSprite") continue;
+            const blendEntry = overlapCache.memberToEntry.get(visual);
+            if (this.drawAtlasSpriteVisual(visual, view, state, bounds, blendEntry?.canvas || null)) {
                 drewAny = true;
             }
         }
@@ -4538,9 +4532,12 @@ class RocketfrockRenderer {
             this.worldVisualQueryScratchFor(partitionName)
         );
         this.frameVisualCounters.spatialCulled += query.spatialCulled;
+        const overlapCache = this.ensureOverlapBlendCache(state);
         let drewAny = false;
         for (const { visual, bounds } of query.entries) {
-            if (visual.kind === "atlasSprite" && this.drawAtlasSpriteVisual(visual, view, state, bounds)) {
+            if (visual.kind !== "atlasSprite") continue;
+            const blendEntry = overlapCache.memberToEntry.get(visual);
+            if (this.drawAtlasSpriteVisual(visual, view, state, bounds, blendEntry?.canvas || null)) {
                 drewAny = true;
             }
         }
@@ -4578,7 +4575,7 @@ class RocketfrockRenderer {
         return true;
     }
 
-    drawAtlasSpriteVisual(visual, view, state = null, cachedBounds = null) {
+    drawAtlasSpriteVisual(visual, view, state = null, cachedBounds = null, sourceOverride = null) {
         if (visual.entityId && state) {
             if (this.frameEntityVisibility.collectedPickups.has(visual.entityId)) {
                 return false;
@@ -4626,7 +4623,9 @@ class RocketfrockRenderer {
         ctx.translate(center.x, center.y);
         ctx.rotate(visualPresentationAngle(visual));
         ctx.scale(visual.mirrorX ? -1 : 1, visual.mirrorY ? -1 : 1);
-        if (caveForeground) {
+        if (sourceOverride) {
+            ctx.drawImage(sourceOverride, -w * 0.5, -h * 0.5, w, h);
+        } else if (caveForeground) {
             const cachedSprite = this.getForegroundSpriteCanvas(atlas, frameName, frame, visual);
             ctx.drawImage(cachedSprite, -w * 0.5, -h * 0.5, w, h);
         } else {
@@ -8295,7 +8294,7 @@ class RocketfrockRenderer {
             const dataResult = this.computeDataDrivenGroundPose(state, zoom, walkClip);
             this.lastAnimationDiagnostics = {
                 mode: "data",
-                clipId: walkClip.animationId,
+                clipId: dataResult.clipId,
                 available: true
             };
             return dataResult.pose;
@@ -8304,7 +8303,7 @@ class RocketfrockRenderer {
         const airbornePose = this.computeAirborneRigPose(state, zoom);
         this.lastAnimationDiagnostics = {
             mode: airbornePose.poseMode,
-            clipId: null,
+            clipId: airbornePose.clipId || null,
             available: true
         };
         return airbornePose;
@@ -8314,9 +8313,14 @@ class RocketfrockRenderer {
         const speedRatio = Math.min(1.25, Math.abs(state.player.vx) / Math.max(1, state.tuning.maxRunSpeed));
         const motionAmount = smoothstep(0.05, 0.24, speedRatio);
         const time = animationTimeFromPhase(this.phase, clip.duration);
-        const sampledPose = sampleAnimationClip(clip, time);
-        const localPose = blendAnimationPoses(clip.referencePose, sampledPose, motionAmount);
+        const sampledWalkPose = sampleAnimationClip(clip, time);
+        const idleClip = this.animations.get("idle");
+        const idlePose = idleClip
+            ? sampleAnimationClip(idleClip, state.clock.time)
+            : clip.referencePose;
+        const localPose = blendAnimationPoses(idlePose, sampledWalkPose, motionAmount);
         return {
+            clipId: motionAmount < 0.5 && idleClip ? idleClip.animationId : clip.animationId,
             localPose,
             pose: {
                 poseMode: "ground",
@@ -8325,15 +8329,54 @@ class RocketfrockRenderer {
         };
     }
 
+    updatePlayerFlightDangle(state) {
+        const player = state?.player || {};
+        const rocket = state?.equipment?.rocket || {};
+        const flightActive = Boolean(activePowerUpEffect(state, POWER_UP_EFFECT_IDS.FLIGHT));
+        const hovering = flightActive || rocket.attachedBoosting;
+        advancePlayerFlightDangle(this.playerFlightDangle, {
+            active: player.visible !== false && !player.onGround && hovering,
+            ax: player.ax,
+            facing: player.facing,
+            dt: this.lastRenderDt,
+            forwardAcceleration: state?.tuning?.groundAcceleration,
+            brakingAcceleration: state?.tuning?.groundFriction,
+            profile: this.playerFlightDangleProfile
+        });
+    }
+
     computeAirborneRigPose(state, zoom = 1) {
         const cfg = this.rigConfig;
         const scale = cfg.global.scale * zoom;
         const anchors = cfg.anchors;
         const rocket = state.equipment.rocket;
-        const kickWindow = Math.max(0.16, Math.min(0.34, (state.tuning.attachedBoostBurstDuration ?? 0.5) * 0.55));
         const flightActive = Boolean(activePowerUpEffect(state, POWER_UP_EFFECT_IDS.FLIGHT));
-        const boostKickPose = !flightActive && rocket.attachedBoosting && rocket.attachedBoostTime <= kickWindow;
-        const poseMode = flightActive || (rocket.attachedBoosting && !boostKickPose) ? "hover" : "jump";
+        const boostKickPose = false;
+        const poseMode = flightActive || rocket.attachedBoosting ? "hover" : "jump";
+        const dangleClip = this.animations.get("dangle");
+        if (poseMode === "hover" && dangleClip) {
+            const localPose = sampleAnimationClipAtPlayhead(
+                dangleClip,
+                this.playerFlightDangle?.poseTime ?? this.playerFlightDangleProfile.maximumPoseTime * 0.5
+            );
+            return {
+                poseMode: "dangle",
+                clipId: dangleClip.animationId,
+                transforms: animationPoseToRuntimeTransforms(localPose, cfg, zoom)
+            };
+        }
+        if (poseMode === "jump") {
+            const jumpClip = this.animations.get("walk");
+            if (!jumpClip) {
+                throw new Error("Character is missing its required walk animation clip for the jump pose.");
+            }
+            const localPose = sampleAnimationClip(jumpClip, WIZARD_JUMP_POSE_TIME);
+            return {
+                poseMode: "jump",
+                clipId: jumpClip.animationId,
+                transforms: animationPoseToRuntimeTransforms(localPose, cfg, zoom)
+            };
+        }
         let torsoAngle;
         if (poseMode === "hover") {
             torsoAngle = 0.015 + Math.sin(state.clock.time * 5.5) * 0.012;
@@ -8371,27 +8414,45 @@ class RocketfrockRenderer {
     }
 
     blendRigPose(targetPose, state, zoom) {
-        const speed = Number(state.tuning.poseBlendSpeed ?? 14);
-        if (!Number.isFinite(speed) || speed <= 0 || !this.visualPose) {
+        const transitionSeconds = 0.15;
+        if (!this.visualPose) {
             this.visualPose = clonePose(targetPose);
             this.lastVisualPoseMode = targetPose.poseMode;
+            this.playerPoseTransition = null;
             return targetPose;
         }
 
-        const alpha = 1 - Math.exp(-speed * this.lastRenderDt);
+        if (targetPose.poseMode !== this.lastVisualPoseMode) {
+            this.playerPoseTransition = {
+                fromPose: clonePose(this.visualPose),
+                elapsed: 0
+            };
+            this.lastVisualPoseMode = targetPose.poseMode;
+        }
+
+        const transition = this.playerPoseTransition;
+        if (!transition) {
+            this.visualPose = clonePose(targetPose);
+            return targetPose;
+        }
+
+        transition.elapsed = Math.min(transitionSeconds, transition.elapsed + Math.max(0, this.lastRenderDt));
+        const alpha = transitionSeconds > 0 ? transition.elapsed / transitionSeconds : 1;
         const blended = {
             poseMode: targetPose.poseMode,
             transforms: {}
         };
 
         for (const name of FIXED_DRAW_ORDER) {
-            const from = this.visualPose.transforms[name];
+            const from = transition.fromPose.transforms[name];
             const to = targetPose.transforms[name];
             blended.transforms[name] = from ? lerpTransform(from, to, alpha) : { ...to };
         }
 
         this.visualPose = clonePose(blended);
-        this.lastVisualPoseMode = targetPose.poseMode;
+        if (alpha >= 1) {
+            this.playerPoseTransition = null;
+        }
         return blended;
     }
 
@@ -8443,7 +8504,10 @@ class RocketfrockRenderer {
     makeAirborneArmTransform(side, shoulder, scale, torsoAngle, poseMode) {
         const name = side === "left" ? "leftArm" : "rightArm";
         const part = this.rigConfig.parts[name];
-        const point = applyPartOffset(shoulder, part, scale);
+        const point = applyPartOffset({
+            x: shoulder.x,
+            y: shoulder.y
+        }, part, scale);
         const passive = poseMode === "hover";
         const spread = passive ? 0 : (side === "left" ? -0.08 : 0.08);
         return {

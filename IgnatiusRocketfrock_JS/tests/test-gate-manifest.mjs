@@ -14,6 +14,7 @@ export const TEST_SHARDS = Object.freeze({
             "gamepad haptics follow active input device",
             "timed story text layout",
             "responsive viewport scaling",
+            "player flight dangle animation",
             "thought bubble tail and responsive typography",
             "selective level colour map"
     ]),
@@ -159,6 +160,7 @@ export const TEST_SHARDS = Object.freeze({
             "fireball goblin projectile attack",
             "tri-fireball goblin uses any clear volley trajectory",
             "human knife thrower releases three dagger projectiles",
+            "data-driven timed projectile handoffs re-aim every shot",
             "ranged enemies fire beyond preferred attack range",
             "ranged enemies require clear projectile lane",
             "ranged shot lane revalidated at release",

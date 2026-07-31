@@ -89,6 +89,7 @@ import {
 } from "./enemy-navigation.js";
 
 export const FIXED_DT = 1 / 60;
+export const PICKUP_PROXIMITY_DISTANCE_SCALE = 0.67;
 const AUTOMATIC_STEP_HEIGHT_RATIO = 0.2;
 const FLIGHT_MOVEMENT_SPEED_MULTIPLIER = 1.5;
 const HOMING_TARGET_SEARCH_INTERVAL_SECONDS = 0.25;
@@ -2457,14 +2458,18 @@ function updatePickupRespawns(state, dt) {
 }
 
 function updatePickups(state) {
-    const playerCenterY = state.player.currentTransform.y - state.player.height * 0.5;
+    const playerRect = getPlayerRect(state);
+    const playerCenterX = playerRect.x + playerRect.w * 0.5;
+    const playerCenterY = playerRect.y + playerRect.h * 0.5;
     for (const pickup of state.pickups || []) {
         if (pickup.collected) continue;
         const pickupCenterY = Number.isFinite(Number(pickup.centerY))
             ? Number(pickup.centerY)
             : (Number(pickup.y) || 0) - (Number(pickup.height) || 0) * 0.5;
-        const reach = Math.max(1, Number(pickup.radius) || 14) + state.player.width * 0.45;
-        if (Math.hypot(state.player.currentTransform.x - pickup.x, playerCenterY - pickupCenterY) > reach) continue;
+        const reach = Math.max(1, Number(pickup.radius) || 14) + playerRect.w * 0.45;
+        const pickupDistance = Math.hypot(playerCenterX - pickup.x, playerCenterY - pickupCenterY)
+            * PICKUP_PROXIMITY_DISTANCE_SCALE;
+        if (pickupDistance > reach) continue;
 
         pickup.collected = true;
         pickup.respawnTimer = Math.max(0, Number(pickup.respawnSeconds) || 0);
@@ -3487,6 +3492,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             rotation: normalizeRotationRadians(placement.rotation),
             layer,
             onTop: placement.onTop === true,
+            blendOverlaps: placement.blendOverlaps !== false,
             collisionFromManifest: inertCosmetic ? false : placement.collisionFromManifest !== false,
             foregroundBrightness: foreground ? layerVisuals.foreground.brightness : undefined,
             foregroundSaturation: Number.isFinite(Number(placement.foregroundSaturation)) ? Number(placement.foregroundSaturation) : undefined,
@@ -3835,28 +3841,45 @@ function applyCharacterCombatProfileToEnemy(state, enemy) {
     const profile = state.characterCombatProfiles?.[enemy.characterId];
     if (!profile || typeof profile !== "object") return false;
     const projectiles = Array.isArray(profile.projectiles) ? profile.projectiles : [];
-    const projectile = projectiles.find((item) => String(item?.animationSlot || "attack") === "attack") || projectiles[0];
-    if (!projectile) return false;
+    const attackProjectiles = projectiles
+        .filter((item) => String(item?.animationSlot || "attack") === "attack")
+        .map((projectile) => ({
+            releaseTime: Math.max(0, finiteNumberOr(projectile?.releaseTime, enemy.attackHitTime)),
+            partName: projectile?.partName ? String(projectile.partName) : enemy.projectilePartName,
+            frameId: projectile?.frameId ? String(projectile.frameId) : enemy.projectileFrameId,
+            projectileKind: String(projectile?.projectileKind || enemy.projectileKind || "fireball"),
+            launchType: String(projectile?.launchType || enemy.projectileLaunchType || "straight"),
+            originLocalX: finiteNumberOr(projectile?.localX, enemy.projectileOriginLocalX),
+            originLocalY: finiteNumberOr(projectile?.localY, enemy.projectileOriginLocalY),
+            hasOriginLocal: Number.isFinite(Number(projectile?.localX)) && Number.isFinite(Number(projectile?.localY)),
+            rigScale: Math.max(0.0001, finiteNumberOr(projectile?.rigScale, enemy.projectileRigScale))
+        }))
+        .sort((a, b) => a.releaseTime - b.releaseTime);
+    if (!attackProjectiles.length) return false;
 
-    const releaseTime = Math.max(0, finiteNumberOr(projectile.releaseTime, enemy.attackHitTime));
+    const projectile = attackProjectiles[0];
+    const releaseTime = projectile.releaseTime;
+    enemy.projectileHandoffs = attackProjectiles;
+    enemy.nextProjectileHandoffIndex = 0;
     enemy.attackMode = "projectile";
     enemy.attackDuration = Math.max(
         FIXED_DT,
-        releaseTime + FIXED_DT,
+        attackProjectiles[attackProjectiles.length - 1].releaseTime + FIXED_DT,
         finiteNumberOr(profile.attackDuration, enemy.attackDuration)
     );
     enemy.attackHitTime = releaseTime;
     enemy.projectileReleaseTime = releaseTime;
-    enemy.projectileLaunchType = String(projectile.launchType || enemy.projectileLaunchType || "straight");
+    enemy.projectileLaunchType = projectile.launchType;
     if (enemy.projectileLaunchType.startsWith("pathing_")) {
         enemy.hunterPursuePlayerSupport = true;
     }
-    enemy.projectilePartName = projectile.partName ? String(projectile.partName) : enemy.projectilePartName;
-    enemy.projectileFrameId = projectile.frameId ? String(projectile.frameId) : enemy.projectileFrameId;
-    enemy.projectileKind = String(projectile.projectileKind || enemy.projectileKind || "fireball");
-    enemy.projectileOriginLocalX = finiteNumberOr(projectile.localX, enemy.projectileOriginLocalX);
-    enemy.projectileOriginLocalY = finiteNumberOr(projectile.localY, enemy.projectileOriginLocalY);
-    enemy.projectileRigScale = Math.max(0.0001, finiteNumberOr(projectile.rigScale, enemy.projectileRigScale));
+    enemy.projectilePartName = projectile.partName;
+    enemy.projectileFrameId = projectile.frameId;
+    enemy.projectileKind = projectile.projectileKind;
+    enemy.projectileOriginLocalX = projectile.originLocalX;
+    enemy.projectileOriginLocalY = projectile.originLocalY;
+    enemy.hasProjectileOriginLocal = projectile.hasOriginLocal;
+    enemy.projectileRigScale = projectile.rigScale;
     return true;
 }
 
@@ -5454,6 +5477,7 @@ function startCharacterEnemyAttack(state, enemy) {
     enemy.attackTimer = Math.max(FIXED_DT, Number(enemy.attackDuration) || state.tuning.enemyDefaultAttackDuration || 0.44);
     enemy.attackLungeRemaining = enemy.attackMode === "projectile" ? 0 : Math.max(0, Number(enemy.attackLungeDistance) || 0);
     enemy.attackHitApplied = false;
+    enemy.nextProjectileHandoffIndex = 0;
     setCharacterEnemyAnimation(enemy, "attack");
     addEvent(state, "ENEMY_ATTACK_STARTED", {
         enemyId: enemy.id,
@@ -5462,6 +5486,19 @@ function startCharacterEnemyAttack(state, enemy) {
         attackMode: enemy.attackMode,
         facing: enemy.facing
     });
+}
+
+function applyCharacterEnemyProjectileHandoff(enemy, handoff) {
+    if (!handoff || typeof handoff !== "object") return;
+    enemy.projectileReleaseTime = Math.max(0, finiteNumberOr(handoff.releaseTime, enemy.projectileReleaseTime));
+    enemy.attackHitTime = enemy.projectileReleaseTime;
+    enemy.projectilePartName = handoff.partName ? String(handoff.partName) : enemy.projectilePartName;
+    enemy.projectileFrameId = handoff.frameId ? String(handoff.frameId) : enemy.projectileFrameId;
+    enemy.projectileKind = String(handoff.projectileKind || enemy.projectileKind || "fireball");
+    enemy.projectileLaunchType = String(handoff.launchType || enemy.projectileLaunchType || "straight");
+    enemy.projectileOriginLocalX = finiteNumberOr(handoff.originLocalX, enemy.projectileOriginLocalX);
+    enemy.projectileOriginLocalY = finiteNumberOr(handoff.originLocalY, enemy.projectileOriginLocalY);
+    enemy.projectileRigScale = Math.max(0.0001, finiteNumberOr(handoff.rigScale, enemy.projectileRigScale));
 }
 
 function updateCharacterEnemyAttack(state, enemy, dt) {
@@ -5477,9 +5514,23 @@ function updateCharacterEnemyAttack(state, enemy, dt) {
     setCharacterEnemyAnimation(enemy, "attack");
     advanceCharacterEnemyAttackLunge(state, enemy, attackDt, elapsed, hitTime);
 
-    if (!enemy.attackHitApplied && previousElapsed <= hitTime && elapsed >= hitTime) {
-        enemy.attackHitApplied = true;
-        if (enemy.attackMode === "projectile") {
+    if (enemy.attackMode === "projectile") {
+        const handoffs = Array.isArray(enemy.projectileHandoffs) && enemy.projectileHandoffs.length
+            ? enemy.projectileHandoffs
+            : null;
+        const handoffCount = handoffs ? handoffs.length : 1;
+        let handoffIndex = clamp(Math.round(finiteNumberOr(enemy.nextProjectileHandoffIndex, 0)), 0, handoffCount);
+        while (handoffIndex < handoffCount) {
+            const handoff = handoffs ? handoffs[handoffIndex] : null;
+            const releaseTime = clamp(
+                handoff ? finiteNumberOr(handoff.releaseTime, enemy.projectileReleaseTime) : finiteNumberOr(enemy.projectileReleaseTime, hitTime),
+                0,
+                duration
+            );
+            if (!(previousElapsed <= releaseTime + 0.000001 && elapsed + 0.000001 >= releaseTime)) {
+                break;
+            }
+            applyCharacterEnemyProjectileHandoff(enemy, handoff);
             const projectiles = characterEnemyCanUseProjectile(state, enemy)
                 ? launchCharacterEnemyProjectileVolley(state, enemy)
                 : [];
@@ -5503,7 +5554,13 @@ function updateCharacterEnemyAttack(state, enemy, dt) {
             } else {
                 addEvent(state, "ENEMY_ATTACK_MISSED", { enemyId: enemy.id, reason: "noClearProjectileShot" });
             }
-        } else if (characterEnemyCanReachPlayer(state, enemy)) {
+            handoffIndex += 1;
+            enemy.nextProjectileHandoffIndex = handoffIndex;
+        }
+        enemy.attackHitApplied = handoffIndex >= handoffCount;
+    } else if (!enemy.attackHitApplied && previousElapsed <= hitTime && elapsed >= hitTime) {
+        enemy.attackHitApplied = true;
+        if (characterEnemyCanReachPlayer(state, enemy)) {
             const result = damagePlayer(state, enemy.attackDamage, enemy.id, {
                 knockbackX: enemy.facing * enemy.attackKnockbackX,
                 knockbackY: enemy.attackKnockbackY
@@ -5525,6 +5582,7 @@ function updateCharacterEnemyAttack(state, enemy, dt) {
         enemy.attackCooldownTimer = Math.max(0, enemy.attackMode === "projectile" ? (Number(enemy.projectileCooldown) || 0) : (Number(enemy.attackCooldown) || 0));
         enemy.attackLungeRemaining = 0;
         enemy.attackHitApplied = false;
+        enemy.nextProjectileHandoffIndex = 0;
         setCharacterEnemyAnimation(enemy, "idle");
         addEvent(state, "ENEMY_ATTACK_ENDED", { enemyId: enemy.id });
     }
@@ -8653,6 +8711,7 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     }
 
     const wasOnGround = p.onGround;
+    const horizontalVelocityBeforeControl = p.vx;
     p.wasOnGround = wasOnGround;
     p.ax = 0;
     p.ay = t.gravity;
@@ -8694,6 +8753,7 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
             ? Math.max(0.05, Number(t.waterHorizontalSpeedScale) || 0.45)
             : (flightActive ? FLIGHT_MOVEMENT_SPEED_MULTIPLIER : 1));
     p.vx = clamp(p.vx, -horizontalSpeedLimit, horizontalSpeedLimit);
+    p.ax = dt > 0 ? (p.vx - horizontalVelocityBeforeControl) / dt : 0;
 
     if (!flightActive && !waterBefore.inWater) {
         if (input.jumpReleased && !wasOnGround) {
@@ -9991,9 +10051,9 @@ function addSmokePuff(state, spec) {
 
 function attachedRocketNozzlePoint(state) {
     const p = state.player;
-    const nozzleBackOffset = 26;
+    const nozzleBackOffset = 18.5;
     const nozzleHeightRatio = 0.30;
-    const nozzleDownCorrection = 8;
+    const nozzleDownCorrection = -2;
     return {
         x: p.currentTransform.x - p.facing * nozzleBackOffset,
         y: p.currentTransform.y - p.height * nozzleHeightRatio + nozzleDownCorrection

@@ -1,23 +1,14 @@
 import { normalizeRotationRadians, placementCenter } from "../shared/level-transform.js";
-import { visualWorldBounds } from "./world-visual-cache.js";
+import { visualSortKey, visualWorldBounds } from "./world-visual-cache.js";
 
 export const OVERLAP_BLEND_CENTRAL_START = 0.25;
 export const OVERLAP_BLEND_CENTRAL_END = 0.75;
-export const DEFAULT_OVERLAP_BLEND_MAX_DIMENSION = 4096;
-export const DEFAULT_OVERLAP_BLEND_MAX_AREA = 12_000_000;
+export const DEFAULT_OVERLAP_BLEND_SPATIAL_BIN_SIZE = 768;
+export const DEFAULT_OVERLAP_BLEND_MINIMUM_AREA = 1;
 
 function finiteNumber(value, fallback = 0) {
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;
-}
-
-function unionBounds(a, b) {
-    return {
-        minX: Math.min(a.minX, b.minX),
-        minY: Math.min(a.minY, b.minY),
-        maxX: Math.max(a.maxX, b.maxX),
-        maxY: Math.max(a.maxY, b.maxY)
-    };
 }
 
 export function overlapIntersectionBounds(a, b) {
@@ -38,79 +29,228 @@ export function overlapIntersectionBounds(a, b) {
 
 export function overlapBlendVisualEligible(visual) {
     if (!visual || (visual.kind !== "atlasSprite" && visual.kind !== "atlasAsset")) return false;
-    if (visual.dynamicPosition || visual.movingPlatformId || visual.movement || visual.entityId || visual.onTop === true) return false;
+    if (visual.dynamicPosition || visual.movingPlatformId || visual.movement || visual.entityId) return false;
     if (visual.blendMode === "brightenOnly") return false;
-    if (visual.layer === "actorFront" || visual.layer === "caveForeground") return false;
     if (visual.blendOverlaps === false) return false;
     if (!(finiteNumber(visual.w, 0) > 0) || !(finiteNumber(visual.h, 0) > 0)) return false;
     return true;
 }
 
-function groupCanvasFits(bounds, maxDimension, maxArea) {
-    const width = Math.ceil(bounds.maxX - bounds.minX);
-    const height = Math.ceil(bounds.maxY - bounds.minY);
-    return width > 0 && height > 0 && width <= maxDimension && height <= maxDimension && width * height <= maxArea;
+function visualCorners(visual) {
+    const width = Math.max(0, finiteNumber(visual?.w, 0));
+    const height = Math.max(0, finiteNumber(visual?.h, 0));
+    const center = placementCenter(visual);
+    const rotation = normalizeRotationRadians(visual?.rotation);
+    const cosine = Math.cos(rotation);
+    const sine = Math.sin(rotation);
+    const corners = [
+        { x: -width * 0.5, y: -height * 0.5 },
+        { x: width * 0.5, y: -height * 0.5 },
+        { x: width * 0.5, y: height * 0.5 },
+        { x: -width * 0.5, y: height * 0.5 }
+    ];
+    return corners.map((corner) => ({
+        x: center.x + corner.x * cosine - corner.y * sine,
+        y: center.y + corner.x * sine + corner.y * cosine
+    }));
+}
+
+function polygonSignedArea(polygon) {
+    let sum = 0;
+    for (let index = 0; index < polygon.length; index += 1) {
+        const current = polygon[index];
+        const next = polygon[(index + 1) % polygon.length];
+        sum += current.x * next.y - next.x * current.y;
+    }
+    return sum * 0.5;
+}
+
+function polygonArea(polygon) {
+    return Math.abs(polygonSignedArea(polygon));
+}
+
+function polygonBounds(polygon) {
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+    for (const point of polygon) {
+        minX = Math.min(minX, point.x);
+        minY = Math.min(minY, point.y);
+        maxX = Math.max(maxX, point.x);
+        maxY = Math.max(maxY, point.y);
+    }
+    return {
+        minX,
+        minY,
+        maxX,
+        maxY,
+        width: Math.max(0, maxX - minX),
+        height: Math.max(0, maxY - minY)
+    };
+}
+
+function lineIntersection(a, b, edgeA, edgeB) {
+    const abX = b.x - a.x;
+    const abY = b.y - a.y;
+    const edgeX = edgeB.x - edgeA.x;
+    const edgeY = edgeB.y - edgeA.y;
+    const denominator = abX * edgeY - abY * edgeX;
+    if (Math.abs(denominator) < 1e-9) return { ...b };
+    const edgeToAX = edgeA.x - a.x;
+    const edgeToAY = edgeA.y - a.y;
+    const t = (edgeToAX * edgeY - edgeToAY * edgeX) / denominator;
+    return { x: a.x + abX * t, y: a.y + abY * t };
+}
+
+function clipPolygonAgainstEdge(subject, edgeA, edgeB, orientation) {
+    if (!subject.length) return [];
+    const inside = (point) => {
+        const cross = (edgeB.x - edgeA.x) * (point.y - edgeA.y) - (edgeB.y - edgeA.y) * (point.x - edgeA.x);
+        return orientation >= 0 ? cross >= -1e-7 : cross <= 1e-7;
+    };
+    const output = [];
+    let previous = subject[subject.length - 1];
+    let previousInside = inside(previous);
+    for (const current of subject) {
+        const currentInside = inside(current);
+        if (currentInside !== previousInside) {
+            output.push(lineIntersection(previous, current, edgeA, edgeB));
+        }
+        if (currentInside) output.push(current);
+        previous = current;
+        previousInside = currentInside;
+    }
+    return output;
+}
+
+export function overlapBlendIntersectionPolygon(lowerVisual, upperVisual) {
+    const lower = visualCorners(lowerVisual);
+    const upper = visualCorners(upperVisual);
+    const orientation = polygonSignedArea(lower);
+    let result = upper;
+    for (let index = 0; index < lower.length && result.length; index += 1) {
+        result = clipPolygonAgainstEdge(result, lower[index], lower[(index + 1) % lower.length], orientation);
+    }
+    return result.length >= 3 ? result : [];
+}
+
+function pointInConvexPolygon(point, polygon) {
+    if (!polygon?.length) return false;
+    let sign = 0;
+    for (let index = 0; index < polygon.length; index += 1) {
+        const a = polygon[index];
+        const b = polygon[(index + 1) % polygon.length];
+        const cross = (b.x - a.x) * (point.y - a.y) - (b.y - a.y) * (point.x - a.x);
+        if (Math.abs(cross) <= 1e-7) continue;
+        const nextSign = cross > 0 ? 1 : -1;
+        if (sign && sign !== nextSign) return false;
+        sign = nextSign;
+    }
+    return true;
+}
+
+function overlapDescriptor(lowerVisual, upperVisual, minimumArea) {
+    const lowerBounds = visualWorldBounds(lowerVisual);
+    const upperBounds = visualWorldBounds(upperVisual);
+    if (!overlapIntersectionBounds(lowerBounds, upperBounds)) return null;
+    const polygon = overlapBlendIntersectionPolygon(lowerVisual, upperVisual);
+    if (polygon.length < 3 || polygonArea(polygon) < minimumArea) return null;
+    const bounds = polygonBounds(polygon);
+    if (!(bounds.width > 0) || !(bounds.height > 0)) return null;
+
+    const lowerCenter = placementCenter(lowerVisual);
+    const upperCenter = placementCenter(upperVisual);
+    const horizontal = Math.abs(upperCenter.x - lowerCenter.x) >= Math.abs(upperCenter.y - lowerCenter.y);
+    const forward = horizontal ? upperCenter.x >= lowerCenter.x : upperCenter.y >= lowerCenter.y;
+    return {
+        lowerVisual,
+        polygon,
+        bounds,
+        horizontal,
+        forward
+    };
+}
+
+function blendPartitionKey(visual) {
+    return `${visual?.layer || "terrain"}|${visual?.onTop === true ? "top" : "base"}`;
 }
 
 /**
- * Finds consecutive, same-layer static atlas visuals whose transformed world
- * bounds overlap. Consecutive ordering is deliberate: a blended group may not
- * jump across an unrelated draw-order record and silently reorder the scene.
+ * Builds one mask definition per upper asset. Earlier assets remain independent;
+ * only the upper asset receives a bounded, asset-local alpha mask. A spatial
+ * bin keeps long chains from degenerating into an all-pairs level scan.
  */
-export function buildOverlapBlendGroups(entries = [], options = {}) {
-    const minimumOverlap = Math.max(0.5, finiteNumber(options.minimumOverlap, 4));
-    const maxMembers = Math.max(2, Math.floor(finiteNumber(options.maxMembers, 12)));
-    const maxDimension = Math.max(256, finiteNumber(options.maxDimension, DEFAULT_OVERLAP_BLEND_MAX_DIMENSION));
-    const maxArea = Math.max(65_536, finiteNumber(options.maxArea, DEFAULT_OVERLAP_BLEND_MAX_AREA));
-    const groups = [];
-    let active = null;
+export function buildOverlapBlendEntries(entries = [], options = {}) {
+    const minimumArea = Math.max(0, finiteNumber(options.minimumArea, DEFAULT_OVERLAP_BLEND_MINIMUM_AREA));
+    const binSize = Math.max(128, finiteNumber(options.binSize, DEFAULT_OVERLAP_BLEND_SPATIAL_BIN_SIZE));
+    const binsByPartition = new Map();
+    const definitions = [];
+    const ordered = (Array.isArray(entries) ? entries : [])
+        .map((entry, sourceIndex) => ({
+            ...entry,
+            sourceIndex,
+            sortKey: Number.isFinite(Number(entry?.sortKey))
+                ? Number(entry.sortKey)
+                : visualSortKey(entry?.visual, Number.isFinite(Number(entry?.index)) ? Number(entry.index) : sourceIndex)
+        }))
+        .sort((a, b) => a.sortKey - b.sortKey || a.sourceIndex - b.sourceIndex);
 
-    const finish = () => {
-        if (active?.members?.length >= 2 && groupCanvasFits(active.bounds, maxDimension, maxArea)) {
-            active.id = `overlap_blend_${groups.length + 1}`;
-            groups.push(active);
-        }
-        active = null;
-    };
-
-    for (const entry of Array.isArray(entries) ? entries : []) {
+    for (const entry of ordered) {
         const visual = entry?.visual;
-        if (!overlapBlendVisualEligible(visual)) {
-            finish();
-            continue;
-        }
+        if (!overlapBlendVisualEligible(visual)) continue;
         const bounds = entry.bounds || visualWorldBounds(visual);
-        if (!active) {
-            active = {
-                layer: visual.layer || "terrain",
-                bounds: { ...bounds },
-                members: [{ ...entry, bounds }]
-            };
-            continue;
+        const partitionKey = blendPartitionKey(visual);
+        if (!binsByPartition.has(partitionKey)) binsByPartition.set(partitionKey, new Map());
+        const bins = binsByPartition.get(partitionKey);
+        const minBin = Math.floor(bounds.minX / binSize);
+        const maxBin = Math.floor(bounds.maxX / binSize);
+        const candidates = new Set();
+        for (let bin = minBin; bin <= maxBin; bin += 1) {
+            for (const candidate of bins.get(bin) || []) candidates.add(candidate);
         }
-        const sameLayer = active.layer === (visual.layer || "terrain");
-        const overlap = overlapIntersectionBounds(active.bounds, bounds);
-        const sufficientlyOverlapping = overlap && overlap.width >= minimumOverlap && overlap.height >= minimumOverlap;
-        const prospectiveBounds = sameLayer ? unionBounds(active.bounds, bounds) : null;
-        if (
-            sameLayer &&
-            sufficientlyOverlapping &&
-            active.members.length < maxMembers &&
-            groupCanvasFits(prospectiveBounds, maxDimension, maxArea)
-        ) {
-            active.members.push({ ...entry, bounds });
-            active.bounds = prospectiveBounds;
-        } else {
-            finish();
-            active = {
-                layer: visual.layer || "terrain",
-                bounds: { ...bounds },
-                members: [{ ...entry, bounds }]
-            };
+
+        const overlaps = [];
+        for (const candidate of candidates) {
+            if (!overlapIntersectionBounds(candidate.bounds, bounds)) continue;
+            const descriptor = overlapDescriptor(candidate.visual, visual, minimumArea);
+            if (descriptor) overlaps.push(descriptor);
+        }
+        if (overlaps.length) {
+            definitions.push({ ...entry, bounds, overlaps });
+        }
+
+        const prior = { ...entry, bounds };
+        for (let bin = minBin; bin <= maxBin; bin += 1) {
+            if (!bins.has(bin)) bins.set(bin, []);
+            bins.get(bin).push(prior);
         }
     }
-    finish();
-    return groups;
+    return definitions;
+}
+
+function blendRampAlpha(position) {
+    if (position <= OVERLAP_BLEND_CENTRAL_START) return 0;
+    if (position >= OVERLAP_BLEND_CENTRAL_END) return 1;
+    return (position - OVERLAP_BLEND_CENTRAL_START) /
+        (OVERLAP_BLEND_CENTRAL_END - OVERLAP_BLEND_CENTRAL_START);
+}
+
+export function overlapBlendAlphaForWorldPoint(point, overlaps = []) {
+    let alpha = 1;
+    for (const overlap of overlaps) {
+        if (!pointInConvexPolygon(point, overlap.polygon)) continue;
+        const coordinate = overlap.horizontal ? point.x : point.y;
+        const minimum = overlap.horizontal ? overlap.bounds.minX : overlap.bounds.minY;
+        const maximum = overlap.horizontal ? overlap.bounds.maxX : overlap.bounds.maxY;
+        const extent = Math.max(1e-9, maximum - minimum);
+        const position = overlap.forward
+            ? (coordinate - minimum) / extent
+            : (maximum - coordinate) / extent;
+        alpha = Math.min(alpha, blendRampAlpha(position));
+        if (alpha <= 0) return 0;
+    }
+    return alpha;
 }
 
 function createCanvasSurface(ownerDocument, width, height) {
@@ -127,108 +267,92 @@ function createCanvasSurface(ownerDocument, width, height) {
     return surface;
 }
 
-function drawVisualIntoGroup(layerContext, visual, atlas, frame, groupBounds) {
+function sourcePixelWorldPoint(visual, pixelX, pixelY, sourceWidth, sourceHeight) {
+    const width = Math.max(1e-9, finiteNumber(visual?.w, 1));
+    const height = Math.max(1e-9, finiteNumber(visual?.h, 1));
+    let localX = pixelX / Math.max(1, sourceWidth) * width;
+    let localY = pixelY / Math.max(1, sourceHeight) * height;
+    if (visual?.mirrorX) localX = width - localX;
+    if (visual?.mirrorY) localY = height - localY;
     const center = placementCenter(visual);
-    const localX = center.x - groupBounds.minX;
-    const localY = center.y - groupBounds.minY;
-    layerContext.save();
-    layerContext.globalAlpha = finiteNumber(visual.alpha, 1);
-    layerContext.translate(localX, localY);
-    layerContext.rotate(normalizeRotationRadians(visual.rotation));
-    layerContext.scale(visual.mirrorX ? -1 : 1, visual.mirrorY ? -1 : 1);
-    layerContext.drawImage(
-        atlas.renderImage || atlas.image,
-        frame.x,
-        frame.y,
-        frame.w,
-        frame.h,
-        -finiteNumber(visual.w, frame.w) * 0.5,
-        -finiteNumber(visual.h, frame.h) * 0.5,
-        finiteNumber(visual.w, frame.w),
-        finiteNumber(visual.h, frame.h)
-    );
-    layerContext.restore();
+    const rotation = normalizeRotationRadians(visual?.rotation);
+    const dx = localX - width * 0.5;
+    const dy = localY - height * 0.5;
+    const cosine = Math.cos(rotation);
+    const sine = Math.sin(rotation);
+    return {
+        x: center.x + dx * cosine - dy * sine,
+        y: center.y + dx * sine + dy * cosine
+    };
 }
 
-function applyOverlapGradientMask(layerContext, groupBounds, previousBounds, memberBounds) {
-    const overlap = overlapIntersectionBounds(previousBounds, memberBounds);
-    if (!overlap) return;
-
-    const previousCenterX = (previousBounds.minX + previousBounds.maxX) * 0.5;
-    const previousCenterY = (previousBounds.minY + previousBounds.maxY) * 0.5;
-    const memberCenterX = (memberBounds.minX + memberBounds.maxX) * 0.5;
-    const memberCenterY = (memberBounds.minY + memberBounds.maxY) * 0.5;
-    const horizontal = Math.abs(memberCenterX - previousCenterX) >= Math.abs(memberCenterY - previousCenterY);
-    const forward = horizontal ? memberCenterX >= previousCenterX : memberCenterY >= previousCenterY;
-
-    let startX;
-    let startY;
-    let endX;
-    let endY;
-    if (horizontal) {
-        startX = overlap.minX - groupBounds.minX;
-        endX = overlap.maxX - groupBounds.minX;
-        startY = endY = 0;
-    } else {
-        startY = overlap.minY - groupBounds.minY;
-        endY = overlap.maxY - groupBounds.minY;
-        startX = endX = 0;
+export function applyOverlapBlendAlphaMask({ pixels, width, height, visual, overlaps = [] }) {
+    const sourceWidth = Math.max(1, Math.floor(finiteNumber(width, 1)));
+    const sourceHeight = Math.max(1, Math.floor(finiteNumber(height, 1)));
+    if (!pixels || pixels.length < sourceWidth * sourceHeight * 4 || !visual || !overlaps.length) {
+        return pixels;
     }
-    if (!forward) {
-        [startX, endX] = [endX, startX];
-        [startY, endY] = [endY, startY];
+    for (let y = 0; y < sourceHeight; y += 1) {
+        for (let x = 0; x < sourceWidth; x += 1) {
+            const pixelIndex = (y * sourceWidth + x) * 4;
+            if (pixels[pixelIndex + 3] === 0) continue;
+            const worldPoint = sourcePixelWorldPoint(visual, x + 0.5, y + 0.5, sourceWidth, sourceHeight);
+            const maskAlpha = overlapBlendAlphaForWorldPoint(worldPoint, overlaps);
+            if (maskAlpha >= 0.999999) continue;
+            pixels[pixelIndex + 3] = Math.max(0, Math.min(255, Math.round(pixels[pixelIndex + 3] * maskAlpha)));
+        }
     }
-
-    const gradient = layerContext.createLinearGradient(startX, startY, endX, endY);
-    gradient.addColorStop(0, "rgba(255,255,255,0)");
-    gradient.addColorStop(OVERLAP_BLEND_CENTRAL_START, "rgba(255,255,255,0)");
-    gradient.addColorStop(OVERLAP_BLEND_CENTRAL_END, "rgba(255,255,255,1)");
-    gradient.addColorStop(1, "rgba(255,255,255,1)");
-    layerContext.globalCompositeOperation = "destination-in";
-    layerContext.fillStyle = gradient;
-    layerContext.fillRect(0, 0, layerContext.canvas.width, layerContext.canvas.height);
-    layerContext.globalCompositeOperation = "source-over";
+    return pixels;
 }
 
 /**
- * Bakes a connected overlap group into one reusable off-screen bitmap. The
- * incoming member crossfades over the central 50% of the overlap, so the seam
- * is paid once when the level visual cache changes rather than every frame.
+ * Copies only the upper asset frame and applies its overlap mask in source-pixel
+ * space. The result remains one bounded texture per affected asset, regardless
+ * of how far an overlap chain stretches across the level.
  */
-export function createOverlapBlendSurface({ ownerDocument, group, environmentAtlases }) {
-    if (!group?.members?.length || group.members.length < 2) return null;
-    const width = Math.ceil(group.bounds.maxX - group.bounds.minX);
-    const height = Math.ceil(group.bounds.maxY - group.bounds.minY);
-    const surface = createCanvasSurface(ownerDocument, width, height);
-    const context = surface?.getContext?.("2d");
-    if (!context) return null;
-    context.clearRect(0, 0, width, height);
+export function createOverlapBlendSurface({ ownerDocument, definition, environmentAtlases, sourceForVisual }) {
+    const visual = definition?.visual;
+    if (!visual || !definition?.overlaps?.length) return null;
+    const atlas = environmentAtlases?.get?.(visual.atlasId);
+    const frameName = visual.frame || visual.assetId;
+    const frame = (atlas?.frames || atlas?.manifest?.frames)?.[frameName];
+    if (!atlas?.image || !frame) return null;
 
-    let previousBounds = null;
-    for (const member of group.members) {
-        const visual = member.visual;
-        const atlas = environmentAtlases?.get?.(visual.atlasId);
-        const frameName = visual.frame || visual.assetId;
-        const frame = (atlas?.frames || atlas?.manifest?.frames)?.[frameName];
-        if (!atlas?.image || !frame) return null;
+    const source = typeof sourceForVisual === "function"
+        ? sourceForVisual(visual, atlas, frame)
+        : null;
+    const image = source?.image || atlas.renderImage || atlas.image;
+    const sourceX = finiteNumber(source?.x, frame.x);
+    const sourceY = finiteNumber(source?.y, frame.y);
+    const sourceWidth = Math.max(1, Math.round(finiteNumber(source?.w, frame.w)));
+    const sourceHeight = Math.max(1, Math.round(finiteNumber(source?.h, frame.h)));
+    const surface = createCanvasSurface(ownerDocument, sourceWidth, sourceHeight);
+    const context = surface?.getContext?.("2d", { willReadFrequently: true });
+    if (!context || !image) return null;
+    context.clearRect(0, 0, sourceWidth, sourceHeight);
+    context.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, sourceWidth, sourceHeight);
 
-        const layer = createCanvasSurface(ownerDocument, width, height);
-        const layerContext = layer?.getContext?.("2d");
-        if (!layerContext) return null;
-        layerContext.clearRect(0, 0, width, height);
-        drawVisualIntoGroup(layerContext, visual, atlas, frame, group.bounds);
-        if (previousBounds) {
-            applyOverlapGradientMask(layerContext, group.bounds, previousBounds, member.bounds);
-        }
-        context.drawImage(layer, 0, 0);
-        previousBounds = previousBounds ? unionBounds(previousBounds, member.bounds) : { ...member.bounds };
+    let imageData;
+    try {
+        imageData = context.getImageData(0, 0, sourceWidth, sourceHeight);
+    } catch {
+        return null;
     }
+    const pixels = imageData.data;
+    applyOverlapBlendAlphaMask({
+        pixels,
+        width: sourceWidth,
+        height: sourceHeight,
+        visual,
+        overlaps: definition.overlaps
+    });
+    context.putImageData(imageData, 0, 0);
 
     return {
         canvas: surface,
-        bounds: { ...group.bounds },
-        width,
-        height,
-        members: group.members.map((member) => member.visual)
+        visual,
+        width: sourceWidth,
+        height: sourceHeight,
+        overlaps: definition.overlaps
     };
 }

@@ -96,7 +96,7 @@ Selecting an Asset or Entity palette card activates its placement tool. While th
 
 The normal editor now uses the production Canvas2D game renderer for the complete base scene. Authored level data is converted through `applyEditorLevelToWorld`; `RocketfrockRenderer.setViewOverride()` supplies the editor's top-left camera and zoom. The separate transparent `#stage-overlay` owns only authoring vectors such as grid lines, collision/manifest guides, labels, cave controls, route diagnostics, selection, and placement previews.
 
-Redraw requests remain coalesced through `requestAnimationFrame`. Pan and zoom are camera-only operations: they reuse the current runtime world, spatial buckets, overlap composites, foreground treatment cache, cave mask cache, and loaded atlases. Do not mark runtime world data dirty merely because the camera moved. Level loads, placement/entity edits, cave edits, colour-map changes, and relevant visibility controls mark it dirty; the next frame performs one conversion and then returns to cheap camera-only rendering.
+Redraw requests remain coalesced through `requestAnimationFrame`. Pan and zoom are camera-only operations: they reuse the current runtime world, spatial buckets, asset-local overlap masks, foreground treatment cache, cave mask cache, and loaded atlases. Do not mark runtime world data dirty merely because the camera moved. Level loads, placement/entity edits, cave edits, colour-map changes, and relevant visibility controls mark it dirty; the next frame performs one conversion and then returns to cheap camera-only rendering.
 
 During a placement or entity move, the base runtime snapshot omits the moving records once. Their live artwork and guides are drawn on the overlay until the drag commits, so ordinary pointer movement does not reconvert the complete level. Camera panning does redraw both canvases directly and keeps artwork and guides in one coordinate system. There is no CSS-translated snapshot, independently moving layer, whole-level bitmap, editor WebGL context, or editor tile cache.
 
@@ -603,3 +603,11 @@ Fullscreen uses a 1920x1080 virtual reference rather than the physical display d
 
 The physical backing surface must remain at the actual output resolution. At 3840x2160 the logical view is still 1920x1080, but textures are rasterized across the complete 4K target. On non-16:9 outputs the visible logical width or height is smaller because the reference frame is center-cropped. Windowed mode intentionally keeps the physical window dimensions as its variable logical viewport. Mouse, touch, and pen input must be transformed back into logical render coordinates before menu or gameplay hit testing.
 
+
+## Resource inventory (revision 240)
+
+Authoring discovery is controlled by `resources/resources.json`. Add a new environment atlas ID to `assetAtlasIds` and a new authored level ID to `levelIds`; order in the arrays is the order shown by the tools. Atlas IDs may extend beyond `at_atlas_099`. Each listed atlas must have matching JSON and PNG files under `resources/atlases`, and each listed level must have a JSON file under `resources/levels`.
+
+The Asset Tool and Level Editor retry declared files before reporting an error, so a temporary retrieval failure is no longer mistaken for the end of a numbered sequence. Run `npm run audit:resources` after manual additions. The audit rejects missing declarations, stale declarations, duplicates, malformed IDs, and incomplete atlas pairs. `level_temp.json` is generated only for DevTool playtesting and must not be listed.
+
+When saving a genuinely new level or atlas from IgnatiusDevTool, saving into the authoring resource tree automatically appends its ID after the host verifies the file exists. A new atlas is added only when both its JSON and PNG are present. Manual editing of `resources.json` remains the normal and supported path for files added outside the tool.

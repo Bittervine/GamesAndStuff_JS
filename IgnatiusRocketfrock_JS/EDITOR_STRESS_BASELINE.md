@@ -18,7 +18,7 @@ Run `npm run inspect:editor-stress` to verify its structural baseline.
 | Cave spline points | 43 |
 | Baked navigation profiles | 2 |
 
-The fixture deliberately exercises dense foreground art, ordinary terrain, overlap composites, composed character previews, invisible/editor-only markers, reward visuals, cave masking, colour mapping, and baked navigation metadata in one document.
+The fixture deliberately exercises dense foreground art, ordinary terrain, asset-local overlap masks, composed character previews, invisible/editor-only markers, reward visuals, cave masking, colour mapping, and baked navigation metadata in one document.
 
 ## Browser profiling protocol
 

@@ -1,7 +1,7 @@
 {
   "meta": {
-    "version": 6,
-    "note": "Revision 182 records the crossbow assemblies for enemies 034-035 and rapier pirate assemblies for enemies 036-037."
+    "version": 7,
+    "note": "Revision 234 records the weapon-free body_05/head_16 Human Boxer assembly for enemy_038."
   },
   "partsManifestId": "ct_human_parts_030",
   "atlasId": "ct_atlas_enemy_030",
@@ -627,6 +627,20 @@
       "rightLegLower": "leg_lower_00",
       "rightFoot": "foot_00",
       "weapon": "rapier"
+    },
+    "enemy_038": {
+      "body": "body_05",
+      "head": "head_16",
+      "leftArmUpper": "arm_upper_01",
+      "leftArmLower": "arm_lower_01",
+      "rightArmUpper": "arm_upper_00",
+      "rightArmLower": "arm_lower_00",
+      "leftLegUpper": "leg_upper_01",
+      "leftLegLower": "leg_lower_01",
+      "leftFoot": "foot_01",
+      "rightLegUpper": "leg_upper_00",
+      "rightLegLower": "leg_lower_00",
+      "rightFoot": "foot_00"
     }
   }
 }

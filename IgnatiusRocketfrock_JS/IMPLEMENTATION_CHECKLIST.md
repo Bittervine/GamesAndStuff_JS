@@ -2448,12 +2448,12 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Derive cave-formation rotation from the inward perimeter normal and the authored stalactite/stalagmite tip direction.
 - [x] Snap preliminary tip angles within 45 degrees of straight down or straight up to the corresponding vertical direction.
 - [x] Share the corrected orientation between Level Editor perimeter population and automatic generator decoration.
-- [x] Add `src/presentation/overlap-blend-cache.js` for consecutive overlapping static atlas groups.
-- [x] Bake overlap groups once into off-screen bitmaps rather than compositing them every frame.
+- [x] Add `src/presentation/overlap-blend-cache.js` for presentation-only overlap masking.
+- [x] Replace the original connected-group bitmaps with one bounded masked copy per affected upper asset.
 - [x] Blend incoming assets across the central 50 percent of the overlap around its midpoint.
-- [x] Reuse overlap composites in both runtime and Level Editor drawing.
-- [x] Preserve individual placement/collision records and exclude moving, entity-bound, actor-front, and cave-foreground visuals.
-- [x] Add regression coverage for minimap wiring/sizing, formation rotation, overlap grouping, and central-half blending constants.
+- [x] Reuse asset-local masks in runtime, WebGL2, static baking, and the production renderer used by the Level Editor.
+- [x] Preserve individual placement/collision records; exclude moving, entity-bound, dynamic, and `brightenOnly` visuals.
+- [x] Add regression coverage for minimap wiring/sizing, formation rotation, overlap chains, transformed intersections, and central-half blending constants.
 
 ## Revision 252 perimeter, minimap, endpoint, and Atlas 004 corrections
 
@@ -3137,7 +3137,7 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Retain a Canvas 2D startup fallback when WebGL2 is unavailable.
 - [x] Add a dedicated presentation-only WebGL2 backend module.
 - [x] Batch textured quads through one dynamic interleaved vertex buffer.
-- [x] Cache static atlas, foreground-treatment, and overlap-composite textures.
+- [x] Cache static atlas, foreground-treatment, and asset-local overlap textures.
 - [x] Draw main scenery, actor-front scenery, cave foreground, and cutout masks directly with WebGL2.
 - [x] Composite procedural actors/effects and mask/overlay passes through transparent reusable Canvas staging textures.
 - [x] Update dynamic staging textures with `texSubImage2D` rather than reallocating each frame.
@@ -4278,7 +4278,7 @@ The Asset Tool also gains a faster line-editing gesture: in Add Node Mode, click
 - [x] Delete the obsolete `resources/characters/ct_rig_enemy_030 .json` duplicate with the stray filename space.
 - [x] Add that duplicate path to the retired-file packaging guard.
 - [x] Remove unused Level Editor helper functions left from old import, preview, cutout, and placement-layer paths.
-- [x] Update the overlap-composite source regression to track the active helper name.
+- [x] Update the overlap-mask source regression to track the active helper name.
 - [x] Cache HUD DOM writes so unchanged labels, meter widths, classes, titles, and boss visibility are not reassigned every animation frame.
 - [x] Replace the per-tick debug input JSON clone with a small direct input-frame snapshot.
 - [x] Synchronize visible revision labels to 476.
@@ -4391,7 +4391,7 @@ Manual profiling workflow: open the game, run `window.__rocketfrockDev.profiler.
 - [x] Remove the hardware-rendering URL override note from the visible Settings row.
 - [x] Expand static bake bounds to include eligible static visuals outside the world rectangle.
 - [x] Bake the cave-window mask in unshifted foreground coordinates so the foreground layer can parallax as one image.
-- [x] Reuse overlap-blend groups while baking static terrain visuals.
+- [x] Reuse asset-local overlap surfaces while baking static terrain visuals.
 
 
 ## Revision 491 baked foreground perimeter checklist
@@ -4860,3 +4860,37 @@ Manual profiling workflow: open the game, run `window.__rocketfrockDev.profiler.
 - [x] Keep simulation positions and trail samples unchanged.
 - [x] Add browser regression coverage for upward and rightward reference orientations plus native-source parity.
 - [x] Advance browser and native build labels to revision 231.
+
+## Revision 232 data-driven projectile handoff sequences
+
+- [x] Allow character attack rigs to nominate multiple projectile handoff parts.
+- [x] Compile every attack-slot handoff into a sorted portable release sequence in browser and SDL runtimes.
+- [x] Launch every handoff crossed by a fixed simulation update without dropping shots during a frame hitch.
+- [x] Re-aim each projectile independently at the wizard's position at its own release time.
+- [x] Retain combat profiles in game state so later level, automatic, and spawner-created enemies receive the same sequence.
+- [x] Extend both human crossbow attack clips to 1.68 seconds with releases at 0.48, 0.88, and 1.28 seconds.
+- [x] Set both human crossbow variants to a 2.5-second cooldown after the completed attack animation.
+- [x] Preserve legacy single-handoff projectile attacks and first-handoff compatibility fields.
+- [x] Add browser and native regression coverage for marker ordering, timing, independent aim, cooldown, and post-profile enemy creation.
+- [x] Advance browser and native build labels to revision 232.
+
+## SDL build revision 234 Human Boxer
+
+- [x] Add `enemy_038` as Human Boxer using `body_05` and `head_16`.
+- [x] Remove the weapon part, pivot, draw-order entry, pose, and animation tracks rather than hiding a placeholder weapon.
+- [x] Give the boxer dedicated weapon-free idle, walk, attack, hurt, and death animation files.
+- [x] Register the character in browser preload, the enemy catalog, modular-human assembly data, and dormant generator metadata.
+- [x] Add browser and native regressions for artwork selection, weapon absence, character loading, catalog dependency discovery, and animation completeness.
+- [x] Advance browser and native build labels to revision 234.
+
+## Revision 240 explicit resource inventory
+
+- [x] Add versioned `resources/resources.json` with ordered `assetAtlasIds` and `levelIds`.
+- [x] Replace Asset Tool 001-099 synthesized options with the declared atlas list.
+- [x] Replace Level Editor 001-020 stop-at-first-gap scans with declared atlas and level lists.
+- [x] Retry declared JSON and image retrieval with bounded delays and explicit final errors.
+- [x] Validate malformed IDs, duplicates, missing listed files, and unlisted authored files in the resource-layout audit.
+- [x] Keep `level_temp.json` generated and outside the authored inventory.
+- [x] Let IgnatiusDevTool append genuinely new saved levels or complete atlas pairs after verifying authored files exist.
+- [x] Make the SDL character loader honor optional `characterUrl` entries from `ct_enemies_001.json`.
+- [x] Add browser regressions for index validation, atlas IDs beyond 099, removal of fixed scan constants, retries, and the DevTool bridge.

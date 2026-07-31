@@ -162,7 +162,7 @@ const developmentGameTuningButton = document.getElementById("development-game-tu
 const developmentRecordingButton = document.getElementById("development-recording");
 const developmentPlaybackButton = document.getElementById("development-playback");
 
-const GAME_REVISION = "231";
+const GAME_REVISION = "253";
 const START_LEVEL_ID = "level_001";
 const launchParams = new URLSearchParams(window.location.search || "");
 const launchLevelId = normalizeLaunchLevelQuery(launchParams.get("level"), START_LEVEL_ID);
@@ -1277,6 +1277,7 @@ async function startNewGameFromTitle() {
     if (!titleScreenActive) return false;
     void musicDirector.unlock();
     void soundEffectsDirector.unlock();
+    void applyFullscreenPreference();
     const loaded = await restartCurrentLevel({
         levelId: START_LEVEL_ID,
         loadingLabel: "Starting new game",
@@ -1318,6 +1319,7 @@ async function loadSaveGameRecord(record, { startFromTitle = titleScreenActive }
 
 async function resumeGameFromTitle() {
     if (!titleScreenActive) return false;
+    void applyFullscreenPreference();
     const autosave = storedResumeSave();
     if (!autosave) {
         syncTitleScreenUi();
@@ -2185,6 +2187,9 @@ async function toggleFullscreen() {
 
 async function applyFullscreenPreference() {
     if (!gameState.settings?.fullscreen || fullscreenActive || fullscreenRequestPending) return fullscreenActive;
+    if (!electronWindowBridge && navigator.userActivation && !navigator.userActivation.isActive) {
+        return fullscreenActive;
+    }
     return requestFullscreenState(true);
 }
 

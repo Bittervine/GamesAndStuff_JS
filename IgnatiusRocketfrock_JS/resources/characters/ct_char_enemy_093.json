@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 2,
-        "note": "Copperbeard Axethrower character project. It reuses Enemy 080's grounded modular animation family while swapping the caster projectile setup for a right-handed throwing-axe attack. Revision 204 moves attack, hurt, and death WAV selection into the character definition."
+        "version": 3,
+        "note": "Revision 235 updates the Copperbeard Axethrower to the corrected open-left-hand rig and axe_copy throwing-axe handoff."
     },
     "characterId": "ct_char_enemy_093",
     "displayName": "Copperbeard Axethrower",
@@ -15,7 +15,7 @@
         "hurt": "ct_anim_enemy_093_hurt.json",
         "death": "ct_anim_enemy_093_death.json"
     },
-    "projectilePart": "throwingAxe",
+    "projectilePart": "axe_copy",
     "sounds": {
         "attack": "sfx/enemy_projectile.wav",
         "hurt": "sfx/enemy_damage.wav",

@@ -7,16 +7,16 @@
     "atlasId": "ct_atlas_enemy_080",
     "atlasManifest": "ct_atlas_enemy_080.json",
     "drawOrder": [
-        "head",
         "leftArm",
         "leftArmClosed",
         "leftLeg",
         "rightLeg",
         "torso",
         "weapon",
-        "rightArm",
         "cannonball",
-        "fireball"
+        "fireball",
+        "head",
+        "rightArm"
     ],
     "global": {
         "scale": 0.5,
@@ -172,8 +172,8 @@
             "parentConstraint": {
                 "parentPart": "torso",
                 "parentPoint": {
-                    "x": 0.25,
-                    "y": 0.09
+                    "x": 0.2803889271623692,
+                    "y": 0.07465148775587016
                 }
             }
         },

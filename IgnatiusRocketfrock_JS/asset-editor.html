@@ -572,12 +572,14 @@
     </aside>
 </main>
 
-<script>
+<script type="module">
+import { loadImageResourceWithRetry, loadJsonResourceWithRetry, loadResourceIndex } from "./src/tools/resource-index-loader.js";
+
 (() => {
     "use strict";
 
     const DEFAULT_ASSET_ATLAS_ID = "at_atlas_001";
-    const NUMBERED_ATLAS_MAX = 99;
+    let resourceIndex = null;
 
     function resourceUrl(requestPath) {
         const text = String(requestPath || "");
@@ -586,10 +588,6 @@
             return text;
         }
         return `resources/${text.replace(/^(?:\.\/|resources\/)+/, "")}`;
-    }
-
-    function atlasIdFromNumber(number) {
-        return `at_atlas_${String(number).padStart(3, "0")}`;
     }
 
     const DEFAULT_MANIFEST = {
@@ -1938,28 +1936,6 @@
     canvas.addEventListener("pointercancel", stopPanDrag);
     canvas.addEventListener("lostpointercapture", stopPanDrag);
 
-    function loadImageSrc(src, options = {}) {
-        const quiet = Boolean(options.quiet);
-        return new Promise((resolve, reject) => {
-            const img = new Image();
-            img.onload = () => {
-                atlasImage = img;
-                setZoom(zoom);
-                resolve(img);
-            };
-            img.onerror = () => {
-                atlasImage = null;
-                draw();
-                const error = new Error(`Could not load ${src}`);
-                if (!quiet) {
-                    alert(`Could not load ${src}. Open this page beside the assets folder, or use the custom atlas image picker.`);
-                }
-                reject(error);
-            };
-            img.src = src;
-        });
-    }
-
     function selectedNumberedAtlasId() {
         return numberedAtlasSelect.value || DEFAULT_ASSET_ATLAS_ID;
     }
@@ -1975,27 +1951,28 @@
         numberedAtlasSelect.value = atlasId;
     }
 
-    function populateNumberedAtlasSelector() {
+    function populateNumberedAtlasSelector(atlasIds) {
         numberedAtlasSelect.innerHTML = "";
-        for (let index = 1; index <= NUMBERED_ATLAS_MAX; index += 1) {
-            const atlasId = atlasIdFromNumber(index);
+        for (const atlasId of atlasIds) {
             const option = document.createElement("option");
             option.value = atlasId;
             option.textContent = atlasId;
             numberedAtlasSelect.appendChild(option);
         }
-        numberedAtlasSelect.value = DEFAULT_ASSET_ATLAS_ID;
+        if (atlasIds.includes(DEFAULT_ASSET_ATLAS_ID)) {
+            numberedAtlasSelect.value = DEFAULT_ASSET_ATLAS_ID;
+        } else if (atlasIds.length) {
+            numberedAtlasSelect.value = atlasIds[0];
+        }
+        numberedAtlasSelect.disabled = atlasIds.length === 0;
+        document.getElementById("load-numbered-atlas").disabled = atlasIds.length === 0;
     }
 
     async function loadAtlasManifest(atlasId, options = {}) {
         const quiet = Boolean(options.quiet);
         const manifestUrl = resourceUrl(`atlases/${atlasId}.json`);
         try {
-            const response = await fetch(manifestUrl, { cache: "no-store" });
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-            manifest = await response.json();
+            manifest = await loadJsonResourceWithRetry(`atlases/${atlasId}.json`);
             ensureObjects();
             selectedObjectId = Object.keys(manifest.objects)[0] || Object.keys(manifest.frames)[0] || null;
             selectedNodeId = null;
@@ -2021,10 +1998,13 @@
         atlasImage = null;
         draw();
         const imageName = manifest.image || `${atlasId}.png`;
-        const imageUrl = resourceUrl(imageName.includes("/") ? imageName : `atlases/${imageName}`);
         try {
-            await loadImageSrc(imageUrl, { quiet });
+            atlasImage = await loadImageResourceWithRetry(imageName.includes("/") ? imageName : `atlases/${imageName}`);
+            setZoom(zoom);
         } catch (error) {
+            atlasImage = null;
+            draw();
+            if (!quiet) alert(error.message || error);
             // The tool can still edit frame data without the image, but previews are not useful.
         }
         return true;
@@ -2033,6 +2013,13 @@
     document.getElementById("load-numbered-atlas").addEventListener("click", () => {
         loadNumberedAssetFiles(selectedNumberedAtlasId(), { save: true });
     });
+
+    function notifyDevToolResourceSaved(kind, id) {
+        const bridge = window.chrome?.webview;
+        if (typeof bridge?.postMessage === "function") {
+            bridge.postMessage(`ignatius-resource-saved|${kind}|${id}`);
+        }
+    }
 
     function downloadBlob(blob, filename) {
         const url = URL.createObjectURL(blob);
@@ -2047,7 +2034,9 @@
 
     async function saveManifestJsonFile() {
         refreshJson();
-        const filename = `${manifest.atlasId || "at_atlas_001"}.json`;
+        const atlasId = manifest.atlasId || "at_atlas_001";
+        const filename = `${atlasId}.json`;
+        const isNewAtlas = !resourceIndex?.assetAtlasIds.includes(atlasId);
         const blob = new Blob([manifestJson.value], { type: "application/json" });
         if (typeof window.showSaveFilePicker === "function") {
             try {
@@ -2061,15 +2050,18 @@
                 const writable = await handle.createWritable();
                 await writable.write(blob);
                 await writable.close();
-                return;
+                if (isNewAtlas) notifyDevToolResourceSaved("assetAtlas", atlasId);
+                return "file";
             } catch (error) {
                 if (error && error.name === "AbortError") {
-                    return;
+                    return "cancelled";
                 }
                 console.warn("Falling back to download because direct file save failed.", error);
             }
         }
         downloadBlob(blob, filename);
+        if (isNewAtlas) notifyDevToolResourceSaved("assetAtlas", atlasId);
+        return "download";
     }
 
     document.getElementById("zoom-in").addEventListener("click", () => setZoomPreservingViewportPoint(zoom + 0.15));
@@ -2169,7 +2161,13 @@
     });
 
     async function initialize() {
-        populateNumberedAtlasSelector();
+        try {
+            resourceIndex = await loadResourceIndex();
+            populateNumberedAtlasSelector(resourceIndex.assetAtlasIds);
+        } catch (error) {
+            populateNumberedAtlasSelector([]);
+            alert(`Could not load resources/resources.json. ${error.message || error}`);
+        }
         ensureObjects();
         selectedObjectId = Object.keys(manifest.objects)[0] || Object.keys(manifest.frames)[0] || null;
         zoomEl.value = "1.00";
@@ -2177,7 +2175,10 @@
         setMode("select");
         await Promise.all([loadGenerationTagCatalog(), loadAutotaggingResources()]);
         syncAll();
-        await loadNumberedAssetFiles(DEFAULT_ASSET_ATLAS_ID, { quiet: true });
+        const initialAtlasId = selectedNumberedAtlasId();
+        if (resourceIndex?.assetAtlasIds.includes(initialAtlasId)) {
+            await loadNumberedAssetFiles(initialAtlasId, { quiet: true });
+        }
     }
 
     window.getIgnatiusAssetManifest = () => JSON.parse(JSON.stringify(manifest));
