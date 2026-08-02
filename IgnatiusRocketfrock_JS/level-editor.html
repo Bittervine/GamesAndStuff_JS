@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" href="favicon.ico" sizes="any">
-    <title>Ignatius Level Editor - BUILD 277</title>
+    <title>Ignatius Level Editor - BUILD 281</title>
     <style>
         @font-face {
             font-family: "Ignatius Inter";
@@ -821,7 +821,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 277</small></h1>
+        <h1>Level Editor <small>rev 281</small></h1>
 
         <div class="box">
             <h2>Level</h2>
@@ -1440,8 +1440,10 @@ import {
     applyEnemyDefinitionCatalog,
     createInitialGameState,
     createInputFrame,
+    DEFAULT_TUNING,
     stepSimulation
 } from "./src/core/simulation.js";
+import { loadInstalledGameTuning } from "./src/shared/game-tuning-data.js";
 import { createRenderer as createGameCanvasRenderer } from "./src/presentation/canvas-renderer.js";
 import {
     buildWorldVisualCache,
@@ -1604,8 +1606,10 @@ import {
         caveGeometryWarning: "rgba(255,159,67,0.98)"
     };
 
+    let gameplayRulerTuning = DEFAULT_TUNING;
+
     function createGameplayRulerSimulationState() {
-        const simulation = createInitialGameState();
+        const simulation = createInitialGameState({ tuning: gameplayRulerTuning });
         simulation.world.segments = [];
         simulation.world.solids = [];
         simulation.world.collisionPolygons = [];
@@ -1624,7 +1628,7 @@ import {
         return simulation;
     }
 
-    function simulateGameplayRulerReach({ runAtMaxSpeed = false, useAirBoost = false, holdHover = false } = {}) {
+    function simulateGameplayRulerReach({ runAtMaxSpeed = false, airBoostFrame = null, holdHover = false } = {}) {
         const simulation = createGameplayRulerSimulationState();
         if (runAtMaxSpeed) {
             simulation.player.vx = Math.max(0, Number(simulation.tuning?.maxRunSpeed) || 0);
@@ -1632,6 +1636,7 @@ import {
         const takeoffX = simulation.player.currentTransform.x;
         const takeoffY = simulation.player.currentTransform.y;
         let maxHeight = 0;
+        let flightFrames = 0;
         const maxFrames = 4000;
         for (let frame = 0; frame < maxFrames; frame += 1) {
             const input = createInputFrame({
@@ -1641,18 +1646,19 @@ import {
             if (frame === 0) {
                 input.jumpPressed = true;
                 input.jumpHeld = true;
-            } else if (useAirBoost && frame === 1) {
+            } else if (airBoostFrame !== null && frame === 1) {
                 input.jumpReleased = true;
-            } else if (useAirBoost && frame === 2) {
+            } else if (airBoostFrame !== null && frame === airBoostFrame) {
                 input.jumpPressed = true;
                 input.jumpHeld = true;
-            } else if (!holdHover && useAirBoost && frame === 3) {
+            } else if (!holdHover && airBoostFrame !== null && frame === airBoostFrame + 1) {
                 input.jumpReleased = true;
-            } else if (holdHover && useAirBoost && frame >= 3 && simulation.fuel.amount > 0) {
+            } else if (holdHover && airBoostFrame !== null && frame > airBoostFrame && simulation.fuel.amount > 0) {
                 input.jumpHeld = true;
             }
             stepSimulation(simulation, input, simulation.clock.fixedDt);
             maxHeight = Math.max(maxHeight, takeoffY - simulation.player.currentTransform.y);
+            flightFrames = frame + 1;
             if (frame > 3
                 && simulation.player.currentTransform.y >= takeoffY
                 && simulation.player.vy > 0) {
@@ -1661,30 +1667,47 @@ import {
         }
         return {
             height: Math.max(0, Math.round(maxHeight)),
-            width: Math.max(0, Math.round(simulation.player.currentTransform.x - takeoffX))
+            width: Math.max(0, Math.round(simulation.player.currentTransform.x - takeoffX)),
+            flightFrames
+        };
+    }
+
+    function simulateMaximumGameplayRulerReach({ holdHover = false } = {}) {
+        const ordinaryFlight = simulateGameplayRulerReach({ runAtMaxSpeed: true });
+        let maximumHeight = 0;
+        let maximumWidth = 0;
+        for (let airBoostFrame = 2; airBoostFrame < ordinaryFlight.flightFrames; airBoostFrame += 1) {
+            const reach = simulateGameplayRulerReach({
+                runAtMaxSpeed: true,
+                airBoostFrame,
+                holdHover
+            });
+            maximumHeight = Math.max(maximumHeight, reach.height);
+            maximumWidth = Math.max(maximumWidth, reach.width);
+        }
+        return {
+            height: maximumHeight,
+            width: maximumWidth
         };
     }
 
     function computeGameplayRulerMetrics() {
         const simulation = createGameplayRulerSimulationState();
         const tuning = simulation.tuning || {};
-        const jumpOnly = simulateGameplayRulerReach();
-        const doubleJump = simulateGameplayRulerReach({ useAirBoost: true });
-        const hover = simulateGameplayRulerReach({ useAirBoost: true, holdHover: true });
         const runningJump = simulateGameplayRulerReach({ runAtMaxSpeed: true });
-        const runningDoubleJump = simulateGameplayRulerReach({ runAtMaxSpeed: true, useAirBoost: true });
-        const runningHover = simulateGameplayRulerReach({ runAtMaxSpeed: true, useAirBoost: true, holdHover: true });
+        const doubleJump = simulateMaximumGameplayRulerReach();
+        const hover = simulateMaximumGameplayRulerReach({ holdHover: true });
         const vertical = Object.freeze([
             Object.freeze({ label: "WH", value: Math.max(1, Math.round(Number(tuning.wizardHeight) || 104)) }),
-            Object.freeze({ label: "JH", value: jumpOnly.height }),
+            Object.freeze({ label: "JH", value: runningJump.height }),
             Object.freeze({ label: "DH", value: doubleJump.height }),
             Object.freeze({ label: "HH", value: hover.height })
         ]);
         const horizontal = Object.freeze([
             Object.freeze({ label: "WW", value: Math.max(1, Math.round(Number(tuning.playerWidth) || 34)) }),
             Object.freeze({ label: "JW", value: runningJump.width }),
-            Object.freeze({ label: "DW", value: runningDoubleJump.width }),
-            Object.freeze({ label: "HW", value: runningHover.width })
+            Object.freeze({ label: "DW", value: doubleJump.width }),
+            Object.freeze({ label: "HW", value: hover.width })
         ]);
         return Object.freeze({
             vertical,
@@ -1694,7 +1717,7 @@ import {
         });
     }
 
-    const GAMEPLAY_RULER_METRICS = computeGameplayRulerMetrics();
+    let GAMEPLAY_RULER_METRICS = computeGameplayRulerMetrics();
 
     const canvas = document.getElementById("stage");
     const overlayCanvas = document.getElementById("stage-overlay");
@@ -10014,7 +10037,15 @@ import {
     }
 
     async function initializeEditor() {
-        await loadBundledProximityTextFonts();
+        const [installedTuning] = await Promise.all([
+            loadInstalledGameTuning({
+                fallback: DEFAULT_TUNING,
+                url: resourceUrl("config/tuning.json")
+            }),
+            loadBundledProximityTextFonts()
+        ]);
+        gameplayRulerTuning = installedTuning;
+        GAMEPLAY_RULER_METRICS = computeGameplayRulerMetrics();
         try {
             state.resourceIndex = await loadResourceIndex();
         } catch (error) {

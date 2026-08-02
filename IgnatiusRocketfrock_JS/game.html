@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <link rel="icon" href="favicon.ico" sizes="any">
-    <title>Ignatius Rocketfrock - HTML BUILD 277</title>
+    <title>Ignatius Rocketfrock - HTML BUILD 281</title>
     <style>
         @font-face {
             font-family: "Ignatius Inter";
@@ -340,8 +340,7 @@ transform: scale(var(--hud-panel-scale));
 backdrop-filter: none;
         }
 
-        html.dev-no-hud-blur .panel,
-        html.dev-no-hud-blur #tuning {
+        html.dev-no-hud-blur .panel {
             backdrop-filter: none !important;
         }
 
@@ -482,72 +481,6 @@ backdrop-filter: none;
             color: #fff4f4;
         }
 
-        #tuning {
-            position: fixed;
-            top: 70px;
-            right: 16px;
-            width: 330px;
-            max-width: calc(100vw - 32px);
-            max-height: calc(100vh - 86px);
-            border: 1px solid var(--line);
-            border-radius: 16px;
-            padding: 12px 14px;
-            background: var(--panel-strong);
-backdrop-filter: blur(10px);
-            overflow-y: auto;
-            overscroll-behavior: contain;
-            scrollbar-gutter: stable;
-        }
-
-
-
-        #tuning::-webkit-scrollbar {
-            width: 10px;
-        }
-
-        #tuning::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.22);
-            border-radius: 999px;
-            border: 2px solid rgba(0, 0, 0, 0.18);
-        }
-
-        #tuning h2 {
-            margin: 0 0 8px;
-            font-size: 15px;
-        }
-
-        .tuning-section {
-            display: grid;
-            gap: 3px;
-            margin: 14px 0 6px;
-            padding-top: 10px;
-            border-top: 1px solid var(--line);
-            color: var(--ink);
-            font-size: 12px;
-        }
-
-        .tuning-section:first-child {
-            margin-top: 4px;
-            padding-top: 0;
-            border-top: 0;
-        }
-
-        .tuning-section > span {
-            color: var(--muted);
-            font-size: 11px;
-            line-height: 1.35;
-        }
-
-        #tuning label {
-            display: grid;
-            grid-template-columns: 135px 1fr 52px;
-            gap: 8px;
-            align-items: center;
-            margin: 8px 0;
-            font-size: 12px;
-            color: var(--muted);
-        }
-
         input[type="range"] {
             width: 100%;
             accent-color: var(--accent);
@@ -607,12 +540,6 @@ backdrop-filter: blur(10px);
         .tool-button:hover,
         .tool-link:hover {
             background: rgba(255,255,255,0.14);
-        }
-
-        #tuning-message {
-            min-height: 16px;
-            color: var(--warn);
-            font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         }
 
         kbd {
@@ -743,6 +670,10 @@ cursor: pointer;
         }
 
         #game-settings-panel {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        #game-tuning-panel {
             grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
@@ -985,15 +916,12 @@ font-size: 14px;
         }
 
         @media (max-width: 860px) {
-            #tuning {
-                display: none;
-            }
-
             .game-menu-card {
                 padding: 16px;
             }
 
-            #game-settings-panel {
+            #game-settings-panel,
+            #game-tuning-panel {
                 grid-template-columns: 1fr;
             }
 
@@ -1061,7 +989,6 @@ font-size: 14px;
         <button id="toggle-gameplay-recording" class="tool-button" type="button">Recording: Off</button>
         <button id="load-gameplay-playback" class="tool-button" type="button">Playback JSON…</button>
         <input id="gameplay-playback-file" type="file" accept="application/json,.json" hidden>
-        <button id="toggle-game-tuning" class="tool-button" type="button">Game tuning: off</button>
         <button id="toggle-help-panel" class="tool-button" type="button">Help panel: on</button>
     </div>
     <div id="game-shell">
@@ -1198,6 +1125,49 @@ font-size: 14px;
                     <button id="development-playback" class="game-menu-action" type="button">Playback JSON...</button>
                 </div>
             </section>
+
+
+            <section id="game-tuning-panel" class="game-menu-view" hidden>
+                <div class="settings-group">
+                    <div class="settings-label">
+                        <span>Player run speed</span>
+                        <span id="tuning-run-speed-value" class="settings-value">360</span>
+                    </div>
+                    <input id="tuning-run-speed" type="range" min="80" max="800" step="20" value="360">
+                </div>
+                <div class="settings-group">
+                    <div class="settings-label">
+                        <span>Jump height</span>
+                        <span id="tuning-jump-height-value" class="settings-value">200</span>
+                    </div>
+                    <input id="tuning-jump-height" type="range" min="40" max="500" step="10" value="200">
+                </div>
+                <div class="settings-group">
+                    <div class="settings-label">
+                        <span>Gravity</span>
+                        <span id="tuning-gravity-value" class="settings-value">1490</span>
+                    </div>
+                    <input id="tuning-gravity" type="range" min="300" max="3000" step="50" value="1490">
+                </div>
+                <div class="settings-group">
+                    <div class="settings-label">
+                        <span>Rocket damage</span>
+                        <span id="tuning-rocket-damage-value" class="settings-value">30</span>
+                    </div>
+                    <input id="tuning-rocket-damage" type="range" min="5" max="500" step="5" value="30">
+                </div>
+                <div class="settings-group settings-wide">
+                    <div class="settings-label">
+                        <span>Double jump physics</span>
+                    </div>
+                    <select id="tuning-double-jump-physics" class="settings-select" aria-label="Double jump physics">
+                        <option value="fixedImpulse">Fixed impulse</option>
+                        <option value="consistentApex">Consistent apex</option>
+                    </select>
+                    <div class="settings-note">Fixed impulse stacks with upward momentum. Consistent apex adds one ordinary jump-height of energy while rising, or starts a fresh jump while falling.</div>
+                </div>
+                <button id="tuning-reset" class="game-menu-action settings-wide" type="button">Reset game tuning</button>
+            </section>
         </div>
     </dialog>
 
@@ -1236,22 +1206,6 @@ font-size: 14px;
             </div>
         </div>
         <pre id="debug" class="panel" hidden></pre>
-    </section>
-
-    <section id="tuning" hidden>
-        <h2>Game tuning</h2>
-        <div class="small tuning-help">These write into <code>gameState.tuning</code>, so devtools exports include the current feel. Enemy multipliers are temporary playtest controls and the JSON box is copyable and editable.</div>
-        <div id="tuning-controls"></div>
-        <textarea id="tuning-json" spellcheck="false" aria-label="Tuning JSON"></textarea>
-        <div class="button-row">
-            <button id="apply-tuning-json" type="button">Apply JSON</button>
-            <button id="copy-tuning-json" type="button">Copy JSON</button>
-            <button id="refresh-tuning-json" type="button">Refresh JSON</button>
-        </div>
-        <div id="tuning-message"></div>
-        <div class="small tuning-help">
-            <kbd>P</kbd> pause, <kbd>O</kbd> step, <kbd>R</kbd> reset, <kbd>H</kbd> player/projectile hitboxes, <kbd>V</kbd> velocity, <kbd>C</kbd> collision, guide buttons for manifest and enemy-puppet diagnostics, <kbd>E</kbd> export state.
-        </div>
     </section>
 
     <script type="module" src="./src/browser/game-bootstrap.js"></script>

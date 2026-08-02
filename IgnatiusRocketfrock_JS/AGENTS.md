@@ -13,6 +13,10 @@ Use `ARCHITECTURE.md` as the authoritative module map. Portable gameplay belongs
 
 Whenever implementation work uncovers a bug, stale behavior, or deprecated field/code path, record it explicitly in `PLAN.md`, including whether it was fixed immediately or left for later. Any player-facing, editor-facing, or control change that is described in `GameManual.html` must update the manual in the same revision. Keep revision labels shown by game/editor surfaces synchronized with the packaged revision.
 
+## TEST LEVEL FIXTURE RULE ##
+
+Any automated or manual verification that actually loads a level, including unit, integration, smoke, headless, performance, benchmark, and release-gate runs, must use a reserved `resources/levels/level_tNN.json` fixture. Never use an ordinary campaign or experimental `level_###` file as a test level merely because it currently appears empty or stable. Production-style IDs may appear only in isolated parsing or serialization tests that do not open or depend on those files. If no suitable test fixture exists, create or update a `level_tNN` level instead.
+
 ## VIEWPORT SCALING RULE ##
 
 The game uses a shared virtual viewport. On narrow mobile screens the renderer scales the whole canvas down instead of scaling individual sprites or physics values. Revision 230 adds a 1920x1080 fullscreen reference presentation in both ports. Fullscreen uses a uniform crop-to-fill scale, never letterboxing or pillarboxing: 16:9 outputs expose exactly the reference world area, while other aspect ratios crop one logical axis instead of revealing additional world. The backing target remains at the physical display resolution so higher-resolution displays preserve additional texture detail. Windowed presentation retains its variable viewport. Keep gameplay, collision, camera, particle, and level coordinates in virtual game coordinates. Convert mouse, touch, and pointer screen coordinates through the viewport transform before passing them into gameplay controls.

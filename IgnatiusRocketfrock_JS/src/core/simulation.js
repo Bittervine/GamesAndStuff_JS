@@ -195,6 +195,19 @@ export function ordinaryJumpVelocity(gravity, jumpHeight) {
     return -Math.sqrt(2 * resolvedGravity * resolvedHeight);
 }
 
+export function doubleJumpLaunchVelocity(tuning, currentVerticalVelocity) {
+    const currentVy = Number(currentVerticalVelocity) || 0;
+    if (String(tuning?.doubleJumpPhysics || "consistentApex") !== "consistentApex") {
+        const maxDownwardVelocity = Number(tuning?.attachedBoostStartMaxDownwardVelocity) || 0;
+        const impulse = Number(tuning?.attachedBoostStartImpulse) || 0;
+        return Math.min(currentVy, maxDownwardVelocity) + impulse;
+    }
+    const jumpSpeed = Math.abs(ordinaryJumpVelocity(tuning?.gravity, tuning?.ordinaryJumpHeight));
+    return currentVy < 0
+        ? -Math.sqrt(currentVy * currentVy + jumpSpeed * jumpSpeed)
+        : -jumpSpeed;
+}
+
 const MOVING_PLATFORM_NAVIGATION_CACHE = new WeakMap();
 const STATIC_ENEMY_NAVIGATION_CACHE = new WeakMap();
 const CHARACTER_ENEMY_TRAVERSAL_EDGE_CACHE = new WeakMap();
@@ -228,6 +241,7 @@ export const DEFAULT_TUNING = Object.freeze({
     groundFriction: 900,
     flightVerticalSpeed: 300,
     flightVerticalAcceleration: 900,
+    doubleJumpPhysics: "consistentApex",
     landingFriction: 550,
     airDrag: 0.12,
     waterHorizontalSpeedScale: 0.45,
@@ -1109,6 +1123,7 @@ export function snapPlayerStartToNearbyGround(state, maxDistance = null) {
         state.player.vy = 0;
         state.player.onGround = true;
         state.player.wasOnGround = true;
+        state.player.airBoostArmed = true;
     }
     const intro = state.story?.portalIntro;
     if (intro) {
@@ -8931,14 +8946,16 @@ function startAttachedBoost(state) {
     rocket.attachedSmokeTimer = 0;
     rocket.lastBoostStartTick = state.clock.tick;
     emitAttachedBoostSmokeBurst(state, hasKickCharge ? (t.attachedBoostSmokeKickPuffs ?? 7) : 3);
-    const impulse = hasKickCharge ? t.attachedBoostStartImpulse : 0;
-    if (impulse !== 0) {
-        p.vy = Math.min(p.vy, t.attachedBoostStartMaxDownwardVelocity) + impulse;
+    const launchVelocityBefore = p.vy;
+    if (hasKickCharge) {
+        p.vy = doubleJumpLaunchVelocity(t, p.vy);
     }
     markRocketUse(state);
     addEvent(state, "PLAYER_BOOST_STARTED", {
         fuel: round(state.fuel.amount),
-        impulse: round(impulse),
+        doubleJumpPhysics: t.doubleJumpPhysics || "consistentApex",
+        launchVelocity: round(p.vy),
+        velocityDelta: round(p.vy - launchVelocityBefore),
         kickCharge: round(rocket.boostKickCharge),
         kickFuelCost: hasKickCharge ? round(kickFuelCost) : 0
     });
@@ -12486,7 +12503,10 @@ function landPlayerOn(state, y, wasOnGround, id, kind = "blockable") {
     p.vy = 0;
     p.onGround = true;
     p.supportId = id || null;
-    p.airBoostArmed = false;
+    // Being grounded grants the rocket kick. A normal ground jump disarms it
+    // until that same Up press has been released, while walking or dropping
+    // off support preserves it for the first distinct airborne Up press.
+    p.airBoostArmed = true;
     state.collisions.playerTouching.down = true;
     if (state.equipment.rocket.attachedBoosting) {
         stopAttachedBoost(state, "landed");

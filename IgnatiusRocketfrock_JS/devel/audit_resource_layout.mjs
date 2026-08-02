@@ -11,7 +11,7 @@ const RESOURCE_ROOT = path.join(REFERENCE_ROOT, "resources");
 const GENERATED_DEVTOOL_LEVEL_NAME = "level_temp.json";
 const RESOURCE_INDEX_NAME = "resources.json";
 const EXPECTED_RESOURCE_DIRECTORIES = new Set([
-    "atlases", "characters", "editor", "fonts", "generator", "items", "levels", "music", "palette", "sfx", "ui"
+    "atlases", "characters", "config", "editor", "fonts", "generator", "items", "levels", "music", "palette", "sfx", "ui"
 ]);
 const ACTIVE_SOURCE_EXTENSIONS = new Set([
     ".bat", ".c", ".cc", ".cmake", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".html", ".js", ".json", ".mjs", ".py", ".rc", ".sh"
@@ -104,6 +104,15 @@ function auditResourceIndex() {
     requireExactInventory("level", index.levelIds, levelIds);
 }
 
+
+
+function auditConfig() {
+    const tuning = readJson(path.join(RESOURCE_ROOT, "config", "tuning.json"));
+    if (tuning.schemaVersion !== 1) fail("config/tuning.json must use schemaVersion 1.");
+    if (tuning.doubleJumpPhysics !== "fixedImpulse" && tuning.doubleJumpPhysics !== "consistentApex") {
+        fail("config/tuning.json has an invalid doubleJumpPhysics value.");
+    }
+}
 
 function auditPaletteThumbnailCache() {
     const directory = path.join(RESOURCE_ROOT, "palette");
@@ -235,6 +244,7 @@ function auditNoRetiredPaths() {
 export function auditResourceLayout() {
     auditRootShape();
     auditResourceIndex();
+    auditConfig();
     auditPaletteThumbnailCache();
     auditAtlases("atlases");
     auditAtlases("items");

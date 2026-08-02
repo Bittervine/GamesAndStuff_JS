@@ -121,6 +121,15 @@ import {
     saveStoredGameSettings
 } from "../src/browser/game-settings-store.js";
 import {
+    DOUBLE_JUMP_PHYSICS_CONSISTENT_APEX,
+    DOUBLE_JUMP_PHYSICS_FIXED_IMPULSE,
+    SHARED_GAME_TUNING_KEYS,
+    applyGameTuningValues,
+    createGameTuningOverrides,
+    normalizeGameTuningOverrides,
+    resolveGameTuning
+} from "../src/shared/game-tuning-data.js";
+import {
     AUTOSAVE_SLOT_ID,
     MANUAL_SAVE_SLOT_IDS,
     SAVE_GAME_SCHEMA,
@@ -456,6 +465,7 @@ import {
     playerUpgradeMessage,
     collectPlayerUpgrade,
     ordinaryJumpVelocity,
+    doubleJumpLaunchVelocity,
     createInitialGameState,
     createInputFrame,
     createSubstepInputFrame,
@@ -5461,6 +5471,34 @@ function testPlayerCanDropThroughOneWayPlatforms() {
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
 
+    const rocketState = createInitialGameState();
+    rocketState.world.segments = structuredClone(state.world.segments);
+    rocketState.world.solids = [];
+    rocketState.world.collisionPolygons = [];
+    rocketState.story.portalIntro = null;
+    rocketState.story.portalExit = null;
+    rocketState.story.mailboxEvent = null;
+    Object.assign(rocketState.player.currentTransform, { x: 0, y: 400 });
+    Object.assign(rocketState.player.previousTransform, rocketState.player.currentTransform);
+    Object.assign(rocketState.player.shownTransform, rocketState.player.currentTransform);
+    Object.assign(rocketState.player, {
+        vx: 0,
+        vy: 0,
+        onGround: true,
+        wasOnGround: true,
+        supportId: "upper_green",
+        dropThroughTimer: 0,
+        ordinaryJumpActive: false,
+        airBoostArmed: false
+    });
+    stepSimulation(rocketState, createInputFrame(), FIXED_DT);
+    assert.equal(rocketState.player.airBoostArmed, true, "standing on support should arm the first airborne rocket kick");
+    stepSimulation(rocketState, createInputFrame({ dropPressed: true, dropHeld: true }), FIXED_DT);
+    assert.equal(rocketState.player.onGround, false, "Down should release the grounded wizard through the green line");
+    assert.equal(rocketState.player.airBoostArmed, true, "dropping through a green line should preserve the grounded rocket kick");
+    stepSimulation(rocketState, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    assert.equal(rocketState.equipment.rocket.attachedBoosting, true, "the first Up press after drop-through should start the rocket immediately");
+
     Object.assign(state.player, {
         x: 0,
         y: 400,
@@ -9749,7 +9787,11 @@ function testCaveWindowSplineAuthoring() {
             && levelEditorHtml.includes('id="show-cave-interaction-boundary" type="checkbox" checked')
             && levelEditorHtml.includes('gameplayCameraFrame: "rgba(77,255,145,0.50)"')
             && levelEditorHtml.includes('gameplayRulers: "rgba(86,230,255,0.92)"')
-            && levelEditorHtml.includes("const GAMEPLAY_RULER_METRICS = computeGameplayRulerMetrics()")
+            && levelEditorHtml.includes("let GAMEPLAY_RULER_METRICS = computeGameplayRulerMetrics()")
+            && levelEditorHtml.includes('loadInstalledGameTuning({')
+            && levelEditorHtml.includes('url: resourceUrl("config/tuning.json")')
+            && levelEditorHtml.includes("simulateMaximumGameplayRulerReach")
+            && levelEditorHtml.includes("for (let airBoostFrame = 2; airBoostFrame < ordinaryFlight.flightFrames; airBoostFrame += 1)")
             && levelEditorHtml.includes("drawGameplayCameraRulers(frame, topLeft, width, height)")
             && levelEditorHtml.includes('label: "WH"')
             && levelEditorHtml.includes('label: "HH"')
@@ -10917,6 +10959,7 @@ function testPlayerStartSnapsToNearbyGround() {
     approx(nearby.player.currentTransform.y, 106, 0.000001, "runtime player should use snapped start height");
     approx(nearby.player.spawnY, 106, 0.000001, "respawn height should use snapped start height");
     assert.equal(nearby.player.onGround, true, "snapped player should begin grounded");
+    assert.equal(nearby.player.airBoostArmed, true, "a snapped grounded start should arm the first airborne rocket kick");
     assert.ok(nearby.debug.lastEvents.some((event) => event.type === "PLAYER_START_SNAPPED_TO_GROUND"), "ground snap should be visible in debug events");
 
     const distantLevel = structuredClone(nearbyLevel);
@@ -13022,7 +13065,7 @@ function testPersistentPlayerProgressionUpgrades() {
     stepSimulation(nextLevelState, createInputFrame(), FIXED_DT);
     assert.equal(nextLevelState.playerProgression.healthLevel, 2, "the same local entity ID in a different level should grant its own upgrade");
     assert.ok(nextLevelState.playerProgression.collectedUpgradeIds.includes("progression_pickup_test_2:persistent_health_upgrade"), "the second level should store a distinct level-scoped collection ID");
-    assert.equal(playerUpgradeCollectionId("level_003", "healthUpgrade_001"), "level_003:healthUpgrade_001", "collection-key helper should scope ordinary Level Editor IDs by level");
+    assert.equal(playerUpgradeCollectionId("level_t03", "healthUpgrade_001"), "level_t03:healthUpgrade_001", "collection-key helper should scope reserved Level Editor fixture IDs by level");
 
     const reapplied = createInitialGameState();
     reapplied.health.amount = 33;
@@ -14627,6 +14670,36 @@ function testAttachedBoostStateAndFuelDrain() {
 }
 
 function testDoubleJumpKickAndHoverGovernor() {
+    assert.equal(
+        DEFAULT_TUNING.doubleJumpPhysics,
+        DOUBLE_JUMP_PHYSICS_CONSISTENT_APEX,
+        "consistent-apex double jumps should be the compiled emergency default"
+    );
+    const fixedTuning = { ...DEFAULT_TUNING, doubleJumpPhysics: DOUBLE_JUMP_PHYSICS_FIXED_IMPULSE };
+    approx(
+        doubleJumpLaunchVelocity(fixedTuning, -400),
+        -1000,
+        0.000001,
+        "fixed-impulse double jumps should add the configured rocket kick to existing upward velocity"
+    );
+    approx(
+        doubleJumpLaunchVelocity(fixedTuning, 700),
+        -480,
+        0.000001,
+        "fixed-impulse double jumps should retain the legacy downward-speed clamp"
+    );
+
+    const consistentTuning = { ...DEFAULT_TUNING, doubleJumpPhysics: DOUBLE_JUMP_PHYSICS_CONSISTENT_APEX };
+    const jumpSpeed = Math.abs(ordinaryJumpVelocity(consistentTuning.gravity, consistentTuning.ordinaryJumpHeight));
+    for (const currentHeight of [0, 50, 100, 150, 200]) {
+        const upwardSpeed = Math.sqrt(Math.max(0, 2 * consistentTuning.gravity * (consistentTuning.ordinaryJumpHeight - currentHeight)));
+        const launchSpeed = Math.abs(doubleJumpLaunchVelocity(consistentTuning, -upwardSpeed));
+        const resultingApex = currentHeight + launchSpeed * launchSpeed / (2 * consistentTuning.gravity);
+        approx(resultingApex, consistentTuning.ordinaryJumpHeight * 2, 0.000001, `consistent-apex launch at ${currentHeight}px should reach the same total double-jump apex`);
+    }
+    approx(doubleJumpLaunchVelocity(consistentTuning, 0), -jumpSpeed, 0.000001, "consistent-apex activation at rest should begin one ordinary-height jump");
+    approx(doubleJumpLaunchVelocity(consistentTuning, 700), -jumpSpeed, 0.000001, "consistent-apex activation while falling should cancel downward speed and begin one ordinary-height jump");
+
     const state = createInitialGameState();
     settleOnGround(state);
     stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
@@ -17307,7 +17380,8 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
         fullscreen: false,
         showMinimap: false,
         developmentMode: false,
-        renderingMode: "SOFTWARESPEEDHACK"
+        renderingMode: "SOFTWARESPEEDHACK",
+        tuningOverrides: { ordinaryJumpHeight: 260, doubleJumpPhysics: "consistentApex" }
     });
     assert.equal(normalized.sfxVolume, 1, "effects volume should clamp to one");
     assert.equal(normalized.musicVolume, 0, "music volume should clamp to zero");
@@ -17317,6 +17391,7 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.equal(normalized.showMinimap, false, "the minimap visibility preference should normalize as a boolean");
     assert.equal(normalized.developmentMode, false, "the development tool visibility preference should normalize as a boolean");
     assert.equal(normalized.renderingMode, "softwareSpeedhack", "renderer mode ids should normalize case-insensitively");
+    assert.deepEqual(normalized.tuningOverrides, { ordinaryJumpHeight: 260, doubleJumpPhysics: "consistentApex" }, "per-user tuning overrides should survive settings normalization as a sparse object");
     assert.equal(normalized.useHardwareRendering, false, "software modes should select Canvas2D");
     assert.equal(normalized.usePixmapPyramids, true, "software modes should select pixmap pyramids");
     assert.equal(normalized.bakingMode, "tiles", "speedhack modes should select baked tiles");
@@ -17350,7 +17425,8 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
         fullscreen: false,
         showMinimap: false,
         developmentMode: false,
-        renderingMode: "softwareSpeedhack"
+        renderingMode: "softwareSpeedhack",
+        tuningOverrides: { maxRunSpeed: 420, doubleJumpPhysics: "consistentApex" }
     }, storage);
     assert.equal(values.has(GAME_SETTINGS_STORAGE_KEY), true, "settings should use a stable namespaced storage key");
     assert.equal(saved.musicVolume, 0.33, "saved settings should retain authored volume");
@@ -17359,6 +17435,26 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.equal(loadStoredGameSettings(storage).showMinimap, false, "the minimap preference should round-trip through storage");
     assert.equal(loadStoredGameSettings(storage).developmentMode, false, "the development-mode preference should round-trip through storage");
     assert.equal(loadStoredGameSettings(storage).renderingMode, "softwareSpeedhack", "the rendering mode should round-trip through storage");
+    assert.deepEqual(loadStoredGameSettings(storage).tuningOverrides, { maxRunSpeed: 420, doubleJumpPhysics: "consistentApex" }, "sparse tuning overrides should round-trip through browser localStorage");
+
+    const installedTuningJson = JSON.parse(readFileSync(new URL("../resources/config/tuning.json", import.meta.url), "utf8"));
+    assert.equal(installedTuningJson.schemaVersion, 1, "the shared installed tuning file should carry schema version 1");
+    assert.equal(SHARED_GAME_TUNING_KEYS.length, 51, "the first shared tuning schema should expose the accepted cross-runtime tuning set");
+    for (const key of SHARED_GAME_TUNING_KEYS) {
+        assert.equal(installedTuningJson[key], DEFAULT_TUNING[key], `tuning.json ${key} should match the compiled emergency fallback`);
+    }
+    const resolvedTuning = resolveGameTuning(DEFAULT_TUNING, {
+        ordinaryJumpHeight: 260,
+        doubleJumpPhysics: DOUBLE_JUMP_PHYSICS_FIXED_IMPULSE,
+        unknownTuningKey: 99
+    });
+    assert.equal(resolvedTuning.ordinaryJumpHeight, 260, "installed tuning should accept supported numeric overrides");
+    assert.equal(resolvedTuning.doubleJumpPhysics, DOUBLE_JUMP_PHYSICS_FIXED_IMPULSE, "installed tuning should accept the fixed-impulse override");
+    assert.equal("unknownTuningKey" in resolvedTuning, false, "unsupported tuning keys should not enter the resolved tuning object");
+    const sparseOverrides = createGameTuningOverrides(resolvedTuning, DEFAULT_TUNING);
+    assert.deepEqual(sparseOverrides, { ordinaryJumpHeight: 260, doubleJumpPhysics: DOUBLE_JUMP_PHYSICS_FIXED_IMPULSE }, "per-user tuning storage should contain only values differing from installed defaults");
+    assert.deepEqual(normalizeGameTuningOverrides({ ordinaryJumpHeight: 200, maxRunSpeed: 420 }, DEFAULT_TUNING), { maxRunSpeed: 420 }, "normalization should remove overrides equal to installed defaults");
+    assert.equal(applyGameTuningValues(DEFAULT_TUNING, { doubleJumpPhysics: "nonsense" }).doubleJumpPhysics, DOUBLE_JUMP_PHYSICS_CONSISTENT_APEX, "invalid double-jump modes should fall back safely");
 
     const manual = createSaveGameRecord({
         slotId: "slot2",
@@ -17415,6 +17511,8 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.match(gameHtml, /id="development-features-button"[^>]*>Development features\.\.\.<\/button>/, "settings should expose the compact Development features submenu");
     assert.match(gameHtml, /id="game-development-panel"[\s\S]*id="development-asset-guides"[\s\S]*id="development-enemy-guide"[\s\S]*id="development-debug-panel"[\s\S]*id="development-debug-logging"/, "Development features should expose the four requested guide and diagnostic toggles");
     assert.match(gameHtml, /id="development-game-tuning"[\s\S]*id="development-recording"[\s\S]*id="development-playback"/, "Development features should retain convenient access to tuning, recording, and playback");
+    assert.match(gameHtml, /id="game-tuning-panel"[\s\S]*id="tuning-run-speed"[\s\S]*id="tuning-jump-height"[\s\S]*id="tuning-gravity"[\s\S]*id="tuning-rocket-damage"[\s\S]*id="tuning-double-jump-physics"[\s\S]*id="tuning-reset"/, "browser Game tuning should mirror the compact SDL controls and retain Reset");
+    assert.doesNotMatch(gameHtml, /id="tuning"|id="tuning-json"|id="apply-tuning-json"|id="copy-tuning-json"/, "the retired super-advanced floating browser tuning panel should be removed");
     assert.match(gameHtml, /Effects quality/, "rendering quality should use the less ambiguous Effects quality label");
     for (const preset of GAME_RENDERING_MODE_PRESETS) {
         assert.match(gameHtml, new RegExp(`option value="${preset.id}"`), `the browser settings should expose ${preset.label}`);
@@ -17436,10 +17534,14 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.match(bootstrapSource, /function saveManualSlot\(slotId\)/, "manual save slots should share a central save function");
     assert.match(bootstrapSource, /function handleSaveSlotSelection\(slotId\)/, "save and load slot actions should share one selection path");
     assert.match(bootstrapSource, /function setGameMenuView\(view\)/, "the game menu should have an explicit view state machine");
+    assert.match(bootstrapSource, /loadInstalledGameTuning\(\{ fallback: DEFAULT_TUNING \}\)/, "browser startup should load the shared installed tuning file");
+    assert.match(bootstrapSource, /resolveGameTuning\(installedGameTuning, storedGameSettings\.tuningOverrides\)/, "browser startup should resolve installed defaults plus sparse per-user overrides");
+    assert.match(bootstrapSource, /function persistCurrentGameTuning\(\)[\s\S]*createGameTuningOverrides[\s\S]*saveStoredGameSettings/, "browser tuning changes should be saved automatically as sparse overrides");
+    assert.match(bootstrapSource, /function resetSimpleGameTuning\(\)[\s\S]*tuningOverrides: \{\}/, "browser Reset should clear per-user tuning overrides");
     assert.match(bootstrapSource, /gameMenuBackButton\?\.addEventListener\("click"[\s\S]*else closeGameMenu\(\)/, "Back should resume gameplay from the top-level pause menu and return from nested views");
     assert.match(bootstrapSource, /gameMenuBackButton\.textContent = "BACK"/, "the shared menu control should remain labelled Back at every menu depth");
     assert.doesNotMatch(bootstrapSource, /gameMenuResumeButton|game-menu-resume/, "the browser runtime should not retain the redundant in-game Resume Game button");
-    assert.match(bootstrapSource, /new Set\(\["menu", "settings", "development", "save", "load"\]\)/, "the game-menu state machine should include Development features as a nested settings view");
+    assert.match(bootstrapSource, /new Set\(\["menu", "settings", "development", "tuning", "save", "load"\]\)/, "the game-menu state machine should include Development features and Game tuning as nested settings views");
     assert.match(bootstrapSource, /function startGameplayDebugLogging\(source = "development-menu"\)/, "the browser should provide an explicit structured debug-log start path");
     assert.match(bootstrapSource, /sampleMs - gameplayDebugLogLastSampleMs < 1000/, "browser debug logging should sample at most once per second rather than adding per-frame overhead");
     assert.match(bootstrapSource, /application\/x-ndjson/, "stopping browser debug logging should export a compact structured NDJSON file");
@@ -17611,10 +17713,11 @@ async function testOggLevelMusicSystem() {
     soundDirector.processState({ equipment: { rocket: { attachedBoosting: false } } }, 0.25);
     assert.equal(boostVoice.paused, true, "rocket boost should stop after its half-second release fade");
 
-    const audioEvents = [{ type: "PLAYER_DAMAGED" }, { type: "PLAYER_JUMPED" }, { type: "ROCKET_LAUNCHED" }, { type: "ROCKET_IMPACTED" }, { type: "PLAYER_UPGRADE_COLLECTED" }];
+    const audioEvents = [{ type: "PLAYER_DAMAGED" }, { type: "PLAYER_JUMPED" }, { type: "ROCKET_LAUNCHED" }, { type: "ROCKET_IMPACTED" }, { type: "PLAYER_UPGRADE_COLLECTED" }, { type: "TREASURE_CHEST_COLLECTED" }];
     soundDirector.processEvents(audioEvents);
     soundDirector.processEvents(audioEvents);
-    assert.equal(soundCalls.filter((call) => call[0] === "play").length, 6, "the boost loop plus five new simulation events should play once without replaying retained debug events");
+    assert.equal(soundCalls.filter((call) => call[0] === "play").length, 7, "the boost loop plus six new simulation events should play once without replaying retained debug events");
+    assert.ok(soundCalls.some((call) => call[1]?.endsWith("sfx/pickup_chime.wav")), "treasure chest collection should play the pickup cue in the browser port");
     assert.ok(soundCalls.some((call) => call[1]?.endsWith("sfx/player_jumping.wav")), "jump events should play the audible jump cue in the browser port");
     assert.ok(soundCalls.some((call) => call[1]?.endsWith("sfx/rocket_explosion.wav")), "rocket impacts should use the white-noise explosion cue");
     assert.ok(soundCalls.some((call) => call[1]?.endsWith("sfx/permanent_upgrade_pickup.wav")), "permanent upgrades should use their dedicated replaceable cue");
@@ -17659,6 +17762,44 @@ async function testOggLevelMusicSystem() {
     soundDirector.processEvents([{ type: "BOSS_DEFEATED", tick: 125 }, { type: "ENEMY_DEFEATED", tick: 125 }]);
     assert.equal(soundCalls.filter((call) => call[0] === "play").length, silentGlobalStart, "enemy and boss death events without a character ID should not fall back to global enemy WAVs");
     soundDirector.dispose();
+
+    const blockedPickupCalls = [];
+    let browserAudioUnlocked = false;
+    const retryingSoundDirector = createSoundEffectsDirector({
+        volume: 0.8,
+        audioElementFactory: () => ({
+            paused: true,
+            ended: false,
+            currentTime: 0,
+            volume: 1,
+            set src(value) { this._src = value; },
+            get src() { return this._src || ""; },
+            play() {
+                blockedPickupCalls.push({ src: this.src, volume: this.volume, allowed: browserAudioUnlocked });
+                if (!browserAudioUnlocked) {
+                    const error = new Error("browser audio is still locked");
+                    error.name = "NotAllowedError";
+                    return Promise.reject(error);
+                }
+                this.paused = false;
+                return Promise.resolve();
+            },
+            pause() { this.paused = true; },
+            removeAttribute() {}
+        })
+    });
+    retryingSoundDirector.setCatalog(soundCatalog);
+    retryingSoundDirector.processEvents([{ type: "TREASURE_CHEST_COLLECTED", tick: 1 }]);
+    await Promise.resolve();
+    await Promise.resolve();
+    browserAudioUnlocked = true;
+    assert.equal(await retryingSoundDirector.unlock(), true, "a later browser gesture should unlock queued sound playback");
+    await Promise.resolve();
+    assert.ok(
+        blockedPickupCalls.some((call) => call.allowed && call.volume > 0 && call.src.endsWith("sfx/pickup_chime.wav")),
+        "a pickup cue blocked during browser audio unlock should be retried instead of being lost"
+    );
+    retryingSoundDirector.dispose();
 
     const musicJson = JSON.parse(readFileSync(new URL("../resources/music/music.json", import.meta.url), "utf8"));
     const catalog = normalizeMusicCatalog(musicJson);
@@ -17961,8 +18102,11 @@ function testTemporaryEnemyTuningMultipliers() {
     assert.ok(tunedRanged.shots >= normalRanged.shots * 2, `ranged attack-rate multiplier should produce substantially more shots (${tunedRanged.shots} >= ${normalRanged.shots})`);
     assert.ok(tunedRanged.firstSpeed > normalRanged.firstSpeed * 1.8, `ranged projectile-speed multiplier should scale launch velocity (${tunedRanged.firstSpeed} > ${normalRanged.firstSpeed})`);
 
-    const bootstrapSource = readFileSync("./src/browser/game-bootstrap.js", "utf8");
-    assert.ok(bootstrapSource.includes("Temporary enemy multipliers") && bootstrapSource.includes("rangedEnemyProjectileSpeedScale"), "Game tuning should expose the temporary melee/ranged multiplier controls");
+    const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
+    const installedTuning = JSON.parse(readFileSync(new URL("../resources/config/tuning.json", import.meta.url), "utf8"));
+    assert.equal(installedTuning.meleeEnemyHealthScale, 1, "the shared tuning file should expose melee health scaling");
+    assert.equal(installedTuning.rangedEnemyProjectileSpeedScale, 1, "the shared tuning file should expose ranged projectile-speed scaling");
+    assert.equal(bootstrapSource.includes("Temporary enemy multipliers"), false, "the retired super-advanced browser controls should no longer be rendered");
 }
 
 function testDifficultyScalesOnlyIncomingDamage() {

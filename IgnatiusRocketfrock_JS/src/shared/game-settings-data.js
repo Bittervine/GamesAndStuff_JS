@@ -51,7 +51,7 @@ export const GAME_RENDERING_MODE_PRESETS = Object.freeze([
 ]);
 
 export const DEFAULT_GAME_SETTINGS = Object.freeze({
-    version: 10,
+    version: 11,
     sfxVolume: 0.8,
     musicVolume: 0.1,
     difficulty: "normal",
@@ -59,7 +59,8 @@ export const DEFAULT_GAME_SETTINGS = Object.freeze({
     fullscreen: true,
     showMinimap: true,
     renderingMode: "hardwareRegular",
-    developmentMode: true
+    developmentMode: true,
+    tuningOverrides: Object.freeze({})
 });
 
 function clamp01(value, fallback) {
@@ -107,6 +108,9 @@ export function normalizeGameSettings(value = {}) {
         showMinimap: normalizedBoolean(source.showMinimap, DEFAULT_GAME_SETTINGS.showMinimap),
         renderingMode,
         developmentMode: normalizedBoolean(source.developmentMode, DEFAULT_GAME_SETTINGS.developmentMode),
+        tuningOverrides: source.tuningOverrides && typeof source.tuningOverrides === "object" && !Array.isArray(source.tuningOverrides)
+            ? { ...source.tuningOverrides }
+            : {},
         useHardwareRendering: mode.useHardwareRendering,
         usePixmapPyramids: mode.usePixmapPyramids,
         bakingMode: mode.bakingMode

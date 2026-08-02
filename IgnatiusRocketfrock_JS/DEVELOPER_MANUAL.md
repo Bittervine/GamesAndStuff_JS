@@ -226,13 +226,15 @@ On a warmed ordinary frame, the GPU diagnostics should normally read `uploads:0 
 WebGL2 is requested with a stencil buffer. If the implementation reports no usable stencil support, the renderer deliberately falls back to the older cached Canvas cave-mask texture while retaining the rest of the GPU path. Canvas 2D behavior is unchanged and remains the default without the URL parameter.
 
 
-## Temporary enemy balance multipliers
+## Shared game tuning
 
-The Game tuning panel begins with a temporary enemy-balance section. Melee and ranged enemies each have independent HP, run-speed, and attack-rate multipliers. Ranged enemies also have a projectile-speed multiplier. `1×` preserves the authored values.
+Both runtimes load `resources/config/tuning.json` as the installed gameplay baseline. The file contains only constants that are consumed with the same meaning by HTML/JS and SDL/C++; compiled values remain emergency fallbacks and regression tests require them to match the shipped JSON. Edit this file for project-wide experiments.
 
-Ranged classification is based on runtime attack mode, not artwork or enemy ID. Any monster whose `attackMode` is `projectile`, including the bombing bat, receives the ranged multipliers. Attack rate accelerates the complete attack cycle, including wind-up/release timing and recovery cooldown. HP changes apply immediately to living monsters while preserving their current health percentage.
+The compact **Development features → Game tuning** menu exposes run speed, jump height, gravity, rocket damage, and **Double jump physics**. User changes are saved automatically as sparse `tuningOverrides`: browser localStorage for HTML/JS and the SDL profile `settings.json` for the native game. Reset clears those overrides and immediately reapplies the installed file. Recordings store the complete resolved tuning so playback does not depend on later file or profile changes.
 
-These controls deliberately do not modify `ct_enemies_001.json`, level JSON, or generator catalogs. During balancing, copy the tuning JSON to retain a promising combination. Once final factors are chosen, recalculate the authored enemy values and return all seven multipliers to `1×`; this keeps the final data explicit and removes dependence on a global playtest layer.
+`doubleJumpPhysics` accepts `fixedImpulse` or `consistentApex`. Fixed impulse preserves the legacy rocket kick. Consistent apex adds one ordinary jump-height of vertical energy while Ignatius is rising; at rest or while falling it cancels vertical speed and starts a new ordinary-height jump.
+
+The file also retains separate melee and ranged HP, run-speed, and attack-rate multipliers, plus ranged projectile speed. Ranged classification uses runtime `attackMode == "projectile"`. These broad multipliers remain useful for project-wide balancing, but they are no longer exposed as individual menu sliders. Per-enemy authored values in character and level data remain authoritative.
 
 
 ## Enemy family numbering
@@ -550,7 +552,7 @@ Backpack boost, Flight movement, and player rocket firing are intentionally bloc
 
 ## Campaign level numbering and test fixtures (revisions 207 and 223)
 
-The ordinary `level_###` namespace contains mutable authored content. `level_001` through `level_020` belong to the campaign, and files that still resemble the original one-floor cave scaffold may be freely expanded as their real terrain, enemies, and story content are authored. Tools and tests must not assume that any numbered campaign level remains a scaffold or retains a particular placement/entity count.
+The ordinary `level_###` namespace contains mutable authored content. `level_001` through `level_020` belong to the campaign, and files that still resemble the original one-floor cave scaffold may be freely expanded as their real terrain, enemies, and story content are authored. Tools and tests must not assume that any numbered campaign level remains a scaffold or retains a particular placement/entity count. Any test, headless smoke run, benchmark, or release verification that loads a level must use a reserved `level_tNN` fixture; an apparently empty campaign level is never a test fixture. Ordinary `level_###` identifiers may be used only by tests of identifier parsing or serialization that do not load the corresponding file.
 
 The 800-series contains playable experiments and preserved authoring work. These files are also mutable content, not regression fixtures. Their current exits may remain sequential within the experimental range, but unit tests must not depend on their exact contents.
 

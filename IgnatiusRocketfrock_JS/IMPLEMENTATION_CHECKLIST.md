@@ -4958,3 +4958,22 @@ Manual profiling workflow: open the game, run `window.__rocketfrockDev.profiler.
 - [x] Evict unused SDL enemy character projects and character-specific sound effects after incoming dependencies are loaded.
 - [x] Add dependency-scan and source-contract regression coverage.
 - [x] Advance browser and native build labels to revision 277.
+
+## Revision 278 shared tuning and double-jump physics
+
+- [x] Add `resources/config/tuning.json` as the versioned installed gameplay baseline shared by HTML/JS and SDL/C++.
+- [x] Restrict the shared file to values consumed with matching semantics by both runtimes and keep compiled values as tested emergency fallbacks.
+- [x] Persist sparse per-user tuning overrides automatically in browser localStorage and the SDL profile settings file.
+- [x] Replace the browser's floating advanced tuning panel with the same compact Settings → Development features → Game tuning flow used by SDL.
+- [x] Retain Reset in both versions so it clears user overrides and reapplies the installed tuning file.
+- [x] Add the user-facing Double jump physics choice with Fixed impulse and Consistent apex models.
+- [x] Capture fully resolved tuning in both recording implementations so playback remains deterministic after defaults change.
+- [x] Advance browser, editor, development-tool, palette-builder, and native build labels to revision 278.
+
+## Revision 280 strict test-level fixture policy
+
+- [x] Require every test, smoke run, benchmark, headless check, and release verification that loads a level to use `level_tNN`.
+- [x] Forbid mutable campaign and experimental `level_###` files as verification fixtures even when they currently appear empty.
+- [x] Permit production-style IDs only in isolated parsing and serialization tests that do not load level files.
+- [x] Update generic upgrade-key unit-test examples to use `level_t03`.
+- [x] Advance browser, editor, development-tool, palette-builder, and native labels to revision 280.

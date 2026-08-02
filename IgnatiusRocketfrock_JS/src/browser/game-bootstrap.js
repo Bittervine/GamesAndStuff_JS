@@ -37,6 +37,15 @@ import {
 } from "../shared/game-settings-data.js";
 import { loadStoredGameSettings, saveStoredGameSettings } from "./game-settings-store.js";
 import {
+    DOUBLE_JUMP_PHYSICS_CONSISTENT_APEX,
+    DOUBLE_JUMP_PHYSICS_FIXED_IMPULSE,
+    applyGameTuningValues,
+    createGameTuningOverrides,
+    loadInstalledGameTuning,
+    normalizeGameTuningOverrides,
+    resolveGameTuning
+} from "../shared/game-tuning-data.js";
+import {
     AUTOSAVE_SLOT_ID,
     MANUAL_SAVE_SLOT_IDS,
     createSaveGameRecord,
@@ -91,14 +100,10 @@ const bossName = document.getElementById("boss-name");
 const bossHealthText = document.getElementById("boss-health-text");
 const bossHealthFill = document.getElementById("boss-health-fill");
 const debugEl = document.getElementById("debug");
-const tuningControlsEl = document.getElementById("tuning-controls");
-const tuningJsonEl = document.getElementById("tuning-json");
-const tuningMessageEl = document.getElementById("tuning-message");
 const eventFilterEl = document.getElementById("event-filter");
 const assetGuidesButton = document.getElementById("toggle-asset-guides");
 const puppetGuideButton = document.getElementById("toggle-puppet-guide");
 const debugPanelButton = document.getElementById("toggle-debug-panel");
-const gameTuningButton = document.getElementById("toggle-game-tuning");
 const helpPanelButton = document.getElementById("toggle-help-panel");
 const microProfilerButton = document.getElementById("toggle-micro-profiler");
 const gameplayRecordingButton = document.getElementById("toggle-gameplay-recording");
@@ -106,10 +111,6 @@ const gameplayPlaybackButton = document.getElementById("load-gameplay-playback")
 const gameplayPlaybackFileInput = document.getElementById("gameplay-playback-file");
 const helpPanel = document.getElementById("help-panel");
 const toolLinks = document.getElementById("tool-links");
-const applyTuningJsonButton = document.getElementById("apply-tuning-json");
-const copyTuningJsonButton = document.getElementById("copy-tuning-json");
-const refreshTuningJsonButton = document.getElementById("refresh-tuning-json");
-const tuningPanel = document.getElementById("tuning");
 const loadingScreen = document.getElementById("loading-screen");
 const loadingPercent = document.getElementById("loading-percent");
 const loadingTrack = document.getElementById("loading-track");
@@ -162,10 +163,21 @@ const developmentEnemyGuideInput = document.getElementById("development-enemy-gu
 const developmentDebugPanelInput = document.getElementById("development-debug-panel");
 const developmentDebugLoggingInput = document.getElementById("development-debug-logging");
 const developmentGameTuningButton = document.getElementById("development-game-tuning");
+const gameTuningPanel = document.getElementById("game-tuning-panel");
+const tuningRunSpeedInput = document.getElementById("tuning-run-speed");
+const tuningRunSpeedValue = document.getElementById("tuning-run-speed-value");
+const tuningJumpHeightInput = document.getElementById("tuning-jump-height");
+const tuningJumpHeightValue = document.getElementById("tuning-jump-height-value");
+const tuningGravityInput = document.getElementById("tuning-gravity");
+const tuningGravityValue = document.getElementById("tuning-gravity-value");
+const tuningRocketDamageInput = document.getElementById("tuning-rocket-damage");
+const tuningRocketDamageValue = document.getElementById("tuning-rocket-damage-value");
+const tuningDoubleJumpPhysicsSelect = document.getElementById("tuning-double-jump-physics");
+const tuningResetButton = document.getElementById("tuning-reset");
 const developmentRecordingButton = document.getElementById("development-recording");
 const developmentPlaybackButton = document.getElementById("development-playback");
 
-const GAME_REVISION = "277";
+const GAME_REVISION = "281";
 const START_LEVEL_ID = "level_001";
 const launchParams = new URLSearchParams(window.location.search || "");
 const launchLevelId = normalizeLaunchLevelQuery(launchParams.get("level"), START_LEVEL_ID);
@@ -188,6 +200,12 @@ let displayedLoadingProgress = 0;
 let activeCaveWindow = normalizeCaveWindow(null);
 let renderer;
 const electronWindowBridge = detectElectronWindowBridge(window);
+const storedGameSettings = loadStoredGameSettings();
+const installedGameTuning = await loadInstalledGameTuning({ fallback: DEFAULT_TUNING });
+storedGameSettings.tuningOverrides = normalizeGameTuningOverrides(
+    storedGameSettings.tuningOverrides,
+    installedGameTuning
+);
 let launchPlaybackRecording = null;
 if (launchPlaybackUrl) {
     showLoadingScreen("Loading gameplay recording", 0.01);
@@ -196,7 +214,8 @@ if (launchPlaybackUrl) {
 let gameState = launchPlaybackRecording?.initialState
     ? cloneGameState(launchPlaybackRecording.initialState)
     : createInitialGameState({
-        settings: loadStoredGameSettings(),
+        settings: storedGameSettings,
+        tuning: resolveGameTuning(installedGameTuning, storedGameSettings.tuningOverrides),
         randomSeed: launchPlaybackRecording?.initial?.randomSeed || browserRandomSeed()
     });
 gameState.settings = normalizeGameSettings(gameState.settings);
@@ -283,7 +302,6 @@ let lastInputFrame = createInputFrame();
 let devSingleStepArmed = false;
 const hudRenderCache = Object.create(null);
 let levelTransitionLoading = false;
-const tuningSliders = new Map();
 const microStutterProfiler = new MicroStutterProfiler();
 let updateMicroProfilerControls = () => {};
 let updateGameplayRecordingControls = () => {};
@@ -300,8 +318,6 @@ let debugExceptionAlertActive = false;
 let debugExceptionAlertFilename = "";
 let debugExceptionAlertSummary = "";
 
-setupTuningControls();
-setupTuningJsonControls();
 setupPanelToggleButtons();
 setupTitleScreen();
 setupMinimap();
@@ -1689,8 +1705,10 @@ function setupGameMenuAndSettings() {
     gameMenuLoadButton?.addEventListener("click", () => setGameMenuView("load"));
     gameMenuSettingsButton?.addEventListener("click", () => setGameMenuView("settings"));
     developmentFeaturesButton?.addEventListener("click", () => setGameMenuView("development"));
+    developmentGameTuningButton?.addEventListener("click", () => setGameMenuView("tuning"));
     gameMenuBackButton?.addEventListener("click", () => {
-        if (gameMenuView === "development") setGameMenuView("settings");
+        if (gameMenuView === "tuning") setGameMenuView("development");
+        else if (gameMenuView === "development") setGameMenuView("settings");
         else if (gameMenuView !== "menu" && !titleScreenActive) setGameMenuView("menu");
         else closeGameMenu();
     });
@@ -1701,7 +1719,8 @@ function setupGameMenuAndSettings() {
 
     gameMenuDialog.addEventListener("cancel", (event) => {
         event.preventDefault();
-        if (gameMenuView === "development") setGameMenuView("settings");
+        if (gameMenuView === "tuning") setGameMenuView("development");
+        else if (gameMenuView === "development") setGameMenuView("settings");
         else if (gameMenuView !== "menu" && !titleScreenActive) setGameMenuView("menu");
         else closeGameMenu();
     });
@@ -1749,6 +1768,18 @@ function setupGameMenuAndSettings() {
         updatePersistentGameSettings({ renderingMode });
     });
 
+    tuningRunSpeedInput?.addEventListener("input", () => updateSimpleGameTuning("maxRunSpeed", Number(tuningRunSpeedInput.value)));
+    tuningJumpHeightInput?.addEventListener("input", () => updateSimpleGameTuning("ordinaryJumpHeight", Number(tuningJumpHeightInput.value)));
+    tuningGravityInput?.addEventListener("input", () => updateSimpleGameTuning("gravity", Number(tuningGravityInput.value)));
+    tuningRocketDamageInput?.addEventListener("input", () => updateSimpleGameTuning("rocketProjectileDamage", Number(tuningRocketDamageInput.value)));
+    tuningDoubleJumpPhysicsSelect?.addEventListener("change", () => updateSimpleGameTuning(
+        "doubleJumpPhysics",
+        tuningDoubleJumpPhysicsSelect.value === DOUBLE_JUMP_PHYSICS_CONSISTENT_APEX
+            ? DOUBLE_JUMP_PHYSICS_CONSISTENT_APEX
+            : DOUBLE_JUMP_PHYSICS_FIXED_IMPULSE
+    ));
+    tuningResetButton?.addEventListener("click", resetSimpleGameTuning);
+
     document.addEventListener("fullscreenchange", () => {
         fullscreenActive = Boolean(document.fullscreenElement);
         if (!electronWindowBridge && gameState.settings?.fullscreen !== fullscreenActive) {
@@ -1791,7 +1822,8 @@ function handleMenuAndFullscreenKeydown(event) {
         if (handleGameMenuNavigationKey(event)) return;
         if (event.code === "Escape" && !event.repeat) {
             event.preventDefault();
-            if (gameMenuView === "development") setGameMenuView("settings");
+            if (gameMenuView === "tuning") setGameMenuView("development");
+            else if (gameMenuView === "development") setGameMenuView("settings");
             else if (gameMenuView !== "menu") setGameMenuView("menu");
             else closeGameMenu();
         }
@@ -1815,7 +1847,9 @@ function visibleDialogFocusItems() {
         ? gameSettingsPanel
         : (gameMenuView === "development"
             ? gameDevelopmentPanel
-            : (gameMenuView === "save" || gameMenuView === "load" ? gameSaveSlotsPanel : gameMenuMain));
+            : (gameMenuView === "tuning"
+                ? gameTuningPanel
+                : (gameMenuView === "save" || gameMenuView === "load" ? gameSaveSlotsPanel : gameMenuMain)));
     if (!view) {
         return [];
     }
@@ -2022,6 +2056,7 @@ async function restartCurrentLevel() {
         );
         gameState = createInitialGameState({
             settings: preservedSettings,
+            tuning: resolveGameTuning(installedGameTuning, preservedSettings.tuningOverrides),
             randomSeed: browserRandomSeed(),
             playerProgression: preservedProgression
         });
@@ -2064,8 +2099,7 @@ async function restartCurrentLevel() {
         levelTransitionLoading = false;
         input.clear();
         syncGameSettingsUi();
-        syncSlidersFromTuning();
-        syncTuningJson();
+        syncSimpleGameTuningUi();
         updateHud();
         updateDebugText();
         setLoadingProgress(1, "Level ready");
@@ -2132,37 +2166,44 @@ function handlePageVisibilityChange() {
 }
 
 function setGameMenuView(view) {
-    const validViews = new Set(["menu", "settings", "development", "save", "load"]);
+    const validViews = new Set(["menu", "settings", "development", "tuning", "save", "load"]);
     gameMenuView = validViews.has(view) ? view : "menu";
     saveSlotMode = gameMenuView === "save" ? "save" : "load";
     const inSettings = gameMenuView === "settings";
     const inDevelopment = gameMenuView === "development";
+    const inTuning = gameMenuView === "tuning";
     const inSaveSlots = gameMenuView === "save" || gameMenuView === "load";
     if (gameMenuMain) gameMenuMain.hidden = gameMenuView !== "menu";
     if (gameSettingsPanel) gameSettingsPanel.hidden = !inSettings;
     if (gameDevelopmentPanel) gameDevelopmentPanel.hidden = !inDevelopment;
+    if (gameTuningPanel) gameTuningPanel.hidden = !inTuning;
     if (gameSaveSlotsPanel) gameSaveSlotsPanel.hidden = !inSaveSlots;
 
     const title = gameMenuView === "settings"
         ? "Settings"
         : (gameMenuView === "development"
             ? "Development features"
-            : (gameMenuView === "save" ? "Save Game" : (gameMenuView === "load" ? "Load Game" : (titleScreenActive ? "Menu" : "Paused"))));
+            : (gameMenuView === "tuning"
+                ? "Game tuning"
+                : (gameMenuView === "save" ? "Save Game" : (gameMenuView === "load" ? "Load Game" : (titleScreenActive ? "Menu" : "Paused")))));
     const subtitle = gameMenuView === "settings"
         ? "Tune the machinery without disturbing the cave dust."
         : (gameMenuView === "development"
             ? "Compact guides and diagnostics for testing this build."
-            : (gameMenuView === "save"
-            ? `Current: ${gameState.world?.title || gameState.story?.levelTitle || gameState.world?.levelId || START_LEVEL_ID}. Progress resumes from level start.`
-            : (gameMenuView === "load"
-                ? "Choose a saved level to continue from its checkpoint."
-                : (titleScreenActive ? "Choose where to go next." : "The cave can wait. Probably."))));
+            : (gameMenuView === "tuning"
+                ? "Overrides are saved automatically. Reset returns to resources/config/tuning.json."
+                : (gameMenuView === "save"
+                    ? `Current: ${gameState.world?.title || gameState.story?.levelTitle || gameState.world?.levelId || START_LEVEL_ID}. Progress resumes from level start.`
+                    : (gameMenuView === "load"
+                        ? "Choose a saved level to continue from its checkpoint."
+                        : (titleScreenActive ? "Choose where to go next." : "The cave can wait. Probably.")))));
     if (gameMenuTitle) gameMenuTitle.textContent = title;
     if (gameMenuSubtitle) gameMenuSubtitle.textContent = subtitle;
     if (gameMenuBackButton) gameMenuBackButton.textContent = "BACK";
     if (gameMenuExitTitleButton) gameMenuExitTitleButton.hidden = titleScreenActive;
     if (gameMenuSaveButton) gameMenuSaveButton.hidden = titleScreenActive;
     if (inSaveSlots) syncSaveSlotUi();
+    if (inTuning) syncSimpleGameTuningUi();
     if (isGameMenuOpen()) focusDialogBoundary(false);
 }
 
@@ -2335,14 +2376,6 @@ function setupPanelToggleButtons() {
         }
     };
 
-    const updateGameTuning = () => {
-        const visible = Boolean(tuningPanel && !tuningPanel.hidden);
-        if (gameTuningButton) {
-            gameTuningButton.textContent = `Game tuning: ${visible ? "on" : "off"}`;
-            gameTuningButton.setAttribute("aria-pressed", visible ? "true" : "false");
-        }
-        if (developmentGameTuningButton) developmentGameTuningButton.textContent = visible ? "Close game tuning" : "Game tuning...";
-    };
 
     const updateHelpPanel = () => {
         if (!helpPanelButton || !helpPanel) {
@@ -2434,7 +2467,6 @@ function setupPanelToggleButtons() {
 
 
     debugEl.hidden = true;
-    tuningPanel.hidden = true;
     helpPanel.hidden = true;
 
     assetGuidesButton?.addEventListener("click", () => {
@@ -2450,11 +2482,6 @@ function setupPanelToggleButtons() {
     debugPanelButton?.addEventListener("click", () => {
         debugEl.hidden = !debugEl.hidden;
         updateDebugPanel();
-    });
-
-    gameTuningButton?.addEventListener("click", () => {
-        tuningPanel.hidden = !tuningPanel.hidden;
-        updateGameTuning();
     });
 
     developmentAssetGuidesInput?.addEventListener("change", () => {
@@ -2475,12 +2502,6 @@ function setupPanelToggleButtons() {
     developmentDebugLoggingInput?.addEventListener("change", () => {
         if (developmentDebugLoggingInput.checked) startGameplayDebugLogging("development-menu");
         else stopGameplayDebugLogging("development-menu");
-    });
-
-    developmentGameTuningButton?.addEventListener("click", () => {
-        tuningPanel.hidden = !tuningPanel.hidden;
-        updateGameTuning();
-        closeGameMenu();
     });
 
     helpPanelButton?.addEventListener("click", () => {
@@ -2552,7 +2573,6 @@ function setupPanelToggleButtons() {
     updateAssetGuides();
     updatePuppetGuide();
     updateDebugPanel();
-    updateGameTuning();
     updateHelpPanel();
     updateMicroProfilerControls();
     updateGameplayRecordingControls();
@@ -2959,147 +2979,13 @@ function filteredDebugEvents(events, filterText = "") {
     });
 }
 
-function setupTuningControls() {
-    const controls = [
-        {
-            section: "Temporary enemy multipliers",
-            help: "Melee and ranged enemies are classified by attack mode. These multipliers affect every current and newly spawned monster without changing level data."
-        },
-        { key: "meleeEnemyHealthScale", label: "Melee HP", min: 0.25, max: 8, step: 0.05, format: "multiplier" },
-        { key: "meleeEnemyRunSpeedScale", label: "Melee run speed", min: 0.25, max: 3, step: 0.05, format: "multiplier" },
-        { key: "meleeEnemyAttackRateScale", label: "Melee attack rate", min: 0.1, max: 8, step: 0.1, format: "multiplier" },
-        { key: "rangedEnemyHealthScale", label: "Ranged HP", min: 0.25, max: 8, step: 0.05, format: "multiplier" },
-        { key: "rangedEnemyRunSpeedScale", label: "Ranged run speed", min: 0.25, max: 3, step: 0.05, format: "multiplier" },
-        { key: "rangedEnemyAttackRateScale", label: "Ranged attack rate", min: 0.1, max: 8, step: 0.1, format: "multiplier" },
-        { key: "rangedEnemyProjectileSpeedScale", label: "Ranged projectile speed", min: 0.25, max: 4, step: 0.05, format: "multiplier" },
-        { section: "Existing game tuning" },
-        { key: "gravity", label: "Gravity", min: 800, max: 2200, step: 10 },
-        { key: "ordinaryJumpHeight", label: "Jump height", min: 80, max: 400, step: 5 },
-        { key: "maxRunSpeed", label: "Max run speed", min: 180, max: 620, step: 5 },
-        { key: "groundAcceleration", label: "Ground accel", min: 800, max: 5000, step: 25 },
-        { key: "groundFriction", label: "Ground friction", min: 400, max: 4500, step: 25 },
-        { key: "attachedBoostStartImpulse", label: "Boost kick impulse", min: -900, max: -20, step: 5 },
-        { key: "attachedBoostKickFuelCost", label: "Boost kick fuel cost", min: 0, max: 50, step: 1 },
-        { key: "attachedBoostBurstDuration", label: "Kick/burst charge seconds", min: 0.05, max: 1.2, step: 0.01 },
-        { key: "attachedBoostHoverFallSpeed", label: "Hover slow-fall speed", min: 0, max: 260, step: 2 },
-        { key: "attachedBoostHoverBrakeAcceleration", label: "Hover braking accel", min: 400, max: 7000, step: 50 },
-        { key: "attachedBoostVisualIdlePower", label: "Hover idle exhaust", min: 0.05, max: 1.1, step: 0.05 },
-        { key: "attachedBoostKickVisualPower", label: "Kick puff power", min: 0.2, max: 1.8, step: 0.05 },
-        { key: "attachedBoostSustainVisualPower", label: "Sustain puff power", min: 0.05, max: 1.2, step: 0.05 },
-        { key: "attachedBoostSmokePuffInterval", label: "Attached smoke spacing", min: 0.025, max: 0.18, step: 0.005 },
-        { key: "attachedBoostSmokePuffDownSpeed", label: "Attached smoke down speed", min: 20, max: 900, step: 10 },
-        { key: "attachedBoostSmokePuffSideSpeed", label: "Attached smoke side spread", min: 0, max: 160, step: 4 },
-        { key: "attachedBoostSmokePuffSpeedJitter", label: "Attached smoke speed jitter", min: 0, max: 180, step: 4 },
-        { key: "attachedBoostDrainRate", label: "Boost drain", min: 10, max: 240, step: 2 },
-        { key: "rocketProjectileUpLaunchSeconds", label: "Rocket initial-turn time", min: 0, max: 1.0, step: 0.01 },
-        { key: "rocketProjectileInitialHomingStrength", label: "Initial homing", min: 0, max: 12, step: 0.01 },
-        { key: "rocketProjectileHomingStrength", label: "Normal homing", min: 0, max: 9, step: 0.1 },
-        { key: "rocketProjectileSpeed", label: "Rocket speed", min: 180, max: 920, step: 10 },
-        { key: "rocketProjectileDamage", label: "Rocket damage", min: 0, max: 200, step: 5 },
-        { key: "hazardContactDamage", label: "Hazard contact damage", min: 0, max: 100, step: 1 },
-        { key: "playerDamageInvulnerabilitySeconds", label: "Damage invulnerability", min: 0, max: 2, step: 0.05 },
-        { key: "playerContactDamageInvulnerabilitySeconds", label: "Contact invulnerability", min: 0, max: 2, step: 0.05 },
-        { key: "healthRegenDelay", label: "Health regen delay", min: 0, max: 15, step: 0.25 },
-        { key: "healthRegenRate", label: "Health regen rate", min: 0, max: 30, step: 0.5 },
-        { key: "rocketSmokePuffLifetime", label: "Smoke puff lifetime", min: 0.4, max: 6, step: 0.1 },
-        { key: "rocketSmokePuffSpacing", label: "Smoke puff spacing", min: 2, max: 34, step: 1 },
-        { key: "rocketSmokePuffScale", label: "Smoke puff scale", min: 0.5, max: 2.5, step: 0.05 },
-        { key: "rocketImpactSmokePuffs", label: "Impact smoke puffs", min: 0, max: 60, step: 1 },
-        { key: "rechargeRate", label: "Recharge", min: 10, max: 360, step: 2 },
-        { key: "rocketLaunchCost", label: "Rocket launch cost", min: 0, max: 100, step: 1 },
-        { key: "rocketFuelBulbLowThreshold", label: "Bulb red threshold", min: 0, max: 100, step: 1 },
-        { key: "rocketFuelBulbMediumThreshold", label: "Bulb yellow threshold", min: 0, max: 100, step: 1 },
-        { key: "rocketFuelBulbScale", label: "Bulb scale", min: 0.35, max: 2.4, step: 0.05 },
-        { key: "poseBlendSpeed", label: "Pose blend speed", min: 0, max: 30, step: 0.5 }
-    ];
-
-    for (const spec of controls) {
-        if (spec.section) {
-            const section = document.createElement("div");
-            section.className = "tuning-section";
-            const title = document.createElement("strong");
-            title.textContent = spec.section;
-            section.append(title);
-            if (spec.help) {
-                const help = document.createElement("span");
-                help.textContent = spec.help;
-                section.append(help);
-            }
-            tuningControlsEl.append(section);
-            continue;
-        }
-        const label = document.createElement("label");
-        const name = document.createElement("span");
-        const range = document.createElement("input");
-        const value = document.createElement("span");
-        name.textContent = spec.label;
-        range.type = "range";
-        range.min = spec.min;
-        range.max = spec.max;
-        range.step = spec.step;
-        range.value = gameState.tuning[spec.key] ?? DEFAULT_TUNING[spec.key];
-        value.textContent = formatTuningValue(range.value, spec);
-        range.addEventListener("input", () => {
-            gameState.tuning[spec.key] = Number(range.value);
-            applyTuningSideEffects(spec.key);
-            value.textContent = formatTuningValue(range.value, spec);
-            syncTuningJson();
-            showTuningMessage("");
-        });
-        label.append(name, range, value);
-        tuningControlsEl.append(label);
-        tuningSliders.set(spec.key, { range, value, spec });
-    }
-
-    syncTuningJson();
-}
-
-function setupTuningJsonControls() {
-    if (eventFilterEl) {
-        eventFilterEl.value = gameState.debug.eventFilterText || "";
-        eventFilterEl.addEventListener("input", () => {
-            gameState.debug.eventFilterText = eventFilterEl.value;
-        });
-    }
-
-    refreshTuningJsonButton.addEventListener("click", () => {
-        syncTuningJson();
-        showTuningMessage("JSON refreshed from current tuning.");
-    });
-
-    copyTuningJsonButton.addEventListener("click", async () => {
-        syncTuningJson();
-        try {
-            await navigator.clipboard.writeText(tuningJsonEl.value);
-            showTuningMessage("Tuning JSON copied to clipboard.");
-        } catch (error) {
-            tuningJsonEl.focus();
-            tuningJsonEl.select();
-            showTuningMessage("Clipboard blocked. The JSON is selected for manual copy.");
-        }
-    });
-
-    applyTuningJsonButton.addEventListener("click", () => {
-        try {
-            const parsed = JSON.parse(tuningJsonEl.value);
-            if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") {
-                throw new Error("The tuning JSON must be an object.");
-            }
-            Object.assign(gameState.tuning, parsed);
-            for (const key of Object.keys(parsed)) {
-                applyTuningSideEffects(key);
-            }
-            syncSlidersFromTuning();
-            syncTuningJson();
-            showTuningMessage("Applied tuning JSON.");
-        } catch (error) {
-            showTuningMessage(`Could not apply JSON:
-${error.message}`);
-        }
-    });
-}
-
 function applyTuningSideEffects(key) {
+    if (key === "gravity" || key === "ordinaryJumpHeight") {
+        gameState.tuning.jumpVelocity = -Math.sqrt(
+            2 * Math.max(1, Number(gameState.tuning.gravity) || 1)
+            * Math.max(1, Number(gameState.tuning.ordinaryJumpHeight) || 1)
+        );
+    }
     if (key === "maxRunSpeed") {
         applyPlayerProgression(gameState);
         const speedLimit = gameState.tuning.maxRunSpeed * (gameState.playerStats?.movementSpeedScale || 1);
@@ -3117,29 +3003,57 @@ function applyTuningSideEffects(key) {
     gameState.clock.fixedDt = gameState.tuning.timestep || FIXED_DT;
 }
 
-function syncTuningJson() {
-    tuningJsonEl.value = JSON.stringify(gameState.tuning, null, 4);
+function persistCurrentGameTuning() {
+    const tuningOverrides = createGameTuningOverrides(gameState.tuning, installedGameTuning);
+    gameState.settings = saveStoredGameSettings({
+        ...normalizeGameSettings(gameState.settings),
+        tuningOverrides
+    });
 }
 
-function syncSlidersFromTuning() {
-    for (const [key, refs] of tuningSliders) {
-        const value = gameState.tuning[key] ?? DEFAULT_TUNING[key];
-        refs.range.value = value;
-        refs.value.textContent = formatTuningValue(value, refs.spec);
-        applyTuningSideEffects(key);
+function updateSimpleGameTuning(key, value) {
+    const resolved = applyGameTuningValues(gameState.tuning, { [key]: value });
+    gameState.tuning[key] = resolved[key];
+    applyTuningSideEffects(key);
+    persistCurrentGameTuning();
+    syncSimpleGameTuningUi();
+}
+
+function resetSimpleGameTuning() {
+    const previousHealthMax = Math.max(1, Number(gameState.health?.max) || 1);
+    const previousFuelMax = Math.max(1, Number(gameState.fuel?.max) || 1);
+    gameState.tuning = { ...gameState.tuning, ...installedGameTuning };
+    for (const key of Object.keys(installedGameTuning)) applyTuningSideEffects(key);
+    applyPlayerProgression(gameState);
+    if (gameState.health) {
+        const healthFraction = Math.max(0, Math.min(1, (Number(gameState.health.amount) || 0) / previousHealthMax));
+        gameState.health.amount = gameState.health.max * healthFraction;
     }
-}
-
-function showTuningMessage(message) {
-    tuningMessageEl.textContent = message;
-}
-
-function formatTuningValue(value, spec = null) {
-    const n = Number(value);
-    if (spec?.format === "multiplier") {
-        return `${n.toFixed(2).replace(/\.?0+$/, "")}×`;
+    if (gameState.fuel) {
+        const fuelFraction = Math.max(0, Math.min(1, (Number(gameState.fuel.amount) || 0) / previousFuelMax));
+        gameState.fuel.amount = gameState.fuel.max * fuelFraction;
     }
-    return Number.isInteger(n) ? String(n) : n.toFixed(1);
+    gameState.settings = saveStoredGameSettings({
+        ...normalizeGameSettings(gameState.settings),
+        tuningOverrides: {}
+    });
+    syncSimpleGameTuningUi();
+}
+
+function syncSimpleGameTuningUi() {
+    if (tuningRunSpeedInput) tuningRunSpeedInput.value = String(gameState.tuning.maxRunSpeed);
+    if (tuningRunSpeedValue) tuningRunSpeedValue.textContent = String(Math.round(gameState.tuning.maxRunSpeed));
+    if (tuningJumpHeightInput) tuningJumpHeightInput.value = String(gameState.tuning.ordinaryJumpHeight);
+    if (tuningJumpHeightValue) tuningJumpHeightValue.textContent = String(Math.round(gameState.tuning.ordinaryJumpHeight));
+    if (tuningGravityInput) tuningGravityInput.value = String(gameState.tuning.gravity);
+    if (tuningGravityValue) tuningGravityValue.textContent = String(Math.round(gameState.tuning.gravity));
+    if (tuningRocketDamageInput) tuningRocketDamageInput.value = String(gameState.tuning.rocketProjectileDamage);
+    if (tuningRocketDamageValue) tuningRocketDamageValue.textContent = String(Math.round(gameState.tuning.rocketProjectileDamage));
+    if (tuningDoubleJumpPhysicsSelect) {
+        tuningDoubleJumpPhysicsSelect.value = gameState.tuning.doubleJumpPhysics === DOUBLE_JUMP_PHYSICS_CONSISTENT_APEX
+            ? DOUBLE_JUMP_PHYSICS_CONSISTENT_APEX
+            : DOUBLE_JUMP_PHYSICS_FIXED_IMPULSE;
+    }
 }
 
 async function exportState() {
@@ -3178,6 +3092,7 @@ window.__rocketfrockDev = {
     reset() {
         gameState = createInitialGameState({
             settings: gameState.settings,
+            tuning: resolveGameTuning(installedGameTuning, gameState.settings?.tuningOverrides),
             enemyCatalog: gameState.enemyCatalog,
             playerProgression: gameState.playerProgression
         });
@@ -3193,9 +3108,10 @@ window.__rocketfrockDev = {
         renderer.forcePhase = phase;
     },
     setTuning(nextTuning) {
-        Object.assign(gameState.tuning, nextTuning);
-        syncSlidersFromTuning();
-        syncTuningJson();
+        gameState.tuning = applyGameTuningValues(gameState.tuning, nextTuning);
+        for (const key of Object.keys(nextTuning || {})) applyTuningSideEffects(key);
+        persistCurrentGameTuning();
+        syncSimpleGameTuningUi();
     },
     clearForcedPhase() {
         renderer.forcePhase = null;

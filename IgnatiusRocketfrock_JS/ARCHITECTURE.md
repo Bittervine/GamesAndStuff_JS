@@ -952,7 +952,7 @@ In `src/core/simulation.js`, grounded enemy body occupancy distinguishes one-way
 
 `src/core/simulation.js` treats `ordinaryJumpHeight` and `gravity` as the only authored ordinary-jump parameters. `ordinaryJumpVelocity(gravity, height)` derives the internal launch velocity; state initialization no longer accepts a raw `jumpVelocity` override. During an unboosted ordinary jump, vertical displacement uses the constant-acceleration equation rather than semi-implicit Euler integration. A step that crosses zero vertical velocity is divided at the analytical apex: collision is swept upward to that exact point, `PLAYER_JUMP_APEX` is recorded, and the remaining portion is swept downward. Ceiling contact, landing, reset, and rocket boost leave the analytical ordinary-jump mode immediately. Consequently the open-air apex is exactly 200 world pixels at 30, 60, or 120 Hz while gravity remains 1,490.
 
-`src/browser/game-bootstrap.js` exposes the authored jump height in Game Tuning rather than a timestep-sensitive raw launch velocity. Rocket launch steering remains a separate gameplay contract; its launch-only homing value is 6.7 after recalibration against the exact 200-pixel apex fixture.
+Both presentation adapters expose the authored jump height in their compact Game tuning submenu rather than a timestep-sensitive raw launch velocity. Rocket launch steering remains a separate gameplay contract; its launch-only homing value is 6.7 after recalibration against the exact 200-pixel apex fixture.
 
 ### Route-scaled rewards and vertical platform separation
 
@@ -1332,7 +1332,7 @@ Gameplay balance experiments use seven neutral multipliers in `DEFAULT_TUNING`: 
 
 The authored enemy values remain authoritative. Health stores an unscaled `tuningBaseMaxHealth` and an applied scale so changing the slider can preserve the current health percentage of already living enemies. Run speed and projectile launch speed are multiplied only when consumed. Attack rate changes the rate at which attack wind-up, attack animations, post-attack cooldowns, and bomber drop timers advance, so a factor of 2 represents approximately twice the complete attack cadence rather than merely shortening one recovery delay.
 
-The browser Game tuning panel exposes these as temporary multiplier sliders. Defaults are exactly `1`, serialization keeps the chosen test values, and level/catalog JSON is not rewritten. After balance testing, the accepted factors can be baked into each enemy definition and level override, then the multipliers can be reset to `1` or removed without changing the resulting gameplay.
+The seven multipliers are shared project-wide values in `resources/config/tuning.json`. Defaults are exactly `1`, and level/catalog JSON is not rewritten. They are intentionally omitted from the compact user override menu; project-wide experiments edit the installed file, while per-enemy final values remain in character and level data.
 
 
 ## Revision 328 browser identity and enemy namespace notes
@@ -2362,3 +2362,11 @@ The builder is an explicit offline authoring surface. It may decode every atlas 
 ## Revision 277 level-scoped runtime resources
 
 Browser and native startup derive required enemy character projects from direct placements, enabled automatic-spawn pools, and active enemy spawners through equivalent `collectLevelEnemyCharacterIds` logic. Level transitions load every newly required character project and environment atlas before releasing resources that the incoming level does not reference, so shared dependencies survive without a decode/re-upload cycle. The browser also releases resident WebGL textures and rebuilds character sound pools; SDL destroys unused GPU atlases, character projects, and character-specific sound effects after the replacement set is ready. Player resources remain permanently resident.
+
+## Revision 278 shared tuning and double-jump launch models
+
+`resources/config/tuning.json` is the single installed gameplay-tuning source shared by the browser and SDL ports. Both loaders begin with matching compiled emergency defaults, apply the versioned JSON, then apply a sparse per-user `tuningOverrides` object. Browser overrides live in localStorage; SDL overrides live in its profile `settings.json`. Reset clears only the sparse overrides and resolves the installed file again. Every exposed JSON field is consumed by both simulation implementations, and regression tests compare the file against both emergency-default structures.
+
+The compact Game tuning submenu is now presentation-parity rather than browser-specific tooling. It exposes player run speed, ordinary jump height, gravity, rocket damage, and `doubleJumpPhysics`; changes persist immediately in both ports. The retired floating browser panel and editable full-state JSON controls no longer ship. Recordings capture the complete resolved tuning object, so deterministic playback is insulated from later edits to the installed file or user profile. Save games do not own tuning.
+
+`doubleJumpPhysics = fixedImpulse` preserves the legacy rocket kick: the configured impulse is added after clamping downward velocity. `consistentApex` computes an energy-preserving launch while rising, `v_new = -sqrt(v_y^2 + 2 g H)`, where `H` is the ordinary jump height. At zero or downward velocity it uses `v_new = -sqrt(2 g H)`. Thus activation anywhere on an undisturbed ascent reaches `2H` above takeoff, while activation during descent cancels the fall and begins one fresh ordinary-height jump. Held attached-boost hovering remains unchanged.

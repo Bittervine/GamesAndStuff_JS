@@ -4649,3 +4649,7 @@ Revision 276 documents the immutable baseline-ZIP workflow and the Linux timesta
 ## Revision 277 level-scoped runtime asset residency
 
 Revision 277 ports the native enemy dependency scan to the browser startup and level-transition path. Both runtimes now determine the incoming level's direct enemies, enabled automatic enemy pools, and active enemy spawners before synchronizing character projects. Missing resources load first; enemy projects, character-specific sounds, and environment atlases absent from the incoming dependency set are released only after the new set is ready. Shared SDL atlases remain resident when both their manifest path and level colour treatment are unchanged, while browser WebGL textures are explicitly invalidated when their owning project or atlas is evicted.
+
+## Revision 280 strict test-level fixture policy
+
+Revision 280 closes a verification-policy loophole discovered after a headless smoke run used mutable campaign `level_003` because it happened to contain no enemies. Any automated or manual verification that loads a level must now use a reserved `level_tNN` fixture, including unit, integration, smoke, headless, performance, benchmark, and release-gate runs. Ordinary `level_###` identifiers remain permissible only in isolated parser or serializer tests that do not open those files. The project and reference agent contracts plus the Developer Manual now state the stronger rule explicitly, and generic upgrade-key unit-test examples use `level_t03`.

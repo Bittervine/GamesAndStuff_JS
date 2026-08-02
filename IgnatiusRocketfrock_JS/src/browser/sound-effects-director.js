@@ -57,6 +57,7 @@ export function createSoundEffectsDirector({ baseUrl = "resources/", volume = 0.
     let characterEffects = new Map();
     let dynamicEffects = new Map();
     const pools = new Map();
+    const pendingEffects = new Set();
     let processedEvents = new WeakSet();
 
     function resolvedBaseUrl() {
@@ -187,6 +188,13 @@ export function createSoundEffectsDirector({ baseUrl = "resources/", volume = 0.
         }
     }
 
+    function flushPendingEffects() {
+        if (!unlocked || disposed || muted || masterVolume <= 0 || pendingEffects.size <= 0) return;
+        const queued = [...pendingEffects];
+        pendingEffects.clear();
+        for (const effectId of queued) play(effectId);
+    }
+
     function play(effectId) {
         if (disposed || muted || masterVolume <= 0) return false;
         const pool = pools.get(effectId);
@@ -198,7 +206,21 @@ export function createSoundEffectsDirector({ baseUrl = "resources/", volume = 0.
         }
         voice.volume = voiceGain(pool);
         try { voice.currentTime = 0; } catch {}
-        void Promise.resolve(voice.play?.()).then(() => { unlocked = true; }).catch(() => {});
+        try {
+            void Promise.resolve(voice.play?.()).then(() => {
+                const wasUnlocked = unlocked;
+                unlocked = true;
+                if (!wasUnlocked) flushPendingEffects();
+            }).catch(() => {
+                // A one-shot can be emitted during the same gesture that is still
+                // unlocking browser audio. Keep one pending cue per effect so the
+                // event is not permanently lost when that first play is blocked.
+                if (!unlocked) pendingEffects.add(effectId);
+            });
+        } catch {
+            if (!unlocked) pendingEffects.add(effectId);
+            return false;
+        }
         return true;
     }
 
@@ -270,6 +292,7 @@ export function createSoundEffectsDirector({ baseUrl = "resources/", volume = 0.
             first.pause?.();
             first.currentTime = 0;
             unlocked = true;
+            flushPendingEffects();
         } catch {}
         first.volume = previousVolume;
         return unlocked;
@@ -283,12 +306,16 @@ export function createSoundEffectsDirector({ baseUrl = "resources/", volume = 0.
         processEvents,
         processState,
         unlock,
-        reset() { processedEvents = new WeakSet(); },
+        reset() {
+            processedEvents = new WeakSet();
+            pendingEffects.clear();
+        },
         setVolume(value) { masterVolume = clamp01(value); updateVoiceVolumes(); },
         setMuted(value) { muted = Boolean(value); updateVoiceVolumes(); },
         isUnlocked() { return unlocked; },
         dispose() {
             disposed = true;
+            pendingEffects.clear();
             catalog = { effects: {} };
             characterSounds = new Map();
             rebuildCharacterEffects();

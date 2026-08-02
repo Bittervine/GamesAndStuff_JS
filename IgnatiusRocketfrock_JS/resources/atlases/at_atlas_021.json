@@ -1,202 +1,270 @@
 {
-  "meta": {
-    "version": 1,
-    "note": "Atlas 021 forest rock cliffs. Broad green shelves use centered one-way walkable lines for forest terrain."
-  },
-  "atlasId": "at_atlas_021",
-  "image": "at_atlas_021.png",
-  "frames": {
-    "forest_rock_cliff_021_a": {
-      "x": 32,
-      "y": 31,
-      "w": 1485,
-      "h": 431
+    "meta": {
+        "version": 4,
+        "note": "Atlas 021 forest rock cliffs. Broad green shelves use centered one-way walkable lines for forest terrain."
     },
-    "forest_rock_cliff_021_b": {
-      "x": 33,
-      "y": 531,
-      "w": 1470,
-      "h": 414
-    }
-  },
-  "objects": {
-    "forest_rock_cliff_021_a": {
-      "id": "forest_rock_cliff_021_a",
-      "frame": "forest_rock_cliff_021_a",
-      "type": "platform",
-      "layer": "terrain",
-      "mirrorable": true,
-      "defaultScale": 1,
-      "pivot": {
-        "x": 0.5,
-        "y": 1
-      },
-      "destroyable": false,
-      "targetableByRocket": false,
-      "destroy": {
-        "hp": 1,
-        "explosionRadius": 64,
-        "fadeToBlackSeconds": 0.18,
-        "removeAfterSeconds": 0.22
-      },
-      "tags": [
-        "forest",
-        "rock",
-        "cliff",
-        "terrain",
-        "walkable",
-        "platform"
-      ],
-      "notes": "Broad grassy shelves use centered one-way walkable lines; the illustrated cliff body remains visual terrain.",
-      "nodes": [
-        {
-          "id": "n1",
-          "x": 68,
-          "y": 34
+    "atlasId": "at_atlas_021",
+    "image": "at_atlas_021.png",
+    "frames": {
+        "forest_rock_cliff_021_a": {
+            "x": 32,
+            "y": 31,
+            "w": 1485,
+            "h": 431
         },
-        {
-          "id": "n2",
-          "x": 1008,
-          "y": 34
-        },
-        {
-          "id": "n3",
-          "x": 548,
-          "y": 179
-        },
-        {
-          "id": "n4",
-          "x": 1003,
-          "y": 179
-        },
-        {
-          "id": "n5",
-          "x": 1028,
-          "y": 129
-        },
-        {
-          "id": "n6",
-          "x": 1338,
-          "y": 129
-        },
-        {
-          "id": "n7",
-          "x": 1188,
-          "y": 299
-        },
-        {
-          "id": "n8",
-          "x": 1433,
-          "y": 299
+        "forest_rock_cliff_021_b": {
+            "x": 33,
+            "y": 531,
+            "w": 1470,
+            "h": 414
         }
-      ],
-      "lines": [
-        {
-          "id": "walkable_1",
-          "kind": "walkable",
-          "from": "n1",
-          "to": "n2",
-          "tags": []
-        },
-        {
-          "id": "walkable_2",
-          "kind": "walkable",
-          "from": "n3",
-          "to": "n4",
-          "tags": []
-        },
-        {
-          "id": "walkable_3",
-          "kind": "walkable",
-          "from": "n5",
-          "to": "n6",
-          "tags": []
-        },
-        {
-          "id": "walkable_4",
-          "kind": "walkable",
-          "from": "n7",
-          "to": "n8",
-          "tags": []
-        }
-      ],
-      "generationTags": [
-        "biome.forest",
-        "layer.terrain",
-        "capability.platform"
-      ]
     },
-    "forest_rock_cliff_021_b": {
-      "id": "forest_rock_cliff_021_b",
-      "frame": "forest_rock_cliff_021_b",
-      "type": "platform",
-      "layer": "terrain",
-      "mirrorable": true,
-      "defaultScale": 1,
-      "pivot": {
-        "x": 0.5,
-        "y": 1
-      },
-      "destroyable": false,
-      "targetableByRocket": false,
-      "destroy": {
-        "hp": 1,
-        "explosionRadius": 64,
-        "fadeToBlackSeconds": 0.18,
-        "removeAfterSeconds": 0.22
-      },
-      "tags": [
-        "forest",
-        "rock",
-        "cliff",
-        "terrain",
-        "walkable",
-        "platform"
-      ],
-      "notes": "Broad grassy shelves use centered one-way walkable lines; the illustrated cliff body remains visual terrain.",
-      "nodes": [
-        {
-          "id": "n1",
-          "x": 67,
-          "y": 39
+    "objects": {
+        "forest_rock_cliff_021_a": {
+            "id": "forest_rock_cliff_021_a",
+            "frame": "forest_rock_cliff_021_a",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "forest",
+                "rock",
+                "cliff",
+                "terrain",
+                "walkable",
+                "platform"
+            ],
+            "notes": "Broad grassy shelves use centered one-way walkable lines; the illustrated cliff body remains visual terrain.",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 59,
+                    "y": 34
+                },
+                {
+                    "id": "n2",
+                    "x": 1027,
+                    "y": 33
+                },
+                {
+                    "id": "n3",
+                    "x": 540,
+                    "y": 175
+                },
+                {
+                    "id": "n4",
+                    "x": 1126,
+                    "y": 181
+                },
+                {
+                    "id": "n5",
+                    "x": 991,
+                    "y": 131
+                },
+                {
+                    "id": "n6",
+                    "x": 1356,
+                    "y": 128
+                },
+                {
+                    "id": "n7",
+                    "x": 1194,
+                    "y": 316
+                },
+                {
+                    "id": "n8",
+                    "x": 1455,
+                    "y": 286
+                },
+                {
+                    "id": "n9",
+                    "x": 488,
+                    "y": 249
+                },
+                {
+                    "id": "n10",
+                    "x": 569,
+                    "y": 255
+                },
+                {
+                    "id": "n11",
+                    "x": 600,
+                    "y": 354
+                },
+                {
+                    "id": "n12",
+                    "x": 680,
+                    "y": 356
+                },
+                {
+                    "id": "n13",
+                    "x": 156,
+                    "y": 285
+                },
+                {
+                    "id": "n14",
+                    "x": 227,
+                    "y": 288
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_4",
+                    "kind": "walkable",
+                    "from": "n7",
+                    "to": "n8",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_5",
+                    "kind": "walkable",
+                    "from": "n9",
+                    "to": "n10",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_6",
+                    "kind": "walkable",
+                    "from": "n11",
+                    "to": "n12",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_7",
+                    "kind": "walkable",
+                    "from": "n13",
+                    "to": "n14",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.forest",
+                "layer.terrain",
+                "capability.platform"
+            ]
         },
-        {
-          "id": "n2",
-          "x": 937,
-          "y": 39
-        },
-        {
-          "id": "n3",
-          "x": 737,
-          "y": 179
-        },
-        {
-          "id": "n4",
-          "x": 1287,
-          "y": 179
+        "forest_rock_cliff_021_b": {
+            "id": "forest_rock_cliff_021_b",
+            "frame": "forest_rock_cliff_021_b",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "forest",
+                "rock",
+                "cliff",
+                "terrain",
+                "walkable",
+                "platform"
+            ],
+            "notes": "Broad grassy shelves use centered one-way walkable lines; the illustrated cliff body remains visual terrain.",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 55,
+                    "y": 34
+                },
+                {
+                    "id": "n2",
+                    "x": 982,
+                    "y": 36
+                },
+                {
+                    "id": "n3",
+                    "x": 747,
+                    "y": 181
+                },
+                {
+                    "id": "n4",
+                    "x": 1309,
+                    "y": 172
+                },
+                {
+                    "id": "n5",
+                    "x": 150,
+                    "y": 238
+                },
+                {
+                    "id": "n6",
+                    "x": 239,
+                    "y": 244
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.forest",
+                "layer.terrain",
+                "capability.platform"
+            ]
         }
-      ],
-      "lines": [
-        {
-          "id": "walkable_1",
-          "kind": "walkable",
-          "from": "n1",
-          "to": "n2",
-          "tags": []
-        },
-        {
-          "id": "walkable_2",
-          "kind": "walkable",
-          "from": "n3",
-          "to": "n4",
-          "tags": []
-        }
-      ],
-      "generationTags": [
-        "biome.forest",
-        "layer.terrain",
-        "capability.platform"
-      ]
     }
-  }
 }

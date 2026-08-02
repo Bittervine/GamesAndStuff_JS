@@ -279,8 +279,9 @@
             <li><strong>Software regular</strong> uses Canvas2D with pixmap pyramids and live scenery.</li>
             <li><strong>Software + speedhack</strong> uses Canvas2D with pixmap pyramids and baked scenery tiles.</li>
             <li><strong>Development features...</strong> opens optional testing aids: Asset guides, Enemy guide, Game tuning, Recording, Playback, a compact Debug panel, and Debug logging.</li>
+            <li><strong>Game tuning</strong> provides matching compact controls in both versions for run speed, jump height, gravity, rocket damage, and Double jump physics. <em>Fixed impulse</em> adds the rocket kick to current vertical momentum. <em>Consistent apex</em> reaches the same total height when activated during ascent, or cancels a fall and begins a fresh jump. Changes are saved automatically for the current user; Reset returns to the installed <code>resources/config/tuning.json</code>.</li>
         </ul>
-        <p>Development features are disabled by default and apply only to the current run. Asset guides show walkable geometry in green and blocking geometry in yellow. Enemy guide shows enemy hitboxes, awareness fields, and AI states. Debug logging records one structured snapshot per second while enabled; SDL writes under <code>logs/</code>, while the browser downloads the collected log when logging is switched off.</p>
+        <p>Most development features apply only to the current run. Game-tuning overrides are the exception and remain saved until Reset is selected. Asset guides show walkable geometry in green and blocking geometry in yellow. Enemy guide shows enemy hitboxes, awareness fields, and AI states. Debug logging records one structured snapshot per second while enabled; SDL writes under <code>logs/</code>, while the browser downloads the collected log when logging is switched off.</p>
         <p>Rendering-mode changes take effect after the game is reloaded. Explicit development URL options may still override the saved browser renderer while testing.</p>
 
         <h2>Ranged enemy attacks</h2>
