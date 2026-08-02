@@ -84,6 +84,49 @@ export function resolveAutoSpawnEnemyIds(config, catalog) {
     return parseEnemySelection(normalizedConfig.enemyPool, Object.keys(normalizedCatalog.enemies));
 }
 
+export function collectLevelEnemyCharacterIds(level, catalog) {
+    const source = level && typeof level === "object" ? level : {};
+    const normalizedCatalog = normalizeEnemyDefinitionCatalog(catalog);
+    const characterIds = new Set();
+    const addEnemyPool = (config) => {
+        for (const enemyId of resolveAutoSpawnEnemyIds(config, catalog).resolvedIds) {
+            const characterId = String(normalizedCatalog.enemies[enemyId]?.characterId || "").trim();
+            if (characterId) characterIds.add(characterId);
+        }
+    };
+
+    const entities = Array.isArray(source.entities)
+        ? source.entities
+        : Array.isArray(source.world?.entities)
+            ? source.world.entities
+            : [];
+    for (const entity of entities) {
+        if (!entity || typeof entity !== "object" || Array.isArray(entity)) continue;
+        const type = String(entity.type || "");
+        if (type === "characterEnemy" || normalizedCatalog.enemies[type]) {
+            let characterId = String(entity.characterId || entity.characterProject || "").trim();
+            if (!characterId) {
+                const enemyCatalogId = String(entity.enemyCatalogId || type).trim();
+                characterId = String(normalizedCatalog.enemies[enemyCatalogId]?.characterId || "").trim();
+            }
+            if (characterId) characterIds.add(characterId);
+        } else if (type === "enemySpawner") {
+            const spawner = normalizeEnemySpawner(entity);
+            if (spawner.probabilityPercent > 0) addEnemyPool(entity);
+        }
+    }
+
+    const autoSpawnSource = source.autoSpawnEnemies && typeof source.autoSpawnEnemies === "object"
+        ? source.autoSpawnEnemies
+        : source.world?.autoSpawnEnemies;
+    if (autoSpawnSource && typeof autoSpawnSource === "object") {
+        const autoSpawn = normalizeAutoSpawnEnemies(autoSpawnSource);
+        if (autoSpawn.enabled && autoSpawn.probabilityPercent > 0) addEnemyPool(autoSpawnSource);
+    }
+
+    return [...characterIds].sort();
+}
+
 export function enemyEntityFromDefinition(catalog, enemyId, overrides = {}) {
     const normalizedCatalog = normalizeEnemyDefinitionCatalog(catalog);
     const definition = normalizedCatalog.enemies[String(enemyId)];

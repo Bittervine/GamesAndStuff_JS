@@ -1311,6 +1311,31 @@ function editorEntityVisuals(entity) {
     return [];
 }
 
+const PICKUP_ENTITY_TYPES = new Set([
+    "fuel",
+    "fuelPickup",
+    "overdrivePickup",
+    "shieldPickup",
+    "wrenchPickup",
+    "randomWrenchPickup",
+    "ornateKeyPickup",
+    "ironKeyPickup",
+    "magicRingPickup",
+    PLAYER_UPGRADE_KINDS.HEALTH,
+    PLAYER_UPGRADE_KINDS.FUEL,
+    PLAYER_UPGRADE_KINDS.REGEN,
+    PLAYER_UPGRADE_KINDS.SPEED,
+    "pickup"
+]);
+
+function isPickupEntity(entity) {
+    if (!entity || typeof entity !== "object") return false;
+    return Boolean(entity.pickupKind)
+        || Boolean(entity.effectId)
+        || Array.isArray(entity.randomEffectIds)
+        || PICKUP_ENTITY_TYPES.has(String(entity.type || ""));
+}
+
 function editorEntityVisualToWorld(entity, visual, index, stateName = entity.state || "") {
     const baseW = Math.max(1, Number(entity.w) || 42);
     const baseH = Math.max(1, Number(entity.h) || 80);
@@ -1340,7 +1365,8 @@ function editorEntityVisualToWorld(entity, visual, index, stateName = entity.sta
         collisionFromManifest: entity.collisionFromManifest !== false && visual.collisionFromManifest !== false,
         entityId: entity.id || "",
         entityType: entity.type || "",
-        entityState: stateName || ""
+        entityState: stateName || "",
+        pickupPresentation: isPickupEntity(entity)
     };
 }
 
@@ -3672,25 +3698,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
     );
     state.enemies = characterEnemies;
 
-    const pickupLike = (entity) => {
-        const type = String(entity.type || "");
-        return Boolean(entity.pickupKind) || Boolean(entity.effectId) || Array.isArray(entity.randomEffectIds) || [
-            "fuel",
-            "fuelPickup",
-            "overdrivePickup",
-            "shieldPickup",
-            "wrenchPickup",
-            "randomWrenchPickup",
-            "ornateKeyPickup",
-            "ironKeyPickup",
-            "magicRingPickup",
-            PLAYER_UPGRADE_KINDS.HEALTH,
-            PLAYER_UPGRADE_KINDS.FUEL,
-            PLAYER_UPGRADE_KINDS.REGEN,
-            PLAYER_UPGRADE_KINDS.SPEED
-        ].includes(type);
-    };
-    state.pickups = runtimeEntities.filter(pickupLike).map((entity, index) => {
+    state.pickups = runtimeEntities.filter(isPickupEntity).map((entity, index) => {
         const type = String(entity.type || "");
         const isWrenchPickup = type === "wrenchPickup" || type === "randomWrenchPickup";
         const authoredEffectId = isWrenchPickup
@@ -6521,14 +6529,31 @@ function chooseCharacterEnemyLastSeenPlan(state, enemy, navigation) {
     );
 }
 
-function characterEnemyReachedNavigationTarget(enemy, navigation, tolerance = 3) {
+function characterEnemyNavigationTargetPoint(enemy, navigation) {
     if (!enemy.routeTargetSupportId || !Number.isFinite(Number(enemy.routeTargetX))) {
+        return null;
+    }
+    const targetSupport = navigationSupportById(navigation.supports, enemy.routeTargetSupportId) ||
+        navigation.current?.support || null;
+    if (!targetSupport) {
+        return null;
+    }
+    return supportPoint(
+        targetSupport,
+        Number(enemy.routeTargetX),
+        Math.max(4, enemy.width * 0.3)
+    );
+}
+
+function characterEnemyReachedNavigationTarget(enemy, navigation, tolerance = 3) {
+    const targetPoint = characterEnemyNavigationTargetPoint(enemy, navigation);
+    if (!targetPoint) {
         return false;
     }
     const currentSupportId = navigation.current?.support?.id || enemy.currentSupportId;
     return currentSupportId === enemy.routeTargetSupportId &&
         enemy.routeIndex >= (enemy.route?.length || 0) &&
-        Math.abs(enemy.currentTransform.x - Number(enemy.routeTargetX)) <= Math.max(0.5, tolerance);
+        Math.abs(enemy.currentTransform.x - targetPoint.x) <= Math.max(0.5, tolerance);
 }
 
 function updateCharacterEnemyLastSeenInvestigation(state, enemy, navigation, dt, options = {}) {
@@ -7096,13 +7121,10 @@ function followCharacterEnemyNavigationPlan(state, enemy, navigation, dt) {
         return true;
     }
 
-    const targetSupport = navigationSupportById(navigation.supports, enemy.routeTargetSupportId) || current;
-    const routeTargetX = Number(enemy.routeTargetX);
-    const finalPoint = supportPoint(
-        targetSupport,
-        Number.isFinite(routeTargetX) ? routeTargetX : enemy.currentTransform.x,
-        Math.max(4, enemy.width * 0.3)
-    );
+    const finalPoint = characterEnemyNavigationTargetPoint(enemy, navigation);
+    if (!finalPoint) {
+        return false;
+    }
     const finalMovementPhase = enemy.routePurpose === "return_home"
         ? "return_home"
         : enemy.routePurpose === "last_seen"
@@ -7629,10 +7651,15 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
                 return;
             }
         }
-        const atHome = enemy.homeSupportId === navigation.current?.support?.id && Math.abs(enemy.currentTransform.x - enemy.spawnX) <= 6;
+        const homeSupport = navigationSupportById(navigation.supports, enemy.homeSupportId);
+        const homePoint = homeSupport
+            ? supportPoint(homeSupport, enemy.spawnX, Math.max(4, enemy.width * 0.3))
+            : null;
+        const atHome = homePoint && enemy.homeSupportId === navigation.current?.support?.id &&
+            Math.abs(enemy.currentTransform.x - homePoint.x) <= 6;
         if (atHome) {
-            enemy.currentTransform.x = enemy.spawnX;
-            enemy.currentTransform.y = navigation.current?.y ?? enemy.currentTransform.y;
+            enemy.currentTransform.x = homePoint.x;
+            enemy.currentTransform.y = homePoint.y;
             enemy.aiState = "patrol";
             enemy.movementPhase = "idle";
             enemy.phaseTimer = Math.max(0, Number(enemy.idleDuration) || 0);
@@ -8452,13 +8479,13 @@ function updateCharacterEnemies(state, dt) {
 function caveBoundaryParallaxOffset(state) {
     const bounds = state.world?.bounds || {};
     const camera = state.camera?.currentTransform || state.camera || {};
-    const parallax = clamp(Number(state.world?.layerVisuals?.foreground?.parallax) || 1, 1, 1.25);
-    const extraScroll = parallax - 1;
+    const parallaxX = clamp(Number(state.world?.layerVisuals?.foreground?.parallaxX) || 1, 0.01, 1.25);
+    const parallaxY = clamp(Number(state.world?.layerVisuals?.foreground?.parallaxY) || 1, 0.01, 1.25);
     const worldCenterX = (Number(bounds.x) || 0) + Math.max(0, Number(bounds.w) || 0) * 0.5;
     const worldCenterY = (Number(bounds.y) || 0) + Math.max(0, Number(bounds.h) || 0) * 0.5;
     return {
-        x: ((Number(camera.x) || 0) - worldCenterX) * extraScroll,
-        y: ((Number(camera.y) || 0) - worldCenterY) * extraScroll
+        x: ((Number(camera.x) || 0) - worldCenterX) * (parallaxX - 1),
+        y: ((Number(camera.y) || 0) - worldCenterY) * (parallaxY - 1)
     };
 }
 
@@ -8557,6 +8584,7 @@ function applyPlayerWorldBoundsKill(state) {
         !bounds || ![bounds.x, bounds.y, bounds.w, bounds.h].every(Number.isFinite) || bounds.w <= 0 || bounds.h <= 0) {
         return false;
     }
+
 
     const rect = getPlayerRect(state);
     const right = bounds.x + bounds.w;

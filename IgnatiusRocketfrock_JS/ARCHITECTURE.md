@@ -2337,3 +2337,28 @@ live rendering paths.
 The runtime game remains demand-driven. A requested level is loaded directly, and that level's `atlasRefs` determine its environment dependencies. Character discovery continues through `characters/ct_enemies_001.json`; the SDL loader now honors the catalog's optional `characterUrl` with the same filename and category normalization used by HTML/editor code. The resource-layout audit enforces exact index/file parity for ordinary `at_atlas_*` JSON/PNG pairs and every authored `level_*` JSON other than generated `level_temp.json`.
 
 When a new level or atlas JSON is saved from a WebView2-hosted IgnatiusDevTool, the page sends a narrow resource-saved message. The host locates the authoring `reference/resources` tree, verifies that the new level file or complete atlas JSON/PNG pair actually exists there, and only then appends the ID to `resources.json`. A normal browser retains its ordinary file-picker/download behavior, and hand-editing the index remains fully supported.
+
+## Revision 257 world-border ownership and two-axis cosmetic parallax
+
+The authored `world.bounds` rectangle is again a universal player kill mask. Cave-window classification remains responsible for its own floor lethality and wall/ceiling blocking, but it never suppresses rectangular bounds death. Level authors must place the world rectangle outside every intended playable and cave-interaction region. Leaving it begins the ordinary death and respawn sequence with `worldBounds` as the source in both ports.
+
+`level.layerVisuals` version 3 stores `parallaxX` and `parallaxY` independently for Background and Foreground. The browser shared normalizer and native `FLevelLayerVisuals` reject the retired scalar field by omission. Both axes accept `0.01`; Background remains capped at `1.0`, while Foreground remains capped at `1.25`. Existing levels duplicate their previous scalar into both axes, so their initial presentation is unchanged.
+
+World-bounds-centred parallax helpers calculate each offset independently. Foreground X/Y values travel together through editor transforms, Canvas and WebGL cave masks, static-bake slack, native renderer caches, and cave-boundary interaction queries. Stable cache keys include both factors. No presentation backend owns a separate parallax mirror.
+
+## Revision 266 browser minimap presentation ownership
+
+The browser minimap remains the documented small HUD-only Canvas exception inside `src/browser/game-bootstrap.js`. Dynamic markers are presentation-owned: Ignatius is sampled through `shownTransformOf`, and the camera rectangle is copied from `CanvasRenderer.getLastComputedView()` after the active Canvas2D/WebGL2 backend has resolved interpolation, zoom, and fullscreen crop-to-fill. `getViewportMetrics()` is only a startup fallback before a rendered view exists. The minimap does not read retired simulation-object `x/y` aliases. Native SDL retains the equivalent ownership through `NativeRenderView` and the live native player coordinates.
+
+
+## Revision 272 browser palette builder and development portal
+
+`palette-builder.html` and `src/tools/palette-builder.js` live at the reference root beside the Level, Character, and Asset editors. This placement is functional rather than cosmetic: shared `resourceUrl()` paths are document-relative and therefore resolve `characters/...`, `atlases/...`, and other resource categories through the normal root `resources/` directory without a builder-specific path shim.
+
+The builder is an explicit offline authoring surface. It may decode every atlas and character project while rebuilding, but the Level Editor continues to consume only the generated `resources/palette/thumbnails.png` and `thumbnails.json` cache. Enemy cells are composed through the production JavaScript character runtime, including animation sampling, parent constraints, frame visibility, and per-part colour exchange. Source inventory generation accepts any iterable, including the builder's `Set`, and records the builder plus character-rendering dependencies for stale-cache verification.
+
+`devel.html` is the root development portal. It links the game, editors, palette builder, documentation, and diagnostic/review pages without introducing a second launch or resource-loading path. The SDL runtime has no corresponding presentation surface because these are browser-hosted authoring utilities; shared game data and the generated cache remain consumable by both implementations.
+
+## Revision 277 level-scoped runtime resources
+
+Browser and native startup derive required enemy character projects from direct placements, enabled automatic-spawn pools, and active enemy spawners through equivalent `collectLevelEnemyCharacterIds` logic. Level transitions load every newly required character project and environment atlas before releasing resources that the incoming level does not reference, so shared dependencies survive without a decode/re-upload cycle. The browser also releases resident WebGL textures and rebuilds character sound pools; SDL destroys unused GPU atlases, character projects, and character-specific sound effects after the replacement set is ready. Player resources remain permanently resident.

@@ -11,6 +11,27 @@ function finiteNumber(value, fallback = 0) {
     return Number.isFinite(number) ? number : fallback;
 }
 
+export function overlapBlendVisualCacheKey(visual) {
+    const authoredId = String(visual?.id || "");
+    if (authoredId) return `id:${authoredId}`;
+    return JSON.stringify([
+        "visual",
+        String(visual?.kind || ""),
+        String(visual?.atlasId || ""),
+        String(visual?.frame || visual?.assetId || ""),
+        String(visual?.layer || "terrain"),
+        visual?.onTop === true,
+        finiteNumber(visual?.x, 0),
+        finiteNumber(visual?.y, 0),
+        finiteNumber(visual?.w, 0),
+        finiteNumber(visual?.h, 0),
+        finiteNumber(visual?.rotation, 0),
+        Boolean(visual?.mirrorX),
+        Boolean(visual?.mirrorY),
+        finiteNumber(visual?.order, 0)
+    ]);
+}
+
 export function overlapIntersectionBounds(a, b) {
     const minX = Math.max(a?.minX ?? 0, b?.minX ?? 0);
     const minY = Math.max(a?.minY ?? 0, b?.minY ?? 0);

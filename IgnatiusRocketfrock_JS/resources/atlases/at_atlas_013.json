@@ -1,6 +1,6 @@
 {
     "meta": {
-        "version": 5,
+        "version": 4,
         "note": "Atlas 013 forest/countryside props. The large tree branch and arched bridge are walkable; all other entries are decoration."
     },
     "atlasId": "at_atlas_013",
@@ -125,6 +125,30 @@
             "y": 1053,
             "w": 126,
             "h": 113
+        },
+        "moon_rocket_1": {
+            "x": 1842,
+            "y": 26,
+            "w": 164,
+            "h": 742
+        },
+        "cloud_1": {
+            "x": 692,
+            "y": 1024,
+            "w": 367,
+            "h": 163
+        },
+        "cloud_2": {
+            "x": 1613,
+            "y": 1075,
+            "w": 430,
+            "h": 140
+        },
+        "cloud_3": {
+            "x": 1468,
+            "y": 748,
+            "w": 275,
+            "h": 114
         }
     },
     "objects": {
@@ -936,6 +960,112 @@
                 "biome.forest",
                 "layer.foreground"
             ]
+        },
+        "moon_rocket_1": {
+            "id": "moon_rocket_1",
+            "frame": "moon_rocket_1",
+            "type": "decor",
+            "layer": "decorBack",
+            "mirrorable": false,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "generationTags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "cloud_1": {
+            "id": "cloud_1",
+            "frame": "cloud_1",
+            "type": "decor",
+            "layer": "decorBack",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "generationTags": [
+                "biome.forest",
+                "layer.background"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "cloud_2": {
+            "id": "cloud_2",
+            "frame": "cloud_2",
+            "type": "decor",
+            "layer": "decorBack",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "generationTags": [
+                "biome.forest",
+                "layer.background"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "cloud_3": {
+            "id": "cloud_3",
+            "frame": "cloud_3",
+            "type": "decor",
+            "layer": "decorBack",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "generationTags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": []
         }
     }
 }

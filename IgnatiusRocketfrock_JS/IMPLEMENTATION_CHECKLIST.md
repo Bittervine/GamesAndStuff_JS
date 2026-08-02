@@ -4894,3 +4894,67 @@ Manual profiling workflow: open the game, run `window.__rocketfrockDev.profiler.
 - [x] Let IgnatiusDevTool append genuinely new saved levels or complete atlas pairs after verifying authored files exist.
 - [x] Make the SDL character loader honor optional `characterUrl` entries from `ct_enemies_001.json`.
 - [x] Add browser regressions for index validation, atlas IDs beyond 099, removal of fixed scan constants, retries, and the DevTool bridge.
+
+## Revision 257 world-border kill mask and independent X/Y parallax
+
+- [x] Restore world-bounds death for the player in browser and SDL even when a cave window is active.
+- [x] Add independent `parallaxX` and `parallaxY` fields to shared JavaScript and C++ layer-visual data.
+- [x] Allow both layer parallax axes down to `0.01`.
+- [x] Update Level Editor controls, preview transforms, cave guides, and serialized output to schema version 3.
+- [x] Update Canvas, WebGL, SDL Renderer, SDL GPU, static-bake, cache-key, and cave-interaction paths to consume both axes.
+- [x] Convert every current level and reserved test fixture without retaining scalar-field compatibility.
+- [x] Add browser and native regression checks for schema normalization, independent axes, converted resources, and cave-level world-border death.
+- [x] Advance browser and native build labels to revision 257.
+
+## Revision 266 live HTML minimap tracking
+
+- [x] Read the browser minimap player marker from the interpolated shown transform.
+- [x] Read the browser minimap camera rectangle from the renderer's exact last computed view.
+- [x] Retain viewport metrics only as a pre-render fallback.
+- [x] Reject retired top-level player and camera coordinates in regression coverage.
+- [x] Confirm the SDL minimap already follows the live native render view and player coordinates.
+- [x] Advance browser and native build labels to revision 266.
+
+
+## Revision 272 browser palette builder repair and portal
+
+- [x] Move the palette builder beside the root editor pages as root `palette-builder.html` with its module in `src/tools/palette-builder.js`.
+- [x] Resolve enemy character projects through root-relative `characters/...` paths so the shared runtime requests `resources/characters/...` instead of `devel/resources/...`.
+- [x] Accept `Set` and other iterables when creating the source inventory rather than requiring `.map()` on the input object.
+- [x] Keep enemy thumbnail composition in the explicit builder and keep the Level Editor on the prebuilt cache.
+- [x] Preserve runtime colour exchange, animation visibility, constraints, and representative-pose sampling in generated enemy thumbnails.
+- [x] Add `devel.html` with links to the game, editors, palette builder, manual, and diagnostic/review tools.
+- [x] Retain optional direct writes to `resources/palette` plus download fallbacks.
+- [x] Advance browser and native build labels to revision 272.
+
+## Revision 274 collected fuel visibility and placement overlap default
+
+- [x] Hide atlas-backed pickup world visuals in SDL while the matching runtime pickup is collected.
+- [x] Apply the filter in the ordinary SDL renderer, raw-GPU direct path, and raw-GPU cached-entry path.
+- [x] Preserve the existing pickup respawn lifecycle so the visual returns automatically.
+- [x] Add native and browser regression coverage for collected atlas-backed pickup visibility.
+- [x] Make newly placed Level Editor assets author `blendOverlaps: false` by default.
+- [x] Preserve loaded and copied asset overlap settings.
+- [x] Advance browser and native build labels to revision 274.
+
+## Revision 276 baseline-package cleanup
+
+- [x] Document immutable baseline-ZIP handling, timezone-less timestamp hazards, and cumulative-delta verification in `AGENTS.md`.
+- [x] Keep the Palette thumbnail cache paragraph inside the framed manual panel.
+- [x] Remove npm commands for the deliberately retired Python palette-thumbnail generator.
+- [x] Synchronize browser tool, editor, game, and native build labels to revision 276.
+- [x] Add regression coverage for the package commands, manual structure, and tool revision labels.
+
+
+
+## Revision 277 level-scoped runtime asset residency
+
+- [x] Port `collectLevelEnemyCharacterIds` to shared JavaScript with parity for direct enemies, catalog entity types, enemy spawners, and enabled automatic pools.
+- [x] Load only the active level's enemy character projects during browser startup.
+- [x] Load newly required browser character projects during restart, playback restoration, and level transitions.
+- [x] Load incoming browser resources before releasing unused character projects and environment atlases.
+- [x] Explicitly invalidate evicted WebGL textures and rebuild dynamic character sound pools.
+- [x] Reuse SDL environment atlases only when manifest paths and level colour treatment match.
+- [x] Evict unused SDL enemy character projects and character-specific sound effects after incoming dependencies are loaded.
+- [x] Add dependency-scan and source-contract regression coverage.
+- [x] Advance browser and native build labels to revision 277.

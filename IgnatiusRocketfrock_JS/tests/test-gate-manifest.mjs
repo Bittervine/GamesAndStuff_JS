@@ -4,6 +4,7 @@ export const TEST_SHARDS = Object.freeze({
             "source organization and architecture map",
             "CSS shadow effects remain extinct across every shipped interface",
             "game settings persistence and menu shell",
+            "browser minimap follows live presentation transforms",
             "OGG level music system",
             "fullscreen Electron bridge contract",
             "buffered gameplay edges survive render-only frames",

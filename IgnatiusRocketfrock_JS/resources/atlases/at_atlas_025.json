@@ -1,0 +1,277 @@
+{
+  "meta": {
+    "version": 1,
+    "note": "Atlas 025 ruined forest aqueduct pieces. Intact grassy upper ledges use centered one-way walkable lines for forest terrain."
+  },
+  "atlasId": "at_atlas_025",
+  "image": "at_atlas_025.png",
+  "frames": {
+    "forest_aqueduct_ruin_025_a": {
+      "x": 0,
+      "y": 0,
+      "w": 930,
+      "h": 320
+    },
+    "forest_aqueduct_ruin_025_b": {
+      "x": 930,
+      "y": 4,
+      "w": 579,
+      "h": 320
+    },
+    "forest_aqueduct_ruin_025_c": {
+      "x": 5,
+      "y": 347,
+      "w": 529,
+      "h": 427
+    },
+    "forest_aqueduct_ruin_025_d": {
+      "x": 537,
+      "y": 459,
+      "w": 953,
+      "h": 315
+    }
+  },
+  "objects": {
+    "forest_aqueduct_ruin_025_a": {
+      "type": "platform",
+      "layer": "terrain",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "destroy": {
+        "hp": 1,
+        "explosionRadius": 64,
+        "fadeToBlackSeconds": 0.18,
+        "removeAfterSeconds": 0.22
+      },
+      "tags": [
+        "forest",
+        "aqueduct",
+        "ruin",
+        "terrain",
+        "walkable",
+        "platform"
+      ],
+      "notes": "Intact grassy upper ledges use centered one-way walkable lines; the illustrated masonry body remains visual terrain.",
+      "generationTags": [
+        "biome.forest",
+        "layer.terrain",
+        "theme.ruins",
+        "capability.platform"
+      ],
+      "id": "forest_aqueduct_ruin_025_a",
+      "frame": "forest_aqueduct_ruin_025_a",
+      "nodes": [
+        {
+          "id": "n1",
+          "x": 37,
+          "y": 32
+        },
+        {
+          "id": "n2",
+          "x": 809,
+          "y": 32
+        }
+      ],
+      "lines": [
+        {
+          "id": "walkable_1",
+          "kind": "walkable",
+          "from": "n1",
+          "to": "n2",
+          "tags": []
+        }
+      ]
+    },
+    "forest_aqueduct_ruin_025_b": {
+      "type": "platform",
+      "layer": "terrain",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "destroy": {
+        "hp": 1,
+        "explosionRadius": 64,
+        "fadeToBlackSeconds": 0.18,
+        "removeAfterSeconds": 0.22
+      },
+      "tags": [
+        "forest",
+        "aqueduct",
+        "ruin",
+        "terrain",
+        "walkable",
+        "platform"
+      ],
+      "notes": "Intact grassy upper ledges use centered one-way walkable lines; the illustrated masonry body remains visual terrain.",
+      "generationTags": [
+        "biome.forest",
+        "layer.terrain",
+        "theme.ruins",
+        "capability.platform"
+      ],
+      "id": "forest_aqueduct_ruin_025_b",
+      "frame": "forest_aqueduct_ruin_025_b",
+      "nodes": [
+        {
+          "id": "n1",
+          "x": 116,
+          "y": 29
+        },
+        {
+          "id": "n2",
+          "x": 509,
+          "y": 29
+        }
+      ],
+      "lines": [
+        {
+          "id": "walkable_1",
+          "kind": "walkable",
+          "from": "n1",
+          "to": "n2",
+          "tags": []
+        }
+      ]
+    },
+    "forest_aqueduct_ruin_025_c": {
+      "type": "platform",
+      "layer": "terrain",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "destroy": {
+        "hp": 1,
+        "explosionRadius": 64,
+        "fadeToBlackSeconds": 0.18,
+        "removeAfterSeconds": 0.22
+      },
+      "tags": [
+        "forest",
+        "aqueduct",
+        "ruin",
+        "terrain",
+        "walkable",
+        "platform"
+      ],
+      "notes": "Intact grassy upper ledges use centered one-way walkable lines; the illustrated masonry body remains visual terrain.",
+      "generationTags": [
+        "biome.forest",
+        "layer.terrain",
+        "theme.ruins",
+        "capability.platform"
+      ],
+      "id": "forest_aqueduct_ruin_025_c",
+      "frame": "forest_aqueduct_ruin_025_c",
+      "nodes": [
+        {
+          "id": "n1",
+          "x": 73,
+          "y": 93
+        },
+        {
+          "id": "n2",
+          "x": 391,
+          "y": 93
+        }
+      ],
+      "lines": [
+        {
+          "id": "walkable_1",
+          "kind": "walkable",
+          "from": "n1",
+          "to": "n2",
+          "tags": []
+        }
+      ]
+    },
+    "forest_aqueduct_ruin_025_d": {
+      "type": "platform",
+      "layer": "terrain",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "destroy": {
+        "hp": 1,
+        "explosionRadius": 64,
+        "fadeToBlackSeconds": 0.18,
+        "removeAfterSeconds": 0.22
+      },
+      "tags": [
+        "forest",
+        "aqueduct",
+        "ruin",
+        "terrain",
+        "walkable",
+        "platform"
+      ],
+      "notes": "Intact grassy upper ledges use centered one-way walkable lines; the illustrated masonry body remains visual terrain.",
+      "generationTags": [
+        "biome.forest",
+        "layer.terrain",
+        "theme.ruins",
+        "capability.platform"
+      ],
+      "id": "forest_aqueduct_ruin_025_d",
+      "frame": "forest_aqueduct_ruin_025_d",
+      "nodes": [
+        {
+          "id": "n1",
+          "x": 70,
+          "y": 36
+        },
+        {
+          "id": "n2",
+          "x": 314,
+          "y": 36
+        },
+        {
+          "id": "n3",
+          "x": 454,
+          "y": 29
+        },
+        {
+          "id": "n4",
+          "x": 882,
+          "y": 29
+        }
+      ],
+      "lines": [
+        {
+          "id": "walkable_1",
+          "kind": "walkable",
+          "from": "n1",
+          "to": "n2",
+          "tags": []
+        },
+        {
+          "id": "walkable_2",
+          "kind": "walkable",
+          "from": "n3",
+          "to": "n4",
+          "tags": []
+        }
+      ]
+    }
+  }
+}

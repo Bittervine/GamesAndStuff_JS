@@ -23,7 +23,7 @@ export const HOMING_TRIPLE_MEANDER_TURN_DEGREES = 7;
 export const OVERDRIVE_PASSIVE_FUEL_RECOVERY_DRAIN_FACTOR = 0.9;
 
 function defaultPowerUpPickupWorldScale(effectId) {
-    return effectId === POWER_UP_EFFECT_IDS.FLIGHT ? 2 : 1;
+    return effectId === POWER_UP_EFFECT_IDS.FLIGHT ? 1.2 : 1;
 }
 
 export const DEFAULT_WRENCH_POWER_UP_EFFECT_ID = POWER_UP_EFFECT_IDS.WRENCH_DART;

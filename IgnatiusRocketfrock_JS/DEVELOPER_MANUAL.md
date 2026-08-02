@@ -256,7 +256,7 @@ Projectile enemies may author `projectileVolleyCount` (1-15, default 1) and `pro
 
 ### Camera-relative cave preview (revision 333)
 
-The cave window is not fixed to ordinary world geometry when `parallax` is above 1. Runtime anchors the effect at the technical world-bounds centre and shifts the opening and cave-foreground artwork according to the current camera centre. The Level Editor now calls the same `computeCaveWindowParallaxOffset` helper, so panning to a room previews the mask position that gameplay will use there. Cave-point and foreground-asset hit testing, placement, dragging, labels, guides, and marquee selection operate on the displayed position while preserving authored world coordinates in level JSON.
+The cave window is not fixed to ordinary world geometry when either Foreground parallax axis differs from `1`. Runtime anchors the effect at the technical world-bounds centre and shifts the opening and cave-foreground artwork independently from `layerVisuals.foreground.parallaxX` and `parallaxY` according to the current camera centre. The Level Editor calls the same `computeCaveWindowParallaxOffset` helper, so panning to a room previews the mask position that gameplay will use there. Cave-point and foreground-asset hit testing, placement, dragging, labels, guides, and marquee selection operate on the displayed position while preserving authored world coordinates in level JSON.
 
 ## Retired enemy-hit laboratory (revision 380)
 
@@ -324,7 +324,7 @@ The Level Editor no longer has an Export panel. Use the three controls in **Leve
 
 **Play in Browser** uses the same browser copy but adds `playtest_browser_copy=1` to the game URL. A successful browser-copy load is a direct-play launch: the game must initialize the authored level, finish renderer preparation, and leave the title screen immediately. Do not require a second click on Start, and do not move this decision into portable simulation state. Ordinary `game.html` launches still begin at the title screen.
 
-For static editor and diagnostic cameras, call `renderer.setViewOverride({ x, y, cssZoom })`. Do not multiply editor zoom by `devicePixelRatio` outside the renderer. The renderer resolves CSS zoom after resize from the exact backing/client ratio, and the editor overlay resolves its own backing transform the same way. Ordinary playing-area guides use the unmodified editor camera. Apply `computeCaveWindowParallaxOffset` only to cave-window geometry and `caveForeground` records. Apply `computeWorldParallaxOffset` with `level.layerVisuals.background.parallax` only to level-owned Background placements; entity-local `decorBack` parts remain attached to their actor.
+For static editor and diagnostic cameras, call `renderer.setViewOverride({ x, y, cssZoom })`. Do not multiply editor zoom by `devicePixelRatio` outside the renderer. The renderer resolves CSS zoom after resize from the exact backing/client ratio, and the editor overlay resolves its own backing transform the same way. Ordinary playing-area guides use the unmodified editor camera. Apply `computeCaveWindowParallaxOffset` only to cave-window geometry and `caveForeground` records. Apply `computeWorldParallaxOffset` with `level.layerVisuals.background.parallaxX` and `parallaxY` only to level-owned Background placements; entity-local `decorBack` parts remain attached to their actor.
 
 ## Revision 362 Level data controls and renderer-cache terminology
 
@@ -383,9 +383,9 @@ The Level Editor presents four authoring names: **Background**, **Terrain**, **D
 
 The Asset palette has one **Layer for new assets** dropdown with **Foreground**, **Terrain**, and **Background**, plus one shared **Place asset** tool. Selecting an asset card also enters that same placement mode. Do not restore separate Background and Foreground placement tools: preview and placement must read the dropdown and route through the matching authored-coordinate transform.
 
-Choose **Background** for distant cosmetic scenery. Background records never receive atlas collision and cannot be moving platforms. They render in a dedicated pass before all ordinary world artwork regardless of stack order. `level.layerVisuals.background.parallax` controls the entire layer. Its default is the exact reciprocal of the Foreground default: `1 / 1.08`, approximately `0.925926`. Set it to `1.0` when a level should have no Background drift. The allowed editor range is `0.25` through `1.0`.
+Choose **Background** for distant cosmetic scenery. Background records never receive atlas collision and cannot be moving platforms. They render in a dedicated pass before all ordinary world artwork regardless of stack order. `level.layerVisuals.background.parallaxX` and `parallaxY` control horizontal and vertical drift independently for the entire layer. Both default to the exact reciprocal of the Foreground default: `1 / 1.08`, approximately `0.925926`. Set an axis to `1.0` when it should have no relative drift. The allowed editor range for each Background axis is `0.01` through `1.0`.
 
-Choose **Foreground** for inert artwork in front of actors. `level.layerVisuals.foreground.parallax` defaults to `1.08`; `1.0` disables its relative movement. Foreground treatment, the cave opening, feather contours, and generated perimeter art share that offset. Runtime reads the grouped layer value directly every frame and passes the same normalized factor to Foreground culling, drawing, and the Canvas/WebGL cave mask. Do not copy it into `caveWindow`. Choose **Terrain** for ordinary placed artwork whose atlas collision may remain active.
+Choose **Foreground** for inert artwork in front of actors. `level.layerVisuals.foreground.parallaxX` and `parallaxY` both default to `1.08`; `1.0` disables relative movement on that axis. Foreground treatment, the cave opening, feather contours, and generated perimeter art share both offsets. Runtime reads the grouped layer values directly every frame and passes the same normalized factors to Foreground culling, drawing, cave interaction, and the Canvas/WebGL cave mask. Each Foreground axis accepts `0.01` through `1.25`. Do not copy either value into `caveWindow`. Choose **Terrain** for ordinary placed artwork whose atlas collision may remain active.
 
 Every atlas placement also supports an optional `onTop: true` presentation flag. The Level Editor exposes it as **On top** beside the compact **Collision** checkbox. Absent or false is the default. Background placements still remain behind Terrain, but `onTop` puts them after ordinary Background artwork. Terrain and Decoration placements with `onTop` render after actors and projectiles. Foreground placements with `onTop` render after ordinary Foreground artwork, while the cave-window black mask remains the final world-space pass. `onTop` is presentation-only: it must not alter atlas collision, moving-platform ownership, obstruction polygons, navigation support, or editor collision guides. Levels using `onTop` bypass browser static-layer baking until the extra partitions gain their own bake surfaces; live Canvas2D and WebGL rendering remain authoritative.
 
@@ -406,9 +406,9 @@ The embedded orchestrated engine marks Mountain King's quiet bassoon octave doub
 
 ## Foreground and Background visual groups (revision 379)
 
-Open **Layers** to configure the two inert cosmetic layers. Foreground and Background each expose **Parallax**, **Brightness**, and **Scale**. Parallax `1.0` follows the world. Brightness and scale `1.0` preserve source colour and authored size, but the Foreground defaults intentionally show its complete cave treatment directly: brightness `0.36` and scale `2.0`. Foreground parallax starts at `1.08`; Background starts at `1 / 1.08`, with neutral brightness and scale. These values affect every placement in the layer, including cave-perimeter assets because those are Foreground records.
+Open **Layers** to configure the two inert cosmetic layers. Foreground and Background each expose **Parallax X**, **Parallax Y**, **Brightness**, and **Scale**. Parallax `1.0` follows the world on that axis, while the minimum `0.01` produces almost stationary movement. Brightness and scale `1.0` preserve source colour and authored size, but the Foreground defaults intentionally show its complete cave treatment directly: brightness `0.36` and scale `2.0`. Foreground parallax starts at `1.08` on both axes; Background starts at `1 / 1.08` on both axes, with neutral brightness and scale. These values affect every placement in the layer, including cave-perimeter assets because those are Foreground records.
 
-The **Perimeter** panel is intentionally limited to cave geometry, feather and gradient behavior, spline point editing, population seed, inward coverage, and generated-art management. Do not restore duplicate Foreground scale, brightness, or parallax controls there. `level.layerVisuals` version 2 is the sole level representation of both cosmetic layers; top-level parallax mirrors and cave-decoration brightness/scale fields are unsupported.
+The **Perimeter** panel is intentionally limited to cave geometry, feather and gradient behavior, spline point editing, population seed, inward coverage, and generated-art management. Do not restore duplicate Foreground scale, brightness, or parallax controls there. `level.layerVisuals` version 3 is the sole level representation of both cosmetic layers, with `parallaxX` and `parallaxY` required for each group. The retired single `parallax` fields, top-level mirrors, and cave-decoration brightness/scale fields are unsupported. All project levels were converted by copying their former scalar to both axes.
 
 Background and Foreground remain inert presentation. They never have atlas collision or moving-platform behavior. Layer scale must be applied around the authored placement centre, and editor culling and pointer geometry must use the same scaled display bounds as rendering.
 
@@ -427,11 +427,11 @@ The Layers panel contains no persistent defaults paragraph; explanatory copy bel
 
 The right sidebar is arranged as **Level**, **Metadata**, **Layers**, **Perimeter**, **Colormap**, **Generator**, **Autospawner**, **Navigation graphs**, **Entity palette**, **Asset palette**, **Placed objects**, **Selected object**, and **View**. This puts file-level actions and compact level identity first, world-construction tools next, object catalogs and inspection after them, and viewport preferences last.
 
-Do not move the six cosmetic-layer fields back into Metadata. **Layers** is the sole user-facing home for Foreground and Background Parallax, Brightness, and Scale. **Perimeter** is reserved for the cave-window spline, mask, feather, gradient, and automatic perimeter decoration workflow.
+Do not move the eight cosmetic-layer fields back into Metadata. **Layers** is the sole user-facing home for Foreground and Background Parallax X, Parallax Y, Brightness, and Scale. **Perimeter** is reserved for the cave-window spline, mask, feather, gradient, and automatic perimeter decoration workflow.
 
 ## Stable layer controls and scaled outlines (revision 383)
 
-**Populate perimeter** and **Clear generated** are record-management commands. They must not modify any value in **Layers**. When reading the layer controls, commit a canonical `level.layerVisuals` version 2 object. There is no cave-decoration migration path; old levels must be patched to current data before they enter the project.
+**Populate perimeter** and **Clear generated** are record-management commands. They must not modify any value in **Layers**. When reading the layer controls, commit a canonical `level.layerVisuals` version 3 object with independent `parallaxX` and `parallaxY` fields. There is no retired-schema migration path; old levels must be patched to current data before they enter the project.
 
 Foreground and Background artwork is stored at base size, then transformed for display. Selection outlines and asset-guide boxes must use the transformed record returned by `displayedLayerPlacement` for centre, width, height, rotation, and parallax position. Using the transformed centre with the unscaled authored dimensions produces the small displaced boxes fixed in this revision.
 
@@ -611,3 +611,29 @@ Authoring discovery is controlled by `resources/resources.json`. Add a new envir
 The Asset Tool and Level Editor retry declared files before reporting an error, so a temporary retrieval failure is no longer mistaken for the end of a numbered sequence. Run `npm run audit:resources` after manual additions. The audit rejects missing declarations, stale declarations, duplicates, malformed IDs, and incomplete atlas pairs. `level_temp.json` is generated only for DevTool playtesting and must not be listed.
 
 When saving a genuinely new level or atlas from IgnatiusDevTool, saving into the authoring resource tree automatically appends its ID after the host verifies the file exists. A new atlas is added only when both its JSON and PNG are present. Manual editing of `resources.json` remains the normal and supported path for files added outside the tool.
+
+## Revision 264 Level Editor camera guide ownership
+
+The Level Editor's `drawGameplayCameraFrame` owns the green 1920×1080 viewfinder, rendered at 50% opacity, plus three small screen-space markers. The camera-centre marker is drawn as two one-pixel rectangles, 5×1 and 1×5, overlapping at one centre pixel for exactly nine visible pixels. Two additional five-pixel × markers indicate where a stationary wizard would rest when facing right or left, using the same `updateCameraHint` offsets of 150 world units horizontally and 170 vertically. All three markers are deliberately independent of zoom and have no text annotations. `drawGameplayCameraRulers` adds an optional cyan ruler immediately left and below that frame. It is enabled by default, remains non-serialized view state, and labels a single tick for each key movement measure: `WH`, `JH`, `DH`, `HH` vertically and `WW`, `JW`, `DW`, `HW` horizontally. The ruler distances are derived from the real default movement tuning by stepping a miniature simulation with `stepSimulation`, so the editor overlay stays aligned with gameplay physics. Do not restore the retired red parallax-alignment control or its camera-centre/parallax-zero labels. The gameplay camera frame, gameplay camera rulers, and gameplay perimeter boundary checkboxes are checked by default and remain non-serialized view controls.
+
+## Browser minimap live transforms (revision 266)
+
+`drawMinimap` must use `shownTransformOf(gameState.player)` for Ignatius and `renderer.getLastComputedView()` for the camera rectangle. The latter is the renderer-owned top-left world view after fullscreen crop-to-fill, zoom, and interpolation have been resolved. Keep `getViewportMetrics()` only as a startup fallback. Do not read retired top-level `player.x/y` or `camera.x/y` fields; transform-triplet initialization deliberately removes them. The native SDL minimap's equivalent source of truth is `NativeRenderView` plus `gameState.player.x/y`.
+
+
+
+### Level Editor palette thumbnail cache
+
+The Level Editor does not decode every full-resolution asset atlas just to populate its Asset and Entity palettes. `resources/palette/thumbnails.png` is a single compact thumbnail sheet and `resources/palette/thumbnails.json` maps each 64×64 cell to its authoritative asset atlas, item definition, or enemy character project. The sheet is trimmed to the occupied near-square grid and may not exceed 8192×8192.
+
+Revision 272 places the browser-side builder beside the editors at `palette-builder.html`. Start the usual local server, open `devel.html`, choose **Palette Thumbnail Builder**, and click **Build thumbnails**. The page reuses the JavaScript character runtime, so enemy thumbnails inherit the real layered composition, idle pose sampling, and colour exchange rules instead of showing loose body-part bundles.
+
+The builder offers two output paths:
+
+- Choose the `resources/palette` directory through the browser File System Access API and let the page write `thumbnails.png` and `thumbnails.json` directly.
+- Or use the generated download links and copy the files into `resources/palette` manually.
+
+
+The root `devel.html` page is the development portal. It links to the game, Level Editor, Character Editor, Asset Editor, Palette Thumbnail Builder, manuals, and renderer/review utilities so development tools do not require separate bookmarks.
+
+The page also includes **Verify existing cache**, which checks the recorded source inventory and reports whether the committed cache is stale. The committed default is 64px. To evaluate a sharper cache later, simply rebuild at 128px in the page; the JSON records `cellSize`, so the editor requires no code change. Full asset atlas images are loaded lazily when selected or referenced by the open level. Enemy character projects are likewise loaded only for selected or placed enemies, while their palette cards use the generated cache. If the cache is missing, the editor falls back to the legacy full-atlas palette path.

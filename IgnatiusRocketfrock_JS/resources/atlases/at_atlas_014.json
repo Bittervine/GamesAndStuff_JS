@@ -1,6 +1,6 @@
 {
     "meta": {
-        "version": 6,
+        "version": 4,
         "note": "Atlas 014 forest trees, bushes, ground, crates, hay, and cave-entrance rock. Trees/bushes/plants and cave rock are decoration; the grass ground is blockable. Crates and hay bales are authored as blockable props for now."
     },
     "atlasId": "at_atlas_014",
@@ -143,6 +143,18 @@
             "y": 791,
             "w": 1082,
             "h": 180
+        },
+        "full_moon": {
+            "x": 1215,
+            "y": 354,
+            "w": 249,
+            "h": 242
+        },
+        "dark_cloud_1": {
+            "x": 1524,
+            "y": 363,
+            "w": 482,
+            "h": 188
         }
     },
     "objects": {
@@ -740,10 +752,10 @@
             ],
             "generationTags": [
                 "biome.forest",
-                "layer.terrain",
-                "capability.platform",
                 "capability.doorSupport",
-                "capability.runAndGunGround"
+                "capability.platform",
+                "capability.runAndGunGround",
+                "layer.terrain"
             ]
         },
         "forest_crate_large_blockable": {
@@ -1216,6 +1228,61 @@
                 "layer.foreground",
                 "layer.background"
             ]
+        },
+        "full_moon": {
+            "id": "full_moon",
+            "frame": "full_moon",
+            "type": "decor",
+            "layer": "decorBack",
+            "mirrorable": false,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "moon"
+            ],
+            "generationTags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "dark_cloud_1": {
+            "id": "dark_cloud_1",
+            "frame": "dark_cloud_1",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "generationTags": [
+                "biome.forest",
+                "layer.background"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
         }
     }
 }

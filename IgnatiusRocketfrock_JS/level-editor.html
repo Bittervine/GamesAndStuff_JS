@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" href="favicon.ico" sizes="any">
-    <title>Ignatius Level Editor</title>
+    <title>Ignatius Level Editor - BUILD 277</title>
     <style>
         @font-face {
             font-family: "Ignatius Inter";
@@ -171,6 +171,12 @@
         h1 {
             margin: 0 0 5px;
             font-size: 20px;
+        }
+
+        h1 small {
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: 500;
         }
 
         h2 {
@@ -789,6 +795,8 @@
             <button id="cut-selection" type="button" disabled>✂ Cut</button>
             <button id="copy-selection" type="button" disabled>⧉ Copy</button>
             <button id="paste-selection" type="button" disabled>▣ Paste</button>
+            <button id="undo-edit" type="button" disabled title="Undo (Ctrl+Z)">↶ Undo</button>
+            <button id="redo-edit" type="button" disabled title="Redo (Ctrl+Y or Ctrl+Shift+Z)">↷ Redo</button>
             <button data-tool="placeAsset">🧱 Place asset</button>
             <button data-tool="placeEntity">🧙 Place entity</button>
             <button id="delete-selection" type="button">🗑 Delete</button>
@@ -813,7 +821,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor</h1>
+        <h1>Level Editor <small>rev 277</small></h1>
 
         <div class="box">
             <h2>Level</h2>
@@ -852,13 +860,15 @@
             <div class="layer-visual-grid">
                 <fieldset class="layer-visual-group" title="Foreground artwork renders in front of actors. These values are the complete layer treatment, including the usual larger and darker cave-edge appearance.">
                     <legend>Foreground</legend>
-                    <label title="1.0 follows the world camera. Values above 1.0 move the Foreground slightly faster.">Parallax<input id="foreground-parallax" title="1.0 follows the world camera. Values above 1.0 move the Foreground slightly faster." type="number" min="1" max="1.25" step="0.001"></label>
+                    <label title="Horizontal camera response. 1.0 follows the world; lower values move more slowly and values above 1.0 move faster.">Parallax X<input id="foreground-parallax-x" title="Horizontal camera response. 1.0 follows the world; lower values move more slowly and values above 1.0 move faster." type="number" min="0.01" max="1.25" step="0.001"></label>
+                    <label title="Vertical camera response. 1.0 follows the world; lower values move more slowly and values above 1.0 move faster.">Parallax Y<input id="foreground-parallax-y" title="Vertical camera response. 1.0 follows the world; lower values move more slowly and values above 1.0 move faster." type="number" min="0.01" max="1.25" step="0.001"></label>
                     <label title="Layer-wide lightness multiplier. 1.0 keeps the source colours; lower values darken every Foreground asset.">Brightness<input id="foreground-brightness" title="Layer-wide lightness multiplier. 1.0 keeps the source colours; lower values darken every Foreground asset." type="number" min="0.05" max="2" step="0.05"></label>
                     <label title="Layer-wide size multiplier around each asset centre.">Scale<input id="foreground-scale" title="Layer-wide size multiplier around each asset centre." type="number" min="0.1" max="5" step="0.05"></label>
                 </fieldset>
                 <fieldset class="layer-visual-group" title="Background artwork renders behind terrain and actors and never contributes collision.">
                     <legend>Background</legend>
-                    <label title="1.0 follows the world camera. Values below 1.0 move the Background more slowly.">Parallax<input id="background-parallax" title="1.0 follows the world camera. Values below 1.0 move the Background more slowly." type="number" min="0.25" max="1" step="0.001"></label>
+                    <label title="Horizontal camera response. 1.0 follows the world; lower values move the Background more slowly.">Parallax X<input id="background-parallax-x" title="Horizontal camera response. 1.0 follows the world; lower values move the Background more slowly." type="number" min="0.01" max="1" step="0.001"></label>
+                    <label title="Vertical camera response. 1.0 follows the world; lower values move the Background more slowly.">Parallax Y<input id="background-parallax-y" title="Vertical camera response. 1.0 follows the world; lower values move the Background more slowly." type="number" min="0.01" max="1" step="0.001"></label>
                     <label title="Layer-wide lightness multiplier. 1.0 keeps the source colours.">Brightness<input id="background-brightness" title="Layer-wide lightness multiplier. 1.0 keeps the source colours." type="number" min="0.05" max="2" step="0.05"></label>
                     <label title="Layer-wide size multiplier around each asset centre.">Scale<input id="background-scale" title="Layer-wide size multiplier around each asset centre." type="number" min="0.1" max="5" step="0.05"></label>
                 </fieldset>
@@ -1321,6 +1331,10 @@
             <div class="inline"><input id="snap-enabled" type="checkbox" checked><span class="small">Snap while placing/moving</span></div>
             <div class="inline"><input id="show-asset-guides" type="checkbox" checked><span class="small">Show manifest boxes and line features</span></div>
             <div class="inline"><input id="show-labels" type="checkbox" checked><span class="small">Show labels</span></div>
+            <div class="inline"><input id="show-gameplay-camera-frame" type="checkbox" checked><span class="small" title="Show the exact 1920 × 1080 fullscreen reference view centered on the current editor view. A tiny green marker identifies the camera centre, and two small green × markers show where the wizard would rest while stationary and facing right or left. The ordinary editor scene keeps its live gameplay parallax while you pan and zoom.">Show 1920 × 1080 gameplay camera frame</span></div>
+            <div class="inline"><input id="show-gameplay-rulers" type="checkbox" checked><span class="small" title="Show cyan jump-and-size rulers immediately left and below the gameplay camera frame. The rulers are derived from the actual default wizard movement tuning: WH, JH, DH, HH vertically and WW, JW, DW, HW horizontally.">Show gameplay camera rulers</span></div>
+            <div class="inline"><input id="show-cave-interaction-boundary" type="checkbox" checked><span class="small" title="Show the actual player interaction contour, which sits 20% of the feather width beyond full black. Top and side segments block; floor-facing segments kill.">Show gameplay perimeter boundary</span></div>
+            <p class="small">The green frame is a live viewfinder, not a separate preview. Its tiny + marks the camera centre, and the two small × marks show the wizard's stationary facing-right and facing-left anchor positions relative to that camera. Cyan rulers beside the frame measure wizard height/width and the default jump, double-jump, and hover reach. The orange guide is the actual player boundary; on blocking sides, keep the grey world border at least one wizard height farther outward.</p>
         </div>
 
 
@@ -1336,6 +1350,10 @@ import {
     pointInPlacement
 } from "./src/shared/level-transform.js";
 import { resourceUrl } from "./src/shared/resource-paths.js";
+import {
+    FULLSCREEN_REFERENCE_HEIGHT,
+    FULLSCREEN_REFERENCE_WIDTH
+} from "./src/shared/fullscreen-presentation-data.js";
 import { loadImageResourceWithRetry, loadJsonResourceWithRetry, loadResourceIndex } from "./src/tools/resource-index-loader.js";
 import {
     colorMapCacheKey,
@@ -1354,6 +1372,7 @@ import {
 } from "./src/shared/color-exchange-data.js";
 import { createLevelColorTreatedCanvas } from "./src/presentation/level-color-map-cache.js";
 import { computeCaveWindowParallaxOffset } from "./src/presentation/cave-window-mask.js";
+import { deriveCaveFullBlackKillBoundary } from "./src/shared/cave-kill-boundary-data.js";
 import {
     computeWorldParallaxOffset,
     computeWorldParallaxOffsetAtPoint
@@ -1420,7 +1439,8 @@ import {
     applyEditorLevelToWorld,
     applyEnemyDefinitionCatalog,
     createInitialGameState,
-    createInputFrame
+    createInputFrame,
+    stepSimulation
 } from "./src/core/simulation.js";
 import { createRenderer as createGameCanvasRenderer } from "./src/presentation/canvas-renderer.js";
 import {
@@ -1532,11 +1552,14 @@ import {
     const ENTITY_ONLY_ATLAS_ID_PREFIXES = ["it_atlas_"];
     const ENTITY_CATALOG_URL = "items/it_entities_001.json";
     const ENEMY_CATALOG_URL = "characters/ct_enemies_001.json";
+    const PALETTE_THUMBNAIL_CATALOG_URL = "palette/thumbnails.json";
     const WIZARD_EDITOR_WIDTH = 36;
     const WIZARD_EDITOR_HEIGHT = 104;
     const WIZARD_DOOR_FLOOR_ANCHOR_Y_FACTOR = 239 / 263;
     const MIN_EDITOR_ZOOM = 0.02;
     const MAX_EDITOR_ZOOM = 5;
+    const GAMEPLAY_CAMERA_STATIONARY_LOOK_AHEAD_X = 150;
+    const GAMEPLAY_CAMERA_STATIONARY_PLAYER_OFFSET_Y = 170;
 
     function atlasManifestUrl(atlasId) {
         return `${isEntityOnlyAtlasId(atlasId) ? "items" : "atlases"}/${atlasId}.json`;
@@ -1573,10 +1596,105 @@ import {
         gridMajor: "rgba(255,255,255,0.14)",
         caveSpline: "rgba(95,242,255,0.96)",
         caveBlackBoundary: "rgba(255,112,214,0.96)",
+        caveInteractionBoundary: "rgba(255,159,67,0.98)",
+        gameplayCameraFrame: "rgba(77,255,145,0.50)",
+        gameplayRulers: "rgba(86,230,255,0.92)",
         cavePoint: "rgba(255,226,116,0.98)",
         caveSelectedPoint: "rgba(255,255,255,1)",
         caveGeometryWarning: "rgba(255,159,67,0.98)"
     };
+
+    function createGameplayRulerSimulationState() {
+        const simulation = createInitialGameState();
+        simulation.world.segments = [];
+        simulation.world.solids = [];
+        simulation.world.collisionPolygons = [];
+        simulation.world.movingPlatforms = [];
+        simulation.world.hazards = [];
+        simulation.world.bounds = { x: -100000, y: -100000, w: 200000, h: 200000 };
+        simulation.player.currentTransform = { x: 0, y: 0 };
+        simulation.player.previousTransform = { x: 0, y: 0 };
+        simulation.player.shownTransform = { x: 0, y: 0 };
+        simulation.player.vx = 0;
+        simulation.player.vy = 0;
+        simulation.player.ax = 0;
+        simulation.player.ay = 0;
+        simulation.player.onGround = true;
+        simulation.player.supportId = "editorRulerGround";
+        return simulation;
+    }
+
+    function simulateGameplayRulerReach({ runAtMaxSpeed = false, useAirBoost = false, holdHover = false } = {}) {
+        const simulation = createGameplayRulerSimulationState();
+        if (runAtMaxSpeed) {
+            simulation.player.vx = Math.max(0, Number(simulation.tuning?.maxRunSpeed) || 0);
+        }
+        const takeoffX = simulation.player.currentTransform.x;
+        const takeoffY = simulation.player.currentTransform.y;
+        let maxHeight = 0;
+        const maxFrames = 4000;
+        for (let frame = 0; frame < maxFrames; frame += 1) {
+            const input = createInputFrame({
+                moveRight: runAtMaxSpeed,
+                moveAxis: runAtMaxSpeed ? 1 : 0
+            });
+            if (frame === 0) {
+                input.jumpPressed = true;
+                input.jumpHeld = true;
+            } else if (useAirBoost && frame === 1) {
+                input.jumpReleased = true;
+            } else if (useAirBoost && frame === 2) {
+                input.jumpPressed = true;
+                input.jumpHeld = true;
+            } else if (!holdHover && useAirBoost && frame === 3) {
+                input.jumpReleased = true;
+            } else if (holdHover && useAirBoost && frame >= 3 && simulation.fuel.amount > 0) {
+                input.jumpHeld = true;
+            }
+            stepSimulation(simulation, input, simulation.clock.fixedDt);
+            maxHeight = Math.max(maxHeight, takeoffY - simulation.player.currentTransform.y);
+            if (frame > 3
+                && simulation.player.currentTransform.y >= takeoffY
+                && simulation.player.vy > 0) {
+                break;
+            }
+        }
+        return {
+            height: Math.max(0, Math.round(maxHeight)),
+            width: Math.max(0, Math.round(simulation.player.currentTransform.x - takeoffX))
+        };
+    }
+
+    function computeGameplayRulerMetrics() {
+        const simulation = createGameplayRulerSimulationState();
+        const tuning = simulation.tuning || {};
+        const jumpOnly = simulateGameplayRulerReach();
+        const doubleJump = simulateGameplayRulerReach({ useAirBoost: true });
+        const hover = simulateGameplayRulerReach({ useAirBoost: true, holdHover: true });
+        const runningJump = simulateGameplayRulerReach({ runAtMaxSpeed: true });
+        const runningDoubleJump = simulateGameplayRulerReach({ runAtMaxSpeed: true, useAirBoost: true });
+        const runningHover = simulateGameplayRulerReach({ runAtMaxSpeed: true, useAirBoost: true, holdHover: true });
+        const vertical = Object.freeze([
+            Object.freeze({ label: "WH", value: Math.max(1, Math.round(Number(tuning.wizardHeight) || 104)) }),
+            Object.freeze({ label: "JH", value: jumpOnly.height }),
+            Object.freeze({ label: "DH", value: doubleJump.height }),
+            Object.freeze({ label: "HH", value: hover.height })
+        ]);
+        const horizontal = Object.freeze([
+            Object.freeze({ label: "WW", value: Math.max(1, Math.round(Number(tuning.playerWidth) || 34)) }),
+            Object.freeze({ label: "JW", value: runningJump.width }),
+            Object.freeze({ label: "DW", value: runningDoubleJump.width }),
+            Object.freeze({ label: "HW", value: runningHover.width })
+        ]);
+        return Object.freeze({
+            vertical,
+            horizontal,
+            maxVertical: Math.max(...vertical.map((entry) => entry.value)),
+            maxHorizontal: Math.max(...horizontal.map((entry) => entry.value))
+        });
+    }
+
+    const GAMEPLAY_RULER_METRICS = computeGameplayRulerMetrics();
 
     const canvas = document.getElementById("stage");
     const overlayCanvas = document.getElementById("stage-overlay");
@@ -1604,6 +1722,9 @@ import {
         snapEnabled: document.getElementById("snap-enabled"),
         showAssetGuides: document.getElementById("show-asset-guides"),
         showLabels: document.getElementById("show-labels"),
+        showGameplayCameraFrame: document.getElementById("show-gameplay-camera-frame"),
+        showGameplayRulers: document.getElementById("show-gameplay-rulers"),
+        showCaveInteractionBoundary: document.getElementById("show-cave-interaction-boundary"),
         buildNavigationGraphs: document.getElementById("build-navigation-graphs"),
         clearNavigationGraphs: document.getElementById("clear-navigation-graphs"),
         navigationProfileSelect: document.getElementById("navigation-profile-select"),
@@ -1615,10 +1736,12 @@ import {
         levelSelect: document.getElementById("level-select"),
         worldW: document.getElementById("world-w"),
         worldH: document.getElementById("world-h"),
-        foregroundParallax: document.getElementById("foreground-parallax"),
+        foregroundParallaxX: document.getElementById("foreground-parallax-x"),
+        foregroundParallaxY: document.getElementById("foreground-parallax-y"),
         foregroundBrightness: document.getElementById("foreground-brightness"),
         foregroundScale: document.getElementById("foreground-scale"),
-        backgroundParallax: document.getElementById("background-parallax"),
+        backgroundParallaxX: document.getElementById("background-parallax-x"),
+        backgroundParallaxY: document.getElementById("background-parallax-y"),
         backgroundBrightness: document.getElementById("background-brightness"),
         backgroundScale: document.getElementById("background-scale"),
         autoSpawnEnemiesEnabled: document.getElementById("auto-spawn-enemies-enabled"),
@@ -1822,6 +1945,8 @@ import {
         cutSelection: document.getElementById("cut-selection"),
         copySelection: document.getElementById("copy-selection"),
         pasteSelection: document.getElementById("paste-selection"),
+        undoEdit: document.getElementById("undo-edit"),
+        redoEdit: document.getElementById("redo-edit"),
         deleteSelection: document.getElementById("delete-selection"),
         entityPalette: document.getElementById("entity-palette")
     };
@@ -1839,9 +1964,13 @@ import {
         drag: null,
         camera: { x: -160, y: -80, zoom: 0.55 },
         atlases: new Map(),
+        atlasLoadPromises: new Map(),
         activeAtlasId: DEFAULT_ATLAS_ID,
         manifest: null,
         atlasImage: null,
+        paletteThumbnailCatalog: null,
+        paletteThumbnailImage: null,
+        paletteThumbnailEntries: new Map(),
         frameImageScale: 1,
         colorMapCacheKey: "",
         colorTreatmentPreviewKey: "",
@@ -1854,6 +1983,7 @@ import {
         entityCatalog: new Map(),
         enemyCatalog: new Map(),
         characterProjects: new Map(),
+        characterProjectLoads: new Map(),
         navigationPreviewGraphId: "",
         placementDrawCache: null,
         placementBoundsCache: new WeakMap(),
@@ -1892,7 +2022,15 @@ import {
         generatorEnemyCatalog: normalizeEnemyGenerationCatalog(null),
         generatorRewardCatalog: normalizeRewardGenerationCatalog(null),
         generatorLoadedRunId: "",
-        generatorHistory: { undo: [], redo: [] }
+        generatorHistory: { undo: [], redo: [] },
+        editHistory: {
+            undo: [],
+            redo: [],
+            current: null,
+            pendingBefore: null,
+            pendingLabel: "",
+            suspended: false
+        }
     };
     let colorMapRefreshTimer = null;
     let jsonUpdateTimer = null;
@@ -1910,9 +2048,207 @@ import {
     let editorLastRendererReadoutAt = -Infinity;
     let editorLastCursorReadoutAt = -Infinity;
     const editorRuntimeInputFrame = createInputFrame();
+    const GAMEPLAY_CAMERA_PARALLAX_ANCHOR_Y = 0.56;
+
+    const EDIT_HISTORY_LIMIT = 50;
 
     function cloneData(value) {
         return JSON.parse(JSON.stringify(value));
+    }
+
+    function captureEditHistorySnapshot(label = "") {
+        return {
+            levelText: JSON.stringify(state.level || null),
+            selectedId: state.selectedId || "",
+            selectedIds: [...(state.selectedIds || [])],
+            selectedCavePointId: state.selectedCavePointId || "",
+            generatorLoadedRunId: state.generatorLoadedRunId || "",
+            objectClipboardText: JSON.stringify(state.objectClipboard || { mode: "copy", items: [], pasteCount: 0, primarySourceId: "" }),
+            label: String(label || "")
+        };
+    }
+
+    function updateEditHistoryUi() {
+        if (!els.undoEdit || !els.redoEdit) return;
+        const undoLabel = state.editHistory.current?.label || "";
+        const redoLabel = state.editHistory.redo.at(-1)?.label || "";
+        els.undoEdit.disabled = state.editHistory.undo.length === 0;
+        els.redoEdit.disabled = state.editHistory.redo.length === 0;
+        els.undoEdit.title = undoLabel ? `Undo ${undoLabel} (Ctrl+Z)` : "Undo (Ctrl+Z)";
+        els.redoEdit.title = redoLabel ? `Redo ${redoLabel} (Ctrl+Y or Ctrl+Shift+Z)` : "Redo (Ctrl+Y or Ctrl+Shift+Z)";
+    }
+
+    function resetEditHistory() {
+        if (state.level) prepareLevelForExport();
+        state.editHistory.undo = [];
+        state.editHistory.redo = [];
+        state.editHistory.pendingBefore = null;
+        state.editHistory.pendingLabel = "";
+        state.editHistory.current = state.level ? captureEditHistorySnapshot("") : null;
+        updateEditHistoryUi();
+    }
+
+    function beginEditHistory(label = "Edit level") {
+        if (state.editHistory.suspended || !state.level) return;
+        if (!state.editHistory.current) resetEditHistory();
+        if (!state.editHistory.pendingBefore) {
+            state.editHistory.pendingBefore = captureEditHistorySnapshot(state.editHistory.current?.label || "");
+        }
+        state.editHistory.pendingLabel = String(label || "Edit level");
+    }
+
+    function commitEditHistory(label = "") {
+        if (state.editHistory.suspended || !state.level) return false;
+        if (!state.editHistory.current) {
+            resetEditHistory();
+            return false;
+        }
+        const before = state.editHistory.pendingBefore || state.editHistory.current;
+        const next = captureEditHistorySnapshot(label || state.editHistory.pendingLabel || "Edit level");
+        state.editHistory.pendingBefore = null;
+        state.editHistory.pendingLabel = "";
+        if (before.levelText === next.levelText) {
+            state.editHistory.current = {
+                ...next,
+                label: state.editHistory.current?.label || ""
+            };
+            updateEditHistoryUi();
+            return false;
+        }
+        state.editHistory.undo.push(before);
+        if (state.editHistory.undo.length > EDIT_HISTORY_LIMIT) state.editHistory.undo.shift();
+        state.editHistory.redo = [];
+        state.editHistory.current = next;
+        updateEditHistoryUi();
+        return true;
+    }
+
+    function restoreEditHistorySnapshot(snapshot) {
+        if (!snapshot) return false;
+        if (jsonUpdateTimer !== null) {
+            clearTimeout(jsonUpdateTimer);
+            jsonUpdateTimer = null;
+        }
+        state.editHistory.suspended = true;
+        try {
+            state.level = JSON.parse(snapshot.levelText);
+            state.selectedId = snapshot.selectedId || "";
+            state.selectedIds = new Set(snapshot.selectedIds || []);
+            state.selectedCavePointId = snapshot.selectedCavePointId || "";
+            state.generatorLoadedRunId = snapshot.generatorLoadedRunId || "";
+            state.objectClipboard = JSON.parse(snapshot.objectClipboardText || '{"mode":"copy","items":[],"pasteCount":0,"primarySourceId":""}');
+            state.generatorHistory = { undo: [], redo: [] };
+            state.drag = null;
+            normalizeObjectSelection();
+            markEditorRuntimeWorldDirty();
+            invalidateEditorPlacementCaches({ sprites: true });
+            refreshColorMappedAtlases({ redraw: false });
+            persistUi();
+        } finally {
+            state.editHistory.suspended = false;
+        }
+        updateEditHistoryUi();
+        return true;
+    }
+
+    function flushPendingEditorChanges() {
+        const active = document.activeElement;
+        if (shortcutTargetIsTextEditor(active) && typeof active.blur === "function") active.blur();
+        if (jsonUpdateTimer !== null) {
+            clearTimeout(jsonUpdateTimer);
+            jsonUpdateTimer = null;
+        }
+        updateJson();
+    }
+
+    function undoLevelEdit() {
+        flushPendingEditorChanges();
+        if (!state.editHistory.undo.length || !state.editHistory.current) {
+            setStatus("Nothing to undo.", false);
+            return false;
+        }
+        const undone = state.editHistory.current;
+        const previous = state.editHistory.undo.pop();
+        state.editHistory.redo.push(undone);
+        state.editHistory.current = previous;
+        state.editHistory.pendingBefore = null;
+        state.editHistory.pendingLabel = "";
+        restoreEditHistorySnapshot(previous);
+        setStatus(`Undid ${undone.label || "level edit"}.`);
+        return true;
+    }
+
+    function redoLevelEdit() {
+        flushPendingEditorChanges();
+        if (!state.editHistory.redo.length || !state.editHistory.current) {
+            setStatus("Nothing to redo.", false);
+            return false;
+        }
+        const next = state.editHistory.redo.pop();
+        state.editHistory.undo.push(state.editHistory.current);
+        if (state.editHistory.undo.length > EDIT_HISTORY_LIMIT) state.editHistory.undo.shift();
+        state.editHistory.current = next;
+        state.editHistory.pendingBefore = null;
+        state.editHistory.pendingLabel = "";
+        restoreEditHistorySnapshot(next);
+        setStatus(`Redid ${next.label || "level edit"}.`);
+        return true;
+    }
+
+    function historyControlLabel(control) {
+        const label = control?.closest?.("label");
+        const text = label ? String(label.childNodes[0]?.textContent || label.textContent || "").trim() : "";
+        return text ? `Edit ${text.replace(/\s+/g, " ")}` : "Edit level property";
+    }
+
+    function historyControlAffectsLevel(control) {
+        if (!control?.matches) return false;
+        if (control.matches("#selected-object-panel input, #selected-object-panel select, #selected-object-panel textarea")) return true;
+        return control.matches([
+            "#level-id", "#level-title", "#level-music", "#world-w", "#world-h",
+            "#foreground-parallax-x", "#foreground-parallax-y", "#foreground-brightness", "#foreground-scale",
+            "#background-parallax-x", "#background-parallax-y", "#background-brightness", "#background-scale",
+            "#auto-spawn-enemies-enabled", "#auto-spawn-enemies-probability", "#auto-spawn-enemies-pool",
+            "#cave-enabled", "#cave-point-mode", "#cave-feather", "#cave-gradient-noise-amplitude",
+            "#cave-gradient-noise-period", "#cave-gradient-noise-seed", "#cave-decor-seed", "#cave-decor-inward"
+        ].join(","));
+    }
+
+    function beginHistoryForControlEvent(event) {
+        if (historyControlAffectsLevel(event.target)) beginEditHistory(historyControlLabel(event.target));
+    }
+
+    const EDIT_HISTORY_BUTTON_LABELS = new Map([
+        ["cut-selection", "Cut selection"],
+        ["paste-selection", "Paste selection"],
+        ["delete-selection", "Delete selection"],
+        ["to-front", "Move selection to front"],
+        ["to-back", "Move selection to back"],
+        ["play-browser-copy", "Rebuild playtest navigation"],
+        ["cave-create-from-bounds", "Create cave perimeter"],
+        ["cave-delete-point", "Delete cave perimeter point"],
+        ["cave-auto-populate", "Populate cave perimeter"],
+        ["cave-clear-generated", "Clear generated cave perimeter"],
+        ["color-map-apply", "Apply level colour treatment"],
+        ["build-navigation-graphs", "Build navigation graphs"],
+        ["clear-navigation-graphs", "Clear navigation graphs"],
+        ["inspect-moving-swap", "Swap moving-platform endpoints"],
+        ["inspect-proximity-trigger-reset", "Reset proximity trigger"],
+        ["generator-generate", "Generate level"],
+        ["generator-regenerate-stage", "Regenerate generator stage"],
+        ["generator-regenerate", "Regenerate level"],
+        ["generator-lock-selected", "Lock generated selection"],
+        ["generator-unlock-selected", "Unlock generated selection"],
+        ["generator-manualize-selected", "Convert generated selection to manual"],
+        ["generator-clear", "Clear generated content"],
+        ["generator-undo", "Undo automatic generation"],
+        ["generator-redo", "Redo automatic generation"]
+    ]);
+
+    function beginHistoryForButtonClick(event) {
+        const button = event.target?.closest?.("button");
+        const label = EDIT_HISTORY_BUTTON_LABELS.get(button?.id || "");
+        if (label) beginEditHistory(label);
     }
 
     function finiteEditorNumber(value, fallback) {
@@ -2026,6 +2362,27 @@ import {
         };
     }
 
+    function editorGameplayCameraFrame(rect = null) {
+        const viewport = rect || state.editorViewportRect || screenSize();
+        const width = Math.max(1, finiteEditorNumber(viewport?.width, 1));
+        const height = Math.max(1, finiteEditorNumber(viewport?.height, 1));
+        const zoom = Math.max(MIN_EDITOR_ZOOM, finiteEditorNumber(state.camera.zoom, 1));
+        const centerX = finiteEditorNumber(state.camera.x, 0) + width / zoom * 0.5;
+        const centerY = finiteEditorNumber(state.camera.y, 0) + height / zoom * 0.5;
+        const x = centerX - FULLSCREEN_REFERENCE_WIDTH * 0.5;
+        const y = centerY - FULLSCREEN_REFERENCE_HEIGHT * 0.5;
+        return {
+            x,
+            y,
+            w: FULLSCREEN_REFERENCE_WIDTH,
+            h: FULLSCREEN_REFERENCE_HEIGHT,
+            centerX,
+            centerY,
+            parallaxAnchorX: centerX,
+            parallaxAnchorY: y + FULLSCREEN_REFERENCE_HEIGHT * GAMEPLAY_CAMERA_PARALLAX_ANCHOR_Y
+        };
+    }
+
     function currentLayerVisuals() {
         return normalizeLevelLayerVisuals(state.level?.layerVisuals);
     }
@@ -2057,7 +2414,10 @@ import {
         const width = Math.max(1, finiteEditorNumber(viewport?.width, 1));
         const height = Math.max(1, finiteEditorNumber(viewport?.height, 1));
         const bounds = state.level?.world?.bounds || {};
-        const parallax = currentLayerVisuals().foreground.parallax;
+        const gameplayFrame = editorGameplayCameraFrame(viewport);
+        const layerVisuals = currentLayerVisuals();
+        const parallaxX = layerVisuals.foreground.parallaxX;
+        const parallaxY = layerVisuals.foreground.parallaxY;
         const key = [
             finiteEditorNumber(state.camera.x, 0),
             finiteEditorNumber(state.camera.y, 0),
@@ -2068,7 +2428,10 @@ import {
             finiteEditorNumber(bounds.y, 0),
             finiteEditorNumber(bounds.w, 1),
             finiteEditorNumber(bounds.h, 1),
-            finiteEditorNumber(parallax, 1)
+            finiteEditorNumber(parallaxX, 1),
+            finiteEditorNumber(parallaxY, 1),
+            gameplayFrame.parallaxAnchorX,
+            gameplayFrame.parallaxAnchorY
         ].join("|");
         if (state.editorCaveParallaxCache?.key === key) return state.editorCaveParallaxCache.offset;
         const offset = computeCaveWindowParallaxOffset({
@@ -2078,8 +2441,10 @@ import {
             h: height,
             zoom,
             virtualW: width / zoom,
-            virtualH: height / zoom
-        }, bounds, parallax);
+            virtualH: height / zoom,
+            parallaxAnchorX: gameplayFrame.parallaxAnchorX,
+            parallaxAnchorY: gameplayFrame.parallaxAnchorY
+        }, bounds, parallaxX, parallaxY);
         state.editorCaveParallaxCache = { key, offset };
         return offset;
     }
@@ -2119,7 +2484,10 @@ import {
         const width = Math.max(1, finiteEditorNumber(viewport?.width, 1));
         const height = Math.max(1, finiteEditorNumber(viewport?.height, 1));
         const bounds = state.level?.world?.bounds || {};
-        const parallax = currentLayerVisuals().background.parallax;
+        const gameplayFrame = editorGameplayCameraFrame(viewport);
+        const layerVisuals = currentLayerVisuals();
+        const parallaxX = layerVisuals.background.parallaxX;
+        const parallaxY = layerVisuals.background.parallaxY;
         const key = [
             finiteEditorNumber(state.camera.x, 0),
             finiteEditorNumber(state.camera.y, 0),
@@ -2130,7 +2498,10 @@ import {
             finiteEditorNumber(bounds.y, 0),
             finiteEditorNumber(bounds.w, 1),
             finiteEditorNumber(bounds.h, 1),
-            parallax
+            parallaxX,
+            parallaxY,
+            gameplayFrame.parallaxAnchorX,
+            gameplayFrame.parallaxAnchorY
         ].join("|");
         if (state.editorBackgroundParallaxCache?.key === key) return state.editorBackgroundParallaxCache.offset;
         const offset = computeWorldParallaxOffset({
@@ -2140,8 +2511,10 @@ import {
             h: height,
             zoom,
             virtualW: width / zoom,
-            virtualH: height / zoom
-        }, bounds, parallax, { min: 0.25, max: 1 });
+            virtualH: height / zoom,
+            parallaxAnchorX: gameplayFrame.parallaxAnchorX,
+            parallaxAnchorY: gameplayFrame.parallaxAnchorY
+        }, bounds, parallaxX, parallaxY, { minX: 0.01, maxX: 1, minY: 0.01, maxY: 1 });
         state.editorBackgroundParallaxCache = { key, offset };
         return offset;
     }
@@ -2246,10 +2619,14 @@ import {
         const selectedText = selectedPoint ? ` Selected ${selectedPoint.id} (${selectedPoint.mode}).` : "";
         const generatedText = generatedCount ? ` ${generatedCount} generated foreground asset${generatedCount === 1 ? "" : "s"}.` : "";
         const blackBoundaryText = cave.points.length >= 3 ? ` Full black begins ${Math.round(cave.feather)} px outside the perimeter.` : "";
+        const interactionBoundary = deriveCaveFullBlackKillBoundary(cave);
+        const interactionBoundaryText = interactionBoundary.enabled
+            ? ` Player interaction begins ${Math.round(interactionBoundary.interactionMargin)} px farther outward.`
+            : "";
         const gradientText = cave.points.length >= 3 && cave.gradientNoise.amplitude > 0
             ? ` Gradient waviness ${Math.round(cave.gradientNoise.amplitude)} px with roughly ${Math.round(cave.gradientNoise.period)} px periods.`
             : "";
-        els.caveStatus.textContent = `${cave.points.length} perimeter point${cave.points.length === 1 ? "" : "s"}; ${closure}.${blackBoundaryText}${gradientText}${generatedText}${selectedText} The viewport previews the same camera-relative parallax used during play.`;
+        els.caveStatus.textContent = `${cave.points.length} perimeter point${cave.points.length === 1 ? "" : "s"}; ${closure}.${blackBoundaryText}${interactionBoundaryText}${gradientText}${generatedText}${selectedText} The viewport previews the same camera-relative parallax used during play.`;
     }
 
     function caveGeometryWarningCaveSignature(cave) {
@@ -2261,7 +2638,8 @@ import {
             finiteEditorNumber(bounds.y, 0),
             finiteEditorNumber(bounds.w, 1),
             finiteEditorNumber(bounds.h, 1),
-            currentLayerVisuals().foreground.parallax,
+            currentLayerVisuals().foreground.parallaxX,
+            currentLayerVisuals().foreground.parallaxY,
             ...cave.points.flatMap((point) => [
                 finiteEditorNumber(point.x, 0),
                 finiteEditorNumber(point.y, 0),
@@ -2289,8 +2667,9 @@ import {
         return computeWorldParallaxOffsetAtPoint(
             placementCenter(placement),
             state.level?.world?.bounds,
-            currentLayerVisuals().foreground.parallax,
-            { min: 1, max: 1.25 }
+            currentLayerVisuals().foreground.parallaxX,
+            currentLayerVisuals().foreground.parallaxY,
+            { minX: 0.01, maxX: 1.25, minY: 0.01, maxY: 1.25 }
         );
     }
 
@@ -2384,6 +2763,7 @@ import {
     }
 
     function createCaveWindowFromWorldBounds() {
+        beginEditHistory("Create cave perimeter");
         const cave = caveWindowRecord();
         cave.points = createCaveWindowPointsFromBounds(state.level.world.bounds);
         cave.enabled = true;
@@ -2394,6 +2774,7 @@ import {
     }
 
     function addCavePoint(point) {
+        beginEditHistory("Add cave perimeter point");
         const cave = caveWindowRecord();
         const snappedPoint = snapPoint(caveAuthoredPoint(point));
         const newPoint = {
@@ -2419,6 +2800,7 @@ import {
 
     function deleteSelectedCavePoint() {
         if (!state.selectedCavePointId) return;
+        beginEditHistory("Delete cave perimeter point");
         const cave = caveWindowRecord();
         const oldCount = cave.points.length;
         cave.points = cave.points.filter((point) => point.id !== state.selectedCavePointId);
@@ -2431,6 +2813,7 @@ import {
     function setSelectedCavePointMode(mode) {
         const point = cavePointById(state.selectedCavePointId);
         if (!point) return;
+        beginEditHistory("Change cave perimeter point shape");
         point.mode = mode === "corner" ? "corner" : "smooth";
         persistUi();
         setStatus(`${point.id} is now a ${point.mode} point.`);
@@ -2824,6 +3207,63 @@ import {
         return loadImageResourceWithRetry(url);
     }
 
+    function normalizePaletteThumbnailCatalog(rawCatalog) {
+        const source = rawCatalog && typeof rawCatalog === "object" ? rawCatalog : {};
+        const cellSize = Math.max(1, Math.round(Number(source.cellSize) || 64));
+        const width = Math.max(1, Math.round(Number(source.width) || 1));
+        const height = Math.max(1, Math.round(Number(source.height) || 1));
+        if (width > 8192 || height > 8192) {
+            throw new Error(`Palette thumbnail image ${width}×${height} exceeds the supported 8192×8192 ceiling.`);
+        }
+        const entries = Array.isArray(source.entries) ? source.entries.filter((entry) => entry && typeof entry === "object") : [];
+        return {
+            ...source,
+            formatVersion: Math.max(1, Math.round(Number(source.formatVersion) || 1)),
+            image: String(source.image || "thumbnails.png"),
+            cellSize,
+            width,
+            height,
+            entries
+        };
+    }
+
+    async function loadPaletteThumbnailCache() {
+        const catalog = normalizePaletteThumbnailCatalog(await loadJsonUrl(PALETTE_THUMBNAIL_CATALOG_URL));
+        const imagePath = `palette/${catalog.image.replace(/^.*[\\/]/, "")}`;
+        const image = await loadImageUrl(imagePath);
+        if (image.naturalWidth !== catalog.width || image.naturalHeight !== catalog.height) {
+            throw new Error(`Palette thumbnail image is ${image.naturalWidth}×${image.naturalHeight}; catalog expects ${catalog.width}×${catalog.height}.`);
+        }
+        state.paletteThumbnailCatalog = catalog;
+        state.paletteThumbnailImage = image;
+        state.paletteThumbnailEntries = new Map(catalog.entries.map((entry) => [String(entry.key || ""), entry]).filter(([key]) => key));
+        return catalog.entries.length;
+    }
+
+    function paletteThumbnailEntry(key) {
+        return state.paletteThumbnailEntries.get(String(key || "")) || null;
+    }
+
+    function drawCachedPaletteThumbnail(canvas, key) {
+        const entry = paletteThumbnailEntry(key);
+        const image = state.paletteThumbnailImage;
+        const thumbnail = entry?.thumbnail;
+        if (!entry || !image || !thumbnail) return false;
+        const pctx = clearPaletteCanvas(canvas);
+        pctx.drawImage(
+            image,
+            Number(thumbnail.x) || 0,
+            Number(thumbnail.y) || 0,
+            Math.max(1, Number(thumbnail.w) || state.paletteThumbnailCatalog?.cellSize || 64),
+            Math.max(1, Number(thumbnail.h) || state.paletteThumbnailCatalog?.cellSize || 64),
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
+        return true;
+    }
+
     function inferAtlasIdFromName(name) {
         const match = String(name || "").match(/at_atlas_(\d+)/i) || String(name || "").match(/atlas[_-]?(\d+)/i);
         if (!match) return "";
@@ -2897,57 +3337,90 @@ import {
         return true;
     }
 
+    async function ensureAtlasLoaded(atlasId, source = null) {
+        const resolvedAtlasId = String(atlasId || "").trim();
+        if (!resolvedAtlasId) throw new Error("Cannot load an atlas without an atlasId.");
+        const existing = atlasRecord(resolvedAtlasId);
+        if (existing?.image) return existing;
+        if (state.atlasLoadPromises.has(resolvedAtlasId)) return state.atlasLoadPromises.get(resolvedAtlasId);
+        const manifestUrl = String(source?.manifest || existing?.manifestUrl || atlasManifestUrl(resolvedAtlasId));
+        const imageUrl = String(source?.image || existing?.imageUrl || atlasImageUrl(resolvedAtlasId));
+        const pending = (async () => {
+            const manifest = normalizeAtlasManifest(await loadJsonUrl(manifestUrl), resolvedAtlasId);
+            manifest.atlasId = manifest.atlasId || resolvedAtlasId;
+            manifest.image = manifest.image || `${resolvedAtlasId}.png`;
+            const image = await loadImageUrl(imageUrl);
+            return registerAtlas(manifest, image, { atlasId: manifest.atlasId, manifestUrl, imageUrl });
+        })();
+        state.atlasLoadPromises.set(resolvedAtlasId, pending);
+        try {
+            return await pending;
+        } finally {
+            state.atlasLoadPromises.delete(resolvedAtlasId);
+        }
+    }
+
     async function loadAtlasPair(atlasId) {
-        const manifestUrl = atlasManifestUrl(atlasId);
-        const imageUrl = atlasImageUrl(atlasId);
-        const manifest = normalizeAtlasManifest(await loadJsonUrl(manifestUrl), atlasId);
-        manifest.atlasId = manifest.atlasId || atlasId;
-        manifest.image = manifest.image || `${atlasId}.png`;
-        const image = await loadImageUrl(imageUrl);
-        return registerAtlas(manifest, image, { atlasId: manifest.atlasId, manifestUrl, imageUrl });
+        return ensureAtlasLoaded(atlasId);
     }
 
     async function loadAtlasLibrary() {
         state.atlases.clear();
+        state.atlasLoadPromises.clear();
         state.resourceLoadFailures = [];
-        let loaded = 0;
-        for (const atlasId of state.resourceIndex?.assetAtlasIds || []) {
+        state.activeAtlasId = DEFAULT_ATLAS_ID;
+        state.manifest = null;
+        state.atlasImage = null;
+        let thumbnailCount = 0;
+        try {
+            thumbnailCount = await loadPaletteThumbnailCache();
+        } catch (error) {
+            state.paletteThumbnailCatalog = null;
+            state.paletteThumbnailImage = null;
+            state.paletteThumbnailEntries.clear();
+            state.resourceLoadFailures.push(`Palette thumbnail cache: ${error.message || error}`);
+        }
+
+        // The single item atlas is useful immediately for placed interactive entities.
+        // Asset atlases remain unloaded until the current level or a palette selection needs one.
+        for (const atlasId of SPECIAL_ATLAS_IDS) {
             try {
-                await loadAtlasPair(atlasId);
-                loaded += 1;
+                await ensureAtlasLoaded(atlasId);
             } catch (error) {
                 state.resourceLoadFailures.push(`Atlas ${atlasId}: ${error.message || error}`);
             }
         }
-        for (const atlasId of SPECIAL_ATLAS_IDS) {
-            try {
-                await loadAtlasPair(atlasId);
-                loaded += 1;
-            } catch (error) {
-                // Item atlases remain intentional singleton resources and are optional to the asset palette.
+
+        if (!thumbnailCount) {
+            for (const atlasId of state.resourceIndex?.assetAtlasIds || []) {
+                try {
+                    await ensureAtlasLoaded(atlasId);
+                } catch (error) {
+                    state.resourceLoadFailures.push(`Atlas ${atlasId}: ${error.message || error}`);
+                }
             }
         }
-        if (!loaded) {
-            setStatus(`resources.json lists no loadable asset atlases. ${state.resourceLoadFailures.join(" ")}`, false);
-            return 0;
-        }
-        const initialAtlasId = state.atlases.has(DEFAULT_ATLAS_ID)
-            ? DEFAULT_ATLAS_ID
-            : state.resourceIndex?.assetAtlasIds.find((atlasId) => state.atlases.has(atlasId)) || state.atlases.keys().next().value;
-        setActiveAtlas(initialAtlasId, { redraw: false });
-        if (state.resourceLoadFailures.length) {
-            setStatus(`Loaded ${loaded} atlas${loaded === 1 ? "" : "es"}. ${state.resourceLoadFailures.length} declared atlas load failed after retries.`, false);
+        state.activeAtlasId = DEFAULT_ATLAS_ID;
+        state.manifest = atlasRecord(DEFAULT_ATLAS_ID)?.manifest || null;
+        state.atlasImage = imageForAtlas(DEFAULT_ATLAS_ID);
+        renderAssetList();
+        if (thumbnailCount) {
+            setStatus(`Loaded ${thumbnailCount} compact palette thumbnails. Full asset atlases will load only when selected or used by the level.${state.resourceLoadFailures.length ? ` ${state.resourceLoadFailures.length} resource load failed after retries.` : ""}`, state.resourceLoadFailures.length === 0);
+        } else if (state.atlases.size) {
+            setStatus(`Palette thumbnail cache was unavailable; loaded ${state.atlases.size} full atlas${state.atlases.size === 1 ? "" : "es"} as a compatibility fallback.`, false);
         } else {
-            setStatus(`Loaded ${loaded} atlas${loaded === 1 ? "" : "es"} from resources.json.`);
+            setStatus(`No palette thumbnails or loadable atlases were found. ${state.resourceLoadFailures.join(" ")}`, false);
         }
-        return loaded;
+        return thumbnailCount || state.atlases.size;
     }
 
     async function loadDefaultManifest() {
         await loadAtlasLibrary();
+        if (state.level) await ensureEditorResourcesForLevel(state.level);
         renderAssetList();
         draw();
     }
+
 
 
     function normalizeLevelDefaults(rawLevel) {
@@ -3157,13 +3630,14 @@ import {
         state.generatorLoadedRunId = "";
         state.selectedCavePointId = "";
         selectOnly(state.level.entities[0]?.id || state.level.placements[0]?.id || "");
-        await ensureAtlasesForLevel(level);
+        await ensureEditorResourcesForLevel(level);
         normalizeLoadedLevelPlacements();
         snapAllWizardDoorsToNearbyGround();
         snapAllCharacterEnemiesToNearbyGround();
         refreshColorMappedAtlases({ redraw: false });
         syncMetadataToUi();
         persistUi();
+        resetEditHistory();
         return level;
     }
 
@@ -3178,17 +3652,23 @@ import {
     }
 
     async function ensureAtlasesForLevel(level) {
+        const jobs = [];
         for (const ref of level?.atlasRefs || []) {
             const atlasId = ref.atlasId || inferAtlasIdFromName(ref.manifest) || inferAtlasIdFromName(ref.image);
-            if (!atlasId || state.atlases.has(atlasId) || !ref.manifest) continue;
-            try {
-                const manifest = normalizeAtlasManifest(await loadJsonUrl(ref.manifest), atlasId);
-                const image = ref.image ? await loadImageUrl(ref.image).catch(() => null) : null;
-                registerAtlas(manifest, image, { atlasId, manifestUrl: ref.manifest, imageUrl: ref.image || atlasImageUrl(atlasId) });
-            } catch (error) {
-                // Keep the level data even if this atlas cannot be displayed yet.
-            }
+            if (!atlasId || !ref.manifest || atlasRecord(atlasId)?.image) continue;
+            jobs.push(
+                ensureAtlasLoaded(atlasId, { manifest: ref.manifest, image: ref.image || atlasImageUrl(atlasId) })
+                    .catch(() => null)
+            );
         }
+        await Promise.all(jobs);
+    }
+
+    async function ensureEditorResourcesForLevel(level) {
+        await Promise.all([
+            ensureAtlasesForLevel(level),
+            ensureCharacterProjectsForLevel(level)
+        ]);
     }
 
     function frameFor(assetId, atlasId = state.activeAtlasId) {
@@ -3817,27 +4297,61 @@ import {
         };
     }
 
+    function characterProjectUrlForDefinition(definition) {
+        const characterId = String(definition?.characterId || "");
+        const configuredUrl = String(definition?.characterUrl || characterId);
+        if (!configuredUrl) return "";
+        const withExtension = configuredUrl.endsWith(".json") ? configuredUrl : `${configuredUrl}.json`;
+        return withExtension.includes("/") ? withExtension : `characters/${withExtension}`;
+    }
+
+    async function ensureCharacterProjectForDefinition(definition) {
+        const characterId = String(definition?.characterId || "");
+        const characterUrl = characterProjectUrlForDefinition(definition);
+        if (!characterId || !characterUrl) return null;
+        if (state.characterProjects.has(characterId)) return state.characterProjects.get(characterId);
+        if (state.characterProjectLoads.has(characterId)) return state.characterProjectLoads.get(characterId);
+        const pending = loadRuntimeCharacterProject(characterUrl)
+            .then((project) => {
+                state.characterProjects.set(project.characterId || characterId, project);
+                state.editorRuntimeWorldDirty = true;
+                draw();
+                return project;
+            })
+            .catch((error) => {
+                console.warn(`Could not load editor character preview ${characterUrl}.`, error);
+                return null;
+            })
+            .finally(() => state.characterProjectLoads.delete(characterId));
+        state.characterProjectLoads.set(characterId, pending);
+        return pending;
+    }
+
+    async function ensureCharacterProjectsForLevel(level) {
+        const jobs = [];
+        const seen = new Set();
+        for (const entity of level?.entities || []) {
+            if (entity?.type !== "characterEnemy") continue;
+            const definition = enemyCatalogDefinition(entity.enemyCatalogId) || {
+                characterId: String(entity.characterId || entity.characterProject || ""),
+                characterUrl: String(entity.characterUrl || "")
+            };
+            const characterId = String(definition.characterId || "");
+            if (!characterId || seen.has(characterId)) continue;
+            seen.add(characterId);
+            jobs.push(ensureCharacterProjectForDefinition(definition));
+        }
+        await Promise.all(jobs);
+    }
+
     async function loadEnemyCatalog() {
         try {
             const catalog = await loadJsonUrl(ENEMY_CATALOG_URL);
             state.enemyCatalog.clear();
-            const projectLoads = [];
             for (const [enemyId, rawDefinition] of Object.entries(catalog.enemies || {})) {
                 const definition = { ...cloneData(rawDefinition), enemyId, catalogId: catalog.catalogId || "ct_enemies_001" };
                 state.enemyCatalog.set(enemyId, definition);
-                const characterId = String(definition.characterId || "");
-                if (characterId) {
-                    const configuredUrl = String(definition.characterUrl || characterId);
-                    const withExtension = configuredUrl.endsWith(".json") ? configuredUrl : `${configuredUrl}.json`;
-                    const characterUrl = withExtension.includes("/") ? withExtension : `characters/${withExtension}`;
-                    projectLoads.push(
-                        loadRuntimeCharacterProject(characterUrl)
-                            .then((project) => state.characterProjects.set(project.characterId, project))
-                            .catch((error) => console.warn(`Could not load editor character preview ${characterUrl}.`, error))
-                    );
-                }
             }
-            await Promise.all(projectLoads);
             renderEntityPalette();
             refreshGeneratorEnemyPreview();
             refreshAutoSpawnEnemyPreview();
@@ -3849,6 +4363,7 @@ import {
             return 0;
         }
     }
+
 
     function entityPaletteCategory(type, definition, kind) {
         if (kind === "enemy") return "Enemy";
@@ -4326,6 +4841,7 @@ import {
     }
 
     function drawEntityPaletteThumbnail(canvas, entry) {
+        if (drawCachedPaletteThumbnail(canvas, `entity:${entry.type}`)) return;
         const drew = entry.kind === "enemy"
             ? drawEnemyEntityThumbnail(canvas, entry.definition)
             : entry.kind === "catalog"
@@ -4409,6 +4925,8 @@ import {
         if (!nextType) return;
         state.selectedEntityType = nextType;
         updateEntityPalette();
+        const enemyDefinition = enemyCatalogDefinition(nextType);
+        if (enemyDefinition) void ensureCharacterProjectForDefinition(enemyDefinition);
         if (activateTool) setTool("placeEntity");
     }
 
@@ -4422,19 +4940,39 @@ import {
 
     function renderAssetList() {
         const query = String(els.assetSearch?.value || "").trim().toLowerCase();
-        const allRows = [];
-        for (const [atlasId, atlas] of state.atlases) {
-            if (!isAssetPaletteAtlasId(atlasId)) continue;
-            const frames = atlas?.manifest?.frames || {};
-            const objects = atlas?.manifest?.objects || {};
-            for (const id of Object.keys(frames)) {
-                const object = objects[id] || {};
-                const tags = Array.isArray(object.tags) ? object.tags.join(" ") : String(object.tags || "");
-                allRows.push({ atlasId, id, object, frame: frames[id], tags });
+        let allRows = [];
+        if (state.paletteThumbnailCatalog?.entries?.length) {
+            allRows = state.paletteThumbnailCatalog.entries
+                .filter((entry) => entry.kind === "asset")
+                .map((entry) => ({
+                    atlasId: String(entry.source?.atlasId || ""),
+                    id: String(entry.source?.assetId || entry.id || ""),
+                    object: {
+                        type: entry.type || entry.category || "asset",
+                        tags: entry.tags || [],
+                        paletteOrder: Number(entry.paletteOrder) || 0
+                    },
+                    frame: entry.frame || { w: 1, h: 1 },
+                    tags: Array.isArray(entry.tags) ? entry.tags.join(" ") : String(entry.tags || ""),
+                    thumbnailKey: String(entry.key || ""),
+                    source: entry.source || {},
+                    searchable: String(entry.searchable || "")
+                }))
+                .filter((entry) => entry.atlasId && entry.id);
+        } else {
+            for (const [atlasId, atlas] of state.atlases) {
+                if (!isAssetPaletteAtlasId(atlasId)) continue;
+                const frames = atlas?.manifest?.frames || {};
+                const objects = atlas?.manifest?.objects || {};
+                for (const id of Object.keys(frames)) {
+                    const object = objects[id] || {};
+                    const tags = Array.isArray(object.tags) ? object.tags.join(" ") : String(object.tags || "");
+                    allRows.push({ atlasId, id, object, frame: frames[id], tags, thumbnailKey: "", source: {} });
+                }
             }
         }
         const rows = allRows.filter((entry) => {
-            const searchable = `${entry.atlasId} ${entry.id} ${entry.object.type || ""} ${entry.tags}`.toLowerCase();
+            const searchable = `${entry.searchable || ""} ${entry.atlasId} ${entry.id} ${entry.object.type || ""} ${entry.tags}`.toLowerCase();
             return !query || searchable.includes(query);
         });
         rows.sort((a, b) => {
@@ -4452,19 +4990,31 @@ import {
                 meta: `${atlasId} · ${object?.type || "asset"} · ${frame.w}×${frame.h}`,
                 title: `${atlasId}:${id}\n${object?.type || "asset"} · ${frame.w}×${frame.h}`,
                 selected,
-                onClick: () => {
-                    state.selectedAssetId = id;
-                    setActiveAtlas(atlasId, { redraw: false, renderPalette: false });
-                    setTool("placeAsset");
-                    updateAssetPaletteSelection();
-                    updateColorMapPreview();
-                    draw();
+                onClick: async () => {
+                    button.disabled = true;
+                    try {
+                        await ensureAtlasLoaded(atlasId, entry.source);
+                        state.selectedAssetId = id;
+                        setActiveAtlas(atlasId, { redraw: false, renderPalette: false });
+                        setTool("placeAsset");
+                        updateAssetPaletteSelection();
+                        updateColorMapPreview();
+                        draw();
+                    } catch (error) {
+                        setStatus(`Could not load ${atlasId}:${id}. ${error.message || error}`, false);
+                    } finally {
+                        button.disabled = false;
+                    }
                 }
             });
             button.dataset.atlasId = atlasId;
             button.dataset.assetId = id;
             els.assetList.appendChild(button);
-            deferPaletteThumbnail(thumbnail, () => drawAtlasFrameThumbnail(thumbnail, atlasId, frame, object));
+            deferPaletteThumbnail(thumbnail, () => {
+                if (!drawCachedPaletteThumbnail(thumbnail, entry.thumbnailKey)) {
+                    drawAtlasFrameThumbnail(thumbnail, atlasId, frame, object);
+                }
+            });
         }
         if (!rows.length) {
             const empty = document.createElement("div");
@@ -4474,11 +5024,13 @@ import {
         }
         if (els.assetPaletteStatus) {
             const visibleAtlasCount = new Set(allRows.map((entry) => entry.atlasId)).size;
+            const cacheNote = state.paletteThumbnailCatalog ? ` · ${state.paletteThumbnailCatalog.cellSize}px cached thumbnails` : "";
             els.assetPaletteStatus.textContent = query
-                ? `Showing ${rows.length} of ${allRows.length} assets from ${visibleAtlasCount} atlas${visibleAtlasCount === 1 ? "" : "es"}.`
-                : `${allRows.length} assets · ${visibleAtlasCount} asset atlas${visibleAtlasCount === 1 ? "" : "es"}.`;
+                ? `Showing ${rows.length} of ${allRows.length} assets from ${visibleAtlasCount} atlas${visibleAtlasCount === 1 ? "" : "es"}${cacheNote}.`
+                : `${allRows.length} assets · ${visibleAtlasCount} asset atlas${visibleAtlasCount === 1 ? "" : "es"}${cacheNote}.`;
         }
     }
+
 
     function renderPlacementList() {
         normalizeObjectSelection();
@@ -4618,6 +5170,7 @@ import {
             mirrorY: false,
             rotation: 0,
             layer: normalizedLayer,
+            blendOverlaps: false,
             collisionFromManifest: inertCosmetic ? false : hasRuntimeLines(object),
             foregroundSaturation: foreground ? caveDecoration.saturation : undefined,
             notes: utility ? (object.notes || "Invisible collision barrier.") : (foreground ? "Inert manually placed Foreground artwork." : (background ? "Inert cosmetic Background artwork." : ""))
@@ -4630,6 +5183,7 @@ import {
             setStatus("Select an asset in the palette first.", false);
             return null;
         }
+        beginEditHistory("Place asset");
         state.level.placements.push(placement);
         selectOnly(placement.id);
         persistUi();
@@ -4685,6 +5239,7 @@ import {
     function placeEntity(point) {
         const created = createEntityPlacement(point);
         if (!created?.record) return null;
+        beginEditHistory(created.kind === "placement" ? "Place cutout mask" : "Place entity");
         if (created.kind === "placement") {
             state.level.placements.push(created.record);
             selectOnly(created.record.id);
@@ -4750,6 +5305,7 @@ import {
             return false;
         }
         if (!setObjectClipboard("cut", selected)) return false;
+        beginEditHistory("Cut selection");
         const ids = new Set(selected.map((item) => item.record.id));
         state.level.placements = state.level.placements.filter((item) => !ids.has(item.id));
         state.level.entities = state.level.entities.filter((item) => !ids.has(item.id));
@@ -4766,6 +5322,7 @@ import {
             setStatus("Copy or cut one or more objects before pasting.", false);
             return false;
         }
+        beginEditHistory("Paste selection");
         const preserveCutIds = clipboard.mode === "cut" && Number(clipboard.pasteCount) === 0;
         const grid = Math.max(1, Number(els.snap.value) || 16);
         const step = Math.max(8, Math.min(32, grid));
@@ -4813,6 +5370,7 @@ import {
             setStatus(`${locked.record.id} is locked. Unlock the complete selection before deleting.`, false);
             return false;
         }
+        beginEditHistory("Delete selection");
         const ids = new Set(selected.map((item) => item.record.id));
         state.level.placements = state.level.placements.filter((item) => !ids.has(item.id));
         state.level.entities = state.level.entities.filter((item) => !ids.has(item.id));
@@ -4909,6 +5467,7 @@ import {
         }
         const proximityHandle = proximityTextTriggerHandleHit(point);
         if (proximityHandle) {
+            beginEditHistory("Move proximity-text trigger");
             selectOnly(proximityHandle.entity.id);
             state.drag = {
                 kind: "proximityTextTrigger",
@@ -4925,6 +5484,7 @@ import {
                 setStatus(`${movingHandle.placement.id} is locked.`, false);
                 return;
             }
+            beginEditHistory("Move moving-platform endpoint");
             selectOnly(movingHandle.placement.id);
             state.drag = {
                 kind: "movingPlatformEnd",
@@ -4953,6 +5513,7 @@ import {
             setStatus(`${locked.record.id} is locked. Unlock the complete selection before moving.`, false);
             return;
         }
+        beginEditHistory(selected.length > 1 ? "Move selection" : "Move object");
         const originals = new Map(selected.map((item) => [item.record.id, {
             x: Number(item.record.x) || 0,
             y: Number(item.record.y) || 0
@@ -5183,6 +5744,7 @@ import {
             const caveGeometryWarnings = gameplayGeometryCaveWarnings();
             drawCaveWindowOverlay(rect);
             drawCaveGeometryWarnings(caveGeometryWarnings);
+            drawGameplayCameraFrame(rect);
             refreshCaveGeometryWarningUi(caveGeometryWarnings);
             drawAutomaticRouteOverlay();
             drawAutomaticValidationOverlay();
@@ -5302,10 +5864,13 @@ import {
             return null;
         }
         syncEditorRuntimeWorld();
+        const gameplayFrame = editorGameplayCameraFrame();
         renderer.setViewOverride({
             x: state.camera.x,
             y: state.camera.y,
-            cssZoom: state.camera.zoom
+            cssZoom: state.camera.zoom,
+            parallaxAnchorX: gameplayFrame.parallaxAnchorX,
+            parallaxAnchorY: gameplayFrame.parallaxAnchorY
         });
         renderer.render(runtimeState, editorRuntimeInputFrame, 0);
         return renderer.getPerformanceDiagnostics?.() || null;
@@ -5476,6 +6041,116 @@ import {
         ctx.restore();
     }
 
+    function drawGameplayCameraFrameMarkerCross(x, y) {
+        const markerX = Math.round(x);
+        const markerY = Math.round(y);
+        ctx.fillRect(markerX - 2, markerY, 5, 1);
+        ctx.fillRect(markerX, markerY - 2, 1, 5);
+    }
+
+    function drawGameplayCameraFrameMarkerX(x, y) {
+        const markerX = Math.round(x);
+        const markerY = Math.round(y);
+        ctx.fillRect(markerX, markerY, 1, 1);
+        ctx.fillRect(markerX - 1, markerY - 1, 1, 1);
+        ctx.fillRect(markerX + 1, markerY - 1, 1, 1);
+        ctx.fillRect(markerX - 1, markerY + 1, 1, 1);
+        ctx.fillRect(markerX + 1, markerY + 1, 1, 1);
+    }
+
+    function drawGameplayCameraRulers(frame, topLeft, width, height) {
+        if (!els.showGameplayRulers.checked) return;
+        const zoom = state.camera.zoom;
+        const bottomX = topLeft.x;
+        const bottomY = topLeft.y + height;
+        const rulerGap = 10;
+        const tickHalf = 5;
+        const labelGap = 6;
+        const verticalX = Math.round(topLeft.x - rulerGap) + 0.5;
+        const verticalTopY = Math.round(bottomY - GAMEPLAY_RULER_METRICS.maxVertical * zoom) + 0.5;
+        const horizontalY = Math.round(bottomY + rulerGap) + 0.5;
+        const horizontalRightX = Math.round(bottomX + GAMEPLAY_RULER_METRICS.maxHorizontal * zoom) + 0.5;
+
+        ctx.save();
+        ctx.strokeStyle = COLORS.gameplayRulers;
+        ctx.fillStyle = COLORS.gameplayRulers;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([]);
+        ctx.font = "bold 10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+
+        ctx.beginPath();
+        ctx.moveTo(verticalX, Math.round(bottomY) + 0.5);
+        ctx.lineTo(verticalX, verticalTopY);
+        ctx.stroke();
+
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+        for (const marker of GAMEPLAY_RULER_METRICS.vertical) {
+            const y = Math.round(bottomY - marker.value * zoom) + 0.5;
+            ctx.beginPath();
+            ctx.moveTo(verticalX - tickHalf, y);
+            ctx.lineTo(verticalX + tickHalf, y);
+            ctx.stroke();
+            ctx.fillText(marker.label, verticalX - tickHalf - labelGap, y);
+        }
+
+        ctx.beginPath();
+        ctx.moveTo(Math.round(bottomX) + 0.5, horizontalY);
+        ctx.lineTo(horizontalRightX, horizontalY);
+        ctx.stroke();
+
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        for (const marker of GAMEPLAY_RULER_METRICS.horizontal) {
+            const x = Math.round(bottomX + marker.value * zoom) + 0.5;
+            ctx.beginPath();
+            ctx.moveTo(x, horizontalY - tickHalf);
+            ctx.lineTo(x, horizontalY + tickHalf);
+            ctx.stroke();
+            ctx.fillText(marker.label, x, horizontalY + tickHalf + 3);
+        }
+        ctx.restore();
+    }
+
+    function drawGameplayCameraFrame(rect) {
+        if (!els.showGameplayCameraFrame.checked) return;
+        const frame = editorGameplayCameraFrame(rect);
+        const topLeft = worldToScreen(frame.x, frame.y);
+        const cameraCenter = worldToScreen(frame.centerX, frame.centerY);
+        const stationaryFacingRightWizard = worldToScreen(
+            frame.centerX - GAMEPLAY_CAMERA_STATIONARY_LOOK_AHEAD_X,
+            frame.centerY + GAMEPLAY_CAMERA_STATIONARY_PLAYER_OFFSET_Y
+        );
+        const stationaryFacingLeftWizard = worldToScreen(
+            frame.centerX + GAMEPLAY_CAMERA_STATIONARY_LOOK_AHEAD_X,
+            frame.centerY + GAMEPLAY_CAMERA_STATIONARY_PLAYER_OFFSET_Y
+        );
+        const width = frame.w * state.camera.zoom;
+        const height = frame.h * state.camera.zoom;
+
+        drawGameplayCameraRulers(frame, topLeft, width, height);
+
+        ctx.save();
+        ctx.strokeStyle = COLORS.gameplayCameraFrame;
+        ctx.fillStyle = COLORS.gameplayCameraFrame;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([]);
+        ctx.strokeRect(topLeft.x, topLeft.y, width, height);
+
+        // Nine screen pixels: one centre pixel plus two in each cardinal direction.
+        drawGameplayCameraFrameMarkerCross(cameraCenter.x, cameraCenter.y);
+
+        // updateCameraHint() places a stationary wizard 150 world units opposite the facing direction and 170 below the camera centre.
+        drawGameplayCameraFrameMarkerX(stationaryFacingRightWizard.x, stationaryFacingRightWizard.y);
+        drawGameplayCameraFrameMarkerX(stationaryFacingLeftWizard.x, stationaryFacingLeftWizard.y);
+
+        if (els.showLabels.checked) {
+            ctx.font = "bold 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+            ctx.fillText("1920 × 1080 GAMEPLAY VIEW", topLeft.x + 8, topLeft.y + 17);
+        }
+        ctx.restore();
+    }
+
     function traceCaveWindowPath() {
         const points = caveWindowRecord().points;
         if (points.length < 2) return false;
@@ -5556,6 +6231,34 @@ import {
                 ctx.fillText("FULL BLACK", screen.x + 8, screen.y - 7);
             }
             ctx.restore();
+        }
+
+        if (els.showCaveInteractionBoundary.checked) {
+            const interactionBoundary = deriveCaveFullBlackKillBoundary(cave);
+            if (interactionBoundary.enabled && interactionBoundary.points.length >= 3) {
+                ctx.save();
+                const first = caveWorldToScreen(interactionBoundary.points[0].x, interactionBoundary.points[0].y);
+                ctx.beginPath();
+                ctx.moveTo(first.x, first.y);
+                for (let index = 1; index < interactionBoundary.points.length; index += 1) {
+                    const point = caveWorldToScreen(interactionBoundary.points[index].x, interactionBoundary.points[index].y);
+                    ctx.lineTo(point.x, point.y);
+                }
+                ctx.closePath();
+                ctx.strokeStyle = COLORS.caveInteractionBoundary;
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.stroke();
+                if (els.showLabels.checked) {
+                    const labelPoint = interactionBoundary.points.reduce((best, point) => point.y < best.y ? point : best, interactionBoundary.points[0]);
+                    const screen = caveWorldToScreen(labelPoint.x, labelPoint.y);
+                    ctx.setLineDash([]);
+                    ctx.font = "bold 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+                    ctx.fillStyle = COLORS.caveInteractionBoundary;
+                    ctx.fillText("PLAYER BOUNDARY", screen.x + 8, screen.y - 7);
+                }
+                ctx.restore();
+            }
         }
 
         if (cave.points.length >= 2) {
@@ -6309,6 +7012,7 @@ import {
         const placement = selectedMovingPlatformPlacement();
         const movement = placement ? normalizeMovingPlatform(placement.movement) : null;
         if (!placement || !movement || !movingPlatformHasEndpoint(movement)) return;
+        beginEditHistory("Swap moving-platform endpoints");
         const endpoint = movingPlatformEndPosition(placement, movement);
         placement.x = endpoint.x;
         placement.y = endpoint.y;
@@ -6820,6 +7524,7 @@ import {
             syncInspector();
             return false;
         }
+        if (commit) beginEditHistory("Scale enemy");
         rec.scale = normalizeEnemyScale(els.inspectEnemyRenderScale.value, 1);
         const dimensions = scaledEnemyDimensions(rec, 72, 150);
         els.inspectW.value = String(Math.round(dimensions.width * 100) / 100);
@@ -6846,6 +7551,7 @@ import {
             return;
         }
         const changedControlId = String(event?.target?.id || "");
+        beginEditHistory(changedControlId ? historyControlLabel(event.target) : "Edit selected object");
         const geometryCommit = !changedControlId || [
             "inspect-x",
             "inspect-y",
@@ -7137,6 +7843,7 @@ import {
         const control = document.activeElement;
         if (!inspectorControlShouldPrecommit(control)) return;
         if (event?.target === control) return;
+        beginEditHistory(historyControlLabel(control));
         applyInspector({ target: control, type: "inspector-precommit" });
     }
 
@@ -8516,14 +9223,16 @@ import {
         state.level.title = els.levelTitle.value.trim() || state.level.title;
         state.level.music = normalizeLevelMusic({ trackId: els.levelMusic.value });
         state.level.layerVisuals = normalizeLevelLayerVisuals({
-            version: 2,
+            version: 3,
             foreground: {
-                parallax: els.foregroundParallax.value,
+                parallaxX: els.foregroundParallaxX.value,
+                parallaxY: els.foregroundParallaxY.value,
                 brightness: els.foregroundBrightness.value,
                 scale: els.foregroundScale.value
             },
             background: {
-                parallax: els.backgroundParallax.value,
+                parallaxX: els.backgroundParallaxX.value,
+                parallaxY: els.backgroundParallaxY.value,
                 brightness: els.backgroundBrightness.value,
                 scale: els.backgroundScale.value
             }
@@ -8542,10 +9251,12 @@ import {
         els.worldH.value = state.level.world.bounds.h;
         const layerVisuals = currentLayerVisuals();
         state.level.layerVisuals = layerVisuals;
-        els.foregroundParallax.value = String(Math.round(layerVisuals.foreground.parallax * 1000000) / 1000000);
+        els.foregroundParallaxX.value = String(Math.round(layerVisuals.foreground.parallaxX * 1000000) / 1000000);
+        els.foregroundParallaxY.value = String(Math.round(layerVisuals.foreground.parallaxY * 1000000) / 1000000);
         els.foregroundBrightness.value = String(Math.round(layerVisuals.foreground.brightness * 1000) / 1000);
         els.foregroundScale.value = String(Math.round(layerVisuals.foreground.scale * 1000) / 1000);
-        els.backgroundParallax.value = String(Math.round(layerVisuals.background.parallax * 1000000) / 1000000);
+        els.backgroundParallaxX.value = String(Math.round(layerVisuals.background.parallaxX * 1000000) / 1000000);
+        els.backgroundParallaxY.value = String(Math.round(layerVisuals.background.parallaxY * 1000000) / 1000000);
         els.backgroundBrightness.value = String(Math.round(layerVisuals.background.brightness * 1000) / 1000);
         els.backgroundScale.value = String(Math.round(layerVisuals.background.scale * 1000) / 1000);
         syncColorMapToUi();
@@ -8644,6 +9355,7 @@ import {
 
     function updateJson() {
         prepareLevelForExport();
+        commitEditHistory();
     }
 
     function scheduleJsonUpdate(delay = 140) {
@@ -8654,9 +9366,10 @@ import {
         }, delay);
     }
 
-    function persistUi() {
+    function persistUi(historyLabel = "") {
         invalidateEditorPlacementCaches();
         syncMetadataToUi();
+        commitEditHistory(historyLabel);
         syncInspector();
         renderPlacementList();
         draw();
@@ -8702,6 +9415,7 @@ import {
     function raiseSelectedToTop() {
         const selected = selectedRecord();
         if (!selected || (selected.kind !== "asset" && selected.kind !== "cutoutMask")) return;
+        beginEditHistory("Move selection to front");
         normalizeStackOrder();
         const maxOrder = Math.max(-1, ...state.level.placements.map((item) => Number(item.order) || 0));
         selected.record.order = maxOrder + 1;
@@ -8711,6 +9425,7 @@ import {
     function lowerSelectedToBottom() {
         const selected = selectedRecord();
         if (!selected || (selected.kind !== "asset" && selected.kind !== "cutoutMask")) return;
+        beginEditHistory("Move selection to back");
         normalizeStackOrder();
         const minOrder = Math.min(0, ...state.level.placements.map((item) => Number(item.order) || 0));
         selected.record.order = minOrder - 1;
@@ -8792,6 +9507,9 @@ import {
         draw();
     }
 
+    document.addEventListener("input", beginHistoryForControlEvent, true);
+    document.addEventListener("change", beginHistoryForControlEvent, true);
+    document.addEventListener("click", beginHistoryForButtonClick, true);
     document.addEventListener("pointerdown", commitFocusedInspectorControlBeforePointer, true);
 
     canvas.addEventListener("pointerdown", (event) => {
@@ -8813,6 +9531,7 @@ import {
             const cavePoint = hitTestCavePoint(point);
             state.selectedCavePointId = cavePoint?.id || "";
             if (cavePoint) {
+                beginEditHistory("Move cave perimeter point");
                 state.drag = {
                     kind: "cavePoint",
                     id: cavePoint.id,
@@ -8924,6 +9643,8 @@ import {
     els.cutSelection.addEventListener("click", cutSelected);
     els.copySelection.addEventListener("click", copySelected);
     els.pasteSelection.addEventListener("click", pasteSelection);
+    els.undoEdit.addEventListener("click", undoLevelEdit);
+    els.redoEdit.addEventListener("click", redoLevelEdit);
     els.deleteSelection.addEventListener("click", deleteSelected);
     document.getElementById("zoom-in").addEventListener("click", () => zoomEditorAtCenter(1.15));
     document.getElementById("zoom-out").addEventListener("click", () => zoomEditorAtCenter(1 / 1.15));
@@ -8992,6 +9713,7 @@ import {
         refreshColorMappedAtlases({ redraw: false });
         syncMetadataToUi();
         persistUi();
+        resetEditHistory();
         setStatus("Created a new empty level.");
     });
     document.getElementById("load-level").addEventListener("click", loadSelectedLevel);
@@ -9069,14 +9791,16 @@ import {
     });
     els.showNavigationGraph.addEventListener("change", draw);
     const layerVisualControls = [
-        els.foregroundParallax,
+        els.foregroundParallaxX,
+        els.foregroundParallaxY,
         els.foregroundBrightness,
         els.foregroundScale,
-        els.backgroundParallax,
+        els.backgroundParallaxX,
+        els.backgroundParallaxY,
         els.backgroundBrightness,
         els.backgroundScale
     ];
-    [els.showGrid, els.showAssetGuides, els.showLabels, els.snapEnabled, els.snap, els.worldW, els.worldH, ...layerVisualControls, els.levelId, els.levelTitle, els.levelMusic].forEach((el) => el.addEventListener("change", () => {
+    [els.showGrid, els.showAssetGuides, els.showLabels, els.showGameplayCameraFrame, els.showGameplayRulers, els.showCaveInteractionBoundary, els.snapEnabled, els.snap, els.worldW, els.worldH, ...layerVisualControls, els.levelId, els.levelTitle, els.levelMusic].forEach((el) => el.addEventListener("change", () => {
         syncMetadataFromUi();
         if (layerVisualControls.includes(el)) invalidateEditorPlacementCaches({ sprites: true });
         draw();
@@ -9173,7 +9897,7 @@ import {
             state.generatorHistory = { undo: [], redo: [] };
             state.generatorLoadedRunId = "";
             state.selectedCavePointId = "";
-            await ensureAtlasesForLevel(state.level);
+            await ensureEditorResourcesForLevel(state.level);
             normalizeLoadedLevelPlacements();
             snapAllWizardDoorsToNearbyGround();
             snapAllCharacterEnemiesToNearbyGround();
@@ -9181,6 +9905,7 @@ import {
             selectOnly(state.level.entities[0]?.id || state.level.placements[0]?.id || "");
             syncMetadataToUi();
             persistUi();
+            resetEditHistory();
             setStatus(`Loaded level ${file.name}`);
         } catch (error) {
             setStatus(`Could not import ${file.name}: ${error.message || error}`, false);
@@ -9215,7 +9940,7 @@ import {
         state.generatorHistory = { undo: [], redo: [] };
         state.generatorLoadedRunId = "";
         state.selectedCavePointId = "";
-        ensureAtlasesForLevel(state.level).finally(() => {
+        ensureEditorResourcesForLevel(state.level).finally(() => {
             normalizeLoadedLevelPlacements();
             snapAllWizardDoorsToNearbyGround();
             snapAllCharacterEnemiesToNearbyGround();
@@ -9223,6 +9948,7 @@ import {
             selectOnly(state.level.entities[0]?.id || state.level.placements[0]?.id || "");
             syncMetadataToUi();
             persistUi();
+            resetEditHistory();
         });
         setStatus("Loaded level from this browser.");
     });
@@ -9236,9 +9962,20 @@ import {
     }
 
     window.addEventListener("keydown", (event) => {
-        if (shortcutTargetIsTextEditor(event.target)) return;
         const modifier = event.ctrlKey || event.metaKey;
         const key = String(event.key || "").toLowerCase();
+        if (modifier && !event.altKey && key === "z") {
+            event.preventDefault();
+            if (event.shiftKey) redoLevelEdit();
+            else undoLevelEdit();
+            return;
+        }
+        if (modifier && !event.altKey && key === "y") {
+            event.preventDefault();
+            redoLevelEdit();
+            return;
+        }
+        if (shortcutTargetIsTextEditor(event.target)) return;
         if (modifier && !event.altKey) {
             if (key === "x" && selectedRecords().length) {
                 event.preventDefault();
@@ -9285,6 +10022,7 @@ import {
             state.level = makeEmptyLevel();
             syncMetadataToUi();
             persistUi();
+            resetEditHistory();
             setStatus(`Could not load resources/resources.json after retries. ${error.message || error}`, false);
             return;
         }
@@ -9323,6 +10061,7 @@ import {
         } else {
             syncMetadataToUi();
             persistUi();
+            resetEditHistory();
             setStatus("resources.json contains no loadable levels. Created an empty level; correct the index or the declared level files.", false);
         }
         fitContentView();

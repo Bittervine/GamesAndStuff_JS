@@ -4,6 +4,9 @@ export const DECORATION_LAYER = "decorFront";
 export const ACTOR_FOREGROUND_LAYER = "actorFront";
 export const CAVE_FOREGROUND_LAYER_ID = "caveForeground";
 
+export const MIN_LAYER_PARALLAX = 0.01;
+export const MAX_BACKGROUND_PARALLAX = 1;
+export const MAX_FOREGROUND_PARALLAX = 1.25;
 export const DEFAULT_FOREGROUND_PARALLAX = 1.08;
 export const DEFAULT_BACKGROUND_PARALLAX = 1 / DEFAULT_FOREGROUND_PARALLAX;
 export const DEFAULT_LAYER_BRIGHTNESS = 1;
@@ -17,11 +20,11 @@ function finiteNumber(value, fallback) {
 }
 
 export function normalizeBackgroundParallax(value) {
-    return Math.max(0.25, Math.min(1, finiteNumber(value, DEFAULT_BACKGROUND_PARALLAX)));
+    return Math.max(MIN_LAYER_PARALLAX, Math.min(MAX_BACKGROUND_PARALLAX, finiteNumber(value, DEFAULT_BACKGROUND_PARALLAX)));
 }
 
 export function normalizeForegroundParallax(value) {
-    return Math.max(1, Math.min(1.25, finiteNumber(value, DEFAULT_FOREGROUND_PARALLAX)));
+    return Math.max(MIN_LAYER_PARALLAX, Math.min(MAX_FOREGROUND_PARALLAX, finiteNumber(value, DEFAULT_FOREGROUND_PARALLAX)));
 }
 
 export function normalizeLayerBrightness(value) {
@@ -37,14 +40,16 @@ export function normalizeLevelLayerVisuals(rawVisuals) {
     const background = source.background && typeof source.background === "object" ? source.background : {};
     const foreground = source.foreground && typeof source.foreground === "object" ? source.foreground : {};
     return {
-        version: 2,
+        version: 3,
         background: {
-            parallax: normalizeBackgroundParallax(background.parallax),
+            parallaxX: normalizeBackgroundParallax(background.parallaxX),
+            parallaxY: normalizeBackgroundParallax(background.parallaxY),
             brightness: normalizeLayerBrightness(background.brightness),
             scale: normalizeLayerScale(background.scale)
         },
         foreground: {
-            parallax: normalizeForegroundParallax(foreground.parallax),
+            parallaxX: normalizeForegroundParallax(foreground.parallaxX),
+            parallaxY: normalizeForegroundParallax(foreground.parallaxY),
             brightness: normalizeLayerBrightness(foreground.brightness ?? DEFAULT_FOREGROUND_BRIGHTNESS),
             scale: normalizeLayerScale(foreground.scale ?? DEFAULT_FOREGROUND_SCALE)
         }

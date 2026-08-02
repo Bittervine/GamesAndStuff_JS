@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ignatius Palette Thumbnail Builder - BUILD 277</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #171822;
+            --panel: #222432;
+            --panel-2: #2a2d3d;
+            --text: #ececf6;
+            --muted: #a9afc7;
+            --accent: #6fe3ff;
+            --accent-2: #8d74ff;
+            --danger: #ff8585;
+            --success: #8df0a8;
+            --border: rgba(255,255,255,0.12);
+        }
+        html, body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, sans-serif; }
+        body { padding: 20px; }
+        main { max-width: 1180px; margin: 0 auto; }
+        h1 { margin: 0 0 8px; font-size: 28px; }
+        p, li { color: var(--muted); }
+        .layout { display: grid; grid-template-columns: minmax(320px, 420px) 1fr; gap: 20px; align-items: start; }
+        .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 16px; box-shadow: 0 14px 36px rgba(0,0,0,0.22); }
+        .panel h2 { margin: 0 0 12px; font-size: 18px; }
+        .controls { display: grid; gap: 12px; }
+        .row { display: grid; gap: 8px; }
+        .row.inline { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        label { display: grid; gap: 6px; color: var(--muted); font-weight: 600; }
+        input, select, button, textarea { font: inherit; }
+        input, select {
+            border-radius: 10px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); padding: 10px 12px;
+        }
+        button {
+            border-radius: 10px; border: 1px solid rgba(111,227,255,0.35); background: linear-gradient(180deg, rgba(111,227,255,0.18), rgba(141,116,255,0.14));
+            color: var(--text); padding: 10px 14px; cursor: pointer; font-weight: 700;
+        }
+        button.secondary { background: var(--panel-2); border-color: var(--border); }
+        button:disabled { opacity: 0.55; cursor: default; }
+        .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+        .status { min-height: 22px; font-weight: 700; }
+        .status.success { color: var(--success); }
+        .status.error { color: var(--danger); }
+        .status.info { color: var(--accent); }
+        .progress { width: 100%; height: 10px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
+        .progress > div { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width 0.18s ease; }
+        .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 12px; }
+        .metric { background: var(--panel-2); border-radius: 12px; padding: 12px; border: 1px solid var(--border); }
+        .metric strong { display: block; font-size: 18px; color: var(--text); }
+        .preview-box { display: grid; gap: 12px; }
+        .preview-canvas-wrap { background: #11131a; border: 1px solid var(--border); border-radius: 12px; padding: 12px; overflow: auto; max-height: 520px; }
+        .preview-canvas-wrap canvas { image-rendering: pixelated; max-width: 100%; height: auto; background-image: linear-gradient(45deg, rgba(255,255,255,0.06) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.06) 75%), linear-gradient(45deg, rgba(255,255,255,0.06) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.06) 75%); background-position: 0 0, 8px 8px; background-size: 16px 16px; }
+        .log { min-height: 280px; max-height: 420px; width: 100%; resize: vertical; border-radius: 12px; border: 1px solid var(--border); background: #10121a; color: #d2d7ee; padding: 12px; box-sizing: border-box; }
+        .downloads { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+        .downloads a { display: inline-flex; align-items: center; gap: 6px; color: var(--text); text-decoration: none; background: var(--panel-2); border: 1px solid var(--border); padding: 9px 12px; border-radius: 10px; }
+        code { color: var(--text); }
+        .muted { color: var(--muted); }
+        @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+<main>
+    <h1>Palette Thumbnail Builder</h1>
+    <p>Build the Level Editor’s compact <code>resources/palette/thumbnails.png</code> and <code>thumbnails.json</code> directly in the browser. This page reuses the game’s JavaScript character runtime, so enemy colour replacements and assembled poses match the real renderer.</p>
+    <div class="layout">
+        <section class="panel controls">
+            <h2>Build controls</h2>
+            <div class="row inline">
+                <label>Thumbnail cell size
+                    <select id="cell-size">
+                        <option value="64" selected>64 × 64</option>
+                        <option value="128">128 × 128</option>
+                    </select>
+                </label>
+                <label>Maximum sheet size
+                    <input id="max-size" type="number" min="64" max="8192" step="64" value="8192">
+                </label>
+            </div>
+            <div class="row">
+                <label>Selected output folder <input id="output-folder" type="text" readonly value="(download only)"></label>
+                <div class="actions">
+                    <button id="choose-folder" type="button" class="secondary">Choose output folder…</button>
+                    <button id="clear-folder" type="button" class="secondary">Use downloads only</button>
+                </div>
+            </div>
+            <div class="actions">
+                <button id="build-button" type="button">Build thumbnails</button>
+                <button id="verify-button" type="button" class="secondary">Verify existing cache</button>
+            </div>
+            <div id="status" class="status info">Ready.</div>
+            <div class="progress" aria-hidden="true"><div id="progress-bar"></div></div>
+            <div class="summary" id="summary"></div>
+            <p class="muted">If the browser supports the File System Access API, the builder can write directly into <code>resources/palette</code>. Otherwise use the generated download links below and copy the files manually.</p>
+            <ul>
+                <li>The page keeps the same thumbnail JSON format used by the Level Editor.</li>
+                <li>Enemy thumbnails are assembled with the runtime character system, not by crude atlas cut-outs.</li>
+                <li>The builder defaults to 64 px thumbnails but keeps 128 px ready as a one-click rebuild.</li>
+            </ul>
+        </section>
+        <section class="panel preview-box">
+            <h2>Preview & output</h2>
+            <div class="preview-canvas-wrap"><canvas id="preview-canvas" width="512" height="512"></canvas></div>
+            <div class="downloads">
+                <a id="download-image" href="#" download="thumbnails.png" aria-disabled="true">Download thumbnails.png</a>
+                <a id="download-json" href="#" download="thumbnails.json" aria-disabled="true">Download thumbnails.json</a>
+            </div>
+            <textarea id="log" class="log" readonly spellcheck="false"></textarea>
+        </section>
+    </div>
+</main>
+<script type="module" src="./src/tools/palette-builder.js"></script>
+</body>
+</html>

@@ -9,12 +9,17 @@
     "world": {
         "bounds": {
             "x": -320,
-            "y": -420,
+            "y": -560,
             "w": 30000,
-            "h": 1500
+            "h": 1640
         }
     },
     "atlasRefs": [
+        {
+            "atlasId": "at_atlas_001",
+            "manifest": "atlases/at_atlas_001.json",
+            "image": "atlases/at_atlas_001.png"
+        },
         {
             "atlasId": "at_atlas_013",
             "manifest": "atlases/at_atlas_013.json",
@@ -60,14 +65,16 @@
         "trackId": "music_001"
     },
     "layerVisuals": {
-        "version": 2,
+        "version": 3,
         "background": {
-            "parallax": 0.98,
+            "parallaxX": 0.03,
+            "parallaxY": 1,
             "brightness": 0.9,
-            "scale": 1
+            "scale": 0.5
         },
         "foreground": {
-            "parallax": 1.002,
+            "parallaxX": 1.08,
+            "parallaxY": 1.08,
             "brightness": 1.05,
             "scale": 1
         }
@@ -80,7 +87,7 @@
     "caveWindow": {
         "version": 1,
         "enabled": true,
-        "feather": 200,
+        "feather": 100,
         "gradientNoise": {
             "seed": 278,
             "amplitude": 50,
@@ -96,68 +103,32 @@
         "points": [
             {
                 "id": "cave_point_001",
-                "x": -272,
-                "y": -240,
-                "mode": "smooth"
-            },
-            {
-                "id": "cave_point_008",
-                "x": 27120,
+                "x": -1440,
                 "y": -224,
-                "mode": "smooth"
-            },
-            {
-                "id": "cave_point_007",
-                "x": 27952,
-                "y": -224,
-                "mode": "smooth"
-            },
-            {
-                "id": "cave_point_004",
-                "x": 28256,
-                "y": -208,
                 "mode": "smooth"
             },
             {
                 "id": "cave_point_011",
-                "x": 28416,
-                "y": -160,
+                "x": 28944,
+                "y": -224,
                 "mode": "smooth"
             },
             {
                 "id": "cave_point_003",
-                "x": 28608,
-                "y": 80,
+                "x": 29712,
+                "y": -112,
                 "mode": "smooth"
             },
             {
                 "id": "cave_point_005",
-                "x": 28624,
-                "y": 448,
-                "mode": "smooth"
-            },
-            {
-                "id": "cave_point_010",
-                "x": 28144,
-                "y": 480,
-                "mode": "smooth"
-            },
-            {
-                "id": "cave_point_002",
-                "x": 27648,
-                "y": 480,
-                "mode": "smooth"
-            },
-            {
-                "id": "cave_point_009",
-                "x": 27328,
-                "y": 480,
+                "x": 29680,
+                "y": 528,
                 "mode": "smooth"
             },
             {
                 "id": "cave_point_006",
-                "x": -352,
-                "y": 480,
+                "x": -1440,
+                "y": 528,
                 "mode": "smooth"
             }
         ]
@@ -308,6 +279,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
@@ -326,6 +298,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
@@ -344,6 +317,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "onTop": true,
             "collisionFromManifest": true,
             "editorLocked": false,
             "notes": "",
@@ -362,6 +336,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
@@ -379,9 +354,9 @@
             "mirrorX": false,
             "mirrorY": false,
             "rotation": 0,
-            "layer": "caveForeground",
+            "layer": "terrain",
+            "onTop": true,
             "collisionFromManifest": false,
-            "foregroundSaturation": 0.62,
             "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 16
@@ -398,9 +373,9 @@
             "mirrorX": false,
             "mirrorY": false,
             "rotation": 0,
-            "layer": "caveForeground",
+            "layer": "terrain",
+            "onTop": true,
             "collisionFromManifest": false,
-            "foregroundSaturation": 0.62,
             "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 17
@@ -470,6 +445,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "manualizedFromGeneration": {
@@ -495,9 +471,9 @@
             "mirrorX": false,
             "mirrorY": false,
             "rotation": 0,
-            "layer": "caveForeground",
+            "layer": "terrain",
+            "onTop": true,
             "collisionFromManifest": false,
-            "foregroundSaturation": 0.62,
             "editorLocked": false,
             "manualizedFromGeneration": {
                 "generatorId": "automatic-level-generator-9",
@@ -522,9 +498,9 @@
             "mirrorX": false,
             "mirrorY": false,
             "rotation": 0,
-            "layer": "caveForeground",
+            "layer": "terrain",
+            "onTop": true,
             "collisionFromManifest": false,
-            "foregroundSaturation": 0.62,
             "editorLocked": false,
             "manualizedFromGeneration": {
                 "generatorId": "automatic-level-generator-9",
@@ -549,9 +525,9 @@
             "mirrorX": false,
             "mirrorY": false,
             "rotation": 0,
-            "layer": "caveForeground",
+            "layer": "terrain",
+            "onTop": true,
             "collisionFromManifest": false,
-            "foregroundSaturation": 0.62,
             "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 271
@@ -569,6 +545,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
@@ -587,6 +564,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
@@ -604,9 +582,9 @@
             "mirrorX": false,
             "mirrorY": false,
             "rotation": 0,
-            "layer": "caveForeground",
+            "layer": "terrain",
+            "onTop": true,
             "collisionFromManifest": false,
-            "foregroundSaturation": 0.62,
             "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 271
@@ -624,6 +602,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
@@ -642,6 +621,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
@@ -1023,9 +1003,9 @@
             "mirrorX": false,
             "mirrorY": false,
             "rotation": 0,
-            "layer": "caveForeground",
+            "layer": "terrain",
+            "onTop": true,
             "collisionFromManifest": false,
-            "foregroundSaturation": 0.62,
             "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 279
@@ -1042,9 +1022,9 @@
             "mirrorX": false,
             "mirrorY": false,
             "rotation": 0,
-            "layer": "caveForeground",
+            "layer": "terrain",
+            "onTop": true,
             "collisionFromManifest": false,
-            "foregroundSaturation": 0.62,
             "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 282
@@ -1061,9 +1041,9 @@
             "mirrorX": false,
             "mirrorY": false,
             "rotation": 0,
-            "layer": "caveForeground",
+            "layer": "terrain",
+            "onTop": true,
             "collisionFromManifest": false,
-            "foregroundSaturation": 0.62,
             "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 282
@@ -1081,11 +1061,11 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "onTop": true,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
-            "order": 286,
-            "onTop": true
+            "order": 286
         },
         {
             "id": "forest_grass_clump_004",
@@ -1100,6 +1080,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
@@ -1118,6 +1099,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
@@ -1154,6 +1136,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
@@ -1172,6 +1155,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
@@ -1189,9 +1173,9 @@
             "mirrorX": false,
             "mirrorY": false,
             "rotation": 0,
-            "layer": "caveForeground",
+            "layer": "terrain",
+            "onTop": true,
             "collisionFromManifest": false,
-            "foregroundSaturation": 0.62,
             "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 292
@@ -1208,9 +1192,9 @@
             "mirrorX": false,
             "mirrorY": false,
             "rotation": 0,
-            "layer": "caveForeground",
+            "layer": "terrain",
+            "onTop": true,
             "collisionFromManifest": false,
-            "foregroundSaturation": 0.62,
             "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 293
@@ -1228,6 +1212,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
@@ -1246,6 +1231,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
@@ -1263,9 +1249,9 @@
             "mirrorX": false,
             "mirrorY": false,
             "rotation": 0,
-            "layer": "caveForeground",
+            "layer": "terrain",
+            "onTop": true,
             "collisionFromManifest": false,
-            "foregroundSaturation": 0.62,
             "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 296
@@ -1282,9 +1268,9 @@
             "mirrorX": false,
             "mirrorY": false,
             "rotation": 0,
-            "layer": "caveForeground",
+            "layer": "terrain",
+            "onTop": true,
             "collisionFromManifest": false,
-            "foregroundSaturation": 0.62,
             "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 297
@@ -1302,6 +1288,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
@@ -1319,9 +1306,9 @@
             "mirrorX": false,
             "mirrorY": false,
             "rotation": 0,
-            "layer": "caveForeground",
+            "layer": "terrain",
+            "onTop": true,
             "collisionFromManifest": false,
-            "foregroundSaturation": 0.62,
             "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 299
@@ -1339,6 +1326,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": true,
             "editorLocked": false,
             "notes": "",
@@ -1357,6 +1345,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": true,
             "editorLocked": false,
             "notes": "",
@@ -1375,6 +1364,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": true,
             "editorLocked": false,
             "notes": "",
@@ -1411,9 +1401,9 @@
             "mirrorX": false,
             "mirrorY": false,
             "rotation": 0,
-            "layer": "caveForeground",
+            "layer": "terrain",
+            "onTop": true,
             "collisionFromManifest": false,
-            "foregroundSaturation": 0.62,
             "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 301
@@ -1430,9 +1420,9 @@
             "mirrorX": false,
             "mirrorY": false,
             "rotation": 0,
-            "layer": "caveForeground",
+            "layer": "terrain",
+            "onTop": true,
             "collisionFromManifest": false,
-            "foregroundSaturation": 0.62,
             "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 302
@@ -1449,9 +1439,9 @@
             "mirrorX": false,
             "mirrorY": false,
             "rotation": 0,
-            "layer": "caveForeground",
+            "layer": "terrain",
+            "onTop": true,
             "collisionFromManifest": false,
-            "foregroundSaturation": 0.62,
             "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 303
@@ -1469,6 +1459,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
@@ -1487,6 +1478,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
@@ -1505,6 +1497,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
@@ -1523,6 +1516,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
@@ -1541,6 +1535,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
@@ -1558,9 +1553,10 @@
             "mirrorX": false,
             "mirrorY": false,
             "rotation": 0,
-            "layer": "caveForeground",
+            "layer": "terrain",
+            "onTop": true,
+            "blendOverlaps": false,
             "collisionFromManifest": false,
-            "foregroundSaturation": 0.62,
             "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 309
@@ -1577,9 +1573,10 @@
             "mirrorX": false,
             "mirrorY": false,
             "rotation": 0,
-            "layer": "caveForeground",
+            "layer": "terrain",
+            "onTop": true,
+            "blendOverlaps": false,
             "collisionFromManifest": false,
-            "foregroundSaturation": 0.62,
             "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 310
@@ -1596,9 +1593,9 @@
             "mirrorX": false,
             "mirrorY": false,
             "rotation": 0,
-            "layer": "caveForeground",
+            "layer": "terrain",
+            "onTop": true,
             "collisionFromManifest": false,
-            "foregroundSaturation": 0.62,
             "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 311
@@ -1616,6 +1613,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
@@ -1633,9 +1631,9 @@
             "mirrorX": false,
             "mirrorY": false,
             "rotation": 0,
-            "layer": "caveForeground",
+            "layer": "terrain",
+            "onTop": true,
             "collisionFromManifest": false,
-            "foregroundSaturation": 0.62,
             "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 297
@@ -1652,9 +1650,9 @@
             "mirrorX": false,
             "mirrorY": false,
             "rotation": 0,
-            "layer": "caveForeground",
+            "layer": "terrain",
+            "onTop": true,
             "collisionFromManifest": false,
-            "foregroundSaturation": 0.62,
             "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 298
@@ -1672,6 +1670,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
@@ -1689,9 +1688,9 @@
             "mirrorX": false,
             "mirrorY": false,
             "rotation": 0,
-            "layer": "caveForeground",
+            "layer": "terrain",
+            "onTop": true,
             "collisionFromManifest": false,
-            "foregroundSaturation": 0.62,
             "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 300
@@ -1708,9 +1707,9 @@
             "mirrorX": false,
             "mirrorY": false,
             "rotation": 0,
-            "layer": "caveForeground",
+            "layer": "terrain",
+            "onTop": true,
             "collisionFromManifest": false,
-            "foregroundSaturation": 0.62,
             "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 301
@@ -1728,6 +1727,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
@@ -1746,6 +1746,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
@@ -1764,6 +1765,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
@@ -1782,6 +1784,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
@@ -1799,9 +1802,9 @@
             "mirrorX": false,
             "mirrorY": false,
             "rotation": 0,
-            "layer": "caveForeground",
+            "layer": "terrain",
+            "onTop": true,
             "collisionFromManifest": false,
-            "foregroundSaturation": 0.62,
             "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 305
@@ -1819,6 +1822,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
@@ -1836,9 +1840,9 @@
             "mirrorX": false,
             "mirrorY": false,
             "rotation": 0,
-            "layer": "caveForeground",
+            "layer": "terrain",
+            "onTop": true,
             "collisionFromManifest": false,
-            "foregroundSaturation": 0.62,
             "editorLocked": false,
             "notes": "Inert manually placed Foreground artwork.",
             "order": 305
@@ -1856,6 +1860,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
@@ -1874,6 +1879,7 @@
             "mirrorY": false,
             "rotation": 0,
             "layer": "terrain",
+            "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
             "notes": "",
@@ -1891,9 +1897,9 @@
             "mirrorX": false,
             "mirrorY": false,
             "rotation": 0,
-            "layer": "caveForeground",
+            "layer": "terrain",
+            "onTop": true,
             "collisionFromManifest": false,
-            "foregroundSaturation": 0.62,
             "editorLocked": false,
             "manualizedFromGeneration": {
                 "generatorId": "automatic-level-generator-9",
@@ -1905,6 +1911,42 @@
             },
             "notes": "Inert manually placed Foreground artwork.",
             "order": 299
+        },
+        {
+            "id": "full_moon_001",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_014",
+            "assetId": "full_moon",
+            "x": 14552.59323813938,
+            "y": -192,
+            "w": 249,
+            "h": 242,
+            "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "decorBack",
+            "collisionFromManifest": false,
+            "editorLocked": false,
+            "notes": "",
+            "order": 85
+        },
+        {
+            "id": "vertical_blocker_001",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_001",
+            "assetId": "vertical_blocker",
+            "x": -336,
+            "y": -416,
+            "w": 20,
+            "h": 1024,
+            "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "collisionFromManifest": true,
+            "editorLocked": false,
+            "notes": "Editor-visible, gameplay-invisible vertical collision barrier.",
+            "order": 86
         }
     ],
     "entities": [
@@ -2959,6 +3001,61 @@
             "projectilePartName": "axe_copy",
             "projectileFrameId": "axe_copy",
             "notes": "Blackbeard Axethrower using the corrected open left hand. He hurls one independently authored, rapidly spinning double-headed axe from the axe_copy handoff at 0.339 seconds."
+        },
+        {
+            "id": "fuel_001",
+            "type": "fuel",
+            "catalogId": "it_entities_001",
+            "x": -272,
+            "y": 384,
+            "w": 54,
+            "h": 90,
+            "state": "available",
+            "visualStates": {
+                "available": [
+                    {
+                        "atlasId": "it_atlas_001",
+                        "assetId": "rocket_fuel_canister",
+                        "layer": "decorFront"
+                    }
+                ]
+            },
+            "stateLabels": {
+                "available": "Available"
+            },
+            "effectId": "flight",
+            "durationSeconds": 60,
+            "respawnSeconds": 60,
+            "radius": 22,
+            "worldScale": 2,
+            "notes": "Sixty-second rocket flight power-up."
+        },
+        {
+            "id": "wrenchPickup_001",
+            "type": "wrenchPickup",
+            "catalogId": "it_entities_001",
+            "x": 896,
+            "y": 496,
+            "w": 96,
+            "h": 96,
+            "state": "available",
+            "visualStates": {
+                "available": [],
+                "collected": []
+            },
+            "stateLabels": {
+                "available": "Available",
+                "collected": "Collected"
+            },
+            "effectId": "wrenchCyan",
+            "durationSeconds": 20,
+            "respawnSeconds": 60,
+            "radius": 30,
+            "atlasId": "it_atlas_001",
+            "glowFrame": "powerup_glow_white",
+            "iconFrame": "powerup_icon_wrench",
+            "glowTint": "#00ffff",
+            "notes": "Grants the selected 20-second wrench rocket mode. If no wrench type is authored, it defaults to the cyan Dart wrench."
         }
     ],
     "navigationGraphs": {
@@ -3035,13 +3132,13 @@
                         "obstacleXMax": 28856
                     },
                     {
-                        "id": "forest_crate_small_blockable_001_blockable_1",
+                        "id": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "kind": "blockable",
-                        "x1": -333,
+                        "x1": -293,
                         "y1": 403,
                         "x2": -221,
                         "y2": 403,
-                        "xMin": -333,
+                        "xMin": -293,
                         "xMax": -221,
                         "sourcePolygonId": "forest_crate_small_blockable_001_area_4",
                         "obstacleXMin": -333,
@@ -3384,16 +3481,29 @@
                         "sourcePolygonId": null,
                         "obstacleXMin": null,
                         "obstacleXMax": null
+                    },
+                    {
+                        "id": "vertical_blocker_001_blockable_1",
+                        "kind": "blockable",
+                        "x1": -336,
+                        "y1": -416,
+                        "x2": -316,
+                        "y2": -416,
+                        "xMin": -336,
+                        "xMax": -316,
+                        "sourcePolygonId": "vertical_blocker_001_area_21",
+                        "obstacleXMin": -336,
+                        "obstacleXMax": -316
                     }
                 ],
-                "supportSignature": "forest_arched_bridge_walkable_001_walkable_1:14165:517:14303:438:|forest_arched_bridge_walkable_001_walkable_2:14433:390:14568:379:|forest_arched_bridge_walkable_001_walkable_3:14711:395:14844:435:|forest_arched_bridge_walkable_001_walkable_4:14844:435:14933:475:|forest_arched_bridge_walkable_001_walkable_5:14568:379:14711:395:|forest_arched_bridge_walkable_001_walkable_6:14303:438:14433:390:|forest_arched_bridge_walkable_001_walkable_7:14933:475:14997:517:|forest_crate_small_blockable_001_blockable_1:-333:403:-221:403:forest_crate_small_blockable_001_area_4|forest_grass_ground_block_001_blockable_1_nav_1:-198:500:1080:500:forest_grass_ground_block_001_area_0|forest_grass_ground_block_002_blockable_1:21187:500:22600:500:forest_grass_ground_block_002_area_1|forest_grass_ground_block_003_blockable_1:26115:500:27528:500:forest_grass_ground_block_003_area_2|forest_grass_ground_block_004_blockable_1:27443:500:28856:500:forest_grass_ground_block_004_area_3|forest_grass_ground_block_005_blockable_1:24323:500:25736:500:forest_grass_ground_block_005_area_5|forest_grass_ground_block_006_blockable_1:22979:500:24392:500:forest_grass_ground_block_006_area_6|forest_grass_ground_block_007_blockable_1:2323:500:3736:500:forest_grass_ground_block_007_area_7|forest_grass_ground_block_008_blockable_1:995:500:2408:500:forest_grass_ground_block_008_area_8|forest_grass_ground_block_009_blockable_1:3635:500:5048:500:forest_grass_ground_block_009_area_9|forest_grass_ground_block_010_blockable_1:4963:500:6376:500:forest_grass_ground_block_010_area_10|forest_grass_ground_block_011_blockable_1:6291:500:7704:500:forest_grass_ground_block_011_area_11|forest_grass_ground_block_012_blockable_1:8915:500:10328:500:forest_grass_ground_block_012_area_12|forest_grass_ground_block_013_blockable_1:7603:500:9016:500:forest_grass_ground_block_013_area_13|forest_grass_ground_block_014_blockable_1:10227:500:11640:500:forest_grass_ground_block_014_area_14|forest_grass_ground_block_015_blockable_1:11523:500:12936:500:forest_grass_ground_block_015_area_15|forest_grass_ground_block_016_blockable_1:12851:500:14264:500:forest_grass_ground_block_016_area_16|forest_grass_ground_block_017_blockable_1:14899:500:16312:500:forest_grass_ground_block_017_area_17|forest_grass_ground_block_018_blockable_1:16243:500:17656:500:forest_grass_ground_block_018_area_18|forest_grass_ground_block_019_blockable_1:18051:500:19464:500:forest_grass_ground_block_019_area_19|forest_grass_ground_block_021_blockable_1:19395:500:20808:500:forest_grass_ground_block_021_area_20|forest_hay_bale_rect_blockable_001_walkable_1:6541:374:6790:374:|forest_hay_bale_rect_blockable_002_walkable_1:6909:374:7158:374:|forest_tree_branch_platform_001_walkable_1:12606:322:12911:320:",
+                "supportSignature": "forest_arched_bridge_walkable_001_walkable_1:14165:517:14303:438:|forest_arched_bridge_walkable_001_walkable_2:14433:390:14568:379:|forest_arched_bridge_walkable_001_walkable_3:14711:395:14844:435:|forest_arched_bridge_walkable_001_walkable_4:14844:435:14933:475:|forest_arched_bridge_walkable_001_walkable_5:14568:379:14711:395:|forest_arched_bridge_walkable_001_walkable_6:14303:438:14433:390:|forest_arched_bridge_walkable_001_walkable_7:14933:475:14997:517:|forest_crate_small_blockable_001_blockable_1_nav_1:-293:403:-221:403:forest_crate_small_blockable_001_area_4|forest_grass_ground_block_001_blockable_1_nav_1:-198:500:1080:500:forest_grass_ground_block_001_area_0|forest_grass_ground_block_002_blockable_1:21187:500:22600:500:forest_grass_ground_block_002_area_1|forest_grass_ground_block_003_blockable_1:26115:500:27528:500:forest_grass_ground_block_003_area_2|forest_grass_ground_block_004_blockable_1:27443:500:28856:500:forest_grass_ground_block_004_area_3|forest_grass_ground_block_005_blockable_1:24323:500:25736:500:forest_grass_ground_block_005_area_5|forest_grass_ground_block_006_blockable_1:22979:500:24392:500:forest_grass_ground_block_006_area_6|forest_grass_ground_block_007_blockable_1:2323:500:3736:500:forest_grass_ground_block_007_area_7|forest_grass_ground_block_008_blockable_1:995:500:2408:500:forest_grass_ground_block_008_area_8|forest_grass_ground_block_009_blockable_1:3635:500:5048:500:forest_grass_ground_block_009_area_9|forest_grass_ground_block_010_blockable_1:4963:500:6376:500:forest_grass_ground_block_010_area_10|forest_grass_ground_block_011_blockable_1:6291:500:7704:500:forest_grass_ground_block_011_area_11|forest_grass_ground_block_012_blockable_1:8915:500:10328:500:forest_grass_ground_block_012_area_12|forest_grass_ground_block_013_blockable_1:7603:500:9016:500:forest_grass_ground_block_013_area_13|forest_grass_ground_block_014_blockable_1:10227:500:11640:500:forest_grass_ground_block_014_area_14|forest_grass_ground_block_015_blockable_1:11523:500:12936:500:forest_grass_ground_block_015_area_15|forest_grass_ground_block_016_blockable_1:12851:500:14264:500:forest_grass_ground_block_016_area_16|forest_grass_ground_block_017_blockable_1:14899:500:16312:500:forest_grass_ground_block_017_area_17|forest_grass_ground_block_018_blockable_1:16243:500:17656:500:forest_grass_ground_block_018_area_18|forest_grass_ground_block_019_blockable_1:18051:500:19464:500:forest_grass_ground_block_019_area_19|forest_grass_ground_block_021_blockable_1:19395:500:20808:500:forest_grass_ground_block_021_area_20|forest_hay_bale_rect_blockable_001_walkable_1:6541:374:6790:374:|forest_hay_bale_rect_blockable_002_walkable_1:6909:374:7158:374:|forest_tree_branch_platform_001_walkable_1:12606:322:12911:320:|vertical_blocker_001_blockable_1:-336:-416:-316:-416:vertical_blocker_001_area_21",
                 "edges": [
                     {
                         "id": "nav_edge_1",
                         "type": "jump",
                         "direction": "left",
                         "from": "forest_grass_ground_block_001_blockable_1_nav_1",
-                        "to": "forest_crate_small_blockable_001_blockable_1",
+                        "to": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "launchX": -176.709,
                         "launchY": 500,
                         "landingX": -236.4,
@@ -3417,7 +3527,7 @@
                         "type": "jump",
                         "direction": "left",
                         "from": "forest_grass_ground_block_001_blockable_1_nav_1",
-                        "to": "forest_crate_small_blockable_001_blockable_1",
+                        "to": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "launchX": -147.5,
                         "launchY": 500,
                         "landingX": -236.4,
@@ -3441,7 +3551,7 @@
                         "type": "jump",
                         "direction": "left",
                         "from": "forest_grass_ground_block_001_blockable_1_nav_1",
-                        "to": "forest_crate_small_blockable_001_blockable_1",
+                        "to": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "launchX": -123,
                         "launchY": 500,
                         "landingX": -236.4,
@@ -3465,7 +3575,7 @@
                         "type": "jump",
                         "direction": "left",
                         "from": "forest_grass_ground_block_001_blockable_1_nav_1",
-                        "to": "forest_crate_small_blockable_001_blockable_1",
+                        "to": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "launchX": -98.5,
                         "launchY": 500,
                         "landingX": -236.4,
@@ -3489,7 +3599,7 @@
                         "type": "jump",
                         "direction": "left",
                         "from": "forest_grass_ground_block_001_blockable_1_nav_1",
-                        "to": "forest_crate_small_blockable_001_blockable_1",
+                        "to": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "launchX": -67,
                         "launchY": 500,
                         "landingX": -236.4,
@@ -3566,7 +3676,7 @@
                         "id": "nav_edge_9",
                         "type": "drop",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -222.848,
                         "launchY": 403,
@@ -3585,7 +3695,7 @@
                         "id": "nav_edge_10",
                         "type": "jump",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -222.848,
                         "launchY": 403,
@@ -3608,7 +3718,7 @@
                         "id": "nav_edge_11",
                         "type": "drop",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -222.848,
                         "launchY": 403,
@@ -3627,7 +3737,7 @@
                         "id": "nav_edge_12",
                         "type": "jump",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -222.848,
                         "launchY": 403,
@@ -3650,7 +3760,7 @@
                         "id": "nav_edge_13",
                         "type": "drop",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -222.848,
                         "launchY": 403,
@@ -3669,7 +3779,7 @@
                         "id": "nav_edge_14",
                         "type": "jump",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -222.848,
                         "launchY": 403,
@@ -3692,7 +3802,7 @@
                         "id": "nav_edge_15",
                         "type": "drop",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -222.848,
                         "launchY": 403,
@@ -3711,7 +3821,7 @@
                         "id": "nav_edge_16",
                         "type": "jump",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -222.848,
                         "launchY": 403,
@@ -3734,7 +3844,7 @@
                         "id": "nav_edge_17",
                         "type": "jump",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -222.848,
                         "launchY": 403,
@@ -3757,7 +3867,7 @@
                         "id": "nav_edge_18",
                         "type": "jump",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -222.848,
                         "launchY": 403,
@@ -3780,7 +3890,7 @@
                         "id": "nav_edge_19",
                         "type": "jump",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -222.848,
                         "launchY": 403,
@@ -3803,7 +3913,7 @@
                         "id": "nav_edge_20",
                         "type": "jump",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -222.848,
                         "launchY": 403,
@@ -3826,7 +3936,7 @@
                         "id": "nav_edge_21",
                         "type": "jump",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -222.848,
                         "launchY": 403,
@@ -3837,10 +3947,10 @@
                         "flightTime": 1.377573,
                         "fromObstacleId": "forest_crate_small_blockable_001_area_4",
                         "toObstacleId": "forest_grass_ground_block_001_area_0",
-                        "cost": 523.153,
-                        "runUpX": -282.448,
+                        "cost": 521.456,
+                        "runUpX": -277.6,
                         "runUpY": 403,
-                        "runUpDistance": 59.6,
+                        "runUpDistance": 54.752,
                         "requiredLaunchSpeed": 250,
                         "groundAcceleration": 950,
                         "blockerIds": []
@@ -5784,13 +5894,13 @@
                         "obstacleXMax": 28856
                     },
                     {
-                        "id": "forest_crate_small_blockable_001_blockable_1",
+                        "id": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "kind": "blockable",
-                        "x1": -333,
+                        "x1": -287.9,
                         "y1": 403,
                         "x2": -221,
                         "y2": 403,
-                        "xMin": -333,
+                        "xMin": -287.9,
                         "xMax": -221,
                         "sourcePolygonId": "forest_crate_small_blockable_001_area_4",
                         "obstacleXMin": -333,
@@ -6133,16 +6243,29 @@
                         "sourcePolygonId": null,
                         "obstacleXMin": null,
                         "obstacleXMax": null
+                    },
+                    {
+                        "id": "vertical_blocker_001_blockable_1",
+                        "kind": "blockable",
+                        "x1": -336,
+                        "y1": -416,
+                        "x2": -316,
+                        "y2": -416,
+                        "xMin": -336,
+                        "xMax": -316,
+                        "sourcePolygonId": "vertical_blocker_001_area_21",
+                        "obstacleXMin": -336,
+                        "obstacleXMax": -316
                     }
                 ],
-                "supportSignature": "forest_arched_bridge_walkable_001_walkable_1:14165:517:14303:438:|forest_arched_bridge_walkable_001_walkable_2:14433:390:14568:379:|forest_arched_bridge_walkable_001_walkable_3:14711:395:14844:435:|forest_arched_bridge_walkable_001_walkable_4:14844:435:14933:475:|forest_arched_bridge_walkable_001_walkable_5:14568:379:14711:395:|forest_arched_bridge_walkable_001_walkable_6:14303:438:14433:390:|forest_arched_bridge_walkable_001_walkable_7:14933:475:14997:517:|forest_crate_small_blockable_001_blockable_1:-333:403:-221:403:forest_crate_small_blockable_001_area_4|forest_grass_ground_block_001_blockable_1_nav_1:-192.9:500:1080:500:forest_grass_ground_block_001_area_0|forest_grass_ground_block_002_blockable_1:21187:500:22600:500:forest_grass_ground_block_002_area_1|forest_grass_ground_block_003_blockable_1:26115:500:27528:500:forest_grass_ground_block_003_area_2|forest_grass_ground_block_004_blockable_1:27443:500:28856:500:forest_grass_ground_block_004_area_3|forest_grass_ground_block_005_blockable_1:24323:500:25736:500:forest_grass_ground_block_005_area_5|forest_grass_ground_block_006_blockable_1:22979:500:24392:500:forest_grass_ground_block_006_area_6|forest_grass_ground_block_007_blockable_1:2323:500:3736:500:forest_grass_ground_block_007_area_7|forest_grass_ground_block_008_blockable_1:995:500:2408:500:forest_grass_ground_block_008_area_8|forest_grass_ground_block_009_blockable_1:3635:500:5048:500:forest_grass_ground_block_009_area_9|forest_grass_ground_block_010_blockable_1:4963:500:6376:500:forest_grass_ground_block_010_area_10|forest_grass_ground_block_011_blockable_1:6291:500:7704:500:forest_grass_ground_block_011_area_11|forest_grass_ground_block_012_blockable_1:8915:500:10328:500:forest_grass_ground_block_012_area_12|forest_grass_ground_block_013_blockable_1:7603:500:9016:500:forest_grass_ground_block_013_area_13|forest_grass_ground_block_014_blockable_1:10227:500:11640:500:forest_grass_ground_block_014_area_14|forest_grass_ground_block_015_blockable_1:11523:500:12936:500:forest_grass_ground_block_015_area_15|forest_grass_ground_block_016_blockable_1:12851:500:14264:500:forest_grass_ground_block_016_area_16|forest_grass_ground_block_017_blockable_1:14899:500:16312:500:forest_grass_ground_block_017_area_17|forest_grass_ground_block_018_blockable_1:16243:500:17656:500:forest_grass_ground_block_018_area_18|forest_grass_ground_block_019_blockable_1:18051:500:19464:500:forest_grass_ground_block_019_area_19|forest_grass_ground_block_021_blockable_1:19395:500:20808:500:forest_grass_ground_block_021_area_20|forest_hay_bale_rect_blockable_001_walkable_1:6541:374:6790:374:|forest_hay_bale_rect_blockable_002_walkable_1:6909:374:7158:374:|forest_tree_branch_platform_001_walkable_1:12606:322:12911:320:",
+                "supportSignature": "forest_arched_bridge_walkable_001_walkable_1:14165:517:14303:438:|forest_arched_bridge_walkable_001_walkable_2:14433:390:14568:379:|forest_arched_bridge_walkable_001_walkable_3:14711:395:14844:435:|forest_arched_bridge_walkable_001_walkable_4:14844:435:14933:475:|forest_arched_bridge_walkable_001_walkable_5:14568:379:14711:395:|forest_arched_bridge_walkable_001_walkable_6:14303:438:14433:390:|forest_arched_bridge_walkable_001_walkable_7:14933:475:14997:517:|forest_crate_small_blockable_001_blockable_1_nav_1:-287.9:403:-221:403:forest_crate_small_blockable_001_area_4|forest_grass_ground_block_001_blockable_1_nav_1:-192.9:500:1080:500:forest_grass_ground_block_001_area_0|forest_grass_ground_block_002_blockable_1:21187:500:22600:500:forest_grass_ground_block_002_area_1|forest_grass_ground_block_003_blockable_1:26115:500:27528:500:forest_grass_ground_block_003_area_2|forest_grass_ground_block_004_blockable_1:27443:500:28856:500:forest_grass_ground_block_004_area_3|forest_grass_ground_block_005_blockable_1:24323:500:25736:500:forest_grass_ground_block_005_area_5|forest_grass_ground_block_006_blockable_1:22979:500:24392:500:forest_grass_ground_block_006_area_6|forest_grass_ground_block_007_blockable_1:2323:500:3736:500:forest_grass_ground_block_007_area_7|forest_grass_ground_block_008_blockable_1:995:500:2408:500:forest_grass_ground_block_008_area_8|forest_grass_ground_block_009_blockable_1:3635:500:5048:500:forest_grass_ground_block_009_area_9|forest_grass_ground_block_010_blockable_1:4963:500:6376:500:forest_grass_ground_block_010_area_10|forest_grass_ground_block_011_blockable_1:6291:500:7704:500:forest_grass_ground_block_011_area_11|forest_grass_ground_block_012_blockable_1:8915:500:10328:500:forest_grass_ground_block_012_area_12|forest_grass_ground_block_013_blockable_1:7603:500:9016:500:forest_grass_ground_block_013_area_13|forest_grass_ground_block_014_blockable_1:10227:500:11640:500:forest_grass_ground_block_014_area_14|forest_grass_ground_block_015_blockable_1:11523:500:12936:500:forest_grass_ground_block_015_area_15|forest_grass_ground_block_016_blockable_1:12851:500:14264:500:forest_grass_ground_block_016_area_16|forest_grass_ground_block_017_blockable_1:14899:500:16312:500:forest_grass_ground_block_017_area_17|forest_grass_ground_block_018_blockable_1:16243:500:17656:500:forest_grass_ground_block_018_area_18|forest_grass_ground_block_019_blockable_1:18051:500:19464:500:forest_grass_ground_block_019_area_19|forest_grass_ground_block_021_blockable_1:19395:500:20808:500:forest_grass_ground_block_021_area_20|forest_hay_bale_rect_blockable_001_walkable_1:6541:374:6790:374:|forest_hay_bale_rect_blockable_002_walkable_1:6909:374:7158:374:|forest_tree_branch_platform_001_walkable_1:12606:322:12911:320:|vertical_blocker_001_blockable_1:-336:-416:-316:-416:vertical_blocker_001_area_21",
                 "edges": [
                     {
                         "id": "nav_edge_1",
                         "type": "jump",
                         "direction": "left",
                         "from": "forest_grass_ground_block_001_blockable_1_nav_1",
-                        "to": "forest_crate_small_blockable_001_blockable_1",
+                        "to": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "launchX": -166.506,
                         "launchY": 500,
                         "landingX": -240.14,
@@ -6166,7 +6289,7 @@
                         "type": "jump",
                         "direction": "left",
                         "from": "forest_grass_ground_block_001_blockable_1_nav_1",
-                        "to": "forest_crate_small_blockable_001_blockable_1",
+                        "to": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "launchX": -129.65,
                         "launchY": 500,
                         "landingX": -240.14,
@@ -6190,7 +6313,7 @@
                         "type": "jump",
                         "direction": "left",
                         "from": "forest_grass_ground_block_001_blockable_1_nav_1",
-                        "to": "forest_crate_small_blockable_001_blockable_1",
+                        "to": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "launchX": -99.2,
                         "launchY": 500,
                         "landingX": -240.14,
@@ -6214,7 +6337,7 @@
                         "type": "jump",
                         "direction": "left",
                         "from": "forest_grass_ground_block_001_blockable_1_nav_1",
-                        "to": "forest_crate_small_blockable_001_blockable_1",
+                        "to": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "launchX": -68.75,
                         "launchY": 500,
                         "landingX": -240.14,
@@ -6238,7 +6361,7 @@
                         "type": "jump",
                         "direction": "left",
                         "from": "forest_grass_ground_block_001_blockable_1_nav_1",
-                        "to": "forest_crate_small_blockable_001_blockable_1",
+                        "to": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "launchX": -29.6,
                         "launchY": 500,
                         "landingX": -240.14,
@@ -6315,7 +6438,7 @@
                         "id": "nav_edge_9",
                         "type": "drop",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -223.297,
                         "launchY": 403,
@@ -6334,7 +6457,7 @@
                         "id": "nav_edge_10",
                         "type": "jump",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -223.297,
                         "launchY": 403,
@@ -6357,7 +6480,7 @@
                         "id": "nav_edge_11",
                         "type": "drop",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -223.297,
                         "launchY": 403,
@@ -6376,7 +6499,7 @@
                         "id": "nav_edge_12",
                         "type": "jump",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -223.297,
                         "launchY": 403,
@@ -6399,7 +6522,7 @@
                         "id": "nav_edge_13",
                         "type": "drop",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -223.297,
                         "launchY": 403,
@@ -6418,7 +6541,7 @@
                         "id": "nav_edge_14",
                         "type": "jump",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -223.297,
                         "launchY": 403,
@@ -6441,7 +6564,7 @@
                         "id": "nav_edge_15",
                         "type": "jump",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -223.297,
                         "launchY": 403,
@@ -6464,7 +6587,7 @@
                         "id": "nav_edge_16",
                         "type": "jump",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -223.297,
                         "launchY": 403,
@@ -6487,7 +6610,7 @@
                         "id": "nav_edge_17",
                         "type": "jump",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -223.297,
                         "launchY": 403,
@@ -6510,7 +6633,7 @@
                         "id": "nav_edge_18",
                         "type": "jump",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -223.297,
                         "launchY": 403,
@@ -6521,39 +6644,16 @@
                         "flightTime": 1.377573,
                         "fromObstacleId": "forest_crate_small_blockable_001_area_4",
                         "toObstacleId": "forest_grass_ground_block_001_area_0",
-                        "cost": 424.469,
-                        "runUpX": -276.457,
+                        "cost": 421.775,
+                        "runUpX": -268.76,
                         "runUpY": 403,
-                        "runUpDistance": 53.16,
+                        "runUpDistance": 45.463,
                         "requiredLaunchSpeed": 180,
                         "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
                         "id": "nav_edge_19",
-                        "type": "jump",
-                        "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
-                        "to": "forest_grass_ground_block_001_blockable_1_nav_1",
-                        "launchX": -223.297,
-                        "launchY": 403,
-                        "landingX": 121.096,
-                        "landingY": 500,
-                        "vx": 250,
-                        "vy": -790.569,
-                        "flightTime": 1.377573,
-                        "fromObstacleId": "forest_crate_small_blockable_001_area_4",
-                        "toObstacleId": "forest_grass_ground_block_001_area_0",
-                        "cost": 524.819,
-                        "runUpX": -287.657,
-                        "runUpY": 403,
-                        "runUpDistance": 64.36,
-                        "requiredLaunchSpeed": 250,
-                        "groundAcceleration": 950,
-                        "blockerIds": []
-                    },
-                    {
-                        "id": "nav_edge_20",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_grass_ground_block_005_blockable_1",
@@ -6571,7 +6671,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_21",
+                        "id": "nav_edge_20",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_grass_ground_block_006_blockable_1",
@@ -6589,7 +6689,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_22",
+                        "id": "nav_edge_21",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_grass_ground_block_007_blockable_1",
@@ -6607,7 +6707,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_23",
+                        "id": "nav_edge_22",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_grass_ground_block_007_blockable_1",
@@ -6625,7 +6725,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_24",
+                        "id": "nav_edge_23",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_grass_ground_block_008_blockable_1",
@@ -6643,7 +6743,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_25",
+                        "id": "nav_edge_24",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_grass_ground_block_008_blockable_1",
@@ -6661,7 +6761,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_26",
+                        "id": "nav_edge_25",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_grass_ground_block_009_blockable_1",
@@ -6679,7 +6779,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_27",
+                        "id": "nav_edge_26",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_grass_ground_block_009_blockable_1",
@@ -6697,7 +6797,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_28",
+                        "id": "nav_edge_27",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_grass_ground_block_010_blockable_1",
@@ -6715,7 +6815,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_29",
+                        "id": "nav_edge_28",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_grass_ground_block_010_blockable_1",
@@ -6733,7 +6833,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_30",
+                        "id": "nav_edge_29",
                         "type": "jump",
                         "direction": "right",
                         "from": "forest_grass_ground_block_010_blockable_1",
@@ -6756,7 +6856,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_31",
+                        "id": "nav_edge_30",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_grass_ground_block_011_blockable_1",
@@ -6774,7 +6874,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_32",
+                        "id": "nav_edge_31",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_grass_ground_block_011_blockable_1",
@@ -6792,7 +6892,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_33",
+                        "id": "nav_edge_32",
                         "type": "jump",
                         "direction": "up",
                         "from": "forest_grass_ground_block_011_blockable_1",
@@ -6810,7 +6910,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_34",
+                        "id": "nav_edge_33",
                         "type": "jump",
                         "direction": "up",
                         "from": "forest_grass_ground_block_011_blockable_1",
@@ -6828,7 +6928,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_35",
+                        "id": "nav_edge_34",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_grass_ground_block_012_blockable_1",
@@ -6846,7 +6946,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_36",
+                        "id": "nav_edge_35",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_grass_ground_block_012_blockable_1",
@@ -6864,7 +6964,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_37",
+                        "id": "nav_edge_36",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_grass_ground_block_013_blockable_1",
@@ -6882,7 +6982,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_38",
+                        "id": "nav_edge_37",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_grass_ground_block_013_blockable_1",
@@ -6900,7 +7000,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_39",
+                        "id": "nav_edge_38",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_grass_ground_block_014_blockable_1",
@@ -6918,7 +7018,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_40",
+                        "id": "nav_edge_39",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_grass_ground_block_014_blockable_1",
@@ -6936,7 +7036,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_41",
+                        "id": "nav_edge_40",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_grass_ground_block_015_blockable_1",
@@ -6954,7 +7054,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_42",
+                        "id": "nav_edge_41",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_grass_ground_block_015_blockable_1",
@@ -6972,7 +7072,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_43",
+                        "id": "nav_edge_42",
                         "type": "jump",
                         "direction": "up",
                         "from": "forest_grass_ground_block_015_blockable_1",
@@ -6990,7 +7090,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_44",
+                        "id": "nav_edge_43",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_grass_ground_block_016_blockable_1",
@@ -7008,7 +7108,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_45",
+                        "id": "nav_edge_44",
                         "type": "jump",
                         "direction": "up",
                         "from": "forest_grass_ground_block_016_blockable_1",
@@ -7026,7 +7126,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_46",
+                        "id": "nav_edge_45",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_grass_ground_block_016_blockable_1",
@@ -7044,7 +7144,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_47",
+                        "id": "nav_edge_46",
                         "type": "jump",
                         "direction": "right",
                         "from": "forest_grass_ground_block_016_blockable_1",
@@ -7067,7 +7167,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_48",
+                        "id": "nav_edge_47",
                         "type": "jump",
                         "direction": "right",
                         "from": "forest_grass_ground_block_016_blockable_1",
@@ -7090,7 +7190,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_49",
+                        "id": "nav_edge_48",
                         "type": "jump",
                         "direction": "right",
                         "from": "forest_grass_ground_block_016_blockable_1",
@@ -7113,7 +7213,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_50",
+                        "id": "nav_edge_49",
                         "type": "jump",
                         "direction": "right",
                         "from": "forest_grass_ground_block_016_blockable_1",
@@ -7136,7 +7236,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_51",
+                        "id": "nav_edge_50",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_grass_ground_block_017_blockable_1",
@@ -7154,7 +7254,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_52",
+                        "id": "nav_edge_51",
                         "type": "jump",
                         "direction": "left",
                         "from": "forest_grass_ground_block_017_blockable_1",
@@ -7177,7 +7277,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_53",
+                        "id": "nav_edge_52",
                         "type": "jump",
                         "direction": "left",
                         "from": "forest_grass_ground_block_017_blockable_1",
@@ -7200,7 +7300,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_54",
+                        "id": "nav_edge_53",
                         "type": "jump",
                         "direction": "up",
                         "from": "forest_grass_ground_block_017_blockable_1",
@@ -7218,7 +7318,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_55",
+                        "id": "nav_edge_54",
                         "type": "jump",
                         "direction": "left",
                         "from": "forest_grass_ground_block_017_blockable_1",
@@ -7241,7 +7341,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_56",
+                        "id": "nav_edge_55",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_grass_ground_block_017_blockable_1",
@@ -7259,7 +7359,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_57",
+                        "id": "nav_edge_56",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_grass_ground_block_018_blockable_1",
@@ -7277,7 +7377,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_58",
+                        "id": "nav_edge_57",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_grass_ground_block_019_blockable_1",
@@ -7295,7 +7395,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_59",
+                        "id": "nav_edge_58",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_grass_ground_block_021_blockable_1",
@@ -7313,7 +7413,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_60",
+                        "id": "nav_edge_59",
                         "type": "drop",
                         "direction": "left",
                         "from": "forest_hay_bale_rect_blockable_001_walkable_1",
@@ -7332,7 +7432,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_61",
+                        "id": "nav_edge_60",
                         "type": "drop",
                         "direction": "left",
                         "from": "forest_hay_bale_rect_blockable_001_walkable_1",
@@ -7351,7 +7451,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_62",
+                        "id": "nav_edge_61",
                         "type": "drop",
                         "direction": "left",
                         "from": "forest_hay_bale_rect_blockable_001_walkable_1",
@@ -7370,7 +7470,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_63",
+                        "id": "nav_edge_62",
                         "type": "drop",
                         "direction": "left",
                         "from": "forest_hay_bale_rect_blockable_001_walkable_1",
@@ -7389,7 +7489,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_64",
+                        "id": "nav_edge_63",
                         "type": "drop",
                         "direction": "right",
                         "from": "forest_hay_bale_rect_blockable_001_walkable_1",
@@ -7408,7 +7508,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_65",
+                        "id": "nav_edge_64",
                         "type": "drop",
                         "direction": "right",
                         "from": "forest_hay_bale_rect_blockable_001_walkable_1",
@@ -7427,7 +7527,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_66",
+                        "id": "nav_edge_65",
                         "type": "drop",
                         "direction": "right",
                         "from": "forest_hay_bale_rect_blockable_001_walkable_1",
@@ -7446,7 +7546,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_67",
+                        "id": "nav_edge_66",
                         "type": "drop",
                         "direction": "right",
                         "from": "forest_hay_bale_rect_blockable_001_walkable_1",
@@ -7465,7 +7565,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_68",
+                        "id": "nav_edge_67",
                         "type": "jump",
                         "direction": "right",
                         "from": "forest_hay_bale_rect_blockable_001_walkable_1",
@@ -7488,7 +7588,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_69",
+                        "id": "nav_edge_68",
                         "type": "jump",
                         "direction": "right",
                         "from": "forest_hay_bale_rect_blockable_001_walkable_1",
@@ -7511,7 +7611,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_70",
+                        "id": "nav_edge_69",
                         "type": "drop",
                         "direction": "left",
                         "from": "forest_hay_bale_rect_blockable_002_walkable_1",
@@ -7530,7 +7630,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_71",
+                        "id": "nav_edge_70",
                         "type": "drop",
                         "direction": "left",
                         "from": "forest_hay_bale_rect_blockable_002_walkable_1",
@@ -7549,7 +7649,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_72",
+                        "id": "nav_edge_71",
                         "type": "drop",
                         "direction": "left",
                         "from": "forest_hay_bale_rect_blockable_002_walkable_1",
@@ -7568,7 +7668,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_73",
+                        "id": "nav_edge_72",
                         "type": "drop",
                         "direction": "left",
                         "from": "forest_hay_bale_rect_blockable_002_walkable_1",
@@ -7587,7 +7687,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_74",
+                        "id": "nav_edge_73",
                         "type": "drop",
                         "direction": "right",
                         "from": "forest_hay_bale_rect_blockable_002_walkable_1",
@@ -7606,7 +7706,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_75",
+                        "id": "nav_edge_74",
                         "type": "drop",
                         "direction": "right",
                         "from": "forest_hay_bale_rect_blockable_002_walkable_1",
@@ -7625,7 +7725,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_76",
+                        "id": "nav_edge_75",
                         "type": "drop",
                         "direction": "right",
                         "from": "forest_hay_bale_rect_blockable_002_walkable_1",
@@ -7644,7 +7744,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_77",
+                        "id": "nav_edge_76",
                         "type": "drop",
                         "direction": "right",
                         "from": "forest_hay_bale_rect_blockable_002_walkable_1",
@@ -7663,7 +7763,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_78",
+                        "id": "nav_edge_77",
                         "type": "jump",
                         "direction": "left",
                         "from": "forest_hay_bale_rect_blockable_002_walkable_1",
@@ -7686,7 +7786,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_79",
+                        "id": "nav_edge_78",
                         "type": "jump",
                         "direction": "left",
                         "from": "forest_hay_bale_rect_blockable_002_walkable_1",
@@ -7709,7 +7809,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_80",
+                        "id": "nav_edge_79",
                         "type": "drop",
                         "direction": "left",
                         "from": "forest_tree_branch_platform_001_walkable_1",
@@ -7728,7 +7828,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_81",
+                        "id": "nav_edge_80",
                         "type": "drop",
                         "direction": "left",
                         "from": "forest_tree_branch_platform_001_walkable_1",
@@ -7747,7 +7847,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_82",
+                        "id": "nav_edge_81",
                         "type": "drop",
                         "direction": "left",
                         "from": "forest_tree_branch_platform_001_walkable_1",
@@ -7766,7 +7866,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_83",
+                        "id": "nav_edge_82",
                         "type": "drop",
                         "direction": "left",
                         "from": "forest_tree_branch_platform_001_walkable_1",
@@ -7785,7 +7885,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_84",
+                        "id": "nav_edge_83",
                         "type": "drop",
                         "direction": "left",
                         "from": "forest_tree_branch_platform_001_walkable_1",
@@ -7804,7 +7904,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_85",
+                        "id": "nav_edge_84",
                         "type": "drop",
                         "direction": "right",
                         "from": "forest_tree_branch_platform_001_walkable_1",
@@ -7823,7 +7923,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_86",
+                        "id": "nav_edge_85",
                         "type": "drop",
                         "direction": "right",
                         "from": "forest_tree_branch_platform_001_walkable_1",
@@ -7842,7 +7942,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_87",
+                        "id": "nav_edge_86",
                         "type": "drop",
                         "direction": "right",
                         "from": "forest_tree_branch_platform_001_walkable_1",
@@ -7861,7 +7961,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_88",
+                        "id": "nav_edge_87",
                         "type": "drop",
                         "direction": "right",
                         "from": "forest_tree_branch_platform_001_walkable_1",
@@ -7880,7 +7980,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_89",
+                        "id": "nav_edge_88",
                         "type": "drop",
                         "direction": "right",
                         "from": "forest_tree_branch_platform_001_walkable_1",
@@ -7899,7 +7999,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_90",
+                        "id": "nav_edge_89",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_1",
@@ -7917,7 +8017,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_91",
+                        "id": "nav_edge_90",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_2",
@@ -7935,7 +8035,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_92",
+                        "id": "nav_edge_91",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_2",
@@ -7953,7 +8053,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_93",
+                        "id": "nav_edge_92",
                         "type": "jump",
                         "direction": "left",
                         "from": "forest_arched_bridge_walkable_001_walkable_3",
@@ -7976,7 +8076,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_94",
+                        "id": "nav_edge_93",
                         "type": "jump",
                         "direction": "left",
                         "from": "forest_arched_bridge_walkable_001_walkable_3",
@@ -7999,7 +8099,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_95",
+                        "id": "nav_edge_94",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_3",
@@ -8017,7 +8117,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_96",
+                        "id": "nav_edge_95",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_3",
@@ -8035,7 +8135,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_97",
+                        "id": "nav_edge_96",
                         "type": "drop",
                         "direction": "right",
                         "from": "forest_arched_bridge_walkable_001_walkable_4",
@@ -8054,7 +8154,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_98",
+                        "id": "nav_edge_97",
                         "type": "drop",
                         "direction": "right",
                         "from": "forest_arched_bridge_walkable_001_walkable_4",
@@ -8073,7 +8173,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_99",
+                        "id": "nav_edge_98",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_4",
@@ -8091,7 +8191,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_100",
+                        "id": "nav_edge_99",
                         "type": "jump",
                         "direction": "left",
                         "from": "forest_arched_bridge_walkable_001_walkable_4",
@@ -8114,7 +8214,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_101",
+                        "id": "nav_edge_100",
                         "type": "jump",
                         "direction": "left",
                         "from": "forest_arched_bridge_walkable_001_walkable_4",
@@ -8137,7 +8237,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_102",
+                        "id": "nav_edge_101",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_4",
@@ -8155,7 +8255,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_103",
+                        "id": "nav_edge_102",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_5",
@@ -8173,7 +8273,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_104",
+                        "id": "nav_edge_103",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_5",
@@ -8191,7 +8291,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_105",
+                        "id": "nav_edge_104",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_6",
@@ -8209,7 +8309,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_106",
+                        "id": "nav_edge_105",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_6",
@@ -8227,7 +8327,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_107",
+                        "id": "nav_edge_106",
                         "type": "jump",
                         "direction": "right",
                         "from": "forest_arched_bridge_walkable_001_walkable_6",
@@ -8250,7 +8350,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_108",
+                        "id": "nav_edge_107",
                         "type": "jump",
                         "direction": "right",
                         "from": "forest_arched_bridge_walkable_001_walkable_6",
@@ -8273,7 +8373,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_109",
+                        "id": "nav_edge_108",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_7",
@@ -8369,13 +8469,13 @@
                         "obstacleXMax": 28856
                     },
                     {
-                        "id": "forest_crate_small_blockable_001_blockable_1",
+                        "id": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "kind": "blockable",
-                        "x1": -333,
+                        "x1": -295.1,
                         "y1": 403,
                         "x2": -221,
                         "y2": 403,
-                        "xMin": -333,
+                        "xMin": -295.1,
                         "xMax": -221,
                         "sourcePolygonId": "forest_crate_small_blockable_001_area_4",
                         "obstacleXMin": -333,
@@ -8718,16 +8818,29 @@
                         "sourcePolygonId": null,
                         "obstacleXMin": null,
                         "obstacleXMax": null
+                    },
+                    {
+                        "id": "vertical_blocker_001_blockable_1",
+                        "kind": "blockable",
+                        "x1": -336,
+                        "y1": -416,
+                        "x2": -316,
+                        "y2": -416,
+                        "xMin": -336,
+                        "xMax": -316,
+                        "sourcePolygonId": "vertical_blocker_001_area_21",
+                        "obstacleXMin": -336,
+                        "obstacleXMax": -316
                     }
                 ],
-                "supportSignature": "forest_arched_bridge_walkable_001_walkable_1:14165:517:14303:438:|forest_arched_bridge_walkable_001_walkable_2:14433:390:14568:379:|forest_arched_bridge_walkable_001_walkable_3:14711:395:14844:435:|forest_arched_bridge_walkable_001_walkable_4:14844:435:14933:475:|forest_arched_bridge_walkable_001_walkable_5:14568:379:14711:395:|forest_arched_bridge_walkable_001_walkable_6:14303:438:14433:390:|forest_arched_bridge_walkable_001_walkable_7:14933:475:14997:517:|forest_crate_small_blockable_001_blockable_1:-333:403:-221:403:forest_crate_small_blockable_001_area_4|forest_grass_ground_block_001_blockable_1_nav_1:-200.1:500:1080:500:forest_grass_ground_block_001_area_0|forest_grass_ground_block_002_blockable_1:21187:500:22600:500:forest_grass_ground_block_002_area_1|forest_grass_ground_block_003_blockable_1:26115:500:27528:500:forest_grass_ground_block_003_area_2|forest_grass_ground_block_004_blockable_1:27443:500:28856:500:forest_grass_ground_block_004_area_3|forest_grass_ground_block_005_blockable_1:24323:500:25736:500:forest_grass_ground_block_005_area_5|forest_grass_ground_block_006_blockable_1:22979:500:24392:500:forest_grass_ground_block_006_area_6|forest_grass_ground_block_007_blockable_1:2323:500:3736:500:forest_grass_ground_block_007_area_7|forest_grass_ground_block_008_blockable_1:995:500:2408:500:forest_grass_ground_block_008_area_8|forest_grass_ground_block_009_blockable_1:3635:500:5048:500:forest_grass_ground_block_009_area_9|forest_grass_ground_block_010_blockable_1:4963:500:6376:500:forest_grass_ground_block_010_area_10|forest_grass_ground_block_011_blockable_1:6291:500:7704:500:forest_grass_ground_block_011_area_11|forest_grass_ground_block_012_blockable_1:8915:500:10328:500:forest_grass_ground_block_012_area_12|forest_grass_ground_block_013_blockable_1:7603:500:9016:500:forest_grass_ground_block_013_area_13|forest_grass_ground_block_014_blockable_1:10227:500:11640:500:forest_grass_ground_block_014_area_14|forest_grass_ground_block_015_blockable_1:11523:500:12936:500:forest_grass_ground_block_015_area_15|forest_grass_ground_block_016_blockable_1:12851:500:14264:500:forest_grass_ground_block_016_area_16|forest_grass_ground_block_017_blockable_1:14899:500:16312:500:forest_grass_ground_block_017_area_17|forest_grass_ground_block_018_blockable_1:16243:500:17656:500:forest_grass_ground_block_018_area_18|forest_grass_ground_block_019_blockable_1:18051:500:19464:500:forest_grass_ground_block_019_area_19|forest_grass_ground_block_021_blockable_1:19395:500:20808:500:forest_grass_ground_block_021_area_20|forest_hay_bale_rect_blockable_001_walkable_1:6541:374:6790:374:|forest_hay_bale_rect_blockable_002_walkable_1:6909:374:7158:374:|forest_tree_branch_platform_001_walkable_1:12606:322:12911:320:",
+                "supportSignature": "forest_arched_bridge_walkable_001_walkable_1:14165:517:14303:438:|forest_arched_bridge_walkable_001_walkable_2:14433:390:14568:379:|forest_arched_bridge_walkable_001_walkable_3:14711:395:14844:435:|forest_arched_bridge_walkable_001_walkable_4:14844:435:14933:475:|forest_arched_bridge_walkable_001_walkable_5:14568:379:14711:395:|forest_arched_bridge_walkable_001_walkable_6:14303:438:14433:390:|forest_arched_bridge_walkable_001_walkable_7:14933:475:14997:517:|forest_crate_small_blockable_001_blockable_1_nav_1:-295.1:403:-221:403:forest_crate_small_blockable_001_area_4|forest_grass_ground_block_001_blockable_1_nav_1:-200.1:500:1080:500:forest_grass_ground_block_001_area_0|forest_grass_ground_block_002_blockable_1:21187:500:22600:500:forest_grass_ground_block_002_area_1|forest_grass_ground_block_003_blockable_1:26115:500:27528:500:forest_grass_ground_block_003_area_2|forest_grass_ground_block_004_blockable_1:27443:500:28856:500:forest_grass_ground_block_004_area_3|forest_grass_ground_block_005_blockable_1:24323:500:25736:500:forest_grass_ground_block_005_area_5|forest_grass_ground_block_006_blockable_1:22979:500:24392:500:forest_grass_ground_block_006_area_6|forest_grass_ground_block_007_blockable_1:2323:500:3736:500:forest_grass_ground_block_007_area_7|forest_grass_ground_block_008_blockable_1:995:500:2408:500:forest_grass_ground_block_008_area_8|forest_grass_ground_block_009_blockable_1:3635:500:5048:500:forest_grass_ground_block_009_area_9|forest_grass_ground_block_010_blockable_1:4963:500:6376:500:forest_grass_ground_block_010_area_10|forest_grass_ground_block_011_blockable_1:6291:500:7704:500:forest_grass_ground_block_011_area_11|forest_grass_ground_block_012_blockable_1:8915:500:10328:500:forest_grass_ground_block_012_area_12|forest_grass_ground_block_013_blockable_1:7603:500:9016:500:forest_grass_ground_block_013_area_13|forest_grass_ground_block_014_blockable_1:10227:500:11640:500:forest_grass_ground_block_014_area_14|forest_grass_ground_block_015_blockable_1:11523:500:12936:500:forest_grass_ground_block_015_area_15|forest_grass_ground_block_016_blockable_1:12851:500:14264:500:forest_grass_ground_block_016_area_16|forest_grass_ground_block_017_blockable_1:14899:500:16312:500:forest_grass_ground_block_017_area_17|forest_grass_ground_block_018_blockable_1:16243:500:17656:500:forest_grass_ground_block_018_area_18|forest_grass_ground_block_019_blockable_1:18051:500:19464:500:forest_grass_ground_block_019_area_19|forest_grass_ground_block_021_blockable_1:19395:500:20808:500:forest_grass_ground_block_021_area_20|forest_hay_bale_rect_blockable_001_walkable_1:6541:374:6790:374:|forest_hay_bale_rect_blockable_002_walkable_1:6909:374:7158:374:|forest_tree_branch_platform_001_walkable_1:12606:322:12911:320:|vertical_blocker_001_blockable_1:-336:-416:-316:-416:vertical_blocker_001_area_21",
                 "edges": [
                     {
                         "id": "nav_edge_1",
                         "type": "jump",
                         "direction": "left",
                         "from": "forest_grass_ground_block_001_blockable_1_nav_1",
-                        "to": "forest_crate_small_blockable_001_blockable_1",
+                        "to": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "launchX": -180.91,
                         "launchY": 500,
                         "landingX": -234.86,
@@ -8751,7 +8864,7 @@
                         "type": "jump",
                         "direction": "left",
                         "from": "forest_grass_ground_block_001_blockable_1_nav_1",
-                        "to": "forest_crate_small_blockable_001_blockable_1",
+                        "to": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "launchX": -154.85,
                         "launchY": 500,
                         "landingX": -234.86,
@@ -8775,7 +8888,7 @@
                         "type": "jump",
                         "direction": "left",
                         "from": "forest_grass_ground_block_001_blockable_1_nav_1",
-                        "to": "forest_crate_small_blockable_001_blockable_1",
+                        "to": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "launchX": -132.8,
                         "launchY": 500,
                         "landingX": -234.86,
@@ -8799,7 +8912,7 @@
                         "type": "jump",
                         "direction": "left",
                         "from": "forest_grass_ground_block_001_blockable_1_nav_1",
-                        "to": "forest_crate_small_blockable_001_blockable_1",
+                        "to": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "launchX": -110.75,
                         "launchY": 500,
                         "landingX": -234.86,
@@ -8823,7 +8936,7 @@
                         "type": "jump",
                         "direction": "left",
                         "from": "forest_grass_ground_block_001_blockable_1_nav_1",
-                        "to": "forest_crate_small_blockable_001_blockable_1",
+                        "to": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "launchX": -82.4,
                         "launchY": 500,
                         "landingX": -234.86,
@@ -8900,7 +9013,7 @@
                         "id": "nav_edge_9",
                         "type": "drop",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -222.663,
                         "launchY": 403,
@@ -8919,7 +9032,7 @@
                         "id": "nav_edge_10",
                         "type": "jump",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -222.663,
                         "launchY": 403,
@@ -8942,7 +9055,7 @@
                         "id": "nav_edge_11",
                         "type": "drop",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -222.663,
                         "launchY": 403,
@@ -8961,7 +9074,7 @@
                         "id": "nav_edge_12",
                         "type": "jump",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -222.663,
                         "launchY": 403,
@@ -8984,7 +9097,7 @@
                         "id": "nav_edge_13",
                         "type": "drop",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -222.663,
                         "launchY": 403,
@@ -9003,7 +9116,7 @@
                         "id": "nav_edge_14",
                         "type": "jump",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -222.663,
                         "launchY": 403,
@@ -9026,7 +9139,7 @@
                         "id": "nav_edge_15",
                         "type": "drop",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -222.663,
                         "launchY": 403,
@@ -9045,7 +9158,7 @@
                         "id": "nav_edge_16",
                         "type": "jump",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -222.663,
                         "launchY": 403,
@@ -9068,7 +9181,7 @@
                         "id": "nav_edge_17",
                         "type": "jump",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -222.663,
                         "launchY": 403,
@@ -9091,7 +9204,7 @@
                         "id": "nav_edge_18",
                         "type": "jump",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -222.663,
                         "launchY": 403,
@@ -9114,7 +9227,7 @@
                         "id": "nav_edge_19",
                         "type": "jump",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -222.663,
                         "launchY": 403,
@@ -9137,7 +9250,7 @@
                         "id": "nav_edge_20",
                         "type": "jump",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -222.663,
                         "launchY": 403,
@@ -9160,7 +9273,7 @@
                         "id": "nav_edge_21",
                         "type": "jump",
                         "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1",
+                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
                         "to": "forest_grass_ground_block_001_blockable_1_nav_1",
                         "launchX": -222.663,
                         "launchY": 403,

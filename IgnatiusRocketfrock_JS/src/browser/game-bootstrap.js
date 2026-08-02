@@ -20,12 +20,14 @@ import {
     syncEnemyTuningHealthScales,
     normalizePlayerProgression,
     applyPlayerProgression,
+    defaultNextLevelId,
     addEvent
 } from "../core/simulation.js";
 import { RocketfrockInput } from "./browser-input.js";
 import { GamepadHaptics } from "./gamepad-haptics.js";
 import { createRenderer } from "../presentation/canvas-renderer.js";
 import { normalizeCaveWindow } from "../shared/cave-window-data.js";
+import { collectLevelEnemyCharacterIds } from "../shared/auto-spawn-enemy-data.js";
 import {
     DEVELOPMENT,
     gameDifficultyPreset,
@@ -72,6 +74,7 @@ import {
 } from "./gameplay-recording.js";
 import { ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER } from "../shared/experimental-renderer-flags.js";
 import { resourceUrl } from "../shared/resource-paths.js";
+import { shownTransformOf } from "../shared/presentation-transform-data.js";
 
 const canvas = document.getElementById("stage");
 const fuelText = document.getElementById("fuel-text");
@@ -162,7 +165,7 @@ const developmentGameTuningButton = document.getElementById("development-game-tu
 const developmentRecordingButton = document.getElementById("development-recording");
 const developmentPlaybackButton = document.getElementById("development-playback");
 
-const GAME_REVISION = "253";
+const GAME_REVISION = "277";
 const START_LEVEL_ID = "level_001";
 const launchParams = new URLSearchParams(window.location.search || "");
 const launchLevelId = normalizeLaunchLevelQuery(launchParams.get("level"), START_LEVEL_ID);
@@ -218,7 +221,7 @@ let minimapResizeObserver = null;
 let minimapLastDrawAt = -Infinity;
 let minimapLastSizeKey = "";
 let hudPanelScale = 1;
-let enemyCharacterProjectUrls = [];
+let enemyDefinitionCatalog = { enemies: {} };
 let staticBakeFailureNoticeKey = "";
 let activeNoticeOverlay = null;
 const preferWebGL2Renderer = shouldPreferWebGL2Renderer();
@@ -251,7 +254,7 @@ try {
         preferWebGL2: preferWebGL2Renderer,
         usePixmapPyramids: gameState.settings.usePixmapPyramids,
         environmentAtlasManifestUrls: gameState.world.atlasManifests,
-        enemyCharacterUrls: enemyCharacterProjectUrls,
+        enemyCharacterUrls: requiredEnemyCharacterProjectUrls(gameState.world),
         onStaticBakeFailure: handleStaticBakeRendererFailure,
         onProgress: ({ progress, label }) => {
             setLoadingProgress(0.1 + clamp01(progress) * 0.85, label);
@@ -726,13 +729,13 @@ async function restoreGameplayPlaybackInitialState(recording) {
         gameState.debug.revision = GAME_REVISION;
         syncPresentationFromWorldState();
         setLoadingProgress(0.18, "Loading playback renderer assets");
-        await renderer.ensureEnvironmentAtlases(gameState.world.atlasManifests, {
-            onProgress: ({ progress, label }) => {
-                setLoadingProgress(0.18 + clamp01(progress) * 0.66, label);
-            }
+        await syncRendererLevelAssets(gameState.world, {
+            characterStart: 0.18,
+            characterSpan: 0.30,
+            atlasStart: 0.48,
+            atlasSpan: 0.36
         });
         renderer.syncCaveWindow(activeCaveWindow);
-        syncLoadedCharacterCombatProfiles();
         applyLoadedAtlasCollisions();
         renderer.syncEnvironmentColorMap(gameState.world.colorMap, gameState.world.colorExchange);
         renderer.prewarmLevelPresentationCaches?.(gameState.world);
@@ -863,21 +866,52 @@ async function loadEnemyDefinitionCatalog() {
     try {
         const response = await fetch(url, { cache: "no-store" });
         if (!response.ok) throw new Error(`${response.status}`);
-        const catalog = await response.json();
-        enemyCharacterProjectUrls = [...new Set(Object.values(catalog.enemies || {})
-            .map((definition) => {
-                const configured = String(definition?.characterUrl || definition?.characterId || "").trim();
-                if (!configured) return "";
-                const withExtension = configured.endsWith(".json") ? configured : `${configured}.json`;
-                return withExtension.includes("/") ? withExtension : `characters/${withExtension}`;
-            })
-            .filter(Boolean))];
-        if (!applyEnemyDefinitionCatalog(gameState, catalog)) {
+        enemyDefinitionCatalog = await response.json();
+        if (!applyEnemyDefinitionCatalog(gameState, enemyDefinitionCatalog)) {
             console.warn(`Enemy definition catalog ${url} contains no usable enemies.`);
         }
     } catch (error) {
+        enemyDefinitionCatalog = { enemies: {} };
         console.warn(`Could not load automatic enemy-spawn catalog ${url}. Auto spawning will remain inactive.`, error);
     }
+    return enemyDefinitionCatalog;
+}
+
+function resolveEnemyCharacterProjectUrl(catalog, characterId) {
+    const normalizedCharacterId = String(characterId || "").trim();
+    let configured = normalizedCharacterId;
+    for (const definition of Object.values(catalog?.enemies || {})) {
+        if (String(definition?.characterId || "").trim() !== normalizedCharacterId) continue;
+        configured = String(definition?.characterUrl || normalizedCharacterId).trim();
+        break;
+    }
+    if (!configured) return "";
+    const withExtension = configured.endsWith(".json") ? configured : `${configured}.json`;
+    return withExtension.includes("/") ? withExtension : `characters/${withExtension}`;
+}
+
+function requiredEnemyCharacterProjectUrls(level = gameState.world) {
+    return collectLevelEnemyCharacterIds(level, enemyDefinitionCatalog)
+        .map((characterId) => resolveEnemyCharacterProjectUrl(enemyDefinitionCatalog, characterId))
+        .filter(Boolean);
+}
+
+async function syncRendererLevelAssets(level = gameState.world, options = {}) {
+    const characterStart = Number(options.characterStart) || 0;
+    const characterSpan = Number(options.characterSpan) || 0;
+    const atlasStart = Number(options.atlasStart) || 0;
+    const atlasSpan = Number(options.atlasSpan) || 0;
+    await renderer.ensureCharacterProjects(requiredEnemyCharacterProjectUrls(level), {
+        onProgress: ({ progress, label }) => {
+            if (characterSpan > 0) setLoadingProgress(characterStart + clamp01(progress) * characterSpan, label);
+        }
+    });
+    await renderer.ensureEnvironmentAtlases(gameState.world.atlasManifests, {
+        onProgress: ({ progress, label }) => {
+            if (atlasSpan > 0) setLoadingProgress(atlasStart + clamp01(progress) * atlasSpan, label);
+        }
+    });
+    syncLoadedCharacterCombatProfiles();
 }
 
 function maybeApplyBrowserCopyLevel() {
@@ -1040,6 +1074,21 @@ async function fetchOptionalLevel(levelId) {
     }
 }
 
+function requestSkipToNextLevel() {
+    if (titleScreenActive || !gameHasStarted || gameplayPlayback?.active || levelTransitionLoading) {
+        return false;
+    }
+    const currentLevelId = normalizedLevelId(gameState.world?.levelId, START_LEVEL_ID);
+    const requestedLevelId = defaultNextLevelId(currentLevelId);
+    gameState.story.levelTransitionRequest = {
+        portalId: "keyboard_f8",
+        requestedLevelId,
+        fallbackLevelId: currentLevelId
+    };
+    addEvent(gameState, "LEVEL_TRANSITION_REQUESTED", gameState.story.levelTransitionRequest);
+    return true;
+}
+
 function processLevelTransitionRequest() {
     const request = gameState.story?.levelTransitionRequest;
     if (!request || levelTransitionLoading) return;
@@ -1081,12 +1130,12 @@ async function loadRequestedLevel(request) {
         applyPlayerProgression(gameState, gameState.playerProgression, { refillResources: true });
         saveResumeLevelId(loadedLevelId);
         syncPresentationLevelData(level);
-        await renderer.ensureEnvironmentAtlases(gameState.world.atlasManifests, {
-            onProgress: ({ progress, label }) => {
-                setLoadingProgress(0.22 + clamp01(progress) * 0.66, label);
-            }
+        await syncRendererLevelAssets(level, {
+            characterStart: 0.22,
+            characterSpan: 0.30,
+            atlasStart: 0.52,
+            atlasSpan: 0.36
         });
-        syncLoadedCharacterCombatProfiles();
         if (!applyLoadedAtlasCollisions()) {
             console.error(`Level transition loaded ${loadedLevelId}, but its atlas collision could not be applied.`);
         }
@@ -1228,7 +1277,7 @@ function setupTitleScreen() {
         void exitToDesktop();
     });
     titleActions?.addEventListener("keydown", handleTitleMenuNavigationKey);
-    window.addEventListener("keydown", handleGameplayPlaybackResumeKeydown, { capture: true, passive: false });
+    window.addEventListener("keydown", handleRuntimeHotkeyKeydown, { capture: true, passive: false });
 }
 
 function handleTitleMenuNavigationKey(event) {
@@ -1245,6 +1294,16 @@ function handleTitleMenuNavigationKey(event) {
         nextIndex = (currentIndex + direction + enabledButtons.length) % enabledButtons.length;
     }
     enabledButtons[nextIndex].focus({ preventScroll: true });
+}
+
+function handleRuntimeHotkeyKeydown(event) {
+    if (event.code === "F8" && !event.repeat) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        requestSkipToNextLevel();
+        return;
+    }
+    handleGameplayPlaybackResumeKeydown(event);
 }
 
 function handleGameplayPlaybackResumeKeydown(event) {
@@ -1549,12 +1608,20 @@ function drawMinimap(force = false) {
         ctx.stroke();
     }
 
-    const viewport = renderer?.getViewportMetrics?.();
+    const renderedView = renderer?.getLastComputedView?.();
+    const viewport = renderedView || renderer?.getViewportMetrics?.();
     if (viewport) {
         const virtualW = Number(viewport.virtualW) || 0;
         const virtualH = Number(viewport.virtualH) || 0;
-        const cameraLeft = (Number(gameState.camera?.x) || 0) - virtualW * 0.5;
-        const cameraTop = (Number(gameState.camera?.y) || 0) - virtualH * 0.56;
+        const cameraTransform = shownTransformOf(gameState.camera);
+        const renderedLeft = Number(renderedView?.x);
+        const renderedTop = Number(renderedView?.y);
+        const cameraLeft = Number.isFinite(renderedLeft)
+            ? renderedLeft
+            : (Number(cameraTransform.x) || 0) - virtualW * 0.5;
+        const cameraTop = Number.isFinite(renderedTop)
+            ? renderedTop
+            : (Number(cameraTransform.y) || 0) - virtualH * 0.56;
         const cameraPoint = point(cameraLeft, cameraTop);
         ctx.strokeStyle = "rgba(115,211,124,0.58)";
         ctx.lineWidth = 1;
@@ -1580,7 +1647,8 @@ function drawMinimap(force = false) {
         ctx.fill();
     }
 
-    const playerPoint = point(Number(gameState.player?.x) || 0, Number(gameState.player?.y) || 0);
+    const playerTransform = shownTransformOf(gameState.player);
+    const playerPoint = point(Number(playerTransform.x) || 0, Number(playerTransform.y) || 0);
     ctx.fillStyle = "#73d37c";
     ctx.strokeStyle = "rgba(0,0,0,0.8)";
     ctx.lineWidth = 1.4;
@@ -1965,6 +2033,7 @@ async function restartCurrentLevel() {
         }
         gameState.debug.revision = GAME_REVISION;
         addEvent(gameState, `BUILD_REVISION_${GAME_REVISION}`);
+        applyEnemyDefinitionCatalog(gameState, enemyDefinitionCatalog);
         activeCaveWindow = normalizeCaveWindow(null);
         activeLevelMusic = normalizeLevelMusic(null);
         setLoadingProgress(0.12, "Resetting level data");
@@ -1974,13 +2043,13 @@ async function restartCurrentLevel() {
         }
         setLoadingProgress(0.24, "Level data ready");
         activeHardwareRendering = String(renderer.getPerformanceDiagnostics?.().backend || "").startsWith("webgl2");
-renderer.syncCaveWindow(activeCaveWindow);
-        await renderer.ensureEnvironmentAtlases(gameState.world.atlasManifests, {
-            onProgress: ({ progress, label }) => {
-                setLoadingProgress(0.24 + clamp01(progress) * 0.64, label);
-            }
+        renderer.syncCaveWindow(activeCaveWindow);
+        await syncRendererLevelAssets(gameState.world, {
+            characterStart: 0.24,
+            characterSpan: 0.28,
+            atlasStart: 0.52,
+            atlasSpan: 0.36
         });
-        syncLoadedCharacterCombatProfiles();
         if (!applyLoadedAtlasCollisions()) {
             console.error("Restarted level, but its atlas collision data could not be applied.");
         }

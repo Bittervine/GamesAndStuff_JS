@@ -63,7 +63,8 @@ import {
 import { computeWorldParallaxOffsetInto } from "./world-parallax.js";
 import {
     buildOverlapBlendEntries,
-    createOverlapBlendSurface
+    createOverlapBlendSurface,
+    overlapBlendVisualCacheKey
 } from "./overlap-blend-cache.js";
 import {
     animationPoseToRuntimeTransforms,
@@ -222,6 +223,11 @@ const assetUrl = resourceUrl;
 // converted through this same viewport transform before gameplay sees them.
 const MIN_TOUCH_VIEWPORT_WIDTH = 600;
 const VISUAL_CULL_MARGIN_PX = 128;
+const PICKUP_HOVER_AMPLITUDE = 7;
+const PICKUP_HOVER_SPEED = 2.8;
+const PICKUP_PULSE_BASE = 0.92;
+const PICKUP_PULSE_AMPLITUDE = 0.08;
+const PICKUP_PULSE_SPEED = 5.4;
 
 function visualPresentationAngle(visual) {
     const transform = shownTransformOf(visual);
@@ -232,6 +238,29 @@ function visualPresentationAlpha(visual) {
     const transform = shownTransformOf(visual);
     const value = visual?.dynamicPosition ? transform?.alpha : visual?.alpha;
     return Number.isFinite(Number(value)) ? Number(value) : 1;
+}
+
+function pickupVisualPresentationRect(visual, state) {
+    const x = Number(visual?.x) || 0;
+    const y = Number(visual?.y) || 0;
+    const width = Math.max(0, Number(visual?.w) || 0);
+    const height = Math.max(0, Number(visual?.h) || 0);
+    if (visual?.pickupPresentation !== true || !state) {
+        return { x, y, w: width, h: height };
+    }
+
+    const time = Number(state.clock?.time) || 0;
+    const phase = x * 0.01;
+    const bob = Math.sin(time * PICKUP_HOVER_SPEED + phase) * PICKUP_HOVER_AMPLITUDE;
+    const pulse = PICKUP_PULSE_BASE + Math.sin(time * PICKUP_PULSE_SPEED) * PICKUP_PULSE_AMPLITUDE;
+    const scaledWidth = width * pulse;
+    const scaledHeight = height * pulse;
+    return {
+        x: x + (width - scaledWidth) * 0.5,
+        y: y + (height - scaledHeight) + bob,
+        w: scaledWidth,
+        h: scaledHeight
+    };
 }
 
 function worldHasOnTopVisuals(state) {
@@ -353,12 +382,14 @@ function staticLayerBakeExpandedForViewportParallax(bounds, state, view) {
     const viewportW = Math.max(1, Number(view?.virtualW) || ((Number(view?.w) || 1) / zoom));
     const viewportH = Math.max(1, Number(view?.virtualH) || ((Number(view?.h) || 1) / zoom));
     const world = staticLayerBakeWorldBounds(state?.world?.bounds) || bounds;
-    const foregroundParallax = normalizeForegroundParallax(state?.world?.layerVisuals?.foreground?.parallax);
-    const backgroundParallax = normalizeBackgroundParallax(state?.world?.layerVisuals?.background?.parallax);
-    const foregroundSlackX = Math.max(0, foregroundParallax - 1) * (world.w * 0.5 + viewportW * 0.5);
-    const foregroundSlackY = Math.max(0, foregroundParallax - 1) * (world.h * 0.5 + viewportH * 0.5);
-    const backgroundSlackX = Math.max(0, 1 - backgroundParallax) * (world.w * 0.5 + viewportW * 0.5);
-    const backgroundSlackY = Math.max(0, 1 - backgroundParallax) * (world.h * 0.5 + viewportH * 0.5);
+    const foregroundParallaxX = normalizeForegroundParallax(state?.world?.layerVisuals?.foreground?.parallaxX);
+    const foregroundParallaxY = normalizeForegroundParallax(state?.world?.layerVisuals?.foreground?.parallaxY);
+    const backgroundParallaxX = normalizeBackgroundParallax(state?.world?.layerVisuals?.background?.parallaxX);
+    const backgroundParallaxY = normalizeBackgroundParallax(state?.world?.layerVisuals?.background?.parallaxY);
+    const foregroundSlackX = Math.abs(foregroundParallaxX - 1) * (world.w * 0.5 + viewportW * 0.5);
+    const foregroundSlackY = Math.abs(foregroundParallaxY - 1) * (world.h * 0.5 + viewportH * 0.5);
+    const backgroundSlackX = Math.abs(backgroundParallaxX - 1) * (world.w * 0.5 + viewportW * 0.5);
+    const backgroundSlackY = Math.abs(backgroundParallaxY - 1) * (world.h * 0.5 + viewportH * 0.5);
 
     // The live cave mask is a viewport overlay and therefore continues beyond
     // the authored level rectangle when the camera sees outside the playable
@@ -630,6 +661,46 @@ export function probeWebGL2RendererSupport(ownerDocument) {
     return true;
 }
 
+function canonicalRuntimeResourceUrl(value) {
+    const text = String(value || "").trim();
+    return text ? assetUrl(text) : "";
+}
+
+function prepareRuntimeCharacterProjectPresentation(project, isPlayer = false) {
+    for (const asset of project?.assets?.values?.() || []) {
+        asset.hitFlashCanvas = makeTintedSpriteCanvas(asset.canvas, "#ffffff");
+        pixmapPyramidFor(asset.hitFlashCanvas);
+        if (isPlayer) {
+            asset.lowHealthCanvas = makeTintedSpriteCanvas(asset.canvas, "#f04b45");
+            asset.shieldCanvas = makeTintedSpriteCanvas(asset.canvas, "#008cff");
+            pixmapPyramidFor(asset.lowHealthCanvas);
+            pixmapPyramidFor(asset.shieldCanvas);
+        }
+    }
+    return project;
+}
+
+function runtimeCharacterProjectTextureSources(project) {
+    const sources = new Set();
+    const add = (source) => {
+        if (source) sources.add(source);
+    };
+    add(project?.image);
+    for (const atlas of project?.supplementalAtlases?.values?.() || project?.supplementalAtlases || []) add(atlas?.image);
+    for (const asset of project?.assets?.values?.() || []) {
+        add(asset?.image);
+        add(asset?.canvas);
+        add(asset?.hitFlashCanvas);
+        add(asset?.lowHealthCanvas);
+        add(asset?.shieldCanvas);
+    }
+    for (const asset of project?.atlasAssets?.values?.() || []) {
+        add(asset?.image);
+        add(asset?.canvas);
+    }
+    return sources;
+}
+
 export async function createRenderer(canvas, options = {}) {
     const preferWebGL2 = options.preferWebGL2 === true;
     pixmapPyramidsEnabled = options.usePixmapPyramids !== false;
@@ -659,10 +730,11 @@ export async function createRenderer(canvas, options = {}) {
     const environmentCandidates = hasExplicitEnvironmentManifestUrls
         ? environmentManifestUrls.map((url) => ({ url }))
         : ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES;
-    const configuredEnemyCharacterUrls = Array.isArray(options.enemyCharacterUrls)
+    const hasExplicitEnemyCharacterUrls = Array.isArray(options.enemyCharacterUrls);
+    const configuredEnemyCharacterUrls = hasExplicitEnemyCharacterUrls
         ? [...new Set(options.enemyCharacterUrls.map(String).filter(Boolean))]
         : [];
-    const enemyCharacterUrls = configuredEnemyCharacterUrls.length
+    const enemyCharacterUrls = hasExplicitEnemyCharacterUrls
         ? configuredEnemyCharacterUrls
         : KNOWN_ENEMY_CHARACTER_URLS;
     const projectSpecs = [
@@ -729,16 +801,7 @@ export async function createRenderer(canvas, options = {}) {
     const characterProjects = new Map();
     for (const result of projectResults) {
         if (!result.project) continue;
-        for (const asset of result.project.assets.values()) {
-            asset.hitFlashCanvas = makeTintedSpriteCanvas(asset.canvas, "#ffffff");
-            pixmapPyramidFor(asset.hitFlashCanvas);
-            if (result.project === playerProject) {
-                asset.lowHealthCanvas = makeTintedSpriteCanvas(asset.canvas, "#f04b45");
-                asset.shieldCanvas = makeTintedSpriteCanvas(asset.canvas, "#008cff");
-                pixmapPyramidFor(asset.lowHealthCanvas);
-                pixmapPyramidFor(asset.shieldCanvas);
-            }
-        }
+        prepareRuntimeCharacterProjectPresentation(result.project, result.project === playerProject);
         characterProjects.set(result.project.characterId, result.project);
     }
     const renderer = new RocketfrockRenderer(
@@ -792,7 +855,7 @@ class RocketfrockRenderer {
         this.playerPoseTransition = null;
         this.characterProjects = characterProjects;
         this.environmentAtlases = environmentAtlases;
-        this.environmentManifestUrls = new Set((environmentManifestUrls || []).map(String));
+        this.environmentManifestUrls = new Set((environmentManifestUrls || []).map(canonicalRuntimeResourceUrl).filter(Boolean));
         this.environmentColorMap = normalizeLevelColorMap(null);
         this.environmentColorExchange = normalizeLevelColorExchange(null);
         this.environmentColorMapKey = "";
@@ -815,7 +878,8 @@ class RocketfrockRenderer {
         this.webglParticleSpriteCache = new Map();
         this.webglTextSpriteCache = new Map();
         this.frameBackgroundOffset = { x: 0, y: 0 };
-        this.frameForegroundParallax = normalizeForegroundParallax(undefined);
+        this.frameForegroundParallaxX = normalizeForegroundParallax(undefined);
+        this.frameForegroundParallaxY = normalizeForegroundParallax(undefined);
         this.frameForegroundOffset = { x: 0, y: 0 };
         this.frameEntityVisibility = { collectedPickups: new Set(), defeatedEnemies: new Set() };
         this.framePlayerRocketTransform = null;
@@ -1368,7 +1432,7 @@ class RocketfrockRenderer {
                     overlaps: definition.overlaps
                 };
                 entries.push(entry);
-                memberToEntry.set(definition.visual, entry);
+                memberToEntry.set(overlapBlendVisualCacheKey(definition.visual), entry);
             }
         }
 
@@ -1395,32 +1459,125 @@ class RocketfrockRenderer {
     }
 
     async ensureEnvironmentAtlases(manifestUrls = [], options = {}) {
-        const requestedUrls = [...new Set((manifestUrls || []).map(String).filter(Boolean))];
+        const requestedUrls = [...new Set((manifestUrls || [])
+            .map(canonicalRuntimeResourceUrl)
+            .filter(Boolean))];
+        const requestedUrlSet = new Set(requestedUrls);
         const missingUrls = requestedUrls.filter((url) => !this.environmentManifestUrls.has(url));
-        if (!missingUrls.length) {
-            options.onProgress?.({ progress: 1, label: "Level atlases already loaded" });
-            return false;
-        }
-        const loaded = await loadEnvironmentAtlases({
-            candidates: missingUrls.map((url) => ({ url })),
-            onProgress: ({ progress, label }) => options.onProgress?.({ progress, label })
-        });
-        for (const [atlasId, atlas] of loaded) {
-            this.environmentAtlases.set(atlasId, atlas);
-        }
-        for (const atlas of loaded.values()) {
-            if (atlas.manifestUrl) {
-                this.environmentManifestUrls.add(atlas.manifestUrl);
+        let loadedCount = 0;
+        if (missingUrls.length) {
+            const loaded = await loadEnvironmentAtlases({
+                candidates: missingUrls.map((url) => ({ url })),
+                onProgress: ({ progress, label }) => options.onProgress?.({ progress, label })
+            });
+            for (const [atlasId, atlas] of loaded) {
+                const existing = this.environmentAtlases.get(atlasId);
+                if (existing && existing !== atlas) this.releaseEnvironmentAtlas(existing);
+                this.environmentAtlases.set(atlasId, atlas);
+                if (atlas.manifestUrl) this.environmentManifestUrls.add(canonicalRuntimeResourceUrl(atlas.manifestUrl));
+                loadedCount += 1;
             }
         }
+
+        let unloadedCount = 0;
+        for (const [atlasId, atlas] of [...this.environmentAtlases]) {
+            const manifestUrl = canonicalRuntimeResourceUrl(atlas?.manifestUrl);
+            if (requestedUrlSet.has(manifestUrl)) continue;
+            this.releaseEnvironmentAtlas(atlas);
+            this.environmentAtlases.delete(atlasId);
+            this.environmentManifestUrls.delete(manifestUrl);
+            unloadedCount += 1;
+        }
+        this.environmentManifestUrls = new Set([...this.environmentAtlases.values()]
+            .map((atlas) => canonicalRuntimeResourceUrl(atlas?.manifestUrl))
+            .filter(Boolean));
+
+        if (!missingUrls.length) {
+            options.onProgress?.({ progress: 1, label: unloadedCount ? "Released unused level atlases" : "Level atlases already loaded" });
+        }
+        if (!loadedCount && !unloadedCount) return false;
         this.environmentColorMapKey = "";
+        for (const surface of this.foregroundSpriteCache.values()) this.webglBackend?.invalidateTexture(surface);
         this.foregroundSpriteCache.clear();
         for (const surface of this.layerBrightnessCache.values()) this.webglBackend?.invalidateTexture(surface);
         this.layerBrightnessCache.clear();
         this.resetOverlapBlendCache();
         this.syncEnvironmentColorMap(this.environmentColorMap, this.environmentColorExchange);
         this.invalidateStaticLayerBake("level atlases changed");
-        return loaded.size > 0;
+        return true;
+    }
+
+    releaseEnvironmentAtlas(atlas) {
+        if (!atlas) return false;
+        this.webglBackend?.invalidateTexture(atlas.renderImage);
+        if (atlas.image !== atlas.renderImage) this.webglBackend?.invalidateTexture(atlas.image);
+        atlas.renderImage = null;
+        atlas.image = null;
+        return true;
+    }
+
+    async ensureCharacterProjects(characterUrls = [], options = {}) {
+        const requestedUrls = [...new Set((characterUrls || []).map(String).filter(Boolean))];
+        const requestedCanonicalUrls = new Set(requestedUrls.map(canonicalRuntimeResourceUrl));
+        const loadedByUrl = new Map([...this.characterProjects.values()].map((project) => [
+            canonicalRuntimeResourceUrl(project?.sourceUrl),
+            project
+        ]));
+        const missingUrls = requestedUrls.filter((url) => !loadedByUrl.has(canonicalRuntimeResourceUrl(url)));
+        let loadedCount = 0;
+        for (let index = 0; index < missingUrls.length; index += 1) {
+            const url = missingUrls[index];
+            try {
+                const project = await loadRuntimeCharacterProject(url, {
+                    usePixmapPyramids: pixmapPyramidsEnabled,
+                    onProgress: ({ progress, label }) => options.onProgress?.({
+                        progress: (index + clamp(Number(progress) || 0, 0, 1)) / Math.max(1, missingUrls.length),
+                        label
+                    })
+                });
+                prepareRuntimeCharacterProjectPresentation(project, false);
+                const replaced = this.characterProjects.get(project.characterId);
+                if (replaced && replaced !== this.playerProject && replaced !== project) this.releaseCharacterProject(replaced);
+                this.characterProjects.set(project.characterId, project);
+                loadedByUrl.set(canonicalRuntimeResourceUrl(project.sourceUrl), project);
+                loadedCount += 1;
+            } catch (error) {
+                console.warn(`Optional runtime character could not be loaded: ${url}`, error);
+            }
+        }
+
+        const retainedCharacterIds = new Set([this.playerProject.characterId]);
+        for (const project of this.characterProjects.values()) {
+            if (requestedCanonicalUrls.has(canonicalRuntimeResourceUrl(project?.sourceUrl))) {
+                retainedCharacterIds.add(project.characterId);
+            }
+        }
+        let unloadedCount = 0;
+        for (const [characterId, project] of [...this.characterProjects]) {
+            if (retainedCharacterIds.has(characterId)) continue;
+            this.releaseCharacterProject(project);
+            this.characterProjects.delete(characterId);
+            unloadedCount += 1;
+        }
+        if (!missingUrls.length) {
+            options.onProgress?.({ progress: 1, label: unloadedCount ? "Released unused characters" : "Required characters already loaded" });
+        }
+        if (loadedCount || unloadedCount) this.prewarmWebGLTextures();
+        return { loadedCount, unloadedCount, retainedCount: this.characterProjects.size };
+    }
+
+    releaseCharacterProject(project) {
+        if (!project || project === this.playerProject) return false;
+        for (const source of runtimeCharacterProjectTextureSources(project)) {
+            this.webglBackend?.invalidateTexture(source);
+        }
+        project.assets?.clear?.();
+        project.atlasAssets?.clear?.();
+        project.animations?.clear?.();
+        project.projectiles?.clear?.();
+        project.supplementalAtlases?.clear?.();
+        project.image = null;
+        return true;
     }
 
     prewarmLevelPresentationCaches(world) {
@@ -2039,17 +2196,22 @@ class RocketfrockRenderer {
             this.frameBackgroundOffset,
             view,
             state.world?.bounds,
-            normalizeBackgroundParallax(state.world?.layerVisuals?.background?.parallax),
-            { min: 0.25, max: 1 }
+            normalizeBackgroundParallax(state.world?.layerVisuals?.background?.parallaxX),
+            normalizeBackgroundParallax(state.world?.layerVisuals?.background?.parallaxY),
+            { minX: 0.01, maxX: 1, minY: 0.01, maxY: 1 }
         );
-        this.frameForegroundParallax = normalizeForegroundParallax(
-            state.world?.layerVisuals?.foreground?.parallax
+        this.frameForegroundParallaxX = normalizeForegroundParallax(
+            state.world?.layerVisuals?.foreground?.parallaxX
+        );
+        this.frameForegroundParallaxY = normalizeForegroundParallax(
+            state.world?.layerVisuals?.foreground?.parallaxY
         );
         computeCaveWindowParallaxOffsetInto(
             this.frameForegroundOffset,
             view,
             state.world?.bounds,
-            this.frameForegroundParallax
+            this.frameForegroundParallaxX,
+            this.frameForegroundParallaxY
         );
         this.getWorldVisualCache(state);
         return view;
@@ -2515,7 +2677,7 @@ class RocketfrockRenderer {
         for (const { visual } of query.entries) {
             if (!visualCanBeBakedStatic(visual)) continue;
             if (visual.kind === "atlasSprite") {
-                const blendEntry = overlapCache.memberToEntry.get(visual);
+                const blendEntry = overlapCache.memberToEntry.get(overlapBlendVisualCacheKey(visual));
                 const command = this.staticTileImageCommandForVisual(visual, blendEntry?.canvas || null);
                 if (command) commands.push(command);
             } else if (visual.kind === "cutoutMask") {
@@ -3326,7 +3488,8 @@ class RocketfrockRenderer {
                     caveWindow: this.caveWindow,
                     view: bakeView,
                     worldBounds: state.world?.bounds,
-                    parallax: 1,
+                    parallaxX: 1,
+                    parallaxY: 1,
                     drawToTarget: true,
                     scrollPaddingPixels: 0
                 });
@@ -3365,7 +3528,7 @@ class RocketfrockRenderer {
             if (!visualCanBeBakedStatic(visual)) continue;
             if (visual.kind === "atlasSprite") {
                 hasRenderableVisuals = true;
-                const blendEntry = overlapCache.memberToEntry.get(visual);
+                const blendEntry = overlapCache.memberToEntry.get(overlapBlendVisualCacheKey(visual));
                 if (this.drawAtlasSpriteVisual(visual, view, null, bounds, blendEntry?.canvas || null)) drewAny = true;
             } else if (visual.kind === "cutoutMask") {
                 if (this.drawCutoutMaskVisual(visual, view, bounds)) drewAny = true;
@@ -4065,7 +4228,9 @@ class RocketfrockRenderer {
             virtualH: h / zoom,
             minVirtualW: this.viewport.minVirtualW || MIN_TOUCH_VIEWPORT_WIDTH,
             x: override ? override.x : state.camera.shownTransform.x - w / zoom * 0.5,
-            y: override ? override.y : state.camera.shownTransform.y - h / zoom * 0.56
+            y: override ? override.y : state.camera.shownTransform.y - h / zoom * 0.56,
+            parallaxAnchorX: override?.parallaxAnchorX,
+            parallaxAnchorY: override?.parallaxAnchorY
         };
     }
 
@@ -4084,11 +4249,19 @@ class RocketfrockRenderer {
         }
         const cssZoom = Number(view.cssZoom);
         const zoom = Number(view.zoom);
+        const parallaxAnchorX = Number(view.parallaxAnchorX);
+        const parallaxAnchorY = Number(view.parallaxAnchorY);
         this.viewOverride = {
             x: Number(view.x) || 0,
             y: Number(view.y) || 0,
             cssZoom: Number.isFinite(cssZoom) && cssZoom > 0 ? Math.max(0.01, cssZoom) : null,
-            zoom: Number.isFinite(zoom) && zoom > 0 ? Math.max(0.01, zoom) : 1
+            zoom: Number.isFinite(zoom) && zoom > 0 ? Math.max(0.01, zoom) : 1,
+            parallaxAnchorX: view.parallaxAnchorX !== null && view.parallaxAnchorX !== undefined && Number.isFinite(parallaxAnchorX)
+                ? parallaxAnchorX
+                : undefined,
+            parallaxAnchorY: view.parallaxAnchorY !== null && view.parallaxAnchorY !== undefined && Number.isFinite(parallaxAnchorY)
+                ? parallaxAnchorY
+                : undefined
         };
     }
 
@@ -4154,7 +4327,8 @@ class RocketfrockRenderer {
             caveWindow: this.caveWindow,
             view,
             worldBounds: state.world?.bounds,
-            parallax: this.frameForegroundParallax
+            parallaxX: this.frameForegroundParallaxX,
+            parallaxY: this.frameForegroundParallaxY
         });
         this.caveWindowMaskCanvas = result.maskCanvas;
         this.caveWindowMaskKey = result.renderKey || "";
@@ -4171,7 +4345,8 @@ class RocketfrockRenderer {
             const parallaxOffset = computeCaveWindowParallaxOffset(
                 view,
                 state.world?.bounds,
-                this.frameForegroundParallax
+                this.frameForegroundParallaxX,
+                this.frameForegroundParallaxY
             );
             const drawn = backend.drawCaveMaskGeometry({
                 geometry,
@@ -4198,7 +4373,8 @@ class RocketfrockRenderer {
             caveWindow: this.caveWindow,
             view,
             worldBounds: state.world?.bounds,
-            parallax: this.frameForegroundParallax,
+            parallaxX: this.frameForegroundParallaxX,
+            parallaxY: this.frameForegroundParallaxY,
             drawToTarget: false
         });
         this.caveWindowMaskCanvas = result.maskCanvas;
@@ -4337,7 +4513,7 @@ class RocketfrockRenderer {
         let drewAny = false;
         for (const { visual, bounds } of query.entries) {
             if (visual.kind === "atlasSprite") {
-                const blendEntry = overlapCache.memberToEntry.get(visual);
+                const blendEntry = overlapCache.memberToEntry.get(overlapBlendVisualCacheKey(visual));
                 if (this.queueAtlasSpriteVisualWebGL(visual, view, state, bounds, blendEntry?.canvas || null)) drewAny = true;
             } else if (visual.kind === "cutoutMask") {
                 if (this.queueCutoutMaskVisualWebGL(visual, view, bounds)) drewAny = true;
@@ -4361,7 +4537,7 @@ class RocketfrockRenderer {
         let drewAny = false;
         for (const { visual, bounds } of query.entries) {
             if (visual.kind !== "atlasSprite") continue;
-            const blendEntry = overlapCache.memberToEntry.get(visual);
+            const blendEntry = overlapCache.memberToEntry.get(overlapBlendVisualCacheKey(visual));
             if (this.queueAtlasSpriteVisualWebGL(visual, view, state, bounds, blendEntry?.canvas || null)) {
                 drewAny = true;
             }
@@ -4384,7 +4560,7 @@ class RocketfrockRenderer {
         let drewAny = false;
         for (const { visual, bounds } of query.entries) {
             if (visual.kind !== "atlasSprite") continue;
-            const blendEntry = overlapCache.memberToEntry.get(visual);
+            const blendEntry = overlapCache.memberToEntry.get(overlapBlendVisualCacheKey(visual));
             if (this.queueAtlasSpriteVisualWebGL(visual, view, state, bounds, blendEntry?.canvas || null)) {
                 drewAny = true;
             }
@@ -4432,7 +4608,13 @@ class RocketfrockRenderer {
         const frameName = visual.frame || visual.assetId;
         const frame = atlas.frames?.[frameName];
         if (!frame) return false;
-        const centerWorld = placementCenter(visual, shownTransformOf(visual));
+        const presentationRect = pickupVisualPresentationRect(visual, state);
+        const centerWorld = visual.pickupPresentation === true && state
+            ? {
+                x: presentationRect.x + presentationRect.w * 0.5,
+                y: presentationRect.y + presentationRect.h * 0.5
+            }
+            : placementCenter(visual, shownTransformOf(visual));
         const center = this.worldToScreen(
             view,
             centerWorld.x - (parallaxOffset?.x || 0),
@@ -4461,8 +4643,8 @@ class RocketfrockRenderer {
             sourceHeight,
             centerX: center.x,
             centerY: center.y,
-            width: visual.w * view.zoom,
-            height: visual.h * view.zoom,
+            width: presentationRect.w * view.zoom,
+            height: presentationRect.h * view.zoom,
             rotation: visualPresentationAngle(visual),
             mirrorX: Boolean(visual.mirrorX),
             mirrorY: Boolean(visual.mirrorY),
@@ -4485,7 +4667,7 @@ class RocketfrockRenderer {
         const overlapCache = this.ensureOverlapBlendCache(state);
         for (const { visual, bounds } of entries) {
             if (visual.kind === "atlasSprite") {
-                const blendEntry = overlapCache.memberToEntry.get(visual);
+                const blendEntry = overlapCache.memberToEntry.get(overlapBlendVisualCacheKey(visual));
                 if (this.drawAtlasSpriteVisual(visual, view, state, bounds, blendEntry?.canvas || null)) {
                     drewAny = true;
                 }
@@ -4513,7 +4695,7 @@ class RocketfrockRenderer {
         let drewAny = false;
         for (const { visual, bounds } of query.entries) {
             if (visual.kind !== "atlasSprite") continue;
-            const blendEntry = overlapCache.memberToEntry.get(visual);
+            const blendEntry = overlapCache.memberToEntry.get(overlapBlendVisualCacheKey(visual));
             if (this.drawAtlasSpriteVisual(visual, view, state, bounds, blendEntry?.canvas || null)) {
                 drewAny = true;
             }
@@ -4536,7 +4718,7 @@ class RocketfrockRenderer {
         let drewAny = false;
         for (const { visual, bounds } of query.entries) {
             if (visual.kind !== "atlasSprite") continue;
-            const blendEntry = overlapCache.memberToEntry.get(visual);
+            const blendEntry = overlapCache.memberToEntry.get(overlapBlendVisualCacheKey(visual));
             if (this.drawAtlasSpriteVisual(visual, view, state, bounds, blendEntry?.canvas || null)) {
                 drewAny = true;
             }
@@ -4607,14 +4789,20 @@ class RocketfrockRenderer {
             return false;
         }
         const ctx = this.ctx;
-        const centerWorld = placementCenter(visual, shownTransformOf(visual));
+        const presentationRect = pickupVisualPresentationRect(visual, state);
+        const centerWorld = visual.pickupPresentation === true && state
+            ? {
+                x: presentationRect.x + presentationRect.w * 0.5,
+                y: presentationRect.y + presentationRect.h * 0.5
+            }
+            : placementCenter(visual, shownTransformOf(visual));
         const center = this.worldToScreen(
             view,
             centerWorld.x - (parallaxOffset?.x || 0),
             centerWorld.y - (parallaxOffset?.y || 0)
         );
-        const w = visual.w * view.zoom;
-        const h = visual.h * view.zoom;
+        const w = presentationRect.w * view.zoom;
+        const h = presentationRect.h * view.zoom;
         ctx.save();
         ctx.globalAlpha *= visualPresentationAlpha(visual);
         if (visual.blendMode === "brightenOnly") {

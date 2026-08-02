@@ -11,37 +11,58 @@ function normalizedWorldBounds(worldBounds) {
     return { x, y, w, h };
 }
 
-export function computeWorldParallaxOffsetAtPointInto(target, point, worldBounds, parallax = 1, {
-    min = 0.25,
-    max = 1.25
-} = {}) {
+function clampedFactor(value, fallback, min, max) {
+    const lower = Math.min(finiteNumber(min, 0.01), finiteNumber(max, 1.25));
+    const upper = Math.max(finiteNumber(min, 0.01), finiteNumber(max, 1.25));
+    return Math.max(lower, Math.min(upper, finiteNumber(value, fallback)));
+}
+
+export function computeWorldParallaxOffsetAtPointInto(
+    target,
+    point,
+    worldBounds,
+    parallaxX = 1,
+    parallaxY = 1,
+    {
+        minX = 0.01,
+        maxX = 1.25,
+        minY = minX,
+        maxY = maxX
+    } = {}
+) {
     const output = target && typeof target === "object" ? target : {};
     const bounds = normalizedWorldBounds(worldBounds);
     const anchorX = bounds.x + bounds.w * 0.5;
     const anchorY = bounds.y + bounds.h * 0.5;
-    const lower = Math.min(finiteNumber(min, 0.25), finiteNumber(max, 1.25));
-    const upper = Math.max(finiteNumber(min, 0.25), finiteNumber(max, 1.25));
-    const factor = Math.max(lower, Math.min(upper, finiteNumber(parallax, 1)));
-    const extraScroll = factor - 1;
-    output.x = (finiteNumber(point?.x, 0) - anchorX) * extraScroll;
-    output.y = (finiteNumber(point?.y, 0) - anchorY) * extraScroll;
+    const factorX = clampedFactor(parallaxX, 1, minX, maxX);
+    const factorY = clampedFactor(parallaxY, 1, minY, maxY);
+    output.x = (finiteNumber(point?.x, 0) - anchorX) * (factorX - 1);
+    output.y = (finiteNumber(point?.y, 0) - anchorY) * (factorY - 1);
     return output;
 }
 
-export function computeWorldParallaxOffsetAtPoint(point, worldBounds, parallax = 1, options = {}) {
-    return computeWorldParallaxOffsetAtPointInto({}, point, worldBounds, parallax, options);
+export function computeWorldParallaxOffsetAtPoint(point, worldBounds, parallaxX = 1, parallaxY = 1, options = {}) {
+    return computeWorldParallaxOffsetAtPointInto({}, point, worldBounds, parallaxX, parallaxY, options);
 }
 
-export function computeWorldParallaxOffsetInto(target, view, worldBounds, parallax = 1, options = {}) {
+export function computeWorldParallaxOffsetInto(target, view, worldBounds, parallaxX = 1, parallaxY = 1, options = {}) {
     const zoom = Math.max(0.0001, finiteNumber(view?.zoom, 1));
     const virtualWidth = Math.max(1, finiteNumber(view?.virtualW, finiteNumber(view?.w, 1) / zoom));
     const virtualHeight = Math.max(1, finiteNumber(view?.virtualH, finiteNumber(view?.h, 1) / zoom));
+    const explicitAnchorX = view?.parallaxAnchorX;
+    const explicitAnchorY = view?.parallaxAnchorY;
+    const anchorX = explicitAnchorX !== null && explicitAnchorX !== undefined && Number.isFinite(Number(explicitAnchorX))
+        ? Number(explicitAnchorX)
+        : finiteNumber(view?.x, 0) + virtualWidth * 0.5;
+    const anchorY = explicitAnchorY !== null && explicitAnchorY !== undefined && Number.isFinite(Number(explicitAnchorY))
+        ? Number(explicitAnchorY)
+        : finiteNumber(view?.y, 0) + virtualHeight * 0.56;
     return computeWorldParallaxOffsetAtPointInto(target, {
-        x: finiteNumber(view?.x, 0) + virtualWidth * 0.5,
-        y: finiteNumber(view?.y, 0) + virtualHeight * 0.56
-    }, worldBounds, parallax, options);
+        x: anchorX,
+        y: anchorY
+    }, worldBounds, parallaxX, parallaxY, options);
 }
 
-export function computeWorldParallaxOffset(view, worldBounds, parallax = 1, options = {}) {
-    return computeWorldParallaxOffsetInto({}, view, worldBounds, parallax, options);
+export function computeWorldParallaxOffset(view, worldBounds, parallaxX = 1, parallaxY = 1, options = {}) {
+    return computeWorldParallaxOffsetInto({}, view, worldBounds, parallaxX, parallaxY, options);
 }

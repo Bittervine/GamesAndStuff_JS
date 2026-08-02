@@ -1,0 +1,112 @@
+{
+    "meta": {
+        "version": 4,
+        "note": "Atlas 020"
+    },
+    "atlasId": "at_atlas_020",
+    "image": "at_atlas_020.png",
+    "frames": {
+        "lunar_lander": {
+            "x": 19,
+            "y": 1137,
+            "w": 953,
+            "h": 900
+        },
+        "lunar_capsule_open": {
+            "x": 1028,
+            "y": 9,
+            "w": 1021,
+            "h": 818
+        }
+    },
+    "objects": {
+        "lunar_lander": {
+            "id": "lunar_lander",
+            "frame": "lunar_lander",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "generationTags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 536,
+                    "y": 507
+                },
+                {
+                    "id": "n2",
+                    "x": 749,
+                    "y": 544
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                }
+            ]
+        },
+        "lunar_capsule_open": {
+            "id": "lunar_capsule_open",
+            "frame": "lunar_capsule_open",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "generationTags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 254,
+                    "y": 592
+                },
+                {
+                    "id": "n2",
+                    "x": 429,
+                    "y": 588
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                }
+            ]
+        }
+    }
+}

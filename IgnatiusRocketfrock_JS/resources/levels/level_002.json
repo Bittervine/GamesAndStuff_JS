@@ -91,14 +91,16 @@
         "trackId": "music_001"
     },
     "layerVisuals": {
-        "version": 2,
+        "version": 3,
         "background": {
-            "parallax": 0.95,
+            "parallaxX": 0.95,
+            "parallaxY": 0.95,
             "brightness": 0.5,
             "scale": 5
         },
         "foreground": {
-            "parallax": 1.08,
+            "parallaxX": 1.08,
+            "parallaxY": 1.08,
             "brightness": 0.46,
             "scale": 2
         }

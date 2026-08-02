@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <title>Ignatius Development Portal - BUILD 277</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #151721;
+            --panel: #222534;
+            --panel-hover: #2b3042;
+            --border: rgba(255,255,255,0.12);
+            --text: #f0f1f7;
+            --muted: #aeb5cc;
+            --cyan: #6ee7ff;
+            --violet: #a58bff;
+        }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; min-height: 100%; background: radial-gradient(circle at 20% 0%, #20263a 0, var(--bg) 36rem); color: var(--text); font: 15px/1.5 system-ui, sans-serif; }
+        body { padding: 28px 20px 48px; }
+        main { width: min(1120px, 100%); margin: 0 auto; }
+        header { margin-bottom: 24px; }
+        h1 { margin: 0; font-size: clamp(28px, 5vw, 44px); letter-spacing: -0.035em; }
+        header p { max-width: 720px; margin: 8px 0 0; color: var(--muted); }
+        .build { color: var(--cyan); font-weight: 800; }
+        section { margin-top: 26px; }
+        h2 { margin: 0 0 12px; font-size: 18px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(245px, 1fr)); gap: 14px; }
+        .card {
+            display: block;
+            min-height: 132px;
+            padding: 18px;
+            border: 1px solid var(--border);
+            border-radius: 15px;
+            background: linear-gradient(150deg, rgba(255,255,255,0.055), rgba(255,255,255,0.015)), var(--panel);
+            color: var(--text);
+            text-decoration: none;
+            transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+        }
+        .card:hover, .card:focus-visible { transform: translateY(-2px); border-color: rgba(110,231,255,0.55); background-color: var(--panel-hover); outline: none; }
+        .card strong { display: block; margin-bottom: 7px; font-size: 18px; }
+        .card span { display: block; color: var(--muted); }
+        .card.primary { border-color: rgba(110,231,255,0.38); }
+        .card.tool { border-color: rgba(165,139,255,0.35); }
+        .path { margin-top: 12px; color: var(--cyan); font: 12px/1.3 ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
+        footer { margin-top: 32px; color: var(--muted); font-size: 13px; }
+    </style>
+</head>
+<body>
+<main>
+    <header>
+        <h1>Ignatius Development Portal</h1>
+        <p>One launchpad for the game, editors, builders, diagnostics, and documentation. <span class="build">Revision 277</span></p>
+    </header>
+
+    <section>
+        <h2>Game</h2>
+        <div class="grid">
+            <a class="card primary" href="game.html">
+                <strong>Play Ignatius Rocketfrock</strong>
+                <span>Run the current HTML/JavaScript game.</span>
+                <span class="path">game.html</span>
+            </a>
+            <a class="card" href="GameManual.html">
+                <strong>Game Manual</strong>
+                <span>Controls, mechanics, authoring notes, and workflows.</span>
+                <span class="path">GameManual.html</span>
+            </a>
+        </div>
+    </section>
+
+    <section>
+        <h2>Editors & Builders</h2>
+        <div class="grid">
+            <a class="card tool" href="level-editor.html">
+                <strong>Level Editor</strong>
+                <span>Build, inspect, generate, and play-test levels.</span>
+                <span class="path">level-editor.html</span>
+            </a>
+            <a class="card tool" href="character-editor.html">
+                <strong>Character Editor</strong>
+                <span>Edit rigs, poses, animation clips, and character projects.</span>
+                <span class="path">character-editor.html</span>
+            </a>
+            <a class="card tool" href="asset-editor.html">
+                <strong>Asset Editor</strong>
+                <span>Edit atlas objects, collision, tags, and presentation metadata.</span>
+                <span class="path">asset-editor.html</span>
+            </a>
+            <a class="card tool" href="palette-builder.html">
+                <strong>Palette Thumbnail Builder</strong>
+                <span>Rebuild the compact palette cache with runtime-composed enemy previews.</span>
+                <span class="path">palette-builder.html</span>
+            </a>
+        </div>
+    </section>
+
+    <section>
+        <h2>Diagnostics & Review</h2>
+        <div class="grid">
+            <a class="card" href="renderer-smoke.html">
+                <strong>Renderer Smoke Test</strong>
+                <span>Quick browser rendering and resource sanity check.</span>
+                <span class="path">renderer-smoke.html</span>
+            </a>
+            <a class="card" href="level-renderer-baseline.html">
+                <strong>Level Renderer Baseline</strong>
+                <span>Inspect baseline level-rendering behavior and comparisons.</span>
+                <span class="path">level-renderer-baseline.html</span>
+            </a>
+            <a class="card" href="devel/renderer-sprite-bench.html">
+                <strong>Sprite Renderer Benchmark</strong>
+                <span>Exercise sprite drawing paths and compare renderer behavior.</span>
+                <span class="path">devel/renderer-sprite-bench.html</span>
+            </a>
+            <a class="card" href="devel/door-support-review.html">
+                <strong>Door Support Review</strong>
+                <span>Review generated door-support fixtures and implementation data.</span>
+                <span class="path">devel/door-support-review.html</span>
+            </a>
+        </div>
+    </section>
+
+    <footer>Serve the <code>reference</code> folder through the existing development server. Direct <code>file://</code> loading is not supported by the resource pipeline.</footer>
+</main>
+</body>
+</html>

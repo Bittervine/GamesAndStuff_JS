@@ -4586,3 +4586,66 @@ Wizard presentation now crossfades every rig part linearly over 0.3 seconds when
 ## SDL build revision 250 faster wizard pose transitions
 
 Wizard semantic pose transitions remain full-body linear blends, but their duration is reduced from 0.3 seconds to 0.1 seconds in both HTML/JS and SDL/C++ so state changes remain smooth without feeling sluggish.
+
+## SDL build revision 255 shared F8 level skip
+
+The browser game now handles `F8` through the same presentation-level shortcut already used by SDL. During active ordinary gameplay it creates the standard portable level-transition request, advances the current numbered level ID through `defaultNextLevelId`, and retains the current level as the fallback when the next file is unavailable. The shortcut is ignored on the title screen, while a level is already loading, and during deterministic playback; it is intercepted before normal gameplay input so it cannot also fire another action or resume paused playback.
+
+## SDL build revision 256 cave-boundary ownership and pickup presentation
+
+Cave-window levels now let the classified full-black contour exclusively own exterior interaction in both ports. The rectangular world-bounds death fallback remains active for levels without a valid cave contour, but no longer races cave ceiling or wall blocking. Flying upward or sideways beyond full black is therefore pushed back into the opening, while falling fully beyond an upward-normal floor span remains lethal.
+
+Atlas-backed collectables now use the same hovering and pulsing presentation language as procedural wrench and Overdrive pickups. Rocket fuel, keys, rings, and all four permanent upgrades animate in HTML Canvas/WebGL2 and SDL_Renderer/SDL_GPU without changing their deterministic collision coordinates. Treasure chests and other interactive props remain stationary. Rocket-fuel authored dimensions, collection radius, and procedural fallback scale are reduced to 60 percent of their previous values.
+
+## Revision 257 world-border kill mask and two-axis layer parallax
+
+- Restore the authored rectangular world border as an unconditional player kill mask in browser and SDL gameplay, including cave-window levels.
+- Give Background and Foreground independent horizontal and vertical parallax factors.
+- Lower the supported parallax minimum to `0.01` while preserving the existing Background and Foreground maxima.
+- Move `level.layerVisuals` to version 3 with required `parallaxX` and `parallaxY` fields and no compatibility path for the retired scalar.
+- Convert every authored and reserved test level by copying its former parallax value to both axes.
+- Keep editor preview, cave masking, cave interaction, culling, static baking, Canvas, WebGL, SDL Renderer, and SDL GPU paths in parity.
+
+## Revision 261 live gameplay camera viewfinder
+
+The Level Editor now keeps Background, Terrain, Foreground, cave-mask, and perimeter-guide composition tied to the exact centered 1920×1080 gameplay reference frame while the ordinary workspace remains freely pannable and zoomable. A production-renderer view override supplies the gameplay frame's explicit parallax anchor, so showing extra workspace no longer changes layer alignment inside the intended game view.
+
+The View panel adds an optional green 1920×1080 camera-frame overlay and retains the optional orange gameplay-perimeter boundary. The parallax diagnostics now draw a red cross at the current geometric camera centre and a target at the camera-centre position that produces zero parallax offset. All diagnostics remain off by default and never serialize into level data.
+
+## SDL build revision 264 default camera and perimeter guides
+
+Revision 264 removes the separate **Show parallax alignment markers** control from the Level Editor. The green 1920×1080 gameplay camera frame now owns a fixed nine-screen-pixel centre marker: one centre pixel plus two pixels in each cardinal direction, with no marker label. Both the camera frame and orange gameplay perimeter boundary start enabled while remaining transient editor view state that is never serialized into level JSON. Atlas object `at_atlas_013:cloud_1` now carries `layer.background` in addition to `biome.forest`, making it eligible for automatic background generation.
+
+Revision 265 makes the gameplay camera frame and all of its markers render at 50% opacity. The frame keeps the centre + marker and adds two unlabeled five-pixel × markers showing where Ignatius would rest while stationary and facing right or left, using the same camera-hint offsets as gameplay.
+
+## Revision 266 live HTML minimap tracking
+
+The browser HUD minimap now reads Ignatius from `shownTransform` and takes its camera rectangle from the renderer's exact last computed view. The player dot and camera frame therefore follow the same interpolated positions displayed in the game instead of reading the retired top-level `player.x/y` and `camera.x/y` fields left behind by the presentation-transform migration. The SDL minimap already used the live native render view and required no behavioral change.
+
+
+
+Revision 267 adds optional cyan gameplay rulers to the Level Editor, enabled by default and anchored immediately left and below the 1920×1080 gameplay camera frame. The vertical ruler marks `WH`, `JH`, `DH`, and `HH`; the horizontal ruler marks `WW`, `JW`, `DW`, and `HW`. Each measurement is derived from the actual default movement tuning by running a tiny `stepSimulation` physics probe inside the editor rather than by hard-coded guesses, so authored jump spacing tracks gameplay. The green frame and its markers remain at 50% opacity, and the new rulers remain transient view state that is never serialized into level JSON.
+
+
+Revision 268 introduces a generated Level Editor palette cache: one dynamically sized `resources/palette/thumbnails.png` plus `thumbnails.json`, initially using configurable 64×64 cells and capped at 8192×8192. The Python/Pillow generator records authoritative source pointers and hashes, supports fast `--check` validation, and can regenerate at 128px through `--cell-size 128` without changing the editor format. Asset and Entity palettes use the compact sheet; full asset atlases and character projects now load lazily only when selected or required by the current level, with the previous full-atlas path retained as a missing-cache fallback.
+
+
+Revision 269 adds `devel/build_palette_thumbnails.bat`, a Windows wrapper that uses the same portable Python path as `devel/run_server.bat`, changes into the reference project directory, forwards optional generator arguments, and preserves the Python process exit code.
+
+Revision 271 supersedes the Python and batch thumbnail builders with `devel/build_palette_thumbnails.html` plus a browser-side JavaScript module. The new page rebuilds `resources/palette/thumbnails.png` and `thumbnails.json` without Node.js or Python, can optionally write directly into `resources/palette` through the File System Access API, and reuses the runtime character renderer so enemy thumbnails preserve composition and colour exchanges while the Level Editor continues using the prebuilt cache rather than loading full character projects for palette cards.
+
+Revision 272 fixes the browser builder’s document-relative character URLs and iterable source inventory, moves it to root-level `palette-builder.html` with `src/tools/palette-builder.js` beside the editors, and adds `devel.html` as a bookmark-free development portal linking the game, editors, builder, documentation, and diagnostic pages.
+
+## Revision 274 collected fuel visibility and new-asset overlap default
+
+SDL now applies the same collected-pickup visibility rule as the browser renderer to atlas-backed rocket-fuel visuals in the SDL_Renderer and raw-GPU world-visual paths. The visual disappears while the runtime pickup is collected and returns when the existing respawn lifecycle clears that state. The Level Editor also authors `blendOverlaps: false` on newly placed assets, while preserving the authored setting of loaded and copied placements.
+
+## Revision 276 baseline-package cleanup
+
+Revision 276 documents the immutable baseline-ZIP workflow and the Linux timestamp normalization needed when timezone-less ZIP entries appear in the future. It also returns the Palette thumbnail cache paragraph to the manual's framed panel, removes stale npm commands for the retired Python thumbnail generator, and synchronizes all visible build labels.
+
+
+
+## Revision 277 level-scoped runtime asset residency
+
+Revision 277 ports the native enemy dependency scan to the browser startup and level-transition path. Both runtimes now determine the incoming level's direct enemies, enabled automatic enemy pools, and active enemy spawners before synchronizing character projects. Missing resources load first; enemy projects, character-specific sounds, and environment atlases absent from the incoming dependency set are released only after the new set is ready. Shared SDL atlases remain resident when both their manifest path and level colour treatment are unchanged, while browser WebGL textures are explicitly invalidated when their owning project or atlas is evicted.

@@ -1,0 +1,185 @@
+{
+  "meta": {
+    "version": 1,
+    "note": "Atlas 024 forest rock cliffs. Broad green shelves use centered one-way walkable lines for forest terrain."
+  },
+  "atlasId": "at_atlas_024",
+  "image": "at_atlas_024.png",
+  "frames": {
+    "forest_rock_cliff_024_a": {
+      "x": 12,
+      "y": 5,
+      "w": 1333,
+      "h": 416
+    },
+    "forest_rock_cliff_024_b": {
+      "x": 5,
+      "y": 503,
+      "w": 1348,
+      "h": 413
+    }
+  },
+  "objects": {
+    "forest_rock_cliff_024_a": {
+      "id": "forest_rock_cliff_024_a",
+      "frame": "forest_rock_cliff_024_a",
+      "type": "platform",
+      "layer": "terrain",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "destroy": {
+        "hp": 1,
+        "explosionRadius": 64,
+        "fadeToBlackSeconds": 0.18,
+        "removeAfterSeconds": 0.22
+      },
+      "tags": [
+        "forest",
+        "rock",
+        "cliff",
+        "terrain",
+        "walkable",
+        "platform"
+      ],
+      "notes": "Broad grassy shelves use centered one-way walkable lines; the illustrated cliff body remains visual terrain.",
+      "nodes": [
+        {
+          "id": "n1",
+          "x": 148,
+          "y": 57
+        },
+        {
+          "id": "n2",
+          "x": 1158,
+          "y": 57
+        },
+        {
+          "id": "n3",
+          "x": 273,
+          "y": 215
+        },
+        {
+          "id": "n4",
+          "x": 663,
+          "y": 215
+        }
+      ],
+      "lines": [
+        {
+          "id": "walkable_1",
+          "kind": "walkable",
+          "from": "n1",
+          "to": "n2",
+          "tags": []
+        },
+        {
+          "id": "walkable_2",
+          "kind": "walkable",
+          "from": "n3",
+          "to": "n4",
+          "tags": []
+        }
+      ],
+      "generationTags": [
+        "biome.forest",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    },
+    "forest_rock_cliff_024_b": {
+      "id": "forest_rock_cliff_024_b",
+      "frame": "forest_rock_cliff_024_b",
+      "type": "platform",
+      "layer": "terrain",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "destroy": {
+        "hp": 1,
+        "explosionRadius": 64,
+        "fadeToBlackSeconds": 0.18,
+        "removeAfterSeconds": 0.22
+      },
+      "tags": [
+        "forest",
+        "rock",
+        "cliff",
+        "terrain",
+        "walkable",
+        "platform"
+      ],
+      "notes": "Broad grassy shelves use centered one-way walkable lines; the illustrated cliff body remains visual terrain.",
+      "nodes": [
+        {
+          "id": "n1",
+          "x": 125,
+          "y": 52
+        },
+        {
+          "id": "n2",
+          "x": 1075,
+          "y": 52
+        },
+        {
+          "id": "n3",
+          "x": 700,
+          "y": 187
+        },
+        {
+          "id": "n4",
+          "x": 1205,
+          "y": 187
+        },
+        {
+          "id": "n5",
+          "x": 190,
+          "y": 322
+        },
+        {
+          "id": "n6",
+          "x": 585,
+          "y": 322
+        }
+      ],
+      "lines": [
+        {
+          "id": "walkable_1",
+          "kind": "walkable",
+          "from": "n1",
+          "to": "n2",
+          "tags": []
+        },
+        {
+          "id": "walkable_2",
+          "kind": "walkable",
+          "from": "n3",
+          "to": "n4",
+          "tags": []
+        },
+        {
+          "id": "walkable_3",
+          "kind": "walkable",
+          "from": "n5",
+          "to": "n6",
+          "tags": []
+        }
+      ],
+      "generationTags": [
+        "biome.forest",
+        "layer.terrain",
+        "capability.platform"
+      ]
+    }
+  }
+}

@@ -11,7 +11,7 @@ const RESOURCE_ROOT = path.join(REFERENCE_ROOT, "resources");
 const GENERATED_DEVTOOL_LEVEL_NAME = "level_temp.json";
 const RESOURCE_INDEX_NAME = "resources.json";
 const EXPECTED_RESOURCE_DIRECTORIES = new Set([
-    "atlases", "characters", "editor", "fonts", "generator", "items", "levels", "music", "sfx", "ui"
+    "atlases", "characters", "editor", "fonts", "generator", "items", "levels", "music", "palette", "sfx", "ui"
 ]);
 const ACTIVE_SOURCE_EXTENSIONS = new Set([
     ".bat", ".c", ".cc", ".cmake", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".html", ".js", ".json", ".mjs", ".py", ".rc", ".sh"
@@ -102,6 +102,41 @@ function auditResourceIndex() {
     const levelIds = fileStemSet(levelDirectory, /^level_[a-z0-9]+\.json$/i);
     levelIds.delete(path.basename(GENERATED_DEVTOOL_LEVEL_NAME, ".json"));
     requireExactInventory("level", index.levelIds, levelIds);
+}
+
+
+function auditPaletteThumbnailCache() {
+    const directory = path.join(RESOURCE_ROOT, "palette");
+    const catalogPath = path.join(directory, "thumbnails.json");
+    const imagePath = path.join(directory, "thumbnails.png");
+    if (!existsSync(catalogPath) || !existsSync(imagePath)) {
+        fail("palette must contain thumbnails.json and thumbnails.png.");
+    }
+    const catalog = readJson(catalogPath);
+    if (catalog.formatVersion !== 1) fail("palette/thumbnails.json must use formatVersion 1.");
+    if (catalog.image !== "thumbnails.png") fail("palette/thumbnails.json must reference thumbnails.png.");
+    if (!Number.isInteger(catalog.cellSize) || catalog.cellSize <= 0) fail("palette thumbnail cellSize must be a positive integer.");
+    if (!Number.isInteger(catalog.width) || !Number.isInteger(catalog.height) || catalog.width <= 0 || catalog.height <= 0) {
+        fail("palette thumbnail dimensions must be positive integers.");
+    }
+    if (catalog.width > 8192 || catalog.height > 8192) fail("palette thumbnail image exceeds 8192×8192.");
+    if (!Array.isArray(catalog.entries) || catalog.entries.length !== catalog.entryCount) {
+        fail("palette thumbnail entryCount does not match entries.");
+    }
+    const keys = new Set();
+    for (const entry of catalog.entries) {
+        if (!entry || typeof entry !== "object" || typeof entry.key !== "string" || !entry.key) fail("palette thumbnail entry has no key.");
+        if (keys.has(entry.key)) fail(`duplicate palette thumbnail key: ${entry.key}`);
+        keys.add(entry.key);
+        const thumbnail = entry.thumbnail;
+        if (!thumbnail || ![thumbnail.x, thumbnail.y, thumbnail.w, thumbnail.h].every(Number.isInteger)) {
+            fail(`palette thumbnail ${entry.key} has an invalid rectangle.`);
+        }
+        if (thumbnail.x < 0 || thumbnail.y < 0 || thumbnail.w <= 0 || thumbnail.h <= 0
+            || thumbnail.x + thumbnail.w > catalog.width || thumbnail.y + thumbnail.h > catalog.height) {
+            fail(`palette thumbnail ${entry.key} lies outside the image.`);
+        }
+    }
 }
 
 function auditAtlases(directoryName) {
@@ -200,6 +235,7 @@ function auditNoRetiredPaths() {
 export function auditResourceLayout() {
     auditRootShape();
     auditResourceIndex();
+    auditPaletteThumbnailCache();
     auditAtlases("atlases");
     auditAtlases("items");
     auditAtlases("characters");
