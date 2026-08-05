@@ -2043,7 +2043,8 @@ class RocketfrockRenderer {
         if (!this.screenMessages.length) return;
         const ctx = this.ctx;
         const visible = this.screenMessages.slice(-3);
-        const fontSize = Math.max(22, Math.min(34, view.viewportWidth * 0.024));
+        const viewportWidth = Math.max(1, Number(view?.w ?? view?.viewportWidth) || 1);
+        const fontSize = Math.max(22, Math.min(34, viewportWidth * 0.024));
         ctx.save();
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -2056,9 +2057,9 @@ class RocketfrockRenderer {
             const alpha = clamp(Math.min(fadeIn, fadeOut), 0, 1);
             const y = 76 + index * (fontSize + 18) - (1 - fadeIn) * 8;
             const textWidth = ctx.measureText(item.message).width;
-            const panelWidth = Math.min(view.viewportWidth - 32, textWidth + 42);
+            const panelWidth = Math.min(viewportWidth - 32, textWidth + 42);
             const panelHeight = fontSize + 20;
-            const x = view.viewportWidth * 0.5;
+            const x = viewportWidth * 0.5;
             ctx.globalAlpha = alpha * 0.86;
             ctx.fillStyle = "rgba(20, 14, 30, 0.92)";
             ctx.fillRect(x - panelWidth * 0.5, y - panelHeight * 0.5, panelWidth, panelHeight);
@@ -2229,7 +2230,7 @@ class RocketfrockRenderer {
     renderCanvas2D(state, inputFrame, dt) {
         const frameStart = rendererNowMs();
         const view = this.prepareFrame(state, dt, frameStart);
-        if (!worldHasOnTopVisuals(state) && !state.debug.showCollision && !state.debug.showAssetGuides) {
+        if (!worldHasOnTopVisuals(state) && !state.debug.showCollision && !state.debug.showAssetGuides && !state.debug.showCameraLine) {
             if (this.isStaticTileBakeEnabled()) {
                 const rendered = this.renderCanvas2DStaticTiles(state, inputFrame, view, frameStart);
                 if (rendered) return;
@@ -3711,7 +3712,7 @@ class RocketfrockRenderer {
     }
 
     renderWebGL2StaticTiles(state, inputFrame, view, frameStart) {
-        if (state.debug?.showCollision || state.debug?.showAssetGuides) {
+        if (state.debug?.showCollision || state.debug?.showAssetGuides || state.debug?.showCameraLine) {
             this.staticLayerBake.status = "tile baking is bypassed while collision/asset-guide overlays are visible";
             return false;
         }
@@ -3853,7 +3854,7 @@ class RocketfrockRenderer {
     }
 
     renderWebGL2StaticBake(state, inputFrame, view, frameStart) {
-        if (state.debug?.showCollision || state.debug?.showAssetGuides) {
+        if (state.debug?.showCollision || state.debug?.showAssetGuides || state.debug?.showCameraLine) {
             this.staticLayerBake.status = "disabled while collision/asset-guide debug overlays are visible";
             return false;
         }
@@ -3998,6 +3999,7 @@ class RocketfrockRenderer {
         const needsWorldCanvasLayer = Boolean(
             state.debug.showCollision ||
             state.debug.showAssetGuides ||
+            state.debug.showCameraLine ||
             !visualResult.hasRenderableVisuals
         );
         if (needsWorldCanvasLayer) {
@@ -4438,6 +4440,10 @@ class RocketfrockRenderer {
 
         if (state.debug.showAssetGuides) {
             this.drawAssetGuides(state, view);
+        }
+
+        if (state.debug.showCameraLine) {
+            this.drawCameraLineGuide(state, view);
         }
 
         if (state.debug.showCollision) {
@@ -5141,6 +5147,57 @@ class RocketfrockRenderer {
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             ctx.fillText("⚡", 0, 1);
+        }
+        ctx.restore();
+    }
+
+    drawCameraLineGuide(state, view) {
+        const line = state.world?.cameraLine;
+        const samples = line?.samples || [];
+        if (samples.length < 2) return;
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.strokeStyle = line.enabled ? "rgba(201, 167, 255, 0.96)" : "rgba(140, 120, 165, 0.72)";
+        ctx.lineWidth = Math.max(2, 3 * view.zoom);
+        ctx.setLineDash([12 * view.zoom, 8 * view.zoom]);
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        const first = this.worldToScreen(view, samples[0].x, samples[0].y);
+        ctx.beginPath();
+        ctx.moveTo(first.x, first.y);
+        for (let index = 1; index < samples.length; index += 1) {
+            const point = this.worldToScreen(view, samples[index].x, samples[index].y);
+            ctx.lineTo(point.x, point.y);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        for (const point of line.points || []) {
+            const screen = this.worldToScreen(view, point.x, point.y);
+            ctx.fillStyle = "rgba(255, 226, 116, 0.98)";
+            ctx.strokeStyle = "rgba(0, 0, 0, 0.9)";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(screen.x, screen.y, Math.max(4, 5 * view.zoom), 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        }
+
+        const nearest = state.camera?.guideNearest;
+        const lookAhead = state.camera?.guideLookAhead;
+        if (nearest) {
+            const screen = this.worldToScreen(view, nearest.x, nearest.y);
+            ctx.fillStyle = "rgba(255, 255, 255, 0.98)";
+            ctx.beginPath();
+            ctx.arc(screen.x, screen.y, Math.max(4, 5 * view.zoom), 0, Math.PI * 2);
+            ctx.fill();
+        }
+        if (lookAhead) {
+            const screen = this.worldToScreen(view, lookAhead.x, lookAhead.y);
+            ctx.fillStyle = "rgba(77, 255, 145, 0.98)";
+            ctx.beginPath();
+            ctx.arc(screen.x, screen.y, Math.max(5, 6 * view.zoom), 0, Math.PI * 2);
+            ctx.fill();
         }
         ctx.restore();
     }

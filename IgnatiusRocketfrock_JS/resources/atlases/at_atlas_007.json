@@ -613,45 +613,21 @@
             "notes": "User marked the ladder as walkable; the line follows the angled ladder body.",
             "nodes": [
                 {
-                    "id": "n1",
-                    "x": 13,
-                    "y": 243
-                },
-                {
                     "id": "n2",
-                    "x": 149,
-                    "y": 5
+                    "x": 135,
+                    "y": -9
                 },
                 {
                     "id": "n3",
-                    "x": 31,
-                    "y": 205
-                },
-                {
-                    "id": "n4",
-                    "x": 129,
-                    "y": 30
+                    "x": 38,
+                    "y": 262
                 }
             ],
             "lines": [
                 {
                     "id": "walkable_1",
                     "kind": "walkable",
-                    "from": "n1",
-                    "to": "n3",
-                    "tags": []
-                },
-                {
-                    "id": "walkable_2",
-                    "kind": "walkable",
                     "from": "n3",
-                    "to": "n4",
-                    "tags": []
-                },
-                {
-                    "id": "walkable_3",
-                    "kind": "walkable",
-                    "from": "n4",
                     "to": "n2",
                     "tags": []
                 }

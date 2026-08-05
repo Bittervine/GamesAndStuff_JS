@@ -6,15 +6,14 @@
         "scaffoldBuild": 207
     },
     "levelId": "level_018",
-    "title": "Cave Level 018",
+    "title": "The Lunatic Tunnels",
     "world": {
         "bounds": {
             "x": -320,
             "y": -420,
             "w": 3200,
             "h": 1500
-        },
-        "resetY": 1080
+        }
     },
     "atlasRefs": [
         {
@@ -35,6 +34,22 @@
         "feather": 24,
         "rotation": 0,
         "atlasIds": []
+    },
+    "colorExchange": {
+        "enabled": false,
+        "fromColor": [
+            255,
+            255,
+            255
+        ],
+        "toColor": [
+            0,
+            0,
+            0
+        ],
+        "redThreshold": 1,
+        "greenThreshold": 1,
+        "blueThreshold": 1
     },
     "music": {
         "version": 3,
@@ -72,7 +87,7 @@
         "decoration": {
             "seed": 208018,
             "saturation": 0.62,
-            "inwardFractionMin": 0.3,
+            "inwardFractionMin": 0.30000000000000004,
             "inwardFractionMax": 0.5,
             "occlusionAccentChance": 0.02
         },
@@ -114,6 +129,13 @@
                 "mode": "smooth"
             }
         ]
+    },
+    "cameraLine": {
+        "version": 1,
+        "enabled": true,
+        "influenceDistance": 2000,
+        "lookAheadDistance": 1200,
+        "points": []
     },
     "placements": [
         {

@@ -82,59 +82,6 @@ export function normalizeCaveWindow(rawWindow) {
     };
 }
 
-export function createCaveWindowPointsFromBounds(bounds, { margin = 96 } = {}) {
-    const x = finiteNumber(bounds?.x, 0);
-    const y = finiteNumber(bounds?.y, 0);
-    const w = Math.max(1, finiteNumber(bounds?.w, 1));
-    const h = Math.max(1, finiteNumber(bounds?.h, 1));
-    const safeMargin = Math.max(0, finiteNumber(margin, 96));
-    const left = x;
-    const top = y;
-    const right = x + w;
-    const bottom = y + h;
-    const points = [];
-
-    const addPoint = (pointX, pointY) => {
-        points.push({
-            id: `cave_point_${String(points.length + 1).padStart(3, "0")}`,
-            x: pointX,
-            y: pointY,
-            mode: "smooth"
-        });
-    };
-    const wave = (index, count, phase = 0) => {
-        const t = count <= 1 ? 0 : index / (count - 1);
-        return 1 + Math.sin(t * Math.PI * 3 + phase) * 0.22 + Math.sin(t * Math.PI * 7 + phase * 0.7) * 0.08;
-    };
-
-    // Create a denser, gently irregular loop. Every control point remains on
-    // or outside the technical bounds, while the changing outset keeps the
-    // generated opening from looking like a rounded rectangle.
-    const topCount = 7;
-    for (let index = 0; index < topCount; index += 1) {
-        const t = index / (topCount - 1);
-        addPoint(left + w * t, top - safeMargin * wave(index, topCount, 0.35));
-    }
-    const rightCount = 4;
-    for (let index = 1; index < rightCount; index += 1) {
-        const t = index / rightCount;
-        addPoint(right + safeMargin * wave(index, rightCount + 1, 1.2), top + h * t);
-    }
-    addPoint(right + safeMargin * wave(rightCount, rightCount + 1, 1.2), bottom);
-    const bottomCount = 7;
-    for (let index = 1; index < bottomCount; index += 1) {
-        const t = index / (bottomCount - 1);
-        addPoint(right - w * t, bottom + safeMargin * wave(index, bottomCount, 2.1));
-    }
-    const leftCount = 4;
-    for (let index = 1; index < leftCount; index += 1) {
-        const t = index / leftCount;
-        addPoint(left - safeMargin * wave(index, leftCount + 1, 2.8), bottom - h * t);
-    }
-    addPoint(left - safeMargin * wave(leftCount, leftCount + 1, 2.8), top);
-    return points;
-}
-
 function cubicPoint(a, b, c, d, t) {
     const inverse = 1 - t;
     const inverse2 = inverse * inverse;
@@ -541,6 +488,27 @@ export function nearestCaveSplineSegment(points, point) {
         }
     }
     return best;
+}
+
+export function caveWindowCompletelyInsideRect(points, rect, stepsPerSegment = 20) {
+    const controls = Array.isArray(points) ? points : [];
+    if (controls.length < 2) return false;
+    const x = finiteNumber(rect?.x, 0);
+    const y = finiteNumber(rect?.y, 0);
+    const w = finiteNumber(rect?.w, 0);
+    const h = finiteNumber(rect?.h, 0);
+    const minX = Math.min(x, x + w);
+    const minY = Math.min(y, y + h);
+    const maxX = Math.max(x, x + w);
+    const maxY = Math.max(y, y + h);
+    const sampled = controls.length >= 3
+        ? sampleClosedCaveSpline(controls, Math.max(1, Math.trunc(finiteNumber(stepsPerSegment, 20))))
+        : controls;
+    return sampled.every((point) => {
+        const pointX = finiteNumber(point?.x, 0);
+        const pointY = finiteNumber(point?.y, 0);
+        return pointX >= minX && pointX <= maxX && pointY >= minY && pointY <= maxY;
+    });
 }
 
 export function caveWindowBounds(points, padding = 0) {

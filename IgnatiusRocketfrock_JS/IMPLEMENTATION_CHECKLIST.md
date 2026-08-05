@@ -4977,3 +4977,60 @@ Manual profiling workflow: open the game, run `window.__rocketfrockDev.profiler.
 - [x] Permit production-style IDs only in isolated parsing and serialization tests that do not load level files.
 - [x] Update generic upgrade-key unit-test examples to use `level_t03`.
 - [x] Advance browser, editor, development-tool, palette-builder, and native labels to revision 280.
+
+## Revision 288 authored camera-line framing
+
+- [x] Add shared JS/C++ camera-line normalization, Catmull-Rom sampling, nearest-point lookup, and distance-based look-ahead.
+- [x] Add a Camera Line panel immediately below Perimeter with edit, add-point, select-line, delete-point, proximity, and look-ahead controls.
+- [x] Include a complete camera line in Shift-box selection only when its full sampled spline is enclosed, and move it with whole-level selections.
+- [x] Determine forward/backward travel from motion along the line with a short stationary direction memory.
+- [x] Apply only a nominal vertical framing adjustment, clamped symmetrically between 170 px below and 170 px above screen centre.
+- [x] Preserve existing camera smoothing, jump/descent lead, shake, and presentation interpolation.
+- [x] Add hidden-by-default Camera line development overlays to browser and SDL menus.
+- [x] Add browser and native regression coverage for smoothing, direction reversal, symmetric clamping, editor controls, selection, and overlay defaults.
+- [x] Advance browser, editor, development portal, and native build labels to revision 288.
+
+## Revision 289 persistent stationary camera-line direction
+
+- [x] Retain the last meaningful camera-line direction indefinitely while Ignatius is stationary inside the guide influence.
+- [x] Replace the remembered direction only after meaningful reverse travel.
+- [x] Clear guide direction on guide exit and existing respawn, portal relocation, and level-load camera resets.
+- [x] Add matching browser and native regressions covering a multi-second stationary pause before reversal.
+- [x] Advance browser, editor, development portal, palette builder, and native build labels to revision 289.
+
+
+## Revision 290 camera-line point insertion
+
+- [x] Add deterministic nearest-spline insertion-index calculation for the open camera line.
+- [x] Insert interior points between the surrounding authored control points instead of always appending.
+- [x] Prepend or append when the click is close to, or projects beyond, the corresponding line endpoint.
+- [x] Keep editor-grid snapping independent from insertion intent and report the chosen insertion location in the status line.
+- [x] Add editor regressions for interior insertion, both endpoint proximity cases, and clicks beyond both open ends.
+- [x] Advance browser, editor, development portal, palette builder, and native build labels to revision 290.
+
+## Revision 295 Level Editor layer isolation
+
+- [x] Added Toggle Foreground, Toggle Terrain, and Toggle Background beneath the existing layer-selection controls.
+- [x] Defaulted all editor layers to visible after level load, import, browser restore, and new-level creation.
+- [x] Removed hidden placements from editor artwork, guides, warnings, hit-testing, box selection, selection state, and the selectable Placed objects list.
+- [x] Kept entities and gameplay rendering independent from editor-only artwork visibility.
+- [x] Added a live search filter to Placed objects.
+- [ ] Browser-playtest revision 295 with overlapping foreground/background artwork and terrain selection.
+
+## Revision 298 reward, browser-cache, and airborne-death fixes
+
+- [x] Generated wrench pickups cycle through deterministic shuffled six-colour bags and carry matching effect presentation metadata.
+- [x] Same-topology entity visual state changes patch existing browser visual records in place.
+- [x] Treasure collection regression verifies that the browser world visual and chest visual identities remain stable while the atlas frame changes.
+- [x] SDL pending-death ground enemies continue the modern airborne collision traversal until landing.
+- [x] Lethal damage no longer erases airborne enemy velocity in SDL.
+- [x] Browser and native regressions cover the corrected behavior with reserved test identifiers only.
+- [x] Advance all visible build labels to revision 298.
+## Revision 300 development input gates
+
+- [x] Gate browser and SDL F8 level skipping with `DEVELOPMENT`.
+- [x] Convert minimap pointer coordinates back to world coordinates in both ports.
+- [x] Reject teleport clicks outside the authoritative gameplay perimeter.
+- [x] Preserve minimap teleport for browser-copy and native `level_temp` Level Editor playtests when `DEVELOPMENT` is false.
+- [x] Clear momentum/support and snap the camera through shared `teleportPlayer` behavior.
+- [x] Keep non-teleporting minimap clicks on the ordinary pause-menu path.

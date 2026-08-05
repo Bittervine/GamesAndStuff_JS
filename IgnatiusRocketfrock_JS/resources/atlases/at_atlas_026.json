@@ -1,0 +1,1776 @@
+{
+    "meta": {
+        "version": 4,
+        "note": "Atlas 026 cave-biome mushroom platforms. Each mushroom uses one-way walkable lines along the hat so it functions as a fungal platform."
+    },
+    "atlasId": "at_atlas_026",
+    "image": "at_atlas_026.png",
+    "frames": {
+        "foul_mushroom_platform_026_a": {
+            "x": 4,
+            "y": 4,
+            "w": 280,
+            "h": 238
+        },
+        "foul_mushroom_platform_026_b": {
+            "x": 309,
+            "y": 3,
+            "w": 309,
+            "h": 243
+        },
+        "foul_mushroom_platform_026_c": {
+            "x": 713,
+            "y": 23,
+            "w": 239,
+            "h": 224
+        },
+        "foul_mushroom_platform_026_d": {
+            "x": 1041,
+            "y": 19,
+            "w": 273,
+            "h": 243
+        },
+        "foul_mushroom_platform_026_e": {
+            "x": 1349,
+            "y": 34,
+            "w": 191,
+            "h": 204
+        },
+        "foul_mushroom_platform_026_f": {
+            "x": 10,
+            "y": 271,
+            "w": 280,
+            "h": 234
+        },
+        "foul_mushroom_platform_026_g": {
+            "x": 314,
+            "y": 282,
+            "w": 217,
+            "h": 205
+        },
+        "foul_mushroom_platform_026_h": {
+            "x": 565,
+            "y": 267,
+            "w": 324,
+            "h": 253
+        },
+        "foul_mushroom_platform_026_i": {
+            "x": 908,
+            "y": 283,
+            "w": 287,
+            "h": 241
+        },
+        "foul_mushroom_platform_026_j": {
+            "x": 1235,
+            "y": 271,
+            "w": 291,
+            "h": 228
+        },
+        "foul_mushroom_platform_026_k": {
+            "x": 5,
+            "y": 522,
+            "w": 303,
+            "h": 219
+        },
+        "foul_mushroom_platform_026_l": {
+            "x": 338,
+            "y": 558,
+            "w": 289,
+            "h": 223
+        },
+        "foul_mushroom_platform_026_m": {
+            "x": 653,
+            "y": 544,
+            "w": 245,
+            "h": 252
+        },
+        "foul_mushroom_platform_026_n": {
+            "x": 946,
+            "y": 556,
+            "w": 184,
+            "h": 168
+        },
+        "foul_mushroom_platform_026_o": {
+            "x": 1148,
+            "y": 651,
+            "w": 130,
+            "h": 158
+        },
+        "foul_mushroom_platform_026_p": {
+            "x": 1177,
+            "y": 538,
+            "w": 84,
+            "h": 94
+        },
+        "foul_mushroom_platform_026_q": {
+            "x": 1317,
+            "y": 655,
+            "w": 88,
+            "h": 120
+        },
+        "foul_mushroom_platform_026_r": {
+            "x": 1326,
+            "y": 529,
+            "w": 87,
+            "h": 97
+        }
+    },
+    "objects": {
+        "foul_mushroom_platform_026_a": {
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "mushroom",
+                "fungal",
+                "terrain",
+                "walkable",
+                "platform"
+            ],
+            "notes": "One-way walkable lines follow the mushroom hat so the asset behaves as a fungal cave platform.",
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "theme.fungal",
+                "capability.platform"
+            ],
+            "id": "foul_mushroom_platform_026_a",
+            "frame": "foul_mushroom_platform_026_a",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 8,
+                    "y": 53
+                },
+                {
+                    "id": "n2",
+                    "x": 78,
+                    "y": 31
+                },
+                {
+                    "id": "n3",
+                    "x": 140,
+                    "y": 19
+                },
+                {
+                    "id": "n4",
+                    "x": 202,
+                    "y": 31
+                },
+                {
+                    "id": "n5",
+                    "x": 274,
+                    "y": 57
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_4",
+                    "kind": "walkable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                }
+            ]
+        },
+        "foul_mushroom_platform_026_b": {
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "mushroom",
+                "fungal",
+                "terrain",
+                "walkable",
+                "platform"
+            ],
+            "notes": "One-way walkable lines follow the mushroom hat so the asset behaves as a fungal cave platform.",
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "theme.fungal",
+                "capability.platform"
+            ],
+            "id": "foul_mushroom_platform_026_b",
+            "frame": "foul_mushroom_platform_026_b",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 9,
+                    "y": 44
+                },
+                {
+                    "id": "n2",
+                    "x": 79,
+                    "y": 26
+                },
+                {
+                    "id": "n3",
+                    "x": 154,
+                    "y": 19
+                },
+                {
+                    "id": "n4",
+                    "x": 222,
+                    "y": 32
+                },
+                {
+                    "id": "n5",
+                    "x": 300,
+                    "y": 67
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_4",
+                    "kind": "walkable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                }
+            ]
+        },
+        "foul_mushroom_platform_026_c": {
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "mushroom",
+                "fungal",
+                "terrain",
+                "walkable",
+                "platform"
+            ],
+            "notes": "One-way walkable lines follow the mushroom hat so the asset behaves as a fungal cave platform.",
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "theme.fungal",
+                "capability.platform"
+            ],
+            "id": "foul_mushroom_platform_026_c",
+            "frame": "foul_mushroom_platform_026_c",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 7,
+                    "y": 61
+                },
+                {
+                    "id": "n2",
+                    "x": 67,
+                    "y": 29
+                },
+                {
+                    "id": "n3",
+                    "x": 120,
+                    "y": 18
+                },
+                {
+                    "id": "n4",
+                    "x": 172,
+                    "y": 29
+                },
+                {
+                    "id": "n5",
+                    "x": 234,
+                    "y": 60
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_4",
+                    "kind": "walkable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                }
+            ]
+        },
+        "foul_mushroom_platform_026_d": {
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "mushroom",
+                "fungal",
+                "terrain",
+                "walkable",
+                "platform"
+            ],
+            "notes": "One-way walkable lines follow the mushroom hat so the asset behaves as a fungal cave platform.",
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "theme.fungal",
+                "capability.platform"
+            ],
+            "id": "foul_mushroom_platform_026_d",
+            "frame": "foul_mushroom_platform_026_d",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 7,
+                    "y": 52
+                },
+                {
+                    "id": "n2",
+                    "x": 76,
+                    "y": 32
+                },
+                {
+                    "id": "n3",
+                    "x": 136,
+                    "y": 19
+                },
+                {
+                    "id": "n4",
+                    "x": 197,
+                    "y": 32
+                },
+                {
+                    "id": "n5",
+                    "x": 264,
+                    "y": 62
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_4",
+                    "kind": "walkable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                }
+            ]
+        },
+        "foul_mushroom_platform_026_e": {
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "mushroom",
+                "fungal",
+                "terrain",
+                "walkable",
+                "platform"
+            ],
+            "notes": "One-way walkable lines follow the mushroom hat so the asset behaves as a fungal cave platform.",
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "theme.fungal",
+                "capability.platform"
+            ],
+            "id": "foul_mushroom_platform_026_e",
+            "frame": "foul_mushroom_platform_026_e",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 7,
+                    "y": 44
+                },
+                {
+                    "id": "n2",
+                    "x": 53,
+                    "y": 27
+                },
+                {
+                    "id": "n3",
+                    "x": 96,
+                    "y": 16
+                },
+                {
+                    "id": "n4",
+                    "x": 138,
+                    "y": 27
+                },
+                {
+                    "id": "n5",
+                    "x": 184,
+                    "y": 59
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_4",
+                    "kind": "walkable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                }
+            ]
+        },
+        "foul_mushroom_platform_026_f": {
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "mushroom",
+                "fungal",
+                "terrain",
+                "walkable",
+                "platform"
+            ],
+            "notes": "One-way walkable lines follow the mushroom hat so the asset behaves as a fungal cave platform.",
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "theme.fungal",
+                "capability.platform"
+            ],
+            "id": "foul_mushroom_platform_026_f",
+            "frame": "foul_mushroom_platform_026_f",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 10,
+                    "y": 56
+                },
+                {
+                    "id": "n2",
+                    "x": 78,
+                    "y": 30
+                },
+                {
+                    "id": "n3",
+                    "x": 140,
+                    "y": 19
+                },
+                {
+                    "id": "n4",
+                    "x": 202,
+                    "y": 30
+                },
+                {
+                    "id": "n5",
+                    "x": 276,
+                    "y": 56
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_4",
+                    "kind": "walkable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                }
+            ]
+        },
+        "foul_mushroom_platform_026_g": {
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "mushroom",
+                "fungal",
+                "terrain",
+                "walkable",
+                "platform"
+            ],
+            "notes": "One-way walkable lines follow the mushroom hat so the asset behaves as a fungal cave platform.",
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "theme.fungal",
+                "capability.platform"
+            ],
+            "id": "foul_mushroom_platform_026_g",
+            "frame": "foul_mushroom_platform_026_g",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 8,
+                    "y": 51
+                },
+                {
+                    "id": "n2",
+                    "x": 61,
+                    "y": 27
+                },
+                {
+                    "id": "n3",
+                    "x": 108,
+                    "y": 16
+                },
+                {
+                    "id": "n4",
+                    "x": 156,
+                    "y": 27
+                },
+                {
+                    "id": "n5",
+                    "x": 210,
+                    "y": 42
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_4",
+                    "kind": "walkable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                }
+            ]
+        },
+        "foul_mushroom_platform_026_h": {
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "mushroom",
+                "fungal",
+                "terrain",
+                "walkable",
+                "platform"
+            ],
+            "notes": "One-way walkable lines follow the mushroom hat so the asset behaves as a fungal cave platform.",
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "theme.fungal",
+                "capability.platform"
+            ],
+            "id": "foul_mushroom_platform_026_h",
+            "frame": "foul_mushroom_platform_026_h",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 11,
+                    "y": 55
+                },
+                {
+                    "id": "n2",
+                    "x": 88,
+                    "y": 32
+                },
+                {
+                    "id": "n3",
+                    "x": 158,
+                    "y": 20
+                },
+                {
+                    "id": "n4",
+                    "x": 227,
+                    "y": 32
+                },
+                {
+                    "id": "n5",
+                    "x": 316,
+                    "y": 53
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_4",
+                    "kind": "walkable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                }
+            ]
+        },
+        "foul_mushroom_platform_026_i": {
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "mushroom",
+                "fungal",
+                "terrain",
+                "walkable",
+                "platform"
+            ],
+            "notes": "One-way walkable lines follow the mushroom hat so the asset behaves as a fungal cave platform.",
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "theme.fungal",
+                "capability.platform"
+            ],
+            "id": "foul_mushroom_platform_026_i",
+            "frame": "foul_mushroom_platform_026_i",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 7,
+                    "y": 52
+                },
+                {
+                    "id": "n2",
+                    "x": 80,
+                    "y": 31
+                },
+                {
+                    "id": "n3",
+                    "x": 144,
+                    "y": 19
+                },
+                {
+                    "id": "n4",
+                    "x": 207,
+                    "y": 31
+                },
+                {
+                    "id": "n5",
+                    "x": 283,
+                    "y": 61
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_4",
+                    "kind": "walkable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                }
+            ]
+        },
+        "foul_mushroom_platform_026_j": {
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "mushroom",
+                "fungal",
+                "terrain",
+                "walkable",
+                "platform"
+            ],
+            "notes": "One-way walkable lines follow the mushroom hat so the asset behaves as a fungal cave platform.",
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "theme.fungal",
+                "capability.platform"
+            ],
+            "id": "foul_mushroom_platform_026_j",
+            "frame": "foul_mushroom_platform_026_j",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 5,
+                    "y": 66
+                },
+                {
+                    "id": "n2",
+                    "x": 81,
+                    "y": 30
+                },
+                {
+                    "id": "n3",
+                    "x": 146,
+                    "y": 18
+                },
+                {
+                    "id": "n4",
+                    "x": 210,
+                    "y": 30
+                },
+                {
+                    "id": "n5",
+                    "x": 289,
+                    "y": 51
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_4",
+                    "kind": "walkable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                }
+            ]
+        },
+        "foul_mushroom_platform_026_k": {
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "mushroom",
+                "fungal",
+                "terrain",
+                "walkable",
+                "platform"
+            ],
+            "notes": "One-way walkable lines follow the mushroom hat so the asset behaves as a fungal cave platform.",
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "theme.fungal",
+                "capability.platform"
+            ],
+            "id": "foul_mushroom_platform_026_k",
+            "frame": "foul_mushroom_platform_026_k",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 4,
+                    "y": 53
+                },
+                {
+                    "id": "n2",
+                    "x": 105,
+                    "y": 22
+                },
+                {
+                    "id": "n3",
+                    "x": 165,
+                    "y": 20
+                },
+                {
+                    "id": "n4",
+                    "x": 217,
+                    "y": 33
+                },
+                {
+                    "id": "n5",
+                    "x": 301,
+                    "y": 64
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_4",
+                    "kind": "walkable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                }
+            ]
+        },
+        "foul_mushroom_platform_026_l": {
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "mushroom",
+                "fungal",
+                "terrain",
+                "walkable",
+                "platform"
+            ],
+            "notes": "One-way walkable lines follow the mushroom hat so the asset behaves as a fungal cave platform.",
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "theme.fungal",
+                "capability.platform"
+            ],
+            "id": "foul_mushroom_platform_026_l",
+            "frame": "foul_mushroom_platform_026_l",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 10,
+                    "y": 53
+                },
+                {
+                    "id": "n2",
+                    "x": 81,
+                    "y": 29
+                },
+                {
+                    "id": "n3",
+                    "x": 144,
+                    "y": 18
+                },
+                {
+                    "id": "n4",
+                    "x": 208,
+                    "y": 29
+                },
+                {
+                    "id": "n5",
+                    "x": 288,
+                    "y": 63
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_4",
+                    "kind": "walkable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                }
+            ]
+        },
+        "foul_mushroom_platform_026_m": {
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "mushroom",
+                "fungal",
+                "terrain",
+                "walkable",
+                "platform"
+            ],
+            "notes": "One-way walkable lines follow the mushroom hat so the asset behaves as a fungal cave platform.",
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "theme.fungal",
+                "capability.platform"
+            ],
+            "id": "foul_mushroom_platform_026_m",
+            "frame": "foul_mushroom_platform_026_m",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 12,
+                    "y": 58
+                },
+                {
+                    "id": "n2",
+                    "x": 69,
+                    "y": 33
+                },
+                {
+                    "id": "n3",
+                    "x": 122,
+                    "y": 20
+                },
+                {
+                    "id": "n4",
+                    "x": 176,
+                    "y": 33
+                },
+                {
+                    "id": "n5",
+                    "x": 236,
+                    "y": 61
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_4",
+                    "kind": "walkable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                }
+            ]
+        },
+        "foul_mushroom_platform_026_n": {
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "mushroom",
+                "fungal",
+                "terrain",
+                "walkable",
+                "platform"
+            ],
+            "notes": "One-way walkable lines follow the mushroom hat so the asset behaves as a fungal cave platform.",
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "theme.fungal",
+                "capability.platform"
+            ],
+            "id": "foul_mushroom_platform_026_n",
+            "frame": "foul_mushroom_platform_026_n",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 10,
+                    "y": 43
+                },
+                {
+                    "id": "n2",
+                    "x": 52,
+                    "y": 22
+                },
+                {
+                    "id": "n3",
+                    "x": 92,
+                    "y": 13
+                },
+                {
+                    "id": "n4",
+                    "x": 132,
+                    "y": 22
+                },
+                {
+                    "id": "n5",
+                    "x": 177,
+                    "y": 40
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_4",
+                    "kind": "walkable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                }
+            ]
+        },
+        "foul_mushroom_platform_026_o": {
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "mushroom",
+                "fungal",
+                "terrain",
+                "walkable",
+                "platform"
+            ],
+            "notes": "One-way walkable lines follow the mushroom hat so the asset behaves as a fungal cave platform.",
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "theme.fungal",
+                "capability.platform"
+            ],
+            "id": "foul_mushroom_platform_026_o",
+            "frame": "foul_mushroom_platform_026_o",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 13,
+                    "y": 35
+                },
+                {
+                    "id": "n2",
+                    "x": 36,
+                    "y": 21
+                },
+                {
+                    "id": "n3",
+                    "x": 65,
+                    "y": 13
+                },
+                {
+                    "id": "n4",
+                    "x": 94,
+                    "y": 21
+                },
+                {
+                    "id": "n5",
+                    "x": 117,
+                    "y": 35
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_4",
+                    "kind": "walkable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                }
+            ]
+        },
+        "foul_mushroom_platform_026_p": {
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "mushroom",
+                "fungal",
+                "terrain",
+                "walkable",
+                "platform"
+            ],
+            "notes": "One-way walkable lines follow the mushroom hat so the asset behaves as a fungal cave platform.",
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "theme.fungal",
+                "capability.platform"
+            ],
+            "id": "foul_mushroom_platform_026_p",
+            "frame": "foul_mushroom_platform_026_p",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 8,
+                    "y": 21
+                },
+                {
+                    "id": "n2",
+                    "x": 24,
+                    "y": 12
+                },
+                {
+                    "id": "n3",
+                    "x": 42,
+                    "y": 8
+                },
+                {
+                    "id": "n4",
+                    "x": 60,
+                    "y": 12
+                },
+                {
+                    "id": "n5",
+                    "x": 76,
+                    "y": 21
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_4",
+                    "kind": "walkable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                }
+            ]
+        },
+        "foul_mushroom_platform_026_q": {
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "mushroom",
+                "fungal",
+                "terrain",
+                "walkable",
+                "platform"
+            ],
+            "notes": "One-way walkable lines follow the mushroom hat so the asset behaves as a fungal cave platform.",
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "theme.fungal",
+                "capability.platform"
+            ],
+            "id": "foul_mushroom_platform_026_q",
+            "frame": "foul_mushroom_platform_026_q",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 9,
+                    "y": 26
+                },
+                {
+                    "id": "n2",
+                    "x": 25,
+                    "y": 16
+                },
+                {
+                    "id": "n3",
+                    "x": 44,
+                    "y": 10
+                },
+                {
+                    "id": "n4",
+                    "x": 63,
+                    "y": 16
+                },
+                {
+                    "id": "n5",
+                    "x": 79,
+                    "y": 26
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_4",
+                    "kind": "walkable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                }
+            ]
+        },
+        "foul_mushroom_platform_026_r": {
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "mushroom",
+                "fungal",
+                "terrain",
+                "walkable",
+                "platform"
+            ],
+            "notes": "One-way walkable lines follow the mushroom hat so the asset behaves as a fungal cave platform.",
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "theme.fungal",
+                "capability.platform"
+            ],
+            "id": "foul_mushroom_platform_026_r",
+            "frame": "foul_mushroom_platform_026_r",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 9,
+                    "y": 21
+                },
+                {
+                    "id": "n2",
+                    "x": 24,
+                    "y": 13
+                },
+                {
+                    "id": "n3",
+                    "x": 44,
+                    "y": 8
+                },
+                {
+                    "id": "n4",
+                    "x": 63,
+                    "y": 13
+                },
+                {
+                    "id": "n5",
+                    "x": 78,
+                    "y": 21
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_4",
+                    "kind": "walkable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                }
+            ]
+        }
+    }
+}

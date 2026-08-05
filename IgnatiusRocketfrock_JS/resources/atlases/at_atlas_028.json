@@ -1,0 +1,45 @@
+{
+    "meta": {
+        "version": 4,
+        "note": "Atlas 028"
+    },
+    "atlasId": "at_atlas_028",
+    "image": "at_atlas_028.png",
+    "frames": {
+        "ignatius_title": {
+            "x": 222,
+            "y": 191,
+            "w": 1150,
+            "h": 484
+        }
+    },
+    "objects": {
+        "ignatius_title": {
+            "id": "ignatius_title",
+            "frame": "ignatius_title",
+            "type": "decor",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "generationTags": [
+                "layer.terrain"
+            ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        }
+    }
+}

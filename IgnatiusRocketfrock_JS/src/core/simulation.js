@@ -14,6 +14,11 @@ import {
 } from "../shared/level-layer-data.js";
 import { normalizeCaveWindow } from "../shared/cave-window-data.js";
 import {
+    cameraLinePointAtDistance,
+    nearestCameraLinePoint,
+    normalizeCameraLine
+} from "../shared/camera-line-data.js";
+import {
     deriveCaveFullBlackKillBoundary,
     evaluateCaveBoundaryRect
 } from "../shared/cave-kill-boundary-data.js";
@@ -671,7 +676,14 @@ export function createInitialGameState(overrides = {}) {
             zoom: 1,
             mode: "follow",
             viewportWidth: 1280,
-            viewportHeight: 720
+            viewportHeight: 720,
+            guideDirection: 0,
+            guideAlongSpeed: 0,
+            guideLastAlong: 0,
+            guideLastAlongValid: false,
+            guideNearest: null,
+            guideLookAhead: null,
+            guideNominalOffsetY: -170
         },
         player: {
             id: "ignatius",
@@ -802,6 +814,7 @@ export function createInitialGameState(overrides = {}) {
             showVelocity: false,
             showCollision: false,
             showAssetGuides: false,
+            showCameraLine: false,
             showPuppetGuide: false,
             showInput: true,
             eventFilterText: "-FUEL_CHANGED",
@@ -927,6 +940,7 @@ function createTestArena(tuning) {
         layerVisuals: normalizeLevelLayerVisuals(null),
         caveWindow: normalizeCaveWindow(null),
         caveKillBoundary: deriveCaveFullBlackKillBoundary(null),
+        cameraLine: normalizeCameraLine(null),
         solids,
         segments: [],
         collisionMode: "fallbackRectangles",
@@ -1351,6 +1365,19 @@ function isPickupEntity(entity) {
         || PICKUP_ENTITY_TYPES.has(String(entity.type || ""));
 }
 
+function checkpointRuneLike(entity) {
+    if (!entity || typeof entity !== "object") return false;
+    return String(entity.type || "") === "checkpointRune" || String(entity.interaction || "") === "checkpoint";
+}
+
+function checkpointVisualAssetId(entity, visual, stateName) {
+    const assetId = String(visual?.assetId || "");
+    if (checkpointRuneLike(entity) && stateName === "inactive" && assetId === "rune_marker") {
+        return "rune_marker_inactive";
+    }
+    return assetId;
+}
+
 function editorEntityVisualToWorld(entity, visual, index, stateName = entity.state || "") {
     const baseW = Math.max(1, Number(entity.w) || 42);
     const baseH = Math.max(1, Number(entity.h) || 80);
@@ -1366,8 +1393,8 @@ function editorEntityVisualToWorld(entity, visual, index, stateName = entity.sta
         id: `${entity.id || entity.type || "entity"}_${stateName || "default"}_visual_${index + 1}`,
         kind: "atlasSprite",
         atlasId: normalizeAtlasId(visual.atlasId || "it_atlas_001"),
-        assetId: visual.assetId,
-        frame: visual.assetId,
+        assetId: checkpointVisualAssetId(entity, visual, stateName),
+        frame: checkpointVisualAssetId(entity, visual, stateName),
         x: (Number(entity.x) || 0) + offsetX - w * 0.5,
         y: (Number(entity.y) || 0) + offsetY - h * floorAnchorYFactor,
         w,
@@ -1389,6 +1416,33 @@ function worldEntityById(state, entityId) {
     return (state.world?.entities || []).find((entity) => entity.id === entityId) || null;
 }
 
+const ENTITY_VISUAL_CACHE_TOPOLOGY_FIELDS = Object.freeze([
+    "kind",
+    "atlasId",
+    "x",
+    "y",
+    "w",
+    "h",
+    "mirrorX",
+    "mirrorY",
+    "rotation",
+    "layer",
+    "onTop",
+    "order",
+    "dynamicPosition",
+    "movementId",
+    "entityId"
+]);
+
+function entityVisualTopologyMatches(current, next) {
+    return ENTITY_VISUAL_CACHE_TOPOLOGY_FIELDS.every((field) => Object.is(current?.[field], next?.[field]));
+}
+
+function replaceObjectContents(target, source) {
+    for (const key of Object.keys(target)) delete target[key];
+    Object.assign(target, source);
+}
+
 export function setWorldEntityState(state, entityId, nextState) {
     const entity = worldEntityById(state, entityId);
     if (!entity || !entity.visualStates || !entity.visualStates[nextState]) {
@@ -1397,11 +1451,19 @@ export function setWorldEntityState(state, entityId, nextState) {
     entity.state = nextState;
     if (!state.world.entityStates) state.world.entityStates = {};
     state.world.entityStates[entityId] = nextState;
-    state.world.visuals = (state.world.visuals || []).filter((visual) => visual.entityId !== entityId);
-    const visuals = editorEntityVisuals(entity);
-    visuals.forEach((visual, index) => {
-        if (visual?.assetId) state.world.visuals.push(editorEntityVisualToWorld(entity, visual, index, nextState));
-    });
+    const worldVisuals = Array.isArray(state.world.visuals) ? state.world.visuals : [];
+    const currentVisuals = worldVisuals.filter((visual) => visual.entityId === entityId);
+    const nextVisuals = editorEntityVisuals(entity)
+        .map((visual, index) => visual?.assetId ? editorEntityVisualToWorld(entity, visual, index, nextState) : null)
+        .filter(Boolean);
+    const canPatchVisualsInPlace = currentVisuals.length === nextVisuals.length
+        && currentVisuals.every((visual, index) => entityVisualTopologyMatches(visual, nextVisuals[index]));
+    if (canPatchVisualsInPlace) {
+        currentVisuals.forEach((visual, index) => replaceObjectContents(visual, nextVisuals[index]));
+        return true;
+    }
+    state.world.visuals = worldVisuals.filter((visual) => visual.entityId !== entityId);
+    state.world.visuals.push(...nextVisuals);
     state.world.visuals.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     return true;
 }
@@ -1628,6 +1690,7 @@ function applyEntryPortalAsPlayerStart(state, entryPortal, { resetPlayer = false
         state.player.wasOnGround = true;
         state.camera.currentTransform.x = start.x;
         state.camera.currentTransform.y = start.y - 170;
+        resetCameraLineTracking(state);
     }
     return true;
 }
@@ -1690,6 +1753,7 @@ function configurePortalIntro(state, entities) {
     state.player.wasOnGround = true;
     state.camera.currentTransform.x = Number(portal.x) || finalX;
     state.camera.currentTransform.y = finalY - 170;
+    resetCameraLineTracking(state);
     addEvent(state, "PORTAL_INTRO_STARTED", { portalId: portal.id });
     return true;
 }
@@ -2565,6 +2629,56 @@ function updatePickups(state) {
     }
 }
 
+function checkpointActivationRect(entity) {
+    const width = Math.max(1, Number(entity?.w) || 70);
+    const height = Math.max(1, Number(entity?.h) || 88);
+    const distance = Math.max(0, Number(entity?.activationDistance) || 20);
+    return {
+        x: (Number(entity?.x) || 0) - width * 0.5 - distance,
+        y: (Number(entity?.y) || 0) - height - distance,
+        w: width + distance * 2,
+        h: height + distance * 2
+    };
+}
+
+function activateCheckpointRune(state, checkpoint) {
+    if (!state?.player || !checkpoint?.id || checkpoint.state === "active") return false;
+    for (const entity of state.world?.entities || []) {
+        if (!checkpointRuneLike(entity) || entity.id === checkpoint.id || entity.state !== "active") continue;
+        if (!setWorldEntityState(state, entity.id, "inactive")) {
+            entity.state = "inactive";
+            state.world.entityStates[entity.id] = "inactive";
+        }
+    }
+
+    const player = state.player;
+    player.spawnX = player.currentTransform.x;
+    player.spawnY = player.currentTransform.y;
+    if (!setWorldEntityState(state, checkpoint.id, "active")) {
+        checkpoint.state = "active";
+        state.world.entityStates[checkpoint.id] = "active";
+    }
+    addEvent(state, "CHECKPOINT_ACTIVATED", {
+        checkpointId: checkpoint.id,
+        x: round(player.spawnX),
+        y: round(player.spawnY)
+    });
+    return true;
+}
+
+function updateCheckpointRunes(state) {
+    const player = state?.player;
+    if (!player || playerDeathActive(state) || player.combatState === "dead" || !player.targetable || !player.onGround) {
+        return false;
+    }
+    const playerRect = getPlayerRect(state);
+    const candidates = (state.world?.entities || [])
+        .filter((entity) => checkpointRuneLike(entity) && entity.state !== "active" && rectsOverlap(playerRect, checkpointActivationRect(entity)))
+        .sort((a, b) => Math.hypot(player.currentTransform.x - (Number(a.x) || 0), player.currentTransform.y - (Number(a.y) || 0))
+            - Math.hypot(player.currentTransform.x - (Number(b.x) || 0), player.currentTransform.y - (Number(b.y) || 0)));
+    return candidates.length ? activateCheckpointRune(state, candidates[0]) : false;
+}
+
 function treasureChestLike(entity) {
     const type = String(entity?.type || "");
     return type === "treasureChest" || entity?.interaction === "openChest";
@@ -3142,6 +3256,34 @@ function updateMovingPlatforms(state, dt) {
     }
 }
 
+function resetMovingPlatforms(state, reason = "playerReset") {
+    let resetCount = 0;
+    for (const platform of state.world?.movingPlatforms || []) {
+        const movement = platform.movement;
+        if (!movement) continue;
+        setMovingPlatformPosition(state, platform, platform.startX, platform.startY);
+        setMovingPlatformOpacity(state, platform, 1);
+        setMovingPlatformCollisionAttached(state, platform, true);
+        platform.lastDeltaX = 0;
+        platform.lastDeltaY = 0;
+        platform.cycleCount = 0;
+        const signal = movement.activation === "signal"
+            ? signalChannelRecord(state, movement.signalChannel, false)
+            : null;
+        platform.lastSignalRevision = Math.max(0, Number(signal?.revision) || 0);
+        if (movement.initialDelay > 0) {
+            enterMovingPlatformPhase(state, platform, "initialDelay", movement.initialDelay);
+        } else if (movement.activation !== "automatic") {
+            enterMovingPlatformPhase(state, platform, "waitForTrigger", 0);
+        } else {
+            enterMovingPlatformPhase(state, platform, "startPause", movement.startPause);
+        }
+        resetCount += 1;
+    }
+    if (resetCount > 0) addEvent(state, "MOVING_PLATFORMS_RESET", { reason, count: resetCount });
+    return resetCount;
+}
+
 
 
 function characterEnemyIsRanged(enemy) {
@@ -3642,6 +3784,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         enemySpawners,
         caveWindow,
         caveKillBoundary,
+        cameraLine: normalizeCameraLine(source.cameraLine),
         visuals,
         movingPlatforms: createMovingPlatformRuntimes(visuals),
         signalChannels: {},
@@ -3683,6 +3826,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         state.player.airBoostArmed = false;
         state.camera.currentTransform.x = state.player.currentTransform.x;
         state.camera.currentTransform.y = state.player.currentTransform.y - 170;
+        resetCameraLineTracking(state);
     }
 
     configurePortalIntro(state, runtimeEntities);
@@ -8718,6 +8862,7 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
         return state;
     }
 
+    updateCheckpointRunes(state);
     updateTreasureChests(state, dt);
     updatePickups(state);
     const waterBefore = refreshPlayerWaterState(state);
@@ -12827,6 +12972,106 @@ function updateHat(state) {
     }
 }
 
+function resetCameraLineTracking(state) {
+    const camera = state.camera;
+    camera.guideDirection = 0;
+    camera.guideAlongSpeed = 0;
+    camera.guideLastAlong = 0;
+    camera.guideLastAlongValid = false;
+    camera.guideNearest = null;
+    camera.guideLookAhead = null;
+    camera.guideNominalOffsetY = -170;
+}
+
+function smoothCameraGuideInfluence(distance, influenceDistance) {
+    const raw = clamp(1 - distance / Math.max(1, influenceDistance), 0, 1);
+    return raw * raw * (3 - 2 * raw);
+}
+
+function cameraLineNominalOffsetY(state, dt, normalOffset = 170) {
+    const camera = state.camera;
+    const cameraLine = state.world?.cameraLine;
+    const fallbackOffset = -Math.abs(normalOffset);
+    const clearGuideDebug = () => {
+        camera.guideNearest = null;
+        camera.guideLookAhead = null;
+        camera.guideNominalOffsetY = fallbackOffset;
+    };
+    if (!cameraLine?.enabled || !Array.isArray(cameraLine.samples) || cameraLine.samples.length < 2) {
+        camera.guideLastAlongValid = false;
+        camera.guideAlongSpeed = 0;
+        camera.guideDirection = 0;
+        clearGuideDebug();
+        return fallbackOffset;
+    }
+
+    const player = state.player;
+    const nearest = nearestCameraLinePoint(cameraLine, player.currentTransform);
+    if (!nearest || nearest.distance > cameraLine.influenceDistance) {
+        camera.guideLastAlongValid = false;
+        camera.guideAlongSpeed = 0;
+        camera.guideDirection = 0;
+        clearGuideDebug();
+        return fallbackOffset;
+    }
+
+    const projectedVelocity = (Number(player.vx) || 0) * nearest.tangentX + (Number(player.vy) || 0) * nearest.tangentY;
+    let measuredAlongSpeed = projectedVelocity;
+    if (camera.guideLastAlongValid && dt > 0) {
+        const rawAlongSpeed = clamp((nearest.along - camera.guideLastAlong) / dt, -1200, 1200);
+        const alongBlend = 1 - Math.pow(0.025, dt);
+        camera.guideAlongSpeed += (rawAlongSpeed - camera.guideAlongSpeed) * alongBlend;
+        measuredAlongSpeed = Math.abs(camera.guideAlongSpeed) >= 12 ? camera.guideAlongSpeed : projectedVelocity;
+    } else {
+        camera.guideAlongSpeed = projectedVelocity;
+    }
+    camera.guideLastAlong = nearest.along;
+    camera.guideLastAlongValid = true;
+
+    // Horizontal look-ahead already follows the wizard's committed facing.
+    // Camera-line elevation must follow that same choice immediately, even
+    // while turnaround inertia still carries the wizard in the old direction.
+    const facingAlong = (player.facing < 0 ? -1 : 1) * nearest.tangentX;
+    if (Math.abs(nearest.tangentX) >= 0.1) {
+        camera.guideDirection = facingAlong >= 0 ? 1 : -1;
+    } else if (Math.abs(measuredAlongSpeed) >= 22) {
+        // A nearly vertical guide has no meaningful left/right side.
+        camera.guideDirection = measuredAlongSpeed >= 0 ? 1 : -1;
+    }
+
+    const direction = Number(camera.guideDirection) || 0;
+    if (!direction) {
+        camera.guideNearest = { x: nearest.x, y: nearest.y };
+        camera.guideLookAhead = null;
+        camera.guideNominalOffsetY = fallbackOffset;
+        return fallbackOffset;
+    }
+
+    const lookAhead = cameraLinePointAtDistance(
+        cameraLine,
+        nearest.along + direction * cameraLine.lookAheadDistance
+    );
+    const verticalChange = (lookAhead?.y ?? nearest.y) - nearest.y;
+    const descentAmount = clamp(verticalChange / Math.max(1, Math.abs(normalOffset) * 2), 0, 1);
+    const guidedOffset = clamp(
+        fallbackOffset + descentAmount * Math.abs(normalOffset) * 2,
+        -Math.abs(normalOffset),
+        Math.abs(normalOffset)
+    );
+    const influence = smoothCameraGuideInfluence(nearest.distance, cameraLine.influenceDistance);
+    const nominalOffset = clamp(
+        fallbackOffset + (guidedOffset - fallbackOffset) * influence,
+        -Math.abs(normalOffset),
+        Math.abs(normalOffset)
+    );
+    camera.guideNearest = { x: nearest.x, y: nearest.y };
+    camera.guideLookAhead = lookAhead ? { x: lookAhead.x, y: lookAhead.y } : null;
+    camera.guideNominalOffsetY = nominalOffset;
+    return nominalOffset;
+}
+
+const CAMERA_REPOSITION_BLEND_RATE = 0.03162277660168379;
+
 function updateCameraHint(state, dt) {
     const p = state.player;
     const lookAhead = 150 * p.facing;
@@ -12835,8 +13080,9 @@ function updateCameraHint(state, dt) {
         ? 0
         : clamp((Math.max(0, p.vy) - 35) * 0.42, 0, 260);
     const targetX = p.currentTransform.x + lookAhead;
-    const targetY = p.currentTransform.y - 170 + upwardLead + descendingLead;
-    const blendRate = descendingLead > 0 ? 0.00008 : 0.001;
+    const nominalOffsetY = cameraLineNominalOffsetY(state, dt, 170);
+    const targetY = p.currentTransform.y + nominalOffsetY + upwardLead + descendingLead;
+    const blendRate = descendingLead > 0 ? 0.00008 : CAMERA_REPOSITION_BLEND_RATE;
     const blend = 1 - Math.pow(blendRate, dt);
     state.camera.currentTransform.x += (targetX - state.camera.currentTransform.x) * blend;
     state.camera.currentTransform.y += (targetY - state.camera.currentTransform.y) * blend;
@@ -12911,10 +13157,46 @@ export function damagePlayer(state, amount = 34, sourceId = "debug", options = {
     };
 }
 
+export function teleportPlayer(state, x, y, reason = "developmentTeleport") {
+    const targetX = Number(x);
+    const targetY = Number(y);
+    if (!Number.isFinite(targetX) || !Number.isFinite(targetY) || !state?.player || !state?.camera) return false;
+    const p = state.player;
+    stopAttachedBoost(state, "teleport");
+    p.currentTransform.x = targetX;
+    p.currentTransform.y = targetY;
+    p.vx = 0;
+    p.vy = 0;
+    p.onGround = false;
+    p.supportId = null;
+    p.dropThroughTimer = 0;
+    p.inWater = false;
+    p.waterSubmersion = 0;
+    p.waterRegionId = null;
+    p.wasOnGround = false;
+    p.airBoostArmed = false;
+    p.ordinaryJumpActive = false;
+    p.ordinaryJumpStartY = null;
+    p.ordinaryJumpApexY = null;
+    p.crushCandidateTicks = 0;
+    p.crushCandidateKey = null;
+    p.crushCandidateDetail = null;
+    state.camera.currentTransform.x = targetX;
+    state.camera.currentTransform.y = targetY - 170;
+    resetCameraLineTracking(state);
+    snapPresentationSubject(p, reason, "player");
+    snapPresentationSubject(state.camera, `${reason}:camera`, "camera");
+    addEvent(state, "PLAYER_TELEPORTED", { reason, x: targetX, y: targetY });
+    return true;
+}
+
 export function resetPlayer(state, reason = "manualReset") {
     const p = state.player;
     stopAttachedBoost(state, "reset");
     clearDeathResetPowerUps(state);
+    p.onGround = false;
+    p.supportId = null;
+    resetMovingPlatforms(state, reason);
     p.currentTransform.x = p.spawnX;
     p.currentTransform.y = p.spawnY;
     p.vx = 0;
@@ -12961,6 +13243,9 @@ export function resetPlayer(state, reason = "manualReset") {
     state.health.contactInvulnerabilityTimer = 0;
     state.health.regenerating = false;
     state.health.low = false;
+    state.camera.currentTransform.x = p.spawnX;
+    state.camera.currentTransform.y = p.spawnY - 170;
+    resetCameraLineTracking(state);
     snapPresentationSubject(p, reason, "player");
     snapPresentationSubject(state.camera, `${reason}:camera`, "camera");
     addEvent(state, "PLAYER_RESET", { reason });

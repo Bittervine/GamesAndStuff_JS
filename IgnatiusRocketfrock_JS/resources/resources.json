@@ -25,7 +25,10 @@
     "at_atlas_022",
     "at_atlas_023",
     "at_atlas_024",
-    "at_atlas_025"
+    "at_atlas_025",
+    "at_atlas_026",
+    "at_atlas_027",
+    "at_atlas_028"
   ],
   "levelIds": [
     "level_001",
@@ -58,6 +61,7 @@
     "level_t04",
     "level_t05",
     "level_t06",
-    "level_t07"
+    "level_t07",
+    "level_t08"
   ]
 }

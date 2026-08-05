@@ -14,6 +14,7 @@ import {
     applyCharacterCombatProfiles,
     applyCharacterDropProfiles,
     applyLootCatalog,
+    teleportPlayer,
     resetPlayer,
     cloneGameState,
     serializeGameState,
@@ -84,6 +85,7 @@ import {
 import { ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER } from "../shared/experimental-renderer-flags.js";
 import { resourceUrl } from "../shared/resource-paths.js";
 import { shownTransformOf } from "../shared/presentation-transform-data.js";
+import { computeMinimapGeometry, minimapPointInsideGameplayPerimeter, minimapTeleportAllowed } from "../presentation/minimap-data.js";
 
 const canvas = document.getElementById("stage");
 const fuelText = document.getElementById("fuel-text");
@@ -159,6 +161,7 @@ const renderingModeSelect = document.getElementById("rendering-mode-select");
 const developmentFeaturesButton = document.getElementById("development-features-button");
 const gameDevelopmentPanel = document.getElementById("game-development-panel");
 const developmentAssetGuidesInput = document.getElementById("development-asset-guides");
+const developmentCameraLineInput = document.getElementById("development-camera-line");
 const developmentEnemyGuideInput = document.getElementById("development-enemy-guide");
 const developmentDebugPanelInput = document.getElementById("development-debug-panel");
 const developmentDebugLoggingInput = document.getElementById("development-debug-logging");
@@ -177,11 +180,12 @@ const tuningResetButton = document.getElementById("tuning-reset");
 const developmentRecordingButton = document.getElementById("development-recording");
 const developmentPlaybackButton = document.getElementById("development-playback");
 
-const GAME_REVISION = "281";
+const GAME_REVISION = "300";
 const START_LEVEL_ID = "level_001";
 const launchParams = new URLSearchParams(window.location.search || "");
 const launchLevelId = normalizeLaunchLevelQuery(launchParams.get("level"), START_LEVEL_ID);
 const launchLevelSpecified = launchParams.has("level");
+const launchEditorPlaytest = launchParams.get("playtest_browser_copy") === "1";
 const launchRecordRequested = ["1", "true", "on", "yes"].includes(String(launchParams.get("record") || "").trim().toLowerCase());
 const launchPlaybackUrl = playbackUrlFromQueryValue(launchParams.get("playback"));
 const launchPlaybackPauseAtSec = finiteNonNegativeNumber(launchParams.get("playback_pause"), null);
@@ -931,8 +935,7 @@ async function syncRendererLevelAssets(level = gameState.world, options = {}) {
 }
 
 function maybeApplyBrowserCopyLevel() {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("playtest_browser_copy") !== "1") {
+    if (!launchEditorPlaytest) {
         return false;
     }
     try {
@@ -1091,6 +1094,7 @@ async function fetchOptionalLevel(levelId) {
 }
 
 function requestSkipToNextLevel() {
+    if (!DEVELOPMENT) return false;
     if (titleScreenActive || !gameHasStarted || gameplayPlayback?.active || levelTransitionLoading) {
         return false;
     }
@@ -1313,7 +1317,7 @@ function handleTitleMenuNavigationKey(event) {
 }
 
 function handleRuntimeHotkeyKeydown(event) {
-    if (event.code === "F8" && !event.repeat) {
+    if (DEVELOPMENT && event.code === "F8" && !event.repeat) {
         event.preventDefault();
         event.stopImmediatePropagation();
         requestSkipToNextLevel();
@@ -1501,36 +1505,16 @@ function syncHudPanelsToViewport() {
     return changed;
 }
 
-function minimapBounds() {
-    const world = gameState.world || {};
-    const bounds = world.bounds || {};
-    let minX = Number(bounds.x);
-    let minY = Number(bounds.y);
-    let maxX = minX + Number(bounds.w);
-    let maxY = minY + Number(bounds.h);
-    const points = activeCaveWindow?.enabled && Array.isArray(activeCaveWindow.points)
-        ? activeCaveWindow.points
-        : [];
-    if (points.length >= 3) {
-        minX = Math.min(...points.map((point) => Number(point.x) || 0));
-        minY = Math.min(...points.map((point) => Number(point.y) || 0));
-        maxX = Math.max(...points.map((point) => Number(point.x) || 0));
-        maxY = Math.max(...points.map((point) => Number(point.y) || 0));
-    }
-    if (![minX, minY, maxX, maxY].every(Number.isFinite) || maxX <= minX || maxY <= minY) {
-        minX = (Number(gameState.player?.x) || 0) - 800;
-        minY = (Number(gameState.player?.y) || 0) - 500;
-        maxX = minX + 1600;
-        maxY = minY + 1000;
-    }
-    const padX = Math.max(80, (maxX - minX) * 0.035);
-    const padY = Math.max(80, (maxY - minY) * 0.05);
-    return {
-        minX: minX - padX,
-        minY: minY - padY,
-        maxX: maxX + padX,
-        maxY: maxY + padY
-    };
+function minimapGeometry() {
+    return computeMinimapGeometry({
+        world: gameState.world || {},
+        caveWindow: activeCaveWindow,
+        player: shownTransformOf(gameState.player)
+    });
+}
+
+function minimapBounds(geometry = minimapGeometry()) {
+    return geometry.bounds;
 }
 
 
@@ -1561,7 +1545,8 @@ function resizeMinimapToLevel(bounds = minimapBounds()) {
 
 function drawMinimap(force = false) {
     if (minimapPanel?.hidden) return;
-    const bounds = minimapBounds();
+    const geometry = minimapGeometry();
+    const bounds = minimapBounds(geometry);
     if (resizeMinimapToLevel(bounds)) force = true;
     if (!minimapCanvas || !minimapContext || minimapCanvas.width <= 1 || minimapCanvas.height <= 1) return;
     const now = performance.now();
@@ -1589,9 +1574,7 @@ function drawMinimap(force = false) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, cssWidth, cssHeight);
 
-    const cavePoints = activeCaveWindow?.enabled && Array.isArray(activeCaveWindow.points)
-        ? activeCaveWindow.points
-        : [];
+    const cavePoints = geometry.gameplayBoundaryOutline;
     if (cavePoints.length >= 3) {
         ctx.beginPath();
         const first = point(cavePoints[0].x, cavePoints[0].y);
@@ -1611,11 +1594,7 @@ function drawMinimap(force = false) {
     ctx.lineCap = "round";
     ctx.strokeStyle = "rgba(216,190,126,0.78)";
     ctx.lineWidth = Math.max(1, Math.min(2.4, scale * 14));
-    for (const segment of gameState.world?.segments || []) {
-        if (segment?.kind !== "walkable" && segment?.kind !== "blockable") continue;
-        const dx = (Number(segment.x2) || 0) - (Number(segment.x1) || 0);
-        const dy = (Number(segment.y2) || 0) - (Number(segment.y1) || 0);
-        if (Math.abs(dx) < 8 || Math.abs(dy) > Math.abs(dx) * 0.45) continue;
+    for (const segment of geometry.staticSegments) {
         const a = point(Number(segment.x1) || 0, Number(segment.y1) || 0);
         const b = point(Number(segment.x2) || 0, Number(segment.y2) || 0);
         ctx.beginPath();
@@ -1676,6 +1655,49 @@ function drawMinimap(force = false) {
     ctx.restore();
 }
 
+function minimapWorldPointFromClick(event, geometry = minimapGeometry()) {
+    if (!minimapCanvas || !geometry?.bounds) return null;
+    const rect = minimapCanvas.getBoundingClientRect();
+    const clientX = Number(event?.clientX);
+    const clientY = Number(event?.clientY);
+    if (!(rect.width > 0) || !(rect.height > 0) || !Number.isFinite(clientX) || !Number.isFinite(clientY)) return null;
+    if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) return null;
+    const bounds = geometry.bounds;
+    const worldWidth = Math.max(1, bounds.maxX - bounds.minX);
+    const worldHeight = Math.max(1, bounds.maxY - bounds.minY);
+    const inset = 8;
+    const scale = Math.min(
+        Math.max(0.0001, (rect.width - inset * 2) / worldWidth),
+        Math.max(0.0001, (rect.height - inset * 2) / worldHeight)
+    );
+    const offsetX = (rect.width - worldWidth * scale) * 0.5 - bounds.minX * scale;
+    const offsetY = (rect.height - worldHeight * scale) * 0.5 - bounds.minY * scale;
+    return {
+        x: ((clientX - rect.left) - offsetX) / scale,
+        y: ((clientY - rect.top) - offsetY) / scale
+    };
+}
+
+function minimapTeleportEnabled() {
+    return minimapTeleportAllowed(DEVELOPMENT, launchEditorPlaytest);
+}
+
+function tryTeleportPlayerFromMinimapClick(event) {
+    if (!minimapTeleportEnabled()
+        || !gameHasStarted
+        || titleScreenActive
+        || isGameMenuOpen()
+        || gameState.player?.combatState !== "alive") {
+        return false;
+    }
+    const worldPoint = minimapWorldPointFromClick(event);
+    if (!worldPoint || !minimapPointInsideGameplayPerimeter(gameState.world, activeCaveWindow, worldPoint)) return false;
+    input.clear();
+    const teleported = teleportPlayer(gameState, worldPoint.x, worldPoint.y, "minimapDevelopmentTeleport");
+    if (teleported) drawMinimap(true);
+    return teleported;
+}
+
 function setupGameMenuAndSettings() {
     if (!gameMenuDialog || (!openGameMenuButton && !metersPanel)) return;
 
@@ -1685,7 +1707,12 @@ function setupGameMenuAndSettings() {
         gameMenuExitTitleButton.setAttribute("aria-label", "Exit to Title");
     }
 
-    openGameMenuButton?.addEventListener("click", () => {
+    openGameMenuButton?.addEventListener("click", (event) => {
+        if (tryTeleportPlayerFromMinimapClick(event)) {
+            event.preventDefault();
+            event.stopPropagation();
+            return;
+        }
         if (isGameMenuOpen()) closeGameMenu();
         else openGameMenu("menu");
     });
@@ -2355,6 +2382,11 @@ function setupPanelToggleButtons() {
         if (developmentAssetGuidesInput) developmentAssetGuidesInput.checked = active;
     };
 
+    const updateCameraLine = () => {
+        const active = Boolean(gameState.debug.showCameraLine);
+        if (developmentCameraLineInput) developmentCameraLineInput.checked = active;
+    };
+
     const updatePuppetGuide = () => {
         const active = Boolean(gameState.debug.showPuppetGuide);
         if (puppetGuideButton) {
@@ -2489,6 +2521,11 @@ function setupPanelToggleButtons() {
         updateAssetGuides();
     });
 
+    developmentCameraLineInput?.addEventListener("change", () => {
+        gameState.debug.showCameraLine = developmentCameraLineInput.checked;
+        updateCameraLine();
+    });
+
     developmentEnemyGuideInput?.addEventListener("change", () => {
         gameState.debug.showPuppetGuide = developmentEnemyGuideInput.checked;
         updatePuppetGuide();
@@ -2571,6 +2608,7 @@ function setupPanelToggleButtons() {
 
 
     updateAssetGuides();
+    updateCameraLine();
     updatePuppetGuide();
     updateDebugPanel();
     updateHelpPanel();
@@ -2644,7 +2682,7 @@ function frame(now) {
     while (accumulator >= FIXED_DT && safety < 8) {
         const stepInput = createSubstepInputFrame(inputFrame, safety);
         stepSimulation(gameState, stepInput, FIXED_DT);
-        soundEffectsDirector.processEvents(gameState.debug?.lastEvents);
+        soundEffectsDirector.processEvents(gameState.debug?.lastEvents, gameState);
         soundEffectsDirector.processState(gameState, gameState.clock?.fixedDt || (1 / 60));
         processDebugExceptionAlerts();
         if (safety === 0) {
@@ -2950,7 +2988,7 @@ function updateDebugText() {
         `ground:${p.onGround}  facing:${p.facing > 0 ? "right" : "left"}  boost:${gameState.equipment.rocket.attachedBoosting}  crush:${p.crushCandidateTicks || 0}/${gameState.tuning.playerCrushConfirmTicks || 3}  death:${p.deathPhase || "none"}/${(p.deathPhaseTimer || 0).toFixed(2)}  hoverA:${gameState.equipment.rocket.boostAccelerationNow.toFixed(0)}  hoverLimit:${gameState.tuning.attachedBoostHoverFallSpeed.toFixed(0)}`,
         `fuel:${fuel.amount.toFixed(2)}  delay:${fuel.rechargeDelayTimer.toFixed(2)}  cap:${fuel.rechargeCap}  rechargeLatched:${fuel.rechargeLatched ? "yes" : "no"}  groundRecharge:${gameState.tuning.fuelRechargeRequiresGround !== false}  kick:${gameState.equipment.rocket.boostKickCharge.toFixed(2)}  smokeDown:${(gameState.tuning.attachedBoostSmokePuffDownSpeed ?? 170).toFixed(0)}  bulbFlash:${(gameState.equipment.rocket.fuelBulbFlashTimer ?? 0).toFixed(2)}`,
         `rockets:${gameState.projectiles.length}  smoke:${gameState.effects?.smokePuffs?.length ?? 0}  collision:${gameState.world.collisionMode || "rectangles"} seg:${gameState.world.segments?.length ?? 0}  initialTurn:${gameState.tuning.rocketProjectileUpLaunchSeconds.toFixed(2)}@${gameState.tuning.rocketProjectileInitialHomingStrength.toFixed(2)}  homing:${gameState.tuning.rocketProjectileHomingStrength.toFixed(2)}  target:${gameState.targets[0] ? `${gameState.targets[0].x.toFixed(0)},${gameState.targets[0].y.toFixed(0)}` : "none"}`,
-        inputText + `  inputConsole:${input.isConsoleLoggingEnabled() ? "on" : "off"}  assetGuides:${gameState.debug.showAssetGuides ? "on" : "off"}  puppetGuide:${gameState.debug.showPuppetGuide ? "on" : "off"}`,
+        inputText + `  inputConsole:${input.isConsoleLoggingEnabled() ? "on" : "off"}  assetGuides:${gameState.debug.showAssetGuides ? "on" : "off"}  cameraLine:${gameState.debug.showCameraLine ? "on" : "off"}  puppetGuide:${gameState.debug.showPuppetGuide ? "on" : "off"}`,
         `eventFilter:${gameState.debug.eventFilterText || "(none)"}`,
         "events:",
         events || "(none after filter)",

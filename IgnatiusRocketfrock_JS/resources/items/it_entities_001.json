@@ -15,7 +15,7 @@
         "enemySpawner": {
             "type": "enemySpawner",
             "label": "Enemy spawner",
-            "icon": "✦",
+            "icon": "\u2726",
             "description": "Invisible during play. While its authored area is on screen, it rolls once per second and teleports in one already-alert enemy on a successful roll.",
             "defaultState": "active",
             "defaultSize": {
@@ -37,7 +37,7 @@
         "mailbox": {
             "type": "mailbox",
             "label": "Editor's mailbox",
-            "icon": "📬",
+            "icon": "\ud83d\udcec",
             "description": "An editor-letter mailbox. Each placed mailbox owns its own trigger distance, letter, thought, and timing metadata, so a level can contain several tutorial letters.",
             "defaultState": "letterAvailable",
             "defaultSize": {
@@ -54,8 +54,8 @@
                 "thoughtAtlasId": "it_atlas_001",
                 "thoughtAssetId": "thought_bubble_large",
                 "letterTitle": "A Letter from Your Humble Editor",
-                "letterText": "Dear Ignatius,\n\nI hope this letter finds you well, and with most of your limbs still attached. I look forward to receiving the first chapter of your travel book shortly. I have even come up with a great title: “Ignatius Rocketfrock and the Introductory Cave of Training.” Please proceed boldly!\n\nSincerely,\nYour humble editor,\nWilfred of Bittervine",
-                "thoughtText": "How kind of him! I hope I can make him proud. This cave doesn’t look quite like it did in the brochures, but I’m sure it will be fine."
+                "letterText": "Dear Ignatius,\n\nI hope this letter finds you well, and with most of your limbs still attached. I look forward to receiving the first chapter of your travel book shortly. I have even come up with a great title: \u201cIgnatius Rocketfrock and the Introductory Cave of Training.\u201d Please proceed boldly!\n\nSincerely,\nYour humble editor,\nWilfred of Bittervine",
+                "thoughtText": "How kind of him! I hope I can make him proud. This cave doesn\u2019t look quite like it did in the brochures, but I\u2019m sure it will be fine."
             },
             "states": {
                 "letterAvailable": {
@@ -83,7 +83,7 @@
         "thoughtTrigger": {
             "type": "thoughtTrigger",
             "label": "Location thought trigger",
-            "icon": "💭",
+            "icon": "\ud83d\udcad",
             "description": "Invisible one-shot region that pauses play and shows an Ignatius thought bubble when entered.",
             "defaultState": "available",
             "defaultSize": {
@@ -170,7 +170,7 @@
         "wizard_entry_door": {
             "type": "wizard_entry_door",
             "label": "Wizard entry door",
-            "icon": "🚪",
+            "icon": "\ud83d\udeaa",
             "description": "The effective level start. It snaps to nearby ground, opens, lets Ignatius walk out behind the foreground door layer, then closes.",
             "defaultState": "closed",
             "defaultSize": {
@@ -230,7 +230,7 @@
         "wizard_entry_point": {
             "type": "wizard_entry_point",
             "label": "Wizard entry point",
-            "icon": "➜",
+            "icon": "\u279c",
             "description": "Invisible immediate level start. Ignatius begins at this floor-anchored point with no doorway animation.",
             "defaultState": "active",
             "defaultSize": {
@@ -253,7 +253,7 @@
         "wizard_exit_door": {
             "type": "wizard_exit_door",
             "label": "Wizard exit door",
-            "icon": "🚪",
+            "icon": "\ud83d\udeaa",
             "description": "The level exit. It is mirrored by default, snaps to nearby ground, opens when Ignatius approaches, and walks him through before loading its destination level.",
             "defaultState": "closed",
             "defaultSize": {
@@ -314,7 +314,7 @@
         "wizard_exit_point": {
             "type": "wizard_exit_point",
             "label": "Wizard exit point",
-            "icon": "⇥",
+            "icon": "\u21e5",
             "description": "Invisible immediate level exit. Reaching this point loads its destination without a doorway animation.",
             "defaultState": "active",
             "defaultSize": {
@@ -340,7 +340,7 @@
         "treasureChest": {
             "type": "treasureChest",
             "label": "Treasure chest",
-            "icon": "🧰",
+            "icon": "\ud83e\uddf0",
             "description": "Automatic proximity treasure chest: begins open with loot, awards Score once, then remains open and empty.",
             "defaultState": "openLoot",
             "defaultSize": {
@@ -393,7 +393,7 @@
         "breakableCrate": {
             "type": "breakableCrate",
             "label": "Breakable crate",
-            "icon": "▣",
+            "icon": "\u25a3",
             "description": "A solid reactive crate that intercepts rockets, becomes damaged, then disappears when destroyed.",
             "defaultState": "intact",
             "defaultSize": {
@@ -453,7 +453,7 @@
         "destructibleBarrier": {
             "type": "destructibleBarrier",
             "label": "Breakable iron barrier",
-            "icon": "▥",
+            "icon": "\u25a5",
             "description": "A tall solid barrier that intercepts rockets, bends when damaged, and removes its collision when destroyed.",
             "defaultState": "intact",
             "defaultSize": {
@@ -514,7 +514,7 @@
         "leverSwitch": {
             "type": "leverSwitch",
             "label": "Lever switch",
-            "icon": "🎚️",
+            "icon": "\ud83c\udf9a\ufe0f",
             "description": "Nearby switch that toggles a named signal channel. Press Down, S, or Enter to operate it.",
             "defaultState": "off",
             "defaultSize": {
@@ -552,7 +552,7 @@
         "keyholeSwitch": {
             "type": "keyholeSwitch",
             "label": "Keyhole switch",
-            "icon": "🗝️",
+            "icon": "\ud83d\udddd\ufe0f",
             "description": "Consumes the configured key when Ignatius operates it, then emits its named signal once.",
             "defaultState": "locked",
             "defaultSize": {
@@ -604,7 +604,7 @@
         "spikedGate": {
             "type": "spikedGate",
             "label": "Spiked gate",
-            "icon": "⛓️",
+            "icon": "\u26d3\ufe0f",
             "description": "Switchable vertical gate.",
             "defaultState": "closed",
             "defaultSize": {
@@ -642,7 +642,7 @@
         "hangingGate": {
             "type": "hangingGate",
             "label": "Hanging iron bars",
-            "icon": "⛓️",
+            "icon": "\u26d3\ufe0f",
             "description": "Alternative switchable iron gate.",
             "defaultState": "closed",
             "defaultSize": {
@@ -680,7 +680,7 @@
         "fuel": {
             "type": "fuel",
             "label": "Rocket fuel",
-            "icon": "⛽",
+            "icon": "\u26fd",
             "description": "Sixty-second rocket flight power-up.",
             "defaultState": "available",
             "defaultSize": {
@@ -710,7 +710,7 @@
         "fuelUpgrade": {
             "type": "fuelUpgrade",
             "label": "UpgradeFuel",
-            "icon": "💙",
+            "icon": "\ud83d\udc99",
             "description": "Permanent maximum rocket-fuel upgrade. Currently shown as a blue herb.",
             "defaultState": "available",
             "defaultSize": {
@@ -743,7 +743,7 @@
         "speedUpgrade": {
             "type": "speedUpgrade",
             "label": "UpgradeSpeed",
-            "icon": "🍄",
+            "icon": "\ud83c\udf44",
             "description": "Permanent movement-speed upgrade. Currently shown as a red mushroom.",
             "defaultState": "available",
             "defaultSize": {
@@ -776,7 +776,7 @@
         "healthUpgrade": {
             "type": "healthUpgrade",
             "label": "UpgradeHealth",
-            "icon": "💜",
+            "icon": "\ud83d\udc9c",
             "description": "Permanent maximum-health upgrade. Currently shown as a purple herb.",
             "defaultState": "available",
             "defaultSize": {
@@ -809,7 +809,7 @@
         "regenUpgrade": {
             "type": "regenUpgrade",
             "label": "UpgradeRegen",
-            "icon": "💛",
+            "icon": "\ud83d\udc9b",
             "description": "Permanent health and rocket-fuel regeneration upgrade. Currently shown as a yellow herb.",
             "defaultState": "available",
             "defaultSize": {
@@ -842,8 +842,8 @@
         "ornateKeyPickup": {
             "type": "ornateKeyPickup",
             "label": "Ornate key",
-            "icon": "🗝️",
-            "description": "An ornate key collected into Ignatius’s inventory.",
+            "icon": "\ud83d\udddd\ufe0f",
+            "description": "An ornate key collected into Ignatius\u2019s inventory.",
             "defaultState": "available",
             "defaultSize": {
                 "w": 42,
@@ -873,8 +873,8 @@
         "ironKeyPickup": {
             "type": "ironKeyPickup",
             "label": "Iron key",
-            "icon": "🗝️",
-            "description": "An iron key collected into Ignatius’s inventory and usable by keyholes.",
+            "icon": "\ud83d\udddd\ufe0f",
+            "description": "An iron key collected into Ignatius\u2019s inventory and usable by keyholes.",
             "defaultState": "available",
             "defaultSize": {
                 "w": 45,
@@ -904,7 +904,7 @@
         "magicRingPickup": {
             "type": "magicRingPickup",
             "label": "Magic ring",
-            "icon": "💍",
+            "icon": "\ud83d\udc8d",
             "description": "",
             "defaultState": "available",
             "defaultSize": {
@@ -931,7 +931,7 @@
         "checkpointRune": {
             "type": "checkpointRune",
             "label": "Rune checkpoint",
-            "icon": "🔮",
+            "icon": "\ud83d\udd2e",
             "description": "",
             "defaultState": "inactive",
             "defaultSize": {
@@ -939,7 +939,9 @@
                 "h": 88
             },
             "defaults": {
-                "interaction": "checkpoint"
+                "interaction": "checkpoint",
+                "activationDistance": 20,
+                "groundSnapDistance": 128
             },
             "states": {
                 "inactive": {
@@ -947,7 +949,7 @@
                     "visuals": [
                         {
                             "atlasId": "it_atlas_001",
-                            "assetId": "rune_marker",
+                            "assetId": "rune_marker_inactive",
                             "layer": "decorFront"
                         }
                     ]
@@ -967,7 +969,7 @@
         "spikedBallHazard": {
             "type": "spikedBallHazard",
             "label": "Spiked ball hazard",
-            "icon": "☠️",
+            "icon": "\u2620\ufe0f",
             "description": "",
             "defaultState": "active",
             "defaultSize": {
@@ -994,7 +996,7 @@
         "overdrivePickup": {
             "type": "overdrivePickup",
             "label": "Overdrive",
-            "icon": "⚡",
+            "icon": "\u26a1",
             "description": "Timed rocket overdrive: launches cost half fuel and passive recovery offsets 90% of hover drain, even while fuel is being spent.",
             "defaultState": "available",
             "defaultSize": {
@@ -1025,7 +1027,7 @@
         "shieldPickup": {
             "type": "shieldPickup",
             "label": "Shield",
-            "icon": "🛡",
+            "icon": "\ud83d\udee1",
             "description": "Grants ten seconds of complete damage invulnerability and makes Ignatius flash blue.",
             "defaultState": "available",
             "defaultSize": {
@@ -1056,7 +1058,7 @@
         "wrenchPickup": {
             "type": "wrenchPickup",
             "label": "Wrench powerup",
-            "icon": "🔧",
+            "icon": "\ud83d\udd27",
             "description": "Grants the selected 20-second wrench rocket mode. If no wrench type is authored, it defaults to the cyan Dart wrench.",
             "defaultState": "available",
             "defaultSize": {

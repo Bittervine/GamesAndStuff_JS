@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" href="favicon.ico" sizes="any">
-    <title>Ignatius Level Editor - BUILD 281</title>
+    <title>Ignatius Level Editor - BUILD 300</title>
     <style>
         @font-face {
             font-family: "Ignatius Inter";
@@ -236,6 +236,14 @@
             grid-template-columns: repeat(3, minmax(0, 1fr));
         }
 
+        .layer-toggle-row {
+            margin-top: 6px;
+        }
+
+        .layer-toggle-row button:not(.active) {
+            opacity: 0.58;
+        }
+
         .layer-visual-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -423,6 +431,10 @@
 
         .item.multi-selected:not(.selected) {
             background: rgba(180,184,194,0.14);
+        }
+
+        .placed-object-search {
+            margin-top: 0;
         }
 
         .pill {
@@ -821,7 +833,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 281</small></h1>
+        <h1>Level Editor <small>rev 300</small></h1>
 
         <div class="box">
             <h2>Level</h2>
@@ -857,6 +869,16 @@
 
         <div class="box" data-panel-key="layers">
             <h2>Layers</h2>
+            <div class="row three" aria-label="Select layer contents">
+                <button id="select-foreground-layer" type="button">Select Foreground</button>
+                <button id="select-terrain-layer" type="button">Select Terrain</button>
+                <button id="select-background-layer" type="button">Select Background</button>
+            </div>
+            <div class="row three layer-toggle-row" aria-label="Toggle editor layer visibility">
+                <button id="toggle-foreground-layer" type="button" class="active" aria-pressed="true">Toggle Foreground</button>
+                <button id="toggle-terrain-layer" type="button" class="active" aria-pressed="true">Toggle Terrain</button>
+                <button id="toggle-background-layer" type="button" class="active" aria-pressed="true">Toggle Background</button>
+            </div>
             <div class="layer-visual-grid">
                 <fieldset class="layer-visual-group" title="Foreground artwork renders in front of actors. These values are the complete layer treatment, including the usual larger and darker cave-edge appearance.">
                     <legend>Foreground</legend>
@@ -884,7 +906,7 @@
                     <button data-tool="caveAdd" type="button">＋ Add perimeter point</button>
                 </div>
                 <div class="row">
-                    <button id="cave-create-from-bounds" type="button">Create from world bounds</button>
+                    <button id="cave-select-only" type="button">Select perimeter only</button>
                     <button id="cave-delete-point" type="button" disabled>Delete selected point</button>
                 </div>
             </div>
@@ -918,6 +940,27 @@
             </div>
             <p id="cave-status" class="small">No cave perimeter points.</p>
             <p id="cave-geometry-warning" class="small cave-geometry-warning" hidden></p>
+        </div>
+
+        <div class="box">
+            <h2>Camera Line</h2>
+            <div class="inline"><input id="camera-line-enabled" type="checkbox"><span class="small">Use this camera framing guide</span></div>
+            <div class="compact-button-stack">
+                <div class="row">
+                    <button data-tool="cameraLineSelect" type="button">◇ Edit camera line</button>
+                    <button data-tool="cameraLineAdd" type="button">＋ Add camera point</button>
+                </div>
+                <div class="row">
+                    <button id="camera-line-select-only" type="button">Select camera line only</button>
+                    <button id="camera-line-delete-point" type="button" disabled>Delete selected point</button>
+                </div>
+            </div>
+            <div class="row">
+                <label>Proximity px<input id="camera-line-influence-distance" type="number" min="1" step="50"></label>
+                <label>Look ahead px<input id="camera-line-look-ahead-distance" type="number" min="1" step="50"></label>
+            </div>
+            <p class="small">Near the line, downhill travel may move the nominal camera framing from the normal position below centre to the mirrored position above centre. Existing camera lag and jump response remain active.</p>
+            <p id="camera-line-status" class="small">No camera-line points.</p>
         </div>
 
         <div class="box">
@@ -1060,12 +1103,13 @@
 
         <div class="box">
             <h2>Placed objects</h2>
+            <label class="placed-object-search">Filter placed objects<input id="placement-search" type="search" placeholder="ID, asset, entity, layer..."></label>
             <div id="placement-list" class="list"></div>
         </div>
 
         <div class="box" id="selected-object-panel">
             <h2>Selected object</h2>
-            <p id="selection-summary" class="small">Nothing selected. Shift-drag selects fully enclosed objects; Ctrl-click or Ctrl+Shift-drag toggles objects.</p>
+            <p id="selection-summary" class="small">Nothing selected. Shift-drag selects fully enclosed objects and the cave perimeter when its complete spline is enclosed; Ctrl-click or Ctrl+Shift-drag toggles selection.</p>
             <label>ID<input id="inspect-id"></label>
             <label>Kind<input id="inspect-kind" readonly></label>
             <div class="row">
@@ -1409,11 +1453,18 @@ import {
     foregroundTreatmentCacheKey
 } from "./src/presentation/foreground-sprite-treatment.js";
 import {
+    cameraLineCompletelyInsideRect,
+    cameraLineInsertionIndex,
+    nearestCameraLinePoint,
+    normalizeCameraLine,
+    sampleCameraLine
+} from "./src/shared/camera-line-data.js";
+import {
     caveGameplayGeometrySeparation,
     cavePolygonSeparation,
     caveSplineSegmentControls,
     caveWindowBounds,
-    createCaveWindowPointsFromBounds,
+    caveWindowCompletelyInsideRect,
     nearestCaveSplineSegment,
     normalizeCaveDecoration,
     normalizeCaveGradientNoise,
@@ -1603,7 +1654,10 @@ import {
         gameplayRulers: "rgba(86,230,255,0.92)",
         cavePoint: "rgba(255,226,116,0.98)",
         caveSelectedPoint: "rgba(255,255,255,1)",
-        caveGeometryWarning: "rgba(255,159,67,0.98)"
+        caveGeometryWarning: "rgba(255,159,67,0.98)",
+        cameraLine: "rgba(201,167,255,0.98)",
+        cameraLinePoint: "rgba(255,226,116,0.98)",
+        cameraLineLookAhead: "rgba(77,255,145,0.96)"
     };
 
     let gameplayRulerTuning = DEFAULT_TUNING;
@@ -1763,6 +1817,12 @@ import {
         foregroundParallaxY: document.getElementById("foreground-parallax-y"),
         foregroundBrightness: document.getElementById("foreground-brightness"),
         foregroundScale: document.getElementById("foreground-scale"),
+        selectForegroundLayer: document.getElementById("select-foreground-layer"),
+        selectTerrainLayer: document.getElementById("select-terrain-layer"),
+        selectBackgroundLayer: document.getElementById("select-background-layer"),
+        toggleForegroundLayer: document.getElementById("toggle-foreground-layer"),
+        toggleTerrainLayer: document.getElementById("toggle-terrain-layer"),
+        toggleBackgroundLayer: document.getElementById("toggle-background-layer"),
         backgroundParallaxX: document.getElementById("background-parallax-x"),
         backgroundParallaxY: document.getElementById("background-parallax-y"),
         backgroundBrightness: document.getElementById("background-brightness"),
@@ -1808,7 +1868,7 @@ import {
         caveGradientNoiseSeed: document.getElementById("cave-gradient-noise-seed"),
         cavePointMode: document.getElementById("cave-point-mode"),
         caveDeletePoint: document.getElementById("cave-delete-point"),
-        caveCreateFromBounds: document.getElementById("cave-create-from-bounds"),
+        caveSelectOnly: document.getElementById("cave-select-only"),
         cavePreviewShade: document.getElementById("cave-preview-shade"),
         caveShowBlackBoundary: document.getElementById("cave-show-black-boundary"),
         caveShowGenerated: document.getElementById("cave-show-generated"),
@@ -1818,6 +1878,12 @@ import {
         caveClearGenerated: document.getElementById("cave-clear-generated"),
         caveStatus: document.getElementById("cave-status"),
         caveGeometryWarning: document.getElementById("cave-geometry-warning"),
+        cameraLineEnabled: document.getElementById("camera-line-enabled"),
+        cameraLineInfluenceDistance: document.getElementById("camera-line-influence-distance"),
+        cameraLineLookAheadDistance: document.getElementById("camera-line-look-ahead-distance"),
+        cameraLineSelectOnly: document.getElementById("camera-line-select-only"),
+        cameraLineDeletePoint: document.getElementById("camera-line-delete-point"),
+        cameraLineStatus: document.getElementById("camera-line-status"),
         colorMapEnabled: document.getElementById("color-map-enabled"),
         colorMapSource: document.getElementById("color-map-source"),
         colorMapTarget: document.getElementById("color-map-target"),
@@ -1839,6 +1905,7 @@ import {
         newAssetLayer: document.getElementById("new-asset-layer"),
         assetList: document.getElementById("asset-list"),
         assetPaletteStatus: document.getElementById("asset-palette-status"),
+        placementSearch: document.getElementById("placement-search"),
         placementList: document.getElementById("placement-list"),
         selectionSummary: document.getElementById("selection-summary"),
         inspectId: document.getElementById("inspect-id"),
@@ -1982,9 +2049,17 @@ import {
         selectedEntityType: "wizard_entry_door",
         selectedId: "",
         selectedIds: new Set(),
+        cavePerimeterSelected: false,
+        cameraLineSelected: false,
         objectClipboard: { mode: "copy", items: [], pasteCount: 0, primarySourceId: "" },
         selectedCavePointId: "",
+        selectedCameraLinePointId: "",
         drag: null,
+        editorLayerVisibility: {
+            foreground: true,
+            terrain: true,
+            background: true
+        },
         camera: { x: -160, y: -80, zoom: 0.55 },
         atlases: new Map(),
         atlasLoadPromises: new Map(),
@@ -2084,7 +2159,10 @@ import {
             levelText: JSON.stringify(state.level || null),
             selectedId: state.selectedId || "",
             selectedIds: [...(state.selectedIds || [])],
+            cavePerimeterSelected: Boolean(state.cavePerimeterSelected),
+            cameraLineSelected: Boolean(state.cameraLineSelected),
             selectedCavePointId: state.selectedCavePointId || "",
+            selectedCameraLinePointId: state.selectedCameraLinePointId || "",
             generatorLoadedRunId: state.generatorLoadedRunId || "",
             objectClipboardText: JSON.stringify(state.objectClipboard || { mode: "copy", items: [], pasteCount: 0, primarySourceId: "" }),
             label: String(label || "")
@@ -2157,7 +2235,10 @@ import {
             state.level = JSON.parse(snapshot.levelText);
             state.selectedId = snapshot.selectedId || "";
             state.selectedIds = new Set(snapshot.selectedIds || []);
+            state.cavePerimeterSelected = Boolean(snapshot.cavePerimeterSelected);
+            state.cameraLineSelected = Boolean(snapshot.cameraLineSelected);
             state.selectedCavePointId = snapshot.selectedCavePointId || "";
+            state.selectedCameraLinePointId = snapshot.selectedCameraLinePointId || "";
             state.generatorLoadedRunId = snapshot.generatorLoadedRunId || "";
             state.objectClipboard = JSON.parse(snapshot.objectClipboardText || '{"mode":"copy","items":[],"pasteCount":0,"primarySourceId":""}');
             state.generatorHistory = { undo: [], redo: [] };
@@ -2233,7 +2314,8 @@ import {
             "#background-parallax-x", "#background-parallax-y", "#background-brightness", "#background-scale",
             "#auto-spawn-enemies-enabled", "#auto-spawn-enemies-probability", "#auto-spawn-enemies-pool",
             "#cave-enabled", "#cave-point-mode", "#cave-feather", "#cave-gradient-noise-amplitude",
-            "#cave-gradient-noise-period", "#cave-gradient-noise-seed", "#cave-decor-seed", "#cave-decor-inward"
+            "#cave-gradient-noise-period", "#cave-gradient-noise-seed", "#cave-decor-seed", "#cave-decor-inward",
+            "#camera-line-enabled", "#camera-line-influence-distance", "#camera-line-look-ahead-distance"
         ].join(","));
     }
 
@@ -2248,8 +2330,9 @@ import {
         ["to-front", "Move selection to front"],
         ["to-back", "Move selection to back"],
         ["play-browser-copy", "Rebuild playtest navigation"],
-        ["cave-create-from-bounds", "Create cave perimeter"],
         ["cave-delete-point", "Delete cave perimeter point"],
+        ["camera-line-delete-point", "Delete camera-line point"],
+        ["camera-line-select-only", "Select camera line"],
         ["cave-auto-populate", "Populate cave perimeter"],
         ["cave-clear-generated", "Clear generated cave perimeter"],
         ["color-map-apply", "Apply level colour treatment"],
@@ -2312,6 +2395,7 @@ import {
             layerVisuals,
             autoSpawnEnemies: normalizeAutoSpawnEnemies({ ...DEFAULT_AUTO_SPAWN_ENEMIES, probabilityPercent: 10 }),
             caveWindow,
+            cameraLine: normalizeCameraLine(null),
             placements: [],
             entities: [],
             navigationGraphs: { version: 1, profiles: [] },
@@ -2635,6 +2719,7 @@ import {
         els.caveDecorInward.value = String(Math.round((cave.decoration.inwardFractionMin + cave.decoration.inwardFractionMax) * 50));
         els.cavePointMode.disabled = !selectedPoint;
         els.caveDeletePoint.disabled = !selectedPoint;
+        els.caveSelectOnly.disabled = cave.points.length < 2;
         els.caveAutoPopulate.disabled = cave.points.length < 3;
         els.caveClearGenerated.disabled = generatedCount === 0;
         if (selectedPoint) els.cavePointMode.value = selectedPoint.mode;
@@ -2650,6 +2735,147 @@ import {
             ? ` Gradient waviness ${Math.round(cave.gradientNoise.amplitude)} px with roughly ${Math.round(cave.gradientNoise.period)} px periods.`
             : "";
         els.caveStatus.textContent = `${cave.points.length} perimeter point${cave.points.length === 1 ? "" : "s"}; ${closure}.${blackBoundaryText}${interactionBoundaryText}${gradientText}${generatedText}${selectedText} The viewport previews the same camera-relative parallax used during play.`;
+    }
+
+    function cameraLineRecord() {
+        if (!state.level.cameraLine || typeof state.level.cameraLine !== "object") {
+            const normalized = normalizeCameraLine(null);
+            delete normalized.samples;
+            state.level.cameraLine = normalized;
+        }
+        const line = state.level.cameraLine;
+        line.version = 1;
+        line.enabled = typeof line.enabled === "boolean" ? line.enabled : true;
+        line.influenceDistance = Math.max(1, finiteEditorNumber(line.influenceDistance, 2000));
+        line.lookAheadDistance = Math.max(1, finiteEditorNumber(line.lookAheadDistance, 1200));
+        if (!Array.isArray(line.points)) line.points = [];
+        return line;
+    }
+
+    function cameraLineSamples() {
+        return sampleCameraLine(cameraLineRecord().points);
+    }
+
+    function cameraLinePointById(id) {
+        return cameraLineRecord().points.find((point) => point.id === id) || null;
+    }
+
+    function nextCameraLinePointId() {
+        const used = new Set(cameraLineRecord().points.map((point) => point.id));
+        let index = 1;
+        while (used.has(`camera_line_point_${String(index).padStart(3, "0")}`)) index += 1;
+        return `camera_line_point_${String(index).padStart(3, "0")}`;
+    }
+
+    function syncCameraLineFromUi() {
+        const line = cameraLineRecord();
+        line.enabled = Boolean(els.cameraLineEnabled.checked);
+        line.influenceDistance = Math.max(1, finiteEditorNumber(els.cameraLineInfluenceDistance.value, line.influenceDistance));
+        line.lookAheadDistance = Math.max(1, finiteEditorNumber(els.cameraLineLookAheadDistance.value, line.lookAheadDistance));
+    }
+
+    function refreshCameraLineUi() {
+        const line = cameraLineRecord();
+        const selectedPoint = cameraLinePointById(state.selectedCameraLinePointId);
+        els.cameraLineEnabled.checked = line.enabled;
+        els.cameraLineInfluenceDistance.value = String(Math.round(line.influenceDistance));
+        els.cameraLineLookAheadDistance.value = String(Math.round(line.lookAheadDistance));
+        els.cameraLineSelectOnly.disabled = line.points.length < 2;
+        els.cameraLineDeletePoint.disabled = !selectedPoint;
+        const readiness = line.points.length >= 2 ? "smooth guide ready" : "needs at least 2 points";
+        const selectedText = selectedPoint ? ` Selected ${selectedPoint.id}.` : "";
+        els.cameraLineStatus.textContent = `${line.points.length} camera point${line.points.length === 1 ? "" : "s"}; ${readiness}. Proximity ${Math.round(line.influenceDistance)} px; look ahead ${Math.round(line.lookAheadDistance)} px.${selectedText}`;
+    }
+
+    function addCameraLinePoint(point) {
+        const line = cameraLineRecord();
+        const snappedPoint = snapPoint(point);
+        const insertionIndex = cameraLineInsertionIndex(
+            line.points,
+            point,
+            Math.max(24 / state.camera.zoom, 12)
+        );
+        const previousPoint = insertionIndex > 0 ? line.points[insertionIndex - 1] : null;
+        const nextPoint = insertionIndex < line.points.length ? line.points[insertionIndex] : null;
+        beginEditHistory("Add camera-line point");
+        const cameraPoint = {
+            id: nextCameraLinePointId(),
+            x: snappedPoint.x,
+            y: snappedPoint.y
+        };
+        line.points.splice(insertionIndex, 0, cameraPoint);
+        line.enabled = true;
+        state.selectedCameraLinePointId = cameraPoint.id;
+        state.cameraLineSelected = false;
+        state.cavePerimeterSelected = false;
+        clearObjectSelection();
+        refreshCameraLineUi();
+        persistUi();
+        const location = !previousPoint
+            ? "at the beginning of the camera line"
+            : !nextPoint
+                ? "at the end of the camera line"
+                : `between ${previousPoint.id} and ${nextPoint.id}`;
+        setStatus(`Added ${cameraPoint.id} ${location}.`);
+        return cameraPoint;
+    }
+
+    function deleteSelectedCameraLinePoint() {
+        const line = cameraLineRecord();
+        const selectedId = state.selectedCameraLinePointId;
+        if (!selectedId) return false;
+        const before = line.points.length;
+        beginEditHistory("Delete camera-line point");
+        line.points = line.points.filter((point) => point.id !== selectedId);
+        if (line.points.length === before) return false;
+        state.selectedCameraLinePointId = "";
+        if (line.points.length < 2) state.cameraLineSelected = false;
+        refreshCameraLineUi();
+        persistUi();
+        setStatus(`Deleted ${selectedId}.`);
+        return true;
+    }
+
+    function selectOnlyCameraLine() {
+        const line = cameraLineRecord();
+        if (line.points.length < 2) {
+            setStatus("Add at least two camera-line points before selecting the complete line.", false);
+            return false;
+        }
+        setObjectSelection([], "", { cameraLineSelected: true });
+        state.selectedCavePointId = "";
+        state.selectedCameraLinePointId = "";
+        setTool("select");
+        refreshCaveWindowUi();
+        refreshCameraLineUi();
+        syncInspector();
+        renderPlacementList();
+        draw();
+        setStatus("Selected the complete camera line. Drag its highlighted curve to move it.");
+        return true;
+    }
+
+    function hitTestCameraLinePoint(point) {
+        const tolerance = Math.max(6 / state.camera.zoom, 4);
+        let best = null;
+        for (const candidate of cameraLineRecord().points) {
+            const distance = Math.hypot(candidate.x - point.x, candidate.y - point.y);
+            if (distance <= tolerance && (!best || distance < best.distance)) best = { point: candidate, distance };
+        }
+        return best?.point || null;
+    }
+
+    function cameraLineInsideSelectionRect(selectionRect) {
+        return cameraLineCompletelyInsideRect({
+            ...cameraLineRecord(),
+            samples: cameraLineSamples()
+        }, selectionRect);
+    }
+
+    function hitTestSelectedCameraLine(point) {
+        if (!state.cameraLineSelected) return false;
+        const nearest = nearestCameraLinePoint({ samples: cameraLineSamples() }, point);
+        return Boolean(nearest && nearest.distance <= Math.max(8 / state.camera.zoom, 5));
     }
 
     function caveGeometryWarningCaveSignature(cave) {
@@ -2735,6 +2961,7 @@ import {
 
         const warnings = [];
         for (const placement of state.level.placements || []) {
+            if (!editorPlacementVisible(placement)) continue;
             if (!placement || placement.kind !== "atlasAsset" || placement.layer === CAVE_FOREGROUND_LAYER) continue;
             if (placement.collisionFromManifest === false) continue;
             const atlasId = placement.atlasId || DEFAULT_ATLAS_ID;
@@ -2785,15 +3012,23 @@ import {
         els.caveGeometryWarning.textContent = text;
     }
 
-    function createCaveWindowFromWorldBounds() {
-        beginEditHistory("Create cave perimeter");
+    function selectOnlyCavePerimeter() {
         const cave = caveWindowRecord();
-        cave.points = createCaveWindowPointsFromBounds(state.level.world.bounds);
-        cave.enabled = true;
-        state.selectedCavePointId = cave.points[0]?.id || "";
-        setTool("caveSelect");
-        persistUi();
-        setStatus("Created an organic closed cave perimeter just outside the technical world bounds.");
+        if (cave.points.length < 2) {
+            setStatus("Create at least two perimeter points before selecting the complete perimeter.", false);
+            return false;
+        }
+        setObjectSelection([], "", { cavePerimeterSelected: true });
+        state.selectedCavePointId = "";
+        state.selectedCameraLinePointId = "";
+        setTool("select");
+        refreshCaveWindowUi();
+        refreshCameraLineUi();
+        syncInspector();
+        renderPlacementList();
+        draw();
+        setStatus("Selected only the cave perimeter. Drag its highlighted outline to move it.");
+        return true;
     }
 
     function addCavePoint(point) {
@@ -3450,6 +3685,8 @@ import {
         const source = rawLevel && typeof rawLevel === "object" ? cloneData(rawLevel) : {};
         const fallback = makeEmptyLevel();
         const caveWindow = normalizeCaveWindow(source.caveWindow);
+        const cameraLine = normalizeCameraLine(source.cameraLine);
+        delete cameraLine.samples;
         const layerVisuals = normalizeLevelLayerVisuals(source.layerVisuals);
         const normalized = {
             meta: {
@@ -3471,6 +3708,7 @@ import {
             layerVisuals,
             autoSpawnEnemies: normalizeAutoSpawnEnemies(source.autoSpawnEnemies),
             caveWindow,
+            cameraLine,
             placements: Array.isArray(source.placements) ? cloneData(source.placements) : [],
             entities: Array.isArray(source.entities) ? cloneData(source.entities) : [],
             navigationGraphs: source.navigationGraphs && typeof source.navigationGraphs === "object"
@@ -3649,6 +3887,7 @@ import {
     async function loadLevelFromUrl(url) {
         const level = normalizeLevelDefaults(await loadJsonUrl(url));
         state.level = level;
+        resetEditorLayerVisibility();
         state.generatorHistory = { undo: [], redo: [] };
         state.generatorLoadedRunId = "";
         state.selectedCavePointId = "";
@@ -5057,17 +5296,33 @@ import {
 
     function renderPlacementList() {
         normalizeObjectSelection();
+        const query = String(els.placementSearch?.value || "").trim().toLowerCase();
         const rows = [];
         for (const placement of state.level.placements) {
+            if (!editorPlacementVisible(placement)) continue;
             const ownership = generatedRecordLocked(placement) ? " 🔒" : manualizedGenerationRecord(placement) ? " manual" : automaticGeneratedRecord(placement) ? " generated" : "";
-            rows.push({ id: placement.id, label: placement.id, kind: `${placement.kind === "cutoutMask" ? "cutout mask" : `${placement.atlasId || DEFAULT_ATLAS_ID}:${placement.assetId}`}${ownership}` });
+            const layerLabel = editorLayerLabel(editorLayerKeyForPlacement(placement));
+            const kind = `${placement.kind === "cutoutMask" ? "cutout mask" : `${placement.atlasId || DEFAULT_ATLAS_ID}:${placement.assetId}`}${ownership}`;
+            rows.push({
+                id: placement.id,
+                label: placement.id,
+                kind,
+                searchText: `${placement.id} ${kind} ${layerLabel}`.toLowerCase()
+            });
         }
         for (const entity of state.level.entities) {
             const ownership = generatedRecordLocked(entity) ? " 🔒" : manualizedGenerationRecord(entity) ? " manual" : automaticGeneratedRecord(entity) ? " generated" : "";
-            rows.push({ id: entity.id, label: entity.id, kind: `${entity.type}${ownership}` });
+            const kind = `${entity.type}${ownership}`;
+            rows.push({
+                id: entity.id,
+                label: entity.id,
+                kind,
+                searchText: `${entity.id} ${kind} entity`.toLowerCase()
+            });
         }
         els.placementList.innerHTML = "";
-        for (const rowData of rows) {
+        const visibleRows = query ? rows.filter((row) => row.searchText.includes(query)) : rows;
+        for (const rowData of visibleRows) {
             const row = document.createElement("div");
             const primary = state.selectedId === rowData.id;
             const included = state.selectedIds.has(rowData.id);
@@ -5080,6 +5335,15 @@ import {
                 draw();
             });
             els.placementList.appendChild(row);
+        }
+        if (!visibleRows.length) {
+            const empty = document.createElement("div");
+            empty.className = "item";
+            empty.style.cursor = "default";
+            empty.textContent = query
+                ? "No visible placed objects match this filter."
+                : "No visible placed objects.";
+            els.placementList.appendChild(empty);
         }
     }
 
@@ -5099,27 +5363,148 @@ import {
         return null;
     }
 
+    function editorLayerKeyForPlacement(placement) {
+        const layer = placement?.layer || "terrain";
+        if (layer === CAVE_FOREGROUND_LAYER) return "foreground";
+        if (layer === BACKGROUND_LAYER) return "background";
+        return "terrain";
+    }
+
+    function editorLayerLabel(layerKey) {
+        return layerKey === "foreground"
+            ? "Foreground"
+            : layerKey === "background"
+                ? "Background"
+                : "Terrain";
+    }
+
+    function editorLayerVisible(layerKey) {
+        return state.editorLayerVisibility?.[layerKey] !== false;
+    }
+
+    function editorPlacementVisible(placement) {
+        return editorLayerVisible(editorLayerKeyForPlacement(placement));
+    }
+
+    function editorRecordSelectable(selected) {
+        return Boolean(selected) && (selected.kind === "entity" || editorPlacementVisible(selected.record));
+    }
+
+    function updateEditorLayerVisibilityUi() {
+        const controls = [
+            ["foreground", els.toggleForegroundLayer],
+            ["terrain", els.toggleTerrainLayer],
+            ["background", els.toggleBackgroundLayer]
+        ];
+        for (const [layerKey, button] of controls) {
+            if (!button) continue;
+            const visible = editorLayerVisible(layerKey);
+            const label = editorLayerLabel(layerKey);
+            button.classList.toggle("active", visible);
+            button.setAttribute("aria-pressed", visible ? "true" : "false");
+            button.title = visible
+                ? `${label} is visible in the editor. Click to hide it.`
+                : `${label} is hidden and cannot be selected. Click to show it.`;
+        }
+    }
+
+    function resetEditorLayerVisibility() {
+        state.editorLayerVisibility = {
+            foreground: true,
+            terrain: true,
+            background: true
+        };
+        updateEditorLayerVisibilityUi();
+        markEditorRuntimeWorldDirty();
+    }
+
+    function toggleEditorLayerVisibility(layerKey) {
+        const nextVisible = !editorLayerVisible(layerKey);
+        state.editorLayerVisibility[layerKey] = nextVisible;
+        normalizeObjectSelection();
+        updateEditorLayerVisibilityUi();
+        markEditorRuntimeWorldDirty();
+        syncInspector();
+        renderPlacementList();
+        draw();
+        const label = editorLayerLabel(layerKey);
+        setStatus(nextVisible
+            ? `${label} is visible and selectable in the editor.`
+            : `${label} is hidden and cannot be selected in the editor.`);
+        return nextVisible;
+    }
+
     function normalizeObjectSelection() {
         const valid = new Set();
         for (const id of state.selectedIds || []) {
-            if (recordById(id)) valid.add(id);
+            const selected = recordById(id);
+            if (editorRecordSelectable(selected)) valid.add(id);
         }
         state.selectedIds = valid;
-        if (state.selectedId && recordById(state.selectedId)) {
+        if (state.selectedId && editorRecordSelectable(recordById(state.selectedId))) {
             state.selectedIds.add(state.selectedId);
         } else {
             state.selectedId = [...state.selectedIds].at(-1) || "";
         }
+        if (!Array.isArray(state.level?.caveWindow?.points) || state.level.caveWindow.points.length < 2) {
+            state.cavePerimeterSelected = false;
+        }
+        if (!Array.isArray(state.level?.cameraLine?.points) || state.level.cameraLine.points.length < 2) {
+            state.cameraLineSelected = false;
+        }
     }
 
     function selectOnly(id) {
-        state.selectedId = id && recordById(id) ? id : "";
+        state.selectedId = id && editorRecordSelectable(recordById(id)) ? id : "";
         state.selectedIds = new Set(state.selectedId ? [state.selectedId] : []);
+        state.cavePerimeterSelected = false;
+        state.cameraLineSelected = false;
     }
 
     function clearObjectSelection() {
         state.selectedId = "";
         state.selectedIds = new Set();
+        state.cavePerimeterSelected = false;
+        state.cameraLineSelected = false;
+    }
+
+    function selectOnlyPlacementLayer(layer) {
+        const targetLayer = normalizeNewAssetLayer(layer);
+        const layerKey = targetLayer === CAVE_FOREGROUND_LAYER
+            ? "foreground"
+            : targetLayer === BACKGROUND_LAYER
+                ? "background"
+                : "terrain";
+        const label = editorLayerLabel(layerKey);
+        if (!editorLayerVisible(layerKey)) {
+            clearObjectSelection();
+            state.selectedCavePointId = "";
+            state.selectedCameraLinePointId = "";
+            setTool("select");
+            refreshCaveWindowUi();
+            refreshCameraLineUi();
+            syncInspector();
+            renderPlacementList();
+            draw();
+            setStatus(`${label} is hidden. Show it before selecting its placements.`, false);
+            return [];
+        }
+        const ids = state.level.placements
+            .filter((placement) => placement.kind === "atlasAsset" && (placement.layer || "terrain") === targetLayer)
+            .map((placement) => placement.id);
+        setObjectSelection(ids, ids.at(-1) || "");
+        state.selectedCavePointId = "";
+        state.selectedCameraLinePointId = "";
+        setTool("select");
+        refreshCaveWindowUi();
+        refreshCameraLineUi();
+        syncInspector();
+        renderPlacementList();
+        draw();
+        setStatus(ids.length
+            ? `Selected all ${ids.length} ${label} placement${ids.length === 1 ? "" : "s"}.`
+            : `There are no ${label} placements to select.`, ids.length > 0);
+        return ids;
     }
 
     function selectionContains(id) {
@@ -5129,7 +5514,7 @@ import {
 
     function toggleObjectSelection(id) {
         normalizeObjectSelection();
-        if (!id || !recordById(id)) return;
+        if (!id || !editorRecordSelectable(recordById(id))) return;
         if (state.selectedIds.has(id)) {
             state.selectedIds.delete(id);
             if (state.selectedId === id) state.selectedId = [...state.selectedIds].at(-1) || "";
@@ -5139,11 +5524,13 @@ import {
         }
     }
 
-    function setObjectSelection(ids, primaryId = "") {
-        state.selectedIds = new Set((ids || []).filter((id) => recordById(id)));
+    function setObjectSelection(ids, primaryId = "", { cavePerimeterSelected = false, cameraLineSelected = false } = {}) {
+        state.selectedIds = new Set((ids || []).filter((id) => editorRecordSelectable(recordById(id))));
         state.selectedId = primaryId && state.selectedIds.has(primaryId)
             ? primaryId
             : [...state.selectedIds].at(-1) || "";
+        state.cavePerimeterSelected = Boolean(cavePerimeterSelected && caveWindowRecord().points.length >= 2);
+        state.cameraLineSelected = Boolean(cameraLineSelected && cameraLineRecord().points.length >= 2);
     }
 
     function selectedRecords() {
@@ -5292,6 +5679,10 @@ import {
     }
 
     function setObjectClipboard(mode, selected = selectedRecords()) {
+        if (state.cavePerimeterSelected || state.cameraLineSelected) {
+            setStatus("Selected guide geometry can be moved with a selection, but it cannot be copied or cut.", false);
+            return false;
+        }
         if (!selected.length) {
             setStatus(`Select one or more objects before ${mode === "cut" ? "cutting" : "copying"}.`, false);
             return false;
@@ -5318,6 +5709,10 @@ import {
 
     function cutSelected() {
         const selected = selectedRecords();
+        if (state.cavePerimeterSelected || state.cameraLineSelected) {
+            setStatus("Selected guide geometry can be moved with a selection, but it cannot be cut.", false);
+            return false;
+        }
         if (!selected.length) {
             setStatus("Select one or more objects before cutting.", false);
             return false;
@@ -5384,6 +5779,10 @@ import {
 
     function deleteSelected() {
         const selected = selectedRecords();
+        if (state.cavePerimeterSelected || state.cameraLineSelected) {
+            setStatus("Selected guide geometry can be moved with a selection, but it cannot be deleted through the object selection.", false);
+            return false;
+        }
         if (!selected.length) {
             setStatus("Select one or more objects before deleting.", false);
             return false;
@@ -5424,6 +5823,7 @@ import {
         const placements = sortedPlacements();
         for (let i = placements.length - 1; i >= 0; i -= 1) {
             const placement = placements[i];
+            if (!editorPlacementVisible(placement)) continue;
             if (!generatedCavePlacementVisible(placement)) continue;
             const displayedPlacement = displayedLayerPlacement(placement);
             const hit = placement.kind === "cutoutMask"
@@ -5463,6 +5863,7 @@ import {
         const selectionBounds = rectToBounds(selectionRect);
         const placementGroups = sortedPlacementGroups();
         for (const placement of [...placementGroups.background, ...placementGroups.main, ...placementGroups.caveForeground]) {
+            if (!editorPlacementVisible(placement)) continue;
             if (!generatedCavePlacementVisible(placement)) continue;
             const displayedPlacement = displayedLayerPlacement(placement);
             if (boundsContainsBounds(selectionBounds, placementWorldBounds(displayedPlacement))) ids.push(placement.id);
@@ -5471,6 +5872,27 @@ import {
             if (boundsContainsBounds(selectionBounds, rectToBounds(objectRect(entity, "entity")))) ids.push(entity.id);
         }
         return ids;
+    }
+
+    function displayedCavePerimeterPoints() {
+        const cavePoints = caveWindowRecord().points;
+        if (cavePoints.length < 2) return [];
+        const sampled = cavePoints.length >= 3 ? sampleClosedCaveSpline(cavePoints, 20) : cavePoints;
+        return sampled.map((point) => caveDisplayPoint(point));
+    }
+
+    function cavePerimeterInsideSelectionRect(selectionRect) {
+        const cavePoints = caveWindowRecord().points.map((point) => caveDisplayPoint(point));
+        return caveWindowCompletelyInsideRect(cavePoints, selectionRect, 20);
+    }
+
+    function hitTestSelectedCavePerimeter(point) {
+        if (!state.cavePerimeterSelected) return false;
+        const perimeterPoints = displayedCavePerimeterPoints();
+        if (perimeterPoints.length < 2) return false;
+        const nearest = nearestCaveSplineSegment(perimeterPoints, point);
+        const tolerance = Math.max(8 / state.camera.zoom, 4);
+        return Boolean(nearest && nearest.distance <= tolerance);
     }
 
     function resetEditorFrameCadence() {
@@ -5517,18 +5939,24 @@ import {
             return;
         }
         const hit = hitTest(point);
-        if (!hit) {
+        const selectedPerimeterHit = !hit && hitTestSelectedCavePerimeter(point);
+        const selectedCameraLineHit = !hit && !selectedPerimeterHit && hitTestSelectedCameraLine(point);
+        if (!hit && !selectedPerimeterHit && !selectedCameraLineHit) {
             clearObjectSelection();
             syncInspector();
             draw();
             return;
         }
-        if (!selectionContains(hit.id)) selectOnly(hit.id);
-        else {
-            state.selectedId = hit.id;
-            state.selectedIds.add(hit.id);
+        if (hit) {
+            if (!selectionContains(hit.id)) selectOnly(hit.id);
+            else {
+                state.selectedId = hit.id;
+                state.selectedIds.add(hit.id);
+            }
         }
         const selected = selectedRecords();
+        const cavePoints = state.cavePerimeterSelected ? caveWindowRecord().points : [];
+        const cameraPoints = state.cameraLineSelected ? cameraLineRecord().points : [];
         const locked = selected.find((item) => generatedRecordLocked(item.record));
         if (locked) {
             syncInspector();
@@ -5536,17 +5964,33 @@ import {
             setStatus(`${locked.record.id} is locked. Unlock the complete selection before moving.`, false);
             return;
         }
-        beginEditHistory(selected.length > 1 ? "Move selection" : "Move object");
+        const movableCount = selected.length + (cavePoints.length ? 1 : 0) + (cameraPoints.length ? 1 : 0);
+        const singleGuideLabel = cavePoints.length ? "Move cave perimeter" : cameraPoints.length ? "Move camera line" : "Move object";
+        beginEditHistory(movableCount > 1 ? "Move selection" : singleGuideLabel);
         const originals = new Map(selected.map((item) => [item.record.id, {
             x: Number(item.record.x) || 0,
             y: Number(item.record.y) || 0
         }]));
+        const caveOriginals = cavePoints.map((cavePoint) => ({
+            id: cavePoint.id,
+            x: Number(cavePoint.x) || 0,
+            y: Number(cavePoint.y) || 0
+        }));
+        const cameraLineOriginals = cameraPoints.map((cameraPoint) => ({
+            id: cameraPoint.id,
+            x: Number(cameraPoint.x) || 0,
+            y: Number(cameraPoint.y) || 0
+        }));
         state.drag = {
             kind: "move",
             ids: selected.map((item) => item.record.id),
             primaryId: state.selectedId,
             start: point,
             originals,
+            caveOriginals,
+            cameraLineOriginals,
+            moveCavePerimeter: caveOriginals.length > 0,
+            moveCameraLine: cameraLineOriginals.length > 0,
             pointerId: event.pointerId
         };
         // Rebuild the runtime base once without the moving records. Their
@@ -5584,6 +6028,18 @@ import {
             draw();
             return;
         }
+        if (state.drag.kind === "cameraLinePoint") {
+            const cameraPoint = cameraLinePointById(state.drag.id);
+            if (!cameraPoint) return;
+            const dx = point.x - state.drag.start.x;
+            const dy = point.y - state.drag.start.y;
+            cameraPoint.x = snapped(state.drag.original.x + dx);
+            cameraPoint.y = snapped(state.drag.original.y + dy);
+            markEditorRuntimeWorldDirty();
+            refreshCameraLineUi();
+            draw();
+            return;
+        }
         if (state.drag.kind === "proximityTextTrigger") {
             const entity = entityById(state.drag.id);
             if (!entity || !isProximityTextEntity(entity)) return;
@@ -5610,7 +6066,10 @@ import {
         if (state.drag.kind === "move") {
             const dx = point.x - state.drag.start.x;
             const dy = point.y - state.drag.start.y;
-            const primaryOriginal = state.drag.originals.get(state.drag.primaryId) || state.drag.originals.values().next().value;
+            const primaryOriginal = state.drag.originals.get(state.drag.primaryId)
+                || state.drag.originals.values().next().value
+                || state.drag.caveOriginals?.[0]
+                || state.drag.cameraLineOriginals?.[0];
             const snappedDx = primaryOriginal ? snapped(primaryOriginal.x + dx) - primaryOriginal.x : dx;
             const snappedDy = primaryOriginal ? snapped(primaryOriginal.y + dy) - primaryOriginal.y : dy;
             for (const id of state.drag.ids) {
@@ -5620,6 +6079,26 @@ import {
                 selected.record.x = original.x + snappedDx;
                 selected.record.y = original.y + snappedDy;
             }
+            if (state.drag.moveCavePerimeter) {
+                const originalsById = new Map((state.drag.caveOriginals || []).map((original) => [original.id, original]));
+                for (const cavePoint of caveWindowRecord().points) {
+                    const original = originalsById.get(cavePoint.id);
+                    if (!original) continue;
+                    cavePoint.x = original.x + snappedDx;
+                    cavePoint.y = original.y + snappedDy;
+                }
+                markEditorRuntimeWorldDirty();
+            }
+            if (state.drag.moveCameraLine) {
+                const originalsById = new Map((state.drag.cameraLineOriginals || []).map((original) => [original.id, original]));
+                for (const cameraPoint of cameraLineRecord().points) {
+                    const original = originalsById.get(cameraPoint.id);
+                    if (!original) continue;
+                    cameraPoint.x = original.x + snappedDx;
+                    cameraPoint.y = original.y + snappedDy;
+                }
+                markEditorRuntimeWorldDirty();
+            }
             syncInspector(false);
             draw();
         }
@@ -5628,11 +6107,22 @@ import {
     function completeSelectionBox(completedDrag) {
         const selectionRect = normalizedDragRect(completedDrag.start, completedDrag.current || completedDrag.start);
         const ids = objectIdsInsideSelectionRect(selectionRect);
+        const cavePerimeterEnclosed = cavePerimeterInsideSelectionRect(selectionRect);
+        const cameraLineEnclosed = cameraLineInsideSelectionRect(selectionRect);
         if (completedDrag.toggle) {
             for (const id of ids) toggleObjectSelection(id);
+            if (cavePerimeterEnclosed) state.cavePerimeterSelected = !state.cavePerimeterSelected;
+            if (cameraLineEnclosed) state.cameraLineSelected = !state.cameraLineSelected;
         } else {
-            setObjectSelection(ids, ids.at(-1) || "");
+            setObjectSelection(ids, ids.at(-1) || "", {
+                cavePerimeterSelected: cavePerimeterEnclosed,
+                cameraLineSelected: cameraLineEnclosed
+            });
         }
+        if (state.cavePerimeterSelected) state.selectedCavePointId = "";
+        if (state.cameraLineSelected) state.selectedCameraLinePointId = "";
+        refreshCaveWindowUi();
+        refreshCameraLineUi();
         syncInspector();
         renderPlacementList();
         draw();
@@ -5650,6 +6140,8 @@ import {
                 if (isWizardDoor(moved)) snapWizardDoorToNearbyGround(moved, { announce: true });
                 if (isCharacterEnemy(moved)) snapCharacterEnemyToNearbyGround(moved, { announce: true });
             }
+            if (completedDrag.moveCavePerimeter) refreshCaveWindowUi();
+            if (completedDrag.moveCameraLine) refreshCameraLineUi();
             persistUi();
         } else if (completedDrag.kind === "selectionBox") {
             completeSelectionBox(completedDrag);
@@ -5657,7 +6149,7 @@ import {
             persistUi();
         } else if (completedDrag.kind === "movingPlatformEnd") {
             persistUi();
-        } else if (completedDrag.kind === "cavePoint") {
+        } else if (completedDrag.kind === "cavePoint" || completedDrag.kind === "cameraLinePoint") {
             persistUi();
         } else draw();
     }
@@ -5720,6 +6212,7 @@ import {
         for (const id of state.drag.ids || []) {
             const placement = placementById(id);
             if (placement) {
+                if (!editorPlacementVisible(placement)) continue;
                 drawPlacement(placement, viewportBounds);
                 continue;
             }
@@ -5739,12 +6232,14 @@ import {
             const backgroundEntries = editorBackgroundViewportQuery(rect).entries;
             for (const entry of backgroundEntries) {
                 const placement = entry.visual;
+                if (!editorPlacementVisible(placement)) continue;
                 if (!recordIsTransientlyMoving(placement)) drawPlacementDetails(placement);
             }
 
             const mainEntries = editorMainViewportQuery(rect).entries;
             for (const entry of mainEntries) {
                 const placement = entry.visual;
+                if (!editorPlacementVisible(placement)) continue;
                 if (recordIsTransientlyMoving(placement)) continue;
                 if (placement?.kind === "cutoutMask") drawCutoutMaskGuide(placement);
                 else drawPlacementDetails(placement);
@@ -5757,6 +6252,7 @@ import {
 
             const visibleForeground = editorForegroundViewportQuery(rect).entries
                 .map((entry) => entry.visual)
+                .filter(editorPlacementVisible)
                 .filter(generatedCavePlacementVisible);
             for (const placement of visibleForeground) {
                 if (!recordIsTransientlyMoving(placement)) drawPlacementDetails(placement);
@@ -5766,6 +6262,7 @@ import {
             drawNavigationGraph();
             const caveGeometryWarnings = gameplayGeometryCaveWarnings();
             drawCaveWindowOverlay(rect);
+            drawCameraLineOverlay();
             drawCaveGeometryWarnings(caveGeometryWarnings);
             drawGameplayCameraFrame(rect);
             refreshCaveGeometryWarningUi(caveGeometryWarnings);
@@ -5807,7 +6304,7 @@ import {
         const movingIds = state.drag?.kind === "move" ? new Set(state.drag.ids || []) : null;
         const placements = (state.level.placements || []).filter((placement) => {
             if (movingIds?.has(placement?.id)) return false;
-            return generatedCavePlacementVisible(placement);
+            return editorPlacementVisible(placement) && generatedCavePlacementVisible(placement);
         });
         const entities = movingIds
             ? (state.level.entities || []).filter((entity) => !movingIds.has(entity?.id))
@@ -6195,9 +6692,72 @@ import {
         return true;
     }
 
+    function drawCameraLineOverlay() {
+        const line = cameraLineRecord();
+        const editing = state.tool === "cameraLineSelect" || state.tool === "cameraLineAdd";
+        const selected = Boolean(state.cameraLineSelected);
+        if (!line.enabled && !editing && !selected) return;
+        const samples = cameraLineSamples();
+        if (samples.length >= 2) {
+            ctx.save();
+            const first = worldToScreen(samples[0].x, samples[0].y);
+            ctx.beginPath();
+            ctx.moveTo(first.x, first.y);
+            for (let index = 1; index < samples.length; index += 1) {
+                const point = worldToScreen(samples[index].x, samples[index].y);
+                ctx.lineTo(point.x, point.y);
+            }
+            ctx.strokeStyle = selected ? COLORS.selected : COLORS.cameraLine;
+            ctx.lineWidth = selected ? 3.5 : editing ? 2.5 : 1.5;
+            ctx.setLineDash(selected ? [9, 4] : line.enabled ? [] : [8, 6]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            const arrowSpacing = Math.max(1, Math.floor(samples.length / 7));
+            for (let index = arrowSpacing; index < samples.length - 1; index += arrowSpacing) {
+                const before = samples[index - 1];
+                const current = samples[index];
+                const after = samples[index + 1];
+                const angle = Math.atan2(after.y - before.y, after.x - before.x);
+                const screen = worldToScreen(current.x, current.y);
+                ctx.save();
+                ctx.translate(screen.x, screen.y);
+                ctx.rotate(angle);
+                ctx.fillStyle = selected ? COLORS.selected : COLORS.cameraLine;
+                ctx.beginPath();
+                ctx.moveTo(7, 0);
+                ctx.lineTo(-4, -4);
+                ctx.lineTo(-4, 4);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            }
+            ctx.restore();
+        }
+        if (!editing && !selected) return;
+        for (const point of line.points) {
+            const screen = worldToScreen(point.x, point.y);
+            const pointSelected = selected || point.id === state.selectedCameraLinePointId;
+            ctx.save();
+            ctx.fillStyle = pointSelected ? COLORS.selected : COLORS.cameraLinePoint;
+            ctx.strokeStyle = "rgba(0,0,0,0.88)";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(screen.x, screen.y, pointSelected ? 6 : 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            if (editing && els.showLabels.checked) {
+                ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+                ctx.fillStyle = pointSelected ? COLORS.selected : COLORS.cameraLinePoint;
+                ctx.fillText(point.id, screen.x + 8, screen.y - 8);
+            }
+            ctx.restore();
+        }
+    }
+
     function drawCaveWindowOverlay(rect) {
         const cave = caveWindowRecord();
         const editing = state.tool === "caveSelect" || state.tool === "caveAdd";
+        const perimeterSelected = Boolean(state.cavePerimeterSelected);
         if (!cave.enabled && !editing && cave.points.length === 0) return;
 
         const fullBlackBoundary = cave.points.length >= 3
@@ -6288,17 +6848,17 @@ import {
             ctx.save();
             ctx.beginPath();
             traceCaveWindowPath();
-            ctx.strokeStyle = COLORS.caveSpline;
-            ctx.lineWidth = editing ? 2.5 : 1.5;
-            ctx.setLineDash(cave.enabled ? [] : [8, 6]);
+            ctx.strokeStyle = perimeterSelected ? COLORS.selected : COLORS.caveSpline;
+            ctx.lineWidth = perimeterSelected ? 3.5 : editing ? 2.5 : 1.5;
+            ctx.setLineDash(perimeterSelected ? [9, 4] : cave.enabled ? [] : [8, 6]);
             ctx.stroke();
             ctx.restore();
         }
 
-        if (!editing) return;
+        if (!editing && !perimeterSelected) return;
         for (const point of cave.points) {
             const screen = caveWorldToScreen(point.x, point.y);
-            const selected = point.id === state.selectedCavePointId;
+            const selected = perimeterSelected || point.id === state.selectedCavePointId;
             ctx.save();
             ctx.fillStyle = selected ? COLORS.caveSelectedPoint : COLORS.cavePoint;
             ctx.strokeStyle = "rgba(0,0,0,0.88)";
@@ -6313,7 +6873,7 @@ import {
                 ctx.fill();
                 ctx.stroke();
             }
-            if (els.showLabels.checked) {
+            if (editing && els.showLabels.checked) {
                 ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
                 ctx.fillStyle = selected ? COLORS.caveSelectedPoint : COLORS.cavePoint;
                 ctx.fillText(point.id, screen.x + 8, screen.y - 8);
@@ -6572,6 +7132,7 @@ import {
     }
 
     function drawPlacement(placement, viewportBounds = null, { skipArtwork = false, skipDetails = false, preview = false, useDisplayTransform = true } = {}) {
+        if (!editorPlacementVisible(placement)) return false;
         if (!generatedCavePlacementVisible(placement)) return false;
         const displayPlacement = useDisplayTransform ? displayedLayerPlacement(placement) : placement;
         if (viewportBounds && !boundsIntersect(placementWorldBounds(displayPlacement), viewportBounds)) return false;
@@ -6619,6 +7180,7 @@ import {
     }
 
     function drawPlacementDetails(placement, { preview = false, atlasId = placement.atlasId || DEFAULT_ATLAS_ID } = {}) {
+        if (!editorPlacementVisible(placement)) return;
         const generated = isGeneratedCaveForeground(placement);
         const showDetails = !preview && (!generated || state.selectedId === placement.id);
         const utility = isInvisibleBlockerObject(objectFor(placement.assetId, atlasId));
@@ -7284,14 +7846,23 @@ import {
     function syncInspector(syncFields = true) {
         const selected = selectedRecord();
         const selection = selectedRecords();
-        const hasSelection = selection.length > 0;
+        const perimeterSelected = Boolean(state.cavePerimeterSelected);
+        const cameraLineSelected = Boolean(state.cameraLineSelected);
+        const guideGeometrySelected = perimeterSelected || cameraLineSelected;
+        const hasSelection = selection.length > 0 || guideGeometrySelected;
         const hasLockedSelection = selection.some((item) => generatedRecordLocked(item.record));
-        els.cutSelection.disabled = !hasSelection || hasLockedSelection;
-        els.copySelection.disabled = !hasSelection;
+        els.cutSelection.disabled = !hasSelection || hasLockedSelection || guideGeometrySelected;
+        els.copySelection.disabled = !hasSelection || guideGeometrySelected;
         els.pasteSelection.disabled = !state.objectClipboard?.items?.length;
-        els.deleteSelection.disabled = !hasSelection || hasLockedSelection;
+        els.deleteSelection.disabled = !hasSelection || hasLockedSelection || guideGeometrySelected;
         if (!selected) {
-            els.selectionSummary.textContent = "Nothing selected.";
+            els.selectionSummary.textContent = perimeterSelected && cameraLineSelected
+                ? "Cave perimeter and camera line selected · drag either highlighted curve to move both."
+                : perimeterSelected
+                    ? "Cave perimeter selected · drag its white outline to move it."
+                    : cameraLineSelected
+                        ? "Camera line selected · drag its white curve to move it."
+                        : "Nothing selected.";
             els.movingPlatformRow.style.display = "none";
             els.signalSettingsRow.style.display = "none";
             els.keyholeSettingsRow.style.display = "none";
@@ -7308,9 +7879,13 @@ import {
         }
         const rec = selected.record;
         const selectionCount = selectedRecords().length;
+        const selectedGuideLabels = [perimeterSelected ? "cave perimeter" : "", cameraLineSelected ? "camera line" : ""].filter(Boolean);
+        const selectionPrefix = selectedGuideLabels.length
+            ? `${selectionCount} object${selectionCount === 1 ? "" : "s"} + ${selectedGuideLabels.join(" + ")} selected · primary `
+            : selectionCount > 1 ? `${selectionCount} objects selected · primary ` : "";
         const selectedEnemy = selected.kind === "entity" && isCharacterEnemy(rec);
         const selectedProximityText = selected.kind === "entity" && isProximityTextEntity(rec);
-        els.selectionSummary.textContent = `${selectionCount > 1 ? `${selectionCount} objects selected · primary ` : ""}${selected.kind}: ${rec.id || state.selectedId}${generatedRecordLocked(rec) ? " · locked" : manualizedGenerationRecord(rec) ? " · manualized generator record" : automaticGeneratedRecord(rec) ? ` · generated ${generationRecordStage(rec) || "record"}` : ""}`;
+        els.selectionSummary.textContent = `${selectionPrefix}${selected.kind}: ${rec.id || state.selectedId}${generatedRecordLocked(rec) ? " · locked" : manualizedGenerationRecord(rec) ? " · manualized generator record" : automaticGeneratedRecord(rec) ? ` · generated ${generationRecordStage(rec) || "record"}` : ""}`;
         if (syncFields) {
             els.inspectId.value = rec.id || state.selectedId;
             els.inspectKind.value = selected.kind === "cutoutMask" ? "cutoutMask" : selected.kind;
@@ -9241,6 +9816,7 @@ import {
     function syncMetadataFromUi() {
         markEditorRuntimeWorldDirty();
         syncCaveWindowFromUi();
+        syncCameraLineFromUi();
         syncAutoSpawnEnemiesFromUi();
         state.level.levelId = els.levelId.value.trim() || state.level.levelId;
         state.level.title = els.levelTitle.value.trim() || state.level.title;
@@ -9285,6 +9861,7 @@ import {
         syncColorMapToUi();
         syncAutoSpawnEnemiesToUi();
         refreshCaveWindowUi();
+        refreshCameraLineUi();
         refreshNavigationGraphUi();
         refreshAutomaticGeneratorUi();
     }
@@ -9505,6 +10082,8 @@ import {
                 { x: rect.x + rect.w, y: rect.y + rect.h }
             );
         }
+        points.push(...caveWindowRecord().points.map((point) => ({ x: point.x, y: point.y })));
+        points.push(...cameraLineRecord().points.map((point) => ({ x: point.x, y: point.y })));
         if (!points.length) return null;
         const minX = Math.min(...points.map((point) => point.x));
         const minY = Math.min(...points.map((point) => point.y));
@@ -9552,7 +10131,10 @@ import {
         }
         if (state.tool === "caveSelect") {
             const cavePoint = hitTestCavePoint(point);
+            state.cavePerimeterSelected = false;
+            state.cameraLineSelected = false;
             state.selectedCavePointId = cavePoint?.id || "";
+            state.selectedCameraLinePointId = "";
             if (cavePoint) {
                 beginEditHistory("Move cave perimeter point");
                 state.drag = {
@@ -9564,6 +10146,31 @@ import {
                 };
             }
             refreshCaveWindowUi();
+            draw();
+            return;
+        }
+        if (state.tool === "cameraLineAdd") {
+            addCameraLinePoint(point);
+            return;
+        }
+        if (state.tool === "cameraLineSelect") {
+            const cameraPoint = hitTestCameraLinePoint(point);
+            state.cameraLineSelected = false;
+            state.cavePerimeterSelected = false;
+            state.selectedCameraLinePointId = cameraPoint?.id || "";
+            state.selectedCavePointId = "";
+            if (cameraPoint) {
+                beginEditHistory("Move camera-line point");
+                state.drag = {
+                    kind: "cameraLinePoint",
+                    id: cameraPoint.id,
+                    start: point,
+                    original: { x: cameraPoint.x, y: cameraPoint.y },
+                    pointerId: event.pointerId
+                };
+            }
+            refreshCaveWindowUi();
+            refreshCameraLineUi();
             draw();
             return;
         }
@@ -9727,8 +10334,10 @@ import {
 
     els.entitySearch.addEventListener("input", renderEntityPalette);
     els.assetSearch.addEventListener("input", renderAssetList);
+    els.placementSearch.addEventListener("input", renderPlacementList);
     document.getElementById("new-level").addEventListener("click", () => {
         state.level = makeEmptyLevel();
+        resetEditorLayerVisibility();
         state.generatorLoadedRunId = "";
         state.generatorHistory = { undo: [], redo: [] };
         state.selectedCavePointId = "";
@@ -9813,6 +10422,13 @@ import {
         draw();
     });
     els.showNavigationGraph.addEventListener("change", draw);
+    els.selectForegroundLayer.addEventListener("click", () => selectOnlyPlacementLayer(CAVE_FOREGROUND_LAYER));
+    els.selectTerrainLayer.addEventListener("click", () => selectOnlyPlacementLayer("terrain"));
+    els.selectBackgroundLayer.addEventListener("click", () => selectOnlyPlacementLayer(BACKGROUND_LAYER));
+    els.toggleForegroundLayer.addEventListener("click", () => toggleEditorLayerVisibility("foreground"));
+    els.toggleTerrainLayer.addEventListener("click", () => toggleEditorLayerVisibility("terrain"));
+    els.toggleBackgroundLayer.addEventListener("click", () => toggleEditorLayerVisibility("background"));
+
     const layerVisualControls = [
         els.foregroundParallaxX,
         els.foregroundParallaxY,
@@ -9830,8 +10446,25 @@ import {
         if ([els.worldW, els.worldH, ...layerVisualControls, els.levelId, els.levelTitle, els.levelMusic].includes(el)) scheduleJsonUpdate();
     }));
 
-    els.caveCreateFromBounds.addEventListener("click", createCaveWindowFromWorldBounds);
+    els.caveSelectOnly.addEventListener("click", selectOnlyCavePerimeter);
     els.caveDeletePoint.addEventListener("click", deleteSelectedCavePoint);
+    els.cameraLineSelectOnly.addEventListener("click", selectOnlyCameraLine);
+    els.cameraLineDeletePoint.addEventListener("click", deleteSelectedCameraLinePoint);
+    els.cameraLineEnabled.addEventListener("change", () => {
+        syncCameraLineFromUi();
+        markEditorRuntimeWorldDirty();
+        persistUi();
+        setStatus(els.cameraLineEnabled.checked
+            ? "Enabled the camera framing line."
+            : "Disabled the camera framing line without deleting its points.");
+    });
+    [els.cameraLineInfluenceDistance, els.cameraLineLookAheadDistance].forEach((element) => {
+        element.addEventListener("change", () => {
+            syncCameraLineFromUi();
+            markEditorRuntimeWorldDirty();
+            persistUi();
+        });
+    });
     els.cavePointMode.addEventListener("change", () => setSelectedCavePointMode(els.cavePointMode.value));
     els.caveEnabled.addEventListener("change", () => {
         syncCaveWindowFromUi();
@@ -9917,6 +10550,7 @@ import {
         if (!file) return;
         try {
             state.level = normalizeLevelDefaults(JSON.parse(await file.text()));
+            resetEditorLayerVisibility();
             state.generatorHistory = { undo: [], redo: [] };
             state.generatorLoadedRunId = "";
             state.selectedCavePointId = "";
@@ -9960,6 +10594,7 @@ import {
             return;
         }
         state.level = normalizeLevelDefaults(JSON.parse(saved));
+        resetEditorLayerVisibility();
         state.generatorHistory = { undo: [], redo: [] };
         state.generatorLoadedRunId = "";
         state.selectedCavePointId = "";
@@ -10000,12 +10635,12 @@ import {
         }
         if (shortcutTargetIsTextEditor(event.target)) return;
         if (modifier && !event.altKey) {
-            if (key === "x" && selectedRecords().length) {
+            if (key === "x" && selectedRecords().length && !state.cavePerimeterSelected && !state.cameraLineSelected) {
                 event.preventDefault();
                 cutSelected();
                 return;
             }
-            if (key === "c" && selectedRecords().length) {
+            if (key === "c" && selectedRecords().length && !state.cavePerimeterSelected && !state.cameraLineSelected) {
                 event.preventDefault();
                 copySelected();
                 return;
@@ -10016,7 +10651,7 @@ import {
                 return;
             }
         }
-        if (!modifier && !event.altKey && (event.key === "Delete" || event.key === "Backspace") && selectedRecords().length) {
+        if (!modifier && !event.altKey && (event.key === "Delete" || event.key === "Backspace") && selectedRecords().length && !state.cavePerimeterSelected && !state.cameraLineSelected) {
             event.preventDefault();
             deleteSelected();
         }
@@ -10051,6 +10686,7 @@ import {
         } catch (error) {
             state.resourceIndex = null;
             state.level = makeEmptyLevel();
+            resetEditorLayerVisibility();
             syncMetadataToUi();
             persistUi();
             resetEditHistory();
@@ -10060,6 +10696,7 @@ import {
         await loadMusicCatalog();
         populateLevelMusicOptions();
         state.level = makeEmptyLevel();
+        resetEditorLayerVisibility();
         setNewAssetLayer("terrain");
         els.snap.value = "16";
         setTool("select");

@@ -311,6 +311,12 @@
       "y": 1094,
       "w": 311,
       "h": 272
+    },
+    "rune_marker_inactive": {
+      "x": 0,
+      "y": 1400,
+      "w": 98,
+      "h": 123
     }
   },
   "objects": {
@@ -2631,6 +2637,29 @@
         "scroll"
       ],
       "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "rune_marker_inactive": {
+      "id": "rune_marker_inactive",
+      "frame": "rune_marker_inactive",
+      "type": "checkpointInactive",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "checkpoint",
+        "rune",
+        "inactive",
+        "grey"
+      ],
+      "notes": "Greyscale inactive presentation for the rune checkpoint. Runtime checkpoint activation switches to rune_marker.",
       "nodes": [],
       "lines": []
     }

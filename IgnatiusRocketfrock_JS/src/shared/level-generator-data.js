@@ -4,9 +4,13 @@ import {
 } from "./cave-window-decoration.js";
 import { normalizeLevelLayerVisuals } from "./level-layer-data.js";
 import { parseEnemySelection } from "./enemy-pool-data.js";
+import {
+    WRENCH_POWER_UP_EFFECT_IDS,
+    powerUpEffectDefinition
+} from "./power-up-data.js";
 export { parseEnemySelection } from "./enemy-pool-data.js";
 
-export const AUTOMATIC_LEVEL_GENERATOR_VERSION = 39;
+export const AUTOMATIC_LEVEL_GENERATOR_VERSION = 40;
 export const AUTOMATIC_LEVEL_GENERATOR_ID = "automatic-level-generator-9";
 
 const GENERATED_PLAYER_BODY_WIDTH = 34;
@@ -1050,6 +1054,21 @@ function buildBasicRewards({
     }));
     const powerUpMinimumProgress = Math.max(0, ...powerUpMetadata.map((metadata) => metadata.minimumProgress));
     const powerUpMaximumProgress = Math.min(1, ...powerUpMetadata.map((metadata) => metadata.maximumProgress));
+    let generatedWrenchEffectBag = [];
+    const nextGeneratedWrenchOverrides = () => {
+        if (!generatedWrenchEffectBag.length) {
+            generatedWrenchEffectBag = rng.shuffle(WRENCH_POWER_UP_EFFECT_IDS);
+        }
+        const effectId = generatedWrenchEffectBag.shift();
+        const definition = powerUpEffectDefinition(effectId);
+        return definition ? {
+            effectId,
+            durationSeconds: definition.durationSeconds,
+            iconFrame: definition.hud.iconFrame,
+            glowFrame: definition.hud.glowFrame,
+            glowTint: definition.hud.glowTint
+        } : {};
+    };
     const selectPowerUpMetadata = (candidates) => {
         const available = (candidates || []).filter(Boolean);
         if (!available.length) return null;
@@ -1142,6 +1161,9 @@ function buildBasicRewards({
         // They still require their own support and all endpoint/cave clearances.
         if (metadata.category !== "narrative" && positionConflicts(metadata.category, resolvedX, resolvedY)) return null;
         const id = `generated_reward_${String(rewards.length + 1).padStart(3, "0")}_${runId}`;
+        const resolvedOverrides = type === "wrenchPickup" && !String(overrides?.effectId || "").trim()
+            ? { ...nextGeneratedWrenchOverrides(), ...overrides }
+            : overrides;
         const entity = instantiateGeneratedCatalogEntity({
             id,
             type,
@@ -1153,7 +1175,7 @@ function buildBasicRewards({
             support,
             routeNodeId,
             context,
-            overrides
+            overrides: resolvedOverrides
         });
         entities.push(entity);
         rewards.push({

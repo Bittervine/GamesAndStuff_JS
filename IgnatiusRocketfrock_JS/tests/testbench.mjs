@@ -19,6 +19,15 @@ import {
     rocketPresentationOffsets
 } from "../src/presentation/canvas-renderer.js";
 import { WebGL2RendererBackend } from "../src/presentation/webgl2-renderer.js";
+import { computeMinimapGeometry, minimapPointInsideGameplayPerimeter, minimapTeleportAllowed } from "../src/presentation/minimap-data.js";
+import {
+    cameraLineCompletelyInsideRect,
+    cameraLineInsertionIndex,
+    cameraLinePointAtDistance,
+    nearestCameraLinePoint,
+    normalizeCameraLine,
+    sampleCameraLine
+} from "../src/shared/camera-line-data.js";
 import {
     createPlayerFlightDangleProfile,
     createPlayerFlightDangleState,
@@ -226,8 +235,8 @@ import {
     cavePolygonSeparation,
     caveSplineSegmentControls,
     caveWindowBounds,
+    caveWindowCompletelyInsideRect,
     caveWindowPolygonSeparation,
-    createCaveWindowPointsFromBounds,
     nearestCaveSplineSegment,
     normalizeCaveDecoration,
     normalizeCaveGradientNoise,
@@ -478,6 +487,7 @@ import {
     cloneGameState,
     serializeGameState,
     restoreGameState,
+    teleportPlayer,
     resetPlayer,
     applyEditorLevelToWorld as applyEditorLevelToWorldCurrent,
     applyCharacterCombatProfiles,
@@ -778,6 +788,8 @@ function testSourceOrganization() {
     assert.equal(nativeAppSource.includes("scene->startGameplayPlaybackFromFile(filelist[0])"), false, "the file-dialog callback must not reload simulation or renderer resources directly from a possible worker thread");
     assert.equal(nativeAppSource.includes('const bool landingDamage = types.contains("PLAYER_FALL_DAMAGE")'), false, "native sound events should not suppress landing and damage cues through same-tick priority");
     assert.equal(nativeAppSource.includes('if (bossDeath && type == "ENEMY_DEFEATED") continue'), false, "native boss death should mix with its ordinary enemy-death cue");
+    assert.ok(nativeAppSource.includes('type == "POWER_UP_PICKUP_COLLECTED" || type == "SCORE_PICKUP_COLLECTED"'), "native score pickups should route through the shared pickup chime");
+    assert.ok(nativeAppSource.includes("rocketLifetimeExplosionIsOffscreen") && nativeAppSource.includes('event.reason != "lifetime"'), "native rocket audio should suppress only off-screen maximum-lifetime explosions");
     const soundSynthesizerHtml = readFileSync(new URL("../../devel/sound-synthesizer.html", import.meta.url), "utf8");
     assert.match(soundSynthesizerHtml, /Ignatius Sound Workbench/, "the standalone sound authoring tool should remain available under devel");
     assert.match(soundSynthesizerHtml, /grid-template-columns: repeat\(4, minmax\(235px, 1fr\)\)/, "the desktop sound workbench should keep its controls in a compact four-column rack");
@@ -868,8 +880,8 @@ function testSourceOrganization() {
     assert.ok(gameHtml.includes('id="loading-screen"') && gameHtml.includes('id="loading-percent"') && gameHtml.includes('id="loading-bar-fill"'), "game page should show loading text, percentage, and a progress bar before the module starts");
     const gameBootstrap = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
     assert.match(gameBootstrap, /function requestSkipToNextLevel\(\)[\s\S]*portalId: "keyboard_f8"[\s\S]*requestedLevelId[\s\S]*fallbackLevelId: currentLevelId/, "the browser F8 shortcut should create the same standard next-level request as SDL");
-    assert.match(gameBootstrap, /event\.code === "F8"[\s\S]*event\.stopImmediatePropagation\(\)[\s\S]*requestSkipToNextLevel\(\)/, "the browser should intercept F8 before ordinary gameplay or paused-playback input");
-    assert.match(nativeAppSource, /SDL_SCANCODE_F8[\s\S]*requestSkipToNextLevel\(\)/, "the SDL port should retain F8 as the matching next-level shortcut");
+    assert.match(gameBootstrap, /DEVELOPMENT && event\.code === "F8"[\s\S]*event\.stopImmediatePropagation\(\)[\s\S]*requestSkipToNextLevel\(\)/, "the browser should intercept F8 only while the product-development flag is compiled in");
+    assert.match(nativeAppSource, /SDL_SCANCODE_F8[\s\S]*if \(DEVELOPMENT\)[\s\S]*requestSkipToNextLevel\(\)/, "the SDL port should retain F8 only behind the matching product-development flag");
     assert.ok(gameBootstrap.includes("environmentAtlasManifestUrls: gameState.world.atlasManifests"), "startup should preload only the atlases referenced by the active level");
     assert.ok(gameBootstrap.includes("enemyCharacterUrls: requiredEnemyCharacterProjectUrls(gameState.world)"), "browser startup should load only enemy character projects required by the active level");
     assert.ok(gameBootstrap.includes("collectLevelEnemyCharacterIds") && gameBootstrap.includes("syncRendererLevelAssets"), "browser transitions should rescan enemy dependencies before synchronizing renderer assets");
@@ -2303,6 +2315,23 @@ function testLevelEditorMultiSelectionAndPaletteWorkflow() {
     assert.ok(editorHtml.includes('if (event.ctrlKey || event.metaKey) toggleObjectSelection(rowData.id);'), "Ctrl-click in the placed-object list should toggle membership");
     assert.ok(editorHtml.includes('rgba(174,174,184,0.88)') && editorHtml.includes('drawObjectSelectionOutline'), "secondary objects should use a separate gray dashed selection outline");
     assert.ok(editorHtml.includes('primaryId: state.selectedId') && editorHtml.includes('snappedDx'), "group movement should preserve relative offsets while snapping from the primary object");
+    assert.ok(editorHtml.includes('function cavePerimeterInsideSelectionRect(selectionRect)') && editorHtml.includes('caveWindowCompletelyInsideRect(cavePoints, selectionRect, 20)'), "box selection should include the cave perimeter only when its complete displayed spline is enclosed");
+    assert.ok(editorHtml.includes('cavePerimeterSelected: cavePerimeterEnclosed') && editorHtml.includes('state.cavePerimeterSelected = !state.cavePerimeterSelected'), "ordinary and toggle box selection should carry explicit perimeter membership");
+    assert.ok(editorHtml.includes('caveOriginals') && editorHtml.includes('moveCavePerimeter') && editorHtml.includes('cavePoint.x = original.x + snappedDx'), "group movement should translate every cave control point by the same snapped delta as selected objects");
+    assert.ok(editorHtml.includes('hitTestSelectedCavePerimeter') && editorHtml.includes('Cave perimeter selected · drag its white outline to move it.'), "a perimeter-only selection should remain directly draggable and explain itself in the inspector");
+    assert.ok(editorHtml.includes('id="select-foreground-layer"') && editorHtml.includes('id="select-terrain-layer"') && editorHtml.includes('id="select-background-layer"'), "the Layers panel should expose one-click selection for Foreground, Terrain, and Background placements");
+    assert.ok(editorHtml.includes('id="toggle-foreground-layer"') && editorHtml.includes('id="toggle-terrain-layer"') && editorHtml.includes('id="toggle-background-layer"'), "the Layers panel should expose editor-only visibility toggles directly beneath the three layer-selection buttons");
+    assert.ok(editorHtml.includes('editorLayerVisibility: {') && editorHtml.includes('foreground: true') && editorHtml.includes('terrain: true') && editorHtml.includes('background: true'), "all three authored artwork layers should start visible in the editor");
+    assert.ok(editorHtml.includes('function resetEditorLayerVisibility()') && editorHtml.includes('resetEditorLayerVisibility();'), "loading or creating a level should restore the temporary editor layer visibility defaults");
+    assert.ok(editorHtml.includes('return editorPlacementVisible(placement) && generatedCavePlacementVisible(placement);'), "hidden editor layers should be removed from the runtime-backed editor scene without changing exported level data");
+    assert.ok((editorHtml.match(/if \(!editorPlacementVisible\(placement\)\) continue;/g) || []).length >= 4, "hidden placements should be excluded from point hit-testing, box selection, guides, and transient editor drawing");
+    assert.ok(editorHtml.includes('editorRecordSelectable(recordById(id))'), "selection normalization should discard placements from hidden editor layers");
+    assert.ok(editorHtml.includes('els.toggleForegroundLayer.addEventListener("click", () => toggleEditorLayerVisibility("foreground"));') && editorHtml.includes('els.toggleTerrainLayer.addEventListener("click", () => toggleEditorLayerVisibility("terrain"));') && editorHtml.includes('els.toggleBackgroundLayer.addEventListener("click", () => toggleEditorLayerVisibility("background"));'), "all three visibility buttons should share the same transient toggle helper");
+    assert.ok(editorHtml.includes('function selectOnlyPlacementLayer(layer)') && editorHtml.includes('(placement.layer || "terrain") === targetLayer'), "layer selection should include every atlas placement whose authored layer matches the requested layer, including legacy placements with an omitted Terrain layer");
+    assert.ok(editorHtml.includes('setObjectSelection(ids, ids.at(-1) || "")'), "a layer-selection button should replace the current object and perimeter selection with only that layer");
+    assert.ok(editorHtml.includes('els.selectForegroundLayer.addEventListener("click", () => selectOnlyPlacementLayer(CAVE_FOREGROUND_LAYER));') && editorHtml.includes('els.selectTerrainLayer.addEventListener("click", () => selectOnlyPlacementLayer("terrain"));') && editorHtml.includes('els.selectBackgroundLayer.addEventListener("click", () => selectOnlyPlacementLayer(BACKGROUND_LAYER));'), "all three layer buttons should route through the same selection helper");
+    assert.ok(editorHtml.includes('id="placement-search"') && editorHtml.includes('els.placementSearch.addEventListener("input", renderPlacementList);'), "Placed objects should expose a live search field");
+    assert.ok(editorHtml.includes('row.searchText.includes(query)') && editorHtml.includes('No visible placed objects match this filter.'), "the placed-object search should filter visible IDs, assets, entity types, and layer names with a clear empty state");
 
     assert.equal(editorHtml.includes('id="asset-atlas"'), false, "the removed atlas dropdown should not remain in the Asset palette");
     assert.ok(editorHtml.includes('for (const [atlasId, atlas] of state.atlases)'), "the Asset palette should aggregate assets from every loaded atlas");
@@ -7515,6 +7544,87 @@ function testPuppetGuideDebugOverlay() {
     assert.deepEqual(characterEnemyMeleeAttackRect(enemy), { x: 34, y: 120, w: 60, h: 80 }, "Puppet Guide melee reach should exactly match simulation geometry");
 }
 
+function testCameraLineGuideFramingAndEditor() {
+    const line = normalizeCameraLine({
+        influenceDistance: 2000,
+        lookAheadDistance: 1200,
+        points: [
+            { id: "camera_line_point_001", x: 0, y: 520 },
+            { id: "camera_line_point_002", x: 1000, y: 900 },
+            { id: "camera_line_point_003", x: 2000, y: 1400 }
+        ]
+    });
+    assert.equal(line.influenceDistance, 2000, "camera line should preserve the requested default influence distance");
+    assert.equal(line.lookAheadDistance, 1200, "camera line should preserve the requested default look-ahead distance");
+    assert.ok(line.samples.length > line.points.length, "camera line should be sampled as a smooth spline");
+    const nearest = nearestCameraLinePoint(line, { x: 500, y: 700 });
+    assert.ok(nearest && nearest.distance < 80, "nearest camera-line sampling should find the nearby route");
+    const ahead = cameraLinePointAtDistance(line, nearest.along + line.lookAheadDistance);
+    assert.ok(ahead.y > nearest.y, "look-ahead should expose the route's downhill direction");
+    assert.equal(cameraLineCompletelyInsideRect(line, { x: -10, y: 500, w: 2020, h: 920 }), true, "a complete box should select the full camera line");
+    assert.equal(cameraLineCompletelyInsideRect(line, { x: 0, y: 520, w: 1000, h: 500 }), false, "a partial box must not select the camera line");
+    assert.ok(sampleCameraLine(line.points, 8).length >= 17, "camera line sampling should remain deterministic at explicit subdivision counts");
+    assert.equal(cameraLineInsertionIndex(line.points, { x: 1500, y: 1120 }, 24), 2, "clicking near an interior camera-line segment should insert between its surrounding control points");
+    assert.equal(cameraLineInsertionIndex(line.points, { x: 10, y: 525 }, 24), 0, "clicking near the camera-line beginning should prepend a point");
+    assert.equal(cameraLineInsertionIndex(line.points, { x: 1990, y: 1395 }, 24), 3, "clicking near the camera-line end should append a point");
+    assert.equal(cameraLineInsertionIndex(line.points, { x: -400, y: 640 }, 24), 0, "clicking beyond the camera-line beginning should extend that end");
+    assert.equal(cameraLineInsertionIndex(line.points, { x: 2350, y: 1550 }, 24), 3, "clicking beyond the camera-line end should extend that end");
+
+    const state = createInitialGameState();
+    assert.equal(state.debug.showCameraLine, false, "camera-line diagnostics should be hidden by default");
+    state.world.cameraLine = line;
+    for (let index = 0; index < 120; index += 1) {
+        const input = createInputFrame();
+        input.moveRight = true;
+        input.moveAxis = 1;
+        stepSimulation(state, input, FIXED_DT);
+    }
+    assert.ok(state.camera.guideNominalOffsetY > 0, "travelling downhill should place Ignatius above the nominal screen centre");
+    assert.ok(state.camera.guideNominalOffsetY <= 170, "camera guide must not exceed the mirrored normal vertical offset");
+    assert.ok(state.camera.guideLookAhead?.y > state.camera.guideNearest?.y, "camera diagnostics should expose the downhill look-ahead point");
+
+    for (let index = 0; index < 300; index += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+    }
+    assert.equal(state.camera.guideDirection, 1, "stopping on a guided descent should retain the last meaningful route direction indefinitely");
+    assert.ok(state.camera.guideNominalOffsetY > 0, "a long stationary pause should retain the useful downhill framing");
+    assert.ok(state.camera.guideLookAhead?.y > state.camera.guideNearest?.y, "stationary camera diagnostics should keep the remembered downhill look-ahead");
+
+    state.player.vx = 300;
+    const turnaroundInput = createInputFrame();
+    turnaroundInput.moveLeft = true;
+    turnaroundInput.moveAxis = -1;
+    stepSimulation(state, turnaroundInput, FIXED_DT);
+    assert.equal(state.player.facing, -1, "turnaround input should commit the new facing immediately");
+    assert.ok(state.player.vx > 0, "turnaround regression should retain old-direction inertia for the reproducer");
+    assert.equal(state.camera.guideDirection, -1, "camera-line elevation should follow committed facing before velocity reverses");
+
+    for (let index = 0; index < 120; index += 1) {
+        const input = createInputFrame();
+        input.moveLeft = true;
+        input.moveAxis = -1;
+        stepSimulation(state, input, FIXED_DT);
+    }
+    assert.equal(state.camera.guideDirection, -1, "reversing along the route should reverse camera-guide travel direction");
+    assert.equal(state.camera.guideNominalOffsetY, -170, "uphill travel should return to the existing nominal offset below centre");
+
+    const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    const perimeterIndex = editorHtml.indexOf("<h2>Perimeter</h2>");
+    const cameraLineIndex = editorHtml.indexOf("<h2>Camera Line</h2>");
+    assert.ok(perimeterIndex >= 0 && cameraLineIndex > perimeterIndex, "Camera Line panel should appear directly after the Perimeter panel");
+    assert.ok(editorHtml.includes('data-tool="cameraLineSelect"') && editorHtml.includes('data-tool="cameraLineAdd"'), "Camera Line panel should expose edit and add-point tools");
+    assert.ok(editorHtml.includes('id="camera-line-select-only"') && editorHtml.includes('id="camera-line-delete-point"'), "Camera Line panel should expose whole-line selection and point deletion");
+    assert.ok(editorHtml.includes("cameraLineInsideSelectionRect") && editorHtml.includes("moveCameraLine"), "camera line should participate in complete box selection and whole-level movement");
+    assert.ok(editorHtml.includes("cameraLineInsertionIndex") && editorHtml.includes("line.points.splice(insertionIndex, 0, cameraPoint)"), "adding a camera point should insert at the nearest segment or extend the nearest endpoint");
+
+    const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
+    const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
+    const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
+    assert.ok(gameHtml.includes('id="development-camera-line"'), "development settings should expose the hidden-by-default Camera line overlay");
+    assert.ok(bootstrapSource.includes("showCameraLine") && bootstrapSource.includes("updateCameraLine"), "browser development settings should toggle the camera-line overlay");
+    assert.ok(rendererSource.includes("drawCameraLineGuide") && rendererSource.includes("guideLookAhead"), "renderer should draw the authored route and active look-ahead diagnostics");
+}
+
 function testSelectiveLevelColorMap() {
     const colorMap = normalizeLevelColorMap({
         enabled: true,
@@ -9177,6 +9287,17 @@ function testAutomaticLevelGeneratorRewards() {
     assert.ok(Math.abs(generatedWrenchCount * 10 - generatedPowerUps.length * 6) <= 6, "about 60% of generated power-ups should be authored wrenches");
     assert.ok(Math.abs(generatedSpeedCount * 10 - generatedPowerUps.length * 3) <= 6, "about 30% of generated power-ups should be Overdrive");
     assert.ok(Math.abs(generatedShieldCount * 10 - generatedPowerUps.length) <= 6, "about 10% of generated power-ups should be Shield");
+    const generatedWrenches = generatedPowerUps.filter((entity) => entity.type === "wrenchPickup");
+    assert.equal(generatedWrenches.every((entity) => WRENCH_POWER_UP_EFFECT_IDS.includes(entity.effectId)), true, "every generated wrench should select one of the six current wrench effects");
+    assert.equal(generatedWrenches.every((entity) => {
+        const definition = powerUpEffectDefinition(entity.effectId);
+        return entity.glowTint === definition?.hud?.glowTint
+            && entity.glowFrame === definition?.hud?.glowFrame
+            && entity.iconFrame === definition?.hud?.iconFrame;
+    }), true, "generated wrench artwork and glow metadata should follow the selected wrench colour");
+    if (generatedWrenches.length > 1) {
+        assert.ok(new Set(generatedWrenches.map((entity) => entity.effectId)).size > 1, "a generated level with multiple wrenches should not repeat the cyan default for every pickup");
+    }
     const detachedOverdrives = generatedPowerUps.filter((entity) => entity.type === "overdrivePickup" && entity.generationContext === "detourUpperPerch");
     assert.ok(generatedSpeedCount === 0 || detachedOverdrives.length >= 1, "generated Overdrive should use a dedicated upper detour perch whenever the level contains one");
     const supportById = new Map(first.generation.traversal.supports.map((support) => [support.id, support]));
@@ -9500,48 +9621,35 @@ function testCaveWindowSplineAuthoring() {
     assert.equal(defaults.decoration.inwardFractionMin, 0.3, "automatic perimeter decoration should begin farther inside the opening by default");
     assert.equal(defaults.decoration.inwardFractionMax, 0.5, "automatic perimeter decoration should retain deterministic inward variation around its stronger default overlap");
 
-    const generated = createCaveWindowPointsFromBounds({ x: -320, y: -420, w: 5600, h: 1500 });
-    assert.ok(generated.length >= 18, "world-bounds initialization should create a denser editable organic loop");
-    const sampled = sampleClosedCaveSpline(generated, 32);
-    assert.ok(sampled.length > generated.length, "closed cave splines should sample smooth curve points between controls");
+    const selectionPerimeter = [
+        { id: "a", x: -180, y: -120, mode: "smooth" },
+        { id: "b", x: 420, y: -140, mode: "smooth" },
+        { id: "c", x: 760, y: 220, mode: "smooth" },
+        { id: "d", x: 430, y: 520, mode: "smooth" },
+        { id: "e", x: -160, y: 500, mode: "smooth" },
+        { id: "f", x: -420, y: 180, mode: "smooth" }
+    ];
+    const sampled = sampleClosedCaveSpline(selectionPerimeter, 32);
+    assert.ok(sampled.length > selectionPerimeter.length, "closed cave splines should sample smooth curve points between controls");
     approx(sampled[0].x, sampled.at(-1).x, 0.0001, "closed cave spline x closure");
     approx(sampled[0].y, sampled.at(-1).y, 0.0001, "closed cave spline y closure");
-    const orientation = (a, b, c) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
-    const properlyIntersects = (a, b, c, d) => {
-        const abC = orientation(a, b, c);
-        const abD = orientation(a, b, d);
-        const cdA = orientation(c, d, a);
-        const cdB = orientation(c, d, b);
-        return abC * abD < 0 && cdA * cdB < 0;
-    };
-    let selfIntersections = 0;
-    for (let first = 0; first < sampled.length - 1; first += 1) {
-        for (let second = first + 2; second < sampled.length - 1; second += 1) {
-            if (first === 0 && second === sampled.length - 2) continue;
-            if (properlyIntersects(sampled[first], sampled[first + 1], sampled[second], sampled[second + 1])) selfIntersections += 1;
-        }
-    }
-    assert.equal(selfIntersections, 0, "the default rounded perimeter must not loop across or intersect itself at wide world-bound corners");
-    const worldBounds = { x: -320, y: -420, w: 5600, h: 1500 };
-    const worldRight = worldBounds.x + worldBounds.w;
-    const worldBottom = worldBounds.y + worldBounds.h;
-    const sampledInsideWorld = sampled.some((point) => (
-        point.x > worldBounds.x
-        && point.x < worldRight
-        && point.y > worldBounds.y
-        && point.y < worldBottom
-    ));
-    assert.equal(sampledInsideWorld, false, "the starter cave perimeter should remain outside the technical world bounds along every sampled segment");
-    assert.ok(
-        generated.some((point) => point.y < worldBounds.y)
-        && generated.some((point) => point.x > worldRight)
-        && generated.some((point) => point.y > worldBottom)
-        && generated.some((point) => point.x < worldBounds.x),
-        "the starter cave perimeter should add a margin on all four sides of the world bounds"
+    const perimeterBounds = caveWindowBounds(selectionPerimeter, 40);
+    assert.equal(
+        caveWindowCompletelyInsideRect(selectionPerimeter, perimeterBounds, 32),
+        true,
+        "a selection rectangle enclosing the complete sampled cave spline should select the perimeter"
     );
-    const generatedBounds = caveWindowBounds(generated, 40);
-    assert.ok(generatedBounds.w > worldBounds.w && generatedBounds.h > worldBounds.h, "cave-window fit bounds should cover the outside perimeter plus padding");
-    const nearest = nearestCaveSplineSegment(generated, { x: 2480, y: -350 });
+    assert.equal(
+        caveWindowCompletelyInsideRect(selectionPerimeter, {
+            x: perimeterBounds.x + perimeterBounds.w * 0.25,
+            y: perimeterBounds.y,
+            w: perimeterBounds.w * 0.75,
+            h: perimeterBounds.h
+        }, 32),
+        false,
+        "a selection rectangle clipping any sampled cave-spline section must not select the perimeter"
+    );
+    const nearest = nearestCaveSplineSegment(selectionPerimeter, { x: 300, y: -120 });
     assert.ok(nearest && Number.isInteger(nearest.segmentIndex), "point insertion should locate the nearest closed control edge");
     const warningCave = [
         { id: "a", x: 0, y: 0, mode: "corner" },
@@ -9683,6 +9791,11 @@ function testCaveWindowSplineAuthoring() {
 
     const levelEditorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     assert.ok(levelEditorHtml.includes('data-tool="caveSelect"') && levelEditorHtml.includes('data-tool="caveAdd"'), "Level Editor should expose cave-point edit and insertion tools in the cave panel");
+    assert.ok(levelEditorHtml.includes('id="cave-select-only"') && levelEditorHtml.includes("selectOnlyCavePerimeter"), "Level Editor should expose an explicit action that selects only the complete cave perimeter");
+    assert.ok(levelEditorHtml.includes('setObjectSelection([], "", { cavePerimeterSelected: true })'), "the perimeter-only action should clear ordinary object selection before selecting the perimeter");
+    assert.equal(levelEditorHtml.includes("Create from world bounds") || levelEditorHtml.includes("createCaveWindowFromWorldBounds"), false, "the retired world-bounds perimeter action should be removed from the Level Editor");
+    const caveWindowSource = readFileSync(new URL("../src/shared/cave-window-data.js", import.meta.url), "utf8");
+    assert.equal(caveWindowSource.includes("createCaveWindowPointsFromBounds"), false, "the unused world-bounds perimeter helper should be removed rather than left as dead shared code");
     const topbarMarkup = levelEditorHtml.slice(levelEditorHtml.indexOf('<div id="topbar">'), levelEditorHtml.indexOf('</div>', levelEditorHtml.indexOf('<div id="topbar">')));
     assert.equal(topbarMarkup.includes('data-tool="caveSelect"') || topbarMarkup.includes('data-tool="caveAdd"'), false, "cave editing controls should not clutter the top toolbar");
     assert.match(levelEditorHtml, /<button id="fit-content-view">Fit<\/button>/, "Level Editor should provide one concise authored-content Fit control");
@@ -10977,8 +11090,11 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     const enemyCatalog = JSON.parse(readFileSync(new URL("../resources/characters/ct_enemies_001.json", import.meta.url), "utf8"));
     assert.equal(atlas.atlasId, "it_atlas_001", "interactive atlas should use its dedicated atlas id");
     assert.equal(atlas.image, "it_atlas_001.png", "interactive atlas should reference the user-supplied PNG name");
-    assert.equal(Object.keys(atlas.frames).length, 51, "interactive atlas should expose all authored item frames");
+    assert.equal(Object.keys(atlas.frames).length, 52, "interactive atlas should expose all authored item frames");
     assert.ok(atlas.frames.mailbox_with_letter && atlas.frames.portal_foreground && atlas.frames.letter_scroll, "story-item frames should be present");
+    assert.deepEqual(atlas.frames.rune_marker_inactive, { x: 0, y: 1400, w: 98, h: 123 }, "the inactive checkpoint frame should be isolated in the appended greyscale atlas strip");
+    assert.equal(catalog.entities.checkpointRune.states.inactive.visuals[0].assetId, "rune_marker_inactive", "new checkpoint runes should use the grey inactive frame from catalog data");
+    assert.equal(catalog.entities.checkpointRune.states.active.visuals[0].assetId, "rune_marker", "activated checkpoint runes should retain the original purple frame");
     assert.deepEqual(atlas.frames.powerup_icon_coin, { x: 7, y: 570, w: 99, h: 100 }, "coin icon should be tightly isolated from the revised atlas");
     assert.deepEqual(atlas.frames.powerup_icon_star, { x: 120, y: 570, w: 93, h: 94 }, "star icon should be tightly isolated from the revised atlas");
     assert.deepEqual(atlas.frames.powerup_icon_bomb, { x: 232, y: 572, w: 87, h: 91 }, "bomb icon should be tightly isolated from the revised atlas");
@@ -11324,12 +11440,19 @@ function testScoreHudAndTreasureChestCollection() {
     assert.equal(state.treasureChests.length, 1, "treasure chest entities should create portable chest state");
     assert.equal(state.treasureChests[0].state, "openLoot", "a new chest should begin visibly open with its treasure");
     assert.equal(state.treasureChests[0].collected, false, "an authored open-loot chest should still be collectible");
+    const worldVisualArrayBeforeCollection = state.world.visuals;
+    const chestVisualBeforeCollection = state.world.visuals.find((visual) => visual.entityId === "treasure_test");
+    assert.ok(chestVisualBeforeCollection, "the collectible chest should have an initial world visual");
 
     stepSimulation(state, createInputFrame(), FIXED_DT);
     assert.equal(state.score, 125, "walking close to the chest should award its Score once");
     assert.equal(state.treasureChests[0].collected, true, "the collected flag should become authoritative immediately");
     assert.equal(state.treasureChests[0].state, "openEmpty", "the chest should switch to empty as soon as the score popup starts");
     assert.equal(state.world.entityStates.treasure_test, "openEmpty", "the world entity visual state should follow the emptied chest immediately");
+    assert.equal(state.world.visuals, worldVisualArrayBeforeCollection, "same-shape entity state changes should preserve the world visual array so the browser renderer keeps its spatial and overlap caches");
+    const chestVisualAfterCollection = state.world.visuals.find((visual) => visual.entityId === "treasure_test");
+    assert.equal(chestVisualAfterCollection, chestVisualBeforeCollection, "same-shape chest artwork should update in place instead of replacing its cached visual record");
+    assert.equal(chestVisualAfterCollection.assetId, "chest_open_empty", "the in-place chest visual should still switch to the empty atlas frame");
     assert.ok(state.debug.lastEvents.some((event) => event.type === "SCORE_CHANGED" && event.amount === 100), "collection should emit a deterministic Score change event");
     assert.ok(state.debug.lastEvents.some((event) => event.type === "TREASURE_CHEST_COLLECTED"), "collection should emit a chest event");
 
@@ -11356,6 +11479,12 @@ function testScoreHudAndTreasureChestCollection() {
     assert.match(bootstrapSource, /Score: \$\{Math\.max\(0, Math\.floor\(Number\(gameState\.score\)/, "the DOM should project portable Score without owning it");
     assert.match(rendererSource, /event\?\.type !== "SCORE_CHANGED"/, "the renderer should derive temporary +N feedback from Score events");
     assert.match(rendererSource, /SCREEN_MESSAGE_REQUESTED/, "the renderer should consume reusable portable screen-message events");
+    assert.match(
+        rendererSource,
+        /const viewportWidth = Math\.max\(1, Number\(view\?\.w \?\? view\?\.viewportWidth\) \|\| 1\)/,
+        "screen-message layout should use the browser render view width while retaining compatibility with viewportWidth callers"
+    );
+    assert.equal(rendererSource.includes("view.viewportWidth * 0.024"), false, "screen-message sizing must not read the absent browser viewportWidth field directly");
     assert.match(editorSource, /id="inspect-treasure-score"[\s\S]*id="inspect-treasure-distance"/, "the Level Editor should expose Score value and collection distance");
     assert.match(editorSource, /els\.snap\.value = "16"/, "the Level Editor should initialize its Snap grid to 16 pixels");
     assert.match(editorSource, /Number\(els\.snap\.value\) \|\| 16/, "the grid renderer should use 16 pixels as its fallback Snap size");
@@ -11376,6 +11505,44 @@ function testScoreHudAndTreasureChestCollection() {
     assert.ok(authoredChest.x - authoredChest.w * 0.5 >= exitGround.x, "the chest left foot should remain over the exit platform artwork");
     assert.ok(authoredChest.x + authoredChest.w * 0.5 <= exitGround.x + exitGround.w, "the chest right foot should remain over the exit platform artwork");
     assert.ok(authoredChest.y >= exitGround.y && authoredChest.y <= exitGround.y + exitGround.h * 0.2, "the chest base should sit near the drawn top of the exit platform rather than float above or sink into it");
+
+    const checkpointLevel = JSON.parse(readFileSync(new URL("../resources/levels/level_t08.json", import.meta.url), "utf8"));
+    const checkpointState = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(checkpointState, checkpointLevel), true, "the reserved checkpoint fixture should apply");
+    checkpointState.story.portalIntro = null;
+    checkpointState.story.portalExit = null;
+    checkpointState.story.mailboxEvent = null;
+    const checkpointEntity = checkpointState.world.entities.find((entity) => entity.id === "checkpoint_rune_test");
+    const inactiveRuneVisual = checkpointState.world.visuals.find((visual) => visual.entityId === checkpointEntity.id);
+    assert.equal(inactiveRuneVisual?.assetId, "rune_marker_inactive", "an inactive checkpoint should render through the grey rune frame even when an existing level still names rune_marker");
+
+    checkpointState.player.currentTransform.x = checkpointEntity.x;
+    checkpointState.player.currentTransform.y = checkpointEntity.y;
+    checkpointState.player.vx = 0;
+    checkpointState.player.vy = 0;
+    checkpointState.player.onGround = true;
+    checkpointState.player.wasOnGround = true;
+    stepSimulation(checkpointState, createInputFrame(), FIXED_DT);
+    assert.equal(checkpointState.world.entityStates.checkpoint_rune_test, "active", "touching a checkpoint on the ground should activate it");
+    approx(checkpointState.player.spawnX, checkpointEntity.x, 0.001, "checkpoint activation should store the live player X as the respawn point");
+    approx(checkpointState.player.spawnY, checkpointEntity.y, 0.001, "checkpoint activation should store the live player Y as the respawn point");
+    const activeRuneVisual = checkpointState.world.visuals.find((visual) => visual.entityId === checkpointEntity.id);
+    assert.equal(activeRuneVisual?.assetId, "rune_marker", "an activated checkpoint should reveal the original purple rune");
+    assert.ok(checkpointState.debug.lastEvents.some((event) => event.type === "CHECKPOINT_ACTIVATED"), "checkpoint activation should emit the portable sound/presentation event");
+
+    checkpointState.player.currentTransform.x = 1100;
+    checkpointState.player.currentTransform.y = 850;
+    checkpointState.camera.currentTransform.x = 1100;
+    checkpointState.camera.currentTransform.y = 680;
+    resetPlayer(checkpointState, "checkpointDeathLoopRegression");
+    approx(checkpointState.player.currentTransform.x, checkpointState.player.spawnX, 0.001, "checkpoint respawn should return the player to the activated rune");
+    approx(checkpointState.player.currentTransform.y, checkpointState.player.spawnY, 0.001, "checkpoint respawn should restore the checkpoint height");
+    approx(checkpointState.camera.currentTransform.x, checkpointState.player.spawnX, 0.001, "checkpoint respawn should also teleport the camera away from the death site");
+    approx(checkpointState.camera.currentTransform.y, checkpointState.player.spawnY - 170, 0.001, "checkpoint respawn should restore the normal camera offset before boundary checks resume");
+    const healthAfterCheckpointReset = checkpointState.health.amount;
+    stepSimulation(checkpointState, createInputFrame(), FIXED_DT);
+    assert.equal(checkpointState.player.combatState, "alive", "the first checkpoint-respawn tick must not immediately restart the death lifecycle");
+    assert.equal(checkpointState.health.amount, healthAfterCheckpointReset, "checkpoint respawn should not immediately damage the restored player");
 }
 
 function testRocketPowerUpArsenal() {
@@ -11948,6 +12115,7 @@ function testRocketPowerUpArsenal() {
         "a Level Editor browser-copy playtest should bypass the title screen after its authored level is applied"
     );
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    const nativeRendererSource = readFileSync(new URL("../../src/runtime/ignatius-app.cpp", import.meta.url), "utf8");
     const simulationSource = readFileSync(new URL("../src/core/simulation.js", import.meta.url), "utf8");
     const characterEditorSource = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
@@ -12048,6 +12216,22 @@ function testRocketPowerUpArsenal() {
             && rendererSource.includes("proximityTextFontStack")
             && simulationSource.includes("updateProximityTexts"),
         "the browser runtime should keep proximity text timing in simulation and world-space drawing in presentation"
+    );
+    const nativeProximityLineRenderer = nativeRendererSource.slice(
+        nativeRendererSource.indexOf("TextTexture createProximityTextLineTexture("),
+        nativeRendererSource.indexOf("void destroyProximityTextLayout(")
+    );
+    assert.ok(
+        nativeRendererSource.includes("TTF_PROP_FONT_CREATE_FACE_NUMBER")
+            && nativeRendererSource.includes("proximityTextBoldFaceNumber")
+            && nativeRendererSource.includes("configureProximityTextCanvasAnchor")
+            && nativeRendererSource.includes("proximityTextRenderFontSize"),
+        "the SDL renderer should select bundled bold variable-font instances and compensate their Canvas anchor and optical-size metrics"
+    );
+    assert.equal(
+        nativeProximityLineRenderer.includes("TTF_STYLE_BOLD"),
+        false,
+        "the SDL proximity-text line renderer must not synthetically embolden an already-bold bundled variable-font instance"
     );
     assert.ok(
         editorSource.includes("caveGeometryWarningCache") &&
@@ -16947,6 +17131,14 @@ function testRiderTriggeredMovingPlatform() {
     assert.notEqual(platform.phase, "waitForTrigger", "standing on the platform should latch its rider trigger");
     assert.ok(visual.currentTransform.x > 100, "a zero-delay rider trigger should begin movement immediately");
     assert.ok(state.player.currentTransform.x > 150, "the triggering rider should be carried with the platform");
+
+    resetPlayer(state, "movingPlatformDeathResetTest");
+    approx(visual.currentTransform.x, 100, 0.001, "player death/reset should return moving platforms to their authored start position");
+    approx(visual.currentTransform.y, 300, 0.001, "player death/reset should restore the authored moving-platform height");
+    approx(visual.currentTransform.alpha, 1, 0.001, "player death/reset should restore moving platforms fully visible");
+    assert.equal(platform.phase, "waitForTrigger", "a rider platform should await a fresh trigger after player death");
+    assert.equal(platform.collisionAttached, true, "player death/reset should restore moving-platform collision");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "MOVING_PLATFORMS_RESET"), "platform reset should emit a deterministic diagnostic event");
 }
 
 function testEnemyRiderTriggersAndFollowsMovingPlatform() {
@@ -17335,8 +17527,92 @@ function testGamepadHapticsRespectActiveInputDevice() {
     assert.match(bootstrapSource, /gamepadHaptics\.update\(gameState, inputFrame\)/, "the browser frame loop should project portable events into optional haptics");
 }
 
+function testMinimapUsesGameplayBoundaryWithCanonicalForegroundParallax() {
+    const geometry = computeMinimapGeometry({
+        world: {
+            bounds: { x: -320, y: -420, w: 30000, h: 20000 },
+            layerVisuals: { foreground: { parallaxX: 1.08, parallaxY: 1.08 } },
+            caveWindow: {
+                enabled: true,
+                points: [
+                    { id: "top_left", x: 400, y: 880, mode: "corner" },
+                    { id: "top_right", x: 10032, y: 880, mode: "corner" },
+                    { id: "bottom_right", x: 10032, y: 2208, mode: "corner" },
+                    { id: "bottom_left", x: 400, y: 2208, mode: "corner" }
+                ]
+            },
+            segments: [
+                { kind: "blockable", x1: 1271, y1: 2509.545, x2: 5282.48, y2: 2509.545 },
+                { kind: "blockable", x1: 5453.284, y1: 2717.545, x2: 10248.606, y2: 2717.545 },
+                { kind: "walkable", x1: 9527.394, y1: 2035.149, x2: 10248.606, y2: 2038.34 }
+            ],
+            visuals: [],
+            entities: []
+        },
+        player: { x: 1600, y: 2509.545 }
+    });
+
+    assert.ok(geometry.gameplayBoundaryParallaxOffset.x < -700 && geometry.gameplayBoundaryParallaxOffset.x > -730,
+        "the minimap should anchor foreground parallax to the authored terrain center rather than the distant world-bounds center");
+    assert.ok(geometry.gameplayBoundaryParallaxOffset.y < -570 && geometry.gameplayBoundaryParallaxOffset.y > -590,
+        "the minimap should apply the canonical vertical foreground offset after a level is repositioned");
+    const caveWindow = {
+        enabled: true,
+        points: [
+            { id: "top_left", x: 400, y: 880, mode: "corner" },
+            { id: "top_right", x: 10032, y: 880, mode: "corner" },
+            { id: "bottom_right", x: 10032, y: 2208, mode: "corner" },
+            { id: "bottom_left", x: 400, y: 2208, mode: "corner" }
+        ]
+    };
+    const authoredBoundary = deriveCaveFullBlackKillBoundary(caveWindow);
+    const expectedBottom = Math.max(...authoredBoundary.points.map((point) => point.y))
+        - geometry.gameplayBoundaryParallaxOffset.y;
+    const displayedBottom = Math.max(...geometry.gameplayBoundaryOutline.map((point) => point.y));
+    assert.ok(Math.abs(displayedBottom - expectedBottom) < 0.0001,
+        "the minimap silhouette should use the actual gameplay perimeter beyond full black");
+    const rawCaveBottom = 2208 - geometry.gameplayBoundaryParallaxOffset.y;
+    assert.ok(displayedBottom - rawCaveBottom > 230,
+        "the minimap must not fall back to the decorative cave spline");
+    assert.ok(geometry.bounds.minX <= Math.min(...geometry.gameplayBoundaryOutline.map((point) => point.x))
+        && geometry.bounds.maxX >= Math.max(...geometry.gameplayBoundaryOutline.map((point) => point.x))
+        && geometry.bounds.maxX >= 10248.606,
+        "minimap bounds should contain both the shifted gameplay boundary and the terrain overview");
+    assert.equal(minimapPointInsideGameplayPerimeter({ caveWindow }, caveWindow, { x: 5200, y: 1500 }), true,
+        "minimap teleport eligibility should accept points inside the authoritative full-black perimeter");
+    assert.equal(minimapPointInsideGameplayPerimeter({ caveWindow }, caveWindow, { x: -5000, y: -5000 }), false,
+        "minimap teleport eligibility should reject points outside the authoritative full-black perimeter");
+    assert.equal(minimapPointInsideGameplayPerimeter({ bounds: { x: 10, y: 20, w: 300, h: 200 } }, null, { x: 100, y: 100 }), true,
+        "levels without a cave perimeter should use world bounds for minimap teleport eligibility");
+    assert.equal(minimapTeleportAllowed(false, false), false,
+        "ordinary non-development runs should not enable minimap teleportation");
+    assert.equal(minimapTeleportAllowed(false, true), true,
+        "Level Editor playtests should retain minimap teleportation when the product flag is off");
+    assert.equal(minimapTeleportAllowed(true, false), true,
+        "product-development builds should enable ordinary minimap teleportation");
+
+    const teleportState = createInitialGameState();
+    teleportState.player.vx = 200;
+    teleportState.player.vy = -300;
+    teleportState.player.onGround = true;
+    teleportState.player.supportId = "old_support";
+    assert.equal(teleportPlayer(teleportState, 4321, 876, "minimapDevelopmentTeleport"), true,
+        "the shared development teleport should accept finite minimap coordinates");
+    approx(teleportState.player.currentTransform.x, 4321, 0.001, "development teleport should move Ignatius horizontally");
+    approx(teleportState.player.currentTransform.y, 876, 0.001, "development teleport should move Ignatius vertically");
+    assert.equal(teleportState.player.vx, 0, "development teleport should clear horizontal momentum");
+    assert.equal(teleportState.player.vy, 0, "development teleport should clear vertical momentum");
+    assert.equal(teleportState.player.onGround, false, "development teleport should require collision to reacquire ground support");
+    assert.equal(teleportState.player.supportId, null, "development teleport should release the previous platform support");
+    approx(teleportState.camera.currentTransform.x, 4321, 0.001, "development teleport should snap the camera horizontally");
+    approx(teleportState.camera.currentTransform.y, 706, 0.001, "development teleport should snap the camera vertically");
+    assert.equal(teleportState.debug.lastEvents.at(-1)?.type, "PLAYER_TELEPORTED",
+        "development teleport should leave a portable diagnostic event");
+}
+
 function testBrowserMinimapTracksLivePresentation() {
     const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
+    const nativeAppSource = readFileSync(new URL("../../src/runtime/ignatius-app.cpp", import.meta.url), "utf8");
     const drawStart = bootstrapSource.indexOf("function drawMinimap(force = false)");
     const drawEnd = bootstrapSource.indexOf("function setupGameMenuAndSettings()", drawStart);
     assert.ok(drawStart >= 0 && drawEnd > drawStart, "the browser bootstrap should retain a dedicated minimap renderer");
@@ -17347,6 +17623,16 @@ function testBrowserMinimapTracksLivePresentation() {
     assert.match(drawSource, /shownTransformOf\(gameState\.player\)/, "the minimap player dot should follow the live presentation transform");
     assert.doesNotMatch(drawSource, /gameState\.camera\?\.x|gameState\.camera\?\.y/, "the minimap must not read retired top-level camera coordinates");
     assert.doesNotMatch(drawSource, /gameState\.player\?\.x|gameState\.player\?\.y/, "the minimap must not read retired top-level player coordinates");
+    assert.match(bootstrapSource, /function minimapTeleportEnabled\(\)[\s\S]*minimapTeleportAllowed\(DEVELOPMENT, launchEditorPlaytest\)/,
+        "browser minimap teleport should be available in development builds and browser-copy editor playtests");
+    assert.match(bootstrapSource, /tryTeleportPlayerFromMinimapClick[\s\S]*minimapPointInsideGameplayPerimeter[\s\S]*teleportPlayer\(/,
+        "browser minimap clicks should teleport only after an authoritative perimeter check");
+    assert.match(bootstrapSource, /openGameMenuButton\?\.addEventListener\("click"[\s\S]*tryTeleportPlayerFromMinimapClick[\s\S]*openGameMenu\("menu"\)/,
+        "non-teleporting minimap clicks should retain the normal pause-menu behavior");
+    assert.match(nativeAppSource, /minimapTeleportEnabled\(\) const[\s\S]*minimapTeleportAllowed\(DEVELOPMENT, editorPlaytest\)/,
+        "SDL minimap teleport should be available in development builds and level_temp editor playtests");
+    assert.match(nativeAppSource, /tryTeleportPlayerFromMinimap[\s\S]*minimapPointInsideGameplayPerimeter[\s\S]*teleportPlayer\(/,
+        "SDL minimap clicks should teleport only after an authoritative perimeter check");
 }
 
 function testGameSettingsSchemaPersistenceAndMenuShell() {
@@ -17620,7 +17906,7 @@ async function testOggLevelMusicSystem() {
     assert.equal(characterSoundReference({ hurt: "sfx/hit.wav" }, "hurt"), "sfx/hit.wav", "character sound slot lookup should return the normalized WAV reference");
     const soundCatalog = JSON.parse(readFileSync(new URL("../resources/sfx/sound-effects.json", import.meta.url), "utf8"));
     assert.deepEqual(Object.keys(soundCatalog.effects), [
-        "playerDamage", "enemyDamage", "rocketLaunch", "rocketExplosion", "rocketBoost", "pickupChime",
+        "playerDamage", "enemyDamage", "rocketLaunch", "rocketExplosion", "rocketBoost", "pickupChime", "checkpointChime",
         "levelStart", "levelExit", "playerReading", "playerThinking", "playerQuestionMark", "playerExclamationMark",
         "playerJumping", "playerLanding", "playerLandingDamage", "wizardDeath", "trigger", "enemyDeath", "bossDeath",
         "permanentUpgradePickup", "enemyProjectile", "portalOpen", "reactiveObject"
@@ -17630,6 +17916,10 @@ async function testOggLevelMusicSystem() {
         assert.equal(bytes.subarray(0, 4).toString("ascii"), "RIFF", `${definition.file} should be a PCM WAV file`);
         assert.equal(bytes.subarray(8, 12).toString("ascii"), "WAVE", `${definition.file} should retain its WAVE signature`);
     }
+    const pickupChimeBytes = readFileSync(new URL("../resources/sfx/pickup_chime.wav", import.meta.url));
+    const checkpointChimeBytes = readFileSync(new URL("../resources/sfx/checkpoint_chime.wav", import.meta.url));
+    assert.deepEqual(checkpointChimeBytes, pickupChimeBytes, "the initial checkpoint cue should be an exact replaceable copy of pickup_chime.wav");
+    assert.equal(soundCatalog.effects.checkpointChime.file, "sfx/checkpoint_chime.wav", "checkpoint activation should own a separately replaceable WAV file");
     const jumpingBytes = readFileSync(new URL("../resources/sfx/player_jumping.wav", import.meta.url));
     const rocketLaunchBytes = readFileSync(new URL("../resources/sfx/rocket_launch.wav", import.meta.url));
     const rocketBoostBytes = readFileSync(new URL("../resources/sfx/rocket_boost.wav", import.meta.url));
@@ -17713,14 +18003,45 @@ async function testOggLevelMusicSystem() {
     soundDirector.processState({ equipment: { rocket: { attachedBoosting: false } } }, 0.25);
     assert.equal(boostVoice.paused, true, "rocket boost should stop after its half-second release fade");
 
-    const audioEvents = [{ type: "PLAYER_DAMAGED" }, { type: "PLAYER_JUMPED" }, { type: "ROCKET_LAUNCHED" }, { type: "ROCKET_IMPACTED" }, { type: "PLAYER_UPGRADE_COLLECTED" }, { type: "TREASURE_CHEST_COLLECTED" }];
+    const audioEvents = [{ type: "PLAYER_DAMAGED" }, { type: "PLAYER_JUMPED" }, { type: "ROCKET_LAUNCHED" }, { type: "ROCKET_IMPACTED" }, { type: "PLAYER_UPGRADE_COLLECTED" }, { type: "TREASURE_CHEST_COLLECTED" }, { type: "CHECKPOINT_ACTIVATED" }];
     soundDirector.processEvents(audioEvents);
     soundDirector.processEvents(audioEvents);
-    assert.equal(soundCalls.filter((call) => call[0] === "play").length, 7, "the boost loop plus six new simulation events should play once without replaying retained debug events");
+    assert.equal(soundCalls.filter((call) => call[0] === "play").length, 8, "the boost loop plus seven new simulation events should play once without replaying retained debug events");
     assert.ok(soundCalls.some((call) => call[1]?.endsWith("sfx/pickup_chime.wav")), "treasure chest collection should play the pickup cue in the browser port");
+    assert.ok(soundCalls.some((call) => call[1]?.endsWith("sfx/checkpoint_chime.wav")), "checkpoint activation should play its dedicated replaceable cue in the browser port");
     assert.ok(soundCalls.some((call) => call[1]?.endsWith("sfx/player_jumping.wav")), "jump events should play the audible jump cue in the browser port");
     assert.ok(soundCalls.some((call) => call[1]?.endsWith("sfx/rocket_explosion.wav")), "rocket impacts should use the white-noise explosion cue");
     assert.ok(soundCalls.some((call) => call[1]?.endsWith("sfx/permanent_upgrade_pickup.wav")), "permanent upgrades should use their dedicated replaceable cue");
+
+    const scorePickupStart = soundCalls.filter((call) => call[0] === "play").length;
+    soundDirector.processEvents([{ type: "SCORE_PICKUP_COLLECTED", tick: 96 }]);
+    const scorePickupPlays = soundCalls.filter((call) => call[0] === "play").slice(scorePickupStart);
+    assert.equal(scorePickupPlays.length, 1, "a +score coin should emit exactly one pickup cue");
+    assert.ok(scorePickupPlays[0]?.[1]?.endsWith("sfx/pickup_chime.wav"), "score pickups should use the shared pickup chime");
+
+    const rocketVisibilityState = {
+        camera: {
+            currentTransform: { x: 0, y: 0 },
+            viewportWidth: 100,
+            viewportHeight: 100
+        }
+    };
+    const silentExpiryStart = soundCalls.filter((call) => call[0] === "play").length;
+    soundDirector.processEvents([{ type: "ROCKET_IMPACTED", reason: "lifetime", x: 200, y: 0, tick: 97 }], rocketVisibilityState);
+    assert.equal(soundCalls.filter((call) => call[0] === "play").length, silentExpiryStart, "an off-screen rocket lifetime expiry should be silent");
+
+    const visibleExpiryStart = soundCalls.filter((call) => call[0] === "play").length;
+    soundDirector.processEvents([{ type: "ROCKET_IMPACTED", reason: "lifetime", x: 0, y: 0, tick: 98 }], rocketVisibilityState);
+    const visibleExpiryPlays = soundCalls.filter((call) => call[0] === "play").slice(visibleExpiryStart);
+    assert.equal(visibleExpiryPlays.length, 1, "an on-screen rocket lifetime expiry should retain its explosion sound");
+    assert.ok(visibleExpiryPlays[0]?.[1]?.endsWith("sfx/rocket_explosion.wav"), "visible lifetime expiry should use the rocket explosion cue");
+
+    const offscreenImpactStart = soundCalls.filter((call) => call[0] === "play").length;
+    soundDirector.processEvents([{ type: "ROCKET_IMPACTED", reason: "terrain", x: 200, y: 0, tick: 99 }], rocketVisibilityState);
+    const offscreenImpactPlays = soundCalls.filter((call) => call[0] === "play").slice(offscreenImpactStart);
+    assert.equal(offscreenImpactPlays.length, 1, "an off-screen rocket collision should retain its explosion sound");
+    assert.ok(offscreenImpactPlays[0]?.[1]?.endsWith("sfx/rocket_explosion.wav"), "off-screen non-expiry impacts should still use the rocket explosion cue");
+
     soundDirector.setVolume(0.25);
     const volumeEvent = { type: "ROCKET_LAUNCHED", tick: 99 };
     soundDirector.processEvents([volumeEvent]);
@@ -18480,6 +18801,7 @@ const tests = [
     ["CSS shadow effects remain extinct across every shipped interface", testCssShadowEffectsRemainExtinct],
     ["level editor dense stress fixture", testLevelEditorStressFixture],
     ["game settings persistence and menu shell", testGameSettingsSchemaPersistenceAndMenuShell],
+    ["minimap uses gameplay boundary with canonical foreground parallax", testMinimapUsesGameplayBoundaryWithCanonicalForegroundParallax],
     ["browser minimap follows live presentation transforms", testBrowserMinimapTracksLivePresentation],
     ["OGG level music system", testOggLevelMusicSystem],
     ["fullscreen Electron bridge contract", testFullscreenBridgeContract],
@@ -18498,6 +18820,7 @@ const tests = [
     ["player flight dangle animation", testPlayerFlightDangleAnimation],
     ["thought bubble tail and responsive typography", testThoughtBubbleTailAndResponsiveTypography],
     ["Puppet Guide debug overlay", testPuppetGuideDebugOverlay],
+    ["camera line guide framing and editor", testCameraLineGuideFramingAndEditor],
     ["selective level colour map", testSelectiveLevelColorMap],
     ["thin platform atlas collision policy", testThinPlatformAtlasCollisionPolicy],
     ["Atlas 004 long platforms and collision manifest", testLongPlatformAtlas004ManifestAndGeneration],

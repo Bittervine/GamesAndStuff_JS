@@ -174,7 +174,7 @@
                 <tr><td>Launch rocket</td><td><code>Space</code>, <code>X</code>, <code>K</code>, or either <code>Ctrl</code></td><td>Right-click once, or quick double-tap the playfield.</td></tr>
                 <tr><td>Interact</td><td><code>Down</code>, <code>S</code>, <code>Enter</code>, or <code>Numpad Enter</code></td><td>Use keyboard input when near levers, keyholes, or story objects.</td></tr>
                 <tr><td>Menu</td><td><code>Escape</code></td><td>Click or tap the score-and-bars panel or the minimap.</td></tr>
-                <tr><td>Skip to the next numbered level</td><td><code>F8</code></td><td>Keyboard only.</td></tr>
+                <tr><td>Skip to the next numbered level</td><td><code>F8</code></td><td>Keyboard only, and only while the product-development flag is compiled in.</td></tr>
             </tbody>
         </table>
 
@@ -183,7 +183,7 @@
         <p>Ignatius’s ordinary ground jump rises exactly 200 world pixels. Holding Down while he is still moving upward adds a braking gravity force; holding it from takeoff reduces the apex to 100 world pixels, while pressing it later allows intermediate heights. Down never adds extra gravity once Ignatius is level or falling, where it retains its existing green-platform drop-through role. The launch speed is derived from gravity, so the designed apex does not change with display or simulation frame rate; rocket-assisted movement remains variable. Quick jump taps and the airborne release-and-press gesture are buffered until the next gameplay step, so the double-jump does not depend on display frame timing.</p>
 
         <h2>Minimap</h2>
-        <p>The upper-left score-and-bars panel and the upper-right minimap scale down together whenever the screen is too small to contain them. If the minimap is hidden, the score panel can use the released space and remain larger. The minimap matches the rendered height of the score panel, never grows wider than it, and shows the cave outline, horizontal platform surfaces, the live camera window, Ignatius’s current position, and the exit marker. Click or tap either upper panel to open the pause menu. The minimap can be hidden in Settings; the score panel and <code>Escape</code> still open the menu.</p>
+        <p>The upper-left score-and-bars panel and the upper-right minimap scale down together whenever the screen is too small to contain them. If the minimap is hidden, the score panel can use the released space and remain larger. The minimap matches the rendered height of the score panel, never grows wider than it, and shows the gameplay perimeter boundary, horizontal platform surfaces, the live camera window, Ignatius’s current position, and the exit marker. Click or tap either upper panel to open the pause menu. The minimap can be hidden in Settings; the score panel and <code>Escape</code> still open the menu. In a product-development build, clicking a point inside the displayed gameplay perimeter teleports Ignatius there instead of opening the menu. Browser-copy and native <code>level_temp</code> playtests launched from the Level Editor retain this teleport even when the product-development flag is disabled; clicks outside the perimeter still open the pause menu.</p>
 
         <h2>Rocketfrock</h2>
         <ul>

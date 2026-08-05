@@ -4,6 +4,7 @@ export const TEST_SHARDS = Object.freeze({
             "source organization and architecture map",
             "CSS shadow effects remain extinct across every shipped interface",
             "game settings persistence and menu shell",
+            "minimap uses gameplay boundary with canonical foreground parallax",
             "browser minimap follows live presentation transforms",
             "OGG level music system",
             "fullscreen Electron bridge contract",
@@ -42,6 +43,7 @@ export const TEST_SHARDS = Object.freeze({
     "editor-1": Object.freeze([
             "level editor dense stress fixture",
             "Puppet Guide debug overlay",
+            "camera line guide framing and editor",
             "closed cave-window spline authoring",
             "moving-platform schema and Level Editor",
             "level placement copy and cutout backing",

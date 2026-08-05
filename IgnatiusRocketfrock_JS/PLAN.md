@@ -4653,3 +4653,44 @@ Revision 277 ports the native enemy dependency scan to the browser startup and l
 ## Revision 280 strict test-level fixture policy
 
 Revision 280 closes a verification-policy loophole discovered after a headless smoke run used mutable campaign `level_003` because it happened to contain no enemies. Any automated or manual verification that loads a level must now use a reserved `level_tNN` fixture, including unit, integration, smoke, headless, performance, benchmark, and release-gate runs. Ordinary `level_###` identifiers remain permissible only in isolated parser or serializer tests that do not open those files. The project and reference agent contracts plus the Developer Manual now state the stronger rule explicitly, and generic upgrade-key unit-test examples use `level_t03`.
+
+## Revision 288 camera-line guide
+
+Use one designer-authored smooth camera line rather than persistent camera triggers or automatic route inference. Near the line, derive travel direction from motion along the spline and look ahead in that direction. Downhill travel may move the nominal framing continuously from the existing below-centre offset to its mirrored above-centre offset; uphill or unguided travel keeps the existing framing. Keep all established camera lag, jump response, descent response, shake, and interpolation. Expose the guide through a Camera Line panel below Perimeter and a hidden-by-default development overlay in both runtimes.
+
+## Revision 289 persistent stationary camera-line direction
+
+A stationary pause on a camera-guided route must not discard the player's last meaningful route direction. While Ignatius remains inside the active camera line's influence, keep sampling the look-ahead in that remembered direction for any length of pause. Meaningful motion in the opposite direction replaces it; leaving the guide or an explicit respawn, teleport/portal relocation, or level load clears it. This preserves downhill visibility without guessing intent from a stationary player.
+
+
+## Revision 290 camera-line point insertion
+
+The Camera Line add-point tool must preserve the authored point order. A click near an interior part of the sampled spline inserts the new control point between the two control points that own that part of the curve. A click close to the first or last control point, or beyond the corresponding open end of the spline, extends that end instead. Snapping affects the new point position but not the click-location analysis used to choose its insertion slot.
+
+## Revision 295 Level Editor layer isolation and placed-object search
+
+- Add Foreground, Terrain, and Background visibility toggles directly below the matching layer-selection buttons.
+- Keep visibility transient to the editor and restore all three layers whenever a level is loaded or created.
+- Use one visibility predicate for runtime-backed editor rendering, overlay guides, cave-geometry warnings, point hit-testing, box selection, selection normalization, and the Placed objects panel.
+- Add a live Placed objects filter matching IDs, atlas assets, entity types, and layer names.
+- Preserve gameplay rendering and serialized level data unchanged.
+
+## Revision 298 generated wrench variety, chest cache stability, and landed enemy deaths
+
+- Generate wrench pickups from a deterministic shuffled bag of all six current wrench effects instead of allowing every generic generated wrench to inherit the cyan catalog default. Keep the generated effect ID, duration, icon, glow frame, and tint synchronized.
+- Preserve the browser `world.visuals` array and entity-visual object identity when an entity state change only swaps artwork without changing render topology. This keeps the world spatial cache and expensive overlap-blend cache warm when treasure chests become empty.
+- Keep topology-changing entity states on the existing rebuild path so doors and other multi-layer state changes remain correct.
+- Route SDL enemies with `deathPendingLanding` through the same modern swept airborne traversal used by living hunter enemies, and preserve airborne velocity through lethal damage. Start the death animation only after a physical landing.
+- Add browser generator/cache regressions and a native airborne-death regression without using a mutable campaign level as a test fixture.
+- Advance browser, editor, development portal, palette builder, and native labels to revision 298.
+
+## Revision 299 death reset and checkpoint feedback
+
+- Reset every moving platform to its authored start position, initial activation phase, visible alpha, and attached collision whenever the player respawns after death or an explicit reset.
+- Give checkpoint runes a distinct inactive grey atlas frame and retain the original purple frame as the activated state, including a runtime visual override for bundled levels that still name the original frame in both states.
+- Emit `CHECKPOINT_ACTIVATED` when a grounded player reaches an inactive rune, store the live player transform as the new respawn point, and play the separately replaceable `sfx/checkpoint_chime.wav` cue. The initial file is an exact copy of `pickup_chime.wav`.
+- Reposition the gameplay camera together with the player during checkpoint respawn so cave-boundary evaluation cannot continue using the former death-site parallax and immediately kill the restored player again.
+- Cover the behavior with the reserved `level_t08` checkpoint/platform fixture in browser and native regression tests.
+## Revision 300 development-gated navigation helpers
+
+F8 level skipping now exists only while the product-development constant is compiled in. Clicking inside the authoritative minimap perimeter teleports Ignatius in development builds, while ordinary clicks still open the pause menu. Level Editor browser-copy and native `level_temp` playtests retain minimap teleportation independently of the product flag so authored levels remain easy to inspect.

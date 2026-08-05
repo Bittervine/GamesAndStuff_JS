@@ -21,9 +21,11 @@ const EVENT_EFFECTS = Object.freeze({
     ROCKET_SEQUENCE_SHOT_LAUNCHED: "rocketLaunch",
     ROCKET_IMPACTED: "rocketExplosion",
     POWER_UP_PICKUP_COLLECTED: "pickupChime",
+    SCORE_PICKUP_COLLECTED: "pickupChime",
     ITEM_PICKUP_COLLECTED: "pickupChime",
     PLAYER_UPGRADE_COLLECTED: "permanentUpgradePickup",
-    TREASURE_CHEST_COLLECTED: "pickupChime"
+    TREASURE_CHEST_COLLECTED: "pickupChime",
+    CHECKPOINT_ACTIVATED: "checkpointChime"
 });
 
 function clamp01(value) {
@@ -34,11 +36,29 @@ function normalizeFileReference(value) {
     return String(value || "").trim().replace(/\\/g, "/");
 }
 
-function selectedEffectsForTick(events, resolveCharacterEffect) {
+function rocketLifetimeExplosionIsOffscreen(event, state) {
+    if (event?.type !== "ROCKET_IMPACTED" || event?.reason !== "lifetime") return false;
+    const x = Number(event.x);
+    const y = Number(event.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+    const camera = state?.camera;
+    if (!camera || typeof camera !== "object") return false;
+    const width = Math.max(1, Number(camera.viewportWidth) || 1280);
+    const height = Math.max(1, Number(camera.viewportHeight) || 720);
+    const centerX = Number(camera.currentTransform?.x);
+    const centerY = Number(camera.currentTransform?.y);
+    if (!Number.isFinite(centerX) || !Number.isFinite(centerY)) return false;
+    const left = centerX - width * 0.5;
+    const top = centerY - height * 0.56;
+    return x < left || x > left + width || y < top || y > top + height;
+}
+
+function selectedEffectsForTick(events, resolveCharacterEffect, state) {
     const result = [];
     const emitted = new Set();
     for (const event of events) {
         if (!event) continue;
+        if (rocketLifetimeExplosionIsOffscreen(event, state)) continue;
         const effectId = EVENT_EFFECTS[event.type] || resolveCharacterEffect(event);
         if (!effectId || emitted.has(effectId)) continue;
         emitted.add(effectId);
@@ -224,7 +244,7 @@ export function createSoundEffectsDirector({ baseUrl = "resources/", volume = 0.
         return true;
     }
 
-    function processEvents(events) {
+    function processEvents(events, state = null) {
         const fresh = [];
         for (const event of events || []) {
             if (!event || processedEvents.has(event)) continue;
@@ -238,7 +258,7 @@ export function createSoundEffectsDirector({ baseUrl = "resources/", volume = 0.
             byTick.get(key).push(event);
         }
         for (const tickEvents of byTick.values()) {
-            for (const effectId of selectedEffectsForTick(tickEvents, resolveCharacterEffect)) play(effectId);
+            for (const effectId of selectedEffectsForTick(tickEvents, resolveCharacterEffect, state)) play(effectId);
         }
     }
 

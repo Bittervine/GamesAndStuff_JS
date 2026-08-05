@@ -31,6 +31,11 @@
             "image": "atlases/at_atlas_014.png"
         },
         {
+            "atlasId": "at_atlas_028",
+            "manifest": "atlases/at_atlas_028.json",
+            "image": "atlases/at_atlas_028.png"
+        },
+        {
             "atlasId": "it_atlas_001",
             "manifest": "items/it_atlas_001.json",
             "image": "items/it_atlas_001.png"
@@ -132,6 +137,13 @@
                 "mode": "smooth"
             }
         ]
+    },
+    "cameraLine": {
+        "version": 1,
+        "enabled": true,
+        "influenceDistance": 2000,
+        "lookAheadDistance": 1200,
+        "points": []
     },
     "placements": [
         {
@@ -1947,6 +1959,25 @@
             "editorLocked": false,
             "notes": "Editor-visible, gameplay-invisible vertical collision barrier.",
             "order": 86
+        },
+        {
+            "id": "ignatius_title_001",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_028",
+            "assetId": "ignatius_title",
+            "x": 9408,
+            "y": -16,
+            "w": 900,
+            "h": 404,
+            "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "blendOverlaps": false,
+            "collisionFromManifest": false,
+            "editorLocked": false,
+            "notes": "",
+            "order": 87
         }
     ],
     "entities": [
@@ -2548,10 +2579,10 @@
             "id": "proximityText_002",
             "type": "proximityText",
             "catalogId": "it_entities_001",
-            "x": 9808,
-            "y": 16,
-            "w": 650,
-            "h": 95,
+            "x": 9616,
+            "y": 32,
+            "w": 445,
+            "h": 89,
             "state": "armed",
             "visualStates": {
                 "armed": [],
@@ -2563,11 +2594,11 @@
             },
             "interaction": "proximityText",
             "text": "The adventures of",
-            "fontSize": 75,
-            "fontFamily": "inter",
-            "color": "#8020c4",
+            "fontSize": 70,
+            "fontFamily": "caveat",
+            "color": "#ffdd00",
             "outlineWidth": 2,
-            "outlineColor": "#8040c4",
+            "outlineColor": "#af01c8",
             "triggerOffsetX": -528,
             "triggerOffsetY": 192,
             "triggerDistance": 300,
@@ -2576,47 +2607,6 @@
             "fadeOutDuration": 1,
             "floorAnchorYFactor": 0.5,
             "notes": "Bold world-space text that fades in once when Ignatius enters its independently positioned trigger radius."
-        },
-        {
-            "id": "proximityText_004",
-            "type": "proximityText",
-            "catalogId": "it_entities_001",
-            "x": 9968,
-            "y": 160,
-            "w": 965,
-            "h": 193,
-            "state": "armed",
-            "visualStates": {
-                "armed": [],
-                "complete": []
-            },
-            "stateLabels": {
-                "armed": "Armed",
-                "complete": "Complete"
-            },
-            "interaction": "proximityText",
-            "text": "I G N A T I U S",
-            "fontSize": 150,
-            "fontFamily": "inter",
-            "color": "#8020c4",
-            "outlineWidth": 5,
-            "outlineColor": "#8040c4",
-            "triggerOffsetX": -544,
-            "triggerOffsetY": 48,
-            "triggerDistance": 300,
-            "fadeInDuration": 1,
-            "displayDuration": 9999,
-            "fadeOutDuration": 1,
-            "floorAnchorYFactor": 0.5,
-            "notes": "Bold world-space text that fades in once when Ignatius enters its independently positioned trigger radius.",
-            "manualizedFromGeneration": {
-                "generatorId": "automatic-level-generator-9",
-                "runId": "",
-                "stage": "",
-                "role": "",
-                "supportId": "",
-                "routeNodeId": ""
-            }
         },
         {
             "id": "proximityText_005",

@@ -814,7 +814,7 @@ Secondary upper platforms are tagged `secondaryPlatform` and `rewardPerch`. Unde
 
 ## Revision 251 minimap, inward-pointing formations, and cached overlap blending
 
-The upper-right browser HUD is now a minimap rather than a pair of textual controls. `game.html` gives the top-left meters and top-right minimap one shared width variable, while `src/browser/game-bootstrap.js` uses `ResizeObserver` to match the minimap's rendered outer dimensions to the meter panel exactly. The minimap is presentation-only: it projects the cave outline, collision supports, camera viewport, player, and exit marker from existing state. Clicking the minimap invokes the existing pause-menu path, and fullscreen remains governed by the persisted automatic policy, keyboard handling, and Electron bridge rather than a permanent HUD button.
+The upper-right browser HUD is now a minimap rather than a pair of textual controls. `game.html` gives the top-left meters and top-right minimap one shared width variable, while `src/browser/game-bootstrap.js` uses `ResizeObserver` to match the minimap's rendered outer dimensions to the meter panel exactly. The minimap is presentation-only: it projects the derived gameplay perimeter boundary, collision supports, camera viewport, player, and exit marker from existing state. Clicking the minimap invokes the existing pause-menu path, and fullscreen remains governed by the persisted automatic policy, keyboard handling, and Electron bridge rather than a permanent HUD button.
 
 Automatic cave-perimeter orientation is owned by `src/shared/cave-window-decoration.js`. A sampled inward normal is the preliminary tip direction. Normals within 45 degrees of straight down or straight up snap to that vertical direction; all other normals remain perpendicular to the perimeter. Rotation is derived from the authored source orientation of the chosen formation, so stalactite and stalagmite tips point into the play area and their broad bases remain outside it. This rule applies equally to editor population and automatic generator decoration because both call the same shared function.
 
@@ -840,7 +840,7 @@ Automatic contour caverns in `src/shared/level-generator-data.js` still originat
 
 Automatic contour caverns still originate from an occupancy trace in `src/shared/level-generator-data.js`, but revision 254 increases the simplification budget substantially before the trace becomes `caveWindow.points`. The resulting authored/runtime perimeter is therefore a much smoother spline with far fewer control points. `src/shared/cave-window-data.js` also shortens smooth Bezier handles automatically around sharp turns, which keeps folded silhouettes readable while reducing self-crossing risk in the derived full-black outset.
 
-`src/browser/game-bootstrap.js` keeps the minimap's panel-sizing and click-to-open-menu behavior, but the minimap rendering itself is now intentionally minimal: cave outline fill/stroke, camera rectangle, exit marker, and player marker. It no longer overlays internal yellow world-geometry guides or a textual click hint.
+`src/browser/game-bootstrap.js` keeps the minimap's panel-sizing and click-to-open-menu behavior, but the minimap rendering itself is now intentionally minimal: gameplay-boundary fill/stroke, camera rectangle, exit marker, and player marker. It no longer overlays internal yellow world-geometry guides or a textual click hint.
 
 ## Revision 255 generator registry cleanup and horizontal combat architecture
 
@@ -874,7 +874,7 @@ The Level Editor likewise reads only `generation`, exact current generator owner
 
 ## Revision 259 run-and-gun floor safety and upper-hall population
 
-The browser minimap remains presentation-only in `src/browser/game-bootstrap.js`. It derives its world projection from the active cave and collision state, draws horizontal walkable/blockable support segments, and sizes itself to the meter panel height with a hard width cap equal to that panel. `showMinimap` is normalized and persisted through the ordinary game-settings layer; hiding the panel does not alter simulation, level data, or menu keyboard handling.
+The browser minimap remains presentation-only in `src/browser/game-bootstrap.js`. It derives its world projection from the active cave and collision state, draws the parallax-projected gameplay perimeter plus horizontal walkable/blockable support segments, and sizes itself to the meter panel height with a hard width cap equal to that panel. `showMinimap` is normalized and persisted through the ordinary game-settings layer; hiding the panel does not alter simulation, level data, or menu keyboard handling.
 
 Traversal realization records platform collision mode on every generated support. Validation rejects any body overlap involving a `oneWay` support and rejects different-height overlap between static blockable supports. Equal-surface blockable overlaps remain legal for continuous ground compositions. Wide caverns may add reachable second-tier secondary supports from first-tier perches; each support remains an ordinary placement with explicit bidirectional transitions and either `combatPerch` or `rewardPerch` purpose. Encounter and reward stages consume those existing supports without mutating terrain.
 
@@ -882,7 +882,7 @@ Small-step traversal stays in portable simulation. The player horizontal sweep a
 
 ## Revision 260 transparent minimap shell and denser horizontal upper-platform coverage
 
-The minimap overlay in `src/browser/game-bootstrap.js` remains a lightweight Canvas rendering of cave outline, authored walkable surfaces, camera box, exit, and player. Revision 260 removes the explicit background fill and relies on a transparent panel shell in `game.html`, so only the actual minimap content appears over gameplay.
+The minimap overlay in `src/browser/game-bootstrap.js` remains a lightweight Canvas rendering of the gameplay perimeter boundary, authored walkable surfaces, camera box, exit, and player. Revision 260 removes the explicit background fill and relies on a transparent panel shell in `game.html`, so only the actual minimap content appears over gameplay.
 
 In `src/shared/level-generator-data.js`, horizontal run-and-gun drafts now treat upper content density as a coverage target rather than just a small fixed perch count. Secondary-platform generation continues until it satisfies both count and approximate span coverage goals, and it biases those extra placements toward combat perches so the mostly-horizontal variant produces a sustained upper monster lane.
 
@@ -2370,3 +2370,28 @@ Browser and native startup derive required enemy character projects from direct 
 The compact Game tuning submenu is now presentation-parity rather than browser-specific tooling. It exposes player run speed, ordinary jump height, gravity, rocket damage, and `doubleJumpPhysics`; changes persist immediately in both ports. The retired floating browser panel and editable full-state JSON controls no longer ship. Recordings capture the complete resolved tuning object, so deterministic playback is insulated from later edits to the installed file or user profile. Save games do not own tuning.
 
 `doubleJumpPhysics = fixedImpulse` preserves the legacy rocket kick: the configured impulse is added after clamping downward velocity. `consistentApex` computes an energy-preserving launch while rising, `v_new = -sqrt(v_y^2 + 2 g H)`, where `H` is the ordinary jump height. At zero or downward velocity it uses `v_new = -sqrt(2 g H)`. Thus activation anywhere on an undisturbed ascent reaches `2H` above takeoff, while activation during descent cancels the fall and begins one fresh ordinary-height jump. Held attached-boost hovering remains unchanged.
+
+## Revision 288 authored camera-line framing
+
+Levels may optionally author a top-level `cameraLine` record containing an enabled flag, an influence distance, a look-ahead distance, and an ordered open spline of world-space points. `src/shared/camera-line-data.js` and `src/shared/camera-line-data.cpp` normalize and sample the same Catmull-Rom curve. While Ignatius is within the configured influence distance, simulation projects his motion onto the nearest sampled segment, retains the last meaningful travel direction indefinitely while stationary and still inside the guide influence, and samples ahead in that direction. The remembered direction changes only after meaningful reverse travel and clears when the guide is left or simulation explicitly resets the player/camera for a respawn, portal relocation, or level load. Downhill look-ahead shifts only the nominal vertical camera target, clamped from the existing 170-world-unit below-centre framing to the mirrored 170-unit above-centre framing. Existing follow smoothing, jump lead, descent response, shake, and presentation interpolation remain layered on top.
+
+The Level Editor places the Camera Line panel directly below Perimeter. The line can be added, point-edited, selected as a complete curve, box-selected only when fully enclosed, and moved with the rest of a level selection. Browser and native development menus expose a hidden-by-default Camera line overlay that draws the authored spline plus the active nearest and look-ahead points. The overlay is diagnostic only and never changes simulation behavior.
+
+## Revision 290 camera-line editor insertion
+
+The browser-hosted Level Editor owns camera-line control-point insertion because the native development tool hosts the same editor page. `cameraLineInsertionIndex` samples the visible Catmull-Rom spline, projects the unsnapped pointer position onto that sampled curve, and maps the nearest arc-length interval back to the surrounding authored control points. Endpoint proximity uses a zoom-adjusted screen-space tolerance; projections beyond either open end prepend or append. The selected grid snap is applied only after the insertion slot has been chosen, so coarse snapping cannot redirect an insertion to the wrong segment.
+
+## Revision 295 transient Level Editor layer visibility
+
+`level-editor.html` owns a three-flag `editorLayerVisibility` record for Foreground, Terrain, and Background. The flags are presentation-only and are intentionally outside the authored level, undo snapshots, browser saves, and exports. The runtime-backed editor scene is rebuilt from a filtered level view, while overlay drawing and all placement-selection paths use the same `editorPlacementVisible` predicate. This prevents hidden parallax artwork from intercepting clicks intended for another layer. Opening, importing, restoring from browser storage, or creating a level resets all flags to visible. The Placed objects panel applies a separate live text query after excluding hidden placements; entities are unaffected by artwork-layer visibility.
+
+## Revision 298 generated wrench bags and state-local visual updates
+
+Generated `wrenchPickup` entities remain one catalog type, but `buildBasicRewards()` now assigns their concrete effect from a reward-stream shuffled bag containing all six current wrench effects. A bag is exhausted before it is reshuffled, so short levels with multiple wrenches receive visible variety while generation remains deterministic for a seed. The concrete effect ID and its duration, icon, glow frame, and tint are serialized on each generated entity.
+
+Browser entity state changes distinguish artwork-only replacement from render-topology changes. When count, atlas, geometry, transform, layer, ordering, and dynamic-position ownership are unchanged, `setWorldEntityState()` rewrites the existing visual records in place. This allows the renderer's source-identity world cache and overlap-blend cache to survive chest frame swaps. State changes that add/remove visuals or move them between render partitions still rebuild and sort the world visual array.
+
+Non-flying SDL character enemies in `deathPendingLanding` continue through `updateCharacterEnemyAirTraversal()`, the same swept collision integrator used by their living hunter navigation. Lethal damage records zero health and removes targeting immediately but preserves airborne momentum; the authored death animation and corpse lifecycle begin only on the physical landing tick.
+## Revision 300 development input boundary
+
+The shared `DEVELOPMENT` product constant gates shipping-disabled runtime input. F8 dispatch is guarded at the presentation input boundary and again at the native skip request. Minimap clicks are converted from rendered panel coordinates to world coordinates, validated against the authoritative cave-kill boundary (or world bounds when no cave exists), then routed through shared `teleportPlayer` state cleanup. Editor playtest identity is presentation metadata only and grants the documented minimap exception without changing simulation rules.

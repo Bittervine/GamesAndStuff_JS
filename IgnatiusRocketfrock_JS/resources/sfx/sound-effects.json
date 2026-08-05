@@ -34,6 +34,11 @@
       "volume": 0.52,
       "maxInstances": 3
     },
+    "checkpointChime": {
+      "file": "sfx/checkpoint_chime.wav",
+      "volume": 0.52,
+      "maxInstances": 2
+    },
     "levelStart": {
       "file": "sfx/level_start.wav",
       "volume": 0.6,
