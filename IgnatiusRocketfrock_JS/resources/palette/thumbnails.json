@@ -8,7 +8,7 @@
   "width": 1472,
   "height": 1408,
   "entryCount": 501,
-  "sourceDigest": "fd7dff0c452fd3797777bf23233de83c4704ed39d35d2d0de93300fac589424d",
+  "sourceDigest": "90d0e57777b94070590ad694eb99111dfc9cc316124eafc9fc9175940deee438",
   "sources": [
     {
       "path": "atlases/at_atlas_001.json",
@@ -60,7 +60,7 @@
     },
     {
       "path": "atlases/at_atlas_007.json",
-      "sha256": "4d370085c0185cadc4aeb1de1f94d5c66bd25e3a48000a76c1c29ce3dfa3f2a4"
+      "sha256": "36d2e9b8045946e6d6a58e9907b995c876f911bc5013190223bb1b501aad8f61"
     },
     {
       "path": "atlases/at_atlas_007.png",
@@ -1052,23 +1052,23 @@
     },
     {
       "path": "items/it_atlas_001.json",
-      "sha256": "a0d901263660fd29e16786351169a65fc6d5c901a9087d94b459f88d4fa935de"
+      "sha256": "3577e8723fb69b5fd86ca3d05aa3a8faf3c0bde421af19ae4e3e77283980b54f"
     },
     {
       "path": "items/it_atlas_001.png",
-      "sha256": "63b1224178d0bbe2eb136d193a3aaf9783949e1c9dc7d20229db38ec628d1a90"
+      "sha256": "e5265f9956a6c6f38e08bea5dac5c7172271a6f70b464b96b48c6bc23652cf6d"
     },
     {
       "path": "items/it_entities_001.json",
-      "sha256": "ec8f9755c3d162b26cb6f16e4ecd9d5aa5309433ee442220d395516ac84deafb"
+      "sha256": "3bf9f9d791156c0ab3dd4a3c219e56158cbf05d0622445d6575554d10ec20e51"
     },
     {
       "path": "palette-builder.html",
-      "sha256": "8fb276538d1218005b6e04c7a22363c1c127b600e6b0e0396b6e25d7b435d441"
+      "sha256": "b39d49ea19f27ddac1bf29f14ee37f6baabb35e4546383d11983dd128f31907a"
     },
     {
       "path": "resources.json",
-      "sha256": "0a028839d9bb7e78f3ab13d7cc2317d6383ef8353c186480e6c17e877286cd2c"
+      "sha256": "dbb3cbd7e120c95882f5917003eeb5753463caec170b11ab9e448b3af6aac9c1"
     },
     {
       "path": "src/presentation/character-runtime.js",

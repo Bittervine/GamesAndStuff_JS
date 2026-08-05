@@ -1,0 +1,144 @@
+{
+    "meta": {
+        "version": 1,
+        "editor": "Ignatius Rocketfrock Level Editor",
+        "note": "Reserved checkpoint and death-reset regression fixture."
+    },
+    "levelId": "level_t08",
+    "title": "Checkpoint reset fixture",
+    "world": {
+        "bounds": {
+            "x": -200,
+            "y": -300,
+            "w": 1400,
+            "h": 1200
+        }
+    },
+    "atlasRefs": [
+        {
+            "atlasId": "at_atlas_004",
+            "manifest": "atlases/at_atlas_004.json",
+            "image": "atlases/at_atlas_004.png"
+        },
+        {
+            "atlasId": "it_atlas_001",
+            "manifest": "items/it_atlas_001.json",
+            "image": "items/it_atlas_001.png"
+        }
+    ],
+    "layerVisuals": {
+        "version": 3,
+        "background": {
+            "parallaxX": 0.95,
+            "parallaxY": 0.95,
+            "brightness": 1,
+            "scale": 1
+        },
+        "foreground": {
+            "parallaxX": 1.08,
+            "parallaxY": 1.08,
+            "brightness": 0.46,
+            "scale": 2
+        }
+    },
+    "placements": [
+        {
+            "id": "checkpoint_floor",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_004",
+            "assetId": "earth_long_platform_r1_a",
+            "x": 0,
+            "y": 500,
+            "w": 1000,
+            "h": 53,
+            "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "blendOverlaps": false,
+            "collisionFromManifest": true,
+            "order": 1
+        },
+        {
+            "id": "death_reset_platform",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_004",
+            "assetId": "earth_long_platform_r3_b",
+            "x": 250,
+            "y": 330,
+            "w": 300,
+            "h": 50,
+            "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "blendOverlaps": false,
+            "collisionFromManifest": true,
+            "order": 2,
+            "movement": {
+                "version": 1,
+                "pattern": "shuttle",
+                "activation": "rider",
+                "signalChannel": "A",
+                "endOffsetX": 160,
+                "endOffsetY": 0,
+                "speed": 160,
+                "initialDelay": 0,
+                "triggerDelay": 0,
+                "startPause": 0,
+                "endPause": 0.2,
+                "fadeDuration": 0.2,
+                "hiddenDuration": 1.25
+            }
+        }
+    ],
+    "entities": [
+        {
+            "id": "checkpoint_entry",
+            "type": "wizard_entry_point",
+            "catalogId": "it_entities_001",
+            "x": 100,
+            "y": 512.0693069306931,
+            "w": 48,
+            "h": 80,
+            "state": "active",
+            "visualStates": {
+                "active": []
+            },
+            "interaction": "levelPortal",
+            "portalRole": "entrance",
+            "groundSnapDistance": 72,
+            "floorAnchorYFactor": 1
+        },
+        {
+            "id": "checkpoint_rune_test",
+            "type": "checkpointRune",
+            "catalogId": "it_entities_001",
+            "x": 700,
+            "y": 512.0693069306931,
+            "w": 70,
+            "h": 88,
+            "state": "inactive",
+            "visualStates": {
+                "inactive": [
+                    {
+                        "atlasId": "it_atlas_001",
+                        "assetId": "rune_marker",
+                        "layer": "decorFront"
+                    }
+                ],
+                "active": [
+                    {
+                        "atlasId": "it_atlas_001",
+                        "assetId": "rune_marker",
+                        "layer": "decorFront"
+                    }
+                ]
+            },
+            "interaction": "checkpoint",
+            "activationDistance": 20,
+            "groundSnapDistance": 128,
+            "collisionFromManifest": false
+        }
+    ]
+}
