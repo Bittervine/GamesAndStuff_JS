@@ -3024,7 +3024,34 @@
             "id": "wrenchPickup_001",
             "type": "wrenchPickup",
             "catalogId": "it_entities_001",
-            "x": 896,
+            "x": -304,
+            "y": -256,
+            "w": 96,
+            "h": 96,
+            "state": "available",
+            "visualStates": {
+                "available": [],
+                "collected": []
+            },
+            "stateLabels": {
+                "available": "Available",
+                "collected": "Collected"
+            },
+            "effectId": "wrenchYellow",
+            "durationSeconds": 20,
+            "respawnSeconds": 60,
+            "radius": 30,
+            "atlasId": "it_atlas_001",
+            "glowFrame": "powerup_glow_white",
+            "iconFrame": "powerup_icon_wrench",
+            "glowTint": "#ffff00",
+            "notes": "Grants the selected 20-second wrench rocket mode. If no wrench type is authored, it defaults to the cyan Dart wrench."
+        },
+        {
+            "id": "wrenchPickup_002",
+            "type": "wrenchPickup",
+            "catalogId": "it_entities_001",
+            "x": 12864,
             "y": 496,
             "w": 96,
             "h": 96,
@@ -3037,14 +3064,14 @@
                 "available": "Available",
                 "collected": "Collected"
             },
-            "effectId": "wrenchCyan",
+            "effectId": "wrenchBlue",
             "durationSeconds": 20,
             "respawnSeconds": 60,
             "radius": 30,
             "atlasId": "it_atlas_001",
             "glowFrame": "powerup_glow_white",
             "iconFrame": "powerup_icon_wrench",
-            "glowTint": "#00ffff",
+            "glowTint": "#0000ff",
             "notes": "Grants the selected 20-second wrench rocket mode. If no wrench type is authored, it defaults to the cyan Dart wrench."
         }
     ],
