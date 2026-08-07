@@ -572,6 +572,7 @@
     </aside>
 </main>
 
+<script src="./src/tools/ignatius-project-host.js"></script>
 <script type="module">
 import { loadImageResourceWithRetry, loadJsonResourceWithRetry, loadResourceIndex } from "./src/tools/resource-index-loader.js";
 
@@ -2037,6 +2038,11 @@ import { loadImageResourceWithRetry, loadJsonResourceWithRetry, loadResourceInde
         const atlasId = manifest.atlasId || "at_atlas_001";
         const filename = `${atlasId}.json`;
         const isNewAtlas = !resourceIndex?.assetAtlasIds.includes(atlasId);
+        const projectHost = window.IgnatiusProjectHost?.get();
+        if (projectHost) {
+            const result = await projectHost.saveText("assetAtlas", filename, manifestJson.value, { mimeType: "application/json", prompt: true });
+            if (result === "project" || result === "cancelled") return result;
+        }
         const blob = new Blob([manifestJson.value], { type: "application/json" });
         if (typeof window.showSaveFilePicker === "function") {
             try {

@@ -4694,3 +4694,14 @@ The Camera Line add-point tool must preserve the authored point order. A click n
 ## Revision 300 development-gated navigation helpers
 
 F8 level skipping now exists only while the product-development constant is compiled in. Clicking inside the authoritative minimap perimeter teleports Ignatius in development builds, while ordinary clicks still open the pause menu. Level Editor browser-copy and native `level_temp` playtests retain minimap teleportation independently of the product flag so authored levels remain easy to inspect.
+
+## Revision 312 native path containment and projectile-hunter parity
+
+- Fixed an SDL parity defect exposed by a development exception log: ground projectile hunters were kept on the legacy direct-chase branch until the hunter watchdog fired, while the browser already sent every ground hunter through the navigation state machine. Native projectile hunters now use the same navigation/attack-position/return-home state machine from the start; the watchdog remains an invariant alarm and recovery mechanism rather than ordinary elevated-target control flow. Added synthetic browser/native regressions without adding or loading the supplied work-in-progress campaign level.
+- Fixed native application-owned paths that were still anchored to the process working directory, OS preference directory, OS temporary directory, or system font directories. Normal SDL/DevTool packaged content, startup/debug/exception logs, settings/saves, recordings, WebView2 data, and fonts now resolve beneath the executable directory. Runtime-created directories are created on demand. The explicit `--resources-root` / Dev Tool resources-folder selection remains the sole project-content exception and may point outside the executable tree.
+- Explicit diagnostic/capture output paths are containment-checked by the runtime so the native executable cannot be instructed to write outside its own tree. Explicit native reads are likewise constrained to the executable tree or active resources root.
+
+## Revision 313 bundled native font weights
+
+Revision 313 corrects the visual regression introduced by revision 312's native path containment. The native game and Dev Tool continue to read only the bundled executable-adjacent Inter/Caveat files, but SDL_ttf now opens the real Inter Bold named variable-font instance for title, body, HUD, story, and Dev Tool UI text instead of accepting Inter's default instance. Proximity TEXT retains its existing explicit Inter Bold/Caveat Bold named-instance handling. No system-font fallback is restored.
+

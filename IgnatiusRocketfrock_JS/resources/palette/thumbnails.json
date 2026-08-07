@@ -8,7 +8,7 @@
   "width": 1472,
   "height": 1408,
   "entryCount": 501,
-  "sourceDigest": "90d0e57777b94070590ad694eb99111dfc9cc316124eafc9fc9175940deee438",
+  "sourceDigest": "ad6316fcd075023cba233b050f02b351a0ebd93755a53ba8d05e83a5dd5c375f",
   "sources": [
     {
       "path": "atlases/at_atlas_001.json",
@@ -1064,7 +1064,7 @@
     },
     {
       "path": "palette-builder.html",
-      "sha256": "b39d49ea19f27ddac1bf29f14ee37f6baabb35e4546383d11983dd128f31907a"
+      "sha256": "740c4031ddbb4cbb2466f56c85921746dad799b0c062644481410998e7650169"
     },
     {
       "path": "resources.json",
@@ -1112,7 +1112,7 @@
     },
     {
       "path": "src/tools/palette-builder.js",
-      "sha256": "bd3187561014f5f85535c6f3491f95402ea034dd56cfac460e87aed5067e4065"
+      "sha256": "c239d4d4f1752e27db238cbe117df29c739565f68166dbc7a959d80176dfb401"
     }
   ],
   "entries": [

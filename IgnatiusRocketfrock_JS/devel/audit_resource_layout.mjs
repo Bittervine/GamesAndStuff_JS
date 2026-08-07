@@ -192,10 +192,7 @@ function auditCharacters() {
 
 function auditLevels() {
     const directory = path.join(RESOURCE_ROOT, "levels");
-    if (existsSync(path.join(directory, GENERATED_DEVTOOL_LEVEL_NAME))) {
-        fail(`${GENERATED_DEVTOOL_LEVEL_NAME} is generated in packaged content by IgnatiusDevTool and must not be committed as authored source content.`);
-    }
-    for (const name of readdirSync(directory).filter((entry) => entry.endsWith(".json"))) {
+    for (const name of readdirSync(directory).filter((entry) => entry.endsWith(".json") && entry !== GENERATED_DEVTOOL_LEVEL_NAME)) {
         const level = readJson(path.join(directory, name));
         for (const atlasRef of level.atlasRefs || []) {
             if (atlasRef.manifest) requireResource(atlasRef.manifest, `levels/${name}`);

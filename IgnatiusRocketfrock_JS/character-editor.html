@@ -46,23 +46,26 @@
             min-width: 0;
             min-height: 0;
             display: grid;
-            grid-template-rows: auto minmax(0, 1fr) auto;
+            grid-template-rows: max-content minmax(0, 1fr) max-content;
             justify-items: center;
-            align-items: center;
-            gap: 10px;
+            align-items: stretch;
+            gap: 12px;
             padding: 12px 18px;
             overflow: hidden;
         }
 
         canvas {
             display: block;
-            width: min(100%, 1160px);
+            width: auto;
             height: auto;
-            max-height: calc(100vh - 196px);
+            max-width: min(100%, 1160px);
+            max-height: 100%;
+            align-self: center;
+            justify-self: center;
             border: 1px solid var(--line);
             border-radius: 18px;
             background: rgb(6, 6, 12);
-touch-action: none;
+            touch-action: none;
             user-select: none;
         }
 
@@ -525,8 +528,10 @@ touch-action: none;
             display: flex;
             flex-wrap: wrap;
             align-items: center;
+            align-self: end;
             gap: 7px;
             padding: 7px;
+            margin-bottom: 4px;
         }
 
         .stage-toolbar button:not(.key-marker) {
@@ -543,8 +548,10 @@ touch-action: none;
 
         #animation-dock {
             display: grid;
+            align-self: start;
             gap: 7px;
             padding: 8px 10px 9px;
+            margin-top: 4px;
         }
 
         .dock-controls {
@@ -686,7 +693,7 @@ touch-action: none;
         <nav id="quick-toolbar" class="stage-toolbar" aria-label="Rig editing shortcuts">
             <button id="quick-select" type="button">Select</button>
             <button id="quick-adjust" type="button" class="active">Adjust</button>
-            <button id="quick-visibility" type="button">Visible / Hidden</button>
+            <button id="quick-visibility" type="button" aria-pressed="false" title="Click to hide or show the selected part only in this editor. Double-click to show all parts.">Visible / Hidden</button>
             <button id="quick-to-back" type="button">To Bottom</button>
             <button id="quick-to-front" type="button">To Front</button>
         </nav>
@@ -875,6 +882,7 @@ touch-action: none;
                 <p>The editor owns the alpha tracks for these frame parts. Selecting a frame creates exclusive step keys for every frame at the playhead.</p>
             </div>
             <p>With alpha preview on, parts use their in-game opacity. With it off, the selected part is fully opaque while other parts are ghosted between 10% and 50%, making rear and hidden parts easier to position and select.</p>
+            <p><strong>Visible / Hidden</strong> only hides the selected part temporarily in this editor. It never changes alpha keys or saved character data. Double-click the button to restore every part.</p>
             <div class="row">
                 <label><span>New animation slot</span><input id="duplicate-animation-slot" type="text" placeholder="for example: block"></label>
                 <button id="duplicate-animation" type="button">Duplicate current</button>
@@ -1099,6 +1107,7 @@ touch-action: none;
     </aside>
 </main>
 
+<script src="./src/tools/ignatius-project-host.js"></script>
 <script type="module">
 import {
     normalizeAnimationClip,
@@ -1471,7 +1480,8 @@ const state = {
     animationTool: "adjust",
     viewZoom: 1,
     viewPanX: 0,
-    viewPanY: 0
+    viewPanY: 0,
+    hiddenParts: new Set()
 };
 
 function revokeReferenceObjectUrls() {
@@ -1773,11 +1783,14 @@ function updateQuickToolbar() {
     const partName = selectedPartName();
     const order = drawOrder();
     const index = order.indexOf(partName);
+    const selectedPartHidden = isPartEditorHidden(partName);
     els.quickSelect.classList.toggle("active", animationMode && state.animationTool === "select");
     els.quickAdjust.classList.toggle("active", animationMode && state.animationTool === "adjust");
+    els.quickVisibility.classList.toggle("active", animationMode && selectedPartHidden);
+    els.quickVisibility.setAttribute("aria-pressed", selectedPartHidden ? "true" : "false");
     els.quickSelect.disabled = !animationMode || !state.rig;
     els.quickAdjust.disabled = !animationMode || !state.rig || !state.animation;
-    els.quickVisibility.disabled = !animationMode || !state.animation || !partName;
+    els.quickVisibility.disabled = !animationMode || !state.rig || !partName;
     els.quickToBack.disabled = !animationMode || index <= 0;
     els.quickToFront.disabled = !animationMode || index < 0 || index >= order.length - 1;
 }
@@ -2209,6 +2222,7 @@ async function selectEnemyDefinitionForCharacter() {
 }
 
 async function loadCharacter() {
+    state.hiddenParts.clear();
     state.generatedAnimations.clear();
     state.animationCache.clear();
     state.character = await loadJson(state.characterUrl);
@@ -2245,6 +2259,7 @@ async function loadCharacter() {
 }
 
 async function loadGeneratedProject(project) {
+    state.hiddenParts.clear();
     revokeLocalObjectUrls();
     state.projectMode = "generated";
     state.projectLabel = project.displayName;
@@ -2569,6 +2584,7 @@ function applyRigJson() {
             throw new Error(constraintErrors[0]);
         }
         state.rig = parsed;
+        state.hiddenParts.clear();
         state.assets = buildAssetsFromAtlas(state.image, state.atlas, state.rig, state.imageUrl);
         setupPartSelect();
         selectPart(drawOrder()[0]);
@@ -4763,25 +4779,32 @@ function stepPlayheadOnSelectedTrack(direction) {
     stepPlayheadFromTimes(selectedTrackKeyTimes(), direction, "track");
 }
 
+function isPartEditorHidden(partName) {
+    return Boolean(partName && state.hiddenParts.has(partName));
+}
+
 function toggleSelectedPartVisibility() {
-    if (!state.animation) {
+    const partName = selectedPartName();
+    if (!state.rig || !partName) {
         return;
     }
-    const partName = selectedPartName();
-    const currentAlpha = Number(samplePose()?.[partName]?.alpha ?? 1);
-    const nextAlpha = Math.abs(currentAlpha) > 0.000001 ? 0 : 1;
-    try {
-        upsertAnimationKeyframe(state.animation, partName, "alpha", {
-            time: state.time,
-            value: nextAlpha,
-            easing: "step"
-        });
-        invalidateAnimation();
-        rebuildTimeline();
-        setStatus(`${partName} is now ${nextAlpha === 0 ? "hidden" : "visible"} from the alpha key at ${state.time.toFixed(3)} s.`);
-    } catch (error) {
-        setStatus(error.message);
+    if (isPartEditorHidden(partName)) {
+        state.hiddenParts.delete(partName);
+        setStatus(`${partName} is visible in the editor again. No character or animation data changed.`);
+    } else {
+        state.hiddenParts.add(partName);
+        setStatus(`${partName} is temporarily hidden in the editor. No character or animation data changed.`);
     }
+    updateQuickToolbar();
+}
+
+function restoreAllEditorPartVisibility() {
+    const hiddenCount = state.hiddenParts.size;
+    state.hiddenParts.clear();
+    updateQuickToolbar();
+    setStatus(hiddenCount
+        ? `Restored ${hiddenCount} temporarily hidden part${hiddenCount === 1 ? "" : "s"}. No character or animation data changed.`
+        : "All parts are already visible in the editor. No character or animation data changed.");
 }
 
 function refreshAnimationJson() {
@@ -4834,7 +4857,13 @@ function downloadBlob(blob, filename) {
 }
 
 async function downloadJson(filename, value) {
-    const blob = new Blob([JSON.stringify(value, null, 4)], { type: "application/json" });
+    const jsonText = JSON.stringify(value, null, 4);
+    const projectHost = window.IgnatiusProjectHost?.get();
+    if (projectHost) {
+        const result = await projectHost.saveText("character", filename, jsonText, { mimeType: "application/json", prompt: true });
+        if (result === "project" || result === "cancelled") return result;
+    }
+    const blob = new Blob([jsonText], { type: "application/json" });
     if (typeof window.showSaveFilePicker === "function") {
         try {
             const handle = await window.showSaveFilePicker({
@@ -4860,7 +4889,7 @@ async function downloadJson(filename, value) {
 }
 
 function exportResultVerb(result) {
-    return result === "file" ? "Saved" : "Downloaded";
+    return result === "project" || result === "file" ? "Saved" : "Downloaded";
 }
 
 function animationFilename() {
@@ -5073,6 +5102,9 @@ function endGroundGuideDrag(event) {
 }
 
 function drawSprite(name, transform) {
+    if (isPartEditorHidden(name)) {
+        return;
+    }
     const asset = state.assets.get(name);
     if (!asset || !transform) {
         return;
@@ -5151,6 +5183,9 @@ function partAtCanvasPoint(canvasPoint, pose = null) {
     const rendered = pose || renderedPose();
     const names = [...drawOrder()].reverse();
     for (const partName of names) {
+        if (isPartEditorHidden(partName)) {
+            continue;
+        }
         const geometry = partCanvasGeometry(partName, rendered);
         if (!geometry) {
             continue;
@@ -5164,6 +5199,9 @@ function partAtCanvasPoint(canvasPoint, pose = null) {
 }
 
 function drawSelectionOverlay(pose) {
+    if (isPartEditorHidden(selectedPartName())) {
+        return;
+    }
     const geometry = selectedPartCanvasGeometry(pose);
     if (!geometry) {
         return;
@@ -5225,7 +5263,7 @@ function drawSelectionOverlay(pose) {
 }
 
 function stageTransformHit(clientX, clientY) {
-    if (!isTransformEditMode()) {
+    if (!isTransformEditMode() || isPartEditorHidden(selectedPartName())) {
         return null;
     }
     const geometry = selectedPartCanvasGeometry();
@@ -5748,6 +5786,10 @@ els.editorMode.addEventListener("change", () => setEditorMode(els.editorMode.val
 els.quickSelect.addEventListener("click", () => setAnimationTool("select"));
 els.quickAdjust.addEventListener("click", () => setAnimationTool("adjust"));
 els.quickVisibility.addEventListener("click", toggleSelectedPartVisibility);
+els.quickVisibility.addEventListener("dblclick", (event) => {
+    event.preventDefault();
+    restoreAllEditorPartVisibility();
+});
 els.quickToBack.addEventListener("click", () => moveSelectedPartInDrawOrder("back"));
 els.quickToFront.addEventListener("click", () => moveSelectedPartInDrawOrder("front"));
 els.applyPreviewAlpha.addEventListener("change", () => {

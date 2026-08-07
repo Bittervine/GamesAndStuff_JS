@@ -45,6 +45,8 @@ export const SHARED_GAME_TUNING_KEYS = Object.freeze([
     "healthRegenRate",
     "playerDamageInvulnerabilitySeconds",
     "playerContactDamageInvulnerabilitySeconds",
+    "playerContactDamageKnockbackX",
+    "playerContactDamageKnockbackY",
     "fallDamageEnabled",
     "fallDamageSafeImpactSpeed",
     "fallDamagePerWizardHeight",
@@ -98,6 +100,8 @@ const NUMBER_RULES = Object.freeze({
     healthRegenRate: [0, 100000],
     playerDamageInvulnerabilitySeconds: [0, 3600],
     playerContactDamageInvulnerabilitySeconds: [0, 3600],
+    playerContactDamageKnockbackX: [0, 10000],
+    playerContactDamageKnockbackY: [-10000, 10000],
     fallDamageSafeImpactSpeed: [0, 100000],
     fallDamagePerWizardHeight: [0, 100000],
     meleeEnemyHealthScale: [0.01, 1000],
@@ -149,6 +153,33 @@ export function applyGameTuningValues(baseTuning, source = {}) {
     return result;
 }
 
+export function gameTuningValidationIssues(value, fallback = {}) {
+    if (!isPlainObject(value)) return ["tuning root is not an object"];
+    const normalized = applyGameTuningValues(fallback, value);
+    const issues = [];
+    for (const key of SHARED_GAME_TUNING_KEYS) {
+        if (!Object.prototype.hasOwnProperty.call(value, key)) {
+            issues.push(`${key}: missing`);
+            continue;
+        }
+        const authored = value[key];
+        if (key === "doubleJumpPhysics") {
+            if (authored !== DOUBLE_JUMP_PHYSICS_FIXED_IMPULSE && authored !== DOUBLE_JUMP_PHYSICS_CONSISTENT_APEX) {
+                issues.push(`${key}: invalid value`);
+            }
+        } else if (BOOLEAN_KEYS.has(key)) {
+            if (typeof authored !== "boolean") issues.push(`${key}: expected boolean`);
+        } else if (typeof authored !== "number" || !Number.isFinite(authored)) {
+            issues.push(`${key}: expected finite number`);
+        } else if (Math.abs(authored - normalized[key]) > 1e-9) {
+            issues.push(`${key}: outside supported range`);
+        }
+    }
+    const unknownKeys = Object.keys(value).filter((key) => key !== "schemaVersion" && !SHARED_GAME_TUNING_KEYS.includes(key));
+    for (const key of unknownKeys) issues.push(`${key}: unknown key`);
+    return issues;
+}
+
 export function gameTuningToJson(tuning = {}) {
     const result = { schemaVersion: TUNING_SCHEMA_VERSION };
     for (const key of SHARED_GAME_TUNING_KEYS) {
@@ -178,7 +209,12 @@ export function normalizeGameTuningOverrides(overrides, installedTuning) {
     return createGameTuningOverrides(resolveGameTuning(installedTuning, overrides), installedTuning);
 }
 
-export async function loadInstalledGameTuning({ fallback, url = "resources/config/tuning.json", fetchImpl = globalThis.fetch } = {}) {
+export async function loadInstalledGameTuning({
+    fallback,
+    url = "resources/config/tuning.json",
+    fetchImpl = globalThis.fetch,
+    onException = null
+} = {}) {
     const emergencyFallback = { ...fallback };
     if (typeof fetchImpl !== "function") return emergencyFallback;
     try {
@@ -189,11 +225,25 @@ export async function loadInstalledGameTuning({ fallback, url = "resources/confi
         if (Number(parsed.schemaVersion) !== TUNING_SCHEMA_VERSION) {
             throw new Error(`unsupported tuning schemaVersion ${parsed.schemaVersion}`);
         }
-        const unknownKeys = Object.keys(parsed).filter((key) => key !== "schemaVersion" && !SHARED_GAME_TUNING_KEYS.includes(key));
-        if (unknownKeys.length) console.warn(`Ignoring unknown tuning.json keys: ${unknownKeys.join(", ")}`);
+        const issues = gameTuningValidationIssues(parsed, emergencyFallback);
+        if (issues.length) {
+            console.warn(`Invalid tuning.json values were normalized: ${issues.join(", ")}`);
+            onException?.({
+                type: "gameTuningFallback",
+                resourceUrl: url,
+                issues,
+                message: `tuning.json required fallback or clamping for ${issues.length} field(s)`
+            });
+        }
         return applyGameTuningValues(emergencyFallback, parsed);
     } catch (error) {
         console.warn("Could not load resources/config/tuning.json; compiled emergency defaults will be used.", error);
+        onException?.({
+            type: "gameTuningFallback",
+            resourceUrl: url,
+            error: String(error?.message || error),
+            message: "tuning.json could not be loaded; compiled emergency defaults are active"
+        });
         return emergencyFallback;
     }
 }

@@ -38,7 +38,7 @@ const ui = {
     log: document.getElementById("log")
 };
 
-let outputDirectoryHandle = null;
+const projectHost = window.IgnatiusProjectHost?.get();
 let latestBuild = null;
 let busy = false;
 
@@ -119,8 +119,8 @@ function setBusy(nextBusy) {
     busy = Boolean(nextBusy);
     ui.buildButton.disabled = busy;
     ui.verifyButton.disabled = busy;
-    ui.chooseFolderButton.disabled = busy || !("showDirectoryPicker" in window);
-    ui.clearFolderButton.disabled = busy;
+    ui.chooseFolderButton.disabled = busy || !projectHost || projectHost.mode === "native" || !("showDirectoryPicker" in window);
+    ui.clearFolderButton.disabled = busy || projectHost?.mode === "native";
 }
 
 function setStatus(message, tone = "info") {
@@ -166,7 +166,7 @@ function renderSummary(metrics) {
 }
 
 function updateOutputFolderLabel() {
-    ui.outputFolder.value = outputDirectoryHandle ? outputDirectoryHandle.name : "(download only)";
+    ui.outputFolder.value = projectHost?.connected ? `${projectHost.displayName}/palette` : "(not connected)";
 }
 
 function isResourceRelativePath(path) {
@@ -873,16 +873,11 @@ function updateDownloadLink(anchor, blob, filename) {
     anchor.setAttribute("aria-disabled", "false");
 }
 
-async function writeOutputsToDirectory(build) {
-    if (!outputDirectoryHandle) return false;
-    const imageHandle = await outputDirectoryHandle.getFileHandle(OUTPUT_IMAGE_NAME, { create: true });
-    const jsonHandle = await outputDirectoryHandle.getFileHandle(OUTPUT_JSON_NAME, { create: true });
-    const imageWritable = await imageHandle.createWritable();
-    await imageWritable.write(build.imageBlob);
-    await imageWritable.close();
-    const jsonWritable = await jsonHandle.createWritable();
-    await jsonWritable.write(build.jsonBlob);
-    await jsonWritable.close();
+async function writeOutputsToDirectory(build, prompt = false) {
+    if (!projectHost) return false;
+    if (!await projectHost.ensureConnected({ prompt })) return false;
+    await projectHost.saveBlob("palette", OUTPUT_IMAGE_NAME, build.imageBlob, { prompt: false });
+    await projectHost.saveBlob("palette", OUTPUT_JSON_NAME, build.jsonBlob, { prompt: false });
     return true;
 }
 
@@ -910,10 +905,10 @@ async function runBuild() {
         renderSummary(build.metrics);
         appendLog(`Built ${build.metrics.entryCount} entries (${build.metrics.assetCount} assets, ${build.metrics.entityCount} entities, ${build.metrics.enemyCount} enemies).`);
         appendLog(`Sheet size: ${build.metrics.width}×${build.metrics.height}.`);
-        if (outputDirectoryHandle) {
+        if (projectHost?.connected) {
             await writeOutputsToDirectory(build);
-            appendLog(`Wrote ${OUTPUT_IMAGE_NAME} and ${OUTPUT_JSON_NAME} to ${outputDirectoryHandle.name}.`);
-            setStatus("Build complete and written to the selected folder.", "success");
+            appendLog(`Wrote ${OUTPUT_IMAGE_NAME} and ${OUTPUT_JSON_NAME} to resources/palette.`);
+            setStatus("Build complete and written to resources/palette.", "success");
         } else {
             appendLog("Build complete. Use the download links or choose an output folder.");
             setStatus("Build complete. Use the download links or choose an output folder.", "success");
@@ -962,34 +957,40 @@ async function runVerify() {
 }
 
 async function chooseOutputFolder() {
-    if (!("showDirectoryPicker" in window)) {
-        setStatus("This browser does not support direct folder writes. Use the download links instead.", "error");
+    if (!projectHost) {
+        setStatus("The shared project host is unavailable.", "error");
         return;
     }
     try {
-        outputDirectoryHandle = await window.showDirectoryPicker({ mode: "readwrite" });
+        await projectHost.chooseResourcesDirectory();
         updateOutputFolderLabel();
-        setStatus(`Selected output folder: ${outputDirectoryHandle.name}`, "success");
+        setStatus(`Selected project resources: ${projectHost.displayName}`, "success");
         if (latestBuild) {
             await writeOutputsToDirectory(latestBuild);
-            appendLog(`Wrote the latest build to ${outputDirectoryHandle.name}.`);
+            appendLog("Wrote the latest build to resources/palette.");
         }
     } catch (error) {
         if (error?.name === "AbortError") return;
         console.error(error);
-        setStatus(`Could not select an output folder: ${error.message || error}`, "error");
+        setStatus(`Could not select the resources folder: ${error.message || error}`, "error");
     }
 }
 
-function clearOutputFolder() {
-    outputDirectoryHandle = null;
+async function clearOutputFolder() {
+    if (projectHost?.mode !== "browser") return;
+    await projectHost.forgetResourcesDirectory();
     updateOutputFolderLabel();
-    setStatus("Using download links only.", "info");
+    setStatus("Project folder forgotten; using download links only.", "info");
 }
 
-function bootstrap() {
+async function bootstrap() {
+    if (projectHost) {
+        projectHost.subscribe(() => updateOutputFolderLabel());
+        await projectHost.initialize();
+    }
     updateOutputFolderLabel();
-    ui.chooseFolderButton.disabled = !("showDirectoryPicker" in window);
+    ui.chooseFolderButton.disabled = !projectHost || projectHost.mode === "native" || !("showDirectoryPicker" in window);
+    ui.clearFolderButton.disabled = !projectHost || projectHost.mode === "native";
     ui.chooseFolderButton.addEventListener("click", chooseOutputFolder);
     ui.clearFolderButton.addEventListener("click", clearOutputFolder);
     ui.buildButton.addEventListener("click", runBuild);
@@ -1006,4 +1007,4 @@ function bootstrap() {
 
 export { buildOutputs, verifyExistingCache };
 
-bootstrap();
+bootstrap().catch((error) => setStatus(error.message || String(error), "error"));

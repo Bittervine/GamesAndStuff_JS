@@ -2029,7 +2029,7 @@
             "catalogId": "it_entities_001",
             "x": 1872,
             "y": 512,
-            "w": 865,
+            "w": 1011,
             "h": 127,
             "state": "armed",
             "visualStates": {
@@ -2041,7 +2041,7 @@
                 "complete": "Complete"
             },
             "interaction": "proximityText",
-            "text": "This is a placeholder text.\nYou can press F8 to skip to next level",
+            "text": "I havnt fully 'patched' in all mushrooms yet.\nYou can press F8 to skip to next level.",
             "fontSize": 50,
             "fontFamily": "inter",
             "color": "#723891",
@@ -2253,7 +2253,7 @@
             "type": "characterEnemy",
             "enemyCatalogId": "enemy_092",
             "characterId": "ct_char_enemy_092",
-            "x": 11184,
+            "x": 11408,
             "y": 884,
             "w": 99,
             "h": 149,

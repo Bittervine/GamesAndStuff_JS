@@ -781,6 +781,12 @@ export async function createRenderer(canvas, options = {}) {
                 throw error;
             }
             console.warn(`Optional runtime character could not be loaded: ${spec.url}`, error);
+            options.onRecoverableException?.({
+                type: "enemyCharacterProjectFallback",
+                resourceUrl: spec.url,
+                error: String(error?.message || error),
+                message: `Enemy character project could not be loaded: ${spec.url}`
+            });
             return { spec, project: null };
         }
     });
@@ -814,7 +820,8 @@ export async function createRenderer(canvas, options = {}) {
         {
             displayCanvas: canvas,
             webglBackend,
-            onStaticBakeFailure: options.onStaticBakeFailure
+            onStaticBakeFailure: options.onStaticBakeFailure,
+            onRecoverableException: options.onRecoverableException
         }
     );
     onProgress({ progress: 0.93, label: "Loading wizard powered-rocket atlas" });
@@ -845,6 +852,7 @@ class RocketfrockRenderer {
         this.webglBackend = options.webglBackend || null;
         this.renderBackend = this.webglBackend ? "webgl2-resident" : "canvas2d";
         this.onStaticBakeFailure = typeof options.onStaticBakeFailure === "function" ? options.onStaticBakeFailure : null;
+        this.onRecoverableException = typeof options.onRecoverableException === "function" ? options.onRecoverableException : null;
         this.playerProject = playerProject;
         this.assets = playerProject.assets;
         this.rigConfig = playerProject.rig;
@@ -1543,6 +1551,12 @@ class RocketfrockRenderer {
                 loadedCount += 1;
             } catch (error) {
                 console.warn(`Optional runtime character could not be loaded: ${url}`, error);
+                this.onRecoverableException?.({
+                    type: "enemyCharacterProjectFallback",
+                    resourceUrl: url,
+                    error: String(error?.message || error),
+                    message: `Enemy character project could not be loaded: ${url}`
+                });
             }
         }
 

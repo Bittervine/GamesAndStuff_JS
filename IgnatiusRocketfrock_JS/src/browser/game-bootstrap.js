@@ -22,7 +22,8 @@ import {
     normalizePlayerProgression,
     applyPlayerProgression,
     defaultNextLevelId,
-    addEvent
+    addEvent,
+    recordDebugExceptionAlert
 } from "../core/simulation.js";
 import { RocketfrockInput } from "./browser-input.js";
 import { GamepadHaptics } from "./gamepad-haptics.js";
@@ -180,7 +181,7 @@ const tuningResetButton = document.getElementById("tuning-reset");
 const developmentRecordingButton = document.getElementById("development-recording");
 const developmentPlaybackButton = document.getElementById("development-playback");
 
-const GAME_REVISION = "300";
+const GAME_REVISION = "314";
 const START_LEVEL_ID = "level_001";
 const launchParams = new URLSearchParams(window.location.search || "");
 const launchLevelId = normalizeLaunchLevelQuery(launchParams.get("level"), START_LEVEL_ID);
@@ -189,6 +190,7 @@ const launchEditorPlaytest = launchParams.get("playtest_browser_copy") === "1";
 const launchRecordRequested = ["1", "true", "on", "yes"].includes(String(launchParams.get("record") || "").trim().toLowerCase());
 const launchPlaybackUrl = playbackUrlFromQueryValue(launchParams.get("playback"));
 const launchPlaybackPauseAtSec = finiteNonNegativeNumber(launchParams.get("playback_pause"), null);
+const pendingStartupExceptionAlerts = [];
 
 async function loadBundledProximityTextFonts() {
     if (!document.fonts?.load) return;
@@ -205,7 +207,10 @@ let activeCaveWindow = normalizeCaveWindow(null);
 let renderer;
 const electronWindowBridge = detectElectronWindowBridge(window);
 const storedGameSettings = loadStoredGameSettings();
-const installedGameTuning = await loadInstalledGameTuning({ fallback: DEFAULT_TUNING });
+const installedGameTuning = await loadInstalledGameTuning({
+    fallback: DEFAULT_TUNING,
+    onException: (incident) => pendingStartupExceptionAlerts.push(incident)
+});
 storedGameSettings.tuningOverrides = normalizeGameTuningOverrides(
     storedGameSettings.tuningOverrides,
     installedGameTuning
@@ -223,6 +228,9 @@ let gameState = launchPlaybackRecording?.initialState
         randomSeed: launchPlaybackRecording?.initial?.randomSeed || browserRandomSeed()
     });
 gameState.settings = normalizeGameSettings(gameState.settings);
+for (const incident of pendingStartupExceptionAlerts.splice(0)) {
+    recordDebugExceptionAlert(gameState, incident);
+}
 const musicBaseUrl = resourceUrl("music/");
 const soundEffectsBaseUrl = resourceUrl("");
 const musicDirector = createMusicDirector({ volume: gameState.settings.musicVolume, baseUrl: musicBaseUrl });
@@ -279,6 +287,7 @@ try {
         environmentAtlasManifestUrls: gameState.world.atlasManifests,
         enemyCharacterUrls: requiredEnemyCharacterProjectUrls(gameState.world),
         onStaticBakeFailure: handleStaticBakeRendererFailure,
+        onRecoverableException: (incident) => recordDebugExceptionAlert(gameState, incident),
         onProgress: ({ progress, label }) => {
             setLoadingProgress(0.1 + clamp01(progress) * 0.85, label);
         }
@@ -646,7 +655,8 @@ function processDebugExceptionAlerts() {
     );
     const lastIncident = pending[pending.length - 1];
     debugExceptionAlertFilename = filename;
-    debugExceptionAlertSummary = `${lastIncident.exceptionType || lastIncident.type || "watchdog"}: ${lastIncident.enemyId || "unknown enemy"} timeout ${lastIncident.timeoutCount || "?"}`;
+    debugExceptionAlertSummary = String(lastIncident.message ||
+        `${lastIncident.exceptionType || lastIncident.type || "runtime exception"}: ${lastIncident.resourceUrl || lastIncident.enemyId || "unexpected fallback"}`);
 
     if (DEVELOPMENT && debugEl) {
         debugExceptionAlertActive = true;
@@ -756,7 +766,7 @@ async function restoreGameplayPlaybackInitialState(recording) {
             atlasSpan: 0.36
         });
         renderer.syncCaveWindow(activeCaveWindow);
-        applyLoadedAtlasCollisions();
+        applyLoadedAtlasCollisionsOrException("gameplay playback restore");
         renderer.syncEnvironmentColorMap(gameState.world.colorMap, gameState.world.colorExchange);
         renderer.prewarmLevelPresentationCaches?.(gameState.world);
         accumulator = 0;
@@ -889,10 +899,21 @@ async function loadEnemyDefinitionCatalog() {
         enemyDefinitionCatalog = await response.json();
         if (!applyEnemyDefinitionCatalog(gameState, enemyDefinitionCatalog)) {
             console.warn(`Enemy definition catalog ${url} contains no usable enemies.`);
+            recordDebugExceptionAlert(gameState, {
+                type: "enemyCatalogFallback",
+                resourceUrl: url,
+                message: "Enemy catalog contains no usable enemies; automatic spawning is inactive"
+            });
         }
     } catch (error) {
         enemyDefinitionCatalog = { enemies: {} };
         console.warn(`Could not load automatic enemy-spawn catalog ${url}. Auto spawning will remain inactive.`, error);
+        recordDebugExceptionAlert(gameState, {
+            type: "enemyCatalogFallback",
+            resourceUrl: url,
+            error: String(error?.message || error),
+            message: "Enemy catalog could not be loaded; automatic spawning is inactive"
+        });
     }
     return enemyDefinitionCatalog;
 }
@@ -964,11 +985,23 @@ async function loadLootCatalog() {
         const response = await fetch(url, { cache: "no-store" });
         if (!response.ok) throw new Error(`${response.status}`);
         lootCatalog = await response.json();
-        applyLootCatalog(gameState, lootCatalog);
+        if (!applyLootCatalog(gameState, lootCatalog)) {
+            recordDebugExceptionAlert(gameState, {
+                type: "lootCatalogFallback",
+                resourceUrl: url,
+                message: "Loot catalog contains no usable items; enemy drops are disabled"
+            });
+        }
     } catch (error) {
         console.warn(`Enemy loot catalog could not be loaded: ${url}. Enemy drops will remain disabled.`, error);
         lootCatalog = { items: {}, pools: {} };
         applyLootCatalog(gameState, lootCatalog);
+        recordDebugExceptionAlert(gameState, {
+            type: "lootCatalogFallback",
+            resourceUrl: url,
+            error: String(error?.message || error),
+            message: "Loot catalog could not be loaded; enemy drops are disabled"
+        });
     }
     return lootCatalog;
 }
@@ -1156,9 +1189,7 @@ async function loadRequestedLevel(request) {
             atlasStart: 0.52,
             atlasSpan: 0.36
         });
-        if (!applyLoadedAtlasCollisions()) {
-            console.error(`Level transition loaded ${loadedLevelId}, but its atlas collision could not be applied.`);
-        }
+        applyLoadedAtlasCollisionsOrException(`level transition to ${loadedLevelId}`);
         renderer.syncEnvironmentColorMap(gameState.world.colorMap, gameState.world.colorExchange);
         setLoadingProgress(0.9, "Prewarming level foreground textures");
         renderer.prewarmLevelPresentationCaches?.(gameState.world);
@@ -2112,9 +2143,7 @@ async function restartCurrentLevel() {
             atlasStart: 0.52,
             atlasSpan: 0.36
         });
-        if (!applyLoadedAtlasCollisions()) {
-            console.error("Restarted level, but its atlas collision data could not be applied.");
-        }
+        applyLoadedAtlasCollisionsOrException("level restart");
         renderer.syncEnvironmentColorMap(gameState.world.colorMap, gameState.world.colorExchange);
         setLoadingProgress(0.9, "Prewarming level foreground textures");
         renderer.prewarmLevelPresentationCaches?.(gameState.world);
@@ -2625,6 +2654,19 @@ function applyLoadedAtlasCollisions() {
         return false;
     }
     return applyAtlasManifestsToWorld(gameState, renderer.getEnvironmentManifests());
+}
+
+function applyLoadedAtlasCollisionsOrException(context) {
+    if (applyLoadedAtlasCollisions()) return true;
+    const message = `Atlas collision fallback remained active during ${context}`;
+    console.error(message);
+    recordDebugExceptionAlert(gameState, {
+        type: "atlasCollisionFallback",
+        context,
+        atlasManifests: [...(gameState.world?.atlasManifests || [])],
+        message
+    });
+    return false;
 }
 
 function frame(now) {
@@ -3138,7 +3180,7 @@ window.__rocketfrockDev = {
         gamepadHaptics.reset(gameState.debug.lastEvents);
         soundEffectsDirector.reset();
         syncLoadedCharacterCombatProfiles();
-        applyLoadedAtlasCollisions();
+        applyLoadedAtlasCollisionsOrException("development reset");
         syncGameSettingsUi();
         syncGameAudioState();
     },

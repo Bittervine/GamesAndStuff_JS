@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <title>Ignatius Dev Tool - BUILD 314</title>
+    <style>
+        :root { color-scheme: dark; --bg: #0d0b15; --panel2: #211a30; --border: #51406f; --text: #eee8ff; --muted: #b7abc9; --accent: #a481df; --ok: #88d8a0; --error: #ff8f9b; }
+        * { box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, sans-serif; }
+        body { display: grid; grid-template-rows: auto 1fr; }
+        header { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; min-height: 54px; padding: 8px 12px; background: linear-gradient(180deg, #1b1628, #120f1c); border-bottom: 1px solid var(--border); }
+        h1 { margin: 0; font-size: 17px; white-space: nowrap; }
+        nav { display: flex; gap: 7px; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
+        button { font: inherit; color: var(--text); border: 1px solid var(--border); border-radius: 8px; background: var(--panel2); padding: 8px 12px; cursor: pointer; white-space: nowrap; }
+        button:hover { border-color: var(--accent); }
+        .tab.active { background: #34264d; border-color: var(--accent); }
+        .project { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; }
+        #project-status { max-width: 330px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+        #project-status.connected { color: var(--ok); }
+        #project-status.error { color: var(--error); }
+        main { position: relative; min-width: 0; min-height: 0; }
+        iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: none; background: #111; }
+        iframe.active { display: block; }
+        @media (max-width: 860px) { header { grid-template-columns: 1fr; } .project { justify-content: flex-start; } }
+    </style>
+    <script src="./src/tools/ignatius-project-host.js"></script>
+    <script>window.ignatiusProjectHost = IgnatiusProjectHost.create();</script>
+</head>
+<body>
+<header>
+    <h1>Ignatius Dev Tool</h1>
+    <nav aria-label="Development tools">
+        <button class="tab active" data-tool="level" type="button">Level Editor</button>
+        <button class="tab" data-tool="asset" type="button">Asset Tool</button>
+        <button class="tab" data-tool="character" type="button">Character Tool</button>
+        <button class="tab" data-tool="palette" type="button">Palette Builder</button>
+    </nav>
+    <div class="project">
+        <span id="project-status">Connecting…</span>
+        <button id="select-resources" type="button">Select resources folder…</button>
+    </div>
+</header>
+<main>
+    <iframe class="active" data-tool="level" src="./level-editor.html" title="Level Editor"></iframe>
+    <iframe data-tool="asset" src="./asset-editor.html" title="Asset Tool"></iframe>
+    <iframe data-tool="character" src="./character-editor.html" title="Character Tool"></iframe>
+    <iframe data-tool="palette" src="./palette-builder.html" title="Palette Builder"></iframe>
+</main>
+<script>
+(() => {
+    const projectHost = window.ignatiusProjectHost;
+    const tabs = [...document.querySelectorAll("button.tab")];
+    const frames = [...document.querySelectorAll("iframe[data-tool]")];
+    const status = document.getElementById("project-status");
+    const selectButton = document.getElementById("select-resources");
+
+    window.ignatiusDevToolLaunchPlaytest = (url) => {
+        const bridge = window.chrome?.webview;
+        if (typeof bridge?.postMessage === "function") {
+            bridge.postMessage("ignatius-playtest-request");
+            return;
+        }
+        window.open(url, "_blank");
+    };
+
+    function selectTool(tool) {
+        for (const tab of tabs) tab.classList.toggle("active", tab.dataset.tool === tool);
+        for (const frame of frames) frame.classList.toggle("active", frame.dataset.tool === tool);
+        localStorage.setItem("ignatius-dev-tool-active-tab", tool);
+    }
+
+    function renderProject(snapshot) {
+        status.textContent = snapshot.connected ? snapshot.displayName : "No resources folder selected";
+        status.title = snapshot.connected ? snapshot.displayName : "";
+        status.className = snapshot.connected ? "connected" : "";
+        selectButton.hidden = false;
+        selectButton.disabled = !snapshot.canChooseDirectory;
+    }
+
+    projectHost.subscribe(renderProject);
+    projectHost.initialize().catch((error) => {
+        status.textContent = error.message || String(error);
+        status.className = "error";
+    });
+
+    for (const tab of tabs) tab.addEventListener("click", () => selectTool(tab.dataset.tool));
+    selectButton.addEventListener("click", async () => {
+        try {
+            const before = projectHost.snapshot();
+            if (before.connected && !window.confirm("Changing the resources folder reloads all tools and discards unsaved in-memory edits. Continue?")) {
+                return;
+            }
+            const after = await projectHost.chooseResourcesDirectory();
+            if (after.connected && after.displayName !== before.displayName) {
+                for (const frame of frames) frame.contentWindow?.location.reload();
+            }
+        } catch (error) {
+            if (error?.name === "AbortError") return;
+            status.textContent = error.message || String(error);
+            status.className = "error";
+        }
+    });
+
+    const requested = new URLSearchParams(location.search).get("tool");
+    const remembered = localStorage.getItem("ignatius-dev-tool-active-tab");
+    selectTool(tabs.some((tab) => tab.dataset.tool === requested) ? requested : tabs.some((tab) => tab.dataset.tool === remembered) ? remembered : "level");
+})();
+</script>
+</body>
+</html>

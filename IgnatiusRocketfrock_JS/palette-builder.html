@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Ignatius Palette Thumbnail Builder - BUILD 300</title>
+    <title>Ignatius Palette Thumbnail Builder - BUILD 314</title>
     <style>
         :root {
             color-scheme: dark;
@@ -80,10 +80,10 @@
                 </label>
             </div>
             <div class="row">
-                <label>Selected output folder <input id="output-folder" type="text" readonly value="(download only)"></label>
+                <label>Project resources folder <input id="output-folder" type="text" readonly value="(not connected)"></label>
                 <div class="actions">
-                    <button id="choose-folder" type="button" class="secondary">Choose output folder…</button>
-                    <button id="clear-folder" type="button" class="secondary">Use downloads only</button>
+                    <button id="choose-folder" type="button" class="secondary">Select resources folder…</button>
+                    <button id="clear-folder" type="button" class="secondary">Forget folder</button>
                 </div>
             </div>
             <div class="actions">
@@ -93,7 +93,7 @@
             <div id="status" class="status info">Ready.</div>
             <div class="progress" aria-hidden="true"><div id="progress-bar"></div></div>
             <div class="summary" id="summary"></div>
-            <p class="muted">If the browser supports the File System Access API, the builder can write directly into <code>resources/palette</code>. Otherwise use the generated download links below and copy the files manually.</p>
+            <p class="muted">The shared project folder routes generated files directly into <code>resources/palette</code>. Download links remain available for deliberate exports.</p>
             <ul>
                 <li>The page keeps the same thumbnail JSON format used by the Level Editor.</li>
                 <li>Enemy thumbnails are assembled with the runtime character system, not by crude atlas cut-outs.</li>
@@ -111,6 +111,7 @@
         </section>
     </div>
 </main>
+<script src="./src/tools/ignatius-project-host.js"></script>
 <script type="module" src="./src/tools/palette-builder.js"></script>
 </body>
 </html>

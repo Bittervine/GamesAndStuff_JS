@@ -136,7 +136,8 @@ import {
     applyGameTuningValues,
     createGameTuningOverrides,
     normalizeGameTuningOverrides,
-    resolveGameTuning
+    resolveGameTuning,
+    gameTuningValidationIssues
 } from "../src/shared/game-tuning-data.js";
 import {
     AUTOSAVE_SLOT_ID,
@@ -499,7 +500,8 @@ import {
     syncEnemyTuningHealthScales,
     damagePlayer,
     getPlayerRect,
-    launchCharacterEnemyProjectile
+    launchCharacterEnemyProjectile,
+    recordDebugExceptionAlert
 } from "../src/core/simulation.js";
 
 const RESOURCE_ROOT_DIRECTORY = new URL("../resources/", import.meta.url);
@@ -654,13 +656,15 @@ function testSourceOrganization() {
         "../src/tools/character-editor/parent-constraint-data.js",
         "../src/tools/character-editor/reference-plate.js",
         "../src/tools/character-editor/character-project.js",
-        "../src/tools/character-editor/enemy-project-catalog.js"
+        "../src/tools/character-editor/enemy-project-catalog.js",
+        "../IgnatiusDevTool.html",
+        "../src/tools/ignatius-project-host.js"
     ];
     for (const relativePath of expectedFiles) {
         assert.equal(existsSync(new URL(relativePath, import.meta.url)), true, `${relativePath} should exist in the organized source tree`);
     }
 
-    for (const htmlName of ["index.html", "IgnatiusRocketfrock_JS.html", "game.html", "level-editor.html", "asset-editor.html", "character-editor.html", "GameManual.html"]) {
+    for (const htmlName of ["index.html", "IgnatiusRocketfrock_JS.html", "game.html", "IgnatiusDevTool.html", "level-editor.html", "asset-editor.html", "character-editor.html", "GameManual.html"]) {
         const html = readFileSync(new URL(`../${htmlName}`, import.meta.url), "utf8");
         assert.match(html, /<link rel="icon" href="favicon\.ico" sizes="any">/, `${htmlName} should use the shared Rocketfrock favicon`);
     }
@@ -739,6 +743,7 @@ function testSourceOrganization() {
     assert.ok(windowsBuildScript.includes("call :touch_project_sources") && windowsBuildScript.includes("Retrying once after refreshing project source timestamps"), "the timestamp refresh should remain available only after verification detects stale objects");
     assert.equal(windowsBuildScript.includes('rmdir /S /Q "%CONTENT_DEST%"'), false, "runtime content synchronization should not delete and recopy the complete destination on every build");
     assert.match(windowsBuildScript, /robocopy "%CONTENT_SOURCE%" "%CONTENT_DEST%" \/MIR/, "runtime content should use robocopy's incremental mirror behavior");
+    assert.ok(windowsBuildScript.includes("/XF IgnatiusDevTool.html") && windowsBuildScript.includes("IgnatiusDevTool.html level-editor.html asset-editor.html"), "Windows content synchronization should preserve and stage the shared IgnatiusDevTool shell");
 
     const resourceIndex = normalizeResourceIndex(readResourceJson("resources.json"));
     assert.ok(resourceIndex.assetAtlasIds.includes("at_atlas_019"), "resources.json should enumerate the complete asset-atlas library without numbered probing");
@@ -757,15 +762,57 @@ function testSourceOrganization() {
 
     const nativeAppSource = readFileSync(new URL("../../src/runtime/ignatius-app.cpp", import.meta.url), "utf8");
     const devToolHostSource = readFileSync(new URL("../../src/runtime/development-tool-host.cpp", import.meta.url), "utf8");
+    const referenceAssetLoaderSource = readFileSync(new URL("../../src/shared/reference-asset-loader.cpp", import.meta.url), "utf8");
+    const runtimePathsSource = readFileSync(new URL("../../src/shared/runtime-paths.h", import.meta.url), "utf8");
+    const nativeWebViewSource = readFileSync(new URL("../../src/runtime/reference-webview-host.cpp", import.meta.url), "utf8");
+    const debugTraceSource = readFileSync(new URL("../../src/shared/debug-trace.h", import.meta.url), "utf8");
     const launchOptionsHeader = readFileSync(new URL("../../src/runtime/launch-options.h", import.meta.url), "utf8");
     const launchOptionsSource = readFileSync(new URL("../../src/runtime/launch-options.cpp", import.meta.url), "utf8");
     const gpuPresenterHeader = readFileSync(new URL("../../src/runtime/gpu-presenter.h", import.meta.url), "utf8");
     assert.match(launchOptionsHeader, /DEVTOOL_PLAYTEST_LEVEL_ID = "level_temp"/, "IgnatiusDevTool should use the exact generated filename level_temp.json");
-    assert.match(devToolHostSource, /contentRoot \/ "resources" \/ "levels" \/ \(FString\(DEVTOOL_PLAYTEST_LEVEL_ID\) \+ "\.json"\)/, "IgnatiusDevTool should write its generated playtest snapshot beside ordinary packaged levels");
+    assert.match(devToolHostSource, /playtestLevelPath = authoringResourceRoot \/ "levels" \/ \(FString\(DEVTOOL_PLAYTEST_LEVEL_ID\) \+ "\.json"\)/, "IgnatiusDevTool should write its generated playtest snapshot inside the selected resources root");
     assert.match(devToolHostSource, /argsStorage\.push_back\("--level"\)[\s\S]*argsStorage\.push_back\(DEVTOOL_PLAYTEST_LEVEL_ID\)/, "IgnatiusDevTool should launch playtests through the ordinary level-id loader");
+    assert.match(launchOptionsSource, /--resources-root[\s\S]*options\.resourcesRoot/, "IgnatiusSDL should accept a resources-root command-line override");
+    assert.ok(nativeAppSource.includes("setReferenceAssetRootOverride(resourceRoot)"), "IgnatiusSDL should install the validated command-line resources root before loading assets");
+    assert.equal(referenceAssetLoaderSource.includes("using packaged DevTool playtest level"), false, "a resources-root override should never fall back to packaged level_temp content");
+    assert.match(devToolHostSource, /resourcesRootOverride[\s\S]*authoringResourceRoot[\s\S]*argsStorage\.push_back\("--resources-root"\)[\s\S]*argsStorage\.push_back\(pathString\(authoringResourceRoot\)\)/, "IgnatiusDevTool should use its command-line resources root and pass the same folder to native playtests");
+    assert.match(devToolHostSource, /locateContentRoot\(\)[\s\S]*executableBasePath\(\) \/ "content"/, "IgnatiusDevTool should load its HTML bundle only from content beside the executable");
+    assert.match(devToolHostSource, /locateAuthoringResourceRoot[\s\S]*return normalizedAbsolutePath\(contentRoot \/ "resources"\)/, "IgnatiusDevTool should default to the packaged content/resources tree");
+    assert.equal(devToolHostSource.includes('current / "reference" / "resources"'), false, "IgnatiusDevTool should not auto-select source-tree resources");
+    assert.match(referenceAssetLoaderSource, /packagedRoot = normalizedAbsolutePath\(baseDirectory \/ DISTRIBUTION_ASSET_ROOT_RELATIVE\)/, "IgnatiusSDL should default to content/resources beside the executable");
+    assert.equal(referenceAssetLoaderSource.includes("source-tree assets via"), false, "IgnatiusSDL should not silently borrow source-tree resources when packaged content is missing");
+    assert.equal(nativeAppSource.includes("std::filesystem::current_path()"), false, "IgnatiusSDL must not anchor application-owned paths to the process working directory");
+    assert.equal(nativeAppSource.includes("SDL_GetPrefPath"), false, "IgnatiusSDL settings and saves must remain executable-local rather than using OS preference folders");
+    assert.match(nativeAppSource, /preferenceDirectory = executableSubpath\("userdata"\)/, "IgnatiusSDL settings and saves should live below executable-local userdata");
+    assert.match(nativeAppSource, /directory = executableSubpath\("logs"\)/, "IgnatiusSDL debug and exception logs should live below executable-local logs");
+    assert.match(nativeAppSource, /directory = executableSubpath\("recordings"\)/, "IgnatiusSDL gameplay recordings should live below executable-local recordings");
+    assert.equal(referenceAssetLoaderSource.includes("std::filesystem::current_path()"), false, "packaged content lookup must never fall back to the current working directory");
+    assert.match(referenceAssetLoaderSource, /packagedRoot = executableSubpath\("content"\)/, "the native browser bundle should resolve only from executable-adjacent content");
+    assert.equal(devToolHostSource.includes("std::filesystem::current_path()"), false, "IgnatiusDevTool must not anchor packaged content to the current working directory");
+    assert.equal(nativeWebViewSource.includes("std::filesystem::temp_directory_path()"), false, "IgnatiusSDL WebView data must not escape into the OS temporary directory");
+    assert.equal(devToolHostSource.includes("std::filesystem::temp_directory_path()"), false, "IgnatiusDevTool WebView data must not escape into the OS temporary directory");
+    assert.match(debugTraceSource, /executableSubpath\(std::filesystem::path\("logs"\)/, "startup diagnostics should be executable-local");
+    assert.match(runtimePathsSource, /pathIsWithinDirectory/, "native explicit file paths should have a shared executable-containment guard");
+    assert.equal(nativeAppSource.includes("C:\\Windows\\Fonts"), false, "IgnatiusSDL should use bundled fonts instead of probing system font files");
+    assert.equal(nativeAppSource.includes("/usr/share/fonts"), false, "IgnatiusSDL should not probe Unix system font files");
+    assert.ok(devToolHostSource.includes('playtestLevelPath = authoringResourceRoot / "levels"'), "DevTool playtest snapshots should use the exact resources root passed to the game");
+    assert.equal(devToolHostSource.includes('std::vector<std::filesystem::path> roots{ authoringResourceRoot }'), false, "native project saves should not mirror into packaged resources");
+    assert.ok(devToolHostSource.includes('AddWebResourceRequestedFilter') && devToolHostSource.includes('authoringResourceRoot / std::filesystem::path(*relativePath)'), "the native WebView should serve resources/* requests only from the selected resources root");
+    assert.ok(devToolHostSource.includes('path.extension().wstring()') && devToolHostSource.includes('request->get_uri(&rawUri)'), "the Windows WebView host should use the imported wide-string and lowercase URI accessors");
+    assert.ok(devToolHostSource.includes('resourceFilter.data()') && devToolHostSource.includes('wideResponse.data()') && devToolHostSource.includes('mutableReason.data()') && devToolHostSource.includes('headers.data()'), "the strict-string Windows build should pass mutable wide buffers to the imported WebView2 interfaces");
+    assert.ok(nativeAppSource.includes('gameTuningFallback') && nativeAppSource.includes('enemyCatalogFallback') && nativeAppSource.includes('lootCatalogFallback') && nativeAppSource.includes('enemyCharacterProjectFallback'), "native graceful resource fallbacks should enter the shared in-game exception alert queue");
     assert.ok(devToolHostSource.includes("ignatius-resource-saved|") && devToolHostSource.includes("addResourceIndexEntry"), "IgnatiusDevTool should add newly saved atlases and levels to resources.json when their authored files exist");
     assert.equal(devToolHostSource.includes("--level-file"), false, "IgnatiusDevTool should not retain the external temporary-level launch path");
-    assert.ok(devToolHostSource.includes("Palette Builder") && devToolHostSource.includes("palette-builder.html") && devToolHostSource.includes("std::array<DevToolTab, 4>"), "IgnatiusDevTool should expose a fourth Palette Builder tab");
+    const devToolShellSource = readFileSync(new URL("../IgnatiusDevTool.html", import.meta.url), "utf8");
+    const projectHostSource = readFileSync(new URL("../src/tools/ignatius-project-host.js", import.meta.url), "utf8");
+    const cmakeSource = readFileSync(new URL("../../CMakeLists.txt", import.meta.url), "utf8");
+    assert.ok(devToolHostSource.includes("IgnatiusDevTool.html") && devToolHostSource.includes("ignatius-project-request") && devToolHostSource.includes("writeResource"), "the SDL Dev Tool should host the shared HTML shell and provide its native project-file bridge");
+    assert.ok(devToolShellSource.includes("level-editor.html") && devToolShellSource.includes("asset-editor.html") && devToolShellSource.includes("character-editor.html") && devToolShellSource.includes("palette-builder.html"), "IgnatiusDevTool.html should expose all four authoring tools as same-origin frames");
+    assert.ok(projectHostSource.includes("showDirectoryPicker") && projectHostSource.includes("indexedDB") && projectHostSource.includes("resources.json") && projectHostSource.includes("RESOURCE_DIRECTORIES"), "the shared browser project host should remember and validate one resources-folder handle and route canonical resource categories");
+    assert.ok(projectHostSource.includes('#nativeRequest("chooseResourcesDirectory"') && projectHostSource.includes("canChooseDirectory: this.bridge ? true"), "the shared project host should expose native resources-folder selection through the same shell button");
+    assert.ok(devToolHostSource.includes('operation == "chooseResourcesDirectory"') && devToolHostSource.includes("FOS_PICKFOLDERS") && devToolHostSource.includes("chooseResourcesFolder"), "the native Dev Tool bridge should open and validate a real resources-folder picker");
+    assert.equal(devToolShellSource.includes('selectButton.hidden = snapshot.mode === "native"'), false, "the resources-folder button should remain visible in the native Dev Tool shell");
+    assert.ok(cmakeSource.includes('reference/IgnatiusDevTool.html') && cmakeSource.includes('reference/palette-builder.html'), "the Windows content stage should package the shared shell and palette builder");
     assert.match(launchOptionsSource, /lowered == DEVTOOL_PLAYTEST_LEVEL_ID/, "the native level-id parser should accept the reserved generated DevTool playtest id");
     assert.match(nativeAppSource, /referenceMusicAssetPath\(track\.file\)/, "native music playback should resolve catalog filenames through the music resource category");
     assert.ok(
@@ -2340,6 +2387,7 @@ function testLevelEditorMultiSelectionAndPaletteWorkflow() {
     const paletteCatalog = JSON.parse(readFileSync(new URL("../resources/palette/thumbnails.json", import.meta.url), "utf8"));
     const paletteBuilderHtml = readFileSync(new URL("../palette-builder.html", import.meta.url), "utf8");
     const paletteBuilderJs = readFileSync(new URL("../src/tools/palette-builder.js", import.meta.url), "utf8");
+    const paletteProjectHostJs = readFileSync(new URL("../src/tools/ignatius-project-host.js", import.meta.url), "utf8");
     const developmentPortal = readFileSync(new URL("../devel.html", import.meta.url), "utf8");
     const manualHtml = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     const packagedRevision = readFileSync(new URL("../BUILD_REVISION.txt", import.meta.url), "utf8").trim();
@@ -2361,10 +2409,10 @@ function testLevelEditorMultiSelectionAndPaletteWorkflow() {
     assert.ok(editorHtml.includes("characterProjectLoads: new Map()") && editorHtml.includes("ensureCharacterProjectsForLevel"), "character projects should load only for selected or placed enemies rather than for every palette card");
     assert.ok(paletteBuilderHtml.includes("Build thumbnails") && paletteBuilderHtml.includes('id="verify-button"') && paletteBuilderHtml.includes('src="./src/tools/palette-builder.js"'), "the browser builder page should expose build and verify actions and load its JavaScript module");
     assert.ok(paletteBuilderJs.includes("const DEFAULT_CELL_SIZE = 64") && paletteBuilderJs.includes("const DEFAULT_MAX_SIZE = 8192"), "the browser builder should keep thumbnail size configurable and preserve the 8192px single-sheet ceiling");
-    assert.ok(paletteBuilderJs.includes("showDirectoryPicker") && paletteBuilderJs.includes("verifyExistingCache") && paletteBuilderJs.includes("sourceDigest"), "the browser builder should support direct folder writes and stale-cache verification");
+    assert.ok(paletteProjectHostJs.includes("showDirectoryPicker") && paletteBuilderJs.includes("verifyExistingCache") && paletteBuilderJs.includes("sourceDigest"), "the browser builder should use the shared direct-folder host and retain stale-cache verification");
     assert.ok(paletteBuilderJs.includes("loadRuntimeCharacterProject") && paletteBuilderJs.includes("applyRuntimeProjectileHandoffVisibility") && paletteBuilderJs.includes("buildRuntimeCharacterDrawCommands"), "enemy thumbnails should be assembled with the runtime character renderer");
     assert.ok(paletteBuilderJs.includes("[...paths].map") && paletteBuilderJs.includes("loadRuntimeCharacterProject(characterPath"), "the browser builder should accept Set source inventories and resolve character projects from the root document");
-    for (const linkedPage of ["game.html", "level-editor.html", "character-editor.html", "asset-editor.html", "palette-builder.html"]) {
+    for (const linkedPage of ["game.html", "IgnatiusDevTool.html", "level-editor.html", "character-editor.html", "asset-editor.html", "palette-builder.html"]) {
         assert.ok(developmentPortal.includes(`href="${linkedPage}"`), `the development portal should link ${linkedPage}`);
     }
 
@@ -4971,6 +5019,54 @@ function testHunterVerticalOneWayJumpAndDistanceWatchdog() {
     assert.equal(jumpingEnemy.airborne, true, "hunter should remain in its character-navigation air traversal after launch");
     assert.ok(jumpingEnemy.currentTransform.y < launchY - 1, "hunter should advance upward rather than restarting its launch frame");
 
+    const rangedUnreachable = makeHunterStateMachineState();
+    rangedUnreachable.state.world.segments = [
+        { id: "ranged_unreachable_lower", kind: "blockable", x1: -200, y1: 400, x2: 800, y2: 400 },
+        { id: "ranged_unreachable_upper", kind: "walkable", x1: 300, y1: 100, x2: 500, y2: 100 }
+    ];
+    rangedUnreachable.state.player.currentTransform.x = 400;
+    rangedUnreachable.state.player.currentTransform.y = 100;
+    rangedUnreachable.state.player.onGround = true;
+    rangedUnreachable.state.player.wasOnGround = true;
+    rangedUnreachable.enemy.currentTransform.x = 400;
+    rangedUnreachable.enemy.currentTransform.y = 400;
+    rangedUnreachable.enemy.spawnX = 400;
+    rangedUnreachable.enemy.spawnY = 400;
+    rangedUnreachable.enemy.supportId = "ranged_unreachable_lower";
+    rangedUnreachable.enemy.currentSupportId = "ranged_unreachable_lower";
+    rangedUnreachable.enemy.homeSupportId = "ranged_unreachable_lower";
+    rangedUnreachable.enemy.patrolMinX = 300;
+    rangedUnreachable.enemy.patrolMaxX = 500;
+    rangedUnreachable.enemy.homePatrolMinX = 300;
+    rangedUnreachable.enemy.homePatrolMaxX = 500;
+    rangedUnreachable.enemy.attackMode = "projectile";
+    rangedUnreachable.enemy.attackRange = 340;
+    rangedUnreachable.enemy.attackVerticalRange = 180;
+    rangedUnreachable.enemy.preferredAttackRange = 220;
+    rangedUnreachable.enemy.preferredAttackMinRange = 110;
+    rangedUnreachable.enemy.projectileCooldown = 1;
+    rangedUnreachable.enemy.awarenessRange = 1000;
+    rangedUnreachable.enemy.jumpHeight = 120;
+    rangedUnreachable.enemy.unreachableGlareDuration = 10;
+    rangedUnreachable.enemy.aiState = "patrol";
+    rangedUnreachable.enemy.movementPhase = "idle";
+    rangedUnreachable.enemy.engaged = false;
+    rangedUnreachable.enemy.alerted = false;
+    stepMany(rangedUnreachable.state, 220);
+    assert.equal(rangedUnreachable.enemy.hunterWatchdogTimeoutCount, 0, "projectile-hunter navigation should not consume a watchdog timeout while handling an elevated target");
+    assert.equal(rangedUnreachable.state.debug.exceptionAlerts.length, 0, "projectile-hunter navigation should not record a watchdog exception for an elevated target");
+
+    const genericExceptionState = createInitialGameState();
+    genericExceptionState.clock.tick = 17;
+    genericExceptionState.clock.time = 2.5;
+    const genericIncident = recordDebugExceptionAlert(genericExceptionState, {
+        type: "lootCatalogFallback",
+        message: "Loot catalog unavailable"
+    });
+    assert.equal(genericIncident.sequence, 1, "generic runtime exceptions should receive the next shared alert sequence");
+    assert.equal(genericIncident.tick, 17, "generic runtime exceptions should capture the current simulation tick");
+    assert.equal(genericExceptionState.debug.exceptionAlerts[0].message, "Loot catalog unavailable", "generic runtime exceptions should retain their visible summary");
+
     const recovery = makeHunterStateMachineState();
     recovery.enemy.currentTransform.x = 10;
     recovery.enemy.engaged = true;
@@ -6260,6 +6356,9 @@ function testEnemyContactDamageUsesIndependentInvulnerability() {
     approx(before - state.health.amount, 40, 0.000001, "Normal contact damage should be twice one quarter of the stronger ranged or melee damage");
     assert.ok(state.health.contactInvulnerabilityTimer > 0, "contact damage should start its own cooldown");
     assert.equal(state.health.invulnerabilityTimer, 0, "contact damage must not consume ordinary attack invulnerability");
+    approx(state.player.vx, -state.tuning.playerContactDamageKnockbackX, 0.000001, "contact damage should nudge Ignatius away from the enemy");
+    approx(state.player.vy, state.tuning.playerContactDamageKnockbackY, 0.000001, "contact damage should add the authored small upward knockback");
+    assert.equal(state.player.onGround, false, "vertical contact knockback should briefly lift Ignatius from his support");
 
     const afterContact = state.health.amount;
     stepSimulation(state, createInputFrame(), FIXED_DT);
@@ -7316,6 +7415,9 @@ function testCharacterProjectWorkspace() {
     assert.ok(toolHtml.includes("selected part is fully opaque") && toolHtml.includes("ghosted between 10% and 50%"), "character tool should explain selected and unselected alpha-preview behaviour");
     assert.ok(toolHtml.includes("clamp(effectiveAlpha, 0.1, 0.5)"), "alpha-off preview should cap unselected parts between ten and fifty percent opacity");
     assert.ok(toolHtml.includes('id="quick-toolbar"') && toolHtml.includes('id="quick-select"') && toolHtml.includes('id="quick-adjust"'), "character tool should expose Select and Adjust shortcuts above the canvas");
+    assert.match(toolHtml, /grid-template-rows:\s*max-content minmax\(0, 1fr\) max-content/, "character stage layout should reserve non-shrinking rows for both toolbars");
+    assert.match(toolHtml, /max-height:\s*100%/, "character canvas should shrink inside its dedicated grid row instead of clipping a toolbar");
+    assert.match(toolHtml, /#quick-toolbar\s*\{[\s\S]*margin-bottom:\s*4px/, "character quick toolbar should retain a visible buffer above the editing canvas");
     assert.ok(toolHtml.includes('id="quick-visibility"') && toolHtml.includes('id="quick-to-back"') && toolHtml.includes('id="quick-to-front"'), "character toolbar should expose visibility and draw-order shortcuts");
     assert.ok(toolHtml.includes('id="animation-dock"') && toolHtml.includes('class="dock-playhead"'), "character tool should expose the wide bottom animation dock");
     assert.ok(toolHtml.includes('id="track-step-back"') && toolHtml.includes('&lt;--') && toolHtml.includes('&lt;-') && toolHtml.includes('>PAUSE</button>') && toolHtml.includes('playing ? "PAUSE" : "PLAY"') && toolHtml.includes('-&gt;') && toolHtml.includes('--&gt;'), "animation dock should expose global and track-specific keyframe navigation plus a toggling play/pause button");
@@ -7324,7 +7426,10 @@ function testCharacterProjectWorkspace() {
     assert.ok(toolHtml.includes("GROUND · y = 0 · drag label") && toolHtml.includes("beginGroundGuideDrag") && toolHtml.includes("drawGroundGuide"), "character tool should show a draggable view-only runtime-ground guide");
     assert.ok(toolHtml.includes("PANEL_STORAGE_KEY") && toolHtml.includes("setupCollapsiblePanels") && toolHtml.includes("localStorage.setItem"), "right-side panels should collapse and remember their state in local storage");
     assert.ok(toolHtml.includes("selectPartFromCanvas") && toolHtml.includes('setAnimationTool("adjust")'), "canvas Select mode should choose a rig box and return to Adjust mode");
-    assert.ok(toolHtml.includes("toggleSelectedPartVisibility"), "quick toolbar should author visible/hidden alpha keys");
+    assert.ok(toolHtml.includes("hiddenParts: new Set()") && toolHtml.includes("isPartEditorHidden") && toolHtml.includes("state.hiddenParts.add(partName)"), "quick toolbar visibility should be an ephemeral editor-only part mask");
+    assert.ok(toolHtml.includes('addEventListener("dblclick"') && toolHtml.includes("restoreAllEditorPartVisibility"), "double-clicking the visibility shortcut should restore every editor-hidden part");
+    const visibilityToggleSource = toolHtml.slice(toolHtml.indexOf("function toggleSelectedPartVisibility()"), toolHtml.indexOf("function refreshAnimationJson()"));
+    assert.equal(visibilityToggleSource.includes("upsertAnimationKeyframe"), false, "editor-only visibility must not author alpha keyframes");
     assert.ok(toolHtml.includes('data-dirty-export="character"') && toolHtml.includes('data-dirty-export="animation"'), "character tool should expose independent dirty-document export status");
     assert.ok(toolHtml.includes("part-to-back"), "character tool should expose a selected-part To Back control");
     assert.ok(toolHtml.includes("part-to-front"), "character tool should expose a selected-part To Front control");
@@ -12048,6 +12153,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(rendererSource.includes("areaDamageRadius") && rendererSource.includes("visualScale"), "renderer should visualize Bigbomb AoE and per-mode rocket scale");
     const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
     const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
+    const gameTuningSource = readFileSync(new URL("../src/shared/game-tuning-data.js", import.meta.url), "utf8");
     assert.ok(gameHtml.includes('id="power-text"') && gameHtml.includes('id="power-time"') && gameHtml.includes('id="power-fill"'), "the top-left HUD should include a dedicated Power bar");
     const debugPanelStyle = gameHtml.match(/#debug\s*\{([\s\S]*?)\}/)?.[1] || "";
     assert.ok(
@@ -12228,6 +12334,23 @@ function testRocketPowerUpArsenal() {
             && nativeRendererSource.includes("proximityTextRenderFontSize"),
         "the SDL renderer should select bundled bold variable-font instances and compensate their Canvas anchor and optical-size metrics"
     );
+    assert.ok(
+        nativeRendererSource.includes("INTER_BOLD_NAMED_INSTANCE = 7")
+            && nativeRendererSource.includes('openBundledVariableFont(fontFileBytes, 34.0f, INTER_BOLD_NAMED_INSTANCE, "title UI")')
+            && nativeRendererSource.includes('openBundledVariableFont(fontFileBytes, 20.0f, INTER_BOLD_NAMED_INSTANCE, "body UI")')
+            && nativeRendererSource.includes('openBundledVariableFont(fontFileBytes, 13.0f, INTER_BOLD_NAMED_INSTANCE, "HUD UI")')
+            && nativeRendererSource.includes('openBundledVariableFont(storyFontFileBytes, 17.0f, INTER_BOLD_NAMED_INSTANCE, "story")'),
+        "the SDL game should keep executable-local bundled Inter while selecting its real Bold named instance for UI and story text"
+    );
+    const nativeDevToolFontSource = readFileSync(new URL("../../src/runtime/development-tool-host.cpp", import.meta.url), "utf8");
+    assert.ok(
+        nativeDevToolFontSource.includes('"content") / "resources" / "fonts" / "Inter[opsz,wght].ttf"')
+            && nativeDevToolFontSource.includes("INTER_BOLD_NAMED_INSTANCE = 7")
+            && nativeDevToolFontSource.includes("SDL_IOFromConstMem(uiFontFileBytes.data(), uiFontFileBytes.size())")
+            && nativeDevToolFontSource.includes("TTF_PROP_FONT_CREATE_FACE_NUMBER")
+            && nativeDevToolFontSource.includes("INTER_BOLD_NAMED_INSTANCE << 16"),
+        "the native Dev Tool should use the executable-local bundled Inter Bold named instance instead of a system or default-weight font"
+    );
     assert.equal(
         nativeProximityLineRenderer.includes("TTF_STYLE_BOLD"),
         false,
@@ -12278,6 +12401,15 @@ function testRocketPowerUpArsenal() {
             && bootstrapSource.includes("if (DEVELOPMENT && debugEl)"),
         "browser watchdog exceptions should create a diagnostic log and only force the red panel under DEVELOPMENT"
     );
+    assert.ok(
+        gameTuningSource.includes("gameTuningFallback")
+            && bootstrapSource.includes("onException: (incident) => pendingStartupExceptionAlerts.push(incident)")
+            && bootstrapSource.includes("enemyCatalogFallback")
+            && bootstrapSource.includes("lootCatalogFallback")
+            && bootstrapSource.includes("atlasCollisionFallback")
+            && rendererSource.includes("enemyCharacterProjectFallback"),
+        "browser graceful resource fallbacks should enter the shared in-game exception alert queue"
+    );
     assert.ok(gameHtml.includes("#debug.exception-alert") && gameHtml.includes("background: rgba(112, 12, 22, 0.96)"), "the browser exception alert should have a clear red debug-panel treatment");
     assert.ok(
         editorSource.includes('<div class="level-section-label">Existing Level:</div>')
@@ -12285,7 +12417,7 @@ function testRocketPowerUpArsenal() {
             && editorSource.includes('<div class="level-section-label level-data-heading">Level data:</div>')
             && editorSource.includes('id="new-level">New level</button>')
             && editorSource.includes('id="import-level">Import level</button>')
-            && editorSource.includes('id="download-json">Export level</button>')
+            && editorSource.includes('id="download-json">Save</button>')
             && editorSource.includes('id="load-local">Load from Browser</button>')
             && editorSource.includes('id="save-local">Save in Browser</button>')
             && editorSource.includes("function serializeLevelJson()")
@@ -15003,7 +15135,7 @@ function testHomingRocketLaunch() {
     assert.equal(state.projectiles.length, 1, "weapon press should launch one test rocket");
     assert.equal(state.projectiles[0].targetId, target.id, "test rocket should target the explicit enemy bullseye");
     assert.ok(state.projectiles[0].vx > 0 && state.projectiles[0].vx < 100, "test rocket should begin its tight initial curve while remaining mostly vertical");
-    assert.ok(state.projectiles[0].vy < -500, "test rocket should retain a strong upward launch component during the initial curve");
+    assert.ok(state.projectiles[0].vy < -490, "test rocket should retain a strong upward launch component during the initial curve at the 500 px/s base speed");
     assert.ok(state.projectiles[0].upLaunchTimer > 0, "test rocket should retain a finite initial-turn steering window");
     assert.equal(state.projectiles[0].damage, 30, "a standard rocket should carry 30 damage");
     state.weapons.launchCooldownTimer = 999;
@@ -15012,8 +15144,8 @@ function testHomingRocketLaunch() {
     assert.equal(state.debug.lastEvents.some((event) => event.type === "ROCKET_LAUNCH_BLOCKED" && event.reason === "cooldown"), false, "legacy cooldown state must never block a rocket launch");
     assert.equal("rocketLaunchCooldown" in DEFAULT_TUNING, false, "the portable tuning contract should not retain a rocket firing cooldown");
     assert.ok(state.fuel.amount <= state.tuning.initialFuel - state.tuning.rocketLaunchCost * 2, "two immediate rocket launches should spend fuel twice");
-    stepMany(state, 95, () => createInputFrame());
-    assert.ok(state.projectiles.length >= 1, "rocket should still be inspectable after a short flight");
+    stepMany(state, 60, () => createInputFrame());
+    assert.ok(state.projectiles.length >= 1, "unwrenched rocket should still be inspectable before its 1.2-second expiry");
     const rocket = state.projectiles[0];
     const flightDistance = Math.hypot(target.x - rocket.currentTransform.x, target.y - rocket.currentTransform.y);
     assert.ok(flightDistance < startDistance - 430, `homing rocket should close distance to dot after its upward launch, start ${startDistance}, now ${flightDistance}`);
@@ -15090,7 +15222,7 @@ function testRocketInitialTurnClearsJumpHeightPlatform() {
     assert.equal(tuned.rocket.upLaunchTimer, 0, "the stronger launch steering should expire after the initial turn");
     assert.equal(tuned.rocket.homingStrength, DEFAULT_TUNING.rocketProjectileHomingStrength, "normal mid-flight homing should remain unchanged after the initial turn");
 
-    const slightlyWeaker = runJumpHeightPlatformRocket(6.65);
+    const slightlyWeaker = runJumpHeightPlatformRocket(6.415);
     assert.equal(slightlyWeaker.rocket.impactReason, "jump_apex_platform", "a slightly weaker initial turn should still clip the jump-height platform, pinning the geometric threshold");
 }
 
@@ -15227,6 +15359,39 @@ function testRocketTargetPrioritizesLineOfSight() {
     };
     stepSimulation(aimedState, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
     assert.equal(aimedState.projectiles[0].targetId, "visible_far", "monster-aimed straight rockets should use the same line-of-sight-first target ordering");
+
+    const makeGreenPlatformState = () => {
+        const state = createInitialGameState();
+        settleOnGround(state);
+        state.player.currentTransform.x = 0;
+        state.player.currentTransform.y = 600;
+        state.player.facing = 1;
+        state.world.solids = [];
+        state.world.segments = [{ id: "green_target_platform", kind: "walkable", x1: 80, y1: 450, x2: 260, y2: 450 }];
+        state.world.collisionPolygons = [];
+        state.targets = [
+            { id: "elevated_green_target", x: 180, y: 360, radius: 12, state: "active" },
+            { id: "lower_clear_target", x: 280, y: 520, radius: 12, state: "active" }
+        ];
+        return state;
+    };
+
+    const greenHomingState = makeGreenPlatformState();
+    stepSimulation(greenHomingState, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    assert.equal(greenHomingState.projectiles[0].targetId, "elevated_green_target", "homing rockets should see enemies through one-way green platforms that rockets themselves pass through");
+
+    const greenAimedState = makeGreenPlatformState();
+    const greenDefinition = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.WRENCH_BURST);
+    greenAimedState.statusEffects.active[POWER_UP_EFFECT_IDS.WRENCH_BURST] = {
+        id: POWER_UP_EFFECT_IDS.WRENCH_BURST,
+        definition: greenDefinition,
+        remainingSeconds: greenDefinition.durationSeconds,
+        sourceId: "test",
+        activatedAt: 0,
+        refreshCount: 0
+    };
+    stepSimulation(greenAimedState, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    assert.equal(greenAimedState.projectiles[0].targetId, "elevated_green_target", "green launch-aim rockets should also treat one-way platforms as transparent for targeting");
 }
 
 function testHomingRocketTargetsWithinOneScreenRange() {
@@ -15308,7 +15473,7 @@ function testRocketTrailTracksCurvedPathAndPersistsAfterExplosion() {
     state.camera.currentTransform.x = state.player.currentTransform.x + 150;
     state.camera.viewportWidth = Math.abs(target.x - state.player.currentTransform.x) * 2 + 1000;
     stepSimulation(state, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
-    stepMany(state, 75, () => createInputFrame());
+    stepMany(state, 60, () => createInputFrame());
     assert.equal(state.projectiles.length, 1, "rocket should still exist while trail is inspected");
     const trail = state.projectiles[0].trail;
     assert.ok(Array.isArray(trail), "rocket should expose a serializable trail array");
@@ -17725,10 +17890,13 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
 
     const installedTuningJson = JSON.parse(readFileSync(new URL("../resources/config/tuning.json", import.meta.url), "utf8"));
     assert.equal(installedTuningJson.schemaVersion, 1, "the shared installed tuning file should carry schema version 1");
-    assert.equal(SHARED_GAME_TUNING_KEYS.length, 51, "the first shared tuning schema should expose the accepted cross-runtime tuning set");
+    assert.equal(SHARED_GAME_TUNING_KEYS.length, 54, "the first shared tuning schema should expose the accepted cross-runtime tuning set");
     for (const key of SHARED_GAME_TUNING_KEYS) {
         assert.equal(installedTuningJson[key], DEFAULT_TUNING[key], `tuning.json ${key} should match the compiled emergency fallback`);
     }
+    assert.deepEqual(gameTuningValidationIssues(installedTuningJson, DEFAULT_TUNING), [], "the installed tuning file should not trigger a fallback exception");
+    const invalidTuningIssues = gameTuningValidationIssues({ ...installedTuningJson, rocketProjectileSpeed: -5, unknownTuningKey: 1 }, DEFAULT_TUNING);
+    assert.ok(invalidTuningIssues.includes("rocketProjectileSpeed: outside supported range") && invalidTuningIssues.includes("unknownTuningKey: unknown key"), "tuning validation should identify clamped values and ignored keys before gameplay continues");
     const resolvedTuning = resolveGameTuning(DEFAULT_TUNING, {
         ordinaryJumpHeight: 260,
         doubleJumpPhysics: DOUBLE_JUMP_PHYSICS_FIXED_IMPULSE,
@@ -17820,7 +17988,7 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.match(bootstrapSource, /function saveManualSlot\(slotId\)/, "manual save slots should share a central save function");
     assert.match(bootstrapSource, /function handleSaveSlotSelection\(slotId\)/, "save and load slot actions should share one selection path");
     assert.match(bootstrapSource, /function setGameMenuView\(view\)/, "the game menu should have an explicit view state machine");
-    assert.match(bootstrapSource, /loadInstalledGameTuning\(\{ fallback: DEFAULT_TUNING \}\)/, "browser startup should load the shared installed tuning file");
+    assert.match(bootstrapSource, /loadInstalledGameTuning\(\{[\s\S]*fallback: DEFAULT_TUNING,[\s\S]*onException:/, "browser startup should load the shared installed tuning file and surface fallback exceptions");
     assert.match(bootstrapSource, /resolveGameTuning\(installedGameTuning, storedGameSettings\.tuningOverrides\)/, "browser startup should resolve installed defaults plus sparse per-user overrides");
     assert.match(bootstrapSource, /function persistCurrentGameTuning\(\)[\s\S]*createGameTuningOverrides[\s\S]*saveStoredGameSettings/, "browser tuning changes should be saved automatically as sparse overrides");
     assert.match(bootstrapSource, /function resetSimpleGameTuning\(\)[\s\S]*tuningOverrides: \{\}/, "browser Reset should clear per-user tuning overrides");
@@ -18464,6 +18632,7 @@ function rocketEffectParticleCount(quality, mode) {
     state.tuning.rocketSmokeMaxPuffs = 1000;
     if (mode === "impact") {
         state.tuning.rocketProjectileLifetime = 0.01;
+        state.tuning.rocketProjectileUnwrenchedLifetime = 0.01;
         state.tuning.rocketSmokePuffSpacing = 10000;
         state.tuning.rocketImpactSmokePuffs = 20;
     } else {
@@ -18508,7 +18677,7 @@ function testRenderingQualityScalesRocketParticles() {
 
 function testRocketTurnsFiftyPercentSharper() {
     assert.equal(DEFAULT_TUNING.rocketProjectileHomingStrength, 4.8, "normal rocket homing should remain 50 percent sharper than the former 3.2 default");
-    assert.equal(DEFAULT_TUNING.rocketProjectileInitialHomingStrength, 6.7, "the launch-turn window should be recalibrated to the exact 200-pixel jump ceiling");
+    assert.equal(DEFAULT_TUNING.rocketProjectileInitialHomingStrength, 6.42, "the launch-turn window should remain recalibrated to the exact 200-pixel jump ceiling at the 500 px/s base speed");
     assert.equal(DEFAULT_TUNING.rocketProjectileUpLaunchSeconds, 0.32, "the initial steering boost should remain limited to the existing launch window");
 }
 

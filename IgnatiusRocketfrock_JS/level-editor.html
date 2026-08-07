@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" href="favicon.ico" sizes="any">
-    <title>Ignatius Level Editor - BUILD 302</title>
+    <title>Ignatius Level Editor - BUILD 314</title>
     <style>
         @font-face {
             font-family: "Ignatius Inter";
@@ -833,7 +833,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 301</small></h1>
+        <h1>Level Editor <small>rev 314</small></h1>
 
         <div class="box">
             <h2>Level</h2>
@@ -847,7 +847,7 @@
             <div class="level-data-primary">
                 <button id="new-level">New level</button>
                 <button id="import-level">Import level</button>
-                <button id="download-json">Export level</button>
+                <button id="download-json">Save</button>
             </div>
             <div class="row">
                 <button id="load-local">Load from Browser</button>
@@ -1385,6 +1385,7 @@
     </aside>
 </main>
 
+<script src="./src/tools/ignatius-project-host.js"></script>
 <script type="module">
 import {
     atlasNodeToPlacementWorld,
@@ -9928,6 +9929,11 @@ import {
     }
 
     async function saveTextFile(filename, text, type = "application/json") {
+        const projectHost = window.IgnatiusProjectHost?.get();
+        if (projectHost) {
+            const result = await projectHost.saveText("level", filename, text, { mimeType: type, prompt: true });
+            if (result === "project" || result === "cancelled") return result;
+        }
         const blob = new Blob([text], { type });
         if (typeof window.showSaveFilePicker === "function") {
             try {
@@ -10042,7 +10048,17 @@ import {
         setStatus(`Saved browser copy for playtest.${graphSummary}`);
         const url = new URL("game.html", window.location.href);
         url.searchParams.set("playtest_browser_copy", "1");
-        window.open(url.href, "_blank");
+        const hostedPlaytest = (() => {
+            try {
+                return window.parent !== window && typeof window.parent.ignatiusDevToolLaunchPlaytest === "function"
+                    ? window.parent.ignatiusDevToolLaunchPlaytest
+                    : null;
+            } catch (_) {
+                return null;
+            }
+        })();
+        if (hostedPlaytest) hostedPlaytest(url.href);
+        else window.open(url.href, "_blank");
     }
 
     function fitEditorBounds(bounds, maxZoom = 1.4) {
@@ -10574,8 +10590,10 @@ import {
         const filename = `${levelId}.json`;
         const isNewLevel = !state.resourceIndex?.levelIds.includes(levelId);
         const result = await saveTextFile(filename, serializeLevelJson());
-        if (isNewLevel && result !== "cancelled") notifyDevToolResourceSaved("level", levelId);
-        if (result === "file") {
+        if (isNewLevel && (result === "file" || result === "download")) notifyDevToolResourceSaved("level", levelId);
+        if (result === "project") {
+            setStatus(`Saved ${filename} to resources/levels.`);
+        } else if (result === "file") {
             setStatus(`Saved ${filename}.`);
         } else if (result === "download") {
             setStatus(`Downloaded ${filename}.`);

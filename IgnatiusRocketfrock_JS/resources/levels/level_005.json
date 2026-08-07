@@ -5294,24 +5294,6 @@
             "order": 265
         },
         {
-            "id": "forest_birdhouse_002",
-            "kind": "atlasAsset",
-            "atlasId": "at_atlas_013",
-            "assetId": "forest_birdhouse",
-            "x": 688,
-            "y": 384,
-            "w": 60,
-            "h": 100,
-            "mirrorX": false,
-            "mirrorY": false,
-            "rotation": 0,
-            "layer": "terrain",
-            "collisionFromManifest": false,
-            "editorLocked": false,
-            "notes": "",
-            "order": 261
-        },
-        {
             "id": "forest_wildflowers_daisies_001",
             "kind": "atlasAsset",
             "atlasId": "at_atlas_014",
@@ -6556,6 +6538,7 @@
             "layer": "terrain",
             "blendOverlaps": false,
             "collisionFromManifest": false,
+            "editorLocked": false,
             "notes": "",
             "order": 305
         },
@@ -6574,6 +6557,7 @@
             "layer": "terrain",
             "blendOverlaps": false,
             "collisionFromManifest": false,
+            "editorLocked": false,
             "notes": "",
             "order": 306
         }
@@ -6637,48 +6621,6 @@
             "notes": "The level exit. It is mirrored by default, snaps to nearby ground, opens when Ignatius approaches, and walks him through before loading its destination level."
         },
         {
-            "id": "mailbox_002",
-            "type": "mailbox",
-            "catalogId": "it_entities_001",
-            "x": 17552,
-            "y": 496,
-            "w": 55,
-            "h": 80,
-            "state": "letterAvailable",
-            "visualStates": {
-                "letterAvailable": [
-                    {
-                        "atlasId": "it_atlas_001",
-                        "assetId": "mailbox_with_letter",
-                        "layer": "decorFront"
-                    }
-                ],
-                "empty": [
-                    {
-                        "atlasId": "it_atlas_001",
-                        "assetId": "mailbox_empty",
-                        "layer": "decorFront"
-                    }
-                ]
-            },
-            "stateLabels": {
-                "letterAvailable": "Letter available",
-                "empty": "Empty"
-            },
-            "interaction": "editorLetter",
-            "triggerDistance": 72,
-            "letterDuration": 14,
-            "thoughtDuration": 9,
-            "letterAtlasId": "it_atlas_001",
-            "letterAssetId": "letter_scroll",
-            "thoughtAtlasId": "it_atlas_001",
-            "thoughtAssetId": "thought_bubble_large",
-            "letterTitle": "A Letter from Your Humble Editor",
-            "letterText": "Careful, my last researcher fell down here.\n\nHe was a cocky guy and claimed to be able to jump large distances by pushing off a second time mid-air.\n\nBut thats insane! \n\nOne would have to be some kind of wizard to try that - or at least have a jetpack.\n\n/Wilfred of Bittervine, Esq",
-            "thoughtText": "Drats!  \n\nI was sick the day they taught us floating charms.\n\nHmmm....  \"Jetpack\" he said. \n\nAnd something about jumping mid air.",
-            "notes": "An editor-letter mailbox. Each placed mailbox owns its own trigger distance, letter, thought, and timing metadata, so a level can contain several tutorial letters."
-        },
-        {
             "id": "thoughtTrigger_002",
             "type": "thoughtTrigger",
             "catalogId": "it_entities_001",
@@ -6725,31 +6667,6 @@
             "notes": "Rocket target and combat-training prop.",
             "strategy": "passive",
             "runSpeed": 150
-        },
-        {
-            "id": "thoughtTrigger_003",
-            "type": "thoughtTrigger",
-            "catalogId": "it_entities_001",
-            "x": 2016,
-            "y": 480,
-            "w": 120,
-            "h": 160,
-            "state": "available",
-            "visualStates": {
-                "available": [],
-                "consumed": []
-            },
-            "stateLabels": {
-                "available": "Available",
-                "consumed": "Consumed"
-            },
-            "interaction": "locationThought",
-            "triggerDistance": 96,
-            "verticalTolerance": 150,
-            "thoughtAtlasId": "it_atlas_001",
-            "thoughtAssetId": "thought_bubble_large",
-            "thoughtText": "My old training dummy!\n\nMaybe I should practice one last time on firing my rocket.\n\nWhat button was it now again?",
-            "notes": "Invisible one-shot region that pauses play and shows an Ignatius thought bubble when entered."
         },
         {
             "id": "enemy_011_001",
@@ -6816,31 +6733,6 @@
             "attackKnockbackX": 330,
             "attackKnockbackY": -250,
             "state": "idle"
-        },
-        {
-            "id": "thoughtTrigger_001",
-            "type": "thoughtTrigger",
-            "catalogId": "it_entities_001",
-            "x": 4368,
-            "y": 480,
-            "w": 120,
-            "h": 160,
-            "state": "available",
-            "visualStates": {
-                "available": [],
-                "consumed": []
-            },
-            "stateLabels": {
-                "available": "Available",
-                "consumed": "Consumed"
-            },
-            "interaction": "locationThought",
-            "triggerDistance": 96,
-            "verticalTolerance": 150,
-            "thoughtAtlasId": "it_atlas_001",
-            "thoughtAssetId": "thought_bubble_large",
-            "thoughtText": "I see a little fella over there. \n\nI bet we'll be friends!",
-            "notes": "Invisible one-shot region that pauses play and shows an Ignatius thought bubble when entered."
         },
         {
             "id": "enemy_011_002",

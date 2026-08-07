@@ -290,7 +290,7 @@ export const DEFAULT_TUNING = Object.freeze({
     rocketLaunchCost: 30,
     rocketProjectileSpeed: 500,
     rocketProjectileUpLaunchSeconds: 0.32,
-    rocketProjectileInitialHomingStrength: 6.7,
+    rocketProjectileInitialHomingStrength: 6.42,
     rocketProjectileHomingStrength: 4.8,
     rocketProjectileLifetime: 3,
     rocketProjectileUnwrenchedLifetime: 1.2,
@@ -347,6 +347,8 @@ export const DEFAULT_TUNING = Object.freeze({
     enemyDefaultProjectileKnockbackY: -120,
     playerDamageInvulnerabilitySeconds: 0.45,
     playerContactDamageInvulnerabilitySeconds: 0.45,
+    playerContactDamageKnockbackX: 95,
+    playerContactDamageKnockbackY: -70,
     playerHitFlashSeconds: 0.24,
     playerCrushConfirmTicks: 3,
     playerCrushClosingDistanceEpsilon: 0.0001,
@@ -7366,13 +7368,26 @@ function characterEnemyHunterWatchdogPaused(enemy) {
         enemy.movementPhase === "ride_platform" || enemy.movementPhase === "position_for_attack";
 }
 
-function recordCharacterEnemyHunterWatchdogException(state, enemy, timeoutCount, recoveryAction) {
+export function recordDebugExceptionAlert(state, incident = {}) {
+    if (!state || typeof state !== "object") return null;
+    if (!state.debug || typeof state.debug !== "object") state.debug = {};
     state.debug.exceptionAlertSequence = (Number(state.debug.exceptionAlertSequence) || 0) + 1;
+    const recorded = {
+        ...incident,
+        type: String(incident?.type || "unexpectedRuntimeFallback"),
+        sequence: state.debug.exceptionAlertSequence,
+        tick: Number.isFinite(Number(incident?.tick)) ? Number(incident.tick) : (Number(state.clock?.tick) || 0),
+        time: Number.isFinite(Number(incident?.time)) ? Number(incident.time) : (Number(state.clock?.time) || 0)
+    };
+    if (!Array.isArray(state.debug.exceptionAlerts)) state.debug.exceptionAlerts = [];
+    state.debug.exceptionAlerts.push(recorded);
+    while (state.debug.exceptionAlerts.length > 32) state.debug.exceptionAlerts.shift();
+    return recorded;
+}
+
+function recordCharacterEnemyHunterWatchdogException(state, enemy, timeoutCount, recoveryAction) {
     const incident = {
         type: "hunterWatchdogTimeout",
-        sequence: state.debug.exceptionAlertSequence,
-        tick: Number(state.clock?.tick) || 0,
-        time: Number(state.clock?.time) || 0,
         enemyId: enemy.id || null,
         enemyCatalogId: enemy.enemyCatalogId || null,
         characterId: enemy.characterId || null,
@@ -7415,10 +7430,7 @@ function recordCharacterEnemyHunterWatchdogException(state, enemy, timeoutCount,
         playerX: Number(state.player?.currentTransform?.x) || 0,
         playerY: Number(state.player?.currentTransform?.y) || 0
     };
-    if (!Array.isArray(state.debug.exceptionAlerts)) state.debug.exceptionAlerts = [];
-    state.debug.exceptionAlerts.push(incident);
-    while (state.debug.exceptionAlerts.length > 32) state.debug.exceptionAlerts.shift();
-    return incident;
+    return recordDebugExceptionAlert(state, incident);
 }
 
 function abortCharacterEnemyTraversalForWatchdog(state, enemy) {
@@ -9257,7 +9269,10 @@ function rocketTargetHasLineOfSight(state, origin, target) {
         }
     }
     for (const segment of queryWorldSegments(state.world, terrainQueryBounds)) {
-        if (!isAreaBlockingSegmentKind(segment.kind) && segment.kind !== "walkable") {
+        // Player rockets deliberately pass through one-way (green/walkable)
+        // platforms. Target visibility must use the same obstacle rule or an
+        // enemy standing on a green platform is incorrectly ranked as hidden.
+        if (segment.kind === "walkable" || !isAreaBlockingSegmentKind(segment.kind)) {
             continue;
         }
         if (segmentSegmentIntersection(start, end, { x: segment.x1, y: segment.y1 }, { x: segment.x2, y: segment.y2 })) {
@@ -12916,9 +12931,16 @@ function updateEnemyContactDamage(state) {
     }
 
     if (!strongest) return;
+    const contactDirection = state.player.currentTransform.x < strongest.enemy.currentTransform.x
+        ? -1
+        : (state.player.currentTransform.x > strongest.enemy.currentTransform.x
+            ? 1
+            : (strongest.enemy.facing < 0 ? 1 : -1));
     const result = damagePlayer(state, strongest.damage, strongest.enemy.id, {
         invulnerabilityTimerKey: "contactInvulnerabilityTimer",
         invulnerabilitySeconds: state.tuning.playerContactDamageInvulnerabilitySeconds,
+        knockbackX: contactDirection * Math.max(0, Number(state.tuning.playerContactDamageKnockbackX) || 0),
+        knockbackY: Number(state.tuning.playerContactDamageKnockbackY) || 0,
         cause: "enemyContact"
     });
     addEvent(state, result.damage > 0 ? "ENEMY_CONTACT_HIT" : "ENEMY_CONTACT_BLOCKED", {

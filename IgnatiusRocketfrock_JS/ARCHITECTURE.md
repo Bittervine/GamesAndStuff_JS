@@ -2395,3 +2395,27 @@ Non-flying SDL character enemies in `deathPendingLanding` continue through `upda
 ## Revision 300 development input boundary
 
 The shared `DEVELOPMENT` product constant gates shipping-disabled runtime input. F8 dispatch is guarded at the presentation input boundary and again at the native skip request. Minimap clicks are converted from rendered panel coordinates to world coordinates, validated against the authoritative cave-kill boundary (or world bounds when no cave exists), then routed through shared `teleportPlayer` state cleanup. Editor playtest identity is presentation metadata only and grants the documented minimap exception without changing simulation rules.
+
+## Revision 303 shared Ignatius Dev Tool shell
+
+`IgnatiusDevTool.html` is the common authoring shell for Chrome and the native Windows Dev Tool. It owns tab navigation, project status, playtest dispatch, and one `IgnatiusProjectHost` instance shared with the Level, Asset, Character, and Palette tools through same-origin frames. The individual tools retain their own editing state and domain logic, but project reads and writes are requested through `src/tools/ignatius-project-host.js` instead of each page independently choosing a destination.
+
+In Chrome, the project host uses the File System Access API. The user selects `reference/resources` once, the handle is validated by the presence of `resources.json` and the canonical resource directories, and the handle is retained in IndexedDB for later permission restoration. Save categories route to fixed locations: levels to `levels/`, atlas JSON/PNG to `atlases/`, character documents to `characters/`, and palette output to `palette/`. Resource-index updates remain transactional: a level is registered after its JSON exists, while an atlas is registered only after both its JSON and PNG exist.
+
+On Windows, `IgnatiusDevTool.exe` now hosts the same shell in one WebView2 controller. The native bridge supplies the selected resource root, performs canonical-path writes only inside that root, updates the resource index under the same completeness rules, and launches playtests requested by the page. The native executable therefore retains filesystem and process privileges while no longer maintaining a duplicate four-tab user interface. Chrome and the SDL WebView2 host are the supported environments; other browser engines are not a compatibility target.
+
+
+## Revision 304 command-line resource-root ownership
+
+`LaunchOptions.resourcesRoot` carries the native `--resources-root` override. `IgnatiusApp::run` validates and installs it through `setReferenceAssetRootOverride` before constructing the native scene, so every ordinary asset path continues through the shared reference-asset loader rather than acquiring subsystem-specific roots. When the option is absent, the native game uses only `content/resources` beside the executable; source-tree resources require an explicit override.
+
+`IgnatiusDevTool.exe` parses the same option and uses that directory as `authoringResourceRoot`. Native playtest process creation always appends `--resources-root <authoringResourceRoot>`. The host writes the generated snapshot to `<authoringResourceRoot>/levels/level_temp.json` before launching, and the ordinary asset loader resolves that level exactly like every other resource below the override. No packaged fallback exists, so the playtest level and all of its dependencies have one unambiguous owner.
+
+## Revision 305 strict resource-root boundary
+
+The selected native resources root is a hard read/write boundary. Dev Tool project saves and generated playtest snapshots target only that directory; packaged `content/resources` is not mirrored or consulted as a recovery source. The WebView host intercepts same-origin `resources/*` requests and serves them from `authoringResourceRoot`, returning a real 404 when a requested file is absent rather than letting the packaged virtual-host mapping satisfy it. `level_temp.json` is allowed to exist as an unindexed generated file in `levels/`, and each playtest truncates and replaces it. Failure to write or load it is surfaced visibly rather than masked by fallback discovery.
+
+
+## Revision 310 packaged native resource default
+
+Without `--resources-root`, both `IgnatiusSDL` and `IgnatiusDevTool.exe` use the self-contained `content/resources` directory beside their executable. The native Dev Tool also loads `IgnatiusDevTool.html` and its sub-tools only from the adjacent `content` directory. Neither executable searches ancestor source trees or the process working directory for a replacement resource bundle. Selecting `reference/resources` remains an explicit authoring action through **Select resources folder…** or the command-line override. A packaged Release directory can therefore be shipped by itself, and missing packaged content fails visibly instead of silently borrowing files from a checkout.

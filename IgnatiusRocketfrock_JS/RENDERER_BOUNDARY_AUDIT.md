@@ -17,6 +17,7 @@ Revision 303 records the direct Canvas 2D ownership map immediately before the W
 | `level-editor.html` | 97 | Level Editor palette/preview canvases and transparent authoring overlay; the base scene is delegated to the production presentation renderer. |
 | `character-editor.html` | 29 | Puppet Forge atlas, stage, rig, and timeline surfaces. |
 | `asset-editor.html` | 12 | Atlas-object authoring surface. |
+| `src/tools/palette-builder.js` | 24 | Standalone palette-thumbnail authoring surface. It assembles and verifies generated thumbnail sheets and is not part of gameplay rendering. |
 
 The counts are lexical audit counts rather than draw calls per frame. They are useful for detecting ownership drift, not for estimating performance.
 
@@ -24,7 +25,7 @@ The counts are lexical audit counts rather than draw calls per frame. They are u
 
 `src/core/` and `src/shared/` contain no approved direct Canvas drawing. They remain portable data, simulation, collision, navigation, and geometry code. WebGL2 must consume their ordinary records and must not make GPU buffers authoritative for gameplay or authored level state.
 
-The game renderer should migrate first behind the existing presentation boundary. The HUD minimap may remain Canvas 2D because it is small, infrequently redrawn, and isolated in `game-bootstrap.js`. The three editors are separate tools. Revision 356 makes the Level Editor delegate its base scene to the production Canvas renderer while retaining editor-owned palette/preview canvases and the transparent authoring overlay. Character and asset editors remain standalone Canvas tools.
+The game renderer should migrate first behind the existing presentation boundary. The HUD minimap may remain Canvas 2D because it is small, infrequently redrawn, and isolated in `game-bootstrap.js`. The editors and Palette Thumbnail Builder are separate authoring tools. Revision 356 makes the Level Editor delegate its base scene to the production Canvas renderer while retaining editor-owned palette/preview canvases and the transparent authoring overlay. Character and asset editors remain standalone Canvas tools, while the Palette Thumbnail Builder owns only its offline thumbnail-generation canvases.
 
 Texture-producing helpers such as cave masks, colour-map caches, asset-local overlap surfaces, and rocket-glow baking are presentation-owned inputs. A WebGL2 backend may upload their results as textures, replace them with GPU equivalents, or retain Canvas-produced textures during migration. It must not duplicate their gameplay-neutral source data in a second scene model.
 
@@ -70,3 +71,7 @@ Delegating the Level Editor scene to `canvas-renderer.js` also delegates the tar
 ## Revision 364 mobile presentation boundary
 
 Both production backends remain compositor-synchronized. `canvas-renderer.js` requests `desynchronized: false` for its Canvas2D surface, and `webgl2-renderer.js` uses the same conservative setting for support probing and the live WebGL2 context. The game shell, rather than viewport-unit CSS on the canvas itself, owns visible sizing. Transient zero-sized client measurements must not reset either visible backing store.
+
+## Revision 311 Palette Thumbnail Builder ownership note
+
+`src/tools/palette-builder.js` is an approved standalone Canvas owner. Its direct Canvas calls generate, inspect, and verify the offline palette thumbnail sheet used by the Level Editor; they do not render gameplay or own authoritative game state. Keep this exception scoped to the exact builder module rather than approving the complete `src/tools/` directory.

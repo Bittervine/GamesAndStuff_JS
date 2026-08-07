@@ -10,6 +10,7 @@ const APPROVED_DIRECT_CANVAS_OWNERS = new Map([
     ["asset-editor.html", "standalone atlas authoring surface"],
     ["character-editor.html", "standalone Puppet Forge authoring surfaces"],
     ["level-editor.html", "standalone Level Editor scene, palettes, and caches"],
+    ["src/tools/palette-builder.js", "standalone palette thumbnail authoring surface"],
     ["src/browser/game-bootstrap.js", "small HUD minimap only"],
     ["src/presentation", "game presentation backend and visual caches"]
 ]);

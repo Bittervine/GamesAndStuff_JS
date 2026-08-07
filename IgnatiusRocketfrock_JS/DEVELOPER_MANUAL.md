@@ -639,3 +639,50 @@ The builder offers two output paths:
 The root `devel.html` page is the development portal. It links to the game, Level Editor, Character Editor, Asset Editor, Palette Thumbnail Builder, manuals, and renderer/review utilities so development tools do not require separate bookmarks.
 
 The page also includes **Verify existing cache**, which checks the recorded source inventory and reports whether the committed cache is stale. The committed default is 64px. To evaluate a sharper cache later, simply rebuild at 128px in the page; the JSON records `cellSize`, so the editor requires no code change. Full asset atlas images are loaded lazily when selected or referenced by the open level. Enemy character projects are likewise loaded only for selected or placed enemies, while their palette cards use the generated cache. If the cache is missing, the editor falls back to the legacy full-atlas palette path.
+
+## Revision 303: using IgnatiusDevTool.html
+
+Open `IgnatiusDevTool.html` through the normal local development server in Chrome, or launch `IgnatiusDevTool.exe`. The page presents the Level Editor, Asset Editor, Character Editor, and Palette Builder as tabs while keeping each tool in its existing same-origin page.
+
+In Chrome, press **Select resources folder…** once and choose the project’s `reference/resources` directory. The shell rejects a project root, `reference`, or an unrelated directory that does not contain the expected resource inventory and subdirectories. Chrome stores the directory handle and will normally restore it on a later visit; it may ask for permission again after a browser restart or permission reset.
+
+Project saves are routed automatically:
+
+- Level JSON goes to `resources/levels/`.
+- Atlas JSON and PNG go to `resources/atlases/`.
+- Character, rig, animation, and related character JSON go to `resources/characters/`.
+- Palette thumbnails and metadata go to `resources/palette/`.
+
+A newly saved level is added to `resources.json` after the file has been written. A newly saved atlas is added only when both matching JSON and PNG files exist. Explicit export/download fallbacks remain available where a tool still needs an arbitrary copy outside the project.
+
+Inside `IgnatiusDevTool.exe`, the native host begins with the command-line override or its packaged `content/resources` tree, but the same **Select resources folder…** button remains available. Choosing another valid resources directory updates the native host, reloads all four embedded tools, and makes that folder the sole source and destination for subsequent reads, saves, and Level Editor playtests. Native saves are never mirrored into packaged resources. The host intercepts each `resources/*` request made by the embedded pages and serves it from the selected tree. For debugging, a sub-tool may still be opened directly in Chrome; it creates or reuses the same browser project host rather than requiring a separate implementation.
+
+
+## Revision 304: overriding the native resources root
+
+Both native executables accept `--resources-root <folder>` (or `--resources-root=<folder>`). The folder must be the actual Ignatius `resources` directory, containing `resources.json` and the normal `levels`, `atlases`, and `characters` subdirectories. Relative paths are resolved from the process working directory.
+
+```text
+IgnatiusSDL.exe --resources-root "D:\Projects\Ignatius\reference\resources"
+IgnatiusDevTool.exe --resources-root "D:\Projects\Ignatius\reference\resources"
+```
+
+The Dev Tool uses the override as its sole authoring destination and passes the same absolute folder to every native Level Editor playtest. Before launch it writes the current editor snapshot to `<resources-root>/levels/level_temp.json`; the game then loads that file and every referenced atlas, character, audio, tuning, and other asset from the same root. There is no packaged fallback. A missing or unwritable playtest file therefore produces a visible failure instead of silently mixing resource trees. `level_temp` remains omitted from `resources.json` and is overwritten by the next playtest.
+
+
+## Revision 309: temporary Character Tool part visibility
+
+The Character Tool toolbar's **Visible / Hidden** action is an editor-only inspection aid. A click hides or shows the selected rig part in the preview without adding, editing, or deleting alpha keyframes and without marking any project document dirty. Hidden parts are omitted from canvas selection and transform handles but remain available in the rig-part selector so they can be shown again. Double-click **Visible / Hidden** to clear the temporary mask and restore every part. Loading or replacing a character or rig also clears the mask.
+
+
+## Revision 310: packaged resources are the native default
+
+When launched without `--resources-root`, both native executables use the resources copied beside them:
+
+```text
+<Release folder>/content/resources
+```
+
+`IgnatiusDevTool.exe` also loads the shared HTML tool bundle from `<Release folder>/content`. It does not automatically walk up into a source checkout and select `reference/resources`. To edit source resources directly, use **Select resources folder…** or launch with `--resources-root "..\..\reference\resources"`. The selected folder then becomes the strict read/write/playtest boundary for that session.
+
+This makes a copied or shipped Release folder self-contained. If its `content` or `content/resources` directory is incomplete, startup fails visibly instead of borrowing content from another tree.
