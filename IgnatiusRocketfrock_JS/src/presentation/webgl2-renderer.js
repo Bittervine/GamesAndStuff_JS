@@ -260,7 +260,7 @@ export class WebGL2RendererBackend {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, whiteSource);
-        this.whiteTextureRecord = { texture, width: 1, height: 1, source: null, dynamic: false };
+        this.whiteTextureRecord = { texture, width: 1, height: 1, source: null, dynamic: false, wrapMode: "clamp" };
         gl.bindTexture(gl.TEXTURE_2D, null);
 
         this.initializeCaveMaskResources();
@@ -394,7 +394,8 @@ export class WebGL2RendererBackend {
             width: safeWidth,
             height: safeHeight,
             dynamic: false,
-            uploadedFrame: this.frameId
+            uploadedFrame: this.frameId,
+            wrapMode: "clamp"
         };
         try {
             this.flush();
@@ -723,7 +724,8 @@ export class WebGL2RendererBackend {
                 width: dimensions.width,
                 height: dimensions.height,
                 dynamic: Boolean(dynamic),
-                uploadedFrame: -1
+                uploadedFrame: -1,
+                wrapMode: "clamp"
             };
             this.textureCache.set(source, record);
             this.textureRecords.add(record);
@@ -764,6 +766,7 @@ export class WebGL2RendererBackend {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        record.wrapMode = "clamp";
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
         gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
         if (gl.UNPACK_COLORSPACE_CONVERSION_WEBGL !== undefined) {
@@ -790,6 +793,20 @@ export class WebGL2RendererBackend {
             }
             gl.bindTexture(gl.TEXTURE_2D, null);
         }
+    }
+
+    ensureTextureWrap(record, wrapMode = "clamp") {
+        if (!record?.texture) return;
+        const normalized = wrapMode === "repeat" ? "repeat" : "clamp";
+        if ((record.wrapMode || "clamp") === normalized) return;
+        this.flush();
+        const gl = this.gl;
+        gl.bindTexture(gl.TEXTURE_2D, record.texture);
+        const addressMode = normalized === "repeat" ? gl.REPEAT : gl.CLAMP_TO_EDGE;
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, addressMode);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, addressMode);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        record.wrapMode = normalized;
     }
 
     switchTexture(record) {
@@ -841,13 +858,15 @@ export class WebGL2RendererBackend {
         tint = [1, 1, 1, 1],
         dynamic = false,
         forceDynamicUpload = false,
-        blendMode = "alpha"
+        blendMode = "alpha",
+        wrapMode = "clamp"
     }) {
         if (!this.available || this.contextLost || !source) return false;
         const record = source === this.whiteTextureRecord
             ? this.whiteTextureRecord
             : this.textureRecord(source, dynamic, forceDynamicUpload);
         if (!record) return false;
+        this.ensureTextureWrap(record, wrapMode);
         this.applyBlendMode(blendMode);
         this.switchTexture(record);
         this.ensureCapacity(1);

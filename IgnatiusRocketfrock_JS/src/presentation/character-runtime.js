@@ -312,17 +312,18 @@ export function animationPoseToRuntimeTransforms(animationPose, rig, zoom = 1, a
 }
 
 export function applyRuntimeProjectileHandoffVisibility(project, animationSlot, timeSeconds, renderedTransforms) {
-    if (!(project?.projectiles instanceof Map) || !renderedTransforms) {
+    const handoffs = project?.attackHandoffs instanceof Map ? project.attackHandoffs : project?.projectiles;
+    if (!(handoffs instanceof Map) || !renderedTransforms) {
         return 0;
     }
     const slot = String(animationSlot || "");
     const time = Math.max(0, finiteOr(timeSeconds, 0));
     let hidden = 0;
-    for (const projectile of project.projectiles.values()) {
-        if (slot !== projectile.animationSlot || time < projectile.releaseTime) {
+    for (const handoff of handoffs.values()) {
+        if (handoff.detach !== true || slot !== handoff.animationSlot || time < handoff.releaseTime) {
             continue;
         }
-        const transform = renderedTransforms[projectile.partName];
+        const transform = renderedTransforms[handoff.partName];
         if (!transform) {
             continue;
         }
@@ -427,25 +428,21 @@ export function runtimeParentAttachmentPoint(rig, parentPart, parentPoint, paren
     };
 }
 
-export function compileRuntimeCharacterProjectiles(rig, animations, label = "character project") {
+export function compileRuntimeCharacterAttackHandoffs(rig, animations, label = "character project") {
     const normalizedRig = rig?._normalizedRuntimeRig === true ? rig : normalizeRuntimeCharacterRig(rig);
     const animationMap = animations instanceof Map ? animations : new Map(Object.entries(animations || {}));
-    const projectiles = new Map();
+    const handoffs = new Map();
 
     for (const partName of normalizedRig.drawOrder) {
         const part = normalizedRig.parts[partName];
-        const raw = part?.projectile;
+        const raw = part?.attackHandoff;
         if (!raw || typeof raw !== "object" || Array.isArray(raw) || raw.enabled === false) {
             continue;
         }
         const animationSlot = String(raw.animationSlot || "attack").trim() || "attack";
         const clip = animationMap.get(animationSlot);
         if (!clip) {
-            throw new Error(`${label} projectile part "${partName}" references missing animation slot "${animationSlot}".`);
-        }
-        const launchType = String(raw.launchType || "straight").trim();
-        if (!CHARACTER_PROJECTILE_LAUNCH_TYPE_SET.has(launchType)) {
-            throw new Error(`${label} projectile part "${partName}" uses unsupported launch type "${launchType}".`);
+            throw new Error(`${label} attack handoff part "${partName}" references missing animation slot "${animationSlot}".`);
         }
         const releaseTime = clamp(finiteOr(raw.releaseTime, 0), 0, clip.duration);
         const releasePose = sampleAnimationClip({ ...clip, loop: false }, releaseTime);
@@ -456,24 +453,26 @@ export function compileRuntimeCharacterProjectiles(rig, animations, label = "cha
             scale: part.scale,
             alpha: part.alpha
         };
-        projectiles.set(partName, {
+        handoffs.set(partName, {
             partName,
-            projectileId: String(raw.id || partName),
+            handoffId: String(raw.id || partName),
             frameId: String(part.frame || partName),
             animationSlot,
-            launchType,
             releaseTime,
+            detach: raw.detach === true,
             localX: finiteOr(sampled.x, part.offset.x),
             localY: finiteOr(sampled.y, part.offset.y),
             localRotation: finiteOr(sampled.rotation, finiteOr(part.rotation?.base, 0)),
             localScale: Math.max(0, finiteOr(sampled.scale, part.scale)),
-            rigScale: normalizedRig.global.scale,
-            projectileKind: raw.projectileKind ? String(raw.projectileKind) : null
+            rigScale: normalizedRig.global.scale
         });
     }
 
-    return projectiles;
+    return handoffs;
 }
+
+// Kept as a source-level compatibility alias for tools that still call the old compiler name.
+export const compileRuntimeCharacterProjectiles = compileRuntimeCharacterAttackHandoffs;
 
 export async function loadRuntimeCharacterProject(characterUrl, options = {}) {
     const loadJson = options.loadJson || defaultLoadJson;
@@ -646,17 +645,18 @@ export async function loadRuntimeCharacterProject(characterUrl, options = {}) {
         animations.set(slot, clip);
         animationSources.set(slot, animationUrl);
     }
-    const compiledProjectiles = compileRuntimeCharacterProjectiles(rig, animations, `character project (${characterSourceUrl})`);
-    const requestedProjectileParts = Array.isArray(character.projectileParts)
-        ? character.projectileParts.map(String)
-        : (character.projectilePart ? [String(character.projectilePart)] : []);
-    const projectiles = requestedProjectileParts.length
-        ? new Map(requestedProjectileParts.filter((partName) => compiledProjectiles.has(partName)).map((partName) => [partName, compiledProjectiles.get(partName)]))
-        : compiledProjectiles;
-    if (requestedProjectileParts.length && projectiles.size !== requestedProjectileParts.length) {
-        const missing = requestedProjectileParts.filter((partName) => !compiledProjectiles.has(partName));
-        throw new Error(`Character definition ${characterSourceUrl} references untagged projectile part(s): ${missing.join(", ")}.`);
+    const compiledAttackHandoffs = compileRuntimeCharacterAttackHandoffs(rig, animations, `character project (${characterSourceUrl})`);
+    const requestedAttackParts = Array.isArray(character.attackParts)
+        ? character.attackParts.map(String)
+        : (character.attackPart ? [String(character.attackPart)] : []);
+    const attackHandoffs = requestedAttackParts.length
+        ? new Map(requestedAttackParts.filter((partName) => compiledAttackHandoffs.has(partName)).map((partName) => [partName, compiledAttackHandoffs.get(partName)]))
+        : compiledAttackHandoffs;
+    if (requestedAttackParts.length && attackHandoffs.size !== requestedAttackParts.length) {
+        const missing = requestedAttackParts.filter((partName) => !compiledAttackHandoffs.has(partName));
+        throw new Error(`Character definition ${characterSourceUrl} references untagged attack handoff part(s): ${missing.join(", ")}.`);
     }
+    const projectiles = new Map([...attackHandoffs].filter(([, handoff]) => handoff.detach === true));
 
     for (const projectile of projectiles.values()) {
         const partAsset = assets.get(projectile.partName);
@@ -689,6 +689,7 @@ export async function loadRuntimeCharacterProject(characterUrl, options = {}) {
         atlasAssets,
         animations,
         animationSources,
+        attackHandoffs,
         projectiles,
         sounds: normalizeCharacterSounds(character.sounds),
         dropProfile: normalizeCharacterDropProfile(character)

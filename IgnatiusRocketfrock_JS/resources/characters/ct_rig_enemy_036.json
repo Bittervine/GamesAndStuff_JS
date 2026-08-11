@@ -390,6 +390,13 @@
                     "x": 0.78,
                     "y": 0.9
                 }
+            },
+            "attackHandoff": {
+                "enabled": true,
+                "id": "melee",
+                "animationSlot": "attack",
+                "releaseTime": 0.35,
+                "detach": false
             }
         },
         "rightUpperArm": {

@@ -7,6 +7,7 @@ import {
     sampleRuntimeCharacterPose
 } from "../presentation/character-runtime.js";
 import { scaledEnemyRenderScale } from "../shared/enemy-scale-data.js";
+import { sha256Hex } from "./resource-hash.js";
 
 const BUILDER_VERSION = 2;
 const BUILDER_ID = "browser-html-js";
@@ -61,9 +62,9 @@ class ResourceCache {
     }
 
     async resourceBytes(path) {
-        const key = String(path);
+        const key = String(path).replace(/^resources\//, "");
         if (!this.resourceBytesCache.has(key)) {
-            this.resourceBytesCache.set(key, this.#fetchBytes(new URL(key, RESOURCE_BASE_URL), key));
+            this.resourceBytesCache.set(key, this.#fetchResourceBytes(key));
         }
         return this.resourceBytesCache.get(key);
     }
@@ -93,12 +94,25 @@ class ResourceCache {
     }
 
     async #fetchBytes(url, sourceKey) {
-        const response = await fetch(url);
+        const response = await fetch(url, { cache: "no-store" });
         if (!response.ok) throw new Error(`Failed to load ${sourceKey}: ${response.status} ${response.statusText}`);
         const bytes = await response.arrayBuffer();
         const digest = await sha256Hex(bytes);
         this.sourceHashes.set(sourceKey, digest);
         return bytes;
+    }
+
+    async #fetchResourceBytes(sourceKey) {
+        if (projectHost) {
+            const blob = await projectHost.readResourceBlob(sourceKey, { prompt: false });
+            if (blob !== null) {
+                const bytes = await blob.arrayBuffer();
+                const digest = await sha256Hex(bytes);
+                this.sourceHashes.set(sourceKey, digest);
+                return bytes;
+            }
+        }
+        return this.#fetchBytes(new URL(sourceKey, RESOURCE_BASE_URL), sourceKey);
     }
 
     async sourceRecords(paths) {
@@ -170,9 +184,9 @@ function updateOutputFolderLabel() {
 }
 
 function isResourceRelativePath(path) {
-    const normalized = String(path || "");
+    const normalized = String(path || "").replace(/^resources\//, "");
     if (normalized === RESOURCE_INDEX) return true;
-    return ["atlases/", "characters/", "items/", "levels/", "music/", "palette/", "portraits/", "sfx/", "sounds/"].some((prefix) => normalized.startsWith(prefix));
+    return ["atlases/", "characters/", "config/", "editor/", "fonts/", "generator/", "items/", "levels/", "music/", "palette/", "sfx/", "ui/"].some((prefix) => normalized.startsWith(prefix));
 }
 
 function escapeHtml(text) {
@@ -194,12 +208,6 @@ function cloneCanvas(sourceCanvas) {
 
 function nextFrame() {
     return new Promise((resolve) => requestAnimationFrame(() => resolve()));
-}
-
-async function sha256Hex(input) {
-    const bytes = input instanceof ArrayBuffer ? input : typeof input === "string" ? new TextEncoder().encode(input) : input.buffer;
-    const digest = await crypto.subtle.digest("SHA-256", bytes);
-    return [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, "0")).join("");
 }
 
 async function canvasToPngBlob(canvas) {
@@ -655,7 +663,11 @@ async function buildEntityEntries(cache, cellSize, sourceFiles, atlasStore, prog
         let renderInfo = { renderer: "placeholder" };
         if (characterPath) {
             try {
-                const project = await loadRuntimeCharacterProject(characterPath, { usePixmapPyramids: false });
+                const project = await loadRuntimeCharacterProject(characterPath, {
+                    usePixmapPyramids: false,
+                    loadJson: (url) => cache.resourceJson(String(url).replace(/^resources\//, "")),
+                    loadImage: (url) => cache.resourceImage(String(url).replace(/^resources\//, ""))
+                });
                 sourceFiles.add(characterPath);
                 if (project.sourceUrl) sourceFiles.add(project.sourceUrl.replace(/^resources\//, ""));
                 if (project.rigUrl) sourceFiles.add(project.rigUrl.replace(/^resources\//, ""));
@@ -736,6 +748,7 @@ async function buildOutputs({ cellSize, maxSize, progress }) {
     const sourceFiles = new Set([
         "palette-builder.html",
         "src/tools/palette-builder.js",
+        "src/tools/resource-hash.js",
         "src/presentation/character-runtime.js",
         "src/presentation/pixmap-pyramid.js",
         "src/presentation/sprite-color-exchange.js",
@@ -962,12 +975,22 @@ async function chooseOutputFolder() {
         return;
     }
     try {
-        await projectHost.chooseResourcesDirectory();
+        const before = projectHost.snapshot();
+        const after = await projectHost.chooseResourcesDirectory();
         updateOutputFolderLabel();
-        setStatus(`Selected project resources: ${projectHost.displayName}`, "success");
-        if (latestBuild) {
-            await writeOutputsToDirectory(latestBuild);
-            appendLog("Wrote the latest build to resources/palette.");
+        if (after.selectionVersion !== before.selectionVersion) {
+            latestBuild = null;
+            for (const anchor of [ui.downloadImage, ui.downloadJson]) {
+                if (anchor.dataset.url) URL.revokeObjectURL(anchor.dataset.url);
+                delete anchor.dataset.url;
+                anchor.removeAttribute("href");
+                anchor.setAttribute("aria-disabled", "true");
+            }
+            clearSummary();
+            appendLog("Resources folder changed. Rebuild before writing palette outputs so inputs and outputs come from the same tree.");
+            setStatus(`Selected project resources: ${projectHost.displayName}. Rebuild thumbnails for this tree.`, "success");
+        } else {
+            setStatus(`Selected project resources: ${projectHost.displayName}`, "success");
         }
     } catch (error) {
         if (error?.name === "AbortError") return;

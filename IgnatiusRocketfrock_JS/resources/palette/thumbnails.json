@@ -6,9 +6,9 @@
   "cellSize": 64,
   "maxSize": 8192,
   "width": 1472,
-  "height": 1408,
-  "entryCount": 501,
-  "sourceDigest": "ad6316fcd075023cba233b050f02b351a0ebd93755a53ba8d05e83a5dd5c375f",
+  "height": 1472,
+  "entryCount": 517,
+  "sourceDigest": "bcc42a6fd20ad7d9164e46ae888f7fcbac5dfdd043fedb90168042be9bee057b",
   "sources": [
     {
       "path": "atlases/at_atlas_001.json",
@@ -36,11 +36,11 @@
     },
     {
       "path": "atlases/at_atlas_004.json",
-      "sha256": "644c2fac3c0ccbc6b43520b504b9a6a3ec5ff1af8f02d44e47e96c927b14da49"
+      "sha256": "26593e4ec334f8d1b94c5c37995751dace0d02687577dcd725130476cd1e0ed6"
     },
     {
       "path": "atlases/at_atlas_004.png",
-      "sha256": "884f424f9c84fd2a609c356efcf1c3f6dc153ae846d9741854efca4d607c50f2"
+      "sha256": "d511923c78c81236e7b6102f2879455a6dbf16da0d9791bb692da996ff593f96"
     },
     {
       "path": "atlases/at_atlas_005.json",
@@ -76,11 +76,11 @@
     },
     {
       "path": "atlases/at_atlas_009.json",
-      "sha256": "2e4d417650ec15e07aae11b62378d7c5b4b5813b967e803c1da46bd3e69e37ec"
+      "sha256": "d88ca8947ac2e7740f23b4ef927b78f48529e5e744e367ebfd6b3ece26d52185"
     },
     {
       "path": "atlases/at_atlas_009.png",
-      "sha256": "c921c60269a98f7e2a2a42a2ccbbf5adc44de20fb47e5dfe776dc5cf911d983c"
+      "sha256": "ce5a080f7a67d053a9164fb7fd0489d0ff87b0edc04fc1e2b83046564d9336e2"
     },
     {
       "path": "atlases/at_atlas_010.json",
@@ -204,7 +204,7 @@
     },
     {
       "path": "atlases/at_atlas_025.json",
-      "sha256": "44010df72b99faa512ce3654d17a0a376fc5877518aa5ccfb31ec7575fda1948"
+      "sha256": "ba71ffeaea883a8cfc837b092b864edf999d8117b53c17ea4f80e28442c605d3"
     },
     {
       "path": "atlases/at_atlas_025.png",
@@ -241,6 +241,14 @@
     {
       "path": "atlases/at_atlas_029.png",
       "sha256": "a2be8abcde705f932c3fa4c9f0c020cf4a3906a63f69f02af1391bb0264d0856"
+    },
+    {
+      "path": "atlases/at_atlas_030.json",
+      "sha256": "d2357458d3d3a9429f07f2a6dc1fa85d6130430e1f3c6f12b999eb55841dcdd7"
+    },
+    {
+      "path": "atlases/at_atlas_030.png",
+      "sha256": "2f6275492c998619c5aa77d057a38696e6c3748f3289204fa51dd19e0f4e02ca"
     },
     {
       "path": "characters/ct_anim_enemy_001_attack.json",
@@ -832,27 +840,27 @@
     },
     {
       "path": "characters/ct_char_enemy_001.json",
-      "sha256": "a55b0081cc7395344626830ab83d115faa5a74488be587ea948644acf9f30bb9"
+      "sha256": "21f2d93b5d929b05fc6ecc89fc34bb5a459952615258e57ad77648ba0e1d8cc6"
     },
     {
       "path": "characters/ct_char_enemy_002.json",
-      "sha256": "f48d01afb73539ea39f054ae96aeab1d2ba670e5b2920d1e4d488786d8053b74"
+      "sha256": "1a5f8f4037d958bb3496a77b032980ccadd45a04514e4f2537da97c57116b1dc"
     },
     {
       "path": "characters/ct_char_enemy_010.json",
-      "sha256": "9d3994f6668ea6346026f147ee83f766744e7021b9c5035d62f76c33639f94af"
+      "sha256": "348a368ad62c6bc29ce29efbd06a8d72a5d71465e5731ed422e20bf1d7cc5410"
     },
     {
       "path": "characters/ct_char_enemy_011.json",
-      "sha256": "8f9c5167fc3b6edced6ed38f156ecaed02f3acf34165331d63ce2ff490872189"
+      "sha256": "6815e73b9411a3a5c09ef1832ea1067f32edc0ad68dfa5bf9f52f6886657adca"
     },
     {
       "path": "characters/ct_char_enemy_012.json",
-      "sha256": "f76f141b0379a41c665b849d1716dfceb8213d6a10ddd81dfa043a8edc171eb0"
+      "sha256": "f4d0dd269c2304b3b3888419244a2420fbddaf49f5ed0f342f452f41b198aeeb"
     },
     {
       "path": "characters/ct_char_enemy_018.json",
-      "sha256": "ba266ed7cca436f5d90406f198d041b1ee7663e64126de427576359ddf7d6bf6"
+      "sha256": "9e1b80693d245e47af728b7d1ad5487bef0104eeaa1e8abdb046ee08827c6d05"
     },
     {
       "path": "characters/ct_char_enemy_020.json",
@@ -864,107 +872,107 @@
     },
     {
       "path": "characters/ct_char_enemy_030.json",
-      "sha256": "f09149c2a0f422d9c3d6fbfe20eafc8218346dd138024b42cd45fd84dc95551d"
+      "sha256": "e669c53d6e1c33bcaa46ec2811e4fc7b1272bebec6859099e68f6ad8f0687f6e"
     },
     {
       "path": "characters/ct_char_enemy_031.json",
-      "sha256": "d756c74c2d28cb89c5de7df82543f811e88b06ffa35db5fb10cf554a4a55152d"
+      "sha256": "22347120083821cfc5cc7c80e9701979894529ec02ffa2b138d4c48588cacc26"
     },
     {
       "path": "characters/ct_char_enemy_032.json",
-      "sha256": "5e0ed708fe74c50dba47c1ee9b19ce003df2f6df04f5b084dde1e3525e96a987"
+      "sha256": "6ef36a572c4af4f866f22c46c04b36f031e8e1382bd8a3439088a804dec82617"
     },
     {
       "path": "characters/ct_char_enemy_033.json",
-      "sha256": "b9e0c97143dbb5c887140e8242b1562e6b6f3121eb6ea6e296fdf275a3ef6e06"
+      "sha256": "0aa2b2240e68a39b1435116e487d93941e6cc7de25b727b6094c327e264ee90a"
     },
     {
       "path": "characters/ct_char_enemy_034.json",
-      "sha256": "899e520ea0abe25566f43bc90c1ad0dc077bc5c775f5b4d5cfff97a0e6c546d7"
+      "sha256": "4d648f3b1fdcf050f6fa4da86cf9f5e9b9eb31fe3abccc8a2d9b6000a7ccebba"
     },
     {
       "path": "characters/ct_char_enemy_035.json",
-      "sha256": "ebf56ff9bba2f244226fab323998de59bad975304d262aae524889638caede93"
+      "sha256": "cd63cfd362c9339be2ecda1d54071463be0811da4623600703b4ed0ff1307de5"
     },
     {
       "path": "characters/ct_char_enemy_036.json",
-      "sha256": "15db6273693b28d468d9b542a7a99e5d6c38071de17975f8e3994b661a9f5acb"
+      "sha256": "b0c496e1494f57dbe2fe93d4994c77e4e4903f527bd4a526ef3cd71996170f88"
     },
     {
       "path": "characters/ct_char_enemy_037.json",
-      "sha256": "a6b0f306c24e0977fa1b799e77d5c5d95270a1e5144b549e1599768ce9f4bb67"
+      "sha256": "afcff560a4694a53f66b5334ed2b8ed0f58b977cb365e79aeb4fc85351c10182"
     },
     {
       "path": "characters/ct_char_enemy_038.json",
-      "sha256": "d808294465330cf5fe01e8a488e86dab9df1bb1123c6ffc70992b6b46ccf27ea"
+      "sha256": "bb1e8ef19a18d3a6499755d734e9ec7488425b24d3e80592b14f963b2c43840c"
     },
     {
       "path": "characters/ct_char_enemy_040.json",
-      "sha256": "6039f2e86a0c9a94564d63163b44cc1c7699988bd09586baaab3ea7217a59a50"
+      "sha256": "382b8810c0fa7ccf1da4ab130f350cbf8d2a514fdf749323d9a5613f4c874f7c"
     },
     {
       "path": "characters/ct_char_enemy_050.json",
-      "sha256": "e52927d33fb0ace91b91c7665fff70dcdc2ef59c72ae68722cba46fe5a46a030"
+      "sha256": "7d99dc3dec5313305212f38fc071504be7d93fa3e5a0806d6f3728bc13099cad"
     },
     {
       "path": "characters/ct_char_enemy_060.json",
-      "sha256": "20c808a5723f1992bfcf55b01714eea735ea11ab12f20e3508ac9a7238d58803"
+      "sha256": "3b5212f89caaae03bb593fad4f2374c9b3cde865aeefa3b668dc390d588788a4"
     },
     {
       "path": "characters/ct_char_enemy_070.json",
-      "sha256": "c95f0e69aaab0c52eb7f893c8f2adcc17fcf333c579ecedb153ac8f5b142db4f"
+      "sha256": "ec2e21fa5f7dc94b4595846b629ad4aa8848fd68ecb0e22306af64e9f4855290"
     },
     {
       "path": "characters/ct_char_enemy_080.json",
-      "sha256": "c82c7c86f1c4515ca82ac7d238bdb58b9638f90aaaeb644d47cbdfe6974e1189"
+      "sha256": "a74a0842f3b131929002add71681d4025253b9c7f2f53b131ccc9e8b123b5725"
     },
     {
       "path": "characters/ct_char_enemy_090.json",
-      "sha256": "9c1ffd8164ec289ff6bbc1010aa0bca30dce69c328ca345f7d2d1eed63eaa889"
+      "sha256": "626a3d81ff726db0a78901f9fbf6dcfd0a5d932495f2fc710fb36051ec78b217"
     },
     {
       "path": "characters/ct_char_enemy_091.json",
-      "sha256": "6fb597cce68f68cd84443fe6422c2cc968650f11352ae47634ec9969b09f5adc"
+      "sha256": "9a915e17e720a3e97a33e17da098dc2f8385954a2d2954e04520da903e5ffd15"
     },
     {
       "path": "characters/ct_char_enemy_092.json",
-      "sha256": "3ce22401723740f088e7c67429d5e1cc4d1c6c3345f90335ee734122cd3824ad"
+      "sha256": "e75efd9d5c3fa484ac8ba152efdc29a4972485b48f98bbfd3ece2be5ece097bf"
     },
     {
       "path": "characters/ct_char_enemy_093.json",
-      "sha256": "535dcbca02de640348946dc3ddb47dc6ebc1e4f5f08f4db69863b9f450079c97"
+      "sha256": "88e365694187cecff22174d5483b5b0ebb424808b18b8cef58b25c3564818ec4"
     },
     {
       "path": "characters/ct_char_enemy_900.json",
-      "sha256": "3758e95bdf393f41add8f4ab3bdb5f89d88b6fe27e47cde148c94e3844ac85ab"
+      "sha256": "4294fc23edda8f1f77908333defa682ffe77768ce3f3a70f2ffa5de9d6e54414"
     },
     {
       "path": "characters/ct_enemies_001.json",
-      "sha256": "20c81c0ee1cd8ff7f1f4873ea7041de354e11651e7420369e99b545f0ba4f13e"
+      "sha256": "aed18653d35cde4e6ab265abe1b2ca9e4407fbcea0adce0da39b208c7bd23052"
     },
     {
       "path": "characters/ct_rig_enemy_001.json",
-      "sha256": "d61db2d2f65f761fb75a1248d554f2424ae1d7f292f3d907d3969bd1161f8761"
+      "sha256": "4459171ec3a1fb6ded3a5d756cef953f3eb3fffa56fda9614c1e89014da0d708"
     },
     {
       "path": "characters/ct_rig_enemy_002.json",
-      "sha256": "a041468ff31636c9d10cbc2c149a504d19173b2079cc167635e32612c811b390"
+      "sha256": "d8febc60b348c9fff0e2e20e6cdbaa2c381a9aecf75750178a777c773363d6bd"
     },
     {
       "path": "characters/ct_rig_enemy_010.json",
-      "sha256": "6de672c530f31acb618f6a6c9ca4b8e9023519ea36b9f44a69c44c7d5427cce5"
+      "sha256": "6188c6a94efd39c3064e26ffe2be4a966621bee15673db91f6dbb722d6a6f160"
     },
     {
       "path": "characters/ct_rig_enemy_011.json",
-      "sha256": "b757d6aeb4741a72bcad8f833f3017f64ed3c4bf7918ea6c39d93a022586fd0f"
+      "sha256": "0ec16a658552dd13200034be4f8f2c27889833fce3b59e2aef75f22be9f118a1"
     },
     {
       "path": "characters/ct_rig_enemy_012.json",
-      "sha256": "9f2379a89558ed0ce044bc593c4e5ba81e011551c115b01ecb7b6f4dac167f65"
+      "sha256": "5ab22557da8d12efad0f9996e06afde45796df20d2ecfa094589242037a516df"
     },
     {
       "path": "characters/ct_rig_enemy_018.json",
-      "sha256": "8f4cd71c6dbda180d1ecfe85421305fe2145b6885731a2567cf0ff5ea57e82a8"
+      "sha256": "f8c47166fb7299593e74c9a2af47ea348cc1d18dd74508f609b7b62078e816bf"
     },
     {
       "path": "characters/ct_rig_enemy_020.json",
@@ -976,87 +984,87 @@
     },
     {
       "path": "characters/ct_rig_enemy_030.json",
-      "sha256": "e197e131b3f49393f88838f8b28d29744f4675e3a585523ce049e5a3818092dd"
+      "sha256": "a535f6c4efe6abe5c397e9cc0c5c71233b20fcdbb89dfdd4179e4fcc9f1aa303"
     },
     {
       "path": "characters/ct_rig_enemy_031.json",
-      "sha256": "bc4ff309d2c88db6b90dca23b1de702d35b5af992bb57880e0f3f295d4c3fa7c"
+      "sha256": "b30f4a8d9bfdc08f81383be501328cdac59c4a372a8a39fdc61047934b3c4f32"
     },
     {
       "path": "characters/ct_rig_enemy_032.json",
-      "sha256": "18abfe17ede3e4d0298cc93fcacfe1829994b3b91742cd025ef48e37a924384c"
+      "sha256": "8aa69c54aaf6cd818d046194b84bfc194156a30e09e32c26e1d774417849ddc0"
     },
     {
       "path": "characters/ct_rig_enemy_033.json",
-      "sha256": "eb6f3f72a68c20c4ea93bac3c40173bbf18530a39827e37618fa63ee39323b74"
+      "sha256": "cf3ea135c254a1d0cc830f78009e1aab06f4d1303fc9a7725aafaa963461c6b3"
     },
     {
       "path": "characters/ct_rig_enemy_034.json",
-      "sha256": "9f9a9d9a9a636327729c2b1d521799f436407bf18aa0a499356bf00873e5e3c0"
+      "sha256": "daebda7dff2b598b75d373cb8bb2cb701917a92cbbfd8a1d65d588000dc10b8d"
     },
     {
       "path": "characters/ct_rig_enemy_035.json",
-      "sha256": "cbf6c08318f123978385291347f87e76ed0ab9e7efd22296d41efc9a7cdbc37d"
+      "sha256": "abbcca69890328403994df1c9c64261f0ce3e2a45fcd01556248c629f78b2848"
     },
     {
       "path": "characters/ct_rig_enemy_036.json",
-      "sha256": "e420736ad30e64648e65d38cc59cb1cc88daae51cfcc25af0493de2cf3cc1d74"
+      "sha256": "52d54801a8e5b865363807c5fc13b3c4c4bb6e473ae9cbb60867f7dc66818c03"
     },
     {
       "path": "characters/ct_rig_enemy_037.json",
-      "sha256": "ad8fab1e629900043765ccd245ee3e703bb862e771c89aab94babaa3f68084da"
+      "sha256": "f56a7a69de41935f47ae1825a2c43a3f1002c5818b2910dbb2b7a4a5543022cf"
     },
     {
       "path": "characters/ct_rig_enemy_038.json",
-      "sha256": "cb0ba32e9526b7c23cdf9d5bf39ea864a2696a97a0d9c14e35909a505bbdb636"
+      "sha256": "2361668e4fae8c07d8d50b662487ff90f0ce911e7a996cccbc74c500e7ccbf4a"
     },
     {
       "path": "characters/ct_rig_enemy_040.json",
-      "sha256": "05e276ee2fd7ff52ba7ad6b627afcf54364850d966b4cce3726be11549b98f09"
+      "sha256": "76d305c0e3ce352596a5ea569ae5ee6342e6552559ad8feb39db031f188fbc6b"
     },
     {
       "path": "characters/ct_rig_enemy_050.json",
-      "sha256": "89fd99b8ada3b83130ffe1b6ddd7b1a2ef3655438bba3b559cb743a32ce7462a"
+      "sha256": "2dad2a15a274ee06667c81b26a2e3473942dd9f9dcb3c6ace38be145a8ccbe36"
     },
     {
       "path": "characters/ct_rig_enemy_060.json",
-      "sha256": "7599888037f335053eeffdc447f714c1b2dcbd8c3f3256c975e58bea7f7dec87"
+      "sha256": "a91e33c831d9d0b059c1eb17433e0acdf3ce0edccc7664c3b1c2f3312e8c934e"
     },
     {
       "path": "characters/ct_rig_enemy_070.json",
-      "sha256": "9f366535f3c1c6947a5ee57de156dcff9ea2880b60cef3497e33514939b2370a"
+      "sha256": "67b61667f7846858ba531d30da8bf2d505fd59fa78a4d594bc4dc76d241e25e4"
     },
     {
       "path": "characters/ct_rig_enemy_080.json",
-      "sha256": "c329c01201802d6f00a2364e3978d3bbad766f10237a96425067b44e932edbc0"
+      "sha256": "b8d99f41f6e88700248d3463a563639aeae855c3c773bc7c2838493cfabc55ab"
     },
     {
       "path": "characters/ct_rig_enemy_090.json",
-      "sha256": "ebf7c6a836ab8c777babe03d07ada2c229dd46358cf36fc6589ac14defa5b923"
+      "sha256": "5e8e5e4cbc140b02a0847b271e5ae379d33fd8dfe7c33e33fa2c78fe51097dda"
     },
     {
       "path": "characters/ct_rig_enemy_091.json",
-      "sha256": "6e52594e9ebcbc2ef06671d7030eaae057df40ee967244a8fcd5826b466bac7a"
+      "sha256": "87038784671c88bb83316a9a1cae7b9d73767520f5407d1b8c068706f239a751"
     },
     {
       "path": "characters/ct_rig_enemy_092.json",
-      "sha256": "46697b78828d5e4b194b87c97f6de8ee0d1fe2186d28f7e3d926a524f51c40f8"
+      "sha256": "9b02a71f9a69ba44a40cf4b6ad89c5dc0d3fade339e9a5d6145f3ba95c656af2"
     },
     {
       "path": "characters/ct_rig_enemy_093.json",
-      "sha256": "b23c5e30d024c26ed1ab4f21fc6953456ca5827020b949c907574fbcde997333"
+      "sha256": "0be32a8a2a7a72b7b57fd22e2367660b9a149960d9918c14a131649b2cd72098"
     },
     {
       "path": "characters/ct_rig_enemy_900.json",
-      "sha256": "e5659e34e6e895e0ba633a9116985f6be8078da694d33d5bafbc8fbe55e85178"
+      "sha256": "7a5d33f1802efdc5f4fd307cc10b11d7f816dfc3b0258b58c4a6e39169fc9418"
     },
     {
       "path": "items/it_atlas_001.json",
-      "sha256": "3577e8723fb69b5fd86ca3d05aa3a8faf3c0bde421af19ae4e3e77283980b54f"
+      "sha256": "767755601ce9855f5618d24ef3bd7007dfac97fc315c0ba74b95b405960c3afd"
     },
     {
       "path": "items/it_atlas_001.png",
-      "sha256": "e5265f9956a6c6f38e08bea5dac5c7172271a6f70b464b96b48c6bc23652cf6d"
+      "sha256": "06ef4771141c0203c9c0e0a22c75ca4fbcfeaa1e7b7d4ed489b65c85031aad90"
     },
     {
       "path": "items/it_entities_001.json",
@@ -1064,15 +1072,15 @@
     },
     {
       "path": "palette-builder.html",
-      "sha256": "740c4031ddbb4cbb2466f56c85921746dad799b0c062644481410998e7650169"
+      "sha256": "07b840895556b85fb1f3c7ecd637fdc6edf95f1ba18fa04d4e5f8dfe353e965f"
     },
     {
       "path": "resources.json",
-      "sha256": "dbb3cbd7e120c95882f5917003eeb5753463caec170b11ab9e448b3af6aac9c1"
+      "sha256": "a023963689bba4f40f145ccbf1da720d23f63a948576dc3451580519243a8f33"
     },
     {
       "path": "src/presentation/character-runtime.js",
-      "sha256": "0723a0abd802a91d722a29deee4bc98c53d8d0a0a737fb1c89c558e6ab602ad7"
+      "sha256": "fec253226da90124eb5689cadb3370721e7bf7da6a41809d0caa62edc55178c7"
     },
     {
       "path": "src/presentation/pixmap-pyramid.js",
@@ -1112,7 +1120,11 @@
     },
     {
       "path": "src/tools/palette-builder.js",
-      "sha256": "c239d4d4f1752e27db238cbe117df29c739565f68166dbc7a959d80176dfb401"
+      "sha256": "6d9091d7016eaa82e77c717e2c1cb20a6e538b871421f8e9d4684be638ae6711"
+    },
+    {
+      "path": "src/tools/resource-hash.js",
+      "sha256": "b5a5751509f2264b8722ceaf04c954c5e3090298db5b28b80459f29bcf4c4275"
     }
   ],
   "entries": [
@@ -4189,6 +4201,64 @@
       "paletteOrder": 0
     },
     {
+      "key": "asset:at_atlas_004:black_long",
+      "kind": "asset",
+      "id": "at_atlas_004:black_long",
+      "label": "black_long",
+      "category": "decor",
+      "searchable": "at_atlas_004 black_long decor",
+      "thumbnail": {
+        "x": 576,
+        "y": 256,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_004",
+        "assetId": "black_long",
+        "manifest": "atlases/at_atlas_004.json",
+        "image": "atlases/at_atlas_004.png"
+      },
+      "frame": {
+        "x": 552,
+        "y": 624,
+        "w": 1214,
+        "h": 395
+      },
+      "type": "decor",
+      "tags": [],
+      "paletteOrder": 0
+    },
+    {
+      "key": "asset:at_atlas_004:black_round",
+      "kind": "asset",
+      "id": "at_atlas_004:black_round",
+      "label": "black_round",
+      "category": "decor",
+      "searchable": "at_atlas_004 black_round decor",
+      "thumbnail": {
+        "x": 640,
+        "y": 256,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_004",
+        "assetId": "black_round",
+        "manifest": "atlases/at_atlas_004.json",
+        "image": "atlases/at_atlas_004.png"
+      },
+      "frame": {
+        "x": 59,
+        "y": 624,
+        "w": 439,
+        "h": 397
+      },
+      "type": "decor",
+      "tags": [],
+      "paletteOrder": 0
+    },
+    {
       "key": "asset:at_atlas_004:earth_long_platform_r1_a",
       "kind": "asset",
       "id": "at_atlas_004:earth_long_platform_r1_a",
@@ -4196,7 +4266,7 @@
       "category": "platform",
       "searchable": "at_atlas_004 earth_long_platform_r1_a platform earth platform long-platform",
       "thumbnail": {
-        "x": 576,
+        "x": 704,
         "y": 256,
         "w": 64,
         "h": 64
@@ -4229,7 +4299,7 @@
       "category": "platform",
       "searchable": "at_atlas_004 earth_long_platform_r2_a platform earth platform long-platform",
       "thumbnail": {
-        "x": 640,
+        "x": 768,
         "y": 256,
         "w": 64,
         "h": 64
@@ -4262,7 +4332,7 @@
       "category": "platform",
       "searchable": "at_atlas_004 earth_long_platform_r2_b platform earth platform long-platform",
       "thumbnail": {
-        "x": 704,
+        "x": 832,
         "y": 256,
         "w": 64,
         "h": 64
@@ -4295,7 +4365,7 @@
       "category": "platform",
       "searchable": "at_atlas_004 earth_long_platform_r3_a platform earth platform long-platform",
       "thumbnail": {
-        "x": 768,
+        "x": 896,
         "y": 256,
         "w": 64,
         "h": 64
@@ -4328,7 +4398,7 @@
       "category": "platform",
       "searchable": "at_atlas_004 earth_long_platform_r3_b platform earth platform long-platform",
       "thumbnail": {
-        "x": 832,
+        "x": 960,
         "y": 256,
         "w": 64,
         "h": 64
@@ -4361,7 +4431,7 @@
       "category": "platform",
       "searchable": "at_atlas_004 earth_long_platform_r4_a platform earth platform long-platform",
       "thumbnail": {
-        "x": 896,
+        "x": 1024,
         "y": 256,
         "w": 64,
         "h": 64
@@ -4394,7 +4464,7 @@
       "category": "platform",
       "searchable": "at_atlas_004 earth_long_platform_r4_b platform earth platform long-platform",
       "thumbnail": {
-        "x": 960,
+        "x": 1088,
         "y": 256,
         "w": 64,
         "h": 64
@@ -4427,7 +4497,7 @@
       "category": "platform",
       "searchable": "at_atlas_004 earth_long_platform_r4_c platform earth platform long-platform",
       "thumbnail": {
-        "x": 1024,
+        "x": 1152,
         "y": 256,
         "w": 64,
         "h": 64
@@ -4460,7 +4530,7 @@
       "category": "platform",
       "searchable": "at_atlas_004 earth_long_platform_r5_a platform earth platform long-platform",
       "thumbnail": {
-        "x": 1088,
+        "x": 1216,
         "y": 256,
         "w": 64,
         "h": 64
@@ -4493,7 +4563,7 @@
       "category": "platform",
       "searchable": "at_atlas_004 earth_long_platform_r5_b platform earth platform long-platform",
       "thumbnail": {
-        "x": 1152,
+        "x": 1280,
         "y": 256,
         "w": 64,
         "h": 64
@@ -4526,7 +4596,7 @@
       "category": "platform",
       "searchable": "at_atlas_004 earth_long_platform_r6_a platform earth platform long-platform",
       "thumbnail": {
-        "x": 1216,
+        "x": 1344,
         "y": 256,
         "w": 64,
         "h": 64
@@ -4559,7 +4629,7 @@
       "category": "platform",
       "searchable": "at_atlas_004 earth_long_platform_r6_b platform earth platform long-platform",
       "thumbnail": {
-        "x": 1280,
+        "x": 1408,
         "y": 256,
         "w": 64,
         "h": 64
@@ -4592,8 +4662,8 @@
       "category": "platform",
       "searchable": "at_atlas_004 earth_long_platform_r6_c platform earth platform long-platform",
       "thumbnail": {
-        "x": 1344,
-        "y": 256,
+        "x": 0,
+        "y": 320,
         "w": 64,
         "h": 64
       },
@@ -4625,8 +4695,8 @@
       "category": "platform",
       "searchable": "at_atlas_004 earth_long_platform_r7_a platform earth platform long-platform",
       "thumbnail": {
-        "x": 1408,
-        "y": 256,
+        "x": 64,
+        "y": 320,
         "w": 64,
         "h": 64
       },
@@ -4658,7 +4728,7 @@
       "category": "platform",
       "searchable": "at_atlas_004 earth_long_platform_r7_b platform earth platform long-platform",
       "thumbnail": {
-        "x": 0,
+        "x": 128,
         "y": 320,
         "w": 64,
         "h": 64
@@ -4691,7 +4761,7 @@
       "category": "platform",
       "searchable": "at_atlas_004 earth_long_platform_r7_c platform earth platform long-platform",
       "thumbnail": {
-        "x": 64,
+        "x": 192,
         "y": 320,
         "w": 64,
         "h": 64
@@ -4724,7 +4794,7 @@
       "category": "decor",
       "searchable": "at_atlas_005 castle_keep_gate decor castle keep gatehouse stone background decoration",
       "thumbnail": {
-        "x": 128,
+        "x": 256,
         "y": 320,
         "w": 64,
         "h": 64
@@ -4760,7 +4830,7 @@
       "category": "decor",
       "searchable": "at_atlas_005 castle_roofed_well decor castle well stone wood decoration",
       "thumbnail": {
-        "x": 192,
+        "x": 320,
         "y": 320,
         "w": 64,
         "h": 64
@@ -4795,7 +4865,7 @@
       "category": "decor",
       "searchable": "at_atlas_005 castle_ruined_house_tower decor castle building stone ruin tower background decoration",
       "thumbnail": {
-        "x": 256,
+        "x": 384,
         "y": 320,
         "w": 64,
         "h": 64
@@ -4832,7 +4902,7 @@
       "category": "decor",
       "searchable": "at_atlas_005 castle_ruined_wall_door decor castle ruin wall door background decoration",
       "thumbnail": {
-        "x": 320,
+        "x": 448,
         "y": 320,
         "w": 64,
         "h": 64
@@ -4868,7 +4938,7 @@
       "category": "decor",
       "searchable": "at_atlas_005 castle_stable_barn decor castle stable barn building wood stone background decoration",
       "thumbnail": {
-        "x": 384,
+        "x": 512,
         "y": 320,
         "w": 64,
         "h": 64
@@ -4906,7 +4976,7 @@
       "category": "platform",
       "searchable": "at_atlas_005 castle_stone_arch_bridge platform castle stone bridge arch blockable platform",
       "thumbnail": {
-        "x": 448,
+        "x": 576,
         "y": 320,
         "w": 64,
         "h": 64
@@ -4942,7 +5012,7 @@
       "category": "decor",
       "searchable": "at_atlas_005 castle_stone_cottage_large decor castle building stone cottage background decoration",
       "thumbnail": {
-        "x": 512,
+        "x": 640,
         "y": 320,
         "w": 64,
         "h": 64
@@ -4978,7 +5048,7 @@
       "category": "decor",
       "searchable": "at_atlas_005 castle_stone_cottage_small decor castle building stone cottage background decoration",
       "thumbnail": {
-        "x": 576,
+        "x": 704,
         "y": 320,
         "w": 64,
         "h": 64
@@ -5014,7 +5084,7 @@
       "category": "decor",
       "searchable": "at_atlas_005 castle_watchtower_flag decor castle tower watchtower flag background decoration",
       "thumbnail": {
-        "x": 640,
+        "x": 768,
         "y": 320,
         "w": 64,
         "h": 64
@@ -5050,7 +5120,7 @@
       "category": "decor",
       "searchable": "at_atlas_006 cave_alchemy_table decor cave alchemy table potion skull decoration",
       "thumbnail": {
-        "x": 704,
+        "x": 832,
         "y": 320,
         "w": 64,
         "h": 64
@@ -5086,7 +5156,7 @@
       "category": "decor",
       "searchable": "at_atlas_006 cave_anvil_workbench decor cave anvil blacksmith tool decoration",
       "thumbnail": {
-        "x": 768,
+        "x": 896,
         "y": 320,
         "w": 64,
         "h": 64
@@ -5121,7 +5191,7 @@
       "category": "decor",
       "searchable": "at_atlas_006 cave_barrel_cluster decor cave barrel tavern storage decoration",
       "thumbnail": {
-        "x": 832,
+        "x": 960,
         "y": 320,
         "w": 64,
         "h": 64
@@ -5156,7 +5226,7 @@
       "category": "decor",
       "searchable": "at_atlas_006 cave_bedroll decor cave bedroll blanket camp decoration",
       "thumbnail": {
-        "x": 896,
+        "x": 1024,
         "y": 320,
         "w": 64,
         "h": 64
@@ -5191,7 +5261,7 @@
       "category": "decor",
       "searchable": "at_atlas_006 cave_boots_bag decor cave boots bag travel decoration",
       "thumbnail": {
-        "x": 960,
+        "x": 1088,
         "y": 320,
         "w": 64,
         "h": 64
@@ -5226,7 +5296,7 @@
       "category": "decor",
       "searchable": "at_atlas_006 cave_bottle_jug_clutter decor cave bottle jug clutter decoration",
       "thumbnail": {
-        "x": 1024,
+        "x": 1152,
         "y": 320,
         "w": 64,
         "h": 64
@@ -5261,7 +5331,7 @@
       "category": "decor",
       "searchable": "at_atlas_006 cave_burned_campfire decor cave campfire ash charcoal decoration",
       "thumbnail": {
-        "x": 1088,
+        "x": 1216,
         "y": 320,
         "w": 64,
         "h": 64
@@ -5296,7 +5366,7 @@
       "category": "decor",
       "searchable": "at_atlas_006 cave_cloth_pile decor cave cloth rug fabric decoration",
       "thumbnail": {
-        "x": 1152,
+        "x": 1280,
         "y": 320,
         "w": 64,
         "h": 64
@@ -5331,7 +5401,7 @@
       "category": "decor",
       "searchable": "at_atlas_006 cave_crossbow_crate decor cave crossbow crate weapons decoration",
       "thumbnail": {
-        "x": 1216,
+        "x": 1344,
         "y": 320,
         "w": 64,
         "h": 64
@@ -5366,7 +5436,7 @@
       "category": "decor",
       "searchable": "at_atlas_006 cave_goblet_plate decor cave goblet plate tableware decoration",
       "thumbnail": {
-        "x": 1280,
+        "x": 1408,
         "y": 320,
         "w": 64,
         "h": 64
@@ -5401,8 +5471,8 @@
       "category": "decor",
       "searchable": "at_atlas_006 cave_grindstone decor cave grindstone tool decoration",
       "thumbnail": {
-        "x": 1344,
-        "y": 320,
+        "x": 0,
+        "y": 384,
         "w": 64,
         "h": 64
       },
@@ -5435,8 +5505,8 @@
       "category": "decor",
       "searchable": "at_atlas_006 cave_lantern decor cave lantern light decoration",
       "thumbnail": {
-        "x": 1408,
-        "y": 320,
+        "x": 64,
+        "y": 384,
         "w": 64,
         "h": 64
       },
@@ -5469,7 +5539,7 @@
       "category": "decor",
       "searchable": "at_atlas_006 cave_sacks_satchel decor cave sack satchel supplies decoration",
       "thumbnail": {
-        "x": 0,
+        "x": 128,
         "y": 384,
         "w": 64,
         "h": 64
@@ -5504,7 +5574,7 @@
       "category": "decor",
       "searchable": "at_atlas_006 cave_spear_rack decor cave spears rack weapons decoration",
       "thumbnail": {
-        "x": 64,
+        "x": 192,
         "y": 384,
         "w": 64,
         "h": 64
@@ -5539,7 +5609,7 @@
       "category": "decor",
       "searchable": "at_atlas_006 cave_sword_in_stone decor cave sword stone heroic decoration",
       "thumbnail": {
-        "x": 128,
+        "x": 256,
         "y": 384,
         "w": 64,
         "h": 64
@@ -5574,7 +5644,7 @@
       "category": "decor",
       "searchable": "at_atlas_006 cave_tattered_red_cloth_line decor cave cloth hanging rag red decoration",
       "thumbnail": {
-        "x": 192,
+        "x": 320,
         "y": 384,
         "w": 64,
         "h": 64
@@ -5610,7 +5680,7 @@
       "category": "decor",
       "searchable": "at_atlas_006 cave_tattered_tan_cloth_line decor cave cloth hanging rag tan decoration",
       "thumbnail": {
-        "x": 256,
+        "x": 384,
         "y": 384,
         "w": 64,
         "h": 64
@@ -5646,7 +5716,7 @@
       "category": "decor",
       "searchable": "at_atlas_006 cave_tool_rack decor cave tools rack blacksmith decoration",
       "thumbnail": {
-        "x": 320,
+        "x": 448,
         "y": 384,
         "w": 64,
         "h": 64
@@ -5681,7 +5751,7 @@
       "category": "decor",
       "searchable": "at_atlas_006 cave_weapon_chest decor cave weapons chest sword shield decoration",
       "thumbnail": {
-        "x": 384,
+        "x": 512,
         "y": 384,
         "w": 64,
         "h": 64
@@ -5717,7 +5787,7 @@
       "category": "platform",
       "searchable": "at_atlas_007 black_cauldron_blockable platform cauldron black campfire blockable",
       "thumbnail": {
-        "x": 448,
+        "x": 576,
         "y": 384,
         "w": 64,
         "h": 64
@@ -5751,7 +5821,7 @@
       "category": "decor",
       "searchable": "at_atlas_007 catapult decor catapult siege wood decoration",
       "thumbnail": {
-        "x": 512,
+        "x": 640,
         "y": 384,
         "w": 64,
         "h": 64
@@ -5785,7 +5855,7 @@
       "category": "decor",
       "searchable": "at_atlas_007 grave_celtic_cross decor grave headstone cross decoration",
       "thumbnail": {
-        "x": 576,
+        "x": 704,
         "y": 384,
         "w": 64,
         "h": 64
@@ -5819,7 +5889,7 @@
       "category": "decor",
       "searchable": "at_atlas_007 grave_cracked_slab decor grave headstone cracked decoration",
       "thumbnail": {
-        "x": 640,
+        "x": 768,
         "y": 384,
         "w": 64,
         "h": 64
@@ -5853,7 +5923,7 @@
       "category": "decor",
       "searchable": "at_atlas_007 grave_cross_headstone decor grave headstone cross decoration",
       "thumbnail": {
-        "x": 704,
+        "x": 832,
         "y": 384,
         "w": 64,
         "h": 64
@@ -5887,7 +5957,7 @@
       "category": "decor",
       "searchable": "at_atlas_007 grave_diamond_headstone decor grave headstone diamond decoration",
       "thumbnail": {
-        "x": 768,
+        "x": 896,
         "y": 384,
         "w": 64,
         "h": 64
@@ -5921,7 +5991,7 @@
       "category": "decor",
       "searchable": "at_atlas_007 grave_round_headstone decor grave headstone round decoration",
       "thumbnail": {
-        "x": 832,
+        "x": 960,
         "y": 384,
         "w": 64,
         "h": 64
@@ -5955,7 +6025,7 @@
       "category": "platform",
       "searchable": "at_atlas_007 rope_bridge_long_walkable platform rope bridge wood walkable platform",
       "thumbnail": {
-        "x": 896,
+        "x": 1024,
         "y": 384,
         "w": 64,
         "h": 64
@@ -5990,7 +6060,7 @@
       "category": "decor",
       "searchable": "at_atlas_007 rope_bridge_rickety_decor decor rope bridge rickety wood decoration",
       "thumbnail": {
-        "x": 960,
+        "x": 1088,
         "y": 384,
         "w": 64,
         "h": 64
@@ -6025,7 +6095,7 @@
       "category": "platform",
       "searchable": "at_atlas_007 rope_ladder_angled_walkable platform rope ladder angled walkable platform",
       "thumbnail": {
-        "x": 1024,
+        "x": 1152,
         "y": 384,
         "w": 64,
         "h": 64
@@ -6060,7 +6130,7 @@
       "category": "decor",
       "searchable": "at_atlas_007 ruined_church decor ruin church stone graveyard decoration",
       "thumbnail": {
-        "x": 1088,
+        "x": 1216,
         "y": 384,
         "w": 64,
         "h": 64
@@ -6095,7 +6165,7 @@
       "category": "platform",
       "searchable": "at_atlas_008 wood_bed platform wood furniture bed blockable",
       "thumbnail": {
-        "x": 1152,
+        "x": 1280,
         "y": 384,
         "w": 64,
         "h": 64
@@ -6129,7 +6199,7 @@
       "category": "platform",
       "searchable": "at_atlas_008 wood_chair_arch_back platform wood furniture chair blockable",
       "thumbnail": {
-        "x": 1216,
+        "x": 1344,
         "y": 384,
         "w": 64,
         "h": 64
@@ -6163,7 +6233,7 @@
       "category": "platform",
       "searchable": "at_atlas_008 wood_chair_knocked_over platform wood furniture chair knocked-over blockable",
       "thumbnail": {
-        "x": 1280,
+        "x": 1408,
         "y": 384,
         "w": 64,
         "h": 64
@@ -6198,8 +6268,8 @@
       "category": "platform",
       "searchable": "at_atlas_008 wood_chair_low_back platform wood furniture chair stool blockable",
       "thumbnail": {
-        "x": 1344,
-        "y": 384,
+        "x": 0,
+        "y": 448,
         "w": 64,
         "h": 64
       },
@@ -6233,8 +6303,8 @@
       "category": "platform",
       "searchable": "at_atlas_008 wood_chair_simple platform wood furniture chair blockable",
       "thumbnail": {
-        "x": 1408,
-        "y": 384,
+        "x": 64,
+        "y": 448,
         "w": 64,
         "h": 64
       },
@@ -6267,7 +6337,7 @@
       "category": "platform",
       "searchable": "at_atlas_008 wood_chair_tall_back platform wood furniture chair blockable",
       "thumbnail": {
-        "x": 0,
+        "x": 128,
         "y": 448,
         "w": 64,
         "h": 64
@@ -6301,7 +6371,7 @@
       "category": "platform",
       "searchable": "at_atlas_008 wood_cupboard platform wood furniture cupboard wardrobe blockable",
       "thumbnail": {
-        "x": 64,
+        "x": 192,
         "y": 448,
         "w": 64,
         "h": 64
@@ -6336,7 +6406,7 @@
       "category": "platform",
       "searchable": "at_atlas_008 wood_plank_extra_long_curved platform wood plank long curved walkable platform",
       "thumbnail": {
-        "x": 128,
+        "x": 256,
         "y": 448,
         "w": 64,
         "h": 64
@@ -6372,7 +6442,7 @@
       "category": "platform",
       "searchable": "at_atlas_008 wood_plank_extra_long_straight platform wood plank long straight walkable platform",
       "thumbnail": {
-        "x": 192,
+        "x": 320,
         "y": 448,
         "w": 64,
         "h": 64
@@ -6408,7 +6478,7 @@
       "category": "platform",
       "searchable": "at_atlas_008 wood_plank_short_a platform wood plank short walkable platform",
       "thumbnail": {
-        "x": 256,
+        "x": 384,
         "y": 448,
         "w": 64,
         "h": 64
@@ -6443,7 +6513,7 @@
       "category": "platform",
       "searchable": "at_atlas_008 wood_plank_short_b platform wood plank short walkable platform",
       "thumbnail": {
-        "x": 320,
+        "x": 448,
         "y": 448,
         "w": 64,
         "h": 64
@@ -6478,7 +6548,7 @@
       "category": "platform",
       "searchable": "at_atlas_008 wood_plank_short_c platform wood plank short walkable platform",
       "thumbnail": {
-        "x": 384,
+        "x": 512,
         "y": 448,
         "w": 64,
         "h": 64
@@ -6513,7 +6583,7 @@
       "category": "platform",
       "searchable": "at_atlas_008 wood_plank_short_d platform wood plank short walkable platform",
       "thumbnail": {
-        "x": 448,
+        "x": 576,
         "y": 448,
         "w": 64,
         "h": 64
@@ -6548,7 +6618,7 @@
       "category": "platform",
       "searchable": "at_atlas_008 wood_plank_tiny platform wood plank tiny walkable platform",
       "thumbnail": {
-        "x": 512,
+        "x": 640,
         "y": 448,
         "w": 64,
         "h": 64
@@ -6583,7 +6653,7 @@
       "category": "platform",
       "searchable": "at_atlas_008 wood_table_large platform wood furniture table blockable",
       "thumbnail": {
-        "x": 576,
+        "x": 704,
         "y": 448,
         "w": 64,
         "h": 64
@@ -6617,7 +6687,7 @@
       "category": "decor",
       "searchable": "at_atlas_009 castle_stone_wall_background decor castle stone wall background decoration",
       "thumbnail": {
-        "x": 640,
+        "x": 768,
         "y": 448,
         "w": 64,
         "h": 64
@@ -6631,8 +6701,8 @@
       "frame": {
         "x": 0,
         "y": 0,
-        "w": 1672,
-        "h": 941
+        "w": 621,
+        "h": 262
       },
       "type": "decor",
       "tags": [
@@ -6652,7 +6722,7 @@
       "category": "decor",
       "searchable": "at_atlas_010 castle_banner_blue_lion decor castle wall banner lion blue decoration",
       "thumbnail": {
-        "x": 704,
+        "x": 832,
         "y": 448,
         "w": 64,
         "h": 64
@@ -6688,7 +6758,7 @@
       "category": "decor",
       "searchable": "at_atlas_010 castle_banner_red_white_lion decor castle wall banner lion red-white decoration",
       "thumbnail": {
-        "x": 768,
+        "x": 896,
         "y": 448,
         "w": 64,
         "h": 64
@@ -6724,7 +6794,7 @@
       "category": "decor",
       "searchable": "at_atlas_010 castle_candle_sconce_double decor castle wall candle sconce light decoration",
       "thumbnail": {
-        "x": 832,
+        "x": 960,
         "y": 448,
         "w": 64,
         "h": 64
@@ -6760,7 +6830,7 @@
       "category": "decor",
       "searchable": "at_atlas_010 castle_crest_ornate_small decor castle wall crest heraldry decoration",
       "thumbnail": {
-        "x": 896,
+        "x": 1024,
         "y": 448,
         "w": 64,
         "h": 64
@@ -6795,7 +6865,7 @@
       "category": "decor",
       "searchable": "at_atlas_010 castle_gothic_window_large_triple decor castle wall window gothic stained-glass decoration",
       "thumbnail": {
-        "x": 960,
+        "x": 1088,
         "y": 448,
         "w": 64,
         "h": 64
@@ -6831,7 +6901,7 @@
       "category": "decor",
       "searchable": "at_atlas_010 castle_gothic_window_tall decor castle wall window gothic decoration",
       "thumbnail": {
-        "x": 1024,
+        "x": 1152,
         "y": 448,
         "w": 64,
         "h": 64
@@ -6866,7 +6936,7 @@
       "category": "decor",
       "searchable": "at_atlas_010 castle_landscape_painting decor castle wall landscape painting decoration",
       "thumbnail": {
-        "x": 1088,
+        "x": 1216,
         "y": 448,
         "w": 64,
         "h": 64
@@ -6901,7 +6971,7 @@
       "category": "decor",
       "searchable": "at_atlas_010 castle_painting_heraldic_arms_helmet decor castle wall painting heraldry helmet decoration",
       "thumbnail": {
-        "x": 1152,
+        "x": 1280,
         "y": 448,
         "w": 64,
         "h": 64
@@ -6937,7 +7007,7 @@
       "category": "decor",
       "searchable": "at_atlas_010 castle_painting_knight_rider decor castle wall painting knight rider decoration",
       "thumbnail": {
-        "x": 1216,
+        "x": 1344,
         "y": 448,
         "w": 64,
         "h": 64
@@ -6973,7 +7043,7 @@
       "category": "decor",
       "searchable": "at_atlas_010 castle_painting_madonna_child decor castle wall painting portrait decoration",
       "thumbnail": {
-        "x": 1280,
+        "x": 1408,
         "y": 448,
         "w": 64,
         "h": 64
@@ -7008,8 +7078,8 @@
       "category": "decor",
       "searchable": "at_atlas_010 castle_portrait_king_framed decor castle wall portrait king painting decoration",
       "thumbnail": {
-        "x": 1344,
-        "y": 448,
+        "x": 0,
+        "y": 512,
         "w": 64,
         "h": 64
       },
@@ -7044,8 +7114,8 @@
       "category": "decor",
       "searchable": "at_atlas_010 castle_portrait_noblewoman_framed decor castle wall portrait noblewoman painting decoration",
       "thumbnail": {
-        "x": 1408,
-        "y": 448,
+        "x": 64,
+        "y": 512,
         "w": 64,
         "h": 64
       },
@@ -7080,7 +7150,7 @@
       "category": "decor",
       "searchable": "at_atlas_010 castle_shield_eagle_red decor castle wall shield eagle heraldry decoration",
       "thumbnail": {
-        "x": 0,
+        "x": 128,
         "y": 512,
         "w": 64,
         "h": 64
@@ -7116,7 +7186,7 @@
       "category": "decor",
       "searchable": "at_atlas_010 castle_shield_quartered_lion_fleur decor castle wall shield heraldry decoration",
       "thumbnail": {
-        "x": 64,
+        "x": 192,
         "y": 512,
         "w": 64,
         "h": 64
@@ -7151,7 +7221,7 @@
       "category": "decor",
       "searchable": "at_atlas_010 castle_stained_glass_window_narrow_red decor castle wall window stained-glass red decoration",
       "thumbnail": {
-        "x": 128,
+        "x": 256,
         "y": 512,
         "w": 64,
         "h": 64
@@ -7187,7 +7257,7 @@
       "category": "platform",
       "searchable": "at_atlas_010 castle_suit_armor_blue_plume platform castle armor suit-of-armor blue-plume blockable",
       "thumbnail": {
-        "x": 192,
+        "x": 320,
         "y": 512,
         "w": 64,
         "h": 64
@@ -7222,7 +7292,7 @@
       "category": "platform",
       "searchable": "at_atlas_010 castle_suit_armor_red_plume platform castle armor suit-of-armor red-plume blockable",
       "thumbnail": {
-        "x": 256,
+        "x": 384,
         "y": 512,
         "w": 64,
         "h": 64
@@ -7257,7 +7327,7 @@
       "category": "decor",
       "searchable": "at_atlas_010 castle_tapestry_royal_lions decor castle wall tapestry royal lions decoration",
       "thumbnail": {
-        "x": 320,
+        "x": 448,
         "y": 512,
         "w": 64,
         "h": 64
@@ -7293,7 +7363,7 @@
       "category": "decor",
       "searchable": "at_atlas_010 castle_wall_torch decor castle wall torch light decoration",
       "thumbnail": {
-        "x": 384,
+        "x": 512,
         "y": 512,
         "w": 64,
         "h": 64
@@ -7328,7 +7398,7 @@
       "category": "decor",
       "searchable": "at_atlas_010 castle_window_small_narrow_blue decor castle wall window narrow blue decoration",
       "thumbnail": {
-        "x": 448,
+        "x": 576,
         "y": 512,
         "w": 64,
         "h": 64
@@ -7364,7 +7434,7 @@
       "category": "platform",
       "searchable": "at_atlas_011 castle_stone_ground_ledge platform castle stone ground ledge floor blockable",
       "thumbnail": {
-        "x": 512,
+        "x": 640,
         "y": 512,
         "w": 64,
         "h": 64
@@ -7400,7 +7470,7 @@
       "category": "decor",
       "searchable": "at_atlas_012 castle_hanging_candle_chandelier_a decor castle lamp chandelier candle decoration",
       "thumbnail": {
-        "x": 576,
+        "x": 704,
         "y": 512,
         "w": 64,
         "h": 64
@@ -7435,7 +7505,7 @@
       "category": "decor",
       "searchable": "at_atlas_012 castle_hanging_candle_chandelier_b decor castle lamp chandelier candle decoration",
       "thumbnail": {
-        "x": 640,
+        "x": 768,
         "y": 512,
         "w": 64,
         "h": 64
@@ -7470,7 +7540,7 @@
       "category": "decor",
       "searchable": "at_atlas_012 castle_hanging_candle_chandelier_c decor castle lamp chandelier candle decoration",
       "thumbnail": {
-        "x": 704,
+        "x": 832,
         "y": 512,
         "w": 64,
         "h": 64
@@ -7505,7 +7575,7 @@
       "category": "decor",
       "searchable": "at_atlas_012 castle_hanging_lamp_small_a decor castle lamp hanging decoration",
       "thumbnail": {
-        "x": 768,
+        "x": 896,
         "y": 512,
         "w": 64,
         "h": 64
@@ -7539,7 +7609,7 @@
       "category": "decor",
       "searchable": "at_atlas_012 castle_hanging_lamp_small_b decor castle lamp hanging decoration",
       "thumbnail": {
-        "x": 832,
+        "x": 960,
         "y": 512,
         "w": 64,
         "h": 64
@@ -7573,7 +7643,7 @@
       "category": "decor",
       "searchable": "at_atlas_012 castle_hanging_lantern_a decor castle lamp lantern decoration",
       "thumbnail": {
-        "x": 896,
+        "x": 1024,
         "y": 512,
         "w": 64,
         "h": 64
@@ -7607,7 +7677,7 @@
       "category": "decor",
       "searchable": "at_atlas_012 castle_hanging_lantern_b decor castle lamp lantern decoration",
       "thumbnail": {
-        "x": 960,
+        "x": 1088,
         "y": 512,
         "w": 64,
         "h": 64
@@ -7641,7 +7711,7 @@
       "category": "decor",
       "searchable": "at_atlas_012 castle_hanging_lantern_c decor castle lamp lantern decoration",
       "thumbnail": {
-        "x": 1024,
+        "x": 1152,
         "y": 512,
         "w": 64,
         "h": 64
@@ -7675,7 +7745,7 @@
       "category": "decor",
       "searchable": "at_atlas_012 castle_hanging_lantern_d decor castle lamp lantern decoration",
       "thumbnail": {
-        "x": 1088,
+        "x": 1216,
         "y": 512,
         "w": 64,
         "h": 64
@@ -7709,7 +7779,7 @@
       "category": "platform",
       "searchable": "at_atlas_012 castle_stone_platform_extra_long_top platform castle stone platform long blockable",
       "thumbnail": {
-        "x": 1152,
+        "x": 1280,
         "y": 512,
         "w": 64,
         "h": 64
@@ -7744,7 +7814,7 @@
       "category": "platform",
       "searchable": "at_atlas_012 castle_stone_platform_long_mid platform castle stone platform long blockable",
       "thumbnail": {
-        "x": 1216,
+        "x": 1344,
         "y": 512,
         "w": 64,
         "h": 64
@@ -7779,7 +7849,7 @@
       "category": "platform",
       "searchable": "at_atlas_012 castle_stone_platform_medium_a platform castle stone platform medium blockable",
       "thumbnail": {
-        "x": 1280,
+        "x": 1408,
         "y": 512,
         "w": 64,
         "h": 64
@@ -7814,8 +7884,8 @@
       "category": "platform",
       "searchable": "at_atlas_012 castle_stone_platform_medium_b platform castle stone platform medium blockable",
       "thumbnail": {
-        "x": 1344,
-        "y": 512,
+        "x": 0,
+        "y": 576,
         "w": 64,
         "h": 64
       },
@@ -7849,8 +7919,8 @@
       "category": "platform",
       "searchable": "at_atlas_012 castle_stone_platform_short_a platform castle stone platform short blockable",
       "thumbnail": {
-        "x": 1408,
-        "y": 512,
+        "x": 64,
+        "y": 576,
         "w": 64,
         "h": 64
       },
@@ -7884,7 +7954,7 @@
       "category": "platform",
       "searchable": "at_atlas_012 castle_stone_platform_short_b platform castle stone platform short blockable",
       "thumbnail": {
-        "x": 0,
+        "x": 128,
         "y": 576,
         "w": 64,
         "h": 64
@@ -7919,7 +7989,7 @@
       "category": "platform",
       "searchable": "at_atlas_012 castle_stone_platform_short_c platform castle stone platform short blockable",
       "thumbnail": {
-        "x": 64,
+        "x": 192,
         "y": 576,
         "w": 64,
         "h": 64
@@ -7954,7 +8024,7 @@
       "category": "platform",
       "searchable": "at_atlas_012 castle_stone_stairs_narrow platform castle stone stairs blockable",
       "thumbnail": {
-        "x": 128,
+        "x": 256,
         "y": 576,
         "w": 64,
         "h": 64
@@ -7988,7 +8058,7 @@
       "category": "platform",
       "searchable": "at_atlas_012 castle_stone_stairs_wide platform castle stone stairs blockable",
       "thumbnail": {
-        "x": 192,
+        "x": 320,
         "y": 576,
         "w": 64,
         "h": 64
@@ -8022,7 +8092,7 @@
       "category": "platform",
       "searchable": "at_atlas_012 castle_stone_wall_panel_large platform castle stone wall panel blockable",
       "thumbnail": {
-        "x": 256,
+        "x": 384,
         "y": 576,
         "w": 64,
         "h": 64
@@ -8057,7 +8127,7 @@
       "category": "decor",
       "searchable": "at_atlas_012 castle_wood_pillar_medium_a decor castle wood pillar post decoration",
       "thumbnail": {
-        "x": 320,
+        "x": 448,
         "y": 576,
         "w": 64,
         "h": 64
@@ -8092,7 +8162,7 @@
       "category": "decor",
       "searchable": "at_atlas_012 castle_wood_pillar_medium_b decor castle wood pillar post decoration",
       "thumbnail": {
-        "x": 384,
+        "x": 512,
         "y": 576,
         "w": 64,
         "h": 64
@@ -8127,7 +8197,7 @@
       "category": "decor",
       "searchable": "at_atlas_012 castle_wood_pillar_tall_a decor castle wood pillar post decoration",
       "thumbnail": {
-        "x": 448,
+        "x": 576,
         "y": 576,
         "w": 64,
         "h": 64
@@ -8162,7 +8232,7 @@
       "category": "decor",
       "searchable": "at_atlas_012 castle_wood_pillar_tall_b decor castle wood pillar post decoration",
       "thumbnail": {
-        "x": 512,
+        "x": 640,
         "y": 576,
         "w": 64,
         "h": 64
@@ -8197,7 +8267,7 @@
       "category": "decor",
       "searchable": "at_atlas_012 castle_wood_pillar_thin decor castle wood pillar post decoration",
       "thumbnail": {
-        "x": 576,
+        "x": 704,
         "y": 576,
         "w": 64,
         "h": 64
@@ -8232,7 +8302,7 @@
       "category": "platform",
       "searchable": "at_atlas_012 castle_wood_platform_extra_long platform castle wood platform long walkable",
       "thumbnail": {
-        "x": 640,
+        "x": 768,
         "y": 576,
         "w": 64,
         "h": 64
@@ -8267,7 +8337,7 @@
       "category": "platform",
       "searchable": "at_atlas_012 castle_wood_platform_long_a platform castle wood platform long walkable",
       "thumbnail": {
-        "x": 704,
+        "x": 832,
         "y": 576,
         "w": 64,
         "h": 64
@@ -8302,7 +8372,7 @@
       "category": "platform",
       "searchable": "at_atlas_012 castle_wood_platform_medium_a platform castle wood platform medium walkable",
       "thumbnail": {
-        "x": 768,
+        "x": 896,
         "y": 576,
         "w": 64,
         "h": 64
@@ -8337,7 +8407,7 @@
       "category": "platform",
       "searchable": "at_atlas_012 castle_wood_platform_medium_b platform castle wood platform medium walkable",
       "thumbnail": {
-        "x": 832,
+        "x": 960,
         "y": 576,
         "w": 64,
         "h": 64
@@ -8372,7 +8442,7 @@
       "category": "platform",
       "searchable": "at_atlas_012 castle_wood_platform_short_a platform castle wood platform short walkable",
       "thumbnail": {
-        "x": 896,
+        "x": 1024,
         "y": 576,
         "w": 64,
         "h": 64
@@ -8407,7 +8477,7 @@
       "category": "platform",
       "searchable": "at_atlas_012 castle_wood_platform_short_b platform castle wood platform short walkable",
       "thumbnail": {
-        "x": 960,
+        "x": 1088,
         "y": 576,
         "w": 64,
         "h": 64
@@ -8442,7 +8512,7 @@
       "category": "platform",
       "searchable": "at_atlas_012 castle_wood_platform_short_c platform castle wood platform short walkable",
       "thumbnail": {
-        "x": 1024,
+        "x": 1152,
         "y": 576,
         "w": 64,
         "h": 64
@@ -8477,7 +8547,7 @@
       "category": "platform",
       "searchable": "at_atlas_012 castle_wood_platform_tiny_a platform castle wood platform tiny walkable",
       "thumbnail": {
-        "x": 1088,
+        "x": 1216,
         "y": 576,
         "w": 64,
         "h": 64
@@ -8512,7 +8582,7 @@
       "category": "decor",
       "searchable": "at_atlas_012 castle_wood_post_short_a decor castle wood post decoration",
       "thumbnail": {
-        "x": 1152,
+        "x": 1280,
         "y": 576,
         "w": 64,
         "h": 64
@@ -8546,7 +8616,7 @@
       "category": "decor",
       "searchable": "at_atlas_012 castle_wood_post_short_b decor castle wood post decoration",
       "thumbnail": {
-        "x": 1216,
+        "x": 1344,
         "y": 576,
         "w": 64,
         "h": 64
@@ -8580,7 +8650,7 @@
       "category": "decor",
       "searchable": "at_atlas_012 castle_wood_post_short_c decor castle wood post decoration",
       "thumbnail": {
-        "x": 1280,
+        "x": 1408,
         "y": 576,
         "w": 64,
         "h": 64
@@ -8614,8 +8684,8 @@
       "category": "decor",
       "searchable": "at_atlas_013 cloud_1 decor",
       "thumbnail": {
-        "x": 1344,
-        "y": 576,
+        "x": 0,
+        "y": 640,
         "w": 64,
         "h": 64
       },
@@ -8643,8 +8713,8 @@
       "category": "decor",
       "searchable": "at_atlas_013 cloud_2 decor",
       "thumbnail": {
-        "x": 1408,
-        "y": 576,
+        "x": 64,
+        "y": 640,
         "w": 64,
         "h": 64
       },
@@ -8672,7 +8742,7 @@
       "category": "decor",
       "searchable": "at_atlas_013 cloud_3 decor",
       "thumbnail": {
-        "x": 0,
+        "x": 128,
         "y": 640,
         "w": 64,
         "h": 64
@@ -8701,7 +8771,7 @@
       "category": "platform",
       "searchable": "at_atlas_013 forest_arched_bridge_walkable platform forest bridge wood arched walkable platform",
       "thumbnail": {
-        "x": 64,
+        "x": 192,
         "y": 640,
         "w": 64,
         "h": 64
@@ -8737,7 +8807,7 @@
       "category": "decor",
       "searchable": "at_atlas_013 forest_barrel decor forest barrel decoration",
       "thumbnail": {
-        "x": 128,
+        "x": 256,
         "y": 640,
         "w": 64,
         "h": 64
@@ -8770,7 +8840,7 @@
       "category": "decor",
       "searchable": "at_atlas_013 forest_birdhouse decor forest birdhouse decoration",
       "thumbnail": {
-        "x": 192,
+        "x": 320,
         "y": 640,
         "w": 64,
         "h": 64
@@ -8803,7 +8873,7 @@
       "category": "decor",
       "searchable": "at_atlas_013 forest_bush_red_berries decor forest bush berries red decoration",
       "thumbnail": {
-        "x": 256,
+        "x": 384,
         "y": 640,
         "w": 64,
         "h": 64
@@ -8838,7 +8908,7 @@
       "category": "decor",
       "searchable": "at_atlas_013 forest_bush_white_flowers decor forest bush flowers white decoration",
       "thumbnail": {
-        "x": 320,
+        "x": 448,
         "y": 640,
         "w": 64,
         "h": 64
@@ -8873,7 +8943,7 @@
       "category": "decor",
       "searchable": "at_atlas_013 forest_cottage_farmhouse decor forest farmhouse cottage building countryside decoration",
       "thumbnail": {
-        "x": 384,
+        "x": 512,
         "y": 640,
         "w": 64,
         "h": 64
@@ -8909,7 +8979,7 @@
       "category": "decor",
       "searchable": "at_atlas_013 forest_fence_dark_wood decor forest fence wood decoration",
       "thumbnail": {
-        "x": 448,
+        "x": 576,
         "y": 640,
         "w": 64,
         "h": 64
@@ -8943,7 +9013,7 @@
       "category": "decor",
       "searchable": "at_atlas_013 forest_fence_pale_wood decor forest fence wood pale decoration",
       "thumbnail": {
-        "x": 512,
+        "x": 640,
         "y": 640,
         "w": 64,
         "h": 64
@@ -8978,7 +9048,7 @@
       "category": "decor",
       "searchable": "at_atlas_013 forest_fern decor forest fern plant decoration",
       "thumbnail": {
-        "x": 576,
+        "x": 704,
         "y": 640,
         "w": 64,
         "h": 64
@@ -9012,7 +9082,7 @@
       "category": "decor",
       "searchable": "at_atlas_013 forest_flower_patch_sunflowers decor forest flowers sunflower wildflowers decoration",
       "thumbnail": {
-        "x": 640,
+        "x": 768,
         "y": 640,
         "w": 64,
         "h": 64
@@ -9047,7 +9117,7 @@
       "category": "decor",
       "searchable": "at_atlas_013 forest_hay_bale_decor decor forest hay bale farm decoration",
       "thumbnail": {
-        "x": 704,
+        "x": 832,
         "y": 640,
         "w": 64,
         "h": 64
@@ -9082,7 +9152,7 @@
       "category": "decor",
       "searchable": "at_atlas_013 forest_log_pile decor forest logs woodpile decoration",
       "thumbnail": {
-        "x": 768,
+        "x": 896,
         "y": 640,
         "w": 64,
         "h": 64
@@ -9116,7 +9186,7 @@
       "category": "decor",
       "searchable": "at_atlas_013 forest_milk_can decor forest milk-can farm decoration",
       "thumbnail": {
-        "x": 832,
+        "x": 960,
         "y": 640,
         "w": 64,
         "h": 64
@@ -9150,7 +9220,7 @@
       "category": "decor",
       "searchable": "at_atlas_013 forest_shrub_green decor forest shrub green decoration",
       "thumbnail": {
-        "x": 896,
+        "x": 1024,
         "y": 640,
         "w": 64,
         "h": 64
@@ -9184,7 +9254,7 @@
       "category": "decor",
       "searchable": "at_atlas_013 forest_signpost_arrow decor forest signpost arrow decoration",
       "thumbnail": {
-        "x": 960,
+        "x": 1088,
         "y": 640,
         "w": 64,
         "h": 64
@@ -9218,7 +9288,7 @@
       "category": "decor",
       "searchable": "at_atlas_013 forest_stone_well decor forest well stone decoration",
       "thumbnail": {
-        "x": 1024,
+        "x": 1152,
         "y": 640,
         "w": 64,
         "h": 64
@@ -9252,7 +9322,7 @@
       "category": "platform",
       "searchable": "at_atlas_013 forest_tree_branch_platform platform forest tree branch walkable platform",
       "thumbnail": {
-        "x": 1088,
+        "x": 1216,
         "y": 640,
         "w": 64,
         "h": 64
@@ -9287,7 +9357,7 @@
       "category": "decor",
       "searchable": "at_atlas_013 forest_wheelbarrow decor forest wheelbarrow farm decoration",
       "thumbnail": {
-        "x": 1152,
+        "x": 1280,
         "y": 640,
         "w": 64,
         "h": 64
@@ -9321,7 +9391,7 @@
       "category": "decor",
       "searchable": "at_atlas_013 forest_wood_crate_decor decor forest crate wood farm decoration",
       "thumbnail": {
-        "x": 1216,
+        "x": 1344,
         "y": 640,
         "w": 64,
         "h": 64
@@ -9356,7 +9426,7 @@
       "category": "decor",
       "searchable": "at_atlas_013 forest_wood_gate decor forest gate wood decoration",
       "thumbnail": {
-        "x": 1280,
+        "x": 1408,
         "y": 640,
         "w": 64,
         "h": 64
@@ -9390,8 +9460,8 @@
       "category": "decor",
       "searchable": "at_atlas_013 moon_rocket_1 decor",
       "thumbnail": {
-        "x": 1344,
-        "y": 640,
+        "x": 0,
+        "y": 704,
         "w": 64,
         "h": 64
       },
@@ -9419,8 +9489,8 @@
       "category": "platform",
       "searchable": "at_atlas_014 dark_cloud_1 platform",
       "thumbnail": {
-        "x": 1408,
-        "y": 640,
+        "x": 64,
+        "y": 704,
         "w": 64,
         "h": 64
       },
@@ -9448,7 +9518,7 @@
       "category": "decor",
       "searchable": "at_atlas_014 forest_bush_pink_flowers decor forest bush flowers pink decoration",
       "thumbnail": {
-        "x": 0,
+        "x": 128,
         "y": 704,
         "w": 64,
         "h": 64
@@ -9483,7 +9553,7 @@
       "category": "decor",
       "searchable": "at_atlas_014 forest_bush_red_berries decor forest bush berries red decoration",
       "thumbnail": {
-        "x": 64,
+        "x": 192,
         "y": 704,
         "w": 64,
         "h": 64
@@ -9518,7 +9588,7 @@
       "category": "decor",
       "searchable": "at_atlas_014 forest_bush_white_flowers decor forest bush flowers white decoration",
       "thumbnail": {
-        "x": 128,
+        "x": 256,
         "y": 704,
         "w": 64,
         "h": 64
@@ -9553,7 +9623,7 @@
       "category": "platform",
       "searchable": "at_atlas_014 forest_crate_large_blockable platform forest crate wood blockable",
       "thumbnail": {
-        "x": 192,
+        "x": 320,
         "y": 704,
         "w": 64,
         "h": 64
@@ -9587,7 +9657,7 @@
       "category": "platform",
       "searchable": "at_atlas_014 forest_crate_medium_blockable platform forest crate wood blockable",
       "thumbnail": {
-        "x": 256,
+        "x": 384,
         "y": 704,
         "w": 64,
         "h": 64
@@ -9621,7 +9691,7 @@
       "category": "platform",
       "searchable": "at_atlas_014 forest_crate_small_blockable platform forest crate wood blockable",
       "thumbnail": {
-        "x": 320,
+        "x": 448,
         "y": 704,
         "w": 64,
         "h": 64
@@ -9655,7 +9725,7 @@
       "category": "platform",
       "searchable": "at_atlas_014 forest_crate_tiny_blockable platform forest crate wood blockable",
       "thumbnail": {
-        "x": 384,
+        "x": 512,
         "y": 704,
         "w": 64,
         "h": 64
@@ -9689,7 +9759,7 @@
       "category": "decor",
       "searchable": "at_atlas_014 forest_fern_small decor forest fern plant decoration",
       "thumbnail": {
-        "x": 448,
+        "x": 576,
         "y": 704,
         "w": 64,
         "h": 64
@@ -9723,7 +9793,7 @@
       "category": "decor",
       "searchable": "at_atlas_014 forest_grass_clump decor forest grass plant decoration",
       "thumbnail": {
-        "x": 512,
+        "x": 640,
         "y": 704,
         "w": 64,
         "h": 64
@@ -9757,7 +9827,7 @@
       "category": "platform",
       "searchable": "at_atlas_014 forest_grass_ground_block platform forest grass ground rock blockable",
       "thumbnail": {
-        "x": 576,
+        "x": 704,
         "y": 704,
         "w": 64,
         "h": 64
@@ -9792,7 +9862,7 @@
       "category": "platform",
       "searchable": "at_atlas_014 forest_hay_bale_rect_blockable platform forest hay bale blockable",
       "thumbnail": {
-        "x": 640,
+        "x": 768,
         "y": 704,
         "w": 64,
         "h": 64
@@ -9826,7 +9896,7 @@
       "category": "platform",
       "searchable": "at_atlas_014 forest_hay_bale_round_blockable platform forest hay bale blockable",
       "thumbnail": {
-        "x": 704,
+        "x": 832,
         "y": 704,
         "w": 64,
         "h": 64
@@ -9860,7 +9930,7 @@
       "category": "decor",
       "searchable": "at_atlas_014 forest_mushrooms decor forest mushroom fungus decoration",
       "thumbnail": {
-        "x": 768,
+        "x": 896,
         "y": 704,
         "w": 64,
         "h": 64
@@ -9894,7 +9964,7 @@
       "category": "decor",
       "searchable": "at_atlas_014 forest_rock_cave_entrance decor forest rock cave entrance decoration",
       "thumbnail": {
-        "x": 832,
+        "x": 960,
         "y": 704,
         "w": 64,
         "h": 64
@@ -9929,7 +9999,7 @@
       "category": "decor",
       "searchable": "at_atlas_014 forest_sapling decor forest tree sapling decoration",
       "thumbnail": {
-        "x": 896,
+        "x": 1024,
         "y": 704,
         "w": 64,
         "h": 64
@@ -9963,7 +10033,7 @@
       "category": "decor",
       "searchable": "at_atlas_014 forest_shrub_leafy decor forest shrub leafy decoration",
       "thumbnail": {
-        "x": 960,
+        "x": 1088,
         "y": 704,
         "w": 64,
         "h": 64
@@ -9997,7 +10067,7 @@
       "category": "decor",
       "searchable": "at_atlas_014 forest_tree_birch decor forest tree birch decoration",
       "thumbnail": {
-        "x": 1024,
+        "x": 1152,
         "y": 704,
         "w": 64,
         "h": 64
@@ -10031,7 +10101,7 @@
       "category": "decor",
       "searchable": "at_atlas_014 forest_tree_oak_round decor forest tree oak decoration",
       "thumbnail": {
-        "x": 1088,
+        "x": 1216,
         "y": 704,
         "w": 64,
         "h": 64
@@ -10065,7 +10135,7 @@
       "category": "decor",
       "searchable": "at_atlas_014 forest_tree_oak_wide decor forest tree oak decoration",
       "thumbnail": {
-        "x": 1152,
+        "x": 1280,
         "y": 704,
         "w": 64,
         "h": 64
@@ -10099,7 +10169,7 @@
       "category": "decor",
       "searchable": "at_atlas_014 forest_tree_pine decor forest tree pine decoration",
       "thumbnail": {
-        "x": 1216,
+        "x": 1344,
         "y": 704,
         "w": 64,
         "h": 64
@@ -10133,7 +10203,7 @@
       "category": "decor",
       "searchable": "at_atlas_014 forest_tree_slender decor forest tree slender decoration",
       "thumbnail": {
-        "x": 1280,
+        "x": 1408,
         "y": 704,
         "w": 64,
         "h": 64
@@ -10167,8 +10237,8 @@
       "category": "decor",
       "searchable": "at_atlas_014 forest_tree_stump decor forest tree stump decoration",
       "thumbnail": {
-        "x": 1344,
-        "y": 704,
+        "x": 0,
+        "y": 768,
         "w": 64,
         "h": 64
       },
@@ -10201,8 +10271,8 @@
       "category": "decor",
       "searchable": "at_atlas_014 forest_wildflowers_daisies decor forest flowers daisies decoration",
       "thumbnail": {
-        "x": 1408,
-        "y": 704,
+        "x": 64,
+        "y": 768,
         "w": 64,
         "h": 64
       },
@@ -10235,7 +10305,7 @@
       "category": "decor",
       "searchable": "at_atlas_014 full_moon decor moon",
       "thumbnail": {
-        "x": 0,
+        "x": 128,
         "y": 768,
         "w": 64,
         "h": 64
@@ -10266,7 +10336,7 @@
       "category": "decor",
       "searchable": "at_atlas_015 cave_background_room_015_01 decor cave background room decoration",
       "thumbnail": {
-        "x": 64,
+        "x": 192,
         "y": 768,
         "w": 64,
         "h": 64
@@ -10300,7 +10370,7 @@
       "category": "decor",
       "searchable": "at_atlas_015 cave_background_room_015_02 decor cave background room decoration",
       "thumbnail": {
-        "x": 128,
+        "x": 256,
         "y": 768,
         "w": 64,
         "h": 64
@@ -10334,7 +10404,7 @@
       "category": "decor",
       "searchable": "at_atlas_015 cave_background_room_015_03 decor cave background room decoration",
       "thumbnail": {
-        "x": 192,
+        "x": 320,
         "y": 768,
         "w": 64,
         "h": 64
@@ -10368,7 +10438,7 @@
       "category": "decor",
       "searchable": "at_atlas_015 cave_background_room_015_04 decor cave background room decoration",
       "thumbnail": {
-        "x": 256,
+        "x": 384,
         "y": 768,
         "w": 64,
         "h": 64
@@ -10402,7 +10472,7 @@
       "category": "decor",
       "searchable": "at_atlas_015 cave_background_room_015_05 decor cave background room decoration",
       "thumbnail": {
-        "x": 320,
+        "x": 448,
         "y": 768,
         "w": 64,
         "h": 64
@@ -10436,7 +10506,7 @@
       "category": "decor",
       "searchable": "at_atlas_015 cave_background_room_015_06 decor cave background room decoration",
       "thumbnail": {
-        "x": 384,
+        "x": 512,
         "y": 768,
         "w": 64,
         "h": 64
@@ -10470,7 +10540,7 @@
       "category": "decor",
       "searchable": "at_atlas_015 cave_background_room_015_07 decor cave background room decoration",
       "thumbnail": {
-        "x": 448,
+        "x": 576,
         "y": 768,
         "w": 64,
         "h": 64
@@ -10504,7 +10574,7 @@
       "category": "decor",
       "searchable": "at_atlas_015 cave_background_room_015_08 decor cave background room decoration",
       "thumbnail": {
-        "x": 512,
+        "x": 640,
         "y": 768,
         "w": 64,
         "h": 64
@@ -10538,7 +10608,7 @@
       "category": "decor",
       "searchable": "at_atlas_015 cave_background_room_015_09 decor cave background room decoration",
       "thumbnail": {
-        "x": 576,
+        "x": 704,
         "y": 768,
         "w": 64,
         "h": 64
@@ -10572,7 +10642,7 @@
       "category": "decor",
       "searchable": "at_atlas_015 cave_background_room_015_10 decor cave background room decoration",
       "thumbnail": {
-        "x": 640,
+        "x": 768,
         "y": 768,
         "w": 64,
         "h": 64
@@ -10606,7 +10676,7 @@
       "category": "decor",
       "searchable": "at_atlas_015 cave_background_room_015_11 decor cave background room decoration",
       "thumbnail": {
-        "x": 704,
+        "x": 832,
         "y": 768,
         "w": 64,
         "h": 64
@@ -10640,7 +10710,7 @@
       "category": "decor",
       "searchable": "at_atlas_015 cave_background_room_015_12 decor cave background room decoration",
       "thumbnail": {
-        "x": 768,
+        "x": 896,
         "y": 768,
         "w": 64,
         "h": 64
@@ -10674,7 +10744,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_01 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 832,
+        "x": 960,
         "y": 768,
         "w": 64,
         "h": 64
@@ -10708,7 +10778,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_02 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 896,
+        "x": 1024,
         "y": 768,
         "w": 64,
         "h": 64
@@ -10742,7 +10812,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_03 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 960,
+        "x": 1088,
         "y": 768,
         "w": 64,
         "h": 64
@@ -10776,7 +10846,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_04 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 1024,
+        "x": 1152,
         "y": 768,
         "w": 64,
         "h": 64
@@ -10810,7 +10880,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_05 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 1088,
+        "x": 1216,
         "y": 768,
         "w": 64,
         "h": 64
@@ -10844,7 +10914,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_06 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 1152,
+        "x": 1280,
         "y": 768,
         "w": 64,
         "h": 64
@@ -10878,7 +10948,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_07 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 1216,
+        "x": 1344,
         "y": 768,
         "w": 64,
         "h": 64
@@ -10912,7 +10982,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_08 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 1280,
+        "x": 1408,
         "y": 768,
         "w": 64,
         "h": 64
@@ -10946,8 +11016,8 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_09 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 1344,
-        "y": 768,
+        "x": 0,
+        "y": 832,
         "w": 64,
         "h": 64
       },
@@ -10980,8 +11050,8 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_10 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 1408,
-        "y": 768,
+        "x": 64,
+        "y": 832,
         "w": 64,
         "h": 64
       },
@@ -11014,7 +11084,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_11 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 0,
+        "x": 128,
         "y": 832,
         "w": 64,
         "h": 64
@@ -11048,7 +11118,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_12 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 64,
+        "x": 192,
         "y": 832,
         "w": 64,
         "h": 64
@@ -11082,7 +11152,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_13 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 128,
+        "x": 256,
         "y": 832,
         "w": 64,
         "h": 64
@@ -11116,7 +11186,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_14 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 192,
+        "x": 320,
         "y": 832,
         "w": 64,
         "h": 64
@@ -11150,7 +11220,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_15 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 256,
+        "x": 384,
         "y": 832,
         "w": 64,
         "h": 64
@@ -11184,7 +11254,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_16 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 320,
+        "x": 448,
         "y": 832,
         "w": 64,
         "h": 64
@@ -11218,7 +11288,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_17 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 384,
+        "x": 512,
         "y": 832,
         "w": 64,
         "h": 64
@@ -11252,7 +11322,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_18 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 448,
+        "x": 576,
         "y": 832,
         "w": 64,
         "h": 64
@@ -11286,7 +11356,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_19 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 512,
+        "x": 640,
         "y": 832,
         "w": 64,
         "h": 64
@@ -11320,7 +11390,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_20 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 576,
+        "x": 704,
         "y": 832,
         "w": 64,
         "h": 64
@@ -11354,7 +11424,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_21 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 640,
+        "x": 768,
         "y": 832,
         "w": 64,
         "h": 64
@@ -11388,7 +11458,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_22 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 704,
+        "x": 832,
         "y": 832,
         "w": 64,
         "h": 64
@@ -11422,7 +11492,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_23 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 768,
+        "x": 896,
         "y": 832,
         "w": 64,
         "h": 64
@@ -11456,7 +11526,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_24 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 832,
+        "x": 960,
         "y": 832,
         "w": 64,
         "h": 64
@@ -11490,7 +11560,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_25 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 896,
+        "x": 1024,
         "y": 832,
         "w": 64,
         "h": 64
@@ -11524,7 +11594,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_26 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 960,
+        "x": 1088,
         "y": 832,
         "w": 64,
         "h": 64
@@ -11558,7 +11628,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_27 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 1024,
+        "x": 1152,
         "y": 832,
         "w": 64,
         "h": 64
@@ -11592,7 +11662,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_28 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 1088,
+        "x": 1216,
         "y": 832,
         "w": 64,
         "h": 64
@@ -11626,7 +11696,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_29 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 1152,
+        "x": 1280,
         "y": 832,
         "w": 64,
         "h": 64
@@ -11660,7 +11730,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_30 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 1216,
+        "x": 1344,
         "y": 832,
         "w": 64,
         "h": 64
@@ -11694,7 +11764,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_31 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 1280,
+        "x": 1408,
         "y": 832,
         "w": 64,
         "h": 64
@@ -11728,8 +11798,8 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_32 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 1344,
-        "y": 832,
+        "x": 0,
+        "y": 896,
         "w": 64,
         "h": 64
       },
@@ -11762,8 +11832,8 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_33 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 1408,
-        "y": 832,
+        "x": 64,
+        "y": 896,
         "w": 64,
         "h": 64
       },
@@ -11796,7 +11866,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_34 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 0,
+        "x": 128,
         "y": 896,
         "w": 64,
         "h": 64
@@ -11830,7 +11900,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_35 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 64,
+        "x": 192,
         "y": 896,
         "w": 64,
         "h": 64
@@ -11864,7 +11934,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_36 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 128,
+        "x": 256,
         "y": 896,
         "w": 64,
         "h": 64
@@ -11898,7 +11968,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_37 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 192,
+        "x": 320,
         "y": 896,
         "w": 64,
         "h": 64
@@ -11932,7 +12002,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_38 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 256,
+        "x": 384,
         "y": 896,
         "w": 64,
         "h": 64
@@ -11966,7 +12036,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_39 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 320,
+        "x": 448,
         "y": 896,
         "w": 64,
         "h": 64
@@ -12000,7 +12070,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_40 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 384,
+        "x": 512,
         "y": 896,
         "w": 64,
         "h": 64
@@ -12034,7 +12104,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_41 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 448,
+        "x": 576,
         "y": 896,
         "w": 64,
         "h": 64
@@ -12068,7 +12138,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_42 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 512,
+        "x": 640,
         "y": 896,
         "w": 64,
         "h": 64
@@ -12102,7 +12172,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_43 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 576,
+        "x": 704,
         "y": 896,
         "w": 64,
         "h": 64
@@ -12136,7 +12206,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_44 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 640,
+        "x": 768,
         "y": 896,
         "w": 64,
         "h": 64
@@ -12170,7 +12240,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_45 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 704,
+        "x": 832,
         "y": 896,
         "w": 64,
         "h": 64
@@ -12204,7 +12274,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_46 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 768,
+        "x": 896,
         "y": 896,
         "w": 64,
         "h": 64
@@ -12238,7 +12308,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_47 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 832,
+        "x": 960,
         "y": 896,
         "w": 64,
         "h": 64
@@ -12272,7 +12342,7 @@
       "category": "decor",
       "searchable": "at_atlas_016 cave_background_alcove_016_48 decor cave background alcove decoration",
       "thumbnail": {
-        "x": 896,
+        "x": 1024,
         "y": 896,
         "w": 64,
         "h": 64
@@ -12306,7 +12376,7 @@
       "category": "decor",
       "searchable": "at_atlas_017 cave_background_scene_017_01 decor cave background scene decoration",
       "thumbnail": {
-        "x": 960,
+        "x": 1088,
         "y": 896,
         "w": 64,
         "h": 64
@@ -12340,7 +12410,7 @@
       "category": "decor",
       "searchable": "at_atlas_017 cave_background_scene_017_02 decor cave background scene decoration",
       "thumbnail": {
-        "x": 1024,
+        "x": 1152,
         "y": 896,
         "w": 64,
         "h": 64
@@ -12374,7 +12444,7 @@
       "category": "decor",
       "searchable": "at_atlas_017 cave_background_scene_017_03 decor cave background scene decoration",
       "thumbnail": {
-        "x": 1088,
+        "x": 1216,
         "y": 896,
         "w": 64,
         "h": 64
@@ -12408,7 +12478,7 @@
       "category": "decor",
       "searchable": "at_atlas_017 cave_background_scene_017_04 decor cave background scene decoration",
       "thumbnail": {
-        "x": 1152,
+        "x": 1280,
         "y": 896,
         "w": 64,
         "h": 64
@@ -12442,7 +12512,7 @@
       "category": "decor",
       "searchable": "at_atlas_017 cave_background_scene_017_05 decor cave background scene decoration",
       "thumbnail": {
-        "x": 1216,
+        "x": 1344,
         "y": 896,
         "w": 64,
         "h": 64
@@ -12476,7 +12546,7 @@
       "category": "decor",
       "searchable": "at_atlas_017 cave_background_scene_017_06 decor cave background scene decoration",
       "thumbnail": {
-        "x": 1280,
+        "x": 1408,
         "y": 896,
         "w": 64,
         "h": 64
@@ -12510,8 +12580,8 @@
       "category": "decor",
       "searchable": "at_atlas_017 cave_background_scene_017_07 decor cave background scene decoration",
       "thumbnail": {
-        "x": 1344,
-        "y": 896,
+        "x": 0,
+        "y": 960,
         "w": 64,
         "h": 64
       },
@@ -12544,8 +12614,8 @@
       "category": "decor",
       "searchable": "at_atlas_017 cave_background_scene_017_08 decor cave background scene decoration",
       "thumbnail": {
-        "x": 1408,
-        "y": 896,
+        "x": 64,
+        "y": 960,
         "w": 64,
         "h": 64
       },
@@ -12578,7 +12648,7 @@
       "category": "decor",
       "searchable": "at_atlas_017 cave_background_scene_017_09 decor cave background scene decoration",
       "thumbnail": {
-        "x": 0,
+        "x": 128,
         "y": 960,
         "w": 64,
         "h": 64
@@ -12612,7 +12682,7 @@
       "category": "decor",
       "searchable": "at_atlas_017 cave_background_scene_017_10 decor cave background scene decoration",
       "thumbnail": {
-        "x": 64,
+        "x": 192,
         "y": 960,
         "w": 64,
         "h": 64
@@ -12646,7 +12716,7 @@
       "category": "decor",
       "searchable": "at_atlas_017 cave_background_scene_017_11 decor cave background scene decoration",
       "thumbnail": {
-        "x": 128,
+        "x": 256,
         "y": 960,
         "w": 64,
         "h": 64
@@ -12680,7 +12750,7 @@
       "category": "decor",
       "searchable": "at_atlas_017 cave_background_scene_017_12 decor cave background scene decoration",
       "thumbnail": {
-        "x": 192,
+        "x": 320,
         "y": 960,
         "w": 64,
         "h": 64
@@ -12714,7 +12784,7 @@
       "category": "decor",
       "searchable": "at_atlas_017 cave_background_scene_017_13 decor cave background scene decoration",
       "thumbnail": {
-        "x": 256,
+        "x": 384,
         "y": 960,
         "w": 64,
         "h": 64
@@ -12748,7 +12818,7 @@
       "category": "decor",
       "searchable": "at_atlas_017 cave_background_scene_017_14 decor cave background scene decoration",
       "thumbnail": {
-        "x": 320,
+        "x": 448,
         "y": 960,
         "w": 64,
         "h": 64
@@ -12782,7 +12852,7 @@
       "category": "decor",
       "searchable": "at_atlas_018 cave_background_rock_patch_018_01 decor cave background rock-patch decoration",
       "thumbnail": {
-        "x": 384,
+        "x": 512,
         "y": 960,
         "w": 64,
         "h": 64
@@ -12816,7 +12886,7 @@
       "category": "decor",
       "searchable": "at_atlas_018 cave_background_rock_patch_018_02 decor cave background rock-patch decoration",
       "thumbnail": {
-        "x": 448,
+        "x": 576,
         "y": 960,
         "w": 64,
         "h": 64
@@ -12850,7 +12920,7 @@
       "category": "decor",
       "searchable": "at_atlas_018 cave_background_rock_patch_018_03 decor cave background rock-patch decoration",
       "thumbnail": {
-        "x": 512,
+        "x": 640,
         "y": 960,
         "w": 64,
         "h": 64
@@ -12884,7 +12954,7 @@
       "category": "decor",
       "searchable": "at_atlas_018 cave_background_rock_patch_018_04 decor cave background rock-patch decoration",
       "thumbnail": {
-        "x": 576,
+        "x": 704,
         "y": 960,
         "w": 64,
         "h": 64
@@ -12918,7 +12988,7 @@
       "category": "decor",
       "searchable": "at_atlas_018 cave_background_rock_patch_018_05 decor cave background rock-patch decoration",
       "thumbnail": {
-        "x": 640,
+        "x": 768,
         "y": 960,
         "w": 64,
         "h": 64
@@ -12952,7 +13022,7 @@
       "category": "decor",
       "searchable": "at_atlas_018 cave_background_rock_patch_018_06 decor cave background rock-patch decoration",
       "thumbnail": {
-        "x": 704,
+        "x": 832,
         "y": 960,
         "w": 64,
         "h": 64
@@ -12986,7 +13056,7 @@
       "category": "decor",
       "searchable": "at_atlas_018 cave_background_rock_patch_018_07 decor cave background rock-patch decoration",
       "thumbnail": {
-        "x": 768,
+        "x": 896,
         "y": 960,
         "w": 64,
         "h": 64
@@ -13020,7 +13090,7 @@
       "category": "decor",
       "searchable": "at_atlas_018 cave_background_rock_patch_018_08 decor cave background rock-patch decoration",
       "thumbnail": {
-        "x": 832,
+        "x": 960,
         "y": 960,
         "w": 64,
         "h": 64
@@ -13054,7 +13124,7 @@
       "category": "decor",
       "searchable": "at_atlas_018 cave_background_rock_patch_018_09 decor cave background rock-patch decoration",
       "thumbnail": {
-        "x": 896,
+        "x": 1024,
         "y": 960,
         "w": 64,
         "h": 64
@@ -13088,7 +13158,7 @@
       "category": "decor",
       "searchable": "at_atlas_018 cave_background_rock_patch_018_10 decor cave background rock-patch decoration",
       "thumbnail": {
-        "x": 960,
+        "x": 1088,
         "y": 960,
         "w": 64,
         "h": 64
@@ -13122,7 +13192,7 @@
       "category": "decor",
       "searchable": "at_atlas_018 cave_background_rock_patch_018_11 decor cave background rock-patch decoration",
       "thumbnail": {
-        "x": 1024,
+        "x": 1152,
         "y": 960,
         "w": 64,
         "h": 64
@@ -13156,7 +13226,7 @@
       "category": "decor",
       "searchable": "at_atlas_018 cave_background_rock_patch_018_12 decor cave background rock-patch decoration",
       "thumbnail": {
-        "x": 1088,
+        "x": 1216,
         "y": 960,
         "w": 64,
         "h": 64
@@ -13190,7 +13260,7 @@
       "category": "decor",
       "searchable": "at_atlas_018 cave_background_rock_patch_018_13 decor cave background rock-patch decoration",
       "thumbnail": {
-        "x": 1152,
+        "x": 1280,
         "y": 960,
         "w": 64,
         "h": 64
@@ -13224,7 +13294,7 @@
       "category": "decor",
       "searchable": "at_atlas_018 cave_background_rock_patch_018_14 decor cave background rock-patch decoration",
       "thumbnail": {
-        "x": 1216,
+        "x": 1344,
         "y": 960,
         "w": 64,
         "h": 64
@@ -13258,7 +13328,7 @@
       "category": "decor",
       "searchable": "at_atlas_018 cave_background_rock_patch_018_15 decor cave background rock-patch decoration",
       "thumbnail": {
-        "x": 1280,
+        "x": 1408,
         "y": 960,
         "w": 64,
         "h": 64
@@ -13292,8 +13362,8 @@
       "category": "decor",
       "searchable": "at_atlas_018 cave_background_rock_patch_018_16 decor cave background rock-patch decoration",
       "thumbnail": {
-        "x": 1344,
-        "y": 960,
+        "x": 0,
+        "y": 1024,
         "w": 64,
         "h": 64
       },
@@ -13326,8 +13396,8 @@
       "category": "decor",
       "searchable": "at_atlas_018 cave_background_rock_patch_018_17 decor cave background rock-patch decoration",
       "thumbnail": {
-        "x": 1408,
-        "y": 960,
+        "x": 64,
+        "y": 1024,
         "w": 64,
         "h": 64
       },
@@ -13360,7 +13430,7 @@
       "category": "decor",
       "searchable": "at_atlas_018 cave_background_rock_patch_018_18 decor cave background rock-patch decoration",
       "thumbnail": {
-        "x": 0,
+        "x": 128,
         "y": 1024,
         "w": 64,
         "h": 64
@@ -13394,7 +13464,7 @@
       "category": "decor",
       "searchable": "at_atlas_018 cave_background_rock_patch_018_19 decor cave background rock-patch decoration",
       "thumbnail": {
-        "x": 64,
+        "x": 192,
         "y": 1024,
         "w": 64,
         "h": 64
@@ -13428,7 +13498,7 @@
       "category": "decor",
       "searchable": "at_atlas_018 cave_background_rock_patch_018_20 decor cave background rock-patch decoration",
       "thumbnail": {
-        "x": 128,
+        "x": 256,
         "y": 1024,
         "w": 64,
         "h": 64
@@ -13462,7 +13532,7 @@
       "category": "decor",
       "searchable": "at_atlas_018 cave_background_rock_patch_018_21 decor cave background rock-patch decoration",
       "thumbnail": {
-        "x": 192,
+        "x": 320,
         "y": 1024,
         "w": 64,
         "h": 64
@@ -13496,7 +13566,7 @@
       "category": "decor",
       "searchable": "at_atlas_018 cave_background_rock_patch_018_22 decor cave background rock-patch decoration",
       "thumbnail": {
-        "x": 256,
+        "x": 384,
         "y": 1024,
         "w": 64,
         "h": 64
@@ -13530,7 +13600,7 @@
       "category": "decor",
       "searchable": "at_atlas_018 cave_background_rock_patch_018_23 decor cave background rock-patch decoration",
       "thumbnail": {
-        "x": 320,
+        "x": 448,
         "y": 1024,
         "w": 64,
         "h": 64
@@ -13564,7 +13634,7 @@
       "category": "decor",
       "searchable": "at_atlas_018 cave_background_rock_patch_018_24 decor cave background rock-patch decoration",
       "thumbnail": {
-        "x": 384,
+        "x": 512,
         "y": 1024,
         "w": 64,
         "h": 64
@@ -13598,7 +13668,7 @@
       "category": "decor",
       "searchable": "at_atlas_018 cave_background_rock_patch_018_25 decor cave background rock-patch decoration",
       "thumbnail": {
-        "x": 448,
+        "x": 576,
         "y": 1024,
         "w": 64,
         "h": 64
@@ -13632,7 +13702,7 @@
       "category": "decor",
       "searchable": "at_atlas_019 cave_background_scene_019_01 decor cave background scene decoration",
       "thumbnail": {
-        "x": 512,
+        "x": 640,
         "y": 1024,
         "w": 64,
         "h": 64
@@ -13666,7 +13736,7 @@
       "category": "decor",
       "searchable": "at_atlas_019 cave_background_scene_019_02 decor cave background scene decoration",
       "thumbnail": {
-        "x": 576,
+        "x": 704,
         "y": 1024,
         "w": 64,
         "h": 64
@@ -13700,7 +13770,7 @@
       "category": "decor",
       "searchable": "at_atlas_019 cave_background_scene_019_03 decor cave background scene decoration",
       "thumbnail": {
-        "x": 640,
+        "x": 768,
         "y": 1024,
         "w": 64,
         "h": 64
@@ -13734,7 +13804,7 @@
       "category": "decor",
       "searchable": "at_atlas_019 cave_background_scene_019_04 decor cave background scene decoration",
       "thumbnail": {
-        "x": 704,
+        "x": 832,
         "y": 1024,
         "w": 64,
         "h": 64
@@ -13768,7 +13838,7 @@
       "category": "decor",
       "searchable": "at_atlas_019 cave_background_scene_019_05 decor cave background scene decoration",
       "thumbnail": {
-        "x": 768,
+        "x": 896,
         "y": 1024,
         "w": 64,
         "h": 64
@@ -13802,7 +13872,7 @@
       "category": "decor",
       "searchable": "at_atlas_019 cave_background_scene_019_06 decor cave background scene decoration",
       "thumbnail": {
-        "x": 832,
+        "x": 960,
         "y": 1024,
         "w": 64,
         "h": 64
@@ -13836,7 +13906,7 @@
       "category": "decor",
       "searchable": "at_atlas_019 cave_background_scene_019_07 decor cave background scene decoration",
       "thumbnail": {
-        "x": 896,
+        "x": 1024,
         "y": 1024,
         "w": 64,
         "h": 64
@@ -13870,7 +13940,7 @@
       "category": "decor",
       "searchable": "at_atlas_019 cave_background_scene_019_08 decor cave background scene decoration",
       "thumbnail": {
-        "x": 960,
+        "x": 1088,
         "y": 1024,
         "w": 64,
         "h": 64
@@ -13904,7 +13974,7 @@
       "category": "decor",
       "searchable": "at_atlas_019 cave_background_scene_019_09 decor cave background scene decoration",
       "thumbnail": {
-        "x": 1024,
+        "x": 1152,
         "y": 1024,
         "w": 64,
         "h": 64
@@ -13938,7 +14008,7 @@
       "category": "decor",
       "searchable": "at_atlas_019 cave_background_scene_019_10 decor cave background scene decoration",
       "thumbnail": {
-        "x": 1088,
+        "x": 1216,
         "y": 1024,
         "w": 64,
         "h": 64
@@ -13972,7 +14042,7 @@
       "category": "platform",
       "searchable": "at_atlas_020 lunar_capsule_open platform",
       "thumbnail": {
-        "x": 1152,
+        "x": 1280,
         "y": 1024,
         "w": 64,
         "h": 64
@@ -14001,7 +14071,7 @@
       "category": "platform",
       "searchable": "at_atlas_020 lunar_lander platform",
       "thumbnail": {
-        "x": 1216,
+        "x": 1344,
         "y": 1024,
         "w": 64,
         "h": 64
@@ -14030,7 +14100,7 @@
       "category": "platform",
       "searchable": "at_atlas_021 forest_rock_cliff_021_a platform forest rock cliff terrain walkable platform",
       "thumbnail": {
-        "x": 1280,
+        "x": 1408,
         "y": 1024,
         "w": 64,
         "h": 64
@@ -14066,8 +14136,8 @@
       "category": "platform",
       "searchable": "at_atlas_021 forest_rock_cliff_021_b platform forest rock cliff terrain walkable platform",
       "thumbnail": {
-        "x": 1344,
-        "y": 1024,
+        "x": 0,
+        "y": 1088,
         "w": 64,
         "h": 64
       },
@@ -14102,8 +14172,8 @@
       "category": "platform",
       "searchable": "at_atlas_022 forest_rock_cliff_022_a platform forest rock cliff terrain walkable platform",
       "thumbnail": {
-        "x": 1408,
-        "y": 1024,
+        "x": 64,
+        "y": 1088,
         "w": 64,
         "h": 64
       },
@@ -14138,7 +14208,7 @@
       "category": "platform",
       "searchable": "at_atlas_022 forest_rock_cliff_022_b platform forest rock cliff terrain walkable platform",
       "thumbnail": {
-        "x": 0,
+        "x": 128,
         "y": 1088,
         "w": 64,
         "h": 64
@@ -14174,7 +14244,7 @@
       "category": "platform",
       "searchable": "at_atlas_022 forest_rock_cliff_022_c platform forest rock cliff terrain walkable platform",
       "thumbnail": {
-        "x": 64,
+        "x": 192,
         "y": 1088,
         "w": 64,
         "h": 64
@@ -14210,7 +14280,7 @@
       "category": "platform",
       "searchable": "at_atlas_022 forest_rock_cliff_022_d platform forest rock cliff terrain walkable platform",
       "thumbnail": {
-        "x": 128,
+        "x": 256,
         "y": 1088,
         "w": 64,
         "h": 64
@@ -14246,7 +14316,7 @@
       "category": "platform",
       "searchable": "at_atlas_022 forest_rock_cliff_022_e platform forest rock cliff terrain walkable platform",
       "thumbnail": {
-        "x": 192,
+        "x": 320,
         "y": 1088,
         "w": 64,
         "h": 64
@@ -14282,7 +14352,7 @@
       "category": "platform",
       "searchable": "at_atlas_022 forest_rock_cliff_022_f platform forest rock cliff terrain walkable platform",
       "thumbnail": {
-        "x": 256,
+        "x": 384,
         "y": 1088,
         "w": 64,
         "h": 64
@@ -14318,7 +14388,7 @@
       "category": "platform",
       "searchable": "at_atlas_023 forest_rock_cliff_023_a platform forest rock cliff terrain walkable platform",
       "thumbnail": {
-        "x": 320,
+        "x": 448,
         "y": 1088,
         "w": 64,
         "h": 64
@@ -14354,7 +14424,7 @@
       "category": "platform",
       "searchable": "at_atlas_023 forest_rock_cliff_023_b platform forest rock cliff terrain walkable platform",
       "thumbnail": {
-        "x": 384,
+        "x": 512,
         "y": 1088,
         "w": 64,
         "h": 64
@@ -14390,7 +14460,7 @@
       "category": "platform",
       "searchable": "at_atlas_024 forest_rock_cliff_024_a platform forest rock cliff terrain walkable platform",
       "thumbnail": {
-        "x": 448,
+        "x": 576,
         "y": 1088,
         "w": 64,
         "h": 64
@@ -14426,7 +14496,7 @@
       "category": "platform",
       "searchable": "at_atlas_024 forest_rock_cliff_024_b platform forest rock cliff terrain walkable platform",
       "thumbnail": {
-        "x": 512,
+        "x": 640,
         "y": 1088,
         "w": 64,
         "h": 64
@@ -14462,7 +14532,7 @@
       "category": "platform",
       "searchable": "at_atlas_025 forest_aqueduct_ruin_025_a platform forest aqueduct ruin terrain walkable platform",
       "thumbnail": {
-        "x": 576,
+        "x": 704,
         "y": 1088,
         "w": 64,
         "h": 64
@@ -14498,7 +14568,7 @@
       "category": "platform",
       "searchable": "at_atlas_025 forest_aqueduct_ruin_025_b platform forest aqueduct ruin terrain walkable platform",
       "thumbnail": {
-        "x": 640,
+        "x": 768,
         "y": 1088,
         "w": 64,
         "h": 64
@@ -14534,7 +14604,7 @@
       "category": "platform",
       "searchable": "at_atlas_025 forest_aqueduct_ruin_025_c platform forest aqueduct ruin terrain walkable platform",
       "thumbnail": {
-        "x": 704,
+        "x": 832,
         "y": 1088,
         "w": 64,
         "h": 64
@@ -14570,7 +14640,7 @@
       "category": "platform",
       "searchable": "at_atlas_025 forest_aqueduct_ruin_025_d platform forest aqueduct ruin terrain walkable platform",
       "thumbnail": {
-        "x": 768,
+        "x": 896,
         "y": 1088,
         "w": 64,
         "h": 64
@@ -14606,7 +14676,7 @@
       "category": "platform",
       "searchable": "at_atlas_026 foul_mushroom_platform_026_a platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 832,
+        "x": 960,
         "y": 1088,
         "w": 64,
         "h": 64
@@ -14642,7 +14712,7 @@
       "category": "platform",
       "searchable": "at_atlas_026 foul_mushroom_platform_026_b platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 896,
+        "x": 1024,
         "y": 1088,
         "w": 64,
         "h": 64
@@ -14678,7 +14748,7 @@
       "category": "platform",
       "searchable": "at_atlas_026 foul_mushroom_platform_026_c platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 960,
+        "x": 1088,
         "y": 1088,
         "w": 64,
         "h": 64
@@ -14714,7 +14784,7 @@
       "category": "platform",
       "searchable": "at_atlas_026 foul_mushroom_platform_026_d platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 1024,
+        "x": 1152,
         "y": 1088,
         "w": 64,
         "h": 64
@@ -14750,7 +14820,7 @@
       "category": "platform",
       "searchable": "at_atlas_026 foul_mushroom_platform_026_e platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 1088,
+        "x": 1216,
         "y": 1088,
         "w": 64,
         "h": 64
@@ -14786,7 +14856,7 @@
       "category": "platform",
       "searchable": "at_atlas_026 foul_mushroom_platform_026_f platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 1152,
+        "x": 1280,
         "y": 1088,
         "w": 64,
         "h": 64
@@ -14822,7 +14892,7 @@
       "category": "platform",
       "searchable": "at_atlas_026 foul_mushroom_platform_026_g platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 1216,
+        "x": 1344,
         "y": 1088,
         "w": 64,
         "h": 64
@@ -14858,7 +14928,7 @@
       "category": "platform",
       "searchable": "at_atlas_026 foul_mushroom_platform_026_h platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 1280,
+        "x": 1408,
         "y": 1088,
         "w": 64,
         "h": 64
@@ -14894,8 +14964,8 @@
       "category": "platform",
       "searchable": "at_atlas_026 foul_mushroom_platform_026_i platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 1344,
-        "y": 1088,
+        "x": 0,
+        "y": 1152,
         "w": 64,
         "h": 64
       },
@@ -14930,8 +15000,8 @@
       "category": "platform",
       "searchable": "at_atlas_026 foul_mushroom_platform_026_j platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 1408,
-        "y": 1088,
+        "x": 64,
+        "y": 1152,
         "w": 64,
         "h": 64
       },
@@ -14966,7 +15036,7 @@
       "category": "platform",
       "searchable": "at_atlas_026 foul_mushroom_platform_026_k platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 0,
+        "x": 128,
         "y": 1152,
         "w": 64,
         "h": 64
@@ -15002,7 +15072,7 @@
       "category": "platform",
       "searchable": "at_atlas_026 foul_mushroom_platform_026_l platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 64,
+        "x": 192,
         "y": 1152,
         "w": 64,
         "h": 64
@@ -15038,7 +15108,7 @@
       "category": "platform",
       "searchable": "at_atlas_026 foul_mushroom_platform_026_m platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 128,
+        "x": 256,
         "y": 1152,
         "w": 64,
         "h": 64
@@ -15074,7 +15144,7 @@
       "category": "platform",
       "searchable": "at_atlas_026 foul_mushroom_platform_026_n platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 192,
+        "x": 320,
         "y": 1152,
         "w": 64,
         "h": 64
@@ -15110,7 +15180,7 @@
       "category": "platform",
       "searchable": "at_atlas_026 foul_mushroom_platform_026_o platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 256,
+        "x": 384,
         "y": 1152,
         "w": 64,
         "h": 64
@@ -15146,7 +15216,7 @@
       "category": "platform",
       "searchable": "at_atlas_026 foul_mushroom_platform_026_p platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 320,
+        "x": 448,
         "y": 1152,
         "w": 64,
         "h": 64
@@ -15182,7 +15252,7 @@
       "category": "platform",
       "searchable": "at_atlas_026 foul_mushroom_platform_026_q platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 384,
+        "x": 512,
         "y": 1152,
         "w": 64,
         "h": 64
@@ -15218,7 +15288,7 @@
       "category": "platform",
       "searchable": "at_atlas_026 foul_mushroom_platform_026_r platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 448,
+        "x": 576,
         "y": 1152,
         "w": 64,
         "h": 64
@@ -15254,7 +15324,7 @@
       "category": "platform",
       "searchable": "at_atlas_027 cave_mushroom_platform_027_a platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 512,
+        "x": 640,
         "y": 1152,
         "w": 64,
         "h": 64
@@ -15290,7 +15360,7 @@
       "category": "platform",
       "searchable": "at_atlas_027 cave_mushroom_platform_027_b platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 576,
+        "x": 704,
         "y": 1152,
         "w": 64,
         "h": 64
@@ -15326,7 +15396,7 @@
       "category": "platform",
       "searchable": "at_atlas_027 cave_mushroom_platform_027_c platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 640,
+        "x": 768,
         "y": 1152,
         "w": 64,
         "h": 64
@@ -15362,7 +15432,7 @@
       "category": "platform",
       "searchable": "at_atlas_027 cave_mushroom_platform_027_d platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 704,
+        "x": 832,
         "y": 1152,
         "w": 64,
         "h": 64
@@ -15398,7 +15468,7 @@
       "category": "platform",
       "searchable": "at_atlas_027 cave_mushroom_platform_027_e platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 768,
+        "x": 896,
         "y": 1152,
         "w": 64,
         "h": 64
@@ -15434,7 +15504,7 @@
       "category": "platform",
       "searchable": "at_atlas_027 cave_mushroom_platform_027_f platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 832,
+        "x": 960,
         "y": 1152,
         "w": 64,
         "h": 64
@@ -15470,7 +15540,7 @@
       "category": "platform",
       "searchable": "at_atlas_027 cave_mushroom_platform_027_g platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 896,
+        "x": 1024,
         "y": 1152,
         "w": 64,
         "h": 64
@@ -15506,7 +15576,7 @@
       "category": "platform",
       "searchable": "at_atlas_027 cave_mushroom_platform_027_h platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 960,
+        "x": 1088,
         "y": 1152,
         "w": 64,
         "h": 64
@@ -15542,7 +15612,7 @@
       "category": "platform",
       "searchable": "at_atlas_027 cave_mushroom_platform_027_i platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 1024,
+        "x": 1152,
         "y": 1152,
         "w": 64,
         "h": 64
@@ -15578,7 +15648,7 @@
       "category": "platform",
       "searchable": "at_atlas_027 cave_mushroom_platform_027_j platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 1088,
+        "x": 1216,
         "y": 1152,
         "w": 64,
         "h": 64
@@ -15614,7 +15684,7 @@
       "category": "platform",
       "searchable": "at_atlas_027 cave_mushroom_platform_027_k platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 1152,
+        "x": 1280,
         "y": 1152,
         "w": 64,
         "h": 64
@@ -15650,7 +15720,7 @@
       "category": "platform",
       "searchable": "at_atlas_027 cave_mushroom_platform_027_l platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 1216,
+        "x": 1344,
         "y": 1152,
         "w": 64,
         "h": 64
@@ -15686,7 +15756,7 @@
       "category": "platform",
       "searchable": "at_atlas_027 cave_mushroom_platform_027_m platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 1280,
+        "x": 1408,
         "y": 1152,
         "w": 64,
         "h": 64
@@ -15722,8 +15792,8 @@
       "category": "platform",
       "searchable": "at_atlas_027 cave_mushroom_platform_027_n platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 1344,
-        "y": 1152,
+        "x": 0,
+        "y": 1216,
         "w": 64,
         "h": 64
       },
@@ -15758,8 +15828,8 @@
       "category": "platform",
       "searchable": "at_atlas_027 cave_mushroom_platform_027_o platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 1408,
-        "y": 1152,
+        "x": 64,
+        "y": 1216,
         "w": 64,
         "h": 64
       },
@@ -15794,7 +15864,7 @@
       "category": "platform",
       "searchable": "at_atlas_027 cave_mushroom_platform_027_p platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 0,
+        "x": 128,
         "y": 1216,
         "w": 64,
         "h": 64
@@ -15830,7 +15900,7 @@
       "category": "platform",
       "searchable": "at_atlas_027 cave_mushroom_platform_027_q platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 64,
+        "x": 192,
         "y": 1216,
         "w": 64,
         "h": 64
@@ -15866,7 +15936,7 @@
       "category": "platform",
       "searchable": "at_atlas_027 cave_mushroom_platform_027_r platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 128,
+        "x": 256,
         "y": 1216,
         "w": 64,
         "h": 64
@@ -15902,7 +15972,7 @@
       "category": "platform",
       "searchable": "at_atlas_027 cave_mushroom_platform_027_s platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 192,
+        "x": 320,
         "y": 1216,
         "w": 64,
         "h": 64
@@ -15938,7 +16008,7 @@
       "category": "platform",
       "searchable": "at_atlas_027 cave_mushroom_platform_027_t platform cave mushroom fungal terrain walkable platform",
       "thumbnail": {
-        "x": 256,
+        "x": 384,
         "y": 1216,
         "w": 64,
         "h": 64
@@ -15974,7 +16044,7 @@
       "category": "decor",
       "searchable": "at_atlas_028 ignatius_title decor",
       "thumbnail": {
-        "x": 320,
+        "x": 448,
         "y": 1216,
         "w": 64,
         "h": 64
@@ -16003,7 +16073,7 @@
       "category": "platform",
       "searchable": "at_atlas_029 object_001 platform",
       "thumbnail": {
-        "x": 384,
+        "x": 512,
         "y": 1216,
         "w": 64,
         "h": 64
@@ -16025,6 +16095,412 @@
       "paletteOrder": 0
     },
     {
+      "key": "asset:at_atlas_030:mine_cart",
+      "kind": "asset",
+      "id": "at_atlas_030:mine_cart",
+      "label": "mine_cart",
+      "category": "platform",
+      "searchable": "at_atlas_030 mine_cart platform",
+      "thumbnail": {
+        "x": 576,
+        "y": 1216,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_030",
+        "assetId": "mine_cart",
+        "manifest": "atlases/at_atlas_030.json",
+        "image": "atlases/at_atlas_030.png"
+      },
+      "frame": {
+        "x": 0,
+        "y": 4,
+        "w": 401,
+        "h": 247
+      },
+      "type": "platform",
+      "tags": [],
+      "paletteOrder": 0
+    },
+    {
+      "key": "asset:at_atlas_030:mine_dynamite",
+      "kind": "asset",
+      "id": "at_atlas_030:mine_dynamite",
+      "label": "mine_dynamite",
+      "category": "decor",
+      "searchable": "at_atlas_030 mine_dynamite decor",
+      "thumbnail": {
+        "x": 640,
+        "y": 1216,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_030",
+        "assetId": "mine_dynamite",
+        "manifest": "atlases/at_atlas_030.json",
+        "image": "atlases/at_atlas_030.png"
+      },
+      "frame": {
+        "x": 297,
+        "y": 516,
+        "w": 237,
+        "h": 193
+      },
+      "type": "decor",
+      "tags": [],
+      "paletteOrder": 0
+    },
+    {
+      "key": "asset:at_atlas_030:mine_hanging_lamp",
+      "kind": "asset",
+      "id": "at_atlas_030:mine_hanging_lamp",
+      "label": "mine_hanging_lamp",
+      "category": "decor",
+      "searchable": "at_atlas_030 mine_hanging_lamp decor",
+      "thumbnail": {
+        "x": 704,
+        "y": 1216,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_030",
+        "assetId": "mine_hanging_lamp",
+        "manifest": "atlases/at_atlas_030.json",
+        "image": "atlases/at_atlas_030.png"
+      },
+      "frame": {
+        "x": 958,
+        "y": 252,
+        "w": 156,
+        "h": 260
+      },
+      "type": "decor",
+      "tags": [],
+      "paletteOrder": 0
+    },
+    {
+      "key": "asset:at_atlas_030:mine_lantern",
+      "kind": "asset",
+      "id": "at_atlas_030:mine_lantern",
+      "label": "mine_lantern",
+      "category": "decor",
+      "searchable": "at_atlas_030 mine_lantern decor",
+      "thumbnail": {
+        "x": 768,
+        "y": 1216,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_030",
+        "assetId": "mine_lantern",
+        "manifest": "atlases/at_atlas_030.json",
+        "image": "atlases/at_atlas_030.png"
+      },
+      "frame": {
+        "x": 1153,
+        "y": 275,
+        "w": 169,
+        "h": 282
+      },
+      "type": "decor",
+      "tags": [],
+      "paletteOrder": 0
+    },
+    {
+      "key": "asset:at_atlas_030:mine_ore_coal",
+      "kind": "asset",
+      "id": "at_atlas_030:mine_ore_coal",
+      "label": "mine_ore_coal",
+      "category": "platform",
+      "searchable": "at_atlas_030 mine_ore_coal platform",
+      "thumbnail": {
+        "x": 832,
+        "y": 1216,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_030",
+        "assetId": "mine_ore_coal",
+        "manifest": "atlases/at_atlas_030.json",
+        "image": "atlases/at_atlas_030.png"
+      },
+      "frame": {
+        "x": 1084,
+        "y": 88,
+        "w": 236,
+        "h": 157
+      },
+      "type": "platform",
+      "tags": [],
+      "paletteOrder": 0
+    },
+    {
+      "key": "asset:at_atlas_030:mine_ore_copper",
+      "kind": "asset",
+      "id": "at_atlas_030:mine_ore_copper",
+      "label": "mine_ore_copper",
+      "category": "decor",
+      "searchable": "at_atlas_030 mine_ore_copper decor",
+      "thumbnail": {
+        "x": 896,
+        "y": 1216,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_030",
+        "assetId": "mine_ore_copper",
+        "manifest": "atlases/at_atlas_030.json",
+        "image": "atlases/at_atlas_030.png"
+      },
+      "frame": {
+        "x": 421,
+        "y": 79,
+        "w": 224,
+        "h": 157
+      },
+      "type": "decor",
+      "tags": [],
+      "paletteOrder": 0
+    },
+    {
+      "key": "asset:at_atlas_030:mine_ore_gems",
+      "kind": "asset",
+      "id": "at_atlas_030:mine_ore_gems",
+      "label": "mine_ore_gems",
+      "category": "platform",
+      "searchable": "at_atlas_030 mine_ore_gems platform",
+      "thumbnail": {
+        "x": 960,
+        "y": 1216,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_030",
+        "assetId": "mine_ore_gems",
+        "manifest": "atlases/at_atlas_030.json",
+        "image": "atlases/at_atlas_030.png"
+      },
+      "frame": {
+        "x": 870,
+        "y": 80,
+        "w": 205,
+        "h": 156
+      },
+      "type": "platform",
+      "tags": [],
+      "paletteOrder": 0
+    },
+    {
+      "key": "asset:at_atlas_030:mine_ore_gold",
+      "kind": "asset",
+      "id": "at_atlas_030:mine_ore_gold",
+      "label": "mine_ore_gold",
+      "category": "decor",
+      "searchable": "at_atlas_030 mine_ore_gold decor",
+      "thumbnail": {
+        "x": 1024,
+        "y": 1216,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_030",
+        "assetId": "mine_ore_gold",
+        "manifest": "atlases/at_atlas_030.json",
+        "image": "atlases/at_atlas_030.png"
+      },
+      "frame": {
+        "x": 656,
+        "y": 81,
+        "w": 206,
+        "h": 154
+      },
+      "type": "decor",
+      "tags": [],
+      "paletteOrder": 0
+    },
+    {
+      "key": "asset:at_atlas_030:mine_pick",
+      "kind": "asset",
+      "id": "at_atlas_030:mine_pick",
+      "label": "mine_pick",
+      "category": "decor",
+      "searchable": "at_atlas_030 mine_pick decor",
+      "thumbnail": {
+        "x": 1088,
+        "y": 1216,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_030",
+        "assetId": "mine_pick",
+        "manifest": "atlases/at_atlas_030.json",
+        "image": "atlases/at_atlas_030.png"
+      },
+      "frame": {
+        "x": 551,
+        "y": 286,
+        "w": 194,
+        "h": 219
+      },
+      "type": "decor",
+      "tags": [],
+      "paletteOrder": 0
+    },
+    {
+      "key": "asset:at_atlas_030:mine_rails",
+      "kind": "asset",
+      "id": "at_atlas_030:mine_rails",
+      "label": "mine_rails",
+      "category": "platform",
+      "searchable": "at_atlas_030 mine_rails platform",
+      "thumbnail": {
+        "x": 1152,
+        "y": 1216,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_030",
+        "assetId": "mine_rails",
+        "manifest": "atlases/at_atlas_030.json",
+        "image": "atlases/at_atlas_030.png"
+      },
+      "frame": {
+        "x": 463,
+        "y": 20,
+        "w": 585,
+        "h": 48
+      },
+      "type": "platform",
+      "tags": [],
+      "paletteOrder": 0
+    },
+    {
+      "key": "asset:at_atlas_030:mine_rope",
+      "kind": "asset",
+      "id": "at_atlas_030:mine_rope",
+      "label": "mine_rope",
+      "category": "decor",
+      "searchable": "at_atlas_030 mine_rope decor",
+      "thumbnail": {
+        "x": 1216,
+        "y": 1216,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_030",
+        "assetId": "mine_rope",
+        "manifest": "atlases/at_atlas_030.json",
+        "image": "atlases/at_atlas_030.png"
+      },
+      "frame": {
+        "x": 50,
+        "y": 492,
+        "w": 234,
+        "h": 164
+      },
+      "type": "decor",
+      "tags": [],
+      "paletteOrder": 0
+    },
+    {
+      "key": "asset:at_atlas_030:mine_shovel",
+      "kind": "asset",
+      "id": "at_atlas_030:mine_shovel",
+      "label": "mine_shovel",
+      "category": "decor",
+      "searchable": "at_atlas_030 mine_shovel decor",
+      "thumbnail": {
+        "x": 1280,
+        "y": 1216,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_030",
+        "assetId": "mine_shovel",
+        "manifest": "atlases/at_atlas_030.json",
+        "image": "atlases/at_atlas_030.png"
+      },
+      "frame": {
+        "x": 362,
+        "y": 259,
+        "w": 175,
+        "h": 243
+      },
+      "type": "decor",
+      "tags": [],
+      "paletteOrder": 0
+    },
+    {
+      "key": "asset:at_atlas_030:mine_sign",
+      "kind": "asset",
+      "id": "at_atlas_030:mine_sign",
+      "label": "mine_sign",
+      "category": "platform",
+      "searchable": "at_atlas_030 mine_sign platform",
+      "thumbnail": {
+        "x": 1344,
+        "y": 1216,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_030",
+        "assetId": "mine_sign",
+        "manifest": "atlases/at_atlas_030.json",
+        "image": "atlases/at_atlas_030.png"
+      },
+      "frame": {
+        "x": 74,
+        "y": 265,
+        "w": 213,
+        "h": 196
+      },
+      "type": "platform",
+      "tags": [],
+      "paletteOrder": 0
+    },
+    {
+      "key": "asset:at_atlas_030:mine_support",
+      "kind": "asset",
+      "id": "at_atlas_030:mine_support",
+      "label": "mine_support",
+      "category": "pillar",
+      "searchable": "at_atlas_030 mine_support pillar",
+      "thumbnail": {
+        "x": 1408,
+        "y": 1216,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_030",
+        "assetId": "mine_support",
+        "manifest": "atlases/at_atlas_030.json",
+        "image": "atlases/at_atlas_030.png"
+      },
+      "frame": {
+        "x": 765,
+        "y": 245,
+        "w": 172,
+        "h": 280
+      },
+      "type": "pillar",
+      "tags": [],
+      "paletteOrder": 0
+    },
+    {
       "key": "entity:enemySpawner",
       "kind": "entity",
       "id": "enemySpawner",
@@ -16032,8 +16508,8 @@
       "category": "Entity",
       "searchable": "enemySpawner Enemy spawner Invisible during play. While its authored area is on screen, it rolls once per second and teleports in one already-alert enemy on a successful roll.",
       "thumbnail": {
-        "x": 448,
-        "y": 1216,
+        "x": 0,
+        "y": 1280,
         "w": 64,
         "h": 64
       },
@@ -16055,8 +16531,8 @@
       "category": "Entity",
       "searchable": "mailbox Editor's mailbox An editor-letter mailbox. Each placed mailbox owns its own trigger distance, letter, thought, and timing metadata, so a level can contain several tutorial letters.",
       "thumbnail": {
-        "x": 512,
-        "y": 1216,
+        "x": 64,
+        "y": 1280,
         "w": 64,
         "h": 64
       },
@@ -16078,8 +16554,8 @@
       "category": "Entity",
       "searchable": "thoughtTrigger Location thought trigger Invisible one-shot region that pauses play and shows an Ignatius thought bubble when entered.",
       "thumbnail": {
-        "x": 576,
-        "y": 1216,
+        "x": 128,
+        "y": 1280,
         "w": 64,
         "h": 64
       },
@@ -16101,8 +16577,8 @@
       "category": "Entity",
       "searchable": "questionMarkTrigger Question mark trigger Invisible one-shot trigger that shows a question mark above Ignatius for two seconds.",
       "thumbnail": {
-        "x": 640,
-        "y": 1216,
+        "x": 192,
+        "y": 1280,
         "w": 64,
         "h": 64
       },
@@ -16124,8 +16600,8 @@
       "category": "Entity",
       "searchable": "exclamationMarkTrigger Exclamation mark trigger Invisible one-shot trigger that shows an exclamation mark above Ignatius for two seconds.",
       "thumbnail": {
-        "x": 704,
-        "y": 1216,
+        "x": 256,
+        "y": 1280,
         "w": 64,
         "h": 64
       },
@@ -16147,8 +16623,8 @@
       "category": "Entity",
       "searchable": "wizard_entry_door Wizard entry door The effective level start. It snaps to nearby ground, opens, lets Ignatius walk out behind the foreground door layer, then closes.",
       "thumbnail": {
-        "x": 768,
-        "y": 1216,
+        "x": 320,
+        "y": 1280,
         "w": 64,
         "h": 64
       },
@@ -16170,8 +16646,8 @@
       "category": "Entity",
       "searchable": "wizard_entry_point Wizard entry point Invisible immediate level start. Ignatius begins at this floor-anchored point with no doorway animation.",
       "thumbnail": {
-        "x": 832,
-        "y": 1216,
+        "x": 384,
+        "y": 1280,
         "w": 64,
         "h": 64
       },
@@ -16193,8 +16669,8 @@
       "category": "Entity",
       "searchable": "wizard_exit_door Wizard exit door The level exit. It is mirrored by default, snaps to nearby ground, opens when Ignatius approaches, and walks him through before loading its destination level.",
       "thumbnail": {
-        "x": 896,
-        "y": 1216,
+        "x": 448,
+        "y": 1280,
         "w": 64,
         "h": 64
       },
@@ -16216,8 +16692,8 @@
       "category": "Entity",
       "searchable": "wizard_exit_point Wizard exit point Invisible immediate level exit. Reaching this point loads its destination without a doorway animation.",
       "thumbnail": {
-        "x": 960,
-        "y": 1216,
+        "x": 512,
+        "y": 1280,
         "w": 64,
         "h": 64
       },
@@ -16239,8 +16715,8 @@
       "category": "Entity",
       "searchable": "treasureChest Treasure chest Automatic proximity treasure chest: begins open with loot, awards Score once, then remains open and empty.",
       "thumbnail": {
-        "x": 1024,
-        "y": 1216,
+        "x": 576,
+        "y": 1280,
         "w": 64,
         "h": 64
       },
@@ -16262,8 +16738,8 @@
       "category": "Entity",
       "searchable": "breakableCrate Breakable crate A solid reactive crate that intercepts rockets, becomes damaged, then disappears when destroyed.",
       "thumbnail": {
-        "x": 1088,
-        "y": 1216,
+        "x": 640,
+        "y": 1280,
         "w": 64,
         "h": 64
       },
@@ -16285,8 +16761,8 @@
       "category": "Entity",
       "searchable": "destructibleBarrier Breakable iron barrier A tall solid barrier that intercepts rockets, bends when damaged, and removes its collision when destroyed.",
       "thumbnail": {
-        "x": 1152,
-        "y": 1216,
+        "x": 704,
+        "y": 1280,
         "w": 64,
         "h": 64
       },
@@ -16308,8 +16784,8 @@
       "category": "Entity",
       "searchable": "leverSwitch Lever switch Nearby switch that toggles a named signal channel. Press Down, S, or Enter to operate it.",
       "thumbnail": {
-        "x": 1216,
-        "y": 1216,
+        "x": 768,
+        "y": 1280,
         "w": 64,
         "h": 64
       },
@@ -16331,8 +16807,8 @@
       "category": "Entity",
       "searchable": "keyholeSwitch Keyhole switch Consumes the configured key when Ignatius operates it, then emits its named signal once.",
       "thumbnail": {
-        "x": 1280,
-        "y": 1216,
+        "x": 832,
+        "y": 1280,
         "w": 64,
         "h": 64
       },
@@ -16354,8 +16830,8 @@
       "category": "Entity",
       "searchable": "spikedGate Spiked gate Switchable vertical gate.",
       "thumbnail": {
-        "x": 1344,
-        "y": 1216,
+        "x": 896,
+        "y": 1280,
         "w": 64,
         "h": 64
       },
@@ -16377,8 +16853,8 @@
       "category": "Entity",
       "searchable": "hangingGate Hanging iron bars Alternative switchable iron gate.",
       "thumbnail": {
-        "x": 1408,
-        "y": 1216,
+        "x": 960,
+        "y": 1280,
         "w": 64,
         "h": 64
       },
@@ -16400,7 +16876,7 @@
       "category": "Entity",
       "searchable": "fuel Rocket fuel Sixty-second rocket flight power-up.",
       "thumbnail": {
-        "x": 0,
+        "x": 1024,
         "y": 1280,
         "w": 64,
         "h": 64
@@ -16423,7 +16899,7 @@
       "category": "Entity",
       "searchable": "fuelUpgrade UpgradeFuel Permanent maximum rocket-fuel upgrade. Currently shown as a blue herb.",
       "thumbnail": {
-        "x": 64,
+        "x": 1088,
         "y": 1280,
         "w": 64,
         "h": 64
@@ -16446,7 +16922,7 @@
       "category": "Entity",
       "searchable": "speedUpgrade UpgradeSpeed Permanent movement-speed upgrade. Currently shown as a red mushroom.",
       "thumbnail": {
-        "x": 128,
+        "x": 1152,
         "y": 1280,
         "w": 64,
         "h": 64
@@ -16469,7 +16945,7 @@
       "category": "Entity",
       "searchable": "healthUpgrade UpgradeHealth Permanent maximum-health upgrade. Currently shown as a purple herb.",
       "thumbnail": {
-        "x": 192,
+        "x": 1216,
         "y": 1280,
         "w": 64,
         "h": 64
@@ -16492,7 +16968,7 @@
       "category": "Entity",
       "searchable": "regenUpgrade UpgradeRegen Permanent health and rocket-fuel regeneration upgrade. Currently shown as a yellow herb.",
       "thumbnail": {
-        "x": 256,
+        "x": 1280,
         "y": 1280,
         "w": 64,
         "h": 64
@@ -16515,7 +16991,7 @@
       "category": "Entity",
       "searchable": "ornateKeyPickup Ornate key An ornate key collected into Ignatius’s inventory.",
       "thumbnail": {
-        "x": 320,
+        "x": 1344,
         "y": 1280,
         "w": 64,
         "h": 64
@@ -16538,7 +17014,7 @@
       "category": "Entity",
       "searchable": "ironKeyPickup Iron key An iron key collected into Ignatius’s inventory and usable by keyholes.",
       "thumbnail": {
-        "x": 384,
+        "x": 1408,
         "y": 1280,
         "w": 64,
         "h": 64
@@ -16561,8 +17037,8 @@
       "category": "Entity",
       "searchable": "magicRingPickup Magic ring ",
       "thumbnail": {
-        "x": 448,
-        "y": 1280,
+        "x": 0,
+        "y": 1344,
         "w": 64,
         "h": 64
       },
@@ -16584,8 +17060,8 @@
       "category": "Entity",
       "searchable": "checkpointRune Rune checkpoint ",
       "thumbnail": {
-        "x": 512,
-        "y": 1280,
+        "x": 64,
+        "y": 1344,
         "w": 64,
         "h": 64
       },
@@ -16607,8 +17083,8 @@
       "category": "Entity",
       "searchable": "spikedBallHazard Spiked ball hazard ",
       "thumbnail": {
-        "x": 576,
-        "y": 1280,
+        "x": 128,
+        "y": 1344,
         "w": 64,
         "h": 64
       },
@@ -16630,8 +17106,8 @@
       "category": "Entity",
       "searchable": "overdrivePickup Overdrive Timed rocket overdrive: launches cost half fuel and passive recovery offsets 90% of hover drain, even while fuel is being spent.",
       "thumbnail": {
-        "x": 640,
-        "y": 1280,
+        "x": 192,
+        "y": 1344,
         "w": 64,
         "h": 64
       },
@@ -16653,8 +17129,8 @@
       "category": "Entity",
       "searchable": "shieldPickup Shield Grants ten seconds of complete damage invulnerability and makes Ignatius flash blue.",
       "thumbnail": {
-        "x": 704,
-        "y": 1280,
+        "x": 256,
+        "y": 1344,
         "w": 64,
         "h": 64
       },
@@ -16676,8 +17152,8 @@
       "category": "Entity",
       "searchable": "wrenchPickup Wrench powerup Grants the selected 20-second wrench rocket mode. If no wrench type is authored, it defaults to the cyan Dart wrench.",
       "thumbnail": {
-        "x": 768,
-        "y": 1280,
+        "x": 320,
+        "y": 1344,
         "w": 64,
         "h": 64
       },
@@ -16699,8 +17175,8 @@
       "category": "World",
       "searchable": "proximityText TEXT Bold world-space text that fades in once when Ignatius enters its independently positioned trigger radius.",
       "thumbnail": {
-        "x": 832,
-        "y": 1280,
+        "x": 384,
+        "y": 1344,
         "w": 64,
         "h": 64
       },
@@ -16722,8 +17198,8 @@
       "category": "Enemy",
       "searchable": "enemy_001 Skeleton Guard  ct_char_enemy_001",
       "thumbnail": {
-        "x": 896,
-        "y": 1280,
+        "x": 448,
+        "y": 1344,
         "w": 64,
         "h": 64
       },
@@ -16752,8 +17228,8 @@
       "category": "Enemy",
       "searchable": "enemy_002 Skeleton Caster A hunter skeleton that pursues Ignatius across terrain and casts an obstacle-aware orb of undeath. ct_char_enemy_002",
       "thumbnail": {
-        "x": 960,
-        "y": 1280,
+        "x": 512,
+        "y": 1344,
         "w": 64,
         "h": 64
       },
@@ -16782,8 +17258,8 @@
       "category": "Enemy",
       "searchable": "enemy_010 Fireball Goblin  ct_char_enemy_010",
       "thumbnail": {
-        "x": 1024,
-        "y": 1280,
+        "x": 576,
+        "y": 1344,
         "w": 64,
         "h": 64
       },
@@ -16812,8 +17288,8 @@
       "category": "Enemy",
       "searchable": "enemy_011 Musket Goblin  ct_char_enemy_011",
       "thumbnail": {
-        "x": 1088,
-        "y": 1280,
+        "x": 640,
+        "y": 1344,
         "w": 64,
         "h": 64
       },
@@ -16842,8 +17318,8 @@
       "category": "Enemy",
       "searchable": "enemy_012 Tri-fireball Goblin  ct_char_enemy_012",
       "thumbnail": {
-        "x": 1152,
-        "y": 1280,
+        "x": 704,
+        "y": 1344,
         "w": 64,
         "h": 64
       },
@@ -16872,8 +17348,8 @@
       "category": "Enemy",
       "searchable": "enemy_018 Hobgoblin  ct_char_enemy_018",
       "thumbnail": {
-        "x": 1216,
-        "y": 1280,
+        "x": 768,
+        "y": 1344,
         "w": 64,
         "h": 64
       },
@@ -16902,8 +17378,8 @@
       "category": "Enemy",
       "searchable": "enemy_020 Bombing Bat The retained bat enemy. It patrols a small area around its authored perch, activates only when Ignatius enters its normal awareness view, flies overhead, and drops atlas-authored rocks. ct_char_enemy_020",
       "thumbnail": {
-        "x": 1280,
-        "y": 1280,
+        "x": 832,
+        "y": 1344,
         "w": 64,
         "h": 64
       },
@@ -16932,8 +17408,8 @@
       "category": "Enemy",
       "searchable": "enemy_021 Blue Bombing Bat A smaller two-thirds-scale blue variant of the retained bombing bat. It patrols a small area around its authored perch, activates only when Ignatius enters its normal awareness view, flies overhead, and drops atlas-authored rocks. ct_char_enemy_021",
       "thumbnail": {
-        "x": 1344,
-        "y": 1280,
+        "x": 896,
+        "y": 1344,
         "w": 64,
         "h": 64
       },
@@ -16962,8 +17438,8 @@
       "category": "Enemy",
       "searchable": "enemy_030 Human Raider A modular human sword enemy using body_00/head_00 with the fully articulated split-limb rig and refined animation set. ct_char_enemy_030",
       "thumbnail": {
-        "x": 1408,
-        "y": 1280,
+        "x": 960,
+        "y": 1344,
         "w": 64,
         "h": 64
       },
@@ -16992,7 +17468,7 @@
       "category": "Enemy",
       "searchable": "enemy_031 Human Raider II A modular human sword enemy using body_01/head_01 with an exact articulated copy of the refined sword animation set. ct_char_enemy_031",
       "thumbnail": {
-        "x": 0,
+        "x": 1024,
         "y": 1344,
         "w": 64,
         "h": 64
@@ -17022,7 +17498,7 @@
       "category": "Enemy",
       "searchable": "enemy_032 Human Knife Thrower A blonde human knife thrower using body_02/head_02. He performs the user-authored articulated throwing motion and releases three non-spinning, point-first daggers in a +/-5 degree fan. ct_char_enemy_032",
       "thumbnail": {
-        "x": 64,
+        "x": 1088,
         "y": 1344,
         "w": 64,
         "h": 64
@@ -17052,7 +17528,7 @@
       "category": "Enemy",
       "searchable": "enemy_033 Human Knife Thrower II A dark-haired human knife thrower using the fresh body_03/head_03 pair. He shares Enemy 032's user-authored articulated throw and releases three non-spinning, point-first daggers in a +/-5 degree fan. ct_char_enemy_033",
       "thumbnail": {
-        "x": 128,
+        "x": 1152,
         "y": 1344,
         "w": 64,
         "h": 64
@@ -17082,7 +17558,7 @@
       "category": "Enemy",
       "searchable": "enemy_034 Human Crossbow Human Crossbow using the shared modular-human atlas. He raises a two-handed crossbow, fires three separately aimed fast bolts at 0.4-second intervals with compact recoil/recovery beats, then lowers the weapon and reloads. ct_char_enemy_034",
       "thumbnail": {
-        "x": 192,
+        "x": 1216,
         "y": 1344,
         "w": 64,
         "h": 64
@@ -17112,7 +17588,7 @@
       "category": "Enemy",
       "searchable": "enemy_035 Human Crossbow II Human Crossbow II using the shared modular-human atlas. He raises a two-handed crossbow, fires three separately aimed fast bolts at 0.4-second intervals with compact recoil/recovery beats, then lowers the weapon and reloads. ct_char_enemy_035",
       "thumbnail": {
-        "x": 256,
+        "x": 1280,
         "y": 1344,
         "w": 64,
         "h": 64
@@ -17142,7 +17618,7 @@
       "category": "Enemy",
       "searchable": "enemy_036 Human Pirate Human Pirate using the shared modular-human atlas and a rapier. He reuses the articulated Raider lunge and slash timing. ct_char_enemy_036",
       "thumbnail": {
-        "x": 320,
+        "x": 1344,
         "y": 1344,
         "w": 64,
         "h": 64
@@ -17172,7 +17648,7 @@
       "category": "Enemy",
       "searchable": "enemy_037 Human Pirate II Human Pirate II using the shared modular-human atlas and a rapier. He reuses the articulated Raider lunge and slash timing. ct_char_enemy_037",
       "thumbnail": {
-        "x": 384,
+        "x": 1408,
         "y": 1344,
         "w": 64,
         "h": 64
@@ -17202,8 +17678,8 @@
       "category": "Enemy",
       "searchable": "enemy_038 Human Boxer A weapon-free modular human using body_05/head_16. He closes to melee range and attacks with the articulated bare-knuckle swing. ct_char_enemy_038",
       "thumbnail": {
-        "x": 448,
-        "y": 1344,
+        "x": 0,
+        "y": 1408,
         "w": 64,
         "h": 64
       },
@@ -17232,8 +17708,8 @@
       "category": "Enemy",
       "searchable": "enemy_040 Raptor A fast ground-hunting raptor assembled from a parent-constrained articulated rig. ct_char_enemy_040",
       "thumbnail": {
-        "x": 512,
-        "y": 1344,
+        "x": 64,
+        "y": 1408,
         "w": 64,
         "h": 64
       },
@@ -17262,8 +17738,8 @@
       "category": "Enemy",
       "searchable": "enemy_050 Snake A low-slung articulated snake assembled from repeated pattern-matched overlapping sections. It uses an organic slither, a raised-head bite, and a dramatic belly-up death. ct_char_enemy_050",
       "thumbnail": {
-        "x": 576,
-        "y": 1344,
+        "x": 128,
+        "y": 1408,
         "w": 64,
         "h": 64
       },
@@ -17292,8 +17768,8 @@
       "category": "Enemy",
       "searchable": "enemy_060 Porker  ct_char_enemy_060",
       "thumbnail": {
-        "x": 640,
-        "y": 1344,
+        "x": 192,
+        "y": 1408,
         "w": 64,
         "h": 64
       },
@@ -17322,8 +17798,8 @@
       "category": "Enemy",
       "searchable": "enemy_070 Crocker  ct_char_enemy_070",
       "thumbnail": {
-        "x": 704,
-        "y": 1344,
+        "x": 256,
+        "y": 1408,
         "w": 64,
         "h": 64
       },
@@ -17352,8 +17828,8 @@
       "category": "Enemy",
       "searchable": "enemy_080 Ogre  ct_char_enemy_080",
       "thumbnail": {
-        "x": 768,
-        "y": 1344,
+        "x": 320,
+        "y": 1408,
         "w": 64,
         "h": 64
       },
@@ -17382,8 +17858,8 @@
       "category": "Enemy",
       "searchable": "enemy_090 Greybeard Axethrower Greybeard Axethrower using the corrected open left hand. He hurls one independently authored, rapidly spinning double-headed axe from the axe_copy handoff at 0.339 seconds. ct_char_enemy_090",
       "thumbnail": {
-        "x": 832,
-        "y": 1344,
+        "x": 384,
+        "y": 1408,
         "w": 64,
         "h": 64
       },
@@ -17412,8 +17888,8 @@
       "category": "Enemy",
       "searchable": "enemy_091 Blackbeard Axethrower Blackbeard Axethrower using the corrected open left hand. He hurls one independently authored, rapidly spinning double-headed axe from the axe_copy handoff at 0.339 seconds. ct_char_enemy_091",
       "thumbnail": {
-        "x": 896,
-        "y": 1344,
+        "x": 448,
+        "y": 1408,
         "w": 64,
         "h": 64
       },
@@ -17442,8 +17918,8 @@
       "category": "Enemy",
       "searchable": "enemy_092 Redbeard Axethrower Redbeard Axethrower using the corrected open left hand. He hurls one independently authored, rapidly spinning double-headed axe from the axe_copy handoff at 0.339 seconds. ct_char_enemy_092",
       "thumbnail": {
-        "x": 960,
-        "y": 1344,
+        "x": 512,
+        "y": 1408,
         "w": 64,
         "h": 64
       },
@@ -17472,8 +17948,8 @@
       "category": "Enemy",
       "searchable": "enemy_093 Copperbeard Axethrower Copperbeard Axethrower using the corrected open left hand. He hurls one independently authored, rapidly spinning double-headed axe from the axe_copy handoff at 0.339 seconds. ct_char_enemy_093",
       "thumbnail": {
-        "x": 1024,
-        "y": 1344,
+        "x": 576,
+        "y": 1408,
         "w": 64,
         "h": 64
       },
@@ -17502,8 +17978,8 @@
       "category": "Enemy",
       "searchable": "enemy_900 Training Dummy A stationary training dummy that uses the ordinary enemy pipeline but never attacks or deals contact damage. ct_char_enemy_900",
       "thumbnail": {
-        "x": 1088,
-        "y": 1344,
+        "x": 640,
+        "y": 1408,
         "w": 64,
         "h": 64
       },

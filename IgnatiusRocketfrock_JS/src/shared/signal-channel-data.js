@@ -2,12 +2,14 @@ export const DEFAULT_SIGNAL_CHANNEL = "A";
 
 export const SIGNAL_EMITTER_TYPES = Object.freeze([
     "leverSwitch",
-    "keyholeSwitch"
+    "keyholeSwitch",
+    "proximitySignalTrigger"
 ]);
 
 export const SIGNAL_EMITTER_INTERACTIONS = Object.freeze([
     "toggle",
-    "keyhole"
+    "keyhole",
+    "proximitySignal"
 ]);
 
 export const SIGNAL_RECEIVER_TYPES = Object.freeze([
@@ -67,16 +69,24 @@ export function normalizeSignalEmitter(entity) {
     const type = String(entity.type || "");
     const interaction = type === "keyholeSwitch" || entity.interaction === "keyhole"
         ? "keyhole"
-        : "toggle";
+        : type === "proximitySignalTrigger" || entity.interaction === "proximitySignal"
+            ? "proximitySignal"
+            : "toggle";
+    const defaultType = interaction === "keyhole"
+        ? "keyholeSwitch"
+        : interaction === "proximitySignal"
+            ? "proximitySignalTrigger"
+            : "leverSwitch";
+    const defaultTriggerDistance = interaction === "proximitySignal" ? 160 : 72;
     return {
         id: String(entity.id || ""),
-        type: type || (interaction === "keyhole" ? "keyholeSwitch" : "leverSwitch"),
+        type: type || defaultType,
         interaction,
         channel: normalizeSignalChannel(entity.channel),
-        triggerDistance: Math.max(8, finiteNumber(entity.triggerDistance, 72)),
+        triggerDistance: Math.max(8, finiteNumber(entity.triggerDistance, defaultTriggerDistance)),
         requiredKey: interaction === "keyhole" ? String(entity.requiredKey || "ironKey") : "",
         consumeKey: interaction === "keyhole" ? entity.consumeKey !== false : false,
-        oneShot: interaction === "keyhole" ? entity.oneShot !== false : false
+        oneShot: interaction === "keyhole" ? entity.oneShot !== false : interaction === "proximitySignal"
     };
 }
 

@@ -580,7 +580,20 @@ import { loadImageResourceWithRetry, loadJsonResourceWithRetry, loadResourceInde
     "use strict";
 
     const DEFAULT_ASSET_ATLAS_ID = "at_atlas_001";
+    const ITEM_ATLAS_IDS = Object.freeze(["it_atlas_001"]);
     let resourceIndex = null;
+
+    function atlasResourceDirectory(atlasId) {
+        return String(atlasId || "").startsWith("it_atlas_") ? "items" : "atlases";
+    }
+
+    function atlasResourceKind(atlasId) {
+        return String(atlasId || "").startsWith("it_atlas_") ? "itemAtlas" : "assetAtlas";
+    }
+
+    function selectableAtlasIds() {
+        return [...(resourceIndex?.assetAtlasIds || []), ...ITEM_ATLAS_IDS];
+    }
 
     function resourceUrl(requestPath) {
         const text = String(requestPath || "");
@@ -656,7 +669,7 @@ import { loadImageResourceWithRetry, loadJsonResourceWithRetry, loadResourceInde
                 button.title = collapsed ? "Expand panel" : "Collapse panel";
                 button.setAttribute("aria-expanded", collapsed ? "false" : "true");
             };
-            apply(remembered[key] === true);
+            apply(remembered[key] === undefined ? true : remembered[key] === true);
             button.addEventListener("click", (event) => {
                 event.preventDefault();
                 event.stopPropagation();
@@ -839,9 +852,7 @@ import { loadImageResourceWithRetry, loadJsonResourceWithRetry, loadResourceInde
 
     async function loadGenerationTagCatalog() {
         try {
-            const response = await fetch("resources/editor/asset-generation-tags.json", { cache: "no-store" });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const loaded = await response.json();
+            const loaded = await loadJsonResourceWithRetry("editor/asset-generation-tags.json");
             generationTagCatalog = {
                 ...loaded,
                 tags: Array.isArray(loaded?.tags) ? loaded.tags.filter((entry) => entry?.id) : []
@@ -857,16 +868,13 @@ import { loadImageResourceWithRetry, loadJsonResourceWithRetry, loadResourceInde
 
     async function loadAutotaggingResources() {
         try {
-            const [module, configResponse, platformResponse] = await Promise.all([
+            const [module, autotaggingConfig, platformCatalog] = await Promise.all([
                 import("./src/shared/asset-autotagging.js"),
-                fetch("resources/editor/asset-autotagging-config.json", { cache: "no-store" }),
-                fetch("resources/generator/level-generator-platforms.json", { cache: "no-store" })
+                loadJsonResourceWithRetry("editor/asset-autotagging-config.json"),
+                loadJsonResourceWithRetry("generator/level-generator-platforms.json")
             ]);
-            if (!configResponse.ok) throw new Error(`Autotag configuration HTTP ${configResponse.status}`);
-            if (!platformResponse.ok) throw new Error(`Platform catalog HTTP ${platformResponse.status}`);
             assetAutotagging = module;
-            assetAutotaggingConfig = await configResponse.json();
-            const platformCatalog = await platformResponse.json();
+            assetAutotaggingConfig = autotaggingConfig;
             platformCatalogByAsset = new Map((Array.isArray(platformCatalog?.assets) ? platformCatalog.assets : [])
                 .filter((entry) => entry?.atlasId && entry?.assetId)
                 .map((entry) => [`${entry.atlasId}:${entry.assetId}`, entry]));
@@ -1971,9 +1979,19 @@ import { loadImageResourceWithRetry, loadJsonResourceWithRetry, loadResourceInde
 
     async function loadAtlasManifest(atlasId, options = {}) {
         const quiet = Boolean(options.quiet);
-        const manifestUrl = resourceUrl(`atlases/${atlasId}.json`);
+        const resourceDirectory = atlasResourceDirectory(atlasId);
+        const resourceKind = atlasResourceKind(atlasId);
+        const filename = `${atlasId}.json`;
+        const manifestPath = `${resourceDirectory}/${filename}`;
+        const manifestUrl = resourceUrl(manifestPath);
         try {
-            manifest = await loadJsonResourceWithRetry(`atlases/${atlasId}.json`);
+            const projectHost = window.IgnatiusProjectHost?.get();
+            const projectText = projectHost
+                ? await projectHost.readText(resourceKind, filename, { prompt: false })
+                : null;
+            manifest = projectText === null
+                ? await loadJsonResourceWithRetry(manifestPath)
+                : JSON.parse(projectText);
             ensureObjects();
             selectedObjectId = Object.keys(manifest.objects)[0] || Object.keys(manifest.frames)[0] || null;
             selectedNodeId = null;
@@ -1999,8 +2017,9 @@ import { loadImageResourceWithRetry, loadJsonResourceWithRetry, loadResourceInde
         atlasImage = null;
         draw();
         const imageName = manifest.image || `${atlasId}.png`;
+        const resourceDirectory = atlasResourceDirectory(manifest.atlasId || atlasId);
         try {
-            atlasImage = await loadImageResourceWithRetry(imageName.includes("/") ? imageName : `atlases/${imageName}`);
+            atlasImage = await loadImageResourceWithRetry(imageName.includes("/") ? imageName : `${resourceDirectory}/${imageName}`);
             setZoom(zoom);
         } catch (error) {
             atlasImage = null;
@@ -2037,10 +2056,15 @@ import { loadImageResourceWithRetry, loadJsonResourceWithRetry, loadResourceInde
         refreshJson();
         const atlasId = manifest.atlasId || "at_atlas_001";
         const filename = `${atlasId}.json`;
-        const isNewAtlas = !resourceIndex?.assetAtlasIds.includes(atlasId);
+        const resourceKind = atlasResourceKind(atlasId);
+        const isNewIndexedAtlas = resourceKind === "assetAtlas" && !resourceIndex?.assetAtlasIds.includes(atlasId);
         const projectHost = window.IgnatiusProjectHost?.get();
         if (projectHost) {
-            const result = await projectHost.saveText("assetAtlas", filename, manifestJson.value, { mimeType: "application/json", prompt: true });
+            const result = await projectHost.saveText(resourceKind, filename, manifestJson.value, { mimeType: "application/json", prompt: true });
+            if (result === "root-changed") {
+                window.location.reload();
+                return "cancelled";
+            }
             if (result === "project" || result === "cancelled") return result;
         }
         const blob = new Blob([manifestJson.value], { type: "application/json" });
@@ -2056,7 +2080,7 @@ import { loadImageResourceWithRetry, loadJsonResourceWithRetry, loadResourceInde
                 const writable = await handle.createWritable();
                 await writable.write(blob);
                 await writable.close();
-                if (isNewAtlas) notifyDevToolResourceSaved("assetAtlas", atlasId);
+                if (isNewIndexedAtlas) notifyDevToolResourceSaved("assetAtlas", atlasId);
                 return "file";
             } catch (error) {
                 if (error && error.name === "AbortError") {
@@ -2066,7 +2090,7 @@ import { loadImageResourceWithRetry, loadJsonResourceWithRetry, loadResourceInde
             }
         }
         downloadBlob(blob, filename);
-        if (isNewAtlas) notifyDevToolResourceSaved("assetAtlas", atlasId);
+        if (isNewIndexedAtlas) notifyDevToolResourceSaved("assetAtlas", atlasId);
         return "download";
     }
 
@@ -2169,7 +2193,7 @@ import { loadImageResourceWithRetry, loadJsonResourceWithRetry, loadResourceInde
     async function initialize() {
         try {
             resourceIndex = await loadResourceIndex();
-            populateNumberedAtlasSelector(resourceIndex.assetAtlasIds);
+            populateNumberedAtlasSelector(selectableAtlasIds());
         } catch (error) {
             populateNumberedAtlasSelector([]);
             alert(`Could not load resources/resources.json. ${error.message || error}`);
@@ -2182,7 +2206,7 @@ import { loadImageResourceWithRetry, loadJsonResourceWithRetry, loadResourceInde
         await Promise.all([loadGenerationTagCatalog(), loadAutotaggingResources()]);
         syncAll();
         const initialAtlasId = selectedNumberedAtlasId();
-        if (resourceIndex?.assetAtlasIds.includes(initialAtlasId)) {
+        if (selectableAtlasIds().includes(initialAtlasId)) {
             await loadNumberedAssetFiles(initialAtlasId, { quiet: true });
         }
     }

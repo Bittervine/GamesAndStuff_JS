@@ -74,6 +74,7 @@ import {
 import {
     queryWorldCollisionPolygons,
     queryWorldSegments,
+    queryWorldSegmentsFromCollisionAssets,
     queryWorldSolids
 } from "./world-collision-index.js";
 import {
@@ -96,6 +97,36 @@ import {
 export const FIXED_DT = 1 / 60;
 export const PICKUP_PROXIMITY_DISTANCE_SCALE = 0.67;
 const AUTOMATIC_STEP_HEIGHT_RATIO = 0.2;
+const PLAYER_STANDABLE_SLOPE_RATIO = 0.75;
+function playerAutomaticStepHeight(player) {
+    return Math.max(0, player.height * AUTOMATIC_STEP_HEIGHT_RATIO);
+}
+
+function playerSegmentIsStandable(segment) {
+    if (!segment || !isSolidSegmentKind(segment.kind)) {
+        return false;
+    }
+    if (segment.kind === "walkable") {
+        return true;
+    }
+    const dx = Number(segment.x2) - Number(segment.x1);
+    const dy = Number(segment.y2) - Number(segment.y1);
+    return Math.abs(dx) > 0.001 && Math.abs(dy) <= Math.abs(dx) * PLAYER_STANDABLE_SLOPE_RATIO;
+}
+
+function isMusketProjectileKind(projectileKind) {
+    return projectileKind === "musketBall" || projectileKind === "musketMortar";
+}
+
+function enemyProjectileKindDefinition(state, projectileKind) {
+    const raw = state?.enemyCatalog?.projectileKinds?.[String(projectileKind || "")];
+    return raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+}
+
+function enemyProjectileAreaDamageRadius(state, enemy) {
+    const wizardHeight = Math.max(1, Number(state?.tuning?.wizardHeight) || Number(state?.player?.height) || 104);
+    return Math.max(0, Number(enemy?.projectileAreaDamageRadiusWizardHeights) || 0) * wizardHeight;
+}
 const FLIGHT_MOVEMENT_SPEED_MULTIPLIER = 1.5;
 const HOMING_TARGET_SEARCH_INTERVAL_SECONDS = 0.25;
 
@@ -292,8 +323,10 @@ export const DEFAULT_TUNING = Object.freeze({
     rocketProjectileUpLaunchSeconds: 0.32,
     rocketProjectileInitialHomingStrength: 6.42,
     rocketProjectileHomingStrength: 4.8,
-    rocketProjectileLifetime: 3,
-    rocketProjectileUnwrenchedLifetime: 1.2,
+    rocketProjectileMaxTravelDistance: 1800,
+    rocketProjectileUnwrenchedMaxTravelDistance: 600,
+    rocketTargetSearchDistance: 1500,
+    rocketLifetimeExplosionOffscreenMargin: 100,
     rocketProjectileExplosionSeconds: 0.24,
     rocketProjectileImpactRadius: 24,
     rocketProjectileDamage: 30,
@@ -387,6 +420,7 @@ export const PLAYER_UPGRADE_KINDS = Object.freeze({
     SPEED: "speedUpgrade"
 });
 export const PLAYER_UPGRADE_BALANCE = Object.freeze({
+    maxScale: 2,
     healthPerLevel: 20,
     fuelPerLevel: 20,
     regenRatePerLevel: 0.15,
@@ -396,6 +430,14 @@ export const PLAYER_UPGRADE_BALANCE = Object.freeze({
 function normalizedUpgradeLevel(value) {
     const numeric = Number(value);
     return Number.isFinite(numeric) ? Math.max(0, Math.min(999, Math.trunc(numeric))) : 0;
+}
+
+function asymptoticUpgradeScale(level, firstGainFraction) {
+    const normalizedLevel = normalizedUpgradeLevel(level);
+    const maximumScale = Math.max(1, Number(PLAYER_UPGRADE_BALANCE.maxScale) || 2);
+    const gainFraction = clamp(Number(firstGainFraction) || 0, 0, 0.999999);
+    const remainingFraction = Math.pow(1 - gainFraction, normalizedLevel);
+    return clamp(maximumScale - (maximumScale - 1) * remainingFraction, 1, maximumScale);
 }
 
 export function normalizePlayerProgression(value = {}) {
@@ -422,9 +464,10 @@ export function normalizePlayerProgression(value = {}) {
 export function playerProgressionStats(tuning = DEFAULT_TUNING, progression = {}) {
     const normalized = normalizePlayerProgression(progression);
     const regenScale = 1 + normalized.regenLevel * PLAYER_UPGRADE_BALANCE.regenRatePerLevel;
-    const movementSpeedScale = 1 + normalized.speedLevel * PLAYER_UPGRADE_BALANCE.movementSpeedPerLevel;
-    const maxHealth = Math.max(1, Number(tuning.maxHealth) || DEFAULT_TUNING.maxHealth)
-        + normalized.healthLevel * PLAYER_UPGRADE_BALANCE.healthPerLevel;
+    const baseMaxHealth = Math.max(1, Number(tuning.maxHealth) || DEFAULT_TUNING.maxHealth);
+    const healthFirstGainFraction = PLAYER_UPGRADE_BALANCE.healthPerLevel / baseMaxHealth;
+    const movementSpeedScale = asymptoticUpgradeScale(normalized.speedLevel, PLAYER_UPGRADE_BALANCE.movementSpeedPerLevel);
+    const maxHealth = baseMaxHealth * asymptoticUpgradeScale(normalized.healthLevel, healthFirstGainFraction);
     const maxFuel = Math.max(1, Number(tuning.fuelMax) || DEFAULT_TUNING.fuelMax)
         + normalized.fuelLevel * PLAYER_UPGRADE_BALANCE.fuelPerLevel;
     const rechargeCap = Math.max(0, Number(tuning.baseRechargeCap) || 0)
@@ -487,7 +530,10 @@ function effectiveFuelRechargeRate(state) {
 }
 
 function playerMovementSpeedScale(state) {
-    return 1 + playerProgressionLevel(state, "speedLevel") * PLAYER_UPGRADE_BALANCE.movementSpeedPerLevel;
+    return asymptoticUpgradeScale(
+        playerProgressionLevel(state, "speedLevel"),
+        PLAYER_UPGRADE_BALANCE.movementSpeedPerLevel
+    );
 }
 
 function normalizedPlayerUpgradeKind(value) {
@@ -500,7 +546,7 @@ export function playerUpgradeMessage(upgradeKind) {
     if (kind === PLAYER_UPGRADE_KINDS.HEALTH) return "Max health upgraded!";
     if (kind === PLAYER_UPGRADE_KINDS.FUEL) return "Max fuel upgraded!";
     if (kind === PLAYER_UPGRADE_KINDS.REGEN) return "Regeneration upgraded!";
-    if (kind === PLAYER_UPGRADE_KINDS.SPEED) return "Movement speed upgraded!";
+    if (kind === PLAYER_UPGRADE_KINDS.SPEED) return "Speed has been upgraded!";
     return "";
 }
 
@@ -717,6 +763,7 @@ export function createInitialGameState(overrides = {}) {
             lowHealthPulse: 0,
             visible: true,
             supportId: null,
+            groundStride: null,
             dropThroughTimer: 0,
             inWater: false,
             waterSubmersion: 0,
@@ -2556,12 +2603,29 @@ function updatePickupRespawns(state, dt) {
         if (!pickup.collected || !(Number(pickup.respawnSeconds) > 0)) continue;
         pickup.respawnTimer = Math.max(0, (Number(pickup.respawnTimer) || 0) - Math.max(0, dt));
         if (pickup.respawnTimer > 0) continue;
-        pickup.collected = false;
-        addEvent(state, "POWER_UP_PICKUP_RESPAWNED", {
-            pickupId: pickup.id,
-            effectId: pickup.powerUp?.effectId || null,
-            respawnSeconds: pickup.respawnSeconds
-        });
+        respawnPickup(state, pickup, "timer");
+    }
+}
+
+function respawnPickup(state, pickup, reason) {
+    if (!pickup?.collected || !(Number(pickup.respawnSeconds) > 0) || pickup.kind === "upgrade" || pickup.upgradeKind) {
+        return false;
+    }
+    pickup.collected = false;
+    pickup.respawnTimer = 0;
+    setWorldEntityState(state, pickup.entityId || pickup.id, "available");
+    addEvent(state, "POWER_UP_PICKUP_RESPAWNED", {
+        pickupId: pickup.id,
+        effectId: pickup.powerUp?.effectId || null,
+        respawnSeconds: pickup.respawnSeconds,
+        reason
+    });
+    return true;
+}
+
+function respawnDeathEligiblePickups(state) {
+    for (const pickup of state.pickups || []) {
+        respawnPickup(state, pickup, "playerDeath");
     }
 }
 
@@ -2777,21 +2841,61 @@ function updateTreasureChests(state, dt) {
     }
 }
 
+function signalEmitterCenter(entity) {
+    const height = Math.max(1, Number(entity?.h) || 80);
+    const authoredFloorAnchor = Number(entity?.floorAnchorYFactor);
+    const floorAnchorYFactor = Number.isFinite(authoredFloorAnchor)
+        ? clamp(authoredFloorAnchor, 0, 1)
+        : 1;
+    return {
+        x: Number(entity?.x) || 0,
+        y: (Number(entity?.y) || 0) + height * (0.5 - floorAnchorYFactor)
+    };
+}
+
 function nearestSignalEmitter(state) {
     let nearest = null;
     const playerCenterY = state.player.currentTransform.y - state.player.height * 0.5;
     for (const emitter of state.world?.signalEmitters || []) {
+        if (emitter.interaction === "proximitySignal") continue;
         const entity = worldEntityById(state, emitter.id);
         if (!entity) continue;
-        const entityCenterY = (Number(entity.y) || 0) - (Number(entity.h) || 80) * 0.5;
-        const distance = Math.hypot(state.player.currentTransform.x - (Number(entity.x) || 0), playerCenterY - entityCenterY);
+        const center = signalEmitterCenter(entity);
+        const distance = Math.hypot(state.player.currentTransform.x - center.x, playerCenterY - center.y);
         if (distance > emitter.triggerDistance) continue;
         if (!nearest || distance < nearest.distance) nearest = { emitter, entity, distance };
     }
     return nearest;
 }
 
+function updateProximitySignalEmitters(state) {
+    if (state.player?.visible === false || state.player?.combatState === "dead") return false;
+    const playerCenterY = state.player.currentTransform.y - state.player.height * 0.5;
+    let triggered = false;
+    for (const emitter of state.world?.signalEmitters || []) {
+        if (emitter.interaction !== "proximitySignal") continue;
+        const entity = worldEntityById(state, emitter.id);
+        if (!entity || entity.state === "triggered" || state.world?.entityStates?.[emitter.id] === "triggered") continue;
+        const center = signalEmitterCenter(entity);
+        const distance = Math.hypot(state.player.currentTransform.x - center.x, playerCenterY - center.y);
+        if (distance > emitter.triggerDistance) continue;
+        if (!setWorldEntityState(state, emitter.id, "triggered")) {
+            entity.state = "triggered";
+            if (!state.world.entityStates) state.world.entityStates = {};
+            state.world.entityStates[emitter.id] = "triggered";
+        }
+        emitSignalChannel(state, emitter.channel, { sourceId: emitter.id, active: true });
+        addEvent(state, "PROXIMITY_SIGNAL_TRIGGERED", {
+            triggerId: emitter.id,
+            channel: emitter.channel
+        });
+        triggered = true;
+    }
+    return triggered;
+}
+
 function updateSignalEmitters(state, input) {
+    updateProximitySignalEmitters(state);
     if (!input.interactPressed) return false;
     const match = nearestSignalEmitter(state);
     if (!match) return false;
@@ -3016,6 +3120,10 @@ function setMovingPlatformPosition(state, platform, x, y) {
     if (carryingPlayer) {
         state.player.currentTransform.x += dx;
         state.player.currentTransform.y += dy;
+        // A platform moved the stride origin while the target remained in world
+        // space. Re-plan from the carried position instead of stretching the
+        // pending step across two independently moving frames of reference.
+        state.player.groundStride = null;
     }
     for (const enemy of carryingEnemies) {
         enemy.currentTransform.x += dx;
@@ -3380,7 +3488,21 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
     const isSimplePatrol = strategy === "simple_patrol";
     const patrolDistance = Math.max(0, finiteNumberOr(entity.patrolDistance, 0));
     const idleDuration = Math.max(0, finiteNumberOr(entity.idleDuration, 1.1));
-    const attackMode = String(entity.attackMode || state.tuning.enemyDefaultAttackMode || "melee") === "projectile" ? "projectile" : "melee";
+    const attackMode = String(entity.attackType || entity.attackMode || state.tuning.enemyDefaultAttackMode || "melee") === "projectile" ? "projectile" : "melee";
+    const projectileKind = String(entity.projectileKind || state.tuning.enemyDefaultProjectileKind || "fireball");
+    const projectileDefaults = enemyProjectileKindDefinition(state, projectileKind);
+    const authoredDamage = Math.max(0, finiteNumberOr(
+        entity.damage,
+        attackMode === "projectile"
+            ? finiteNumberOr(entity.projectileDamage, state.tuning.enemyDefaultProjectileDamage)
+            : finiteNumberOr(entity.attackDamage, state.tuning.enemyDefaultAttackDamage)
+    ));
+    const contactDamageBase = Math.max(0, Number.isFinite(Number(entity.damage))
+        ? Number(entity.damage)
+        : Math.max(
+            finiteNumberOr(entity.attackDamage, authoredDamage),
+            finiteNumberOr(entity.projectileDamage, authoredDamage)
+        ));
     const tuningBaseMaxHealth = Math.max(0, finiteNumberOr(entity.health, 90));
     const tuningHealthScaleApplied = characterEnemyHealthScale({ attackMode }, state.tuning);
     const health = tuningBaseMaxHealth * tuningHealthScaleApplied;
@@ -3541,20 +3663,25 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         deathFlightDirection: facing,
         hurtDuration: Math.max(FIXED_DT, finiteNumberOr(entity.hurtDuration, state.tuning.enemyDefaultHurtSeconds)),
         deathDuration: Math.max(FIXED_DT, finiteNumberOr(entity.deathDuration, state.tuning.enemyDefaultDeathSeconds)),
-        attackDamage: Math.max(0, finiteNumberOr(entity.attackDamage, state.tuning.enemyDefaultAttackDamage)),
+        damage: authoredDamage,
+        contactDamageBase,
+        attackDamage: authoredDamage,
         attackRange: Math.max(1, finiteNumberOr(entity.attackRange, state.tuning.enemyDefaultAttackRange)),
         attackVerticalRange: Math.max(1, finiteNumberOr(entity.attackVerticalRange, state.tuning.enemyDefaultAttackVerticalRange)),
         attackDuration: Math.max(FIXED_DT, finiteNumberOr(entity.attackDuration, state.tuning.enemyDefaultAttackDuration)),
         attackHitTime: Math.max(0, finiteNumberOr(entity.attackHitTime, state.tuning.enemyDefaultAttackHitTime)),
         attackCooldown: Math.max(0, finiteNumberOr(entity.attackCooldown, state.tuning.enemyDefaultAttackCooldown)),
         attackMode,
+        attackType: attackMode,
         preferredAttackRange: Math.max(0, finiteNumberOr(entity.preferredAttackRange, state.tuning.enemyDefaultPreferredAttackRange)),
         preferredAttackMinRange: Math.max(0, finiteNumberOr(entity.preferredAttackMinRange, Math.min((Number(entity.attackRange) || state.tuning.enemyDefaultAttackRange) * 0.45, state.tuning.enemyDefaultPreferredAttackRange * 0.6))),
-        projectileKind: String(entity.projectileKind || state.tuning.enemyDefaultProjectileKind || "fireball"),
+        projectileKind,
         projectileLaunchType: String(entity.projectileLaunchType || ""),
         projectileReleaseTime: Math.max(0, finiteNumberOr(entity.projectileReleaseTime, entity.attackHitTime ?? state.tuning.enemyDefaultAttackHitTime)),
         projectilePartName: entity.projectilePartName ? String(entity.projectilePartName) : null,
         projectileFrameId: entity.projectileFrameId ? String(entity.projectileFrameId) : null,
+        projectileVisualCharacterId: String(entity.projectileVisualCharacterId || projectileDefaults.visualCharacterId || ""),
+        projectileVisualFrameId: String(entity.projectileVisualFrameId || projectileDefaults.visualFrameId || ""),
         projectileOriginLocalX: Number.isFinite(Number(entity.projectileOriginLocalX)) ? Number(entity.projectileOriginLocalX) : null,
         projectileOriginLocalY: Number.isFinite(Number(entity.projectileOriginLocalY)) ? Number(entity.projectileOriginLocalY) : null,
         projectileRigScale: Math.max(0.0001, finiteNumberOr(entity.projectileRigScale, 1)),
@@ -3562,12 +3689,22 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         projectileGravity: finiteNumberOr(entity.projectileGravity, state.tuning.enemyDefaultProjectileGravity),
         projectileLifetime: Math.max(FIXED_DT, finiteNumberOr(entity.projectileLifetime, state.tuning.enemyDefaultProjectileLifetime)),
         projectileRadius: scaledEnemyProjectileRadius(entity, state.tuning.enemyDefaultProjectileRadius),
-        projectileDamage: Math.max(0, finiteNumberOr(entity.projectileDamage, state.tuning.enemyDefaultProjectileDamage)),
-        projectileCooldown: Math.max(0, finiteNumberOr(entity.projectileCooldown, state.tuning.enemyDefaultProjectileCooldown)),
+        projectileDamage: authoredDamage,
+        projectileCooldown: Math.max(0, finiteNumberOr(entity.projectileCooldown, finiteNumberOr(entity.attackCooldown, state.tuning.enemyDefaultProjectileCooldown))),
         projectileHomingStrength: Math.max(0, finiteNumberOr(entity.projectileHomingStrength, state.tuning.enemyDefaultProjectileHomingStrength)),
         projectilePathMargin: Math.max(0, finiteNumberOr(entity.projectilePathMargin, 0)),
-        projectileVolleyCount: clamp(Math.round(finiteNumberOr(entity.projectileVolleyCount, 1)), 1, 15),
-        projectileVolleyHalfAngle: clamp(finiteNumberOr(entity.projectileVolleyHalfAngle, 0), 0, 180),
+        projectileVolleyCount: clamp(Math.round(finiteNumberOr(entity.spreadCount, finiteNumberOr(entity.projectileVolleyCount, 1))), 1, 15),
+        projectileVolleyHalfAngle: clamp(finiteNumberOr(entity.spreadAngle, finiteNumberOr(entity.projectileVolleyHalfAngle, 0)), 0, 180),
+        meleeHitRadius: Math.max(1, finiteNumberOr(entity.meleeHitRadius, Math.max(12, finiteNumberOr(entity.attackRange, state.tuning.enemyDefaultAttackRange) * 0.45))),
+        projectileRendererKind: String(entity.projectileRendererKind || projectileDefaults.rendererKind || "enemyFireball"),
+        projectileVisualScale: Math.max(0.05, finiteNumberOr(entity.projectileVisualScale, finiteNumberOr(projectileDefaults.visualScale, 1))),
+        projectileRotationSpeedDegrees: finiteNumberOr(entity.projectileRotationSpeedDegrees, finiteNumberOr(projectileDefaults.rotationSpeedDegrees, 0)),
+        projectileOrientToVelocity: entity.projectileOrientToVelocity === undefined ? projectileDefaults.orientToVelocity === true : entity.projectileOrientToVelocity === true,
+        projectileTrailEffect: String(entity.projectileTrailEffect || projectileDefaults.trailEffect || "none"),
+        projectileImpactEffect: String(entity.projectileImpactEffect || projectileDefaults.impactEffect || "sparks"),
+        projectileExplosionEffect: String(entity.projectileExplosionEffect || projectileDefaults.explosionEffect || "impact"),
+        projectileExplosionVisualScale: Math.max(0.05, finiteNumberOr(entity.projectileExplosionVisualScale, finiteNumberOr(projectileDefaults.explosionVisualScale, 1))),
+        projectileAreaDamageRadiusWizardHeights: Math.max(0, finiteNumberOr(entity.projectileAreaDamageRadiusWizardHeights, finiteNumberOr(projectileDefaults.areaDamageRadiusWizardHeights, 0))),
         projectileKnockbackX: Math.max(0, finiteNumberOr(entity.projectileKnockbackX, state.tuning.enemyDefaultProjectileKnockbackX)),
         projectileKnockbackY: finiteNumberOr(entity.projectileKnockbackY, state.tuning.enemyDefaultProjectileKnockbackY),
         attackLungeDistance: Math.max(0, finiteNumberOr(entity.attackLungeDistance, state.tuning.enemyDefaultAttackLungeDistance)),
@@ -3882,9 +4019,11 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         const kind = upgradeKind ? "upgrade" : (powerUp ? "powerUp" : (pickupKind === "fuel" ? "fuel" : "item"));
         const width = Math.max(1, Number(entity.w) || (powerUp ? 96 : 42));
         const height = Math.max(1, Number(entity.h) || (powerUp ? 96 : 80));
-        const respawnSeconds = powerUp
-            ? Math.max(0, finiteNumberOr(entity.respawnSeconds, 60))
-            : Math.max(0, finiteNumberOr(entity.respawnSeconds, 0));
+        const respawnSeconds = upgradeKind
+            ? 0
+            : (powerUp
+                ? Math.max(0, finiteNumberOr(entity.respawnSeconds, 60))
+                : Math.max(0, finiteNumberOr(entity.respawnSeconds, 0)));
         const id = entity.id || `${pickupKind}_${index + 1}`;
         const collectionId = upgradeKind ? playerUpgradeCollectionId(state.world.levelId, id) : "";
         const collected = entity.state === "collected"
@@ -4010,46 +4149,32 @@ function applyCharacterCombatProfileToEnemy(state, enemy) {
     if (!isCharacterEnemyState(enemy) || enemy.strategy === "passive") return false;
     const profile = state.characterCombatProfiles?.[enemy.characterId];
     if (!profile || typeof profile !== "object") return false;
-    const projectiles = Array.isArray(profile.projectiles) ? profile.projectiles : [];
-    const attackProjectiles = projectiles
+    const handoffs = Array.isArray(profile.handoffs) ? profile.handoffs : [];
+    const attackHandoffs = handoffs
         .filter((item) => String(item?.animationSlot || "attack") === "attack")
-        .map((projectile) => ({
-            releaseTime: Math.max(0, finiteNumberOr(projectile?.releaseTime, enemy.attackHitTime)),
-            partName: projectile?.partName ? String(projectile.partName) : enemy.projectilePartName,
-            frameId: projectile?.frameId ? String(projectile.frameId) : enemy.projectileFrameId,
-            projectileKind: String(projectile?.projectileKind || enemy.projectileKind || "fireball"),
-            launchType: String(projectile?.launchType || enemy.projectileLaunchType || "straight"),
-            originLocalX: finiteNumberOr(projectile?.localX, enemy.projectileOriginLocalX),
-            originLocalY: finiteNumberOr(projectile?.localY, enemy.projectileOriginLocalY),
-            hasOriginLocal: Number.isFinite(Number(projectile?.localX)) && Number.isFinite(Number(projectile?.localY)),
-            rigScale: Math.max(0.0001, finiteNumberOr(projectile?.rigScale, enemy.projectileRigScale))
+        .map((handoff) => ({
+            releaseTime: Math.max(0, finiteNumberOr(handoff?.releaseTime, enemy.attackHitTime)),
+            partName: handoff?.partName ? String(handoff.partName) : null,
+            frameId: handoff?.frameId ? String(handoff.frameId) : null,
+            detach: handoff?.detach === true,
+            originLocalX: finiteNumberOr(handoff?.localX, 0),
+            originLocalY: finiteNumberOr(handoff?.localY, 0),
+            hasOriginLocal: Number.isFinite(Number(handoff?.localX)) && Number.isFinite(Number(handoff?.localY)),
+            rigScale: Math.max(0.0001, finiteNumberOr(handoff?.rigScale, 1))
         }))
         .sort((a, b) => a.releaseTime - b.releaseTime);
-    if (!attackProjectiles.length) return false;
+    if (!attackHandoffs.length && !Number.isFinite(Number(profile.attackDuration))) return false;
 
-    const projectile = attackProjectiles[0];
-    const releaseTime = projectile.releaseTime;
-    enemy.projectileHandoffs = attackProjectiles;
-    enemy.nextProjectileHandoffIndex = 0;
-    enemy.attackMode = "projectile";
+    enemy.attackHandoffs = attackHandoffs;
+    enemy.nextAttackHandoffIndex = 0;
     enemy.attackDuration = Math.max(
         FIXED_DT,
-        attackProjectiles[attackProjectiles.length - 1].releaseTime + FIXED_DT,
+        attackHandoffs.length ? attackHandoffs[attackHandoffs.length - 1].releaseTime + FIXED_DT : 0,
         finiteNumberOr(profile.attackDuration, enemy.attackDuration)
     );
-    enemy.attackHitTime = releaseTime;
-    enemy.projectileReleaseTime = releaseTime;
-    enemy.projectileLaunchType = projectile.launchType;
-    if (enemy.projectileLaunchType.startsWith("pathing_")) {
-        enemy.hunterPursuePlayerSupport = true;
+    if (attackHandoffs.length) {
+        enemy.attackHitTime = attackHandoffs[0].releaseTime;
     }
-    enemy.projectilePartName = projectile.partName;
-    enemy.projectileFrameId = projectile.frameId;
-    enemy.projectileKind = projectile.projectileKind;
-    enemy.projectileOriginLocalX = projectile.originLocalX;
-    enemy.projectileOriginLocalY = projectile.originLocalY;
-    enemy.hasProjectileOriginLocal = projectile.hasOriginLocal;
-    enemy.projectileRigScale = projectile.rigScale;
     return true;
 }
 
@@ -5087,7 +5212,7 @@ function characterEnemyStraightProjectileCanHitPlayer(state, enemy, origin, base
 function characterEnemyProjectilePathClearFromPoint(state, enemy, point) {
     const player = state.player;
     const facing = player.currentTransform.x < point.x ? -1 : 1;
-    const launchType = String(enemy.projectileLaunchType || (enemy.projectileKind === "musketBall" ? "ballistic" : "homing_lo"));
+    const launchType = String(enemy.projectileLaunchType || (isMusketProjectileKind(enemy.projectileKind) ? "ballistic" : "homing_lo"));
     const origin = launchType === "drop"
         ? {
             x: point.x,
@@ -5348,7 +5473,7 @@ export function launchCharacterEnemyProjectile(state, enemy, angleOffset = 0, vo
     };
 
     const projectileKind = String(enemy.projectileKind || "fireball");
-    const launchType = String(enemy.projectileLaunchType || (projectileKind === "musketBall" ? "ballistic" : "homing_lo"));
+    const launchType = String(enemy.projectileLaunchType || (isMusketProjectileKind(projectileKind) ? "ballistic" : "homing_lo"));
     let vx = 0;
     let vy = 0;
     let gravity = Number(enemy.projectileGravity) || 0;
@@ -5406,17 +5531,11 @@ export function launchCharacterEnemyProjectile(state, enemy, angleOffset = 0, vo
         id: `enemy_projectile_${String(state.weapons.nextProjectileId).padStart(3, "0")}`,
         owner: "enemy",
         enemyId: enemy.id,
-        characterId: enemy.characterId,
-        frameId: enemy.projectileFrameId,
+        characterId: enemy.projectileVisualCharacterId || enemy.characterId,
+        frameId: enemy.projectileVisualFrameId || enemy.projectileFrameId,
         projectilePartName: enemy.projectilePartName,
         launchType,
-        kind: projectileKind === "throwingKnife" || projectileKind === "crossbowBolt"
-            ? "enemyKnife"
-            : projectileKind === "musketBall" || launchType === "ballistic"
-                ? "enemyMusketBall"
-                : projectileKind === "rock" || projectileKind === "bomb" || projectileKind === "throwingAxe"
-                    ? "enemyRock"
-                    : "enemyFireball",
+        kind: String(enemy.projectileRendererKind || "enemyFireball"),
         state: "launched",
         ...createTransformTriplet({ x: origin.x, y: origin.y, angle: Math.atan2(vy, vx) }),
         vx,
@@ -5432,9 +5551,17 @@ export function launchCharacterEnemyProjectile(state, enemy, angleOffset = 0, vo
         damage,
         knockbackX,
         knockbackY,
-        trail: projectileKind === "throwingKnife" || projectileKind === "crossbowBolt" ? [] : trail,
+        areaDamageRadius: enemyProjectileAreaDamageRadius(state, enemy),
+        visualScale: Math.max(0.05, Number(enemy.projectileVisualScale) || 1),
+        rotationSpeed: finiteNumberOr(enemy.projectileRotationSpeedDegrees, 0) * Math.PI / 180,
+        orientToVelocity: enemy.projectileOrientToVelocity === true,
+        trailEffect: String(enemy.projectileTrailEffect || "none"),
+        impactEffect: String(enemy.projectileImpactEffect || "sparks"),
+        explosionEffect: String(enemy.projectileExplosionEffect || "impact"),
+        explosionVisualScale: Math.max(0.05, Number(enemy.projectileExplosionVisualScale) || 1),
+        trail: String(enemy.projectileTrailEffect || "none") === "none" ? [] : trail,
         projectileKind,
-        visualStyle: projectileKind === "undeathOrb" ? "undeath" : null,
+        visualStyle: String(enemy.projectileTrailEffect || "none") === "undeath" ? "undeath" : null,
         pathMargin: Math.max(0, Number(enemy.projectilePathMargin) || 0),
         projectileSpeed: tunedProjectileSpeed,
         volleyId: volley?.id || null,
@@ -5616,22 +5743,25 @@ function advanceCharacterEnemyAttackLunge(state, enemy, dt, elapsed, hitTime) {
 }
 
 function startCharacterEnemyAttack(state, enemy) {
-    enemy.attackDamage = Math.max(0, finiteNumberOr(enemy.attackDamage, state.tuning.enemyDefaultAttackDamage));
+    const attackDamage = Math.max(0, finiteNumberOr(enemy.damage, finiteNumberOr(enemy.attackDamage, state.tuning.enemyDefaultAttackDamage)));
+    enemy.damage = attackDamage;
+    enemy.attackDamage = attackDamage;
     enemy.attackRange = Math.max(1, finiteNumberOr(enemy.attackRange, state.tuning.enemyDefaultAttackRange));
     enemy.attackVerticalRange = Math.max(1, finiteNumberOr(enemy.attackVerticalRange, state.tuning.enemyDefaultAttackVerticalRange));
     enemy.attackDuration = Math.max(FIXED_DT, finiteNumberOr(enemy.attackDuration, state.tuning.enemyDefaultAttackDuration));
     enemy.attackHitTime = Math.max(0, finiteNumberOr(enemy.projectileReleaseTime, finiteNumberOr(enemy.attackHitTime, state.tuning.enemyDefaultAttackHitTime)));
     enemy.attackCooldown = Math.max(0, finiteNumberOr(enemy.attackCooldown, state.tuning.enemyDefaultAttackCooldown));
-    enemy.attackMode = String(enemy.attackMode || state.tuning.enemyDefaultAttackMode || "melee") === "projectile" ? "projectile" : "melee";
+    enemy.attackMode = String(enemy.attackType || enemy.attackMode || state.tuning.enemyDefaultAttackMode || "melee") === "projectile" ? "projectile" : "melee";
+    enemy.attackType = enemy.attackMode;
     enemy.projectileSpeed = Math.max(1, finiteNumberOr(enemy.projectileSpeed, state.tuning.enemyDefaultProjectileSpeed));
     enemy.projectileGravity = finiteNumberOr(enemy.projectileGravity, state.tuning.enemyDefaultProjectileGravity);
     enemy.projectileLifetime = Math.max(FIXED_DT, finiteNumberOr(enemy.projectileLifetime, state.tuning.enemyDefaultProjectileLifetime));
     enemy.projectileRadius = Math.max(1, finiteNumberOr(enemy.projectileRadius, state.tuning.enemyDefaultProjectileRadius));
-    enemy.projectileDamage = Math.max(0, finiteNumberOr(enemy.projectileDamage, state.tuning.enemyDefaultProjectileDamage));
-    enemy.projectileCooldown = Math.max(0, finiteNumberOr(enemy.projectileCooldown, state.tuning.enemyDefaultProjectileCooldown));
+    enemy.projectileDamage = attackDamage;
+    enemy.projectileCooldown = Math.max(0, finiteNumberOr(enemy.projectileCooldown, finiteNumberOr(enemy.attackCooldown, state.tuning.enemyDefaultProjectileCooldown)));
     enemy.projectileHomingStrength = Math.max(0, finiteNumberOr(enemy.projectileHomingStrength, state.tuning.enemyDefaultProjectileHomingStrength));
-    enemy.projectileVolleyCount = clamp(Math.round(finiteNumberOr(enemy.projectileVolleyCount, 1)), 1, 15);
-    enemy.projectileVolleyHalfAngle = clamp(finiteNumberOr(enemy.projectileVolleyHalfAngle, 0), 0, 180);
+    enemy.projectileVolleyCount = clamp(Math.round(finiteNumberOr(enemy.spreadCount, finiteNumberOr(enemy.projectileVolleyCount, 1))), 1, 15);
+    enemy.projectileVolleyHalfAngle = clamp(finiteNumberOr(enemy.spreadAngle, finiteNumberOr(enemy.projectileVolleyHalfAngle, 0)), 0, 180);
     enemy.projectileKnockbackX = Math.max(0, finiteNumberOr(enemy.projectileKnockbackX, state.tuning.enemyDefaultProjectileKnockbackX));
     enemy.projectileKnockbackY = finiteNumberOr(enemy.projectileKnockbackY, state.tuning.enemyDefaultProjectileKnockbackY);
     enemy.attackLungeDistance = Math.max(0, finiteNumberOr(enemy.attackLungeDistance, state.tuning.enemyDefaultAttackLungeDistance));
@@ -5647,7 +5777,7 @@ function startCharacterEnemyAttack(state, enemy) {
     enemy.attackTimer = Math.max(FIXED_DT, Number(enemy.attackDuration) || state.tuning.enemyDefaultAttackDuration || 0.44);
     enemy.attackLungeRemaining = enemy.attackMode === "projectile" ? 0 : Math.max(0, Number(enemy.attackLungeDistance) || 0);
     enemy.attackHitApplied = false;
-    enemy.nextProjectileHandoffIndex = 0;
+    enemy.nextAttackHandoffIndex = 0;
     setCharacterEnemyAnimation(enemy, "attack");
     addEvent(state, "ENEMY_ATTACK_STARTED", {
         enemyId: enemy.id,
@@ -5658,17 +5788,70 @@ function startCharacterEnemyAttack(state, enemy) {
     });
 }
 
-function applyCharacterEnemyProjectileHandoff(enemy, handoff) {
+function enemyAttackHandoffPoint(enemy, handoff) {
+    const direction = Number(enemy.facing) < 0 ? -1 : 1;
+    if (handoff?.hasOriginLocal) {
+        const artworkOrigin = characterEnemyArtworkOriginAt(
+            enemy,
+            enemy.currentTransform.x,
+            enemy.currentTransform.y,
+            enemy.facing
+        );
+        const authoredScale = Math.max(0.0001, Number(handoff.rigScale) || 1)
+            * Math.max(0.05, normalizeEnemyScale(enemy.scale, 1));
+        return {
+            x: artworkOrigin.x + finiteNumberOr(handoff.originLocalX, 0) * authoredScale * direction,
+            y: artworkOrigin.y + finiteNumberOr(handoff.originLocalY, 0) * authoredScale
+        };
+    }
+    return {
+        x: enemy.currentTransform.x + direction * Math.max(8, enemy.width * 0.28),
+        y: enemy.currentTransform.y - enemy.height * 0.5
+    };
+}
+
+function applyCharacterEnemyAttackHandoff(enemy, handoff) {
     if (!handoff || typeof handoff !== "object") return;
-    enemy.projectileReleaseTime = Math.max(0, finiteNumberOr(handoff.releaseTime, enemy.projectileReleaseTime));
-    enemy.attackHitTime = enemy.projectileReleaseTime;
-    enemy.projectilePartName = handoff.partName ? String(handoff.partName) : enemy.projectilePartName;
-    enemy.projectileFrameId = handoff.frameId ? String(handoff.frameId) : enemy.projectileFrameId;
-    enemy.projectileKind = String(handoff.projectileKind || enemy.projectileKind || "fireball");
-    enemy.projectileLaunchType = String(handoff.launchType || enemy.projectileLaunchType || "straight");
-    enemy.projectileOriginLocalX = finiteNumberOr(handoff.originLocalX, enemy.projectileOriginLocalX);
-    enemy.projectileOriginLocalY = finiteNumberOr(handoff.originLocalY, enemy.projectileOriginLocalY);
-    enemy.projectileRigScale = Math.max(0.0001, finiteNumberOr(handoff.rigScale, enemy.projectileRigScale));
+    enemy.attackHitTime = Math.max(0, finiteNumberOr(handoff.releaseTime, enemy.attackHitTime));
+    if (handoff.detach === true) {
+        enemy.projectileReleaseTime = enemy.attackHitTime;
+        enemy.projectilePartName = handoff.partName ? String(handoff.partName) : enemy.projectilePartName;
+        enemy.projectileFrameId = handoff.frameId ? String(handoff.frameId) : enemy.projectileFrameId;
+        enemy.projectileOriginLocalX = finiteNumberOr(handoff.originLocalX, enemy.projectileOriginLocalX);
+        enemy.projectileOriginLocalY = finiteNumberOr(handoff.originLocalY, enemy.projectileOriginLocalY);
+        enemy.projectileRigScale = Math.max(0.0001, finiteNumberOr(handoff.rigScale, enemy.projectileRigScale));
+    }
+}
+
+function applyCharacterEnemyMeleeHandoff(state, enemy, handoff) {
+    const origin = enemyAttackHandoffPoint(enemy, handoff);
+    const radius = Math.max(1, Number(enemy.meleeHitRadius) || Math.max(12, Number(enemy.attackRange) * 0.45))
+        * Math.max(0.05, normalizeEnemyScale(enemy.scale, 1));
+    const hit = playerIsAvailableCombatTarget(state) && circleRectOverlap(origin.x, origin.y, radius, getPlayerRect(state));
+    if (!hit) {
+        addEvent(state, "ENEMY_ATTACK_MISSED", {
+            enemyId: enemy.id,
+            handoffPartName: handoff?.partName || null,
+            x: round(origin.x),
+            y: round(origin.y),
+            radius: round(radius)
+        });
+        return false;
+    }
+    const result = damagePlayer(state, enemy.attackDamage, enemy.id, {
+        knockbackX: enemy.facing * enemy.attackKnockbackX,
+        knockbackY: enemy.attackKnockbackY
+    });
+    addEvent(state, result.damage > 0 ? "ENEMY_ATTACK_HIT" : "ENEMY_ATTACK_BLOCKED", {
+        enemyId: enemy.id,
+        damage: round(result.damage),
+        health: round(state.health.amount),
+        handoffPartName: handoff?.partName || null,
+        x: round(origin.x),
+        y: round(origin.y),
+        radius: round(radius)
+    });
+    return result.damage > 0;
 }
 
 function updateCharacterEnemyAttack(state, enemy, dt) {
@@ -5684,23 +5867,28 @@ function updateCharacterEnemyAttack(state, enemy, dt) {
     setCharacterEnemyAnimation(enemy, "attack");
     advanceCharacterEnemyAttackLunge(state, enemy, attackDt, elapsed, hitTime);
 
-    if (enemy.attackMode === "projectile") {
-        const handoffs = Array.isArray(enemy.projectileHandoffs) && enemy.projectileHandoffs.length
-            ? enemy.projectileHandoffs
-            : null;
-        const handoffCount = handoffs ? handoffs.length : 1;
-        let handoffIndex = clamp(Math.round(finiteNumberOr(enemy.nextProjectileHandoffIndex, 0)), 0, handoffCount);
-        while (handoffIndex < handoffCount) {
-            const handoff = handoffs ? handoffs[handoffIndex] : null;
-            const releaseTime = clamp(
-                handoff ? finiteNumberOr(handoff.releaseTime, enemy.projectileReleaseTime) : finiteNumberOr(enemy.projectileReleaseTime, hitTime),
-                0,
-                duration
-            );
-            if (!(previousElapsed <= releaseTime + 0.000001 && elapsed + 0.000001 >= releaseTime)) {
-                break;
-            }
-            applyCharacterEnemyProjectileHandoff(enemy, handoff);
+    const handoffs = Array.isArray(enemy.attackHandoffs) && enemy.attackHandoffs.length
+        ? enemy.attackHandoffs
+        : [{
+            releaseTime: hitTime,
+            detach: enemy.attackMode === "projectile",
+            partName: enemy.projectilePartName,
+            frameId: enemy.projectileFrameId,
+            originLocalX: enemy.projectileOriginLocalX,
+            originLocalY: enemy.projectileOriginLocalY,
+            hasOriginLocal: enemy.projectileOriginLocalX !== null && enemy.projectileOriginLocalX !== undefined
+                && enemy.projectileOriginLocalY !== null && enemy.projectileOriginLocalY !== undefined,
+            rigScale: enemy.projectileRigScale
+        }];
+    let handoffIndex = clamp(Math.round(finiteNumberOr(enemy.nextAttackHandoffIndex, 0)), 0, handoffs.length);
+    while (handoffIndex < handoffs.length) {
+        const handoff = handoffs[handoffIndex];
+        const releaseTime = clamp(finiteNumberOr(handoff.releaseTime, hitTime), 0, duration);
+        if (!(previousElapsed <= releaseTime + 0.000001 && elapsed + 0.000001 >= releaseTime)) {
+            break;
+        }
+        applyCharacterEnemyAttackHandoff(enemy, handoff);
+        if (enemy.attackMode === "projectile") {
             const projectiles = characterEnemyCanUseProjectile(state, enemy)
                 ? launchCharacterEnemyProjectileVolley(state, enemy)
                 : [];
@@ -5710,7 +5898,7 @@ function updateCharacterEnemyAttack(state, enemy, dt) {
                         enemyId: enemy.id,
                         characterId: enemy.characterId,
                         projectileId: projectile.id,
-                        projectileKind: projectile.kind,
+                        projectileKind: projectile.projectileKind,
                         projectilePartName: projectile.projectilePartName,
                         launchType: projectile.launchType,
                         volleyId: projectile.volleyId,
@@ -5724,35 +5912,22 @@ function updateCharacterEnemyAttack(state, enemy, dt) {
             } else {
                 addEvent(state, "ENEMY_ATTACK_MISSED", { enemyId: enemy.id, reason: "noClearProjectileShot" });
             }
-            handoffIndex += 1;
-            enemy.nextProjectileHandoffIndex = handoffIndex;
-        }
-        enemy.attackHitApplied = handoffIndex >= handoffCount;
-    } else if (!enemy.attackHitApplied && previousElapsed <= hitTime && elapsed >= hitTime) {
-        enemy.attackHitApplied = true;
-        if (characterEnemyCanReachPlayer(state, enemy)) {
-            const result = damagePlayer(state, enemy.attackDamage, enemy.id, {
-                knockbackX: enemy.facing * enemy.attackKnockbackX,
-                knockbackY: enemy.attackKnockbackY
-            });
-            addEvent(state, result.damage > 0 ? "ENEMY_ATTACK_HIT" : "ENEMY_ATTACK_BLOCKED", {
-                enemyId: enemy.id,
-                damage: round(result.damage),
-                health: round(state.health.amount)
-            });
         } else {
-            addEvent(state, "ENEMY_ATTACK_MISSED", { enemyId: enemy.id });
+            applyCharacterEnemyMeleeHandoff(state, enemy, handoff);
         }
+        handoffIndex += 1;
+        enemy.nextAttackHandoffIndex = handoffIndex;
     }
+    enemy.attackHitApplied = handoffIndex >= handoffs.length;
 
     if (enemy.attackTimer <= 0) {
         enemy.combatState = ENEMY_COMBAT_STATE.ALIVE;
         enemy.movementPhase = "idle";
         enemy.phaseTimer = 0;
-        enemy.attackCooldownTimer = Math.max(0, enemy.attackMode === "projectile" ? (Number(enemy.projectileCooldown) || 0) : (Number(enemy.attackCooldown) || 0));
+        enemy.attackCooldownTimer = Math.max(0, Number(enemy.attackCooldown) || 0);
         enemy.attackLungeRemaining = 0;
         enemy.attackHitApplied = false;
-        enemy.nextProjectileHandoffIndex = 0;
+        enemy.nextAttackHandoffIndex = 0;
         setCharacterEnemyAnimation(enemy, "idle");
         addEvent(state, "ENEMY_ATTACK_ENDED", { enemyId: enemy.id });
     }
@@ -6754,7 +6929,7 @@ function updateCharacterEnemyLastSeenInvestigation(state, enemy, navigation, dt,
                 focusY: enemy.lastSeenPlayerY
             });
         } else {
-            enemy.movementPhase = "investigate_last_seen";
+            enemy.movementPhase = "last_seen_hold";
             setCharacterEnemyAnimation(enemy, "idle");
         }
         return;
@@ -6769,7 +6944,7 @@ function updateCharacterEnemyLastSeenInvestigation(state, enemy, navigation, dt,
                     focusY: enemy.lastSeenPlayerY
                 });
             } else {
-                enemy.movementPhase = "investigate_last_seen";
+                enemy.movementPhase = "last_seen_hold";
                 setCharacterEnemyAnimation(enemy, "idle");
             }
             return;
@@ -6813,6 +6988,7 @@ function updateCharacterEnemyLastSeenInvestigation(state, enemy, navigation, dt,
                 focusY: enemy.lastSeenPlayerY
             });
         } else {
+            enemy.movementPhase = "last_seen_hold";
             setCharacterEnemyAnimation(enemy, "idle");
         }
     }
@@ -7303,7 +7479,10 @@ function followCharacterEnemyNavigationPlan(state, enemy, navigation, dt) {
                 enemy.facing = dx < 0 ? -1 : 1;
             }
         }
-        enemy.movementPhase = finalMovementPhase;
+        enemy.movementPhase = enemy.routePurpose === "last_seen" &&
+            characterEnemyReachedNavigationTarget(enemy, navigation, 2)
+            ? "last_seen_hold"
+            : finalMovementPhase;
         setCharacterEnemyAnimation(enemy, "idle");
         return true;
     }
@@ -7345,7 +7524,8 @@ function characterEnemyHunterWatchdogActive(enemy) {
         return false;
     }
     if (enemy.movementPhase === "glare" || enemy.movementPhase === "wait_for_platform" ||
-        enemy.movementPhase === "ride_platform" || enemy.movementPhase === "position_for_attack") {
+        enemy.movementPhase === "ride_platform" || enemy.movementPhase === "position_for_attack" ||
+        enemy.movementPhase === "last_seen_hold") {
         return false;
     }
     // The recovery timer may outlive the short stranded-patrol state. It must
@@ -7365,7 +7545,8 @@ function characterEnemyHunterWatchdogPaused(enemy) {
         return true;
     }
     return enemy.movementPhase === "glare" || enemy.movementPhase === "wait_for_platform" ||
-        enemy.movementPhase === "ride_platform" || enemy.movementPhase === "position_for_attack";
+        enemy.movementPhase === "ride_platform" || enemy.movementPhase === "position_for_attack" ||
+        enemy.movementPhase === "last_seen_hold";
 }
 
 export function recordDebugExceptionAlert(state, incident = {}) {
@@ -8949,10 +9130,13 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
         p.vx *= Math.max(0, 1 - t.airDrag * dt);
     }
 
-    const horizontalSpeedLimit = t.maxRunSpeed * movementSpeedScale
+    const levelGroundSpeedLimit = t.maxRunSpeed * movementSpeedScale
         * (waterBefore.inWater
             ? Math.max(0.05, Number(t.waterHorizontalSpeedScale) || 0.45)
             : (flightActive ? FLIGHT_MOVEMENT_SPEED_MULTIPLIER : 1));
+    const horizontalSpeedLimit = (!waterBefore.inWater && !flightActive && wasOnGround)
+        ? playerGroundedHorizontalSpeedLimit(state, levelGroundSpeedLimit)
+        : levelGroundSpeedLimit;
     p.vx = clamp(p.vx, -horizontalSpeedLimit, horizontalSpeedLimit);
     p.ax = dt > 0 ? (p.vx - horizontalVelocityBeforeControl) / dt : 0;
 
@@ -8969,6 +9153,7 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
             p.ordinaryJumpApexY = null;
             p.onGround = false;
             p.supportId = null;
+            p.groundStride = null;
             p.airborneTime = 0;
             p.airBoostArmed = false;
             addEvent(state, "PLAYER_JUMPED", { x: round(p.currentTransform.x), y: round(p.currentTransform.y), vx: round(p.vx), vy: round(p.vy) });
@@ -9014,17 +9199,22 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
         return state;
     }
 
-    moveAndCollideX(state, p.vx * dt);
-    if (waterBefore.inWater) {
-        integratePlayerWaterMotion(state, input, dt, wasOnGround, waterBefore);
-    } else {
-        integratePlayerVerticalMotion(state, input, dt, wasOnGround, Boolean(input.dropHeld || input.dropPressed));
+    if (waterBefore.inWater || flightActive || !p.onGround) {
+        p.groundStride = null;
     }
-    if (playerDeathActive(state)) {
-        return state;
-    }
-    if (resolvePlayerPenetrations(state, wasOnGround)) {
-        return state;
+    const groundStrideHandled = moveAndCollideX(state, p.vx * dt);
+    if (!groundStrideHandled) {
+        if (waterBefore.inWater) {
+            integratePlayerWaterMotion(state, input, dt, wasOnGround, waterBefore);
+        } else {
+            integratePlayerVerticalMotion(state, input, dt, wasOnGround, Boolean(input.dropHeld || input.dropPressed));
+        }
+        if (playerDeathActive(state)) {
+            return state;
+        }
+        if (resolvePlayerPenetrations(state, wasOnGround)) {
+            return state;
+        }
     }
     const waterAfter = refreshPlayerWaterState(state);
     if (waterAfter.inWater && rocket.attachedBoosting) {
@@ -9316,7 +9506,17 @@ function sortRocketTargets(state, targets, originX, originY, facing, options = {
 }
 
 function homingTargetSearchRange(state) {
-    return Math.max(1, Number(cameraVisibleWorldRect(state).w) || 1280);
+    return Math.max(1, Number(state.tuning?.rocketTargetSearchDistance) || 1500);
+}
+
+function projectileBeyondLifetimeExplosionMargin(state, projectile) {
+    const visible = cameraVisibleWorldRect(state);
+    const margin = Math.max(0, Number(state.tuning?.rocketLifetimeExplosionOffscreenMargin) || 0);
+    const x = Number(projectile?.currentTransform?.x) || 0;
+    const y = Number(projectile?.currentTransform?.y) || 0;
+    const dx = x < visible.x ? visible.x - x : (x > visible.x + visible.w ? x - (visible.x + visible.w) : 0);
+    const dy = y < visible.y ? visible.y - y : (y > visible.y + visible.h ? y - (visible.y + visible.h) : 0);
+    return Math.hypot(dx, dy) > margin;
 }
 
 function homingTargetWithinRange(state, target, originX, originY) {
@@ -9412,8 +9612,12 @@ function launchHomingRocket(state) {
     const angles = Array.isArray(rocketProfile.initialAnglesDegrees) && rocketProfile.initialAnglesDegrees.length
         ? rocketProfile.initialAnglesDegrees
         : [0];
-    const projectileSpeed = t.rocketProjectileSpeed * Math.max(0.05, Number(rocketProfile.speedMultiplier) || 1);
-    const flightStandardRocketDamageMultiplier = !activeWrenchEffect && flightPowerUpActive(state)
+    const flightActive = flightPowerUpActive(state);
+    const projectileSpeed = t.rocketProjectileSpeed
+        * Math.max(0.05, Number(rocketProfile.speedMultiplier) || 1)
+        * playerMovementSpeedScale(state)
+        * (flightActive ? FLIGHT_MOVEMENT_SPEED_MULTIPLIER : 1);
+    const flightStandardRocketDamageMultiplier = !activeWrenchEffect && flightActive
         ? Math.max(0, Number(t.flightStandardRocketDamageMultiplier) || 0)
         : 1;
     const projectileDamage = Math.max(0,
@@ -9496,7 +9700,9 @@ function launchHomingRocket(state) {
             homingMeanderLastTurn: 0,
             upLaunchTimer: rocketProfile.launchMode === "up" ? Math.max(0, t.rocketProjectileUpLaunchSeconds ?? 0.32) : 0,
             age: 0,
-            lifetime: wrenchEffectId ? t.rocketProjectileLifetime : t.rocketProjectileUnwrenchedLifetime,
+            lifetime: Math.max(0.001, (wrenchEffectId
+                ? t.rocketProjectileMaxTravelDistance
+                : t.rocketProjectileUnwrenchedMaxTravelDistance) / Math.max(0.001, projectileSpeed)),
             explosionTimer: 0,
             radius: projectileRadius,
             wrenchEffectId,
@@ -9779,7 +9985,7 @@ function updateProjectiles(state, dt) {
                     }
                 }
             }
-        } else if (projectile.kind === "enemyFireball") {
+        } else if (projectile.owner === "enemy" && (Number(projectile.homingStrength) || 0) > 0) {
             const playerTarget = state.player.visible === false ? null : { x: state.player.currentTransform.x, y: state.player.currentTransform.y - state.player.height * 0.56 };
             if (playerTarget) {
                 const speed = Math.hypot(projectile.vx, projectile.vy) || Math.max(1, Number(projectile.projectileSpeed) || 1);
@@ -9811,11 +10017,15 @@ function updateProjectiles(state, dt) {
 
         if (projectile.isRocket) {
             recordProjectileTrail(state, projectile);
-        } else if (projectile.kind === "enemyFireball") {
-            if (projectile.visualStyle === "undeath" || state.settings?.renderingQuality !== "low") {
-                recordEnemyFireballTrail(state, projectile);
-            } else if (Array.isArray(projectile.trail) && projectile.trail.length) {
-                projectile.trail.length = 0;
+        } else if (projectile.owner === "enemy" && projectile.trailEffect !== "none") {
+            if (projectile.trailEffect === "undeath" || projectile.trailEffect === "fire") {
+                if (projectile.trailEffect === "undeath" || state.settings?.renderingQuality !== "low") {
+                    recordEnemyFireballTrail(state, projectile);
+                } else if (Array.isArray(projectile.trail) && projectile.trail.length) {
+                    projectile.trail.length = 0;
+                }
+            } else if (projectile.trailEffect === "sparks") {
+                recordEnemySparkTrail(state, projectile);
             }
         }
 
@@ -9883,6 +10093,7 @@ function updateProjectiles(state, dt) {
         }
 
         if (projectile.owner === "enemy") {
+            const explosiveAreaProjectile = Math.max(0, Number(projectile.areaDamageRadius) || 0) > 0;
             const playerImpact = findProjectilePlayerImpact(state, projectile, previousX, previousY);
             const reactiveImpact = findProjectileReactiveObjectImpact(state, projectile, previousX, previousY);
             const terrainImpact = findProjectileTerrainImpact(state, projectile, previousX, previousY);
@@ -9895,6 +10106,12 @@ function updateProjectiles(state, dt) {
             if (impact?.impactKind === "player") {
                 projectile.currentTransform.x = impact.x;
                 projectile.currentTransform.y = impact.y;
+                if (explosiveAreaProjectile) {
+                    detonateEnemyProjectile(state, projectile, state.player.id || "player", {
+                        impactKind: "player"
+                    });
+                    continue;
+                }
                 const damageResult = applyProjectileDamageToPlayer(state, projectile);
                 explodeProjectile(state, projectile, state.player.id || "player", {
                     impactKind: "player",
@@ -9908,6 +10125,13 @@ function updateProjectiles(state, dt) {
             if (impact?.impactKind === "reactiveObject") {
                 projectile.currentTransform.x = impact.x;
                 projectile.currentTransform.y = impact.y;
+                if (explosiveAreaProjectile) {
+                    detonateEnemyProjectile(state, projectile, impact.object.id, {
+                        impactKind: "reactiveObject",
+                        objectId: impact.object.id
+                    });
+                    continue;
+                }
                 const damageResult = applyProjectileDamageToReactiveObject(state, projectile, impact.object);
                 explodeProjectile(state, projectile, impact.object.id, {
                     impactKind: "reactiveObject",
@@ -9922,7 +10146,11 @@ function updateProjectiles(state, dt) {
             if (impact?.impactKind === "terrain") {
                 projectile.currentTransform.x = impact.x;
                 projectile.currentTransform.y = impact.y;
-                explodeProjectile(state, projectile, impact.id, { impactKind: "terrain" });
+                if (explosiveAreaProjectile) {
+                    detonateEnemyProjectile(state, projectile, impact.id, { impactKind: "terrain" });
+                } else {
+                    explodeProjectile(state, projectile, impact.id, { impactKind: "terrain" });
+                }
                 continue;
             }
             if (projectile.age >= projectile.lifetime) {
@@ -10022,6 +10250,13 @@ function updateProjectiles(state, dt) {
         if (projectile.age >= projectile.lifetime) {
             if (projectile.boomerang) {
                 beginBoomerangReturn(state, projectile, "lifetimeMiss");
+            } else if (projectileBeyondLifetimeExplosionMargin(state, projectile)) {
+                projectile.state = "spent";
+                addEvent(state, "ROCKET_LIFETIME_CULLED", {
+                    id: projectile.id,
+                    x: round(projectile.currentTransform.x),
+                    y: round(projectile.currentTransform.y)
+                });
             } else if (projectile.areaDamageRadius > 0) {
                 detonatePlayerProjectile(state, projectile, "lifetime");
             } else {
@@ -10073,6 +10308,26 @@ function rocketTrailDurationScale(state, projectile) {
         Number(projectile.projectileSpeed) || Math.hypot(Number(projectile.vx) || 0, Number(projectile.vy) || 0) || standardSpeed
     );
     return clamp(standardSpeed / projectileSpeed, 0.25, 2.5);
+}
+
+function recordEnemySparkTrail(state, projectile) {
+    const previous = projectile.lastSparkTrailPoint || null;
+    const x = Number(projectile.currentTransform.x) || 0;
+    const y = Number(projectile.currentTransform.y) || 0;
+    if (previous && Math.hypot(x - previous.x, y - previous.y) < 9) return;
+    projectile.lastSparkTrailPoint = { x, y };
+    const speed = Math.hypot(Number(projectile.vx) || 0, Number(projectile.vy) || 0) || 1;
+    const tailX = -(Number(projectile.vx) || 0) / speed;
+    const tailY = -(Number(projectile.vy) || 0) / speed;
+    addSmokePuff(state, {
+        kind: "enemyProjectileImpactPuff",
+        x: x + tailX * Math.max(2, Number(projectile.radius) || 4),
+        y: y + tailY * Math.max(2, Number(projectile.radius) || 4),
+        vx: tailX * 18,
+        vy: tailY * 18 - 8,
+        lifetime: 0.16,
+        radius: Math.max(1.5, Math.min(4, (Number(projectile.radius) || 4) * 0.35))
+    });
 }
 
 const UNDEATH_TRAIL_EMIT_COUNT = 3;
@@ -10329,7 +10584,9 @@ function explodeProjectile(state, projectile, reason, detail = {}) {
     }
     projectile.impactKind = detail.impactKind || "unknown";
     projectile.impactReason = reason;
-    emitProjectileImpactSmoke(state, projectile, detail);
+    if (projectile.owner !== "enemy" || projectile.impactEffect !== "none") {
+        emitProjectileImpactSmoke(state, projectile, detail);
+    }
     projectile.state = "exploding";
     projectile.vx = 0;
     projectile.vy = 0;
@@ -10502,6 +10759,62 @@ function applyProjectileDamageToPlayer(state, projectile) {
         defeated: state.health.amount <= 0,
         blocked: result.damage <= 0
     };
+}
+
+function applyEnemyProjectileAreaDamage(state, projectile) {
+    const radius = Math.max(0, Number(projectile.areaDamageRadius) || 0);
+    if (radius <= 0 || !playerIsAvailableCombatTarget(state)) {
+        return { damage: 0, health: state.health.amount, defeated: false, blocked: true, hitPlayer: false };
+    }
+    if (!circleRectOverlap(
+        projectile.currentTransform.x,
+        projectile.currentTransform.y,
+        radius,
+        getPlayerRect(state)
+    )) {
+        return { damage: 0, health: state.health.amount, defeated: false, blocked: true, hitPlayer: false };
+    }
+
+    const dx = (Number(state.player.currentTransform.x) || 0) - (Number(projectile.currentTransform.x) || 0);
+    const knockbackDirection = Math.abs(dx) > 0.0001
+        ? (dx < 0 ? -1 : 1)
+        : ((Number(projectile.vx) || 0) < 0 ? -1 : 1);
+    const result = damagePlayer(state, projectile.damage, projectile.enemyId || projectile.id, {
+        knockbackX: knockbackDirection * Math.abs(projectile.knockbackX || 0),
+        knockbackY: projectile.knockbackY || 0
+    });
+    const areaResult = {
+        damage: result.damage,
+        health: state.health.amount,
+        defeated: state.health.amount <= 0,
+        blocked: result.damage <= 0,
+        hitPlayer: true
+    };
+    addEvent(state, "ENEMY_PROJECTILE_AREA_DAMAGE_APPLIED", {
+        id: projectile.id,
+        projectileKind: projectile.projectileKind || null,
+        radius: round(radius),
+        damage: round(areaResult.damage),
+        health: round(areaResult.health),
+        defeated: areaResult.defeated,
+        blocked: areaResult.blocked
+    });
+    return areaResult;
+}
+
+function detonateEnemyProjectile(state, projectile, reason, detail = {}) {
+    const area = applyEnemyProjectileAreaDamage(state, projectile);
+    explodeProjectile(state, projectile, reason, {
+        ...detail,
+        areaDamageRadius: Math.max(0, Number(projectile.areaDamageRadius) || 0),
+        areaDamage: Math.max(0, Number(projectile.damage) || 0),
+        areaHitPlayer: area.hitPlayer,
+        areaDamageApplied: area.damage,
+        health: area.hitPlayer ? area.health : detail.health,
+        defeated: area.hitPlayer ? area.defeated : detail.defeated,
+        blocked: area.hitPlayer ? area.blocked : detail.blocked
+    });
+    return area;
 }
 
 function enemyDropRandomUnit(state, enemy, channel) {
@@ -10854,11 +11167,14 @@ function sweptCirclePolygonImpact(start, end, radius, polygon) {
     for (let i = 0; i < points.length; i += 1) {
         const a = points[i];
         const b = points[(i + 1) % points.length];
-        if (pointSegmentDistance(end, a, b) <= radius) {
-            const candidate = closestPathImpactPoint(start, end, a, b);
-            if (!nearest || candidate.t < nearest.t) {
-                nearest = candidate;
-            }
+        const candidate = sweptCircleSegmentImpact(start, end, radius, {
+            x1: a.x,
+            y1: a.y,
+            x2: b.x,
+            y2: b.y
+        });
+        if (candidate && (!nearest || candidate.t < nearest.t)) {
+            nearest = candidate;
         }
     }
     return nearest;
@@ -11066,6 +11382,54 @@ function currentPlayerSupportIsWalkable(state) {
     return segment?.kind === "walkable";
 }
 
+function expandedPlayerCollisionAssetBounds(state, queryBounds) {
+    const p = state?.player;
+    if (!p) return queryBounds;
+    const transform = currentTransformOf(p);
+    const reach = playerAutomaticStepHeight(p);
+    const left = Number(transform.x) - p.width * 0.5;
+    const right = Number(transform.x) + p.width * 0.5;
+    const top = Number(transform.y) - p.height;
+    const bottom = Number(transform.y);
+    return {
+        minX: Math.min(Number(queryBounds?.minX), left) - reach,
+        minY: Math.min(Number(queryBounds?.minY), top) - reach,
+        maxX: Math.max(Number(queryBounds?.maxX), right) + reach,
+        maxY: Math.max(Number(queryBounds?.maxY), bottom) + reach
+    };
+}
+
+function collisionSegmentCandidates(state, actor, queryBounds) {
+    if (actor === state?.player) {
+        return queryWorldSegmentsFromCollisionAssets(state.world, expandedPlayerCollisionAssetBounds(state, queryBounds));
+    }
+    return queryWorldSegments(state.world, queryBounds);
+}
+
+function playerGroundedHorizontalSpeedLimit(state, levelGroundSpeedLimit) {
+    const speedLimit = Math.max(0, Number(levelGroundSpeedLimit) || 0);
+    const player = state?.player;
+    if (!player?.onGround || !player.supportId || speedLimit <= 0) {
+        return speedLimit;
+    }
+    const segment = findWorldSegmentById(state, player.supportId);
+    if (!segment || !isSolidSegmentKind(segment.kind)) {
+        return speedLimit;
+    }
+    const dx = Number(segment.x2) - Number(segment.x1);
+    const dy = Number(segment.y2) - Number(segment.y1);
+    const tangentLength = Math.hypot(dx, dy);
+    if (!Number.isFinite(tangentLength) || tangentLength <= 0.000001) {
+        return speedLimit;
+    }
+    // vx is authored as the horizontal component, while grounded support
+    // following supplies the matching vertical displacement. Scale vx by the
+    // support tangent so the wizard's own run vector never exceeds the same
+    // speed available on level ground. External platform carry is applied
+    // separately and is intentionally unaffected.
+    return speedLimit * Math.abs(dx) / tangentLength;
+}
+
 function segmentSurfaceDeltaAtX(segment, x, y, extrapolate = false) {
     const dx = Number(segment?.x2) - Number(segment?.x1);
     if (Math.abs(dx) < 0.001 || !Number.isFinite(x) || !Number.isFinite(y)) {
@@ -11101,11 +11465,14 @@ function findActorSweptGroundSupport(state, actor, previousX, previousY, nextX, 
     };
     let best = null;
 
-    for (const segment of queryWorldSegments(state.world, queryBounds)) {
+    for (const segment of collisionSegmentCandidates(state, actor, queryBounds)) {
         if (collisionIdIgnored(segment.id, options) || !isSolidSegmentKind(segment.kind) || Math.abs(segment.x2 - segment.x1) < 0.001) {
             continue;
         }
         if (options.ignoreWalkable && segment.kind === "walkable") {
+            continue;
+        }
+        if (!playerSegmentIsStandable(segment)) {
             continue;
         }
         const dx = Number(segment.x2) - Number(segment.x1);
@@ -11127,8 +11494,11 @@ function findActorSweptGroundSupport(state, actor, previousX, previousY, nextX, 
             // Y grows downward. A support collision happens when a foot sweep
             // starts on the standing/up side of the line and ends on the
             // down/pass-through side. This handles the fast-step bridge ramp
-            // without giving green walkables priority over yellow blockables;
-            // colour only controls one-way drop-through behaviour.
+            // without giving green walkables priority over yellow blockables.
+            // A downhill foot sweep moves farther onto the standing/up side,
+            // so it does not qualify here. Downhill retention comes from the
+            // ordinary grounded support snap once slope-follow travel is
+            // speed-bounded. Colour only controls one-way drop-through behaviour.
             const upSideTolerance = segment.kind === "walkable" ? 0.5 : skin;
             const crossedFromUpToDown = previousDelta <= upSideTolerance && nextDelta >= -skin && nextDelta >= previousDelta - 0.0001;
             if (!crossedFromUpToDown) {
@@ -11146,8 +11516,17 @@ function findActorSweptGroundSupport(state, actor, previousX, previousY, nextX, 
                 continue;
             }
             const delta = nextSurfaceY - previousY;
-            if (delta < -stepUp - slopeTravelAllowance - skin || delta > drop + slopeTravelAllowance + skin) {
+            const continuingSupport = currentSupportContinuation || wasAlreadyOnLine;
+            const continuationSlopeAllowance = continuingSupport ? slopeTravelAllowance : 0;
+            if (delta < -stepUp - continuationSlopeAllowance - skin || delta > drop + continuationSlopeAllowance + skin) {
                 continue;
+            }
+            if (!continuingSupport && delta < -0.05) {
+                const hitX = hit ? Number(hit.x) : end.x;
+                const reachDistance = Math.hypot(hitX - start.x, nextSurfaceY - previousY);
+                if (reachDistance > stepUp + 0.05) {
+                    continue;
+                }
             }
             // Among physically crossed supports, the uppermost line at the new
             // foot position is the floor. Previous-support identity only breaks
@@ -11235,7 +11614,7 @@ function findActorHorizontalSweepCollision(state, actor, previousX, nextX, optio
         });
     }
 
-    for (const segment of queryWorldSegments(state.world, collisionQueryBounds)) {
+    for (const segment of collisionSegmentCandidates(state, actor, collisionQueryBounds)) {
         if (collisionIdIgnored(segment.id, options) || segment.kind === "walkable") {
             continue;
         }
@@ -11297,7 +11676,10 @@ function findActorGroundSupportAtX(state, actor, x, referenceY, maxStepUp, maxDr
             return;
         }
         const delta = surfaceY - referenceY;
-        if (delta < -stepUp - skin || delta > drop + skin) {
+        const preferredId = String(options.preferredSupportId || "");
+        const continuingSupport = preferredId && supportFamilyId(detail?.id || "") === supportFamilyId(preferredId);
+        const upwardAllowance = continuingSupport ? stepUp + skin : stepUp;
+        if (delta < -upwardAllowance - 0.05 || delta > drop + skin) {
             return;
         }
         // Smaller Y is physically higher on screen. At the actor's central
@@ -11310,11 +11692,14 @@ function findActorGroundSupportAtX(state, actor, x, referenceY, maxStepUp, maxDr
         }
     };
 
-    for (const segment of queryWorldSegments(state.world, queryBounds)) {
+    for (const segment of collisionSegmentCandidates(state, actor, queryBounds)) {
         if (collisionIdIgnored(segment.id, options) || !isSolidSegmentKind(segment.kind) || Math.abs(segment.x2 - segment.x1) < 0.001) {
             continue;
         }
         if (options.ignoreWalkable && segment.kind === "walkable") {
+            continue;
+        }
+        if (!playerSegmentIsStandable(segment)) {
             continue;
         }
         if (options.ignoreUncrossedWalkable && segment.kind === "walkable") {
@@ -11396,11 +11781,14 @@ function findActorVerticalSweepCollision(state, actor, previousY, nextY, options
         }
     }
 
-    for (const segment of queryWorldSegments(state.world, collisionQueryBounds)) {
+    for (const segment of collisionSegmentCandidates(state, actor, collisionQueryBounds)) {
         if (collisionIdIgnored(segment.id, options) || !isSolidSegmentKind(segment.kind) || Math.abs(segment.x2 - segment.x1) < 0.001) {
             continue;
         }
         if (options.ignoreWalkable && segment.kind === "walkable") {
+            continue;
+        }
+        if (dy > 0 && !playerSegmentIsStandable(segment)) {
             continue;
         }
         for (let sampleIndex = 0; sampleIndex < samples.length; sampleIndex += 1) {
@@ -11443,43 +11831,728 @@ function findActorVerticalSweepCollision(state, actor, previousY, nextY, options
     return best;
 }
 
-function tryActorStepUp(state, actor, previousX, nextX, maxStepHeight, options = {}) {
-    const actorTransform = currentTransformOf(actor);
-    const originalX = actorTransform.x;
-    const originalY = actorTransform.y;
-    const maximum = Math.max(0, Math.floor(Number(maxStepHeight) || 0));
-    if (maximum < 1) return null;
+function sameStridePoint(a, b, tolerance = 0.08) {
+    return Math.abs(Number(a?.x) - Number(b?.x)) <= tolerance &&
+        Math.abs(Number(a?.y) - Number(b?.y)) <= tolerance;
+}
 
-    const direction = Math.sign(nextX - previousX) || 1;
-    const probeX = nextX + direction * Math.min(6, Math.max(2, actor.width * 0.15));
-    for (let step = 1; step <= maximum; step += 1) {
-        actorTransform.x = previousX;
-        actorTransform.y = originalY - step;
-        const horizontalCollision = findActorHorizontalSweepCollision(state, actor, previousX, probeX, options);
-        if (horizontalCollision) continue;
+function currentGroundStrideSupportGeometry(state) {
+    const supportId = state.player?.supportId;
+    if (!supportId) return null;
+    for (const support of state.world?.segments || []) {
+        if (support.id !== supportId || !playerSegmentIsStandable(support)) continue;
+        return {
+            id: support.id,
+            kind: support.kind,
+            source: "segment",
+            x1: Number(support.x1),
+            y1: Number(support.y1),
+            x2: Number(support.x2),
+            y2: Number(support.y2)
+        };
+    }
+    for (const solid of state.world?.solids || []) {
+        if (solid.id !== supportId) continue;
+        return {
+            id: solid.id,
+            kind: solid.kind || "solid",
+            source: "solid",
+            x1: Number(solid.x),
+            y1: Number(solid.y),
+            x2: Number(solid.x) + Number(solid.w),
+            y2: Number(solid.y)
+        };
+    }
+    return null;
+}
 
-        actorTransform.x = probeX;
-        const landing = findActorVerticalSweepCollision(state, actor, originalY - step, originalY + 1, options);
-        if (!landing || landing.ceiling) continue;
-        if (landing.y >= originalY - 0.05 || landing.y < originalY - maximum - 0.5) continue;
+function groundStrideRiserSupportIntersection(state, riser) {
+    const support = currentGroundStrideSupportGeometry(state);
+    if (!support || !riser) return null;
+    const hit = segmentSegmentIntersection(
+        { x: support.x1, y: support.y1 },
+        { x: support.x2, y: support.y2 },
+        { x: Number(riser.x1), y: Number(riser.y1) },
+        { x: Number(riser.x2), y: Number(riser.y2) }
+    );
+    if (!hit) return null;
+    return { point: { x: hit.x, y: hit.y }, support };
+}
 
-        actorTransform.x = originalX;
-        actorTransform.y = originalY;
-        return { x: probeX, y: landing.y, height: originalY - landing.y, id: landing.id, kind: landing.kind, source: landing.source };
+function leadingGroundStrideEndpoint(state, segment, direction) {
+    if (!direction || segment?.kind === "walkable" || !isAreaBlockingSegmentKind(segment?.kind) ||
+        Math.abs(Number(segment.x2) - Number(segment.x1)) <= 0.05) {
+        return null;
+    }
+    const a = { x: Number(segment.x1), y: Number(segment.y1) };
+    const b = { x: Number(segment.x2), y: Number(segment.y2) };
+    const endpoint = direction > 0
+        ? (a.x <= b.x ? a : b)
+        : (a.x >= b.x ? a : b);
+    const support = currentGroundStrideSupportGeometry(state);
+    if (!support) return null;
+    const supportY = segmentYAtX(support, endpoint.x);
+    if (supportY === null) return null;
+    const gap = supportY - endpoint.y;
+    // With a full body-height of clearance this is an overhead line, not a
+    // step obstacle. With no positive gap it is ordinary ground geometry.
+    if (gap <= 0.05 || gap >= state.player.height - 0.05) return null;
+    return {
+        endpoint,
+        supportContact: { x: endpoint.x, y: supportY }
+    };
+}
+
+function findPlayerGroundStrideCollision(state, previousX, nextX) {
+    const p = state.player;
+    const dx = nextX - previousX;
+    if (Math.abs(dx) <= 0.000001) return null;
+    const previousLeft = previousX - p.width * 0.5;
+    const previousRight = previousX + p.width * 0.5;
+    const currentLeft = nextX - p.width * 0.5;
+    const currentRight = nextX + p.width * 0.5;
+    const top = p.currentTransform.y - p.height;
+    const bottom = p.currentTransform.y;
+    const ySamples = [
+        p.currentTransform.y - p.height * 0.84,
+        p.currentTransform.y - p.height * 0.50,
+        p.currentTransform.y - p.height * 0.16,
+        p.currentTransform.y - p.height * 0.02
+    ];
+    const skin = 3;
+    const queryBounds = {
+        minX: Math.min(previousLeft, currentLeft) - skin,
+        minY: top - skin,
+        maxX: Math.max(previousRight, currentRight) + skin,
+        maxY: bottom + skin
+    };
+    let best = null;
+    const consider = (contactX, detail) => {
+        if (!Number.isFinite(contactX)) return;
+        const priority = Number(detail?.stridePriority) || 0;
+        if (dx > 0) {
+            if (previousRight > contactX + skin || currentRight < contactX - skin) return;
+            if (!best || contactX < best.contactX - 0.000001 ||
+                (Math.abs(contactX - best.contactX) <= 0.000001 && priority > (Number(best.stridePriority) || 0))) {
+                best = { contactX, x: contactX - p.width * 0.5, side: "right", ...detail };
+            }
+        } else {
+            if (previousLeft < contactX - skin || currentLeft > contactX + skin) return;
+            if (!best || contactX > best.contactX + 0.000001 ||
+                (Math.abs(contactX - best.contactX) <= 0.000001 && priority > (Number(best.stridePriority) || 0))) {
+                best = { contactX, x: contactX + p.width * 0.5, side: "left", ...detail };
+            }
+        }
+    };
+
+    for (const solid of queryWorldSolids(state.world, queryBounds)) {
+        if (bottom <= solid.y + 0.05 || top >= solid.y + solid.h - 0.05) continue;
+        consider(dx > 0 ? solid.x : solid.x + solid.w, {
+            id: solid.id,
+            kind: solid.kind || "solid",
+            source: "solid"
+        });
     }
 
-    actorTransform.x = originalX;
-    actorTransform.y = originalY;
+    const direction = dx > 0 ? 1 : -1;
+    for (const segment of queryWorldSegmentsFromCollisionAssets(state.world, expandedPlayerCollisionAssetBounds(state, queryBounds))) {
+        if (segment.kind === "walkable" || !isAreaBlockingSegmentKind(segment.kind)) continue;
+
+        const endpoint = leadingGroundStrideEndpoint(state, segment, direction);
+        if (endpoint) {
+            consider(endpoint.endpoint.x, {
+                id: segment.id,
+                kind: segment.kind,
+                source: "segmentEndpoint",
+                blocksWithoutStride: true,
+                supportContactX: endpoint.supportContact.x,
+                supportContactY: endpoint.supportContact.y,
+                endpointX: endpoint.endpoint.x,
+                endpointY: endpoint.endpoint.y,
+                stridePriority: 1
+            });
+        }
+
+        const steep = Math.abs(segment.y2 - segment.y1) >
+            Math.abs(segment.x2 - segment.x1) * PLAYER_STANDABLE_SLOPE_RATIO;
+        if (!steep) continue;
+
+        // If the obstacle actually grows upward out of the current support,
+        // anchor the stride at the exact terrain/riser intersection. This is
+        // deterministic on slopes and does not depend on a body-height sample.
+        const rooted = groundStrideRiserSupportIntersection(state, segment);
+        if (rooted) {
+            const upperY = Math.min(Number(segment.y1), Number(segment.y2));
+            if (upperY < rooted.point.y - 0.05) {
+                consider(rooted.point.x, {
+                    id: segment.id,
+                    kind: segment.kind,
+                    source: "segment",
+                    blocksWithoutStride: true,
+                    supportContactX: rooted.point.x,
+                    supportContactY: rooted.point.y,
+                    stridePriority: 2
+                });
+            }
+        }
+
+        for (const y of ySamples) {
+            const x = segmentXAtY(segment, y);
+            if (x !== null) consider(x, { id: segment.id, kind: segment.kind, source: "segment" });
+        }
+    }
+    return best;
+}
+
+function connectedGroundStrideSupport(state, riser, upper, direction) {
+    for (const support of state.world?.segments || []) {
+        if (support === riser || support.id === riser?.id || !playerSegmentIsStandable(support)) {
+            continue;
+        }
+        let other = null;
+        if (sameStridePoint({ x: support.x1, y: support.y1 }, upper)) {
+            other = { x: support.x2, y: support.y2 };
+        } else if (sameStridePoint({ x: support.x2, y: support.y2 }, upper)) {
+            other = { x: support.x1, y: support.y1 };
+        }
+        if (!other || (other.x - upper.x) * direction <= 0.05) continue;
+        return {
+            id: support.id,
+            kind: support.kind,
+            source: "segment",
+            x1: Number(support.x1),
+            y1: Number(support.y1),
+            x2: Number(support.x2),
+            y2: Number(support.y2)
+        };
+    }
+
+    for (const solid of state.world?.solids || []) {
+        const topY = Number(solid.y);
+        const left = Number(solid.x);
+        const right = left + Number(solid.w);
+        if (!Number.isFinite(topY) || !Number.isFinite(left) || !Number.isFinite(right) ||
+            Math.abs(topY - upper.y) > 0.08) continue;
+        const extendsForward = direction > 0
+            ? upper.x >= left - 0.08 && upper.x <= right + 0.08 && right > upper.x + 0.05
+            : upper.x >= left - 0.08 && upper.x <= right + 0.08 && left < upper.x - 0.05;
+        if (extendsForward) {
+            return {
+                id: solid.id,
+                kind: solid.kind || "solid",
+                source: "solid",
+                x1: left,
+                y1: topY,
+                x2: right,
+                y2: topY
+            };
+        }
+    }
+
+    // A short blocker may simply protrude through the support, like a nail in
+    // the ground. It needs no platform at its tip: if the held support
+    // continues beyond the root, the arc can clear the blocker and land back
+    // on that same support.
+    const rooted = groundStrideRiserSupportIntersection(state, riser);
+    if (rooted) {
+        const forwardEnd = direction > 0
+            ? Math.max(rooted.support.x1, rooted.support.x2)
+            : Math.min(rooted.support.x1, rooted.support.x2);
+        if ((forwardEnd - rooted.point.x) * direction > 0.05) {
+            return rooted.support;
+        }
+    }
     return null;
+}
+
+function groundStrideFootOrigin(state, collision, contactActorX, direction) {
+    const p = state.player;
+    if (Number.isFinite(Number(collision?.supportContactX)) && Number.isFinite(Number(collision?.supportContactY))) {
+        return { x: Number(collision.supportContactX), y: Number(collision.supportContactY) };
+    }
+    const contactX = Number.isFinite(Number(collision?.contactX))
+        ? Number(collision.contactX)
+        : contactActorX + direction * p.width * 0.5;
+    const currentSupport = findWorldSegmentById(state, p.supportId);
+    if (currentSupport && playerSegmentIsStandable(currentSupport)) {
+        const supportY = segmentYAtX(currentSupport, contactX);
+        if (supportY !== null && Math.abs(supportY - p.currentTransform.y) <= playerAutomaticStepHeight(p) + 3.05) {
+            return { x: contactX, y: supportY };
+        }
+    }
+    for (const solid of state.world?.solids || []) {
+        if (solid.id !== p.supportId) continue;
+        const left = Number(solid.x);
+        const right = left + Number(solid.w);
+        if (contactX >= left - 0.08 && contactX <= right + 0.08) {
+            return { x: contactX, y: Number(solid.y) };
+        }
+    }
+    return { x: contactX, y: p.currentTransform.y };
+}
+
+function groundStrideCircleIntersections(a, b, center, radius) {
+    const dx = Number(b.x) - Number(a.x);
+    const dy = Number(b.y) - Number(a.y);
+    const fx = Number(a.x) - Number(center.x);
+    const fy = Number(a.y) - Number(center.y);
+    const aa = dx * dx + dy * dy;
+    if (!Number.isFinite(aa) || aa <= 0.0000001) return [];
+    const bb = 2 * (fx * dx + fy * dy);
+    const cc = fx * fx + fy * fy - radius * radius;
+    const discriminant = bb * bb - 4 * aa * cc;
+    if (!Number.isFinite(discriminant) || discriminant < -0.000001) return [];
+    const root = Math.sqrt(Math.max(0, discriminant));
+    const roots = [(-bb - root) / (2 * aa), (-bb + root) / (2 * aa)];
+    const out = [];
+    for (const t of roots) {
+        if (t < -0.000001 || t > 1.000001) continue;
+        const clampedT = clamp(t, 0, 1);
+        const point = { x: Number(a.x) + dx * clampedT, y: Number(a.y) + dy * clampedT };
+        if (!out.some((candidate) => sameStridePoint(candidate, point, 0.001))) {
+            out.push(point);
+        }
+    }
+    return out;
+}
+
+function groundStrideArcSweepParameter(point, center, direction) {
+    const forward = (Number(point.x) - Number(center.x)) * direction;
+    if (forward < -0.05) return null;
+    const vertical = Number(point.y) - Number(center.y);
+    // Sweep the complete forward half of the stride circle, starting at its
+    // top and continuing around the movement-facing side to the bottom. A
+    // downhill support therefore remains a valid landing after clearing a
+    // short obstacle instead of disappearing merely because its circumference
+    // intersection lies below the stride origin.
+    const sweep = Math.atan2(Math.max(0, forward), -vertical);
+    return sweep <= Math.PI + 0.0001 ? sweep : null;
+}
+
+function groundStrideSupportGeometryFromSegment(segment) {
+    return {
+        id: segment.id,
+        kind: segment.kind,
+        source: "segment",
+        x1: Number(segment.x1),
+        y1: Number(segment.y1),
+        x2: Number(segment.x2),
+        y2: Number(segment.y2)
+    };
+}
+
+function groundStrideSupportGeometryFromSolid(solid) {
+    return {
+        id: solid.id,
+        kind: solid.kind || "solid",
+        source: "solid",
+        x1: Number(solid.x),
+        y1: Number(solid.y),
+        x2: Number(solid.x) + Number(solid.w),
+        y2: Number(solid.y)
+    };
+}
+
+function groundStrideArcFootholdFromCandidates(state, collision, candidateSegments, nearbySolids, upper, footOrigin, maximumReach, direction) {
+    const contacts = [];
+    const fallbackEndpoints = [];
+    const initialRiserId = collision?.source === "segment" ? collision.id : null;
+    const initialRiser = initialRiserId ? findWorldSegmentById(state, initialRiserId) : null;
+    const initialRiserIsSteep = Boolean(initialRiser) && !playerSegmentIsStandable(initialRiser);
+
+    const considerSupport = (support, standable, excludeFromArc = false) => {
+        const a = { x: Number(support.x1), y: Number(support.y1) };
+        const b = { x: Number(support.x2), y: Number(support.y2) };
+        if (![a.x, a.y, b.x, b.y].every(Number.isFinite)) return;
+        if (!excludeFromArc) {
+            for (const point of groundStrideCircleIntersections(a, b, footOrigin, maximumReach)) {
+                if ((point.x - upper.x) * direction < -0.08) continue;
+                if ((point.x - footOrigin.x) * direction <= 0.05) continue;
+                const sweep = groundStrideArcSweepParameter(point, footOrigin, direction);
+                if (sweep === null) continue;
+                contacts.push({ point, support, standable, sweep });
+            }
+        }
+        if (!standable) return;
+        for (const point of [a, b]) {
+            const forward = (point.x - footOrigin.x) * direction;
+            if (forward <= 0.05 || (point.x - upper.x) * direction < -0.08) continue;
+            const vertical = point.y - footOrigin.y;
+            const reach = Math.hypot(point.x - footOrigin.x, vertical);
+            if (reach > maximumReach + 0.05) continue;
+            fallbackEndpoints.push({ point, support, forward, reach });
+        }
+    };
+
+    for (const segment of candidateSegments || []) {
+        if (!isSolidSegmentKind(segment.kind)) continue;
+        const standable = playerSegmentIsStandable(segment);
+        const excludeInitialClearanceRiser = initialRiserIsSteep && segment.id === initialRiserId;
+        considerSupport(groundStrideSupportGeometryFromSegment(segment), standable, excludeInitialClearanceRiser);
+    }
+    for (const solid of nearbySolids || []) {
+        considerSupport(groundStrideSupportGeometryFromSolid(solid), true, false);
+    }
+
+    contacts.sort((a, b) => {
+        if (Math.abs(a.sweep - b.sweep) > 0.000001) return a.sweep - b.sweep;
+        // Coincident geometry is conservative: a steep face at the same first
+        // arc contact constrains the foot before a standable line can win.
+        if (a.standable !== b.standable) return a.standable ? 1 : -1;
+        return String(a.support.id || "").localeCompare(String(b.support.id || ""));
+    });
+    if (contacts.length) {
+        const first = contacts[0];
+        if (!first.standable) return { blocked: true, blocker: first.support, point: first.point };
+        return { blocked: false, foothold: first.point, targetSupport: first.support };
+    }
+
+    // A short standable landing can lie wholly inside the reach circle. In
+    // that case the arc has no circumference intersection, so retain the Rev343
+    // endpoint fallback but choose across every nearby candidate support.
+    fallbackEndpoints.sort((a, b) => {
+        if (Math.abs(a.forward - b.forward) > 0.000001) return b.forward - a.forward;
+        return b.reach - a.reach;
+    });
+    if (fallbackEndpoints.length) {
+        const best = fallbackEndpoints[0];
+        return { blocked: false, foothold: best.point, targetSupport: best.support };
+    }
+    return null;
+}
+
+function groundStrideFootholdOnSupport(targetSupport, upper, footOrigin, maximumReach, direction) {
+    if (!targetSupport) return null;
+    const a = { x: Number(targetSupport.x1), y: Number(targetSupport.y1) };
+    const b = { x: Number(targetSupport.x2), y: Number(targetSupport.y2) };
+    const intersections = groundStrideCircleIntersections(a, b, footOrigin, maximumReach);
+    let best = null;
+    let bestSweep = Number.POSITIVE_INFINITY;
+    for (const point of intersections) {
+        if ((point.x - upper.x) * direction < -0.08) continue;
+        const sweep = groundStrideArcSweepParameter(point, footOrigin, direction);
+        if (sweep === null || sweep >= bestSweep) continue;
+        best = point;
+        bestSweep = sweep;
+    }
+    if (best) return best;
+
+    // A very short landing segment may end before it reaches the fixed stride
+    // circle. In that case use its furthest forward reachable endpoint rather
+    // than falling back to the riser corner and repeatedly "stepping in place".
+    let bestFallback = null;
+    let bestForward = 0.05;
+    for (const point of [a, b]) {
+        const forward = (point.x - footOrigin.x) * direction;
+        if (forward <= bestForward || (point.x - upper.x) * direction < -0.08) continue;
+        const reach = Math.hypot(point.x - footOrigin.x, point.y - footOrigin.y);
+        if (reach > maximumReach + 0.05) continue;
+        bestFallback = point;
+        bestForward = forward;
+    }
+    return bestFallback;
+}
+
+function groundStrideEndpointRiser(state, targetSupportId, upper, footOrigin) {
+    for (const segment of state.world?.segments || []) {
+        if (segment.id === targetSupportId || segment.kind === "walkable" || !isAreaBlockingSegmentKind(segment.kind)) continue;
+        const a = { x: Number(segment.x1), y: Number(segment.y1) };
+        const b = { x: Number(segment.x2), y: Number(segment.y2) };
+        if (Math.abs(b.y - a.y) <= Math.abs(b.x - a.x) * PLAYER_STANDABLE_SLOPE_RATIO) continue;
+        if (!sameStridePoint(a, upper) && !sameStridePoint(b, upper)) continue;
+        const rooted = groundStrideRiserSupportIntersection(state, segment);
+        if (!rooted || !sameStridePoint(rooted.point, footOrigin, 0.12)) continue;
+        if (Math.min(a.y, b.y) >= rooted.point.y - 0.05) continue;
+        return segment;
+    }
+    return null;
+}
+
+function groundStrideBodyPathBlocked(state, stridePath) {
+    const p = state.player;
+    const excludedIds = new Set([
+        p.supportId,
+        stridePath.riserId,
+        stridePath.targetSupportId
+    ].filter(Boolean));
+    const footLegs = [
+        [stridePath.footOrigin, stridePath.upper],
+        [stridePath.upper, stridePath.foothold]
+    ];
+    const bodyLegs = [
+        [stridePath.start, stridePath.corner],
+        [stridePath.corner, stridePath.target]
+    ];
+
+    for (const segment of stridePath.candidateSegments || state.world?.segments || []) {
+        if (excludedIds.has(segment.id) || segment.kind === "walkable" || !isAreaBlockingSegmentKind(segment.kind)) continue;
+        const a = { x: Number(segment.x1), y: Number(segment.y1) };
+        const b = { x: Number(segment.x2), y: Number(segment.y2) };
+        const steep = Math.abs(b.y - a.y) > Math.abs(b.x - a.x) * PLAYER_STANDABLE_SLOPE_RATIO;
+        if (steep) {
+            const rooted = groundStrideRiserSupportIntersection(state, segment);
+            if (rooted && Math.min(a.y, b.y) >= rooted.point.y - 0.05) continue;
+            // Obstacles encountered by the stepping foot before the planned
+            // foothold invalidate the stride. This is what prevents a low nail
+            // from providing a tunnel through a taller second nail.
+            if (footLegs.some(([from, to]) => segmentSegmentIntersection(from, to, a, b))) return true;
+            continue;
+        }
+
+        // Standable lines can still be ceilings or shelves crossing the body
+        // while the foot follows a valid arc. Sample the top and middle of the
+        // body at the same three-foot footprint used by grounded support.
+        for (const [from, to] of bodyLegs) {
+            for (const xOffset of [-p.width * 0.42, 0, p.width * 0.42]) {
+                for (const yOffset of [-p.height + 0.5, -p.height * 0.5]) {
+                    const bodyFrom = { x: from.x + xOffset, y: from.y + yOffset };
+                    const bodyTo = { x: to.x + xOffset, y: to.y + yOffset };
+                    if (segmentSegmentIntersection(bodyFrom, bodyTo, a, b)) return true;
+                }
+            }
+        }
+    }
+
+    for (const solid of stridePath.nearbySolids || state.world?.solids || []) {
+        if (excludedIds.has(solid.id)) continue;
+        const expanded = {
+            x: Number(solid.x) - p.width * 0.5,
+            y: Number(solid.y),
+            w: Number(solid.w) + p.width,
+            h: Number(solid.h) + p.height
+        };
+        for (const [from, to] of bodyLegs) {
+            if (segmentRectIntersection(from, to, expanded)) return true;
+        }
+    }
+    return false;
+}
+
+function planPlayerGroundStride(state, collision, previousX, nextX) {
+    const p = state.player;
+    const direction = Math.sign(nextX - previousX);
+    if (!collision || !p.onGround || p.vy < -0.000001 || !direction) return null;
+
+    let upper = null;
+    if (collision.source === "solid") {
+        const solid = (state.world?.solids || []).find((candidate) => candidate.id === collision.id);
+        if (!solid) return null;
+        upper = {
+            x: direction > 0 ? Number(solid.x) : Number(solid.x) + Number(solid.w),
+            y: Number(solid.y)
+        };
+    } else if (collision.source === "segmentEndpoint") {
+        const target = findWorldSegmentById(state, collision.id);
+        if (!target || target.kind === "walkable" || !isAreaBlockingSegmentKind(target.kind) || !playerSegmentIsStandable(target)) return null;
+        upper = { x: Number(collision.endpointX), y: Number(collision.endpointY) };
+    } else if (collision.source === "segment") {
+        const riser = findWorldSegmentById(state, collision.id);
+        if (!riser || riser.kind === "walkable" || !isAreaBlockingSegmentKind(riser.kind)) return null;
+        const riserDx = Number(riser.x2) - Number(riser.x1);
+        const riserDy = Number(riser.y2) - Number(riser.y1);
+        if (Math.abs(riserDy) <= Math.abs(riserDx) * PLAYER_STANDABLE_SLOPE_RATIO) return null;
+        const a = { x: Number(riser.x1), y: Number(riser.y1) };
+        const b = { x: Number(riser.x2), y: Number(riser.y2) };
+        upper = a.y <= b.y ? a : b;
+    } else {
+        return null;
+    }
+
+    const contactActorX = Number.isFinite(Number(collision.x))
+        ? Number(collision.x)
+        : Number(collision.contactX) - direction * p.width * 0.5;
+    const footOrigin = groundStrideFootOrigin(state, collision, contactActorX, direction);
+    const maximumReach = playerAutomaticStepHeight(p);
+    const upperReach = Math.hypot(upper.x - footOrigin.x, upper.y - footOrigin.y);
+    if (!Number.isFinite(upperReach) || upperReach <= 0.05 || upperReach > maximumReach + 0.05) return null;
+
+    // Revision 345 broad phase: take the swept player box, expand it by the
+    // full stride reach in every direction, find overlapping collision assets,
+    // and then inspect every authored line belonging to those assets. A long
+    // line is therefore eligible because its asset is nearby, regardless of
+    // where that line's endpoints happen to be. Directly queried unowned lines
+    // remain included for synthetic/test geometry and runtime helper solids.
+    const strideBodyBounds = {
+        minX: Math.min(previousX, nextX) - p.width * 0.5,
+        minY: p.currentTransform.y - p.height,
+        maxX: Math.max(previousX, nextX) + p.width * 0.5,
+        maxY: p.currentTransform.y
+    };
+    const strideCandidateBounds = expandedPlayerCollisionAssetBounds(state, strideBodyBounds);
+    const candidateSegments = queryWorldSegmentsFromCollisionAssets(state.world, strideCandidateBounds);
+    const nearbySolids = queryWorldSolids(state.world, strideCandidateBounds);
+    const arcResult = groundStrideArcFootholdFromCandidates(
+        state,
+        collision,
+        candidateSegments,
+        nearbySolids,
+        upper,
+        footOrigin,
+        maximumReach,
+        direction
+    );
+    if (!arcResult || arcResult.blocked || !arcResult.foothold || !arcResult.targetSupport) return null;
+    const foothold = arcResult.foothold;
+    const targetSupport = arcResult.targetSupport;
+
+    const endpointRiser = collision.source === "segmentEndpoint"
+        ? groundStrideEndpointRiser(state, targetSupport.id, upper, footOrigin)
+        : null;
+    const pathRiserId = endpointRiser?.id || collision.id || null;
+
+    // The actor starts exactly where its leading foot reaches the terrain
+    // contact. Do not inherit a frame-dependent center position from the sweep.
+    const startX = footOrigin.x - direction * p.width * 0.5;
+    const startY = footOrigin.y;
+    const cornerX = upper.x - direction * p.width * 0.5;
+    const cornerY = upper.y;
+    const targetX = foothold.x - direction * p.width * 0.5;
+    const targetY = foothold.y;
+    if ((targetX - startX) * direction <= 0.05) return null;
+
+    const cornerDistance = Math.hypot(cornerX - startX, cornerY - startY);
+    const landingDistance = Math.hypot(targetX - cornerX, targetY - cornerY);
+    const length = cornerDistance + landingDistance;
+    if (!Number.isFinite(length) || length <= 0.0001 || !Number.isFinite(cornerDistance)) return null;
+
+    const path = {
+        riserId: pathRiserId,
+        targetSupportId: targetSupport.id || null,
+        footOrigin,
+        upper,
+        foothold,
+        start: { x: startX, y: startY },
+        corner: { x: cornerX, y: cornerY },
+        target: { x: targetX, y: targetY },
+        candidateSegments,
+        nearbySolids
+    };
+    if (groundStrideBodyPathBlocked(state, path)) return null;
+
+    return {
+        active: true,
+        direction,
+        startX,
+        startY,
+        cornerX,
+        cornerY,
+        cornerDistance,
+        targetX,
+        targetY,
+        footStartX: footOrigin.x,
+        footStartY: footOrigin.y,
+        footholdX: foothold.x,
+        footholdY: foothold.y,
+        strideProgress: 0,
+        strideLength: length,
+        targetSupportId: targetSupport.id || null,
+        targetSupportKind: targetSupport.kind || "blockable",
+        targetSupportSource: targetSupport.source || collision.source,
+        riserId: pathRiserId
+    };
+}
+
+function advancePlayerGroundStride(state, distanceThisFrame) {
+    const p = state.player;
+    const stride = p.groundStride;
+    if (!stride?.active) return { handled: false, remaining: distanceThisFrame };
+    const direction = Math.sign(distanceThisFrame);
+    if ((!direction && Math.abs(distanceThisFrame) > 0.000001) || (direction && direction !== stride.direction) || !p.onGround || p.vy < -0.000001) {
+        p.groundStride = null;
+        return { handled: false, remaining: distanceThisFrame };
+    }
+    if (!direction) return { handled: true, remaining: 0 };
+
+    const budget = Math.abs(distanceThisFrame);
+    const previousProgress = Math.max(0, Number(stride.strideProgress) || 0);
+    const nextProgress = Math.min(stride.strideLength, previousProgress + budget);
+    const cornerDistance = clamp(Number(stride.cornerDistance) || 0, 0, stride.strideLength);
+    if (cornerDistance > 0.000001 && nextProgress < cornerDistance) {
+        const fraction = nextProgress / cornerDistance;
+        p.currentTransform.x = stride.startX + (stride.cornerX - stride.startX) * fraction;
+        p.currentTransform.y = stride.startY + (stride.cornerY - stride.startY) * fraction;
+    } else {
+        const landingLength = Math.max(0.000001, stride.strideLength - cornerDistance);
+        const fraction = clamp((nextProgress - cornerDistance) / landingLength, 0, 1);
+        p.currentTransform.x = stride.cornerX + (stride.targetX - stride.cornerX) * fraction;
+        p.currentTransform.y = stride.cornerY + (stride.targetY - stride.cornerY) * fraction;
+    }
+    p.vy = 0;
+    p.onGround = true;
+    p.ordinaryJumpActive = false;
+    stride.strideProgress = nextProgress;
+    state.collisions.lastResolution = {
+        axis: "ground-stride",
+        id: stride.riserId,
+        targetSupportId: stride.targetSupportId,
+        progress: round(nextProgress),
+        length: round(stride.strideLength)
+    };
+
+    if (nextProgress + 0.0001 < stride.strideLength) {
+        return { handled: true, remaining: 0 };
+    }
+
+    const remainingBudget = Math.max(0, budget - (stride.strideLength - previousProgress));
+    p.currentTransform.x = stride.targetX;
+    p.currentTransform.y = stride.targetY;
+    p.supportId = stride.targetSupportId || null;
+    p.airBoostArmed = true;
+    p.groundStride = null;
+    return { handled: true, remaining: direction * remainingBudget };
 }
 
 function moveAndCollideX(state, dx) {
     const p = state.player;
     if (dx === 0) {
-        return;
+        if (p.groundStride?.active) p.groundStride = null;
+        return false;
     }
+
+    if (p.groundStride?.active) {
+        const advanced = advancePlayerGroundStride(state, dx);
+        if (advanced.handled) {
+            if (Math.abs(advanced.remaining) > 0.000001) {
+                moveAndCollideX(state, advanced.remaining);
+            }
+            return true;
+        }
+    }
+
     const previousX = p.currentTransform.x;
     const nextX = previousX + dx;
+    if (p.onGround && p.vy >= 0) {
+        const strideCollision = findPlayerGroundStrideCollision(state, previousX, nextX);
+        if (strideCollision) {
+            const stride = planPlayerGroundStride(state, strideCollision, previousX, nextX);
+            if (stride) {
+                p.groundStride = stride;
+                p.currentTransform.x = stride.startX;
+                p.currentTransform.y = stride.startY;
+                const travelToContact = Math.min(Math.abs(dx), Math.abs(stride.startX - previousX));
+                const strideBudget = Math.max(0, Math.abs(dx) - travelToContact) * stride.direction;
+                if (Math.abs(strideBudget) <= 0.000001) return true;
+                const advanced = advancePlayerGroundStride(state, strideBudget);
+                if (advanced.handled && Math.abs(advanced.remaining) > 0.000001) {
+                    moveAndCollideX(state, advanced.remaining);
+                }
+                return advanced.handled;
+            }
+            if (strideCollision.blocksWithoutStride) {
+                p.currentTransform.x = strideCollision.x;
+                p.vx = 0;
+                if (strideCollision.side === "right") state.collisions.playerTouching.right = true;
+                else state.collisions.playerTouching.left = true;
+                state.collisions.lastResolution = {
+                    axis: "x",
+                    id: strideCollision.id,
+                    kind: strideCollision.kind,
+                    source: strideCollision.source
+                };
+                return true;
+            }
+        }
+    }
     const collision = findActorHorizontalSweepCollision(state, p, previousX, nextX);
     if (!collision) {
         const wasSupportedByWalkable = currentPlayerSupportIsWalkable(state);
@@ -11489,17 +12562,18 @@ function moveAndCollideX(state, dx) {
             preferredSupportId: p.supportId || "",
             preferWalkable: wasSupportedByWalkable
         };
+        const automaticStepHeight = playerAutomaticStepHeight(p);
         let sweptSupport = null;
         if (p.onGround && p.vy >= 0) {
             sweptSupport = findActorSweptGroundSupport(state, p, previousX, p.currentTransform.y, nextX, {
                 ...supportOptions,
-                maxStepUp: p.height * AUTOMATIC_STEP_HEIGHT_RATIO,
-                maxDrop: p.height * AUTOMATIC_STEP_HEIGHT_RATIO
+                maxStepUp: automaticStepHeight,
+                maxDrop: automaticStepHeight
             });
         }
         p.currentTransform.x = nextX;
         if (p.onGround && p.vy >= 0) {
-            const snappedSupport = findActorGroundSupportAtX(state, p, p.currentTransform.x, p.currentTransform.y, p.height * AUTOMATIC_STEP_HEIGHT_RATIO, p.height * AUTOMATIC_STEP_HEIGHT_RATIO, supportOptions);
+            const snappedSupport = findActorGroundSupportAtX(state, p, p.currentTransform.x, p.currentTransform.y, automaticStepHeight, automaticStepHeight, supportOptions);
             const slopeFollow = uppermostSupportCandidate(sweptSupport, snappedSupport);
             if (slopeFollow) {
                 landPlayerOn(state, slopeFollow.y, true, slopeFollow.id, slopeFollow.kind);
@@ -11512,27 +12586,28 @@ function moveAndCollideX(state, dx) {
                 };
             }
         }
-        return;
+        return false;
     }
+
     if (p.onGround && p.vy >= 0) {
-        const stepped = tryActorStepUp(state, p, previousX, nextX, p.height * AUTOMATIC_STEP_HEIGHT_RATIO, {
-            ignoreWalkable: (Number(p.dropThroughTimer) || 0) > 0,
-            preferredSupportId: p.supportId || "",
-            preferWalkable: currentPlayerSupportIsWalkable(state)
-        });
-        if (stepped) {
-            p.currentTransform.x = stepped.x;
-            landPlayerOn(state, stepped.y, true, stepped.id, stepped.kind);
-            state.collisions.lastResolution = {
-                axis: "step",
-                height: round(stepped.height),
-                id: stepped.id,
-                kind: stepped.kind,
-                source: stepped.source
-            };
-            return;
+        const stride = planPlayerGroundStride(state, collision, previousX, nextX);
+        if (stride) {
+            p.groundStride = stride;
+            p.currentTransform.x = stride.startX;
+            p.currentTransform.y = stride.startY;
+            const travelToContact = Math.min(Math.abs(dx), Math.abs(stride.startX - previousX));
+            const strideBudget = Math.max(0, Math.abs(dx) - travelToContact) * stride.direction;
+            if (Math.abs(strideBudget) <= 0.000001) {
+                return true;
+            }
+            const advanced = advancePlayerGroundStride(state, strideBudget);
+            if (advanced.handled && Math.abs(advanced.remaining) > 0.000001) {
+                moveAndCollideX(state, advanced.remaining);
+            }
+            return advanced.handled;
         }
     }
+
     p.currentTransform.x = collision.x;
     p.vx = 0;
     if (collision.side === "right") {
@@ -11546,6 +12621,7 @@ function moveAndCollideX(state, dx) {
         kind: collision.kind,
         source: collision.source
     };
+    return false;
 }
 
 function integratePlayerVerticalMotion(state, input, dt, wasOnGround, doubleGravityHeld = false) {
@@ -11725,8 +12801,8 @@ function playerWalkableSupportOverride(state) {
         player,
         player.currentTransform.x,
         supportY,
-        player.height * AUTOMATIC_STEP_HEIGHT_RATIO,
-        player.height * AUTOMATIC_STEP_HEIGHT_RATIO,
+        playerAutomaticStepHeight(player),
+        playerAutomaticStepHeight(player),
         { ignoreWalkable: (Number(player.dropThroughTimer) || 0) > 0, preferredSupportId: player.supportId || "" }
     );
     if (uppermost && uppermost.id !== segment.id && uppermost.y < supportY - 0.1) {
@@ -11979,6 +13055,7 @@ function triggerPlayerDeath(state, options = {}) {
     player.deathElapsed = 0;
     player.deathSourceId = sourceId;
     player.deathResetReason = resetReason;
+    respawnDeathEligiblePickups(state);
     removePlayerDeathCoverSparks(state);
     emitPlayerDeathCoverSparks(state);
 
@@ -12921,9 +13998,10 @@ function updateEnemyContactDamage(state) {
         if (enemy.combatState === ENEMY_COMBAT_STATE.DEAD || enemy.state === "destroyed") continue;
         if (!rectsOverlap(playerRect, enemyContactBodyRect(enemy))) continue;
 
-        const meleeDamage = Math.max(0, Number(enemy.attackDamage) || 0);
-        const rangedDamage = Math.max(0, Number(enemy.projectileDamage) || 0);
-        const contactDamage = Math.max(meleeDamage, rangedDamage) * 0.25;
+        const contactDamage = Math.max(0, finiteNumberOr(
+            enemy.contactDamageBase,
+            Math.max(Number(enemy.damage) || 0, Number(enemy.attackDamage) || 0, Number(enemy.projectileDamage) || 0)
+        )) * 0.25;
         if (contactDamage <= 0) continue;
         if (!strongest || contactDamage > strongest.damage) {
             strongest = { enemy, damage: contactDamage };
@@ -13094,9 +14172,90 @@ function cameraLineNominalOffsetY(state, dt, normalOffset = 170) {
 }
 
 const CAMERA_REPOSITION_BLEND_RATE = 0.03162277660168379;
+const CAMERA_EDGE_CATCHUP_ZONE_RATIO = 0.125;
+const CAMERA_EDGE_CATCHUP_RATE = 5;
+
+function cameraEdgeCatchupAxis(value, lowerVisibleEdge, upperVisibleEdge, subjectLower, subjectUpper, zoneSize) {
+    const zone = Math.max(1, Number(zoneSize) || 1);
+    const lowerDistance = subjectLower - lowerVisibleEdge;
+    const upperDistance = upperVisibleEdge - subjectUpper;
+    const lowerPressure = clamp(1 - lowerDistance / zone, 0, 1);
+    const upperPressure = clamp(1 - upperDistance / zone, 0, 1);
+    if (lowerPressure <= 0 && upperPressure <= 0) {
+        return { pressure: 0, target: value };
+    }
+    if (lowerPressure >= upperPressure) {
+        return { pressure: lowerPressure, target: value - Math.max(0, zone - lowerDistance) };
+    }
+    return { pressure: upperPressure, target: value + Math.max(0, zone - upperDistance) };
+}
+
+function cameraEdgeCatchupPlan(state) {
+    const camera = state.camera;
+    const player = state.player;
+    const width = Math.max(1, Number(camera.viewportWidth) || 1280);
+    const height = Math.max(1, Number(camera.viewportHeight) || 720);
+    const cameraX = Number(camera.currentTransform.x) || 0;
+    const cameraY = Number(camera.currentTransform.y) || 0;
+    const left = cameraX - width * 0.5;
+    const right = cameraX + width * 0.5;
+    const top = cameraY - height * 0.56;
+    const bottom = top + height;
+    const playerX = Number(player.currentTransform.x) || 0;
+    const playerY = Number(player.currentTransform.y) || 0;
+    const playerLeft = playerX - Math.max(1, Number(player.width) || 1) * 0.5;
+    const playerRight = playerX + Math.max(1, Number(player.width) || 1) * 0.5;
+    const playerTop = playerY - Math.max(1, Number(player.height) || 1);
+    const playerBottom = playerY;
+    const x = cameraEdgeCatchupAxis(
+        cameraX, left, right, playerLeft, playerRight, width * CAMERA_EDGE_CATCHUP_ZONE_RATIO
+    );
+    const y = cameraEdgeCatchupAxis(
+        cameraY, top, bottom, playerTop, playerBottom, height * CAMERA_EDGE_CATCHUP_ZONE_RATIO
+    );
+    return { x, y };
+}
+
+function applyCameraEdgeCatchupAxis(current, plan, dt) {
+    const pressure = clamp(Number(plan?.pressure) || 0, 0, 1);
+    if (pressure <= 0) return current;
+    if (pressure >= 0.999999) return Number(plan.target) || current;
+    // The ordinary camera remains untouched until the player enters the final
+    // 1/8 of the viewport. Inside that zone the additional tracing rate rises
+    // as p^2/(1-p), tending to infinity at the actual screen edge.
+    const rate = CAMERA_EDGE_CATCHUP_RATE * pressure * pressure / Math.max(0.000001, 1 - pressure);
+    const blend = 1 - Math.exp(-rate * Math.max(0, Number(dt) || 0));
+    return current + ((Number(plan.target) || current) - current) * blend;
+}
+
+function keepPlayerInsideCameraViewport(state) {
+    const camera = state.camera;
+    const player = state.player;
+    const width = Math.max(1, Number(camera.viewportWidth) || 1280);
+    const height = Math.max(1, Number(camera.viewportHeight) || 720);
+    const playerX = Number(player.currentTransform.x) || 0;
+    const playerY = Number(player.currentTransform.y) || 0;
+    const halfPlayerWidth = Math.max(1, Number(player.width) || 1) * 0.5;
+    const playerHeight = Math.max(1, Number(player.height) || 1);
+    const playerLeft = playerX - halfPlayerWidth;
+    const playerRight = playerX + halfPlayerWidth;
+    const playerTop = playerY - playerHeight;
+    const playerBottom = playerY;
+
+    let left = camera.currentTransform.x - width * 0.5;
+    let right = camera.currentTransform.x + width * 0.5;
+    if (playerLeft < left) camera.currentTransform.x += playerLeft - left;
+    else if (playerRight > right) camera.currentTransform.x += playerRight - right;
+
+    let top = camera.currentTransform.y - height * 0.56;
+    let bottom = top + height;
+    if (playerTop < top) camera.currentTransform.y += playerTop - top;
+    else if (playerBottom > bottom) camera.currentTransform.y += playerBottom - bottom;
+}
 
 function updateCameraHint(state, dt) {
     const p = state.player;
+    const edgeCatchup = cameraEdgeCatchupPlan(state);
     const lookAhead = 150 * p.facing;
     const upwardLead = clamp(Math.min(0, p.vy) * 0.12, -120, 0);
     const descendingLead = p.onGround
@@ -13109,6 +14268,9 @@ function updateCameraHint(state, dt) {
     const blend = 1 - Math.pow(blendRate, dt);
     state.camera.currentTransform.x += (targetX - state.camera.currentTransform.x) * blend;
     state.camera.currentTransform.y += (targetY - state.camera.currentTransform.y) * blend;
+    state.camera.currentTransform.x = applyCameraEdgeCatchupAxis(state.camera.currentTransform.x, edgeCatchup.x, dt);
+    state.camera.currentTransform.y = applyCameraEdgeCatchupAxis(state.camera.currentTransform.y, edgeCatchup.y, dt);
+    keepPlayerInsideCameraViewport(state);
 }
 
 export function damagePlayer(state, amount = 34, sourceId = "debug", options = {}) {
@@ -13154,6 +14316,7 @@ export function damagePlayer(state, amount = 34, sourceId = "debug", options = {
     if (Number.isFinite(Number(options.knockbackY))) {
         state.player.vy = Number(options.knockbackY);
         state.player.onGround = false;
+        state.player.groundStride = null;
     }
 
     const defeated = health.amount <= 0;
@@ -13192,6 +14355,7 @@ export function teleportPlayer(state, x, y, reason = "developmentTeleport") {
     p.vy = 0;
     p.onGround = false;
     p.supportId = null;
+    p.groundStride = null;
     p.dropThroughTimer = 0;
     p.inWater = false;
     p.waterSubmersion = 0;
@@ -13226,6 +14390,7 @@ export function resetPlayer(state, reason = "manualReset") {
     p.vy = 0;
     p.onGround = false;
     p.supportId = null;
+    p.groundStride = null;
     p.dropThroughTimer = 0;
     p.inWater = false;
     p.waterSubmersion = 0;

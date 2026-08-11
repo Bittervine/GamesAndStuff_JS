@@ -601,6 +601,25 @@
                 }
             }
         },
+        "proximitySignalTrigger": {
+            "type": "proximitySignalTrigger",
+            "label": "Proximity signal trigger",
+            "icon": "◎",
+            "description": "Invisible one-shot trigger that activates a named signal channel the first time Ignatius enters its radius.",
+            "defaultState": "armed",
+            "defaultSize": {
+                "w": 32,
+                "h": 32
+            },
+            "defaults": {
+                "interaction": "proximitySignal",
+                "channel": "A",
+                "triggerDistance": 160,
+                "oneShot": true,
+                "floorAnchorYFactor": 0.5
+            },
+            "states": {}
+        },
         "spikedGate": {
             "type": "spikedGate",
             "label": "Spiked gate",

@@ -1,6 +1,6 @@
 {
     "meta": {
-        "version": 2,
+        "version": 4,
         "note": "Atlas 009 is a single full-image castle stone wall decoration/background asset."
     },
     "atlasId": "at_atlas_009",
@@ -9,8 +9,8 @@
         "castle_stone_wall_background": {
             "x": 0,
             "y": 0,
-            "w": 1672,
-            "h": 941
+            "w": 621,
+            "h": 262
         }
     },
     "objects": {

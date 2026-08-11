@@ -263,99 +263,11 @@ The testbench should be able to run the simulation without rendering.
 
 Some integration tests may still use Playwright to verify browser behavior, but most mechanical tests should target the simulation directly.
 
-## Future C++ and Unreal Engine Portability
+## HTML/JS and SDL/C++ Portability
 
-The HTML and JavaScript version remains the reference implementation while the game is developed. A later Unreal Engine port should translate the gameplay model rather than redesign it around Unreal-specific gameplay physics.
+The HTML/JavaScript game under `reference/` is the behavioral reference and the SDL3/C++ implementation is the maintained native port. Gameplay changes should preserve equivalent authoritative state, update order, collision behavior, event semantics, schemas, and deterministic fixtures in both implementations. Presentation layers may differ internally and must not become authoritative for gameplay.
 
-The eventual port should have two layers:
-
-* `RocketfrockCore`: ordinary engine-neutral C++ containing gameplay state, fixed-step simulation, collision, weapons, enemies, reactive objects, story state, serialization, and tests.
-* `RocketfrockUnreal`: a thin Unreal adapter that loads assets, converts device input into an input frame, advances the portable core, and presents state through Actors, components, sprites, audio, particles, UI, and camera systems.
-
-The portable core must not depend on Actors, UObjects, rendering APIs, audio APIs, browser objects, Chaos physics, or Unreal Character Movement. Those systems may be used for presentation and non-authoritative debris, but the custom Rocketfrock simulation remains authoritative for gameplay motion and collision.
-
-### Portable Simulation Contract
-
-The JavaScript and C++ cores should preserve close structural and behavioral parity. Important functions should retain equivalent names, responsibilities, data fields, and update order where practical.
-
-The core interface should remain conceptually equivalent to:
-
-```text
-createInitialGameState(configuration) -> GameState
-normalizeLevelDefinition(authoringData, manifests) -> LevelDefinition
-applyLevelDefinition(gameState, levelDefinition)
-stepSimulation(gameState, inputFrame, fixedDt) -> SimulationEvent[]
-serializeGameState(gameState)
-restoreGameState(serializedState)
-```
-
-Parity means identical state-machine choices, events, collision outcomes, IDs, integer values, and update ordering, with floating-point values compared using documented tolerances. It does not require byte-identical floating-point results on every platform.
-
-### Coordinate and Numeric Contract
-
-The engine-neutral gameplay convention is:
-
-* Positive X points right.
-* Positive Y points down.
-* Character Y positions normally identify the foot or ground baseline unless a field explicitly documents another anchor.
-* Distances use virtual game units.
-* Rotations use radians.
-* Positive rotation is clockwise in the Y-down gameplay coordinate system.
-* Gameplay calculations use finite double-precision-compatible numbers.
-* Collision comparisons use named tolerances and documented tie-breaking rules.
-
-The Unreal adapter is responsible for converting this convention into Unreal axes and units. Unreal coordinate conventions must not leak back into the portable core or shared gameplay JSON.
-
-### Runtime Level Boundary
-
-Authoring data and runtime gameplay data must be separated before procedural generation and reactive-world systems expand the level format.
-
-Level loading should have two stages:
-
-1. Import and normalize editor JSON, atlas collision manifests, and defaults into a versioned `LevelDefinition`.
-2. Apply the normalized `LevelDefinition` to `GameState`, while passing visual placements and asset references separately to the presentation layer.
-
-A runtime `LevelDefinition` may contain world bounds, doorway and player anchors, normalized collision geometry, stable entity IDs, enemies, pickups, hazards, reactive objects, and story definitions. PNG paths, atlas rectangles, colour-map settings, render layers, editor notes, and visual placements are presentation or authoring data.
-
-The simulation must never obtain gameplay collision by querying the renderer. Asset loading or a dedicated level compiler should provide normalized collision to the simulation independently of visual resources.
-
-### Authoritative State and Presentation State
-
-`GameState` contains authoritative gameplay, story, save, replay, and deterministic state. Presentation-only data should be derived from authoritative state, maintained outside it, or produced in response to serializable `SimulationEvent` records.
-
-Presentation-only examples include decorative smoke, camera interpolation, render interpolation, low-health colour pulse, hit flashes, temporary health-bar display timers, environment colour mapping, and doorway-only visual scaling. Gameplay animation intent may remain authoritative, but sprite or rig playback clocks should not silently control gameplay timing unless the same timing is represented explicitly in gameplay data.
-
-Important one-tick transitions should be emitted as events such as `PLAYER_JUMPED`, `PLAYER_LANDED`, `BOOST_STARTED`, `WEAPON_LAUNCHED`, `PROJECTILE_IMPACTED`, `ENEMY_DAMAGED`, `ENEMY_DEFEATED`, and `LEVEL_TRANSITION_REQUESTED`. Presentation systems consume these events for effects without becoming gameplay authorities.
-
-### Shared Schemas and Module Boundaries
-
-Every cross-language runtime document should have a schema name and version. Required fields, optional fields, exact defaults, units, ranges, canonical string values, unknown-field behavior, and migrations must be documented.
-
-As the simulation grows, split it into engine-neutral modules with future C++ equivalents:
-
-* Core types, math, constants, tolerances, and deterministic random generation.
-* State creation, validation, serialization, and migration.
-* Runtime level definitions and entity spawning.
-* Collision geometry and movement resolution.
-* Player movement, health, fuel, hat, and equipment.
-* Weapons and projectiles.
-* Enemies and AI.
-* Destructible and reactive objects.
-* Story and level transitions.
-* Simulation events.
-* A small `simulation.js` facade that owns and documents fixed update order.
-
-Module extraction must preserve behavior. `stepSimulation(...)` remains the authoritative orchestration boundary.
-
-### Cross-Implementation Parity Tests
-
-Before the full Unreal port begins, create language-neutral JSON fixtures containing an initial state or level, tuning overrides, tick-numbered input frames, expected events, selected expected state values, and numeric tolerances.
-
-The JavaScript testbench and future C++ test runner should consume the same fixtures. They should cover movement, slopes, penetration recovery, doors, fuel, health, homing, projectile sweeps, enemies, reactive objects, procedural generation, and save/restore.
-
-Maintain a canonical authoritative-state summary or hash. Exclude presentation state, renderer caches, debug prose, and unordered implementation details.
-
-A small standalone C++ portability spike should be completed before procedural generation greatly expands the code and data surface. It only needs to port the core numeric types, input frame, a minimal game state, and representative movement/collision fixtures. The purpose is to expose schema, coordinate, update-order, and floating-point problems while they are still inexpensive to correct.
+The shared simulation contract remains normalized input plus fixed `dt` advancing authoritative game state and emitting simulation events. Runtime data and tests should remain platform-neutral so the same authored JSON and parity fixtures can be consumed by both implementations.
 
 ## Game State Structure
 
@@ -1465,9 +1377,9 @@ Placed character enemies now own simulation state for guard and patrol behaviour
 
 Placed enemies now own serializable maximum/current health and combat state. Rockets carry authored damage, sweep their circular body against enemy rectangles and terrain each fixed step, and resolve whichever impact occurs first so enemies cannot be hit through a nearer wall. Surviving Skeleton Guards pause in their authored hurt clip before resuming guard or patrol behaviour; lethal hits select the non-looping death clip, stop movement, and deactivate the associated homing target while leaving the corpse visible. The renderer reads simulation-owned flash and health-bar timers for immediate feedback without owning combat decisions.
 
-### Revision 095 future C++ and Unreal portability roadmap
+### Revision 095 C++ portability roadmap
 
-The plan now treats the browser game as the reference implementation for a later engine-neutral C++ gameplay core and Unreal presentation adapter. It defines the fixed simulation interface, coordinate and numeric conventions, normalized runtime level boundary, authoritative-versus-presentation state split, simulation-event interface, versioned schema rules, future module boundaries, shared parity fixtures, and an early standalone C++ spike. These are architectural guardrails and scheduled preparation work; revision 095 does not yet move gameplay code or change runtime behavior.
+Revision 095 established the browser game as the behavioral reference for an engine-neutral C++ gameplay core and thin presentation layer. It defined the fixed simulation interface, coordinate and numeric conventions, normalized runtime level boundary, authoritative-versus-presentation state split, simulation-event interface, versioned schema rules, module boundaries, shared parity fixtures, and an early standalone C++ spike. These were architectural guardrails and did not change runtime behavior.
 
 ### Revision 096 enemy melee attacks and player damage
 
@@ -2499,7 +2411,7 @@ Generation may retry using deterministic attempt-specific sub-seeds. The panel m
 
 After the generator produces useful editable drafts, begin real level production and new enemy integration. Profile those representative dense levels in target browsers and Electron before committing to WebGL2. Add WebGL2 only if measurements identify Canvas presentation as the material bottleneck.
 
-Keep the portable state, level schema, generation metadata, and deterministic validation engine-neutral so an eventual Unreal Engine 5 port remains possible. Electron remains a valid shipping route unless product requirements or measured platform needs justify the rewrite.
+Keep the portable state, level schema, generation metadata, and deterministic validation engine-neutral so the browser and SDL/C++ implementations can continue to share authored data and parity checks.
 
 
 ## Revision 225 roadmap definition
@@ -4705,3 +4617,44 @@ F8 level skipping now exists only while the product-development constant is comp
 
 Revision 313 corrects the visual regression introduced by revision 312's native path containment. The native game and Dev Tool continue to read only the bundled executable-adjacent Inter/Caveat files, but SDL_ttf now opens the real Inter Bold named variable-font instance for title, body, HUD, story, and Dev Tool UI text instead of accepting Inter's default instance. Proximity TEXT retains its existing explicit Inter Bold/Caveat Bold named-instance handling. No system-font fallback is restored.
 
+## Revision 318 normalize wrench travel distance
+
+Player rocket expiry is normalized by distance. The ordinary rocket keeps a 600-pixel nominal travel budget. Every wrench rocket receives a 1500-pixel nominal travel budget so speed changes express handling rather than hidden off-screen range. Lifetime is derived when the projectile is launched from the selected distance divided by its actual profile-adjusted speed: 1.5 seconds for double-speed Yellow/Cyan/Green, 3 seconds for Blue/Magenta, and 6 seconds for half-speed Red. The obsolete wrench lifetime multiplier is removed. Red Bigbomb's fuel multiplier falls from 3 to 2, reducing its launch cost from 90 to 60 at the current 30-unit standard cost while retaining 120 AoE damage.
+
+
+## Revision 321 wrench reach, fixed lock radius, and off-screen expiry culling
+
+Increase the shared wrench rocket travel budget from 1500 to 1800 px while leaving the standard rocket at 600 px and continuing to derive lifetime from actual launch speed. Replace viewport-width player target acquisition with a fixed 1500 px radial search so all targets in the normal 1920x1080 view remain eligible but distant level content does not attract rockets pointlessly. Preserve line-of-sight and forward-priority ordering after the radial rejection. Verify that the Blue Homing Triple's upward launch curve can still reach a target at the full 1500 px acquisition radius within the 1800 px path budget.
+
+Suppress only no-hit lifetime explosion presentation when the expiry point is more than 100 px from the nearest point of the visible world rectangle. Remove the projectile directly so its impact smoke cannot drift back into view. Do not suppress explosions caused by enemy, reactive-object, or terrain impacts, even when the collision occurs farther off-screen, and leave Boomerang return behavior unchanged.
+
+## Revision 335 steep one-way support and diminishing permanent caps
+
+- Fix the native player ground-follow path to mirror the browser's horizontal swept-support rule for steep green `walkable` segments. A grounded wizard climbing uphill across a steep support is tested along the whole foot sweep, with slope travel included in the allowed vertical change, so thin one-way ladders remain reliable at essentially 200 percent permanent running speed without turning them into thick/blocking green areas. Keep upward passage and explicit drop-through semantics unchanged, and deliberately do not pin the wizard to the line while running downhill; he may leave the descending ladder and fall. Add synthetic browser/native regressions for both directions rather than loading a mutable campaign level.
+- Change permanent Health and Speed progression from linear unbounded increments to diminishing gains toward 2x their base values. Health keeps the existing first +20 capacity gain and then closes 20 percent of the remaining gap each pickup; Speed keeps the existing first +10 percent gain and then closes 10 percent of the remaining gap each pickup. Fuel capacity and the shared Health/Fuel regeneration upgrade remain uncapped. Player-fired rocket velocity continues to use the same permanent movement-speed scale.
+- Correct the manuals' stale Speed-upgrade text: the actual pickup message is `Speed has been upgraded!`, and permanent Speed has scaled player-fired rocket velocity since revision 319.
+
+## Revision 346 collision-index and projectile-sweep review fixes
+
+- Fixed the native collision-index invalidation hole found during review. `collisionRevision` existed in the cache key but production same-count erase/reinsert paths for signal gates and reactive solids could leave cached pointers, static/dynamic classification, and bins describing the old vector topology. Structural collision mutations now advance the revision, including receiver/reactive resync, moving-platform attach/detach topology changes, editor-level collision replacement, and atlas collision replacement. In-place moving-platform geometry updates remain live dynamic records and do not need a topology stamp. The browser index already invalidates the corresponding array-replacement paths through source identity/length changes.
+- Fixed `sweptCirclePolygonImpact()` in both runtimes. It previously checked center-path polygon crossings plus the projectile endpoint's radius against polygon edges, which could miss a circle whose swept path grazed an edge while both endpoints stayed clear. The helper now performs the complete swept-circle-vs-segment test for every polygon edge and chooses the earliest impact. Normal atlas polygons often had duplicate boundary segments that masked the defect in production, so a polygon-only grazing regression was added explicitly.
+- Removed the native duplicate signal-receiver scan after emitter changes. Emitters are updated first, then receivers exactly once, matching the browser simulation order.
+- Renamed the nested Revision 345 collision regression state variable so MSVC no longer reports C4456 shadowing of the outer `state` declaration.
+- Advance all game/editor/build labels to revision 346.
+
+
+## Revision 353 Puppet Forge engagement authoring and collapsed-first inspectors
+
+Revision 352 made the enemy catalog authoritative, but Puppet Forge still hid awareness/engagement values in raw catalog JSON and crowded Metadata with movement and combat controls. Revision 353 exposes awareness range, forward view half-angle, awareness hold duration, preferred projectile range, and preferred projectile minimum range as ordinary catalog-backed controls. Metadata, Movement, Attack behavior, and Projectile behavior are independent adjacent right-side panels. The selected-enemy All defaults JSON textarea is retired because Enemy Catalog JSON already provides the complete raw document and the duplicate surface could drift from the structured fields.
+
+Character, Level, and Asset editors continue to persist each right-side panel's collapsed state in localStorage. The default polarity changes: when a panel has no remembered value, it begins collapsed. An explicitly opened panel stores `false` and therefore reopens on the next session; an explicitly collapsed panel stores `true`.
+
+## Revision 355 native standard-library type cleanup
+
+Revision 355 is a provenance-oriented native source cleanup. SDL/C++ now names standard-library facilities directly, uses the small project-owned `FRigPoint` for character rig pivot/offset coordinates, and no longer carries the old compatibility headers. No gameplay, level, projectile, collision, animation, rendering, editor, or authored data behavior is intentionally changed.
+
+## Revision 358 Development Tool resource-root consolidation
+
+A full path review found seven related Development Tool defects and they are fixed in this revision. Chrome could fail to reload after selecting a different checkout because both directory handles normally display as `resources`; Level Editor and Character Tool could read page-relative resources while saving to the selected project root; Asset Tool still loaded its PNG/helper catalogs through the page tree after its manifest fix; Palette Builder could read one checkout and write generated palette files into another; the remembered browser directory handle was shared across checkout paths on the same origin; and browser/native resource-root validation disagreed.
+
+The shared `IgnatiusProjectHost` now owns canonical arbitrary text/blob reads below the selected resources root as well as typed saves. Shared resource JSON/image loading prefers that host whenever a project is connected. Browser handles are keyed by checkout-directory path, folder changes use entry identity plus a `selectionVersion`, and native arbitrary text/binary serving uses the active `authoringResourceRoot`. The four authoring tools route their resource dependencies through that contract. Palette Builder discards an in-memory build after a root change before allowing project output. A first project-folder selection triggered by Save returns `root-changed` without writing the already-loaded document, and the editor reloads from the chosen root before a subsequent project save. Browser and native root validation now require the same canonical directories and resource-index shape, and both sides reject unsafe relative paths. Regression coverage includes switching between two distinct directory handles that are both named `resources`, first-save write suppression, plus source-level checks that each editor uses the selected-root readers.

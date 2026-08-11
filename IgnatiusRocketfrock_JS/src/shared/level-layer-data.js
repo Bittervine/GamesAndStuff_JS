@@ -35,6 +35,14 @@ export function normalizeLayerScale(value) {
     return Math.max(0.1, Math.min(5, finiteNumber(value, DEFAULT_LAYER_SCALE)));
 }
 
+export function normalizeBackgroundAsset(rawAsset) {
+    const source = rawAsset && typeof rawAsset === "object" ? rawAsset : null;
+    if (!source) return null;
+    const atlasId = String(source.atlasId || "").trim();
+    const assetId = String(source.assetId || "").trim();
+    return atlasId && assetId ? { atlasId, assetId } : null;
+}
+
 export function normalizeLevelLayerVisuals(rawVisuals) {
     const source = rawVisuals && typeof rawVisuals === "object" ? rawVisuals : {};
     const background = source.background && typeof source.background === "object" ? source.background : {};
@@ -45,7 +53,8 @@ export function normalizeLevelLayerVisuals(rawVisuals) {
             parallaxX: normalizeBackgroundParallax(background.parallaxX),
             parallaxY: normalizeBackgroundParallax(background.parallaxY),
             brightness: normalizeLayerBrightness(background.brightness),
-            scale: normalizeLayerScale(background.scale)
+            scale: normalizeLayerScale(background.scale),
+            asset: normalizeBackgroundAsset(background.asset)
         },
         foreground: {
             parallaxX: normalizeForegroundParallax(foreground.parallaxX),

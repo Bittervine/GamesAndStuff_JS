@@ -402,13 +402,12 @@
             "scale": 0.22,
             "targetHeight": 10,
             "alpha": 0,
-            "projectile": {
+            "attackHandoff": {
                 "enabled": true,
                 "id": "throwingKnife",
                 "animationSlot": "attack",
-                "launchType": "straight",
                 "releaseTime": 0.311,
-                "projectileKind": "throwingKnife"
+                "detach": true
             }
         }
     }

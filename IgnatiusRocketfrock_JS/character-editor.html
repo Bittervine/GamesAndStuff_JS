@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" href="favicon.ico" sizes="any">
-    <title>Puppet Forge: Character Animation Tool</title>
+    <title>Puppet Forge: Character Animation Tool - BUILD 360</title>
     <style>
         :root {
             color-scheme: dark;
@@ -774,7 +774,7 @@
             <p>Accepts a character definition, rig manifest, or atlas manifest. Rig/atlas URLs resolve to their matching character project when one exists.</p>
             <p id="project-source" class="project-source">URL project: resources/characters/ct_char_wizard_1.json</p>
         </section>
-        <section class="box" id="enemy-type-panel" title="Type-wide defaults for the selected known enemy in ct_enemies_001.json. These values do not edit one placed level instance.">
+        <section class="box" id="enemy-type-panel" data-panel-key="metadata" title="Type-wide defaults for the selected known enemy in ct_enemies_001.json. These values do not edit one placed level instance.">
             <h2>Metadata</h2>
             <div class="row">
                 <label><span>Label</span><input id="enemy-label" type="text"></label>
@@ -793,14 +793,70 @@
                 <label title="Moves rendered artwork horizontally relative to the hitbox without changing animation keys. Positive X is character-local and mirrors with facing."><span>Artwork offset X</span><input id="enemy-render-offset-x" type="number" step="1"></label>
                 <label title="Moves rendered artwork vertically relative to the hitbox without changing animation keys. Positive Y moves the artwork downward."><span>Artwork offset Y</span><input id="enemy-render-offset-y" type="number" step="1"></label>
             </div>
+        </section>
+        <section class="box" id="enemy-movement-panel" data-panel-key="movement" title="Type-wide locomotion and movement defaults inherited by deployed enemies unless a level instance explicitly overrides them.">
+            <h2>Movement</h2>
             <div class="row">
                 <label><span>Locomotion</span><select id="enemy-locomotion"><option value="ground">Ground</option><option value="flying">Flying</option></select></label>
-                <label title="Bomber-specific tuning remains available in All defaults JSON, including hover height, drop tolerance, projectile cooldown, speed, gravity, damage, and radius."><span>AI strategy</span><select id="enemy-strategy"><option value="simple_patrol">Simple patrol</option><option value="sentry">Sentry</option><option value="hunter">Hunter</option><option value="bomber">Bomber</option></select></label>
+                <label><span>AI strategy</span><select id="enemy-strategy"><option value="simple_patrol">Simple patrol</option><option value="sentry">Sentry</option><option value="hunter">Hunter</option><option value="bomber">Bomber</option></select></label>
             </div>
-            <label><span>All defaults JSON</span><textarea id="enemy-defaults-json" rows="16" spellcheck="false"></textarea></label>
             <div class="row">
-                <button id="apply-enemy-defaults" type="button">Apply</button>
-                <button id="refresh-enemy-defaults" type="button">Refresh fields</button>
+                <label><span>Walk speed</span><input id="enemy-walk-speed" type="number" min="0" step="1"></label>
+                <label><span>Run speed</span><input id="enemy-run-speed" type="number" min="0" step="1"></label>
+                <label><span>Jump height</span><input id="enemy-jump-height" type="number" min="0" step="1"></label>
+            </div>
+        </section>
+        <section class="box" id="enemy-attack-behavior-panel" data-panel-key="attack-behavior" title="Type-wide attack and engagement defaults inherited by deployed enemies unless a level instance explicitly overrides them.">
+            <h2>Attack behavior</h2>
+            <div class="row">
+                <label><span>Attack type</span><select id="enemy-attack-type"><option value="melee">Melee</option><option value="projectile">Projectile</option></select></label>
+                <label><span>Damage</span><input id="enemy-damage" type="number" min="0" step="1"></label>
+                <label><span>Cooldown (s)</span><input id="enemy-attack-cooldown" type="number" min="0" step="0.01"></label>
+            </div>
+            <div class="row">
+                <label title="Melee reach and the ranged fallback/approach range when no preferred ranged distance is authored."><span>Attack reach</span><input id="enemy-attack-range" type="number" min="1" step="1"></label>
+                <label><span>Vertical reach</span><input id="enemy-attack-vertical-range" type="number" min="1" step="1"></label>
+                <label class="enemy-melee-field"><span>Melee hit radius</span><input id="enemy-melee-hit-radius" type="number" min="1" step="1"></label>
+            </div>
+            <h3>Awareness / engagement</h3>
+            <div class="row">
+                <label title="Maximum radial distance at which the enemy can freshly see and engage Ignatius."><span>Awareness range</span><input id="enemy-awareness-range" type="number" min="0" step="1"></label>
+                <label title="Half-angle of the forward awareness cone. 60° means a 120° total field of view."><span>Awareness half-angle (°)</span><input id="enemy-awareness-view-half-angle" type="number" min="0" max="180" step="1"></label>
+                <label title="How long awareness memory persists after a fresh sighting is lost."><span>Awareness hold (s)</span><input id="enemy-awareness-hold-duration" type="number" min="0" step="0.05"></label>
+            </div>
+            <div class="row">
+                <label class="enemy-projectile-engagement-field" title="Preferred distance for projectile enemies. Attack reach remains the fallback when this is zero."><span>Preferred attack range</span><input id="enemy-preferred-attack-range" type="number" min="0" step="1"></label>
+                <label class="enemy-projectile-engagement-field" title="Projectile enemies try not to fire or settle closer than this distance when their strategy supports ranged spacing."><span>Preferred minimum range</span><input id="enemy-preferred-attack-min-range" type="number" min="0" step="1"></label>
+            </div>
+        </section>
+        <section class="box" id="enemy-projectile-behavior" data-panel-key="projectile-behavior" title="Projectile-specific attack tuning. Presentation inherits from the selected projectile kind unless explicitly overridden.">
+            <h2>Projectile behavior</h2>
+            <div class="row">
+                <label><span>Projectile kind</span><select id="enemy-projectile-kind"></select></label>
+                <label><span>Launch type</span><select id="enemy-projectile-launch-type"><option value="ballistic">ballistic</option><option value="straight">straight</option><option value="homing_lo">homing_lo</option><option value="homing_hi">homing_hi</option><option value="pathing_lo">pathing_lo</option><option value="pathing_hi">pathing_hi</option><option value="drop">drop</option></select></label>
+            </div>
+            <div class="row">
+                <label><span>Speed</span><input id="enemy-projectile-speed" type="number" min="1" step="1"></label>
+                <label><span>Gravity</span><input id="enemy-projectile-gravity" type="number" step="1"></label>
+                <label><span>Lifetime (s)</span><input id="enemy-projectile-lifetime" type="number" min="0.001" step="0.01"></label>
+                <label><span>Radius</span><input id="enemy-projectile-radius" type="number" min="1" step="1"></label>
+            </div>
+            <div class="row">
+                <label><span>Homing strength</span><input id="enemy-projectile-homing" type="number" min="0" step="0.05"></label>
+                <label><span>Spread count</span><input id="enemy-spread-count" type="number" min="1" max="15" step="1"></label>
+                <label title="Half-angle: 15° means shots fan from -15° to +15°."><span>Spread angle (±°)</span><input id="enemy-spread-angle" type="number" min="0" max="180" step="1"></label>
+                <label><span>Rotation speed (°/s)</span><input id="enemy-projectile-rotation-speed" type="number" step="1"></label>
+            </div>
+            <div class="row">
+                <label><span>Visual scale</span><input id="enemy-projectile-visual-scale" type="number" min="0.01" step="0.05"></label>
+                <label><span>Trail effect</span><select id="enemy-projectile-trail-effect"><option value="none">None</option><option value="fire">Fire</option><option value="undeath">Undeath</option><option value="sparks">Sparkles</option></select></label>
+                <label><span>Impact effect</span><select id="enemy-projectile-impact-effect"><option value="none">None</option><option value="sparks">Sparkles</option></select></label>
+                <label><span>Explosion effect</span><select id="enemy-projectile-explosion-effect"><option value="impact">Impact</option><option value="rocket">Rocket</option></select></label>
+            </div>
+            <div class="row">
+                <label title="Area damage radius in wizard heights. Zero disables AoE."><span>AoE radius (WH)</span><input id="enemy-projectile-aoe-radius" type="number" min="0" step="0.1"></label>
+                <label class="check-row"><input id="enemy-projectile-orient-velocity" type="checkbox"> Point along flight direction</label>
+                <button id="reset-projectile-archetype" type="button">Reset presentation to kind defaults</button>
             </div>
         </section>
         <section class="box" id="character-sounds-panel" data-panel-key="character-sounds">
@@ -975,31 +1031,21 @@
                 <button id="part-to-back" type="button">To Back</button>
                 <button id="part-to-front" type="button">To Front</button>
             </div>
-            <h3>Projectile handoff</h3>
-            <label class="check-row"><input id="projectile-enabled" type="checkbox"> This rig part becomes a gameplay projectile</label>
-            <label class="check-row"><input id="projectile-active-character" type="checkbox"> Use this projectile part for the current character variant</label>
+            <h3>Attack handoff</h3>
+            <label class="check-row"><input id="projectile-enabled" type="checkbox"> This rig part marks an attack handoff</label>
+            <label class="check-row"><input id="projectile-active-character" type="checkbox"> Use this handoff part for the current character variant</label>
             <div id="projectile-fields">
                 <div class="row">
-                    <label><span>Projectile ID</span><input id="projectile-id" type="text" placeholder="fireball"></label>
-                    <label>
-                        <span>Launch type</span>
-                        <select id="projectile-launch-type">
-                            <option value="ballistic">ballistic</option>
-                            <option value="straight">straight</option>
-                            <option value="homing_lo">homing_lo</option>
-                            <option value="homing_hi">homing_hi</option>
-                            <option value="pathing_lo">pathing_lo (obstacle-aware)</option>
-                            <option value="pathing_hi">pathing_hi (obstacle-aware)</option>
-                        </select>
-                    </label>
+                    <label><span>Handoff ID</span><input id="projectile-id" type="text" placeholder="attack"></label>
+                    <label><span>Animation slot</span><input id="projectile-animation-slot" type="text" value="attack"></label>
                 </div>
                 <div class="row">
-                    <label><span>Animation slot</span><input id="projectile-animation-slot" type="text" value="attack"></label>
-                    <label><span>Release time (seconds)</span><input id="projectile-release-time" type="number" min="0" step="0.001"></label>
+                    <label><span>Release / impact time (seconds)</span><input id="projectile-release-time" type="number" min="0" step="0.001"></label>
+                    <label class="check-row"><input id="projectile-detach" type="checkbox"> Detach this part when released (projectiles)</label>
                 </div>
                 <div id="projectile-last-key-time" class="muted-line"></div>
             </div>
-            <p>The projectile remains animation-controlled before Release time. At that time the game copies its sampled world position, hides the rig part, and gives the projectile to the simulation. The final keyed time is shown only as a reference. Pathing modes are reserved for a later obstacle-planning pass.</p>
+            <p>The handoff is the animation-authored moment and location where an attack happens. Melee samples the handoff position for its hit radius. Projectile attacks sample the same point as the launch origin; only handoffs marked Detach hide the rig part after release. Projectile kind, trajectory, spread, damage, rotation, and effects are configured in Attack behavior above.</p>
             <p>Draw order runs from back to front. The first part is drawn lowest; the last part is drawn on top.</p>
             <p>Pivot and target height define shared sprite geometry. Setup offsets and base scale are still used by the current procedural airborne poses and as rig defaults, but a data-driven clip such as Run supplies its own absolute X, Y, and scale values while that clip is playing.</p>
         </section>
@@ -1114,6 +1160,7 @@ import {
     sampleAnimationClipAtPlayhead
 } from "./src/shared/animation-data.js";
 import { normalizeResourcePath, resourceUrl } from "./src/shared/resource-paths.js";
+import { loadImageResourceWithRetry, loadJsonResourceWithRetry } from "./src/tools/resource-index-loader.js";
 import {
     CHARACTER_SOUND_SLOTS,
     normalizeCharacterSounds
@@ -1282,9 +1329,38 @@ const els = {
     enemyHealth: document.getElementById("enemy-health"),
     enemyLocomotion: document.getElementById("enemy-locomotion"),
     enemyStrategy: document.getElementById("enemy-strategy"),
-    enemyDefaultsJson: document.getElementById("enemy-defaults-json"),
-    applyEnemyDefaults: document.getElementById("apply-enemy-defaults"),
-    refreshEnemyDefaults: document.getElementById("refresh-enemy-defaults"),
+    enemyWalkSpeed: document.getElementById("enemy-walk-speed"),
+    enemyRunSpeed: document.getElementById("enemy-run-speed"),
+    enemyJumpHeight: document.getElementById("enemy-jump-height"),
+    enemyAttackType: document.getElementById("enemy-attack-type"),
+    enemyDamage: document.getElementById("enemy-damage"),
+    enemyAttackCooldown: document.getElementById("enemy-attack-cooldown"),
+    enemyAttackRange: document.getElementById("enemy-attack-range"),
+    enemyAttackVerticalRange: document.getElementById("enemy-attack-vertical-range"),
+    enemyMeleeHitRadius: document.getElementById("enemy-melee-hit-radius"),
+    enemyAwarenessRange: document.getElementById("enemy-awareness-range"),
+    enemyAwarenessViewHalfAngle: document.getElementById("enemy-awareness-view-half-angle"),
+    enemyAwarenessHoldDuration: document.getElementById("enemy-awareness-hold-duration"),
+    enemyPreferredAttackRange: document.getElementById("enemy-preferred-attack-range"),
+    enemyPreferredAttackMinRange: document.getElementById("enemy-preferred-attack-min-range"),
+    enemyProjectileBehavior: document.getElementById("enemy-projectile-behavior"),
+    enemyProjectileKind: document.getElementById("enemy-projectile-kind"),
+    enemyProjectileLaunchType: document.getElementById("enemy-projectile-launch-type"),
+    enemyProjectileSpeed: document.getElementById("enemy-projectile-speed"),
+    enemyProjectileGravity: document.getElementById("enemy-projectile-gravity"),
+    enemyProjectileLifetime: document.getElementById("enemy-projectile-lifetime"),
+    enemyProjectileRadius: document.getElementById("enemy-projectile-radius"),
+    enemyProjectileHoming: document.getElementById("enemy-projectile-homing"),
+    enemySpreadCount: document.getElementById("enemy-spread-count"),
+    enemySpreadAngle: document.getElementById("enemy-spread-angle"),
+    enemyProjectileRotationSpeed: document.getElementById("enemy-projectile-rotation-speed"),
+    enemyProjectileVisualScale: document.getElementById("enemy-projectile-visual-scale"),
+    enemyProjectileTrailEffect: document.getElementById("enemy-projectile-trail-effect"),
+    enemyProjectileImpactEffect: document.getElementById("enemy-projectile-impact-effect"),
+    enemyProjectileExplosionEffect: document.getElementById("enemy-projectile-explosion-effect"),
+    enemyProjectileAoeRadius: document.getElementById("enemy-projectile-aoe-radius"),
+    enemyProjectileOrientVelocity: document.getElementById("enemy-projectile-orient-velocity"),
+    resetProjectileArchetype: document.getElementById("reset-projectile-archetype"),
     enemyCatalogJsonPanel: document.getElementById("enemy-catalog-json-panel"),
     enemyCatalogJson: document.getElementById("enemy-catalog-json"),
     applyEnemyCatalogJson: document.getElementById("apply-enemy-catalog-json"),
@@ -1393,7 +1469,7 @@ const els = {
     projectileActiveCharacter: document.getElementById("projectile-active-character"),
     projectileFields: document.getElementById("projectile-fields"),
     projectileId: document.getElementById("projectile-id"),
-    projectileLaunchType: document.getElementById("projectile-launch-type"),
+    projectileDetach: document.getElementById("projectile-detach"),
     projectileAnimationSlot: document.getElementById("projectile-animation-slot"),
     projectileReleaseTime: document.getElementById("projectile-release-time"),
     projectileLastKeyTime: document.getElementById("projectile-last-key-time"),
@@ -1877,7 +1953,7 @@ function setupCollapsiblePanels() {
             button.title = collapsed ? "Expand panel" : "Collapse panel";
             button.setAttribute("aria-expanded", collapsed ? "false" : "true");
         };
-        apply(remembered[key] === true);
+        apply(remembered[key] === undefined ? true : remembered[key] === true);
         button.addEventListener("click", (event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -2034,32 +2110,26 @@ async function loadJson(url) {
             throw new Error(`Could not parse ${file.name}: ${error.message}`);
         }
     }
-    const resolvedUrl = resourceUrl(url);
-    const response = await fetch(resolvedUrl, { cache: "no-store" });
-    if (!response.ok) {
-        throw new Error(`Could not load ${resolvedUrl}: HTTP ${response.status}`);
-    }
-    return response.json();
+    return loadJsonResourceWithRetry(url);
 }
 
 function loadImage(url) {
+    if (state.projectMode !== "local") {
+        return loadImageResourceWithRetry(url);
+    }
     return new Promise((resolve, reject) => {
         const img = new Image();
         img.decoding = "async";
         img.onload = () => resolve(img);
         img.onerror = () => reject(new Error(`Could not load ${url}`));
-        if (state.projectMode === "local") {
-            const file = localFileForUrl(url);
-            if (!file) {
-                reject(new Error(`The local project does not contain ${url}. Select the atlas PNG.`));
-                return;
-            }
-            const objectUrl = URL.createObjectURL(file);
-            state.localObjectUrls.add(objectUrl);
-            img.src = objectUrl;
-        } else {
-            img.src = resourceUrl(url);
+        const file = localFileForUrl(url);
+        if (!file) {
+            reject(new Error(`The local project does not contain ${url}. Select the atlas PNG.`));
+            return;
         }
+        const objectUrl = URL.createObjectURL(file);
+        state.localObjectUrls.add(objectUrl);
+        img.src = objectUrl;
     });
 }
 
@@ -2133,12 +2203,71 @@ async function applyEnemyCatalogJson() {
     setStatus("Applied ct_enemies_001.json. Download it to save the edited catalog.");
 }
 
+function enemyProjectileArchetype(kind) {
+    return state.enemyCatalog?.projectileKinds?.[String(kind || "")] || {};
+}
+
+function refreshEnemyProjectileKindOptions(selectedKind = "fireball") {
+    if (!els.enemyProjectileKind) return;
+    const kinds = Object.keys(state.enemyCatalog?.projectileKinds || {});
+    const current = String(selectedKind || kinds[0] || "fireball");
+    els.enemyProjectileKind.replaceChildren(...kinds.map((kind) => new Option(kind, kind)));
+    if (!kinds.includes(current)) els.enemyProjectileKind.appendChild(new Option(current, current));
+    els.enemyProjectileKind.value = current;
+}
+
+function enemyProjectilePresentationValue(defaults, fieldName, archetypeField, fallback) {
+    if (defaults?.[fieldName] !== undefined && defaults?.[fieldName] !== null) return defaults[fieldName];
+    const archetype = enemyProjectileArchetype(defaults?.projectileKind);
+    return archetype?.[archetypeField] !== undefined && archetype?.[archetypeField] !== null
+        ? archetype[archetypeField]
+        : fallback;
+}
+
+function enemyProjectilePresentationEquals(a, b) {
+    if (typeof a === "number" || typeof b === "number") {
+        const left = Number(a);
+        const right = Number(b);
+        return Number.isFinite(left) && Number.isFinite(right) && Math.abs(left - right) <= 1e-9;
+    }
+    return a === b;
+}
+
+function setEnemyProjectilePresentationOverride(defaults, fieldName, archetypeField, value, fallback) {
+    const archetype = enemyProjectileArchetype(defaults?.projectileKind);
+    const inherited = archetype?.[archetypeField] !== undefined && archetype?.[archetypeField] !== null
+        ? archetype[archetypeField]
+        : fallback;
+    if (enemyProjectilePresentationEquals(value, inherited)) delete defaults[fieldName];
+    else defaults[fieldName] = value;
+}
+
+function syncEnemyAttackFieldVisibility() {
+    const projectile = String(els.enemyAttackType?.value || "melee") === "projectile";
+    if (els.enemyProjectileBehavior) els.enemyProjectileBehavior.hidden = !projectile;
+    for (const node of document.querySelectorAll(".enemy-melee-field")) node.hidden = projectile;
+    for (const node of document.querySelectorAll(".enemy-projectile-engagement-field")) node.hidden = !projectile;
+}
+
 function refreshEnemyTypeFields() {
     const definition = currentEnemyDefinition();
     const enabled = Boolean(definition);
-    for (const control of [els.enemyLabel, els.enemyIcon, els.enemyDescription, els.enemyDefaultWidth, els.enemyDefaultHeight, els.enemyRenderScale, els.enemyRenderOffsetX, els.enemyRenderOffsetY, els.enemyHealth, els.enemyLocomotion, els.enemyStrategy, els.enemyDefaultsJson, els.applyEnemyDefaults, els.refreshEnemyDefaults]) {
-        if (control) control.disabled = !enabled;
-    }
+    const controls = [
+        els.enemyLabel, els.enemyIcon, els.enemyDescription, els.enemyDefaultWidth, els.enemyDefaultHeight,
+        els.enemyRenderScale, els.enemyRenderOffsetX, els.enemyRenderOffsetY, els.enemyHealth,
+        els.enemyLocomotion, els.enemyStrategy, els.enemyWalkSpeed, els.enemyRunSpeed, els.enemyJumpHeight,
+        els.enemyAttackType, els.enemyDamage, els.enemyAttackCooldown, els.enemyAttackRange,
+        els.enemyAttackVerticalRange, els.enemyMeleeHitRadius, els.enemyAwarenessRange,
+        els.enemyAwarenessViewHalfAngle, els.enemyAwarenessHoldDuration, els.enemyPreferredAttackRange,
+        els.enemyPreferredAttackMinRange, els.enemyProjectileKind,
+        els.enemyProjectileLaunchType, els.enemyProjectileSpeed, els.enemyProjectileGravity,
+        els.enemyProjectileLifetime, els.enemyProjectileRadius, els.enemyProjectileHoming,
+        els.enemySpreadCount, els.enemySpreadAngle, els.enemyProjectileRotationSpeed,
+        els.enemyProjectileVisualScale, els.enemyProjectileTrailEffect, els.enemyProjectileImpactEffect,
+        els.enemyProjectileExplosionEffect, els.enemyProjectileAoeRadius, els.enemyProjectileOrientVelocity,
+        els.resetProjectileArchetype
+    ];
+    for (const control of controls) if (control) control.disabled = !enabled;
     if (els.enemyCatalogJsonPanel) els.enemyCatalogJsonPanel.hidden = !state.enemyCatalog;
     if (els.enemyCatalogJson) els.enemyCatalogJson.disabled = !state.enemyCatalog;
     if (els.applyEnemyCatalogJson) els.applyEnemyCatalogJson.disabled = !state.enemyCatalog;
@@ -2146,7 +2275,6 @@ function refreshEnemyTypeFields() {
     if (els.downloadEnemyCatalog) els.downloadEnemyCatalog.disabled = !state.enemyCatalog;
     refreshEnemyCatalogJson();
     if (!definition) {
-        els.enemyDefaultsJson.value = "";
         return;
     }
     const defaults = definition.defaults && typeof definition.defaults === "object" ? definition.defaults : {};
@@ -2161,21 +2289,43 @@ function refreshEnemyTypeFields() {
     els.enemyHealth.value = Number.isFinite(Number(defaults.health)) ? Number(defaults.health) : 90;
     els.enemyLocomotion.value = String(defaults.locomotion || "ground");
     els.enemyStrategy.value = String(defaults.strategy || "simple_patrol");
-    els.enemyDefaultsJson.value = JSON.stringify(defaults, null, 4);
+    els.enemyWalkSpeed.value = Number.isFinite(Number(defaults.walkSpeed)) ? Number(defaults.walkSpeed) : 0;
+    els.enemyRunSpeed.value = Number.isFinite(Number(defaults.runSpeed)) ? Number(defaults.runSpeed) : 0;
+    els.enemyJumpHeight.value = Number.isFinite(Number(defaults.jumpHeight)) ? Number(defaults.jumpHeight) : 0;
+    els.enemyAttackType.value = String(defaults.attackType || defaults.attackMode || "melee") === "projectile" ? "projectile" : "melee";
+    els.enemyDamage.value = Number.isFinite(Number(defaults.damage)) ? Number(defaults.damage) : Number(defaults.projectileDamage ?? defaults.attackDamage ?? 0);
+    els.enemyAttackCooldown.value = Number.isFinite(Number(defaults.attackCooldown)) ? Number(defaults.attackCooldown) : Number(defaults.projectileCooldown ?? 0);
+    els.enemyAttackRange.value = Number.isFinite(Number(defaults.attackRange)) ? Number(defaults.attackRange) : 1;
+    els.enemyAttackVerticalRange.value = Number.isFinite(Number(defaults.attackVerticalRange)) ? Number(defaults.attackVerticalRange) : 1;
+    els.enemyMeleeHitRadius.value = Number.isFinite(Number(defaults.meleeHitRadius)) ? Number(defaults.meleeHitRadius) : Math.max(12, Number(defaults.attackRange || 24) * 0.5);
+    els.enemyAwarenessRange.value = Number.isFinite(Number(defaults.awarenessRange)) ? Number(defaults.awarenessRange) : 300;
+    els.enemyAwarenessViewHalfAngle.value = Number.isFinite(Number(defaults.awarenessViewHalfAngle)) ? Number(defaults.awarenessViewHalfAngle) : 60;
+    els.enemyAwarenessHoldDuration.value = Number.isFinite(Number(defaults.awarenessHoldDuration)) ? Number(defaults.awarenessHoldDuration) : 1.2;
+    els.enemyPreferredAttackRange.value = Number.isFinite(Number(defaults.preferredAttackRange)) ? Number(defaults.preferredAttackRange) : 180;
+    els.enemyPreferredAttackMinRange.value = Number.isFinite(Number(defaults.preferredAttackMinRange))
+        ? Number(defaults.preferredAttackMinRange)
+        : Math.min(Number(defaults.attackRange || 1) * 0.45, 108);
+
+    refreshEnemyProjectileKindOptions(defaults.projectileKind || "fireball");
+    els.enemyProjectileLaunchType.value = String(defaults.projectileLaunchType || "straight");
+    els.enemyProjectileSpeed.value = Number(defaults.projectileSpeed ?? 1);
+    els.enemyProjectileGravity.value = Number(defaults.projectileGravity ?? 0);
+    els.enemyProjectileLifetime.value = Number(defaults.projectileLifetime ?? 1);
+    els.enemyProjectileRadius.value = Number(defaults.projectileRadius ?? 1);
+    els.enemyProjectileHoming.value = Number(defaults.projectileHomingStrength ?? 0);
+    els.enemySpreadCount.value = Number(defaults.spreadCount ?? defaults.projectileVolleyCount ?? 1);
+    els.enemySpreadAngle.value = Number(defaults.spreadAngle ?? defaults.projectileVolleyHalfAngle ?? 0);
+    els.enemyProjectileRotationSpeed.value = Number(enemyProjectilePresentationValue(defaults, "projectileRotationSpeedDegrees", "rotationSpeedDegrees", 0));
+    els.enemyProjectileVisualScale.value = Number(enemyProjectilePresentationValue(defaults, "projectileVisualScale", "visualScale", 1));
+    els.enemyProjectileTrailEffect.value = String(enemyProjectilePresentationValue(defaults, "projectileTrailEffect", "trailEffect", "none"));
+    els.enemyProjectileImpactEffect.value = String(enemyProjectilePresentationValue(defaults, "projectileImpactEffect", "impactEffect", "sparks"));
+    els.enemyProjectileExplosionEffect.value = String(enemyProjectilePresentationValue(defaults, "projectileExplosionEffect", "explosionEffect", "impact"));
+    els.enemyProjectileAoeRadius.value = Number(enemyProjectilePresentationValue(defaults, "projectileAreaDamageRadiusWizardHeights", "areaDamageRadiusWizardHeights", 0));
+    els.enemyProjectileOrientVelocity.checked = Boolean(enemyProjectilePresentationValue(defaults, "projectileOrientToVelocity", "orientToVelocity", false));
+    syncEnemyAttackFieldVisibility();
 }
 
-function applyEnemyTypeFields() {
-    const definition = currentEnemyDefinition();
-    if (!definition) return;
-    let defaults;
-    try {
-        defaults = JSON.parse(els.enemyDefaultsJson.value || "{}");
-    } catch (error) {
-        throw new Error(`Enemy defaults JSON is invalid: ${error.message}`);
-    }
-    if (!defaults || typeof defaults !== "object" || Array.isArray(defaults)) {
-        throw new Error("Enemy defaults JSON must be an object.");
-    }
+function writeEnemyStructuredFields(definition, defaults) {
     definition.label = String(els.enemyLabel.value || state.selectedEnemyId);
     definition.icon = String(els.enemyIcon.value || "");
     definition.description = String(els.enemyDescription.value || "");
@@ -2189,7 +2339,59 @@ function applyEnemyTypeFields() {
     defaults.health = els.enemyHealth.value.trim() === "" ? 90 : Math.max(0, Number(els.enemyHealth.value) || 0);
     defaults.locomotion = String(els.enemyLocomotion.value || "ground");
     defaults.strategy = String(els.enemyStrategy.value || "simple_patrol");
+    defaults.walkSpeed = Math.max(0, Number(els.enemyWalkSpeed.value) || 0);
+    defaults.runSpeed = Math.max(0, Number(els.enemyRunSpeed.value) || 0);
+    defaults.jumpHeight = Math.max(0, Number(els.enemyJumpHeight.value) || 0);
+    defaults.attackType = String(els.enemyAttackType.value || "melee") === "projectile" ? "projectile" : "melee";
+    defaults.damage = Math.max(0, Number(els.enemyDamage.value) || 0);
+    defaults.attackCooldown = Math.max(0, Number(els.enemyAttackCooldown.value) || 0);
+    defaults.attackRange = Math.max(1, Number(els.enemyAttackRange.value) || 1);
+    defaults.attackVerticalRange = Math.max(1, Number(els.enemyAttackVerticalRange.value) || 1);
+    defaults.awarenessRange = Math.max(0, Number(els.enemyAwarenessRange.value) || 0);
+    defaults.awarenessViewHalfAngle = Math.max(0, Math.min(180, Number(els.enemyAwarenessViewHalfAngle.value) || 0));
+    defaults.awarenessHoldDuration = Math.max(0, Number(els.enemyAwarenessHoldDuration.value) || 0);
+    if (defaults.attackType === "melee") {
+        defaults.meleeHitRadius = Math.max(1, Number(els.enemyMeleeHitRadius.value) || 1);
+    }
+    delete defaults.attackMode;
+    delete defaults.attackDamage;
+    delete defaults.projectileDamage;
+    delete defaults.attackHitTime;
+    delete defaults.projectileReleaseTime;
+    delete defaults.projectileVolleyCount;
+    delete defaults.projectileVolleyHalfAngle;
+    delete defaults.projectileCooldown;
+
+    if (defaults.attackType === "projectile") {
+        defaults.projectileKind = String(els.enemyProjectileKind.value || "fireball");
+        defaults.projectileLaunchType = String(els.enemyProjectileLaunchType.value || "straight");
+        defaults.projectileSpeed = Math.max(1, Number(els.enemyProjectileSpeed.value) || 1);
+        defaults.projectileGravity = Number(els.enemyProjectileGravity.value) || 0;
+        defaults.projectileLifetime = Math.max(0.001, Number(els.enemyProjectileLifetime.value) || 1);
+        defaults.projectileRadius = Math.max(1, Number(els.enemyProjectileRadius.value) || 1);
+        defaults.projectileHomingStrength = Math.max(0, Number(els.enemyProjectileHoming.value) || 0);
+        defaults.preferredAttackRange = Math.max(0, Number(els.enemyPreferredAttackRange.value) || 0);
+        defaults.preferredAttackMinRange = Math.max(0, Number(els.enemyPreferredAttackMinRange.value) || 0);
+        defaults.spreadCount = Math.max(1, Math.min(15, Math.round(Number(els.enemySpreadCount.value) || 1)));
+        defaults.spreadAngle = Math.max(0, Math.min(180, Number(els.enemySpreadAngle.value) || 0));
+        setEnemyProjectilePresentationOverride(defaults, "projectileRotationSpeedDegrees", "rotationSpeedDegrees", Number(els.enemyProjectileRotationSpeed.value) || 0, 0);
+        setEnemyProjectilePresentationOverride(defaults, "projectileVisualScale", "visualScale", Math.max(0.01, Number(els.enemyProjectileVisualScale.value) || 1), 1);
+        setEnemyProjectilePresentationOverride(defaults, "projectileTrailEffect", "trailEffect", String(els.enemyProjectileTrailEffect.value || "none"), "none");
+        setEnemyProjectilePresentationOverride(defaults, "projectileImpactEffect", "impactEffect", String(els.enemyProjectileImpactEffect.value || "sparks"), "sparks");
+        setEnemyProjectilePresentationOverride(defaults, "projectileExplosionEffect", "explosionEffect", String(els.enemyProjectileExplosionEffect.value || "impact"), "impact");
+        setEnemyProjectilePresentationOverride(defaults, "projectileAreaDamageRadiusWizardHeights", "areaDamageRadiusWizardHeights", Math.max(0, Number(els.enemyProjectileAoeRadius.value) || 0), 0);
+        setEnemyProjectilePresentationOverride(defaults, "projectileOrientToVelocity", "orientToVelocity", Boolean(els.enemyProjectileOrientVelocity.checked), false);
+    }
     definition.defaults = defaults;
+}
+
+function applyEnemyTypeFields() {
+    const definition = currentEnemyDefinition();
+    if (!definition) return;
+    const defaults = definition.defaults && typeof definition.defaults === "object" && !Array.isArray(definition.defaults)
+        ? { ...definition.defaults }
+        : {};
+    writeEnemyStructuredFields(definition, defaults);
     state.enemyCatalog.meta = state.enemyCatalog.meta || {};
     state.enemyCatalog.meta.version = Math.max(1, Number(state.enemyCatalog.meta.version) || 1) + 1;
     refreshEnemyTypeFields();
@@ -2198,6 +2400,7 @@ function applyEnemyTypeFields() {
     markDirty("enemyCatalog");
     setStatus(`Applied type-wide defaults for ${state.selectedEnemyId}. Download ct_enemies_001.json to save them.`);
 }
+
 
 async function selectEnemyDefinitionForCharacter() {
     state.selectedEnemyId = null;
@@ -3327,6 +3530,7 @@ function pauseForDirectEditing() {
     }
 }
 
+
 function projectileAnimationForSlot(slot) {
     const normalizedSlot = String(slot || "attack").trim() || "attack";
     if (state.animationSlot === normalizedSlot) {
@@ -3355,20 +3559,23 @@ function projectilePartFinalKeyTime(partName, animationSlot = "attack") {
 
 function syncProjectilePartControls(partName = selectedPartName()) {
     const part = state.rig?.parts?.[partName] || null;
-    const projectile = part?.projectile && typeof part.projectile === "object" ? part.projectile : null;
-    const enabled = Boolean(projectile && projectile.enabled !== false);
-    const animationSlot = String(projectile?.animationSlot || "attack");
+    const handoff = part?.attackHandoff && typeof part.attackHandoff === "object" ? part.attackHandoff : null;
+    const enabled = Boolean(handoff && handoff.enabled !== false);
+    const animationSlot = String(handoff?.animationSlot || "attack");
+    const activeParts = Array.isArray(state.character?.attackParts)
+        ? state.character.attackParts.map(String)
+        : (state.character?.attackPart ? [String(state.character.attackPart)] : []);
     state.syncing = true;
     els.projectileEnabled.checked = enabled;
-    els.projectileActiveCharacter.checked = String(state.character?.projectilePart || "") === String(partName || "");
+    els.projectileActiveCharacter.checked = activeParts.includes(String(partName || ""));
     els.projectileActiveCharacter.disabled = !enabled || !state.character;
-    els.projectileId.value = String(projectile?.id || partName || "projectile");
-    els.projectileLaunchType.value = String(projectile?.launchType || "straight");
+    els.projectileId.value = String(handoff?.id || partName || "attack");
     els.projectileAnimationSlot.value = animationSlot;
-    els.projectileReleaseTime.value = Number.isFinite(Number(projectile?.releaseTime))
-        ? Number(projectile.releaseTime).toFixed(3)
+    els.projectileReleaseTime.value = Number.isFinite(Number(handoff?.releaseTime))
+        ? Number(handoff.releaseTime).toFixed(3)
         : "";
-    for (const control of [els.projectileId, els.projectileLaunchType, els.projectileAnimationSlot, els.projectileReleaseTime]) {
+    els.projectileDetach.checked = handoff?.detach === true;
+    for (const control of [els.projectileId, els.projectileAnimationSlot, els.projectileReleaseTime, els.projectileDetach]) {
         control.disabled = !enabled;
     }
     const finalTime = projectilePartFinalKeyTime(partName, animationSlot);
@@ -3379,33 +3586,42 @@ function syncProjectilePartControls(partName = selectedPartName()) {
 }
 
 function writeActiveCharacterProjectileFromUi() {
-    if (state.syncing || !state.character) {
-        return;
-    }
+    if (state.syncing || !state.character) return;
     const partName = selectedPartName();
+    let activeParts = Array.isArray(state.character.attackParts)
+        ? state.character.attackParts.map(String)
+        : (state.character.attackPart ? [String(state.character.attackPart)] : []);
     if (els.projectileActiveCharacter.checked) {
-        state.character.projectilePart = partName;
-    } else if (String(state.character.projectilePart || "") === partName) {
-        delete state.character.projectilePart;
+        if (!activeParts.includes(partName)) activeParts.push(partName);
+    } else {
+        activeParts = activeParts.filter((name) => name !== partName);
     }
+    delete state.character.projectilePart;
+    delete state.character.projectileParts;
+    delete state.character.attackPart;
+    if (activeParts.length === 1) state.character.attackPart = activeParts[0];
+    else if (activeParts.length > 1) state.character.attackParts = activeParts;
     refreshCharacterJson();
     markDirty("character");
     syncProjectilePartControls(partName);
 }
 
 function writeProjectilePartFromUi() {
-    if (state.syncing || !state.rig) {
-        return;
-    }
+    if (state.syncing || !state.rig) return;
     const partName = selectedPartName();
     const part = state.rig.parts?.[partName];
-    if (!part) {
-        return;
-    }
+    if (!part) return;
     if (!els.projectileEnabled.checked) {
-        delete part.projectile;
-        if (state.character && String(state.character.projectilePart || "") === partName) {
-            delete state.character.projectilePart;
+        delete part.attackHandoff;
+        if (state.character) {
+            let activeParts = Array.isArray(state.character.attackParts)
+                ? state.character.attackParts.map(String)
+                : (state.character.attackPart ? [String(state.character.attackPart)] : []);
+            activeParts = activeParts.filter((name) => name !== partName);
+            delete state.character.attackPart;
+            delete state.character.attackParts;
+            if (activeParts.length === 1) state.character.attackPart = activeParts[0];
+            else if (activeParts.length > 1) state.character.attackParts = activeParts;
             refreshCharacterJson();
             markDirty("character");
         }
@@ -3419,14 +3635,15 @@ function writeProjectilePartFromUi() {
     if (!Number.isFinite(releaseTime) || releaseTime < 0) {
         releaseTime = projectilePartFinalKeyTime(partName, animationSlot) ?? state.time ?? 0;
     }
-    part.projectile = {
-        ...(part.projectile && typeof part.projectile === "object" ? part.projectile : {}),
+    part.attackHandoff = {
+        ...(part.attackHandoff && typeof part.attackHandoff === "object" ? part.attackHandoff : {}),
         enabled: true,
         id: String(els.projectileId.value || partName).trim() || partName,
-        launchType: String(els.projectileLaunchType.value || "straight"),
         animationSlot,
-        releaseTime
+        releaseTime,
+        detach: Boolean(els.projectileDetach.checked)
     };
+    delete part.projectile;
     syncProjectilePartControls(partName);
     refreshRigJson();
     markDirty("rig");
@@ -4861,6 +5078,10 @@ async function downloadJson(filename, value) {
     const projectHost = window.IgnatiusProjectHost?.get();
     if (projectHost) {
         const result = await projectHost.saveText("character", filename, jsonText, { mimeType: "application/json", prompt: true });
+        if (result === "root-changed") {
+            window.location.reload();
+            return "cancelled";
+        }
         if (result === "project" || result === "cancelled") return result;
     }
     const blob = new Blob([jsonText], { type: "application/json" });
@@ -5689,10 +5910,6 @@ for (const control of [
     });
 }
 
-els.applyEnemyDefaults.addEventListener("click", () => {
-    try { applyEnemyTypeFields(); } catch (error) { setStatus(error.stack || error.message); }
-});
-els.refreshEnemyDefaults.addEventListener("click", refreshEnemyTypeFields);
 els.applyEnemyCatalogJson.addEventListener("click", () => {
     applyEnemyCatalogJson().catch(error => setStatus(error.stack || error.message));
 });
@@ -5714,27 +5931,56 @@ els.downloadEnemyCatalog.addEventListener("click", async () => {
         setStatus(error.stack || error.message);
     }
 });
-for (const input of [els.enemyLabel, els.enemyIcon, els.enemyDescription, els.enemyDefaultWidth, els.enemyDefaultHeight, els.enemyRenderScale, els.enemyRenderOffsetX, els.enemyRenderOffsetY, els.enemyHealth, els.enemyLocomotion, els.enemyStrategy]) {
-    input.addEventListener("input", () => {
+els.enemyProjectileKind.addEventListener("change", () => {
+    const definition = currentEnemyDefinition();
+    if (!definition) return;
+    try {
+        const defaults = definition.defaults && typeof definition.defaults === "object" && !Array.isArray(definition.defaults)
+            ? { ...definition.defaults }
+            : {};
+        defaults.projectileKind = String(els.enemyProjectileKind.value || "fireball");
+        for (const key of [
+            "projectileRendererKind", "projectileVisualCharacterId", "projectileVisualFrameId",
+            "projectileVisualScale", "projectileRotationSpeedDegrees", "projectileOrientToVelocity",
+            "projectileTrailEffect", "projectileImpactEffect", "projectileExplosionEffect",
+            "projectileExplosionVisualScale", "projectileAreaDamageRadiusWizardHeights"
+        ]) delete defaults[key];
+        definition.defaults = defaults;
+        refreshEnemyTypeFields();
+        refreshEnemyCatalogJson();
+        refreshKnownProjectOptions();
+        markDirty("enemyCatalog");
+        setStatus(`Projectile kind changed to ${defaults.projectileKind}; presentation now inherits that archetype.`);
+    } catch (error) {
+        setStatus(`Projectile kind could not be applied: ${error.message || error}`);
+    }
+});
+
+const enemyStructuredControls = [
+    els.enemyLabel, els.enemyIcon, els.enemyDescription, els.enemyDefaultWidth, els.enemyDefaultHeight,
+    els.enemyRenderScale, els.enemyRenderOffsetX, els.enemyRenderOffsetY, els.enemyHealth,
+    els.enemyLocomotion, els.enemyStrategy, els.enemyWalkSpeed, els.enemyRunSpeed, els.enemyJumpHeight,
+    els.enemyAttackType, els.enemyDamage, els.enemyAttackCooldown, els.enemyAttackRange,
+    els.enemyAttackVerticalRange, els.enemyMeleeHitRadius, els.enemyAwarenessRange,
+    els.enemyAwarenessViewHalfAngle, els.enemyAwarenessHoldDuration, els.enemyPreferredAttackRange,
+    els.enemyPreferredAttackMinRange,
+    els.enemyProjectileLaunchType, els.enemyProjectileSpeed, els.enemyProjectileGravity,
+    els.enemyProjectileLifetime, els.enemyProjectileRadius, els.enemyProjectileHoming,
+    els.enemySpreadCount, els.enemySpreadAngle, els.enemyProjectileRotationSpeed,
+    els.enemyProjectileVisualScale, els.enemyProjectileTrailEffect, els.enemyProjectileImpactEffect,
+    els.enemyProjectileExplosionEffect, els.enemyProjectileAoeRadius, els.enemyProjectileOrientVelocity
+].filter(Boolean);
+for (const input of enemyStructuredControls) {
+    const eventName = input.type === "checkbox" || input.tagName === "SELECT" ? "change" : "input";
+    input.addEventListener(eventName, () => {
         const definition = currentEnemyDefinition();
         if (!definition) return;
         try {
-            const defaults = JSON.parse(els.enemyDefaultsJson.value || "{}");
-            definition.label = String(els.enemyLabel.value || state.selectedEnemyId);
-            definition.icon = String(els.enemyIcon.value || "");
-            definition.description = String(els.enemyDescription.value || "");
-            definition.defaultSize = {
-                w: Math.max(1, Number(els.enemyDefaultWidth.value) || 1),
-                h: Math.max(1, Number(els.enemyDefaultHeight.value) || 1)
-            };
-            defaults.renderScale = Math.max(0.01, Number(els.enemyRenderScale.value) || 1);
-            defaults.renderOffsetX = Number(els.enemyRenderOffsetX.value) || 0;
-            defaults.renderOffsetY = Number(els.enemyRenderOffsetY.value) || 0;
-            defaults.health = els.enemyHealth.value.trim() === "" ? 90 : Math.max(0, Number(els.enemyHealth.value) || 0);
-            defaults.locomotion = String(els.enemyLocomotion.value || "ground");
-            defaults.strategy = String(els.enemyStrategy.value || "simple_patrol");
-            definition.defaults = defaults;
-            els.enemyDefaultsJson.value = JSON.stringify(defaults, null, 4);
+            const defaults = definition.defaults && typeof definition.defaults === "object" && !Array.isArray(definition.defaults)
+                ? { ...definition.defaults }
+                : {};
+            writeEnemyStructuredFields(definition, defaults);
+            syncEnemyAttackFieldVisibility();
             refreshEnemyCatalogJson();
             refreshKnownProjectOptions();
             markDirty("enemyCatalog");
@@ -5743,6 +5989,23 @@ for (const input of [els.enemyLabel, els.enemyIcon, els.enemyDescription, els.en
         }
     });
 }
+els.resetProjectileArchetype.addEventListener("click", () => {
+    const definition = currentEnemyDefinition();
+    if (!definition) return;
+    const defaults = definition.defaults || {};
+    for (const key of [
+        "projectileRendererKind", "projectileVisualCharacterId", "projectileVisualFrameId",
+        "projectileVisualScale", "projectileRotationSpeedDegrees",
+        "projectileOrientToVelocity", "projectileTrailEffect", "projectileImpactEffect",
+        "projectileExplosionEffect", "projectileExplosionVisualScale", "projectileAreaDamageRadiusWizardHeights"
+    ]) delete defaults[key];
+    definition.defaults = defaults;
+    refreshEnemyTypeFields();
+    refreshEnemyCatalogJson();
+    markDirty("enemyCatalog");
+    setStatus(`Reset projectile presentation overrides for ${state.selectedEnemyId}; values now inherit from ${defaults.projectileKind || "the selected kind"}.`);
+});
+
 
 els.loadKnownProject.addEventListener("click", () => {
     if (!confirmDiscardChanges("load the selected project")) {
@@ -5897,7 +6160,7 @@ els.projectileEnabled.addEventListener("change", () => {
     writeProjectilePartFromUi();
 });
 els.projectileActiveCharacter.addEventListener("change", writeActiveCharacterProjectileFromUi);
-for (const el of [els.projectileId, els.projectileLaunchType, els.projectileAnimationSlot, els.projectileReleaseTime]) {
+for (const el of [els.projectileId, els.projectileAnimationSlot, els.projectileReleaseTime, els.projectileDetach]) {
     el.addEventListener(el.tagName === "SELECT" ? "change" : "input", writeProjectilePartFromUi);
 }
 els.time.addEventListener("input", () => {

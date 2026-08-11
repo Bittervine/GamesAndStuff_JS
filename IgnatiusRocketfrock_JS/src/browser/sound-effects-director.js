@@ -11,6 +11,7 @@ const EVENT_EFFECTS = Object.freeze({
     PLAYER_DEATH_ANIMATION_STARTED: "wizardDeath",
     LEVER_SWITCH_TOGGLED: "trigger",
     KEYHOLE_UNLOCKED: "trigger",
+    PROXIMITY_SIGNAL_TRIGGERED: "trigger",
     SIGNAL_CHANNEL_EMITTED: "trigger",
     PORTAL_OPENED: "portalOpen",
     PORTAL_EXIT_OPENED: "portalOpen",

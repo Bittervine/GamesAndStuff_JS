@@ -14,7 +14,7 @@ Character definitions may contain a `sounds` object with optional `attack`, `hur
 
 The wizard character map uses `walk` as its ground-motion slot and declares `hurt` and `death` setup-pose slots for schema symmetry with monsters.
 
-This document is the directory and dependency map for the browser reference implementation and the planned C++ / Unreal Engine 5 port.
+This document is the directory and dependency map for the browser reference implementation and the SDL3/C++ implementation.
 
 ## Source classifications
 
@@ -301,7 +301,7 @@ The first implementation remains inside `src/core/simulation.js` to avoid a beha
 | `src/core/simulation-events.js` | `RocketfrockCore/SimulationEvents.h/.cpp` |
 | `src/core/simulation.js` | `RocketfrockCore/Simulation.h/.cpp` |
 
-The JavaScript and C++ implementations should preserve equivalent public functions, data fields, state-machine choices, update order, and fixtures where practical. Browser and Unreal presentation files do not need one-to-one parity.
+The JavaScript and C++ implementations should preserve equivalent public functions, data fields, state-machine choices, update order, and fixtures where practical. Browser and SDL presentation files do not need one-to-one parity.
 
 ## Stable parity boundary
 
@@ -315,7 +315,7 @@ InputFrame + fixed dt
 GameState + SimulationEvent[]
 ```
 
-The browser renderer and future Unreal presentation adapter may differ completely internally. Neither may become authoritative for gameplay motion, collision, AI, damage, level transitions, or saveable state.
+The browser renderer and SDL presentation layer may differ completely internally. Neither may become authoritative for gameplay motion, collision, AI, damage, level transitions, or saveable state.
 
 ## Tests and fixture direction
 
@@ -516,7 +516,7 @@ World pickup composition remains Canvas-owned. The active-effect timer is now pa
 
 The lightning effect is canonically `overdrive`. The shared normalizer accepts current built-ins and complete explicit custom effects, but it explicitly rejects the retired Rocket Overdrive identity even when an old snapshot embeds a full definition; retired IDs and pickup types are not translated. Overdrive remains an independent twenty-second effect with HUD priority 100 and half projectile fuel cost. Revision 308 removed the global player rocket launch cooldown, so Overdrive no longer carries or applies a cadence multiplier. The inactive Power label is now simply `Powerup:`.
 
-Six twenty-second wrench effects share the exclusive `wrench` group and HUD priority 200, above Shield at 150 and Overdrive at 100. Collecting Triple, Dart, Burst, Bigbomb, Boomerang, or Phase removes any other active wrench but leaves Overdrive untouched. Triple launches three half-standard-damage small homing rockets with distinct initial fan angles and separate target assignment when possible, for 45 total damage if all hit. Dart launches one normal-sized non-homing rocket straight along Ignatius's facing direction, deals standard rocket damage, and costs two-thirds standard fuel. Burst commits three small half-standard-damage unguided rockets for one standard fuel payment and activates them forward at 0.18-second intervals, for 45 total damage if all hit. Bigbomb launches forward before homing, costs triple fuel, travels at half speed, turns with half homing response, renders at 1.7× scale, deals four times standard damage, and applies full damage in a radius of 1.5 wizard heights. Boomerang also launches forward before homing; it uses standard damage and cost, returns toward Ignatius after a miss or destroyed target, and refunds half the launch fuel on a successful catch. Phase uses standard damage, cost, speed, and homing, but ignores ordinary level and reactive-obstacle geometry while still colliding with enemy targets.
+Six twenty-second wrench effects share the exclusive `wrench` group and HUD priority 200, above Shield at 150 and Overdrive at 100. Collecting Triple, Dart, Burst, Bigbomb, Boomerang, or Phase removes any other active wrench but leaves Overdrive untouched. Triple launches three half-standard-damage small homing rockets with distinct initial fan angles and separate target assignment when possible, for 45 total damage if all hit. Dart launches one normal-sized non-homing rocket straight along Ignatius's facing direction, deals standard rocket damage, and costs two-thirds standard fuel. Burst commits three small half-standard-damage unguided rockets for one standard fuel payment and activates them forward at 0.18-second intervals, for 45 total damage if all hit. Bigbomb launches forward before homing, costs triple fuel, travels at half speed, turns with half homing response, renders at 1.7× scale, deals four times standard damage, and applies full damage in a radius of 2 wizard heights. Boomerang also launches forward before homing; it uses standard damage and cost, returns toward Ignatius after a miss or destroyed target, and refunds half the launch fuel on a successful catch. Phase uses standard damage, cost, speed, and homing, but ignores ordinary level and reactive-obstacle geometry while still colliding with enemy targets.
 
 Power-up pickup runtime records now carry `respawnSeconds`, `respawnTimer`, and optional `randomEffectIds` plus `randomRollCount`. Browser startup supplies a fresh session seed, while portable core derives deterministic per-level and per-respawn rolls from that seed, pickup identity, level-load count, and roll count. All power-up pickups default to a sixty-second respawn. A random wrench rerolls before becoming available again. Level 1 keeps Overdrive at x=800 and adds a random wrench at x=1400.
 
@@ -1485,13 +1485,13 @@ The Level Editor must not retain a complete serialized level inside an editable 
 
 ## Revision 361 Level Editor action and camera-scale boundary
 
-The Level Editor has no separate Export panel. Its Level panel owns JSON download and browser-copy save/load actions; `serializeLevelJson()` is invoked only by explicit operations and runtime handoffs.
+The Level Editor has no separate Export panel. Its Level panel owns JSON save plus generated temp-copy save/load actions; `serializeLevelJson()` is invoked only by explicit operations and runtime handoffs. Revision 339 removes complete-level `localStorage` persistence: temp snapshots are written as `resources/levels/level_temp.json` through the shared project host.
 
 Static tools use `setViewOverride({ x, y, cssZoom })` on the production Canvas renderer. `cssZoom` is converted to backing-space zoom from the renderer's measured `backingWidth / clientWidth`, making the rendered world and CSS-space editor overlay share one camera scale across fractional DPR and browser zoom. Cave parallax remains restricted to cave-window geometry and visuals whose layer is `caveForeground`.
 
 ## Revision 362 Level data action layout and active editor render path
 
-`level-editor.html` groups level actions into two explicit boundaries. The shipped-level selector and **Load** action form **Existing Level**. New/import/export and browser-copy persistence form **Level data**. The import file control is hidden behind the dedicated button so native filename chrome does not consume panel width.
+`level-editor.html` groups level actions into two explicit boundaries. The shipped-level selector and **Load** action form **Existing Level**. New/import/export and generated `level_temp.json` persistence form **Level data**. The import file control is hidden behind the dedicated button so native filename chrome does not consume panel width.
 
 The editor base scene is still rendered directly by `src/presentation/canvas-renderer.js` with `preferWebGL2: false` and `setViewOverride`. No editor-owned screen/world tile cache or pan bitmap is active. Keep ordinary renderer resource caches, spatial indexes, colour-map canvases, cave-mask caches, and treated foreground frames distinct from the retired level-tile architecture: they avoid rebuilding reusable source/effect data but do not substitute a tiled image of the viewport while panning.
 
@@ -2284,7 +2284,7 @@ Runtime data is rooted at `reference/resources` in the browser source tree and `
 
 ## Revision 227 generated DevTool level contract
 
-The Windows DevTool writes the current Level Editor browser copy into packaged resources at `content/resources/levels/level_temp.json`, then starts the SDL game with `--level level_temp --start-in-game`. This deliberately uses the same level-resource loader as authored levels. The generated filename is not an authored campaign level or a `level_tNN` test fixture, and the source resource audit rejects it under `reference/resources/levels`. Browser-only playtesting continues to use local storage because a normal browser cannot write into the source tree.
+Revision 339 unifies Level Editor playtesting around the shared project host. `level-editor.html` serializes the current level and writes `levels/level_temp.json` through `IgnatiusProjectHost.saveText()` before launching. In Chrome, the project host writes through the locally selected resources-directory handle; in IgnatiusDevTool, the same call crosses the native project bridge. Chrome then opens `game.html?level=level_temp&playtest_browser_copy=1`; the native shell launches SDL with `--level level_temp --start-in-game`. The native shell does not maintain a second JavaScript extraction path. The generated filename is not an authored campaign level or a `level_tNN` test fixture and remains absent from `resources.json`.
 
 ## SDL build revision 230 fullscreen presentation boundary
 
@@ -2353,7 +2353,7 @@ The browser minimap remains the documented small HUD-only Canvas exception insid
 
 ## Revision 272 browser palette builder and development portal
 
-`palette-builder.html` and `src/tools/palette-builder.js` live at the reference root beside the Level, Character, and Asset editors. This placement is functional rather than cosmetic: shared `resourceUrl()` paths are document-relative and therefore resolve `characters/...`, `atlases/...`, and other resource categories through the normal root `resources/` directory without a builder-specific path shim.
+`palette-builder.html` and `src/tools/palette-builder.js` live at the reference root beside the Level, Character, and Asset editors. Revision 358 supersedes the old assumption that this placement should determine authoring-resource identity through document-relative `resourceUrl()` paths. When an `IgnatiusProjectHost` is connected, the builder reads resource inputs and character-runtime dependencies through that selected root and writes generated palette output back through the same host. Page-relative resource URLs are only the unconnected browser fallback.
 
 The builder is an explicit offline authoring surface. It may decode every atlas and character project while rebuilding, but the Level Editor continues to consume only the generated `resources/palette/thumbnails.png` and `thumbnails.json` cache. Enemy cells are composed through the production JavaScript character runtime, including animation sampling, parent constraints, frame visibility, and per-part colour exchange. Source inventory generation accepts any iterable, including the builder's `Set`, and records the builder plus character-rendering dependencies for stale-cache verification.
 
@@ -2383,7 +2383,7 @@ The browser-hosted Level Editor owns camera-line control-point insertion because
 
 ## Revision 295 transient Level Editor layer visibility
 
-`level-editor.html` owns a three-flag `editorLayerVisibility` record for Foreground, Terrain, and Background. The flags are presentation-only and are intentionally outside the authored level, undo snapshots, browser saves, and exports. The runtime-backed editor scene is rebuilt from a filtered level view, while overlay drawing and all placement-selection paths use the same `editorPlacementVisible` predicate. This prevents hidden parallax artwork from intercepting clicks intended for another layer. Opening, importing, restoring from browser storage, or creating a level resets all flags to visible. The Placed objects panel applies a separate live text query after excluding hidden placements; entities are unaffected by artwork-layer visibility.
+`level-editor.html` owns a three-flag `editorLayerVisibility` record for Foreground, Terrain, and Background. The flags are presentation-only and are intentionally outside the authored level, undo snapshots, browser saves, and exports. The runtime-backed editor scene is rebuilt from a filtered level view, while overlay drawing and selection paths use `editorPlacementVisible` for authored visuals and `editorEntityVisible` for entities. All placed entities belong to the Terrain visibility group for editor showing/hiding and selectability, so hiding Terrain also hides pickups, enemies, mailboxes, triggered text, entry/exit doors, and similar gameplay entities. This prevents hidden artwork or entities from intercepting clicks intended for another visible layer. Opening, importing, restoring from browser storage, or creating a level resets all flags to visible. The Placed objects panel applies a separate live text query after excluding records hidden by these transient layer flags.
 
 ## Revision 298 generated wrench bags and state-local visual updates
 
@@ -2398,18 +2398,18 @@ The shared `DEVELOPMENT` product constant gates shipping-disabled runtime input.
 
 ## Revision 303 shared Ignatius Dev Tool shell
 
-`IgnatiusDevTool.html` is the common authoring shell for Chrome and the native Windows Dev Tool. It owns tab navigation, project status, playtest dispatch, and one `IgnatiusProjectHost` instance shared with the Level, Asset, Character, and Palette tools through same-origin frames. The individual tools retain their own editing state and domain logic, but project reads and writes are requested through `src/tools/ignatius-project-host.js` instead of each page independently choosing a destination.
+`IgnatiusDevTool.html` is the common authoring shell for Chrome and the native Windows Dev Tool. It owns tab navigation, project status, playtest dispatch, and one `IgnatiusProjectHost` instance shared with the Level, Asset, Character, and Palette tools through same-origin frames. The individual tools retain their own editing state and domain logic, but authoring resource reads and writes are requested through `src/tools/ignatius-project-host.js` instead of each page independently choosing a source or destination. Shared JSON/image loaders consult that host first whenever a project root is connected.
 
-In Chrome, the project host uses the File System Access API. The user selects `reference/resources` once, the handle is validated by the presence of `resources.json` and the canonical resource directories, and the handle is retained in IndexedDB for later permission restoration. Save categories route to fixed locations: levels to `levels/`, atlas JSON/PNG to `atlases/`, character documents to `characters/`, and palette output to `palette/`. Resource-index updates remain transactional: a level is registered after its JSON exists, while an atlas is registered only after both its JSON and PNG exist.
+In Chrome, the project host uses the File System Access API. The user selects `reference/resources` once, the handle is validated by `resources.json` plus the complete canonical resource-directory set, and the handle is retained in IndexedDB under a checkout-path-scoped key for later permission restoration. A `selectionVersion` changes with directory-entry identity even when both handles are named `resources`, so the shell reloads editor frames after an actual root switch. Typed save categories and arbitrary relative resource reads resolve through one central mapping/normalizer. If the first directory selection occurs during Save, the host returns `root-changed` without writing the already-loaded document; the editor reloads from the selected root before a subsequent save. Resource-index updates remain transactional: a level is registered after its JSON exists, while an atlas is registered only after both its JSON and PNG exist.
 
-On Windows, `IgnatiusDevTool.exe` now hosts the same shell in one WebView2 controller. The native bridge supplies the selected resource root, performs canonical-path writes only inside that root, updates the resource index under the same completeness rules, and launches playtests requested by the page. The native executable therefore retains filesystem and process privileges while no longer maintaining a duplicate four-tab user interface. Chrome and the SDL WebView2 host are the supported environments; other browser engines are not a compatibility target.
+On Windows, `IgnatiusDevTool.exe` hosts the same shell in one WebView2 controller. The native bridge supplies the selected `authoringResourceRoot`, validates the same canonical directory/index shape as Chrome, performs typed writes and arbitrary text reads only below that root, updates the resource index under the same completeness rules, and launches playtests requested by the page. WebView `resources/*` binary requests are intercepted against that same live root with development caching disabled, so JSON bridge reads and image/font/media responses cannot drift to packaged content. The native executable therefore retains filesystem and process privileges while no longer maintaining a duplicate four-tab user interface. Chrome and the SDL WebView2 host are the supported environments; other browser engines are not a compatibility target.
 
 
 ## Revision 304 command-line resource-root ownership
 
 `LaunchOptions.resourcesRoot` carries the native `--resources-root` override. `IgnatiusApp::run` validates and installs it through `setReferenceAssetRootOverride` before constructing the native scene, so every ordinary asset path continues through the shared reference-asset loader rather than acquiring subsystem-specific roots. When the option is absent, the native game uses only `content/resources` beside the executable; source-tree resources require an explicit override.
 
-`IgnatiusDevTool.exe` parses the same option and uses that directory as `authoringResourceRoot`. Native playtest process creation always appends `--resources-root <authoringResourceRoot>`. The host writes the generated snapshot to `<authoringResourceRoot>/levels/level_temp.json` before launching, and the ordinary asset loader resolves that level exactly like every other resource below the override. No packaged fallback exists, so the playtest level and all of its dependencies have one unambiguous owner.
+`IgnatiusDevTool.exe` parses the same option and uses that directory as `authoringResourceRoot`. Native playtest process creation always appends `--resources-root <authoringResourceRoot>`. The shared HTML Level Editor writes the generated snapshot to `<authoringResourceRoot>/levels/level_temp.json` through the project bridge before it requests a launch; the native shell then only validates the file and starts the ordinary loader. No packaged fallback exists, so the playtest level and all of its dependencies have one unambiguous owner.
 
 ## Revision 305 strict resource-root boundary
 
@@ -2419,3 +2419,30 @@ The selected native resources root is a hard read/write boundary. Dev Tool proje
 ## Revision 310 packaged native resource default
 
 Without `--resources-root`, both `IgnatiusSDL` and `IgnatiusDevTool.exe` use the self-contained `content/resources` directory beside their executable. The native Dev Tool also loads `IgnatiusDevTool.html` and its sub-tools only from the adjacent `content` directory. Neither executable searches ancestor source trees or the process working directory for a replacement resource bundle. Selecting `reference/resources` remains an explicit authoring action through **Select resources folder…** or the command-line override. A packaged Release directory can therefore be shipped by itself, and missing packaged content fails visibly instead of silently borrowing files from a checkout.
+
+## Revision 318 distance-driven player rocket range
+
+Player rocket expiry is now derived from authored travel distance rather than the other way around. Shared tuning owns `rocketProjectileUnwrenchedMaxTravelDistance = 600` for the standard rocket and `rocketProjectileMaxTravelDistance = 1500` for every wrench rocket. Portable launch code computes `lifetime = maxTravelDistance / projectileSpeed` after applying the active wrench speed multiplier. Consequently Yellow Fivefold, Cyan Dart, and Green Target live 1.5 seconds at 1000 px/s; Blue Homing Triple and Magenta Boomerang live 3 seconds at 500 px/s; Red Bigbomb lives 6 seconds at 250 px/s; and the ordinary rocket remains 1.2 seconds at 500 px/s. Wrench profiles no longer carry a lifetime multiplier. Red Bigbomb retains 120 damage but now uses a 2.0 launch-fuel multiplier, currently 60 fuel.
+
+
+## Revision 321 bounded player-rocket acquisition and quiet far-offscreen expiry
+
+Player-rocket reach now separates three distances explicitly. The ordinary rocket keeps `rocketProjectileUnwrenchedMaxTravelDistance = 600`; every wrench-upgraded rocket uses `rocketProjectileMaxTravelDistance = 1800`; and homing/launch-aim candidate eligibility uses the fixed radial `rocketTargetSearchDistance = 1500` instead of the current viewport width. At the 1920x1080 reference frame with the ordinary 150 px facing look-ahead, the farthest visible corner is about 1264 px from Ignatius, so the 1500 px acquisition circle contains every normally visible point while still bounding off-screen interest. The 300 px difference between lock radius and wrench travel budget is reserved for curved paths; regression coverage drives all three upward-launch Blue Homing Triple projectiles to within 10 px of a synthetic target placed at the full 1500 px radius.
+
+Natural player-rocket lifetime expiry is presentation-culled only when the projectile center is more than `rocketLifetimeExplosionOffscreenMargin = 100` px from the nearest point of the current visible world rectangle. Such a projectile becomes spent directly and produces no impact smoke or explosion state. This rule does not apply to collisions: enemy, reactive-object, and terrain impacts still detonate normally even when far off-screen. It also does not replace Boomerang's lifetime-to-return transition. Red Bigbomb therefore produces no lifetime AoE when a far-offscreen no-hit expiry is culled, but still detonates on an actual hit.
+
+## Revision 336 repeating Background asset
+
+`level.layerVisuals.background.asset` may contain `{ atlasId, assetId }` to select one atlas frame as a level-wide repeating Background pattern. The Level Editor's existing Background fieldset owns the Set/Clear Background Asset button and uses the currently selected Asset-palette frame. The selected atlas remains part of the level atlas manifest even when no ordinary placement uses it.
+
+The pattern shares the Background layer's independent parallax axes, brightness/darkening, and scale. Its world-space phase therefore moves with ordinary Background artwork, which allows authored objects to appear fixed to a repeating wall. Presentation order is fixed: the solid level clear first, then the repeating pattern, then every ordinary Background placement, including placements locally sent to the back.
+
+The runtime does not synthesize placement copies. Canvas2D fills one viewport with a repeating pattern; WebGL2 uses one viewport quad sampling a cropped tile texture with repeat addressing; SDL_Renderer uses `SDL_RenderTextureTiled`; and raw SDL_GPU uses one viewport quad with a repeat sampler. The tile is presentation-only and does not create collision or overlap-blend data.
+
+## Revision 354 shortest-remaining Power HUD selection
+
+Revision 354 supersedes the priority-based Power HUD ordering from revisions 212 and 306. `shortestRemainingActivePowerUpEffect` filters out expired effects and selects the active timed effect with the least `remainingSeconds`. Permanent effects behave as an infinite remaining duration, so they appear only when no timed effect is active. Exact remaining-time ties use descending activation time and then stable effect ID for deterministic parity. Existing `hud.priority` metadata is retained for data compatibility but no longer participates in the selection. This is a presentation choice only; all compatible active effects continue to tick and apply simultaneously.
+
+## Revision 355 native standard-library type cleanup
+
+The SDL/C++ implementation now uses standard-library strings, containers, optionals, smart pointers, fixed-width integers, and `std::numbers::pi` directly. The former generic compatibility headers are gone. Character rig pivot/offset data uses the project-owned two-field `FRigPoint`. This is a source/provenance cleanup only; gameplay and runtime data are unchanged.

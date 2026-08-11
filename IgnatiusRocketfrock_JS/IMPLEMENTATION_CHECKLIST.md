@@ -15,11 +15,11 @@ The browser game uses a shared virtual viewport. On screens narrower than the mo
 * [ ] Do not add separate per-sprite mobile scaling unless there is a deliberate special-case reason documented next to the code.
 * [ ] Keep physics, collisions, particles, camera math, and level geometry in virtual game coordinates.
 
-## Always Remember: Future C++ and Unreal Portability
+## Always Remember: HTML/JS and SDL/C++ Parity
 
-The HTML and JavaScript game remains the reference implementation, but new gameplay work must preserve a clean path to an engine-neutral C++ core and a thin Unreal presentation adapter.
+The HTML/JavaScript game remains the reference implementation and the SDL3/C++ game is the maintained native implementation. Keep their authoritative gameplay behavior and shared data contracts aligned while allowing platform-specific presentation code to differ.
 
-* [ ] Keep gameplay logic independent of DOM, Canvas, browser events, asset objects, audio objects, Unreal Actors, UObjects, Character Movement, and Chaos physics.
+* [ ] Keep gameplay logic independent of DOM, Canvas, browser events, renderer objects, audio objects, and SDL presentation objects.
 * [ ] Pass gameplay only normalized plain data, fixed `dt`, and an `InputFrame`.
 * [ ] Keep gameplay coordinates X-right, Y-down, baseline-anchored, and radians-based.
 * [ ] Use finite double-precision-compatible values and named collision tolerances.
@@ -464,7 +464,7 @@ Goal: build one complete data-driven level with story wrapper elements.
 
 Goal: remove browser-presentation coupling and prove that the gameplay model can be translated into a standalone C++ core before procedural generation multiplies the amount of simulation and level data.
 
-This checkpoint should be completed before or during the start of Phase 8. It does not require beginning the full Unreal port.
+This checkpoint should be completed before or during the start of Phase 8 and should keep the browser and native implementations on the same gameplay contract.
 
 ### Runtime Level Boundary
 
@@ -512,7 +512,7 @@ This checkpoint should be completed before or during the start of Phase 8. It do
 * [ ] Keep `stepSimulation(...)` as a small facade with an explicitly documented update order.
 * [ ] Define a versioned `SimulationEvent` schema and expose each tick's events separately from the capped debug history.
 * [ ] Drive transient smoke, impacts, flashes, health bars, sounds, and camera impulses from simulation events.
-* [ ] Ensure events contain stable IDs and gameplay positions, but no Canvas, sprite, audio, browser, or Unreal asset references.
+* [ ] Ensure events contain stable IDs and gameplay positions, but no Canvas, sprite, audio, browser, or renderer-owned asset references.
 * [ ] Run the complete headless suite after every extraction without changing expected behavior.
 
 ### Shared Parity Fixtures
@@ -525,15 +525,15 @@ This checkpoint should be completed before or during the start of Phase 8. It do
 * [ ] Confirm that fixtures produce the same result after serialize/restore at an intermediate tick.
 * [ ] Store failed procedural seeds and input traces in the same fixture format once procedural generation begins.
 
-### Early C++ and Unreal Spike
+### Early Standalone C++ Spike
 
 * [ ] Create a small standalone `RocketfrockCore` C++ test project before the full game is ported.
-* [ ] Keep the standalone core free of Unreal headers and libraries.
+* [ ] Keep the standalone core free of presentation-framework dependencies.
 * [ ] Port core numeric types, `InputFrame`, a minimal `GameState`, and one representative movement/collision fixture.
 * [ ] Use `double` for gameplay numeric values.
 * [ ] Load the same JSON fixture used by the JavaScript testbench.
 * [ ] Compare discrete state and events exactly, and floating-point values using documented tolerances.
-* [ ] Create a thin experimental Unreal module that advances the portable core and moves a visual Actor without making Character Movement or Chaos authoritative.
+* [ ] Create a thin native presentation spike that advances the portable core without making presentation APIs authoritative for gameplay.
 * [ ] Record any naming, schema, coordinate, or update-order corrections revealed by the spike in `PLAN.md` before continuing into large procedural systems.
 
 ### Checkpoint Completion
@@ -545,7 +545,7 @@ This checkpoint should be completed before or during the start of Phase 8. It do
 * [ ] Shared runtime schemas are validated and versioned.
 * [ ] Important scenarios exist as language-neutral parity fixtures.
 * [ ] A minimal standalone C++ core passes at least one shared fixture.
-* [ ] An Unreal presentation spike displays C++ simulation state without replacing the custom gameplay simulation.
+* [ ] A native presentation spike displays C++ simulation state without replacing the custom gameplay simulation.
 
 ## Phase 8: Procedural Generation Foundation
 
@@ -748,13 +748,13 @@ Goal: grow the game beyond isolated prototype levels.
 * [x] Expose enemy health in the Level Editor inspector.
 * [x] Add headless regression coverage for damage, hurt recovery, death, retargeting, and terrain interception.
 
-### Revision 095 future C++ and Unreal portability roadmap
+### Revision 095 C++ portability roadmap
 
-* [x] Assess the current simulation, renderer, level-loading, data, and test boundaries for a future Unreal Engine port.
-* [x] Define the intended split between an engine-neutral `RocketfrockCore` and a thin Unreal presentation adapter.
+* [x] Assess the simulation, renderer, level-loading, data, and test boundaries for an engine-neutral C++ gameplay core.
+* [x] Define the intended split between `RocketfrockCore` gameplay and a thin presentation layer.
 * [x] Document the gameplay coordinate and double-precision numeric contract.
 * [x] Add permanent portability guardrails for future gameplay changes.
-* [x] Add a pre-procedural-generation checkpoint covering normalized levels, state ownership, schemas, module extraction, simulation events, parity fixtures, and an early C++/Unreal spike.
+* [x] Add a pre-procedural-generation checkpoint covering normalized levels, state ownership, schemas, module extraction, simulation events, parity fixtures, and an early standalone C++ spike.
 * [x] Keep revision 095 documentation-only so runtime behavior remains unchanged.
 
 ### Revision 096 enemy melee attacks and player damage
@@ -1804,7 +1804,7 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Implement Triple as three small one-third-damage homing rockets with distinct fan angles and separate target selection when possible.
 - [x] Implement Dart as one normal-sized, forward, non-homing, double-damage rocket costing two-thirds standard fuel.
 - [x] Implement Twin as two medium half-damage homing rockets with distinct launch angles.
-- [x] Implement Bigbomb as a 1.7× rocket with triple fuel cost, triple damage, half speed, half homing response, and AoE radius of 1.5 wizard heights.
+- [x] Implement Bigbomb as a 1.7× rocket with triple fuel cost, triple damage, half speed, half homing response, and AoE radius of 2 wizard heights.
 - [x] Implement Boomerang return after misses or destroyed targets and refund half launch fuel when caught.
 - [x] Ensure collecting a wrench replaces only the active wrench and never cancels Overdrive.
 - [x] Add deterministic shared HUD priority when Overdrive and a wrench coexist.
@@ -2073,7 +2073,7 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [ ] Use generated drafts plus new enemy assets to begin real level production and manual refinement.
 - [ ] Profile representative densely decorated real levels in target browsers and Electron.
 - [ ] Add WebGL2 only if measurements identify Canvas presentation as the material bottleneck.
-- [ ] Preserve engine-neutral level, generation, validation, and portable-state contracts so Electron and a possible Unreal Engine 5 port remain viable options.
+- [ ] Preserve engine-neutral level, generation, validation, and portable-state contracts so the browser and SDL/C++ implementations remain viable and testable against the same authored data.
 
 
 ## Revision 226 Score HUD and treasure-chest implementation
@@ -2840,6 +2840,7 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Remove **Fit World** and **Fit Cave** and rename the authored-content control to **Fit**.
 - [x] Launch red Bigbomb and magenta Boomerang rockets horizontally along Ignatius's facing direction before homing.
 - [x] Raise Bigbomb damage from 90 to 120 without changing its triple fuel cost.
+- [x] Double Bigbomb projectile lifetime from the shared wrench lifetime so its half-speed flight retains a satisfying long range.
 - [x] Replace green Twin with green Burst: three small unguided forward rockets, 0.18 seconds apart, 15 damage each, paid as one standard launch.
 - [x] Add blue Phase as a mutually exclusive thirty-second wrench with standard damage/fuel and obstacle-phasing homing behavior.
 - [x] Remove support for the superseded `wrenchTwin` saved-level identity, including embedded pickup definitions and active-effect snapshots.
@@ -5034,3 +5035,50 @@ Manual profiling workflow: open the game, run `window.__rocketfrockDev.profiler.
 - [x] Preserve minimap teleport for browser-copy and native `level_temp` Level Editor playtests when `DEVELOPMENT` is false.
 - [x] Clear momentum/support and snap the camera through shared `teleportPlayer` behavior.
 - [x] Keep non-teleporting minimap clicks on the ordinary pause-menu path.
+
+## Revision 318 distance-normalized player rockets
+
+- [x] Replace player-rocket lifetime tuning with 600 px ordinary and 1500 px wrench max-travel-distance tuning.
+- [x] Derive projectile lifetime from max travel distance divided by actual launch speed in browser and SDL.
+- [x] Remove the wrench `lifetimeMultiplier`; speed-changing wrench modes share the same 1500 px nominal travel distance.
+- [x] Reduce Red Bigbomb launch fuel from 3× to 2× standard cost, currently 60 fuel, while preserving 120 damage.
+- [x] Add browser/native regressions proving 600 px standard range and 1500 px range for every wrench mode.
+- [x] Advance visible browser/editor/Dev Tool/native revision labels to 318.
+
+
+## Revision 320 native player-rocket explosion presentation
+
+- [x] Keep browser Canvas/WebGL player-rocket explosion presentation unchanged.
+- [x] Render the matching orange/yellow player-rocket spark burst in SDL while the projectile is in `exploding`.
+- [x] Preserve the Bigbomb expanding area ring in SDL.
+- [x] Keep explosion effects renderable just beyond the viewport edge when their bounds overlap the visible margin.
+- [x] Add a native-renderer source regression and advance visible revision labels to 320.
+
+
+## Revision 321 player-rocket reach and quiet expiry
+
+- [x] Keep Ignatius's physical hitbox unchanged.
+- [x] Increase wrench-upgraded authored rocket travel distance from 1500 px to 1800 px; keep the standard rocket at 600 px.
+- [x] Add shared `rocketTargetSearchDistance = 1500` and use it for homing and launch-time aimed target eligibility in browser and SDL.
+- [x] Verify the normal 1920x1080 far visible corner is inside the 1500 px acquisition circle.
+- [x] Verify all three upward-launch Blue Homing Triple rockets can approach a target at the full 1500 px lock radius within the 1800 px travel budget.
+- [x] Add shared `rocketLifetimeExplosionOffscreenMargin = 100`.
+- [x] Cull only natural no-hit player-rocket lifetime expiry when the expiry point is more than 100 px from the nearest visible-screen point, without impact smoke or explosion state.
+- [x] Preserve normal off-screen explosion behavior for actual enemy, reactive-object, and terrain impacts; preserve Boomerang lifetime return behavior.
+- [x] Advance visible browser/native build labels to revision 321.
+
+## Revision 353 Puppet Forge awareness controls and panel organization
+
+- [x] Expose enemy catalog awareness range, awareness view half-angle, and awareness hold duration in Puppet Forge.
+- [x] Expose projectile preferred attack range and preferred minimum range without moving them into projectile presentation semantics.
+- [x] Split Puppet Forge enemy defaults into Metadata, Movement, Attack behavior, and Projectile behavior panels in that order.
+- [x] Remove the redundant All defaults JSON textarea and its Apply/Refresh controls; retain Enemy Catalog JSON as the complete raw editor.
+- [x] Default each Character, Level, and Asset editor right-side panel to collapsed when that panel has no remembered localStorage state, while preserving explicit remembered choices.
+- [x] Keep visible game/editor build labels synchronized to revision 353 and cover the new authoring/panel contracts in the editor test gate.
+
+## Revision 355 native standard-library type cleanup
+
+- [x] Replace native compatibility aliases with direct standard-library types and headers.
+- [x] Replace the generic rig vector shim with the project-owned two-field `FRigPoint`.
+- [x] Remove the obsolete native compatibility headers and their transitive include dependency.
+- [x] Keep gameplay/data behavior unchanged and rerun native plus browser release gates.

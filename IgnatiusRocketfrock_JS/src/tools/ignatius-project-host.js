@@ -4,16 +4,55 @@
     const DATABASE_NAME = "ignatius-dev-tool";
     const DATABASE_VERSION = 1;
     const HANDLE_STORE = "handles";
-    const RESOURCES_HANDLE_KEY = "resources-root";
+    const PROJECT_SCOPE_PATH = (() => {
+        try {
+            return new URL(".", window.location.href).pathname || "/";
+        } catch (_) {
+            return "/";
+        }
+    })();
     const NATIVE_REQUEST_TYPE = "ignatius-project-request";
     const NATIVE_RESPONSE_TYPE = "ignatius-project-response";
-    const REQUIRED_DIRECTORIES = ["levels", "atlases", "characters", "palette"];
+    const REQUIRED_DIRECTORIES = Object.freeze([
+        "levels",
+        "atlases",
+        "items",
+        "characters",
+        "palette",
+        "editor",
+        "generator",
+        "config",
+        "music",
+        "sfx",
+        "ui",
+        "fonts"
+    ]);
     const RESOURCE_DIRECTORIES = Object.freeze({
         level: "levels",
         assetAtlas: "atlases",
+        itemAtlas: "items",
         character: "characters",
-        palette: "palette"
+        palette: "palette",
+        editor: "editor",
+        generator: "generator",
+        config: "config",
+        music: "music",
+        sfx: "sfx",
+        ui: "ui",
+        font: "fonts"
     });
+
+    function scopeHash(text) {
+        let hash = 2166136261;
+        for (const ch of String(text || "")) {
+            hash ^= ch.charCodeAt(0);
+            hash = Math.imul(hash, 16777619);
+        }
+        return (hash >>> 0).toString(16).padStart(8, "0");
+    }
+
+    const RESOURCES_HANDLE_KEY = `resources-root:${scopeHash(PROJECT_SCOPE_PATH)}`;
+    const DIRECTORY_PICKER_ID = `ignatius-res-${scopeHash(PROJECT_SCOPE_PATH)}`;
 
     function nativeBridge() {
         const bridge = window.chrome?.webview;
@@ -29,6 +68,43 @@
             return null;
         }
         return null;
+    }
+
+    function normalizeResourceRelativePath(requestPath) {
+        let text = String(requestPath || "").trim().replace(/\\/g, "/");
+        if (!text || /^(?:[a-z]+:)?\/\//i.test(text) || text.startsWith("data:") || text.startsWith("blob:")) {
+            throw new Error(`Not a relative Ignatius resource path: ${requestPath}`);
+        }
+        while (text.startsWith("./")) text = text.slice(2);
+        text = text.replace(/^\/+/, "");
+        for (const prefix of ["reference/resources/", "content/resources/", "resources/"]) {
+            if (text.startsWith(prefix)) {
+                text = text.slice(prefix.length);
+                break;
+            }
+        }
+        const parts = text.split("/");
+        if (!text || parts.some((part) => !part || part === "." || part === ".." || /[<>:"|?*\x00-\x1f\x7f]/.test(part))) {
+            throw new Error(`Unsafe Ignatius resource path: ${requestPath}`);
+        }
+        return parts.join("/");
+    }
+
+    function resolveResourceRelativePath(resourceKind, filename) {
+        const directory = RESOURCE_DIRECTORIES[resourceKind];
+        if (!directory) throw new Error(`Unknown Ignatius resource kind: ${resourceKind}`);
+        if (!/^[A-Za-z0-9_.-]+$/.test(String(filename || ""))) throw new Error(`Unsafe resource filename: ${filename}`);
+        return `${directory}/${filename}`;
+    }
+
+    function resourceRequestUrl(relativePath, selectionVersion = 0) {
+        const encodedPath = normalizeResourceRelativePath(relativePath)
+            .split("/")
+            .map((part) => encodeURIComponent(part))
+            .join("/");
+        const url = new URL(`resources/${encodedPath}`, window.location.href);
+        url.searchParams.set("ignatius_project_root", String(selectionVersion));
+        return url.href;
     }
 
     function openHandleDatabase() {
@@ -105,6 +181,19 @@
         return resourceIndex;
     }
 
+    async function sameDirectoryEntry(left, right) {
+        if (!left || !right) return left === right;
+        if (left === right) return true;
+        if (typeof left.isSameEntry === "function") {
+            try {
+                return await left.isSameEntry(right);
+            } catch (_) {
+                return false;
+            }
+        }
+        return false;
+    }
+
     function bytesToBase64(bytes) {
         let binary = "";
         const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
@@ -122,6 +211,7 @@
             this.listeners = new Set();
             this.pendingNativeRequests = new Map();
             this.nextNativeRequestId = 1;
+            this.selectionVersion = 0;
             this.initialized = false;
             this.initializationPromise = null;
             this.bridge = nativeBridge();
@@ -147,6 +237,8 @@
                 mode: this.mode,
                 connected: this.connected,
                 displayName: this.displayName,
+                resourceRoot: this.bridge ? String(this.projectInfo?.resourceRoot || "") : "",
+                selectionVersion: this.selectionVersion,
                 canChooseDirectory: this.bridge ? true : typeof window.showDirectoryPicker === "function"
             };
         }
@@ -187,6 +279,7 @@
                 const result = await this.#nativeRequest("chooseResourcesDirectory", {});
                 if (!result.cancelled) {
                     this.projectInfo = result;
+                    if (result.changed) this.selectionVersion += 1;
                     this.#emit();
                 }
                 return this.snapshot();
@@ -194,19 +287,24 @@
             if (typeof window.showDirectoryPicker !== "function") {
                 throw new Error("This Chromium build does not provide the File System Access API.");
             }
-            const handle = await window.showDirectoryPicker({ mode: "readwrite", id: "ignatius-resources" });
+            const previousHandle = this.directoryHandle;
+            const handle = await window.showDirectoryPicker({ mode: "readwrite", id: DIRECTORY_PICKER_ID });
             if (!await verifyPermission(handle, true)) throw new Error("Write permission was not granted for the resources folder.");
             await validateResourcesDirectory(handle);
+            const changed = !await sameDirectoryEntry(previousHandle, handle);
             this.directoryHandle = handle;
             await storeHandle(handle);
+            if (changed) this.selectionVersion += 1;
             this.#emit();
             return this.snapshot();
         }
 
         async forgetResourcesDirectory() {
             if (this.bridge) return;
+            const changed = Boolean(this.directoryHandle);
             this.directoryHandle = null;
             await removeStoredHandle();
+            if (changed) this.selectionVersion += 1;
             this.#emit();
         }
 
@@ -224,6 +322,42 @@
             }
         }
 
+        async #browserResourceFile(relativePath) {
+            const normalized = normalizeResourceRelativePath(relativePath);
+            const parts = normalized.split("/");
+            let directory = this.directoryHandle;
+            for (const part of parts.slice(0, -1)) directory = await directory.getDirectoryHandle(part);
+            const fileHandle = await directory.getFileHandle(parts.at(-1));
+            return await fileHandle.getFile();
+        }
+
+        async readResourceText(requestPath, options = {}) {
+            const relativePath = normalizeResourceRelativePath(requestPath);
+            if (!await this.ensureConnected({ prompt: Boolean(options.prompt) })) return null;
+
+            if (this.bridge) {
+                const result = await this.#nativeRequest("readResourceTextPath", { relativePath });
+                return typeof result.text === "string" ? result.text : "";
+            }
+
+            return await (await this.#browserResourceFile(relativePath)).text();
+        }
+
+        async readResourceBlob(requestPath, options = {}) {
+            const relativePath = normalizeResourceRelativePath(requestPath);
+            if (!await this.ensureConnected({ prompt: Boolean(options.prompt) })) return null;
+
+            if (!this.bridge) return await this.#browserResourceFile(relativePath);
+
+            const response = await fetch(resourceRequestUrl(relativePath, this.selectionVersion), { cache: "no-store" });
+            if (!response.ok) throw new Error(`Could not load resources/${relativePath}: HTTP ${response.status}`);
+            return await response.blob();
+        }
+
+        async readText(resourceKind, filename, options = {}) {
+            return this.readResourceText(resolveResourceRelativePath(resourceKind, filename), options);
+        }
+
         async saveText(resourceKind, filename, text, options = {}) {
             return this.saveBlob(resourceKind, filename, new Blob([text], { type: options.mimeType || "application/json" }), options);
         }
@@ -233,21 +367,29 @@
         }
 
         async saveBlob(resourceKind, filename, blob, options = {}) {
-            if (!RESOURCE_DIRECTORIES[resourceKind]) throw new Error(`Unknown Ignatius resource kind: ${resourceKind}`);
-            if (!/^[A-Za-z0-9_.-]+$/.test(filename)) throw new Error(`Unsafe resource filename: ${filename}`);
+            const relativePath = resolveResourceRelativePath(resourceKind, filename);
+            const selectionVersionBeforeConnect = this.selectionVersion;
             if (!await this.ensureConnected({ prompt: options.prompt !== false })) return "cancelled";
+            if (this.selectionVersion !== selectionVersionBeforeConnect) {
+                // The editor's current in-memory document may have been loaded before this
+                // resources root was selected. Never write that document into a newly chosen
+                // tree; let the caller reload and read from the selected root first.
+                return "root-changed";
+            }
 
             if (this.bridge) {
                 const bytes = new Uint8Array(await blob.arrayBuffer());
                 await this.#nativeRequest("writeResource", {
                     resourceKind,
-                    filename,
+                    relativePath,
                     mimeType: blob.type || "application/octet-stream",
                     base64: bytesToBase64(bytes)
                 });
             } else {
-                const directory = await this.directoryHandle.getDirectoryHandle(RESOURCE_DIRECTORIES[resourceKind]);
-                const fileHandle = await directory.getFileHandle(filename, { create: true });
+                const parts = relativePath.split("/");
+                let directory = this.directoryHandle;
+                for (const part of parts.slice(0, -1)) directory = await directory.getDirectoryHandle(part);
+                const fileHandle = await directory.getFileHandle(parts.at(-1), { create: true });
                 const writable = await fileHandle.createWritable();
                 await writable.write(blob);
                 await writable.close();
@@ -312,6 +454,9 @@
     window.IgnatiusProjectHost = Object.freeze({
         create: () => new IgnatiusProjectHost(),
         get: getProjectHost,
-        resourceDirectories: RESOURCE_DIRECTORIES
+        resourceDirectories: RESOURCE_DIRECTORIES,
+        requiredDirectories: REQUIRED_DIRECTORIES,
+        normalizeResourceRelativePath,
+        resolveResourceRelativePath
     });
 })();

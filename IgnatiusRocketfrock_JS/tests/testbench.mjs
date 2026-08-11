@@ -7,6 +7,7 @@ import {
 } from "../src/shared/story-reading.js";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { normalizeResourcePath, resourceUrl } from "../src/shared/resource-paths.js";
+import { sha256Hex } from "../src/tools/resource-hash.js";
 import { addResourceIndexEntry, normalizeResourceIndex, resourceIndexContains } from "../src/shared/resource-index-data.js";
 import { testNameInGroup, validateTestGateManifest } from "./test-gate-manifest.mjs";
 import {
@@ -31,6 +32,7 @@ import {
 import {
     createPlayerFlightDangleProfile,
     createPlayerFlightDangleState,
+    playerFlightIdleRenderOffset,
     updatePlayerFlightDangle
 } from "../src/presentation/player-flight-dangle-motion.js";
 import {
@@ -73,8 +75,10 @@ import {
     OVERLAP_BLEND_CENTRAL_START
 } from "../src/presentation/overlap-blend-cache.js";
 import {
+    queryWorldCollisionAssets,
     queryWorldCollisionPolygons,
     queryWorldSegments,
+    queryWorldSegmentsFromCollisionAssets,
     queryWorldSolids,
     worldCollisionIndexDiagnostics
 } from "../src/core/world-collision-index.js";
@@ -323,7 +327,7 @@ import {
     normalizePowerUpPickup,
     powerUpEffectDefinition,
     powerUpHudLabel,
-    prioritizedActivePowerUpEffect,
+    shortestRemainingActivePowerUpEffect,
     rocketPowerUpMultipliers
 } from "../src/shared/power-up-data.js";
 import {
@@ -506,6 +510,11 @@ import {
 
 const RESOURCE_ROOT_DIRECTORY = new URL("../resources/", import.meta.url);
 
+function createCatalogBackedGameState(overrides = {}) {
+    const enemyCatalog = JSON.parse(readFileSync("./resources/characters/ct_enemies_001.json", "utf8"));
+    return createInitialGameState({ ...overrides, enemyCatalog });
+}
+
 function categorizedResourcePath(requestPath) {
     const normalized = normalizeResourcePath(requestPath);
     if (!normalized || normalized.includes("/")) return normalized;
@@ -637,6 +646,7 @@ function testSourceOrganization() {
         "../src/shared/power-up-data.js",
         "../src/shared/resource-index-data.js",
         "../src/tools/resource-index-loader.js",
+        "../src/tools/resource-hash.js",
         "../resources/resources.json",
         "../electron/main.cjs",
         "../electron/preload.cjs",
@@ -754,11 +764,40 @@ function testSourceOrganization() {
     assert.throws(() => normalizeResourceIndex({ ...resourceIndex, levelIds: ["not_a_level"] }), /valid resource id/, "resource indexes should reject malformed level ids");
     const resourceAssetEditorSource = readFileSync(new URL("../asset-editor.html", import.meta.url), "utf8");
     const resourceLevelEditorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    const resourceCharacterEditorSource = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
+    const resourcePaletteBuilderSource = readFileSync(new URL("../src/tools/palette-builder.js", import.meta.url), "utf8");
+    const devToolShellSource = readFileSync(new URL("../IgnatiusDevTool.html", import.meta.url), "utf8");
+    const projectHostSource = readFileSync(new URL("../src/tools/ignatius-project-host.js", import.meta.url), "utf8");
     const resourceLoaderSource = readFileSync(new URL("../src/tools/resource-index-loader.js", import.meta.url), "utf8");
     assert.equal(resourceAssetEditorSource.includes("NUMBERED_ATLAS_MAX"), false, "the Asset Tool should no longer synthesize atlas ids through 099");
     assert.equal(resourceLevelEditorSource.includes("ATLAS_AUTOLOAD_LIMIT") || resourceLevelEditorSource.includes("LEVEL_AUTOLOAD_LIMIT"), false, "the Level Editor should no longer probe fixed numbered ranges");
     assert.ok(resourceAssetEditorSource.includes("loadResourceIndex") && resourceLevelEditorSource.includes("loadResourceIndex"), "both authoring tools should discover resources through resources.json");
+    assert.ok(resourceAssetEditorSource.includes('ITEM_ATLAS_IDS = Object.freeze(["it_atlas_001"])') && resourceAssetEditorSource.includes('startsWith("it_atlas_") ? "items" : "atlases"'), "the Asset Tool should load the interactive item atlas from resources/items rather than treating it as an environment atlas");
+    assert.ok(resourceAssetEditorSource.includes('startsWith("it_atlas_") ? "itemAtlas" : "assetAtlas"') && resourceAssetEditorSource.includes('projectHost.saveText(resourceKind, filename'), "the Asset Tool should preserve the item-atlas resource kind when saving through the common project host");
+    assert.ok(resourceAssetEditorSource.includes('projectHost.readText(resourceKind, filename, { prompt: false })'), "the Asset Tool should reload atlas JSON through the same selected project root used for saves instead of a second WebView resource path");
+    const itemAtlasManifest = readResourceJson("items/it_atlas_001.json");
+    assert.deepEqual(itemAtlasManifest.frames.lever_off, { x: 465, y: 809, w: 140, h: 116 }, "the switch off state should use the measured revision-357 registration frame");
+    assert.deepEqual(itemAtlasManifest.frames.lever_on, { x: 666, y: 811, w: 140, h: 116 }, "the switch on state should use the same-sized measured revision-357 registration frame");
+    assert.equal(itemAtlasManifest.frames.lever_on.x - itemAtlasManifest.frames.lever_off.x, 201, "matching switch-case features should keep the measured 201px atlas separation");
+    assert.equal(itemAtlasManifest.frames.lever_on.y - itemAtlasManifest.frames.lever_off.y, 2, "matching switch-case features should keep the measured 2px atlas vertical separation");
     assert.ok(resourceLoaderSource.includes("RESOURCE_LOAD_RETRY_DELAYS_MS") && resourceLoaderSource.includes("after ${delays.length} attempts"), "declared resource retrieval should use bounded retries with explicit failure text");
+    assert.ok(projectHostSource.includes('PROJECT_SCOPE_PATH') && projectHostSource.includes('new URL(".", window.location.href).pathname') && projectHostSource.includes('RESOURCES_HANDLE_KEY = `resources-root:${scopeHash(PROJECT_SCOPE_PATH)}`'), "remembered browser resource handles should be scoped to the current checkout directory rather than shared across every page on the origin");
+    assert.ok(projectHostSource.includes('selectionVersion') && devToolShellSource.includes('snapshot.selectionVersion !== observedSelectionVersion') && devToolShellSource.includes('for (const frame of frames) frame.contentWindow?.location.reload()'), "switching resources roots from the shell or any child tool should reload all editor frames even when both folders are named resources");
+    for (const directory of ["levels", "atlases", "items", "characters", "palette", "editor", "generator", "config", "music", "sfx", "ui", "fonts"]) {
+        assert.ok(projectHostSource.includes(`"${directory}"`), `the browser project host should validate the canonical resources/${directory} directory`);
+    }
+    assert.ok(projectHostSource.includes('async readResourceText(requestPath') && projectHostSource.includes('async readResourceBlob(requestPath'), "the shared project host should expose canonical arbitrary resource reads below the selected root");
+    assert.ok(projectHostSource.includes('selectionVersionBeforeConnect') && projectHostSource.includes('return "root-changed"') && resourceAssetEditorSource.includes('if (result === "root-changed")') && resourceLevelEditorSource.match(/if \(result === "root-changed"\)/g)?.length >= 2 && resourceCharacterEditorSource.includes('if (result === "root-changed")'), "a project folder first selected during Save or playtest-temp Save should reload the editor instead of writing page-loaded data into the newly selected tree");
+    assert.ok(resourceLoaderSource.includes('host.readResourceText(requestPath, { prompt: false })') && resourceLoaderSource.includes('host.readResourceBlob(requestPath, { prompt: false })'), "shared JSON/image loaders should prefer the selected project host over page-relative resource URLs");
+    assert.ok(resourceAssetEditorSource.includes('loadJsonResourceWithRetry("editor/asset-generation-tags.json")') && resourceAssetEditorSource.includes('loadJsonResourceWithRetry("generator/level-generator-platforms.json")'), "Asset Tool helper catalogs should come from the same selected resources tree as atlas manifests and PNGs");
+    assert.equal(resourceAssetEditorSource.includes('fetch("resources/'), false, "Asset Tool should not bypass the selected project host with direct resources/* fetches");
+    assert.ok(resourceLevelEditorSource.includes('loadRuntimeCharacterProject(characterUrl, {') && resourceLevelEditorSource.includes('loadJson: (url) => loadJsonResourceWithRetry(url)') && resourceLevelEditorSource.includes('loadImage: (url) => loadImageResourceWithRetry(url)'), "Level Editor character previews should consume the selected resources tree instead of character-runtime page URLs");
+    assert.ok(resourceLevelEditorSource.includes('loadJsonResourceWithRetry("music/music.json")') && resourceLevelEditorSource.includes('fetchImpl: (url, fetchOptions) => fetchResourceWithRetry(url, { fetchOptions })'), "Level Editor music and tuning data should use the shared selected-root loader");
+    assert.ok(resourceCharacterEditorSource.includes('loadJsonResourceWithRetry(url)') && resourceCharacterEditorSource.includes('loadImageResourceWithRetry(url)'), "Character Editor JSON and atlas images should use the shared selected-root loader in URL-project mode");
+    assert.equal(resourceCharacterEditorSource.includes('fetch(resolvedUrl'), false, "Character Editor should not read URL-project JSON through a second page-relative fetch path");
+    assert.ok(resourcePaletteBuilderSource.includes('projectHost.readResourceBlob(sourceKey, { prompt: false })') && resourcePaletteBuilderSource.includes('loadJson: (url) => cache.resourceJson') && resourcePaletteBuilderSource.includes('loadImage: (url) => cache.resourceImage'), "Palette Builder inputs and runtime character dependencies should come from the selected project root before outputs are written there");
+    assert.ok(resourcePaletteBuilderSource.includes('"src/tools/resource-hash.js"'), "Palette Builder cache digests should include the hashing helper that defines source identity");
+    assert.ok(resourcePaletteBuilderSource.includes('Resources folder changed. Rebuild before writing palette outputs'), "Palette Builder should invalidate an in-memory build when its selected resource root changes");
 
     const nativeAppSource = readFileSync(new URL("../../src/runtime/ignatius-app.cpp", import.meta.url), "utf8");
     const devToolHostSource = readFileSync(new URL("../../src/runtime/development-tool-host.cpp", import.meta.url), "utf8");
@@ -769,9 +808,28 @@ function testSourceOrganization() {
     const launchOptionsHeader = readFileSync(new URL("../../src/runtime/launch-options.h", import.meta.url), "utf8");
     const launchOptionsSource = readFileSync(new URL("../../src/runtime/launch-options.cpp", import.meta.url), "utf8");
     const gpuPresenterHeader = readFileSync(new URL("../../src/runtime/gpu-presenter.h", import.meta.url), "utf8");
+    assert.equal(devToolHostSource.includes('resourceDirectoryForKind'), false, "typed resource-kind-to-directory routing should live in the shared JavaScript project-host contract rather than being duplicated in the native bridge");
+    assert.ok(devToolHostSource.includes('operation == "readResourceTextPath"') && devToolHostSource.includes('safeResourceRelativePath(relativePath)'), "the native project bridge should support the same canonical arbitrary resource-text reads used by the browser host");
+    assert.ok(devToolHostSource.includes('operation != "writeResource"') && devToolHostSource.includes('authoringResourceRoot / std::filesystem::') && devToolHostSource.includes('writeBinaryFile(resourcePath, bytes'), "native project writes should consume the project host's already-resolved safe relative path below the selected authoring root");
+    assert.ok(devToolHostSource.includes('std::array<const char*, 12> requiredDirectories') && devToolHostSource.includes('index.contains("assetAtlasIds")'), "native resource-root validation should match the complete browser development-tool resource layout and validate resources.json");
+    assert.ok(devToolHostSource.includes('Cache-Control: no-store, no-cache, must-revalidate'), "native authoring-resource responses should not retain stale WebView cache entries");
     assert.match(launchOptionsHeader, /DEVTOOL_PLAYTEST_LEVEL_ID = "level_temp"/, "IgnatiusDevTool should use the exact generated filename level_temp.json");
-    assert.match(devToolHostSource, /playtestLevelPath = authoringResourceRoot \/ "levels" \/ \(FString\(DEVTOOL_PLAYTEST_LEVEL_ID\) \+ "\.json"\)/, "IgnatiusDevTool should write its generated playtest snapshot inside the selected resources root");
+    assert.match(devToolHostSource, /playtestLevelPath = authoringResourceRoot \/ "levels" \/ \(std::string\(DEVTOOL_PLAYTEST_LEVEL_ID\) \+ "\.json"\)/, "IgnatiusDevTool should resolve the shared generated playtest snapshot inside the selected resources root");
     assert.match(devToolHostSource, /argsStorage\.push_back\("--level"\)[\s\S]*argsStorage\.push_back\(DEVTOOL_PLAYTEST_LEVEL_ID\)/, "IgnatiusDevTool should launch playtests through the ordinary level-id loader");
+    assert.ok(resourceLevelEditorSource.includes('const PLAYTEST_LEVEL_ID = "level_temp"') && resourceLevelEditorSource.includes('projectHost.saveText("level", PLAYTEST_LEVEL_FILENAME, serializeLevelJson()'), "the shared HTML Level Editor should write level_temp.json through the common project host before launching a playtest");
+    assert.ok(resourceLevelEditorSource.includes('url.searchParams.set("level", PLAYTEST_LEVEL_ID)') && resourceLevelEditorSource.includes('url.searchParams.set("playtest_browser_copy", "1")'), "Chrome and native Level Editor playtests should launch the same level_temp resource while retaining editor-playtest privileges");
+    const characterEditorSource = readFileSync("./character-editor.html", "utf8");
+    assert.ok(characterEditorSource.includes('id="enemy-projectile-kind"') && characterEditorSource.includes('state.enemyCatalog?.projectileKinds'), "Puppet Forge should expose data-defined projectile kinds in the enemy attack panel");
+    assert.ok(characterEditorSource.includes('defaults.projectileKind = String(els.enemyProjectileKind.value || "fireball")'), "Puppet Forge should persist projectile kind into enemy defaults rather than the rig handoff");
+    assert.ok(characterEditorSource.includes('id="enemy-projectile-launch-type"'), "Launch Type should remain independently editable because projectile kind does not uniquely determine trajectory");
+    assert.ok(characterEditorSource.includes('part.attackHandoff = {') && characterEditorSource.includes('detach: Boolean(els.projectileDetach.checked)'), "Puppet Forge rig markers should now persist semantic-free attack handoff timing/origin data");
+    assert.equal(resourceLevelEditorSource.includes('ignatius_level_editor_v2'), false, "the Level Editor should not use quota-limited localStorage for level or playtest JSON");
+    assert.ok(resourceLevelEditorSource.includes('level: makeEmptyLevel()') && resourceLevelEditorSource.includes('const b = state.level?.world?.bounds;'), "the Level Editor should have valid world bounds even if an early resize paints before initialization completes");
+    assert.ok(resourceLevelEditorSource.includes('loadJsonResourceWithRetry("music/music.json")'), "the Level Editor music catalog should resolve through the selected project host in both Chrome and the native WebView host");
+    const nativePlaytestLaunchSource = devToolHostSource.slice(devToolHostSource.indexOf("void launchPlaytestFromLevelEditor()"), devToolHostSource.indexOf("bool waitForEnvironment", devToolHostSource.indexOf("void launchPlaytestFromLevelEditor()")));
+    assert.ok(nativePlaytestLaunchSource.includes("std::filesystem::exists(playtestLevelPath)") && nativePlaytestLaunchSource.includes("launchGameProcess(&launchError)"), "the native shell should only validate and launch the level_temp file already written by the shared HTML editor");
+    assert.equal(nativePlaytestLaunchSource.includes("ExecuteScriptWithResult") || nativePlaytestLaunchSource.includes("localStorage"), false, "the native playtest launcher should not maintain a second browser-copy extraction path");
+    assert.ok(devToolHostSource.includes('resourceId == DEVTOOL_PLAYTEST_LEVEL_ID'), "the native project bridge should keep generated level_temp out of resources.json just like the browser project host");
     assert.match(launchOptionsSource, /--resources-root[\s\S]*options\.resourcesRoot/, "IgnatiusSDL should accept a resources-root command-line override");
     assert.ok(nativeAppSource.includes("setReferenceAssetRootOverride(resourceRoot)"), "IgnatiusSDL should install the validated command-line resources root before loading assets");
     assert.equal(referenceAssetLoaderSource.includes("using packaged DevTool playtest level"), false, "a resources-root override should never fall back to packaged level_temp content");
@@ -803,12 +861,12 @@ function testSourceOrganization() {
     assert.ok(nativeAppSource.includes('gameTuningFallback') && nativeAppSource.includes('enemyCatalogFallback') && nativeAppSource.includes('lootCatalogFallback') && nativeAppSource.includes('enemyCharacterProjectFallback'), "native graceful resource fallbacks should enter the shared in-game exception alert queue");
     assert.ok(devToolHostSource.includes("ignatius-resource-saved|") && devToolHostSource.includes("addResourceIndexEntry"), "IgnatiusDevTool should add newly saved atlases and levels to resources.json when their authored files exist");
     assert.equal(devToolHostSource.includes("--level-file"), false, "IgnatiusDevTool should not retain the external temporary-level launch path");
-    const devToolShellSource = readFileSync(new URL("../IgnatiusDevTool.html", import.meta.url), "utf8");
-    const projectHostSource = readFileSync(new URL("../src/tools/ignatius-project-host.js", import.meta.url), "utf8");
     const cmakeSource = readFileSync(new URL("../../CMakeLists.txt", import.meta.url), "utf8");
     assert.ok(devToolHostSource.includes("IgnatiusDevTool.html") && devToolHostSource.includes("ignatius-project-request") && devToolHostSource.includes("writeResource"), "the SDL Dev Tool should host the shared HTML shell and provide its native project-file bridge");
     assert.ok(devToolShellSource.includes("level-editor.html") && devToolShellSource.includes("asset-editor.html") && devToolShellSource.includes("character-editor.html") && devToolShellSource.includes("palette-builder.html"), "IgnatiusDevTool.html should expose all four authoring tools as same-origin frames");
     assert.ok(projectHostSource.includes("showDirectoryPicker") && projectHostSource.includes("indexedDB") && projectHostSource.includes("resources.json") && projectHostSource.includes("RESOURCE_DIRECTORIES"), "the shared browser project host should remember and validate one resources-folder handle and route canonical resource categories");
+    assert.ok(projectHostSource.includes('itemAtlas: "items"'), "the shared browser/native project host should route item-atlas reads and writes to resources/items");
+    assert.ok(projectHostSource.includes('async readText(resourceKind, filename') && projectHostSource.includes('return this.readResourceText(resolveResourceRelativePath(resourceKind, filename), options);'), "typed project-host reads should delegate to the canonical selected-root resource reader used by all development tools");
     assert.ok(projectHostSource.includes('#nativeRequest("chooseResourcesDirectory"') && projectHostSource.includes("canChooseDirectory: this.bridge ? true"), "the shared project host should expose native resources-folder selection through the same shell button");
     assert.ok(devToolHostSource.includes('operation == "chooseResourcesDirectory"') && devToolHostSource.includes("FOS_PICKFOLDERS") && devToolHostSource.includes("chooseResourcesFolder"), "the native Dev Tool bridge should open and validate a real resources-folder picker");
     assert.equal(devToolShellSource.includes('selectButton.hidden = snapshot.mode === "native"'), false, "the resources-folder button should remain visible in the native Dev Tool shell");
@@ -1014,6 +1072,15 @@ function settleOnGround(state) {
 
 function releaseJumpAfterTakeoff(state) {
     stepSimulation(state, createInputFrame({ jumpReleased: true, jumpHeld: false }), FIXED_DT);
+}
+
+async function testPaletteResourceHashInputNormalization() {
+    const expected = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+    assert.equal(await sha256Hex("abc"), expected, "string palette hash inputs should remain supported");
+    assert.equal(await sha256Hex(new Blob(["abc"], { type: "application/octet-stream" })), expected, "Blob/File-backed project-host reads should be normalized before SubtleCrypto.digest");
+    assert.equal(await sha256Hex(new TextEncoder().encode("abc").buffer), expected, "ArrayBuffer palette hash inputs should remain supported");
+    const padded = new Uint8Array([0, 97, 98, 99, 0]);
+    assert.equal(await sha256Hex(padded.subarray(1, 4)), expected, "typed-array slices should hash only their addressed byte range");
 }
 
 function testLevelEditorStressFixture() {
@@ -1424,13 +1491,14 @@ async function testGoblinRuntimeCharacterProjects() {
     const fireballProjectile = fireball.projectiles.get("fireball");
     const musketProjectile = musket.projectiles.get("cannonball");
     const triFireballProjectile = triFireball.projectiles.get("fireball");
-    assert.equal(fireballProjectile.launchType, "homing_lo", "Fireball Goblin rig should tag the fireball as low-homing");
+    const enemyCatalog = JSON.parse(readFileSync("./resources/characters/ct_enemies_001.json", "utf8"));
+    assert.equal(enemyCatalog.enemies.enemy_010.defaults.projectileLaunchType, "homing_lo", "Fireball Goblin low-homing trajectory should come from the catalog, not the rig handoff");
     assert.equal(fireballProjectile.animationSlot, "attack", "fireball handoff should be attached to the attack slot");
     approx(fireballProjectile.releaseTime, 0.372, 0.000001, "fireball handoff should use the explicit authored release time");
     assert.ok(fireballProjectile.localX > 200 && fireballProjectile.localY < -180, "fireball release should sample the ground-normalized authored attack position");
-    assert.equal(triFireballProjectile.launchType, "straight", "Tri-fireball Goblin rig should tag its copied fireball handoff as straight");
+    assert.equal(enemyCatalog.enemies.enemy_012.defaults.projectileLaunchType, "straight", "Tri-fireball Goblin straight trajectory should come from the catalog independently of its copied handoff");
     approx(triFireballProjectile.releaseTime, fireballProjectile.releaseTime, 0.000001, "Tri-fireball Goblin should copy the Fireball Goblin release timing");
-    assert.equal(musketProjectile.launchType, "ballistic", "Musket Goblin rig should tag the cannonball as ballistic");
+    assert.equal(enemyCatalog.enemies.enemy_011.defaults.projectileLaunchType, "ballistic", "Musket Goblin ballistic trajectory should come from the catalog, not the rig handoff");
     approx(musketProjectile.releaseTime, 0.49531814840382643, 0.000001, "cannonball handoff should use the explicit authored release time");
     assert.ok(musketProjectile.localX > 180 && musketProjectile.localY < -220, "cannonball release should sample the ground-normalized muzzle position");
     const beforeRelease = sampleRuntimeCharacterPose(fireball, "attack", 0.35);
@@ -1636,6 +1704,12 @@ function testFlyingBomberDropsProjectile() {
             awarenessViewHalfAngle: 180,
             projectileLaunchType: "drop",
             projectileKind: "rock",
+            projectileRendererKind: "enemyRock",
+            projectileVisualScale: 1,
+            projectileRotationSpeedDegrees: 286.4788975654116,
+            projectileTrailEffect: "none",
+            projectileImpactEffect: "sparks",
+            projectileExplosionEffect: "impact",
             projectileSpeed: 20,
             projectileGravity: 900,
             projectileCooldown: 1.5,
@@ -2209,7 +2283,20 @@ function testPlayerFlightDangleAnimation() {
     const neutralPoseTime = (profile.minimumPoseTime + profile.maximumPoseTime) * 0.5;
     const steady = createPlayerFlightDangleState(profile);
     step(steady, { active: true, ax: 0, facing: 1, forwardAcceleration: 950, brakingAcceleration: 780 }, 180);
-    approx(steady.poseTime, neutralPoseTime, 0.000001, "steady flight should hold the neutral indexed pose without passive movement");
+    approx(steady.poseTime, neutralPoseTime, 0.000001, "steady flight should keep the dangle pose neutral while whole-body idle drift stays presentation-only");
+
+    const idleAtZero = playerFlightIdleRenderOffset({ active: true, time: 0, vx: 0, vy: 0, ax: 0, ay: 0 });
+    const idleLater = playerFlightIdleRenderOffset({ active: true, time: 1.75, vx: 0, vy: 0, ax: 0, ay: 0 });
+    approx(idleAtZero.amount, 1, 0.000001, "stationary Flight should receive the full subtle render drift");
+    assert.ok(Math.hypot(idleAtZero.x, idleAtZero.y) > 0.1, "stationary Flight should not render at one perfectly fixed point");
+    assert.ok(Math.hypot(idleLater.x - idleAtZero.x, idleLater.y - idleAtZero.y) > 0.5, "stationary Flight drift should change slowly over time");
+    assert.ok(Math.abs(idleAtZero.x) <= 3.10 && Math.abs(idleAtZero.y) <= 5.30, "Flight idle drift should remain within its tuned bounded presentation range");
+    assert.deepEqual(playerFlightIdleRenderOffset({ active: false, time: 1, vx: 0, vy: 0, ax: 0, ay: 0 }), { x: 0, y: 0, amount: 0 },
+        "inactive Flight should not move the rendered wizard");
+    approx(playerFlightIdleRenderOffset({ active: true, time: 1, vx: 18, vy: 0, ax: 0, ay: 0 }).amount, 0, 0.000001,
+        "ordinary flight motion should fade the idle drift completely");
+    approx(playerFlightIdleRenderOffset({ active: true, time: 1, vx: 0, vy: 0, ax: 120, ay: 0 }).amount, 0, 0.000001,
+        "active flight acceleration should suppress the idle drift before movement becomes visible");
 
     const accelerating = createPlayerFlightDangleState(profile);
     step(accelerating, { active: true, ax: 950, facing: 1, forwardAcceleration: 950, brakingAcceleration: 780 }, 30);
@@ -2256,6 +2343,8 @@ function testPlayerFlightDangleAnimation() {
 
     const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
     assert.match(rendererSource, /sampleAnimationClipAtPlayhead\([\s\S]*playerFlightDangle/, "the HTML player renderer should sample the authored dangle animation by acceleration index");
+    assert.ok((rendererSource.match(/playerFlightIdleRenderOffset\(/g) || []).length >= 2,
+        "both Canvas2D and WebGL player paths should apply the shared stationary-Flight render drift");
     assert.match(rendererSource, /WIZARD_JUMP_POSE_TIME\s*=\s*0\.180/, "the HTML jump pose should use the requested 0.180-second authored walk frame");
     assert.match(rendererSource, /poseMode === "jump"[\s\S]*sampleAnimationClip\(jumpClip, WIZARD_JUMP_POSE_TIME\)/,
         "normal and double jumps should hold the authored walk pose until hovering begins");
@@ -2348,11 +2437,13 @@ function testLevelEditorMultiSelectionAndPaletteWorkflow() {
     assert.equal(editorHtml.includes('id="copy-asset"'), false, "the old asset-only duplicate action should be removed");
     assert.ok(editorHtml.includes('els.cutSelection.addEventListener("click", cutSelected);'), "Cut should remove the current single or multi-selection into the editor clipboard");
     assert.ok(editorHtml.includes('els.copySelection.addEventListener("click", copySelected);'), "Copy should store the current single or multi-selection");
-    assert.ok(editorHtml.includes('els.pasteSelection.addEventListener("click", pasteSelection);'), "Paste should restore a copied or cut selection");
+    assert.ok(editorHtml.includes('els.pasteSelection.addEventListener("click", () => pasteSelection(editorViewportCenterWorld(), "screen center"));'), "the Paste toolbar button should place the copied or cut group at the viewport center");
     assert.ok(editorHtml.includes('els.deleteSelection.addEventListener("click", deleteSelected);'), "Delete should remove the current single or multi-selection without changing tools");
     assert.ok(editorHtml.includes('objectClipboard: { mode: "copy", items: [], pasteCount: 0, primarySourceId: "" }'), "the clipboard should retain complete multi-object records and repeated-paste state");
     assert.ok(editorHtml.includes('removeAutomaticGenerationProvenance(record);'), "copied generated records should become manual records when pasted");
     assert.ok(editorHtml.includes('key === "x"') && editorHtml.includes('key === "c"') && editorHtml.includes('key === "v"'), "Ctrl/Cmd+X, C, and V should invoke the standard clipboard actions");
+    assert.ok(editorHtml.includes('function clipboardDisplayBounds(items)') && editorHtml.includes('sourceCenterX') && editorHtml.includes('record.x = (Number(record.x) || 0) + dx'), "Paste should translate the clipboard group as one unit so relative object positions are retained");
+    assert.ok(editorHtml.includes('function editorCursorWorldPoint()') && editorHtml.includes('const cursorPoint = editorCursorWorldPoint();') && editorHtml.includes('cursorPoint ? "cursor" : "screen center"'), "Ctrl/Cmd+V should paste at the current canvas cursor, with viewport center only as an outside-canvas fallback");
     assert.ok(editorHtml.includes('event.key === "Delete" || event.key === "Backspace"'), "Delete and Backspace should remove the current canvas selection");
     assert.ok(editorHtml.includes('kind: "selectionBox"') && editorHtml.includes('event.shiftKey'), "Shift-drag should create the ordinary selection rectangle");
     assert.ok(editorHtml.includes('toggle: Boolean(event.ctrlKey || event.metaKey)'), "Ctrl+Shift-drag should toggle objects touched by the selection rectangle");
@@ -2372,7 +2463,10 @@ function testLevelEditorMultiSelectionAndPaletteWorkflow() {
     assert.ok(editorHtml.includes('function resetEditorLayerVisibility()') && editorHtml.includes('resetEditorLayerVisibility();'), "loading or creating a level should restore the temporary editor layer visibility defaults");
     assert.ok(editorHtml.includes('return editorPlacementVisible(placement) && generatedCavePlacementVisible(placement);'), "hidden editor layers should be removed from the runtime-backed editor scene without changing exported level data");
     assert.ok((editorHtml.match(/if \(!editorPlacementVisible\(placement\)\) continue;/g) || []).length >= 4, "hidden placements should be excluded from point hit-testing, box selection, guides, and transient editor drawing");
-    assert.ok(editorHtml.includes('editorRecordSelectable(recordById(id))'), "selection normalization should discard placements from hidden editor layers");
+    assert.ok(editorHtml.includes('function editorEntityVisible(_entity)') && editorHtml.includes('return editorLayerVisible("terrain");'), "entities should share the Terrain visibility toggle in the Level Editor");
+    assert.ok((editorHtml.match(/if \(!editorEntityVisible\(entity\)\) continue;/g) || []).length >= 4, "hidden Terrain entities should be excluded from the placed-object list, point hit-testing, box selection, and overlay drawing");
+    assert.ok(editorHtml.includes('if (!editorEntityVisible(entity)) return false;') && editorHtml.includes('const entities = (state.level.entities || []).filter((entity) => {'), "hidden Terrain entities should be removed from both direct entity drawing and the runtime-backed editor scene");
+    assert.ok(editorHtml.includes('function editorRecordVisible(selected)') && editorHtml.includes('editorRecordSelectable(recordById(id))'), "selection normalization should discard both placements and entities from hidden editor layers");
     assert.ok(editorHtml.includes('els.toggleForegroundLayer.addEventListener("click", () => toggleEditorLayerVisibility("foreground"));') && editorHtml.includes('els.toggleTerrainLayer.addEventListener("click", () => toggleEditorLayerVisibility("terrain"));') && editorHtml.includes('els.toggleBackgroundLayer.addEventListener("click", () => toggleEditorLayerVisibility("background"));'), "all three visibility buttons should share the same transient toggle helper");
     assert.ok(editorHtml.includes('function selectOnlyPlacementLayer(layer)') && editorHtml.includes('(placement.layer || "terrain") === targetLayer'), "layer selection should include every atlas placement whose authored layer matches the requested layer, including legacy placements with an omitted Terrain layer");
     assert.ok(editorHtml.includes('setObjectSelection(ids, ids.at(-1) || "")'), "a layer-selection button should replace the current object and perimeter selection with only that layer");
@@ -2419,7 +2513,7 @@ function testLevelEditorMultiSelectionAndPaletteWorkflow() {
     assert.ok(editorHtml.includes('protectedRegions: []'), "manual perimeter population should deliberately skip gameplay-clearance protection");
     assert.equal(editorHtml.includes('function caveForegroundProtectionRegions()'), false, "the retired manual foreground shyness helper should remain removed");
 
-    assert.ok(editorHtml.includes('rec.scale = normalizeEnemyScale(els.inspectEnemyRenderScale.value, 1);'), "the enemy inspector should author one uniform scale instead of replacing the Character Editor artwork scale");
+    assert.ok(editorHtml.includes('setCharacterEnemyOverride(rec, "scale", normalizeEnemyScale(els.inspectEnemyRenderScale.value, 1), 1);'), "the enemy inspector should author scale as a sparse instance override instead of replacing catalog defaults");
     assert.ok(editorHtml.includes('els.inspectEnemyRenderScale.addEventListener("input"'), "enemy scale changes should update live while the value is edited");
     assert.ok(editorHtml.includes('els.inspectW.disabled = selectedEnemy || selectedProximityText;') && editorHtml.includes('els.inspectH.disabled = selectedEnemy || selectedProximityText;'), "character-enemy hitbox dimensions and calculated TEXT bounds should remain read-only");
 }
@@ -2427,6 +2521,7 @@ function testLevelEditorMultiSelectionAndPaletteWorkflow() {
 function testEnemyCatalogAndLevelEditorIntegration() {
     const catalog = JSON.parse(readFileSync("./resources/characters/ct_enemies_001.json", "utf8"));
     const skeleton = catalog.enemies?.enemy_001;
+    const caster = catalog.enemies?.enemy_002;
     const hobgoblin = catalog.enemies?.enemy_018;
     const raptor = catalog.enemies?.enemy_040;
     const snake = catalog.enemies?.enemy_050;
@@ -2452,13 +2547,16 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(raptor.defaults.animationSlot, "idle", "the initial Raptor should use its authored idle animation");
     assert.deepEqual(raptor.defaultSize, { w: 159, h: 126 }, "Raptor should use the latest tuned gameplay body size");
     assert.equal(raptor.defaults.renderOffsetX, -25, "Raptor should use the latest tuned horizontal artwork offset");
+    assert.equal(raptor.defaults.runSpeed, 800, "Raptor hunter run speed should be four times its former 200 px/s value");
     assert.equal(snake.characterId, "ct_char_enemy_050", "Snake should reference its generic character project");
-    assert.equal(snake.defaults.attackMode, "melee", "Snake should use the generic melee attack pipeline");
+    assert.equal(snake.defaults.attackType, "melee", "Snake should use the generic melee attack pipeline");
     assert.deepEqual(snake.defaultSize, { w: 248, h: 27 }, "Snake should expose its user-tuned gameplay body size");
     assert.equal(snake.defaults.renderOffsetX, 185, "Snake should retain the user-tuned horizontal artwork offset");
     assert.equal(snake.defaults.renderOffsetY, 21, "Snake should retain the user-tuned vertical artwork offset");
     assert.equal(hobgoblin.characterId, "ct_char_enemy_018", "Hobgoblin should reference its independent musket project");
-    assert.equal(hobgoblin.defaults.projectileKind, "musketBall", "Hobgoblin should inherit the musket projectile pipeline");
+    assert.equal(hobgoblin.defaults.projectileKind, "musketMortar", "Hobgoblin should use the explosive musket-mortar projectile kind");
+    assert.equal(hobgoblin.defaults.damage, caster.defaults.damage, "Hobgoblin mortar blast should match Skeleton Caster undeath-orb damage");
+    assert.equal(hobgoblin.defaults.damage, 49, "Hobgoblin mortar blast should currently deal 49 damage");
     assert.deepEqual(hobgoblin.defaultSize, { w: 79, h: 119 }, "Hobgoblin should use its first-pass enlarged body size");
     for (const [enemyId, enemy, characterId, size] of [
         ["enemy_060", porker, "ct_char_enemy_060", { w: 92, h: 137 }],
@@ -2469,6 +2567,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
         assert.equal(enemy.defaults.projectileKind, "fireball", `${enemyId} should inherit the Enemy 010 caster projectile`);
         assert.equal(enemy.defaults.projectileLaunchType, "homing_lo", `${enemyId} should retain the homing caster launch type`);
         assert.deepEqual(enemy.defaultSize, size, `${enemyId} should expose its first-pass scaled body size`);
+        assert.equal(enemy.defaults.scale, 1.5, `${enemyId} should default to 1.5× uniform enemy scale`);
     }
     for (const [enemyId, enemy, characterId, size] of [
         ["enemy_090", dwarf090, "ct_char_enemy_090", { w: 63, h: 124 }],
@@ -2492,15 +2591,15 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(skeleton.defaults.health, 120, "Skeleton Guard should default to 120 HP");
     assert.deepEqual(skeleton.defaultSize, { w: 72, h: 164 }, "Skeleton Guard future defaults should preserve the gameplay body size");
     assert.equal(skeleton.defaults.renderScale, 1.2, "Skeleton Guard future defaults should render 50 percent larger");
-    assert.equal(skeleton.defaults.attackDamage, 49, "Skeleton Guard melee should deal 49 HP before difficulty scaling");
+    assert.equal(skeleton.defaults.damage, 49, "Skeleton Guard melee should deal 49 HP before difficulty scaling");
     assert.equal(catalog.enemies.enemy_010.defaults.health, 60, "Fireball Goblin should default to 60 HP");
     assert.equal(catalog.enemies.enemy_011.defaults.health, 60, "Musket Goblin should default to 60 HP");
     assert.equal(catalog.enemies.enemy_012.defaults.health, 60, "Tri-fireball Goblin should copy the Fireball Goblin health");
     assert.equal(catalog.enemies.enemy_012.defaults.projectileLaunchType, "straight", "Tri-fireball Goblin should use non-homing straight shots");
-    assert.equal(catalog.enemies.enemy_012.defaults.projectileVolleyCount, 3, "Tri-fireball Goblin should launch three projectiles");
-    assert.equal(catalog.enemies.enemy_012.defaults.projectileVolleyHalfAngle, 15, "Tri-fireball Goblin should use a +/-15 degree fan");
+    assert.equal(catalog.enemies.enemy_012.defaults.spreadCount, 3, "Tri-fireball Goblin should launch three projectiles");
+    assert.equal(catalog.enemies.enemy_012.defaults.spreadAngle, 15, "Tri-fireball Goblin should use a +/-15 degree fan");
     assert.equal(catalog.enemies.enemy_012.defaults.projectileRadius, 12, "Tri-fireball Goblin fireballs should be slightly smaller than the ordinary radius-14 fireball");
-    assert.equal(catalog.enemies.enemy_012.defaults.projectileDamage, catalog.enemies.enemy_010.defaults.projectileDamage, "each tri-fireball shot should deal the ordinary homing fireball damage");
+    assert.equal(catalog.enemies.enemy_012.defaults.damage, catalog.enemies.enemy_010.defaults.damage, "each tri-fireball shot should deal the ordinary homing fireball damage");
     const skeletonCaster = catalog.enemies?.enemy_002;
     assert.ok(skeletonCaster, "enemy catalog should register the Skeleton Caster as enemy_002");
     assert.equal(skeletonCaster.characterId, "ct_char_enemy_002", "Skeleton Caster should use its independent character project");
@@ -2511,11 +2610,13 @@ function testEnemyCatalogAndLevelEditorIntegration() {
         assert.equal(skeletonCaster.defaults.health, 120, "Skeleton Caster should default to 120 HP");
     assert.deepEqual(skeletonCaster.defaultSize, { w: 72, h: 164 }, "Skeleton Caster future defaults should preserve the gameplay body size");
     assert.equal(skeletonCaster.defaults.renderScale, 1.2, "Skeleton Caster future defaults should render 50 percent larger");
-    assert.equal(skeletonCaster.defaults.projectileCooldown, 3, "Skeleton Caster should cast once every three seconds");
-    assert.equal(skeletonCaster.defaults.projectileDamage, 49, "Skeleton Caster projectile should remain just below a Normal one-shot");
-    for (const enemyId of ["enemy_030", "enemy_031", "enemy_032", "enemy_033", "enemy_034", "enemy_035", "enemy_036", "enemy_037", "enemy_038", "enemy_040"]) {
-        assert.equal(catalog.enemies[enemyId]?.defaults.attackDamage, 24, `${enemyId} melee should remain just below a Hard one-shot`);
+    assert.equal(skeletonCaster.defaults.attackCooldown, 3, "Skeleton Caster should cast once every three seconds");
+    assert.equal(skeletonCaster.defaults.damage, 49, "Skeleton Caster projectile should remain just below a Normal one-shot");
+    for (const enemyId of ["enemy_030", "enemy_031", "enemy_036", "enemy_037", "enemy_038", "enemy_040"]) {
+        assert.equal(catalog.enemies[enemyId]?.defaults.damage, 24, `${enemyId} melee should remain just below a Hard one-shot`);
     }
+    assert.equal(catalog.enemies.enemy_032.defaults.damage, 8, "Human Knife Thrower should keep its authored per-knife damage");
+    assert.equal(catalog.enemies.enemy_034.defaults.damage, 20, "Human Crossbowman should keep its authored bolt damage");
     assert.equal(skeletonCaster.defaults.projectileLifetime, catalog.enemies.enemy_010.defaults.projectileLifetime * 2, "undeath orb should retain twice the Fireball Goblin travel lifetime");
     assert.equal(skeletonCaster.defaults.projectileRadius, 24, "live undeath orb should match the enlarged authored cast");
     for (const enemyId of ["enemy_020"]) {
@@ -2573,7 +2674,17 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(projectileRendererSource.includes("if (!undeath)") && projectileRendererSource.includes("const trailEnabled = undeath || state.settings?.renderingQuality !== \"low\";"), "undeath should render as a bubble-only projectile at every quality while ordinary fire retains its sprite");
     const characterEditorDefaultsHtml = readFileSync("./character-editor.html", "utf8");
     assert.ok(characterEditorDefaultsHtml.includes("<h2>Metadata</h2>"), "Puppet Forge should expose enemy metadata");
-    assert.ok(characterEditorDefaultsHtml.includes('id="apply-enemy-defaults" type="button">Apply</button>'), "Puppet Forge should use the compact Apply label for enemy metadata");
+    for (const panelName of ["Movement", "Attack behavior", "Projectile behavior"]) {
+        assert.ok(characterEditorDefaultsHtml.includes(`<h2>${panelName}</h2>`), `Puppet Forge should expose ${panelName} as its own panel`);
+    }
+    const metadataIndex = characterEditorDefaultsHtml.indexOf("<h2>Metadata</h2>");
+    const movementIndex = characterEditorDefaultsHtml.indexOf("<h2>Movement</h2>");
+    const attackIndex = characterEditorDefaultsHtml.indexOf("<h2>Attack behavior</h2>");
+    const projectileIndex = characterEditorDefaultsHtml.indexOf("<h2>Projectile behavior</h2>");
+    assert.ok(metadataIndex < movementIndex && movementIndex < attackIndex && attackIndex < projectileIndex, "Puppet Forge should order Metadata, Movement, Attack behavior, and Projectile behavior together");
+    assert.equal(characterEditorDefaultsHtml.includes('id="enemy-defaults-json"'), false, "Puppet Forge should not duplicate the complete defaults object outside Enemy Catalog JSON");
+    assert.ok(characterEditorDefaultsHtml.includes('id="enemy-awareness-range"') && characterEditorDefaultsHtml.includes('id="enemy-awareness-view-half-angle"') && characterEditorDefaultsHtml.includes('id="enemy-awareness-hold-duration"'), "Puppet Forge should expose reusable awareness range, cone, and hold defaults");
+    assert.ok(characterEditorDefaultsHtml.includes('id="enemy-preferred-attack-range"') && characterEditorDefaultsHtml.includes('id="enemy-preferred-attack-min-range"'), "Puppet Forge should expose ranged engagement-distance defaults");
     assert.ok(characterEditorDefaultsHtml.includes("enemy-catalog-json"), "Puppet Forge should expose the full enemy catalog JSON beside the other JSON editors");
     assert.ok(characterEditorDefaultsHtml.includes("apply-enemy-catalog-json"), "Puppet Forge should apply edited enemy catalog JSON");
     assert.ok(characterEditorDefaultsHtml.includes("refresh-enemy-catalog-json"), "Puppet Forge should reset the enemy catalog JSON editor");
@@ -2596,7 +2707,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(catalog.enemies.enemy_012.defaults.awarenessViewHalfAngle, 60, "Tri-fireball Goblin should copy the authored ±60 degree awareness cone");
     assert.equal(DEFAULT_TUNING.enemyDefaultAwarenessViewHalfAngle, 60, "simulation fallback should match the authored ±60 degree awareness cone");
     assert.ok(skeleton.defaults.patrolDistance > 0, "Skeleton Guard should have a visible default patrol span");
-    assert.ok(skeleton.defaults.attackDamage > 0, "Skeleton Guard should have authored melee damage");
+    assert.ok(skeleton.defaults.damage > 0, "Skeleton Guard should have authored melee damage");
     assert.ok(skeleton.defaults.attackRange > 0, "Skeleton Guard should have authored melee reach");
     assert.ok(skeleton.defaults.runSpeed > skeleton.defaults.walkSpeed, "alert Skeleton Guard should run faster than it patrols");
     assert.ok(skeleton.defaults.jumpHeight >= 180 && skeleton.defaults.maxFallDistance >= 500, "Skeleton Guard should be able to jump between generated combat platforms");
@@ -2604,21 +2715,18 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(skeleton.defaults.awarenessVerticalRange, undefined, "unused vertical-awareness data should stay removed from the catalog");
     assert.ok(skeleton.defaults.attackCooldown < 0.25, "Skeleton Guard should chain rapid sword chops");
     const levelOne = JSON.parse(readFileSync("./resources/levels/level_t01.json", "utf8"));
-    assert.ok(levelOne.entities.some((entity) => entity.characterId === "ct_char_enemy_010"), "level_t01 should contain a Fireball Goblin");
-    assert.ok(levelOne.entities.some((entity) => entity.characterId === "ct_char_enemy_012"), "level_t01 should contain a Tri-fireball Goblin");
-    const levelOneBat = levelOne.entities.find((entity) => entity.characterId === "ct_char_enemy_020");
+    assert.ok(levelOne.entities.some((entity) => entity.enemyCatalogId === "enemy_010"), "level_t01 should contain a Fireball Goblin");
+    assert.ok(levelOne.entities.some((entity) => entity.enemyCatalogId === "enemy_012"), "level_t01 should contain a Tri-fireball Goblin");
+    const levelOneBat = levelOne.entities.find((entity) => entity.enemyCatalogId === "enemy_020");
     assert.ok(levelOneBat, "level_t01 should retain the Bombing Bat");
-    assert.equal(levelOneBat.bomberHoverHeight, 280, "level_t01 Bombing Bat should use the revised high attack altitude");
-    assert.equal(levelOneBat.bomberDropHeightTolerance, 20, "level_t01 Bombing Bat should wait until it reaches the high release band");
-    assert.equal(levelOneBat.bomberApproachArcHeight, 72, "level_t01 Bombing Bat should use the authored curved approach");
-    for (const goblin of levelOne.entities.filter((entity) => entity.characterId === "ct_char_enemy_010" || entity.characterId === "ct_char_enemy_012")) {
-        assert.equal(goblin.runSpeed, 250, `${goblin.id} should use the baked 250 px/s run profile`);
-        assert.equal(goblin.jumpHeight, 250, `${goblin.id} should use the baked 250 px jump profile`);
-        assert.equal(goblin.awarenessViewHalfAngle, 60, `${goblin.id} should use the authored ±60 degree awareness cone`);
-    }
-    for (const human of levelOne.entities.filter((entity) => /^ct_char_enemy_03/.test(entity.characterId || ""))) {
-        assert.equal(human.runSpeed, 200, `${human.id} should use the authored human 200 px/s run profile`);
-        assert.equal(human.jumpHeight, 200, `${human.id} should use the authored human 200 px jump profile`);
+    assert.equal(levelOneBat.bomberHoverHeight, undefined, "ordinary Bombing Bat placements should inherit hover tuning from the catalog");
+    assert.equal(catalog.enemies.enemy_020.defaults.bomberHoverHeight, 280, "Bombing Bat catalog defaults should own the revised high attack altitude");
+    assert.equal(catalog.enemies.enemy_020.defaults.bomberDropHeightTolerance, 20, "Bombing Bat catalog defaults should own the high release band");
+    assert.equal(catalog.enemies.enemy_020.defaults.bomberApproachArcHeight, 72, "Bombing Bat catalog defaults should own the curved approach");
+    for (const enemy of levelOne.entities.filter((entity) => entity.type === "characterEnemy" && entity.enemyCatalogId && !entity.isBoss)) {
+        assert.equal(enemy.runSpeed, undefined, `${enemy.id} should inherit run speed instead of baking catalog tuning into the level`);
+        assert.equal(enemy.jumpHeight, undefined, `${enemy.id} should inherit jump height instead of baking catalog tuning into the level`);
+        assert.equal(enemy.damage, undefined, `${enemy.id} should inherit damage instead of baking catalog tuning into the level`);
     }
 
     const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
@@ -2627,7 +2735,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(editorHtml.includes('for (const [type, definition] of state.enemyCatalog)') && editorHtml.includes('button.dataset.entity = entry.type;'), "level editor palette should expose every loaded enemy catalog entry, including the Skeleton Guard");
     assert.ok(editorHtml.includes('id="enemy-settings-row"'), "level editor should expose character-enemy behaviour controls");
     assert.ok(editorHtml.includes("drawCharacterEnemyPreview"), "level editor should preview enemies through the generic character renderer");
-    assert.ok(editorHtml.includes("const artworkOrigin = characterArtworkOrigin({") && editorHtml.includes("renderOffsetX: finiteEditorNumber(entity.renderOffsetX, 0) * enemyScale"), "level editor character previews should scale shared character-local artwork offsets with the enemy");
+    assert.ok(editorHtml.includes("const artworkOrigin = characterArtworkOrigin({") && editorHtml.includes("renderOffsetX: finiteEditorNumber(resolvedEnemy.renderOffsetX, 0) * enemyScale"), "level editor character previews should scale shared character-local artwork offsets with the enemy");
     assert.ok(rendererSource.includes("const artworkOrigin = characterArtworkOrigin(enemy);"), "runtime enemy rendering should use the shared character-local artwork origin");
     const rightOrigin = characterArtworkOrigin({ x: 100, y: 200, facing: 1, renderOffsetX: -11, renderOffsetY: 35 });
     const leftOrigin = characterArtworkOrigin({ x: 100, y: 200, facing: -1, renderOffsetX: -11, renderOffsetY: 35 });
@@ -2637,14 +2745,14 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(previewOffset.x, -20.9, "Puppet Forge should scale artwork offsets by the same preview-world factor as artwork and hitboxes");
     assert.equal(previewOffset.y, 66.5, "Puppet Forge should scale vertical artwork offsets by the same preview-world factor as artwork and hitboxes");
     assert.ok(editorHtml.includes("snapCharacterEnemyToNearbyGround"), "placed enemies should snap their feet to authored support lines");
-    assert.ok(editorHtml.includes('enemy.locomotion || ""'), "level editor ground snapping should explicitly exempt flying enemies");
+    assert.ok(editorHtml.includes('resolvedEnemy.locomotion || ""'), "level editor ground snapping should explicitly exempt catalog-inherited flying enemies");
     assert.ok(editorHtml.includes('id="inspect-enemy-health"'), "level editor should expose enemy health authoring");
     assert.ok(editorHtml.includes('id="inspect-enemy-attack-damage"'), "level editor should expose enemy melee damage");
     assert.ok(editorHtml.includes('id="inspect-enemy-attack-range"'), "level editor should expose enemy melee reach");
     assert.ok(editorHtml.includes('id="inspect-enemy-run-speed"'), "level editor should expose canonical run speed");
     assert.ok(editorHtml.includes('id="inspect-enemy-awareness-range"'), "level editor should expose enemy awareness range");
     assert.ok(editorHtml.includes('id="inspect-enemy-view-half-angle"'), "level editor should expose enemy awareness view half-angle");
-    assert.ok(editorHtml.includes("finiteEditorNumber(rec.awarenessViewHalfAngle, trainingEnemy ? Number(enemyDefaults.awarenessViewHalfAngle) || 0 : 60)"), "level editor should default missing awareness cones to the authored value, including zero-degree training enemies");
+    assert.ok(editorHtml.includes("finiteEditorNumber(resolvedEnemy.awarenessViewHalfAngle, 60)"), "level editor should resolve awareness cones from catalog defaults, including zero-degree training enemies");
     assert.ok(editorHtml.includes('id="inspect-enemy-strategy"'), "level editor should expose AI strategy selection");
     assert.ok(editorHtml.includes('id="inspect-enemy-jump-height"'), "level editor should expose maximum jump height");
     assert.ok(editorHtml.includes('id="inspect-enemy-glare-duration"'), "level editor should expose unreachable glare duration");
@@ -2657,7 +2765,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(placed, "level_t01 should include the first placed Skeleton Guard");
     assert.equal(placed.type, "characterEnemy", "placed Skeleton Guard should use the generic runtime entity type");
     assert.equal(placed.strategy, "simple_patrol", "placed Skeleton Guard should use the canonical patrol strategy");
-    assert.equal(placed.attackDamage, 49, "bundled Skeleton Guard placement should carry the current 49 HP pre-scaling melee damage");
+    assert.equal(placed.damage, undefined, "bundled ordinary Skeleton Guard placement should inherit damage from the enemy catalog");
     assert.equal(placed.behavior, undefined, "current level data should not retain the legacy behavior alias");
     assert.equal(placed.chaseSpeed, undefined, "current level data should not retain the legacy chaseSpeed alias");
     assert.equal(placed.awarenessVerticalRange, undefined, "current level data should not retain unused vertical awareness");
@@ -2666,10 +2774,13 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     const characterEditorHtml = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     const characterPanelIndex = characterEditorHtml.indexOf("<h2>Character</h2>");
     const metadataPanelIndex = characterEditorHtml.indexOf("<h2>Metadata</h2>");
+    const movementPanelIndex = characterEditorHtml.indexOf("<h2>Movement</h2>");
+    const attackPanelIndex = characterEditorHtml.indexOf("<h2>Attack behavior</h2>");
+    const projectilePanelIndex = characterEditorHtml.indexOf("<h2>Projectile behavior</h2>");
     const soundPanelIndex = characterEditorHtml.indexOf("<h2>Character sounds</h2>");
     const animationPanelIndex = characterEditorHtml.indexOf("<h2>Animation</h2>");
     assert.ok(characterEditorHtml.includes('id="character-sounds-panel" data-panel-key="character-sounds"'), "Puppet Forge should give character sounds a stable collapsible panel");
-    assert.ok(metadataPanelIndex < soundPanelIndex && soundPanelIndex < animationPanelIndex, "Puppet Forge should order Character sounds between Metadata and Animation");
+    assert.ok(metadataPanelIndex < movementPanelIndex && movementPanelIndex < attackPanelIndex && attackPanelIndex < projectilePanelIndex && projectilePanelIndex < soundPanelIndex && soundPanelIndex < animationPanelIndex, "Puppet Forge should keep Metadata, Movement, Attack behavior, Projectile behavior, Character sounds, and Animation in authoring order");
     const characterPanelHtml = characterEditorHtml.slice(characterPanelIndex, metadataPanelIndex);
     const soundPanelHtml = characterEditorHtml.slice(soundPanelIndex, animationPanelIndex);
     for (const slot of CHARACTER_SOUND_SLOTS) {
@@ -2683,7 +2794,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
         const character = JSON.parse(readFileSync(resourceFileUrl(`${enemyDefinition.characterId}.json`), "utf8"));
         assert.equal(character.sounds?.hurt, "sfx/enemy_damage.wav", `${enemyId} should own its hurt WAV reference`);
         assert.ok(character.sounds?.death?.endsWith(".wav"), `${enemyId} should own its death WAV reference`);
-        const ranged = enemyDefinition.defaults?.attackMode === "projectile" || enemyDefinition.defaults?.strategy === "bomber";
+        const ranged = enemyDefinition.defaults?.attackType === "projectile" || enemyDefinition.defaults?.strategy === "bomber";
         assert.equal(Boolean(character.sounds?.attack), ranged, `${enemyId} attack WAV should match whether the enemy emits an attack projectile cue`);
     }
     assert.ok(characterEditorHtml.includes("characterArtworkOffset(renderOffsetX, renderOffsetY, CHARACTER_EDITOR_WORLD_SCALE)"), "Puppet Forge should scale character-local artwork offsets with its preview-world transform");
@@ -2719,7 +2830,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(knownDwarf092?.url, "resources/characters/ct_char_enemy_092.json", "Puppet Forge should discover the Redbeard Axethrower project from the catalog");
     assert.equal(knownDwarf093?.url, "resources/characters/ct_char_enemy_093.json", "Puppet Forge should discover the Copperbeard Axethrower project from the catalog");
     assert.equal(enemyCharacterProjectUrl({ characterUrl: "custom/raptor-project.json" }), "custom/raptor-project.json", "an explicit catalog characterUrl should override characterId discovery");
-    assert.ok(characterEditorHtml.includes('inferredCharacterUrlFromProjectJson'), "Puppet Forge should resolve rig and atlas project URLs to matching character definitions");
+    assert.ok(characterEditorHtml.includes('resolveCharacterProjectReference') && characterEditorHtml.includes('Accepts a character definition, rig manifest, or atlas manifest.'), "Puppet Forge should resolve rig and atlas project URLs to matching character definitions");
     for (const discardedSuffix of ["006", "007", "008"]) {
         assert.ok(!characterEditorHtml.includes(`ct_char_enemy_${discardedSuffix}.json`), `Puppet Forge should not expose discarded enemy ${discardedSuffix}`);
     }
@@ -2735,15 +2846,15 @@ function testEnemyCatalogAndLevelEditorIntegration() {
         const rig = JSON.parse(readFileSync(new URL(`../resources/characters/ct_rig_enemy_${suffix}.json`, import.meta.url), "utf8"));
         const atlas = JSON.parse(readFileSync(new URL(`../resources/characters/ct_atlas_enemy_${suffix}.json`, import.meta.url), "utf8"));
         assert.equal(character.rig, `ct_rig_enemy_${suffix}.json`, `Enemy ${suffix} should reference its independent rig`);
-        assert.equal(character.projectilePart, expectedProjectilePart, `Enemy ${suffix} should expose the expected projectile preview part`);
+        assert.equal(character.attackPart, expectedProjectilePart, `Enemy ${suffix} should expose the expected attack handoff preview part`);
         assert.equal(rig.atlasManifest, `ct_atlas_enemy_${suffix}.json`, `Enemy ${suffix} rig should reference its independent atlas`);
         assert.deepEqual([...rig.drawOrder].sort(), Object.keys(rig.parts).sort(), `Enemy ${suffix} draw order should cover every rig part`);
         if (["090", "091", "092", "093"].includes(suffix)) {
             assert.equal(rig.parts.leftArm?.frame, "leftArmOpen", `Enemy ${suffix} should use the anatomically correct open left arm`);
             assert.equal(rig.parts.leftArmClosed, undefined, `Enemy ${suffix} should not retain the incorrect closed left-hand part`);
             assert.equal(rig.parts.axe_copy?.frame, "axe_copy", `Enemy ${suffix} should define an independent axe_copy handoff part`);
-            assert.equal(rig.parts.axe_copy?.projectile?.projectileKind, "throwingAxe", `Enemy ${suffix} axe_copy should preserve spinning throwing-axe presentation`);
-            assert.equal(rig.parts.axe_copy?.projectile?.releaseTime, 0.339, `Enemy ${suffix} should hand off the axe at the authored release instant`);
+            assert.equal(rig.parts.axe_copy?.attackHandoff?.detach, true, `Enemy ${suffix} axe_copy should detach at its generic attack handoff while projectile presentation comes from the catalog`);
+            assert.equal(rig.parts.axe_copy?.attackHandoff?.releaseTime, 0.339, `Enemy ${suffix} should hand off the axe at the authored release instant`);
         }
         for (const [partName, part] of Object.entries(rig.parts)) {
             assert.ok(atlas.frames[part.frame], `Enemy ${suffix} part ${partName} should reference an atlas frame`);
@@ -2880,11 +2991,11 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(humanRig032.drawOrder.includes("weapon"), false, "enemy_032 draw order should contain no held sword");
     assert.equal(humanRig032.parts.throwingKnife.frame, "dagger", "enemy_032 hidden launch marker should use the throwing-knife atlas frame");
     assert.equal(humanRig032.parts.throwingKnife.alpha, 0, "the authored knife launch marker should stay invisible on the character");
-    assert.equal(humanRig032.parts.throwingKnife.projectile.releaseTime, 0.311, "the throwing attack should release at the authored hand-extension frame");
+    assert.equal(humanRig032.parts.throwingKnife.attackHandoff.releaseTime, 0.311, "the throwing attack should release at the authored hand-extension frame");
     assert.equal(humanRig032.drawOrder[0], "throwingKnife", "the held knife should render behind the throwing arm during the wind-up");
-    assert.equal(humanRig032.parts.throwingKnife.projectile.projectileKind, "throwingKnife", "the hidden marker should compile a throwing-knife projectile profile");
-    assert.equal(human032.projectilePart, "throwingKnife", "the character definition should select only the hidden knife projectile marker");
-    assert.equal(human033.projectilePart, "throwingKnife", "enemy_033 should select the same hidden knife marker");
+    assert.equal(humanRig032.parts.throwingKnife.attackHandoff.detach, true, "the hidden marker should compile a detachable attack handoff while projectile kind remains catalog-owned");
+    assert.equal(human032.attackPart, "throwingKnife", "the character definition should select only the hidden knife attack handoff marker");
+    assert.equal(human033.attackPart, "throwingKnife", "enemy_033 should select the same hidden knife marker");
     assert.deepEqual(humanRig033.drawOrder, humanRig032.drawOrder, "enemy_033 should retain the exact articulated knife-thrower draw order");
 
     assert.equal(human034.displayName, "Human Crossbow", "enemy_034 should expose the first crossbow role");
@@ -2899,10 +3010,10 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.deepEqual(humanRig035.parts.rightUpperArm.parentConstraint, humanRig034.parts.rightUpperArm.parentConstraint, "enemy_035 should copy Enemy 034's revised weapon-arm attachment");
     for (const [enemyId, character, rig] of [["034", human034, humanRig034], ["035", human035, humanRig035]]) {
         assert.equal(rig.parts.weapon.frame, "crossbow", `enemy_${enemyId} should carry the shared crossbow frame`);
-        assert.deepEqual(character.projectileParts, ["crossbowBolt", "crossbowBolt2", "crossbowBolt3"], `enemy_${enemyId} should select all three authored bolt handoff markers`);
-        assert.deepEqual(character.projectileParts.map((partName) => rig.parts[partName].frame), ["arrow", "arrow", "arrow"], `enemy_${enemyId} should fire the shared arrow frame from every handoff marker`);
-        assert.deepEqual(character.projectileParts.map((partName) => rig.parts[partName].projectile.projectileKind), ["crossbowBolt", "crossbowBolt", "crossbowBolt"], `enemy_${enemyId} should compile three generic crossbowBolt projectile profiles`);
-        assert.deepEqual(character.projectileParts.map((partName) => rig.parts[partName].projectile.releaseTime), [0.48, 0.88, 1.28], `enemy_${enemyId} should author three 0.4-second-spaced projectile handoffs`);
+        assert.deepEqual(character.attackParts, ["crossbowBolt", "crossbowBolt2", "crossbowBolt3"], `enemy_${enemyId} should select all three authored bolt handoff markers`);
+        assert.deepEqual(character.attackParts.map((partName) => rig.parts[partName].frame), ["arrow", "arrow", "arrow"], `enemy_${enemyId} should fire the shared arrow frame from every handoff marker`);
+        assert.ok(character.attackParts.every((partName) => rig.parts[partName].attackHandoff?.detach === true), `enemy_${enemyId} should compile three detachable generic attack handoffs while crossbowBolt behavior remains catalog-owned`);
+        assert.deepEqual(character.attackParts.map((partName) => rig.parts[partName].attackHandoff.releaseTime), [0.48, 0.88, 1.28], `enemy_${enemyId} should author three 0.4-second-spaced projectile handoffs`);
     }
     for (const slot of ["idle", "walk", "attack", "hurt", "death"]) {
         const clip034 = JSON.parse(readFileSync(new URL(`../resources/characters/ct_anim_enemy_034_${slot}.json`, import.meta.url), "utf8"));
@@ -2934,8 +3045,8 @@ function testEnemyCatalogAndLevelEditorIntegration() {
         }
         assert.ok(Math.max(...attack.tracks.rightUpperArm.rotation.map((key) => key.value)) - Math.min(...attack.tracks.rightUpperArm.rotation.map((key) => key.value)) > 0.6, `enemy_${enemyId} should visibly raise and recoil the weapon arm`);
     }
-    assert.equal(catalog.enemies.enemy_034.defaults.projectileCooldown, 2.5, "Human Crossbow should wait 2.5 seconds after completing the burst animation");
-    assert.equal(catalog.enemies.enemy_035.defaults.projectileCooldown, 2.5, "Human Crossbow II should wait 2.5 seconds after completing the burst animation");
+    assert.equal(catalog.enemies.enemy_034.defaults.attackCooldown, 2.5, "Human Crossbow should wait 2.5 seconds after completing the burst animation");
+    assert.equal(catalog.enemies.enemy_035.defaults.attackCooldown, 2.5, "Human Crossbow II should wait 2.5 seconds after completing the burst animation");
 
     assert.equal(human036.displayName, "Human Pirate", "enemy_036 should expose the first pirate role");
     assert.equal(human037.displayName, "Human Pirate II", "enemy_037 should expose the second pirate role");
@@ -3057,12 +3168,12 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     const canvasKnifeStart = rendererSource.indexOf("    drawProjectileKnife(projectile");
     const webglKnifeMethod = rendererSource.slice(webglKnifeStart, rendererSource.indexOf("    drawRocketPathTrailWebGL(projectile", webglKnifeStart));
     const canvasKnifeMethod = rendererSource.slice(canvasKnifeStart, rendererSource.indexOf("    drawProjectileRock(projectile", canvasKnifeStart));
-    assert.ok(webglKnifeMethod.includes("const rotation = Number(projectile.shownTransform.angle) || 0;") && canvasKnifeMethod.includes("const rotation = Number(projectile.shownTransform.angle) || 0;"), "both knife renderers should use the shown projectile angle maintained from velocity");
-    assert.equal(webglKnifeMethod.includes("projectile.age"), false, "WebGL knives should not spin with projectile age");
-    assert.equal(canvasKnifeMethod.includes("projectile.age"), false, "Canvas knives should not spin with projectile age");
-    assert.ok(readFileSync(new URL("../src/core/simulation.js", import.meta.url), "utf8").includes('projectileKind === "throwingKnife" || projectileKind === "crossbowBolt"'), "crossbow bolts should share the non-spinning point-first projectile renderer path");
-    assert.ok(rendererSource.includes('const rotationSpeed = isThrowingAxe ? 25 : 5;'), "browser throwing axes should spin five times faster than ordinary rocks");
-    assert.ok(rendererSource.includes('const visualScale = isThrowingAxe ? 1.7 : 1;'), "browser throwing axes should render seventy percent larger than ordinary rocks");
+    assert.ok(webglKnifeMethod.includes("projectile.orientToVelocity === true") && canvasKnifeMethod.includes("projectile.orientToVelocity === true"), "both knife renderers should honor the data-defined orient-to-velocity presentation flag");
+    assert.ok(webglKnifeMethod.includes("projectile.rotationSpeed") && canvasKnifeMethod.includes("projectile.rotationSpeed"), "knife rendering should also permit a data-defined rotation speed when orientation is disabled");
+    assert.equal(catalog.projectileKinds.throwingKnife.orientToVelocity, true, "throwing-knife archetype should point along its flight direction");
+    assert.equal(catalog.projectileKinds.crossbowBolt.orientToVelocity, true, "crossbow-bolt archetype should share the point-first presentation without a code special case");
+    assert.ok(catalog.projectileKinds.throwingAxe.rotationSpeedDegrees > catalog.projectileKinds.rock.rotationSpeedDegrees * 4.9, "throwing-axe archetype should spin about five times faster than ordinary rocks");
+    assert.equal(catalog.projectileKinds.throwingAxe.visualScale, 1.7, "throwing-axe archetype should render seventy percent larger than ordinary rocks");
     assert.equal(characterEditorHtml.includes('leftFoot: "Left leg sprite"'), false, "Puppet Forge should retire the incorrect left leg-sprite label");
     assert.equal(characterEditorHtml.includes('rightFoot: "Right leg sprite"'), false, "Puppet Forge should retire the incorrect right leg-sprite label");
     assert.ok(characterEditorHtml.includes('leftFoot: "Left foot"') && characterEditorHtml.includes('rightFoot: "Right foot"'), "Puppet Forge should label foot parts as feet");
@@ -3402,8 +3513,8 @@ function testLevelOneUsesBakedHunterNavigationGraphs() {
     assert.ok(casterGraph, "level_t01 should retain the Skeleton Caster's distinct pathing-projectile hunter profile");
     assert.equal(casterGraph.profile.runSpeed, 150, "the baked Skeleton Caster profile should match its authored run speed");
     assert.equal(casterGraph.profile.maxFallDistance, 600, "the baked Skeleton Caster profile should preserve its current fall tolerance");
-    const humanGraph = level.navigationGraphs.profiles.find((candidate) => candidate.profile.bodyWidth === 67.5 && candidate.profile.bodyHeight === 194);
-    assert.ok(humanGraph, "level_t01 should include the distinct tall-human hunter mobility profile");
+    const humanGraph = level.navigationGraphs.profiles.find((candidate) => candidate.profile.bodyWidth === 60 && candidate.profile.bodyHeight === 170);
+    assert.ok(humanGraph, "level_t01 should include the distinct modular-human hunter mobility profile");
     assert.equal(humanGraph.profile.runSpeed, 200, "the baked human hunter profile should match the authored human run speed");
     assert.equal(humanGraph.profile.jumpHeight, 200, "the baked human hunter profile should retain its authored human jump height");
     assert.equal(humanGraph.profile.maxFallDistance, 600, "the baked human hunter profile should permit the authored tall-ledge exits");
@@ -3438,7 +3549,7 @@ function testLevelOneUsesBakedHunterNavigationGraphs() {
         "the approach jump should launch with body clearance instead of waiting until the hunter reaches the wall"
     );
 
-    const state = createInitialGameState();
+    const state = createCatalogBackedGameState();
     assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for baked graph verification");
     const manifests = new Map();
     for (const ref of level.atlasRefs || []) {
@@ -3461,7 +3572,7 @@ function testHunterCrossesLevelOneCentralPillarAndJumpsDown() {
     const level = JSON.parse(readFileSync("./resources/levels/level_t01.json", "utf8"));
     level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_010_001");
 
-    const state = createInitialGameState();
+    const state = createCatalogBackedGameState();
     assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for the central-pillar traversal regression test");
     const manifests = new Map();
     for (const ref of level.atlasRefs || []) {
@@ -3508,7 +3619,7 @@ function testEngagedHunterImmediatelyLeavesPillarForLastSeenPlayer() {
     const level = JSON.parse(readFileSync("./resources/levels/level_t01.json", "utf8"));
     level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_010_001");
 
-    const state = createInitialGameState();
+    const state = createCatalogBackedGameState();
     assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for the ledge-exit awareness regression test");
     const manifests = new Map();
     for (const ref of level.atlasRefs || []) {
@@ -3569,7 +3680,7 @@ function testHunterWalksOffLevelOneLeftLedge() {
     const level = JSON.parse(readFileSync("./resources/levels/level_t01.json", "utf8"));
     level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_010_001");
 
-    const state = createInitialGameState();
+    const state = createCatalogBackedGameState();
     assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for the long ledge walk-off regression test");
     const manifests = new Map();
     for (const ref of level.atlasRefs || []) {
@@ -3628,7 +3739,7 @@ function testHumanHunterEscapesLevelOneLeftLedge() {
     const level = JSON.parse(readFileSync("./resources/levels/level_t01.json", "utf8"));
     level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_033_001");
 
-    const state = createInitialGameState();
+    const state = createCatalogBackedGameState();
     assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for the tall-human ledge regression test");
     const manifests = new Map();
     for (const ref of level.atlasRefs || []) {
@@ -3684,7 +3795,7 @@ function testVisibleHunterApproachesBlockedLevelOnePillarBeforeGlare() {
     const level = JSON.parse(readFileSync("./resources/levels/level_t01.json", "utf8"));
     level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_032_001");
 
-    const state = createInitialGameState();
+    const state = createCatalogBackedGameState();
     assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for the right-side pillar hunter regression test");
     const manifests = new Map();
     for (const ref of level.atlasRefs || []) {
@@ -3716,7 +3827,7 @@ function testVisibleHunterApproachesBlockedLevelOnePillarBeforeGlare() {
     stepSimulation(state, createInputFrame(), FIXED_DT);
     assert.notEqual(enemy.aiState, "unreachable_glare", "a visible hunter should not glare when the updated tall-human graph has a valid pillar route");
     assert.equal(enemy.routePurpose, "attack_position", "the faster tall-human graph should find a real attack-position route instead of settling for blocked approach");
-    assert.equal(enemy.navigationGraphId, "w67.5_h194_r200_a950_j200_g1250_f600_s26_q21.6", "the human hunter should consume the baked 200 px/s and 200 px jump profile");
+    assert.equal(enemy.navigationGraphId, "w60_h170_r200_a950_j200_g1250_f600_s26_q19.2", "the human hunter should consume the baked 200 px/s and 200 px jump profile");
     assert.equal(enemy.route?.[0]?.to, "object_036_001_blockable_1", "the route should first jump onto the central pillar");
     assert.equal(enemy.route?.[0]?.type, "jump", "the first pillar transition should be a jump, not a stuck walk into the obstacle");
 
@@ -3736,7 +3847,7 @@ function testVisibleHunterStopsAtBlockedLevelOnePillarApproach() {
     const level = JSON.parse(readFileSync("./resources/levels/level_t01.json", "utf8"));
     level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_032_001");
 
-    const state = createInitialGameState();
+    const state = createCatalogBackedGameState();
     assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for the human pillar-crossing regression test");
     const manifests = new Map();
     for (const ref of level.atlasRefs || []) {
@@ -3791,7 +3902,7 @@ function testHunterReturnHomeCanReengageAfterShortCooldown() {
     const level = JSON.parse(readFileSync("./resources/levels/level_t01.json", "utf8"));
     level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_032_001");
 
-    const state = createInitialGameState();
+    const state = createCatalogBackedGameState();
     assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for the return-home reengagement cooldown regression test");
     const manifests = new Map();
     for (const ref of level.atlasRefs || []) {
@@ -3860,7 +3971,7 @@ function testHunterClimbsLevelOnePillarFromLeftWithoutWallClipping() {
     const level = JSON.parse(readFileSync("./resources/levels/level_t01.json", "utf8"));
     level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_010_001");
 
-    const state = createInitialGameState();
+    const state = createCatalogBackedGameState();
     assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for the left-side pillar regression test");
     const manifests = new Map();
     for (const ref of level.atlasRefs || []) {
@@ -3930,7 +4041,7 @@ function testHunterJumpsOntoLevelOneArchWithLargeAuthoredJump() {
     archGoblin.attackDamage = 0;
     archGoblin.projectileDamage = 0;
 
-    const state = createInitialGameState();
+    const state = createCatalogBackedGameState();
     assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for the hunter arch regression test");
     const manifests = new Map();
     for (const atlasId of ["at_atlas_001", "at_atlas_002", "at_atlas_003"]) {
@@ -3980,7 +4091,7 @@ function testSkeletonCasterPursuesOntoLevelOneRuin() {
         facing: 1
     }));
 
-    const state = createInitialGameState();
+    const state = createCatalogBackedGameState();
     assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for the Skeleton Caster ruin-pursuit regression test");
     const manifests = new Map();
     for (const ref of level.atlasRefs || []) {
@@ -4020,7 +4131,7 @@ function testSkeletonCasterPursuesOntoLevelOneRuin() {
 }
 
 function testHunterFindsReachableFiringFallbackBeforeGlare() {
-    const state = createInitialGameState();
+    const state = createCatalogBackedGameState();
     applyEditorLevelToWorld(state, {
         levelId: "hunter_firing_fallback_test",
         testPlayerStart: { x: 300, y: 400 },
@@ -4105,7 +4216,7 @@ function testHunterFindsReachableFiringFallbackBeforeGlare() {
 }
 
 function testHunterJumpUsesObstacleClearRunUp() {
-    const state = createInitialGameState();
+    const state = createCatalogBackedGameState();
     applyEditorLevelToWorld(state, {
         levelId: "hunter_run_up_test",
         testPlayerStart: { x: 280, y: 430 },
@@ -4185,7 +4296,7 @@ function testHunterJumpUsesObstacleClearRunUp() {
 }
 
 function testHunterJumpBacksAwayForReverseRunUp() {
-    const state = createInitialGameState();
+    const state = createCatalogBackedGameState();
     applyEditorLevelToWorld(state, {
         levelId: "hunter_reverse_run_up_test",
         testPlayerStart: { x: 280, y: 430 },
@@ -4269,7 +4380,7 @@ function testHunterJumpBacksAwayForReverseRunUp() {
 }
 
 function testHunterDropLandsOnOrdinaryCollisionGeometry() {
-    const state = createInitialGameState();
+    const state = createCatalogBackedGameState();
     applyEditorLevelToWorld(state, {
         levelId: "hunter_shared_collision_drop_test",
         testPlayerStart: { x: 260, y: 620 },
@@ -4345,7 +4456,7 @@ function testHunterDropLandsOnOrdinaryCollisionGeometry() {
 
 
 function testHunterWalkOffDropClearsSourcePillar() {
-    const state = createInitialGameState();
+    const state = createCatalogBackedGameState();
     applyEditorLevelToWorld(state, {
         levelId: "hunter_offset_walk_off_drop_test",
         testPlayerStart: { x: 0, y: 620 },
@@ -4457,7 +4568,7 @@ function testHunterWalksAcrossSlopedBlockableArchAndDrops() {
     const level = JSON.parse(readFileSync("./resources/levels/level_t01.json", "utf8"));
     level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_012_001");
 
-    const state = createInitialGameState();
+    const state = createCatalogBackedGameState();
     assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for the sloped blockable arch regression test");
     const manifests = new Map();
     for (const ref of level.atlasRefs || []) {
@@ -4521,7 +4632,7 @@ function testHunterWalksAcrossSlopedBlockableArchAndDrops() {
 
 
 function testHunterAwarenessIsConsistentBehindOccluder() {
-    const state = createInitialGameState();
+    const state = createCatalogBackedGameState();
     applyEditorLevelToWorld(state, {
         levelId: "hunter_awareness_occluder_test",
         testPlayerStart: { x: 0, y: 600 },
@@ -4588,7 +4699,7 @@ function testHunterAwarenessIsConsistentBehindOccluder() {
 
 function testMonsterAwarenessUsesDistanceAndFacingCone() {
     function runCase({ strategy = "sentry", facing = -1, relativeAngleDegrees = 0, withWall = false, verticalRange = 240 }) {
-        const state = createInitialGameState();
+        const state = createCatalogBackedGameState();
         applyEditorLevelToWorld(state, {
             levelId: "monster_awareness_cone_test",
             testPlayerStart: { x: 0, y: 600 },
@@ -4655,7 +4766,7 @@ function testMonsterAwarenessUsesDistanceAndFacingCone() {
 }
 
 function testHunterInvestigatesClosestReachableLastSeenPositionBeforeGlare() {
-    const state = createInitialGameState();
+    const state = createCatalogBackedGameState();
     applyEditorLevelToWorld(state, {
         levelId: "hunter_last_seen_test",
         testPlayerStart: { x: 450, y: 300 },
@@ -4823,7 +4934,7 @@ function testZeroHealthStartsDeathLifecycleAndDisablesTargeting() {
 }
 
 function testHunterEnemyStrandedFallback() {
-    const state = createInitialGameState();
+    const state = createCatalogBackedGameState();
     applyEditorLevelToWorld(state, {
         levelId: "hunter_stranded_test",
         testPlayerStart: { x: 430, y: 300 },
@@ -4893,7 +5004,7 @@ function testHunterEnemyStrandedFallback() {
 
 function testHunterVerticalOneWayJumpAndDistanceWatchdog() {
     const makeHunterStateMachineState = () => {
-        const state = createInitialGameState();
+        const state = createCatalogBackedGameState();
         assert.equal(applyEditorLevelToWorld(state, {
             levelId: "hunter_watchdog_state_test",
             testPlayerStart: { x: 5000, y: 100 },
@@ -5163,6 +5274,41 @@ function testHunterVerticalOneWayJumpAndDistanceWatchdog() {
     assert.equal(attackHold.enemy.hunterWatchdogElapsed, attackHoldElapsed, "a paused firing hold should preserve the watchdog timer exactly");
     assert.notEqual(attackHold.enemy.aiState, "stranded_patrol", "a ranged hunter waiting on its cooldown must not enter stuck recovery");
 
+    const lastSeenHold = makeHunterStateMachineState();
+    lastSeenHold.enemy.engaged = true;
+    lastSeenHold.enemy.alerted = true;
+    lastSeenHold.enemy.aiState = "investigate_last_seen";
+    lastSeenHold.enemy.movementPhase = "investigate_last_seen";
+    lastSeenHold.enemy.awarenessTimer = 0.75;
+    lastSeenHold.enemy.lastSeenPlayerX = 300;
+    lastSeenHold.enemy.lastSeenPlayerY = 100;
+    lastSeenHold.enemy.lastSeenSupportId = "hunter_state_ground";
+    lastSeenHold.enemy.route = [];
+    lastSeenHold.enemy.routeIndex = 0;
+    lastSeenHold.enemy.routeTargetSupportId = "hunter_state_ground";
+    lastSeenHold.enemy.routeTargetX = lastSeenHold.enemy.currentTransform.x;
+    lastSeenHold.enemy.routeTargetY = lastSeenHold.enemy.currentTransform.y;
+    lastSeenHold.enemy.routePurpose = "last_seen";
+    lastSeenHold.enemy.hunterWatchdogX = lastSeenHold.enemy.currentTransform.x;
+    lastSeenHold.enemy.hunterWatchdogY = lastSeenHold.enemy.currentTransform.y;
+    lastSeenHold.enemy.hunterWatchdogElapsed = 3 - FIXED_DT * 0.5;
+    lastSeenHold.enemy.hunterWatchdogTimeoutCount = 1;
+    const lastSeenHoldElapsed = lastSeenHold.enemy.hunterWatchdogElapsed;
+    stepSimulation(lastSeenHold.state, createInputFrame(), FIXED_DT);
+    assert.equal(lastSeenHold.enemy.movementPhase, "last_seen_hold",
+        "a hunter already at its recent last-seen target should enter an explicit intentional hold");
+    assert.equal(lastSeenHold.enemy.hunterWatchdogElapsed, lastSeenHoldElapsed,
+        "the intentional last-seen hold should pause rather than advance the movement watchdog");
+    assert.equal(lastSeenHold.state.debug.exceptionAlerts.length, 0,
+        "arrival at a recent last-seen target must not raise a false watchdog exception");
+    for (let tick = 0; tick < 60; tick += 1) {
+        stepSimulation(lastSeenHold.state, createInputFrame(), FIXED_DT);
+    }
+    assert.equal(lastSeenHold.enemy.aiState, "unreachable_glare",
+        "once recent-sight memory expires, the completed last-seen hold should advance into glare normally");
+    assert.equal(lastSeenHold.state.debug.exceptionAlerts.length, 0,
+        "waiting at and completing a last-seen investigation must remain watchdog-exception free");
+
     const rangedReturnHome = makeHunterStateMachineState();
     rangedReturnHome.state.player.currentTransform.x = 900;
     rangedReturnHome.state.player.currentTransform.y = 100;
@@ -5264,7 +5410,7 @@ function testHunterVerticalOneWayJumpAndDistanceWatchdog() {
 }
 
 function testCharacterEnemyPatrolBehavior() {
-    const state = createInitialGameState();
+    const state = createCatalogBackedGameState();
     assert.equal(applyEditorLevelToWorld(state, {
         levelId: "enemy_patrol_test",
         testPlayerStart: { x: -300, y: 600 },
@@ -5339,7 +5485,7 @@ function testCharacterEnemyPatrolBehavior() {
 }
 
 function testGroundEnemyWalksUnderOneWayPlatform() {
-    const state = createInitialGameState();
+    const state = createCatalogBackedGameState();
     assert.equal(applyEditorLevelToWorld(state, {
         levelId: "enemy_one_way_overhead_test",
         world: { bounds: { x: -2000, y: -1000, w: 5000, h: 3000 } },
@@ -5406,7 +5552,7 @@ function testGroundEnemyCannotDropThroughOneWayPlatform() {
     assert.equal(descents.every((edge) => Math.abs(edge.vx) > 0.001 && edge.direction !== "down"), true, "one-way navigation must never encode a straight drop through the support line");
     assert.equal(descents.every((edge) => edge.launchX <= 2.6 || edge.launchX >= 297.4), true, "one-way walk-offs should launch only at an authored platform end");
 
-    const state = createInitialGameState();
+    const state = createCatalogBackedGameState();
     assert.equal(applyEditorLevelToWorld(state, {
         levelId: "enemy_one_way_drop_guard_test",
         testPlayerStart: { x: 150, y: 600 },
@@ -5508,7 +5654,7 @@ function testHunterDoesNotJumpLoopOnOneWayPlatform() {
         blockerIds: []
     });
 
-    const state = createInitialGameState();
+    const state = createCatalogBackedGameState();
     assert.equal(applyEditorLevelToWorld(state, {
         levelId: "hunter_one_way_jump_loop_test",
         testPlayerStart: { x: 300, y: 650 },
@@ -5585,7 +5731,7 @@ function testHunterDoesNotJumpLoopOnOneWayPlatform() {
 }
 
 function testPlayerCanDropThroughOneWayPlatforms() {
-    const state = createInitialGameState();
+    const state = createCatalogBackedGameState();
     state.world.segments = [
         { id: "upper_green", kind: "walkable", x1: -240, y1: 400, x2: 240, y2: 400 },
         { id: "lower_yellow", kind: "blockable", x1: -240, y1: 600, x2: 240, y2: 600 }
@@ -5785,7 +5931,7 @@ function testPlayerCanDropThroughOneWayPlatforms() {
 
 function testGroundEnemyAutomaticSmallStep() {
     const createEnemyStepState = (stepHeight) => {
-        const state = createInitialGameState();
+        const state = createCatalogBackedGameState();
         assert.equal(applyEditorLevelToWorld(state, {
             levelId: `enemy_small_step_${stepHeight}`,
             testPlayerStart: { x: -1000, y: 600 },
@@ -5971,15 +6117,15 @@ function testRebalancedEnemyHealthAndRocketHits() {
     for (const profile of profiles) {
         const catalogHealth = catalog.enemies[profile.id].defaults.health;
         assert.equal(catalogHealth, profile.expectedHealth, `${profile.id} catalog health should match the revision-478 balance`);
-        const placed = levelOne.entities.find((entity) => entity.characterId === profile.characterId);
+        const placed = levelOne.entities.find((entity) => entity.enemyCatalogId === profile.id);
         if (profile.placedInLevelOne !== false) {
-            assert.ok(placed, `level_t01 should contain ${profile.characterId}`);
-            assert.equal(placed.health, profile.expectedHealth, `${placed.id} should bake the same health as its catalog default`);
+            assert.ok(placed, `level_t01 should contain a placement of ${profile.id}`);
+            assert.equal(placed.health, undefined, `${placed.id} should inherit health from the enemy catalog instead of baking a duplicate override`);
         }
     }
 
     for (const profile of profiles.filter((entry) => entry.id !== "enemy_020")) {
-        const state = createInitialGameState();
+        const state = createCatalogBackedGameState();
         assert.equal(applyEditorLevelToWorld(state, {
             levelId: `balanced_health_${profile.id}`,
             testPlayerStart: { x: -200, y: 600 },
@@ -6035,14 +6181,15 @@ function testRebalancedEnemyHealthAndRocketHits() {
 
     const levelEditorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const characterEditorHtml = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
-    assert.ok(levelEditorHtml.includes("health: 90,"), "new Level Editor enemy placements should start from the 90 HP fallback");
-    assert.ok(levelEditorHtml.includes("finiteEditorNumber(rec.health, 90)"), "Level Editor enemy health inspector should fall back to 90 HP");
+    assert.equal(levelEditorHtml.includes("health: 90,"), false, "new Level Editor catalog-backed placements should not bake a health fallback override");
+    assert.ok(levelEditorHtml.includes("finiteEditorNumber(resolvedEnemy.health, 90)"), "Level Editor enemy health inspector should display the resolved catalog-backed value");
+    assert.ok(levelEditorHtml.includes('setCharacterEnemyOverride(rec, "health"'), "Level Editor enemy health edits should be stored as sparse per-instance overrides");
     assert.ok(characterEditorHtml.includes("Number(defaults.health) : 90"), "Puppet Forge should show 90 HP when a catalog entry has no authored health");
     assert.ok(characterEditorHtml.includes('els.enemyHealth.value.trim() === "" ? 90'), "Puppet Forge should save 90 HP when a new enemy health field is blank");
 }
 
 function testCharacterEnemyRocketCombat() {
-    const state = createInitialGameState();
+    const state = createCatalogBackedGameState();
     assert.equal(applyEditorLevelToWorld(state, {
         levelId: "enemy_combat_test",
         testPlayerStart: { x: -200, y: 600 },
@@ -6205,7 +6352,7 @@ function testPassiveEnemyStaysPassiveWhenDamaged() {
 }
 
 function testAirborneEnemyDefersDeathUntilLanding() {
-    const state = createInitialGameState();
+    const state = createCatalogBackedGameState();
     assert.equal(applyEditorLevelToWorld(state, {
         levelId: "airborne_death_deferred_until_landing",
         testPlayerStart: { x: -300, y: 400 },
@@ -6494,7 +6641,7 @@ function testEnemyMeleeBlockedByTerrain() {
 }
 
 function testFireballGoblinProjectileAttack() {
-    const state = createInitialGameState({
+    const state = createCatalogBackedGameState({
         tuning: {
             playerDamageInvulnerabilitySeconds: 0.1,
             healthRegenDelay: 99
@@ -6535,13 +6682,12 @@ function testFireballGoblinProjectileAttack() {
     });
     applyCharacterCombatProfiles(state, new Map([["ct_char_enemy_010", {
         attackDuration: 0.62,
-        projectiles: [{
+        handoffs: [{
             partName: "fireball",
             frameId: "fireball",
             animationSlot: "attack",
-            launchType: "homing_lo",
-            projectileKind: "fireball",
             releaseTime: 0.372,
+            detach: true,
             localX: 235.0526306831884,
             localY: -244.29922123959187,
             rigScale: 0.5
@@ -6582,7 +6728,7 @@ function testFireballGoblinProjectileAttack() {
 }
 
 function testTriFireballGoblinVolleyUsesAnyClearTrajectory() {
-    const state = createInitialGameState({
+    const state = createCatalogBackedGameState({
         tuning: {
             playerDamageInvulnerabilitySeconds: 0.1,
             healthRegenDelay: 99,
@@ -6645,7 +6791,7 @@ function testTriFireballGoblinVolleyUsesAnyClearTrajectory() {
     assert.ok(volley.length >= 2, "the clear outer shots should remain alive even if the blocked centre shot already hit scenery");
     assert.ok(volley.every((projectile) => projectile.launchType === "straight" && projectile.homingStrength === 0), "all three fireballs should be non-homing straight projectiles");
     assert.ok(volley.every((projectile) => projectile.radius === 12 && projectile.damage === 12), "each smaller fireball should retain the ordinary homing fireball damage");
-    const blockedState = createInitialGameState({ tuning: { maxDebugEvents: 100 } });
+    const blockedState = createCatalogBackedGameState({ tuning: { maxDebugEvents: 100 } });
     applyEditorLevelToWorld(blockedState, {
         levelId: "tri_fireball_all_blocked_test",
         testPlayerStart: { x: 80, y: 600 },
@@ -6696,9 +6842,10 @@ function testHumanKnifeThrowerVolley() {
     const definition = catalog.enemies.enemy_032;
     const knifeRig = JSON.parse(readFileSync("./resources/characters/ct_rig_enemy_032.json", "utf8"));
     const knifeAttack = normalizeAnimationClip(JSON.parse(readFileSync("./resources/characters/ct_anim_enemy_032_attack.json", "utf8")), "Human Knife Thrower attack");
-    const knifeReleaseTime = knifeRig.parts.throwingKnife.projectile.releaseTime;
+    const knifeHandoff = knifeRig.parts.throwingKnife.attackHandoff;
+    const knifeReleaseTime = knifeHandoff.releaseTime;
     const knifeReleasePose = sampleAnimationClip(knifeAttack, knifeReleaseTime).throwingKnife;
-    const state = createInitialGameState({
+    const state = createCatalogBackedGameState({
         tuning: {
             playerDamageInvulnerabilitySeconds: 0.1,
             healthRegenDelay: 99,
@@ -6727,13 +6874,12 @@ function testHumanKnifeThrowerVolley() {
     });
     applyCharacterCombatProfiles(state, new Map([[definition.characterId, {
         attackDuration: knifeAttack.duration,
-        projectiles: [{
+        handoffs: [{
             partName: "throwingKnife",
             frameId: knifeRig.parts.throwingKnife.frame,
-            animationSlot: "attack",
-            launchType: knifeRig.parts.throwingKnife.projectile.launchType,
-            projectileKind: knifeRig.parts.throwingKnife.projectile.projectileKind,
+            animationSlot: knifeHandoff.animationSlot,
             releaseTime: knifeReleaseTime,
+            detach: knifeHandoff.detach,
             localX: knifeReleasePose.x,
             localY: knifeReleasePose.y,
             rigScale: knifeRig.global.scale
@@ -6755,7 +6901,7 @@ function testHumanKnifeThrowerVolley() {
     const fired = state.debug.lastEvents.filter((event) => event.type === "ENEMY_PROJECTILE_FIRED" && event.enemyId === "human_knife_thrower");
     assert.equal(fired.length, 3, "Human Knife Thrower should release exactly three knives in one attack");
     assert.deepEqual(fired.map((event) => event.volleyAngleOffsetDegrees), [-5, 0, 5], "the three knives should use the authored +/-5 degree fan");
-    assert.ok(fired.every((event) => event.projectileKind === "enemyKnife"), "throwing-knife projectiles should use their dedicated simulation/render kind");
+    assert.ok(fired.every((event) => event.projectileKind === "throwingKnife"), "throwing-knife firing events should preserve the data-defined projectile archetype id");
     assert.ok(fired.every((event) => event.projectilePartName === "throwingKnife"), "the volley should be attributed to the hidden hand launch marker");
     const throwingEnemy = state.enemies.find((enemy) => enemy.id === "human_knife_thrower");
     const knifeLocalScale = knifeRig.global.scale * throwingEnemy.currentTransform.scaleX;
@@ -6772,12 +6918,79 @@ function testHumanKnifeThrowerVolley() {
     assert.ok(knifeProjectiles.every((projectile) => projectile.kind === "enemyKnife" && projectile.frameId === "dagger"), "every in-flight knife should render the dagger frame");
     assert.ok(knifeProjectiles.every((projectile) => projectile.launchType === "straight" && projectile.homingStrength === 0), "the knife fan should fly straight without homing");
     assert.ok(knifeProjectiles.every((projectile) => projectile.radius === Math.max(6, state.enemies[0].projectileRadius) && projectile.damage === 8), "each knife should retain the scale-adjusted compact hitbox and balanced damage");
-    assert.equal(definition.defaults.projectileVolleyHalfAngle, 5, "Enemy 032 catalog data should own the +/-5 degree spread");
-    assert.equal(catalog.enemies.enemy_033.defaults.projectileVolleyHalfAngle, 5, "Enemy 033 should inherit the same +/-5 degree spread");
+    assert.equal(definition.defaults.spreadAngle, 5, "Enemy 032 catalog data should own the +/-5 degree spread");
+    assert.equal(catalog.enemies.enemy_033.defaults.spreadAngle, 5, "Enemy 033 should inherit the same +/-5 degree spread");
     assert.equal(catalog.enemies.enemy_033.characterId, "ct_char_enemy_033", "Enemy 033 should use its independent character project");
     const bundledLevel = JSON.parse(readFileSync("./resources/levels/level_t01.json", "utf8"));
     const placedKnifeThrower = bundledLevel.entities.find((entity) => entity.enemyCatalogId === "enemy_032");
-    assert.equal(placedKnifeThrower.projectileVolleyHalfAngle, 5, "bundled current-level data should be patched to the new spread instead of relying on catalog fallback");
+    assert.equal(placedKnifeThrower.spreadAngle, undefined, "bundled current-level data should inherit the knife spread from the catalog instead of duplicating it");
+}
+
+function testProjectileArchetypeComposability() {
+    const catalog = JSON.parse(readFileSync("./resources/characters/ct_enemies_001.json", "utf8"));
+    const ogreRig = JSON.parse(readFileSync("./resources/characters/ct_rig_enemy_080.json", "utf8"));
+    const ogreAttack = normalizeAnimationClip(JSON.parse(readFileSync("./resources/characters/ct_anim_enemy_080_attack.json", "utf8")), "Ogre attack");
+    const handoff = ogreRig.parts.fireball.attackHandoff;
+    const releasePose = sampleAnimationClip(ogreAttack, handoff.releaseTime).fireball;
+    const state = createCatalogBackedGameState({ tuning: { maxDebugEvents: 200 } });
+    applyEditorLevelToWorld(state, {
+        levelId: "projectile_archetype_composability_test",
+        testPlayerStart: { x: 80, y: 600 },
+        bounds: { x: 0, y: 0, w: 900, h: 800 },
+        entities: [{
+            id: "custom_ogre_thrower",
+            type: "characterEnemy",
+            enemyCatalogId: "enemy_080",
+            x: 340,
+            y: 600,
+            facing: -1,
+            strategy: "sentry",
+            projectileKind: "throwingAxe",
+            projectileLaunchType: "homing_lo",
+            spreadCount: 3,
+            spreadAngle: 15,
+            projectileRotationSpeedDegrees: 360,
+            awarenessRange: 1000,
+            awarenessViewHalfAngle: 180
+        }]
+    });
+    applyCharacterCombatProfiles(state, new Map([["ct_char_enemy_080", {
+        attackDuration: ogreAttack.duration,
+        handoffs: [{
+            partName: "fireball",
+            frameId: ogreRig.parts.fireball.frame,
+            animationSlot: handoff.animationSlot,
+            releaseTime: handoff.releaseTime,
+            detach: handoff.detach,
+            localX: releasePose.x,
+            localY: releasePose.y,
+            rigScale: ogreRig.global.scale
+        }]
+    }]]));
+    state.world.solids = [];
+    state.world.segments = [{ id: "floor", kind: "walkable", x1: -100, y1: 600, x2: 800, y2: 600 }];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.currentTransform.x = 80;
+    state.player.currentTransform.y = 600;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+
+    stepMany(state, 35);
+
+    const fired = state.debug.lastEvents.filter((event) => event.type === "ENEMY_PROJECTILE_FIRED" && event.enemyId === "custom_ogre_thrower");
+    assert.equal(fired.length, 3, "one attack handoff should independently expand into the configured three-shot spread");
+    assert.deepEqual(fired.map((event) => event.volleyAngleOffsetDegrees), [-15, 0, 15], "spread count and angle should compose with the selected launch type");
+    const projectiles = state.projectiles.filter((projectile) => projectile.enemyId === "custom_ogre_thrower");
+    assert.ok(projectiles.length > 0, "the composable attack should leave at least one projectile in flight");
+    assert.ok(projectiles.every((projectile) => projectile.projectileKind === "throwingAxe" && projectile.kind === "enemyRock"), "Projectile Kind should select the throwing-axe archetype without changing the animation handoff");
+    assert.ok(projectiles.every((projectile) => projectile.characterId === "ct_char_enemy_090" && projectile.frameId === "axe_copy"), "the throwing-axe archetype should own its visual asset instead of reusing the Ogre fireball handoff frame");
+    assert.ok(projectiles.every((projectile) => projectile.launchType === "homing_lo" && projectile.homingStrength > 0), "homing guidance should compose with the throwing-axe visual archetype");
+    assert.ok(projectiles.every((projectile) => Math.abs(projectile.rotationSpeed - Math.PI * 2) < 1e-9), "rotation speed should remain an independent per-attack override");
+    assert.equal(catalog.projectileKinds.throwingAxe.visualCharacterId, "ct_char_enemy_090", "throwing-axe visual ownership should be authored in projectileKinds data");
+    assert.equal(catalog.projectileKinds.throwingAxe.visualFrameId, "axe_copy", "throwing-axe frame selection should be authored in projectileKinds data");
 }
 
 function testDataDrivenTimedProjectileHandoffs() {
@@ -6807,17 +7020,16 @@ function testDataDrivenTimedProjectileHandoffs() {
             attackRange: 1200
         }]
     });
-    const projectileProfiles = character.projectileParts.map((partName) => {
+    const attackHandoffs = character.attackParts.map((partName) => {
         const part = rig.parts[partName];
-        const projectile = part.projectile;
-        const pose = sampleAnimationClip(attack, projectile.releaseTime)[partName];
+        const handoff = part.attackHandoff;
+        const pose = sampleAnimationClip(attack, handoff.releaseTime)[partName];
         return {
             partName,
             frameId: part.frame,
-            animationSlot: projectile.animationSlot,
-            launchType: projectile.launchType,
-            projectileKind: projectile.projectileKind,
-            releaseTime: projectile.releaseTime,
+            animationSlot: handoff.animationSlot,
+            releaseTime: handoff.releaseTime,
+            detach: handoff.detach,
             localX: pose.x,
             localY: pose.y,
             rigScale: rig.global.scale
@@ -6825,7 +7037,7 @@ function testDataDrivenTimedProjectileHandoffs() {
     });
     applyCharacterCombatProfiles(state, new Map([[definition.characterId, {
         attackDuration: attack.duration,
-        projectiles: projectileProfiles
+        handoffs: attackHandoffs
     }]]));
     state.world.solids = [];
     state.world.segments = [];
@@ -6862,8 +7074,8 @@ function testDataDrivenTimedProjectileHandoffs() {
     assert.deepEqual(launchVectors.map((shot) => shot.partName), ["crossbowBolt", "crossbowBolt2", "crossbowBolt3"], "each timed shot should retain the marker that handed it off");
     assert.ok(launchVectors[1].vy < launchVectors[0].vy - 20, "the second bolt should independently aim upward toward the wizard's new position");
     assert.ok(launchVectors[2].vy > launchVectors[0].vy + 20, "the third bolt should independently aim downward toward the wizard's later position");
-    approx(projectileProfiles[1].releaseTime - projectileProfiles[0].releaseTime, 0.4, 0.000001, "first and second handoffs should be 0.4 seconds apart");
-    approx(projectileProfiles[2].releaseTime - projectileProfiles[1].releaseTime, 0.4, 0.000001, "second and third handoffs should be 0.4 seconds apart");
+    approx(attackHandoffs[1].releaseTime - attackHandoffs[0].releaseTime, 0.4, 0.000001, "first and second handoffs should be 0.4 seconds apart");
+    approx(attackHandoffs[2].releaseTime - attackHandoffs[1].releaseTime, 0.4, 0.000001, "second and third handoffs should be 0.4 seconds apart");
 
     while (enemy.attackTimer > 0) {
         stepSimulation(state, createInputFrame(), FIXED_DT);
@@ -6872,7 +7084,7 @@ function testDataDrivenTimedProjectileHandoffs() {
 }
 
 function testMusketGoblinProjectileAttack() {
-    const state = createInitialGameState({
+    const state = createCatalogBackedGameState({
         tuning: {
             playerDamageInvulnerabilitySeconds: 0.1,
             healthRegenDelay: 99
@@ -6913,13 +7125,12 @@ function testMusketGoblinProjectileAttack() {
     });
     applyCharacterCombatProfiles(state, new Map([["ct_char_enemy_011", {
         attackDuration: 0.62,
-        projectiles: [{
+        handoffs: [{
             partName: "cannonball",
             frameId: "cannonball",
             animationSlot: "attack",
-            launchType: "ballistic",
-            projectileKind: "musketBall",
             releaseTime: 0.49531814840382643,
+            detach: true,
             localX: 189.17163009094236,
             localY: -286.5805672576993,
             rigScale: 0.5
@@ -6947,7 +7158,143 @@ function testMusketGoblinProjectileAttack() {
     const startHealth = state.health.amount;
     stepMany(state, 180);
     assert.ok(state.health.amount < startHealth, `musket ball should eventually hit the player, before ${startHealth}, after ${state.health.amount}`);
-    assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_PROJECTILE_FIRED" && event.projectileKind === "enemyMusketBall"), "musket shot should emit a firing event");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_PROJECTILE_FIRED" && event.projectileKind === "musketBall"), "musket shot should emit a firing event with its projectile archetype id");
+}
+
+function testHobgoblinMusketMortarAreaDamage() {
+    const catalog = JSON.parse(readFileSync("./resources/characters/ct_enemies_001.json", "utf8"));
+    const hobgoblinRig = JSON.parse(readFileSync("./resources/characters/ct_rig_enemy_018.json", "utf8"));
+    const mortarHandoff = hobgoblinRig?.parts?.cannonball?.attackHandoff;
+    assert.ok(mortarHandoff?.enabled && mortarHandoff?.detach, "Hobgoblin character rig should provide a detachable attack handoff");
+    assert.equal(catalog.enemies.enemy_018.defaults.projectileKind, "musketMortar", "Hobgoblin projectile semantics should come from the enemy catalog");
+    const state = createCatalogBackedGameState({
+        tuning: {
+            playerDamageInvulnerabilitySeconds: 0.1,
+            healthRegenDelay: 99
+        }
+    });
+    applyEditorLevelToWorld(state, {
+        levelId: "hobgoblin_musket_mortar_test",
+        testPlayerStart: { x: 150, y: 100 },
+        entities: [enemyEntityFromDefinition(catalog, "enemy_018", {
+            id: "hobgoblin_mortar",
+            x: -220,
+            y: 100,
+            facing: 1,
+            strategy: "sentry"
+        })]
+    });
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.settings.difficulty = "easy";
+    state.world.solids = [{ id: "mortar_floor", kind: "blockable", x: -300, y: 100, w: 600, h: 40 }];
+    state.world.segments = [];
+    state.world.collisionPolygons = [];
+    state.player.currentTransform.x = 150;
+    state.player.currentTransform.y = 100;
+    state.player.previousTransform.x = 150;
+    state.player.previousTransform.y = 100;
+    state.player.shownTransform.x = 150;
+    state.player.shownTransform.y = 100;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+
+    // Runtime character loading replaces the catalog projectile handoff with
+    // the projectile profile compiled from the character rig. Exercise that
+    // real precedence here so a stale rig projectileKind cannot make the
+    // browser/native game silently launch an ordinary musket ball again.
+    applyCharacterCombatProfiles(state, new Map([["ct_char_enemy_018", {
+        attackDuration: 0.62,
+        handoffs: [{
+            partName: "cannonball",
+            frameId: "cannonball",
+            animationSlot: mortarHandoff.animationSlot,
+            releaseTime: mortarHandoff.releaseTime,
+            detach: mortarHandoff.detach,
+            localX: 189.17163009094236,
+            localY: -234.58056725769927,
+            rigScale: 0.5
+        }]
+    }]]));
+
+    const enemy = state.enemies[0];
+    const projectile = launchCharacterEnemyProjectile(state, enemy);
+    assert.equal(projectile.projectileKind, "musketMortar", "Hobgoblin should launch the new musketMortar kind");
+    assert.equal(projectile.kind, "enemyMusketBall", "musketMortar should keep the existing musket-ball flight presentation");
+    assert.equal(projectile.launchType, "ballistic", "musketMortar should retain ballistic musket flight");
+    approx(projectile.damage, 49, 0.0001, "musketMortar blast damage should match the Skeleton Caster orb");
+    approx(projectile.areaDamageRadius, DEFAULT_TUNING.wizardHeight * 2, 0.0001, "musketMortar AoE radius should be two wizard heights");
+    approx(projectile.explosionVisualScale, 1.7, 0.0001, "musketMortar explosion should use the Big Red Rocket-style explosion scale");
+
+    // Force a deterministic terrain impact whose projectile never touches the
+    // wizard directly. The blast edge still reaches him, proving damage comes
+    // from the AoE rather than from the old musket impact damage path.
+    projectile.currentTransform.x = 0;
+    projectile.currentTransform.y = 0;
+    projectile.previousTransform.x = 0;
+    projectile.previousTransform.y = 0;
+    projectile.shownTransform.x = 0;
+    projectile.shownTransform.y = 0;
+    projectile.vx = 0;
+    projectile.vy = 6000;
+    projectile.gravity = 0;
+    projectile.age = 0;
+    projectile.lifetime = 2;
+    state.enemies = [];
+    state.health.invulnerabilityTimer = 0;
+    const startHealth = state.health.amount;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(projectile.state, "exploding", "musketMortar should detonate on terrain");
+    assert.equal(projectile.impactKind, "terrain", "musketMortar terrain contact should be recorded as a terrain impact");
+    approx(startHealth - state.health.amount, 49, 0.0001, "terrain detonation should apply exactly one 49-damage AoE hit to the wizard");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_PROJECTILE_AREA_DAMAGE_APPLIED"), "musketMortar detonation should report its AoE damage event");
+
+    // A direct hit must still be exactly one blast hit. There is deliberately
+    // no old musket impact-damage hit stacked on top of the mortar AoE.
+    const directState = createInitialGameState({
+        tuning: { playerDamageInvulnerabilitySeconds: 0.1, healthRegenDelay: 99 }
+    });
+    directState.settings.difficulty = "easy";
+    directState.story.portalIntro = null;
+    directState.story.portalExit = null;
+    directState.story.mailboxEvent = null;
+    directState.world.solids = [];
+    directState.world.segments = [];
+    directState.world.collisionPolygons = [];
+    directState.player.currentTransform.x = 150;
+    directState.player.currentTransform.y = 100;
+    directState.player.previousTransform.x = 150;
+    directState.player.previousTransform.y = 100;
+    directState.player.shownTransform.x = 150;
+    directState.player.shownTransform.y = 100;
+    directState.health.invulnerabilityTimer = 0;
+    const directProjectile = {
+        ...projectile,
+        id: "musket_mortar_direct_hit",
+        state: "launched",
+        currentTransform: { ...projectile.currentTransform, x: 0, y: 50 },
+        previousTransform: { ...projectile.previousTransform, x: 0, y: 50 },
+        shownTransform: { ...projectile.shownTransform, x: 0, y: 50 },
+        vx: 9000,
+        vy: 0,
+        gravity: 0,
+        age: 0,
+        lifetime: 2,
+        explosionTimer: 0,
+        impactKind: null,
+        impactReason: null
+    };
+    directState.projectiles = [directProjectile];
+    const directStartHealth = directState.health.amount;
+    stepSimulation(directState, createInputFrame(), FIXED_DT);
+    assert.equal(directProjectile.state, "exploding", "musketMortar should detonate on direct Wizard contact");
+    assert.equal(directProjectile.impactKind, "player", "musketMortar direct Wizard contact should be recorded as a player impact");
+    approx(directStartHealth - directState.health.amount, 49, 0.0001, "direct musketMortar contact should apply one 49-damage blast, not impact damage plus blast damage");
+
+    const rendererSource = readFileSync("./src/presentation/canvas-renderer.js", "utf8");
+    assert.ok(rendererSource.includes("mortarAreaExplosion") && rendererSource.includes("rocketStyleExplosion"), "browser Canvas renderer should route musketMortar through the full rocket-style explosion treatment");
+    assert.ok(rendererSource.includes('projectile.explosionEffect === "rocket"') && rendererSource.includes("drawProjectileExplosionEffectsWebGL"), "browser WebGL2 renderer should route any data-defined rocket explosion effect through the expanding blastwave path");
 }
 
 function testPlayerDeathSparkAnimationAtZeroHealth() {
@@ -7336,6 +7683,7 @@ function testEditorCollapsiblePanels() {
         assert.ok(html.includes("panel-collapse-toggle"), `${editor.filename} should add a visible collapse button to panel headings`);
         assert.ok(html.includes('panel.classList.toggle("collapsed"'), `${editor.filename} should toggle collapsed panel state`);
         assert.ok(html.includes("localStorage.setItem(PANEL_STORAGE_KEY"), `${editor.filename} should persist collapsed panel state`);
+        assert.ok(html.includes("remembered[key] === undefined ? true : remembered[key] === true"), `${editor.filename} should default each panel to collapsed only when that panel has no remembered state`);
         assert.ok(html.includes("setupCollapsiblePanels();"), `${editor.filename} should initialize collapsible panels on startup`);
     }
 
@@ -7439,7 +7787,8 @@ function testCharacterProjectWorkspace() {
     assert.ok(levelEditorHtml.includes('setTool("select");'), "successful asset placement should return the level editor to Select mode");
     assert.ok(levelEditorHtml.includes("Select tool active for fine-tuning"), "level editor should explain the automatic tool switch");
     assert.ok(levelEditorHtml.includes('id="cut-selection"') && levelEditorHtml.includes('id="copy-selection"') && levelEditorHtml.includes('id="paste-selection"'), "level editor should expose Cut, Copy, and Paste for entities and placements");
-    assert.ok(levelEditorHtml.includes('function pasteSelection()') && levelEditorHtml.includes('setObjectSelection(pastedIds'), "Paste should recreate and select a complete single or multi-object clipboard payload");
+    assert.ok(levelEditorHtml.includes('function pasteSelection(') && levelEditorHtml.includes('setObjectSelection(pastedIds'), "Paste should recreate and select a complete single or multi-object clipboard payload");
+    assert.ok(levelEditorHtml.includes('clipboardDisplayBounds(items)') && levelEditorHtml.includes('editorViewportCenterWorld()') && levelEditorHtml.includes('editorCursorWorldPoint()'), "Paste should position the complete clipboard group at the toolbar center target or keyboard cursor target without changing internal offsets");
     assert.ok(levelEditorHtml.includes("snapWizardDoorToNearbyGround"), "level editor should snap wizard entry/exit doors to nearby authored collision lines");
     assert.ok(levelEditorHtml.includes("wizard_entry_door") && levelEditorHtml.includes("wizard_exit_door"), "level editor should expose dedicated entry and exit door types");
     assert.ok(!levelEditorHtml.includes('data-entity="wizardStart"'), "the retired wizard-start entity should not remain in the palette");
@@ -7957,6 +8306,33 @@ function testAutomaticLevelGeneratorPerimeterAndSpatialCulling() {
     assert.ok(collisionDiagnostics.candidates.solids < 20 && collisionDiagnostics.candidates.segments < 20 && collisionDiagnostics.candidates.polygons < 10, "collision broadphase should make local simulation cost independent of total level width");
     assert.ok(queryWorldSolids(world, collisionBounds).some((solid) => solid.id === "moving_nearby"), "moving collision bodies should remain live outside the static index");
     assert.ok(queryWorldSegments(world, collisionBounds).length > 0 && queryWorldCollisionPolygons(world, collisionBounds).length > 0, "local collision queries should retain nearby static geometry");
+
+    const collisionAssetWorld = {
+        visuals: [{
+            id: "saltire_asset",
+            kind: "atlasSprite",
+            atlasId: "synthetic",
+            assetId: "saltire",
+            x: 100,
+            y: 100,
+            w: 200,
+            h: 200,
+            collisionFromManifest: true
+        }],
+        solids: [],
+        collisionPolygons: [],
+        segments: [
+            { id: "saltire_crossing", kind: "blockable", visualId: "saltire_asset", x1: 200, y1: 100, x2: 200, y2: 300 },
+            // This line is nowhere near the narrow query rectangle, but it belongs
+            // to the same overlapping placed asset and therefore must be available
+            // to exact player collision/stride geometry.
+            { id: "saltire_remote_line", kind: "blockable", visualId: "saltire_asset", x1: 110, y1: 110, x2: 130, y2: 110 }
+        ]
+    };
+    const crossingQuery = { minX: 195, minY: 50, maxX: 205, maxY: 350 };
+    assert.equal(queryWorldCollisionAssets(collisionAssetWorld, crossingQuery).length, 1, "asset AABB overlap should detect a tall/narrow query crossing a wide asset even when no rectangle corner is contained by the other");
+    assert.deepEqual(queryWorldSegments(collisionAssetWorld, crossingQuery).map((segment) => segment.id), ["saltire_crossing"], "direct segment broadphase should only return the line that physically enters the narrow query");
+    assert.deepEqual(queryWorldSegmentsFromCollisionAssets(collisionAssetWorld, crossingQuery).map((segment) => segment.id), ["saltire_crossing", "saltire_remote_line"], "player asset broadphase should expose every collision line owned by an overlapping asset, regardless of endpoint distance");
 
     const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
     const simulationSource = readFileSync(new URL("../src/core/simulation.js", import.meta.url), "utf8");
@@ -9689,14 +10065,15 @@ function testCaveWindowSplineAuthoring() {
     assert.equal(layerVisualDefaults.background.brightness, DEFAULT_LAYER_BRIGHTNESS, "Background should default to neutral brightness");
     assert.equal(layerVisualDefaults.foreground.scale, DEFAULT_FOREGROUND_SCALE, "Foreground should expose its complete default enlargement");
     assert.equal(layerVisualDefaults.background.scale, DEFAULT_LAYER_SCALE, "Background should default to neutral scale");
+    assert.equal(layerVisualDefaults.background.asset, null, "Background should not invent a repeating asset");
     const customizedLayerVisuals = normalizeLevelLayerVisuals({
         version: 3,
         foreground: { parallaxX: 1.12, parallaxY: 0.42, brightness: 0.72, scale: 1.18 },
-        background: { parallaxX: 0.88, parallaxY: 0.31, brightness: 0.63, scale: 1.35 }
+        background: { parallaxX: 0.88, parallaxY: 0.31, brightness: 0.63, scale: 1.35, asset: { atlasId: "at_atlas_test", assetId: "brick_tile" } }
     });
     assert.deepEqual(customizedLayerVisuals, {
         version: 3,
-        background: { parallaxX: 0.88, parallaxY: 0.31, brightness: 0.63, scale: 1.35 },
+        background: { parallaxX: 0.88, parallaxY: 0.31, brightness: 0.63, scale: 1.35, asset: { atlasId: "at_atlas_test", assetId: "brick_tile" } },
         foreground: { parallaxX: 1.12, parallaxY: 0.42, brightness: 0.72, scale: 1.18 }
     }, "level layer visual normalization should preserve independent X and Y factors");
     const editorControlLayerVisuals = normalizeLevelLayerVisuals({
@@ -9705,7 +10082,7 @@ function testCaveWindowSplineAuthoring() {
     });
     assert.deepEqual(editorControlLayerVisuals, {
         version: 3,
-        background: { parallaxX: DEFAULT_BACKGROUND_PARALLAX, parallaxY: 0.5, brightness: 1, scale: 1 },
+        background: { parallaxX: DEFAULT_BACKGROUND_PARALLAX, parallaxY: 0.5, brightness: 1, scale: 1, asset: null },
         foreground: { parallaxX: 1.08, parallaxY: 0.01, brightness: 0.4, scale: 2 }
     }, "versionless in-memory editor controls must normalize as canonical current-schema values");
     const retiredSingleFactor = normalizeLevelLayerVisuals({
@@ -9719,6 +10096,7 @@ function testCaveWindowSplineAuthoring() {
     assert.equal(normalizeForegroundParallax(9), 1.25, "Foreground parallax should remain within its safe authoring maximum");
     assert.equal(normalizeLayerBrightness(0), 0.05, "layer brightness should retain a visible minimum");
     assert.equal(normalizeLayerScale(20), 5, "layer scale should retain a bounded authoring maximum");
+    assert.equal(normalizeLevelLayerVisuals({ background: { asset: { assetId: "brick_tile" } } }).background.asset, null, "incomplete repeating Background assets should normalize away");
     assert.equal(defaults.feather, 200, "new cave windows should place the full-black boundary 200 pixels outside the opening by default");
     assert.equal("scale" in defaults.decoration, false, "cave perimeter data should not duplicate the Foreground layer scale");
     assert.equal("brightness" in defaults.decoration, false, "cave perimeter data should not duplicate the Foreground layer brightness");
@@ -10905,6 +11283,14 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     assert.ok(bootstrapSource.includes("shouldPreferWebGL2Renderer") && bootstrapSource.includes('params.get("webgl")') && bootstrapSource.includes('"webgl2"') && bootstrapSource.includes("gameState.settings?.useHardwareRendering") && bootstrapSource.includes("preferWebGL2: preferWebGL2Renderer"), "the persisted hardware-rendering preference should supply the default while Electron and explicit URL switches remain supported");
     assert.ok(rendererSource.includes("if (this.webglBackend) {") && rendererSource.includes("wait for webglcontextrestored"), "a lost WebGL context should not incorrectly redirect rendering into the invisible staging canvas");
     assert.ok(rendererSource.includes("drawOrderedWorldVisualsWebGL") && rendererSource.includes("queueAtlasSpriteVisualWebGL"), "static world, actor-front, and cave-foreground atlas visuals should use direct GPU sprite batches");
+    assert.ok(
+        rendererSource.includes("drawBackgroundAssetPattern(state, view)")
+            && rendererSource.includes("drawBackgroundAssetPatternWebGL(state, view)")
+            && rendererSource.includes('createPattern(info.surface, "repeat")')
+            && webglSource.includes('const normalized = wrapMode === "repeat"')
+            && webglSource.includes("gl.REPEAT"),
+        "the browser renderer should draw the repeating Background asset as one tiled backdrop below ordinary Background visuals"
+    );
     assert.ok(rendererSource.includes("drawWorldEffectsWebGL") && rendererSource.includes("drawProjectileExplosionEffectsWebGL") && rendererSource.includes("drawPlayerDeathCoverWebGL"), "rocket trails, projectile explosions, and Ignatius death particles should have direct WebGL2 effect passes");
     assert.ok(rendererSource.includes("drawRocketPathTrailWebGL") && rendererSource.includes('"reactiveObjectDestructionSmokePuff"') && rendererSource.includes("drawEnemyFireballParticlesWebGL"), "rocket trails, goblin-fireball trails, and destroyed-object smoke should remain in direct GPU effect passes");
     assert.ok(rendererSource.indexOf("this.drawPlayer(state, view)") < rendererSource.indexOf("this.drawPlayerDeathCover(state, view)"), "the active hybrid dynamic pass must render death-cover sparks after Ignatius so they actually cover the rig");
@@ -10925,6 +11311,13 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     assert.ok(Math.abs(rightwardRocketOffsets.flameX - 6) < 0.000001 && Math.abs(rightwardRocketOffsets.flameY - 2) < 0.000001, "the flame correction should retain its rocket-relative orientation");
     const nativeRendererSource = readFileSync(new URL("../../src/runtime/ignatius-app.cpp", import.meta.url), "utf8");
     assert.ok(nativeRendererSource.includes("ROCKET_TRAIL_LATERAL_OFFSET_PX = 2.0") && nativeRendererSource.includes("ROCKET_FLAME_FORWARD_OFFSET_PX = 6.0"), "the native renderer should use the same rocket-relative trail and flame offsets as the browser renderer");
+    assert.ok(
+        nativeRendererSource.includes("void drawProjectileExplosionEffects(const NativeRenderView& view)")
+            && nativeRendererSource.includes("projectile.age + projectile.x")
+            && nativeRendererSource.includes("22.0 * explosionScale * view.zoom")
+            && nativeRendererSource.includes("drawProjectileExplosionEffects(view);"),
+        "the native renderer should preserve the browser player-rocket explosion spark burst, including near viewport edges"
+    );
     const fireballWebGLSource = rendererSource.slice(
         rendererSource.indexOf("drawProjectileFireballWebGL(projectile, state, view)"),
         rendererSource.indexOf("drawProjectileMusketBallWebGL(projectile, state, view)")
@@ -11658,7 +12051,7 @@ function testRocketPowerUpArsenal() {
     assert.equal(overdrive.durationSeconds, 20, "Overdrive should last twenty seconds");
     assert.equal("launchCooldownMultiplier" in overdrive.rocket, false, "rocket profiles should not retain a firing-cooldown field");
     assert.equal(overdrive.rocket.launchFuelCostMultiplier, 0.5, "Overdrive should halve projectile-rocket fuel cost");
-    assert.equal(overdrive.hud.priority, 100, "Overdrive should rank below Shield and wrench effects in the Power HUD");
+    assert.equal(overdrive.hud.priority, 100, "Overdrive should retain its legacy HUD priority metadata even though the bar now ignores priority");
     assert.equal(OVERDRIVE_PASSIVE_FUEL_RECOVERY_DRAIN_FACTOR, 0.9, "Overdrive's passive recovery floor should equal ninety percent of hover drain");
     assert.equal(normalizePowerUpPickup({ effectId: "rocketOverdrive" }), null, "retired Rocket Overdrive records should not revive the current Overdrive effect under an obsolete ID");
     assert.equal(normalizePowerUpPickup({
@@ -11678,14 +12071,14 @@ function testRocketPowerUpArsenal() {
     assert.equal(shield.stacking, POWER_UP_STACKING_RULES.REFRESH, "collecting another Shield should refresh its duration");
     assert.equal(shield.hud.iconFrame, "powerup_icon_shield", "Shield should use the reserved shield emblem");
     assert.equal(shield.hud.glowTint, "#008cff", "Shield should use a blue pickup glow");
-    assert.equal(shield.hud.priority, 150, "Shield should rank above Overdrive but below wrench effects in the Power HUD");
+    assert.equal(shield.hud.priority, 150, "Shield should retain its legacy HUD priority metadata even though the bar now ignores priority");
     assert.deepEqual(rocketPowerUpMultipliers({ statusEffects: { active: { shield: { id: shield.id, definition: shield, remainingSeconds: 5 } } } }), { launchFuelCostMultiplier: 1 }, "Shield should not alter rocket fuel cost");
 
     const expectedWrenches = new Map([
         [POWER_UP_EFFECT_IDS.WRENCH_TRIPLE, { hudLabel: "Yellow", count: 5, damage: 1 / 5, cost: 0.5, speed: NON_HOMING_ROCKET_SPEED_FACTOR, tint: "#ffff00" }],
         [POWER_UP_EFFECT_IDS.WRENCH_DART, { hudLabel: "Cyan", count: 1, damage: 1, cost: 0.5, speed: NON_HOMING_ROCKET_SPEED_FACTOR, tint: "#00ffff" }],
         [POWER_UP_EFFECT_IDS.WRENCH_BURST, { hudLabel: "Green", count: 1, damage: 1, cost: 0.5, speed: NON_HOMING_ROCKET_SPEED_FACTOR, tint: "#00ff00" }],
-        [POWER_UP_EFFECT_IDS.WRENCH_BIGBOMB, { hudLabel: "Red", count: 1, damage: 4, cost: 3, speed: 0.5, tint: "#ff0000" }],
+        [POWER_UP_EFFECT_IDS.WRENCH_BIGBOMB, { hudLabel: "Red", count: 1, damage: 4, cost: 2, speed: 0.5, tint: "#ff0000" }],
         [POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG, { hudLabel: "Magenta", count: 1, damage: 1, cost: 0.5, speed: 1, tint: "#ff00ff" }],
         [POWER_UP_EFFECT_IDS.WRENCH_PHASE, { hudLabel: "Blue", count: 3, damage: 1 / 3, cost: 0.5, speed: 1, tint: "#0000ff" }]
     ]);
@@ -11709,7 +12102,7 @@ function testRocketPowerUpArsenal() {
         assert.equal(definition.durationSeconds, 20, `${definition.label} should last twenty seconds`);
         assert.equal(definition.groupId, POWER_UP_GROUP_IDS.WRENCH, `${definition.label} should occupy the exclusive wrench slot`);
         assert.equal(definition.exclusiveGroup, true, `${definition.label} should replace another wrench`);
-        assert.equal(definition.hud.priority, 200, `${definition.label} should outrank Shield and Overdrive in the Power HUD`);
+        assert.equal(definition.hud.priority, 200, `${definition.label} should retain its legacy HUD priority metadata even though the bar now ignores priority`);
         assert.equal(definition.hud.iconFrame, "powerup_icon_wrench", `${definition.label} should use the wrench emblem`);
         assert.equal(definition.hud.glowTint, expected.tint, `${definition.label} should use its authored pickup colour`);
         assert.equal(definition.rocket.projectileCount, expected.count, `${definition.label} should launch the authored projectile count`);
@@ -11835,7 +12228,7 @@ function testRocketPowerUpArsenal() {
     stepSimulation(state, createInputFrame(), FIXED_DT);
     const activeWrench = activeWrenchPowerUpEffect(state);
     assert.ok(activeWrench && WRENCH_POWER_UP_EFFECT_IDS.includes(activeWrench.id), "collecting the authored wrench should activate exactly one wrench effect");
-    assert.equal(prioritizedActivePowerUpEffect(state)?.id, activeWrench.id, "the active wrench should be displayed ahead of Overdrive");
+    assert.equal(shortestRemainingActivePowerUpEffect(state)?.id, POWER_UP_EFFECT_IDS.OVERDRIVE, "the older Overdrive timer should remain on the Power HUD when it will expire before the newly collected wrench");
 
     const replacementPickup = {
         id: "replacement_wrench",
@@ -11868,7 +12261,7 @@ function testRocketPowerUpArsenal() {
     stepSimulation(state, createInputFrame(), FIXED_DT);
     const activeShield = activePowerUpEffect(state, POWER_UP_EFFECT_IDS.SHIELD);
     assert.ok(activeShield && activeShield.remainingSeconds > 9.9, "collecting Shield should begin a ten-second protection window");
-    assert.equal(prioritizedActivePowerUpEffect(state)?.id, POWER_UP_EFFECT_IDS.WRENCH_DART, "the active wrench should remain on the Power HUD while Shield is also active");
+    assert.equal(shortestRemainingActivePowerUpEffect(state)?.id, POWER_UP_EFFECT_IDS.SHIELD, "the newly collected ten-second Shield should take the Power HUD when it will expire before Overdrive and the wrench");
     const healthBeforeShieldHit = state.health.amount;
     const blockedHit = damagePlayer(state, 25, "shield_test");
     assert.equal(blockedHit.blocked, true, "Shield should block ordinary incoming damage");
@@ -11891,6 +12284,65 @@ function testRocketPowerUpArsenal() {
     assert.equal(wrenchPickup.randomRollCount, 0, "wrench respawn should not advance a random roll counter");
     assert.equal(wrenchPickup.powerUp.effectId, POWER_UP_EFFECT_IDS.WRENCH_DART, "the respawned wrench should keep its authored mode");
     assert.ok(state.debug.lastEvents.some((event) => event.type === "POWER_UP_PICKUP_RESPAWNED" && event.pickupId === wrenchPickup.id), "power-up respawn should be visible in deterministic diagnostics");
+
+    const deathRespawnState = createInitialGameState();
+    const flightDefinition = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.FLIGHT);
+    deathRespawnState.pickups = [{
+        id: "death_flight_pickup",
+        entityId: "death_flight_pickup",
+        kind: "powerUp",
+        pickupKind: POWER_UP_EFFECT_IDS.FLIGHT,
+        powerUp: normalizePowerUpPickup({ effectId: POWER_UP_EFFECT_IDS.FLIGHT }),
+        x: -1000,
+        y: -1000,
+        centerY: -1048,
+        width: 96,
+        height: 96,
+        radius: 30,
+        collected: true,
+        respawnSeconds: 60,
+        respawnTimer: 47,
+        randomEffectIds: [],
+        randomRollCount: 0,
+        visualized: false
+    }, {
+        id: "death_permanent_health_upgrade",
+        entityId: "death_permanent_health_upgrade",
+        kind: "upgrade",
+        pickupKind: "healthUpgrade",
+        upgradeKind: "healthUpgrade",
+        x: -1200,
+        y: -1000,
+        centerY: -1032,
+        width: 64,
+        height: 64,
+        radius: 24,
+        collected: true,
+        // Deliberately malformed positive value: permanent upgrades must still never respawn.
+        respawnSeconds: 60,
+        respawnTimer: 47,
+        randomEffectIds: [],
+        randomRollCount: 0,
+        visualized: false
+    }];
+    deathRespawnState.statusEffects.active[POWER_UP_EFFECT_IDS.FLIGHT] = {
+        id: POWER_UP_EFFECT_IDS.FLIGHT,
+        definition: flightDefinition,
+        remainingSeconds: flightDefinition.durationSeconds,
+        sourceId: "death_flight_pickup",
+        activatedAt: deathRespawnState.clock.time,
+        refreshCount: 0
+    };
+    const lethalPickupHit = damagePlayer(deathRespawnState, 1000, "death_pickup_respawn_test", { bypassInvulnerability: true });
+    assert.equal(lethalPickupHit.defeated, true, "pickup death-respawn regression should enter the death lifecycle");
+    assert.equal(deathRespawnState.pickups[0].collected, false, "a collected pickup with a positive respawn time should reappear immediately when the player dies");
+    assert.equal(deathRespawnState.pickups[0].respawnTimer, 0, "death-triggered pickup respawn should clear the remaining wait timer");
+    assert.equal(deathRespawnState.pickups[1].collected, true, "permanent upgrades must stay consumed even if malformed data gives them a positive respawn time");
+    assert.ok(deathRespawnState.debug.lastEvents.some((event) => event.type === "POWER_UP_PICKUP_RESPAWNED"
+        && event.pickupId === "death_flight_pickup"
+        && event.reason === "playerDeath"), "death-triggered pickup respawn should be visible in deterministic diagnostics");
+    resetPlayer(deathRespawnState, "deathPickupRespawnTest");
+    assert.equal(activePowerUpEffect(deathRespawnState, POWER_UP_EFFECT_IDS.FLIGHT), null, "temporary Flight should clear on respawn so the immediately restored pickup can be collected again");
 
     function stateWithWrench(effectId, { fuel = 100, targets = [] } = {}) {
         const testState = createInitialGameState();
@@ -11918,6 +12370,108 @@ function testRocketPowerUpArsenal() {
         { id: "target_b", x: 700, y: 500, state: "active" },
         { id: "target_c", x: 800, y: 520, state: "active" }
     ];
+    for (const wrenchEffectId of WRENCH_POWER_UP_EFFECT_IDS) {
+        const rangeState = stateWithWrench(wrenchEffectId, { targets: [] });
+        stepSimulation(rangeState, createInputFrame({ weaponPressed: true }), FIXED_DT);
+        assert.ok(rangeState.projectiles.length > 0, `${wrenchEffectId} should launch at least one projectile for the range contract`);
+        for (const projectile of rangeState.projectiles) {
+            approx(
+                projectile.projectileSpeed * projectile.lifetime,
+                DEFAULT_TUNING.rocketProjectileMaxTravelDistance,
+                0.0001,
+                `${wrenchEffectId} lifetime should derive from the shared 1800 px wrench travel distance`
+            );
+        }
+    }
+
+    const flightScaledStandardState = createInitialGameState();
+    const flightRocketDefinition = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.FLIGHT);
+    flightScaledStandardState.statusEffects.active[POWER_UP_EFFECT_IDS.FLIGHT] = {
+        id: flightRocketDefinition.id,
+        definition: flightRocketDefinition,
+        remainingSeconds: flightRocketDefinition.durationSeconds,
+        sourceId: "flight_rocket_speed_test",
+        activatedAt: 0,
+        refreshCount: 0
+    };
+    stepSimulation(flightScaledStandardState, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    const flightScaledStandardRocket = flightScaledStandardState.projectiles[0];
+    approx(
+        flightScaledStandardRocket.projectileSpeed,
+        DEFAULT_TUNING.rocketProjectileSpeed * 1.5,
+        0.0001,
+        "Flight should increase standard rocket velocity by its 1.5x movement-speed multiplier"
+    );
+    approx(
+        flightScaledStandardRocket.projectileSpeed * flightScaledStandardRocket.lifetime,
+        DEFAULT_TUNING.rocketProjectileUnwrenchedMaxTravelDistance,
+        0.0001,
+        "Flight-scaled standard rockets should retain the authored 600 px travel distance"
+    );
+
+    const flightScaledWrenchState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_DART, { targets: [] });
+    flightScaledWrenchState.statusEffects.active[POWER_UP_EFFECT_IDS.FLIGHT] = {
+        id: flightRocketDefinition.id,
+        definition: flightRocketDefinition,
+        remainingSeconds: flightRocketDefinition.durationSeconds,
+        sourceId: "flight_wrench_rocket_speed_test",
+        activatedAt: 0,
+        refreshCount: 0
+    };
+    stepSimulation(flightScaledWrenchState, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    const flightScaledWrenchRocket = flightScaledWrenchState.projectiles[0];
+    const flightDartDefinition = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.WRENCH_DART);
+    approx(
+        flightScaledWrenchRocket.projectileSpeed,
+        DEFAULT_TUNING.rocketProjectileSpeed * flightDartDefinition.rocket.speedMultiplier * 1.5,
+        0.0001,
+        "Flight should also increase wrench-upgraded rocket velocity by 1.5x"
+    );
+    approx(
+        flightScaledWrenchRocket.projectileSpeed * flightScaledWrenchRocket.lifetime,
+        DEFAULT_TUNING.rocketProjectileMaxTravelDistance,
+        0.0001,
+        "Flight-scaled wrench rockets should retain the authored 1800 px travel distance"
+    );
+
+    const speedScaledStandardState = createInitialGameState();
+    speedScaledStandardState.playerProgression.speedLevel = 3;
+    applyPlayerProgression(speedScaledStandardState, speedScaledStandardState.playerProgression);
+    stepSimulation(speedScaledStandardState, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    const expectedSpeedScale = 2 - Math.pow(1 - PLAYER_UPGRADE_BALANCE.movementSpeedPerLevel, 3);
+    const speedScaledStandardRocket = speedScaledStandardState.projectiles[0];
+    approx(
+        speedScaledStandardRocket.projectileSpeed,
+        DEFAULT_TUNING.rocketProjectileSpeed * expectedSpeedScale,
+        0.0001,
+        "three permanent Speed Upgrades should increase standard rocket velocity by the same diminishing movement scale"
+    );
+    approx(
+        speedScaledStandardRocket.projectileSpeed * speedScaledStandardRocket.lifetime,
+        DEFAULT_TUNING.rocketProjectileUnwrenchedMaxTravelDistance,
+        0.0001,
+        "speed-scaled standard rockets should retain the authored 600 px travel distance"
+    );
+
+    const speedScaledWrenchState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_DART, { targets: [] });
+    speedScaledWrenchState.playerProgression.speedLevel = 3;
+    applyPlayerProgression(speedScaledWrenchState, speedScaledWrenchState.playerProgression);
+    stepSimulation(speedScaledWrenchState, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    const speedScaledWrenchRocket = speedScaledWrenchState.projectiles[0];
+    const dartDefinition = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.WRENCH_DART);
+    approx(
+        speedScaledWrenchRocket.projectileSpeed,
+        DEFAULT_TUNING.rocketProjectileSpeed * dartDefinition.rocket.speedMultiplier * expectedSpeedScale,
+        0.0001,
+        "three permanent Speed Upgrades should also use the diminishing movement scale for wrench rockets"
+    );
+    approx(
+        speedScaledWrenchRocket.projectileSpeed * speedScaledWrenchRocket.lifetime,
+        DEFAULT_TUNING.rocketProjectileMaxTravelDistance,
+        0.0001,
+        "speed-scaled wrench rockets should retain the authored 1800 px travel distance"
+    );
+
     const projectileAngle = (projectile) => Math.atan2(projectile.vy, projectile.vx);
     const angleDeltaDegrees = (angle, baseAngle) => {
         let delta = (angle - baseAngle) * 180 / Math.PI;
@@ -12077,14 +12631,15 @@ function testRocketPowerUpArsenal() {
     bigbombState.enemies[1].maxHealth = 500;
     stepSimulation(bigbombState, createInputFrame({ weaponPressed: true }), FIXED_DT);
     const bomb = bigbombState.projectiles[0];
-    approx(100 - bigbombState.fuel.amount, DEFAULT_TUNING.rocketLaunchCost * 3, 0.0001, "Bigbomb should cost triple fuel");
+    approx(100 - bigbombState.fuel.amount, DEFAULT_TUNING.rocketLaunchCost * 2, 0.0001, "Bigbomb should cost 60 fuel, twice the standard launch cost");
     approx(bomb.damage, DEFAULT_TUNING.rocketProjectileDamage * 4, 0.0001, "Bigbomb AoE should deal four times standard damage");
     approx(bomb.damage, 120, 0.0001, "Bigbomb should now apply 120 damage throughout its blast area");
     assert.ok(bomb.homing, "Bigbomb should remain homing after changing its launch direction");
     assert.equal(bomb.upLaunchTimer, 0, "Bigbomb should not use the upward launch hold");
     assert.ok(bomb.vx > 0 && Math.abs(bomb.vx) > Math.abs(bomb.vy) * 5, "Bigbomb should leave horizontally in Ignatius's facing direction before homing turns it");
     approx(Math.hypot(bomb.vx, bomb.vy), DEFAULT_TUNING.rocketProjectileSpeed * 0.5, 0.01, "Bigbomb should move at half standard speed");
-    approx(bomb.areaDamageRadius, DEFAULT_TUNING.wizardHeight * 1.5, 0.0001, "Bigbomb diameter should span about three wizard heights");
+    approx(bomb.lifetime, DEFAULT_TUNING.rocketProjectileMaxTravelDistance / (DEFAULT_TUNING.rocketProjectileSpeed * 0.5), 0.0001, "Bigbomb lifetime should derive from the shared 1800 px wrench range and its half-speed flight");
+    approx(bomb.areaDamageRadius, DEFAULT_TUNING.wizardHeight * 2, 0.0001, "Bigbomb blast radius should span two wizard heights");
     assert.equal(bomb.currentTransform.scaleX, 1.7, "Bigbomb should render larger than a standard rocket");
     assert.equal(bomb.wrenchGlowTint, "#ff0000", "Bigbomb should carry the red wrench glow tint");
     for (let index = 0; index < 240 && !bigbombState.debug.lastEvents.some((event) => event.type === "ROCKET_AREA_DAMAGE_APPLIED"); index += 1) {
@@ -12164,7 +12719,7 @@ function testRocketPowerUpArsenal() {
         "the debug panel should use compact wrapped text and scrolling rather than clipping diagnostics"
     );
     assert.ok(gameHtml.indexOf('id="health-text"') < gameHtml.indexOf('id="fuel-text"') && gameHtml.indexOf('id="fuel-text"') < gameHtml.indexOf('id="power-text"'), "HUD bars should be ordered health, rocket fuel, then Power");
-    assert.ok(bootstrapSource.includes('setHudText("powerText", powerText, "Powerup:")') && bootstrapSource.includes("prioritizedActivePowerUpEffect"), "the empty Power bar should omit the word None and use shared effect priority");
+    assert.ok(bootstrapSource.includes('setHudText("powerText", powerText, "Powerup:")') && bootstrapSource.includes("shortestRemainingActivePowerUpEffect"), "the empty Power bar should omit the word None and use the shared shortest-remaining-time selector");
     assert.ok(bootstrapSource.includes("browserRandomSeed"), "browser level starts should supply a fresh random seed to portable pickup rolls");
     assert.ok(!bootstrapSource.includes("grounded recharge") && !bootstrapSource.includes("regen in"), "main HUD labels should omit developer recharge and regeneration annotations");
     assert.ok(
@@ -12256,6 +12811,15 @@ function testRocketPowerUpArsenal() {
     assert.doesNotMatch(assetEditorSource, /load-default-image|load-default-json/, "Asset Tool should retire the hard-coded at_atlas_001 load buttons");
     assert.ok(assetEditorSource.includes('event.button === 2') && assetEditorSource.includes('viewport.addEventListener("wheel"') && assetEditorSource.includes("zoomAtClientPoint"), "Asset Tool should support right-drag panning and wheel zooming");
     assert.ok(editorSource.includes("state.level.layerVisuals = normalizeLevelLayerVisuals({\n            version: 3,"), "editor metadata commits should retain the canonical layer-visual schema instead of reapplying legacy Foreground factors");
+    assert.ok(
+        editorSource.includes('id="background-asset-toggle"')
+            && editorSource.includes("Set background asset")
+            && editorSource.includes("Clear background asset")
+            && editorSource.includes("function setBackgroundAssetFromPalette()")
+            && editorSource.includes("asset: previousLayerVisuals.background.asset")
+            && editorSource.includes("backgroundAsset.atlasId"),
+        "the Level Editor should set or clear the selected palette asset as the canonical repeating Background asset without losing it during metadata edits"
+    );
     assert.ok(editorSource.includes("const w = displayRecord.w * state.camera.zoom") && editorSource.includes("const w = displayPlacement.w * state.camera.zoom"), "Foreground selection and asset-guide outlines should use the same layer-scaled display dimensions as rendered artwork");
     assert.ok(
         editorSource.includes("applyEditorLevelToWorld") &&
@@ -12418,8 +12982,8 @@ function testRocketPowerUpArsenal() {
             && editorSource.includes('id="new-level">New level</button>')
             && editorSource.includes('id="import-level">Import level</button>')
             && editorSource.includes('id="download-json">Save</button>')
-            && editorSource.includes('id="load-local">Load from Browser</button>')
-            && editorSource.includes('id="save-local">Save in Browser</button>')
+            && editorSource.includes('id="load-local">Load temp copy</button>')
+            && editorSource.includes('id="save-local">Save temp copy</button>')
             && editorSource.includes("function serializeLevelJson()")
             && !editorSource.includes('<h2>Export</h2>')
             && !editorSource.includes('id="copy-json"')
@@ -12556,11 +13120,11 @@ function testRocketPowerUpArsenal() {
             priority: 50
         }
     };
-    assert.equal(prioritizedActivePowerUpEffect(priorityState)?.id, POWER_UP_EFFECT_IDS.WRENCH_TRIPLE, "an active wrench should display ahead of Shield and Overdrive, including a stale saved definition with the old priority");
-    priorityState.statusEffects.active.wrenchYellow.remainingSeconds = 0;
-    assert.equal(prioritizedActivePowerUpEffect(priorityState)?.id, POWER_UP_EFFECT_IDS.SHIELD, "Shield should display after the wrench expires and ahead of Overdrive");
+    assert.equal(shortestRemainingActivePowerUpEffect(priorityState)?.id, POWER_UP_EFFECT_IDS.SHIELD, "the shortest remaining Shield timer should display even though the wrench carries higher HUD priority metadata");
     priorityState.statusEffects.active.shield.remainingSeconds = 0;
-    assert.equal(prioritizedActivePowerUpEffect(priorityState)?.id, POWER_UP_EFFECT_IDS.OVERDRIVE, "Overdrive should display after both the wrench and Shield expire");
+    assert.equal(shortestRemainingActivePowerUpEffect(priorityState)?.id, POWER_UP_EFFECT_IDS.OVERDRIVE, "Overdrive should display next because four seconds remain versus fourteen on the wrench");
+    priorityState.statusEffects.active.overdrive.remainingSeconds = 0;
+    assert.equal(shortestRemainingActivePowerUpEffect(priorityState)?.id, POWER_UP_EFFECT_IDS.WRENCH_TRIPLE, "the longer wrench timer should display once the shorter timers have expired");
 }
 
 function testReservedLevelFixtures() {
@@ -12619,9 +13183,13 @@ function testRocketFuelFlightMode() {
             }]))
         }
     };
-    assert.equal(prioritizedActivePowerUpEffect(priorityState)?.id, wrench.id, "wrenches should remain above Flight on the Power HUD");
-    delete priorityState.statusEffects.active[wrench.id];
-    assert.equal(prioritizedActivePowerUpEffect(priorityState)?.id, flight.id, "Flight should appear ahead of Shield and Overdrive");
+    priorityState.statusEffects.active[wrench.id].remainingSeconds = 12;
+    priorityState.statusEffects.active[flight.id].remainingSeconds = 40;
+    priorityState.statusEffects.active[shield.id].remainingSeconds = 7;
+    priorityState.statusEffects.active[overdrive.id].remainingSeconds = 15;
+    assert.equal(shortestRemainingActivePowerUpEffect(priorityState)?.id, shield.id, "the Power HUD should select the seven-second Shield regardless of legacy priority values");
+    delete priorityState.statusEffects.active[shield.id];
+    assert.equal(shortestRemainingActivePowerUpEffect(priorityState)?.id, wrench.id, "after Shield expires, the twelve-second wrench should be selected ahead of longer Overdrive and Flight timers");
 
     const catalog = JSON.parse(readFileSync(new URL("../resources/items/it_entities_001.json", import.meta.url), "utf8"));
     assert.equal(catalog.entities.fuel.defaults.effectId, POWER_UP_EFFECT_IDS.FLIGHT, "newly authored fuel entities should grant Flight");
@@ -13126,12 +13694,17 @@ function testSkeletonPlacementsAreScaledUpInShippedLevels() {
     const caster = levelT01.entities.find((entity) => entity?.id === "enemy_002_001");
     assert.ok(guard, "level_t01 should include the authored Skeleton Guard placement");
     assert.ok(caster, "level_t01 should include the authored Skeleton Caster placement");
-    assert.equal(guard.w, 72, "shipped Skeleton Guard placements should preserve the gameplay body width");
-    assert.equal(guard.h, 170, "shipped Skeleton Guard placements should preserve the gameplay body height");
-    assert.equal(guard.renderScale, 1.2, "shipped Skeleton Guard placements should render 50 percent larger");
-    assert.equal(caster.w, 72, "shipped Skeleton Caster placements should preserve the gameplay body width");
-    assert.equal(caster.h, 164, "shipped Skeleton Caster placements should preserve the gameplay body height");
-    assert.equal(caster.renderScale, 1.2, "shipped Skeleton Caster placements should render 50 percent larger");
+    assert.equal(guard.w, undefined, "ordinary Skeleton Guard placements should inherit gameplay width from the catalog");
+    assert.equal(guard.h, undefined, "ordinary Skeleton Guard placements should inherit gameplay height from the catalog");
+    assert.equal(guard.renderScale, undefined, "ordinary Skeleton Guard placements should inherit artwork scale from the catalog");
+    assert.equal(caster.w, undefined, "ordinary Skeleton Caster placements should inherit gameplay width from the catalog");
+    assert.equal(caster.h, undefined, "ordinary Skeleton Caster placements should inherit gameplay height from the catalog");
+    assert.equal(caster.renderScale, undefined, "ordinary Skeleton Caster placements should inherit artwork scale from the catalog");
+    const catalog = JSON.parse(readFileSync("./resources/characters/ct_enemies_001.json", "utf8"));
+    assert.deepEqual(catalog.enemies.enemy_001.defaultSize, { w: 72, h: 164 }, "Skeleton Guard catalog should own its gameplay body size");
+    assert.deepEqual(catalog.enemies.enemy_002.defaultSize, { w: 72, h: 164 }, "Skeleton Caster catalog should own its gameplay body size");
+    assert.equal(catalog.enemies.enemy_001.defaults.renderScale, 1.2, "Skeleton Guard catalog should own its enlarged artwork scale");
+    assert.equal(catalog.enemies.enemy_002.defaults.renderScale, 1.2, "Skeleton Caster catalog should own its enlarged artwork scale");
 }
 
 function testInvisiblePortalPoints() {
@@ -13235,7 +13808,8 @@ function testPersistentPlayerProgressionUpgrades() {
     }, "player progression should normalize levels and stable pickup IDs deterministically");
 
     const derived = playerProgressionStats(DEFAULT_TUNING, normalized);
-    approx(derived.maxHealth, 100 + 2 * PLAYER_UPGRADE_BALANCE.healthPerLevel, 0.000001, "health levels should derive maximum HP from the shared balance constants");
+    const expectedHealthLevel2 = DEFAULT_TUNING.maxHealth * (2 - Math.pow(0.8, 2));
+    approx(derived.maxHealth, expectedHealthLevel2, 0.000001, "health upgrades should shrink toward the 200% maximum-health ceiling");
     approx(derived.maxFuel, 100, 0.000001, "negative fuel levels should normalize to zero");
     approx(derived.healthRegenRate, DEFAULT_TUNING.healthRegenRate * 1.3, 0.000001, "regen levels should scale health regeneration");
     approx(derived.fuelRechargeRate, DEFAULT_TUNING.rechargeRate * 1.3, 0.000001, "regen levels should scale fuel regeneration");
@@ -13291,8 +13865,8 @@ function testPersistentPlayerProgressionUpgrades() {
     state.health.amount = 60;
     state.fuel.amount = 45;
     assert.equal(collectPlayerUpgrade(state, PLAYER_UPGRADE_KINDS.HEALTH, "level_001_health_upgrade_001"), true, "a new stable health-upgrade pickup should be collected once");
-    approx(state.health.max, 140, 0.000001, "health pickup should increase maximum HP by one level");
-    approx(state.health.amount, 80, 0.000001, "health capacity gain should add only the newly earned capacity to current HP");
+    approx(state.health.max, 136, 0.000001, "second health pickup should add a smaller gain toward the 200% ceiling");
+    approx(state.health.amount, 76, 0.000001, "health capacity gain should add only the newly earned diminishing capacity to current HP");
     approx(state.fuel.amount, 45, 0.000001, "health capacity gain should not refill fuel");
     assert.equal(collectPlayerUpgrade(state, PLAYER_UPGRADE_KINDS.HEALTH, "level_001_health_upgrade_001"), false, "the same stable pickup ID should never grant a second upgrade");
     assert.equal(state.playerProgression.healthLevel, 2, "duplicate collection should leave the upgrade level unchanged");
@@ -13305,12 +13879,23 @@ function testPersistentPlayerProgressionUpgrades() {
     assert.equal(playerUpgradeMessage(PLAYER_UPGRADE_KINDS.HEALTH), "Max health upgraded!", "health upgrades should use the agreed screen message");
     assert.equal(playerUpgradeMessage(PLAYER_UPGRADE_KINDS.FUEL), "Max fuel upgraded!", "fuel upgrades should use the agreed screen message");
     assert.equal(playerUpgradeMessage(PLAYER_UPGRADE_KINDS.REGEN), "Regeneration upgraded!", "regeneration upgrades should use the shared health-and-fuel message");
-    assert.equal(playerUpgradeMessage(PLAYER_UPGRADE_KINDS.SPEED), "Movement speed upgraded!", "speed upgrades should use the agreed screen message");
+    assert.equal(playerUpgradeMessage(PLAYER_UPGRADE_KINDS.SPEED), "Speed has been upgraded!", "speed upgrades should keep the concise authored pickup message");
     const upgradeMessages = state.debug.lastEvents.filter((event) => event.type === "SCREEN_MESSAGE_REQUESTED").map((event) => event.message);
-    assert.deepEqual(upgradeMessages.slice(-3), ["Max fuel upgraded!", "Regeneration upgraded!", "Movement speed upgraded!"], "permanent pickups should emit reusable screen-message events with exact text");
+    assert.deepEqual(upgradeMessages.slice(-3), ["Max fuel upgraded!", "Regeneration upgraded!", "Speed has been upgraded!"], "permanent pickups should emit reusable screen-message events with exact text");
     approx(state.playerStats.healthRegenRate, DEFAULT_TUNING.healthRegenRate * 1.3, 0.000001, "second regen level should improve health regeneration");
     approx(state.playerStats.fuelRechargeRate, DEFAULT_TUNING.rechargeRate * 1.3, 0.000001, "second regen level should improve fuel regeneration");
-    approx(state.playerStats.movementSpeedScale, 1.2, 0.000001, "second speed level should improve movement speed");
+    approx(state.playerStats.movementSpeedScale, 1.19, 0.000001, "second speed level should add a smaller gain toward the 200% speed ceiling");
+
+    const highUpgradeStats = playerProgressionStats(DEFAULT_TUNING, {
+        healthLevel: 999,
+        fuelLevel: 20,
+        regenLevel: 20,
+        speedLevel: 999
+    });
+    assert.ok(highUpgradeStats.maxHealth <= DEFAULT_TUNING.maxHealth * PLAYER_UPGRADE_BALANCE.maxScale, "health upgrades must never exceed 200% of base maximum health");
+    assert.ok(highUpgradeStats.movementSpeedScale <= PLAYER_UPGRADE_BALANCE.maxScale, "speed upgrades must never exceed 200% of base movement speed");
+    approx(highUpgradeStats.maxFuel, DEFAULT_TUNING.fuelMax + 20 * PLAYER_UPGRADE_BALANCE.fuelPerLevel, 0.000001, "maximum-fuel upgrades remain uncapped and linear");
+    assert.ok(highUpgradeStats.healthRegenRate > DEFAULT_TUNING.healthRegenRate * 2, "regeneration upgrades remain uncapped");
 
     const serialized = serializeGameState(state);
     const restored = restoreGameState(serialized);
@@ -13355,11 +13940,13 @@ function testPersistentPlayerProgressionUpgrades() {
             h: healthDefinition.defaultSize.h,
             state: healthDefinition.defaultState,
             visualStates: Object.fromEntries(Object.entries(healthDefinition.states).map(([id, stateDefinition]) => [id, stateDefinition.visuals])),
-            ...structuredClone(healthDefinition.defaults)
+            ...structuredClone(healthDefinition.defaults),
+            respawnSeconds: 60
         }]
     };
     const pickupState = createInitialGameState();
     assert.equal(applyEditorLevelToWorld(pickupState, pickupLevel), true, "a level with a permanent upgrade should apply");
+    assert.equal(pickupState.pickups[0].respawnSeconds, 0, "permanent upgrades should force respawnSeconds to zero even if authored otherwise");
     stepSimulation(pickupState, createInputFrame(), FIXED_DT);
     assert.equal(pickupState.playerProgression.healthLevel, 1, "touching a permanent upgrade should increase its level");
     assert.ok(pickupState.playerProgression.collectedUpgradeIds.includes("progression_pickup_test:persistent_health_upgrade"), "touching a permanent upgrade should remember its level-scoped stable entity ID");
@@ -13530,6 +14117,7 @@ function testNumberedEnemy001Assets() {
     const goblinMusketRig = JSON.parse(readFileSync("./resources/characters/ct_rig_enemy_011.json", "utf8"));
     const goblinTriFireballRig = JSON.parse(readFileSync("./resources/characters/ct_rig_enemy_012.json", "utf8"));
     const goblinAtlas = JSON.parse(readFileSync("./resources/characters/ct_atlas_enemy_010.json", "utf8"));
+    const enemyCatalog = JSON.parse(readFileSync("./resources/characters/ct_enemies_001.json", "utf8"));
     assert.equal(goblinFireballCharacter.characterId, "ct_char_enemy_010", "fireball goblin character ID should follow numbered enemy convention");
     assert.equal(goblinMusketCharacter.characterId, "ct_char_enemy_011", "musket goblin character ID should follow numbered enemy convention");
     assert.equal(goblinTriFireballCharacter.characterId, "ct_char_enemy_012", "tri-fireball goblin character ID should follow numbered enemy convention");
@@ -13555,20 +14143,20 @@ function testNumberedEnemy001Assets() {
     assert.equal("rigPivotOverrides" in goblinFireballCharacter, false, "Fireball Goblin character data should not contain pivot overrides");
     assert.equal("rigPartOverrides" in goblinMusketCharacter, false, "Musket Goblin character data should not contain rig-part overrides");
     assert.equal("rigPivotOverrides" in goblinMusketCharacter, false, "Musket Goblin character data should not contain pivot overrides");
-    assert.equal(goblinFireballCharacter.projectilePart, "fireball", "Fireball Goblin should select the fireball projectile part");
-    assert.equal(goblinMusketCharacter.projectilePart, "cannonball", "Musket Goblin should select the cannonball projectile part");
-    assert.equal(goblinTriFireballCharacter.projectilePart, "fireball", "Tri-fireball Goblin should select the copied fireball projectile part");
+    assert.equal(goblinFireballCharacter.attackPart, "fireball", "Fireball Goblin should select the fireball attack handoff part");
+    assert.equal(goblinMusketCharacter.attackPart, "cannonball", "Musket Goblin should select the cannonball attack handoff part");
+    assert.equal(goblinTriFireballCharacter.attackPart, "fireball", "Tri-fireball Goblin should select the copied fireball attack handoff part");
     assert.deepEqual(goblinFireballRig.drawOrder, ["leftArm", "leftArmClosed", "leftLeg", "rightLeg", "head", "torso", "weapon", "rightArm", "cannonball", "fireball"], "Fireball Goblin draw order should preserve the accepted user-authored depth order including previewable projectile parts");
     assert.deepEqual(goblinMusketRig.drawOrder, goblinFireballRig.drawOrder, "both original dedicated goblin rigs should preserve the accepted depth order");
     assert.deepEqual(goblinTriFireballRig.drawOrder, goblinFireballRig.drawOrder, "Tri-fireball Goblin should copy the Fireball Goblin depth order");
     assert.deepEqual(goblinFireballRig.pivots.rightArm, { x: 0.18, y: 0.31 }, "Enemy 010 right-arm pivot should remain authoritative in its rig file");
     assert.deepEqual(goblinMusketRig.pivots.rightArm, { x: 0.17, y: 0.29 }, "Enemy 011 right-arm pivot should remain authoritative in its rig file");
     assert.ok(goblinFireballRig.parts.leftArmClosed && goblinMusketRig.parts.leftArmClosed, "both goblin rigs should retain the alternate closed left arm as an independently animatable part");
-    assert.equal(goblinFireballRig.parts.fireball.projectile.launchType, "homing_lo", "fireball rig part should be tagged as low-homing");
-    assert.equal(goblinTriFireballRig.parts.fireball.projectile.launchType, "straight", "Tri-fireball Goblin fireball handoff should be tagged as straight");
-    approx(goblinFireballRig.parts.fireball.projectile.releaseTime, 0.372, 0.000001, "fireball rig part should carry an explicit release time");
-    assert.equal(goblinMusketRig.parts.cannonball.projectile.launchType, "ballistic", "cannonball rig part should be tagged as ballistic");
-    approx(goblinMusketRig.parts.cannonball.projectile.releaseTime, 0.49531814840382643, 0.000001, "cannonball rig part should carry an explicit release time");
+    assert.equal(enemyCatalog.enemies.enemy_010.defaults.projectileLaunchType, "homing_lo", "Fireball Goblin trajectory should be catalog-owned rather than embedded in its handoff");
+    assert.equal(enemyCatalog.enemies.enemy_012.defaults.projectileLaunchType, "straight", "Tri-fireball Goblin straight trajectory should be catalog-owned independently of the shared handoff");
+    approx(goblinFireballRig.parts.fireball.attackHandoff.releaseTime, 0.372, 0.000001, "fireball rig part should carry an explicit release time");
+    assert.equal(enemyCatalog.enemies.enemy_011.defaults.projectileLaunchType, "ballistic", "Musket Goblin ballistic trajectory should be catalog-owned rather than embedded in its handoff");
+    approx(goblinMusketRig.parts.cannonball.attackHandoff.releaseTime, 0.49531814840382643, 0.000001, "cannonball rig part should carry an explicit release time");
 
     const fireIdle = JSON.parse(readFileSync("./resources/characters/ct_anim_enemy_010_idle.json", "utf8"));
     const fireAttack = JSON.parse(readFileSync("./resources/characters/ct_anim_enemy_010_attack.json", "utf8"));
@@ -14334,7 +14922,7 @@ function testPresentationTransformMigration() {
         assert.doesNotMatch(source, /state\.camera\.(?:x|y|angle)\b/, `${sourceName} should not access legacy camera transform fields`);
     }
     assert.doesNotMatch(rendererSource, /enemy\.(?:x|y|angle|renderScale|renderOpacity|animationTime)\b/, "renderer should consume enemy shown transforms and shown animation clocks exclusively");
-    assert.doesNotMatch(rendererSource, /projectile\.(?:x|y|angle|visualScale)\b/, "renderer should consume projectile shown transforms exclusively");
+    assert.doesNotMatch(rendererSource, /projectile\.(?:x|y|angle)\b/, "renderer should consume projectile shown transforms exclusively; data-defined visualScale is a presentation tuning value, not transform storage");
 }
 
 function testPresentationTransformInterpolation() {
@@ -14474,6 +15062,10 @@ function testTiledBakeProfilerDiagnostics() {
 function testGameplayRecordingAndPlaybackTooling() {
     assert.equal(normalizeLaunchLevelQuery("2"), "level_002", "numeric level query should resolve to a padded authored level id");
     assert.equal(normalizeLaunchLevelQuery("level_12"), "level_012", "level query should preserve level_ prefixes and normalize padding");
+    assert.equal(normalizeLaunchLevelQuery("level_temp"), "level_temp", "browser Level Editor playtests should preserve the generated level_temp launch id instead of falling back to level_001");
+    const gameBootstrapSource = readFileSync("./src/browser/game-bootstrap.js", "utf8");
+    assert.ok(gameBootstrapSource.includes('return normalizeLaunchLevelQuery(value, fallback);'), "the final required-level normalization should delegate to the tested launch normalizer so level_temp cannot be rejected by a second parser");
+    assert.ok(gameBootstrapSource.includes('Requested launch level') && gameBootstrapSource.includes('failStartup'), "an explicitly invalid browser level query should surface a visible startup error instead of silently falling back to level_001");
     assert.equal(playbackUrlFromQueryValue("../record001.json"), "recordings/record001.json", "playback query should stay inside the recordings folder");
 
     const inputSnapshot = snapshotGameplayInput(createInputFrame({
@@ -14661,7 +15253,155 @@ function testHeadlessSteppingAndFloorCollision() {
     assert.ok(state.debug.lastEvents.some((event) => event.type === "PLAYER_LANDED"), "landing should be logged");
 }
 
+function testClosedSlopedStairBodyDoesNotConveyorPlayerDownhill() {
+    const support = {
+        id: "synthetic_stair_blockable_2",
+        kind: "blockable",
+        x1: 7,
+        y1: 298,
+        x2: 197,
+        y2: 209
+    };
+    const state = createInitialGameState();
+    state.world.solids = [];
+    state.world.segments = [support];
+    state.world.collisionPolygons = [{
+        id: "synthetic_stair_area_1",
+        kind: "blockable",
+        points: [
+            { x: 6, y: 316 },
+            { x: 7, y: 298 },
+            { x: 197, y: 209 },
+            { x: 243, y: 211 },
+            { x: 245, y: 262 },
+            { x: 174, y: 315 }
+        ]
+    }];
+    state.world.bounds = { x: -500, y: -500, w: 1500, h: 1500 };
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.enemies = [];
+    state.projectiles = [];
+    state.targets = [];
+    state.pickups = [];
+    const yAt = (x) => support.y1 + (support.y2 - support.y1) * ((x - support.x1) / (support.x2 - support.x1));
+    state.player.currentTransform.x = 80;
+    state.player.currentTransform.y = yAt(80 + state.player.width * 0.42);
+    state.player.vx = 0;
+    state.player.vy = 0;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    state.player.supportId = support.id;
+
+    const stationaryX = state.player.currentTransform.x;
+    for (let frame = 0; frame < 30; frame += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+    }
+    approx(state.player.currentTransform.x, stationaryX, 0.001, "closed sloped stair body should not move a stationary grounded wizard downhill");
+
+    const uphillStartX = state.player.currentTransform.x;
+    for (let frame = 0; frame < 18; frame += 1) {
+        const beforeX = state.player.currentTransform.x;
+        stepSimulation(state, createInputFrame({ moveRight: true, moveAxis: 1 }), FIXED_DT);
+        assert.ok(state.player.currentTransform.x >= beforeX - 0.001, `uphill stair step ${frame + 1} should never move downhill`);
+    }
+    assert.ok(state.player.currentTransform.x > uphillStartX + 10, "uphill input should advance along the closed sloped stair body");
+}
+
 function testPlayerFollowsSteepWalkableBridgeRampWhileRunning() {
+    const steepLine = {
+        id: "synthetic_steep_walkable",
+        kind: "walkable",
+        x1: 0,
+        y1: 500,
+        x2: 97,
+        y2: 229
+    };
+    const steepYAt = (x) => steepLine.y1 + (steepLine.y2 - steepLine.y1) * ((x - steepLine.x1) / (steepLine.x2 - steepLine.x1));
+    const steepState = createInitialGameState({ playerProgression: { speedLevel: 999 } });
+    steepState.world.solids = [];
+    steepState.world.collisionPolygons = [];
+    steepState.world.segments = [steepLine];
+    steepState.world.bounds = { x: -1000, y: -1000, w: 3000, h: 3000 };
+    steepState.story.portalIntro = null;
+    steepState.story.portalExit = null;
+    steepState.enemies = [];
+    steepState.targets = [];
+    steepState.pickups = [];
+    steepState.player.currentTransform.x = 10;
+    steepState.player.currentTransform.y = steepYAt(10);
+    steepState.player.vx = steepState.tuning.maxRunSpeed * steepState.playerStats.movementSpeedScale;
+    steepState.player.vy = 0;
+    steepState.player.onGround = true;
+    steepState.player.wasOnGround = true;
+    steepState.player.supportId = steepLine.id;
+    assert.ok(steepState.playerStats.movementSpeedScale > 1.999, "synthetic steep-support regression exercises essentially the full 200% permanent speed ceiling");
+    const maximumSelfPropelledSpeed = steepState.tuning.maxRunSpeed * steepState.playerStats.movementSpeedScale;
+    for (let step = 0; step < 5; step += 1) {
+        const beforeX = steepState.player.currentTransform.x;
+        const beforeY = steepState.player.currentTransform.y;
+        stepSimulation(steepState, createInputFrame({ moveRight: true, moveAxis: 1 }), FIXED_DT);
+        assert.equal(steepState.player.onGround, true, `synthetic steepest-authored 70.3-degree uphill step ${step + 1} should remain grounded at 200% speed`);
+        approx(steepState.player.currentTransform.y, steepYAt(steepState.player.currentTransform.x), 0.001, `synthetic steepest-authored 70.3-degree uphill step ${step + 1} should follow the swept line`);
+        const travelled = Math.hypot(
+            steepState.player.currentTransform.x - beforeX,
+            steepState.player.currentTransform.y - beforeY
+        ) / FIXED_DT;
+        assert.ok(travelled <= maximumSelfPropelledSpeed + 0.001, `synthetic steep uphill movement vector should stay within level-ground running speed (step ${step + 1})`);
+    }
+
+    const downhillState = createInitialGameState({ playerProgression: { speedLevel: 999 } });
+    downhillState.world.solids = [];
+    downhillState.world.collisionPolygons = [];
+    downhillState.world.segments = [steepLine];
+    downhillState.world.bounds = { x: -1000, y: -1000, w: 3000, h: 3000 };
+    downhillState.story.portalIntro = null;
+    downhillState.story.portalExit = null;
+    downhillState.enemies = [];
+    downhillState.targets = [];
+    downhillState.pickups = [];
+    downhillState.player.currentTransform.x = 87;
+    downhillState.player.currentTransform.y = steepYAt(87);
+    downhillState.player.vx = -downhillState.tuning.maxRunSpeed * downhillState.playerStats.movementSpeedScale;
+    downhillState.player.vy = 0;
+    downhillState.player.onGround = true;
+    downhillState.player.wasOnGround = true;
+    downhillState.player.supportId = steepLine.id;
+    for (let step = 0; step < 5; step += 1) {
+        const beforeX = downhillState.player.currentTransform.x;
+        const beforeY = downhillState.player.currentTransform.y;
+        stepSimulation(downhillState, createInputFrame({ moveLeft: true, moveAxis: -1 }), FIXED_DT);
+        assert.equal(downhillState.player.onGround, true, `synthetic steep downhill step ${step + 1} should stay attached to the ladder support`);
+        assert.equal(downhillState.player.supportId, steepLine.id, `synthetic steep downhill step ${step + 1} should retain the walkable support`);
+        approx(downhillState.player.currentTransform.y, steepYAt(downhillState.player.currentTransform.x), 0.001, `synthetic steep downhill step ${step + 1} should follow the line`);
+        const travelled = Math.hypot(
+            downhillState.player.currentTransform.x - beforeX,
+            downhillState.player.currentTransform.y - beforeY
+        ) / FIXED_DT;
+        assert.ok(travelled <= maximumSelfPropelledSpeed + 0.001, `synthetic steep downhill movement vector should stay within level-ground running speed (step ${step + 1})`);
+    }
+
+    const fallingState = createInitialGameState({ playerProgression: { speedLevel: 999 } });
+    fallingState.world.solids = [];
+    fallingState.world.collisionPolygons = [];
+    fallingState.world.segments = [steepLine];
+    fallingState.world.bounds = { x: -1000, y: -1000, w: 3000, h: 3000 };
+    fallingState.story.portalIntro = null;
+    fallingState.story.portalExit = null;
+    fallingState.enemies = [];
+    fallingState.targets = [];
+    fallingState.pickups = [];
+    fallingState.player.currentTransform.x = 50;
+    fallingState.player.currentTransform.y = 0;
+    fallingState.player.vx = maximumSelfPropelledSpeed;
+    fallingState.player.vy = maximumSelfPropelledSpeed;
+    fallingState.player.onGround = false;
+    fallingState.player.wasOnGround = false;
+    fallingState.player.supportId = null;
+    stepSimulation(fallingState, createInputFrame(), FIXED_DT);
+    assert.ok(Math.hypot(fallingState.player.vx, fallingState.player.vy) > maximumSelfPropelledSpeed * 1.2,
+        "airborne falling velocity should not be vector-capped by the grounded running-speed rule");
+
     const bridgeManifest = JSON.parse(readFileSync(new URL("../resources/atlases/at_atlas_013.json", import.meta.url), "utf8"));
     const groundManifest = JSON.parse(readFileSync(new URL("../resources/atlases/at_atlas_014.json", import.meta.url), "utf8"));
     const bridge = bridgeManifest.objects?.forest_arched_bridge_walkable;
@@ -15122,7 +15862,7 @@ function testHomingRocketLaunch() {
     const target = {
         id: "homing_launch_target",
         kind: "enemyBullseye",
-        x: state.player.currentTransform.x + 1800,
+        x: state.player.currentTransform.x + 1400,
         y: state.player.currentTransform.y - 200,
         radius: 15,
         state: "active"
@@ -15138,6 +15878,12 @@ function testHomingRocketLaunch() {
     assert.ok(state.projectiles[0].vy < -490, "test rocket should retain a strong upward launch component during the initial curve at the 500 px/s base speed");
     assert.ok(state.projectiles[0].upLaunchTimer > 0, "test rocket should retain a finite initial-turn steering window");
     assert.equal(state.projectiles[0].damage, 30, "a standard rocket should carry 30 damage");
+    approx(
+        state.projectiles[0].projectileSpeed * state.projectiles[0].lifetime,
+        DEFAULT_TUNING.rocketProjectileUnwrenchedMaxTravelDistance,
+        0.0001,
+        "standard rocket lifetime should derive from its 600 px travel distance"
+    );
     state.weapons.launchCooldownTimer = 999;
     stepSimulation(state, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
     assert.equal(state.projectiles.length, 2, "a second press on the next simulation step should launch immediately when fuel is available");
@@ -15168,7 +15914,7 @@ function measuredSingleUnboostedJumpHeight() {
 }
 
 function runJumpHeightPlatformRocket(initialHomingStrength) {
-    const state = createInitialGameState({ tuning: { rocketProjectileInitialHomingStrength: initialHomingStrength } });
+    const state = createInitialGameState({ tuning: { rocketProjectileInitialHomingStrength: initialHomingStrength, rocketTargetSearchDistance: 20000 } });
     settleOnGround(state);
     const platformY = state.player.currentTransform.y - measuredSingleUnboostedJumpHeight();
     const targetX = state.player.currentTransform.x + state.player.height * 96;
@@ -15394,7 +16140,55 @@ function testRocketTargetPrioritizesLineOfSight() {
     assert.equal(greenAimedState.projectiles[0].targetId, "elevated_green_target", "green launch-aim rockets should also treat one-way platforms as transparent for targeting");
 }
 
-function testHomingRocketTargetsWithinOneScreenRange() {
+function testRocketLifetimeExplosionOffscreenCull() {
+    function makeState(maxTravelDistance, wallX = null) {
+        const state = createInitialGameState({ tuning: {
+            rocketProjectileMaxTravelDistance: maxTravelDistance,
+            rocketLifetimeExplosionOffscreenMargin: 100
+        }});
+        settleOnGround(state);
+        state.player.currentTransform.x = 0;
+        state.player.currentTransform.y = 600;
+        state.player.facing = 1;
+        state.camera.currentTransform.x = 0;
+        state.camera.currentTransform.y = 600;
+        state.camera.viewportWidth = 400;
+        state.camera.viewportHeight = 600;
+        state.world.solids = wallX === null ? [] : [{ id: "offscreen_wall", kind: "wall", x: wallX, y: 450, w: 20, h: 220 }];
+        state.world.segments = [];
+        state.world.collisionPolygons = [];
+        state.world.caveKillBoundary.enabled = false;
+        const definition = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.WRENCH_DART);
+        state.statusEffects.active[POWER_UP_EFFECT_IDS.WRENCH_DART] = {
+            id: definition.id,
+            definition,
+            remainingSeconds: definition.durationSeconds,
+            sourceId: "expiry_cull_test",
+            activatedAt: 0,
+            refreshCount: 0
+        };
+        return state;
+    }
+
+    const farExpiry = makeState(600);
+    stepSimulation(farExpiry, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    stepMany(farExpiry, 50, () => createInputFrame());
+    assert.equal(farExpiry.projectiles.length, 0, "a wrench rocket expiring more than 100 px beyond the viewport should be removed immediately");
+    assert.equal(farExpiry.effects.smokePuffs.filter((puff) => puff.kind === "rocketImpactSmokePuff").length, 0, "a far-offscreen natural expiry should emit no impact smoke");
+    assert.ok(farExpiry.debug.lastEvents.some((event) => event.type === "ROCKET_LIFETIME_CULLED"), "far-offscreen expiry should expose a deterministic cull diagnostic");
+
+    const nearExpiry = makeState(420);
+    stepSimulation(nearExpiry, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    stepMany(nearExpiry, 35, () => createInputFrame());
+    assert.ok(nearExpiry.effects.smokePuffs.some((puff) => puff.kind === "rocketImpactSmokePuff"), "a natural expiry within the 100 px viewport margin should still explode and smoke");
+
+    const offscreenImpact = makeState(1000, 600);
+    stepSimulation(offscreenImpact, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    stepMany(offscreenImpact, 50, () => createInputFrame());
+    assert.ok(offscreenImpact.effects.smokePuffs.some((puff) => puff.kind === "rocketImpactSmokePuff"), "an actual collision more than 100 px off-screen should still explode normally");
+}
+
+function testHomingRocketTargetsWithinFixedRange() {
     const state = createInitialGameState();
     settleOnGround(state);
     state.player.currentTransform.x = 0;
@@ -15408,25 +16202,91 @@ function testHomingRocketTargetsWithinOneScreenRange() {
     state.world.segments = [];
     state.world.collisionPolygons = [];
     state.targets = [
-        { id: "far_abandoned_target", x: 500, y: 540, radius: 12, state: "active" }
+        { id: "far_abandoned_target", x: 1600, y: 540, radius: 12, state: "active" }
     ];
 
     stepSimulation(state, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
-    assert.equal(state.projectiles[0].targetId, null, "a homing rocket should ignore targets farther than one viewport width from the rocket");
+    assert.equal(state.projectiles[0].targetId, null, "a homing rocket should ignore targets farther than the authored 1500 px lock radius");
 
     stepSimulation(state, createInputFrame(), FIXED_DT);
-    state.targets.push({ id: "near_offscreen_target", x: 350, y: 540, radius: 12, state: "active" });
+    state.targets.push({ id: "near_offscreen_target", x: 1450, y: 540, radius: 12, state: "active" });
     stepSimulation(state, createInputFrame(), FIXED_DT);
     assert.equal(state.projectiles[0].targetId, null, "an untargeted rocket should not rescan every fixed tick");
     stepMany(state, 12, () => createInputFrame());
     assert.equal(state.projectiles[0].targetId, null, "an untargeted rocket should wait roughly a quarter second before another full target scan");
     stepMany(state, 2, () => createInputFrame());
-    assert.equal(state.projectiles[0].targetId, "near_offscreen_target", "a target outside the camera but within one viewport width of the rocket should remain eligible");
+    assert.equal(state.projectiles[0].targetId, "near_offscreen_target", "a target outside the camera but within the authored 1500 px lock radius should remain eligible");
 
-    state.targets.find((target) => target.id === "near_offscreen_target").x = 520;
-    state.targets.push({ id: "nearby_replacement_target", x: 240, y: 500, radius: 12, state: "active" });
+    state.targets.find((target) => target.id === "near_offscreen_target").x = 1700;
+    state.targets.push({ id: "nearby_replacement_target", x: 1200, y: 500, radius: 12, state: "active" });
     stepSimulation(state, createInputFrame(), FIXED_DT);
     assert.equal(state.projectiles[0].targetId, "nearby_replacement_target", "a rocket should release an out-of-range target and immediately try a nearby replacement");
+
+    const fullscreenState = createInitialGameState();
+    settleOnGround(fullscreenState);
+    fullscreenState.player.currentTransform.x = 0;
+    fullscreenState.player.currentTransform.y = 600;
+    fullscreenState.player.facing = 1;
+    fullscreenState.camera.currentTransform.x = 150;
+    fullscreenState.camera.currentTransform.y = fullscreenState.player.currentTransform.y;
+    fullscreenState.camera.viewportWidth = 1920;
+    fullscreenState.camera.viewportHeight = 1080;
+    fullscreenState.world.solids = [];
+    fullscreenState.world.segments = [];
+    fullscreenState.world.collisionPolygons = [];
+    const upperRightDx = 1920 * 0.5 + 150;
+    const upperRightDy = 1080 * 0.56;
+    const farCornerDistance = Math.hypot(upperRightDx, upperRightDy);
+    assert.ok(farCornerDistance < DEFAULT_TUNING.rocketTargetSearchDistance, `1500 px lock radius should cover the full 1080p viewport from Ignatius's normal right-facing position; far corner is ${farCornerDistance}`);
+    fullscreenState.targets = [{
+        id: "visible_far_corner_target",
+        x: fullscreenState.player.currentTransform.x + upperRightDx - 1,
+        y: fullscreenState.player.currentTransform.y - upperRightDy + 1,
+        radius: 12,
+        state: "active"
+    }];
+    stepSimulation(fullscreenState, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    assert.equal(fullscreenState.projectiles[0].targetId, "visible_far_corner_target", "a target at the far visible 1080p corner should remain lockable");
+
+    const blueArcState = createInitialGameState();
+    settleOnGround(blueArcState);
+    blueArcState.player.currentTransform.x = 0;
+    blueArcState.player.currentTransform.y = 600;
+    blueArcState.player.facing = 1;
+    blueArcState.world.solids = [];
+    blueArcState.world.segments = [];
+    blueArcState.world.collisionPolygons = [];
+    const blueDx = 1400;
+    const blueDy = -Math.sqrt(DEFAULT_TUNING.rocketTargetSearchDistance ** 2 - blueDx ** 2);
+    const blueTarget = {
+        id: "blue_arc_max_range_target",
+        x: blueArcState.player.currentTransform.x + blueDx,
+        y: blueArcState.player.currentTransform.y + blueDy,
+        radius: 15,
+        state: "active"
+    };
+    blueArcState.targets = [blueTarget];
+    blueArcState.camera.viewportWidth = 4000;
+    blueArcState.camera.viewportHeight = 2000;
+    const blueDefinition = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.WRENCH_PHASE);
+    blueArcState.statusEffects.active[POWER_UP_EFFECT_IDS.WRENCH_PHASE] = {
+        id: blueDefinition.id,
+        definition: blueDefinition,
+        remainingSeconds: blueDefinition.durationSeconds,
+        sourceId: "blue_arc_range_test",
+        activatedAt: 0,
+        refreshCount: 0
+    };
+    stepSimulation(blueArcState, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    const blueMinimumDistances = new Map(blueArcState.projectiles.map((projectile) => [projectile.id, Infinity]));
+    for (let frame = 0; frame < 260 && blueArcState.projectiles.length; frame += 1) {
+        stepSimulation(blueArcState, createInputFrame(), FIXED_DT);
+        for (const projectile of blueArcState.projectiles) {
+            const targetDistance = Math.hypot(projectile.currentTransform.x - blueTarget.x, projectile.currentTransform.y - blueTarget.y);
+            blueMinimumDistances.set(projectile.id, Math.min(blueMinimumDistances.get(projectile.id) ?? Infinity, targetDistance));
+        }
+    }
+    assert.ok([...blueMinimumDistances.values()].every((value) => value < 10), `the 1800 px wrench range should leave enough path for every upward-launch Blue rocket to reach a target at the full 1500 px lock radius; minimum distances=${JSON.stringify([...blueMinimumDistances.values()])}`);
 
     const staggeredState = createInitialGameState();
     settleOnGround(staggeredState);
@@ -15464,7 +16324,7 @@ function testRocketTrailTracksCurvedPathAndPersistsAfterExplosion() {
     const target = {
         id: "rocket_trail_target",
         kind: "enemyBullseye",
-        x: state.player.currentTransform.x + 1800,
+        x: state.player.currentTransform.x + 1400,
         y: state.player.currentTransform.y - 200,
         radius: 15,
         state: "active"
@@ -15848,6 +16708,41 @@ function testDownwardCameraLead() {
     assert.ok(state.camera.currentTransform.y < state.player.currentTransform.y + 120, "downward look-ahead should remain bounded rather than abandoning Ignatius");
 }
 
+function testCameraEdgeCatchupKeepsWizardVisible() {
+    const state = createInitialGameState();
+    const floor = { id: "synthetic_camera_floor", kind: "walkable", x1: -2000, y1: 500, x2: 2000, y2: 500 };
+    state.world.solids = [];
+    state.world.collisionPolygons = [];
+    state.world.segments = [floor];
+    state.world.bounds = { x: -4000, y: -4000, w: 8000, h: 8000 };
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.enemies = [];
+    state.targets = [];
+    state.pickups = [];
+    state.player.currentTransform.x = 0;
+    state.player.currentTransform.y = 500;
+    state.player.vx = 0;
+    state.player.vy = 0;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    state.player.supportId = floor.id;
+    state.camera.viewportWidth = 1280;
+    state.camera.viewportHeight = 720;
+    state.camera.currentTransform.x = 0;
+    // Put the wizard's feet exactly at the lower screen edge. The edge catch-up
+    // should immediately restore a safety margin rather than applying only the
+    // ordinary camera blend.
+    state.camera.currentTransform.y = state.player.currentTransform.y - state.camera.viewportHeight * 0.44;
+    const beforeY = state.camera.currentTransform.y;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    const top = state.camera.currentTransform.y - state.camera.viewportHeight * 0.56;
+    const bottom = top + state.camera.viewportHeight;
+    assert.ok(state.camera.currentTransform.y > beforeY + 70, "camera edge catch-up should accelerate strongly when the wizard reaches the screen border");
+    assert.ok(state.player.currentTransform.y <= bottom + 0.000001, "camera edge catch-up should keep the wizard's feet visible");
+    assert.ok(state.player.currentTransform.y - state.player.height >= top - 0.000001, "camera edge catch-up should keep the wizard's head visible");
+}
+
 function testWorldBoundsKillBorderAndNoFallbackTarget() {
     const makeState = () => {
         const state = createInitialGameState({
@@ -15932,19 +16827,332 @@ function testAutomaticSmallStepTraversal() {
         state.player.onGround = true;
         state.player.wasOnGround = true;
         state.player.supportId = "step_floor";
+        state.player.groundStride = null;
         return state;
     };
 
     const climbable = createStepState(19);
-    stepMany(climbable, 50, () => createInputFrame({ moveRight: true }));
+    let sawMidStride = false;
+    for (let frame = 0; frame < 50; frame += 1) {
+        stepSimulation(climbable, createInputFrame({ moveRight: true }), FIXED_DT);
+        if (climbable.player.groundStride?.active && climbable.player.currentTransform.y < 599.5 && climbable.player.currentTransform.y > 581.5) {
+            sawMidStride = true;
+        }
+    }
+    assert.equal(sawMidStride, true, "a climbable step should be traversed as a persistent stride instead of teleporting to the top in one simulation frame");
     assert.ok(climbable.player.currentTransform.x > 300, "Ignatius should walk across a step below one fifth of his height without jumping");
     assert.equal(climbable.player.currentTransform.y, 581, "automatic step-up should seat Ignatius on the raised surface");
     assert.equal(climbable.player.supportId, "small_step", "automatic step-up should adopt the raised support");
 
+    const slowClimbable = createStepState(19);
+    slowClimbable.tuning.maxRunSpeed = 36;
+    slowClimbable.tuning.groundAcceleration = Math.max(slowClimbable.tuning.groundAcceleration, 720);
+    stepMany(slowClimbable, 360, () => createInputFrame({ moveRight: true }));
+    assert.ok(slowClimbable.player.currentTransform.x > 260, "low movement speed should lengthen stride duration without reducing step reach");
+    assert.equal(slowClimbable.player.currentTransform.y, 581, "slow traversal should reach the same foothold as full-speed traversal");
+
     const tooTall = createStepState(21);
     stepMany(tooTall, 50, () => createInputFrame({ moveRight: true }));
     assert.ok(tooTall.player.currentTransform.x <= 233.1, "a step above one fifth of Ignatius's height should still block ordinary walking");
-    assert.equal(tooTall.player.currentTransform.y, 600, "a too-tall step should not teleport Ignatius upward");
+    assert.equal(tooTall.player.currentTransform.y, 600, "a too-tall step should not lift Ignatius");
+    assert.equal(tooTall.player.groundStride, null, "an unreachable step should not leave a pending stride target");
+
+    const closedRiser = createInitialGameState();
+    closedRiser.world.solids = [
+        { id: "closed_step_lower_floor", kind: "floor", x: 250, y: 600, w: 1000, h: 200 }
+    ];
+    closedRiser.world.segments = [
+        { id: "closed_step_top", kind: "blockable", x1: -500, y1: 581, x2: 250, y2: 581 },
+        { id: "closed_step_riser", kind: "blockable", x1: 250, y1: 581, x2: 250, y2: 600 },
+        // This edge resembles the steep lower side that captured revision 341.
+        // It is collision geometry, but not a surface on which Ignatius can stand.
+        { id: "closed_step_steep_side", kind: "blockable", x1: 250, y1: 600, x2: 220, y2: 624 }
+    ];
+    closedRiser.world.collisionPolygons = [{
+        id: "closed_step_body",
+        kind: "blockable",
+        points: [
+            { x: -500, y: 581 },
+            { x: 250, y: 581 },
+            { x: 250, y: 600 },
+            { x: 220, y: 624 },
+            { x: -500, y: 624 }
+        ],
+        lineIds: ["closed_step_top", "closed_step_riser", "closed_step_steep_side"]
+    }];
+    closedRiser.player.currentTransform.x = 400;
+    closedRiser.player.currentTransform.y = 600;
+    closedRiser.player.vx = 0;
+    closedRiser.player.vy = 0;
+    closedRiser.player.onGround = true;
+    closedRiser.player.wasOnGround = true;
+    closedRiser.player.supportId = "closed_step_lower_floor";
+    let closedRiserSawMidStride = false;
+    const closedRiserSupports = [];
+    for (let frame = 0; frame < 80; frame += 1) {
+        stepSimulation(closedRiser, createInputFrame({ moveLeft: true }), FIXED_DT);
+        closedRiserSupports.push(closedRiser.player.supportId);
+        if (closedRiser.player.groundStride?.active && closedRiser.player.currentTransform.y < 599.5 && closedRiser.player.currentTransform.y > 581.5) {
+            closedRiserSawMidStride = true;
+        }
+        assert.ok(closedRiser.player.currentTransform.y <= 600.05, "closed-polygon step traversal must never drop Ignatius into the blocking body");
+    }
+    assert.equal(closedRiserSawMidStride, true, "a connected closed-polygon riser should use the same persistent stride path");
+    assert.ok(closedRiser.player.currentTransform.x < 220, `Ignatius should cross a near-limit closed-polygon riser while walking left, got x=${closedRiser.player.currentTransform.x}, y=${closedRiser.player.currentTransform.y}, resolution=${JSON.stringify(closedRiser.collisions.lastResolution)}`);
+    assert.ok(Math.abs(closedRiser.player.currentTransform.y - 581) < 0.1, "closed-polygon stride should seat Ignatius on the connected upper surface");
+    assert.equal(closedRiserSupports.includes("closed_step_steep_side"), false, "steep blockable side edges must never become grounded support");
+
+    const createOverlappingSlopeSeam = (startX, initialVx = 0) => {
+        const state = createInitialGameState();
+        state.world.solids = [];
+        state.world.segments = [
+            { id: "seam_target_slope", kind: "blockable", x1: 125, y1: 546.8, x2: 250, y2: 596.8 },
+            { id: "seam_riser", kind: "blockable", x1: 250, y1: 596.8, x2: 250, y2: 613.8 },
+            // The current slope crosses the short riser 3.2 px below its top,
+            // matching the overlapping-stair seam that exposed revision 342.
+            { id: "seam_current_slope", kind: "blockable", x1: 250, y1: 600, x2: 375, y2: 650 }
+        ];
+        state.world.collisionPolygons = [];
+        state.player.currentTransform.x = startX;
+        state.player.currentTransform.y = 600 + (startX - 250) * 0.4;
+        state.player.vx = initialVx;
+        state.player.vy = 0;
+        state.player.onGround = true;
+        state.player.wasOnGround = true;
+        state.player.supportId = "seam_current_slope";
+        state.player.groundStride = null;
+        return state;
+    };
+
+    for (const [startX, initialVx] of [[300, 0], [307.25, -73], [329.6, -180]]) {
+        const seam = createOverlappingSlopeSeam(startX, initialVx);
+        let planned = null;
+        let crossed = false;
+        for (let frame = 0; frame < 90; frame += 1) {
+            stepSimulation(seam, createInputFrame({ moveLeft: true }), FIXED_DT);
+            if (!planned && seam.player.groundStride?.active) {
+                planned = { ...seam.player.groundStride };
+            }
+            if (!seam.player.groundStride?.active && seam.player.currentTransform.x < 248 && seam.player.supportId === "seam_target_slope") {
+                crossed = true;
+                break;
+            }
+        }
+        assert.ok(planned, `overlapping slope seam should create a stride target from start x=${startX}`);
+        assert.ok(Math.abs(planned.footStartX - 250) < 0.1 && Math.abs(planned.footStartY - 600) < 0.1,
+            `stride geometry must be anchored at the actual terrain/riser contact rather than the previous frame position (start x=${startX})`);
+        assert.ok(planned.footholdX < 232 && planned.footholdY < 592,
+            `the fixed-reach arc should land beyond the short riser on the following slope (start x=${startX}, foothold=${planned.footholdX},${planned.footholdY})`);
+        assert.ok(Math.abs(Math.hypot(planned.footholdX - planned.footStartX, planned.footholdY - planned.footStartY) - 20.8) < 0.1,
+            "the planned foothold should lie on Ignatius's fixed one-fifth-height stride circle");
+        assert.ok(planned.targetX < planned.startX - 10,
+            "an overlapping stair seam must produce forward stride progress instead of a vertical step-in-place");
+        assert.equal(crossed, true,
+            `the same minor overlapping seam should clear consistently regardless of frame phase or incoming speed (start x=${startX}, vx=${initialVx}, x=${seam.player.currentTransform.x}, y=${seam.player.currentTransform.y}, support=${seam.player.supportId})`);
+    }
+
+    // The stride arc must be able to acquire the interior of a very long line.
+    // Its endpoints are deliberately far from the riser, so endpoint-connectivity
+    // heuristics cannot nominate the target. This is the large-saltire-style case
+    // that motivated revision 345's asset-wide line candidate set.
+    for (const direction of [-1, 1]) {
+        for (const landing of ["uphill", "downhill"]) {
+            const state = createInitialGameState();
+            const slope = (landing === "uphill" ? -1 : 1) * direction * 0.4;
+            const targetY = (x) => 596.8 + slope * (x - 250);
+            state.world.solids = [];
+            state.world.collisionPolygons = [];
+            state.world.visuals = [{
+                id: "remote_arc_asset",
+                kind: "atlasSprite",
+                atlasId: "synthetic",
+                assetId: "remote_arc_asset",
+                x: -600,
+                y: 250,
+                w: 1600,
+                h: 1600,
+                collisionFromManifest: true
+            }];
+            state.world.segments = [
+                { id: "remote_arc_target", kind: "blockable", visualId: "remote_arc_asset", x1: -500, y1: targetY(-500), x2: 1000, y2: targetY(1000) },
+                { id: "remote_arc_riser", kind: "blockable", visualId: "remote_arc_asset", x1: 250, y1: 596.8, x2: 250, y2: 613.8 },
+                direction < 0
+                    ? { id: "remote_arc_current", kind: "blockable", visualId: "remote_arc_asset", x1: 250, y1: 600, x2: 375, y2: 650 }
+                    : { id: "remote_arc_current", kind: "blockable", visualId: "remote_arc_asset", x1: 125, y1: 650, x2: 250, y2: 600 }
+            ];
+            state.player.currentTransform.x = 250 - direction * 17;
+            state.player.currentTransform.y = 606.8;
+            state.player.vx = direction * 120;
+            state.player.vy = 0;
+            state.player.onGround = true;
+            state.player.wasOnGround = true;
+            state.player.supportId = "remote_arc_current";
+            state.player.groundStride = null;
+            let plan = null;
+            for (let frame = 0; frame < 24; frame += 1) {
+                stepSimulation(state, createInputFrame(direction < 0 ? { moveLeft: true } : { moveRight: true }), FIXED_DT);
+                if (!plan && state.player.groundStride?.active) plan = { ...state.player.groundStride };
+            }
+            assert.ok(plan, `the ${direction < 0 ? "left" : "right"} ${landing} stride should plan from the riser onto the interior of a long crossing line`);
+            assert.equal(plan.targetSupportId, "remote_arc_target", "the first standable arc contact should become the foothold even when neither target endpoint is locally connected");
+            assert.ok(Math.abs(Math.hypot(plan.footholdX - plan.footStartX, plan.footholdY - plan.footStartY) - 20.8) < 0.1, "remote-endpoint foothold should lie on the fixed stride circle");
+            if (landing === "downhill") {
+                assert.ok(plan.footholdY > plan.footStartY + 0.05, "the arc sweep must include the lower forward quadrant so a short bump does not block an otherwise standable downhill landing");
+            }
+            assert.ok((state.player.currentTransform.x - 250) * direction > 35, "Ignatius should finish across the short riser in either direction using the long-line arc contact");
+            assert.equal(state.player.supportId, "remote_arc_target", "the long crossing line should become the resulting support");
+        }
+    }
+
+    const isolatedRiser = createInitialGameState();
+    isolatedRiser.world.solids = [
+        { id: "isolated_riser_floor", kind: "floor", x: -1000, y: 600, w: 2000, h: 200 }
+    ];
+    isolatedRiser.world.segments = [
+        { id: "isolated_riser", kind: "blockable", x1: 250, y1: 581, x2: 250, y2: 600 }
+    ];
+    isolatedRiser.world.collisionPolygons = [];
+    isolatedRiser.player.currentTransform.x = 100;
+    isolatedRiser.player.currentTransform.y = 600;
+    isolatedRiser.player.vx = 0;
+    isolatedRiser.player.vy = 0;
+    isolatedRiser.player.onGround = true;
+    isolatedRiser.player.wasOnGround = true;
+    isolatedRiser.player.supportId = "isolated_riser_floor";
+    let rootedNailSawStride = false;
+    for (let frame = 0; frame < 80; frame += 1) {
+        stepSimulation(isolatedRiser, createInputFrame({ moveRight: true }), FIXED_DT);
+        rootedNailSawStride ||= Boolean(isolatedRiser.player.groundStride?.active);
+    }
+    assert.equal(rootedNailSawStride, true, "a low blocker rooted in the current support should plan a stride over the nail");
+    assert.ok(isolatedRiser.player.currentTransform.x > 300, "a rooted nail below the step-height limit should be crossed even without a landing at its upper tip");
+    assert.equal(isolatedRiser.player.supportId, "isolated_riser_floor", "a nail stride should return to the same support beyond the blocker");
+
+    const createElevatedLineCase = (direction, gap, targetSlope) => {
+        const state = createInitialGameState();
+        const baseSlope = direction > 0 ? -0.35 : 0.35;
+        const base = {
+            id: "elevated_base",
+            kind: "blockable",
+            x1: -500,
+            y1: 600 + baseSlope * -1000,
+            x2: 1500,
+            y2: 600 + baseSlope * 1000
+        };
+        const endpointX = 500;
+        const target = {
+            id: "elevated_target",
+            kind: "blockable",
+            x1: endpointX,
+            y1: 600 - gap,
+            x2: endpointX + direction * 260,
+            y2: 600 - gap + targetSlope * direction * 260
+        };
+        state.world.solids = [];
+        state.world.collisionPolygons = [];
+        state.world.segments = [base, target];
+        const startX = endpointX - direction * 180;
+        state.player.currentTransform.x = startX;
+        state.player.currentTransform.y = 600 + baseSlope * (startX - endpointX);
+        state.player.vx = direction * 117;
+        state.player.vy = 0;
+        state.player.onGround = true;
+        state.player.wasOnGround = true;
+        state.player.supportId = base.id;
+        state.player.groundStride = null;
+        return { state, endpointX };
+    };
+
+    const runElevatedLineCase = (direction, gap, targetSlope, expected) => {
+        const { state, endpointX } = createElevatedLineCase(direction, gap, targetSlope);
+        let sawStride = false;
+        let sawTarget = false;
+        let stoppedFrames = 0;
+        let previousX = state.player.currentTransform.x;
+        let outcome = "timeout";
+        for (let frame = 0; frame < 140; frame += 1) {
+            stepSimulation(state, createInputFrame(direction > 0 ? { moveRight: true } : { moveLeft: true }), FIXED_DT);
+            sawStride ||= Boolean(state.player.groundStride?.active);
+            sawTarget ||= state.player.supportId === "elevated_target";
+            stoppedFrames = Math.abs(state.player.currentTransform.x - previousX) < 0.0001 ? stoppedFrames + 1 : 0;
+            previousX = state.player.currentTransform.x;
+            const forward = (state.player.currentTransform.x - endpointX) * direction;
+            if (forward > 45) { outcome = "crossed"; break; }
+            if (stoppedFrames > 20) { outcome = "stopped"; break; }
+        }
+        if (expected === "under") {
+            assert.equal(outcome, "crossed", "a line more than one wizard-height above the support should be passable underneath");
+            assert.equal(state.player.supportId, "elevated_base", "pass-under should keep the lower support");
+        } else if (expected === "step") {
+            assert.equal(outcome, "crossed", "a reachable standable elevated line should be crossed");
+            assert.equal(sawStride, true, "the elevated-line endpoint should use the fixed-reach stride planner");
+            assert.equal(sawTarget, true, "a reachable elevated line should become the stride target support");
+        } else {
+            assert.equal(outcome, "stopped", "an elevated line that cannot become a valid foothold should stop horizontal movement");
+            assert.equal(sawTarget, false, "an invalid elevated target must never become grounded support");
+        }
+    };
+
+    for (const direction of [-1, 1]) {
+        runElevatedLineCase(direction, 112, 0.1, "under");
+        runElevatedLineCase(direction, 30, 0.1, "stop");
+        runElevatedLineCase(direction, 15, 0.1, "step");
+        runElevatedLineCase(direction, 15, 1.2, "stop");
+    }
+
+    const lowCeilingNail = createInitialGameState();
+    lowCeilingNail.world.solids = [{ id: "ceiling_nail_floor", kind: "floor", x: -1000, y: 600, w: 2000, h: 200 }];
+    lowCeilingNail.world.segments = [
+        { id: "ceiling_nail", kind: "blockable", x1: 500, y1: 585, x2: 500, y2: 600 },
+        { id: "low_ceiling", kind: "blockable", x1: 470, y1: 487, x2: 535, y2: 487 }
+    ];
+    lowCeilingNail.world.collisionPolygons = [];
+    lowCeilingNail.player.currentTransform.x = 450;
+    lowCeilingNail.player.currentTransform.y = 600;
+    lowCeilingNail.player.vx = 0;
+    lowCeilingNail.player.vy = 0;
+    lowCeilingNail.player.onGround = true;
+    lowCeilingNail.player.wasOnGround = true;
+    lowCeilingNail.player.supportId = "ceiling_nail_floor";
+    stepMany(lowCeilingNail, 80, () => createInputFrame({ moveRight: true }));
+    assert.ok(lowCeilingNail.player.currentTransform.x <= 483.1, "a valid foot arc must not carry Ignatius through a low ceiling");
+    assert.equal(lowCeilingNail.player.onGround, true, "a low-ceiling blocked stride should leave Ignatius grounded");
+
+    const doubleNail = createInitialGameState();
+    doubleNail.world.solids = [{ id: "double_nail_floor", kind: "floor", x: -1000, y: 600, w: 2000, h: 200 }];
+    doubleNail.world.segments = [
+        { id: "short_nail", kind: "blockable", x1: 500, y1: 588, x2: 500, y2: 600 },
+        { id: "tall_nail", kind: "blockable", x1: 512, y1: 575, x2: 512, y2: 600 }
+    ];
+    doubleNail.world.collisionPolygons = [];
+    doubleNail.player.currentTransform.x = 450;
+    doubleNail.player.currentTransform.y = 600;
+    doubleNail.player.vx = 0;
+    doubleNail.player.vy = 0;
+    doubleNail.player.onGround = true;
+    doubleNail.player.wasOnGround = true;
+    doubleNail.player.supportId = "double_nail_floor";
+    stepMany(doubleNail, 80, () => createInputFrame({ moveRight: true }));
+    assert.ok(doubleNail.player.currentTransform.x <= 483.1, "a stride over one small nail must not tunnel through a taller blocker before its foothold");
+
+    const discontinuity = createInitialGameState();
+    discontinuity.world.solids = [{ id: "lower_floor", kind: "floor", x: -1000, y: 600, w: 2000, h: 200 }];
+    discontinuity.world.segments = [
+        { id: "steep_walkable", kind: "walkable", x1: 120, y1: 680, x2: 250, y2: 600 },
+        { id: "too_high_neighbour", kind: "blockable", x1: 250, y1: 577.5, x2: 500, y2: 577.5 }
+    ];
+    discontinuity.world.collisionPolygons = [];
+    discontinuity.player.currentTransform.x = 240;
+    discontinuity.player.currentTransform.y = 600;
+    discontinuity.player.vx = 0;
+    discontinuity.player.vy = 0;
+    discontinuity.player.onGround = true;
+    discontinuity.player.wasOnGround = true;
+    discontinuity.player.supportId = "steep_walkable";
+    for (let frame = 0; frame < 3; frame += 1) {
+        stepSimulation(discontinuity, createInputFrame({ moveRight: true }), FIXED_DT);
+    }
+    assert.ok(discontinuity.player.currentTransform.y > 579, "leaving a steep walkable must not snap upward across a discontinuity beyond the fixed stride envelope");
 }
 
 function testClosedAtlasLoopCreatesCollisionArea() {
@@ -16143,6 +17351,24 @@ function testRocketImpactsAtlasCollisionLinesAndAreas() {
         assert.equal(areaState.projectiles[0].state, "exploding", `${owner} shots should explode on a yellow blockable area`);
         const areaImpact = areaState.debug.lastEvents.findLast((event) => event.type === impactEventType);
         assert.equal(areaImpact?.reason, `${owner}_blockable_area`, `${owner} area impact should identify the blocking area`);
+
+        const grazingAreaState = projectileState(owner, {
+            collisionPolygons: [{
+                id: `${owner}_grazed_blockable_area`,
+                kind: "blockable",
+                points: [
+                    { x: 98, y: 75 },
+                    { x: 102, y: 75 },
+                    { x: 102, y: 85 },
+                    { x: 98, y: 85 }
+                ]
+            }]
+        });
+        grazingAreaState.projectiles[0].radius = 6;
+        stepSimulation(grazingAreaState, createInputFrame(), FIXED_DT);
+        assert.equal(grazingAreaState.projectiles[0].state, "exploding", `${owner} swept circle should hit a polygon edge even when neither projectile endpoint is within its radius`);
+        const grazingImpact = grazingAreaState.debug.lastEvents.findLast((event) => event.type === impactEventType);
+        assert.equal(grazingImpact?.reason, `${owner}_grazed_blockable_area`, `${owner} swept polygon grazing impact should identify the blocking area`);
     }
 }
 
@@ -16355,19 +17581,15 @@ function runUndeathPedestalAvoidanceScenario({ useAiAttack = false } = {}) {
     state.world.collisionPolygons = [];
     applyCharacterCombatProfiles(state, new Map([["ct_char_enemy_002", {
         attackDuration: 0.62,
-        projectiles: [{
+        handoffs: [{
             partName: "undeathOrb",
-            projectileId: "undeathOrb",
             frameId: "undeathOrb",
             animationSlot: "attack",
-            launchType: "pathing_lo",
             releaseTime: 0.413333,
+            detach: true,
             localX: 180,
             localY: -207.77879481245526,
-            localRotation: 0,
-            localScale: 0.9999972050661625,
-            rigScale: 0.5,
-            projectileKind: "undeathOrb"
+            rigScale: 0.5
         }]
     }]]));
 
@@ -17007,6 +18229,11 @@ function testMovingPlatformSchemaAndEditor() {
     assert.equal(signalMovement.signalChannel, "crypt_lift", "signal channels should be trimmed and preserved");
     assert.equal(normalizeSignalChannel("  west_gate  "), "west_gate", "shared signal normalization should trim authoring whitespace");
     assert.equal(normalizeSignalEmitter({ id: "lever", type: "leverSwitch", channel: "west_gate" }).channel, "west_gate", "lever emitters should share the channel schema");
+    const proximityEmitter = normalizeSignalEmitter({ id: "nearby", type: "proximitySignalTrigger", channel: " nearby_gate " });
+    assert.equal(proximityEmitter.interaction, "proximitySignal", "proximity signal triggers should normalize as automatic signal emitters");
+    assert.equal(proximityEmitter.channel, "nearby_gate", "proximity signal triggers should share named-channel normalization");
+    assert.equal(proximityEmitter.triggerDistance, 160, "proximity signal triggers should default to a 160 px radius");
+    assert.equal(proximityEmitter.oneShot, true, "proximity signal triggers should always be one-shot emitters");
     assert.deepEqual(
         movingPlatformEndPosition({ x: 10, y: 20, movement: normalized }),
         { x: 58, y: -76 },
@@ -17026,6 +18253,9 @@ function testMovingPlatformSchemaAndEditor() {
     assert.match(editorSource, /movingPlatformEndHandleHit/, "Level Editor should provide an interactive endpoint handle");
     assert.match(editorSource, /Named signal channel/, "Level Editor should expose signal-triggered platforms");
     assert.match(editorSource, /Signal emitter/, "Level Editor should expose reusable lever and keyhole channels");
+    assert.match(editorSource, /proximitySignalTrigger/, "Level Editor should preserve the automatic proximity signal emitter type");
+    const itemCatalog = JSON.parse(readFileSync(new URL("../resources/items/it_entities_001.json", import.meta.url), "utf8"));
+    assert.equal(itemCatalog.entities?.proximitySignalTrigger?.defaults?.interaction, "proximitySignal", "interactive-item catalog should expose the one-shot proximity signal trigger");
     assert.match(editorSource, /NO EMITTER/, "Level Editor should warn visually when a signal platform has no matching emitter");
     assert.match(editorSource, /movingPlatformId: placement\.movement \? placement\.id : undefined/, "Level Editor navigation baking should tag dynamic geometry instead of renumbering later collision polygons");
 }
@@ -17194,7 +18424,11 @@ function testLevelTwoGoblinBossArenaContract() {
     assert.equal(boss.bossName, "Gorblax the Incandescent", "the boss should have a stable HUD name");
     assert.ok(scaledEnemyRenderScale(boss, 1) >= 1.5 && boss.health >= 750, "the compacted boss should remain visibly oversized and substantially tougher than ordinary goblins");
     assert.equal(boss.scale, 2.8, "the boss should use one authored uniform scale rather than separate enlarged hitbox and render values");
-    assert.deepEqual({ w: boss.w, h: boss.h, renderScale: boss.renderScale, projectileRadius: boss.projectileRadius }, { w: 70, h: 105, renderScale: 0.55, projectileRadius: 14 }, "the boss should retain Character Editor base geometry and let its uniform scale enlarge artwork, hitbox, and fireballs together");
+        const enemyCatalog = JSON.parse(readFileSync(new URL("../resources/characters/ct_enemies_001.json", import.meta.url), "utf8"));
+    assert.deepEqual({ w: boss.w, h: boss.h, renderScale: boss.renderScale, projectileRadius: boss.projectileRadius }, { w: undefined, h: undefined, renderScale: undefined, projectileRadius: undefined }, "the boss level entity should inherit base geometry and projectile radius instead of duplicating catalog values");
+    assert.deepEqual(enemyCatalog.enemies.enemy_010.defaultSize, { w: 70, h: 105 }, "the Fireball Goblin catalog should remain authoritative for boss base geometry");
+    assert.equal(enemyCatalog.enemies.enemy_010.defaults.renderScale, 0.55, "the Fireball Goblin catalog should remain authoritative for boss base artwork scale");
+    assert.equal(enemyCatalog.enemies.enemy_010.defaults.projectileRadius, 14, "the Fireball Goblin catalog should remain authoritative for boss base projectile radius");
     assert.equal(boss.bossDefeatSignalChannel, "BOSS_002_DEFEATED", "the boss should still own the reinforcement-shutdown signal");
 
     const leftPlatforms = level.placements.filter((placement) => /^boss_left_platform_/.test(placement.id));
@@ -17231,11 +18465,11 @@ function testLevelTwoGoblinBossArenaContract() {
     assert.equal(exit.destinationLevel, "level_t03", "the testbench boss fixture exit should stay inside the reserved test-level namespace");
 
     const profiles = level.navigationGraphs?.profiles || [];
-    assert.equal(profiles.length, 2, "ordinary goblins and the differently sized boss should each have a baked hunter mobility profile");
+    assert.equal(profiles.length, 1, "only hunter enemies should retain a baked mobility profile; the simple-patrol boss does not consume hunter navigation");
     assert.ok(profiles.every((profile) => profile.supports.length > 40 && profile.edges.length > 0), "every baked mobility profile should contain the complete route supports and directed edges");
 
-    const runtimeState = createInitialGameState();
-    assert.equal(applyEditorLevelToWorld(runtimeState, level), true, "the complete level_t02 file should load through the production level path");
+    const runtimeState = createInitialGameState({ enemyCatalog });
+    assert.equal(applyEditorLevelToWorld(runtimeState, level), true, "the complete level_t02 file should load through the production level path with catalog inheritance");
     const manifestMap = new Map(level.atlasRefs.map((reference) => [
         reference.atlasId,
         { manifest: JSON.parse(readFileSync(resourceFileUrl(reference.manifest), "utf8")) }
@@ -17486,6 +18720,64 @@ function testSignalTriggeredMovingPlatform() {
     assert.equal(state.world.signalChannels.lift_a.active, true, "lever on state should be reflected by the channel");
     assert.notEqual(platform.phase, "waitForTrigger", "the matching channel should latch the platform trigger");
     assert.ok(visual.currentTransform.x > 100, "a zero-delay signal should begin moving the platform immediately");
+}
+
+function testProximitySignalTriggerFiresOnce() {
+    const trigger = {
+        id: "proximity_lift",
+        type: "proximitySignalTrigger",
+        x: 150,
+        y: 240,
+        w: 32,
+        h: 32,
+        floorAnchorYFactor: 0.5,
+        state: "armed",
+        interaction: "proximitySignal",
+        channel: "nearby_lift",
+        triggerDistance: 80,
+        oneShot: true,
+        visualStates: {}
+    };
+    const state = createMovingPlatformTestState({
+        pattern: "shuttle",
+        activation: "signal",
+        signalChannel: "nearby_lift",
+        endOffsetX: 60,
+        endOffsetY: 0,
+        speed: 60,
+        triggerDelay: 0,
+        endPause: 0
+    }, [trigger]);
+    const platform = state.world.movingPlatforms[0];
+    state.player.currentTransform.x = 20;
+    state.player.currentTransform.y = trigger.y + state.player.height * 0.5;
+    state.player.vx = 0;
+    state.player.vy = 0;
+
+    stepMany(state, 5, () => createInputFrame());
+    assert.equal(state.world.signalChannels.nearby_lift.revision, 0, "proximity signal should stay armed while Ignatius remains outside its radius");
+    assert.equal(platform.phase, "waitForTrigger", "matching signal platform should still be waiting before proximity activation");
+
+    state.player.currentTransform.x = trigger.x;
+    state.player.currentTransform.y = trigger.y + state.player.height * 0.5;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(state.world.signalChannels.nearby_lift.revision, 1, "entering a proximity signal radius should emit exactly one channel revision without interaction input");
+    assert.equal(state.world.signalChannels.nearby_lift.active, true, "proximity signal emission should activate its named channel");
+    assert.equal(state.world.entityStates.proximity_lift, "triggered", "proximity signal trigger should remember that it has fired");
+    assert.notEqual(platform.phase, "waitForTrigger", "a proximity signal should trigger a matching moving platform in the same simulation tick");
+
+    stepMany(state, 30, () => createInputFrame());
+    assert.equal(state.world.signalChannels.nearby_lift.revision, 1, "remaining inside a proximity trigger must not emit every simulation tick");
+    state.player.currentTransform.x = 20;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    state.player.currentTransform.x = trigger.x;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(state.world.signalChannels.nearby_lift.revision, 1, "leaving and re-entering a one-shot proximity trigger must not emit again");
+    assert.equal(
+        state.debug.lastEvents.filter((event) => event.type === "PROXIMITY_SIGNAL_TRIGGERED" && event.triggerId === trigger.id).length,
+        1,
+        "proximity trigger should emit one deterministic trigger event"
+    );
 }
 
 function testKeyholeConsumesKeyAndTriggersPlatform() {
@@ -17890,7 +19182,7 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
 
     const installedTuningJson = JSON.parse(readFileSync(new URL("../resources/config/tuning.json", import.meta.url), "utf8"));
     assert.equal(installedTuningJson.schemaVersion, 1, "the shared installed tuning file should carry schema version 1");
-    assert.equal(SHARED_GAME_TUNING_KEYS.length, 54, "the first shared tuning schema should expose the accepted cross-runtime tuning set");
+    assert.equal(SHARED_GAME_TUNING_KEYS.length, 56, "the shared tuning schema should expose the accepted cross-runtime tuning set");
     for (const key of SHARED_GAME_TUNING_KEYS) {
         assert.equal(installedTuningJson[key], DEFAULT_TUNING[key], `tuning.json ${key} should match the compiled emergency fallback`);
     }
@@ -18631,12 +19923,12 @@ function rocketEffectParticleCount(quality, mode) {
     state.tuning.rocketLaunchCost = 0;
     state.tuning.rocketSmokeMaxPuffs = 1000;
     if (mode === "impact") {
-        state.tuning.rocketProjectileLifetime = 0.01;
-        state.tuning.rocketProjectileUnwrenchedLifetime = 0.01;
+        state.tuning.rocketProjectileMaxTravelDistance = state.tuning.rocketProjectileSpeed * 0.01;
+        state.tuning.rocketProjectileUnwrenchedMaxTravelDistance = state.tuning.rocketProjectileSpeed * 0.01;
         state.tuning.rocketSmokePuffSpacing = 10000;
         state.tuning.rocketImpactSmokePuffs = 20;
     } else {
-        state.tuning.rocketProjectileLifetime = 5;
+        state.tuning.rocketProjectileUnwrenchedMaxTravelDistance = state.tuning.rocketProjectileSpeed * 5;
         state.tuning.rocketSmokePuffSpacing = 12;
         state.tuning.rocketImpactSmokePuffs = 0;
     }
@@ -18967,6 +20259,7 @@ function testCssShadowEffectsRemainExtinct() {
 
 const tests = [
     ["source organization and architecture map", testSourceOrganization],
+    ["Palette Builder hashes Blob-backed resource reads", testPaletteResourceHashInputNormalization],
     ["CSS shadow effects remain extinct across every shipped interface", testCssShadowEffectsRemainExtinct],
     ["level editor dense stress fixture", testLevelEditorStressFixture],
     ["game settings persistence and menu shell", testGameSettingsSchemaPersistenceAndMenuShell],
@@ -19019,6 +20312,7 @@ const tests = [
     ["enemy rider triggers and follows moving platform", testEnemyRiderTriggersAndFollowsMovingPlatform],
     ["hunter plans moving-platform ride", testHunterPlansMovingPlatformRide],
     ["signal-triggered moving platform", testSignalTriggeredMovingPlatform],
+    ["one-shot proximity signal trigger", testProximitySignalTriggerFiresOnce],
     ["keyhole consumes key and triggers platform", testKeyholeConsumesKeyAndTriggersPlatform],
     ["vanishing moving platforms always recover", testVanishingMovingPlatformsAlwaysRecover],
     ["Canvas world-visual performance infrastructure", testCanvasWorldVisualPerformanceInfrastructure],
@@ -19106,11 +20400,13 @@ const tests = [
     ["fireball goblin projectile attack", testFireballGoblinProjectileAttack],
     ["tri-fireball goblin uses any clear volley trajectory", testTriFireballGoblinVolleyUsesAnyClearTrajectory],
     ["human knife thrower releases three dagger projectiles", testHumanKnifeThrowerVolley],
+    ["projectile archetypes compose visual, spread, homing, and rotation behavior", testProjectileArchetypeComposability],
     ["data-driven timed projectile handoffs re-aim every shot", testDataDrivenTimedProjectileHandoffs],
     ["ranged enemies fire beyond preferred attack range", testRangedEnemiesFireBeyondPreferredAttackRange],
     ["ranged enemies require clear projectile lane", testRangedEnemiesRequireClearProjectileLane],
     ["ranged shot lane revalidated at release", testRangedShotLaneRevalidatedAtRelease],
     ["musket goblin projectile attack", testMusketGoblinProjectileAttack],
+    ["Hobgoblin musket mortar area damage", testHobgoblinMusketMortarAreaDamage],
     ["player zero-health spark death animation", testPlayerDeathSparkAnimationAtZeroHealth],
     ["player damage invulnerability", testPlayerDamageInvulnerability],
     ["damaging and killable surface hazards", testDamagingAndKillableSurfaceHazards],
@@ -19136,6 +20432,7 @@ const tests = [
     ["frame-delivery diagnostics", testFrameDeliveryDiagnostics],
     ["gameplay recording and playback tooling", testGameplayRecordingAndPlaybackTooling],
     ["headless stepping and floor collision", testHeadlessSteppingAndFloorCollision],
+    ["closed sloped stair body does not conveyor player downhill", testClosedSlopedStairBodyDoesNotConveyorPlayerDownhill],
     ["player follows steep walkable bridge ramps while running", testPlayerFollowsSteepWalkableBridgeRampWhileRunning],
     ["swept support uses up-to-down crossing not colour priority", testSweptSupportUsesUpToDownCrossingNotColourPriority],
     ["left/right movement symmetry", testLeftRightSymmetry],
@@ -19152,7 +20449,8 @@ const tests = [
     ["standard rocket one-HP secondary splash", testStandardRocketSecondarySplash],
     ["rocket target prioritizes facing direction", testRocketTargetPrefersClosestEnemyInFacingDirection],
     ["rocket target prioritizes line of sight", testRocketTargetPrioritizesLineOfSight],
-    ["homing rockets use one-screen target range", testHomingRocketTargetsWithinOneScreenRange],
+    ["offscreen rocket lifetime explosions are culled", testRocketLifetimeExplosionOffscreenCull],
+    ["homing rockets use fixed target range", testHomingRocketTargetsWithinFixedRange],
     ["rocket trail tracks curved path and persists", testRocketTrailTracksCurvedPathAndPersistsAfterExplosion],
     ["attached boost smoke and visual power", testAttachedRocketSmokeAndVisualPower],
     ["attached smoke down speed tuning", testAttachedSmokeDownSpeedTuning],
@@ -19165,6 +20463,7 @@ const tests = [
     ["single jump press is not reused across catch-up substeps", testSingleJumpPressIsNotReusedAcrossCatchupSubsteps],
     ["air boost requires release after ground jump", testAirBoostRequiresReleaseAfterGroundJump],
     ["downward camera lead", testDownwardCameraLead],
+    ["camera edge catch-up keeps wizard visible", testCameraEdgeCatchupKeepsWizardVisible],
     ["four-sided world-bounds kill border and no fallback target", testWorldBoundsKillBorderAndNoFallbackTarget],
     ["automatic small-step traversal", testAutomaticSmallStepTraversal],
     ["closed atlas loop creates collision area", testClosedAtlasLoopCreatesCollisionArea],

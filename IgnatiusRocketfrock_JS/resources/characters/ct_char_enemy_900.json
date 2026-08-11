@@ -15,5 +15,6 @@
     "sounds": {
         "hurt": "sfx/enemy_damage.wav",
         "death": "sfx/boss_death.wav"
-    }
+    },
+    "attackPart": "body"
 }

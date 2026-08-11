@@ -442,13 +442,12 @@
             "scale": 0.55,
             "targetHeight": 18,
             "alpha": 0,
-            "projectile": {
+            "attackHandoff": {
                 "enabled": true,
                 "id": "crossbowBolt",
-                "launchType": "straight",
-                "projectileKind": "crossbowBolt",
                 "animationSlot": "attack",
-                "releaseTime": 0.48
+                "releaseTime": 0.48,
+                "detach": true
             }
         },
         "crossbowBolt2": {
@@ -467,13 +466,12 @@
             "scale": 0.55,
             "targetHeight": 18,
             "alpha": 0,
-            "projectile": {
+            "attackHandoff": {
                 "enabled": true,
                 "id": "crossbowBolt2",
-                "launchType": "straight",
-                "projectileKind": "crossbowBolt",
                 "animationSlot": "attack",
-                "releaseTime": 0.88
+                "releaseTime": 0.88,
+                "detach": true
             }
         },
         "crossbowBolt3": {
@@ -492,13 +490,12 @@
             "scale": 0.55,
             "targetHeight": 18,
             "alpha": 0,
-            "projectile": {
+            "attackHandoff": {
                 "enabled": true,
                 "id": "crossbowBolt3",
-                "launchType": "straight",
-                "projectileKind": "crossbowBolt",
                 "animationSlot": "attack",
-                "releaseTime": 1.28
+                "releaseTime": 1.28,
+                "detach": true
             }
         }
     }

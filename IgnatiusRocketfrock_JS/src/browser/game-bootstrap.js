@@ -60,7 +60,7 @@ import {
     saveStoredSaveGame
 } from "./save-game-store.js";
 import { normalizeLevelMusic, normalizeMusicCatalog } from "../shared/music-data.js";
-import { powerUpHudLabel, prioritizedActivePowerUpEffect } from "../shared/power-up-data.js";
+import { powerUpHudLabel, shortestRemainingActivePowerUpEffect } from "../shared/power-up-data.js";
 import { createMusicDirector } from "./music-director.js";
 import { createSoundEffectsDirector } from "./sound-effects-director.js";
 import {
@@ -181,16 +181,23 @@ const tuningResetButton = document.getElementById("tuning-reset");
 const developmentRecordingButton = document.getElementById("development-recording");
 const developmentPlaybackButton = document.getElementById("development-playback");
 
-const GAME_REVISION = "314";
+const GAME_REVISION = "360";
 const START_LEVEL_ID = "level_001";
 const launchParams = new URLSearchParams(window.location.search || "");
-const launchLevelId = normalizeLaunchLevelQuery(launchParams.get("level"), START_LEVEL_ID);
 const launchLevelSpecified = launchParams.has("level");
+const launchLevelQuery = launchParams.get("level");
+const launchLevelId = launchLevelSpecified
+    ? normalizeLaunchLevelQuery(launchLevelQuery, "")
+    : START_LEVEL_ID;
 const launchEditorPlaytest = launchParams.get("playtest_browser_copy") === "1";
 const launchRecordRequested = ["1", "true", "on", "yes"].includes(String(launchParams.get("record") || "").trim().toLowerCase());
 const launchPlaybackUrl = playbackUrlFromQueryValue(launchParams.get("playback"));
 const launchPlaybackPauseAtSec = finiteNonNegativeNumber(launchParams.get("playback_pause"), null);
 const pendingStartupExceptionAlerts = [];
+
+if (launchLevelSpecified && !launchLevelId) {
+    failStartup(`Requested launch level "${String(launchLevelQuery || "").trim()}" is invalid. Expected level_###, a numeric level id, or level_temp for a Level Editor playtest.`);
+}
 
 async function loadBundledProximityTextFonts() {
     if (!document.fonts?.load) return;
@@ -878,14 +885,14 @@ function syncLoadedCharacterCombatProfiles() {
     }])));
     const profiles = new Map();
     for (const project of projects) {
-        const projectiles = project.projectiles instanceof Map ? [...project.projectiles.values()] : [];
-        if (!projectiles.length) {
+        const handoffs = project.attackHandoffs instanceof Map ? [...project.attackHandoffs.values()] : [];
+        if (!handoffs.length && !project.animations.get("attack")?.duration) {
             continue;
         }
         profiles.set(project.characterId, {
             characterId: project.characterId,
             attackDuration: project.animations.get("attack")?.duration,
-            projectiles: projectiles.map((projectile) => ({ ...projectile }))
+            handoffs: handoffs.map((handoff) => ({ ...handoff }))
         });
     }
     return applyCharacterCombatProfiles(gameState, profiles);
@@ -1064,9 +1071,7 @@ function syncPresentationLevelData(level) {
 }
 
 function normalizedLevelId(value, fallback = START_LEVEL_ID) {
-    const match = /^level_(\d+)$/i.exec(String(value || "").trim());
-    if (!match) return fallback;
-    return `level_${match[1].padStart(3, "0")}`;
+    return normalizeLaunchLevelQuery(value, fallback);
 }
 
 function currentSaveGameRecord(slotId) {
@@ -2943,7 +2948,7 @@ function updateHud() {
     setHudText("fuelText", fuelText, `${Math.round(gameState.fuel.amount)} / ${Math.round(gameState.fuel.max)} %`);
     setHudText("healthText", healthText, `${Math.round(gameState.health.amount)} / ${Math.round(gameState.health.max)} HP`);
 
-    const displayedEffect = prioritizedActivePowerUpEffect(gameState);
+    const displayedEffect = shortestRemainingActivePowerUpEffect(gameState);
     if (!displayedEffect) {
         setHudText("powerText", powerText, "Powerup:");
         setHudText("powerTime", powerTime, "");

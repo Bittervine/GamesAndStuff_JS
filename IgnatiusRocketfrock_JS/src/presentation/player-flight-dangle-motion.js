@@ -21,6 +21,49 @@ function positiveNumber(value, fallback) {
     return number > 0 ? number : fallback;
 }
 
+const FLIGHT_IDLE_FULL_SPEED = 2;
+const FLIGHT_IDLE_ZERO_SPEED = 18;
+const FLIGHT_IDLE_FULL_ACCELERATION = 8;
+const FLIGHT_IDLE_ZERO_ACCELERATION = 120;
+
+function smoothstep(edge0, edge1, value) {
+    if (edge1 <= edge0) return value >= edge1 ? 1 : 0;
+    const t = clamp((value - edge0) / (edge1 - edge0), 0, 1);
+    return t * t * (3 - 2 * t);
+}
+
+export function playerFlightIdleRenderOffset(input = {}) {
+    if (input.active !== true) {
+        return { x: 0, y: 0, amount: 0 };
+    }
+
+    const vx = finiteNumber(input.vx, 0);
+    const vy = finiteNumber(input.vy, 0);
+    const ax = finiteNumber(input.ax, 0);
+    const ay = finiteNumber(input.ay, 0);
+    const speed = Math.hypot(vx, vy);
+    const acceleration = Math.hypot(ax, ay);
+    const speedAmount = 1 - smoothstep(FLIGHT_IDLE_FULL_SPEED, FLIGHT_IDLE_ZERO_SPEED, speed);
+    const accelerationAmount = 1 - smoothstep(
+        FLIGHT_IDLE_FULL_ACCELERATION,
+        FLIGHT_IDLE_ZERO_ACCELERATION,
+        acceleration
+    );
+    const amount = clamp(speedAmount * accelerationAmount, 0, 1);
+    if (amount <= 0) {
+        return { x: 0, y: 0, amount: 0 };
+    }
+
+    const time = finiteNumber(input.time, 0);
+    // Two slow, incommensurate corrections keep the hover from reading as a
+    // mechanical bob while keeping the idle correction bounded.
+    return {
+        x: amount * (2.40 * Math.sin(time * 2.22 + 0.35) + 0.70 * Math.sin(time * 3.46 + 2.10)),
+        y: amount * (4.20 * Math.sin(time * 1.66 + 1.00) + 1.10 * Math.sin(time * 2.94 + 2.70)),
+        amount
+    };
+}
+
 function animationTrackTimeRange(clip) {
     let minimum = Number.POSITIVE_INFINITY;
     let maximum = Number.NEGATIVE_INFINITY;

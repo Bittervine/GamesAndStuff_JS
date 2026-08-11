@@ -256,13 +256,12 @@
             "scale": 0.2,
             "targetHeight": 144,
             "alpha": 1,
-            "projectile": {
+            "attackHandoff": {
                 "enabled": true,
                 "id": "cannonball",
-                "launchType": "ballistic",
-                "projectileKind": "musketBall",
                 "animationSlot": "attack",
-                "releaseTime": 0.49531814840382643
+                "releaseTime": 0.49531814840382643,
+                "detach": true
             }
         },
         "fireball": {
@@ -276,13 +275,12 @@
             "scale": 1,
             "targetHeight": 163,
             "alpha": 1,
-            "projectile": {
+            "attackHandoff": {
                 "enabled": true,
                 "id": "fireball",
-                "launchType": "homing_lo",
-                "projectileKind": "fireball",
                 "animationSlot": "attack",
-                "releaseTime": 0.372
+                "releaseTime": 0.372,
+                "detach": true
             }
         }
     },

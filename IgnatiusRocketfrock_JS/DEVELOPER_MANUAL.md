@@ -58,7 +58,7 @@ Shuttle is the safe default and pauses at both endpoints. Vanishing patterns alw
 
 ## Signals, gates, and boss defeat
 
-Nearby levers and keyholes respond to Down, S, Enter, or the equivalent gamepad input. Levers toggle their channel. Keyholes emit once after the required key is available. Signal gates begin closed and raise when their channel activates. Boss enemies may emit a named channel when defeated. Independently, an exit door refuses to open while any living boss remains in the level.
+Nearby levers and keyholes respond to Down, S, Enter, or the equivalent gamepad input. Levers toggle their channel. Keyholes emit once after the required key is available. `proximitySignalTrigger` is an invisible one-shot emitter: the first time Ignatius's center enters its authored `triggerDistance`, it activates the configured channel automatically, marks itself `triggered`, and never emits again during that level instance. In the Level Editor it appears as a small center-anchored marker with a dashed radius guide when selected. Signal gates begin closed and raise when their channel activates. Boss enemies may emit a named channel when defeated. Independently, an exit door refuses to open while any living boss remains in the level.
 
 ## Mailboxes, treasure, and doors
 
@@ -69,11 +69,18 @@ Entry doors replace the legacy wizard-start marker. Exit doors are mirrored by d
 
 ## Character combat sounds (revisions 204-205)
 
-Puppet Forge exposes Attack WAV, Hurt WAV, and Death WAV selectors in a separate collapsible **Character sounds** panel between **Metadata** and **Animation**. The selected values are written to the character definition as `sounds.attack`, `sounds.hurt`, and `sounds.death`. Choose **None** to remove a slot. URL projects list WAVs registered in the neighbouring `sound-effects.json`; local project loading also discovers every selected `.wav` file and writes a path relative to the character JSON.
+Puppet Forge exposes Attack WAV, Hurt WAV, and Death WAV selectors in a separate collapsible **Character sounds** panel after **Projectile behavior** and before **Animation**. The selected values are written to the character definition as `sounds.attack`, `sounds.hurt`, and `sounds.death`. Choose **None** to remove a slot. URL projects list WAVs registered in the neighbouring `sound-effects.json`; local project loading also discovers every selected `.wav` file and writes a path relative to the character JSON.
 
 The runtime uses the character ID attached to enemy attack, projectile, damage, and defeat events to look up these fields. A missing slot is intentionally silent. The global sound-effects catalog may still define the referenced file so it can reuse tuned volume and voice-count settings, while an unlisted WAV receives a normal dynamic pool.
 
 The wizard character now names its ground animation `walk`, not `run`, and its map includes `hurt` and `death` slots. New character projects should use the same shared animation vocabulary.
+
+
+## Puppet Forge enemy defaults (revision 353)
+
+For a catalog-backed enemy, Puppet Forge places type-wide tuning in four adjacent panels: **Metadata**, **Movement**, **Attack behavior**, and **Projectile behavior**. Ordinary level placements inherit these catalog values; use Level Editor instance overrides only for intentional one-offs such as bosses. Attack behavior exposes Damage, Cooldown, Attack reach, Vertical reach, melee radius, Awareness range, Awareness half-angle, Awareness hold, and the projectile-only Preferred attack range / Preferred minimum range. Projectile behavior owns kind, launch type, flight parameters, spread, rotation, effects, and AoE presentation.
+
+The old **All defaults JSON** field is intentionally absent. **Enemy Catalog JSON** is the single complete raw JSON surface for `ct_enemies_001.json`; the structured panels edit the selected enemy entry directly. In Character, Level, and Asset tools, a right-side panel with no saved local preference starts collapsed. Opening or closing it records that panel's state for future sessions.
 
 ## Puppet Forge project discovery
 
@@ -129,6 +136,8 @@ Use plain `input.sample()` only in isolated tests or utilities that intend to co
 ## Revision 307 yellow wrench profile note
 
 The canonical yellow wrench remains `POWER_UP_EFFECT_IDS.WRENCH_TRIPLE` for save compatibility, but its visible label is Fivefold. Its current profile is data-driven in `src/shared/power-up-data.js`: `projectileCount: 5`, `damageMultiplier: 1 / 5`, and `initialAnglesDegrees: [-7.5, -3.75, 0, 3.75, 7.5]`. Keep the centre entry at index 2 when tests or tooling inspect the nearest-forward aim line.
+
+Player-rocket range is distance-driven. `tuning.json` authors 600 world pixels for an ordinary rocket and 1500 world pixels for every wrench rocket; `simulation.js` derives each projectile lifetime from `maxTravelDistance / projectileSpeed`. With the current 500 px/s base speed this yields 1.2 s ordinary, 1.5 s for the double-speed Yellow/Cyan/Green profiles, 3 s for Blue/Magenta, and 6 s for half-speed Red. Do not add per-profile lifetime multipliers. Red Bigbomb uses a 2.0 fuel-cost multiplier, currently 60 fuel.
 
 ## Revision 308 uncapped player rocket launch cadence
 
@@ -321,16 +330,16 @@ The Export panel now shows only a compact summary. Use `serializeLevelJson()` in
 
 ## Revision 361 Level actions and editor camera alignment
 
-The Level Editor no longer has an Export panel. Use the three controls in **Level**: **Save Level (json)** downloads the current level, **Save in Browser** stores an on-demand browser copy, and **Load in Browser** restores it. Do not reintroduce Copy JSON, Open JSON in new tab, a JSON summary panel, or any persistent serialized text surface.
+The Level Editor no longer has an Export panel. Use the controls in **Level**: **Save Level (json)** saves the authored level, while **Save temp copy** and **Load temp copy** use the generated `resources/levels/level_temp.json`. Complete level JSON must not be stored in `localStorage`; large authored levels can exceed browser storage quotas. Do not reintroduce Copy JSON, Open JSON in new tab, a JSON summary panel, or any persistent serialized text surface.
 
 
-**Play in Browser** uses the same browser copy but adds `playtest_browser_copy=1` to the game URL. A successful browser-copy load is a direct-play launch: the game must initialize the authored level, finish renderer preparation, and leave the title screen immediately. Do not require a second click on Start, and do not move this decision into portable simulation state. Ordinary `game.html` launches still begin at the title screen.
+**Play** first writes the current editor snapshot to `resources/levels/level_temp.json` through the shared project host, then opens `game.html?level=level_temp&playtest_browser_copy=1` in Chrome or asks IgnatiusDevTool to launch the native game with the same generated level. A successful editor playtest is a direct-play launch: the game must initialize the authored level, finish renderer preparation, and leave the title screen immediately. Do not require a second click on Start, and do not move this decision into portable simulation state. Ordinary `game.html` launches still begin at the title screen.
 
 For static editor and diagnostic cameras, call `renderer.setViewOverride({ x, y, cssZoom })`. Do not multiply editor zoom by `devicePixelRatio` outside the renderer. The renderer resolves CSS zoom after resize from the exact backing/client ratio, and the editor overlay resolves its own backing transform the same way. Ordinary playing-area guides use the unmodified editor camera. Apply `computeCaveWindowParallaxOffset` only to cave-window geometry and `caveForeground` records. Apply `computeWorldParallaxOffset` with `level.layerVisuals.background.parallaxX` and `parallaxY` only to level-owned Background placements; entity-local `decorBack` parts remain attached to their actor.
 
 ## Revision 362 Level data controls and renderer-cache terminology
 
-The Level panel has two groups. **Existing Level:** is only for choosing and loading a shipped level. **Level data:** owns New, Import, Export, Load from Browser, and Save in Browser. Import uses a hidden file input triggered by the visible button; clear its value before opening the picker so importing the same filename twice still fires `change`.
+The Level panel has two groups. **Existing Level:** is only for choosing and loading a shipped level. **Level data:** owns New, Import, Export, Load temp copy, and Save temp copy. The temp-copy buttons use the same generated `level_temp.json` file as playtesting. Import uses a hidden file input triggered by the visible button; clear its value before opening the picker so importing the same filename twice still fires `change`.
 
 Do not describe the current Level Editor as tiled. The retired editor tile cache, zoom tiers, WebGL editor backend, and translated pan snapshots are absent from the active path. The production Canvas renderer still keeps normal resource and derived-effect caches, including loaded atlas images, recoloured atlas surfaces, treated cave-foreground frames, cave masks, and spatial-query data. Those caches are expected and should not be removed merely to make the renderer “uncached”; they are not screen-space tiles and panning still redraws the visible viewport directly.
 
@@ -565,7 +574,7 @@ Ordinary enemy rewards are authored in the character project's `drops` array. A 
 
 A `drops` array is one ordered weighted table and may emit at most one pickup per death. Each entry uses `{ "itemId": "coin", "chance": 0.5 }`, where `chance` is an absolute probability slice. The first matching slice selected by the deterministic roll wins. If all chances total less than 1.0, the unused remainder means nothing drops. The current boss table contains four permanent upgrades at `chance: 0.25`, so exactly one is guaranteed and all four are equally likely.
 
-Reusable item definitions remain in `resources/items/it_loot_001.json`. Permanent upgrade collection emits `SCREEN_MESSAGE_REQUESTED`, which presentation adapters show as a short centered notice. The current messages are `Max health upgraded!`, `Max fuel upgraded!`, `Regeneration upgraded!`, and `Movement speed upgraded!`. Regeneration continues to improve both health and fuel regeneration.
+Reusable item definitions remain in `resources/items/it_loot_001.json`. Permanent upgrade collection emits `SCREEN_MESSAGE_REQUESTED`, which presentation adapters show as a short centered notice. The current messages are `Max health upgraded!`, `Max fuel upgraded!`, `Regeneration upgraded!`, and `Speed has been upgraded!`. Health and Speed use diminishing permanent gains toward a 2x base-stat ceiling, while Fuel capacity and Regeneration remain uncapped. Regeneration continues to improve both health and fuel regeneration.
 
 ## Proximity-triggered world text (revision 220)
 
@@ -667,7 +676,7 @@ IgnatiusSDL.exe --resources-root "D:\Projects\Ignatius\reference\resources"
 IgnatiusDevTool.exe --resources-root "D:\Projects\Ignatius\reference\resources"
 ```
 
-The Dev Tool uses the override as its sole authoring destination and passes the same absolute folder to every native Level Editor playtest. Before launch it writes the current editor snapshot to `<resources-root>/levels/level_temp.json`; the game then loads that file and every referenced atlas, character, audio, tuning, and other asset from the same root. There is no packaged fallback. A missing or unwritable playtest file therefore produces a visible failure instead of silently mixing resource trees. `level_temp` remains omitted from `resources.json` and is overwritten by the next playtest.
+The Dev Tool uses the override as its sole authoring destination and passes the same absolute folder to every native Level Editor playtest. The shared HTML Level Editor writes the current snapshot to `<resources-root>/levels/level_temp.json` through `IgnatiusProjectHost` before asking the native shell to launch; the shell does not maintain a second JavaScript extraction path. The game then loads that file and every referenced atlas, character, audio, tuning, and other asset from the same root. There is no packaged fallback. A missing or unwritable playtest file therefore produces a visible failure instead of silently mixing resource trees. `level_temp` remains omitted from `resources.json` and is overwritten by the next playtest.
 
 
 ## Revision 309: temporary Character Tool part visibility
@@ -686,3 +695,14 @@ When launched without `--resources-root`, both native executables use the resour
 `IgnatiusDevTool.exe` also loads the shared HTML tool bundle from `<Release folder>/content`. It does not automatically walk up into a source checkout and select `reference/resources`. To edit source resources directly, use **Select resources folder…** or launch with `--resources-root "..\..\reference\resources"`. The selected folder then becomes the strict read/write/playtest boundary for that session.
 
 This makes a copied or shipped Release folder self-contained. If its `content` or `content/resources` directory is incomplete, startup fails visibly instead of borrowing content from another tree.
+
+
+## Revision 321 player-rocket distance tuning
+
+Player rocket distance controls are authored in `resources/config/tuning.json`. `rocketProjectileUnwrenchedMaxTravelDistance` is the standard rocket path budget (600 px), `rocketProjectileMaxTravelDistance` is the wrench path budget (1800 px), `rocketTargetSearchDistance` is the fixed radial acquisition limit (1500 px), and `rocketLifetimeExplosionOffscreenMargin` controls how far beyond the visible world rectangle a no-hit lifetime expiry may still create an explosion (100 px). Lifetime remains derived at launch as travel distance divided by the fully speed-scaled projectile velocity. Do not reintroduce viewport-width target range or a wrench lifetime multiplier.
+
+## Revision 354 Power HUD timer selection
+
+When several power-ups are active at once, the Power bar now displays whichever timed effect will expire first. The shared helper is `shortestRemainingActivePowerUpEffect` in JavaScript and C++; do not reproduce the ordering in browser or SDL presentation code. Permanent/no-expiry effects are treated as having infinite remaining time and therefore appear only when there is no active timed effect. Ties use the most recently activated effect and then stable effect ID.
+
+The numeric `hud.priority` values on built-in effect definitions are now legacy metadata. They are intentionally preserved in the schema and authored definitions, but they do not decide which active effect appears in the Power bar. Effect stacking, wrench exclusivity, refresh behavior, expiry, and gameplay multipliers are unchanged.

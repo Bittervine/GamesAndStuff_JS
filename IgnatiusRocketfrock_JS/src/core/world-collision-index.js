@@ -51,6 +51,34 @@ function segmentBounds(segment) {
     };
 }
 
+function visualBounds(visual) {
+    const transform = visual?.currentTransform && typeof visual.currentTransform === "object"
+        ? visual.currentTransform
+        : visual;
+    const x = finite(transform?.x, finite(visual?.x));
+    const y = finite(transform?.y, finite(visual?.y));
+    const w = Math.max(0, finite(visual?.w));
+    const h = Math.max(0, finite(visual?.h));
+    const angle = finite(transform?.angle, finite(visual?.rotation));
+    if (Math.abs(angle) <= 0.0000001) {
+        return normalizedBounds({ x, y, w, h });
+    }
+    const halfW = w * 0.5;
+    const halfH = h * 0.5;
+    const cosine = Math.cos(angle);
+    const sine = Math.sin(angle);
+    const extentX = Math.abs(cosine) * halfW + Math.abs(sine) * halfH;
+    const extentY = Math.abs(sine) * halfW + Math.abs(cosine) * halfH;
+    const centerX = x + halfW;
+    const centerY = y + halfH;
+    return {
+        minX: centerX - extentX,
+        minY: centerY - extentY,
+        maxX: centerX + extentX,
+        maxY: centerY + extentY
+    };
+}
+
 function polygonBounds(polygon) {
     const points = Array.isArray(polygon?.points) ? polygon.points : [];
     if (!points.length) return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
@@ -74,7 +102,9 @@ function collisionRecordIsDynamic(record) {
         record?.movingPlatformId ||
         record?.reactiveObjectId ||
         record?.dynamicPosition ||
-        record?.runtimeDynamic
+        record?.runtimeDynamic ||
+        record?.movement ||
+        record?.currentTransform
     );
 }
 
@@ -101,12 +131,23 @@ function buildPartition(records, boundsFor, binSize) {
 
 function buildIndex(world, binSize = DEFAULT_COLLISION_BIN_SIZE) {
     const safeBinSize = Math.max(128, finite(binSize, DEFAULT_COLLISION_BIN_SIZE));
+    const segments = buildPartition(world?.segments, segmentBounds, safeBinSize);
+    const visuals = buildPartition(world?.visuals, visualBounds, safeBinSize);
+    const segmentsByVisualId = new Map();
+    for (const segment of Array.isArray(world?.segments) ? world.segments : []) {
+        const visualId = String(segment?.visualId || "");
+        if (!visualId) continue;
+        if (!segmentsByVisualId.has(visualId)) segmentsByVisualId.set(visualId, []);
+        segmentsByVisualId.get(visualId).push(segment);
+    }
     return {
         world,
         binSize: safeBinSize,
         solids: buildPartition(world?.solids, solidBounds, safeBinSize),
-        segments: buildPartition(world?.segments, segmentBounds, safeBinSize),
-        polygons: buildPartition(world?.collisionPolygons, polygonBounds, safeBinSize)
+        segments,
+        polygons: buildPartition(world?.collisionPolygons, polygonBounds, safeBinSize),
+        visuals,
+        segmentsByVisualId
     };
 }
 
@@ -121,7 +162,8 @@ function getIndex(world) {
     if (!index ||
         partitionStale(index.solids, world.solids) ||
         partitionStale(index.segments, world.segments) ||
-        partitionStale(index.polygons, world.collisionPolygons)) {
+        partitionStale(index.polygons, world.collisionPolygons) ||
+        partitionStale(index.visuals, world.visuals)) {
         index = buildIndex(world);
         WORLD_COLLISION_INDEX.set(world, index);
     }
@@ -161,6 +203,23 @@ export function queryWorldSegments(world, bounds) {
 
 export function queryWorldCollisionPolygons(world, bounds) {
     return queryPartition(getIndex(world).polygons, bounds);
+}
+
+export function queryWorldCollisionAssets(world, bounds) {
+    return queryPartition(getIndex(world).visuals, bounds)
+        .filter((visual) => visual?.kind === "atlasSprite" && visual?.collisionFromManifest !== false && visual?.id);
+}
+
+export function queryWorldSegmentsFromCollisionAssets(world, bounds) {
+    const index = getIndex(world);
+    const direct = queryPartition(index.segments, bounds);
+    const included = new Set(direct);
+    const visualIds = new Set(queryWorldCollisionAssets(world, bounds).map((visual) => String(visual.id)));
+    for (const visualId of visualIds) {
+        for (const segment of index.segmentsByVisualId.get(visualId) || []) included.add(segment);
+    }
+    // Preserve world-authored order so coincident-contact tie breaking remains deterministic.
+    return (Array.isArray(world?.segments) ? world.segments : []).filter((segment) => included.has(segment));
 }
 
 export function worldCollisionIndexDiagnostics(world, bounds) {

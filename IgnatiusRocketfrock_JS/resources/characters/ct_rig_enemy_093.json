@@ -255,13 +255,12 @@
             "scale": 1,
             "targetHeight": 121,
             "alpha": 1,
-            "projectile": {
+            "attackHandoff": {
                 "enabled": true,
                 "id": "axe_copy",
-                "launchType": "straight",
                 "animationSlot": "attack",
                 "releaseTime": 0.339,
-                "projectileKind": "throwingAxe"
+                "detach": true
             }
         },
         "beard": {

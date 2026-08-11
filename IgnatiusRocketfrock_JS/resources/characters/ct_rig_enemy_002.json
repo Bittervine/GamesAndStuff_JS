@@ -195,13 +195,12 @@
             "scale": 1,
             "targetHeight": 120,
             "alpha": 0,
-            "projectile": {
+            "attackHandoff": {
                 "enabled": true,
                 "id": "undeathOrb",
                 "animationSlot": "attack",
-                "launchType": "pathing_lo",
                 "releaseTime": 0.413333,
-                "projectileKind": "undeathOrb"
+                "detach": true
             }
         }
     },

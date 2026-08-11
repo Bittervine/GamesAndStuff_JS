@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" href="favicon.ico" sizes="any">
-    <title>Ignatius Dev Tool - BUILD 314</title>
+    <title>Ignatius Dev Tool - BUILD 360</title>
     <style>
         :root { color-scheme: dark; --bg: #0d0b15; --panel2: #211a30; --border: #51406f; --text: #eee8ff; --muted: #b7abc9; --accent: #a481df; --ok: #88d8a0; --error: #ff8f9b; }
         * { box-sizing: border-box; }
@@ -79,7 +79,18 @@
         selectButton.disabled = !snapshot.canChooseDirectory;
     }
 
-    projectHost.subscribe(renderProject);
+    let observedSelectionVersion = null;
+    projectHost.subscribe((snapshot) => {
+        renderProject(snapshot);
+        if (observedSelectionVersion === null) {
+            observedSelectionVersion = snapshot.selectionVersion;
+            return;
+        }
+        if (snapshot.selectionVersion !== observedSelectionVersion) {
+            observedSelectionVersion = snapshot.selectionVersion;
+            for (const frame of frames) frame.contentWindow?.location.reload();
+        }
+    });
     projectHost.initialize().catch((error) => {
         status.textContent = error.message || String(error);
         status.className = "error";
@@ -92,10 +103,7 @@
             if (before.connected && !window.confirm("Changing the resources folder reloads all tools and discards unsaved in-memory edits. Continue?")) {
                 return;
             }
-            const after = await projectHost.chooseResourcesDirectory();
-            if (after.connected && after.displayName !== before.displayName) {
-                for (const frame of frames) frame.contentWindow?.location.reload();
-            }
+            await projectHost.chooseResourcesDirectory();
         } catch (error) {
             if (error?.name === "AbortError") return;
             status.textContent = error.message || String(error);

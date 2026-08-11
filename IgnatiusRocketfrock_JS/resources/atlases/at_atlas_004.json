@@ -1,6 +1,6 @@
 {
     "meta": {
-        "version": 7,
+        "version": 4,
         "note": "Atlas 004 long earth platforms. The thick upper platform keeps its closed blockable silhouette; the fifteen thinner platforms use one-way walkable top lines so Ignatius can jump up through them from below."
     },
     "atlasId": "at_atlas_004",
@@ -101,6 +101,18 @@
             "y": 551,
             "w": 468,
             "h": 59
+        },
+        "black_round": {
+            "x": 59,
+            "y": 624,
+            "w": 439,
+            "h": 397
+        },
+        "black_long": {
+            "x": 552,
+            "y": 624,
+            "w": 1214,
+            "h": 395
         }
     },
     "objects": {
@@ -1052,6 +1064,280 @@
                 "biome.cave",
                 "layer.terrain",
                 "capability.platform"
+            ]
+        },
+        "black_round": {
+            "id": "black_round",
+            "frame": "black_round",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "generationTags": [
+                "layer.foreground"
+            ],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 96,
+                    "y": 182
+                },
+                {
+                    "id": "n2",
+                    "x": 345,
+                    "y": 198
+                },
+                {
+                    "id": "n3",
+                    "x": 230,
+                    "y": 78
+                },
+                {
+                    "id": "n4",
+                    "x": 202,
+                    "y": 311
+                },
+                {
+                    "id": "n5",
+                    "x": 302,
+                    "y": 290
+                },
+                {
+                    "id": "n6",
+                    "x": 316,
+                    "y": 108
+                },
+                {
+                    "id": "n7",
+                    "x": 138,
+                    "y": 106
+                },
+                {
+                    "id": "n8",
+                    "x": 117,
+                    "y": 263
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n8",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n8",
+                    "to": "n1",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_7",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n7",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_8",
+                    "kind": "blockable",
+                    "from": "n7",
+                    "to": "n3",
+                    "tags": []
+                }
+            ]
+        },
+        "black_long": {
+            "id": "black_long",
+            "frame": "black_long",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "generationTags": [
+                "layer.foreground"
+            ],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 206,
+                    "y": 106
+                },
+                {
+                    "id": "n2",
+                    "x": 976,
+                    "y": 330
+                },
+                {
+                    "id": "n3",
+                    "x": 199,
+                    "y": 323
+                },
+                {
+                    "id": "n4",
+                    "x": 1004,
+                    "y": 119
+                },
+                {
+                    "id": "n5",
+                    "x": 1099,
+                    "y": 226
+                },
+                {
+                    "id": "n6",
+                    "x": 105,
+                    "y": 201
+                },
+                {
+                    "id": "n7",
+                    "x": 1068,
+                    "y": 168
+                },
+                {
+                    "id": "n8",
+                    "x": 1048,
+                    "y": 286
+                },
+                {
+                    "id": "n9",
+                    "x": 135,
+                    "y": 143
+                },
+                {
+                    "id": "n10",
+                    "x": 127,
+                    "y": 281
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n7",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n7",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n8",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n8",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_7",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n10",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_8",
+                    "kind": "blockable",
+                    "from": "n10",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_9",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n9",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_10",
+                    "kind": "blockable",
+                    "from": "n9",
+                    "to": "n1",
+                    "tags": []
+                }
             ]
         }
     }

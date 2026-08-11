@@ -32,6 +32,9 @@ const DEBUG_ENTITY_LIMIT = 256;
 export function normalizeLaunchLevelQuery(value, fallback = "level_001") {
     const raw = String(value || "").trim();
     if (!raw) return fallback;
+    if (raw.toLowerCase() === "level_temp") {
+        return "level_temp";
+    }
     if (/^\d+$/.test(raw)) {
         return `level_${raw.padStart(3, "0")}`;
     }

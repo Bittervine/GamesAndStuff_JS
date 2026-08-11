@@ -71,9 +71,18 @@ export function normalizeEnemyDefinitionCatalog(value) {
                 : {}
         };
     }
+    const projectileKindsSource = source.projectileKinds && typeof source.projectileKinds === "object" && !Array.isArray(source.projectileKinds)
+        ? source.projectileKinds
+        : {};
+    const projectileKinds = {};
+    for (const [projectileKind, raw] of Object.entries(projectileKindsSource)) {
+        if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+        projectileKinds[String(projectileKind)] = JSON.parse(JSON.stringify(raw));
+    }
     return {
         version: Math.max(1, Math.floor(finiteNumber(source.version ?? source.meta?.version, 1))),
         catalogId: String(source.catalogId || "enemy-definitions"),
+        projectileKinds,
         enemies
     };
 }

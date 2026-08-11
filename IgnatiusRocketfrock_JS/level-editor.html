@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" href="favicon.ico" sizes="any">
-    <title>Ignatius Level Editor - BUILD 314</title>
+    <title>Ignatius Level Editor - BUILD 360</title>
     <style>
         @font-face {
             font-family: "Ignatius Inter";
@@ -833,7 +833,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 314</small></h1>
+        <h1>Level Editor <small>rev 360</small></h1>
 
         <div class="box">
             <h2>Level</h2>
@@ -850,8 +850,8 @@
                 <button id="download-json">Save</button>
             </div>
             <div class="row">
-                <button id="load-local">Load from Browser</button>
-                <button id="save-local">Save in Browser</button>
+                <button id="load-local">Load temp copy</button>
+                <button id="save-local">Save temp copy</button>
             </div>
             <input id="level-file" type="file" accept="application/json,.json" aria-label="Import level JSON">
         </div>
@@ -892,7 +892,8 @@
                     <label title="Horizontal camera response. 1.0 follows the world; lower values move the Background more slowly.">Parallax X<input id="background-parallax-x" title="Horizontal camera response. 1.0 follows the world; lower values move the Background more slowly." type="number" min="0.01" max="1" step="0.001"></label>
                     <label title="Vertical camera response. 1.0 follows the world; lower values move the Background more slowly.">Parallax Y<input id="background-parallax-y" title="Vertical camera response. 1.0 follows the world; lower values move the Background more slowly." type="number" min="0.01" max="1" step="0.001"></label>
                     <label title="Layer-wide lightness multiplier. 1.0 keeps the source colours.">Brightness<input id="background-brightness" title="Layer-wide lightness multiplier. 1.0 keeps the source colours." type="number" min="0.05" max="2" step="0.05"></label>
-                    <label title="Layer-wide size multiplier around each asset centre.">Scale<input id="background-scale" title="Layer-wide size multiplier around each asset centre." type="number" min="0.1" max="5" step="0.05"></label>
+                    <label title="Layer-wide size multiplier around each asset centre and the repeating background tile.">Scale<input id="background-scale" title="Layer-wide size multiplier around each asset centre and the repeating background tile." type="number" min="0.1" max="5" step="0.05"></label>
+                    <button id="background-asset-toggle" type="button" title="Use the currently selected Asset palette item as the repeating Background pattern.">Set background asset</button>
                 </fieldset>
             </div>
         </div>
@@ -1211,7 +1212,7 @@
                 <h3>Signal emitter</h3>
                 <div class="row">
                     <label>Signal channel<input id="inspect-signal-channel" maxlength="64" value="A"></label>
-                    <label>Interaction distance<input id="inspect-signal-distance" type="number" min="8" step="4" value="76"></label>
+                    <label>Trigger distance<input id="inspect-signal-distance" type="number" min="8" step="4" value="76"></label>
                 </div>
                 <div id="keyhole-settings-row" style="display:none">
                     <div class="row">
@@ -1338,7 +1339,7 @@
                     <label>Enemy scale<input id="inspect-enemy-render-scale" type="number" min="0.05" step="0.05"></label>
                 </div>
                 <div class="row">
-                    <label>Attack damage<input id="inspect-enemy-attack-damage" type="number" min="0" step="1"></label>
+                    <label>Damage<input id="inspect-enemy-attack-damage" type="number" min="0" step="1"></label>
                     <label>Attack reach<input id="inspect-enemy-attack-range" type="number" min="0" step="1"></label>
                 </div>
                 <label>Attack cooldown seconds<input id="inspect-enemy-attack-cooldown" type="number" min="0" step="0.05"></label>
@@ -1399,7 +1400,7 @@ import {
     FULLSCREEN_REFERENCE_HEIGHT,
     FULLSCREEN_REFERENCE_WIDTH
 } from "./src/shared/fullscreen-presentation-data.js";
-import { loadImageResourceWithRetry, loadJsonResourceWithRetry, loadResourceIndex } from "./src/tools/resource-index-loader.js";
+import { fetchResourceWithRetry, loadImageResourceWithRetry, loadJsonResourceWithRetry, loadResourceIndex } from "./src/tools/resource-index-loader.js";
 import {
     colorMapCacheKey,
     DEFAULT_LEVEL_COLOR_MAP,
@@ -1532,7 +1533,8 @@ import {
 (() => {
     "use strict";
 
-    const STORAGE_KEY = "ignatius_level_editor_v2";
+    const PLAYTEST_LEVEL_ID = "level_temp";
+    const PLAYTEST_LEVEL_FILENAME = `${PLAYTEST_LEVEL_ID}.json`;
     let musicCatalog = normalizeMusicCatalog(null);
 
     const PANEL_STORAGE_KEY = "ignatiusRocketfrock.levelEditor.collapsedPanels.v1";
@@ -1587,7 +1589,7 @@ import {
                 button.title = collapsed ? "Expand panel" : "Collapse panel";
                 button.setAttribute("aria-expanded", collapsed ? "false" : "true");
             };
-            apply(remembered[key] === true);
+            apply(remembered[key] === undefined ? true : remembered[key] === true);
             button.addEventListener("click", (event) => {
                 event.preventDefault();
                 event.stopPropagation();
@@ -1828,6 +1830,7 @@ import {
         backgroundParallaxY: document.getElementById("background-parallax-y"),
         backgroundBrightness: document.getElementById("background-brightness"),
         backgroundScale: document.getElementById("background-scale"),
+        backgroundAssetToggle: document.getElementById("background-asset-toggle"),
         autoSpawnEnemiesEnabled: document.getElementById("auto-spawn-enemies-enabled"),
         autoSpawnEnemiesProbability: document.getElementById("auto-spawn-enemies-probability"),
         autoSpawnEnemiesPool: document.getElementById("auto-spawn-enemies-pool"),
@@ -2053,6 +2056,7 @@ import {
         cavePerimeterSelected: false,
         cameraLineSelected: false,
         objectClipboard: { mode: "copy", items: [], pasteCount: 0, primarySourceId: "" },
+        editorPointerClient: null,
         selectedCavePointId: "",
         selectedCameraLinePointId: "",
         drag: null,
@@ -2075,7 +2079,7 @@ import {
         colorTreatmentPreviewKey: "",
         colorTreatmentPreviewFrames: new Map(),
         colorTreatmentAppliedControlKey: "",
-        level: null,
+        level: makeEmptyLevel(),
         resourceIndex: null,
         resourceLoadFailures: [],
         availableLevels: [],
@@ -2493,6 +2497,60 @@ import {
 
     function currentLayerVisuals() {
         return normalizeLevelLayerVisuals(state.level?.layerVisuals);
+    }
+
+    function refreshBackgroundAssetButton() {
+        if (!els.backgroundAssetToggle) return;
+        const asset = currentLayerVisuals().background.asset;
+        if (asset) {
+            els.backgroundAssetToggle.textContent = "Clear background asset";
+            els.backgroundAssetToggle.title = `Clear repeating Background asset ${asset.atlasId}:${asset.assetId}.`;
+            return;
+        }
+        els.backgroundAssetToggle.textContent = "Set background asset";
+        const selected = state.selectedAssetId
+            ? `${state.activeAtlasId || DEFAULT_ATLAS_ID}:${state.selectedAssetId}`
+            : "the currently selected Asset palette item";
+        els.backgroundAssetToggle.title = `Use ${selected} as the repeating Background pattern.`;
+    }
+
+    function setBackgroundAssetFromPalette() {
+        const current = currentLayerVisuals();
+        if (current.background.asset) {
+            state.level.layerVisuals = normalizeLevelLayerVisuals({
+                ...current,
+                background: { ...current.background, asset: null }
+            });
+            refreshLevelAtlasRefs();
+            refreshBackgroundAssetButton();
+            markEditorRuntimeWorldDirty();
+            draw();
+            persistUi();
+            scheduleJsonUpdate();
+            setStatus("Cleared the repeating Background asset.");
+            return;
+        }
+
+        const atlasId = String(state.activeAtlasId || DEFAULT_ATLAS_ID).trim();
+        const assetId = String(state.selectedAssetId || "").trim();
+        if (!assetId || !frameFor(assetId, atlasId)) {
+            setStatus("Select an asset in the Asset palette before setting the Background asset.", false);
+            return;
+        }
+        state.level.layerVisuals = normalizeLevelLayerVisuals({
+            ...current,
+            background: {
+                ...current.background,
+                asset: { atlasId, assetId }
+            }
+        });
+        refreshLevelAtlasRefs();
+        refreshBackgroundAssetButton();
+        markEditorRuntimeWorldDirty();
+        draw();
+        persistUi();
+        scheduleJsonUpdate();
+        setStatus(`Background asset set to ${atlasId}:${assetId}.`);
     }
 
     function scaledLayerPlacement(placement) {
@@ -3226,15 +3284,62 @@ import {
         return type === "targetDummy" || characterId === "ct_char_enemy_900" || enemyCatalogId === "enemy_900";
     }
 
+    function enemyCatalogBaseValue(record, key, fallback = undefined) {
+        const definition = enemyCatalogDefinition(String(record?.enemyCatalogId || ""));
+        if (!definition) return fallback;
+        if (key === "characterId") return definition.characterId ?? fallback;
+        if (key === "w") return definition.defaultSize?.w ?? fallback;
+        if (key === "h") return definition.defaultSize?.h ?? fallback;
+        if (key === "scale") return definition.defaults?.scale ?? 1;
+        return definition.defaults?.[key] ?? fallback;
+    }
+
+    function resolvedCharacterEnemy(record) {
+        if (!isCharacterEnemy(record)) return record;
+        const definition = enemyCatalogDefinition(String(record?.enemyCatalogId || ""));
+        if (!definition) return record;
+        return {
+            ...cloneData(definition.defaults || {}),
+            characterId: definition.characterId || "ct_char_enemy_001",
+            w: Math.max(1, Number(definition.defaultSize?.w) || 72),
+            h: Math.max(1, Number(definition.defaultSize?.h) || 150),
+            scale: finiteEditorNumber(definition.defaults?.scale, 1),
+            ...record
+        };
+    }
+
+    function enemyOverrideEqualsBase(value, base) {
+        if (typeof value === "number" || typeof base === "number") {
+            const a = Number(value);
+            const b = Number(base);
+            return Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) <= 1e-9;
+        }
+        return value === base;
+    }
+
+    function setCharacterEnemyOverride(record, key, value, fallback = undefined) {
+        if (!record?.enemyCatalogId) {
+            record[key] = value;
+            return;
+        }
+        const base = enemyCatalogBaseValue(record, key, fallback);
+        if (base !== undefined && enemyOverrideEqualsBase(value, base)) delete record[key];
+        else record[key] = value;
+    }
+
     function characterEnemyCharacterId(record) {
         const requested = String(record?.characterId || record?.characterProject || "").trim();
         if (requested) return requested;
+        const inherited = String(enemyCatalogBaseValue(record, "characterId", "")).trim();
+        if (inherited) return inherited;
         return isTrainingEnemy(record) ? "ct_char_enemy_900" : "ct_char_enemy_001";
     }
 
     function characterEnemyStrategy(record) {
         const requested = String(record?.strategy || "").trim().toLowerCase();
         if (["simple_patrol", "hunter", "sentry", "bomber", "passive"].includes(requested)) return requested;
+        const inherited = String(enemyCatalogBaseValue(record, "strategy", "")).trim().toLowerCase();
+        if (["simple_patrol", "hunter", "sentry", "bomber", "passive"].includes(inherited)) return inherited;
         return isTrainingEnemy(record) ? "passive" : "sentry";
     }
 
@@ -3285,6 +3390,18 @@ import {
         const authored = Number(record?.floorAnchorYFactor);
         if (Number.isFinite(authored)) return Math.max(0, Math.min(1, authored));
         return isWizardDoor(record) ? WIZARD_DOOR_FLOOR_ANCHOR_Y_FACTOR : 1;
+    }
+
+    function isProximitySignalTrigger(record) {
+        return record?.type === "proximitySignalTrigger" || record?.interaction === "proximitySignal";
+    }
+
+    function signalEmitterEditorCenter(record) {
+        const height = Math.max(1, finiteEditorNumber(record?.h, 80));
+        return {
+            x: finiteEditorNumber(record?.x, 0),
+            y: finiteEditorNumber(record?.y, 0) + height * (0.5 - entityFloorAnchorYFactor(record))
+        };
     }
 
     function defaultNextLevelId(levelId) {
@@ -3350,13 +3467,14 @@ import {
 
     function snapCharacterEnemyToNearbyGround(enemy, { announce = false } = {}) {
         if (!isCharacterEnemy(enemy)) return null;
-        if (String(enemy.locomotion || "").trim().toLowerCase() === "flying") return null;
+        const resolvedEnemy = resolvedCharacterEnemy(enemy);
+        if (String(resolvedEnemy.locomotion || "").trim().toLowerCase() === "flying") return null;
         const enemyX = Number(enemy.x);
         const enemyY = Number(enemy.y);
         if (!Number.isFinite(enemyX) || !Number.isFinite(enemyY)) return null;
 
-        const maxDistance = Math.max(0, finiteEditorNumber(enemy.groundSnapDistance, 96));
-        const width = Math.max(24, scaledEnemyDimensions(enemy, 72, 150).width);
+        const maxDistance = Math.max(0, finiteEditorNumber(resolvedEnemy.groundSnapDistance, 96));
+        const width = Math.max(24, scaledEnemyDimensions(resolvedEnemy, 72, 150).width);
         const samples = [enemyX, enemyX - width * 0.24, enemyX + width * 0.24];
         let best = null;
 
@@ -3829,9 +3947,9 @@ import {
                 if (entity.amount !== undefined) normalizedEntity.amount = Number(entity.amount) || 40;
                 if (isCharacterEnemy(normalizedEntity)) {
                     normalizedEntity.type = "characterEnemy";
-                    normalizedEntity.characterId = characterEnemyCharacterId(normalizedEntity);
-                    normalizedEntity.strategy = characterEnemyStrategy(normalizedEntity);
-                    normalizedEntity.runSpeed = Math.max(0, finiteEditorNumber(entity.runSpeed, 150));
+                    if (entity.w === undefined) delete normalizedEntity.w;
+                    if (entity.h === undefined) delete normalizedEntity.h;
+                    if (entity.notes === undefined) delete normalizedEntity.notes;
                 }
                 for (const visual of entityVisuals(normalizedEntity)) {
                     if (visual.atlasId) referencedAtlases.add(visual.atlasId);
@@ -4173,18 +4291,19 @@ import {
     }
 
     function enemyNavigationProfileForEntity(entity) {
-        const dimensions = scaledEnemyDimensions(entity, 72, 148);
+        const resolvedEnemy = resolvedCharacterEnemy(entity);
+        const dimensions = scaledEnemyDimensions(resolvedEnemy, 72, 148);
         const width = Math.max(8, dimensions.width);
         const height = Math.max(24, dimensions.height);
         return normalizeEnemyNavigationProfile({
             bodyWidth: width,
             bodyHeight: height,
-            runSpeed: Math.max(1, finiteEditorNumber(entity.runSpeed, 160)),
-            groundAcceleration: Math.max(1, finiteEditorNumber(entity.runAcceleration, 950)),
-            jumpHeight: Math.max(0, finiteEditorNumber(entity.jumpHeight, 120)),
-            gravity: Math.max(1, finiteEditorNumber(entity.jumpGravity, 1200)),
-            maxFallDistance: Math.max(0, finiteEditorNumber(entity.maxFallDistance, 320)),
-            maxStepHeight: Math.max(0, finiteEditorNumber(entity.maxStepHeight, 28)),
+            runSpeed: Math.max(1, finiteEditorNumber(resolvedEnemy.runSpeed, 160)),
+            groundAcceleration: Math.max(1, finiteEditorNumber(resolvedEnemy.runAcceleration, 950)),
+            jumpHeight: Math.max(0, finiteEditorNumber(resolvedEnemy.jumpHeight, 120)),
+            gravity: Math.max(1, finiteEditorNumber(resolvedEnemy.jumpGravity, 1200)),
+            maxFallDistance: Math.max(0, finiteEditorNumber(resolvedEnemy.maxFallDistance, 320)),
+            maxStepHeight: Math.max(0, finiteEditorNumber(resolvedEnemy.maxStepHeight, 28)),
             maxStepGap: Math.max(10, Math.min(28, width * 0.32 || 18)),
             edgeInset: Math.max(6, width * 0.22 || 10),
             bodyClearance: Math.max(10, width * 0.34 || 12)
@@ -4271,7 +4390,7 @@ import {
     function buildPlacedHunterNavigationGraphs(options = {}) {
         const silent = options.silent === true;
         const refreshUi = options.refreshUi !== false;
-        const hunters = (state.level?.entities || []).filter((entity) => isCharacterEnemy(entity) && String(entity.strategy || "simple_patrol") === "hunter");
+        const hunters = (state.level?.entities || []).filter((entity) => isCharacterEnemy(entity) && String(resolvedCharacterEnemy(entity).strategy || "simple_patrol") === "hunter");
         const profilesById = new Map();
         for (const enemy of hunters) {
             const profile = enemyNavigationProfileForEntity(enemy);
@@ -4548,15 +4667,8 @@ import {
             id: id || nextId(enemyId),
             type: "characterEnemy",
             enemyCatalogId: enemyId,
-            characterId: String(definition.characterId || "ct_char_enemy_001"),
             x: p.x,
-            y: p.y,
-            w: Math.max(1, Number(definition.defaultSize?.w) || 72),
-            h: Math.max(1, Number(definition.defaultSize?.h) || 150),
-            scale: 1,
-            health: 90,
-            ...cloneData(definition.defaults || {}),
-            notes: definition.description || definition.label || enemyId
+            y: p.y
         };
     }
 
@@ -4574,7 +4686,10 @@ import {
         if (!characterId || !characterUrl) return null;
         if (state.characterProjects.has(characterId)) return state.characterProjects.get(characterId);
         if (state.characterProjectLoads.has(characterId)) return state.characterProjectLoads.get(characterId);
-        const pending = loadRuntimeCharacterProject(characterUrl)
+        const pending = loadRuntimeCharacterProject(characterUrl, {
+            loadJson: (url) => loadJsonResourceWithRetry(url),
+            loadImage: (url) => loadImageResourceWithRetry(url)
+        })
             .then((project) => {
                 state.characterProjects.set(project.characterId || characterId, project);
                 state.editorRuntimeWorldDirty = true;
@@ -5199,6 +5314,7 @@ import {
             const selected = button.dataset.atlasId === state.activeAtlasId && button.dataset.assetId === state.selectedAssetId;
             button.classList.toggle("active", selected);
         }
+        refreshBackgroundAssetButton();
     }
 
     function renderAssetList() {
@@ -5312,6 +5428,7 @@ import {
             });
         }
         for (const entity of state.level.entities) {
+            if (!editorEntityVisible(entity)) continue;
             const ownership = generatedRecordLocked(entity) ? " 🔒" : manualizedGenerationRecord(entity) ? " manual" : automaticGeneratedRecord(entity) ? " generated" : "";
             const kind = `${entity.type}${ownership}`;
             rows.push({
@@ -5387,8 +5504,19 @@ import {
         return editorLayerVisible(editorLayerKeyForPlacement(placement));
     }
 
+    function editorEntityVisible(_entity) {
+        return editorLayerVisible("terrain");
+    }
+
+    function editorRecordVisible(selected) {
+        if (!selected) return false;
+        return selected.kind === "entity"
+            ? editorEntityVisible(selected.record)
+            : editorPlacementVisible(selected.record);
+    }
+
     function editorRecordSelectable(selected) {
-        return Boolean(selected) && (selected.kind === "entity" || editorPlacementVisible(selected.record));
+        return editorRecordVisible(selected);
     }
 
     function updateEditorLayerVisibilityUi() {
@@ -5730,24 +5858,66 @@ import {
         state.level.entities = state.level.entities.filter((item) => !ids.has(item.id));
         clearObjectSelection();
         persistUi();
-        setStatus(`Cut ${ids.size} object${ids.size === 1 ? "" : "s"}. Paste restores the first copy at the same position.`);
+        setStatus(`Cut ${ids.size} object${ids.size === 1 ? "" : "s"}. Paste places the cut selection at the requested target.`);
         return true;
     }
 
-    function pasteSelection() {
+    function clipboardItemDisplayBounds(item) {
+        const record = item?.record;
+        if (!record) return null;
+        if (item.kind === "entity") return rectToBounds(objectRect(record, "entity"));
+        const displayRecord = displayedLayerPlacement(record);
+        return placementWorldBounds(displayRecord);
+    }
+
+    function clipboardDisplayBounds(items) {
+        let bounds = null;
+        for (const item of items) {
+            const itemBounds = clipboardItemDisplayBounds(item);
+            if (!itemBounds) continue;
+            if (!bounds) bounds = { ...itemBounds };
+            else {
+                bounds.minX = Math.min(bounds.minX, itemBounds.minX);
+                bounds.minY = Math.min(bounds.minY, itemBounds.minY);
+                bounds.maxX = Math.max(bounds.maxX, itemBounds.maxX);
+                bounds.maxY = Math.max(bounds.maxY, itemBounds.maxY);
+            }
+        }
+        return bounds;
+    }
+
+    function editorViewportCenterWorld() {
+        const viewport = screenSize();
+        return screenToWorld(viewport.width * 0.5, viewport.height * 0.5);
+    }
+
+    function editorCursorWorldPoint() {
+        const pointer = state.editorPointerClient;
+        if (!pointer) return null;
+        const rect = editorCanvasRect();
+        if (pointer.x < rect.left || pointer.x > rect.right || pointer.y < rect.top || pointer.y > rect.bottom) return null;
+        return screenToWorld(pointer.x - rect.left, pointer.y - rect.top);
+    }
+
+    function pasteSelection(targetPoint = editorViewportCenterWorld(), targetLabel = "screen center") {
         const clipboard = state.objectClipboard || {};
         const items = Array.isArray(clipboard.items) ? clipboard.items : [];
         if (!items.length) {
             setStatus("Copy or cut one or more objects before pasting.", false);
             return false;
         }
+        const sourceBounds = clipboardDisplayBounds(items);
+        if (!sourceBounds) {
+            setStatus("The clipboard does not contain pasteable objects.", false);
+            return false;
+        }
+        const target = targetPoint || editorViewportCenterWorld();
+        const sourceCenterX = (sourceBounds.minX + sourceBounds.maxX) * 0.5;
+        const sourceCenterY = (sourceBounds.minY + sourceBounds.maxY) * 0.5;
+        const dx = finiteEditorNumber(target.x, sourceCenterX) - sourceCenterX;
+        const dy = finiteEditorNumber(target.y, sourceCenterY) - sourceCenterY;
         beginEditHistory("Paste selection");
         const preserveCutIds = clipboard.mode === "cut" && Number(clipboard.pasteCount) === 0;
-        const grid = Math.max(1, Number(els.snap.value) || 16);
-        const step = Math.max(8, Math.min(32, grid));
-        const offsetMultiplier = preserveCutIds ? 0 : Math.max(1, Number(clipboard.pasteCount) + 1);
-        const dx = step * offsetMultiplier;
-        const dy = -step * offsetMultiplier;
         const pastedIds = [];
         const pastedBySourceId = new Map();
         for (const item of items) {
@@ -5774,7 +5944,7 @@ import {
         setObjectSelection(pastedIds, pastedPrimaryId);
         setTool("select");
         persistUi();
-        setStatus(`Pasted ${pastedIds.length} object${pastedIds.length === 1 ? "" : "s"}.`);
+        setStatus(`Pasted ${pastedIds.length} object${pastedIds.length === 1 ? "" : "s"} at ${targetLabel}.`);
         return true;
     }
 
@@ -5807,7 +5977,7 @@ import {
         if (kind === "entity") {
             if (record.type === "fuel") return { x: record.x - 14, y: record.y - 14, w: 28, h: 28 };
             const dimensions = isCharacterEnemy(record)
-                ? scaledEnemyDimensions(record, 42, 80)
+                ? scaledEnemyDimensions(resolvedCharacterEnemy(record), 42, 80)
                 : { width: Math.max(1, Number(record.w) || 42), height: Math.max(1, Number(record.h) || 80) };
             const w = dimensions.width;
             const h = dimensions.height;
@@ -5819,6 +5989,7 @@ import {
     function hitTest(point) {
         for (let i = state.level.entities.length - 1; i >= 0; i -= 1) {
             const entity = state.level.entities[i];
+            if (!editorEntityVisible(entity)) continue;
             if (pointInRect(point, objectRect(entity, "entity"))) return { id: entity.id, kind: "entity" };
         }
         const placements = sortedPlacements();
@@ -5870,6 +6041,7 @@ import {
             if (boundsContainsBounds(selectionBounds, placementWorldBounds(displayedPlacement))) ids.push(placement.id);
         }
         for (const entity of state.level.entities) {
+            if (!editorEntityVisible(entity)) continue;
             if (boundsContainsBounds(selectionBounds, rectToBounds(objectRect(entity, "entity")))) ids.push(entity.id);
         }
         return ids;
@@ -6218,7 +6390,7 @@ import {
                 continue;
             }
             const entity = entityById(id);
-            if (entity) drawEntity(entity, { viewportBounds });
+            if (entity && editorEntityVisible(entity)) drawEntity(entity, { viewportBounds });
         }
     }
 
@@ -6247,6 +6419,7 @@ import {
             }
 
             for (const entity of state.level.entities) {
+                if (!editorEntityVisible(entity)) continue;
                 if (recordIsTransientlyMoving(entity)) continue;
                 drawEntity(entity, { viewportBounds, skipArtwork: true });
             }
@@ -6307,9 +6480,10 @@ import {
             if (movingIds?.has(placement?.id)) return false;
             return editorPlacementVisible(placement) && generatedCavePlacementVisible(placement);
         });
-        const entities = movingIds
-            ? (state.level.entities || []).filter((entity) => !movingIds.has(entity?.id))
-            : state.level.entities;
+        const entities = (state.level.entities || []).filter((entity) => {
+            if (!editorEntityVisible(entity)) return false;
+            return !movingIds?.has(entity?.id);
+        });
         const caveWindow = {
             ...state.level.caveWindow,
             enabled: Boolean(state.level.caveWindow?.enabled && els.cavePreviewShade.checked)
@@ -6553,7 +6727,8 @@ import {
     }
 
     function drawWorldBounds() {
-        const b = state.level.world.bounds;
+        const b = state.level?.world?.bounds;
+        if (!b) return;
         const p = worldToScreen(b.x, b.y);
         ctx.save();
         ctx.strokeStyle = "rgba(255,255,255,0.30)";
@@ -7305,7 +7480,8 @@ import {
     }
 
     function characterProjectForEntity(entity) {
-        const requested = String(entity.characterId || entity.characterProject || "");
+        const resolvedEnemy = resolvedCharacterEnemy(entity);
+        const requested = String(resolvedEnemy.characterId || resolvedEnemy.characterProject || "");
         if (state.characterProjects.has(requested)) return state.characterProjects.get(requested);
         for (const project of state.characterProjects.values()) {
             if (project.characterId === requested || project.sourceUrl?.endsWith(`/${requested}.json`)) return project;
@@ -7315,22 +7491,23 @@ import {
 
     function drawCharacterEnemyPreview(entity) {
         if (!isCharacterEnemy(entity)) return false;
-        const project = characterProjectForEntity(entity);
+        const resolvedEnemy = resolvedCharacterEnemy(entity);
+        const project = characterProjectForEntity(resolvedEnemy);
         if (!project) return false;
-        const sampled = sampleRuntimeCharacterPose(project, entity.animationSlot || "idle", 0);
-        const enemyScale = normalizeEnemyScale(entity.scale, 1);
+        const sampled = sampleRuntimeCharacterPose(project, resolvedEnemy.animationSlot || "idle", 0);
+        const enemyScale = normalizeEnemyScale(resolvedEnemy.scale, 1);
         const transforms = animationPoseToRuntimeTransforms(
             sampled.pose,
             project.rig,
             state.camera.zoom,
-            scaledEnemyRenderScale(entity, 0.8)
+            scaledEnemyRenderScale(resolvedEnemy, 0.8)
         );
         const commands = buildRuntimeCharacterDrawCommands(project, transforms);
-        const facing = Number(entity.facing) < 0 ? -1 : 1;
+        const facing = Number(resolvedEnemy.facing) < 0 ? -1 : 1;
         const artworkOrigin = characterArtworkOrigin({
-            ...entity,
-            renderOffsetX: finiteEditorNumber(entity.renderOffsetX, 0) * enemyScale,
-            renderOffsetY: finiteEditorNumber(entity.renderOffsetY, 0) * enemyScale
+            ...resolvedEnemy,
+            renderOffsetX: finiteEditorNumber(resolvedEnemy.renderOffsetX, 0) * enemyScale,
+            renderOffsetY: finiteEditorNumber(resolvedEnemy.renderOffsetY, 0) * enemyScale
         });
         const origin = worldToScreen(artworkOrigin.x, artworkOrigin.y);
         ctx.save();
@@ -7353,7 +7530,8 @@ import {
 
     function drawCharacterEnemyPatrolGuide(entity) {
         if (!isCharacterEnemy(entity) || characterEnemyStrategy(entity) !== "simple_patrol") return;
-        const distance = Math.max(0, Number(entity.patrolDistance) || 0);
+        const resolvedEnemy = resolvedCharacterEnemy(entity);
+        const distance = Math.max(0, Number(resolvedEnemy.patrolDistance) || 0);
         if (distance <= 0) return;
         const left = worldToScreen(entity.x - distance * 0.5, entity.y);
         const right = worldToScreen(entity.x + distance * 0.5, entity.y);
@@ -7508,6 +7686,7 @@ import {
         skipArtwork = false,
         skipDetails = false
     } = {}) {
+        if (!preview && !editorEntityVisible(entity)) return false;
         if (!preview && viewportBounds && !boundsIntersect(entityWorldBounds(entity), viewportBounds)) return false;
         if (!preview && !skipDetails && els.showAssetGuides.checked) drawCharacterEnemyPatrolGuide(entity);
         if (preview) {
@@ -7623,6 +7802,28 @@ import {
         return Math.hypot(point.x - center.x, point.y - center.y) <= radius ? { entity, center } : null;
     }
 
+    function drawProximitySignalTriggerGuide(entity) {
+        if (!isProximitySignalTrigger(entity)) return;
+        const centerWorld = signalEmitterEditorCenter(entity);
+        const center = worldToScreen(centerWorld.x, centerWorld.y);
+        const triggerDistance = Math.max(8, finiteEditorNumber(entity.triggerDistance, 160));
+        ctx.save();
+        ctx.strokeStyle = "rgba(184,142,255,0.92)";
+        ctx.fillStyle = "rgba(213,190,255,0.98)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 6]);
+        ctx.beginPath();
+        ctx.arc(center.x, center.y, triggerDistance * state.camera.zoom, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.arc(center.x, center.y, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.font = "bold 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+        ctx.fillText(`PROXIMITY SIGNAL ${normalizeSignalChannel(entity.channel)} · ${Math.round(triggerDistance)} px`, center.x + 12, center.y - 12);
+        ctx.restore();
+    }
+
     function drawProximityTextTriggerGuide(entity) {
         if (!entity) return;
         const textCenter = worldToScreen(finiteEditorNumber(entity.x, 0), finiteEditorNumber(entity.y, 0));
@@ -7690,7 +7891,8 @@ import {
         ctx.lineWidth = 1.5;
         ctx.setLineDash([3, 5]);
         for (const emitter of emitters) {
-            const target = worldToScreen(Number(emitter.x) || 0, (Number(emitter.y) || 0) - (Number(emitter.h) || 80) * 0.5);
+            const emitterCenter = signalEmitterEditorCenter(emitter);
+            const target = worldToScreen(emitterCenter.x, emitterCenter.y);
             ctx.beginPath();
             ctx.moveTo(start.x, start.y);
             ctx.lineTo(target.x, target.y);
@@ -7813,6 +8015,7 @@ import {
             drawObjectSelectionOutline(selected);
         }
         if (primary?.kind === "asset" && selections.length === 1) drawMovingPlatformGuide(primary.record);
+        if (primary?.kind === "entity" && selections.length === 1 && isProximitySignalTrigger(primary.record)) drawProximitySignalTriggerGuide(primary.record);
         if (primary?.kind === "entity" && selections.length === 1 && isProximityTextEntity(primary.record)) drawProximityTextTriggerGuide(primary.record);
         drawObjectSelectionOutline(primary, { primary: true });
     }
@@ -7892,7 +8095,7 @@ import {
             els.inspectKind.value = selected.kind === "cutoutMask" ? "cutoutMask" : selected.kind;
             els.inspectX.value = Math.round(rec.x || 0);
             els.inspectY.value = Math.round(rec.y || 0);
-            const enemyDimensions = selectedEnemy ? scaledEnemyDimensions(rec, 72, 150) : null;
+            const enemyDimensions = selectedEnemy ? scaledEnemyDimensions(resolvedCharacterEnemy(rec), 72, 150) : null;
             els.inspectW.value = selectedEnemy ? String(Math.round(enemyDimensions.width * 100) / 100) : Math.round(rec.w || 0);
             els.inspectH.value = selectedEnemy ? String(Math.round(enemyDimensions.height * 100) / 100) : Math.round(rec.h || 0);
             els.inspectW.disabled = selectedEnemy || selectedProximityText;
@@ -7939,7 +8142,7 @@ import {
             }
             els.inspectEntityState.value = rec.state || stateIds[0] || "";
             els.inspectSignalChannel.value = normalizeSignalChannel(rec.channel);
-            els.inspectSignalDistance.value = Math.max(8, finiteEditorNumber(rec.triggerDistance, 76));
+            els.inspectSignalDistance.value = Math.max(8, finiteEditorNumber(rec.triggerDistance, isProximitySignalTrigger(rec) ? 160 : 76));
             els.inspectKeyholeKey.value = String(rec.requiredKey || "ironKey");
             els.inspectKeyholeConsume.checked = rec.consumeKey !== false;
             els.inspectMailboxDistance.value = Number(rec.triggerDistance) || 72;
@@ -7979,25 +8182,24 @@ import {
             els.inspectDoorWalkSpeed.value = Number(rec.walkSpeed) || 105;
             els.doorWalkSpeedLabel.style.display = isPointPortal ? "none" : "grid";
             els.doorSettingsHeading.textContent = isPointPortal ? "Wizard point" : "Wizard doorway";
+            const resolvedEnemy = resolvedCharacterEnemy(rec);
             els.inspectEnemyCharacter.value = characterEnemyCharacterId(rec);
             els.inspectEnemyStrategy.value = characterEnemyStrategy(rec);
-            els.inspectEnemyFacing.value = Number(rec.facing) < 0 ? "-1" : "1";
-            const trainingEnemy = isTrainingEnemy(rec);
-            const enemyDefaults = trainingEnemy ? (state.enemyCatalog.get("enemy_900")?.defaults || {}) : {};
-            els.inspectEnemyPatrolDistance.value = Math.max(0, finiteEditorNumber(rec.patrolDistance, trainingEnemy ? Number(enemyDefaults.patrolDistance) || 0 : 0));
-            els.inspectEnemyWalkSpeed.value = Math.max(0, finiteEditorNumber(rec.walkSpeed, trainingEnemy ? Number(enemyDefaults.walkSpeed) || 0 : 56));
-            els.inspectEnemyRunSpeed.value = Math.max(0, finiteEditorNumber(rec.runSpeed, trainingEnemy ? Number(enemyDefaults.runSpeed) || 0 : 150));
-            els.inspectEnemyAwarenessRange.value = Math.max(0, finiteEditorNumber(rec.awarenessRange, trainingEnemy ? Number(enemyDefaults.awarenessRange) || 0 : 300));
-            els.inspectEnemyViewHalfAngle.value = Math.max(0, Math.min(180, finiteEditorNumber(rec.awarenessViewHalfAngle, trainingEnemy ? Number(enemyDefaults.awarenessViewHalfAngle) || 0 : 60)));
-            els.inspectEnemyJumpHeight.value = Math.max(0, finiteEditorNumber(rec.jumpHeight, trainingEnemy ? Number(enemyDefaults.jumpHeight) || 0 : 118));
-            els.inspectEnemyGlareDuration.value = Math.max(0, finiteEditorNumber(rec.unreachableGlareDuration, trainingEnemy ? Number(enemyDefaults.unreachableGlareDuration) || 0 : 5));
-            els.inspectEnemyIdleDuration.value = Math.max(0, finiteEditorNumber(rec.idleDuration, trainingEnemy ? Number(enemyDefaults.idleDuration) || 1 : 1.1));
-            els.inspectEnemyTurnPause.value = Math.max(0, finiteEditorNumber(rec.turnPause, trainingEnemy ? Number(enemyDefaults.turnPause) || 0 : 0.5));
-            els.inspectEnemyHealth.value = Math.max(1, finiteEditorNumber(rec.health, trainingEnemy ? Number(enemyDefaults.health) || 90 : 90));
-            els.inspectEnemyRenderScale.value = normalizeEnemyScale(rec.scale, 1);
-            els.inspectEnemyAttackDamage.value = Math.max(0, finiteEditorNumber(rec.attackDamage, trainingEnemy ? Number(enemyDefaults.attackDamage) || 0 : 24));
-            els.inspectEnemyAttackRange.value = Math.max(0, finiteEditorNumber(rec.attackRange, trainingEnemy ? Number(enemyDefaults.attackRange) || 0 : 66));
-            els.inspectEnemyAttackCooldown.value = Math.max(0, finiteEditorNumber(rec.attackCooldown, trainingEnemy ? Number(enemyDefaults.attackCooldown) || 0 : 0.12));
+            els.inspectEnemyFacing.value = Number(resolvedEnemy.facing) < 0 ? "-1" : "1";
+            els.inspectEnemyPatrolDistance.value = Math.max(0, finiteEditorNumber(resolvedEnemy.patrolDistance, 0));
+            els.inspectEnemyWalkSpeed.value = Math.max(0, finiteEditorNumber(resolvedEnemy.walkSpeed, 56));
+            els.inspectEnemyRunSpeed.value = Math.max(0, finiteEditorNumber(resolvedEnemy.runSpeed, 150));
+            els.inspectEnemyAwarenessRange.value = Math.max(0, finiteEditorNumber(resolvedEnemy.awarenessRange, 300));
+            els.inspectEnemyViewHalfAngle.value = Math.max(0, Math.min(180, finiteEditorNumber(resolvedEnemy.awarenessViewHalfAngle, 60)));
+            els.inspectEnemyJumpHeight.value = Math.max(0, finiteEditorNumber(resolvedEnemy.jumpHeight, 118));
+            els.inspectEnemyGlareDuration.value = Math.max(0, finiteEditorNumber(resolvedEnemy.unreachableGlareDuration, 5));
+            els.inspectEnemyIdleDuration.value = Math.max(0, finiteEditorNumber(resolvedEnemy.idleDuration, 1.1));
+            els.inspectEnemyTurnPause.value = Math.max(0, finiteEditorNumber(resolvedEnemy.turnPause, 0.5));
+            els.inspectEnemyHealth.value = Math.max(1, finiteEditorNumber(resolvedEnemy.health, 90));
+            els.inspectEnemyRenderScale.value = normalizeEnemyScale(resolvedEnemy.scale, 1);
+            els.inspectEnemyAttackDamage.value = Math.max(0, finiteEditorNumber(resolvedEnemy.damage, finiteEditorNumber(resolvedEnemy.attackDamage, finiteEditorNumber(resolvedEnemy.projectileDamage, 24))));
+            els.inspectEnemyAttackRange.value = Math.max(0, finiteEditorNumber(resolvedEnemy.attackRange, 66));
+            els.inspectEnemyAttackCooldown.value = Math.max(0, finiteEditorNumber(resolvedEnemy.attackCooldown, finiteEditorNumber(resolvedEnemy.projectileCooldown, 0.12)));
             els.inspectEnemyIsBoss.checked = rec.isBoss === true;
             els.inspectEnemyBossName.value = String(rec.bossName || "Boss");
             els.inspectEnemyBossSignal.value = String(rec.bossDefeatSignalChannel || "");
@@ -8124,15 +8326,17 @@ import {
             return false;
         }
         if (commit) beginEditHistory("Scale enemy");
-        rec.scale = normalizeEnemyScale(els.inspectEnemyRenderScale.value, 1);
-        const dimensions = scaledEnemyDimensions(rec, 72, 150);
+        const requestedScale = normalizeEnemyScale(els.inspectEnemyRenderScale.value, 1);
+        setCharacterEnemyOverride(rec, "scale", requestedScale, 1);
+        const dimensions = scaledEnemyDimensions(resolvedCharacterEnemy(rec), 72, 150);
         els.inspectW.value = String(Math.round(dimensions.width * 100) / 100);
         els.inspectH.value = String(Math.round(dimensions.height * 100) / 100);
         invalidateEditorPlacementCaches({ caveForeground: false });
         if (commit) {
-            els.inspectEnemyRenderScale.value = String(rec.scale);
+            const resolvedScale = normalizeEnemyScale(resolvedCharacterEnemy(rec).scale, 1);
+            els.inspectEnemyRenderScale.value = String(resolvedScale);
             persistUi();
-            setStatus(`Scaled ${rec.id} to ${rec.scale}. Artwork, hitbox, offsets, and projectile radius use the same multiplier.`);
+            setStatus(`Scaled ${rec.id} to ${resolvedScale}. Artwork, hitbox, offsets, and projectile radius use the same multiplier.`);
         } else {
             draw();
             scheduleJsonUpdate();
@@ -8232,6 +8436,14 @@ import {
             rec.layer = "mask";
         } else if (selected.kind === "entity") {
             rec.type = els.inspectEntityType.value;
+            if (changedControlId === "inspect-entity-type"
+                && !["leverSwitch", "keyholeSwitch", "proximitySignalTrigger"].includes(rec.type)
+                && ["toggle", "keyhole", "proximitySignal"].includes(rec.interaction)) {
+                delete rec.interaction;
+                delete rec.requiredKey;
+                delete rec.consumeKey;
+                delete rec.oneShot;
+            }
             if (els.inspectEntityState.value) rec.state = els.inspectEntityState.value;
             if (rec.type === "proximityText") {
                 rec.type = "proximityText";
@@ -8262,13 +8474,22 @@ import {
                 applyWrenchEffectDefaults(rec, els.inspectWrenchEffect.value);
             }
             if (isSignalEmitterEntity(rec)) {
+                const proximitySignal = rec.type === "proximitySignalTrigger";
                 rec.channel = normalizeSignalChannel(els.inspectSignalChannel.value);
-                rec.triggerDistance = Math.max(8, Number(els.inspectSignalDistance.value) || 76);
+                rec.triggerDistance = Math.max(8, Number(els.inspectSignalDistance.value) || (proximitySignal ? 160 : 76));
                 if (rec.type === "keyholeSwitch" || rec.interaction === "keyhole") {
                     rec.interaction = "keyhole";
                     rec.requiredKey = String(els.inspectKeyholeKey.value || "ironKey");
                     rec.consumeKey = els.inspectKeyholeConsume.checked;
                     rec.oneShot = true;
+                } else if (proximitySignal) {
+                    rec.type = "proximitySignalTrigger";
+                    rec.interaction = "proximitySignal";
+                    rec.oneShot = true;
+                    rec.floorAnchorYFactor = 0.5;
+                    if (rec.state === "triggered") rec.state = "armed";
+                    delete rec.requiredKey;
+                    delete rec.consumeKey;
                 } else {
                     rec.interaction = "toggle";
                     delete rec.requiredKey;
@@ -8387,36 +8608,32 @@ import {
                     delete rec.bossName;
                     delete rec.bossDefeatSignalChannel;
                 }
-                rec.characterId = els.inspectEnemyCharacter.value.trim() || characterEnemyCharacterId(rec);
-                rec.strategy = ["simple_patrol", "hunter", "sentry", "passive"].includes(els.inspectEnemyStrategy.value)
+                setCharacterEnemyOverride(rec, "characterId", els.inspectEnemyCharacter.value.trim() || characterEnemyCharacterId(rec), characterEnemyCharacterId(rec));
+                setCharacterEnemyOverride(rec, "strategy", ["simple_patrol", "hunter", "sentry", "bomber", "passive"].includes(els.inspectEnemyStrategy.value)
                     ? els.inspectEnemyStrategy.value
-                    : characterEnemyStrategy(rec);
-                rec.facing = Number(els.inspectEnemyFacing.value) < 0 ? -1 : 1;
-                rec.patrolDistance = Math.max(0, Number(els.inspectEnemyPatrolDistance.value) || 0);
-                rec.walkSpeed = Math.max(0, Number(els.inspectEnemyWalkSpeed.value) || 0);
-                rec.runSpeed = Math.max(0, Number(els.inspectEnemyRunSpeed.value) || 0);
-                rec.awarenessRange = Math.max(0, Number(els.inspectEnemyAwarenessRange.value) || 0);
-                rec.awarenessViewHalfAngle = Math.max(0, Math.min(180, Number(els.inspectEnemyViewHalfAngle.value) || 0));
-                rec.jumpHeight = Math.max(0, Number(els.inspectEnemyJumpHeight.value) || 0);
-                rec.unreachableGlareDuration = Math.max(0, Number(els.inspectEnemyGlareDuration.value) || 0);
-                rec.awarenessHoldDuration = Math.max(0, finiteEditorNumber(rec.awarenessHoldDuration, 1.2));
-                rec.idleDuration = Math.max(0, Number(els.inspectEnemyIdleDuration.value) || 0);
-                rec.turnPause = Math.max(0, Number(els.inspectEnemyTurnPause.value) || 0);
-                rec.health = Math.max(1, Number(els.inspectEnemyHealth.value) || 60);
-                rec.scale = normalizeEnemyScale(els.inspectEnemyRenderScale.value, 1);
-                rec.attackDamage = Math.max(0, Number(els.inspectEnemyAttackDamage.value) || 0);
-                rec.attackRange = Math.max(1, Number(els.inspectEnemyAttackRange.value) || 66);
-                rec.attackCooldown = Math.max(0, Number(els.inspectEnemyAttackCooldown.value) || 0);
-                rec.attackVerticalRange = Math.max(1, finiteEditorNumber(rec.attackVerticalRange, 104));
-                rec.attackDuration = Math.max(0.05, finiteEditorNumber(rec.attackDuration, 0.44));
-                rec.attackHitTime = Math.max(0, finiteEditorNumber(rec.attackHitTime, 0.36));
-                rec.attackLungeDistance = Math.max(0, finiteEditorNumber(rec.attackLungeDistance, 20));
-                rec.attackLungeSpeed = Math.max(0, finiteEditorNumber(rec.attackLungeSpeed, 180));
-                rec.attackKnockbackX = Math.max(0, finiteEditorNumber(rec.attackKnockbackX, 330));
-                rec.attackKnockbackY = finiteEditorNumber(rec.attackKnockbackY, -250);
-                rec.groundSnapDistance = Math.max(0, finiteEditorNumber(rec.groundSnapDistance, 96));
-                rec.animationSlot = "idle";
-                rec.state = "idle";
+                    : characterEnemyStrategy(rec), characterEnemyStrategy(rec));
+                setCharacterEnemyOverride(rec, "facing", Number(els.inspectEnemyFacing.value) < 0 ? -1 : 1, -1);
+                setCharacterEnemyOverride(rec, "patrolDistance", Math.max(0, Number(els.inspectEnemyPatrolDistance.value) || 0), 0);
+                setCharacterEnemyOverride(rec, "walkSpeed", Math.max(0, Number(els.inspectEnemyWalkSpeed.value) || 0), 56);
+                setCharacterEnemyOverride(rec, "runSpeed", Math.max(0, Number(els.inspectEnemyRunSpeed.value) || 0), 150);
+                setCharacterEnemyOverride(rec, "awarenessRange", Math.max(0, Number(els.inspectEnemyAwarenessRange.value) || 0), 300);
+                setCharacterEnemyOverride(rec, "awarenessViewHalfAngle", Math.max(0, Math.min(180, Number(els.inspectEnemyViewHalfAngle.value) || 0)), 60);
+                setCharacterEnemyOverride(rec, "jumpHeight", Math.max(0, Number(els.inspectEnemyJumpHeight.value) || 0), 118);
+                setCharacterEnemyOverride(rec, "unreachableGlareDuration", Math.max(0, Number(els.inspectEnemyGlareDuration.value) || 0), 5);
+                setCharacterEnemyOverride(rec, "idleDuration", Math.max(0, Number(els.inspectEnemyIdleDuration.value) || 0), 1.1);
+                setCharacterEnemyOverride(rec, "turnPause", Math.max(0, Number(els.inspectEnemyTurnPause.value) || 0), 0.5);
+                setCharacterEnemyOverride(rec, "health", Math.max(1, Number(els.inspectEnemyHealth.value) || 60), 90);
+                setCharacterEnemyOverride(rec, "scale", normalizeEnemyScale(els.inspectEnemyRenderScale.value, 1), 1);
+                setCharacterEnemyOverride(rec, "damage", Math.max(0, Number(els.inspectEnemyAttackDamage.value) || 0), 24);
+                setCharacterEnemyOverride(rec, "attackRange", Math.max(1, Number(els.inspectEnemyAttackRange.value) || 66), 66);
+                setCharacterEnemyOverride(rec, "attackCooldown", Math.max(0, Number(els.inspectEnemyAttackCooldown.value) || 0), 0.12);
+                delete rec.attackDamage;
+                delete rec.projectileDamage;
+                delete rec.projectileCooldown;
+                delete rec.attackHitTime;
+                delete rec.projectileReleaseTime;
+                delete rec.animationSlot;
+                delete rec.state;
                 if (geometryCommit) snapCharacterEnemyToNearbyGround(rec, { announce: true });
             }
         }
@@ -9764,15 +9981,9 @@ import {
     }
 
     async function loadMusicCatalog() {
-        const url = "music/music.json";
+        const url = resourceUrl("music/music.json");
         try {
-            const response = await fetch(url, { cache: "no-store" });
-            if (!response.ok) {
-                setStatus(`Music catalog not found at ${url}; keeping the default track selector.`, false);
-                musicCatalog = normalizeMusicCatalog(null);
-                return;
-            }
-            musicCatalog = normalizeMusicCatalog(await response.json());
+            musicCatalog = normalizeMusicCatalog(await loadJsonResourceWithRetry("music/music.json"));
         } catch (error) {
             console.warn(`Could not load ${url}.`, error);
             setStatus(`Could not load ${url}; keeping the default track selector.`, false);
@@ -9819,6 +10030,7 @@ import {
         syncCaveWindowFromUi();
         syncCameraLineFromUi();
         syncAutoSpawnEnemiesFromUi();
+        const previousLayerVisuals = currentLayerVisuals();
         state.level.levelId = els.levelId.value.trim() || state.level.levelId;
         state.level.title = els.levelTitle.value.trim() || state.level.title;
         state.level.music = normalizeLevelMusic({ trackId: els.levelMusic.value });
@@ -9834,7 +10046,8 @@ import {
                 parallaxX: els.backgroundParallaxX.value,
                 parallaxY: els.backgroundParallaxY.value,
                 brightness: els.backgroundBrightness.value,
-                scale: els.backgroundScale.value
+                scale: els.backgroundScale.value,
+                asset: previousLayerVisuals.background.asset
             }
         });
         state.level.world.bounds.w = Number(els.worldW.value) || state.level.world.bounds.w;
@@ -9859,6 +10072,7 @@ import {
         els.backgroundParallaxY.value = String(Math.round(layerVisuals.background.parallaxY * 1000000) / 1000000);
         els.backgroundBrightness.value = String(Math.round(layerVisuals.background.brightness * 1000) / 1000);
         els.backgroundScale.value = String(Math.round(layerVisuals.background.scale * 1000) / 1000);
+        refreshBackgroundAssetButton();
         syncColorMapToUi();
         syncAutoSpawnEnemiesToUi();
         refreshCaveWindowUi();
@@ -9880,6 +10094,8 @@ import {
                 if (visual.atlasId) atlasIds.add(visual.atlasId);
             }
         }
+        const backgroundAsset = currentLayerVisuals().background.asset;
+        if (backgroundAsset?.atlasId) atlasIds.add(backgroundAsset.atlasId);
         if (!atlasIds.size && state.activeAtlasId) {
             atlasIds.add(state.activeAtlasId);
         }
@@ -9910,6 +10126,39 @@ import {
         return JSON.stringify(state.level, null, 4);
     }
 
+    async function saveLevelTempCopy() {
+        const projectHost = window.IgnatiusProjectHost?.get();
+        if (!projectHost) throw new Error("The Ignatius project host is unavailable.");
+        const result = await projectHost.saveText("level", PLAYTEST_LEVEL_FILENAME, serializeLevelJson(), {
+            mimeType: "application/json",
+            prompt: true
+        });
+        if (result === "root-changed") {
+            window.location.reload();
+            return false;
+        }
+        return result === "project";
+    }
+
+    async function loadLevelTempCopy() {
+        const projectHost = window.IgnatiusProjectHost?.get();
+        if (projectHost) {
+            try {
+                const text = await projectHost.readText("level", PLAYTEST_LEVEL_FILENAME, { prompt: false });
+                if (text !== null) return text;
+            } catch (error) {
+                if (/Could not read|not found/i.test(String(error?.message || error))) return null;
+                throw error;
+            }
+        }
+        try {
+            return JSON.stringify(await loadJsonResourceWithRetry(`levels/${PLAYTEST_LEVEL_FILENAME}`), null, 4);
+        } catch (error) {
+            if (/HTTP 404|not found/i.test(String(error?.message || error))) return null;
+            throw error;
+        }
+    }
+
     function notifyDevToolResourceSaved(kind, id) {
         const bridge = window.chrome?.webview;
         if (typeof bridge?.postMessage === "function") {
@@ -9932,6 +10181,10 @@ import {
         const projectHost = window.IgnatiusProjectHost?.get();
         if (projectHost) {
             const result = await projectHost.saveText("level", filename, text, { mimeType: type, prompt: true });
+            if (result === "root-changed") {
+                window.location.reload();
+                return "cancelled";
+            }
             if (result === "project" || result === "cancelled") return result;
         }
         const blob = new Blob([text], { type });
@@ -10038,15 +10291,25 @@ import {
         persistUi();
     }
 
-    function playBrowserCopy() {
+    async function playBrowserCopy() {
         const graphResult = buildPlacedHunterNavigationGraphs({ silent: true, refreshUi: false });
         refreshNavigationGraphUi();
-        localStorage.setItem(STORAGE_KEY, serializeLevelJson());
         const graphSummary = graphResult.built
             ? ` Rebuilt ${graphResult.profiles} hunter navigation graph${graphResult.profiles === 1 ? "" : "s"} (${graphResult.edges} directed transitions).`
             : " No hunter navigation graphs were needed.";
-        setStatus(`Saved browser copy for playtest.${graphSummary}`);
+        try {
+            if (!await saveLevelTempCopy()) {
+                setStatus("Playtest cancelled because the temp level was not saved.", false);
+                return;
+            }
+        } catch (error) {
+            console.error(`Could not save ${PLAYTEST_LEVEL_FILENAME} for playtest.`, error);
+            setStatus(`Could not prepare playtest: ${error?.message || error}`, false);
+            return;
+        }
+        setStatus(`Saved ${PLAYTEST_LEVEL_FILENAME} for playtest.${graphSummary}`);
         const url = new URL("game.html", window.location.href);
+        url.searchParams.set("level", PLAYTEST_LEVEL_ID);
         url.searchParams.set("playtest_browser_copy", "1");
         const hostedPlaytest = (() => {
             try {
@@ -10241,7 +10504,12 @@ import {
         startDrag(point, event);
     });
 
+    canvas.addEventListener("pointerenter", (event) => {
+        state.editorPointerClient = { x: event.clientX, y: event.clientY };
+    });
+
     canvas.addEventListener("pointermove", (event) => {
+        state.editorPointerClient = { x: event.clientX, y: event.clientY };
         const rect = editorCanvasRect();
         const point = screenToWorld(event.clientX - rect.left, event.clientY - rect.top);
         const cursorNow = performance.now();
@@ -10257,6 +10525,7 @@ import {
     });
 
     canvas.addEventListener("pointerleave", () => {
+        state.editorPointerClient = null;
         if (!state.placementPreviewPoint) return;
         state.placementPreviewPoint = null;
         if (placementPreviewTool()) draw({ reuseScene: true });
@@ -10288,7 +10557,7 @@ import {
     els.newAssetLayer?.addEventListener("change", () => setNewAssetLayer(els.newAssetLayer.value, { announce: true }));
     els.cutSelection.addEventListener("click", cutSelected);
     els.copySelection.addEventListener("click", copySelected);
-    els.pasteSelection.addEventListener("click", pasteSelection);
+    els.pasteSelection.addEventListener("click", () => pasteSelection(editorViewportCenterWorld(), "screen center"));
     els.undoEdit.addEventListener("click", undoLevelEdit);
     els.redoEdit.addEventListener("click", redoLevelEdit);
     els.deleteSelection.addEventListener("click", deleteSelected);
@@ -10444,6 +10713,7 @@ import {
     els.toggleForegroundLayer.addEventListener("click", () => toggleEditorLayerVisibility("foreground"));
     els.toggleTerrainLayer.addEventListener("click", () => toggleEditorLayerVisibility("terrain"));
     els.toggleBackgroundLayer.addEventListener("click", () => toggleEditorLayerVisibility("background"));
+    els.backgroundAssetToggle.addEventListener("click", setBackgroundAssetFromPalette);
 
     const layerVisualControls = [
         els.foregroundParallaxX,
@@ -10600,15 +10870,27 @@ import {
         }
     });
 
-    document.getElementById("save-local").addEventListener("click", () => {
-        localStorage.setItem(STORAGE_KEY, serializeLevelJson());
-        setStatus("Saved level in this browser.");
+    document.getElementById("save-local").addEventListener("click", async () => {
+        try {
+            if (await saveLevelTempCopy()) setStatus(`Saved ${PLAYTEST_LEVEL_FILENAME}.`);
+            else setStatus("Temp-copy save cancelled.", false);
+        } catch (error) {
+            console.error(`Could not save ${PLAYTEST_LEVEL_FILENAME}.`, error);
+            setStatus(`Could not save temp copy: ${error?.message || error}`, false);
+        }
     });
 
-    document.getElementById("load-local").addEventListener("click", () => {
-        const saved = localStorage.getItem(STORAGE_KEY);
+    document.getElementById("load-local").addEventListener("click", async () => {
+        let saved = null;
+        try {
+            saved = await loadLevelTempCopy();
+        } catch (error) {
+            console.error(`Could not load ${PLAYTEST_LEVEL_FILENAME}.`, error);
+            setStatus(`Could not load temp copy: ${error?.message || error}`, false);
+            return;
+        }
         if (!saved) {
-            setStatus("No browser copy found.", false);
+            setStatus(`No ${PLAYTEST_LEVEL_FILENAME} found.`, false);
             return;
         }
         state.level = normalizeLevelDefaults(JSON.parse(saved));
@@ -10626,7 +10908,7 @@ import {
             persistUi();
             resetEditHistory();
         });
-        setStatus("Loaded level from this browser.");
+        setStatus(`Loaded ${PLAYTEST_LEVEL_FILENAME}.`);
     });
 
 
@@ -10665,7 +10947,8 @@ import {
             }
             if (key === "v" && state.objectClipboard?.items?.length) {
                 event.preventDefault();
-                pasteSelection();
+                const cursorPoint = editorCursorWorldPoint();
+                pasteSelection(cursorPoint || editorViewportCenterWorld(), cursorPoint ? "cursor" : "screen center");
                 return;
             }
         }
@@ -10693,7 +10976,8 @@ import {
         const [installedTuning] = await Promise.all([
             loadInstalledGameTuning({
                 fallback: DEFAULT_TUNING,
-                url: resourceUrl("config/tuning.json")
+                url: resourceUrl("config/tuning.json"),
+                fetchImpl: (url, fetchOptions) => fetchResourceWithRetry(url, { fetchOptions })
             }),
             loadBundledProximityTextFonts()
         ]);

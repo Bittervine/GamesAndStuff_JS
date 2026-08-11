@@ -26,7 +26,7 @@
             "chance": 0.5
         }
     ],
-    "projectileParts": [
+    "attackParts": [
         "crossbowBolt",
         "crossbowBolt2",
         "crossbowBolt3"

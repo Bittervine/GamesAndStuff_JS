@@ -4,13 +4,36 @@ import { resourceUrl } from "../shared/resource-paths.js";
 export const RESOURCE_LOAD_RETRY_DELAYS_MS = Object.freeze([0, 160, 520]);
 
 function sleep(milliseconds) {
-    return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+    return new Promise((resolve) => globalThis.setTimeout(resolve, milliseconds));
 }
 
 function appendRetryMarker(url, attempt) {
     if (attempt <= 0) return url;
     const separator = url.includes("?") ? "&" : "?";
     return `${url}${separator}ignatius_retry=${attempt}`;
+}
+
+function projectHost() {
+    return globalThis.window?.IgnatiusProjectHost?.get?.() || null;
+}
+
+function isProjectResourceRequest(requestPath) {
+    const text = String(requestPath || "").trim();
+    return Boolean(text)
+        && !/^(?:[a-z]+:)?\/\//i.test(text)
+        && !text.startsWith("data:")
+        && !text.startsWith("blob:");
+}
+
+async function projectResourceResponse(requestPath) {
+    const host = projectHost();
+    if (!host || !isProjectResourceRequest(requestPath)) return null;
+    const blob = await host.readResourceBlob(requestPath, { prompt: false });
+    if (blob === null) return null;
+    return new Response(blob, {
+        status: 200,
+        headers: blob.type ? { "Content-Type": blob.type } : undefined
+    });
 }
 
 export async function fetchResourceWithRetry(requestPath, options = {}) {
@@ -22,6 +45,8 @@ export async function fetchResourceWithRetry(requestPath, options = {}) {
     for (let attempt = 0; attempt < delays.length; attempt += 1) {
         if (delays[attempt] > 0) await sleep(delays[attempt]);
         try {
+            const projectResponse = await projectResourceResponse(requestPath);
+            if (projectResponse) return projectResponse;
             const response = await fetch(appendRetryMarker(resolvedUrl, attempt), {
                 cache: "no-store",
                 ...(options.fetchOptions || {})
@@ -36,6 +61,16 @@ export async function fetchResourceWithRetry(requestPath, options = {}) {
 }
 
 export async function loadJsonResourceWithRetry(requestPath, options = {}) {
+    const host = projectHost();
+    if (host && isProjectResourceRequest(requestPath)) {
+        try {
+            const text = await host.readResourceText(requestPath, { prompt: false });
+            if (text !== null) return JSON.parse(text);
+        } catch (error) {
+            throw new Error(`Could not load ${resourceUrl(requestPath)} from the selected resources folder: ${error.message || error}`);
+        }
+    }
+
     const response = await fetchResourceWithRetry(requestPath, options);
     try {
         return await response.json();

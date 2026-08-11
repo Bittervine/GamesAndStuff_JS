@@ -1,7 +1,7 @@
 {
   "meta": {
     "version": 1,
-    "note": "Interactive and story-item atlas. Cyan frame rectangles identify each reusable visual. Stateful gameplay is described by items/it_entities_001.json; atlas collision is supplied only for props that are sensible as solid scenery. Revision 227 normalizes the open treasure-chest frames so the loot and empty variants swap without visual jumping."
+    "note": "Interactive and story-item atlas. Cyan frame rectangles identify each reusable visual. Stateful gameplay is described by items/it_entities_001.json; atlas collision is supplied only for props that are sensible as solid scenery. Revision 227 normalizes the open treasure-chest frames so the loot and empty variants swap without visual jumping. Revision 357 registers the lever states from matching case features in the edited artwork so toggling keeps the switch body stationary."
   },
   "atlasId": "it_atlas_001",
   "image": "it_atlas_001.png",
@@ -205,15 +205,15 @@
       "h": 85
     },
     "lever_off": {
-      "x": 472,
-      "y": 834,
-      "w": 132,
-      "h": 88
+      "x": 465,
+      "y": 809,
+      "w": 140,
+      "h": 116
     },
     "lever_on": {
-      "x": 676,
-      "y": 808,
-      "w": 128,
+      "x": 666,
+      "y": 811,
+      "w": 140,
       "h": 116
     },
     "barrel": {

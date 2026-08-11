@@ -15,7 +15,6 @@
         "hurt": "ct_anim_enemy_018_hurt.json",
         "death": "ct_anim_enemy_018_death.json"
     },
-    "projectilePart": "cannonball",
     "sounds": {
         "attack": "sfx/enemy_projectile.wav",
         "hurt": "sfx/enemy_damage.wav",
@@ -26,5 +25,6 @@
             "itemId": "coin",
             "chance": 1.0
         }
-    ]
+    ],
+    "attackPart": "cannonball"
 }

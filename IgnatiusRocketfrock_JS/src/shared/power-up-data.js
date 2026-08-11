@@ -203,14 +203,14 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
         label: POWER_UP_EFFECT_IDS.WRENCH_BIGBOMB,
         glowTint: "#ff0000",
         rocket: {
-            launchFuelCostMultiplier: 3,
+            launchFuelCostMultiplier: 2,
             damageMultiplier: 4,
             radiusMultiplier: 1.7,
             visualScale: 1.7,
             speedMultiplier: 0.5,
             homingStrengthMultiplier: 0.5,
             launchMode: "forward",
-            areaDamageRadiusWizardHeights: 1.5
+            areaDamageRadiusWizardHeights: 2
         }
     }),
     [POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG]: wrenchEffect({
@@ -475,23 +475,15 @@ export function activeWrenchPowerUpEffect(state) {
     return activePowerUpEffectInGroup(state, POWER_UP_GROUP_IDS.WRENCH);
 }
 
-export function prioritizedActivePowerUpEffect(state) {
+export function shortestRemainingActivePowerUpEffect(state) {
     const active = Object.values(state?.statusEffects?.active || {})
         .map((raw) => normalizeActivePowerUpEffect(raw))
         .filter((effect) => effect && (effect.definition.permanent || effect.remainingSeconds > 0));
     active.sort((left, right) => {
-        const leftBuiltinPriority = powerUpEffectDefinition(left.id)?.hud?.priority;
-        const rightBuiltinPriority = powerUpEffectDefinition(right.id)?.hud?.priority;
-        const leftPriority = Math.max(
-            finiteNumber(left.definition.hud.priority, 0),
-            finiteNumber(leftBuiltinPriority, 0)
-        );
-        const rightPriority = Math.max(
-            finiteNumber(right.definition.hud.priority, 0),
-            finiteNumber(rightBuiltinPriority, 0)
-        );
-        const priorityDifference = rightPriority - leftPriority;
-        if (Math.abs(priorityDifference) > 0.000001) return priorityDifference;
+        const leftRemainingSeconds = left.definition.permanent ? Number.POSITIVE_INFINITY : left.remainingSeconds;
+        const rightRemainingSeconds = right.definition.permanent ? Number.POSITIVE_INFINITY : right.remainingSeconds;
+        const remainingDifference = leftRemainingSeconds - rightRemainingSeconds;
+        if (Math.abs(remainingDifference) > 0.000001) return remainingDifference;
         const activationDifference = right.activatedAt - left.activatedAt;
         if (Math.abs(activationDifference) > 0.000001) return activationDifference;
         return left.id < right.id ? -1 : (left.id > right.id ? 1 : 0);

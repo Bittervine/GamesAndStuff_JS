@@ -85,6 +85,7 @@ import { createPixmapPyramid, drawPixmap } from "./pixmap-pyramid.js";
 import {
     createPlayerFlightDangleProfile,
     createPlayerFlightDangleState,
+    playerFlightIdleRenderOffset,
     updatePlayerFlightDangle as advancePlayerFlightDangle
 } from "./player-flight-dangle-motion.js";
 import { ENABLE_EXPERIMENTAL_STATIC_BAKE_RENDERER } from "../shared/experimental-renderer-flags.js";
@@ -881,6 +882,7 @@ class RocketfrockRenderer {
         };
         this.foregroundSpriteCache = new Map();
         this.layerBrightnessCache = new Map();
+        this.backgroundPatternSurfaceCache = new Map();
         this.powerUpTintCache = new Map();
         this.smokeStampCache = new Map();
         this.webglParticleSpriteCache = new Map();
@@ -1509,6 +1511,8 @@ class RocketfrockRenderer {
         this.foregroundSpriteCache.clear();
         for (const surface of this.layerBrightnessCache.values()) this.webglBackend?.invalidateTexture(surface);
         this.layerBrightnessCache.clear();
+        for (const surface of this.backgroundPatternSurfaceCache.values()) this.webglBackend?.invalidateTexture(surface);
+        this.backgroundPatternSurfaceCache.clear();
         this.resetOverlapBlendCache();
         this.syncEnvironmentColorMap(this.environmentColorMap, this.environmentColorExchange);
         this.invalidateStaticLayerBake("level atlases changed");
@@ -1588,6 +1592,7 @@ class RocketfrockRenderer {
         project.assets?.clear?.();
         project.atlasAssets?.clear?.();
         project.animations?.clear?.();
+        project.attackHandoffs?.clear?.();
         project.projectiles?.clear?.();
         project.supplementalAtlases?.clear?.();
         project.image = null;
@@ -1869,6 +1874,8 @@ class RocketfrockRenderer {
         this.foregroundSpriteCache.clear();
         for (const surface of this.layerBrightnessCache.values()) this.webglBackend?.invalidateTexture(surface);
         this.layerBrightnessCache.clear();
+        for (const surface of this.backgroundPatternSurfaceCache.values()) this.webglBackend?.invalidateTexture(surface);
+        this.backgroundPatternSurfaceCache.clear();
         this.resetOverlapBlendCache();
         for (const atlas of this.environmentAtlases.values()) {
             if (!atlas?.image) continue;
@@ -2262,6 +2269,7 @@ class RocketfrockRenderer {
 
         this.clear(view);
         this.drawBackdrop(view);
+        this.drawBackgroundAssetPattern(state, view);
         const backgroundStart = rendererNowMs();
         this.drawBackgroundVisuals(state, view);
         this.drawBackgroundVisuals(state, view, "backgroundOnTop");
@@ -3124,6 +3132,7 @@ class RocketfrockRenderer {
         this.resetCanvasContext();
         this.clear(view);
         this.drawBackdrop(view);
+        this.drawBackgroundAssetPattern(state, view);
 
         const backgroundStart = rendererNowMs();
         const backgroundTiles = this.drawStaticTileLayerCanvas(cache, "background", view, this.frameBackgroundOffset);
@@ -3204,6 +3213,7 @@ class RocketfrockRenderer {
 
         this.clear(view);
         this.drawBackdrop(view);
+        this.drawBackgroundAssetPattern(state, view);
         const backgroundStart = rendererNowMs();
         const backgroundDrawMs = this.drawStaticLayerBakeCanvas(bake.layers.background, view, this.frameBackgroundOffset);
         this.drawBakedDynamicWorldVisuals(state, view, "background");
@@ -3735,6 +3745,7 @@ class RocketfrockRenderer {
         if (!cache || !backend?.available) return false;
 
         const backgroundStart = rendererNowMs();
+        this.drawBackgroundAssetPatternWebGL(state, view);
         const backgroundTiles = this.queueStaticTileLayerWebGL(cache, "background", view, this.frameBackgroundOffset);
         if (backgroundTiles.complete) {
             this.drawBakedDynamicWorldVisualsWebGL(state, view, "background");
@@ -3879,6 +3890,7 @@ class RocketfrockRenderer {
         this.staticLayerBake.lastUsed = true;
 
         const backgroundStart = rendererNowMs();
+        this.drawBackgroundAssetPatternWebGL(state, view);
         const backgroundDraw = this.queueStaticLayerBakeCanvasWebGL(bake.layers.background, view, this.frameBackgroundOffset);
         if (!this.staticLayerBakeWebGLDrawSucceeded(backgroundDraw, "background")) return false;
         const backgroundDrawMs = backgroundDraw.ms;
@@ -4007,6 +4019,7 @@ class RocketfrockRenderer {
             }
         }
 
+        this.drawBackgroundAssetPatternWebGL(state, view);
         this.drawBackgroundVisualsWebGL(state, view);
         this.drawBackgroundVisualsWebGL(state, view, "backgroundOnTop");
         const visualResult = this.drawOrderedWorldVisualsWebGL(state, view, "main");
@@ -4333,6 +4346,115 @@ class RocketfrockRenderer {
     drawBackdrop(view) {
         // Intentionally empty for the cave theme. Outdoor themes can replace this
         // later with a theme-specific sky renderer.
+    }
+
+    backgroundAssetPatternInfo(state) {
+        const background = state?.world?.layerVisuals?.background;
+        const asset = background?.asset;
+        if (!asset?.atlasId || !asset?.assetId) return null;
+        const atlas = this.environmentAtlases.get(asset.atlasId);
+        const frame = atlas?.frames?.[asset.assetId];
+        if (!atlas || atlas.missing || !atlas.image || !frame) return null;
+        return {
+            atlas,
+            frame,
+            atlasId: asset.atlasId,
+            assetId: asset.assetId,
+            brightness: normalizeLayerBrightness(background.brightness),
+            scale: Math.max(0.1, Math.min(5, Number(background.scale) || 1))
+        };
+    }
+
+    getBackgroundAssetPatternSurface(state) {
+        const info = this.backgroundAssetPatternInfo(state);
+        if (!info) return null;
+        const key = [
+            info.atlasId,
+            info.assetId,
+            this.environmentColorMapKey,
+            info.brightness.toFixed(4)
+        ].join("|");
+        const cached = this.backgroundPatternSurfaceCache.get(key);
+        if (cached) return { ...info, surface: cached };
+
+        const source = this.getLayerBrightnessAtlas(info.atlas, info.brightness, "background");
+        const ownerDocument = this.canvas?.ownerDocument || (typeof document !== "undefined" ? document : null);
+        if (!source || !ownerDocument) return null;
+        const surface = ownerDocument.createElement("canvas");
+        surface.width = Math.max(1, Math.round(info.frame.w));
+        surface.height = Math.max(1, Math.round(info.frame.h));
+        const surfaceContext = surface.getContext("2d");
+        if (!surfaceContext) return null;
+        surfaceContext.drawImage(
+            source,
+            info.frame.x,
+            info.frame.y,
+            info.frame.w,
+            info.frame.h,
+            0,
+            0,
+            surface.width,
+            surface.height
+        );
+        this.backgroundPatternSurfaceCache.set(key, surface);
+        return { ...info, surface };
+    }
+
+    drawBackgroundAssetPattern(state, view) {
+        const info = this.getBackgroundAssetPatternSurface(state);
+        if (!info?.surface) return false;
+        const tileScale = Math.max(0.0001, info.scale * view.zoom);
+        const origin = this.worldToScreen(
+            view,
+            -(this.frameBackgroundOffset?.x || 0),
+            -(this.frameBackgroundOffset?.y || 0)
+        );
+        const pattern = this.ctx.createPattern(info.surface, "repeat");
+        if (!pattern) return false;
+        this.ctx.save();
+        this.ctx.translate(origin.x, origin.y);
+        this.ctx.scale(tileScale, tileScale);
+        this.ctx.fillStyle = pattern;
+        this.ctx.fillRect(
+            -origin.x / tileScale,
+            -origin.y / tileScale,
+            view.w / tileScale,
+            view.h / tileScale
+        );
+        this.ctx.restore();
+        return true;
+    }
+
+    drawBackgroundAssetPatternWebGL(state, view) {
+        const backend = this.webglBackend;
+        if (!backend?.available) return false;
+        const info = this.getBackgroundAssetPatternSurface(state);
+        if (!info?.surface) return false;
+        const tileWidth = Math.max(0.0001, info.surface.width * info.scale * view.zoom);
+        const tileHeight = Math.max(0.0001, info.surface.height * info.scale * view.zoom);
+        const origin = this.worldToScreen(
+            view,
+            -(this.frameBackgroundOffset?.x || 0),
+            -(this.frameBackgroundOffset?.y || 0)
+        );
+        const sourceX = (-origin.x / tileWidth) * info.surface.width;
+        const sourceY = (-origin.y / tileHeight) * info.surface.height;
+        const sourceWidth = (view.w / tileWidth) * info.surface.width;
+        const sourceHeight = (view.h / tileHeight) * info.surface.height;
+        return backend.queueSprite({
+            source: info.surface,
+            sourceX,
+            sourceY,
+            sourceWidth,
+            sourceHeight,
+            centerX: view.w * 0.5,
+            centerY: view.h * 0.5,
+            width: view.w,
+            height: view.h,
+            alpha: 1,
+            dynamic: false,
+            wrapMode: "repeat"
+        });
     }
 
     drawCaveWindow(state, view) {
@@ -6623,7 +6745,11 @@ class RocketfrockRenderer {
             const remaining = Math.max(0, Number(projectile.explosionTimer) || 0);
             const progress = Math.max(0, Math.min(1, 1 - remaining / total));
             const flashFade = Math.pow(1 - progress, 1.45);
-            if (projectile.owner !== "enemy") {
+            const areaRadius = Math.max(0, Number(projectile.areaDamageRadius) || 0);
+            const mortarAreaExplosion = projectile.owner === "enemy"
+                && projectile.explosionEffect === "rocket"
+                && areaRadius > 0;
+            if (projectile.owner !== "enemy" || mortarAreaExplosion) {
                 const explosionScale = Math.max(1, Number(projectile.explosionVisualScale) || 1);
                 const coreRadius = (12 + 16 * progress) * explosionScale * view.zoom;
                 if (glowSprite) {
@@ -6659,7 +6785,6 @@ class RocketfrockRenderer {
                     22 * explosionScale * view.zoom,
                     "rocket"
                 );
-                const areaRadius = Math.max(0, Number(projectile.areaDamageRadius) || 0);
                 if (areaRadius > 0 && ringSprite) {
                     backend.queueSprite({
                         source: ringSprite,
@@ -6673,6 +6798,7 @@ class RocketfrockRenderer {
                     });
                 }
             } else {
+                const enemyAreaExplosionWebGL = areaRadius > 0;
                 const enemyRadius = (7 + progress * 7) * view.zoom;
                 if (glowSprite) {
                     backend.queueSprite({
@@ -6691,10 +6817,22 @@ class RocketfrockRenderer {
                     point.y,
                     view,
                     projectile.age + projectile.shownTransform.x,
-                    projectile.impactKind === "player" ? 4 : 3,
-                    (projectile.impactKind === "player" ? 10 : 8) * view.zoom,
-                    projectile.impactKind === "player" ? "wizardAccent" : "enemy"
+                    enemyAreaExplosionWebGL ? 7 : (projectile.impactKind === "player" ? 4 : 3),
+                    (enemyAreaExplosionWebGL ? 16 : (projectile.impactKind === "player" ? 10 : 8)) * view.zoom,
+                    enemyAreaExplosionWebGL ? "rocket" : (projectile.impactKind === "player" ? "wizardAccent" : "enemy")
                 );
+                if (enemyAreaExplosionWebGL && ringSprite) {
+                    backend.queueSprite({
+                        source: ringSprite,
+                        centerX: point.x,
+                        centerY: point.y,
+                        width: areaRadius * view.zoom * 2 * (0.18 + progress * 0.82),
+                        height: areaRadius * view.zoom * 2 * (0.18 + progress * 0.82),
+                        tint: [1, 208 / 255, 89 / 255, 1],
+                        alpha: (1 - progress) * 0.58,
+                        blendMode: "additive"
+                    });
+                }
             }
             this.markDynamicDrawn();
         }
@@ -6767,7 +6905,7 @@ class RocketfrockRenderer {
     }
 
     isUndeathProjectile(projectile) {
-        return projectile?.visualStyle === "undeath" || projectile?.projectileKind === "undeathOrb" || projectile?.frameId === "undeathOrb";
+        return projectile?.trailEffect === "undeath" || projectile?.visualStyle === "undeath";
     }
 
     undeathTint(strength = 0.6) {
@@ -6930,8 +7068,12 @@ class RocketfrockRenderer {
             return false;
         }
         const p = this.worldToScreen(view, projectile.shownTransform.x, projectile.shownTransform.y);
-        const targetHeight = Math.max(2, Number(projectile.radius) || 1) * 2.45 * view.zoom;
-        const rotation = projectile.age * 8;
+        const visualScale = Math.max(0.01, Number(projectile.visualScale) || 1);
+        const targetHeight = Math.max(2, Number(projectile.radius) || 1) * 2.45 * visualScale * view.zoom;
+        const flightAngle = Math.atan2(Number(projectile.vy) || 0, Number(projectile.vx) || 1);
+        const rotation = projectile.orientToVelocity === true
+            ? flightAngle
+            : (Number(projectile.age) || 0) * (Number(projectile.rotationSpeed) || 0);
         const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_011", projectile.frameId || "cannonball") ||
             this.getCharacterAtlasFrame("ct_char_enemy_011", "cannonball") ||
             this.getCharacterAtlasFrame("ct_char_enemy_010", "cannonball");
@@ -6955,11 +7097,12 @@ class RocketfrockRenderer {
             return false;
         }
         const p = this.worldToScreen(view, projectile.shownTransform.x, projectile.shownTransform.y);
-        const isThrowingAxe = projectile.projectileKind === "throwingAxe";
-        const visualScale = isThrowingAxe ? 1.7 : 1;
-        const rotationSpeed = isThrowingAxe ? 25 : 5;
+        const visualScale = Math.max(0.01, Number(projectile.visualScale) || 1);
         const targetHeight = Math.max(8, Number(projectile.radius) || 10) * 2.35 * visualScale * view.zoom;
-        const rotation = (Number(projectile.age) || 0) * rotationSpeed + projectile.shownTransform.x * 0.01;
+        const flightAngle = Math.atan2(Number(projectile.vy) || 0, Number(projectile.vx) || 1);
+        const rotation = projectile.orientToVelocity === true
+            ? flightAngle
+            : (Number(projectile.age) || 0) * (Number(projectile.rotationSpeed) || 0);
         const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_020", projectile.frameId || "rock") ||
             this.getCharacterAtlasFrame("ct_char_enemy_020", "rock");
         if (asset && !asset.missing) {
@@ -6982,8 +7125,12 @@ class RocketfrockRenderer {
             return false;
         }
         const p = this.worldToScreen(view, projectile.shownTransform.x, projectile.shownTransform.y);
-        const rotation = Number(projectile.shownTransform.angle) || 0;
-        const targetHeight = Math.max(5, Number(projectile.radius) || 5) * 1.45 * view.zoom;
+        const visualScale = Math.max(0.01, Number(projectile.visualScale) || 1);
+        const flightAngle = Math.atan2(Number(projectile.vy) || 0, Number(projectile.vx) || 1);
+        const rotation = projectile.orientToVelocity === true
+            ? flightAngle
+            : (Number(projectile.age) || 0) * (Number(projectile.rotationSpeed) || 0);
+        const targetHeight = Math.max(5, Number(projectile.radius) || 5) * 1.45 * visualScale * view.zoom;
         const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_032", projectile.frameId || "dagger") ||
             this.getCharacterAtlasFrame("ct_char_enemy_032", "dagger");
         if (asset && !asset.missing) {
@@ -7284,18 +7431,21 @@ class RocketfrockRenderer {
                 }
                 const p = this.worldToScreen(view, projectile.shownTransform.x, projectile.shownTransform.y);
                 ctx.save();
-                if (projectile.owner !== "enemy") {
+                const areaRadius = Math.max(0, Number(projectile.areaDamageRadius) || 0);
+                const enemyAreaExplosion = projectile.owner === "enemy" && areaRadius > 0;
+                const mortarAreaExplosion = enemyAreaExplosion && projectile.explosionEffect === "rocket";
+                if (projectile.owner !== "enemy" || enemyAreaExplosion) {
                     const explosionScale = Math.max(1, Number(projectile.explosionVisualScale) || 1);
+                    const rocketStyleExplosion = projectile.owner !== "enemy" || mortarAreaExplosion;
                     this.drawSparkBurst(
                         p.x,
                         p.y,
                         view,
                         projectile.age + projectile.shownTransform.x,
-                        Math.max(9, Math.round(9 * explosionScale)),
-                        22 * explosionScale * view.zoom,
+                        rocketStyleExplosion ? Math.max(9, Math.round(9 * explosionScale)) : 7,
+                        (rocketStyleExplosion ? 22 * explosionScale : 16) * view.zoom,
                         "rocket"
                     );
-                    const areaRadius = Math.max(0, Number(projectile.areaDamageRadius) || 0);
                     if (areaRadius > 0) {
                         const total = Math.max(0.001, Number(state.tuning?.rocketProjectileExplosionSeconds) || 0.42);
                         const remaining = Math.max(0, Number(projectile.explosionTimer) || 0);
@@ -7387,8 +7537,12 @@ class RocketfrockRenderer {
         if (!asset || asset.missing) {
             return;
         }
-        const rotation = Number(projectile.shownTransform.angle) || 0;
-        const targetHeight = Math.max(5, Number(projectile.radius) || 5) * 1.45 * view.zoom;
+        const visualScale = Math.max(0.01, Number(projectile.visualScale) || 1);
+        const flightAngle = Math.atan2(Number(projectile.vy) || 0, Number(projectile.vx) || 1);
+        const rotation = projectile.orientToVelocity === true
+            ? flightAngle
+            : (Number(projectile.age) || 0) * (Number(projectile.rotationSpeed) || 0);
+        const targetHeight = Math.max(5, Number(projectile.radius) || 5) * 1.45 * visualScale * view.zoom;
         const spriteScale = targetHeight / Math.max(1, asset.height);
         ctx.save();
         ctx.translate(p.x, p.y);
@@ -7403,15 +7557,17 @@ class RocketfrockRenderer {
         const p = this.worldToScreen(view, projectile.shownTransform.x, projectile.shownTransform.y);
         const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_020", projectile.frameId || "rock") ||
             this.getCharacterAtlasFrame("ct_char_enemy_020", "rock");
-        const isThrowingAxe = projectile.projectileKind === "throwingAxe";
-        const visualScale = isThrowingAxe ? 1.7 : 1;
-        const rotationSpeed = isThrowingAxe ? 25 : 5;
+        const visualScale = Math.max(0.01, Number(projectile.visualScale) || 1);
+        const flightAngle = Math.atan2(Number(projectile.vy) || 0, Number(projectile.vx) || 1);
+        const rotation = projectile.orientToVelocity === true
+            ? flightAngle
+            : (Number(projectile.age) || 0) * (Number(projectile.rotationSpeed) || 0);
         if (asset && !asset.missing) {
             const targetHeight = Math.max(8, Number(projectile.radius) || 10) * 2.35 * visualScale * view.zoom;
             const spriteScale = targetHeight / Math.max(1, asset.height);
             ctx.save();
             ctx.translate(p.x, p.y);
-            ctx.rotate((Number(projectile.age) || 0) * rotationSpeed + projectile.shownTransform.x * 0.01);
+            ctx.rotate(rotation);
             ctx.scale(spriteScale, spriteScale);
             drawRuntimePixmap(ctx, asset, -asset.width * 0.5, -asset.height * 0.5);
             ctx.restore();
@@ -7421,7 +7577,7 @@ class RocketfrockRenderer {
         const radius = Math.max(4, Number(projectile.radius) || 10) * visualScale * view.zoom;
         ctx.save();
         ctx.translate(p.x, p.y);
-        ctx.rotate((Number(projectile.age) || 0) * rotationSpeed + projectile.shownTransform.x * 0.01);
+        ctx.rotate(rotation);
         ctx.beginPath();
         for (let i = 0; i < 8; i += 1) {
             const angle = i / 8 * Math.PI * 2;
@@ -7608,11 +7764,16 @@ class RocketfrockRenderer {
             this.getCharacterAtlasFrame("ct_char_enemy_011", "cannonball") ||
             this.getCharacterAtlasFrame("ct_char_enemy_010", "cannonball");
         if (asset && !asset.missing) {
-            const targetHeight = projectile.radius * 2.45 * view.zoom;
+            const visualScale = Math.max(0.01, Number(projectile.visualScale) || 1);
+            const targetHeight = projectile.radius * 2.45 * visualScale * view.zoom;
             const spriteScale = targetHeight / Math.max(1, asset.height);
+            const flightAngle = Math.atan2(Number(projectile.vy) || 0, Number(projectile.vx) || 1);
+            const rotation = projectile.orientToVelocity === true
+                ? flightAngle
+                : (Number(projectile.age) || 0) * (Number(projectile.rotationSpeed) || 0);
             ctx.save();
             ctx.translate(p.x, p.y);
-            ctx.rotate(projectile.age * 8);
+            ctx.rotate(rotation);
             ctx.scale(spriteScale, spriteScale);
             drawRuntimePixmap(ctx, asset, -asset.width * 0.5, -asset.height * 0.5);
             ctx.restore();
@@ -8192,11 +8353,24 @@ class RocketfrockRenderer {
             return false;
         }
         const groundPoint = actorGroundPoint(state.player);
-        const point = this.worldToScreen(view, groundPoint.x, groundPoint.y);
+        const shadowPoint = this.worldToScreen(view, groundPoint.x, groundPoint.y);
+        const flightIdleOffset = playerFlightIdleRenderOffset({
+            active: !state.player.onGround && Boolean(activePowerUpEffect(state, POWER_UP_EFFECT_IDS.FLIGHT)),
+            time: state.clock?.time,
+            vx: state.player.vx,
+            vy: state.player.vy,
+            ax: state.player.ax,
+            ay: state.player.ay
+        });
+        const point = this.worldToScreen(
+            view,
+            groundPoint.x + flightIdleOffset.x,
+            groundPoint.y + flightIdleOffset.y
+        );
         const renderScale = Math.max(0.05, Number(state.player.shownTransform.scaleX) || 1);
         this.queueShadowWebGL(
-            point.x,
-            point.y,
+            shadowPoint.x,
+            shadowPoint.y,
             view.zoom,
             renderScale,
             this.groundShadowOpacity(state.player)
@@ -8403,11 +8577,24 @@ class RocketfrockRenderer {
             return;
         }
         const groundPoint = actorGroundPoint(state.player);
-        const p = this.worldToScreen(view, groundPoint.x, groundPoint.y);
+        const shadowPoint = this.worldToScreen(view, groundPoint.x, groundPoint.y);
+        const flightIdleOffset = playerFlightIdleRenderOffset({
+            active: !state.player.onGround && Boolean(activePowerUpEffect(state, POWER_UP_EFFECT_IDS.FLIGHT)),
+            time: state.clock?.time,
+            vx: state.player.vx,
+            vy: state.player.vy,
+            ax: state.player.ax,
+            ay: state.player.ay
+        });
+        const p = this.worldToScreen(
+            view,
+            groundPoint.x + flightIdleOffset.x,
+            groundPoint.y + flightIdleOffset.y
+        );
         const renderScale = Math.max(0.05, Number(state.player.shownTransform.scaleX) || 1);
         this.drawShadow(
-            p.x,
-            p.y,
+            shadowPoint.x,
+            shadowPoint.y,
             view.zoom * renderScale,
             this.groundShadowOpacity(state.player)
         );
