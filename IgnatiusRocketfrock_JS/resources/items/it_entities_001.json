@@ -553,7 +553,7 @@
             "type": "keyholeSwitch",
             "label": "Keyhole switch",
             "icon": "\ud83d\udddd\ufe0f",
-            "description": "Consumes the configured key when Ignatius operates it, then emits its named signal once.",
+            "description": "Automatically consumes the configured key when Ignatius comes within one wizard width, emits its named signal once, then fades away over 0.75 seconds.",
             "defaultState": "locked",
             "defaultSize": {
                 "w": 72,
@@ -624,7 +624,7 @@
             "type": "spikedGate",
             "label": "Spiked gate",
             "icon": "\u26d3\ufe0f",
-            "description": "Switchable vertical gate.",
+            "description": "Signal-controlled vertical gate that remains solid while fading away in place over 0.75 seconds, then disappears completely.",
             "defaultState": "closed",
             "defaultSize": {
                 "w": 94,
@@ -662,7 +662,7 @@
             "type": "hangingGate",
             "label": "Hanging iron bars",
             "icon": "\u26d3\ufe0f",
-            "description": "Alternative switchable iron gate.",
+            "description": "Alternative signal-controlled iron gate that remains solid while fading away in place over 0.75 seconds, then disappears completely.",
             "defaultState": "closed",
             "defaultSize": {
                 "w": 118,
@@ -922,15 +922,16 @@
         },
         "magicRingPickup": {
             "type": "magicRingPickup",
-            "label": "Magic ring",
+            "label": "Magic Ring",
             "icon": "\ud83d\udc8d",
-            "description": "",
+            "description": "30-second concealment pickup. Normal enemies cannot see Ignatius while it is active; enemies hit by him panic for 10 seconds.",
             "defaultState": "available",
             "defaultSize": {
                 "w": 55,
                 "h": 54
             },
             "defaults": {
+                "effectId": "magicRing",
                 "pickupKind": "magicRing",
                 "amount": 1
             },

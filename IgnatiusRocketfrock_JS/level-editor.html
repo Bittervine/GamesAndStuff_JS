@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" href="favicon.ico" sizes="any">
-    <title>Ignatius Level Editor - BUILD 360</title>
+    <title>Ignatius Level Editor - BUILD 364</title>
     <style>
         @font-face {
             font-family: "Ignatius Inter";
@@ -833,7 +833,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 360</small></h1>
+        <h1>Level Editor <small>rev 364</small></h1>
 
         <div class="box">
             <h2>Level</h2>
@@ -1212,7 +1212,7 @@
                 <h3>Signal emitter</h3>
                 <div class="row">
                     <label>Signal channel<input id="inspect-signal-channel" maxlength="64" value="A"></label>
-                    <label>Trigger distance<input id="inspect-signal-distance" type="number" min="8" step="4" value="76"></label>
+                    <label id="signal-distance-label">Trigger distance<input id="inspect-signal-distance" type="number" min="8" step="4" value="160"></label>
                 </div>
                 <div id="keyhole-settings-row" style="display:none">
                     <div class="row">
@@ -1953,6 +1953,7 @@ import {
         signalSettingsRow: document.getElementById("signal-settings-row"),
         keyholeSettingsRow: document.getElementById("keyhole-settings-row"),
         inspectSignalChannel: document.getElementById("inspect-signal-channel"),
+        signalDistanceLabel: document.getElementById("signal-distance-label"),
         inspectSignalDistance: document.getElementById("inspect-signal-distance"),
         inspectKeyholeKey: document.getElementById("inspect-keyhole-key"),
         inspectKeyholeConsume: document.getElementById("inspect-keyhole-consume"),
@@ -8227,8 +8228,10 @@ import {
         const isWrench = selected.kind === "entity" && isWrenchPickupEntity(rec);
         const isSignalEmitter = selected.kind === "entity" && isSignalEmitterEntity(rec);
         const isKeyhole = isSignalEmitter && (rec.type === "keyholeSwitch" || rec.interaction === "keyhole");
+        const isProximitySignal = isSignalEmitter && rec.type === "proximitySignalTrigger";
         const isSignalReceiver = selected.kind === "entity" && isSignalReceiverEntity(rec);
         els.signalSettingsRow.style.display = isSignalEmitter ? "block" : "none";
+        els.signalDistanceLabel.style.display = isProximitySignal ? "grid" : "none";
         els.gateSettingsRow.style.display = isSignalReceiver ? "block" : "none";
         els.keyholeSettingsRow.style.display = isKeyhole ? "block" : "none";
         els.mailboxStoryRow.style.display = isStoryEntity ? "block" : "none";
@@ -8476,7 +8479,11 @@ import {
             if (isSignalEmitterEntity(rec)) {
                 const proximitySignal = rec.type === "proximitySignalTrigger";
                 rec.channel = normalizeSignalChannel(els.inspectSignalChannel.value);
-                rec.triggerDistance = Math.max(8, Number(els.inspectSignalDistance.value) || (proximitySignal ? 160 : 76));
+                if (proximitySignal) {
+                    rec.triggerDistance = Math.max(8, Number(els.inspectSignalDistance.value) || 160);
+                } else {
+                    delete rec.triggerDistance;
+                }
                 if (rec.type === "keyholeSwitch" || rec.interaction === "keyhole") {
                     rec.interaction = "keyhole";
                     rec.requiredKey = String(els.inspectKeyholeKey.value || "ironKey");

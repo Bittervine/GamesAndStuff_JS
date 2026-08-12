@@ -2,6 +2,7 @@ export const POWER_UP_EFFECT_IDS = Object.freeze({
     OVERDRIVE: "overdrive",
     FLIGHT: "flight",
     SHIELD: "shield",
+    MAGIC_RING: "magicRing",
     WRENCH_TRIPLE: "wrenchYellow",
     WRENCH_DART: "wrenchCyan",
     WRENCH_BURST: "wrenchGreen",
@@ -21,6 +22,9 @@ export const NON_HOMING_ROCKET_SPEED_FACTOR = 2;
 export const HOMING_TRIPLE_MEANDER_INTERVAL_SECONDS = 0.16;
 export const HOMING_TRIPLE_MEANDER_TURN_DEGREES = 7;
 export const OVERDRIVE_PASSIVE_FUEL_RECOVERY_DRAIN_FACTOR = 0.9;
+export const MAGIC_RING_DURATION_SECONDS = 30;
+export const MAGIC_RING_PANIC_SECONDS = 10;
+export const MAGIC_RING_BRIGHTNESS = 0.5;
 
 function defaultPowerUpPickupWorldScale(effectId) {
     return effectId === POWER_UP_EFFECT_IDS.FLIGHT ? 1.2 : 1;
@@ -113,6 +117,24 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
             glowFrame: "powerup_glow_white",
             glowTint: "#008cff",
             priority: 150
+        }),
+        rocket: DEFAULT_ROCKET_PROFILE
+    }),
+    [POWER_UP_EFFECT_IDS.MAGIC_RING]: Object.freeze({
+        version: 1,
+        id: POWER_UP_EFFECT_IDS.MAGIC_RING,
+        label: "Magic Ring",
+        durationSeconds: MAGIC_RING_DURATION_SECONDS,
+        permanent: false,
+        stacking: POWER_UP_STACKING_RULES.REFRESH,
+        clearOnDeath: true,
+        groupId: null,
+        exclusiveGroup: false,
+        hud: Object.freeze({
+            iconFrame: "magic_ring_blue",
+            glowFrame: "powerup_glow_white",
+            glowTint: "#566dff",
+            priority: 160
         }),
         rocket: DEFAULT_ROCKET_PROFILE
     }),

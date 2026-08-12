@@ -1,4 +1,5 @@
 export const DEFAULT_SIGNAL_CHANNEL = "A";
+export const SIGNAL_DISAPPEAR_FADE_SECONDS = 0.75;
 
 export const SIGNAL_EMITTER_TYPES = Object.freeze([
     "leverSwitch",

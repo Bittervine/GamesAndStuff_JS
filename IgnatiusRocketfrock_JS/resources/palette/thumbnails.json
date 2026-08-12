@@ -7,12 +7,12 @@
   "maxSize": 8192,
   "width": 1472,
   "height": 1472,
-  "entryCount": 517,
-  "sourceDigest": "bcc42a6fd20ad7d9164e46ae888f7fcbac5dfdd043fedb90168042be9bee057b",
+  "entryCount": 524,
+  "sourceDigest": "52bfd3e128dc1ca0a8f5674c52f46bd7ca71c8e432648312a3347f5be694380b",
   "sources": [
     {
       "path": "atlases/at_atlas_001.json",
-      "sha256": "041a082a763a6100dda83ea0a408b47a6ceda6ead7292637ac94ad21b271a806"
+      "sha256": "76733e1548e9de6447039e985b3929a28c38dbf44fafc5d309ed05142ad3b12b"
     },
     {
       "path": "atlases/at_atlas_001.png",
@@ -40,7 +40,7 @@
     },
     {
       "path": "atlases/at_atlas_004.png",
-      "sha256": "d511923c78c81236e7b6102f2879455a6dbf16da0d9791bb692da996ff593f96"
+      "sha256": "6be9835da70e4401c7f59bb327a9546c9c6fa6a795049c353efd7535fb5f97b6"
     },
     {
       "path": "atlases/at_atlas_005.json",
@@ -236,11 +236,11 @@
     },
     {
       "path": "atlases/at_atlas_029.json",
-      "sha256": "ebd6d9ae07b1410b2b1b7e7cf7c8fc6099b6153188f7e40b5be86185cffc3d27"
+      "sha256": "24c5b60d65815876dc307aeeae5aecfd309df2b138c94f06736510c32f4eae2a"
     },
     {
       "path": "atlases/at_atlas_029.png",
-      "sha256": "a2be8abcde705f932c3fa4c9f0c020cf4a3906a63f69f02af1391bb0264d0856"
+      "sha256": "ab0523c5e88d8398a65560590bd50380adff0b0f5e47f703d3fbd0cd7854a8a3"
     },
     {
       "path": "atlases/at_atlas_030.json",
@@ -249,6 +249,14 @@
     {
       "path": "atlases/at_atlas_030.png",
       "sha256": "2f6275492c998619c5aa77d057a38696e6c3748f3289204fa51dd19e0f4e02ca"
+    },
+    {
+      "path": "atlases/at_atlas_031.json",
+      "sha256": "0bc91deeed7f321f3ab90bfa14183de8eda552ea1b2e9d9c5b7624498ddff149"
+    },
+    {
+      "path": "atlases/at_atlas_031.png",
+      "sha256": "955f834e8a4665e94a0312cce83141baddb1a5d20ff84d946f747bddbf10d150"
     },
     {
       "path": "characters/ct_anim_enemy_001_attack.json",
@@ -1068,15 +1076,15 @@
     },
     {
       "path": "items/it_entities_001.json",
-      "sha256": "3bf9f9d791156c0ab3dd4a3c219e56158cbf05d0622445d6575554d10ec20e51"
+      "sha256": "c3f8bbcdeaac69f75faac037b74525cc6044af624514e316d28104d211aa814c"
     },
     {
       "path": "palette-builder.html",
-      "sha256": "07b840895556b85fb1f3c7ecd637fdc6edf95f1ba18fa04d4e5f8dfe353e965f"
+      "sha256": "d217da72434b927b4a0b827061fcbf05475aa69f74995bfb44b269af6b763182"
     },
     {
       "path": "resources.json",
-      "sha256": "a023963689bba4f40f145ccbf1da720d23f63a948576dc3451580519243a8f33"
+      "sha256": "2ee388aa519e0a518ad3f1294e896b1f007c97a21eb930d9033d7463ef8833e5"
     },
     {
       "path": "src/presentation/character-runtime.js",
@@ -1133,8 +1141,8 @@
       "kind": "asset",
       "id": "at_atlas_001:horizontal_blocker",
       "label": "horizontal_blocker",
-      "category": "invisibleBlocker",
-      "searchable": "at_atlas_001 horizontal_blocker invisibleBlocker utility invisible blocker horizontal",
+      "category": "platform",
+      "searchable": "at_atlas_001 horizontal_blocker platform utility invisible blocker horizontal",
       "thumbnail": {
         "x": 0,
         "y": 0,
@@ -1153,7 +1161,7 @@
         "w": 287,
         "h": 20
       },
-      "type": "invisibleBlocker",
+      "type": "platform",
       "tags": [
         "utility",
         "invisible",
@@ -1167,8 +1175,8 @@
       "kind": "asset",
       "id": "at_atlas_001:vertical_blocker",
       "label": "vertical_blocker",
-      "category": "invisibleBlocker",
-      "searchable": "at_atlas_001 vertical_blocker invisibleBlocker utility invisible blocker vertical",
+      "category": "platform",
+      "searchable": "at_atlas_001 vertical_blocker platform utility invisible blocker vertical",
       "thumbnail": {
         "x": 64,
         "y": 0,
@@ -1187,7 +1195,7 @@
         "w": 20,
         "h": 133
       },
-      "type": "invisibleBlocker",
+      "type": "platform",
       "tags": [
         "utility",
         "invisible",
@@ -16066,6 +16074,35 @@
       "paletteOrder": 0
     },
     {
+      "key": "asset:at_atlas_029:cage",
+      "kind": "asset",
+      "id": "at_atlas_029:cage",
+      "label": "cage",
+      "category": "platform",
+      "searchable": "at_atlas_029 cage platform",
+      "thumbnail": {
+        "x": 512,
+        "y": 1216,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_029",
+        "assetId": "cage",
+        "manifest": "atlases/at_atlas_029.json",
+        "image": "atlases/at_atlas_029.png"
+      },
+      "frame": {
+        "x": 466,
+        "y": 68,
+        "w": 327,
+        "h": 2473
+      },
+      "type": "platform",
+      "tags": [],
+      "paletteOrder": 0
+    },
+    {
       "key": "asset:at_atlas_029:object_001",
       "kind": "asset",
       "id": "at_atlas_029:object_001",
@@ -16073,7 +16110,7 @@
       "category": "platform",
       "searchable": "at_atlas_029 object_001 platform",
       "thumbnail": {
-        "x": 512,
+        "x": 576,
         "y": 1216,
         "w": 64,
         "h": 64
@@ -16102,7 +16139,7 @@
       "category": "platform",
       "searchable": "at_atlas_030 mine_cart platform",
       "thumbnail": {
-        "x": 576,
+        "x": 640,
         "y": 1216,
         "w": 64,
         "h": 64
@@ -16131,7 +16168,7 @@
       "category": "decor",
       "searchable": "at_atlas_030 mine_dynamite decor",
       "thumbnail": {
-        "x": 640,
+        "x": 704,
         "y": 1216,
         "w": 64,
         "h": 64
@@ -16160,7 +16197,7 @@
       "category": "decor",
       "searchable": "at_atlas_030 mine_hanging_lamp decor",
       "thumbnail": {
-        "x": 704,
+        "x": 768,
         "y": 1216,
         "w": 64,
         "h": 64
@@ -16189,7 +16226,7 @@
       "category": "decor",
       "searchable": "at_atlas_030 mine_lantern decor",
       "thumbnail": {
-        "x": 768,
+        "x": 832,
         "y": 1216,
         "w": 64,
         "h": 64
@@ -16218,7 +16255,7 @@
       "category": "platform",
       "searchable": "at_atlas_030 mine_ore_coal platform",
       "thumbnail": {
-        "x": 832,
+        "x": 896,
         "y": 1216,
         "w": 64,
         "h": 64
@@ -16247,7 +16284,7 @@
       "category": "decor",
       "searchable": "at_atlas_030 mine_ore_copper decor",
       "thumbnail": {
-        "x": 896,
+        "x": 960,
         "y": 1216,
         "w": 64,
         "h": 64
@@ -16276,7 +16313,7 @@
       "category": "platform",
       "searchable": "at_atlas_030 mine_ore_gems platform",
       "thumbnail": {
-        "x": 960,
+        "x": 1024,
         "y": 1216,
         "w": 64,
         "h": 64
@@ -16305,7 +16342,7 @@
       "category": "decor",
       "searchable": "at_atlas_030 mine_ore_gold decor",
       "thumbnail": {
-        "x": 1024,
+        "x": 1088,
         "y": 1216,
         "w": 64,
         "h": 64
@@ -16334,7 +16371,7 @@
       "category": "decor",
       "searchable": "at_atlas_030 mine_pick decor",
       "thumbnail": {
-        "x": 1088,
+        "x": 1152,
         "y": 1216,
         "w": 64,
         "h": 64
@@ -16363,7 +16400,7 @@
       "category": "platform",
       "searchable": "at_atlas_030 mine_rails platform",
       "thumbnail": {
-        "x": 1152,
+        "x": 1216,
         "y": 1216,
         "w": 64,
         "h": 64
@@ -16392,7 +16429,7 @@
       "category": "decor",
       "searchable": "at_atlas_030 mine_rope decor",
       "thumbnail": {
-        "x": 1216,
+        "x": 1280,
         "y": 1216,
         "w": 64,
         "h": 64
@@ -16421,7 +16458,7 @@
       "category": "decor",
       "searchable": "at_atlas_030 mine_shovel decor",
       "thumbnail": {
-        "x": 1280,
+        "x": 1344,
         "y": 1216,
         "w": 64,
         "h": 64
@@ -16450,7 +16487,7 @@
       "category": "platform",
       "searchable": "at_atlas_030 mine_sign platform",
       "thumbnail": {
-        "x": 1344,
+        "x": 1408,
         "y": 1216,
         "w": 64,
         "h": 64
@@ -16479,8 +16516,8 @@
       "category": "pillar",
       "searchable": "at_atlas_030 mine_support pillar",
       "thumbnail": {
-        "x": 1408,
-        "y": 1216,
+        "x": 0,
+        "y": 1280,
         "w": 64,
         "h": 64
       },
@@ -16501,6 +16538,151 @@
       "paletteOrder": 0
     },
     {
+      "key": "asset:at_atlas_031:shore_jetty",
+      "kind": "asset",
+      "id": "at_atlas_031:shore_jetty",
+      "label": "shore_jetty",
+      "category": "platform",
+      "searchable": "at_atlas_031 shore_jetty platform",
+      "thumbnail": {
+        "x": 64,
+        "y": 1280,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_031",
+        "assetId": "shore_jetty",
+        "manifest": "atlases/at_atlas_031.json",
+        "image": "atlases/at_atlas_031.png"
+      },
+      "frame": {
+        "x": 1,
+        "y": 626,
+        "w": 1149,
+        "h": 200
+      },
+      "type": "platform",
+      "tags": [],
+      "paletteOrder": 0
+    },
+    {
+      "key": "asset:at_atlas_031:shore_rocky",
+      "kind": "asset",
+      "id": "at_atlas_031:shore_rocky",
+      "label": "shore_rocky",
+      "category": "platform",
+      "searchable": "at_atlas_031 shore_rocky platform",
+      "thumbnail": {
+        "x": 128,
+        "y": 1280,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_031",
+        "assetId": "shore_rocky",
+        "manifest": "atlases/at_atlas_031.json",
+        "image": "atlases/at_atlas_031.png"
+      },
+      "frame": {
+        "x": 1,
+        "y": 418,
+        "w": 1151,
+        "h": 155
+      },
+      "type": "platform",
+      "tags": [],
+      "paletteOrder": 0
+    },
+    {
+      "key": "asset:at_atlas_031:shore_sandy",
+      "kind": "asset",
+      "id": "at_atlas_031:shore_sandy",
+      "label": "shore_sandy",
+      "category": "platform",
+      "searchable": "at_atlas_031 shore_sandy platform",
+      "thumbnail": {
+        "x": 192,
+        "y": 1280,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_031",
+        "assetId": "shore_sandy",
+        "manifest": "atlases/at_atlas_031.json",
+        "image": "atlases/at_atlas_031.png"
+      },
+      "frame": {
+        "x": 3,
+        "y": 205,
+        "w": 1146,
+        "h": 163
+      },
+      "type": "platform",
+      "tags": [],
+      "paletteOrder": 0
+    },
+    {
+      "key": "asset:at_atlas_031:shore_ship",
+      "kind": "asset",
+      "id": "at_atlas_031:shore_ship",
+      "label": "shore_ship",
+      "category": "platform",
+      "searchable": "at_atlas_031 shore_ship platform",
+      "thumbnail": {
+        "x": 256,
+        "y": 1280,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_031",
+        "assetId": "shore_ship",
+        "manifest": "atlases/at_atlas_031.json",
+        "image": "atlases/at_atlas_031.png"
+      },
+      "frame": {
+        "x": 39,
+        "y": 831,
+        "w": 275,
+        "h": 269
+      },
+      "type": "platform",
+      "tags": [],
+      "paletteOrder": 0
+    },
+    {
+      "key": "asset:at_atlas_031:shore_stony",
+      "kind": "asset",
+      "id": "at_atlas_031:shore_stony",
+      "label": "shore_stony",
+      "category": "platform",
+      "searchable": "at_atlas_031 shore_stony platform",
+      "thumbnail": {
+        "x": 320,
+        "y": 1280,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_031",
+        "assetId": "shore_stony",
+        "manifest": "atlases/at_atlas_031.json",
+        "image": "atlases/at_atlas_031.png"
+      },
+      "frame": {
+        "x": -1,
+        "y": 2,
+        "w": 1166,
+        "h": 147
+      },
+      "type": "platform",
+      "tags": [],
+      "paletteOrder": 0
+    },
+    {
       "key": "entity:enemySpawner",
       "kind": "entity",
       "id": "enemySpawner",
@@ -16508,7 +16690,7 @@
       "category": "Entity",
       "searchable": "enemySpawner Enemy spawner Invisible during play. While its authored area is on screen, it rolls once per second and teleports in one already-alert enemy on a successful roll.",
       "thumbnail": {
-        "x": 0,
+        "x": 384,
         "y": 1280,
         "w": 64,
         "h": 64
@@ -16531,7 +16713,7 @@
       "category": "Entity",
       "searchable": "mailbox Editor's mailbox An editor-letter mailbox. Each placed mailbox owns its own trigger distance, letter, thought, and timing metadata, so a level can contain several tutorial letters.",
       "thumbnail": {
-        "x": 64,
+        "x": 448,
         "y": 1280,
         "w": 64,
         "h": 64
@@ -16554,7 +16736,7 @@
       "category": "Entity",
       "searchable": "thoughtTrigger Location thought trigger Invisible one-shot region that pauses play and shows an Ignatius thought bubble when entered.",
       "thumbnail": {
-        "x": 128,
+        "x": 512,
         "y": 1280,
         "w": 64,
         "h": 64
@@ -16577,7 +16759,7 @@
       "category": "Entity",
       "searchable": "questionMarkTrigger Question mark trigger Invisible one-shot trigger that shows a question mark above Ignatius for two seconds.",
       "thumbnail": {
-        "x": 192,
+        "x": 576,
         "y": 1280,
         "w": 64,
         "h": 64
@@ -16600,7 +16782,7 @@
       "category": "Entity",
       "searchable": "exclamationMarkTrigger Exclamation mark trigger Invisible one-shot trigger that shows an exclamation mark above Ignatius for two seconds.",
       "thumbnail": {
-        "x": 256,
+        "x": 640,
         "y": 1280,
         "w": 64,
         "h": 64
@@ -16623,7 +16805,7 @@
       "category": "Entity",
       "searchable": "wizard_entry_door Wizard entry door The effective level start. It snaps to nearby ground, opens, lets Ignatius walk out behind the foreground door layer, then closes.",
       "thumbnail": {
-        "x": 320,
+        "x": 704,
         "y": 1280,
         "w": 64,
         "h": 64
@@ -16646,7 +16828,7 @@
       "category": "Entity",
       "searchable": "wizard_entry_point Wizard entry point Invisible immediate level start. Ignatius begins at this floor-anchored point with no doorway animation.",
       "thumbnail": {
-        "x": 384,
+        "x": 768,
         "y": 1280,
         "w": 64,
         "h": 64
@@ -16669,7 +16851,7 @@
       "category": "Entity",
       "searchable": "wizard_exit_door Wizard exit door The level exit. It is mirrored by default, snaps to nearby ground, opens when Ignatius approaches, and walks him through before loading its destination level.",
       "thumbnail": {
-        "x": 448,
+        "x": 832,
         "y": 1280,
         "w": 64,
         "h": 64
@@ -16692,7 +16874,7 @@
       "category": "Entity",
       "searchable": "wizard_exit_point Wizard exit point Invisible immediate level exit. Reaching this point loads its destination without a doorway animation.",
       "thumbnail": {
-        "x": 512,
+        "x": 896,
         "y": 1280,
         "w": 64,
         "h": 64
@@ -16715,7 +16897,7 @@
       "category": "Entity",
       "searchable": "treasureChest Treasure chest Automatic proximity treasure chest: begins open with loot, awards Score once, then remains open and empty.",
       "thumbnail": {
-        "x": 576,
+        "x": 960,
         "y": 1280,
         "w": 64,
         "h": 64
@@ -16738,7 +16920,7 @@
       "category": "Entity",
       "searchable": "breakableCrate Breakable crate A solid reactive crate that intercepts rockets, becomes damaged, then disappears when destroyed.",
       "thumbnail": {
-        "x": 640,
+        "x": 1024,
         "y": 1280,
         "w": 64,
         "h": 64
@@ -16761,7 +16943,7 @@
       "category": "Entity",
       "searchable": "destructibleBarrier Breakable iron barrier A tall solid barrier that intercepts rockets, bends when damaged, and removes its collision when destroyed.",
       "thumbnail": {
-        "x": 704,
+        "x": 1088,
         "y": 1280,
         "w": 64,
         "h": 64
@@ -16784,7 +16966,7 @@
       "category": "Entity",
       "searchable": "leverSwitch Lever switch Nearby switch that toggles a named signal channel. Press Down, S, or Enter to operate it.",
       "thumbnail": {
-        "x": 768,
+        "x": 1152,
         "y": 1280,
         "w": 64,
         "h": 64
@@ -16805,9 +16987,9 @@
       "id": "keyholeSwitch",
       "label": "Keyhole switch",
       "category": "Entity",
-      "searchable": "keyholeSwitch Keyhole switch Consumes the configured key when Ignatius operates it, then emits its named signal once.",
+      "searchable": "keyholeSwitch Keyhole switch Automatically consumes the configured key when Ignatius comes within one wizard width, emits its named signal once, then fades away over 0.75 seconds.",
       "thumbnail": {
-        "x": 832,
+        "x": 1216,
         "y": 1280,
         "w": 64,
         "h": 64
@@ -16823,14 +17005,37 @@
       }
     },
     {
+      "key": "entity:proximitySignalTrigger",
+      "kind": "entity",
+      "id": "proximitySignalTrigger",
+      "label": "Proximity signal trigger",
+      "category": "Entity",
+      "searchable": "proximitySignalTrigger Proximity signal trigger Invisible one-shot trigger that activates a named signal channel the first time Ignatius enters its radius.",
+      "thumbnail": {
+        "x": 1280,
+        "y": 1280,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "catalog": "items/it_entities_001.json",
+        "entityType": "proximitySignalTrigger"
+      },
+      "entityKind": "catalog",
+      "originalSize": {
+        "w": 32,
+        "h": 32
+      }
+    },
+    {
       "key": "entity:spikedGate",
       "kind": "entity",
       "id": "spikedGate",
       "label": "Spiked gate",
       "category": "Entity",
-      "searchable": "spikedGate Spiked gate Switchable vertical gate.",
+      "searchable": "spikedGate Spiked gate Signal-controlled vertical gate that remains solid while fading away in place over 0.75 seconds, then disappears completely.",
       "thumbnail": {
-        "x": 896,
+        "x": 1344,
         "y": 1280,
         "w": 64,
         "h": 64
@@ -16851,9 +17056,9 @@
       "id": "hangingGate",
       "label": "Hanging iron bars",
       "category": "Entity",
-      "searchable": "hangingGate Hanging iron bars Alternative switchable iron gate.",
+      "searchable": "hangingGate Hanging iron bars Alternative signal-controlled iron gate that remains solid while fading away in place over 0.75 seconds, then disappears completely.",
       "thumbnail": {
-        "x": 960,
+        "x": 1408,
         "y": 1280,
         "w": 64,
         "h": 64
@@ -16876,8 +17081,8 @@
       "category": "Entity",
       "searchable": "fuel Rocket fuel Sixty-second rocket flight power-up.",
       "thumbnail": {
-        "x": 1024,
-        "y": 1280,
+        "x": 0,
+        "y": 1344,
         "w": 64,
         "h": 64
       },
@@ -16899,8 +17104,8 @@
       "category": "Entity",
       "searchable": "fuelUpgrade UpgradeFuel Permanent maximum rocket-fuel upgrade. Currently shown as a blue herb.",
       "thumbnail": {
-        "x": 1088,
-        "y": 1280,
+        "x": 64,
+        "y": 1344,
         "w": 64,
         "h": 64
       },
@@ -16922,8 +17127,8 @@
       "category": "Entity",
       "searchable": "speedUpgrade UpgradeSpeed Permanent movement-speed upgrade. Currently shown as a red mushroom.",
       "thumbnail": {
-        "x": 1152,
-        "y": 1280,
+        "x": 128,
+        "y": 1344,
         "w": 64,
         "h": 64
       },
@@ -16945,8 +17150,8 @@
       "category": "Entity",
       "searchable": "healthUpgrade UpgradeHealth Permanent maximum-health upgrade. Currently shown as a purple herb.",
       "thumbnail": {
-        "x": 1216,
-        "y": 1280,
+        "x": 192,
+        "y": 1344,
         "w": 64,
         "h": 64
       },
@@ -16968,8 +17173,8 @@
       "category": "Entity",
       "searchable": "regenUpgrade UpgradeRegen Permanent health and rocket-fuel regeneration upgrade. Currently shown as a yellow herb.",
       "thumbnail": {
-        "x": 1280,
-        "y": 1280,
+        "x": 256,
+        "y": 1344,
         "w": 64,
         "h": 64
       },
@@ -16991,8 +17196,8 @@
       "category": "Entity",
       "searchable": "ornateKeyPickup Ornate key An ornate key collected into Ignatius’s inventory.",
       "thumbnail": {
-        "x": 1344,
-        "y": 1280,
+        "x": 320,
+        "y": 1344,
         "w": 64,
         "h": 64
       },
@@ -17014,8 +17219,8 @@
       "category": "Entity",
       "searchable": "ironKeyPickup Iron key An iron key collected into Ignatius’s inventory and usable by keyholes.",
       "thumbnail": {
-        "x": 1408,
-        "y": 1280,
+        "x": 384,
+        "y": 1344,
         "w": 64,
         "h": 64
       },
@@ -17033,11 +17238,11 @@
       "key": "entity:magicRingPickup",
       "kind": "entity",
       "id": "magicRingPickup",
-      "label": "Magic ring",
+      "label": "Magic Ring",
       "category": "Entity",
-      "searchable": "magicRingPickup Magic ring ",
+      "searchable": "magicRingPickup Magic Ring 30-second concealment pickup. Normal enemies cannot see Ignatius while it is active; enemies hit by him panic for 10 seconds.",
       "thumbnail": {
-        "x": 0,
+        "x": 448,
         "y": 1344,
         "w": 64,
         "h": 64
@@ -17060,7 +17265,7 @@
       "category": "Entity",
       "searchable": "checkpointRune Rune checkpoint ",
       "thumbnail": {
-        "x": 64,
+        "x": 512,
         "y": 1344,
         "w": 64,
         "h": 64
@@ -17083,7 +17288,7 @@
       "category": "Entity",
       "searchable": "spikedBallHazard Spiked ball hazard ",
       "thumbnail": {
-        "x": 128,
+        "x": 576,
         "y": 1344,
         "w": 64,
         "h": 64
@@ -17106,7 +17311,7 @@
       "category": "Entity",
       "searchable": "overdrivePickup Overdrive Timed rocket overdrive: launches cost half fuel and passive recovery offsets 90% of hover drain, even while fuel is being spent.",
       "thumbnail": {
-        "x": 192,
+        "x": 640,
         "y": 1344,
         "w": 64,
         "h": 64
@@ -17129,7 +17334,7 @@
       "category": "Entity",
       "searchable": "shieldPickup Shield Grants ten seconds of complete damage invulnerability and makes Ignatius flash blue.",
       "thumbnail": {
-        "x": 256,
+        "x": 704,
         "y": 1344,
         "w": 64,
         "h": 64
@@ -17152,7 +17357,7 @@
       "category": "Entity",
       "searchable": "wrenchPickup Wrench powerup Grants the selected 20-second wrench rocket mode. If no wrench type is authored, it defaults to the cyan Dart wrench.",
       "thumbnail": {
-        "x": 320,
+        "x": 768,
         "y": 1344,
         "w": 64,
         "h": 64
@@ -17175,7 +17380,7 @@
       "category": "World",
       "searchable": "proximityText TEXT Bold world-space text that fades in once when Ignatius enters its independently positioned trigger radius.",
       "thumbnail": {
-        "x": 384,
+        "x": 832,
         "y": 1344,
         "w": 64,
         "h": 64
@@ -17198,7 +17403,7 @@
       "category": "Enemy",
       "searchable": "enemy_001 Skeleton Guard  ct_char_enemy_001",
       "thumbnail": {
-        "x": 448,
+        "x": 896,
         "y": 1344,
         "w": 64,
         "h": 64
@@ -17228,7 +17433,7 @@
       "category": "Enemy",
       "searchable": "enemy_002 Skeleton Caster A hunter skeleton that pursues Ignatius across terrain and casts an obstacle-aware orb of undeath. ct_char_enemy_002",
       "thumbnail": {
-        "x": 512,
+        "x": 960,
         "y": 1344,
         "w": 64,
         "h": 64
@@ -17258,7 +17463,7 @@
       "category": "Enemy",
       "searchable": "enemy_010 Fireball Goblin  ct_char_enemy_010",
       "thumbnail": {
-        "x": 576,
+        "x": 1024,
         "y": 1344,
         "w": 64,
         "h": 64
@@ -17288,7 +17493,7 @@
       "category": "Enemy",
       "searchable": "enemy_011 Musket Goblin  ct_char_enemy_011",
       "thumbnail": {
-        "x": 640,
+        "x": 1088,
         "y": 1344,
         "w": 64,
         "h": 64
@@ -17318,7 +17523,7 @@
       "category": "Enemy",
       "searchable": "enemy_012 Tri-fireball Goblin  ct_char_enemy_012",
       "thumbnail": {
-        "x": 704,
+        "x": 1152,
         "y": 1344,
         "w": 64,
         "h": 64
@@ -17348,7 +17553,7 @@
       "category": "Enemy",
       "searchable": "enemy_018 Hobgoblin  ct_char_enemy_018",
       "thumbnail": {
-        "x": 768,
+        "x": 1216,
         "y": 1344,
         "w": 64,
         "h": 64
@@ -17378,7 +17583,7 @@
       "category": "Enemy",
       "searchable": "enemy_020 Bombing Bat The retained bat enemy. It patrols a small area around its authored perch, activates only when Ignatius enters its normal awareness view, flies overhead, and drops atlas-authored rocks. ct_char_enemy_020",
       "thumbnail": {
-        "x": 832,
+        "x": 1280,
         "y": 1344,
         "w": 64,
         "h": 64
@@ -17408,7 +17613,7 @@
       "category": "Enemy",
       "searchable": "enemy_021 Blue Bombing Bat A smaller two-thirds-scale blue variant of the retained bombing bat. It patrols a small area around its authored perch, activates only when Ignatius enters its normal awareness view, flies overhead, and drops atlas-authored rocks. ct_char_enemy_021",
       "thumbnail": {
-        "x": 896,
+        "x": 1344,
         "y": 1344,
         "w": 64,
         "h": 64
@@ -17438,7 +17643,7 @@
       "category": "Enemy",
       "searchable": "enemy_030 Human Raider A modular human sword enemy using body_00/head_00 with the fully articulated split-limb rig and refined animation set. ct_char_enemy_030",
       "thumbnail": {
-        "x": 960,
+        "x": 1408,
         "y": 1344,
         "w": 64,
         "h": 64
@@ -17468,8 +17673,8 @@
       "category": "Enemy",
       "searchable": "enemy_031 Human Raider II A modular human sword enemy using body_01/head_01 with an exact articulated copy of the refined sword animation set. ct_char_enemy_031",
       "thumbnail": {
-        "x": 1024,
-        "y": 1344,
+        "x": 0,
+        "y": 1408,
         "w": 64,
         "h": 64
       },
@@ -17498,8 +17703,8 @@
       "category": "Enemy",
       "searchable": "enemy_032 Human Knife Thrower A blonde human knife thrower using body_02/head_02. He performs the user-authored articulated throwing motion and releases three non-spinning, point-first daggers in a +/-5 degree fan. ct_char_enemy_032",
       "thumbnail": {
-        "x": 1088,
-        "y": 1344,
+        "x": 64,
+        "y": 1408,
         "w": 64,
         "h": 64
       },
@@ -17528,8 +17733,8 @@
       "category": "Enemy",
       "searchable": "enemy_033 Human Knife Thrower II A dark-haired human knife thrower using the fresh body_03/head_03 pair. He shares Enemy 032's user-authored articulated throw and releases three non-spinning, point-first daggers in a +/-5 degree fan. ct_char_enemy_033",
       "thumbnail": {
-        "x": 1152,
-        "y": 1344,
+        "x": 128,
+        "y": 1408,
         "w": 64,
         "h": 64
       },
@@ -17558,8 +17763,8 @@
       "category": "Enemy",
       "searchable": "enemy_034 Human Crossbow Human Crossbow using the shared modular-human atlas. He raises a two-handed crossbow, fires three separately aimed fast bolts at 0.4-second intervals with compact recoil/recovery beats, then lowers the weapon and reloads. ct_char_enemy_034",
       "thumbnail": {
-        "x": 1216,
-        "y": 1344,
+        "x": 192,
+        "y": 1408,
         "w": 64,
         "h": 64
       },
@@ -17588,8 +17793,8 @@
       "category": "Enemy",
       "searchable": "enemy_035 Human Crossbow II Human Crossbow II using the shared modular-human atlas. He raises a two-handed crossbow, fires three separately aimed fast bolts at 0.4-second intervals with compact recoil/recovery beats, then lowers the weapon and reloads. ct_char_enemy_035",
       "thumbnail": {
-        "x": 1280,
-        "y": 1344,
+        "x": 256,
+        "y": 1408,
         "w": 64,
         "h": 64
       },
@@ -17618,8 +17823,8 @@
       "category": "Enemy",
       "searchable": "enemy_036 Human Pirate Human Pirate using the shared modular-human atlas and a rapier. He reuses the articulated Raider lunge and slash timing. ct_char_enemy_036",
       "thumbnail": {
-        "x": 1344,
-        "y": 1344,
+        "x": 320,
+        "y": 1408,
         "w": 64,
         "h": 64
       },
@@ -17648,8 +17853,8 @@
       "category": "Enemy",
       "searchable": "enemy_037 Human Pirate II Human Pirate II using the shared modular-human atlas and a rapier. He reuses the articulated Raider lunge and slash timing. ct_char_enemy_037",
       "thumbnail": {
-        "x": 1408,
-        "y": 1344,
+        "x": 384,
+        "y": 1408,
         "w": 64,
         "h": 64
       },
@@ -17678,7 +17883,7 @@
       "category": "Enemy",
       "searchable": "enemy_038 Human Boxer A weapon-free modular human using body_05/head_16. He closes to melee range and attacks with the articulated bare-knuckle swing. ct_char_enemy_038",
       "thumbnail": {
-        "x": 0,
+        "x": 448,
         "y": 1408,
         "w": 64,
         "h": 64
@@ -17708,7 +17913,7 @@
       "category": "Enemy",
       "searchable": "enemy_040 Raptor A fast ground-hunting raptor assembled from a parent-constrained articulated rig. ct_char_enemy_040",
       "thumbnail": {
-        "x": 64,
+        "x": 512,
         "y": 1408,
         "w": 64,
         "h": 64
@@ -17738,7 +17943,7 @@
       "category": "Enemy",
       "searchable": "enemy_050 Snake A low-slung articulated snake assembled from repeated pattern-matched overlapping sections. It uses an organic slither, a raised-head bite, and a dramatic belly-up death. ct_char_enemy_050",
       "thumbnail": {
-        "x": 128,
+        "x": 576,
         "y": 1408,
         "w": 64,
         "h": 64
@@ -17768,7 +17973,7 @@
       "category": "Enemy",
       "searchable": "enemy_060 Porker  ct_char_enemy_060",
       "thumbnail": {
-        "x": 192,
+        "x": 640,
         "y": 1408,
         "w": 64,
         "h": 64
@@ -17798,7 +18003,7 @@
       "category": "Enemy",
       "searchable": "enemy_070 Crocker  ct_char_enemy_070",
       "thumbnail": {
-        "x": 256,
+        "x": 704,
         "y": 1408,
         "w": 64,
         "h": 64
@@ -17828,7 +18033,7 @@
       "category": "Enemy",
       "searchable": "enemy_080 Ogre  ct_char_enemy_080",
       "thumbnail": {
-        "x": 320,
+        "x": 768,
         "y": 1408,
         "w": 64,
         "h": 64
@@ -17858,7 +18063,7 @@
       "category": "Enemy",
       "searchable": "enemy_090 Greybeard Axethrower Greybeard Axethrower using the corrected open left hand. He hurls one independently authored, rapidly spinning double-headed axe from the axe_copy handoff at 0.339 seconds. ct_char_enemy_090",
       "thumbnail": {
-        "x": 384,
+        "x": 832,
         "y": 1408,
         "w": 64,
         "h": 64
@@ -17888,7 +18093,7 @@
       "category": "Enemy",
       "searchable": "enemy_091 Blackbeard Axethrower Blackbeard Axethrower using the corrected open left hand. He hurls one independently authored, rapidly spinning double-headed axe from the axe_copy handoff at 0.339 seconds. ct_char_enemy_091",
       "thumbnail": {
-        "x": 448,
+        "x": 896,
         "y": 1408,
         "w": 64,
         "h": 64
@@ -17918,7 +18123,7 @@
       "category": "Enemy",
       "searchable": "enemy_092 Redbeard Axethrower Redbeard Axethrower using the corrected open left hand. He hurls one independently authored, rapidly spinning double-headed axe from the axe_copy handoff at 0.339 seconds. ct_char_enemy_092",
       "thumbnail": {
-        "x": 512,
+        "x": 960,
         "y": 1408,
         "w": 64,
         "h": 64
@@ -17948,7 +18153,7 @@
       "category": "Enemy",
       "searchable": "enemy_093 Copperbeard Axethrower Copperbeard Axethrower using the corrected open left hand. He hurls one independently authored, rapidly spinning double-headed axe from the axe_copy handoff at 0.339 seconds. ct_char_enemy_093",
       "thumbnail": {
-        "x": 576,
+        "x": 1024,
         "y": 1408,
         "w": 64,
         "h": 64
@@ -17978,7 +18183,7 @@
       "category": "Enemy",
       "searchable": "enemy_900 Training Dummy A stationary training dummy that uses the ordinary enemy pipeline but never attacks or deals contact damage. ct_char_enemy_900",
       "thumbnail": {
-        "x": 640,
+        "x": 1088,
         "y": 1408,
         "w": 64,
         "h": 64

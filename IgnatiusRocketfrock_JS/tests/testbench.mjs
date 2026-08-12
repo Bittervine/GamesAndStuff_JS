@@ -315,6 +315,9 @@ import {
 import {
     HOMING_TRIPLE_MEANDER_INTERVAL_SECONDS,
     HOMING_TRIPLE_MEANDER_TURN_DEGREES,
+    MAGIC_RING_BRIGHTNESS,
+    MAGIC_RING_DURATION_SECONDS,
+    MAGIC_RING_PANIC_SECONDS,
     NON_HOMING_ROCKET_SPEED_FACTOR,
     OVERDRIVE_PASSIVE_FUEL_RECOVERY_DRAIN_FACTOR,
     POWER_UP_EFFECT_IDS,
@@ -6303,6 +6306,141 @@ function testCharacterEnemyRocketCombat() {
 
     stepMany(state, 120);
     assert.equal(enemy.currentTransform.alpha, 0, "defeated enemy should be fully transparent after the three-second fade");
+
+    const concealedState = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(concealedState, {
+        levelId: "magic_ring_enemy_panic_test",
+        testPlayerStart: { x: -200, y: 600 },
+        entities: [{
+            id: "panic_hunter",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_test",
+            x: 180,
+            y: 100,
+            w: 72,
+            h: 150,
+            health: 100,
+            strategy: "hunter",
+            facing: -1,
+            walkSpeed: 60,
+            runSpeed: 180,
+            patrolDistance: 80,
+            awarenessRange: 1000,
+            awarenessViewHalfAngle: 180,
+            awarenessHoldSeconds: 1.2,
+            attackMode: "projectile",
+            attackRange: 900,
+            attackVerticalRange: 900,
+            preferredAttackMinRange: 0,
+            projectileKind: "fireball",
+            projectileLaunchType: "straight",
+            projectileSpeed: 320,
+            projectileGravity: 0,
+            projectileLifetime: 4,
+            projectileRadius: 8,
+            projectileDamage: 0,
+            projectileCooldown: 0.08,
+            projectileHomingStrength: 0,
+            attackDuration: 0.18,
+            attackHitTime: 0.06,
+            attackCooldown: 0.08,
+            hurtDuration: 0.08
+        }]
+    }), true, "synthetic Magic Ring hunter fixture should apply without an authored enemy catalog");
+    concealedState.world.solids = [];
+    concealedState.world.segments = [
+        { id: "panic_player_floor", kind: "walkable", x1: -2000, y1: 600, x2: 2000, y2: 600 },
+        { id: "panic_hunter_floor", kind: "walkable", x1: -2000, y1: 100, x2: 2000, y2: 100 }
+    ];
+    concealedState.world.collisionPolygons = [];
+    concealedState.world.bounds = { x: -3000, y: -1000, w: 6000, h: 3000 };
+    concealedState.story.portalIntro = null;
+    concealedState.story.portalExit = null;
+    concealedState.story.mailboxEvent = null;
+    concealedState.player.currentTransform.x = -200;
+    concealedState.player.currentTransform.y = 600;
+    concealedState.player.onGround = true;
+    concealedState.player.wasOnGround = true;
+    concealedState.player.supportId = "panic_player_floor";
+    const concealedHunter = concealedState.enemies.find((item) => item.id === "panic_hunter");
+    concealedHunter.airborne = false;
+    concealedHunter.supportId = "panic_hunter_floor";
+    concealedHunter.currentSupportId = "panic_hunter_floor";
+    const ringDefinition = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.MAGIC_RING);
+    concealedState.statusEffects.active[POWER_UP_EFFECT_IDS.MAGIC_RING] = {
+        id: ringDefinition.id,
+        definition: ringDefinition,
+        remainingSeconds: ringDefinition.durationSeconds,
+        sourceId: "panic_ring",
+        activatedAt: concealedState.clock.time,
+        refreshCount: 0
+    };
+
+    stepMany(concealedState, 12);
+    assert.equal(concealedHunter.alerted, false, "a hunter with a clear view should not notice Ignatius while Magic Ring concealment is active");
+    assert.equal(concealedHunter.engaged, false, "concealment should keep an otherwise visible hunter out of normal combat engagement");
+
+    addTestRocket(concealedState, { id: "panic_trigger_hit", damage: 5 });
+    stepSimulation(concealedState, createInputFrame(), FIXED_DT);
+    assert.ok(concealedHunter.panicTimer > 9.9 && concealedHunter.panicTimer <= MAGIC_RING_PANIC_SECONDS, "an unseen player hit should start the ten-second panic memory");
+    assert.equal(concealedHunter.awarenessTimer, 0, "panic from an unseen hit must not fabricate ordinary visual awareness");
+    assert.equal(concealedHunter.lastSeenPlayerX, null, "panic from an unseen hit must not reveal Ignatius's hidden position");
+    assert.equal(concealedHunter.lastSeenPlayerY, null, "panic from an unseen hit must not reveal Ignatius's hidden height");
+    assert.ok(concealedState.debug.lastEvents.some((event) => event.type === "ENEMY_PANICKED" && event.enemyId === concealedHunter.id), "unseen damage should emit an explicit panic event");
+
+    concealedState.projectiles = [];
+    const panicStartX = concealedHunter.currentTransform.x;
+    let arbitraryProjectile = null;
+    for (let tick = 0; tick < 240 && !arbitraryProjectile; tick += 1) {
+        stepSimulation(concealedState, createInputFrame(), FIXED_DT);
+        arbitraryProjectile = concealedState.projectiles.find((projectile) => projectile.owner === "enemy" && projectile.enemyId === concealedHunter.id) || null;
+    }
+    assert.ok(Math.abs(concealedHunter.currentTransform.x - panicStartX) > 2, "a panicked hunter should scramble away from its hit position instead of tracking the invisible wizard");
+    assert.ok(arbitraryProjectile, "a panicked ranged hunter should eventually attack despite lacking visual contact");
+    if (arbitraryProjectile) {
+        const projectileAngle = Math.atan2(arbitraryProjectile.vy, arbitraryProjectile.vx);
+        const normalizedAngleDelta = Math.atan2(Math.sin(projectileAngle - concealedHunter.panicAttackAngle), Math.cos(projectileAngle - concealedHunter.panicAttackAngle));
+        assert.ok(Math.abs(normalizedAngleDelta) < 0.12, "panic projectile direction should follow the hunter's arbitrary panic aim rather than hidden-player tracking");
+        const directPlayerAngle = Math.atan2(
+            concealedState.player.currentTransform.y - concealedState.player.height * 0.5 - arbitraryProjectile.currentTransform.y,
+            concealedState.player.currentTransform.x - arbitraryProjectile.currentTransform.x
+        );
+        const directDelta = Math.atan2(Math.sin(projectileAngle - directPlayerAngle), Math.cos(projectileAngle - directPlayerAngle));
+        assert.ok(Math.abs(directDelta) > 0.15, `straight panic attacks should not secretly aim at the concealed wizard (projectile=${projectileAngle}, direct=${directPlayerAngle}, delta=${directDelta}, panic=${concealedHunter.panicAttackAngle})`);
+    }
+
+    concealedState.projectiles = [];
+    concealedHunter.projectileLaunchType = "homing_lo";
+    concealedHunter.projectileHomingStrength = 4.8;
+    concealedHunter.panicPhase = "attack";
+    concealedHunter.panicPhaseTimer = 0;
+    concealedHunter.attackCooldownTimer = 0;
+    let homingProjectile = null;
+    for (let tick = 0; tick < 90 && !homingProjectile; tick += 1) {
+        stepSimulation(concealedState, createInputFrame(), FIXED_DT);
+        homingProjectile = concealedState.projectiles.find((projectile) => projectile.owner === "enemy" && projectile.enemyId === concealedHunter.id && projectile.homingStrength > 0) || null;
+    }
+    assert.ok(homingProjectile, "a homing panic attack should still launch while Ignatius is concealed");
+    assert.equal(homingProjectile?.targetId, "player", "homing enemy missiles should continue to see and track the concealed wizard");
+
+    concealedState.projectiles = [];
+    stepMany(concealedState, 300);
+    const panicBeforeRefresh = concealedHunter.panicTimer;
+    assert.ok(panicBeforeRefresh > 3 && panicBeforeRefresh < 6, "panic timer should count down while no new hit lands");
+    addTestRocket(concealedState, {
+        id: "panic_refresh_hit",
+        x: concealedHunter.currentTransform.x - 12,
+        y: concealedHunter.currentTransform.y - concealedHunter.height * 0.5,
+        vx: 1200,
+        damage: 1
+    });
+    stepSimulation(concealedState, createInputFrame(), FIXED_DT);
+    assert.ok(concealedHunter.panicTimer > 9.9, "another unseen hit should restart the ten-second panic memory");
+    concealedState.projectiles = [];
+    stepMany(concealedState, Math.ceil((MAGIC_RING_PANIC_SECONDS + 0.2) / FIXED_DT));
+    assert.equal(concealedHunter.panicTimer, 0, "a hunter should stop panicking after ten seconds without another hit");
+    assert.equal(concealedHunter.alerted, false, "after panic expires, an enemy still under Magic Ring concealment should return to normal unaware activity");
+    assert.notEqual(concealedHunter.aiState, "panic", "panic expiry should restore the enemy's ordinary AI state");
 }
 
 function testPassiveEnemyStaysPassiveWhenDamaged() {
@@ -8629,12 +8767,22 @@ function testThinPlatformAtlasCollisionPolicy() {
 
 
 function testLongPlatformAtlas004ManifestAndGeneration() {
+    // Intentional authored-resource exception: keep this regression pinned only to at_atlas_004.
+    // Do not add another editable production atlas as a fixture for this test.
     const atlas = JSON.parse(readFileSync(new URL("../resources/atlases/at_atlas_004.json", import.meta.url), "utf8"));
-    assert.equal(atlas.atlasId, "at_atlas_004", "the new long-platform manifest should use the requested atlas ID");
-    assert.equal(Object.keys(atlas.frames || {}).length, 16, "Atlas 004 should expose all sixteen authored platform islands");
-    assert.equal(Object.keys(atlas.objects || {}).length, 16, "every Atlas 004 frame should have collision metadata");
+    assert.equal(atlas.atlasId, "at_atlas_004", "the long-platform manifest should use the requested atlas ID");
+    assert.equal(Object.keys(atlas.frames || {}).length, 18, "Atlas 004 should expose its sixteen platform islands plus two decor items");
+    assert.equal(Object.keys(atlas.objects || {}).length, 18, "every Atlas 004 frame should have object metadata");
 
-    for (const [assetId, object] of Object.entries(atlas.objects || {})) {
+    const platformObjects = Object.entries(atlas.objects || {}).filter(([, object]) => object?.type === "platform");
+    const decorAssetIds = Object.entries(atlas.objects || {})
+        .filter(([, object]) => object?.type === "decor")
+        .map(([assetId]) => assetId)
+        .sort();
+    assert.equal(platformObjects.length, 16, "Atlas 004 should retain exactly sixteen authored platform islands");
+    assert.deepEqual(decorAssetIds, ["black_long", "black_round"], "Atlas 004 should retain the two authored black decor items");
+
+    for (const [assetId, object] of platformObjects) {
         const frame = atlas.frames?.[object.frame];
         assert.ok(frame, `${assetId} should reference an Atlas 004 frame`);
         assert.equal(object.type, "platform", `${assetId} should be catalogued as a platform`);
@@ -9097,7 +9245,10 @@ function testAutomaticLevelGeneratorVariantCompatibility() {
             const identity = `${manifest.atlasId}:${assetId}`;
             atlasGenerationTags.set(identity, generationTags);
             if (!generationTags.length) continue;
-            assert.ok(generationTags.some((tag) => tag.startsWith("biome.")), `${identity} should be assigned to at least one generator biome`);
+            const hasGeneratorCapability = generationTags.some((tag) => tag.startsWith("capability."));
+            if (hasGeneratorCapability) {
+                assert.ok(generationTags.some((tag) => tag.startsWith("biome.")), `${identity} generator-capability assets should be assigned to at least one generator biome`);
+            }
             assert.ok(generationTags.some((tag) => tag.startsWith("layer.")), `${identity} should be assigned to at least one generator layer`);
             assert.ok(generationTags.every((tag) => validGenerationTagIds.has(tag)), `${identity} should use only catalogued generation tags`);
             if (generationTags.includes("capability.platform")) {
@@ -12044,6 +12195,47 @@ function testScoreHudAndTreasureChestCollection() {
 }
 
 function testRocketPowerUpArsenal() {
+    const magicRing = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.MAGIC_RING);
+    assert.ok(magicRing, "Magic Ring should be a first-class timed power-up");
+    assert.equal(magicRing.durationSeconds, MAGIC_RING_DURATION_SECONDS, "Magic Ring should conceal Ignatius for exactly thirty seconds");
+    assert.equal(MAGIC_RING_DURATION_SECONDS, 30, "Magic Ring concealment duration should stay at thirty seconds");
+    assert.equal(MAGIC_RING_PANIC_SECONDS, 10, "unseen attackers should remain in panic for ten seconds after their last hit");
+    assert.equal(MAGIC_RING_BRIGHTNESS, 0.5, "Magic Ring presentation should darken Ignatius to fifty percent brightness without changing opacity");
+    assert.equal(magicRing.stacking, POWER_UP_STACKING_RULES.REFRESH, "collecting another Magic Ring should refresh its concealment timer");
+    const ringPickupState = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(ringPickupState, {
+        levelId: "magic_ring_pickup_test",
+        testPlayerStart: { x: 100, y: 300 },
+        entities: [{
+            id: "magic_ring_pickup_test",
+            type: "magicRingPickup",
+            x: 100,
+            y: 300,
+            w: 55,
+            h: 54,
+            pickupKind: "magicRing",
+            effectId: "magicRing",
+            amount: 1,
+            state: "available",
+            visualStates: { available: [], collected: [] }
+        }]
+    }), true, "synthetic Magic Ring pickup fixture should apply without depending on an authored level");
+    ringPickupState.story.portalIntro = null;
+    ringPickupState.story.portalExit = null;
+    ringPickupState.story.mailboxEvent = null;
+    ringPickupState.player.currentTransform.x = 100;
+    ringPickupState.player.currentTransform.y = 300;
+    stepSimulation(ringPickupState, createInputFrame(), FIXED_DT);
+    assert.equal(ringPickupState.pickups[0]?.kind, "powerUp", "Magic Ring entity should normalize to a collectible power-up");
+    assert.equal(ringPickupState.pickups[0]?.collected, true, "touching a Magic Ring should collect it");
+    const activeRing = activePowerUpEffect(ringPickupState, POWER_UP_EFFECT_IDS.MAGIC_RING);
+    assert.ok(activeRing, "collecting a Magic Ring should activate concealment");
+    assert.ok(activeRing.remainingSeconds > 29.9 && activeRing.remainingSeconds <= 30, "fresh Magic Ring concealment should begin with essentially the full thirty-second timer");
+    const magicRingRendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
+    assert.match(magicRingRendererSource, /tint: \[brightness, brightness, brightness, 1\]/, "WebGL Magic Ring darkening should multiply RGB while leaving alpha fully opaque");
+    assert.ok(magicRingRendererSource.includes("asset.magicRingCanvas = makeDarkenedSpriteCanvas(asset.canvas, MAGIC_RING_BRIGHTNESS)"), "Canvas Magic Ring darkening should use a cached RGB-darkened player sprite rather than live filtering");
+    assert.ok(magicRingRendererSource.includes('ctx.globalCompositeOperation = "source-atop"') && magicRingRendererSource.includes('ctx.fillStyle = "#000000"'), "the cached Magic Ring sprite should darken RGB toward black without changing its source alpha");
+
     const overdrive = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.OVERDRIVE);
     assert.equal(overdrive.label, "Overdrive", "the lightning power-up should use its new Overdrive display name");
     assert.equal(powerUpHudLabel(overdrive), "Overdrive", "non-wrench HUD labels should remain unchanged");
@@ -18315,6 +18507,7 @@ function testBossDefeatSignalGate() {
     state.story.portalIntro = null;
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
+    state.world.solids.push({ id: "boss_gate_test_floor", kind: "wall", x: -1000, y: 300, w: 2000, h: 100 });
 
     const boss = state.enemies.find((enemy) => enemy.id === "test_boss");
     assert.equal(boss.isBoss, true, "runtime enemies should retain authored boss identity");
@@ -18333,8 +18526,11 @@ function testBossDefeatSignalGate() {
     assert.equal(boss.health, 0, "the test rocket should defeat the boss");
     assert.ok(state.debug.lastEvents.some((event) => event.type === "BOSS_DEFEATED" && event.enemyId === boss.id), "boss death should emit its deterministic encounter event");
     assert.equal(state.world.signalChannels.BOSS_TEST_DEFEATED.active, true, "boss death should activate the authored signal channel");
-    assert.equal(state.world.entityStates.test_boss_gate, "open", "the matching iron gate should enter its raised state");
-    assert.equal(state.world.solids.some((solid) => solid.signalReceiverId === "test_boss_gate"), false, "raising the gate should remove its blocking collision immediately");
+    assert.equal(state.world.entityStates.test_boss_gate, "open", "the matching iron gate should enter its activated state");
+    assert.equal(state.world.solids.some((solid) => solid.signalReceiverId === "test_boss_gate"), true, "an activated boss gate should remain blocking while its 0.75-second fade is in progress");
+    stepMany(state, 47, () => createInputFrame());
+    assert.equal(state.world.solids.some((solid) => solid.signalReceiverId === "test_boss_gate"), false, "boss-gate collision should disappear when the 0.75-second fade completes");
+    assert.equal(state.world.entities.some((entity) => entity.id === "test_boss_gate"), false, "the fully faded boss gate should be removed from runtime entities");
 
     const gameSource = readFileSync(new URL("../game.html", import.meta.url), "utf8");
     const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
@@ -18690,8 +18886,27 @@ function testSignalTriggeredMovingPlatform() {
         state: "off",
         interaction: "toggle",
         channel: "lift_a",
-        triggerDistance: 100,
-        visualStates: { off: [], on: [] }
+        triggerDistance: 8,
+        visualStates: {
+            off: [{ atlasId: "at_atlas_001", assetId: "lever_off_test", layer: "decorFront" }],
+            on: [{ atlasId: "at_atlas_001", assetId: "lever_on_test", layer: "decorFront" }]
+        }
+    };
+    const gate = {
+        id: "fanout_gate",
+        type: "spikedGate",
+        x: 430,
+        y: 300,
+        w: 94,
+        h: 196,
+        state: "closed",
+        channel: "lift_a",
+        blocksPlayer: true,
+        signalReceiver: true,
+        visualStates: {
+            closed: [{ atlasId: "at_atlas_001", assetId: "gate_test", layer: "decorFront" }],
+            open: [{ atlasId: "at_atlas_001", assetId: "gate_test", layer: "decorFront", offsetYFactor: -0.85 }]
+        }
     };
     const state = createMovingPlatformTestState({
         pattern: "shuttle",
@@ -18702,25 +18917,92 @@ function testSignalTriggeredMovingPlatform() {
         speed: 60,
         triggerDelay: 0,
         endPause: 0
-    }, [lever]);
+    }, [lever, gate]);
+    state.world.solids.push({ id: "signal_test_floor", kind: "wall", x: -100, y: 300, w: 1200, h: 120 });
     const platform = state.world.movingPlatforms[0];
     const visual = state.world.visuals.find((item) => item.id === platform.visualId);
-    state.player.currentTransform.x = 150;
+    let gateVisual = state.world.visuals.find((item) => item.entityId === gate.id);
+    assert.ok(gateVisual, "signal gate fixture should create a visible closed gate");
+    const closedGateY = gateVisual.y;
+    const manifestGateSegment = {
+        id: "fanout_gate_manifest_top",
+        kind: "blockable",
+        x1: gate.x - gate.w * 0.5,
+        y1: gate.y - gate.h,
+        x2: gate.x + gate.w * 0.5,
+        y2: gate.y - gate.h,
+        visualId: gateVisual.id,
+        assetId: "gate_test",
+        lineId: "top"
+    };
+    const manifestGatePolygon = {
+        id: "fanout_gate_manifest_area",
+        kind: "blockable",
+        points: [
+            { x: gate.x - gate.w * 0.5, y: gate.y - gate.h },
+            { x: gate.x + gate.w * 0.5, y: gate.y - gate.h },
+            { x: gate.x + gate.w * 0.5, y: gate.y },
+            { x: gate.x - gate.w * 0.5, y: gate.y }
+        ],
+        visualId: gateVisual.id,
+        assetId: "gate_test",
+        lineIds: ["top", "right", "bottom", "left"]
+    };
+    state.world.segments.push(manifestGateSegment);
+    state.world.collisionPolygons.push(manifestGatePolygon);
+    state.player.currentTransform.x = 20;
     state.player.currentTransform.y = 300;
     state.player.vx = 0;
     state.player.vy = 0;
 
-    stepMany(state, 15, () => createInputFrame());
-    assert.equal(platform.phase, "waitForTrigger", "signal platforms should wait without a channel emission");
+    stepMany(state, 5, () => createInputFrame());
+    assert.equal(platform.phase, "waitForTrigger", "signal platforms should wait while Ignatius remains more than one wizard width from the switch");
+    assert.equal(state.world.signalChannels.lift_a.revision, 0, "a distant lever should not emit without interaction input");
     approx(visual.currentTransform.x, 100, 0.001, "waiting signal platforms should remain at the start");
 
-    stepSimulation(state, createInputFrame({ interactPressed: true }), FIXED_DT);
-    assert.equal(state.world.entityStates.lever_lift, "on", "nearby interaction should toggle the lever visual state");
-    assert.equal(state.world.signalChannels.lift_a.revision, 1, "lever interaction should emit one named-channel revision");
+    state.player.currentTransform.x = 230;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(state.world.entityStates.lever_lift, "on", "entering within one wizard width should toggle the lever without pressing Down");
+    assert.equal(state.world.signalChannels.lift_a.revision, 1, "automatic lever proximity should emit one named-channel revision");
     assert.equal(state.world.signalChannels.lift_a.active, true, "lever on state should be reflected by the channel");
-    assert.notEqual(platform.phase, "waitForTrigger", "the matching channel should latch the platform trigger");
+    assert.notEqual(platform.phase, "waitForTrigger", "one signal emission should fan out to the matching moving platform");
     assert.ok(visual.currentTransform.x > 100, "a zero-delay signal should begin moving the platform immediately");
+    assert.equal(state.world.entityStates.fanout_gate, "open", "the same signal emission should also activate a matching gate");
+    assert.equal(state.world.solids.some((solid) => solid.signalReceiverId === gate.id), true, "an activated gate should remain blocking while its 0.75-second fade is still visible");
+    gateVisual = state.world.visuals.find((item) => item.entityId === gate.id);
+    approx(gateVisual.y, closedGateY, 0.001, "an activated signal gate should fade in place rather than move to its authored open position");
+
+    stepMany(state, 10, () => createInputFrame());
+    assert.equal(state.world.signalChannels.lift_a.revision, 1, "remaining within the switch radius must not toggle it every tick");
+    stepMany(state, 12, () => createInputFrame());
+    gateVisual = state.world.visuals.find((item) => item.entityId === gate.id);
+    assert.ok(gateVisual.alpha > 0.45 && gateVisual.alpha < 0.55, `gate should be about half faded halfway through 0.75 seconds, alpha=${gateVisual.alpha}`);
+    approx(gateVisual.y, closedGateY, 0.001, "gate fade should preserve its closed-world position");
+    assert.equal(state.world.solids.some((solid) => solid.signalReceiverId === gate.id), true, "a half-faded gate should still block Ignatius");
+    assert.equal(queryWorldSegments(state.world, { minX: gate.x - gate.w, minY: gate.y - gate.h - 2, maxX: gate.x + gate.w, maxY: gate.y + 2 }).some((segment) => segment.id === manifestGateSegment.id), true, "atlas-authored gate collision should remain attached while the gate is visibly fading");
+    stepMany(state, 24, () => createInputFrame());
+    gateVisual = state.world.visuals.find((item) => item.entityId === gate.id);
+    assert.equal(gateVisual, undefined, "a gate should be removed from world visuals when its 0.75-second fade completes");
+    assert.equal(state.world.entities.some((entity) => entity.id === gate.id), false, "a fully faded gate should be removed from runtime entities");
+    assert.equal(state.world.signalReceivers.some((receiver) => receiver.id === gate.id), false, "a fully faded gate should stop listening for later signal changes");
+    assert.equal(state.world.solids.some((solid) => solid.signalReceiverId === gate.id), false, "gate collision should be removed exactly when the fade completes");
+    assert.equal(state.world.segments.some((segment) => segment.id === manifestGateSegment.id), false, "removing a faded gate should also remove its atlas-authored collision lines");
+    assert.equal(state.world.collisionPolygons.some((polygon) => polygon.id === manifestGatePolygon.id), false, "removing a faded gate should also remove its atlas-authored collision polygons");
+    assert.equal(queryWorldSegments(state.world, { minX: gate.x - gate.w, minY: gate.y - gate.h - 2, maxX: gate.x + gate.w, maxY: gate.y + 2 }).some((segment) => segment.id === manifestGateSegment.id), false, "collision broadphase must not retain an invisible standable gate edge after removal");
+
+    state.player.currentTransform.x = 20;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(state.world.signalChannels.lift_a.revision, 1, "stepping away should only re-arm the lever");
+    state.player.currentTransform.x = 230;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(state.world.entityStates.lever_lift, "off", "returning after stepping away should flip the switch back");
+    assert.equal(state.world.signalChannels.lift_a.revision, 2, "re-entering the switch radius should emit the second toggle revision");
+    assert.equal(state.world.signalChannels.lift_a.active, false, "the second proximity toggle should deactivate the channel");
+    assert.equal(state.world.entities.some((entity) => entity.id === gate.id), false, "switching the signal off must not resurrect a gate that already faded away");
+    assert.equal(state.world.visuals.some((visual) => visual.entityId === gate.id), false, "a removed gate should stay visually absent when the channel toggles back");
+    assert.equal(state.world.solids.some((solid) => solid.signalReceiverId === gate.id), false, "a removed gate should stay non-blocking when the channel toggles back");
 }
+
 
 function testProximitySignalTriggerFiresOnce() {
     const trigger = {
@@ -18803,11 +19085,14 @@ function testKeyholeConsumesKeyAndTriggersPlatform() {
         state: "locked",
         interaction: "keyhole",
         channel: "vault_lift",
-        triggerDistance: 100,
+        triggerDistance: 8,
         requiredKey: "ironKey",
         consumeKey: true,
         oneShot: true,
-        visualStates: { locked: [], unlocked: [] }
+        visualStates: {
+            locked: [{ atlasId: "at_atlas_001", assetId: "keyhole_test", layer: "decorFront" }],
+            unlocked: [{ atlasId: "at_atlas_001", assetId: "keyhole_test", layer: "decorFront", offsetYFactor: -0.5 }]
+        }
     };
     const state = createMovingPlatformTestState({
         pattern: "loopRespawn",
@@ -18821,22 +19106,39 @@ function testKeyholeConsumesKeyAndTriggersPlatform() {
         fadeDuration: 0.05,
         hiddenDuration: 0.1
     }, [key, keyhole]);
+    state.world.solids.push({ id: "keyhole_test_floor", kind: "wall", x: -100, y: 300, w: 1200, h: 120 });
     state.player.currentTransform.x = 150;
     state.player.currentTransform.y = 300;
     state.player.vx = 0;
     state.player.vy = 0;
 
-    stepSimulation(state, createInputFrame({ interactPressed: true }), FIXED_DT);
-    assert.equal(state.pickups[0].collected, true, "touching the authored key should collect it before the interaction resolves");
-    assert.equal(state.inventory.items.ironKey, undefined, "the configured keyhole should consume the key after collection");
-    assert.equal(state.world.entityStates.keyhole_lift, "unlocked", "the keyhole should remain visibly unlocked");
-    assert.equal(state.world.signalChannels.vault_lift.revision, 1, "unlocking should emit the configured signal once");
-    assert.notEqual(state.world.movingPlatforms[0].phase, "waitForTrigger", "the keyhole signal should trigger its moving platform");
-
+    const lockedVisual = state.world.visuals.find((visual) => visual.entityId === keyhole.id);
+    assert.ok(lockedVisual, "keyhole fixture should create its locked visual");
+    const lockedY = lockedVisual.y;
     stepSimulation(state, createInputFrame(), FIXED_DT);
-    stepSimulation(state, createInputFrame({ interactPressed: true }), FIXED_DT);
-    assert.equal(state.world.signalChannels.vault_lift.revision, 1, "a one-shot unlocked keyhole should not emit repeatedly");
+    assert.equal(state.pickups[0].collected, true, "touching the authored key should collect it before automatic keyhole proximity resolves");
+    assert.equal(state.inventory.items.ironKey, undefined, "the configured keyhole should consume the key after collection");
+    assert.equal(state.world.entityStates.keyhole_lift, "unlocked", "entering within one wizard width should unlock the keyhole without pressing Down");
+    assert.equal(state.world.signalChannels.vault_lift.revision, 1, "automatic keyhole unlocking should emit the configured signal once");
+    assert.notEqual(state.world.movingPlatforms[0].phase, "waitForTrigger", "the keyhole signal should trigger its moving platform");
+    assert.equal(lockedVisual.entityState, "locked", "unlocking should keep the keyhole artwork in place for its fade instead of swapping to the unlocked pose");
+    approx(lockedVisual.y, lockedY, 0.001, "keyhole fade should not move the visual");
+
+    stepMany(state, 22, () => createInputFrame());
+    assert.ok(lockedVisual.alpha > 0.45 && lockedVisual.alpha < 0.55, `keyhole should be about half faded halfway through 0.75 seconds, alpha=${lockedVisual.alpha}`);
+    stepMany(state, 24, () => createInputFrame());
+    approx(lockedVisual.alpha, 0, 0.001, "keyhole should finish its 0.75-second fade at zero opacity");
+    assert.equal(state.world.visuals.some((visual) => visual.entityId === keyhole.id), false, "a faded keyhole should be removed from world visuals");
+    assert.equal(state.world.entities.some((entity) => entity.id === keyhole.id), false, "a faded keyhole should be removed from runtime entities");
+    assert.equal(state.world.signalEmitters.some((emitter) => emitter.id === keyhole.id), false, "a faded one-shot keyhole should be removed from signal emitters");
+
+    state.player.currentTransform.x = -200;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    state.player.currentTransform.x = 150;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(state.world.signalChannels.vault_lift.revision, 1, "an unlocked one-shot keyhole should not emit again after leaving and re-entering");
 }
+
 
 function testInteractKeyBinding() {
     const target = { addEventListener() {} };

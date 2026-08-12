@@ -35,6 +35,7 @@ import {
 } from "../shared/level-layer-data.js";
 import { caveWindowBounds } from "../shared/cave-window-data.js";
 import {
+    MAGIC_RING_BRIGHTNESS,
     POWER_UP_EFFECT_IDS,
     WRENCH_POWER_UP_EFFECT_IDS,
     activePowerUpEffect,
@@ -674,8 +675,10 @@ function prepareRuntimeCharacterProjectPresentation(project, isPlayer = false) {
         if (isPlayer) {
             asset.lowHealthCanvas = makeTintedSpriteCanvas(asset.canvas, "#f04b45");
             asset.shieldCanvas = makeTintedSpriteCanvas(asset.canvas, "#008cff");
+            asset.magicRingCanvas = makeDarkenedSpriteCanvas(asset.canvas, MAGIC_RING_BRIGHTNESS);
             pixmapPyramidFor(asset.lowHealthCanvas);
             pixmapPyramidFor(asset.shieldCanvas);
+            pixmapPyramidFor(asset.magicRingCanvas);
         }
     }
     return project;
@@ -5662,6 +5665,7 @@ class RocketfrockRenderer {
         const backend = this.webglBackend;
         if (!backend?.available) return [];
         const alpha = Number.isFinite(Number(options.alpha)) ? Number(options.alpha) : 1;
+        const brightness = clamp(Number.isFinite(Number(options.brightness)) ? Number(options.brightness) : 1, 0, 1);
         const tintAlpha = clamp(Number(options.tintAlpha) || 0, 0, 1);
         const overlayTintAlpha = clamp(Number(options.overlayTintAlpha) || 0, 0, 1);
         const commands = buildRuntimeCharacterDrawCommands(project, renderedTransforms);
@@ -5685,7 +5689,8 @@ class RocketfrockRenderer {
                 height: asset.height * spriteScale,
                 rotation,
                 mirrorX: facing < 0,
-                alpha: alpha * transform.alpha
+                alpha: alpha * transform.alpha,
+                tint: [brightness, brightness, brightness, 1]
             });
             const partTint = partName === "rocket" && options.tintCanvasKey !== "shieldCanvas" ? 0 : tintAlpha;
             const tintCanvas = asset[options.tintCanvasKey] || asset.lowHealthCanvas;
@@ -8381,6 +8386,9 @@ class RocketfrockRenderer {
         const shieldTint = getPlayerShieldTintAlpha(state);
         const lowHealthTint = shieldTint > 0 ? 0 : getLowHealthTintAlpha(state);
         const hitFlash = getPlayerHitFlash(state);
+        const magicRingBrightness = activePowerUpEffect(state, POWER_UP_EFFECT_IDS.MAGIC_RING)
+            ? MAGIC_RING_BRIGHTNESS
+            : 1;
         const bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
         this.queueCharacterProjectPoseWebGL(
             this.playerProject,
@@ -8391,6 +8399,7 @@ class RocketfrockRenderer {
             bounds,
             {
                 alpha: 1,
+                brightness: magicRingBrightness,
                 tintAlpha: shieldTint > 0 ? shieldTint : lowHealthTint,
                 tintCanvasKey: shieldTint > 0 ? "shieldCanvas" : "lowHealthCanvas",
                 overlayTintAlpha: hitFlash * 0.72,
@@ -8599,7 +8608,11 @@ class RocketfrockRenderer {
             this.groundShadowOpacity(state.player)
         );
         const hitFlash = getPlayerHitFlash(state);
+        const magicRingBrightness = activePowerUpEffect(state, POWER_UP_EFFECT_IDS.MAGIC_RING)
+            ? MAGIC_RING_BRIGHTNESS
+            : 1;
         const bounds = this.drawWizardRig(p.x, p.y, state.player.facing, state, view.zoom, renderScale, {
+            brightness: magicRingBrightness,
             overlayTintAlpha: hitFlash * 0.72,
             overlayTintCanvasKey: "hitFlashCanvas"
         });
@@ -8671,6 +8684,7 @@ class RocketfrockRenderer {
     drawCharacterProjectPose(project, screenX, screenGroundY, facing, renderedTransforms, bounds, options = {}) {
         const ctx = this.ctx;
         const alpha = Number.isFinite(Number(options.alpha)) ? Number(options.alpha) : 1;
+        const brightness = clamp(Number.isFinite(Number(options.brightness)) ? Number(options.brightness) : 1, 0, 1);
         const tintAlpha = clamp(Number(options.tintAlpha) || 0, 0, 1);
         const overlayTintAlpha = clamp(Number(options.overlayTintAlpha) || 0, 0, 1);
         const commands = buildRuntimeCharacterDrawCommands(project, renderedTransforms);
@@ -8681,6 +8695,7 @@ class RocketfrockRenderer {
         for (const command of commands) {
             const partTint = command.partName === "rocket" && options.tintCanvasKey !== "shieldCanvas" ? 0 : tintAlpha;
             const spriteBounds = this.drawCharacterCommand(project, command, partTint, options.tintCanvasKey, {
+                brightness,
                 overlayTintAlpha,
                 overlayTintCanvasKey: options.overlayTintCanvasKey
             });
@@ -8702,7 +8717,11 @@ class RocketfrockRenderer {
         ctx.translate(transform.x, transform.y);
         ctx.rotate(transform.angle);
         ctx.scale(spriteScale, spriteScale);
-        drawRuntimePixmap(ctx, asset, drawX, drawY);
+        const brightness = clamp(Number.isFinite(Number(options.brightness)) ? Number(options.brightness) : 1, 0, 1);
+        const basePixmap = brightness < 0.9999 && asset.magicRingCanvas
+            ? asset.magicRingCanvas
+            : asset;
+        drawRuntimePixmap(ctx, basePixmap, drawX, drawY);
         const tintCanvas = asset[tintCanvasKey] || asset.lowHealthCanvas;
         if (tintAlpha > 0 && tintCanvas) {
             const baseAlpha = ctx.globalAlpha;
@@ -9144,6 +9163,21 @@ function makeTintedSpriteCanvas(sourceCanvas, color) {
     ctx.globalCompositeOperation = "source-atop";
     ctx.fillStyle = color;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    return canvas;
+}
+
+function makeDarkenedSpriteCanvas(sourceCanvas, brightness) {
+    const canvas = document.createElement("canvas");
+    canvas.width = sourceCanvas.width;
+    canvas.height = sourceCanvas.height;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(sourceCanvas, 0, 0);
+    ctx.globalCompositeOperation = "source-atop";
+    ctx.globalAlpha = 1 - clamp(Number(brightness) || 0, 0, 1);
+    ctx.fillStyle = "#000000";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = "source-over";
     return canvas;
 }
 

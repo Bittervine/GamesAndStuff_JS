@@ -39,6 +39,7 @@ import {
 import {
     isSignalEmitterEntity,
     isSignalReceiverEntity,
+    SIGNAL_DISAPPEAR_FADE_SECONDS,
     normalizeSignalChannel,
     normalizeSignalEmitter,
     normalizeSignalReceiver
@@ -55,6 +56,7 @@ import {
 } from "../shared/auto-spawn-enemy-data.js";
 import {
     OVERDRIVE_PASSIVE_FUEL_RECOVERY_DRAIN_FACTOR,
+    MAGIC_RING_PANIC_SECONDS,
     POWER_UP_EFFECT_IDS,
     WRENCH_POWER_UP_EFFECT_IDS,
     normalizeWrenchPowerUpEffectId,
@@ -2369,6 +2371,91 @@ export function emitSignalChannel(state, channel, options = {}) {
     return record;
 }
 
+function setWorldEntityLogicalState(state, entityId, nextState) {
+    const entity = worldEntityById(state, entityId);
+    if (entity) entity.state = nextState;
+    if (!state.world.entityStates) state.world.entityStates = {};
+    state.world.entityStates[entityId] = nextState;
+    return Boolean(entity);
+}
+
+function setSignalEntityOpacity(state, entityId, previousOpacity, nextOpacity) {
+    const previous = clamp(Number(previousOpacity) || 0, 0, 1);
+    const next = clamp(Number(nextOpacity) || 0, 0, 1);
+    const factor = previous > 0.000001 ? next / previous : 0;
+    for (const visual of state.world?.visuals || []) {
+        if (visual.entityId !== entityId) continue;
+        visual.alpha = clamp((Number(visual.alpha ?? 1) || 0) * factor, 0, 1);
+    }
+}
+
+function beginSignalEntityFade(target) {
+    target.fading = true;
+    target.fadeElapsed = 0;
+    target.fadeOpacity = 1;
+}
+
+function updateSignalEntityFade(state, target, dt) {
+    if (!target?.fading) return false;
+    const previousOpacity = clamp(Number(target.fadeOpacity ?? 1), 0, 1);
+    target.fadeElapsed = Math.max(0, Number(target.fadeElapsed) || 0) + Math.max(0, Number(dt) || 0);
+    const nextOpacity = 1 - clamp(target.fadeElapsed / SIGNAL_DISAPPEAR_FADE_SECONDS, 0, 1);
+    setSignalEntityOpacity(state, target.id, previousOpacity, nextOpacity);
+    target.fadeOpacity = nextOpacity;
+    if (nextOpacity > 0) return false;
+    target.fading = false;
+    return true;
+}
+
+function removeSignalEntityFromWorld(state, target) {
+    if (!state?.world || !target?.id || target.removed) return false;
+    const entityId = target.id;
+    target.removed = true;
+    target.fading = false;
+    target.fadeOpacity = 0;
+
+    // Signal gates are ordinary atlas-backed entity visuals. Their authored collision
+    // lines/polygons live separately from the synthetic signal receiver solid, so all
+    // geometry owned by the disappearing visuals must leave the world with the entity.
+    const removedVisualIds = new Set(
+        (state.world.visuals || [])
+            .filter((visual) => visual.entityId === entityId)
+            .map((visual) => visual.id)
+            .filter(Boolean)
+    );
+    const removedCollisionIds = new Set();
+    for (const segment of state.world.segments || []) {
+        if (removedVisualIds.has(segment.visualId) && segment.id) removedCollisionIds.add(segment.id);
+    }
+    for (const polygon of state.world.collisionPolygons || []) {
+        if (removedVisualIds.has(polygon.visualId) && polygon.id) removedCollisionIds.add(polygon.id);
+    }
+    for (const solid of state.world.solids || []) {
+        if (solid.signalReceiverId === entityId && solid.id) removedCollisionIds.add(solid.id);
+    }
+
+    state.world.visuals = (state.world.visuals || []).filter((visual) => visual.entityId !== entityId);
+    state.world.entities = (state.world.entities || []).filter((entity) => entity?.id !== entityId);
+    state.world.solids = (state.world.solids || []).filter((solid) => solid.signalReceiverId !== entityId);
+    state.world.segments = (state.world.segments || []).filter((segment) => !removedVisualIds.has(segment.visualId));
+    state.world.collisionPolygons = (state.world.collisionPolygons || []).filter((polygon) => !removedVisualIds.has(polygon.visualId));
+    syncMovingPlatformCollisionCounts(state);
+
+    if (removedCollisionIds.has(state.player?.supportId)) {
+        state.player.supportId = null;
+        state.player.onGround = false;
+    }
+    for (const enemy of state.enemies || []) {
+        if (enemy?.kind !== "characterEnemy" || !removedCollisionIds.has(enemy.supportId)) continue;
+        enemy.supportId = null;
+        enemy.ridingPlatformId = null;
+        enemy.currentSupportId = null;
+    }
+
+    if (state.world.entityStates) delete state.world.entityStates[entityId];
+    return true;
+}
+
 function signalReceiverCollisionRect(receiver) {
     const width = Math.max(1, Number(receiver?.collisionWidth) || Number(receiver?.width) || 1);
     const height = Math.max(1, Number(receiver?.collisionHeight) || Number(receiver?.height) || 1);
@@ -2388,7 +2475,7 @@ function signalReceiverCollisionRect(receiver) {
 function syncSignalReceiverCollision(state, receiver) {
     if (!state?.world || !receiver?.id) return;
     state.world.solids = (state.world.solids || []).filter((solid) => solid.signalReceiverId !== receiver.id);
-    if (!receiver.blocksPlayer || receiver.open) return;
+    if (!receiver.blocksPlayer || receiver.removed) return;
     state.world.solids.push({
         id: `${receiver.id}_signal_solid`,
         kind: "signalGate",
@@ -2397,25 +2484,27 @@ function syncSignalReceiverCollision(state, receiver) {
     });
 }
 
-function updateSignalReceivers(state) {
+function updateSignalReceivers(state, dt = 0) {
     for (const receiver of state.world?.signalReceivers || []) {
+        if (receiver.removed) continue;
         const channel = signalChannelRecord(state, receiver.channel, true);
         const open = receiver.invertSignal ? !channel.active : channel.active;
-        if (receiver.open === open) continue;
-        receiver.open = open;
-        const nextState = open ? receiver.openState : receiver.closedState;
-        if (!setWorldEntityState(state, receiver.id, nextState)) {
-            const entity = worldEntityById(state, receiver.id);
-            if (entity) entity.state = nextState;
-            state.world.entityStates[receiver.id] = nextState;
+        if (!receiver.open && open) {
+            receiver.open = true;
+            setWorldEntityLogicalState(state, receiver.id, receiver.openState);
+            beginSignalEntityFade(receiver);
+            syncSignalReceiverCollision(state, receiver);
+            addEvent(state, "SIGNAL_GATE_OPENED", {
+                gateId: receiver.id,
+                channel: receiver.channel,
+                state: receiver.openState
+            });
         }
-        syncSignalReceiverCollision(state, receiver);
-        addEvent(state, open ? "SIGNAL_GATE_OPENED" : "SIGNAL_GATE_CLOSED", {
-            gateId: receiver.id,
-            channel: receiver.channel,
-            state: nextState
-        });
+        if (receiver.open && updateSignalEntityFade(state, receiver, dt)) {
+            removeSignalEntityFromWorld(state, receiver);
+        }
     }
+    state.world.signalReceivers = (state.world.signalReceivers || []).filter((receiver) => !receiver.removed);
 }
 
 function configureSignalSystem(state, entities = []) {
@@ -2424,12 +2513,13 @@ function configureSignalSystem(state, entities = []) {
     state.world.signalEmitters = entities
         .filter(isSignalEmitterEntity)
         .map((entity) => normalizeSignalEmitter(entity))
-        .filter(Boolean);
+        .filter(Boolean)
+        .map((emitter) => ({ ...emitter, playerNearby: false, fading: false, fadeElapsed: 0, fadeOpacity: 1, removed: false }));
     state.world.signalReceivers = entities
         .filter(isSignalReceiverEntity)
         .map((entity) => normalizeSignalReceiver(entity))
         .filter(Boolean)
-        .map((receiver) => ({ ...receiver, open: false }));
+        .map((receiver) => ({ ...receiver, open: false, fading: false, fadeElapsed: 0, fadeOpacity: 1, removed: false }));
     for (const emitter of state.world.signalEmitters) {
         signalChannelRecord(state, emitter.channel, true);
     }
@@ -2853,19 +2943,27 @@ function signalEmitterCenter(entity) {
     };
 }
 
-function nearestSignalEmitter(state) {
-    let nearest = null;
-    const playerCenterY = state.player.currentTransform.y - state.player.height * 0.5;
-    for (const emitter of state.world?.signalEmitters || []) {
-        if (emitter.interaction === "proximitySignal") continue;
-        const entity = worldEntityById(state, emitter.id);
-        if (!entity) continue;
-        const center = signalEmitterCenter(entity);
-        const distance = Math.hypot(state.player.currentTransform.x - center.x, playerCenterY - center.y);
-        if (distance > emitter.triggerDistance) continue;
-        if (!nearest || distance < nearest.distance) nearest = { emitter, entity, distance };
-    }
-    return nearest;
+function signalEmitterPlayerDistance(state, entity) {
+    const playerRect = getPlayerRect(state);
+    const width = Math.max(1, Number(entity?.w) || 1);
+    const height = Math.max(1, Number(entity?.h) || 1);
+    const authoredFloorAnchor = Number(entity?.floorAnchorYFactor);
+    const floorAnchorYFactor = Number.isFinite(authoredFloorAnchor)
+        ? clamp(authoredFloorAnchor, 0, 1)
+        : 1;
+    const entityRect = {
+        x: (Number(entity?.x) || 0) - width * 0.5,
+        y: (Number(entity?.y) || 0) - height * floorAnchorYFactor,
+        w: width,
+        h: height
+    };
+    const dx = Math.max(entityRect.x - (playerRect.x + playerRect.w), playerRect.x - (entityRect.x + entityRect.w), 0);
+    const dy = Math.max(entityRect.y - (playerRect.y + playerRect.h), playerRect.y - (entityRect.y + entityRect.h), 0);
+    return Math.hypot(dx, dy);
+}
+
+function signalEmitterPlayerIsNearby(state, entity) {
+    return signalEmitterPlayerDistance(state, entity) <= Math.max(1, Number(state.player?.width) || Number(state.tuning?.playerWidth) || 1);
 }
 
 function updateProximitySignalEmitters(state) {
@@ -2894,53 +2992,64 @@ function updateProximitySignalEmitters(state) {
     return triggered;
 }
 
-function updateSignalEmitters(state, input) {
-    updateProximitySignalEmitters(state);
-    if (!input.interactPressed) return false;
-    const match = nearestSignalEmitter(state);
-    if (!match) return false;
-    const { emitter, entity } = match;
-
-    if (emitter.interaction === "keyhole") {
-        if (emitter.oneShot && entity.state === "unlocked") {
-            addEvent(state, "KEYHOLE_ALREADY_UNLOCKED", { keyholeId: emitter.id, channel: emitter.channel });
-            return true;
+function updateSignalEmitters(state, input, dt = 0) {
+    void input;
+    let triggered = updateProximitySignalEmitters(state);
+    for (const emitter of state.world?.signalEmitters || []) {
+        if (emitter.interaction === "keyhole" && updateSignalEntityFade(state, emitter, dt)) {
+            removeSignalEntityFromWorld(state, emitter);
         }
-        if (inventoryItemCount(state, emitter.requiredKey) <= 0) {
-            addEvent(state, "KEYHOLE_MISSING_KEY", {
+    }
+    state.world.signalEmitters = (state.world.signalEmitters || []).filter((emitter) => !emitter.removed);
+    if (state.player?.visible === false || state.player?.combatState === "dead") return triggered;
+
+    for (const emitter of state.world?.signalEmitters || []) {
+        if (emitter.interaction === "proximitySignal") continue;
+        const entity = worldEntityById(state, emitter.id);
+        if (!entity) continue;
+        const nearby = signalEmitterPlayerIsNearby(state, entity);
+        const entered = nearby && !emitter.playerNearby;
+        emitter.playerNearby = nearby;
+        if (!entered) continue;
+
+        if (emitter.interaction === "keyhole") {
+            if (emitter.oneShot && entity.state === "unlocked") continue;
+            if (inventoryItemCount(state, emitter.requiredKey) <= 0) {
+                addEvent(state, "KEYHOLE_MISSING_KEY", {
+                    keyholeId: emitter.id,
+                    channel: emitter.channel,
+                    requiredKey: emitter.requiredKey
+                });
+                triggered = true;
+                continue;
+            }
+            if (emitter.consumeKey) consumeInventoryItem(state, emitter.requiredKey, 1);
+            setWorldEntityLogicalState(state, emitter.id, "unlocked");
+            beginSignalEntityFade(emitter);
+            emitSignalChannel(state, emitter.channel, { sourceId: emitter.id, active: true });
+            addEvent(state, "KEYHOLE_UNLOCKED", {
                 keyholeId: emitter.id,
                 channel: emitter.channel,
-                requiredKey: emitter.requiredKey
+                requiredKey: emitter.requiredKey,
+                consumed: emitter.consumeKey
             });
-            return true;
+            triggered = true;
+            continue;
         }
-        if (emitter.consumeKey) consumeInventoryItem(state, emitter.requiredKey, 1);
-        if (!setWorldEntityState(state, emitter.id, "unlocked")) {
-            entity.state = "unlocked";
-            state.world.entityStates[emitter.id] = "unlocked";
-        }
-        emitSignalChannel(state, emitter.channel, { sourceId: emitter.id, active: true });
-        addEvent(state, "KEYHOLE_UNLOCKED", {
-            keyholeId: emitter.id,
-            channel: emitter.channel,
-            requiredKey: emitter.requiredKey,
-            consumed: emitter.consumeKey
-        });
-        return true;
-    }
 
-    const nextOn = entity.state !== "on";
-    if (!setWorldEntityState(state, emitter.id, nextOn ? "on" : "off")) {
-        entity.state = nextOn ? "on" : "off";
-        state.world.entityStates[emitter.id] = entity.state;
+        const nextOn = entity.state !== "on";
+        if (!setWorldEntityState(state, emitter.id, nextOn ? "on" : "off")) {
+            setWorldEntityLogicalState(state, emitter.id, nextOn ? "on" : "off");
+        }
+        emitSignalChannel(state, emitter.channel, { sourceId: emitter.id, active: nextOn });
+        addEvent(state, "LEVER_SWITCH_TOGGLED", {
+            switchId: emitter.id,
+            channel: emitter.channel,
+            active: nextOn
+        });
+        triggered = true;
     }
-    emitSignalChannel(state, emitter.channel, { sourceId: emitter.id, active: nextOn });
-    addEvent(state, "LEVER_SWITCH_TOGGLED", {
-        switchId: emitter.id,
-        channel: emitter.channel,
-        active: nextOn
-    });
-    return true;
+    return triggered;
 }
 
 
@@ -3612,6 +3721,12 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         awarenessViewHalfAngle: clamp(finiteNumberOr(entity.awarenessViewHalfAngle, state.tuning.enemyDefaultAwarenessViewHalfAngle), 0, 180),
         awarenessTimer: 0,
         alerted: false,
+        panicTimer: 0,
+        panicPhase: null,
+        panicPhaseTimer: 0,
+        panicMoveDirection: facing,
+        panicAttackAngle: facing < 0 ? Math.PI : 0,
+        panicChoiceCount: 0,
         lastSeenPlayerX: null,
         lastSeenPlayerY: null,
         lastSeenAt: null,
@@ -4007,7 +4122,9 @@ export function applyEditorLevelToWorld(state, editorLevel) {
                     ? POWER_UP_EFFECT_IDS.OVERDRIVE
                     : (type === "shieldPickup"
                         ? POWER_UP_EFFECT_IDS.SHIELD
-                        : ((type === "fuel" || type === "fuelPickup") ? POWER_UP_EFFECT_IDS.FLIGHT : null))));
+                        : (type === "magicRingPickup" || entity.pickupKind === "magicRing"
+                            ? POWER_UP_EFFECT_IDS.MAGIC_RING
+                            : ((type === "fuel" || type === "fuelPickup") ? POWER_UP_EFFECT_IDS.FLIGHT : null)))));
         const powerUp = authoredEffectId
             ? normalizePowerUpPickup({
                 ...entity,
@@ -5079,6 +5196,10 @@ function playerIsAvailableCombatTarget(state) {
     );
 }
 
+function playerConcealedFromEnemyPerception(state) {
+    return Boolean(activePowerUpEffect(state, POWER_UP_EFFECT_IDS.MAGIC_RING));
+}
+
 function characterEnemyCanReachPlayer(state, enemy) {
     if (!playerIsAvailableCombatTarget(state)) {
         return false;
@@ -5471,6 +5592,9 @@ export function launchCharacterEnemyProjectile(state, enemy, angleOffset = 0, vo
         x: player.currentTransform.x,
         y: player.currentTransform.y - player.height * 0.56
     };
+    const panicAim = (Number(enemy.panicTimer) || 0) > 0
+        ? { x: Math.cos(Number(enemy.panicAttackAngle) || 0), y: Math.sin(Number(enemy.panicAttackAngle) || 0) }
+        : null;
 
     const projectileKind = String(enemy.projectileKind || "fireball");
     const launchType = String(enemy.projectileLaunchType || (isMusketProjectileKind(projectileKind) ? "ballistic" : "homing_lo"));
@@ -5494,20 +5618,21 @@ export function launchCharacterEnemyProjectile(state, enemy, angleOffset = 0, vo
         homingStrength = 0;
         radius = Math.max(5, radius);
     } else if (launchType === "ballistic") {
-        const ballistic = solveCharacterEnemyBallisticVelocity(enemy, origin, target, state.tuning);
+        const ballistic = panicAim ? null : solveCharacterEnemyBallisticVelocity(enemy, origin, target, state.tuning);
         gravity = ballistic?.gravity || gravity || 980;
         const launchSpeed = ballistic?.launchSpeed || tunedProjectileSpeed;
         if (ballistic) {
             vx = ballistic.x;
             vy = ballistic.y;
         } else {
-            const aim = normalizeVector({ x: target.x - origin.x, y: target.y - origin.y });
+            const baseAim = panicAim || normalizeVector({ x: target.x - origin.x, y: target.y - origin.y });
+            const aim = rotateVector(baseAim, angleOffset);
             vx = aim.x * launchSpeed;
             vy = aim.y * launchSpeed;
         }
         radius = Math.max(3, radius);
     } else {
-        const baseAim = normalizeVector({ x: target.x - origin.x, y: target.y - origin.y });
+        const baseAim = panicAim || normalizeVector({ x: target.x - origin.x, y: target.y - origin.y });
         const aim = rotateVector(baseAim, angleOffset);
         vx = aim.x * tunedProjectileSpeed;
         vy = aim.y * tunedProjectileSpeed;
@@ -5591,7 +5716,7 @@ function characterEnemyRunSpeed(enemy, tuning = DEFAULT_TUNING) {
 
 function characterEnemyCanNoticePlayer(state, enemy) {
     const player = state.player;
-    if (!playerIsAvailableCombatTarget(state)) {
+    if (!playerIsAvailableCombatTarget(state) || playerConcealedFromEnemyPerception(state)) {
         return false;
     }
 
@@ -5889,7 +6014,7 @@ function updateCharacterEnemyAttack(state, enemy, dt) {
         }
         applyCharacterEnemyAttackHandoff(enemy, handoff);
         if (enemy.attackMode === "projectile") {
-            const projectiles = characterEnemyCanUseProjectile(state, enemy)
+            const projectiles = ((Number(enemy.panicTimer) || 0) > 0 || characterEnemyCanUseProjectile(state, enemy))
                 ? launchCharacterEnemyProjectileVolley(state, enemy)
                 : [];
             if (projectiles.length > 0) {
@@ -6736,11 +6861,154 @@ function chooseCharacterEnemyAttackPlan(state, enemy, navigation) {
         : null;
 }
 
+function characterEnemyPanicIdentity(state, enemy) {
+    return `${String(state.world?.levelId || "")}|${String(enemy.id || "")}|${Math.max(0, Math.floor(Number(enemy.panicChoiceCount) || 0))}`;
+}
+
+function chooseCharacterEnemyPanicMove(state, enemy) {
+    const identity = characterEnemyPanicIdentity(state, enemy);
+    const direction = deterministicEnemyUnit(identity, "magic-ring-panic-move-direction") < 0.5 ? -1 : 1;
+    enemy.panicMoveDirection = direction;
+    enemy.panicPhase = "move";
+    enemy.panicPhaseTimer = 0.42 + deterministicEnemyUnit(identity, "magic-ring-panic-move-duration") * 0.46;
+    enemy.panicChoiceCount = Math.max(0, Math.floor(Number(enemy.panicChoiceCount) || 0)) + 1;
+}
+
+function chooseCharacterEnemyPanicAttack(state, enemy) {
+    const identity = characterEnemyPanicIdentity(state, enemy);
+    const angle = deterministicEnemyUnit(identity, "magic-ring-panic-attack-angle") * Math.PI * 2;
+    const direction = Math.cos(angle) < 0 ? -1 : 1;
+    enemy.panicMoveDirection = direction;
+    enemy.panicAttackAngle = angle;
+    enemy.panicPhase = "attack";
+    enemy.panicPhaseTimer = 0.32;
+    enemy.panicChoiceCount = Math.max(0, Math.floor(Number(enemy.panicChoiceCount) || 0)) + 1;
+}
+
+function beginCharacterEnemyPanic(state, enemy) {
+    if (!isCharacterEnemyState(enemy) || enemy.strategy === "passive" || enemy.health <= 0) return false;
+    const wasPanicking = (Number(enemy.panicTimer) || 0) > 0;
+    enemy.panicTimer = MAGIC_RING_PANIC_SECONDS;
+    enemy.alerted = true;
+    enemy.engaged = true;
+    enemy.awarenessTimer = 0;
+    enemy.glareFocusX = null;
+    enemy.glareFocusY = null;
+    enemy.route = [];
+    enemy.routeIndex = 0;
+    enemy.routePurpose = null;
+    enemy.routeTargetSupportId = null;
+    enemy.routeTargetX = null;
+    enemy.routeTargetY = null;
+    enemy.routeRepathTimer = 0;
+    if (!wasPanicking || !enemy.panicPhase) chooseCharacterEnemyPanicMove(state, enemy);
+    enemy.attackCooldownTimer = Math.min(Math.max(0, Number(enemy.attackCooldownTimer) || 0), 0.2);
+    if (!wasPanicking) addEvent(state, "ENEMY_PANICKED", { enemyId: enemy.id, reason: "unseen_player_damage" });
+    return true;
+}
+
+function endCharacterEnemyPanic(enemy) {
+    enemy.panicTimer = 0;
+    enemy.panicPhase = null;
+    enemy.panicPhaseTimer = 0;
+    enemy.alerted = false;
+    enemy.engaged = false;
+    enemy.awarenessTimer = 0;
+    enemy.attackTimer = 0;
+    enemy.attackLungeRemaining = 0;
+    enemy.attackHitApplied = false;
+    enemy.nextAttackHandoffIndex = 0;
+    enemy.combatState = ENEMY_COMBAT_STATE.ALIVE;
+    enemy.aiState = enemy.locomotion === "flying" ? "fly" : (enemy.strategy === "hunter" ? "patrol" : enemy.strategy);
+    enemy.movementPhase = enemy.locomotion === "flying" ? "fly" : "guard";
+    enemy.lastSeenPlayerX = null;
+    enemy.lastSeenPlayerY = null;
+    enemy.lastSeenAt = null;
+    enemy.lastSeenSupportId = null;
+    enemy.route = [];
+    enemy.routeIndex = 0;
+    enemy.routePurpose = null;
+    enemy.routeTargetSupportId = null;
+    enemy.routeTargetX = null;
+    enemy.routeTargetY = null;
+    enemy.groundVelocityX = 0;
+    enemy.velocityX = 0;
+    if (enemy.locomotion !== "flying") enemy.velocityY = 0;
+    setCharacterEnemyAnimation(enemy, "idle");
+}
+
+function updateCharacterEnemyPanic(state, enemy, dt) {
+    if ((Number(enemy.panicTimer) || 0) <= 0) return false;
+    enemy.panicTimer = Math.max(0, (Number(enemy.panicTimer) || 0) - Math.max(0, dt));
+    if (enemy.panicTimer <= 0) {
+        endCharacterEnemyPanic(enemy);
+        addEvent(state, "ENEMY_PANIC_ENDED", { enemyId: enemy.id });
+        syncCharacterEnemyTarget(state, enemy);
+        return true;
+    }
+
+    if ((Number(enemy.hurtTimer) || 0) > 0) {
+        enemy.hurtTimer = Math.max(0, enemy.hurtTimer - dt);
+        enemy.combatState = ENEMY_COMBAT_STATE.HURT;
+        enemy.movementPhase = "panic_hurt";
+        setCharacterEnemyAnimation(enemy, "hurt");
+        syncCharacterEnemyTarget(state, enemy);
+        return true;
+    }
+
+    if (enemy.combatState === ENEMY_COMBAT_STATE.ATTACKING || (Number(enemy.attackTimer) || 0) > 0) {
+        updateCharacterEnemyAttack(state, enemy, dt);
+        if (enemy.combatState !== ENEMY_COMBAT_STATE.ATTACKING && (Number(enemy.attackTimer) || 0) <= 0) {
+            chooseCharacterEnemyPanicMove(state, enemy);
+        }
+        syncCharacterEnemyTarget(state, enemy);
+        return true;
+    }
+
+    enemy.combatState = ENEMY_COMBAT_STATE.ALIVE;
+    enemy.aiState = "panic";
+    enemy.panicPhaseTimer = Math.max(0, (Number(enemy.panicPhaseTimer) || 0) - Math.max(0, dt));
+    if (enemy.panicPhase === "attack") {
+        if (enemy.attackCooldownTimer <= 0) {
+            const panicFacing = Math.cos(Number(enemy.panicAttackAngle) || 0) < 0 ? -1 : 1;
+            startCharacterEnemyAttack(state, enemy);
+            enemy.facing = panicFacing;
+            enemy.attackLungeRemaining = 0;
+        } else {
+            chooseCharacterEnemyPanicMove(state, enemy);
+        }
+        syncCharacterEnemyTarget(state, enemy);
+        return true;
+    }
+
+    const direction = Number(enemy.panicMoveDirection) < 0 ? -1 : 1;
+    enemy.facing = direction;
+    if (enemy.locomotion === "flying") {
+        const speed = Math.max(40, Number(enemy.bomberHorizontalSpeed) || Number(enemy.runSpeed) || 120);
+        enemy.currentTransform.x += direction * speed * Math.max(0, dt);
+        enemy.velocityX = direction * speed;
+        enemy.movementPhase = "panic_move";
+        setCharacterEnemyAnimation(enemy, "walk");
+    } else {
+        const speed = Math.max(40, characterEnemyRunSpeed(enemy, state.tuning) * 0.7);
+        const moved = moveCharacterEnemyToward(state, enemy, enemy.currentTransform.x + direction * 120, speed, dt, 0);
+        enemy.movementPhase = moved > 0 ? "panic_move" : "panic_stuck";
+        setCharacterEnemyAnimation(enemy, moved > 0 ? "walk" : "idle");
+    }
+    if (enemy.panicPhaseTimer <= 0) chooseCharacterEnemyPanicAttack(state, enemy);
+    syncCharacterEnemyTarget(state, enemy);
+    return true;
+}
+
 function alertCharacterEnemyFromPlayerDamage(state, enemy) {
     if (!isCharacterEnemyState(enemy)) {
         return;
     }
     if (enemy.strategy === "passive") {
+        return;
+    }
+    if (playerConcealedFromEnemyPerception(state)) {
+        beginCharacterEnemyPanic(state, enemy);
         return;
     }
 
@@ -8675,6 +8943,10 @@ function updateCharacterEnemies(state, dt) {
         enemy.deathElapsed = 0;
         enemy.currentTransform.alpha = 1;
 
+        if (updateCharacterEnemyPanic(state, enemy, dt)) {
+            continue;
+        }
+
         if (enemy.locomotion === "flying") {
             updateFlyingCharacterEnemy(state, enemy, dt);
             continue;
@@ -9071,8 +9343,8 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
         rocket.boostVisualPowerNow = 0;
         rocket.attachedSmokeTimer = 0;
     }
-    updateSignalEmitters(state, input);
-    updateSignalReceivers(state);
+    updateSignalEmitters(state, input, dt);
+    updateSignalReceivers(state, dt);
     updateMovingPlatforms(state, dt);
     updateAutomaticEnemySpawning(state, dt);
     updateEnemySpawners(state, dt);

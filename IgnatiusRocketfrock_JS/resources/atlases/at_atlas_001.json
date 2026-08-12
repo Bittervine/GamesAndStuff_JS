@@ -1,6 +1,6 @@
 {
     "meta": {
-        "version": 8,
+        "version": 4,
         "note": "Atlas 001 cave/ruin assets. Thin floating rubble and small ledges use one-way walkable top lines; deeper ledges, floors, walls, pillars, barriers, and other substantial forms retain blockable collision. Revision 191 adds editor utility horizontal and vertical invisible blockers in the transparent top/left atlas margins."
     },
     "atlasId": "at_atlas_001",
@@ -233,7 +233,7 @@
         "horizontal_blocker": {
             "id": "horizontal_blocker",
             "frame": "horizontal_blocker",
-            "type": "invisibleBlocker",
+            "type": "platform",
             "paletteOrder": -1000,
             "mirrorable": false,
             "defaultScale": 1,
@@ -302,12 +302,21 @@
                     "tags": []
                 }
             ],
-            "generationTags": []
+            "generationTags": [
+                "capability.platform"
+            ],
+            "layer": "terrain",
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            }
         },
         "vertical_blocker": {
             "id": "vertical_blocker",
             "frame": "vertical_blocker",
-            "type": "invisibleBlocker",
+            "type": "platform",
             "paletteOrder": -999,
             "mirrorable": false,
             "defaultScale": 1,
@@ -376,7 +385,16 @@
                     "tags": []
                 }
             ],
-            "generationTags": []
+            "generationTags": [
+                "capability.platform"
+            ],
+            "layer": "terrain",
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            }
         },
         "ledge_left_chunk": {
             "id": "ledge_left_chunk",

@@ -1,0 +1,453 @@
+{
+    "meta": {
+        "version": 4,
+        "note": "Atlas 031"
+    },
+    "atlasId": "at_atlas_031",
+    "image": "at_atlas_031.png",
+    "frames": {
+        "shore_stony": {
+            "x": -1,
+            "y": 2,
+            "w": 1166,
+            "h": 147
+        },
+        "shore_sandy": {
+            "x": 3,
+            "y": 205,
+            "w": 1146,
+            "h": 163
+        },
+        "shore_rocky": {
+            "x": 1,
+            "y": 418,
+            "w": 1151,
+            "h": 155
+        },
+        "shore_ship": {
+            "x": 39,
+            "y": 831,
+            "w": 275,
+            "h": 269
+        },
+        "shore_jetty": {
+            "x": 1,
+            "y": 626,
+            "w": 1149,
+            "h": 200
+        }
+    },
+    "objects": {
+        "shore_stony": {
+            "id": "shore_stony",
+            "frame": "shore_stony",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "generationTags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 12,
+                    "y": 26
+                },
+                {
+                    "id": "n2",
+                    "x": 263,
+                    "y": 39
+                },
+                {
+                    "id": "n3",
+                    "x": 515,
+                    "y": 110
+                },
+                {
+                    "id": "n4",
+                    "x": 268,
+                    "y": 133
+                },
+                {
+                    "id": "n5",
+                    "x": 14,
+                    "y": 131
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n1",
+                    "tags": []
+                }
+            ]
+        },
+        "shore_sandy": {
+            "id": "shore_sandy",
+            "frame": "shore_sandy",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "generationTags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 589,
+                    "y": 131
+                },
+                {
+                    "id": "n2",
+                    "x": 10,
+                    "y": 22
+                },
+                {
+                    "id": "n3",
+                    "x": 241,
+                    "y": 40
+                },
+                {
+                    "id": "n4",
+                    "x": 10,
+                    "y": 123
+                },
+                {
+                    "id": "n5",
+                    "x": 331,
+                    "y": 139
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n2",
+                    "tags": []
+                }
+            ]
+        },
+        "shore_rocky": {
+            "id": "shore_rocky",
+            "frame": "shore_rocky",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "generationTags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 8,
+                    "y": 24
+                },
+                {
+                    "id": "n2",
+                    "x": 553,
+                    "y": 119
+                },
+                {
+                    "id": "n3",
+                    "x": 425,
+                    "y": 131
+                },
+                {
+                    "id": "n4",
+                    "x": 11,
+                    "y": 116
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n1",
+                    "tags": []
+                }
+            ]
+        },
+        "shore_ship": {
+            "id": "shore_ship",
+            "frame": "shore_ship",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "generationTags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 26,
+                    "y": 224
+                },
+                {
+                    "id": "n2",
+                    "x": 241,
+                    "y": 225
+                },
+                {
+                    "id": "n3",
+                    "x": 64,
+                    "y": 256
+                },
+                {
+                    "id": "n4",
+                    "x": 217,
+                    "y": 257
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n1",
+                    "tags": []
+                }
+            ]
+        },
+        "shore_jetty": {
+            "id": "shore_jetty",
+            "frame": "shore_jetty",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "generationTags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 524,
+                    "y": 66
+                },
+                {
+                    "id": "n2",
+                    "x": 255,
+                    "y": 64
+                },
+                {
+                    "id": "n3",
+                    "x": 9,
+                    "y": 34
+                },
+                {
+                    "id": "n4",
+                    "x": 238,
+                    "y": 143
+                },
+                {
+                    "id": "n5",
+                    "x": 7,
+                    "y": 141
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n2",
+                    "to": "n1",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n2",
+                    "tags": []
+                }
+            ]
+        }
+    }
+}

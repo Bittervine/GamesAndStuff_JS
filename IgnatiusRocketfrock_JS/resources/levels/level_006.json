@@ -2930,8 +2930,8 @@
             "kind": "atlasAsset",
             "atlasId": "at_atlas_004",
             "assetId": "earth_long_platform_r7_b",
-            "x": 3328,
-            "y": 17808,
+            "x": 3392,
+            "y": 17776,
             "w": 594,
             "h": 60,
             "mirrorX": false,
@@ -2949,8 +2949,8 @@
             "kind": "atlasAsset",
             "atlasId": "at_atlas_004",
             "assetId": "earth_long_platform_r6_c",
-            "x": 2144,
-            "y": 17840,
+            "x": 1904,
+            "y": 17920,
             "w": 284,
             "h": 60,
             "mirrorX": false,
@@ -5096,7 +5096,7 @@
             "kind": "atlasAsset",
             "atlasId": "at_atlas_004",
             "assetId": "earth_long_platform_r6_c",
-            "x": 4352,
+            "x": 4320,
             "y": 17520,
             "w": 284,
             "h": 60,
@@ -5122,8 +5122,8 @@
             "kind": "atlasAsset",
             "atlasId": "at_atlas_004",
             "assetId": "earth_long_platform_r6_c",
-            "x": 3984,
-            "y": 17664,
+            "x": 4016,
+            "y": 17648,
             "w": 284,
             "h": 60,
             "mirrorX": false,
@@ -10812,8 +10812,7 @@
             "layer": "terrain",
             "blendOverlaps": false,
             "collisionFromManifest": true,
-            "notes": "",
-            "order": 265,
+            "editorLocked": false,
             "manualizedFromGeneration": {
                 "generatorId": "automatic-level-generator-9",
                 "runId": "",
@@ -10821,7 +10820,9 @@
                 "role": "",
                 "supportId": "",
                 "routeNodeId": ""
-            }
+            },
+            "notes": "",
+            "order": 265
         },
         {
             "id": "rubble_01_002",
@@ -10837,8 +10838,7 @@
             "rotation": 0,
             "layer": "terrain",
             "collisionFromManifest": true,
-            "notes": "",
-            "order": 263,
+            "editorLocked": false,
             "manualizedFromGeneration": {
                 "generatorId": "automatic-level-generator-9",
                 "runId": "",
@@ -10846,7 +10846,9 @@
                 "role": "",
                 "supportId": "",
                 "routeNodeId": ""
-            }
+            },
+            "notes": "",
+            "order": 263
         },
         {
             "id": "rubble_04_002",
@@ -10863,8 +10865,7 @@
             "layer": "terrain",
             "blendOverlaps": false,
             "collisionFromManifest": true,
-            "notes": "",
-            "order": 268,
+            "editorLocked": false,
             "manualizedFromGeneration": {
                 "generatorId": "automatic-level-generator-9",
                 "runId": "",
@@ -10872,7 +10873,27 @@
                 "role": "",
                 "supportId": "",
                 "routeNodeId": ""
-            }
+            },
+            "notes": "",
+            "order": 268
+        },
+        {
+            "id": "earth_long_platform_r4_c_002",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_004",
+            "assetId": "earth_long_platform_r4_c",
+            "x": 2176,
+            "y": 17776,
+            "w": 220,
+            "h": 60,
+            "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "blendOverlaps": false,
+            "collisionFromManifest": true,
+            "notes": "",
+            "order": 492
         }
     ],
     "entities": [
