@@ -25,8 +25,6 @@ const RESOURCE_BASE_URL = new URL("../../resources/", import.meta.url);
 const ui = {
     cellSize: document.getElementById("cell-size"),
     maxSize: document.getElementById("max-size"),
-    chooseFolderButton: document.getElementById("choose-folder"),
-    clearFolderButton: document.getElementById("clear-folder"),
     outputFolder: document.getElementById("output-folder"),
     buildButton: document.getElementById("build-button"),
     verifyButton: document.getElementById("verify-button"),
@@ -133,8 +131,6 @@ function setBusy(nextBusy) {
     busy = Boolean(nextBusy);
     ui.buildButton.disabled = busy;
     ui.verifyButton.disabled = busy;
-    ui.chooseFolderButton.disabled = busy || !projectHost || projectHost.mode === "native" || !("showDirectoryPicker" in window);
-    ui.clearFolderButton.disabled = busy || projectHost?.mode === "native";
 }
 
 function setStatus(message, tone = "info") {
@@ -180,7 +176,9 @@ function renderSummary(metrics) {
 }
 
 function updateOutputFolderLabel() {
-    ui.outputFolder.value = projectHost?.connected ? `${projectHost.displayName}/palette` : "(not connected)";
+    ui.outputFolder.value = projectHost?.connected
+        ? `${projectHost.displayName}/palette`
+        : "(open through Ignatius Dev Tool for project output)";
 }
 
 function isResourceRelativePath(path) {
@@ -923,8 +921,8 @@ async function runBuild() {
             appendLog(`Wrote ${OUTPUT_IMAGE_NAME} and ${OUTPUT_JSON_NAME} to resources/palette.`);
             setStatus("Build complete and written to resources/palette.", "success");
         } else {
-            appendLog("Build complete. Use the download links or choose an output folder.");
-            setStatus("Build complete. Use the download links or choose an output folder.", "success");
+            appendLog("Build complete. Open this tool through Ignatius Dev Tool to write directly to project resources, or use the download links.");
+            setStatus("Build complete. Use the download links, or open through Ignatius Dev Tool for direct project output.", "success");
         }
         setProgress(1, 1);
     } catch (error) {
@@ -969,53 +967,12 @@ async function runVerify() {
     }
 }
 
-async function chooseOutputFolder() {
-    if (!projectHost) {
-        setStatus("The shared project host is unavailable.", "error");
-        return;
-    }
-    try {
-        const before = projectHost.snapshot();
-        const after = await projectHost.chooseResourcesDirectory();
-        updateOutputFolderLabel();
-        if (after.selectionVersion !== before.selectionVersion) {
-            latestBuild = null;
-            for (const anchor of [ui.downloadImage, ui.downloadJson]) {
-                if (anchor.dataset.url) URL.revokeObjectURL(anchor.dataset.url);
-                delete anchor.dataset.url;
-                anchor.removeAttribute("href");
-                anchor.setAttribute("aria-disabled", "true");
-            }
-            clearSummary();
-            appendLog("Resources folder changed. Rebuild before writing palette outputs so inputs and outputs come from the same tree.");
-            setStatus(`Selected project resources: ${projectHost.displayName}. Rebuild thumbnails for this tree.`, "success");
-        } else {
-            setStatus(`Selected project resources: ${projectHost.displayName}`, "success");
-        }
-    } catch (error) {
-        if (error?.name === "AbortError") return;
-        console.error(error);
-        setStatus(`Could not select the resources folder: ${error.message || error}`, "error");
-    }
-}
-
-async function clearOutputFolder() {
-    if (projectHost?.mode !== "browser") return;
-    await projectHost.forgetResourcesDirectory();
-    updateOutputFolderLabel();
-    setStatus("Project folder forgotten; using download links only.", "info");
-}
-
 async function bootstrap() {
     if (projectHost) {
         projectHost.subscribe(() => updateOutputFolderLabel());
         await projectHost.initialize();
     }
     updateOutputFolderLabel();
-    ui.chooseFolderButton.disabled = !projectHost || projectHost.mode === "native" || !("showDirectoryPicker" in window);
-    ui.clearFolderButton.disabled = !projectHost || projectHost.mode === "native";
-    ui.chooseFolderButton.addEventListener("click", chooseOutputFolder);
-    ui.clearFolderButton.addEventListener("click", clearOutputFolder);
     ui.buildButton.addEventListener("click", runBuild);
     ui.verifyButton.addEventListener("click", runVerify);
     ui.downloadImage.addEventListener("click", (event) => {

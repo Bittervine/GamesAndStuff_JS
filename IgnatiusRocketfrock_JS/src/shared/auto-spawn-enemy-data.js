@@ -97,10 +97,30 @@ export function collectLevelEnemyCharacterIds(level, catalog) {
     const source = level && typeof level === "object" ? level : {};
     const normalizedCatalog = normalizeEnemyDefinitionCatalog(catalog);
     const characterIds = new Set();
+    const addCharacterId = (value) => {
+        const characterId = String(value || "").trim();
+        if (characterId) characterIds.add(characterId);
+    };
+    const addEnemyDependencies = (enemyId, overrides = null) => {
+        const definition = normalizedCatalog.enemies[String(enemyId || "").trim()] || null;
+        const defaults = definition?.defaults && typeof definition.defaults === "object" ? definition.defaults : {};
+        const explicit = overrides && typeof overrides === "object" && !Array.isArray(overrides) ? overrides : {};
+        addCharacterId(explicit.characterId || explicit.characterProject || definition?.characterId);
+        const projectileKind = String(explicit.projectileKind || defaults.projectileKind || "").trim();
+        const projectileKindDefaults = normalizedCatalog.projectileKinds[projectileKind] || {};
+        // Projectile visuals are gameplay assets, not opportunistic renderer decoration.
+        // A Kind-default visual must therefore be resident whenever that enemy can fire;
+        // otherwise the exact same projectile changes into a primitive fallback depending
+        // on whether some unrelated enemy happened to load the shared character atlas.
+        addCharacterId(
+            explicit.projectileVisualCharacterId
+            || defaults.projectileVisualCharacterId
+            || projectileKindDefaults.visualCharacterId
+        );
+    };
     const addEnemyPool = (config) => {
         for (const enemyId of resolveAutoSpawnEnemyIds(config, catalog).resolvedIds) {
-            const characterId = String(normalizedCatalog.enemies[enemyId]?.characterId || "").trim();
-            if (characterId) characterIds.add(characterId);
+            addEnemyDependencies(enemyId);
         }
     };
 
@@ -113,12 +133,12 @@ export function collectLevelEnemyCharacterIds(level, catalog) {
         if (!entity || typeof entity !== "object" || Array.isArray(entity)) continue;
         const type = String(entity.type || "");
         if (type === "characterEnemy" || normalizedCatalog.enemies[type]) {
-            let characterId = String(entity.characterId || entity.characterProject || "").trim();
-            if (!characterId) {
-                const enemyCatalogId = String(entity.enemyCatalogId || type).trim();
-                characterId = String(normalizedCatalog.enemies[enemyCatalogId]?.characterId || "").trim();
+            const enemyCatalogId = String(entity.enemyCatalogId || (normalizedCatalog.enemies[type] ? type : "")).trim();
+            if (enemyCatalogId) addEnemyDependencies(enemyCatalogId, entity);
+            else {
+                addCharacterId(entity.characterId || entity.characterProject);
+                addCharacterId(entity.projectileVisualCharacterId);
             }
-            if (characterId) characterIds.add(characterId);
         } else if (type === "enemySpawner") {
             const spawner = normalizeEnemySpawner(entity);
             if (spawner.probabilityPercent > 0) addEnemyPool(entity);

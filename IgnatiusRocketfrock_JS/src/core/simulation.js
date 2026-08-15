@@ -86,6 +86,7 @@ import {
     buildEnemyNavigationSupports,
     enemyNavigationEdgeMapFromFlat,
     enemyNavigationRouteFromSearch,
+    enemyNavigationTraversalAllowedFromSupport,
     enemyNavigationProfileKey,
     enemyNavigationSupportsSignature,
     findBakedEnemyNavigationGraph,
@@ -3580,17 +3581,14 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
     const anchorX = clamp(Number(anchor?.x ?? 0.5), 0, 1);
     const anchorY = clamp(Number(anchor?.y ?? 0.42), 0, 1);
     const facing = Number(entity.facing) < 0 ? -1 : 1;
-    const requestedStrategy = String(entity.strategy || "").trim().toLowerCase();
-    const strategy = requestedStrategy === "hunter"
-        ? "hunter"
-        : requestedStrategy === "bomber"
-            ? "bomber"
-            : requestedStrategy === "simple_patrol"
-                ? "simple_patrol"
-                : requestedStrategy === "passive"
-                    ? "passive"
-                : "sentry";
-    const locomotion = String(entity.locomotion || "").trim().toLowerCase() === "flying"
+    // SDL preserves the authored strategy string verbatim. Only exact known
+    // values enter their specialized branches later in the state machine.
+    const strategy = entity.strategy === undefined || entity.strategy === null
+        ? "sentry"
+        : String(entity.strategy);
+    const locomotion = (entity.locomotion === undefined || entity.locomotion === null
+        ? "ground"
+        : String(entity.locomotion)) === "flying"
         ? "flying"
         : "ground";
     const isPassive = strategy === "passive";
@@ -3645,8 +3643,8 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         dropsEmitted: false,
         ...createTransformTriplet({ x, y, scaleX: renderScale, scaleY: renderScale, alpha: 1 }),
         animationClock: createAnimationClock(animationTime),
-        spawnX: x,
-        spawnY: y,
+        spawnX: finiteNumberOr(entity.spawnX, x),
+        spawnY: finiteNumberOr(entity.spawnY, y),
         width,
         height,
         health,
@@ -3654,6 +3652,7 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         tuningBaseMaxHealth,
         tuningHealthScaleApplied,
         combatState: health > 0 ? "alive" : "dead",
+        simulationDormant: false,
         state: health > 0 ? "idle" : "death",
         animationSlot: health > 0 ? "idle" : "death",
         animationTimeOffset: Number(entity.animationTimeOffset) || 0,
@@ -3745,7 +3744,7 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         flightPhaseOffset: finiteNumberOr(entity.flightPhaseOffset, 0),
         flightAmplitude: Math.max(0, finiteNumberOr(entity.flightAmplitude, 16)),
         flightCyclesPerSecond: Math.max(0, finiteNumberOr(entity.flightCyclesPerSecond, 0.58)),
-        bomberHorizontalSpeed: Math.max(0, finiteNumberOr(entity.bomberHorizontalSpeed, finiteNumberOr(entity.runSpeed, 150))),
+        bomberHorizontalSpeed: Math.max(0, finiteNumberOr(entity.bomberHorizontalSpeed, Math.max(150, finiteNumberOr(entity.runSpeed, state.tuning.enemyDefaultRunSpeed)))),
         bomberHoverHeight: Math.max(16, finiteNumberOr(entity.bomberHoverHeight, 180)),
         bomberDropTolerance: Math.max(1, finiteNumberOr(entity.bomberDropTolerance, 34)),
         bomberDropHeightTolerance: Math.max(4, finiteNumberOr(entity.bomberDropHeightTolerance, 36)),
@@ -3797,8 +3796,16 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         projectileFrameId: entity.projectileFrameId ? String(entity.projectileFrameId) : null,
         projectileVisualCharacterId: String(entity.projectileVisualCharacterId || projectileDefaults.visualCharacterId || ""),
         projectileVisualFrameId: String(entity.projectileVisualFrameId || projectileDefaults.visualFrameId || ""),
-        projectileOriginLocalX: Number.isFinite(Number(entity.projectileOriginLocalX)) ? Number(entity.projectileOriginLocalX) : null,
-        projectileOriginLocalY: Number.isFinite(Number(entity.projectileOriginLocalY)) ? Number(entity.projectileOriginLocalY) : null,
+        projectileOriginLocalX: Object.prototype.hasOwnProperty.call(entity, "projectileOriginLocalX") && entity.projectileOriginLocalX !== null
+            ? finiteNumberOr(entity.projectileOriginLocalX, 0)
+            : 0,
+        projectileOriginLocalY: Object.prototype.hasOwnProperty.call(entity, "projectileOriginLocalY") && entity.projectileOriginLocalY !== null
+            ? finiteNumberOr(entity.projectileOriginLocalY, 0)
+            : 0,
+        hasProjectileOriginLocal: Object.prototype.hasOwnProperty.call(entity, "projectileOriginLocalX")
+            && entity.projectileOriginLocalX !== null
+            && Object.prototype.hasOwnProperty.call(entity, "projectileOriginLocalY")
+            && entity.projectileOriginLocalY !== null,
         projectileRigScale: Math.max(0.0001, finiteNumberOr(entity.projectileRigScale, 1)),
         projectileSpeed: Math.max(1, finiteNumberOr(entity.projectileSpeed, state.tuning.enemyDefaultProjectileSpeed)),
         projectileGravity: finiteNumberOr(entity.projectileGravity, state.tuning.enemyDefaultProjectileGravity),
@@ -3809,18 +3816,18 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         projectileHomingStrength: Math.max(0, finiteNumberOr(entity.projectileHomingStrength, state.tuning.enemyDefaultProjectileHomingStrength)),
         projectilePathMargin: Math.max(0, finiteNumberOr(entity.projectilePathMargin, 0)),
         projectileVolleyCount: clamp(Math.round(finiteNumberOr(entity.spreadCount, finiteNumberOr(entity.projectileVolleyCount, 1))), 1, 15),
-        projectileVolleyHalfAngle: clamp(finiteNumberOr(entity.spreadAngle, finiteNumberOr(entity.projectileVolleyHalfAngle, 0)), 0, 180),
-        meleeHitRadius: Math.max(1, finiteNumberOr(entity.meleeHitRadius, Math.max(12, finiteNumberOr(entity.attackRange, state.tuning.enemyDefaultAttackRange) * 0.45))),
+        projectileVolleyHalfAngle: Math.max(0, finiteNumberOr(entity.spreadAngle, finiteNumberOr(entity.projectileVolleyHalfAngle, 0))),
+        meleeHitRadius: Math.max(1, finiteNumberOr(entity.meleeHitRadius, Math.max(12, finiteNumberOr(entity.attackRange, state.tuning.enemyDefaultAttackRange) * 0.5))),
         projectileRendererKind: String(entity.projectileRendererKind || projectileDefaults.rendererKind || "enemyFireball"),
-        projectileVisualScale: Math.max(0.05, finiteNumberOr(entity.projectileVisualScale, finiteNumberOr(projectileDefaults.visualScale, 1))),
+        projectileVisualScale: Math.max(0.01, finiteNumberOr(entity.projectileVisualScale, finiteNumberOr(projectileDefaults.visualScale, 1))),
         projectileRotationSpeedDegrees: finiteNumberOr(entity.projectileRotationSpeedDegrees, finiteNumberOr(projectileDefaults.rotationSpeedDegrees, 0)),
         projectileOrientToVelocity: entity.projectileOrientToVelocity === undefined ? projectileDefaults.orientToVelocity === true : entity.projectileOrientToVelocity === true,
         projectileTrailEffect: String(entity.projectileTrailEffect || projectileDefaults.trailEffect || "none"),
         projectileImpactEffect: String(entity.projectileImpactEffect || projectileDefaults.impactEffect || "sparks"),
         projectileExplosionEffect: String(entity.projectileExplosionEffect || projectileDefaults.explosionEffect || "impact"),
-        projectileExplosionVisualScale: Math.max(0.05, finiteNumberOr(entity.projectileExplosionVisualScale, finiteNumberOr(projectileDefaults.explosionVisualScale, 1))),
+        projectileExplosionVisualScale: Math.max(0.01, finiteNumberOr(entity.projectileExplosionVisualScale, finiteNumberOr(projectileDefaults.explosionVisualScale, 1))),
         projectileAreaDamageRadiusWizardHeights: Math.max(0, finiteNumberOr(entity.projectileAreaDamageRadiusWizardHeights, finiteNumberOr(projectileDefaults.areaDamageRadiusWizardHeights, 0))),
-        projectileKnockbackX: Math.max(0, finiteNumberOr(entity.projectileKnockbackX, state.tuning.enemyDefaultProjectileKnockbackX)),
+        projectileKnockbackX: finiteNumberOr(entity.projectileKnockbackX, state.tuning.enemyDefaultProjectileKnockbackX),
         projectileKnockbackY: finiteNumberOr(entity.projectileKnockbackY, state.tuning.enemyDefaultProjectileKnockbackY),
         attackLungeDistance: Math.max(0, finiteNumberOr(entity.attackLungeDistance, state.tuning.enemyDefaultAttackLungeDistance)),
         attackLungeSpeed: Math.max(0, finiteNumberOr(entity.attackLungeSpeed, state.tuning.enemyDefaultAttackLungeSpeed)),
@@ -4286,11 +4293,22 @@ function applyCharacterCombatProfileToEnemy(state, enemy) {
     enemy.nextAttackHandoffIndex = 0;
     enemy.attackDuration = Math.max(
         FIXED_DT,
+        Number(enemy.attackDuration) || 0,
         attackHandoffs.length ? attackHandoffs[attackHandoffs.length - 1].releaseTime + FIXED_DT : 0,
-        finiteNumberOr(profile.attackDuration, enemy.attackDuration)
+        Number.isFinite(Number(profile.attackDuration)) ? Number(profile.attackDuration) : 0
     );
     if (attackHandoffs.length) {
-        enemy.attackHitTime = attackHandoffs[0].releaseTime;
+        const first = attackHandoffs[0];
+        enemy.attackHitTime = first.releaseTime;
+        if (first.detach) {
+            enemy.projectileReleaseTime = enemy.attackHitTime;
+            enemy.projectilePartName = first.partName;
+            enemy.projectileFrameId = first.frameId;
+            enemy.projectileOriginLocalX = first.originLocalX;
+            enemy.projectileOriginLocalY = first.originLocalY;
+            enemy.hasProjectileOriginLocal = first.hasOriginLocal === true;
+            enemy.projectileRigScale = Math.max(0.0001, first.rigScale);
+        }
     }
     return true;
 }
@@ -5228,15 +5246,18 @@ function characterEnemyCanUseProjectile(state, enemy) {
 
 function characterEnemyArtworkOriginAt(enemy, x, y, facing = enemy.facing) {
     const direction = Number(facing) < 0 ? -1 : 1;
+    const actorScale = Math.max(0.05, Number(enemy.currentTransform?.scaleX) || 1);
     return {
-        x: x + direction * finiteNumberOr(enemy.renderOffsetX, 0),
-        y: y + finiteNumberOr(enemy.renderOffsetY, 0)
+        x: x + direction * finiteNumberOr(enemy.renderOffsetX, 0) * actorScale,
+        y: y + finiteNumberOr(enemy.renderOffsetY, 0) * actorScale
     };
 }
 
 function enemyProjectileSpawnPointAt(enemy, x, y, facing = enemy.facing) {
-    const hasAuthoredOrigin = enemy.projectileOriginLocalX !== null && enemy.projectileOriginLocalX !== undefined &&
-        enemy.projectileOriginLocalY !== null && enemy.projectileOriginLocalY !== undefined;
+    const hasLegacyAuthoredOrigin = enemy.hasProjectileOriginLocal === undefined
+        && enemy.projectileOriginLocalX !== null && enemy.projectileOriginLocalX !== undefined
+        && enemy.projectileOriginLocalY !== null && enemy.projectileOriginLocalY !== undefined;
+    const hasAuthoredOrigin = enemy.hasProjectileOriginLocal === true || hasLegacyAuthoredOrigin;
     const localX = Number(enemy.projectileOriginLocalX);
     const localY = Number(enemy.projectileOriginLocalY);
     const direction = Number(facing) < 0 ? -1 : 1;
@@ -5638,9 +5659,9 @@ export function launchCharacterEnemyProjectile(state, enemy, angleOffset = 0, vo
         vy = aim.y * tunedProjectileSpeed;
         gravity = 0;
         if (launchType === "pathing_hi") {
-            homingStrength = Math.max(2.4, (Number(enemy.projectileHomingStrength) || 0) * 2);
+            homingStrength = Math.max(0.8, Number(enemy.projectileHomingStrength) || 0);
         } else if (launchType === "pathing_lo") {
-            homingStrength = Math.max(2.6, (Number(enemy.projectileHomingStrength) || 0) * 2.9);
+            homingStrength = Math.max(0.2, Number(enemy.projectileHomingStrength) || 0);
         } else if (launchType === "homing_hi") {
             homingStrength = Math.max(2.4, Number(enemy.projectileHomingStrength) || 0);
         } else if (launchType === "homing_lo") {
@@ -5734,8 +5755,11 @@ function characterEnemyCanNoticePlayer(state, enemy) {
     }
 
     const facing = enemy.facing < 0 ? -1 : 1;
+    const authoredHalfAngleDegrees = Number(enemy.awarenessViewHalfAngle);
     const halfAngleDegrees = clamp(
-        finiteNumberOr(enemy.awarenessViewHalfAngle, state.tuning.enemyDefaultAwarenessViewHalfAngle),
+        Number.isFinite(authoredHalfAngleDegrees) && authoredHalfAngleDegrees > 0
+            ? authoredHalfAngleDegrees
+            : state.tuning.enemyDefaultAwarenessViewHalfAngle,
         0,
         180
     );
@@ -5816,6 +5840,114 @@ function findCharacterEnemyWalkingSupport(state, enemy, candidateX, direction) {
     return null;
 }
 
+function findLegacyCharacterEnemyGroundSupport(state, x, authoredY, width, maxDeltaY) {
+    const safeWidth = Math.max(16, Number(width) || 0);
+    const samples = [x, x - safeWidth * 0.24, x + safeWidth * 0.24];
+    let best = null;
+    let bestScore = Number.POSITIVE_INFINITY;
+    const consider = (a, b, id, kind) => {
+        if (kind !== "walkable" && kind !== "blockable") return;
+        const dx = Number(b.x) - Number(a.x);
+        if (Math.abs(dx) < 0.001) return;
+        for (let sampleIndex = 0; sampleIndex < samples.length; sampleIndex += 1) {
+            const t = (samples[sampleIndex] - Number(a.x)) / dx;
+            if (t < -0.001 || t > 1.001) continue;
+            const y = Number(a.y) + (Number(b.y) - Number(a.y)) * t;
+            const delta = y - authoredY;
+            if (Math.abs(delta) > maxDeltaY) continue;
+            const score = Math.abs(delta) + sampleIndex * 0.001;
+            if (score < bestScore) {
+                bestScore = score;
+                best = { id, kind, y, delta, slope: 0, score };
+            }
+        }
+    };
+
+    const supportQueryBounds = {
+        minX: Math.min(...samples) - 2,
+        minY: authoredY - Math.max(0, maxDeltaY) - 2,
+        maxX: Math.max(...samples) + 2,
+        maxY: authoredY + Math.max(0, maxDeltaY) + 2
+    };
+    for (const segment of queryWorldSegments(state.world, supportQueryBounds)) {
+        consider(
+            { x: Number(segment.x1), y: Number(segment.y1) },
+            { x: Number(segment.x2), y: Number(segment.y2) },
+            segment.id || "segment",
+            segment.kind
+        );
+    }
+    for (const polygon of queryWorldCollisionPolygons(state.world, supportQueryBounds)) {
+        const points = Array.isArray(polygon?.points) ? polygon.points : [];
+        if (points.length < 2) continue;
+        const polygonId = polygon.id || "polygon";
+        for (let index = 0; index < points.length; index += 1) {
+            const a = points[index];
+            const b = points[(index + 1) % points.length];
+            consider(a, b, `${polygonId}_edge_${index}`, polygon.kind);
+        }
+    }
+    for (const solid of queryWorldSolids(state.world, supportQueryBounds)) {
+        if (solid.kind !== "walkable" && solid.kind !== "blockable") continue;
+        for (let sampleIndex = 0; sampleIndex < samples.length; sampleIndex += 1) {
+            const sampleX = samples[sampleIndex];
+            if (sampleX < solid.x - 0.001 || sampleX > solid.x + solid.w + 0.001) continue;
+            const delta = solid.y - authoredY;
+            if (Math.abs(delta) > maxDeltaY) continue;
+            const score = Math.abs(delta) + sampleIndex * 0.001;
+            if (score < bestScore) {
+                bestScore = score;
+                best = { id: solid.id || "solid", kind: solid.kind, y: solid.y, delta, slope: 0, score };
+            }
+        }
+    }
+    return best;
+}
+
+function moveLegacyCharacterEnemyTowardCollisionAware(state, enemy, targetX, speed, dt, stopDistance = 0) {
+    const dx = targetX - enemy.currentTransform.x;
+    const distance = Math.abs(dx);
+    const remainingDistance = Math.max(0, distance - Math.max(0, stopDistance));
+    if (remainingDistance <= 0.0001 || speed <= 0 || dt <= 0) return 0;
+
+    const direction = dx < 0 ? -1 : 1;
+    let candidateX = enemy.currentTransform.x + direction * Math.min(remainingDistance, speed * dt);
+    if (enemy.strategy === "simple_patrol" && enemy.patrolDistance > 0) {
+        candidateX = clamp(candidateX, enemy.patrolMinX, enemy.patrolMaxX);
+    }
+    if (Math.abs(candidateX - enemy.currentTransform.x) <= 0.0001) return 0;
+
+    const supportDelta = Math.max(
+        Number(enemy.maxDropDistance) || 0,
+        Math.max(Number(enemy.maxStepHeight) || 0, (Number(enemy.height) || 0) * 0.20)
+    );
+    let support = findLegacyCharacterEnemyGroundSupport(
+        state,
+        candidateX,
+        enemy.currentTransform.y,
+        enemy.width,
+        supportDelta
+    );
+    const legacySupportClear = Boolean(support) && !characterEnemyBodyBlockedAt(
+        state,
+        enemy,
+        candidateX,
+        support.y,
+        { groundSlope: support.slope }
+    );
+    if (!legacySupportClear) {
+        support = findCharacterEnemyWalkingSupport(state, enemy, candidateX, direction);
+    }
+    if (!support) return 0;
+
+    const moved = Math.abs(candidateX - enemy.currentTransform.x);
+    enemy.facing = direction;
+    enemy.currentTransform.x = candidateX;
+    enemy.currentTransform.y = support.y;
+    setCharacterEnemyGroundSupportIdentity(state, enemy, support);
+    return moved;
+}
+
 function moveCharacterEnemyToward(state, enemy, targetX, speed, dt, stopDistance = 0) {
     const dx = targetX - enemy.currentTransform.x;
     const distance = Math.abs(dx);
@@ -5844,65 +5976,93 @@ function moveCharacterEnemyToward(state, enemy, targetX, speed, dt, stopDistance
     return moved;
 }
 
-function advanceCharacterEnemyAttackLunge(state, enemy, dt, elapsed, hitTime) {
-    if (enemy.attackHitApplied || elapsed > hitTime || enemy.attackLungeRemaining <= 0) {
-        return;
+function advanceCharacterEnemyAttackLunge(state, enemy, previousElapsed, elapsed, hitTime, duration) {
+    if (enemy.attackMode === "projectile" || enemy.locomotion === "flying" || enemy.airborne === true) {
+        return 0;
     }
-    const player = state.player;
-    const dx = player.currentTransform.x - enemy.currentTransform.x;
-    if (Math.abs(dx) <= 0.001) {
-        return;
+    const remaining = Math.max(0, Number(enemy.attackLungeRemaining) || 0);
+    const totalDistance = Math.max(0, Number(enemy.attackLungeDistance) || 0);
+    const speed = Math.max(0, Number(enemy.attackLungeSpeed) || 0);
+    if (remaining <= 0.0001 || totalDistance <= 0.0001 || speed <= 0.0001 || !playerIsAvailableCombatTarget(state)) {
+        return 0;
     }
 
+    // Make the authored lunge lead directly into the first melee handoff instead
+    // of firing immediately at attack start. Attack-rate scaling changes the
+    // real-time duration of this window together with the attack animation.
+    const firstHandoff = Array.isArray(enemy.attackHandoffs) && enemy.attackHandoffs.length
+        ? enemy.attackHandoffs[0]
+        : null;
+    const impactTime = clamp(
+        finiteNumberOr(firstHandoff?.releaseTime, hitTime),
+        0,
+        Math.max(FIXED_DT, Number(duration) || FIXED_DT)
+    );
+    const lungeDuration = totalDistance / speed;
+    const lungeStartTime = Math.max(0, impactTime - lungeDuration);
+    const activeStart = Math.max(Number(previousElapsed) || 0, lungeStartTime);
+    const activeEnd = Math.min(Number(elapsed) || 0, impactTime);
+    const lungeDt = Math.max(0, activeEnd - activeStart);
+    if (lungeDt <= 0.000001) {
+        return 0;
+    }
+
+    const player = state.player;
+    const enemyCenterY = enemy.currentTransform.y - enemy.height * 0.55;
+    const playerCenterY = player.currentTransform.y - player.height * 0.5;
+    if (Math.abs(playerCenterY - enemyCenterY) > Math.max(1, Number(enemy.attackVerticalRange) || 1)) {
+        return 0;
+    }
+    if (characterEnemyAttackBlockedFromPoint(state, enemy, enemy.currentTransform.x, enemy.currentTransform.y)) {
+        return 0;
+    }
+
+    const dx = player.currentTransform.x - enemy.currentTransform.x;
+    if (Math.abs(dx) <= 0.001) {
+        return 0;
+    }
     enemy.facing = dx < 0 ? -1 : 1;
     const stopDistance = Math.max(
-        Number(enemy.attackRange) || 1,
+        Math.max(1, Number(enemy.attackRange) || 1),
         (Math.max(1, Number(enemy.width) || 1) + Math.max(1, Number(player.width) || 1)) * 0.5 - 4
     );
-    const speed = Math.min(
-        Math.max(0, Number(enemy.attackLungeSpeed) || 0),
-        enemy.attackLungeRemaining / Math.max(FIXED_DT, dt)
+    const movementSpeed = Math.min(speed, remaining / lungeDt);
+    const moved = moveCharacterEnemyToward(
+        state,
+        enemy,
+        player.currentTransform.x,
+        movementSpeed,
+        lungeDt,
+        stopDistance
     );
-    const moved = moveCharacterEnemyToward(state, enemy, player.currentTransform.x, speed, dt, stopDistance);
-    enemy.attackLungeRemaining = Math.max(0, enemy.attackLungeRemaining - moved);
+    enemy.attackLungeRemaining = Math.max(0, remaining - moved);
+    return moved;
 }
 
 function startCharacterEnemyAttack(state, enemy) {
-    const attackDamage = Math.max(0, finiteNumberOr(enemy.damage, finiteNumberOr(enemy.attackDamage, state.tuning.enemyDefaultAttackDamage)));
-    enemy.damage = attackDamage;
-    enemy.attackDamage = attackDamage;
-    enemy.attackRange = Math.max(1, finiteNumberOr(enemy.attackRange, state.tuning.enemyDefaultAttackRange));
-    enemy.attackVerticalRange = Math.max(1, finiteNumberOr(enemy.attackVerticalRange, state.tuning.enemyDefaultAttackVerticalRange));
-    enemy.attackDuration = Math.max(FIXED_DT, finiteNumberOr(enemy.attackDuration, state.tuning.enemyDefaultAttackDuration));
-    enemy.attackHitTime = Math.max(0, finiteNumberOr(enemy.projectileReleaseTime, finiteNumberOr(enemy.attackHitTime, state.tuning.enemyDefaultAttackHitTime)));
-    enemy.attackCooldown = Math.max(0, finiteNumberOr(enemy.attackCooldown, state.tuning.enemyDefaultAttackCooldown));
-    enemy.attackMode = String(enemy.attackType || enemy.attackMode || state.tuning.enemyDefaultAttackMode || "melee") === "projectile" ? "projectile" : "melee";
-    enemy.attackType = enemy.attackMode;
-    enemy.projectileSpeed = Math.max(1, finiteNumberOr(enemy.projectileSpeed, state.tuning.enemyDefaultProjectileSpeed));
-    enemy.projectileGravity = finiteNumberOr(enemy.projectileGravity, state.tuning.enemyDefaultProjectileGravity);
-    enemy.projectileLifetime = Math.max(FIXED_DT, finiteNumberOr(enemy.projectileLifetime, state.tuning.enemyDefaultProjectileLifetime));
-    enemy.projectileRadius = Math.max(1, finiteNumberOr(enemy.projectileRadius, state.tuning.enemyDefaultProjectileRadius));
-    enemy.projectileDamage = attackDamage;
-    enemy.projectileCooldown = Math.max(0, finiteNumberOr(enemy.projectileCooldown, finiteNumberOr(enemy.attackCooldown, state.tuning.enemyDefaultProjectileCooldown)));
-    enemy.projectileHomingStrength = Math.max(0, finiteNumberOr(enemy.projectileHomingStrength, state.tuning.enemyDefaultProjectileHomingStrength));
-    enemy.projectileVolleyCount = clamp(Math.round(finiteNumberOr(enemy.spreadCount, finiteNumberOr(enemy.projectileVolleyCount, 1))), 1, 15);
-    enemy.projectileVolleyHalfAngle = clamp(finiteNumberOr(enemy.spreadAngle, finiteNumberOr(enemy.projectileVolleyHalfAngle, 0)), 0, 180);
-    enemy.projectileKnockbackX = Math.max(0, finiteNumberOr(enemy.projectileKnockbackX, state.tuning.enemyDefaultProjectileKnockbackX));
-    enemy.projectileKnockbackY = finiteNumberOr(enemy.projectileKnockbackY, state.tuning.enemyDefaultProjectileKnockbackY);
-    enemy.attackLungeDistance = Math.max(0, finiteNumberOr(enemy.attackLungeDistance, state.tuning.enemyDefaultAttackLungeDistance));
-    enemy.attackLungeSpeed = Math.max(0, finiteNumberOr(enemy.attackLungeSpeed, state.tuning.enemyDefaultAttackLungeSpeed));
-    enemy.attackKnockbackX = Math.max(0, finiteNumberOr(enemy.attackKnockbackX, state.tuning.enemyDefaultAttackKnockbackX));
-    enemy.attackKnockbackY = finiteNumberOr(enemy.attackKnockbackY, state.tuning.enemyDefaultAttackKnockbackY);
     const dx = state.player.currentTransform.x - enemy.currentTransform.x;
     if (Math.abs(dx) > 0.001) {
         enemy.facing = dx < 0 ? -1 : 1;
     }
     enemy.combatState = ENEMY_COMBAT_STATE.ATTACKING;
     enemy.movementPhase = "attack";
-    enemy.attackTimer = Math.max(FIXED_DT, Number(enemy.attackDuration) || state.tuning.enemyDefaultAttackDuration || 0.44);
-    enemy.attackLungeRemaining = enemy.attackMode === "projectile" ? 0 : Math.max(0, Number(enemy.attackLungeDistance) || 0);
+    enemy.attackTimer = Math.max(
+        FIXED_DT,
+        Number(enemy.attackDuration) > 0
+            ? Number(enemy.attackDuration)
+            : state.tuning.enemyDefaultAttackDuration
+    );
+    enemy.attackHitTime = Math.max(
+        0,
+        Number(enemy.projectileReleaseTime) > 0
+            ? Number(enemy.projectileReleaseTime)
+            : (Number(enemy.attackHitTime) || 0)
+    );
     enemy.attackHitApplied = false;
     enemy.nextAttackHandoffIndex = 0;
+    enemy.attackLungeRemaining = enemy.attackMode === "projectile"
+        ? 0
+        : Math.max(0, Number(enemy.attackLungeDistance) || 0);
     setCharacterEnemyAnimation(enemy, "attack");
     addEvent(state, "ENEMY_ATTACK_STARTED", {
         enemyId: enemy.id,
@@ -5942,8 +6102,9 @@ function applyCharacterEnemyAttackHandoff(enemy, handoff) {
         enemy.projectileReleaseTime = enemy.attackHitTime;
         enemy.projectilePartName = handoff.partName ? String(handoff.partName) : enemy.projectilePartName;
         enemy.projectileFrameId = handoff.frameId ? String(handoff.frameId) : enemy.projectileFrameId;
-        enemy.projectileOriginLocalX = finiteNumberOr(handoff.originLocalX, enemy.projectileOriginLocalX);
-        enemy.projectileOriginLocalY = finiteNumberOr(handoff.originLocalY, enemy.projectileOriginLocalY);
+        enemy.projectileOriginLocalX = finiteNumberOr(handoff.originLocalX, 0);
+        enemy.projectileOriginLocalY = finiteNumberOr(handoff.originLocalY, 0);
+        enemy.hasProjectileOriginLocal = handoff.hasOriginLocal === true;
         enemy.projectileRigScale = Math.max(0.0001, finiteNumberOr(handoff.rigScale, enemy.projectileRigScale));
     }
 }
@@ -5987,10 +6148,13 @@ function updateCharacterEnemyAttack(state, enemy, dt) {
     const elapsed = duration - enemy.attackTimer;
     const hitTime = clamp(Number(enemy.attackHitTime) || 0, 0, duration);
 
+    enemy.facing = (Number(enemy.panicTimer) || 0) > 0
+        ? (Math.cos(Number(enemy.panicAttackAngle) || 0) < 0 ? -1 : 1)
+        : (state.player.currentTransform.x < enemy.currentTransform.x ? -1 : 1);
     enemy.combatState = ENEMY_COMBAT_STATE.ATTACKING;
     enemy.movementPhase = "attack";
     setCharacterEnemyAnimation(enemy, "attack");
-    advanceCharacterEnemyAttackLunge(state, enemy, attackDt, elapsed, hitTime);
+    advanceCharacterEnemyAttackLunge(state, enemy, previousElapsed, elapsed, hitTime, duration);
 
     const handoffs = Array.isArray(enemy.attackHandoffs) && enemy.attackHandoffs.length
         ? enemy.attackHandoffs
@@ -6001,8 +6165,11 @@ function updateCharacterEnemyAttack(state, enemy, dt) {
             frameId: enemy.projectileFrameId,
             originLocalX: enemy.projectileOriginLocalX,
             originLocalY: enemy.projectileOriginLocalY,
-            hasOriginLocal: enemy.projectileOriginLocalX !== null && enemy.projectileOriginLocalX !== undefined
-                && enemy.projectileOriginLocalY !== null && enemy.projectileOriginLocalY !== undefined,
+            hasOriginLocal: enemy.hasProjectileOriginLocal === true || (
+                enemy.hasProjectileOriginLocal === undefined
+                && enemy.projectileOriginLocalX !== null && enemy.projectileOriginLocalX !== undefined
+                && enemy.projectileOriginLocalY !== null && enemy.projectileOriginLocalY !== undefined
+            ),
             rigScale: enemy.projectileRigScale
         }];
     let handoffIndex = clamp(Math.round(finiteNumberOr(enemy.nextAttackHandoffIndex, 0)), 0, handoffs.length);
@@ -6116,8 +6283,8 @@ function characterEnemyNavigationOptions(enemy, state = null) {
         maxStepGap: Math.max(10, Math.min(28, Number(enemy.width) * 0.32 || 18)),
         jumpHeight: Math.max(0, Number(enemy.jumpHeight) || 0),
         gravity: Math.max(1, Number(enemy.jumpGravity) || 1),
-        runSpeed: Math.max(1, characterEnemyRunSpeed(enemy, state?.tuning) || 1),
-        groundAcceleration: Math.max(1, Number(enemy.runAcceleration) || state?.tuning?.groundAcceleration || 950),
+        runSpeed: Math.max(1, Number(enemy.runSpeed) || 1),
+        groundAcceleration: Math.max(1, Number(enemy.runAcceleration) || 1),
         maxFallDistance: Math.max(0, Number(enemy.maxFallDistance) || 0),
         edgeInset: Math.max(6, Number(enemy.width) * 0.22 || 10),
         bodyClearance: Math.max(10, Number(enemy.width) * 0.34 || 12)
@@ -6154,36 +6321,6 @@ function characterEnemyNavigationAdjustedEdge(state, edge, graph = null) {
         adjustedCost += Math.max(0, Number(rule.penalty) || 0);
     }
     return adjustedCost === Number(edge.cost) ? edge : { ...edge, cost: adjustedCost };
-}
-
-function characterEnemyTraversalAllowedFromSupport(edge, sourceSupport) {
-    if (!edge || sourceSupport?.kind !== "walkable") {
-        return true;
-    }
-    const launchY = Number(edge.launchY);
-    const landingY = Number(edge.landingY);
-    if (!Number.isFinite(launchY) || !Number.isFinite(landingY) || landingY <= launchY + 0.001) {
-        return true;
-    }
-    // Monsters may descend from a green one-way line only by walking off the
-    // authored endpoint. Reject old baked jump arcs and malformed drop edges
-    // before the planner can turn them into an endless hop-and-land loop.
-    if (edge.type !== "drop" || edge.walkOff !== true) {
-        return false;
-    }
-    const vx = Number(edge.vx) || 0;
-    const launchX = Number(edge.launchX);
-    const landingX = Number(edge.landingX);
-    if (Math.abs(vx) <= 0.001 || !Number.isFinite(launchX) || !Number.isFinite(landingX)) {
-        return false;
-    }
-    const sourceEdgeX = vx < 0 ? Number(sourceSupport.xMin) : Number(sourceSupport.xMax);
-    const span = Math.max(0, Number(sourceSupport.xMax) - Number(sourceSupport.xMin));
-    const endpointTolerance = Math.max(3, Math.min(8, span * 0.04));
-    if (!Number.isFinite(sourceEdgeX) || Math.abs(launchX - sourceEdgeX) > endpointTolerance) {
-        return false;
-    }
-    return vx < 0 ? landingX < launchX - 0.001 : landingX > launchX + 0.001;
 }
 
 function movingPlatformAtEndpoint(state, platform, endpoint, tolerance = 1.5) {
@@ -6464,7 +6601,7 @@ function characterEnemyNavigationContext(state, enemy) {
         for (const support of supports) {
             edgeMap.set(support.id, (rawEdgeMap.get(support.id) || [])
                 .map((edge) => characterEnemyNavigationAdjustedEdge(state, edge, bakedGraph))
-                .filter((edge) => edge && characterEnemyTraversalAllowedFromSupport(edge, support)));
+                .filter((edge) => edge && enemyNavigationTraversalAllowedFromSupport(edge, support, supports)));
         }
     } else {
         const cached = CHARACTER_ENEMY_TRAVERSAL_EDGE_CACHE.get(rawEdgeMap);
@@ -6474,7 +6611,7 @@ function characterEnemyNavigationContext(state, enemy) {
             edgeMap = new Map();
             for (const support of supports) {
                 edgeMap.set(support.id, (rawEdgeMap.get(support.id) || [])
-                    .filter((edge) => characterEnemyTraversalAllowedFromSupport(edge, support)));
+                    .filter((edge) => enemyNavigationTraversalAllowedFromSupport(edge, support, supports)));
             }
             CHARACTER_ENEMY_TRAVERSAL_EDGE_CACHE.set(rawEdgeMap, { supports, edgeMap });
         }
@@ -6549,9 +6686,21 @@ function characterEnemyReadyToAttackFromCurrentPosition(state, enemy) {
 }
 
 function characterEnemyCanUseLocalGroundPursuit(state, enemy) {
-    if (enemy.attackMode === "projectile" || !state.player?.targetable) {
+    if (!state.player?.targetable) {
         return false;
     }
+
+    // Exact support identity is the strongest possible same-floor proof. Do this
+    // before the vertical-tolerance fallback: two actors can be far apart in Y
+    // while standing on the same long authored incline, and a navigation-graph
+    // failure must not make that continuous support look unreachable.
+    const playerSupportId = String(state.player.supportId || "");
+    const enemySupportId = String(enemy.supportId || "");
+    const enemyNavigationSupportId = String(enemy.currentSupportId || "");
+    if (playerSupportId && (playerSupportId === enemySupportId || playerSupportId === enemyNavigationSupportId)) {
+        return true;
+    }
+
     const automaticStepHeight = Math.max(0, enemy.height * AUTOMATIC_STEP_HEIGHT_RATIO);
     const verticalTolerance = Math.max(
         8,
@@ -6591,13 +6740,17 @@ function updateCharacterEnemyLocalGroundPursuit(state, enemy, dt) {
     if (Math.abs(dx) > 0.001) {
         enemy.facing = dx < 0 ? -1 : 1;
     }
-    enemy.engaged = true;
-    enemy.alerted = true;
-    enemy.aiState = "pursue";
-    clearCharacterEnemyNavigationPlan(enemy);
-    enemy.routeRepathTimer = Math.max(FIXED_DT, Number(enemy.routeRepathInterval) || FIXED_DT);
+
+    const commitLocalPursuit = () => {
+        enemy.engaged = true;
+        enemy.alerted = true;
+        enemy.aiState = "pursue";
+        clearCharacterEnemyNavigationPlan(enemy);
+        enemy.routeRepathTimer = Math.max(FIXED_DT, Number(enemy.routeRepathInterval) || FIXED_DT);
+    };
 
     if (enemy.attackCooldownTimer <= 0 && characterEnemyReadyToAttackFromCurrentPosition(state, enemy)) {
+        commitLocalPursuit();
         startCharacterEnemyAttack(state, enemy);
         return true;
     }
@@ -6606,15 +6759,18 @@ function updateCharacterEnemyLocalGroundPursuit(state, enemy, dt) {
         Math.max(1, Number(enemy.attackRange) || 1) * 0.72,
         Math.max(6, Math.abs(dx) - 1)
     ));
-    const speed = Math.max(1, characterEnemyRunSpeed(enemy, state.tuning) || Number(enemy.walkSpeed) || 1);
+    const speed = Math.max(1, characterEnemyRunSpeed(enemy, state.tuning));
     const moved = moveCharacterEnemyToward(state, enemy, state.player.currentTransform.x, speed, dt, stopDistance);
-    if (moved > 0) {
-        enemy.movementPhase = "local_pursuit";
-        setCharacterEnemyAnimation(enemy, "walk");
-    } else {
-        enemy.movementPhase = "pursue";
-        setCharacterEnemyAnimation(enemy, "idle");
+    if (moved <= 0) {
+        // Same-height or even same-support evidence is only permission to try the
+        // cheap local path. If geometry blocks the actual step, preserve the
+        // caller's glare/stranded/routed state and let graph recovery decide.
+        return false;
     }
+
+    commitLocalPursuit();
+    enemy.movementPhase = "local_pursuit";
+    setCharacterEnemyAnimation(enemy, "walk");
     return true;
 }
 
@@ -6984,7 +7140,8 @@ function updateCharacterEnemyPanic(state, enemy, dt) {
     const direction = Number(enemy.panicMoveDirection) < 0 ? -1 : 1;
     enemy.facing = direction;
     if (enemy.locomotion === "flying") {
-        const speed = Math.max(40, Number(enemy.bomberHorizontalSpeed) || Number(enemy.runSpeed) || 120);
+        const bomberSpeed = Number(enemy.bomberHorizontalSpeed) || 0;
+        const speed = Math.max(40, bomberSpeed > 0 ? bomberSpeed : Math.max(120, Number(enemy.runSpeed) || 0));
         enemy.currentTransform.x += direction * speed * Math.max(0, dt);
         enemy.velocityX = direction * speed;
         enemy.movementPhase = "panic_move";
@@ -7429,6 +7586,7 @@ function updateCharacterEnemyAirTraversal(state, enemy, dt, supports) {
         { ignoreIds: verticalIgnoreIds, blockWater: true }
     );
     enemy.currentTransform.y = verticalCollision ? verticalCollision.y : nextY;
+    enemy.movementPhase = "air";
 
     if (verticalCollision?.ceiling) {
         enemy.velocityY = 0;
@@ -7630,7 +7788,7 @@ function followCharacterEnemyNavigationPlan(state, enemy, navigation, dt) {
     const edge = enemy.route?.[enemy.routeIndex];
     const speed = characterEnemyRunSpeed(enemy, state.tuning);
     if (edge) {
-        if (edge.from !== current.id || !characterEnemyTraversalAllowedFromSupport(edge, current)) {
+        if (edge.from !== current.id || !enemyNavigationTraversalAllowedFromSupport(edge, current, navigation.supports)) {
             enemy.routeTraversalPhase = null;
             enemy.routeTraversalEdgeIndex = -1;
             enemy.groundVelocityX = 0;
@@ -8119,6 +8277,13 @@ function updateCharacterEnemyPatrolRange(state, enemy, dt, minX, maxX, phase = "
 }
 
 function updateHunterCharacterEnemy(state, enemy, dt) {
+    // Match the SDL hunter state-machine normalization. Restored states may carry
+    // a tactical pursue state without the redundant engaged flag.
+    if (!enemy.engaged && (enemy.aiState === "pursue" || enemy.aiState === "investigate_last_seen")) {
+        enemy.engaged = true;
+        enemy.alerted = true;
+    }
+
     const seesPlayer = enemy.airborne ? false : characterEnemyCanNoticePlayer(state, enemy);
     if (!enemy.airborne && !enemy.engaged && enemy.aiState === "patrol" && !seesPlayer) {
         const { bakedGraph } = staticEnemyNavigationBundle(state, characterEnemyNavigationOptions(enemy, state));
@@ -8191,6 +8356,16 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
         }
         enemy.glareTimer = Math.max(0, (Number(enemy.glareTimer) || 0) - dt);
         enemy.routeRepathTimer = Math.max(0, (Number(enemy.routeRepathTimer) || 0) - dt);
+
+        // Fresh sight on the same physical floor is stronger evidence than the
+        // failed graph route that put the hunter into glare. Recover immediately,
+        // without waiting for the graph-repath timer. This is especially important
+        // when both actors literally hold the same authored support line.
+        if (seesPlayer && updateCharacterEnemyLocalGroundPursuit(state, enemy, dt)) {
+            addEvent(state, "ENEMY_REENGAGED_LOCAL", { enemyId: enemy.id, reason: "glare_same_floor" });
+            syncCharacterEnemyTarget(state, enemy);
+            return;
+        }
         if (seesPlayer && characterEnemyRoutePlayerTargetMoved(state, enemy)) {
             enemy.routeRepathTimer = 0;
         }
@@ -8720,6 +8895,7 @@ function beginDeadFlyingCharacterEnemy(state, enemy) {
 }
 
 function updateDeadFlyingCharacterEnemy(state, enemy, dt) {
+    if (enemy.simulationDormant === true) return;
     beginDeadFlyingCharacterEnemy(state, enemy);
     enemy.deathElapsed = Math.max(0, Number(enemy.deathElapsed) || 0) + Math.max(0, Number(dt) || 0);
     enemy.currentTransform.x += (Number(enemy.velocityX) || 0) * dt;
@@ -8734,7 +8910,13 @@ function updateDeadFlyingCharacterEnemy(state, enemy, dt) {
         enemy.currentTransform.x - finiteNumberOr(enemy.deathFlightStartX, enemy.spawnX),
         enemy.currentTransform.y - finiteNumberOr(enemy.deathFlightStartY, enemy.spawnY)
     );
-    enemy.currentTransform.alpha = distance >= Math.max(1, Number(enemy.deathFlyOffDistance) || 720) ? 0 : 1;
+    const flyOffComplete = distance >= Math.max(1, Number(enemy.deathFlyOffDistance) || 720);
+    enemy.currentTransform.alpha = flyOffComplete ? 0 : 1;
+    if (flyOffComplete) {
+        enemy.velocityX = 0;
+        enemy.velocityY = 0;
+        enemy.simulationDormant = true;
+    }
     syncCharacterEnemyTarget(state, enemy);
 }
 
@@ -8772,66 +8954,6 @@ function deferCharacterEnemyDeathUntilLanding(enemy) {
     enemy.currentTransform.alpha = 1;
 }
 
-function updateDeadCharacterEnemyPhysics(state, enemy, dt) {
-    if ((Number(enemy.deathTimer) || 0) > 0) {
-        return;
-    }
-
-    if (enemy.airborne !== true) {
-        const support = findCharacterEnemyGroundSupport(
-            state,
-            enemy.currentTransform.x,
-            enemy.currentTransform.y,
-            Math.max(2, Number(enemy.maxStepHeight) || 0),
-            Math.max(4, Number(enemy.maxDropDistance) || 0),
-            enemy.width
-        );
-        if (support && Math.abs(support.y - enemy.currentTransform.y) <= Math.max(4, Number(enemy.maxDropDistance) || 0)) {
-            enemy.currentTransform.y = support.y;
-            enemy.velocityX = 0;
-            enemy.velocityY = 0;
-            setCharacterEnemyGroundSupportIdentity(state, enemy, support);
-            return;
-        }
-        enemy.airborne = true;
-        enemy.supportId = null;
-        enemy.ridingPlatformId = null;
-    }
-
-    enemy.airTimer = Math.max(0, Number(enemy.airTimer) || 0) + dt;
-    enemy.velocityY = (Number(enemy.velocityY) || 0) + Math.max(1, Number(enemy.jumpGravity) || 1) * dt;
-
-    const previousX = enemy.currentTransform.x;
-    const previousY = enemy.currentTransform.y;
-    const nextX = previousX + (Number(enemy.velocityX) || 0) * dt;
-    const horizontalCollision = findActorHorizontalSweepCollision(state, enemy, previousX, nextX, { blockWater: true });
-    enemy.currentTransform.x = horizontalCollision ? horizontalCollision.x : nextX;
-    if (horizontalCollision) {
-        enemy.velocityX = 0;
-    }
-
-    const nextY = previousY + (Number(enemy.velocityY) || 0) * dt;
-    const verticalCollision = findActorVerticalSweepCollision(state, enemy, previousY, nextY, { blockWater: true });
-    enemy.currentTransform.y = verticalCollision ? verticalCollision.y : nextY;
-    if (verticalCollision?.ceiling) {
-        enemy.velocityY = 0;
-    } else if (verticalCollision) {
-        enemy.velocityX = 0;
-        enemy.velocityY = 0;
-        enemy.airborne = false;
-        enemy.airTimer = 0;
-        const support = findCharacterEnemyGroundSupport(
-            state,
-            enemy.currentTransform.x,
-            enemy.currentTransform.y,
-            Math.max(5, Number(enemy.maxStepHeight) || 0),
-            Math.max(5, Number(enemy.maxDropDistance) || 0),
-            enemy.width
-        );
-        setCharacterEnemyGroundSupportIdentity(state, enemy, support);
-    }
-}
-
 function updateDeadEnemyPresentation(state, enemy, dt) {
     const holdDuration = Math.max(0, finiteNumberOr(enemy.corpseHoldDuration, state.tuning.enemyCorpseHoldSeconds));
     const fadeDuration = Math.max(0, finiteNumberOr(enemy.corpseFadeDuration, state.tuning.enemyCorpseFadeSeconds));
@@ -8842,13 +8964,22 @@ function updateDeadEnemyPresentation(state, enemy, dt) {
     }
     if (fadeDuration <= 0) {
         enemy.currentTransform.alpha = 0;
+        enemy.velocityX = 0;
+        enemy.velocityY = 0;
+        enemy.simulationDormant = true;
         return;
     }
     enemy.currentTransform.alpha = clamp(1 - (enemy.deathElapsed - holdDuration) / fadeDuration, 0, 1);
+    if (enemy.currentTransform.alpha <= 0) {
+        enemy.velocityX = 0;
+        enemy.velocityY = 0;
+        enemy.simulationDormant = true;
+    }
 }
 
 function updateCharacterEnemies(state, dt) {
     for (const enemy of state.enemies || []) {
+        if (enemy.simulationDormant === true) continue;
         enemy.hitFlashTimer = Math.max(0, (Number(enemy.hitFlashTimer) || 0) - dt);
         enemy.healthBarTimer = Math.max(0, (Number(enemy.healthBarTimer) || 0) - dt);
 
@@ -8919,7 +9050,6 @@ function updateCharacterEnemies(state, dt) {
                 updateDeadFlyingCharacterEnemy(state, enemy, dt);
                 continue;
             }
-            updateDeadCharacterEnemyPhysics(state, enemy, dt);
             updateDeadEnemyPresentation(state, enemy, dt);
             setCharacterEnemyAnimation(enemy, "death");
             syncCharacterEnemyTarget(state, enemy);
@@ -8931,10 +9061,13 @@ function updateCharacterEnemies(state, dt) {
             enemy.state = enemy.health > 0 ? "idle" : "death";
             enemy.movementPhase = enemy.health > 0 ? "idle" : "dead";
             enemy.alerted = false;
+            enemy.engaged = false;
             enemy.awarenessTimer = 0;
             enemy.attackTimer = 0;
+            enemy.attackCooldownTimer = 0;
             enemy.attackLungeRemaining = 0;
             enemy.attackHitApplied = false;
+            enemy.hurtTimer = 0;
             setCharacterEnemyAnimation(enemy, enemy.health > 0 ? "idle" : "death");
             syncCharacterEnemyTarget(state, enemy);
             continue;
@@ -8942,6 +9075,14 @@ function updateCharacterEnemies(state, dt) {
 
         enemy.deathElapsed = 0;
         enemy.currentTransform.alpha = 1;
+
+        // Match SDL's established ordering for ordinary grounded non-hunters:
+        // awareness advances once before panic/attack/hurt can consume the fixed-step turn.
+        let groundedNonHunterAlerted = null;
+        if (enemy.strategy !== "hunter" && enemy.locomotion !== "flying") {
+            groundedNonHunterAlerted = updateCharacterEnemyAwareness(state, enemy, dt);
+            enemy.engaged = groundedNonHunterAlerted;
+        }
 
         if (updateCharacterEnemyPanic(state, enemy, dt)) {
             continue;
@@ -8976,13 +9117,26 @@ function updateCharacterEnemies(state, dt) {
         }
 
         if (enemy.strategy === "hunter") {
+            const previousHunterX = enemy.currentTransform.x;
             updateHunterCharacterEnemy(state, enemy, dt);
             updateCharacterEnemyHunterWatchdog(state, enemy, dt);
+            if (!enemy.airborne) {
+                // Match SDL's post-hunter displacement bookkeeping. Ballistic edge
+                // velocity owns airborne traversal, so only derive velocity while grounded.
+                enemy.velocityX = (enemy.currentTransform.x - previousHunterX) / Math.max(0.001, dt);
+                enemy.velocityY = 0;
+                if (enemy.animationSlot === "idle") {
+                    enemy.velocityX = 0;
+                }
+            }
             continue;
         }
 
-        const alerted = updateCharacterEnemyAwareness(state, enemy, dt);
+        const alerted = groundedNonHunterAlerted === null
+            ? updateCharacterEnemyAwareness(state, enemy, dt)
+            : groundedNonHunterAlerted;
         if (alerted) {
+            enemy.aiState = "engaged";
             const dx = state.player.currentTransform.x - enemy.currentTransform.x;
             if (Math.abs(dx) > 0.001) {
                 enemy.facing = dx < 0 ? -1 : 1;
@@ -9000,7 +9154,7 @@ function updateCharacterEnemies(state, dt) {
                 const minRange = Math.max(0, Number(enemy.preferredAttackMinRange) || Math.min(preferredRange * 0.55, Number(enemy.attackRange) * 0.45 || 0));
                 let moved = 0;
                 if (horizontalDistance > Math.max(preferredRange, Math.min(Number(enemy.attackRange) || 0, preferredRange + 1))) {
-                    moved = moveCharacterEnemyToward(
+                    moved = moveLegacyCharacterEnemyTowardCollisionAware(
                         state,
                         enemy,
                         state.player.currentTransform.x,
@@ -9010,7 +9164,7 @@ function updateCharacterEnemies(state, dt) {
                     );
                 } else if (horizontalDistance < minRange && preferredRange > 0) {
                     const desiredX = state.player.currentTransform.x - enemy.facing * preferredRange;
-                    moved = moveCharacterEnemyToward(
+                    moved = moveLegacyCharacterEnemyTowardCollisionAware(
                         state,
                         enemy,
                         desiredX,
@@ -9040,7 +9194,7 @@ function updateCharacterEnemies(state, dt) {
                 Number(enemy.attackRange) || 1,
                 (Math.max(1, Number(enemy.width) || 1) + Math.max(1, Number(state.player.width) || 1)) * 0.5 - 4
             );
-            const moved = moveCharacterEnemyToward(
+            const moved = moveLegacyCharacterEnemyTowardCollisionAware(
                 state,
                 enemy,
                 state.player.currentTransform.x,
@@ -9084,16 +9238,18 @@ function updateCharacterEnemies(state, dt) {
         const candidateX = clamp(unclampedX, enemy.patrolMinX, enemy.patrolMaxX);
         const reachedBoundary = Math.abs(candidateX - unclampedX) > 0.0001 ||
             candidateX <= enemy.patrolMinX + 0.001 || candidateX >= enemy.patrolMaxX - 0.001;
-        const support = findCharacterEnemyWalkingSupport(state, enemy, candidateX, direction);
-        if (!support) {
+        const moved = moveLegacyCharacterEnemyTowardCollisionAware(
+            state,
+            enemy,
+            candidateX,
+            Math.max(1, enemy.walkSpeed),
+            dt
+        );
+        if (moved <= 0.0001) {
             pauseAndTurnCharacterEnemy(enemy);
             syncCharacterEnemyTarget(state, enemy);
             continue;
         }
-
-        enemy.currentTransform.x = candidateX;
-        enemy.currentTransform.y = support.y;
-        setCharacterEnemyGroundSupportIdentity(state, enemy, support);
         if (reachedBoundary) {
             pauseAndTurnCharacterEnemy(enemy);
         }
@@ -9474,6 +9630,10 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     if (waterBefore.inWater || flightActive || !p.onGround) {
         p.groundStride = null;
     }
+    // Horizontal collision and grounded support resolution intentionally run
+    // before vertical gravity integration. Tiny upward platform seams can expose
+    // a steep side edge only after gravity nudges the feet downward; probing
+    // horizontal walls after that nudge would incorrectly turn the seam into a wall.
     const groundStrideHandled = moveAndCollideX(state, p.vx * dt);
     if (!groundStrideHandled) {
         if (waterBefore.inWater) {
@@ -12117,6 +12277,7 @@ function currentGroundStrideSupportGeometry(state) {
             id: support.id,
             kind: support.kind,
             source: "segment",
+            visualId: String(support.visualId || ""),
             x1: Number(support.x1),
             y1: Number(support.y1),
             x2: Number(support.x2),
@@ -12129,50 +12290,42 @@ function currentGroundStrideSupportGeometry(state) {
             id: solid.id,
             kind: solid.kind || "solid",
             source: "solid",
+            visualId: String(solid.visualId || ""),
             x1: Number(solid.x),
             y1: Number(solid.y),
             x2: Number(solid.x) + Number(solid.w),
             y2: Number(solid.y)
         };
     }
-    return null;
-}
-
-function groundStrideRiserSupportIntersection(state, riser) {
-    const support = currentGroundStrideSupportGeometry(state);
-    if (!support || !riser) return null;
-    const hit = segmentSegmentIntersection(
-        { x: support.x1, y: support.y1 },
-        { x: support.x2, y: support.y2 },
-        { x: Number(riser.x1), y: Number(riser.y1) },
-        { x: Number(riser.x2), y: Number(riser.y2) }
-    );
-    if (!hit) return null;
-    return { point: { x: hit.x, y: hit.y }, support };
-}
-
-function leadingGroundStrideEndpoint(state, segment, direction) {
-    if (!direction || segment?.kind === "walkable" || !isAreaBlockingSegmentKind(segment?.kind) ||
-        Math.abs(Number(segment.x2) - Number(segment.x1)) <= 0.05) {
-        return null;
+    for (const polygon of state.world?.collisionPolygons || []) {
+        if (polygon.id !== supportId || !Array.isArray(polygon.points) || polygon.points.length < 2) continue;
+        let best = null;
+        let bestDistance = Infinity;
+        for (let index = 0; index < polygon.points.length; index += 1) {
+            const a = polygon.points[index];
+            const b = polygon.points[(index + 1) % polygon.points.length];
+            const probe = { kind: polygon.kind, x1: a.x, y1: a.y, x2: b.x, y2: b.y };
+            if (!playerSegmentIsStandable(probe)) continue;
+            const y = segmentYAtX(probe, state.player.currentTransform.x);
+            if (y === null) continue;
+            const distance = Math.abs(y - state.player.currentTransform.y);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = {
+                    id: polygon.id,
+                    kind: polygon.kind,
+                    source: "polygon",
+                    visualId: String(polygon.visualId || ""),
+                    x1: Number(a.x),
+                    y1: Number(a.y),
+                    x2: Number(b.x),
+                    y2: Number(b.y)
+                };
+            }
+        }
+        if (best) return best;
     }
-    const a = { x: Number(segment.x1), y: Number(segment.y1) };
-    const b = { x: Number(segment.x2), y: Number(segment.y2) };
-    const endpoint = direction > 0
-        ? (a.x <= b.x ? a : b)
-        : (a.x >= b.x ? a : b);
-    const support = currentGroundStrideSupportGeometry(state);
-    if (!support) return null;
-    const supportY = segmentYAtX(support, endpoint.x);
-    if (supportY === null) return null;
-    const gap = supportY - endpoint.y;
-    // With a full body-height of clearance this is an overhead line, not a
-    // step obstacle. With no positive gap it is ordinary ground geometry.
-    if (gap <= 0.05 || gap >= state.player.height - 0.05) return null;
-    return {
-        endpoint,
-        supportContact: { x: endpoint.x, y: supportY }
-    };
+    return null;
 }
 
 function findPlayerGroundStrideCollision(state, previousX, nextX) {
@@ -12185,11 +12338,14 @@ function findPlayerGroundStrideCollision(state, previousX, nextX) {
     const currentRight = nextX + p.width * 0.5;
     const top = p.currentTransform.y - p.height;
     const bottom = p.currentTransform.y;
+    // This near-foot probe is not an ordinary wall response. It only notices
+    // that grounded horizontal travel would enter low collision geometry and
+    // hands that discontinuity to the reach-circle stride solver.
     const ySamples = [
         p.currentTransform.y - p.height * 0.84,
         p.currentTransform.y - p.height * 0.50,
         p.currentTransform.y - p.height * 0.16,
-        p.currentTransform.y - p.height * 0.02
+        p.currentTransform.y - 0.5
     ];
     const skin = 3;
     const queryBounds = {
@@ -12201,17 +12357,14 @@ function findPlayerGroundStrideCollision(state, previousX, nextX) {
     let best = null;
     const consider = (contactX, detail) => {
         if (!Number.isFinite(contactX)) return;
-        const priority = Number(detail?.stridePriority) || 0;
         if (dx > 0) {
-            if (previousRight > contactX + skin || currentRight < contactX - skin) return;
-            if (!best || contactX < best.contactX - 0.000001 ||
-                (Math.abs(contactX - best.contactX) <= 0.000001 && priority > (Number(best.stridePriority) || 0))) {
+            if (previousRight > contactX + 0.05 || currentRight < contactX - skin) return;
+            if (!best || contactX < best.contactX - 0.000001) {
                 best = { contactX, x: contactX - p.width * 0.5, side: "right", ...detail };
             }
         } else {
-            if (previousLeft < contactX - skin || currentLeft > contactX + skin) return;
-            if (!best || contactX > best.contactX + 0.000001 ||
-                (Math.abs(contactX - best.contactX) <= 0.000001 && priority > (Number(best.stridePriority) || 0))) {
+            if (previousLeft < contactX - 0.05 || currentLeft > contactX + skin) return;
+            if (!best || contactX > best.contactX + 0.000001) {
                 best = { contactX, x: contactX + p.width * 0.5, side: "left", ...detail };
             }
         }
@@ -12226,140 +12379,87 @@ function findPlayerGroundStrideCollision(state, previousX, nextX) {
         });
     }
 
-    const direction = dx > 0 ? 1 : -1;
+    const heldSupport = currentGroundStrideSupportGeometry(state);
+    const heldSupportNextY = heldSupport ? segmentYAtX(heldSupport, nextX) : null;
+    const heldSupportContinues = heldSupportNextY !== null &&
+        Math.abs(heldSupportNextY - p.currentTransform.y) <= playerAutomaticStepHeight(p) + skin + 0.05;
     for (const segment of queryWorldSegmentsFromCollisionAssets(state.world, expandedPlayerCollisionAssetBounds(state, queryBounds))) {
         if (segment.kind === "walkable" || !isAreaBlockingSegmentKind(segment.kind)) continue;
-
-        const endpoint = leadingGroundStrideEndpoint(state, segment, direction);
-        if (endpoint) {
-            consider(endpoint.endpoint.x, {
-                id: segment.id,
-                kind: segment.kind,
-                source: "segmentEndpoint",
-                blocksWithoutStride: true,
-                supportContactX: endpoint.supportContact.x,
-                supportContactY: endpoint.supportContact.y,
-                endpointX: endpoint.endpoint.x,
-                endpointY: endpoint.endpoint.y,
-                stridePriority: 1
-            });
-        }
-
-        const steep = Math.abs(segment.y2 - segment.y1) >
-            Math.abs(segment.x2 - segment.x1) * PLAYER_STANDABLE_SLOPE_RATIO;
-        if (!steep) continue;
-
-        // If the obstacle actually grows upward out of the current support,
-        // anchor the stride at the exact terrain/riser intersection. This is
-        // deterministic on slopes and does not depend on a body-height sample.
-        const rooted = groundStrideRiserSupportIntersection(state, segment);
-        if (rooted) {
-            const upperY = Math.min(Number(segment.y1), Number(segment.y2));
-            if (upperY < rooted.point.y - 0.05) {
-                consider(rooted.point.x, {
-                    id: segment.id,
-                    kind: segment.kind,
-                    source: "segment",
-                    blocksWithoutStride: true,
-                    supportContactX: rooted.point.x,
-                    supportContactY: rooted.point.y,
-                    stridePriority: 2
-                });
+        const standable = playerSegmentIsStandable(segment);
+        if (standable && heldSupport && Math.abs(Number(segment.x2) - Number(segment.x1)) > 0.05) {
+            const a = { x: Number(segment.x1), y: Number(segment.y1) };
+            const b = { x: Number(segment.x2), y: Number(segment.y2) };
+            const endpoint = dx > 0 ? (a.x <= b.x ? a : b) : (a.x >= b.x ? a : b);
+            const supportY = segmentYAtX(heldSupport, endpoint.x);
+            if (supportY !== null) {
+                const gap = supportY - endpoint.y;
+                if (gap > 0.05 && gap < p.height - 0.05) {
+                    consider(endpoint.x, { id: segment.id, kind: segment.kind, source: "segmentEndpoint" });
+                }
             }
         }
-
+        if (standable) continue;
         for (const y of ySamples) {
             const x = segmentXAtY(segment, y);
             if (x !== null) consider(x, { id: segment.id, kind: segment.kind, source: "segment" });
         }
     }
+
+    for (const polygon of queryWorldCollisionPolygons(state.world, queryBounds)) {
+        if (!isAreaBlockingSegmentKind(polygon.kind)) continue;
+        // While the held authored support still continues under the wizard, the
+        // filled blockable area belonging to that same atlas placement is the
+        // terrain *below* the support, not a new obstacle to step over. Let the
+        // ordinary slope-follow path remain authoritative. A different placement
+        // can still trigger the stride solver, as can this placement once its held
+        // support actually ends.
+        if (heldSupportContinues && heldSupport?.visualId && polygon.visualId === heldSupport.visualId) continue;
+        for (const y of ySamples) {
+            for (const interval of polygonXIntervalsAtY(polygon, y)) {
+                consider(dx > 0 ? interval[0] : interval[1], {
+                    id: polygon.id,
+                    kind: polygon.kind,
+                    source: "polygon"
+                });
+            }
+        }
+    }
     return best;
-}
-
-function connectedGroundStrideSupport(state, riser, upper, direction) {
-    for (const support of state.world?.segments || []) {
-        if (support === riser || support.id === riser?.id || !playerSegmentIsStandable(support)) {
-            continue;
-        }
-        let other = null;
-        if (sameStridePoint({ x: support.x1, y: support.y1 }, upper)) {
-            other = { x: support.x2, y: support.y2 };
-        } else if (sameStridePoint({ x: support.x2, y: support.y2 }, upper)) {
-            other = { x: support.x1, y: support.y1 };
-        }
-        if (!other || (other.x - upper.x) * direction <= 0.05) continue;
-        return {
-            id: support.id,
-            kind: support.kind,
-            source: "segment",
-            x1: Number(support.x1),
-            y1: Number(support.y1),
-            x2: Number(support.x2),
-            y2: Number(support.y2)
-        };
-    }
-
-    for (const solid of state.world?.solids || []) {
-        const topY = Number(solid.y);
-        const left = Number(solid.x);
-        const right = left + Number(solid.w);
-        if (!Number.isFinite(topY) || !Number.isFinite(left) || !Number.isFinite(right) ||
-            Math.abs(topY - upper.y) > 0.08) continue;
-        const extendsForward = direction > 0
-            ? upper.x >= left - 0.08 && upper.x <= right + 0.08 && right > upper.x + 0.05
-            : upper.x >= left - 0.08 && upper.x <= right + 0.08 && left < upper.x - 0.05;
-        if (extendsForward) {
-            return {
-                id: solid.id,
-                kind: solid.kind || "solid",
-                source: "solid",
-                x1: left,
-                y1: topY,
-                x2: right,
-                y2: topY
-            };
-        }
-    }
-
-    // A short blocker may simply protrude through the support, like a nail in
-    // the ground. It needs no platform at its tip: if the held support
-    // continues beyond the root, the arc can clear the blocker and land back
-    // on that same support.
-    const rooted = groundStrideRiserSupportIntersection(state, riser);
-    if (rooted) {
-        const forwardEnd = direction > 0
-            ? Math.max(rooted.support.x1, rooted.support.x2)
-            : Math.min(rooted.support.x1, rooted.support.x2);
-        if ((forwardEnd - rooted.point.x) * direction > 0.05) {
-            return rooted.support;
-        }
-    }
-    return null;
 }
 
 function groundStrideFootOrigin(state, collision, contactActorX, direction) {
     const p = state.player;
-    if (Number.isFinite(Number(collision?.supportContactX)) && Number.isFinite(Number(collision?.supportContactY))) {
-        return { x: Number(collision.supportContactX), y: Number(collision.supportContactY) };
-    }
     const contactX = Number.isFinite(Number(collision?.contactX))
         ? Number(collision.contactX)
         : contactActorX + direction * p.width * 0.5;
-    const currentSupport = findWorldSegmentById(state, p.supportId);
-    if (currentSupport && playerSegmentIsStandable(currentSupport)) {
-        const supportY = segmentYAtX(currentSupport, contactX);
-        if (supportY !== null && Math.abs(supportY - p.currentTransform.y) <= playerAutomaticStepHeight(p) + 3.05) {
+    const maximumReach = playerAutomaticStepHeight(p);
+
+    const support = currentGroundStrideSupportGeometry(state);
+    if (support) {
+        const supportY = segmentYAtX(support, contactX);
+        if (supportY !== null && Math.abs(supportY - p.currentTransform.y) <= maximumReach + 3.05) {
             return { x: contactX, y: supportY };
         }
     }
-    for (const solid of state.world?.solids || []) {
-        if (solid.id !== p.supportId) continue;
-        const left = Number(solid.x);
-        const right = left + Number(solid.w);
-        if (contactX >= left - 0.08 && contactX <= right + 0.08) {
-            return { x: contactX, y: Number(solid.y) };
+
+    // Polygon support IDs are uncommon for authored atlas collision because
+    // the matching line IDs normally win support selection, but direct runtime
+    // polygons are valid collision geometry and may be the held support.
+    for (const polygon of state.world?.collisionPolygons || []) {
+        if (polygon.id !== p.supportId || !Array.isArray(polygon.points) || polygon.points.length < 2) continue;
+        let bestY = null;
+        for (let index = 0; index < polygon.points.length; index += 1) {
+            const a = polygon.points[index];
+            const b = polygon.points[(index + 1) % polygon.points.length];
+            const probe = { kind: polygon.kind, x1: a.x, y1: a.y, x2: b.x, y2: b.y };
+            if (!playerSegmentIsStandable(probe)) continue;
+            const y = segmentYAtX(probe, contactX);
+            if (y === null || Math.abs(y - p.currentTransform.y) > maximumReach + 3.05) continue;
+            if (bestY === null || y < bestY) bestY = y;
         }
+        if (bestY !== null) return { x: contactX, y: bestY };
     }
+
     return { x: contactX, y: p.currentTransform.y };
 }
 
@@ -12381,9 +12481,7 @@ function groundStrideCircleIntersections(a, b, center, radius) {
         if (t < -0.000001 || t > 1.000001) continue;
         const clampedT = clamp(t, 0, 1);
         const point = { x: Number(a.x) + dx * clampedT, y: Number(a.y) + dy * clampedT };
-        if (!out.some((candidate) => sameStridePoint(candidate, point, 0.001))) {
-            out.push(point);
-        }
+        if (!out.some((candidate) => sameStridePoint(candidate, point, 0.001))) out.push(point);
     }
     return out;
 }
@@ -12392,11 +12490,6 @@ function groundStrideArcSweepParameter(point, center, direction) {
     const forward = (Number(point.x) - Number(center.x)) * direction;
     if (forward < -0.05) return null;
     const vertical = Number(point.y) - Number(center.y);
-    // Sweep the complete forward half of the stride circle, starting at its
-    // top and continuing around the movement-facing side to the bottom. A
-    // downhill support therefore remains a valid landing after clearing a
-    // short obstacle instead of disappearing merely because its circumference
-    // intersection lies below the stride origin.
     const sweep = Math.atan2(Math.max(0, forward), -vertical);
     return sweep <= Math.PI + 0.0001 ? sweep : null;
 }
@@ -12413,188 +12506,290 @@ function groundStrideSupportGeometryFromSegment(segment) {
     };
 }
 
-function groundStrideSupportGeometryFromSolid(solid) {
-    return {
-        id: solid.id,
-        kind: solid.kind || "solid",
-        source: "solid",
-        x1: Number(solid.x),
-        y1: Number(solid.y),
-        x2: Number(solid.x) + Number(solid.w),
-        y2: Number(solid.y)
-    };
-}
-
-function groundStrideArcFootholdFromCandidates(state, collision, candidateSegments, nearbySolids, upper, footOrigin, maximumReach, direction) {
-    const contacts = [];
-    const fallbackEndpoints = [];
-    const initialRiserId = collision?.source === "segment" ? collision.id : null;
-    const initialRiser = initialRiserId ? findWorldSegmentById(state, initialRiserId) : null;
-    const initialRiserIsSteep = Boolean(initialRiser) && !playerSegmentIsStandable(initialRiser);
-
-    const considerSupport = (support, standable, excludeFromArc = false) => {
-        const a = { x: Number(support.x1), y: Number(support.y1) };
-        const b = { x: Number(support.x2), y: Number(support.y2) };
+function groundStrideCandidateEdges(state, bounds) {
+    const edges = [];
+    const seen = new Set();
+    const add = (support, a, b, standable, blocksBody, edgeKey = "") => {
         if (![a.x, a.y, b.x, b.y].every(Number.isFinite)) return;
-        if (!excludeFromArc) {
-            for (const point of groundStrideCircleIntersections(a, b, footOrigin, maximumReach)) {
-                if ((point.x - upper.x) * direction < -0.08) continue;
-                if ((point.x - footOrigin.x) * direction <= 0.05) continue;
-                const sweep = groundStrideArcSweepParameter(point, footOrigin, direction);
-                if (sweep === null) continue;
-                contacts.push({ point, support, standable, sweep });
-            }
-        }
-        if (!standable) return;
-        for (const point of [a, b]) {
-            const forward = (point.x - footOrigin.x) * direction;
-            if (forward <= 0.05 || (point.x - upper.x) * direction < -0.08) continue;
-            const vertical = point.y - footOrigin.y;
-            const reach = Math.hypot(point.x - footOrigin.x, vertical);
-            if (reach > maximumReach + 0.05) continue;
-            fallbackEndpoints.push({ point, support, forward, reach });
-        }
+        if (Math.hypot(b.x - a.x, b.y - a.y) <= 0.000001) return;
+        const key = `${support.source}|${support.id}|${edgeKey}|${a.x.toFixed(6)}|${a.y.toFixed(6)}|${b.x.toFixed(6)}|${b.y.toFixed(6)}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        edges.push({ key, support, a, b, standable, blocksBody });
     };
 
-    for (const segment of candidateSegments || []) {
+    for (const segment of queryWorldSegmentsFromCollisionAssets(state.world, bounds)) {
         if (!isSolidSegmentKind(segment.kind)) continue;
-        const standable = playerSegmentIsStandable(segment);
-        const excludeInitialClearanceRiser = initialRiserIsSteep && segment.id === initialRiserId;
-        considerSupport(groundStrideSupportGeometryFromSegment(segment), standable, excludeInitialClearanceRiser);
-    }
-    for (const solid of nearbySolids || []) {
-        considerSupport(groundStrideSupportGeometryFromSolid(solid), true, false);
-    }
-
-    contacts.sort((a, b) => {
-        if (Math.abs(a.sweep - b.sweep) > 0.000001) return a.sweep - b.sweep;
-        // Coincident geometry is conservative: a steep face at the same first
-        // arc contact constrains the foot before a standable line can win.
-        if (a.standable !== b.standable) return a.standable ? 1 : -1;
-        return String(a.support.id || "").localeCompare(String(b.support.id || ""));
-    });
-    if (contacts.length) {
-        const first = contacts[0];
-        if (!first.standable) return { blocked: true, blocker: first.support, point: first.point };
-        return { blocked: false, foothold: first.point, targetSupport: first.support };
+        const support = groundStrideSupportGeometryFromSegment(segment);
+        add(
+            support,
+            { x: support.x1, y: support.y1 },
+            { x: support.x2, y: support.y2 },
+            playerSegmentIsStandable(segment),
+            segment.kind !== "walkable" && isAreaBlockingSegmentKind(segment.kind),
+            "segment"
+        );
     }
 
-    // A short standable landing can lie wholly inside the reach circle. In
-    // that case the arc has no circumference intersection, so retain the Rev343
-    // endpoint fallback but choose across every nearby candidate support.
-    fallbackEndpoints.sort((a, b) => {
-        if (Math.abs(a.forward - b.forward) > 0.000001) return b.forward - a.forward;
-        return b.reach - a.reach;
-    });
-    if (fallbackEndpoints.length) {
-        const best = fallbackEndpoints[0];
-        return { blocked: false, foothold: best.point, targetSupport: best.support };
+    for (const solid of queryWorldSolids(state.world, bounds)) {
+        const left = Number(solid.x);
+        const top = Number(solid.y);
+        const right = left + Number(solid.w);
+        const bottom = top + Number(solid.h);
+        const support = {
+            id: solid.id,
+            kind: solid.kind || "solid",
+            source: "solid",
+            x1: left,
+            y1: top,
+            x2: right,
+            y2: top
+        };
+        add(support, { x: left, y: top }, { x: right, y: top }, true, true, "top");
+        add(support, { x: right, y: top }, { x: right, y: bottom }, false, true, "right");
+        add(support, { x: right, y: bottom }, { x: left, y: bottom }, false, true, "bottom");
+        add(support, { x: left, y: bottom }, { x: left, y: top }, false, true, "left");
     }
-    return null;
+
+    for (const polygon of queryWorldCollisionPolygons(state.world, bounds)) {
+        if (!Array.isArray(polygon.points) || polygon.points.length < 2 || !isAreaBlockingSegmentKind(polygon.kind)) continue;
+        for (let index = 0; index < polygon.points.length; index += 1) {
+            const a = { x: Number(polygon.points[index].x), y: Number(polygon.points[index].y) };
+            const b = { x: Number(polygon.points[(index + 1) % polygon.points.length].x), y: Number(polygon.points[(index + 1) % polygon.points.length].y) };
+            const probe = { kind: polygon.kind, x1: a.x, y1: a.y, x2: b.x, y2: b.y };
+            const support = {
+                id: polygon.id,
+                kind: polygon.kind,
+                source: "polygon",
+                x1: a.x,
+                y1: a.y,
+                x2: b.x,
+                y2: b.y
+            };
+            add(support, a, b, playerSegmentIsStandable(probe), true, `polygon:${index}`);
+        }
+    }
+    return edges;
 }
 
-function groundStrideFootholdOnSupport(targetSupport, upper, footOrigin, maximumReach, direction) {
-    if (!targetSupport) return null;
-    const a = { x: Number(targetSupport.x1), y: Number(targetSupport.y1) };
-    const b = { x: Number(targetSupport.x2), y: Number(targetSupport.y2) };
-    const intersections = groundStrideCircleIntersections(a, b, footOrigin, maximumReach);
-    let best = null;
-    let bestSweep = Number.POSITIVE_INFINITY;
-    for (const point of intersections) {
-        if ((point.x - upper.x) * direction < -0.08) continue;
-        const sweep = groundStrideArcSweepParameter(point, footOrigin, direction);
-        if (sweep === null || sweep >= bestSweep) continue;
-        best = point;
-        bestSweep = sweep;
-    }
-    if (best) return best;
+function groundStrideEdgeParameter(edge, point) {
+    const dx = edge.b.x - edge.a.x;
+    const dy = edge.b.y - edge.a.y;
+    const lengthSq = dx * dx + dy * dy;
+    if (lengthSq <= 0.0000001) return 0;
+    return clamp(((point.x - edge.a.x) * dx + (point.y - edge.a.y) * dy) / lengthSq, 0, 1);
+}
 
-    // A very short landing segment may end before it reaches the fixed stride
-    // circle. In that case use its furthest forward reachable endpoint rather
-    // than falling back to the riser corner and repeatedly "stepping in place".
-    let bestFallback = null;
-    let bestForward = 0.05;
-    for (const point of [a, b]) {
+function groundStrideGlideFoothold(edges, blockerContacts, contactPoint, footOrigin, maximumReach, direction, minimumForward) {
+    const startRadius = Math.hypot(contactPoint.x - footOrigin.x, contactPoint.y - footOrigin.y);
+    const candidates = [];
+    for (const blockerContact of blockerContacts) {
+        const blocker = blockerContact.edge;
+        const dx = blocker.b.x - blocker.a.x;
+        const dy = blocker.b.y - blocker.a.y;
+        const lengthSq = dx * dx + dy * dy;
+        if (lengthSq <= 0.0000001) continue;
+        const startT = groundStrideEdgeParameter(blocker, contactPoint);
+        const closestT = clamp(-((blocker.a.x - footOrigin.x) * dx + (blocker.a.y - footOrigin.y) * dy) / lengthSq, 0, 1);
+        for (const edge of edges) {
+            if (!edge.standable) continue;
+            const hit = segmentSegmentIntersection(blocker.a, blocker.b, edge.a, edge.b);
+            if (!hit) continue;
+            const point = { x: hit.x, y: hit.y };
+            const forward = (point.x - footOrigin.x) * direction;
+            const radius = Math.hypot(point.x - footOrigin.x, point.y - footOrigin.y);
+            if (forward < minimumForward - 0.000001 || radius > maximumReach + 0.05 || radius > startRadius + 0.05) continue;
+            const candidateT = groundStrideEdgeParameter(blocker, point);
+            const towardClosest = closestT - startT;
+            const towardCandidate = candidateT - startT;
+            if (Math.abs(towardClosest) > 0.000001 && towardCandidate * towardClosest < -0.000001) continue;
+            if (Math.abs(towardCandidate) > Math.abs(towardClosest) + 0.0001) continue;
+            candidates.push({ point, support: edge.support, radius, forward });
+        }
+    }
+    candidates.sort((left, right) => {
+        if (Math.abs(left.radius - right.radius) > 0.000001) return right.radius - left.radius;
+        return right.forward - left.forward;
+    });
+    return candidates[0] || null;
+}
+
+function groundStrideSweepFootholdFromCandidates(edges, footOrigin, maximumReach, direction, minimumForward = 0.05) {
+    // The foot itself follows the fixed-radius movement-facing arc. Candidate
+    // lines are intersected analytically with that circle, so the result does
+    // not depend on angle sampling. Only after the first steep contact C is
+    // found may the contact glide inward along that same exposed edge.
+    const contacts = [];
+    for (const edge of edges) {
+        for (const point of groundStrideCircleIntersections(edge.a, edge.b, footOrigin, maximumReach)) {
+            const sweep = groundStrideArcSweepParameter(point, footOrigin, direction);
+            if (sweep === null) continue;
+            contacts.push({ point, edge, sweep });
+        }
+    }
+    contacts.sort((left, right) => left.sweep - right.sweep);
+    if (!contacts.length) return null;
+
+    let index = 0;
+    while (index < contacts.length) {
+        const sweep = contacts[index].sweep;
+        const group = [];
+        while (index < contacts.length && Math.abs(contacts[index].sweep - sweep) <= 0.000001) {
+            group.push(contacts[index]);
+            index += 1;
+        }
+        const point = group[0].point;
         const forward = (point.x - footOrigin.x) * direction;
-        if (forward <= bestForward || (point.x - upper.x) * direction < -0.08) continue;
-        const reach = Math.hypot(point.x - footOrigin.x, point.y - footOrigin.y);
-        if (reach > maximumReach + 0.05) continue;
-        bestFallback = point;
-        bestForward = forward;
-    }
-    return bestFallback;
-}
-
-function groundStrideEndpointRiser(state, targetSupportId, upper, footOrigin) {
-    for (const segment of state.world?.segments || []) {
-        if (segment.id === targetSupportId || segment.kind === "walkable" || !isAreaBlockingSegmentKind(segment.kind)) continue;
-        const a = { x: Number(segment.x1), y: Number(segment.y1) };
-        const b = { x: Number(segment.x2), y: Number(segment.y2) };
-        if (Math.abs(b.y - a.y) <= Math.abs(b.x - a.x) * PLAYER_STANDABLE_SLOPE_RATIO) continue;
-        if (!sameStridePoint(a, upper) && !sameStridePoint(b, upper)) continue;
-        const rooted = groundStrideRiserSupportIntersection(state, segment);
-        if (!rooted || !sameStridePoint(rooted.point, footOrigin, 0.12)) continue;
-        if (Math.min(a.y, b.y) >= rooted.point.y - 0.05) continue;
-        return segment;
+        const standable = group.filter((contact) => contact.edge.standable);
+        const blockers = group.filter((contact) => !contact.edge.standable && contact.edge.blocksBody);
+        if (standable.length && forward >= minimumForward - 0.000001) {
+            standable.sort((left, right) => {
+                const extent = (contact) => Math.max(
+                    (contact.edge.a.x - contact.point.x) * direction,
+                    (contact.edge.b.x - contact.point.x) * direction
+                );
+                return extent(right) - extent(left);
+            });
+            return {
+                foothold: { ...standable[0].point },
+                targetSupport: standable[0].edge.support,
+                clearancePoint: { ...standable[0].point }
+            };
+        }
+        if (blockers.length) {
+            const glide = groundStrideGlideFoothold(edges, blockers, point, footOrigin, maximumReach, direction, minimumForward);
+            if (!glide) return null;
+            return {
+                foothold: { ...glide.point },
+                targetSupport: glide.support,
+                clearancePoint: { ...point }
+            };
+        }
+        // A non-blocking one-way line at the very top of the arc with no
+        // forward progress does not end the search; continue around the arc.
     }
     return null;
+}
+
+function groundStrideTriggerClearancePoint(candidateEdges, collision, footOrigin, maximumReach) {
+    let best = null;
+    for (const edge of candidateEdges) {
+        if (!edge.blocksBody || edge.support.id !== collision?.id) continue;
+        const points = [edge.a, edge.b, ...groundStrideCircleIntersections(edge.a, edge.b, footOrigin, maximumReach)];
+        for (const point of points) {
+            const reach = Math.hypot(point.x - footOrigin.x, point.y - footOrigin.y);
+            if (reach > maximumReach + 0.05) continue;
+            if (!best || point.y < best.y - 0.000001) best = { ...point };
+        }
+    }
+    return best;
+}
+
+function groundStrideConvexHull(points) {
+    const sorted = [...points]
+        .filter((point) => Number.isFinite(point?.x) && Number.isFinite(point?.y))
+        .sort((left, right) => left.x - right.x || left.y - right.y);
+    const unique = [];
+    for (const point of sorted) {
+        if (!unique.length || !sameStridePoint(unique[unique.length - 1], point, 0.000001)) unique.push(point);
+    }
+    if (unique.length <= 2) return unique;
+    const turn = (a, b, c) => cross(b.x - a.x, b.y - a.y, c.x - a.x, c.y - a.y);
+    const lower = [];
+    for (const point of unique) {
+        while (lower.length >= 2 && turn(lower[lower.length - 2], lower[lower.length - 1], point) <= 0.0000001) lower.pop();
+        lower.push(point);
+    }
+    const upper = [];
+    for (let index = unique.length - 1; index >= 0; index -= 1) {
+        const point = unique[index];
+        while (upper.length >= 2 && turn(upper[upper.length - 2], upper[upper.length - 1], point) <= 0.0000001) upper.pop();
+        upper.push(point);
+    }
+    lower.pop();
+    upper.pop();
+    return lower.concat(upper);
+}
+
+function groundStridePointInsideConvexHull(point, hull, tolerance = 0.02) {
+    if (!Array.isArray(hull) || hull.length < 3) return false;
+    let sign = 0;
+    for (let index = 0; index < hull.length; index += 1) {
+        const a = hull[index];
+        const b = hull[(index + 1) % hull.length];
+        const value = cross(b.x - a.x, b.y - a.y, point.x - a.x, point.y - a.y);
+        if (Math.abs(value) <= tolerance) continue;
+        const nextSign = Math.sign(value);
+        if (!sign) sign = nextSign;
+        else if (nextSign !== sign) return false;
+    }
+    return true;
+}
+
+function groundStrideSegmentsIntersectInclusive(a, b, c, d, tolerance = 0.02) {
+    if (segmentSegmentIntersection(a, b, c, d)) return true;
+    return pointSegmentDistance(a, c, d) <= tolerance ||
+        pointSegmentDistance(b, c, d) <= tolerance ||
+        pointSegmentDistance(c, a, b) <= tolerance ||
+        pointSegmentDistance(d, a, b) <= tolerance;
+}
+
+function groundStrideSweptBodyHull(player, from, to, automaticStepHeight) {
+    // Inset the collision rectangle by a fraction of a pixel. The sweep may
+    // touch a riser at the initial contact or a floor at the landing pose, but
+    // the body volume itself must never pass through collision geometry.
+    const inset = 0.35;
+    const halfWidth = Math.max(0.5, player.width * 0.5 - inset);
+    const topOffset = -player.height + inset;
+    // The bottom automatic-step-height band is resolved by the foot arc itself.
+    // Only the body above that band must remain collision-free during a stride.
+    const bottomOffset = -Math.max(inset, Number(automaticStepHeight) || 0) - inset;
+    const cornersAt = (pose) => [
+        { x: pose.x - halfWidth, y: pose.y + topOffset },
+        { x: pose.x + halfWidth, y: pose.y + topOffset },
+        { x: pose.x + halfWidth, y: pose.y + bottomOffset },
+        { x: pose.x - halfWidth, y: pose.y + bottomOffset }
+    ];
+    return groundStrideConvexHull([...cornersAt(from), ...cornersAt(to)]);
+}
+
+function groundStrideEdgeIntersectsSweptBody(edge, hull) {
+    if (!Array.isArray(hull) || hull.length < 3) return false;
+    if (groundStridePointInsideConvexHull(edge.a, hull) || groundStridePointInsideConvexHull(edge.b, hull)) return true;
+    for (let index = 0; index < hull.length; index += 1) {
+        if (groundStrideSegmentsIntersectInclusive(edge.a, edge.b, hull[index], hull[(index + 1) % hull.length])) return true;
+    }
+    return false;
+}
+
+function groundStrideEdgeSupportsPose(edge, pose, player, tolerance = 3.05) {
+    if (!edge?.standable || !pose || !player) return false;
+    const probe = { kind: edge.support?.kind || "blockable", x1: edge.a.x, y1: edge.a.y, x2: edge.b.x, y2: edge.b.y };
+    for (const x of [pose.x, pose.x - player.width * 0.42, pose.x + player.width * 0.42]) {
+        const y = segmentYAtX(probe, x);
+        if (y !== null && Math.abs(y - pose.y) <= tolerance) return true;
+    }
+    return false;
 }
 
 function groundStrideBodyPathBlocked(state, stridePath) {
     const p = state.player;
-    const excludedIds = new Set([
-        p.supportId,
-        stridePath.riserId,
-        stridePath.targetSupportId
-    ].filter(Boolean));
-    const footLegs = [
-        [stridePath.footOrigin, stridePath.upper],
-        [stridePath.upper, stridePath.foothold]
-    ];
     const bodyLegs = [
         [stridePath.start, stridePath.corner],
         [stridePath.corner, stridePath.target]
     ];
+    const automaticStepHeight = playerAutomaticStepHeight(p);
 
-    for (const segment of stridePath.candidateSegments || state.world?.segments || []) {
-        if (excludedIds.has(segment.id) || segment.kind === "walkable" || !isAreaBlockingSegmentKind(segment.kind)) continue;
-        const a = { x: Number(segment.x1), y: Number(segment.y1) };
-        const b = { x: Number(segment.x2), y: Number(segment.y2) };
-        const steep = Math.abs(b.y - a.y) > Math.abs(b.x - a.x) * PLAYER_STANDABLE_SLOPE_RATIO;
-        if (steep) {
-            const rooted = groundStrideRiserSupportIntersection(state, segment);
-            if (rooted && Math.min(a.y, b.y) >= rooted.point.y - 0.05) continue;
-            // Obstacles encountered by the stepping foot before the planned
-            // foothold invalidate the stride. This is what prevents a low nail
-            // from providing a tunnel through a taller second nail.
-            if (footLegs.some(([from, to]) => segmentSegmentIntersection(from, to, a, b))) return true;
-            continue;
-        }
-
-        // Standable lines can still be ceilings or shelves crossing the body
-        // while the foot follows a valid arc. Sample the top and middle of the
-        // body at the same three-foot footprint used by grounded support.
+    for (const edge of stridePath.candidateEdges || []) {
+        if (!edge.blocksBody) continue;
+        // A standable surface geometrically touching the feet at the start or
+        // landing pose is an allowed boundary regardless of support ID. Closed
+        // atlas loops often expose both a polygon support ID and authored line
+        // IDs for the same physical floor. Steep sides remain blocking.
+        if (groundStrideEdgeSupportsPose(edge, stridePath.start, p) || groundStrideEdgeSupportsPose(edge, stridePath.target, p)) continue;
         for (const [from, to] of bodyLegs) {
-            for (const xOffset of [-p.width * 0.42, 0, p.width * 0.42]) {
-                for (const yOffset of [-p.height + 0.5, -p.height * 0.5]) {
-                    const bodyFrom = { x: from.x + xOffset, y: from.y + yOffset };
-                    const bodyTo = { x: to.x + xOffset, y: to.y + yOffset };
-                    if (segmentSegmentIntersection(bodyFrom, bodyTo, a, b)) return true;
-                }
-            }
-        }
-    }
-
-    for (const solid of stridePath.nearbySolids || state.world?.solids || []) {
-        if (excludedIds.has(solid.id)) continue;
-        const expanded = {
-            x: Number(solid.x) - p.width * 0.5,
-            y: Number(solid.y),
-            w: Number(solid.w) + p.width,
-            h: Number(solid.h) + p.height
-        };
-        for (const [from, to] of bodyLegs) {
-            if (segmentRectIntersection(from, to, expanded)) return true;
+            const hull = groundStrideSweptBodyHull(p, from, to, automaticStepHeight);
+            if (groundStrideEdgeIntersectsSweptBody(edge, hull)) return true;
         }
     }
     return false;
@@ -12605,82 +12800,64 @@ function planPlayerGroundStride(state, collision, previousX, nextX) {
     const direction = Math.sign(nextX - previousX);
     if (!collision || !p.onGround || p.vy < -0.000001 || !direction) return null;
 
-    let upper = null;
-    if (collision.source === "solid") {
-        const solid = (state.world?.solids || []).find((candidate) => candidate.id === collision.id);
-        if (!solid) return null;
-        upper = {
-            x: direction > 0 ? Number(solid.x) : Number(solid.x) + Number(solid.w),
-            y: Number(solid.y)
-        };
-    } else if (collision.source === "segmentEndpoint") {
-        const target = findWorldSegmentById(state, collision.id);
-        if (!target || target.kind === "walkable" || !isAreaBlockingSegmentKind(target.kind) || !playerSegmentIsStandable(target)) return null;
-        upper = { x: Number(collision.endpointX), y: Number(collision.endpointY) };
-    } else if (collision.source === "segment") {
-        const riser = findWorldSegmentById(state, collision.id);
-        if (!riser || riser.kind === "walkable" || !isAreaBlockingSegmentKind(riser.kind)) return null;
-        const riserDx = Number(riser.x2) - Number(riser.x1);
-        const riserDy = Number(riser.y2) - Number(riser.y1);
-        if (Math.abs(riserDy) <= Math.abs(riserDx) * PLAYER_STANDABLE_SLOPE_RATIO) return null;
-        const a = { x: Number(riser.x1), y: Number(riser.y1) };
-        const b = { x: Number(riser.x2), y: Number(riser.y2) };
-        upper = a.y <= b.y ? a : b;
-    } else {
-        return null;
-    }
-
     const contactActorX = Number.isFinite(Number(collision.x))
         ? Number(collision.x)
         : Number(collision.contactX) - direction * p.width * 0.5;
     const footOrigin = groundStrideFootOrigin(state, collision, contactActorX, direction);
     const maximumReach = playerAutomaticStepHeight(p);
-    const upperReach = Math.hypot(upper.x - footOrigin.x, upper.y - footOrigin.y);
-    if (!Number.isFinite(upperReach) || upperReach <= 0.05 || upperReach > maximumReach + 0.05) return null;
 
-    // Revision 345 broad phase: take the swept player box, expand it by the
-    // full stride reach in every direction, find overlapping collision assets,
-    // and then inspect every authored line belonging to those assets. A long
-    // line is therefore eligible because its asset is nearby, regardless of
-    // where that line's endpoints happen to be. Directly queried unowned lines
-    // remain included for synthetic/test geometry and runtime helper solids.
-    const strideBodyBounds = {
-        minX: Math.min(previousX, nextX) - p.width * 0.5,
-        minY: p.currentTransform.y - p.height,
-        maxX: Math.max(previousX, nextX) + p.width * 0.5,
-        maxY: p.currentTransform.y
+    // A disconnected standable line can itself be the thing that stopped the
+    // leading foot even though it has no authored riser. In that case the
+    // exposed endpoint must be inside the same fixed reach circle. This is a
+    // reach check on the actual contact geometry, not a riser classification.
+    if (collision.source === "segmentEndpoint") {
+        const target = findWorldSegmentById(state, collision.id);
+        if (target) {
+            const a = { x: Number(target.x1), y: Number(target.y1) };
+            const b = { x: Number(target.x2), y: Number(target.y2) };
+            const endpoint = direction > 0 ? (a.x <= b.x ? a : b) : (a.x >= b.x ? a : b);
+            if (Math.hypot(endpoint.x - footOrigin.x, endpoint.y - footOrigin.y) > maximumReach + 0.05) return null;
+        }
+    }
+
+    // The grounded discontinuity detector is the only trigger. Once blocked, query
+    // the player hitbox at that exact contact pose expanded by the complete
+    // automatic-step reach, then include every authored collision line owned by
+    // each overlapping atlas placement. The obstacle that triggered the sweep
+    // has no privileged "riser" or "upper endpoint" role.
+    const contactBounds = {
+        minX: contactActorX - p.width * 0.5,
+        minY: footOrigin.y - p.height,
+        maxX: contactActorX + p.width * 0.5,
+        maxY: footOrigin.y
     };
-    const strideCandidateBounds = expandedPlayerCollisionAssetBounds(state, strideBodyBounds);
-    const candidateSegments = queryWorldSegmentsFromCollisionAssets(state.world, strideCandidateBounds);
-    const nearbySolids = queryWorldSolids(state.world, strideCandidateBounds);
-    const arcResult = groundStrideArcFootholdFromCandidates(
-        state,
-        collision,
-        candidateSegments,
-        nearbySolids,
-        upper,
-        footOrigin,
-        maximumReach,
-        direction
-    );
-    if (!arcResult || arcResult.blocked || !arcResult.foothold || !arcResult.targetSupport) return null;
-    const foothold = arcResult.foothold;
-    const targetSupport = arcResult.targetSupport;
+    const strideCandidateBounds = {
+        minX: contactBounds.minX - maximumReach,
+        minY: contactBounds.minY - maximumReach,
+        maxX: contactBounds.maxX + maximumReach,
+        maxY: contactBounds.maxY + maximumReach
+    };
+    const candidateEdges = groundStrideCandidateEdges(state, strideCandidateBounds);
+    const sweepResult = groundStrideSweepFootholdFromCandidates(candidateEdges, footOrigin, maximumReach, direction, Math.min(maximumReach, 0.05));
+    if (!sweepResult?.foothold || !sweepResult?.targetSupport) return null;
 
-    const endpointRiser = collision.source === "segmentEndpoint"
-        ? groundStrideEndpointRiser(state, targetSupport.id, upper, footOrigin)
-        : null;
-    const pathRiserId = endpointRiser?.id || collision.id || null;
+    const foothold = sweepResult.foothold;
+    const targetSupport = sweepResult.targetSupport;
+    if ((foothold.x - footOrigin.x) * direction < Math.min(maximumReach, 0.05) - 0.000001) return null;
 
-    // The actor starts exactly where its leading foot reaches the terrain
-    // contact. Do not inherit a frame-dependent center position from the sweep.
+    const triggerClearance = groundStrideTriggerClearancePoint(candidateEdges, collision, footOrigin, maximumReach);
+    const clearancePoint = {
+        x: footOrigin.x,
+        y: Math.min(footOrigin.y, foothold.y, sweepResult.clearancePoint?.y ?? footOrigin.y, triggerClearance?.y ?? footOrigin.y)
+    };
+
     const startX = footOrigin.x - direction * p.width * 0.5;
     const startY = footOrigin.y;
-    const cornerX = upper.x - direction * p.width * 0.5;
-    const cornerY = upper.y;
+    const cornerX = clearancePoint.x - direction * p.width * 0.5;
+    const cornerY = clearancePoint.y;
     const targetX = foothold.x - direction * p.width * 0.5;
     const targetY = foothold.y;
-    if ((targetX - startX) * direction <= 0.05) return null;
+    if ((targetX - startX) * direction < Math.min(maximumReach, 0.05) - 0.000001) return null;
 
     const cornerDistance = Math.hypot(cornerX - startX, cornerY - startY);
     const landingDistance = Math.hypot(targetX - cornerX, targetY - cornerY);
@@ -12688,16 +12865,14 @@ function planPlayerGroundStride(state, collision, previousX, nextX) {
     if (!Number.isFinite(length) || length <= 0.0001 || !Number.isFinite(cornerDistance)) return null;
 
     const path = {
-        riserId: pathRiserId,
-        targetSupportId: targetSupport.id || null,
         footOrigin,
-        upper,
+        clearancePoint,
         foothold,
         start: { x: startX, y: startY },
         corner: { x: cornerX, y: cornerY },
         target: { x: targetX, y: targetY },
-        candidateSegments,
-        nearbySolids
+        targetSupport,
+        candidateEdges
     };
     if (groundStrideBodyPathBlocked(state, path)) return null;
 
@@ -12720,7 +12895,10 @@ function planPlayerGroundStride(state, collision, previousX, nextX) {
         targetSupportId: targetSupport.id || null,
         targetSupportKind: targetSupport.kind || "blockable",
         targetSupportSource: targetSupport.source || collision.source,
-        riserId: pathRiserId
+        // Retained for recording/debug schema compatibility. It identifies the
+        // ordinary horizontal blocker that triggered the geometric stride; the
+        // planner no longer treats it as a riser or excludes it from geometry.
+        riserId: collision.id || null
     };
 }
 
@@ -12805,24 +12983,23 @@ function moveAndCollideX(state, dx) {
                 const strideBudget = Math.max(0, Math.abs(dx) - travelToContact) * stride.direction;
                 if (Math.abs(strideBudget) <= 0.000001) return true;
                 const advanced = advancePlayerGroundStride(state, strideBudget);
-                if (advanced.handled && Math.abs(advanced.remaining) > 0.000001) {
-                    moveAndCollideX(state, advanced.remaining);
-                }
+                if (advanced.handled && Math.abs(advanced.remaining) > 0.000001) moveAndCollideX(state, advanced.remaining);
                 return advanced.handled;
             }
-            if (strideCollision.blocksWithoutStride) {
-                p.currentTransform.x = strideCollision.x;
-                p.vx = 0;
-                if (strideCollision.side === "right") state.collisions.playerTouching.right = true;
-                else state.collisions.playerTouching.left = true;
-                state.collisions.lastResolution = {
-                    axis: "x",
-                    id: strideCollision.id,
-                    kind: strideCollision.kind,
-                    source: strideCollision.source
-                };
-                return true;
-            }
+            // A low collision sample is still a real grounded obstruction. If
+            // the circle solver cannot find a safe foothold, stop at contact
+            // instead of entering the area and relying on depenetration.
+            p.currentTransform.x = strideCollision.x;
+            p.vx = 0;
+            if (strideCollision.side === "right") state.collisions.playerTouching.right = true;
+            else state.collisions.playerTouching.left = true;
+            state.collisions.lastResolution = {
+                axis: "x",
+                id: strideCollision.id,
+                kind: strideCollision.kind,
+                source: strideCollision.source
+            };
+            return true;
         }
     }
     const collision = findActorHorizontalSweepCollision(state, p, previousX, nextX);
@@ -14545,15 +14722,19 @@ function updateCameraHint(state, dt) {
     keepPlayerInsideCameraViewport(state);
 }
 
+function playerShieldBlocksDamage(state, bypassInvulnerability = false) {
+    return bypassInvulnerability !== true && Boolean(
+        activePowerUpEffect(state, POWER_UP_EFFECT_IDS.SHIELD)
+    );
+}
+
 export function damagePlayer(state, amount = 34, sourceId = "debug", options = {}) {
     const health = state.health;
     const baseDamage = Math.max(0, Number(amount) || 0);
     const damageScale = options.bypassDifficulty === true ? 1 : difficultyDamageScale(state.settings);
     const requestedDamage = baseDamage * damageScale;
     const before = clamp(Number(health.amount) || 0, 0, health.max);
-    const shielded = options.bypassInvulnerability !== true && Boolean(
-        activePowerUpEffect(state, POWER_UP_EFFECT_IDS.SHIELD)
-    );
+    const shielded = playerShieldBlocksDamage(state, options.bypassInvulnerability);
     const invulnerabilityTimerKey = String(options.invulnerabilityTimerKey || "invulnerabilityTimer");
     const damageInvulnerable = options.bypassInvulnerability !== true && (Number(health[invulnerabilityTimerKey]) || 0) > 0;
     const blocked = shielded || damageInvulnerable;

@@ -23,7 +23,8 @@ export function characterArtworkOffset(renderOffsetX = 0, renderOffsetY = 0, sca
 
 export function characterArtworkOrigin(actor = {}) {
     const facing = Number(actor.facing) < 0 ? -1 : 1;
-    const offset = characterArtworkOffset(actor.renderOffsetX, actor.renderOffsetY);
+    const renderScale = finitePositive(actor.currentTransform?.scaleX ?? actor.renderScale, 1);
+    const offset = characterArtworkOffset(actor.renderOffsetX, actor.renderOffsetY, renderScale);
     const transform = shownTransformOf(actor);
     return {
         x: finiteOr(transform.x, 0) + facing * offset.x,

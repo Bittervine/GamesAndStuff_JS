@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" href="favicon.ico" sizes="any">
-    <title>Puppet Forge: Character Animation Tool - BUILD 364</title>
+    <title>Puppet Forge: Character Animation Tool - BUILD 390</title>
     <style>
         :root {
             color-scheme: dark;
@@ -848,6 +848,16 @@
                 <label><span>Rotation speed (°/s)</span><input id="enemy-projectile-rotation-speed" type="number" step="1"></label>
             </div>
             <div class="row">
+                <label title="Choose whether the flying projectile uses the selected projectile kind's shared visual, this character's authored attack-handoff frame, or an explicit character/frame pair."><span>Projectile visual</span><select id="enemy-projectile-visual-source"><option value="kind">Kind default</option><option value="handoff">Use this character's handoff asset</option><option value="custom">Custom asset</option></select></label>
+                <label id="enemy-projectile-handoff-visual-field" title="The visible atlas frame carried by this character's active attack handoff. Multiple handoff parts that use the same frame are grouped together."><span>Handoff asset</span><select id="enemy-projectile-handoff-visual"></select></label>
+            </div>
+            <div class="row" id="enemy-projectile-custom-visual-fields">
+                <label title="Character project whose atlas owns the projectile frame."><span>Visual character ID</span><input id="enemy-projectile-visual-character-id" type="text" list="enemy-projectile-visual-character-options" spellcheck="false"></label>
+                <label title="Frame ID in the selected visual character's atlas."><span>Visual frame ID</span><input id="enemy-projectile-visual-frame-id" type="text" spellcheck="false"></label>
+                <datalist id="enemy-projectile-visual-character-options"></datalist>
+            </div>
+            <p id="enemy-projectile-visual-summary"></p>
+            <div class="row">
                 <label><span>Visual scale</span><input id="enemy-projectile-visual-scale" type="number" min="0.01" step="0.05"></label>
                 <label><span>Trail effect</span><select id="enemy-projectile-trail-effect"><option value="none">None</option><option value="fire">Fire</option><option value="undeath">Undeath</option><option value="sparks">Sparkles</option></select></label>
                 <label><span>Impact effect</span><select id="enemy-projectile-impact-effect"><option value="none">None</option><option value="sparks">Sparkles</option></select></label>
@@ -1246,6 +1256,10 @@ import {
 } from "./src/tools/character-editor/character-dirty-state.js";
 import { characterEditorKnownProjects, enemyCharacterProjectUrl } from "./src/tools/character-editor/enemy-project-catalog.js";
 import {
+    projectileVisualHandoffOptions,
+    projectileVisualMode
+} from "./src/tools/character-editor/projectile-visual-data.js";
+import {
     availableParentConstraintParts,
     bakeParentConstraintTracks,
     parentConstraintForPart,
@@ -1354,6 +1368,14 @@ const els = {
     enemySpreadCount: document.getElementById("enemy-spread-count"),
     enemySpreadAngle: document.getElementById("enemy-spread-angle"),
     enemyProjectileRotationSpeed: document.getElementById("enemy-projectile-rotation-speed"),
+    enemyProjectileVisualSource: document.getElementById("enemy-projectile-visual-source"),
+    enemyProjectileHandoffVisualField: document.getElementById("enemy-projectile-handoff-visual-field"),
+    enemyProjectileHandoffVisual: document.getElementById("enemy-projectile-handoff-visual"),
+    enemyProjectileCustomVisualFields: document.getElementById("enemy-projectile-custom-visual-fields"),
+    enemyProjectileVisualCharacterId: document.getElementById("enemy-projectile-visual-character-id"),
+    enemyProjectileVisualFrameId: document.getElementById("enemy-projectile-visual-frame-id"),
+    enemyProjectileVisualCharacterOptions: document.getElementById("enemy-projectile-visual-character-options"),
+    enemyProjectileVisualSummary: document.getElementById("enemy-projectile-visual-summary"),
     enemyProjectileVisualScale: document.getElementById("enemy-projectile-visual-scale"),
     enemyProjectileTrailEffect: document.getElementById("enemy-projectile-trail-effect"),
     enemyProjectileImpactEffect: document.getElementById("enemy-projectile-impact-effect"),
@@ -2242,6 +2264,86 @@ function setEnemyProjectilePresentationOverride(defaults, fieldName, archetypeFi
     else defaults[fieldName] = value;
 }
 
+function enemyProjectileVisualCharacterIds() {
+    const ids = new Set();
+    const add = (value) => {
+        const id = String(value || "").trim();
+        if (id) ids.add(id);
+    };
+    add(state.character?.characterId);
+    for (const definition of Object.values(state.enemyCatalog?.enemies || {})) add(definition?.characterId);
+    for (const archetype of Object.values(state.enemyCatalog?.projectileKinds || {})) add(archetype?.visualCharacterId);
+    return [...ids].sort((a, b) => a.localeCompare(b));
+}
+
+function syncEnemyProjectileVisualFieldVisibility() {
+    const mode = String(els.enemyProjectileVisualSource?.value || "kind");
+    if (els.enemyProjectileHandoffVisualField) els.enemyProjectileHandoffVisualField.hidden = mode !== "handoff";
+    if (els.enemyProjectileCustomVisualFields) els.enemyProjectileCustomVisualFields.hidden = mode !== "custom";
+}
+
+function refreshEnemyProjectileVisualControls(defaults) {
+    if (!els.enemyProjectileVisualSource) return;
+    const handoffOptions = projectileVisualHandoffOptions(state.character, state.rig);
+    const handoffModeOption = els.enemyProjectileVisualSource.querySelector('option[value="handoff"]');
+    if (handoffModeOption) handoffModeOption.disabled = handoffOptions.length === 0 || !state.character?.characterId;
+
+    const currentFrame = String(defaults?.projectileVisualFrameId || "").trim();
+    els.enemyProjectileHandoffVisual.replaceChildren(...handoffOptions.map((entry) => new Option(entry.label, entry.frameId)));
+    if (handoffOptions.some((entry) => entry.frameId === currentFrame)) {
+        els.enemyProjectileHandoffVisual.value = currentFrame;
+    } else if (handoffOptions[0]) {
+        els.enemyProjectileHandoffVisual.value = handoffOptions[0].frameId;
+    }
+
+    els.enemyProjectileVisualCharacterOptions.replaceChildren(...enemyProjectileVisualCharacterIds().map((id) => new Option(id, id)));
+    const archetype = enemyProjectileArchetype(defaults?.projectileKind);
+    const inheritedCharacterId = String(archetype?.visualCharacterId || "").trim();
+    const inheritedFrameId = String(archetype?.visualFrameId || "").trim();
+    const mode = projectileVisualMode(defaults, state.character, state.rig);
+    els.enemyProjectileVisualSource.value = mode;
+    els.enemyProjectileVisualCharacterId.value = String(defaults?.projectileVisualCharacterId || inheritedCharacterId || state.character?.characterId || "");
+    els.enemyProjectileVisualFrameId.value = String(defaults?.projectileVisualFrameId || inheritedFrameId || handoffOptions[0]?.frameId || "");
+
+    let summary = "";
+    if (mode === "kind") {
+        summary = inheritedCharacterId || inheritedFrameId
+            ? `Kind default visual: ${inheritedCharacterId || "current character"} / ${inheritedFrameId || "runtime fallback frame"}.`
+            : "Kind default visual: runtime renderer fallback (no explicit character/frame asset).";
+    } else if (mode === "handoff") {
+        summary = `Handoff visual: ${state.character?.characterId || "current character"} / ${els.enemyProjectileHandoffVisual.value || currentFrame}.`;
+    } else {
+        summary = `Custom visual: ${String(defaults?.projectileVisualCharacterId || "current character")} / ${String(defaults?.projectileVisualFrameId || "runtime fallback frame")}.`;
+    }
+    els.enemyProjectileVisualSummary.textContent = summary;
+    syncEnemyProjectileVisualFieldVisibility();
+}
+
+function writeEnemyProjectileVisualFields(defaults) {
+    const mode = String(els.enemyProjectileVisualSource?.value || "kind");
+    if (mode === "kind") {
+        delete defaults.projectileVisualCharacterId;
+        delete defaults.projectileVisualFrameId;
+        return;
+    }
+    if (mode === "handoff") {
+        const characterId = String(state.character?.characterId || "").trim();
+        const frameId = String(els.enemyProjectileHandoffVisual?.value || "").trim();
+        if (!characterId || !frameId) {
+            throw new Error("This character has no active attack-handoff asset to use as the projectile visual.");
+        }
+        defaults.projectileVisualCharacterId = characterId;
+        defaults.projectileVisualFrameId = frameId;
+        return;
+    }
+    const characterId = String(els.enemyProjectileVisualCharacterId?.value || "").trim();
+    const frameId = String(els.enemyProjectileVisualFrameId?.value || "").trim();
+    if (characterId) defaults.projectileVisualCharacterId = characterId;
+    else delete defaults.projectileVisualCharacterId;
+    if (frameId) defaults.projectileVisualFrameId = frameId;
+    else delete defaults.projectileVisualFrameId;
+}
+
 function syncEnemyAttackFieldVisibility() {
     const projectile = String(els.enemyAttackType?.value || "melee") === "projectile";
     if (els.enemyProjectileBehavior) els.enemyProjectileBehavior.hidden = !projectile;
@@ -2263,6 +2365,8 @@ function refreshEnemyTypeFields() {
         els.enemyProjectileLaunchType, els.enemyProjectileSpeed, els.enemyProjectileGravity,
         els.enemyProjectileLifetime, els.enemyProjectileRadius, els.enemyProjectileHoming,
         els.enemySpreadCount, els.enemySpreadAngle, els.enemyProjectileRotationSpeed,
+        els.enemyProjectileVisualSource, els.enemyProjectileHandoffVisual,
+        els.enemyProjectileVisualCharacterId, els.enemyProjectileVisualFrameId,
         els.enemyProjectileVisualScale, els.enemyProjectileTrailEffect, els.enemyProjectileImpactEffect,
         els.enemyProjectileExplosionEffect, els.enemyProjectileAoeRadius, els.enemyProjectileOrientVelocity,
         els.resetProjectileArchetype
@@ -2316,6 +2420,7 @@ function refreshEnemyTypeFields() {
     els.enemySpreadCount.value = Number(defaults.spreadCount ?? defaults.projectileVolleyCount ?? 1);
     els.enemySpreadAngle.value = Number(defaults.spreadAngle ?? defaults.projectileVolleyHalfAngle ?? 0);
     els.enemyProjectileRotationSpeed.value = Number(enemyProjectilePresentationValue(defaults, "projectileRotationSpeedDegrees", "rotationSpeedDegrees", 0));
+    refreshEnemyProjectileVisualControls(defaults);
     els.enemyProjectileVisualScale.value = Number(enemyProjectilePresentationValue(defaults, "projectileVisualScale", "visualScale", 1));
     els.enemyProjectileTrailEffect.value = String(enemyProjectilePresentationValue(defaults, "projectileTrailEffect", "trailEffect", "none"));
     els.enemyProjectileImpactEffect.value = String(enemyProjectilePresentationValue(defaults, "projectileImpactEffect", "impactEffect", "sparks"));
@@ -2374,6 +2479,7 @@ function writeEnemyStructuredFields(definition, defaults) {
         defaults.preferredAttackMinRange = Math.max(0, Number(els.enemyPreferredAttackMinRange.value) || 0);
         defaults.spreadCount = Math.max(1, Math.min(15, Math.round(Number(els.enemySpreadCount.value) || 1)));
         defaults.spreadAngle = Math.max(0, Math.min(180, Number(els.enemySpreadAngle.value) || 0));
+        writeEnemyProjectileVisualFields(defaults);
         setEnemyProjectilePresentationOverride(defaults, "projectileRotationSpeedDegrees", "rotationSpeedDegrees", Number(els.enemyProjectileRotationSpeed.value) || 0, 0);
         setEnemyProjectilePresentationOverride(defaults, "projectileVisualScale", "visualScale", Math.max(0.01, Number(els.enemyProjectileVisualScale.value) || 1), 1);
         setEnemyProjectilePresentationOverride(defaults, "projectileTrailEffect", "trailEffect", String(els.enemyProjectileTrailEffect.value || "none"), "none");
@@ -5967,6 +6073,8 @@ const enemyStructuredControls = [
     els.enemyProjectileLaunchType, els.enemyProjectileSpeed, els.enemyProjectileGravity,
     els.enemyProjectileLifetime, els.enemyProjectileRadius, els.enemyProjectileHoming,
     els.enemySpreadCount, els.enemySpreadAngle, els.enemyProjectileRotationSpeed,
+    els.enemyProjectileVisualSource, els.enemyProjectileHandoffVisual,
+    els.enemyProjectileVisualCharacterId, els.enemyProjectileVisualFrameId,
     els.enemyProjectileVisualScale, els.enemyProjectileTrailEffect, els.enemyProjectileImpactEffect,
     els.enemyProjectileExplosionEffect, els.enemyProjectileAoeRadius, els.enemyProjectileOrientVelocity
 ].filter(Boolean);
@@ -5987,6 +6095,15 @@ for (const input of enemyStructuredControls) {
         } catch (error) {
             setStatus(`Enemy defaults could not be applied: ${error.message || error}`);
         }
+    });
+}
+
+for (const input of [els.enemyProjectileVisualSource, els.enemyProjectileHandoffVisual, els.enemyProjectileVisualCharacterId, els.enemyProjectileVisualFrameId].filter(Boolean)) {
+    const eventName = input.tagName === "SELECT" ? "change" : "input";
+    input.addEventListener(eventName, () => {
+        const definition = currentEnemyDefinition();
+        if (!definition) return;
+        refreshEnemyProjectileVisualControls(definition.defaults || {});
     });
 }
 els.resetProjectileArchetype.addEventListener("click", () => {

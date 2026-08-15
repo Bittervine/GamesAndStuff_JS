@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" href="favicon.ico" sizes="any">
-    <title>Ignatius Level Editor - BUILD 364</title>
+    <title>Ignatius Level Editor - BUILD 390</title>
     <style>
         @font-face {
             font-family: "Ignatius Inter";
@@ -833,7 +833,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 364</small></h1>
+        <h1>Level Editor <small>rev 390</small></h1>
 
         <div class="box">
             <h2>Level</h2>
@@ -1070,6 +1070,7 @@
                 <button id="clear-navigation-graphs" type="button">Clear graphs</button>
             </div>
             <label>Preview profile<select id="navigation-profile-select"></select></label>
+            <div class="inline"><input id="navigation-use-stride-arc" type="checkbox" checked><span class="small">Use stride-arc step test (new default)</span></div>
             <div class="inline"><input id="show-navigation-graph" type="checkbox"><span class="small">Show baked supports and directed transitions</span></div>
             <p id="navigation-graph-status" class="small">No baked navigation graph.</p>
         </div>
@@ -1808,6 +1809,7 @@ import {
         buildNavigationGraphs: document.getElementById("build-navigation-graphs"),
         clearNavigationGraphs: document.getElementById("clear-navigation-graphs"),
         navigationProfileSelect: document.getElementById("navigation-profile-select"),
+        navigationUseStrideArc: document.getElementById("navigation-use-stride-arc"),
         showNavigationGraph: document.getElementById("show-navigation-graph"),
         navigationGraphStatus: document.getElementById("navigation-graph-status"),
         levelId: document.getElementById("level-id"),
@@ -2089,6 +2091,7 @@ import {
         characterProjects: new Map(),
         characterProjectLoads: new Map(),
         navigationPreviewGraphId: "",
+        navigationLastComparison: null,
         placementDrawCache: null,
         placementBoundsCache: new WeakMap(),
         entityBoundsCache: new WeakMap(),
@@ -4007,6 +4010,7 @@ import {
     async function loadLevelFromUrl(url) {
         const level = normalizeLevelDefaults(await loadJsonUrl(url));
         state.level = level;
+        state.navigationLastComparison = null;
         resetEditorLayerVisibility();
         state.generatorHistory = { undo: [], redo: [] };
         state.generatorLoadedRunId = "";
@@ -4311,6 +4315,27 @@ import {
         });
     }
 
+    function wizardNavigationProfile() {
+        const tuning = gameplayRulerTuning || DEFAULT_TUNING;
+        const width = Math.max(8, finiteEditorNumber(tuning.playerWidth, DEFAULT_TUNING.playerWidth));
+        const height = Math.max(24, finiteEditorNumber(tuning.playerHeight, DEFAULT_TUNING.playerHeight));
+        const gravity = Math.max(1, finiteEditorNumber(tuning.gravity, DEFAULT_TUNING.gravity));
+        const safeImpactSpeed = Math.max(0, finiteEditorNumber(tuning.fallDamageSafeImpactSpeed, DEFAULT_TUNING.fallDamageSafeImpactSpeed));
+        return normalizeEnemyNavigationProfile({
+            bodyWidth: width,
+            bodyHeight: height,
+            runSpeed: Math.max(1, finiteEditorNumber(tuning.maxRunSpeed, DEFAULT_TUNING.maxRunSpeed)),
+            groundAcceleration: Math.max(1, finiteEditorNumber(tuning.groundAcceleration, DEFAULT_TUNING.groundAcceleration)),
+            jumpHeight: Math.max(0, finiteEditorNumber(tuning.ordinaryJumpHeight, DEFAULT_TUNING.ordinaryJumpHeight)),
+            gravity,
+            maxFallDistance: safeImpactSpeed > 0 ? safeImpactSpeed * safeImpactSpeed / (2 * gravity) : 0,
+            maxStepHeight: height * 0.20,
+            maxStepGap: Math.max(10, Math.min(28, width * 0.32 || 18)),
+            edgeInset: Math.max(6, width * 0.22 || 10),
+            bodyClearance: Math.max(10, width * 0.34 || 12)
+        });
+    }
+
     function editorNavigationWorld() {
         const segments = [];
         const collisionPolygons = [];
@@ -4366,6 +4391,31 @@ import {
         };
     }
 
+    function navigationStepMethodLabel(method) {
+        return method === "legacy" ? "legacy height/gap" : "stride-arc";
+    }
+
+    function navigationEdgeSemanticKey(profileId, edge) {
+        return `${String(profileId || "")}|${String(edge?.type || "")}|${String(edge?.from || "")}|${String(edge?.to || "")}|${String(edge?.direction || "")}`;
+    }
+
+    function compareNavigationGraphMethods(selectedProfiles, alternateProfiles, selectedMethod, alternateMethod) {
+        const selectedEdges = selectedProfiles.flatMap((graph) => (graph.edges || []).map((edge) => ({ profileId: graph.id, edge })));
+        const alternateEdges = alternateProfiles.flatMap((graph) => (graph.edges || []).map((edge) => ({ profileId: graph.id, edge })));
+        const selectedKeys = new Set(selectedEdges.map(({ profileId, edge }) => navigationEdgeSemanticKey(profileId, edge)));
+        const alternateKeys = new Set(alternateEdges.map(({ profileId, edge }) => navigationEdgeSemanticKey(profileId, edge)));
+        return {
+            selectedMethod,
+            alternateMethod,
+            selectedEdges: selectedEdges.length,
+            alternateEdges: alternateEdges.length,
+            selectedOnly: [...selectedKeys].filter((key) => !alternateKeys.has(key)).length,
+            alternateOnly: [...alternateKeys].filter((key) => !selectedKeys.has(key)).length,
+            selectedStepEdges: selectedEdges.filter(({ edge }) => edge.type === "step").length,
+            alternateStepEdges: alternateEdges.filter(({ edge }) => edge.type === "step").length
+        };
+    }
+
     function refreshNavigationGraphUi() {
         const profiles = Array.isArray(state.level?.navigationGraphs?.profiles)
             ? state.level.navigationGraphs.profiles
@@ -4383,36 +4433,77 @@ import {
             state.navigationPreviewGraphId = profiles[0]?.id || "";
             els.navigationProfileSelect.value = state.navigationPreviewGraphId;
         }
-        els.navigationGraphStatus.textContent = profiles.length
-            ? `${profiles.length} baked mobility profile${profiles.length === 1 ? "" : "s"}. Runtime hunters use an exact profile match and fall back to live graph construction otherwise.`
-            : "No baked navigation graph.";
+        if (!profiles.length) {
+            els.navigationGraphStatus.textContent = "No baked navigation graph.";
+            return;
+        }
+        const selected = profiles.find((graph) => graph.id === state.navigationPreviewGraphId) || profiles[0];
+        const method = selected?.build?.stepTransitionMethod || "legacy";
+        // A loaded level may contain a graph baked with the legacy method.
+        // Keep the bake/playtest selector aligned with the graph being shown
+        // instead of silently reverting to the HTML checkbox's default.
+        els.navigationUseStrideArc.checked = method !== "legacy";
+        const comparison = state.navigationLastComparison;
+        const comparisonText = comparison
+            ? ` A/B: ${navigationStepMethodLabel(comparison.selectedMethod)} ${comparison.selectedEdges} edges (${comparison.selectedStepEdges} step) vs ${navigationStepMethodLabel(comparison.alternateMethod)} ${comparison.alternateEdges} (${comparison.alternateStepEdges} step); ${comparison.selectedOnly} selected-only, ${comparison.alternateOnly} alternate-only.`
+            : "";
+        els.navigationGraphStatus.textContent = `${profiles.length} baked mobility profile${profiles.length === 1 ? "" : "s"}, using ${navigationStepMethodLabel(method)} step transitions. Wizard is an editor-only preview profile; runtime hunters use an exact mobility-profile match and fall back to live graph construction otherwise.${comparisonText}`;
+    }
+
+    function placedHunterNavigationProfiles(options = {}) {
+        const hunters = (state.level?.entities || []).filter((entity) => isCharacterEnemy(entity) && String(resolvedCharacterEnemy(entity).strategy || "simple_patrol") === "hunter");
+        const profilesById = new Map();
+        if (options.includeWizard !== false) profilesById.set("wizard", wizardNavigationProfile());
+        for (const enemy of hunters) {
+            const profile = enemyNavigationProfileForEntity(enemy);
+            profilesById.set(enemyNavigationProfileKey(profile), profile);
+        }
+        return profilesById;
+    }
+
+    function bakePlacedHunterNavigationProfiles(options = {}) {
+        const profilesById = placedHunterNavigationProfiles(options);
+        const world = options.world || editorNavigationWorld();
+        const method = options.stepTransitionMethod || (els.navigationUseStrideArc.checked ? "stride_arc" : "legacy");
+        return [...profilesById.entries()].map(([id, profile]) => bakeEnemyNavigationGraph(world, profile, {
+            id,
+            label: id === "wizard"
+                ? `Wizard · body ${profile.bodyWidth}×${profile.bodyHeight} · stride ${profile.maxStepHeight}`
+                : `Run ${profile.runSpeed}, jump ${profile.jumpHeight}, body ${profile.bodyWidth}×${profile.bodyHeight}`,
+            stepTransitionMethod: method
+        }));
     }
 
     function buildPlacedHunterNavigationGraphs(options = {}) {
         const silent = options.silent === true;
         const refreshUi = options.refreshUi !== false;
-        const hunters = (state.level?.entities || []).filter((entity) => isCharacterEnemy(entity) && String(resolvedCharacterEnemy(entity).strategy || "simple_patrol") === "hunter");
-        const profilesById = new Map();
-        for (const enemy of hunters) {
-            const profile = enemyNavigationProfileForEntity(enemy);
-            profilesById.set(enemyNavigationProfileKey(profile), profile);
-        }
-        if (!profilesById.size) {
-            state.level.navigationGraphs = { version: 2, profiles: [] };
-            if (refreshUi) refreshNavigationGraphUi();
-            if (!silent) setStatus("No hunter enemies are placed in this level.", false);
-            return { built: false, profiles: 0, supports: 0, edges: 0 };
-        }
         const world = editorNavigationWorld();
-        const profiles = [...profilesById.entries()].map(([id, profile]) => bakeEnemyNavigationGraph(world, profile, {
-            id,
-            label: `Run ${profile.runSpeed}, jump ${profile.jumpHeight}, body ${profile.bodyWidth}×${profile.bodyHeight}`
-        }));
+        const stepTransitionMethod = options.stepTransitionMethod || (els.navigationUseStrideArc.checked ? "stride_arc" : "legacy");
+        const bakeProfiles = (method) => bakePlacedHunterNavigationProfiles({
+            world,
+            stepTransitionMethod: method,
+            includeWizard: true
+        });
+        const previousPreviewGraphId = state.navigationPreviewGraphId;
+        const profiles = bakeProfiles(stepTransitionMethod);
         state.level.navigationGraphs = {
             version: 2,
             profiles
         };
-        state.navigationPreviewGraphId = profiles[0]?.id || "";
+        if (!silent && options.compare !== false) {
+            const alternateMethod = stepTransitionMethod === "stride_arc" ? "legacy" : "stride_arc";
+            state.navigationLastComparison = compareNavigationGraphMethods(
+                profiles,
+                bakeProfiles(alternateMethod),
+                stepTransitionMethod,
+                alternateMethod
+            );
+        } else {
+            state.navigationLastComparison = null;
+        }
+        state.navigationPreviewGraphId = profiles.some((graph) => graph.id === previousPreviewGraphId)
+            ? previousPreviewGraphId
+            : (profiles[0]?.id || "");
         if (refreshUi) refreshNavigationGraphUi();
         const result = {
             built: true,
@@ -4421,7 +4512,11 @@ import {
             edges: profiles.reduce((sum, graph) => sum + graph.edges.length, 0)
         };
         if (!silent) {
-            setStatus(`Built ${result.profiles} navigation graph${result.profiles === 1 ? "" : "s"}: ${result.supports} supports and ${result.edges} directed transitions.`);
+            const comparison = state.navigationLastComparison;
+            const comparisonSummary = comparison
+                ? ` A/B vs ${navigationStepMethodLabel(comparison.alternateMethod)}: ${comparison.selectedOnly} selected-only and ${comparison.alternateOnly} alternate-only transitions.`
+                : "";
+            setStatus(`Built ${result.profiles} navigation graph${result.profiles === 1 ? "" : "s"} with ${navigationStepMethodLabel(stepTransitionMethod)} steps: ${result.supports} supports and ${result.edges} directed transitions.${comparisonSummary}`);
         }
         if (refreshUi) persistUi();
         return result;
@@ -10133,10 +10228,17 @@ import {
         return JSON.stringify(state.level, null, 4);
     }
 
-    async function saveLevelTempCopy() {
+    async function saveLevelTempCopy(options = {}) {
         const projectHost = window.IgnatiusProjectHost?.get();
         if (!projectHost) throw new Error("The Ignatius project host is unavailable.");
-        const result = await projectHost.saveText("level", PLAYTEST_LEVEL_FILENAME, serializeLevelJson(), {
+        prepareLevelForExport();
+        const levelForTemp = options.navigationGraphs
+            ? { ...cloneData(state.level), navigationGraphs: cloneData(options.navigationGraphs) }
+            : state.level;
+        // level_temp is machine-generated scratch data. Compact JSON cuts the
+        // large baked navigation payload by more than half on graph-heavy levels.
+        const tempJson = JSON.stringify(levelForTemp);
+        const result = await projectHost.saveText("level", PLAYTEST_LEVEL_FILENAME, tempJson, {
             mimeType: "application/json",
             prompt: true
         });
@@ -10299,25 +10401,15 @@ import {
     }
 
     async function playBrowserCopy() {
-        const graphResult = buildPlacedHunterNavigationGraphs({ silent: true, refreshUi: false });
-        refreshNavigationGraphUi();
-        const graphSummary = graphResult.built
-            ? ` Rebuilt ${graphResult.profiles} hunter navigation graph${graphResult.profiles === 1 ? "" : "s"} (${graphResult.edges} directed transitions).`
-            : " No hunter navigation graphs were needed.";
-        try {
-            if (!await saveLevelTempCopy()) {
-                setStatus("Playtest cancelled because the temp level was not saved.", false);
-                return;
+        const hostedReservePlaytest = (() => {
+            try {
+                return window.parent !== window && typeof window.parent.ignatiusDevToolReservePlaytestWindow === "function"
+                    ? window.parent.ignatiusDevToolReservePlaytestWindow
+                    : null;
+            } catch (_) {
+                return null;
             }
-        } catch (error) {
-            console.error(`Could not save ${PLAYTEST_LEVEL_FILENAME} for playtest.`, error);
-            setStatus(`Could not prepare playtest: ${error?.message || error}`, false);
-            return;
-        }
-        setStatus(`Saved ${PLAYTEST_LEVEL_FILENAME} for playtest.${graphSummary}`);
-        const url = new URL("game.html", window.location.href);
-        url.searchParams.set("level", PLAYTEST_LEVEL_ID);
-        url.searchParams.set("playtest_browser_copy", "1");
+        })();
         const hostedPlaytest = (() => {
             try {
                 return window.parent !== window && typeof window.parent.ignatiusDevToolLaunchPlaytest === "function"
@@ -10327,8 +10419,74 @@ import {
                 return null;
             }
         })();
-        if (hostedPlaytest) hostedPlaytest(url.href);
-        else window.open(url.href, "_blank");
+        // Chrome only permits a popup while the click still carries transient
+        // user activation. Reserve the browser playtest window before graph
+        // baking/saving; Level 006 can otherwise outlive that activation and
+        // Chrome silently blocks the eventual window.open(). Native SDL uses
+        // the host process and therefore does not reserve a browser window.
+        let reservedPlaytestWindow = null;
+        if (!window.chrome?.webview) {
+            try {
+                reservedPlaytestWindow = hostedReservePlaytest
+                    ? hostedReservePlaytest()
+                    : window.open("about:blank", "ignatius-level-playtest");
+            } catch (_) {
+                reservedPlaytestWindow = null;
+            }
+        }
+        const closeReservedPlaytest = () => {
+            try {
+                if (reservedPlaytestWindow && !reservedPlaytestWindow.closed) reservedPlaytestWindow.close();
+            } catch (_) {}
+        };
+
+        const stepTransitionMethod = els.navigationUseStrideArc.checked ? "stride_arc" : "legacy";
+        let playtestProfiles;
+        try {
+            playtestProfiles = bakePlacedHunterNavigationProfiles({
+                includeWizard: false,
+                stepTransitionMethod
+            });
+        } catch (error) {
+            closeReservedPlaytest();
+            console.error("Could not build playtest navigation graphs.", error);
+            setStatus(`Could not prepare playtest navigation: ${error?.message || error}`, false);
+            return;
+        }
+        const playtestGraphs = { version: 2, profiles: playtestProfiles };
+        const graphResult = {
+            built: true,
+            profiles: playtestProfiles.length,
+            edges: playtestProfiles.reduce((sum, graph) => sum + (graph.edges?.length || 0), 0)
+        };
+        const graphSummary = graphResult.profiles
+            ? ` Rebuilt ${graphResult.profiles} runtime hunter navigation graph${graphResult.profiles === 1 ? "" : "s"} (${graphResult.edges} directed transitions); the editor-only Wizard preview was omitted from level_temp.`
+            : " No runtime hunter navigation graphs were needed.";
+        try {
+            if (!await saveLevelTempCopy({ navigationGraphs: playtestGraphs })) {
+                closeReservedPlaytest();
+                setStatus("Playtest cancelled because the temp level was not saved.", false);
+                return;
+            }
+        } catch (error) {
+            closeReservedPlaytest();
+            console.error(`Could not save ${PLAYTEST_LEVEL_FILENAME} for playtest.`, error);
+            setStatus(`Could not prepare playtest: ${error?.message || error}`, false);
+            return;
+        }
+        setStatus(`Saved ${PLAYTEST_LEVEL_FILENAME} for playtest.${graphSummary}`);
+        const url = new URL("game.html", window.location.href);
+        url.searchParams.set("level", PLAYTEST_LEVEL_ID);
+        url.searchParams.set("playtest_browser_copy", "1");
+        if (hostedPlaytest) {
+            const launched = hostedPlaytest(url.href, reservedPlaytestWindow);
+            if (launched === false) setStatus("Playtest level was saved, but the browser blocked the playtest window. Allow popups for this page and try again.", false);
+        } else if (reservedPlaytestWindow && !reservedPlaytestWindow.closed) {
+            reservedPlaytestWindow.location.href = url.href;
+        } else {
+            const opened = window.open(url.href, "ignatius-level-playtest");
+            if (!opened) setStatus("Playtest level was saved, but the browser blocked the playtest window. Allow popups for this page and try again.", false);
+        }
     }
 
     function fitEditorBounds(bounds, maxZoom = 1.4) {
@@ -10629,6 +10787,7 @@ import {
     els.placementSearch.addEventListener("input", renderPlacementList);
     document.getElementById("new-level").addEventListener("click", () => {
         state.level = makeEmptyLevel();
+        state.navigationLastComparison = null;
         resetEditorLayerVisibility();
         state.generatorLoadedRunId = "";
         state.generatorHistory = { undo: [], redo: [] };
@@ -10705,14 +10864,17 @@ import {
     els.clearNavigationGraphs.addEventListener("click", () => {
         state.level.navigationGraphs = { version: 2, profiles: [] };
         state.navigationPreviewGraphId = "";
+        state.navigationLastComparison = null;
         refreshNavigationGraphUi();
         persistUi();
         setStatus("Cleared baked enemy navigation graphs.");
     });
     els.navigationProfileSelect.addEventListener("change", () => {
         state.navigationPreviewGraphId = els.navigationProfileSelect.value;
+        refreshNavigationGraphUi();
         draw();
     });
+    els.navigationUseStrideArc.addEventListener("change", () => buildPlacedHunterNavigationGraphs());
     els.showNavigationGraph.addEventListener("change", draw);
     els.selectForegroundLayer.addEventListener("click", () => selectOnlyPlacementLayer(CAVE_FOREGROUND_LAYER));
     els.selectTerrainLayer.addEventListener("click", () => selectOnlyPlacementLayer("terrain"));
@@ -10843,6 +11005,7 @@ import {
         if (!file) return;
         try {
             state.level = normalizeLevelDefaults(JSON.parse(await file.text()));
+            state.navigationLastComparison = null;
             resetEditorLayerVisibility();
             state.generatorHistory = { undo: [], redo: [] };
             state.generatorLoadedRunId = "";
@@ -10901,6 +11064,7 @@ import {
             return;
         }
         state.level = normalizeLevelDefaults(JSON.parse(saved));
+        state.navigationLastComparison = null;
         resetEditorLayerVisibility();
         state.generatorHistory = { undo: [], redo: [] };
         state.generatorLoadedRunId = "";
@@ -11005,6 +11169,7 @@ import {
         await loadMusicCatalog();
         populateLevelMusicOptions();
         state.level = makeEmptyLevel();
+        state.navigationLastComparison = null;
         resetEditorLayerVisibility();
         setNewAssetLayer("terrain");
         els.snap.value = "16";

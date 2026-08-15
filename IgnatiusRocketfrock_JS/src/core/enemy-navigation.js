@@ -176,7 +176,11 @@ function navigationBlockingObstacles(world) {
         }
         const bounds = polygonBounds(polygon.points || []);
         if (bounds) {
-            obstacles.push({ id: String(polygon.id || "collisionPolygon"), ...bounds });
+            obstacles.push({
+                id: String(polygon.id || "collisionPolygon"),
+                ...bounds,
+                points: (polygon.points || []).map((point) => ({ x: finite(point?.x), y: finite(point?.y) }))
+            });
         }
     }
     for (const solid of world?.solids || []) {
@@ -213,6 +217,32 @@ function navigationBlockingObstacles(world) {
         }
     }
     return obstacles;
+}
+
+function obstacleVerticalSpanAtX(obstacle, x) {
+    const points = Array.isArray(obstacle?.points) ? obstacle.points : [];
+    if (points.length < 3) return { minY: obstacle.minY, maxY: obstacle.maxY };
+    const intersections = [];
+    const tolerance = 0.000001;
+    for (let index = 0; index < points.length; index += 1) {
+        const a = points[index];
+        const b = points[(index + 1) % points.length];
+        const minX = Math.min(a.x, b.x);
+        const maxX = Math.max(a.x, b.x);
+        if (x < minX - tolerance || x > maxX + tolerance) continue;
+        const dx = b.x - a.x;
+        if (Math.abs(dx) <= tolerance) {
+            if (Math.abs(x - a.x) <= tolerance) {
+                intersections.push(a.y, b.y);
+            }
+            continue;
+        }
+        const t = (x - a.x) / dx;
+        if (t < -tolerance || t > 1 + tolerance) continue;
+        intersections.push(a.y + (b.y - a.y) * clamp(t, 0, 1));
+    }
+    if (intersections.length < 2) return { minY: obstacle.minY, maxY: obstacle.maxY };
+    return { minY: Math.min(...intersections), maxY: Math.max(...intersections) };
 }
 
 function rectangleIntersectsObstacle(left, top, right, bottom, obstacle, epsilon = 0.5) {
@@ -327,20 +357,23 @@ function splitSupportAroundObstacles(support, obstacles, options) {
         }
         const sampleX = (overlapMin + overlapMax) * 0.5;
         const groundY = supportYAt(support, sampleX);
-        if (obstacle.minY > groundY + 3) {
+        const localObstacleSpan = enemyNavigationStepMethod(options) === "legacy"
+            ? { minY: obstacle.minY, maxY: obstacle.maxY }
+            : obstacleVerticalSpanAtX(obstacle, sampleX);
+        if (localObstacleSpan.minY > groundY + 3) {
             continue;
         }
         const sameHeightContinuationTolerance = Math.max(2, finite(options.maxStepHeight, 24));
-        const obstacleContinuesFloor = obstacle.maxY >= groundY - EPSILON
-            && Math.abs(obstacle.minY - groundY) <= sameHeightContinuationTolerance;
+        const obstacleContinuesFloor = localObstacleSpan.maxY >= groundY - EPSILON
+            && Math.abs(localObstacleSpan.minY - groundY) <= sameHeightContinuationTolerance;
         if (obstacleContinuesFloor) {
-            // Generated run-and-gun floors intentionally overlap solid platform
-            // polygons at the same walking height. Treat the neighbour's top as a
-            // continuation of the floor instead of cutting both navigation supports
-            // apart with each other's rock body.
+            // Overlapping platform polygons can be sloped or stepped. Compare the
+            // neighbouring polygon at the actual overlap X rather than using its
+            // global bounding-box top; otherwise a high point elsewhere in the
+            // polygon falsely chops a perfectly traversable support into islands.
             continue;
         }
-        const clearanceUnderObstacle = groundY - obstacle.maxY;
+        const clearanceUnderObstacle = groundY - localObstacleSpan.maxY;
         if (clearanceUnderObstacle >= bodyHeight * 0.88) {
             continue;
         }
@@ -976,6 +1009,18 @@ function runUpCorridorClear(from, runUpX, launchX, options = {}) {
                     continue;
                 }
             }
+            // A run-up may span overlapping platform polygons that form one
+            // continuous floor. Navigation support extraction already treats
+            // these same-height neighbours as floor continuations, so the
+            // acceleration corridor must not reinterpret their rock bodies as
+            // a wall merely because the actor overlaps both polygons. Keep the
+            // tolerance tight: this is not permission to run through a real
+            // step or raised obstacle.
+            const floorContinuationTolerance = 3;
+            if (obstacle.maxY >= bottom - EPSILON
+                && Math.abs(obstacle.minY - bottom) <= floorContinuationTolerance) {
+                continue;
+            }
             if (obstacle.dynamic) {
                 continue;
             }
@@ -1097,7 +1142,7 @@ function solveJumpTransitionCandidate(from, to, points, options) {
     };
 }
 
-function directTransition(from, to, options) {
+function legacyDirectTransition(from, to, options) {
     const maxStepHeight = Math.max(0, finite(options.maxStepHeight, 24));
     const maxStepGap = Math.max(0, finite(options.maxStepGap, 18));
     const points = basicTransitionCandidate(from, to, Math.max(4, finite(options.edgeInset, 10)));
@@ -1132,6 +1177,500 @@ function directTransition(from, to, options) {
     };
 }
 
+function enemyNavigationStepMethod(options = {}) {
+    return String(options.stepTransitionMethod || "stride_arc").trim().toLowerCase() === "legacy"
+        ? "legacy"
+        : "stride_arc";
+}
+
+function groundStrideSamePoint(a, b, tolerance = 0.08) {
+    return Math.abs(Number(a?.x) - Number(b?.x)) <= tolerance &&
+        Math.abs(Number(a?.y) - Number(b?.y)) <= tolerance;
+}
+
+function groundStrideCross(ax, ay, bx, by) {
+    return ax * by - ay * bx;
+}
+
+function groundStrideSegmentIntersection(a, b, c, d) {
+    const rx = b.x - a.x;
+    const ry = b.y - a.y;
+    const sx = d.x - c.x;
+    const sy = d.y - c.y;
+    const denominator = groundStrideCross(rx, ry, sx, sy);
+    if (Math.abs(denominator) <= 0.0000001) return null;
+    const qpx = c.x - a.x;
+    const qpy = c.y - a.y;
+    const t = groundStrideCross(qpx, qpy, sx, sy) / denominator;
+    const u = groundStrideCross(qpx, qpy, rx, ry) / denominator;
+    if (t < -0.000001 || t > 1.000001 || u < -0.000001 || u > 1.000001) return null;
+    const clampedT = clamp(t, 0, 1);
+    return { x: a.x + rx * clampedT, y: a.y + ry * clampedT };
+}
+
+function groundStridePointSegmentDistance(point, a, b) {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const lengthSq = dx * dx + dy * dy;
+    if (lengthSq <= 0.0000001) return Math.hypot(point.x - a.x, point.y - a.y);
+    const t = clamp(((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSq, 0, 1);
+    return Math.hypot(point.x - (a.x + dx * t), point.y - (a.y + dy * t));
+}
+
+function groundStrideCircleIntersections(a, b, center, radius) {
+    const dx = Number(b.x) - Number(a.x);
+    const dy = Number(b.y) - Number(a.y);
+    const fx = Number(a.x) - Number(center.x);
+    const fy = Number(a.y) - Number(center.y);
+    const aa = dx * dx + dy * dy;
+    if (!Number.isFinite(aa) || aa <= 0.0000001) return [];
+    const bb = 2 * (fx * dx + fy * dy);
+    const cc = fx * fx + fy * fy - radius * radius;
+    const discriminant = bb * bb - 4 * aa * cc;
+    if (!Number.isFinite(discriminant) || discriminant < -0.000001) return [];
+    const root = Math.sqrt(Math.max(0, discriminant));
+    const roots = [(-bb - root) / (2 * aa), (-bb + root) / (2 * aa)];
+    const out = [];
+    for (const t of roots) {
+        if (t < -0.000001 || t > 1.000001) continue;
+        const clampedT = clamp(t, 0, 1);
+        const point = { x: Number(a.x) + dx * clampedT, y: Number(a.y) + dy * clampedT };
+        if (!out.some((candidate) => groundStrideSamePoint(candidate, point, 0.001))) out.push(point);
+    }
+    return out;
+}
+
+function groundStrideArcSweepParameter(point, center, direction) {
+    const forward = (Number(point.x) - Number(center.x)) * direction;
+    if (forward < -0.05) return null;
+    const vertical = Number(point.y) - Number(center.y);
+    const sweep = Math.atan2(Math.max(0, forward), -vertical);
+    return sweep <= Math.PI + 0.0001 ? sweep : null;
+}
+
+function enemyNavigationStrideEdgeIsStandable(kind, a, b) {
+    if (kind === "walkable") return true;
+    if (kind !== "blockable" && kind !== "damaging" && kind !== "killable") return false;
+    const dx = Number(b.x) - Number(a.x);
+    const dy = Number(b.y) - Number(a.y);
+    return Math.abs(dx) > 0.001 && Math.abs(dy) <= Math.abs(dx) * 0.75;
+}
+
+function enemyNavigationStrideCandidateEdges(world = {}) {
+    const edges = [];
+    const seen = new Set();
+    const add = (support, a, b, standable, blocksBody, edgeKey = "") => {
+        if (![a.x, a.y, b.x, b.y].every(Number.isFinite)) return;
+        if (Math.hypot(b.x - a.x, b.y - a.y) <= 0.000001) return;
+        const key = `${support.source}|${support.id}|${edgeKey}|${a.x.toFixed(6)}|${a.y.toFixed(6)}|${b.x.toFixed(6)}|${b.y.toFixed(6)}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        edges.push({ key, support, a, b, standable, blocksBody });
+    };
+
+    for (const segment of world?.segments || []) {
+        if (segment.movingPlatformId) continue;
+        if (segment.kind !== "walkable" && segment.kind !== "blockable" && segment.kind !== "damaging" && segment.kind !== "killable") continue;
+        const a = { x: finite(segment.x1), y: finite(segment.y1) };
+        const b = { x: finite(segment.x2), y: finite(segment.y2) };
+        const support = {
+            id: String(segment.id || "segment"),
+            kind: String(segment.kind || "blockable"),
+            source: "segment",
+            x1: a.x,
+            y1: a.y,
+            x2: b.x,
+            y2: b.y
+        };
+        add(support, a, b, enemyNavigationStrideEdgeIsStandable(segment.kind, a, b), segment.kind !== "walkable", "segment");
+    }
+
+    for (const solid of world?.solids || []) {
+        const left = finite(solid.x);
+        const top = finite(solid.y);
+        const right = left + Math.max(0, finite(solid.w));
+        const bottom = top + Math.max(0, finite(solid.h));
+        if (right - left <= 0.000001 || bottom - top <= 0.000001) continue;
+        const solidId = String(solid.id || "solid");
+        const support = {
+            id: `${solidId}_top`,
+            kind: String(solid.kind || "blockable"),
+            source: "solid",
+            x1: left,
+            y1: top,
+            x2: right,
+            y2: top
+        };
+        add(support, { x: left, y: top }, { x: right, y: top }, true, true, "top");
+        const bodySupport = { ...support, id: solidId };
+        add(bodySupport, { x: right, y: top }, { x: right, y: bottom }, false, true, "right");
+        add(bodySupport, { x: right, y: bottom }, { x: left, y: bottom }, false, true, "bottom");
+        add(bodySupport, { x: left, y: bottom }, { x: left, y: top }, false, true, "left");
+    }
+
+    for (const polygon of world?.collisionPolygons || []) {
+        if (polygon.movingPlatformId || !Array.isArray(polygon.points) || polygon.points.length < 2) continue;
+        if (polygon.kind !== "blockable" && polygon.kind !== "damaging" && polygon.kind !== "killable") continue;
+        for (let index = 0; index < polygon.points.length; index += 1) {
+            const a = { x: finite(polygon.points[index]?.x), y: finite(polygon.points[index]?.y) };
+            const b = { x: finite(polygon.points[(index + 1) % polygon.points.length]?.x), y: finite(polygon.points[(index + 1) % polygon.points.length]?.y) };
+            const support = {
+                id: String(polygon.id || "collisionPolygon"),
+                kind: String(polygon.kind || "blockable"),
+                source: "polygon",
+                x1: a.x,
+                y1: a.y,
+                x2: b.x,
+                y2: b.y
+            };
+            add(support, a, b, enemyNavigationStrideEdgeIsStandable(polygon.kind, a, b), true, `polygon:${index}`);
+        }
+    }
+    return edges;
+}
+
+function groundStrideEdgeParameter(edge, point) {
+    const dx = edge.b.x - edge.a.x;
+    const dy = edge.b.y - edge.a.y;
+    const lengthSq = dx * dx + dy * dy;
+    if (lengthSq <= 0.0000001) return 0;
+    return clamp(((point.x - edge.a.x) * dx + (point.y - edge.a.y) * dy) / lengthSq, 0, 1);
+}
+
+function groundStrideGlideFoothold(edges, blockerContacts, contactPoint, footOrigin, maximumReach, direction, minimumForward) {
+    const startRadius = Math.hypot(contactPoint.x - footOrigin.x, contactPoint.y - footOrigin.y);
+    const candidates = [];
+    for (const blockerContact of blockerContacts) {
+        const blocker = blockerContact.edge;
+        const dx = blocker.b.x - blocker.a.x;
+        const dy = blocker.b.y - blocker.a.y;
+        const lengthSq = dx * dx + dy * dy;
+        if (lengthSq <= 0.0000001) continue;
+        const startT = groundStrideEdgeParameter(blocker, contactPoint);
+        const closestT = clamp(-((blocker.a.x - footOrigin.x) * dx + (blocker.a.y - footOrigin.y) * dy) / lengthSq, 0, 1);
+        for (const edge of edges) {
+            if (!edge.standable) continue;
+            const hit = groundStrideSegmentIntersection(blocker.a, blocker.b, edge.a, edge.b);
+            if (!hit) continue;
+            const point = { x: hit.x, y: hit.y };
+            const forward = (point.x - footOrigin.x) * direction;
+            const radius = Math.hypot(point.x - footOrigin.x, point.y - footOrigin.y);
+            if (forward < minimumForward - 0.000001 || radius > maximumReach + 0.05 || radius > startRadius + 0.05) continue;
+            const candidateT = groundStrideEdgeParameter(blocker, point);
+            const towardClosest = closestT - startT;
+            const towardCandidate = candidateT - startT;
+            if (Math.abs(towardClosest) > 0.000001 && towardCandidate * towardClosest < -0.000001) continue;
+            if (Math.abs(towardCandidate) > Math.abs(towardClosest) + 0.0001) continue;
+            candidates.push({ point, support: edge.support, radius, forward });
+        }
+    }
+    candidates.sort((left, right) => {
+        if (Math.abs(left.radius - right.radius) > 0.000001) return right.radius - left.radius;
+        return right.forward - left.forward;
+    });
+    return candidates[0] || null;
+}
+
+function groundStrideSweepFootholdFromCandidates(edges, footOrigin, maximumReach, direction, minimumForward = 0.05) {
+    const contacts = [];
+    for (const edge of edges) {
+        for (const point of groundStrideCircleIntersections(edge.a, edge.b, footOrigin, maximumReach)) {
+            const sweep = groundStrideArcSweepParameter(point, footOrigin, direction);
+            if (sweep === null) continue;
+            contacts.push({ point, edge, sweep });
+        }
+    }
+    contacts.sort((left, right) => left.sweep - right.sweep);
+    if (!contacts.length) return null;
+
+    let index = 0;
+    while (index < contacts.length) {
+        const sweep = contacts[index].sweep;
+        const group = [];
+        while (index < contacts.length && Math.abs(contacts[index].sweep - sweep) <= 0.000001) {
+            group.push(contacts[index]);
+            index += 1;
+        }
+        const point = group[0].point;
+        const forward = (point.x - footOrigin.x) * direction;
+        const standable = group.filter((contact) => contact.edge.standable);
+        const blockers = group.filter((contact) => !contact.edge.standable && contact.edge.blocksBody);
+        if (standable.length && forward >= minimumForward - 0.000001) {
+            standable.sort((left, right) => {
+                const extent = (contact) => Math.max(
+                    (contact.edge.a.x - contact.point.x) * direction,
+                    (contact.edge.b.x - contact.point.x) * direction
+                );
+                return extent(right) - extent(left);
+            });
+            return {
+                foothold: { ...standable[0].point },
+                targetSupport: standable[0].edge.support,
+                clearancePoint: { ...standable[0].point }
+            };
+        }
+        if (blockers.length) {
+            const glide = groundStrideGlideFoothold(edges, blockers, point, footOrigin, maximumReach, direction, minimumForward);
+            if (!glide) return null;
+            return {
+                foothold: { ...glide.point },
+                targetSupport: glide.support,
+                clearancePoint: { ...point }
+            };
+        }
+    }
+    return null;
+}
+
+function groundStrideConvexHull(points) {
+    const sorted = [...points]
+        .filter((point) => Number.isFinite(point?.x) && Number.isFinite(point?.y))
+        .sort((left, right) => left.x - right.x || left.y - right.y);
+    const unique = [];
+    for (const point of sorted) {
+        if (!unique.length || !groundStrideSamePoint(unique[unique.length - 1], point, 0.000001)) unique.push(point);
+    }
+    if (unique.length <= 2) return unique;
+    const turn = (a, b, c) => groundStrideCross(b.x - a.x, b.y - a.y, c.x - a.x, c.y - a.y);
+    const lower = [];
+    for (const point of unique) {
+        while (lower.length >= 2 && turn(lower[lower.length - 2], lower[lower.length - 1], point) <= 0.0000001) lower.pop();
+        lower.push(point);
+    }
+    const upper = [];
+    for (let index = unique.length - 1; index >= 0; index -= 1) {
+        const point = unique[index];
+        while (upper.length >= 2 && turn(upper[upper.length - 2], upper[upper.length - 1], point) <= 0.0000001) upper.pop();
+        upper.push(point);
+    }
+    lower.pop();
+    upper.pop();
+    return lower.concat(upper);
+}
+
+function groundStridePointInsideConvexHull(point, hull, tolerance = 0.02) {
+    if (!Array.isArray(hull) || hull.length < 3) return false;
+    let sign = 0;
+    for (let index = 0; index < hull.length; index += 1) {
+        const a = hull[index];
+        const b = hull[(index + 1) % hull.length];
+        const value = groundStrideCross(b.x - a.x, b.y - a.y, point.x - a.x, point.y - a.y);
+        if (Math.abs(value) <= tolerance) continue;
+        const nextSign = Math.sign(value);
+        if (!sign) sign = nextSign;
+        else if (nextSign !== sign) return false;
+    }
+    return true;
+}
+
+function groundStrideSegmentsIntersectInclusive(a, b, c, d, tolerance = 0.02) {
+    if (groundStrideSegmentIntersection(a, b, c, d)) return true;
+    return groundStridePointSegmentDistance(a, c, d) <= tolerance ||
+        groundStridePointSegmentDistance(b, c, d) <= tolerance ||
+        groundStridePointSegmentDistance(c, a, b) <= tolerance ||
+        groundStridePointSegmentDistance(d, a, b) <= tolerance;
+}
+
+function groundStrideSweptBodyHull(bodyWidth, bodyHeight, from, to, automaticStepHeight) {
+    const inset = 0.35;
+    const halfWidth = Math.max(0.5, bodyWidth * 0.5 - inset);
+    const topOffset = -bodyHeight + inset;
+    const bottomOffset = -Math.max(inset, Number(automaticStepHeight) || 0) - inset;
+    const cornersAt = (pose) => [
+        { x: pose.x - halfWidth, y: pose.y + topOffset },
+        { x: pose.x + halfWidth, y: pose.y + topOffset },
+        { x: pose.x + halfWidth, y: pose.y + bottomOffset },
+        { x: pose.x - halfWidth, y: pose.y + bottomOffset }
+    ];
+    return groundStrideConvexHull([...cornersAt(from), ...cornersAt(to)]);
+}
+
+function groundStrideEdgeIntersectsSweptBody(edge, hull) {
+    if (!Array.isArray(hull) || hull.length < 3) return false;
+    if (groundStridePointInsideConvexHull(edge.a, hull) || groundStridePointInsideConvexHull(edge.b, hull)) return true;
+    for (let index = 0; index < hull.length; index += 1) {
+        if (groundStrideSegmentsIntersectInclusive(edge.a, edge.b, hull[index], hull[(index + 1) % hull.length])) return true;
+    }
+    return false;
+}
+
+function groundStrideEdgeSupportsPose(edge, pose, bodyWidth, tolerance = 3.05) {
+    if (!edge?.standable || !pose) return false;
+    const probe = { x1: edge.a.x, y1: edge.a.y, x2: edge.b.x, y2: edge.b.y };
+    for (const x of [pose.x, pose.x - bodyWidth * 0.42, pose.x + bodyWidth * 0.42]) {
+        const span = probe.x2 - probe.x1;
+        if (Math.abs(span) <= EPSILON) continue;
+        const t = (x - probe.x1) / span;
+        if (t < -EPSILON || t > 1 + EPSILON) continue;
+        const y = probe.y1 + (probe.y2 - probe.y1) * clamp(t, 0, 1);
+        if (Math.abs(y - pose.y) <= tolerance) return true;
+    }
+    return false;
+}
+
+function groundStrideBodyPathBlocked(candidateEdges, path, bodyWidth, bodyHeight, automaticStepHeight) {
+    const bodyLegs = [
+        [path.start, path.corner],
+        [path.corner, path.target]
+    ];
+    for (const edge of candidateEdges || []) {
+        if (!edge.blocksBody) continue;
+        if (groundStrideEdgeSupportsPose(edge, path.start, bodyWidth) || groundStrideEdgeSupportsPose(edge, path.target, bodyWidth)) continue;
+        for (const [from, to] of bodyLegs) {
+            const hull = groundStrideSweptBodyHull(bodyWidth, bodyHeight, from, to, automaticStepHeight);
+            if (groundStrideEdgeIntersectsSweptBody(edge, hull)) return true;
+        }
+    }
+    return false;
+}
+
+function baseNavigationSupportId(id) {
+    return String(id || "").replace(/_nav_\d+$/, "");
+}
+
+function groundStrideFootholdMatchesNavigationSupport(sweepResult, to, bodyWidth) {
+    const point = sweepResult?.foothold;
+    const targetSupport = sweepResult?.targetSupport;
+    if (!point || !targetSupport) return false;
+    const splitPadding = /_nav_\d+$/.test(String(to.id || "")) ? bodyWidth * 0.3 + 2.1 : 3.1;
+    if (point.x < to.xMin - splitPadding || point.x > to.xMax + splitPadding) return false;
+    const supportY = supportYAt(to, clamp(point.x, to.xMin, to.xMax));
+    if (Math.abs(point.y - supportY) > Math.max(3.1, splitPadding * 0.25)) return false;
+    if (to.sourcePolygonId && targetSupport.id === to.sourcePolygonId) return true;
+    return targetSupport.id === to.id || baseNavigationSupportId(to.id) === targetSupport.id;
+}
+
+function strideArcDirectTransition(from, to, options) {
+    if (!options.world) return legacyDirectTransition(from, to, options);
+    // Moving-platform boarding/disembarking is handled by a separate dynamic
+    // support system. Those supports are intentionally excluded from the
+    // static stride candidate geometry, so retain the established direct test.
+    if (from.movingPlatformId || to.movingPlatformId) {
+        return legacyDirectTransition(from, to, options);
+    }
+
+    const overlapMin = Math.max(from.xMin, to.xMin);
+    const overlapMax = Math.min(from.xMax, to.xMax);
+    // Continuous/overlapping support seams do not require a discontinuity
+    // stride. Preserve the established direct connection for those cases.
+    if (overlapMax - overlapMin > EPSILON) {
+        return legacyDirectTransition(from, to, options);
+    }
+
+    const fromCenter = (from.xMin + from.xMax) * 0.5;
+    const toCenter = (to.xMin + to.xMax) * 0.5;
+    const direction = toCenter >= fromCenter ? 1 : -1;
+    const bodyWidth = Math.max(8, finite(options.bodyWidth, 48));
+    const bodyHeight = Math.max(24, finite(options.bodyHeight, 120));
+    const maximumReach = Math.max(
+        Math.max(0, finite(options.maxStepHeight, 24)),
+        bodyHeight * 0.20
+    );
+    if (maximumReach <= EPSILON) return null;
+
+    const fromEndpointX = direction > 0 ? from.xMax : from.xMin;
+    const toEndpointX = direction > 0 ? to.xMin : to.xMax;
+    const fromEndpointY = supportYAt(from, fromEndpointX);
+    const toEndpointY = supportYAt(to, toEndpointX);
+    const rawGap = Math.abs(toEndpointX - fromEndpointX);
+    const splitClearance = bodyWidth * 0.3 + 2.05;
+    // The expensive arc sweep can only reach a foothold within maximumReach.
+    // A split support may move the foot origin toward the target by at most the
+    // splitter's side clearance, so anything farther away cannot possibly be a
+    // stride. Reject those pairs before filtering collision edges or sweeping.
+    if (rawGap > maximumReach + splitClearance + 0.05) return null;
+    // Two support fragments that meet at the same physical endpoint are a
+    // continuous seam, not a step discontinuity. Keep the old direct seam so
+    // the arc solver does not turn harmless polyline joints into tiny jumps.
+    if (rawGap <= 0.05 && Math.abs(toEndpointY - fromEndpointY) <= 0.05) {
+        return legacyDirectTransition(from, to, options);
+    }
+    const samePhysicalSupport = baseNavigationSupportId(from.id) === baseNavigationSupportId(to.id);
+    if (!samePhysicalSupport && rawGap > 0.05 && Math.abs(toEndpointY - fromEndpointY) <= 0.05) {
+        // Ignatius does not auto-stride an ordinary same-height chasm. Keep
+        // those crossings in the ballistic jump planner.
+        return null;
+    }
+
+    const targetBoundaryX = direction > 0 ? to.obstacleXMin : to.obstacleXMax;
+    const extension = Number.isFinite(targetBoundaryX)
+        ? (targetBoundaryX - fromEndpointX) * direction
+        : Number.POSITIVE_INFINITY;
+    const footOriginX = Number.isFinite(targetBoundaryX) && extension >= -0.05 && extension <= splitClearance
+        ? targetBoundaryX
+        : fromEndpointX;
+    const footOrigin = {
+        x: footOriginX,
+        y: supportYAt(from, clamp(footOriginX, from.xMin, from.xMax))
+    };
+
+    const halfWidth = bodyWidth * 0.5;
+    const contactActorX = footOrigin.x - direction * halfWidth;
+    const candidateBounds = {
+        minX: contactActorX - halfWidth - maximumReach,
+        minY: footOrigin.y - bodyHeight - maximumReach,
+        maxX: contactActorX + halfWidth + maximumReach,
+        maxY: footOrigin.y + maximumReach
+    };
+    const candidateEdges = (Array.isArray(options.strideCandidateEdges)
+        ? options.strideCandidateEdges
+        : enemyNavigationStrideCandidateEdges(options.world)).filter((edge) => {
+        const minX = Math.min(edge.a.x, edge.b.x);
+        const maxX = Math.max(edge.a.x, edge.b.x);
+        const minY = Math.min(edge.a.y, edge.b.y);
+        const maxY = Math.max(edge.a.y, edge.b.y);
+        return maxX >= candidateBounds.minX - EPSILON && minX <= candidateBounds.maxX + EPSILON &&
+            maxY >= candidateBounds.minY - EPSILON && minY <= candidateBounds.maxY + EPSILON;
+    });
+    const sweepResult = groundStrideSweepFootholdFromCandidates(
+        candidateEdges,
+        footOrigin,
+        maximumReach,
+        direction,
+        Math.min(maximumReach, 0.05)
+    );
+    if (!sweepResult || !groundStrideFootholdMatchesNavigationSupport(sweepResult, to, bodyWidth)) return null;
+
+    const foothold = sweepResult.foothold;
+    // Green one-way supports must descend through the ordinary exposed-edge
+    // drop planner. Returning a downward step here would later be filtered by
+    // traversal policy after it had already suppressed generation of the real
+    // drop edge.
+    if (from.kind === "walkable" && foothold.y > footOrigin.y + EPSILON) return null;
+    const start = { x: footOrigin.x - direction * halfWidth, y: footOrigin.y };
+    const corner = {
+        x: (sweepResult.clearancePoint?.x ?? footOrigin.x) - direction * halfWidth,
+        y: Math.min(footOrigin.y, foothold.y, sweepResult.clearancePoint?.y ?? footOrigin.y)
+    };
+    const target = { x: foothold.x - direction * halfWidth, y: foothold.y };
+    if ((target.x - start.x) * direction < Math.min(maximumReach, 0.05) - 0.000001) return null;
+    if (groundStrideBodyPathBlocked(candidateEdges, { start, corner, target }, bodyWidth, bodyHeight, maximumReach)) return null;
+
+    return {
+        type: "step",
+        direction: direction < 0 ? "left" : "right",
+        from: from.id,
+        to: to.id,
+        launchX: start.x,
+        launchY: start.y,
+        landingX: target.x,
+        landingY: target.y,
+        vx: 0,
+        vy: 0,
+        flightTime: 0,
+        fromObstacleId: from.sourcePolygonId,
+        toObstacleId: to.sourcePolygonId,
+        cost: Math.abs(target.x - start.x) + Math.abs(target.y - start.y) * 0.5 + 4,
+        blockerIds: []
+    };
+}
+
+function directTransition(from, to, options) {
+    return enemyNavigationStepMethod(options) === "legacy"
+        ? legacyDirectTransition(from, to, options)
+        : strideArcDirectTransition(from, to, options);
+}
+
 function addBestEdge(edgeList, edge) {
     if (!edge) {
         return;
@@ -1149,12 +1688,105 @@ function addBestEdge(edgeList, edge) {
     }
 }
 
+export function enemyNavigationWalkOffEndpointExposed(sourceSupport, direction, supports = []) {
+    if (!sourceSupport || !Array.isArray(supports) || supports.length === 0) {
+        return true;
+    }
+    const sourceEdgeX = direction < 0 ? Number(sourceSupport.xMin) : Number(sourceSupport.xMax);
+    if (!Number.isFinite(sourceEdgeX)) {
+        return true;
+    }
+    const sourceEdgeY = supportPoint(sourceSupport, sourceEdgeX, 0).y;
+    const seamXTolerance = 0.75;
+    const seamYTolerance = 1.0;
+    for (const support of supports) {
+        if (!support || support.id === sourceSupport.id) {
+            continue;
+        }
+        if (support.movingPlatformId && support.movingPlatformId !== sourceSupport.movingPlatformId) {
+            continue;
+        }
+        const xMin = Number(support.xMin);
+        const xMax = Number(support.xMax);
+        if (!Number.isFinite(xMin) || !Number.isFinite(xMax)) {
+            continue;
+        }
+        const extendsPastEdge = direction < 0
+            ? xMin < sourceEdgeX - 0.001
+            : xMax > sourceEdgeX + 0.001;
+        const reachesSeam = xMin <= sourceEdgeX + seamXTolerance && xMax >= sourceEdgeX - seamXTolerance;
+        if (!extendsPastEdge || !reachesSeam) {
+            continue;
+        }
+        const continuationPoint = supportPoint(support, sourceEdgeX, 0);
+        if (Math.abs(continuationPoint.x - sourceEdgeX) <= seamXTolerance &&
+            Math.abs(continuationPoint.y - sourceEdgeY) <= seamYTolerance) {
+            return false;
+        }
+    }
+    return true;
+}
+
+export function enemyNavigationTraversalAllowedFromSupport(edge, sourceSupport, supports = []) {
+    if (!edge || sourceSupport?.kind !== "walkable") {
+        return true;
+    }
+    const launchY = Number(edge.launchY);
+    const landingY = Number(edge.landingY);
+    if (!Number.isFinite(launchY) || !Number.isFinite(landingY) || landingY <= launchY + 0.001) {
+        return true;
+    }
+    // Static traversal policy: monsters may currently descend from a green
+    // one-way support only through a real exposed-edge walk-off. Keeping this
+    // rule in the portable navigation module means the Level Editor baker and
+    // both runtimes agree about which authored edges are executable.
+    if (edge.type !== "drop" || edge.walkOff !== true) {
+        return false;
+    }
+    const vx = Number(edge.vx) || 0;
+    const launchX = Number(edge.launchX);
+    const landingX = Number(edge.landingX);
+    if (Math.abs(vx) <= 0.001 || !Number.isFinite(launchX) || !Number.isFinite(landingX)) {
+        return false;
+    }
+    const direction = vx < 0 ? -1 : 1;
+    const sourceEdgeX = direction < 0 ? Number(sourceSupport.xMin) : Number(sourceSupport.xMax);
+    const span = Math.max(0, Number(sourceSupport.xMax) - Number(sourceSupport.xMin));
+    const endpointTolerance = Math.max(3, Math.min(8, span * 0.04));
+    if (!Number.isFinite(sourceEdgeX) || Math.abs(launchX - sourceEdgeX) > endpointTolerance) {
+        return false;
+    }
+    if (!enemyNavigationWalkOffEndpointExposed(sourceSupport, direction, supports)) {
+        return false;
+    }
+    return direction < 0
+        ? landingX < launchX - 0.001
+        : landingX > launchX + 0.001;
+}
+
+export function filterEnemyNavigationEdgesByTraversalPolicy(edgeMap, supports = []) {
+    const filtered = new Map();
+    const supportById = new Map((supports || []).map((support) => [support.id, support]));
+    for (const support of supports || []) {
+        filtered.set(support.id, []);
+    }
+    for (const [supportId, edgeList] of edgeMap?.entries?.() || []) {
+        const sourceSupport = supportById.get(supportId);
+        filtered.set(supportId, (edgeList || []).filter((edge) =>
+            !sourceSupport || enemyNavigationTraversalAllowedFromSupport(edge, sourceSupport, supports)));
+    }
+    return filtered;
+}
+
 export function buildEnemyNavigationEdges(supports, options = {}) {
     const normalizedOptions = { ...normalizeEnemyNavigationProfile(options), ...options };
     const obstacles = Array.isArray(options.obstacles)
         ? options.obstacles
         : navigationBlockingObstacles(options.world || {});
     normalizedOptions.obstacles = obstacles;
+    normalizedOptions.strideCandidateEdges = enemyNavigationStepMethod(normalizedOptions) === "stride_arc" && normalizedOptions.world
+        ? enemyNavigationStrideCandidateEdges(normalizedOptions.world)
+        : [];
     const edges = new Map();
     for (const support of supports || []) {
         edges.set(support.id, []);
@@ -1191,7 +1823,7 @@ export function buildEnemyNavigationEdges(supports, options = {}) {
             }
         }
     }
-    return edges;
+    return filterEnemyNavigationEdgesByTraversalPolicy(edges, supports);
 }
 
 export function enemyNavigationSupportsSignature(supports = []) {
@@ -1233,9 +1865,12 @@ export function enemyNavigationEdgeMapFromFlat(edges = [], supports = []) {
 }
 
 export function bakeEnemyNavigationGraph(world, rawProfile = {}, metadata = {}) {
-    const profile = normalizeEnemyNavigationProfile(rawProfile);
+    const stepTransitionMethod = enemyNavigationStepMethod({
+        stepTransitionMethod: metadata.stepTransitionMethod ?? rawProfile.stepTransitionMethod
+    });
+    const profile = { ...normalizeEnemyNavigationProfile(rawProfile), stepTransitionMethod };
     const supports = buildEnemyNavigationSupports(world, profile);
-    const edgeMap = buildEnemyNavigationEdges(supports, { ...profile, world });
+    const edgeMap = buildEnemyNavigationEdges(supports, { ...profile, world, stepTransitionMethod });
     const edges = flattenEnemyNavigationEdges(edgeMap).map((edge, index) => ({
         id: edge.id || `nav_edge_${index + 1}`,
         ...edge,
@@ -1265,6 +1900,7 @@ export function bakeEnemyNavigationGraph(world, rawProfile = {}, metadata = {}) 
         dynamicCostRules: Array.isArray(metadata.dynamicCostRules) ? metadata.dynamicCostRules.map((rule) => ({ ...rule })) : [],
         build: {
             method: "ballistic_graph_with_run_up",
+            stepTransitionMethod,
             samplesPerSecond: 60,
             generatedBy: String(metadata.generatedBy || "Ignatius Rocketfrock Level Editor")
         }

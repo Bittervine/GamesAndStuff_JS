@@ -1,0 +1,4298 @@
+{
+    "meta": {
+        "version": 4,
+        "note": "Atlas 032 cave/ruin assortment. Mixed cave terrain, ruins, props, crystals, and decor authored in the same usage style as atlas 001."
+    },
+    "atlasId": "at_atlas_032",
+    "image": "at_atlas_032.png",
+    "frames": {
+        "cave_floor_round_large_a": {
+            "x": 2,
+            "y": 2,
+            "w": 257,
+            "h": 93
+        },
+        "cave_floor_round_mossy": {
+            "x": 280,
+            "y": 2,
+            "w": 334,
+            "h": 95
+        },
+        "cave_floor_round_large_b": {
+            "x": 633,
+            "y": 0,
+            "w": 270,
+            "h": 85
+        },
+        "cave_floor_round_blue": {
+            "x": 922,
+            "y": 0,
+            "w": 226,
+            "h": 82
+        },
+        "cave_ledge_small_dark": {
+            "x": 1164,
+            "y": 0,
+            "w": 136,
+            "h": 78
+        },
+        "cave_ledge_small_brown": {
+            "x": 1361,
+            "y": 8,
+            "w": 95,
+            "h": 53
+        },
+        "cave_ledge_left_mossy": {
+            "x": 4,
+            "y": 102,
+            "w": 280,
+            "h": 134
+        },
+        "cave_ledge_hanging_roots": {
+            "x": 296,
+            "y": 117,
+            "w": 285,
+            "h": 106
+        },
+        "cave_ledge_mossy_mid": {
+            "x": 604,
+            "y": 106,
+            "w": 236,
+            "h": 107
+        },
+        "cave_ledge_small_round": {
+            "x": 862,
+            "y": 98,
+            "w": 107,
+            "h": 62
+        },
+        "cave_ledge_mossy_right": {
+            "x": 984,
+            "y": 107,
+            "w": 266,
+            "h": 134
+        },
+        "cave_stair_platform_mossy": {
+            "x": 1270,
+            "y": 113,
+            "w": 214,
+            "h": 138
+        },
+        "ruin_stairs_long": {
+            "x": 3,
+            "y": 242,
+            "w": 277,
+            "h": 131
+        },
+        "cave_floor_blue_medium": {
+            "x": 307,
+            "y": 243,
+            "w": 245,
+            "h": 102
+        },
+        "crystal_blue_cluster": {
+            "x": 650,
+            "y": 252,
+            "w": 110,
+            "h": 112
+        },
+        "crystal_purple_cluster": {
+            "x": 780,
+            "y": 271,
+            "w": 113,
+            "h": 93
+        },
+        "crystal_green_cluster": {
+            "x": 914,
+            "y": 260,
+            "w": 111,
+            "h": 105
+        },
+        "lantern_gold_small_a": {
+            "x": 1049,
+            "y": 263,
+            "w": 49,
+            "h": 132
+        },
+        "lantern_gold_small_b": {
+            "x": 1133,
+            "y": 263,
+            "w": 53,
+            "h": 133
+        },
+        "lantern_teal_small": {
+            "x": 1219,
+            "y": 263,
+            "w": 50,
+            "h": 132
+        },
+        "lantern_purple_tall": {
+            "x": 1294,
+            "y": 266,
+            "w": 53,
+            "h": 141
+        },
+        "lantern_purple_small": {
+            "x": 1370,
+            "y": 276,
+            "w": 56,
+            "h": 132
+        },
+        "rubble_small_flat_a": {
+            "x": 19,
+            "y": 385,
+            "w": 91,
+            "h": 36
+        },
+        "rubble_small_block_a": {
+            "x": 124,
+            "y": 385,
+            "w": 58,
+            "h": 35
+        },
+        "rubble_small_chunk_a": {
+            "x": 198,
+            "y": 378,
+            "w": 67,
+            "h": 44
+        },
+        "rubble_small_shard": {
+            "x": 280,
+            "y": 379,
+            "w": 36,
+            "h": 41
+        },
+        "rubble_small_chunk_b": {
+            "x": 327,
+            "y": 373,
+            "w": 73,
+            "h": 51
+        },
+        "roots_tangle_long": {
+            "x": 418,
+            "y": 371,
+            "w": 272,
+            "h": 54
+        },
+        "ruin_door_arch": {
+            "x": 7,
+            "y": 442,
+            "w": 124,
+            "h": 182
+        },
+        "ruin_wall_broken_left": {
+            "x": 151,
+            "y": 445,
+            "w": 122,
+            "h": 182
+        },
+        "chain_platform_small": {
+            "x": 278,
+            "y": 442,
+            "w": 150,
+            "h": 167
+        },
+        "arch_ruin_large": {
+            "x": 432,
+            "y": 432,
+            "w": 291,
+            "h": 178
+        },
+        "pillar_capital": {
+            "x": 734,
+            "y": 408,
+            "w": 104,
+            "h": 182
+        },
+        "pillar_plain": {
+            "x": 852,
+            "y": 423,
+            "w": 101,
+            "h": 168
+        },
+        "pillar_leaning": {
+            "x": 978,
+            "y": 409,
+            "w": 120,
+            "h": 182
+        },
+        "ruin_stairs_block_left": {
+            "x": 1101,
+            "y": 428,
+            "w": 236,
+            "h": 162
+        },
+        "ruin_gate_arch": {
+            "x": 1338,
+            "y": 429,
+            "w": 149,
+            "h": 197
+        },
+        "bridge_chain_long": {
+            "x": 434,
+            "y": 618,
+            "w": 406,
+            "h": 173
+        },
+        "bridge_stone_arch": {
+            "x": 0,
+            "y": 667,
+            "w": 334,
+            "h": 153
+        },
+        "floor_arch_support": {
+            "x": 903,
+            "y": 641,
+            "w": 239,
+            "h": 179
+        },
+        "cave_floor_purple_hanging": {
+            "x": 1152,
+            "y": 610,
+            "w": 185,
+            "h": 145
+        },
+        "cave_floor_purple_right": {
+            "x": 1348,
+            "y": 667,
+            "w": 145,
+            "h": 100
+        },
+        "stalagmites_cluster": {
+            "x": 446,
+            "y": 796,
+            "w": 164,
+            "h": 135
+        },
+        "sign_wooden": {
+            "x": 1141,
+            "y": 774,
+            "w": 108,
+            "h": 153
+        },
+        "banner_tattered": {
+            "x": 1283,
+            "y": 776,
+            "w": 108,
+            "h": 158
+        },
+        "brazier_fire": {
+            "x": 1408,
+            "y": 799,
+            "w": 84,
+            "h": 142
+        },
+        "rock_pile_large": {
+            "x": 7,
+            "y": 836,
+            "w": 138,
+            "h": 94
+        },
+        "rock_pile_medium": {
+            "x": 165,
+            "y": 854,
+            "w": 107,
+            "h": 74
+        },
+        "rock_pile_flat": {
+            "x": 291,
+            "y": 835,
+            "w": 147,
+            "h": 90
+        },
+        "skeleton_corpse": {
+            "x": 633,
+            "y": 861,
+            "w": 134,
+            "h": 65
+        },
+        "skull_bones_pile": {
+            "x": 790,
+            "y": 835,
+            "w": 168,
+            "h": 95
+        },
+        "pottery_pile": {
+            "x": 990,
+            "y": 851,
+            "w": 137,
+            "h": 76
+        }
+    },
+    "objects": {
+        "cave_floor_round_large_a": {
+            "id": "cave_floor_round_large_a",
+            "frame": "cave_floor_round_large_a",
+            "type": "floor",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 5,
+                    "y": 11
+                },
+                {
+                    "id": "n2",
+                    "x": 252,
+                    "y": 9
+                },
+                {
+                    "id": "n3",
+                    "x": 247,
+                    "y": 32
+                },
+                {
+                    "id": "n4",
+                    "x": 231,
+                    "y": 81
+                },
+                {
+                    "id": "n5",
+                    "x": 26,
+                    "y": 81
+                },
+                {
+                    "id": "n6",
+                    "x": 10,
+                    "y": 32
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n1",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "cave_floor_round_mossy": {
+            "id": "cave_floor_round_mossy",
+            "frame": "cave_floor_round_mossy",
+            "type": "floor",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 14,
+                    "y": 10
+                },
+                {
+                    "id": "n2",
+                    "x": 320,
+                    "y": 10
+                },
+                {
+                    "id": "n3",
+                    "x": 324,
+                    "y": 32
+                },
+                {
+                    "id": "n4",
+                    "x": 308,
+                    "y": 83
+                },
+                {
+                    "id": "n5",
+                    "x": 26,
+                    "y": 83
+                },
+                {
+                    "id": "n6",
+                    "x": 10,
+                    "y": 32
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n1",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "cave_floor_round_large_b": {
+            "id": "cave_floor_round_large_b",
+            "frame": "cave_floor_round_large_b",
+            "type": "floor",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 3,
+                    "y": 14
+                },
+                {
+                    "id": "n2",
+                    "x": 266,
+                    "y": 15
+                },
+                {
+                    "id": "n3",
+                    "x": 260,
+                    "y": 29
+                },
+                {
+                    "id": "n4",
+                    "x": 244,
+                    "y": 73
+                },
+                {
+                    "id": "n5",
+                    "x": 26,
+                    "y": 73
+                },
+                {
+                    "id": "n6",
+                    "x": 10,
+                    "y": 29
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n1",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "cave_floor_round_blue": {
+            "id": "cave_floor_round_blue",
+            "frame": "cave_floor_round_blue",
+            "type": "floor",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 3,
+                    "y": 10
+                },
+                {
+                    "id": "n2",
+                    "x": 221,
+                    "y": 10
+                },
+                {
+                    "id": "n3",
+                    "x": 216,
+                    "y": 28
+                },
+                {
+                    "id": "n4",
+                    "x": 200,
+                    "y": 70
+                },
+                {
+                    "id": "n5",
+                    "x": 26,
+                    "y": 70
+                },
+                {
+                    "id": "n6",
+                    "x": 10,
+                    "y": 28
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n1",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "cave_ledge_left_mossy": {
+            "id": "cave_ledge_left_mossy",
+            "frame": "cave_ledge_left_mossy",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 7,
+                    "y": 27
+                },
+                {
+                    "id": "n2",
+                    "x": 273,
+                    "y": 10
+                },
+                {
+                    "id": "n3",
+                    "x": 270,
+                    "y": 46
+                },
+                {
+                    "id": "n4",
+                    "x": 254,
+                    "y": 122
+                },
+                {
+                    "id": "n5",
+                    "x": 26,
+                    "y": 122
+                },
+                {
+                    "id": "n6",
+                    "x": 10,
+                    "y": 46
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n1",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "cave_ledge_hanging_roots": {
+            "id": "cave_ledge_hanging_roots",
+            "frame": "cave_ledge_hanging_roots",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 14,
+                    "y": 11
+                },
+                {
+                    "id": "n2",
+                    "x": 271,
+                    "y": 11
+                },
+                {
+                    "id": "n3",
+                    "x": 275,
+                    "y": 36
+                },
+                {
+                    "id": "n4",
+                    "x": 259,
+                    "y": 94
+                },
+                {
+                    "id": "n5",
+                    "x": 26,
+                    "y": 94
+                },
+                {
+                    "id": "n6",
+                    "x": 10,
+                    "y": 36
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n1",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "cave_ledge_mossy_mid": {
+            "id": "cave_ledge_mossy_mid",
+            "frame": "cave_ledge_mossy_mid",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 14,
+                    "y": 11
+                },
+                {
+                    "id": "n2",
+                    "x": 222,
+                    "y": 11
+                },
+                {
+                    "id": "n3",
+                    "x": 226,
+                    "y": 36
+                },
+                {
+                    "id": "n4",
+                    "x": 210,
+                    "y": 95
+                },
+                {
+                    "id": "n5",
+                    "x": 26,
+                    "y": 95
+                },
+                {
+                    "id": "n6",
+                    "x": 10,
+                    "y": 36
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n1",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "cave_ledge_mossy_right": {
+            "id": "cave_ledge_mossy_right",
+            "frame": "cave_ledge_mossy_right",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 8,
+                    "y": 24
+                },
+                {
+                    "id": "n2",
+                    "x": 252,
+                    "y": 13
+                },
+                {
+                    "id": "n3",
+                    "x": 241,
+                    "y": 48
+                },
+                {
+                    "id": "n4",
+                    "x": 173,
+                    "y": 87
+                },
+                {
+                    "id": "n5",
+                    "x": 39,
+                    "y": 61
+                },
+                {
+                    "id": "n6",
+                    "x": 10,
+                    "y": 46
+                },
+                {
+                    "id": "n7",
+                    "x": 53,
+                    "y": 83
+                },
+                {
+                    "id": "n8",
+                    "x": 98,
+                    "y": 111
+                },
+                {
+                    "id": "n9",
+                    "x": 116,
+                    "y": 103
+                },
+                {
+                    "id": "n10",
+                    "x": 136,
+                    "y": 122
+                },
+                {
+                    "id": "n11",
+                    "x": 193,
+                    "y": 80
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n11",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n10",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n1",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_7",
+                    "kind": "blockable",
+                    "from": "n7",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_8",
+                    "kind": "blockable",
+                    "from": "n8",
+                    "to": "n7",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_9",
+                    "kind": "blockable",
+                    "from": "n9",
+                    "to": "n8",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_10",
+                    "kind": "blockable",
+                    "from": "n10",
+                    "to": "n9",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_11",
+                    "kind": "blockable",
+                    "from": "n11",
+                    "to": "n4",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "cave_stair_platform_mossy": {
+            "id": "cave_stair_platform_mossy",
+            "frame": "cave_stair_platform_mossy",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 6,
+                    "y": 14
+                },
+                {
+                    "id": "n2",
+                    "x": 80,
+                    "y": 14
+                },
+                {
+                    "id": "n3",
+                    "x": 154,
+                    "y": 89
+                },
+                {
+                    "id": "n4",
+                    "x": 201,
+                    "y": 116
+                },
+                {
+                    "id": "n5",
+                    "x": 26,
+                    "y": 126
+                },
+                {
+                    "id": "n6",
+                    "x": 10,
+                    "y": 47
+                },
+                {
+                    "id": "n7",
+                    "x": 200,
+                    "y": 102
+                },
+                {
+                    "id": "n8",
+                    "x": 82,
+                    "y": 31
+                },
+                {
+                    "id": "n9",
+                    "x": 96,
+                    "y": 38
+                },
+                {
+                    "id": "n10",
+                    "x": 102,
+                    "y": 53
+                },
+                {
+                    "id": "n11",
+                    "x": 120,
+                    "y": 61
+                },
+                {
+                    "id": "n12",
+                    "x": 151,
+                    "y": 81
+                },
+                {
+                    "id": "n13",
+                    "x": 122,
+                    "y": 75
+                },
+                {
+                    "id": "n14",
+                    "x": 180,
+                    "y": 129
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n8",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n7",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n14",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n1",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_7",
+                    "kind": "blockable",
+                    "from": "n7",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_8",
+                    "kind": "blockable",
+                    "from": "n8",
+                    "to": "n9",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_9",
+                    "kind": "blockable",
+                    "from": "n9",
+                    "to": "n10",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_10",
+                    "kind": "blockable",
+                    "from": "n10",
+                    "to": "n11",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_11",
+                    "kind": "blockable",
+                    "from": "n11",
+                    "to": "n13",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_12",
+                    "kind": "blockable",
+                    "from": "n12",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_13",
+                    "kind": "blockable",
+                    "from": "n13",
+                    "to": "n12",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_14",
+                    "kind": "blockable",
+                    "from": "n14",
+                    "to": "n5",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "ruin_stairs_long": {
+            "id": "ruin_stairs_long",
+            "frame": "ruin_stairs_long",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 10,
+                    "y": 101
+                },
+                {
+                    "id": "n2",
+                    "x": 272,
+                    "y": 7
+                },
+                {
+                    "id": "n3",
+                    "x": 267,
+                    "y": 45
+                },
+                {
+                    "id": "n4",
+                    "x": 251,
+                    "y": 119
+                },
+                {
+                    "id": "n5",
+                    "x": 37,
+                    "y": 129
+                },
+                {
+                    "id": "n6",
+                    "x": 7,
+                    "y": 118
+                },
+                {
+                    "id": "n7",
+                    "x": 249,
+                    "y": 7
+                },
+                {
+                    "id": "n8",
+                    "x": 250,
+                    "y": 15
+                },
+                {
+                    "id": "n9",
+                    "x": 223,
+                    "y": 24
+                },
+                {
+                    "id": "n10",
+                    "x": 222,
+                    "y": 39
+                },
+                {
+                    "id": "n11",
+                    "x": 191,
+                    "y": 47
+                },
+                {
+                    "id": "n12",
+                    "x": 188,
+                    "y": 64
+                },
+                {
+                    "id": "n13",
+                    "x": 148,
+                    "y": 66
+                },
+                {
+                    "id": "n14",
+                    "x": 146,
+                    "y": 79
+                },
+                {
+                    "id": "n15",
+                    "x": 108,
+                    "y": 86
+                },
+                {
+                    "id": "n16",
+                    "x": 104,
+                    "y": 95
+                },
+                {
+                    "id": "n17",
+                    "x": 199,
+                    "y": 112
+                },
+                {
+                    "id": "n18",
+                    "x": 212,
+                    "y": 121
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n16",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n18",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n1",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_7",
+                    "kind": "blockable",
+                    "from": "n7",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_8",
+                    "kind": "blockable",
+                    "from": "n8",
+                    "to": "n7",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_9",
+                    "kind": "blockable",
+                    "from": "n9",
+                    "to": "n8",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_10",
+                    "kind": "blockable",
+                    "from": "n10",
+                    "to": "n9",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_11",
+                    "kind": "blockable",
+                    "from": "n11",
+                    "to": "n10",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_12",
+                    "kind": "blockable",
+                    "from": "n12",
+                    "to": "n11",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_13",
+                    "kind": "blockable",
+                    "from": "n13",
+                    "to": "n12",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_14",
+                    "kind": "blockable",
+                    "from": "n14",
+                    "to": "n13",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_15",
+                    "kind": "blockable",
+                    "from": "n15",
+                    "to": "n14",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_16",
+                    "kind": "blockable",
+                    "from": "n16",
+                    "to": "n15",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_17",
+                    "kind": "blockable",
+                    "from": "n17",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_18",
+                    "kind": "blockable",
+                    "from": "n18",
+                    "to": "n17",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "cave_floor_blue_medium": {
+            "id": "cave_floor_blue_medium",
+            "frame": "cave_floor_blue_medium",
+            "type": "floor",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 5,
+                    "y": 12
+                },
+                {
+                    "id": "n2",
+                    "x": 231,
+                    "y": 10
+                },
+                {
+                    "id": "n3",
+                    "x": 235,
+                    "y": 35
+                },
+                {
+                    "id": "n4",
+                    "x": 219,
+                    "y": 90
+                },
+                {
+                    "id": "n5",
+                    "x": 26,
+                    "y": 90
+                },
+                {
+                    "id": "n6",
+                    "x": 10,
+                    "y": 35
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n1",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "chain_platform_small": {
+            "id": "chain_platform_small",
+            "frame": "chain_platform_small",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 14,
+                    "y": 17
+                },
+                {
+                    "id": "n2",
+                    "x": 136,
+                    "y": 17
+                },
+                {
+                    "id": "n3",
+                    "x": 140,
+                    "y": 57
+                },
+                {
+                    "id": "n4",
+                    "x": 124,
+                    "y": 155
+                },
+                {
+                    "id": "n5",
+                    "x": 26,
+                    "y": 155
+                },
+                {
+                    "id": "n6",
+                    "x": 10,
+                    "y": 57
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n1",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "bridge_chain_long": {
+            "id": "bridge_chain_long",
+            "frame": "bridge_chain_long",
+            "type": "floor",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 83,
+                    "y": 61
+                },
+                {
+                    "id": "n2",
+                    "x": 363,
+                    "y": 69
+                },
+                {
+                    "id": "n3",
+                    "x": 394,
+                    "y": 69
+                },
+                {
+                    "id": "n4",
+                    "x": 380,
+                    "y": 161
+                },
+                {
+                    "id": "n5",
+                    "x": 26,
+                    "y": 161
+                },
+                {
+                    "id": "n6",
+                    "x": 4,
+                    "y": 54
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n1",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "bridge_stone_arch": {
+            "id": "bridge_stone_arch",
+            "frame": "bridge_stone_arch",
+            "type": "floor",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 66,
+                    "y": 24
+                },
+                {
+                    "id": "n2",
+                    "x": 300,
+                    "y": 56
+                },
+                {
+                    "id": "n3",
+                    "x": 313,
+                    "y": 62
+                },
+                {
+                    "id": "n4",
+                    "x": 308,
+                    "y": 141
+                },
+                {
+                    "id": "n5",
+                    "x": 26,
+                    "y": 141
+                },
+                {
+                    "id": "n6",
+                    "x": 13,
+                    "y": 37
+                },
+                {
+                    "id": "n7",
+                    "x": 155,
+                    "y": 20
+                },
+                {
+                    "id": "n8",
+                    "x": 221,
+                    "y": 30
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n7",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n1",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_7",
+                    "kind": "blockable",
+                    "from": "n7",
+                    "to": "n8",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_8",
+                    "kind": "blockable",
+                    "from": "n8",
+                    "to": "n2",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "floor_arch_support": {
+            "id": "floor_arch_support",
+            "frame": "floor_arch_support",
+            "type": "floor",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 14,
+                    "y": 18
+                },
+                {
+                    "id": "n2",
+                    "x": 225,
+                    "y": 18
+                },
+                {
+                    "id": "n3",
+                    "x": 229,
+                    "y": 61
+                },
+                {
+                    "id": "n4",
+                    "x": 213,
+                    "y": 167
+                },
+                {
+                    "id": "n5",
+                    "x": 26,
+                    "y": 167
+                },
+                {
+                    "id": "n6",
+                    "x": 10,
+                    "y": 61
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n1",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "cave_floor_purple_hanging": {
+            "id": "cave_floor_purple_hanging",
+            "frame": "cave_floor_purple_hanging",
+            "type": "floor",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 14,
+                    "y": 14
+                },
+                {
+                    "id": "n2",
+                    "x": 171,
+                    "y": 14
+                },
+                {
+                    "id": "n3",
+                    "x": 175,
+                    "y": 49
+                },
+                {
+                    "id": "n4",
+                    "x": 159,
+                    "y": 133
+                },
+                {
+                    "id": "n5",
+                    "x": 26,
+                    "y": 133
+                },
+                {
+                    "id": "n6",
+                    "x": 10,
+                    "y": 49
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n1",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "cave_floor_purple_right": {
+            "id": "cave_floor_purple_right",
+            "frame": "cave_floor_purple_right",
+            "type": "floor",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 14,
+                    "y": 10
+                },
+                {
+                    "id": "n2",
+                    "x": 131,
+                    "y": 10
+                },
+                {
+                    "id": "n3",
+                    "x": 135,
+                    "y": 34
+                },
+                {
+                    "id": "n4",
+                    "x": 119,
+                    "y": 88
+                },
+                {
+                    "id": "n5",
+                    "x": 26,
+                    "y": 88
+                },
+                {
+                    "id": "n6",
+                    "x": 10,
+                    "y": 34
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n1",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "cave_ledge_small_dark": {
+            "id": "cave_ledge_small_dark",
+            "frame": "cave_ledge_small_dark",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 12,
+                    "y": 14
+                },
+                {
+                    "id": "n2",
+                    "x": 124,
+                    "y": 14
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "cave_ledge_small_brown": {
+            "id": "cave_ledge_small_brown",
+            "frame": "cave_ledge_small_brown",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 12,
+                    "y": 10
+                },
+                {
+                    "id": "n2",
+                    "x": 83,
+                    "y": 10
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "cave_ledge_small_round": {
+            "id": "cave_ledge_small_round",
+            "frame": "cave_ledge_small_round",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 12,
+                    "y": 11
+                },
+                {
+                    "id": "n2",
+                    "x": 95,
+                    "y": 11
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "ruin_door_arch": {
+            "id": "ruin_door_arch",
+            "frame": "ruin_door_arch",
+            "type": "pillar",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 8,
+                    "y": 8
+                },
+                {
+                    "id": "n2",
+                    "x": 116,
+                    "y": 8
+                },
+                {
+                    "id": "n3",
+                    "x": 116,
+                    "y": 172
+                },
+                {
+                    "id": "n4",
+                    "x": 8,
+                    "y": 172
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n1",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground",
+                "layer.background"
+            ]
+        },
+        "ruin_wall_broken_left": {
+            "id": "ruin_wall_broken_left",
+            "frame": "ruin_wall_broken_left",
+            "type": "pillar",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 8,
+                    "y": 8
+                },
+                {
+                    "id": "n2",
+                    "x": 114,
+                    "y": 8
+                },
+                {
+                    "id": "n3",
+                    "x": 114,
+                    "y": 172
+                },
+                {
+                    "id": "n4",
+                    "x": 8,
+                    "y": 172
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n1",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground",
+                "layer.background"
+            ]
+        },
+        "arch_ruin_large": {
+            "id": "arch_ruin_large",
+            "frame": "arch_ruin_large",
+            "type": "pillar",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 56,
+                    "y": 60
+                },
+                {
+                    "id": "n2",
+                    "x": 76,
+                    "y": 30
+                },
+                {
+                    "id": "n3",
+                    "x": 105,
+                    "y": 12
+                },
+                {
+                    "id": "n4",
+                    "x": 41,
+                    "y": 167
+                },
+                {
+                    "id": "n5",
+                    "x": 140,
+                    "y": 6
+                },
+                {
+                    "id": "n7",
+                    "x": 170,
+                    "y": 13
+                },
+                {
+                    "id": "n8",
+                    "x": 202,
+                    "y": 33
+                },
+                {
+                    "id": "n9",
+                    "x": 212,
+                    "y": 48
+                },
+                {
+                    "id": "n10",
+                    "x": 219,
+                    "y": 75
+                },
+                {
+                    "id": "n11",
+                    "x": 221,
+                    "y": 139
+                },
+                {
+                    "id": "n12",
+                    "x": 224,
+                    "y": 183
+                },
+                {
+                    "id": "n13",
+                    "x": 47,
+                    "y": 82
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n13",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n7",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n7",
+                    "to": "n8",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_7",
+                    "kind": "blockable",
+                    "from": "n8",
+                    "to": "n9",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_8",
+                    "kind": "blockable",
+                    "from": "n9",
+                    "to": "n10",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_9",
+                    "kind": "blockable",
+                    "from": "n10",
+                    "to": "n11",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_10",
+                    "kind": "blockable",
+                    "from": "n11",
+                    "to": "n12",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_11",
+                    "kind": "blockable",
+                    "from": "n12",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_12",
+                    "kind": "blockable",
+                    "from": "n13",
+                    "to": "n1",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground",
+                "layer.background"
+            ]
+        },
+        "pillar_capital": {
+            "id": "pillar_capital",
+            "frame": "pillar_capital",
+            "type": "pillar",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 6,
+                    "y": 6
+                },
+                {
+                    "id": "n2",
+                    "x": 97,
+                    "y": 6
+                },
+                {
+                    "id": "n3",
+                    "x": 96,
+                    "y": 172
+                },
+                {
+                    "id": "n4",
+                    "x": 2,
+                    "y": 170
+                },
+                {
+                    "id": "n5",
+                    "x": 19,
+                    "y": 134
+                },
+                {
+                    "id": "n6",
+                    "x": 17,
+                    "y": 41
+                },
+                {
+                    "id": "n7",
+                    "x": 1,
+                    "y": 30
+                },
+                {
+                    "id": "n8",
+                    "x": 3,
+                    "y": 154
+                },
+                {
+                    "id": "n9",
+                    "x": 96,
+                    "y": 150
+                },
+                {
+                    "id": "n10",
+                    "x": 81,
+                    "y": 134
+                },
+                {
+                    "id": "n11",
+                    "x": 80,
+                    "y": 58
+                },
+                {
+                    "id": "n12",
+                    "x": 88,
+                    "y": 36
+                },
+                {
+                    "id": "n13",
+                    "x": 101,
+                    "y": 31
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n13",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n8",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n7",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_7",
+                    "kind": "blockable",
+                    "from": "n7",
+                    "to": "n1",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_8",
+                    "kind": "blockable",
+                    "from": "n8",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_9",
+                    "kind": "blockable",
+                    "from": "n9",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_10",
+                    "kind": "blockable",
+                    "from": "n10",
+                    "to": "n9",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_11",
+                    "kind": "blockable",
+                    "from": "n11",
+                    "to": "n10",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_12",
+                    "kind": "blockable",
+                    "from": "n12",
+                    "to": "n11",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_13",
+                    "kind": "blockable",
+                    "from": "n13",
+                    "to": "n12",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground",
+                "layer.background"
+            ]
+        },
+        "pillar_plain": {
+            "id": "pillar_plain",
+            "frame": "pillar_plain",
+            "type": "pillar",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 35,
+                    "y": 16
+                },
+                {
+                    "id": "n2",
+                    "x": 64,
+                    "y": 4
+                },
+                {
+                    "id": "n3",
+                    "x": 59,
+                    "y": 168
+                },
+                {
+                    "id": "n4",
+                    "x": 2,
+                    "y": 155
+                },
+                {
+                    "id": "n5",
+                    "x": 13,
+                    "y": 133
+                },
+                {
+                    "id": "n6",
+                    "x": 3,
+                    "y": 139
+                },
+                {
+                    "id": "n7",
+                    "x": 99,
+                    "y": 154
+                },
+                {
+                    "id": "n8",
+                    "x": 99,
+                    "y": 135
+                },
+                {
+                    "id": "n9",
+                    "x": 89,
+                    "y": 130
+                },
+                {
+                    "id": "n10",
+                    "x": 83,
+                    "y": 115
+                },
+                {
+                    "id": "n11",
+                    "x": 80,
+                    "y": 30
+                },
+                {
+                    "id": "n12",
+                    "x": 47,
+                    "y": 2
+                },
+                {
+                    "id": "n13",
+                    "x": 22,
+                    "y": 24
+                },
+                {
+                    "id": "n14",
+                    "x": 21,
+                    "y": 112
+                },
+                {
+                    "id": "n15",
+                    "x": 15,
+                    "y": 122
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n12",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n11",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n15",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_7",
+                    "kind": "blockable",
+                    "from": "n7",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_8",
+                    "kind": "blockable",
+                    "from": "n8",
+                    "to": "n7",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_9",
+                    "kind": "blockable",
+                    "from": "n9",
+                    "to": "n8",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_10",
+                    "kind": "blockable",
+                    "from": "n10",
+                    "to": "n9",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_11",
+                    "kind": "blockable",
+                    "from": "n11",
+                    "to": "n10",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_12",
+                    "kind": "blockable",
+                    "from": "n12",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_13",
+                    "kind": "blockable",
+                    "from": "n13",
+                    "to": "n1",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_14",
+                    "kind": "blockable",
+                    "from": "n14",
+                    "to": "n13",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_15",
+                    "kind": "blockable",
+                    "from": "n15",
+                    "to": "n14",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground",
+                "layer.background"
+            ]
+        },
+        "pillar_leaning": {
+            "id": "pillar_leaning",
+            "frame": "pillar_leaning",
+            "type": "pillar",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 0,
+                    "y": 37
+                },
+                {
+                    "id": "n2",
+                    "x": 65,
+                    "y": 18
+                },
+                {
+                    "id": "n3",
+                    "x": 116,
+                    "y": 165
+                },
+                {
+                    "id": "n4",
+                    "x": 19,
+                    "y": 170
+                },
+                {
+                    "id": "n5",
+                    "x": 67,
+                    "y": 38
+                },
+                {
+                    "id": "n6",
+                    "x": 91,
+                    "y": 112
+                },
+                {
+                    "id": "n7",
+                    "x": 114,
+                    "y": 149
+                },
+                {
+                    "id": "n8",
+                    "x": 76,
+                    "y": 179
+                },
+                {
+                    "id": "n9",
+                    "x": 20,
+                    "y": 150
+                },
+                {
+                    "id": "n10",
+                    "x": 29,
+                    "y": 147
+                },
+                {
+                    "id": "n11",
+                    "x": 30,
+                    "y": 128
+                },
+                {
+                    "id": "n12",
+                    "x": 11,
+                    "y": 59
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n8",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n9",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n7",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_7",
+                    "kind": "blockable",
+                    "from": "n7",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_8",
+                    "kind": "blockable",
+                    "from": "n8",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_9",
+                    "kind": "blockable",
+                    "from": "n9",
+                    "to": "n10",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_10",
+                    "kind": "blockable",
+                    "from": "n10",
+                    "to": "n11",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_11",
+                    "kind": "blockable",
+                    "from": "n11",
+                    "to": "n12",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_12",
+                    "kind": "blockable",
+                    "from": "n12",
+                    "to": "n1",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground",
+                "layer.background"
+            ]
+        },
+        "ruin_stairs_block_left": {
+            "id": "ruin_stairs_block_left",
+            "frame": "ruin_stairs_block_left",
+            "type": "pillar",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 8,
+                    "y": 8
+                },
+                {
+                    "id": "n2",
+                    "x": 228,
+                    "y": 8
+                },
+                {
+                    "id": "n3",
+                    "x": 228,
+                    "y": 152
+                },
+                {
+                    "id": "n4",
+                    "x": 8,
+                    "y": 152
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n1",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground",
+                "layer.background"
+            ]
+        },
+        "ruin_gate_arch": {
+            "id": "ruin_gate_arch",
+            "frame": "ruin_gate_arch",
+            "type": "pillar",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 8,
+                    "y": 8
+                },
+                {
+                    "id": "n2",
+                    "x": 141,
+                    "y": 8
+                },
+                {
+                    "id": "n3",
+                    "x": 141,
+                    "y": 187
+                },
+                {
+                    "id": "n4",
+                    "x": 8,
+                    "y": 187
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n1",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground",
+                "layer.background"
+            ]
+        },
+        "crystal_blue_cluster": {
+            "id": "crystal_blue_cluster",
+            "frame": "crystal_blue_cluster",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground"
+            ]
+        },
+        "crystal_purple_cluster": {
+            "id": "crystal_purple_cluster",
+            "frame": "crystal_purple_cluster",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground"
+            ]
+        },
+        "crystal_green_cluster": {
+            "id": "crystal_green_cluster",
+            "frame": "crystal_green_cluster",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground"
+            ]
+        },
+        "lantern_gold_small_a": {
+            "id": "lantern_gold_small_a",
+            "frame": "lantern_gold_small_a",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground"
+            ]
+        },
+        "lantern_gold_small_b": {
+            "id": "lantern_gold_small_b",
+            "frame": "lantern_gold_small_b",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground"
+            ]
+        },
+        "lantern_teal_small": {
+            "id": "lantern_teal_small",
+            "frame": "lantern_teal_small",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground"
+            ]
+        },
+        "lantern_purple_tall": {
+            "id": "lantern_purple_tall",
+            "frame": "lantern_purple_tall",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground"
+            ]
+        },
+        "lantern_purple_small": {
+            "id": "lantern_purple_small",
+            "frame": "lantern_purple_small",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground"
+            ]
+        },
+        "rubble_small_flat_a": {
+            "id": "rubble_small_flat_a",
+            "frame": "rubble_small_flat_a",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground"
+            ]
+        },
+        "rubble_small_block_a": {
+            "id": "rubble_small_block_a",
+            "frame": "rubble_small_block_a",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground"
+            ]
+        },
+        "rubble_small_chunk_a": {
+            "id": "rubble_small_chunk_a",
+            "frame": "rubble_small_chunk_a",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground"
+            ]
+        },
+        "rubble_small_shard": {
+            "id": "rubble_small_shard",
+            "frame": "rubble_small_shard",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground"
+            ]
+        },
+        "rubble_small_chunk_b": {
+            "id": "rubble_small_chunk_b",
+            "frame": "rubble_small_chunk_b",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground"
+            ]
+        },
+        "roots_tangle_long": {
+            "id": "roots_tangle_long",
+            "frame": "roots_tangle_long",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 17,
+                    "y": 28
+                },
+                {
+                    "id": "n2",
+                    "x": 256,
+                    "y": 29
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground"
+            ]
+        },
+        "stalagmites_cluster": {
+            "id": "stalagmites_cluster",
+            "frame": "stalagmites_cluster",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground"
+            ]
+        },
+        "sign_wooden": {
+            "id": "sign_wooden",
+            "frame": "sign_wooden",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground"
+            ]
+        },
+        "banner_tattered": {
+            "id": "banner_tattered",
+            "frame": "banner_tattered",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground"
+            ]
+        },
+        "brazier_fire": {
+            "id": "brazier_fire",
+            "frame": "brazier_fire",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground"
+            ]
+        },
+        "rock_pile_large": {
+            "id": "rock_pile_large",
+            "frame": "rock_pile_large",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground"
+            ]
+        },
+        "rock_pile_medium": {
+            "id": "rock_pile_medium",
+            "frame": "rock_pile_medium",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground"
+            ]
+        },
+        "rock_pile_flat": {
+            "id": "rock_pile_flat",
+            "frame": "rock_pile_flat",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground"
+            ]
+        },
+        "skeleton_corpse": {
+            "id": "skeleton_corpse",
+            "frame": "skeleton_corpse",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground"
+            ]
+        },
+        "skull_bones_pile": {
+            "id": "skull_bones_pile",
+            "frame": "skull_bones_pile",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground"
+            ]
+        },
+        "pottery_pile": {
+            "id": "pottery_pile",
+            "frame": "pottery_pile",
+            "type": "decor",
+            "layer": "decorFront",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "layer.foreground"
+            ]
+        }
+    }
+}

@@ -26,7 +26,9 @@ A placeable enemy spawner is different: it is invisible during play and advances
 
 ## Hunter navigation graphs
 
-The editor builds one navigation profile for each distinct hunter body size and mobility configuration. Profiles include directed jumps, drops, step transitions, and chasm crossings. Dynamic blocker IDs can disable or penalize affected edges at runtime. Every authored hunter profile used by a packaged level must have an exact bake.
+The editor builds one navigation profile for each distinct hunter body size and mobility configuration. Profiles include directed jumps, drops, step transitions, and chasm crossings. Static traversal-policy checks are applied while baking, so the graph shown by the editor should not advertise an edge that the game would reject under unchanged geometry. The runtime applies the same policy again as a defensive backstop for stale or externally-authored graph data. Dynamic blocker IDs can still disable or penalize otherwise-valid edges at runtime. Every authored hunter profile used by a packaged level must have an exact bake.
+
+After changing hunter mobility data, support extraction, or static traversal policy, re-bake the packaged levels with `node reference/devel/rebake_navigation_graphs.mjs --write`. Running the command without `--write` is a dry run; `--check` exits nonzero when any level is stale, and `--level level_004` scopes the operation to one level. The tool deterministically rebuilds only `navigationGraphs`, so a full campaign re-bake does not require manually opening and saving every map in the Level Editor. Machine-generated `level_temp.json` is excluded from bulk bake/check and is only processed when explicitly named with `--level level_temp`.
 
 ## Automatic Level Generator
 
@@ -641,15 +643,11 @@ The Level Editor's `drawGameplayCameraFrame` owns the green 1920×1080 viewfinde
 
 The Level Editor does not decode every full-resolution asset atlas just to populate its Asset and Entity palettes. `resources/palette/thumbnails.png` is a single compact thumbnail sheet and `resources/palette/thumbnails.json` maps each 64×64 cell to its authoritative asset atlas, item definition, or enemy character project. The sheet is trimmed to the occupied near-square grid and may not exceed 8192×8192.
 
-Revision 272 places the browser-side builder beside the editors at `palette-builder.html`. Start the usual local server, open `devel.html`, choose **Palette Thumbnail Builder**, and click **Build thumbnails**. The page reuses the JavaScript character runtime, so enemy thumbnails inherit the real layered composition, idle pose sampling, and colour exchange rules instead of showing loose body-part bundles.
+Revision 272 places the browser-side builder beside the editors at `palette-builder.html`. Start the usual local server, open `devel.html`, choose **Palette Thumbnail Builder**, and click **Build thumbnails**. The development portal routes authoring through `IgnatiusDevTool.html`, whose single project-folder selector owns the resources root for all four tools. The page reuses the JavaScript character runtime, so enemy thumbnails inherit the real layered composition, idle pose sampling, and colour exchange rules instead of showing loose body-part bundles.
 
-The builder offers two output paths:
+When opened through Ignatius Dev Tool, the builder writes `thumbnails.png` and `thumbnails.json` directly to `resources/palette`. Download links remain available for deliberate exports. The Palette Builder no longer owns a second resources-folder selector.
 
-- Choose the `resources/palette` directory through the browser File System Access API and let the page write `thumbnails.png` and `thumbnails.json` directly.
-- Or use the generated download links and copy the files into `resources/palette` manually.
-
-
-The root `devel.html` page is the development portal. It links to the game, Level Editor, Character Editor, Asset Editor, Palette Thumbnail Builder, manuals, and renderer/review utilities so development tools do not require separate bookmarks.
+The root `devel.html` page is the development portal. It links to the game, shared Ignatius Dev Tool authoring shell, manuals, and renderer/review utilities so development tools do not require separate bookmarks.
 
 The page also includes **Verify existing cache**, which checks the recorded source inventory and reports whether the committed cache is stale. The committed default is 64px. To evaluate a sharper cache later, simply rebuild at 128px in the page; the JSON records `cellSize`, so the editor requires no code change. Full asset atlas images are loaded lazily when selected or referenced by the open level. Enemy character projects are likewise loaded only for selected or placed enemies, while their palette cards use the generated cache. If the cache is missing, the editor falls back to the legacy full-atlas palette path.
 
@@ -668,7 +666,7 @@ Project saves are routed automatically:
 
 A newly saved level is added to `resources.json` after the file has been written. A newly saved atlas is added only when both matching JSON and PNG files exist. Explicit export/download fallbacks remain available where a tool still needs an arbitrary copy outside the project.
 
-Inside `IgnatiusDevTool.exe`, the native host begins with the command-line override or its packaged `content/resources` tree, but the same **Select resources folder…** button remains available. Choosing another valid resources directory updates the native host, reloads all four embedded tools, and makes that folder the sole source and destination for subsequent reads, saves, and Level Editor playtests. Native saves are never mirrored into packaged resources. The host intercepts each `resources/*` request made by the embedded pages and serves it from the selected tree. For debugging, a sub-tool may still be opened directly in Chrome; it creates or reuses the same browser project host rather than requiring a separate implementation.
+Inside `IgnatiusDevTool.exe`, the native host begins with the command-line override or its packaged `content/resources` tree, but the same top-level **Select resources folder…** button remains available. Choosing another valid resources directory updates the native host, reloads all four embedded tools, and makes that folder the sole source and destination for subsequent reads, saves, and Level Editor playtests. Native saves are never mirrored into packaged resources. Text reads use the native project bridge, while Blob/image/media reads use the dedicated `ignatius-project-resources.example` virtual origin mapped directly to that same selected tree. Individual sub-tools no longer own or create project-folder selection state; authoring is supported through the shared Dev Tool shell.
 
 
 ## Revision 304: overriding the native resources root

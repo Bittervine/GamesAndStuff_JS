@@ -181,7 +181,7 @@ const tuningResetButton = document.getElementById("tuning-reset");
 const developmentRecordingButton = document.getElementById("development-recording");
 const developmentPlaybackButton = document.getElementById("development-playback");
 
-const GAME_REVISION = "364";
+const GAME_REVISION = "390";
 const START_LEVEL_ID = "level_001";
 const launchParams = new URLSearchParams(window.location.search || "");
 const launchLevelSpecified = launchParams.has("level");

@@ -1,0 +1,172 @@
+{
+    "meta": {
+        "version": 1,
+        "editor": "Ignatius Rocketfrock Level Editor",
+        "note": "Reserved authored-overlap small-step parity regression fixture. Geometry is copied from the two adjacent ledge placements involved in the reported native seam without loading a campaign level."
+    },
+    "levelId": "level_t09",
+    "title": "Overlapping ledge step fixture",
+    "world": {
+        "bounds": {
+            "x": 24000,
+            "y": 1300,
+            "w": 3000,
+            "h": 1000
+        }
+    },
+    "atlasRefs": [
+        {
+            "atlasId": "at_atlas_001",
+            "manifest": "atlases/at_atlas_001.json",
+            "image": "atlases/at_atlas_001.png"
+        }
+    ],
+    "layerVisuals": {
+        "version": 3,
+        "background": {
+            "parallaxX": 0.925926,
+            "parallaxY": 0.925926,
+            "brightness": 1,
+            "scale": 1
+        },
+        "foreground": {
+            "parallaxX": 1.08,
+            "parallaxY": 1.08,
+            "brightness": 0.36,
+            "scale": 2
+        }
+    },
+    "placements": [
+        {
+            "id": "ledge_flat_long_a_001",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_001",
+            "assetId": "ledge_flat_long_a",
+            "x": 24768,
+            "y": 1504,
+            "w": 290,
+            "h": 88,
+            "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "collisionFromManifest": true,
+            "order": 1
+        },
+        {
+            "id": "ledge_flat_mid_001",
+            "kind": "atlasAsset",
+            "atlasId": "at_atlas_001",
+            "assetId": "ledge_flat_mid",
+            "x": 24512,
+            "y": 1504,
+            "w": 300,
+            "h": 94,
+            "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
+            "layer": "terrain",
+            "collisionFromManifest": true,
+            "order": 2
+        }
+    ],
+    "entities": [],
+    "navigationGraphs": {
+        "version": 2,
+        "profiles": [
+            {
+                "version": 2,
+                "id": "wizard",
+                "label": "Wizard · body 34×104 · stride 20.8",
+                "profile": {
+                    "bodyWidth": 34,
+                    "bodyHeight": 104,
+                    "runSpeed": 360,
+                    "groundAcceleration": 950,
+                    "jumpHeight": 200,
+                    "gravity": 1490,
+                    "maxFallDistance": 696.806,
+                    "maxStepHeight": 20.8,
+                    "maxStepGap": 10.88,
+                    "edgeInset": 7.48,
+                    "bodyClearance": 11.56,
+                    "stepTransitionMethod": "stride_arc"
+                },
+                "supports": [
+                    {
+                        "id": "ledge_flat_long_a_001_blockable_1",
+                        "kind": "blockable",
+                        "x1": 24776,
+                        "y1": 1522,
+                        "x2": 25041,
+                        "y2": 1518,
+                        "xMin": 24776,
+                        "xMax": 25041,
+                        "sourcePolygonId": "ledge_flat_long_a_001_area_0",
+                        "obstacleXMin": 24776,
+                        "obstacleXMax": 25049
+                    },
+                    {
+                        "id": "ledge_flat_mid_001_blockable_1",
+                        "kind": "blockable",
+                        "x1": 24526.772727272728,
+                        "y1": 1516,
+                        "x2": 24797.227272727272,
+                        "y2": 1518,
+                        "xMin": 24526.772727272728,
+                        "xMax": 24797.227272727272,
+                        "sourcePolygonId": "ledge_flat_mid_001_area_1",
+                        "obstacleXMin": 24524.5,
+                        "obstacleXMax": 24797.227272727272
+                    }
+                ],
+                "supportSignature": "ledge_flat_long_a_001_blockable_1:24776:1522:25041:1518:ledge_flat_long_a_001_area_0|ledge_flat_mid_001_blockable_1:24526.773:1516:24797.227:1518:ledge_flat_mid_001_area_1",
+                "edges": [
+                    {
+                        "id": "nav_edge_1",
+                        "type": "step",
+                        "direction": "overlap",
+                        "from": "ledge_flat_long_a_001_blockable_1",
+                        "to": "ledge_flat_mid_001_blockable_1",
+                        "launchX": 24786.614,
+                        "launchY": 1521.84,
+                        "landingX": 24786.614,
+                        "landingY": 1517.922,
+                        "vx": 0,
+                        "vy": 0,
+                        "flightTime": 0,
+                        "fromObstacleId": "ledge_flat_long_a_001_area_0",
+                        "toObstacleId": "ledge_flat_mid_001_area_1",
+                        "cost": 5.959,
+                        "blockerIds": []
+                    },
+                    {
+                        "id": "nav_edge_2",
+                        "type": "step",
+                        "direction": "overlap",
+                        "from": "ledge_flat_mid_001_blockable_1",
+                        "to": "ledge_flat_long_a_001_blockable_1",
+                        "launchX": 24786.614,
+                        "launchY": 1517.922,
+                        "landingX": 24786.614,
+                        "landingY": 1521.84,
+                        "vx": 0,
+                        "vy": 0,
+                        "flightTime": 0,
+                        "fromObstacleId": "ledge_flat_mid_001_area_1",
+                        "toObstacleId": "ledge_flat_long_a_001_area_0",
+                        "cost": 5.959,
+                        "blockerIds": []
+                    }
+                ],
+                "dynamicCostRules": [],
+                "build": {
+                    "method": "ballistic_graph_with_run_up",
+                    "stepTransitionMethod": "stride_arc",
+                    "samplesPerSecond": 60,
+                    "generatedBy": "Ignatius Rocketfrock Level Editor"
+                }
+            }
+        ]
+    }
+}

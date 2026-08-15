@@ -5082,3 +5082,40 @@ Manual profiling workflow: open the game, run `window.__rocketfrockDev.profiler.
 - [x] Replace the generic rig vector shim with the project-owned two-field `FRigPoint`.
 - [x] Remove the obsolete native compatibility headers and their transitive include dependency.
 - [x] Keep gameplay/data behavior unchanged and rerun native plus browser release gates.
+
+## Revision 369 blocked-ground stride-arc solver
+
+- [x] Keep ordinary clean grounded movement on the normal support-follow path and invoke the stride solver only for a grounded discontinuity/block.
+- [x] Anchor the fixed one-fifth-height reach circle at the actual leading-foot contact on the held support.
+- [x] Use the contact-pose player box expanded by full reach as the broad phase and include every collision line owned by each overlapping atlas placement.
+- [x] Remove riser/upper-endpoint prerequisites from foothold selection.
+- [x] Sweep exact contacts around the forward semicircle; accept standable contact or glide inward along a steep first-contact edge to a reachable standable intersection.
+- [x] Validate stride body motion continuously above the automatic-step-height foot band with swept convex hulls.
+- [x] Keep browser/native trigger ordering and tolerances in parity and prevent skin overlap from moving a blocked player backward.
+- [x] Extend browser/native regression coverage across 1/2/5/10/15/19/20.7/21.5 px steps in both directions, riser-free targets, low ceilings, multi-blockers, steep glide cases, and exact bidirectional `level_t09` atlas geometry.
+- [x] Advance visible game/editor/tool revision labels to 369.
+
+## Revision 370 continuous slope, ranged hunter recovery, and persistent saves
+
+- [x] Preserve the held support placement `visualId` in browser and native ground-stride support geometry.
+- [x] When that support continues at the proposed X, exclude only its same-placement filled blocking polygon from stride-trigger detection.
+- [x] Keep different placements and genuine support endings eligible for the revision-369 blocked-ground stride solver.
+- [x] Add matching browser/native uphill closed-slope regressions requiring zero stride-active frames, stable support-relative height, and no downhill Y kick.
+- [x] Allow projectile hunters to use the existing local same-floor pursuit fallback.
+- [x] Treat exact shared support identity as authoritative same-floor evidence before Y-distance heuristics, including long inclined supports.
+- [x] Try local same-floor pursuit immediately from visible `unreachable_glare`, without waiting for its graph-repath timer, and retain `ENEMY_REENGAGED_LOCAL` diagnostics.
+- [x] Keep Magic Ring concealment and ordinary awareness/facing semantics unchanged.
+- [x] Store SDL settings/save slots in `SDL_GetPrefPath("Bittervine", "IgnatiusRocketfrock")`, with executable-local `userdata` only as fallback.
+- [x] One-time migrate current executable-local `settings.json` and `save_*.json` only when durable destination files do not exist; keep logs/recordings executable-local.
+- [x] Advance browser/native/editor visible revision labels to 370 and verify the cumulative update against revision 364.
+
+## Revision 377 conservative delta-regression repairs
+
+- [x] Keep the current green one-way descent legality unchanged while filtering baked/cached hunter route edges through the same traversal-policy helper used by execution in both JS and C++.
+- [x] Restore the stale-one-way regression so an unexecutable cheaper jump edge cannot starve a legal endpoint drop.
+- [x] Scale browser character artwork offsets by the active render scale so presentation and attack/projectile handoff origins match native/runtime simulation.
+- [x] Restore the native projectile-trail hash-noise constant to `43758.5453123`.
+- [x] Restore intentionally strong Skeleton Caster homing through the shared `enemy_002` authored value (`2.61`) without reintroducing browser-only pathing multipliers.
+- [x] Keep the common `pathing_lo` / `pathing_hi` steering formulas unchanged and add browser/native regression coverage for the strong Caster obstacle case.
+- [x] Re-run the synchronized `level_t11` Fireball Goblin trace and affected browser/native suites.
+- [x] Advance visible browser/editor/tool/native revision labels to 377.

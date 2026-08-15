@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" href="favicon.ico" sizes="any">
-    <title>Ignatius Dev Tool - BUILD 364</title>
+    <title>Ignatius Dev Tool - BUILD 390</title>
     <style>
         :root { color-scheme: dark; --bg: #0d0b15; --panel2: #211a30; --border: #51406f; --text: #eee8ff; --muted: #b7abc9; --accent: #a481df; --ok: #88d8a0; --error: #ff8f9b; }
         * { box-sizing: border-box; }
@@ -56,13 +56,23 @@
     const status = document.getElementById("project-status");
     const selectButton = document.getElementById("select-resources");
 
-    window.ignatiusDevToolLaunchPlaytest = (url) => {
+    window.ignatiusDevToolReservePlaytestWindow = () => {
+        const bridge = window.chrome?.webview;
+        if (typeof bridge?.postMessage === "function") return null;
+        return window.open("about:blank", "ignatius-level-playtest");
+    };
+
+    window.ignatiusDevToolLaunchPlaytest = (url, reservedWindow = null) => {
         const bridge = window.chrome?.webview;
         if (typeof bridge?.postMessage === "function") {
             bridge.postMessage("ignatius-playtest-request");
-            return;
+            return true;
         }
-        window.open(url, "_blank");
+        if (reservedWindow && !reservedWindow.closed) {
+            reservedWindow.location.href = url;
+            return true;
+        }
+        return Boolean(window.open(url, "ignatius-level-playtest"));
     };
 
     function selectTool(tool) {

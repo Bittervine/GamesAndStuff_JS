@@ -13,6 +13,7 @@
     })();
     const NATIVE_REQUEST_TYPE = "ignatius-project-request";
     const NATIVE_RESPONSE_TYPE = "ignatius-project-response";
+    const NATIVE_RESOURCE_BASE_URL = "https://ignatius-project-resources.example/";
     const REQUIRED_DIRECTORIES = Object.freeze([
         "levels",
         "atlases",
@@ -97,12 +98,12 @@
         return `${directory}/${filename}`;
     }
 
-    function resourceRequestUrl(relativePath, selectionVersion = 0) {
+    function nativeResourceRequestUrl(relativePath, selectionVersion = 0) {
         const encodedPath = normalizeResourceRelativePath(relativePath)
             .split("/")
             .map((part) => encodeURIComponent(part))
             .join("/");
-        const url = new URL(`resources/${encodedPath}`, window.location.href);
+        const url = new URL(encodedPath, NATIVE_RESOURCE_BASE_URL);
         url.searchParams.set("ignatius_project_root", String(selectionVersion));
         return url.href;
     }
@@ -349,7 +350,7 @@
 
             if (!this.bridge) return await this.#browserResourceFile(relativePath);
 
-            const response = await fetch(resourceRequestUrl(relativePath, this.selectionVersion), { cache: "no-store" });
+            const response = await fetch(nativeResourceRequestUrl(relativePath, this.selectionVersion), { cache: "no-store" });
             if (!response.ok) throw new Error(`Could not load resources/${relativePath}: HTTP ${response.status}`);
             return await response.blob();
         }
@@ -422,10 +423,13 @@
             if (!this.bridge) throw new Error("The native Ignatius project bridge is unavailable.");
             const requestId = `project-${Date.now()}-${this.nextNativeRequestId++}`;
             const promise = new Promise((resolve, reject) => {
+                const timeoutMs = operation === "writeResource" || operation === "chooseResourcesDirectory"
+                    ? 120000
+                    : 30000;
                 const timeout = window.setTimeout(() => {
                     this.pendingNativeRequests.delete(requestId);
                     reject(new Error(`The native project operation '${operation}' timed out.`));
-                }, 30000);
+                }, timeoutMs);
                 this.pendingNativeRequests.set(requestId, { resolve, reject, timeout });
             });
             this.bridge.postMessage(JSON.stringify({ type: NATIVE_REQUEST_TYPE, requestId, operation, ...payload }));
@@ -448,7 +452,7 @@
     }
 
     function getProjectHost() {
-        return sameOriginParentHost() || window.ignatiusProjectHost || (window.ignatiusProjectHost = new IgnatiusProjectHost());
+        return sameOriginParentHost() || window.ignatiusProjectHost || null;
     }
 
     window.IgnatiusProjectHost = Object.freeze({

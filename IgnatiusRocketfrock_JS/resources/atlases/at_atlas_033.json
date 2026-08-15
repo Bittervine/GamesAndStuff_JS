@@ -1,0 +1,724 @@
+{
+    "meta": {
+        "version": 4,
+        "note": "Atlas 033. Bare cave floor variants."
+    },
+    "atlasId": "at_atlas_033",
+    "image": "at_atlas_033.png",
+    "frames": {
+        "cave_ground_033_01": {
+            "x": 5,
+            "y": 0,
+            "w": 686,
+            "h": 215
+        },
+        "cave_ground_033_02": {
+            "x": 759,
+            "y": 0,
+            "w": 695,
+            "h": 224
+        },
+        "cave_ground_033_03": {
+            "x": 5,
+            "y": 238,
+            "w": 691,
+            "h": 216
+        },
+        "cave_ground_033_04": {
+            "x": 767,
+            "y": 241,
+            "w": 676,
+            "h": 216
+        },
+        "cave_ground_033_05": {
+            "x": 0,
+            "y": 477,
+            "w": 700,
+            "h": 220
+        },
+        "cave_ground_033_06": {
+            "x": 759,
+            "y": 479,
+            "w": 694,
+            "h": 230
+        },
+        "cave_ground_033_07": {
+            "x": 3,
+            "y": 717,
+            "w": 697,
+            "h": 227
+        },
+        "cave_ground_033_08": {
+            "x": 755,
+            "y": 731,
+            "w": 699,
+            "h": 214
+        }
+    },
+    "objects": {
+        "cave_ground_033_01": {
+            "id": "cave_ground_033_01",
+            "frame": "cave_ground_033_01",
+            "type": "floor",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave_ground",
+                "cave_ground_033",
+                "rocky"
+            ],
+            "notes": "Cave floor asset. Perimeter is blockable; the top surface uses a centered blockable line for traversal setup.",
+            "nodes": [
+                {
+                    "id": "n3",
+                    "x": 676,
+                    "y": 73
+                },
+                {
+                    "id": "n4",
+                    "x": 660,
+                    "y": 203
+                },
+                {
+                    "id": "n5",
+                    "x": 26,
+                    "y": 203
+                },
+                {
+                    "id": "n6",
+                    "x": 10,
+                    "y": 73
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n3",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "cave_ground_033_02": {
+            "id": "cave_ground_033_02",
+            "frame": "cave_ground_033_02",
+            "type": "floor",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave_ground",
+                "cave_ground_033",
+                "rocky"
+            ],
+            "notes": "Cave floor asset. Perimeter is blockable; the top surface uses a centered blockable line for traversal setup.",
+            "nodes": [
+                {
+                    "id": "n3",
+                    "x": 685,
+                    "y": 76
+                },
+                {
+                    "id": "n4",
+                    "x": 669,
+                    "y": 212
+                },
+                {
+                    "id": "n5",
+                    "x": 26,
+                    "y": 212
+                },
+                {
+                    "id": "n6",
+                    "x": 10,
+                    "y": 76
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n3",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "cave_ground_033_03": {
+            "id": "cave_ground_033_03",
+            "frame": "cave_ground_033_03",
+            "type": "floor",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave_ground",
+                "cave_ground_033",
+                "rocky"
+            ],
+            "notes": "Cave floor asset. Perimeter is blockable; the top surface uses a centered blockable line for traversal setup.",
+            "nodes": [
+                {
+                    "id": "n3",
+                    "x": 681,
+                    "y": 73
+                },
+                {
+                    "id": "n4",
+                    "x": 665,
+                    "y": 204
+                },
+                {
+                    "id": "n5",
+                    "x": 26,
+                    "y": 204
+                },
+                {
+                    "id": "n6",
+                    "x": 10,
+                    "y": 73
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n6",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "cave_ground_033_04": {
+            "id": "cave_ground_033_04",
+            "frame": "cave_ground_033_04",
+            "type": "floor",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave_ground",
+                "cave_ground_033",
+                "rocky"
+            ],
+            "notes": "Cave floor asset. Perimeter is blockable; the top surface uses a centered blockable line for traversal setup.",
+            "nodes": [
+                {
+                    "id": "n3",
+                    "x": 666,
+                    "y": 73
+                },
+                {
+                    "id": "n4",
+                    "x": 650,
+                    "y": 204
+                },
+                {
+                    "id": "n5",
+                    "x": 26,
+                    "y": 204
+                },
+                {
+                    "id": "n6",
+                    "x": 10,
+                    "y": 73
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n3",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "cave_ground_033_05": {
+            "id": "cave_ground_033_05",
+            "frame": "cave_ground_033_05",
+            "type": "floor",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave_ground",
+                "cave_ground_033",
+                "rocky"
+            ],
+            "notes": "Cave floor asset. Perimeter is blockable; the top surface uses a centered blockable line for traversal setup.",
+            "nodes": [
+                {
+                    "id": "n3",
+                    "x": 690,
+                    "y": 75
+                },
+                {
+                    "id": "n4",
+                    "x": 674,
+                    "y": 208
+                },
+                {
+                    "id": "n5",
+                    "x": 26,
+                    "y": 208
+                },
+                {
+                    "id": "n6",
+                    "x": 10,
+                    "y": 75
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n3",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "cave_ground_033_06": {
+            "id": "cave_ground_033_06",
+            "frame": "cave_ground_033_06",
+            "type": "floor",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave_ground",
+                "cave_ground_033",
+                "rocky"
+            ],
+            "notes": "Cave floor asset. Perimeter is blockable; the top surface uses a centered blockable line for traversal setup.",
+            "nodes": [
+                {
+                    "id": "n3",
+                    "x": 684,
+                    "y": 78
+                },
+                {
+                    "id": "n4",
+                    "x": 668,
+                    "y": 218
+                },
+                {
+                    "id": "n5",
+                    "x": 26,
+                    "y": 218
+                },
+                {
+                    "id": "n6",
+                    "x": 10,
+                    "y": 78
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n6",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "cave_ground_033_07": {
+            "id": "cave_ground_033_07",
+            "frame": "cave_ground_033_07",
+            "type": "floor",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave_ground",
+                "cave_ground_033",
+                "rocky"
+            ],
+            "notes": "Cave floor asset. Perimeter is blockable; the top surface uses a centered blockable line for traversal setup.",
+            "nodes": [
+                {
+                    "id": "n3",
+                    "x": 687,
+                    "y": 77
+                },
+                {
+                    "id": "n4",
+                    "x": 671,
+                    "y": 215
+                },
+                {
+                    "id": "n5",
+                    "x": 26,
+                    "y": 215
+                },
+                {
+                    "id": "n6",
+                    "x": 10,
+                    "y": 77
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n3",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "cave_ground_033_08": {
+            "id": "cave_ground_033_08",
+            "frame": "cave_ground_033_08",
+            "type": "floor",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave_ground",
+                "cave_ground_033",
+                "rocky"
+            ],
+            "notes": "Cave floor asset. Perimeter is blockable; the top surface uses a centered blockable line for traversal setup.",
+            "nodes": [
+                {
+                    "id": "n3",
+                    "x": 689,
+                    "y": 73
+                },
+                {
+                    "id": "n4",
+                    "x": 673,
+                    "y": 202
+                },
+                {
+                    "id": "n5",
+                    "x": 26,
+                    "y": 202
+                },
+                {
+                    "id": "n6",
+                    "x": 10,
+                    "y": 73
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n3",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        }
+    }
+}

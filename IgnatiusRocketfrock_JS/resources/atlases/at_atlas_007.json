@@ -7,16 +7,16 @@
     "image": "at_atlas_007.png",
     "frames": {
         "rope_bridge_long_walkable": {
-            "x": 20,
-            "y": 20,
-            "w": 1435,
-            "h": 181
+            "x": 4,
+            "y": 270,
+            "w": 1537,
+            "h": 227
         },
         "rope_bridge_rickety_decor": {
-            "x": 20,
-            "y": 233,
-            "w": 1435,
-            "h": 173
+            "x": 7,
+            "y": 1,
+            "w": 1545,
+            "h": 269
         },
         "ruined_church": {
             "x": 1487,
@@ -71,6 +71,12 @@
             "y": 777,
             "w": 351,
             "h": 223
+        },
+        "rope_bridge_long_top": {
+            "x": 33,
+            "y": 498,
+            "w": 1450,
+            "h": 199
         }
     },
     "objects": {
@@ -104,53 +110,53 @@
             "nodes": [
                 {
                     "id": "n1",
-                    "x": 17,
-                    "y": 111
+                    "x": 18,
+                    "y": 141
                 },
                 {
                     "id": "n2",
-                    "x": 1407,
-                    "y": 103
+                    "x": 1528,
+                    "y": 160
                 },
                 {
                     "id": "n3",
-                    "x": 89,
-                    "y": 112
+                    "x": 116,
+                    "y": 121
                 },
                 {
                     "id": "n4",
-                    "x": 245,
-                    "y": 137
+                    "x": 248,
+                    "y": 153
                 },
                 {
                     "id": "n5",
-                    "x": 499,
-                    "y": 157
+                    "x": 497,
+                    "y": 186
                 },
                 {
                     "id": "n6",
                     "x": 743,
-                    "y": 159
+                    "y": 196
                 },
                 {
                     "id": "n7",
-                    "x": 871,
-                    "y": 159
+                    "x": 888,
+                    "y": 191
                 },
                 {
                     "id": "n8",
-                    "x": 1018,
-                    "y": 153
+                    "x": 1052,
+                    "y": 180
                 },
                 {
                     "id": "n9",
-                    "x": 1162,
-                    "y": 141
+                    "x": 1205,
+                    "y": 166
                 },
                 {
                     "id": "n10",
-                    "x": 1342,
-                    "y": 103
+                    "x": 1422,
+                    "y": 122
                 }
             ],
             "lines": [
@@ -256,53 +262,53 @@
             "nodes": [
                 {
                     "id": "n1",
-                    "x": 18,
-                    "y": 77
+                    "x": 13,
+                    "y": 134
                 },
                 {
                     "id": "n2",
-                    "x": 1415,
-                    "y": 83
+                    "x": 1506,
+                    "y": 143
                 },
                 {
                     "id": "n3",
-                    "x": 721,
-                    "y": 123
+                    "x": 715,
+                    "y": 178
                 },
                 {
                     "id": "n4",
-                    "x": 1092,
-                    "y": 103
+                    "x": 1101,
+                    "y": 161
                 },
                 {
                     "id": "n5",
-                    "x": 501,
-                    "y": 115
+                    "x": 500,
+                    "y": 170
                 },
                 {
                     "id": "n6",
                     "x": 306,
-                    "y": 97
+                    "y": 144
                 },
                 {
                     "id": "n7",
-                    "x": 870,
-                    "y": 116
+                    "x": 888,
+                    "y": 177
                 },
                 {
                     "id": "n8",
-                    "x": 1236,
-                    "y": 83
+                    "x": 1248,
+                    "y": 140
                 },
                 {
                     "id": "n9",
-                    "x": 1367,
-                    "y": 60
+                    "x": 1422,
+                    "y": 97
                 },
                 {
                     "id": "n10",
-                    "x": 66,
-                    "y": 58
+                    "x": 122,
+                    "y": 97
                 }
             ],
             "lines": [
@@ -806,6 +812,31 @@
                 "biome.castle",
                 "layer.foreground"
             ]
+        },
+        "rope_bridge_long_top": {
+            "id": "rope_bridge_long_top",
+            "frame": "rope_bridge_long_top",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "generationTags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": []
         }
     }
 }
